@@ -103,3 +103,4 @@ the content on your domain.
  - automatic text summaries of article with summarization library
  - feature image extraction
  - http support (from my https-only domain)
+ - try getting dead links from archive.org (https://github.com/hartator/wayback-machine-downloader)
