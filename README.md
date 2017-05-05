@@ -1,6 +1,8 @@
 # Pocket Stream Archive
 
-Save an archived copy of all websites starred using Pocket, indexed in an html file.
+(Your own personal Way-Back Machine)
+
+Save an archived copy of all websites you star using Pocket, indexed in an html file.
 
 ![](screenshot.png)
 
@@ -24,10 +26,11 @@ apt update; apt install google-chrome-beta
 1. Download your pocket export file `ril_export.html` from https://getpocket.com/export
 2. Download this repo `git clone https://github.com/pirate/pocket-archive-stream`
 3. `cd pocket-archive-stream/`
-4. `./archive.py path/to/ril_export.html`
+4. `./archive.py ~/Downloads/ril_export.html`
 
 It produces a folder `pocket/` containing an `index.html`, and archived copies of all the sites,
 organized by timestamp.  For each sites it saves:
+
     - wget of site, with .html appended if not present
     - screenshot of site using headless chrome
     - PDF of site using headless chrome
@@ -38,12 +41,16 @@ archive to `/var/www/pocket` and allow people to access your saved copies of sit
 
 ## Info
 
-This is basically an open-source version of [Pocket Premium](https://getpocket.com/).  I got tired of sites I saved going offline,
-or changing their URLS, so I want to archive a copy of them whenever I save them now.
+This is basically an open-source version of [Pocket Premium](https://getpocket.com/).
+I got tired of sites I saved going offline or changing their URLS, so I started
+archiving a copy of them locally now, similar to The Way-Back Machine provided
+by [archive.org](https://archive.org).
 
 Now I can rest soundly knowing important articles and resources I like wont dissapear off the internet.
 
-**WARNING:**
+[sweeting.me/pocket](https://home.sweeting.me/pocket)
+
+## Security WARNING
 
 Hosting other people's site content has security implications for your domain, make sure you understand
 the dangers of hosting other people's CSS & JS files on your domain.  It's best to put this on a domain
