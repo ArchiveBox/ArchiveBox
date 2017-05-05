@@ -8,6 +8,9 @@ Save an archived copy of all websites you star using Pocket, indexed in an html 
 
 ## Quickstart
 
+**Runtime:** I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
+Those numbers are from running it on my i5 4-core machine with 50mbps down.  YMMV.
+
 **Dependencies:** Google Chrome headless, wget
 
 ```bash
@@ -21,7 +24,7 @@ sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable
 apt update; apt install google-chrome-beta
 ```
 
-**Usage:**
+**Archiving:**
 
 1. Download your pocket export file `ril_export.html` from https://getpocket.com/export
 2. Download this repo `git clone https://github.com/pirate/pocket-archive-stream`
@@ -34,9 +37,6 @@ organized by timestamp.  For each sites it saves:
  - wget of site, e.g. `en.wikipedia.org/wiki/Example.html` with .html appended if not present
  - `sreenshot.png` 1440x900 screenshot of site using headless chrome
  - `output.pdf` Printed PDF of site using headless chrome
-
-I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
-Those numbers are from running it on my i5 4-core machine with 50mbps down.  YMMV.
 
 You can tweak parameters like screenshot size, file paths, timeouts, etc. in `archive.py`.
 You can also tweak the outputted html index in `index_template.html`.  It just uses python
