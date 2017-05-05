@@ -56,14 +56,14 @@ Urls look like: `https://sweeting.me/pocket/archive/1493350273/en.wikipedia.org/
 
 ## Info
 
-This is basically an open-source version of [Pocket Premium](https://getpocket.com/).
+This is basically an open-source version of [Pocket Premium](https://getpocket.com/premium) (which you should consider paying for!).
 I got tired of sites I saved going offline or changing their URLS, so I started
 archiving a copy of them locally now, similar to The Way-Back Machine provided
 by [archive.org](https://archive.org).
 
 Now I can rest soundly knowing important articles and resources I like wont dissapear off the internet.
 
-[sweeting.me/pocket](https://home.sweeting.me/pocket)
+My published archive as an example: [sweeting.me/pocket](https://home.sweeting.me/pocket).
 
 ## Security WARNING
 
@@ -73,3 +73,14 @@ of its own to slightly mitigate CSRF attacks.
 
 It might also be prudent to blacklist your archive in your `robots.txt` so that search engines dont index
 the content on your domain.
+
+## TODO
+
+ - body text extraction using [fathom](https://hacks.mozilla.org/2017/04/fathom-a-framework-for-understanding-web-pages/)
+ - auto-tagging based on important extracted words
+ - audio & video archiving with `youtube-dl`
+ - full-text indexing with elasticsearch
+ - video closed-caption downloading for full-text indexing video content
+ - automatic text summaries of article with summarization library
+ - feature image extraction
+ - http support (from my https-only domain)
