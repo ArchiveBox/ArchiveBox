@@ -35,6 +35,11 @@ organized by timestamp.  For each sites it saves:
  - `sreenshot.png` 1440x900 screenshot of site using headless chrome
  - `output.pdf` Printed PDF of site using headless chrome
 
+I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
+Those numbers are from running it on my i5 4-core machine with 50mbps down.  YMMV.
+
+You can tweak all the parameters like screenshot size, file locations, timeouts, etc. in `archive.py`.
+
 ## Publishing Your Archive
 
 The pocket archive is suitable for serving on your personal server, you can upload the pocket
