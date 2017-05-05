@@ -8,20 +8,22 @@ Save an archived copy of all websites you star using Pocket, indexed in an html 
 
 ## Quickstart
 
-**Runtime:** I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
-Those numbers are from running it on my i5 4-core machine with 50mbps down.  YMMV.
+`archive.py` is a script that takes a [Pocket](https://getpocket.com/export) export, and turns it into a browsable html archive that you can store locally or host online.
 
-**Dependencies:** Google Chrome headless, wget
+**Runtime:** I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
+Those numbers are from running it signle-threaded on my i5 machine with 50mbps down.  YMMV.
+
+**Dependencies:** Google Chrome headless, wget, python3
 
 ```bash
 brew install Caskroom/versions/google-chrome-canary
-brew install wget
+brew install wget python3
 
 # OR on linux
 
 wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
 sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
-apt update; apt install google-chrome-beta
+apt update; apt install google-chrome-beta python3 wget
 ```
 
 **Archiving:**
@@ -41,6 +43,14 @@ organized by timestamp.  For each sites it saves:
 You can tweak parameters like screenshot size, file paths, timeouts, etc. in `archive.py`.
 You can also tweak the outputted html index in `index_template.html`.  It just uses python
 format strings (not a proper templating engine like jinja2), which is why the CSS is double-bracketed `{{...}}`.
+
+**Live Updating:** (coming soon)
+
+It's possible to pull links via the pocket API instead of downloading an html export.
+Once I write a script to do that, we can stick this in `cron` and have it auto-update on it's own.
+
+For now you just have to download `ril_export.html` and run `archive.py` each time it updates. The script
+will run fast subsequent times because it only downloads new links that haven't been archived already.
 
 ## Publishing Your Archive
 
