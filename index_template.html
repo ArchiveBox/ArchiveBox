@@ -1,0 +1,90 @@
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+        <title>Archived Sites</title>
+        <style>
+            html, body {{
+                width: 100%;
+                height: 100%;
+                font-size: 20px;
+                font-weight: 200;
+                text-align: center;
+                margin: 0px;
+                padding: 0px;
+                font-family: "Gill Sans", Helvetica, sans-serif;
+            }}
+            header {{
+                background-color: #aa1e55;
+                color: white;
+                padding: 10px;
+            }}
+            header h1 {{
+                font-weight: 300;
+                color: black;
+                margin-top: 10px;
+                margin-bottom: 12px;
+            }}
+            header h1 small {{
+                color: white;
+                font-size:0.5em;
+            }}
+            header h1 small a {{
+                text-decoration: none;
+                color: orange;
+                opacity: 0.6
+                font-weight: 300;
+            }}
+            header h1 small a:hover {{
+                opacity: 1;
+            }}
+            table {{
+                padding: 6px;
+                width: 100%;
+            }}
+            table thead th {{
+                font-weight: 400;
+            }}
+            tbody tr:nth-child(odd) {{
+               background-color: #ffebeb;
+            }}
+            table tr td {{
+                white-space: nowrap;
+                overflow: hidden;
+                padding-bottom: 0.4em;
+                padding-top: 0.4em;
+                padding-left: 2px;
+            }}
+            table tr td img {{
+                height: 24px;
+                padding: 0px;
+                padding-right: 5px;
+                text-indent: -10000px;
+            }}
+        </style>
+    </head>
+    <body>
+        <header>
+            <h1 title="Last modified {}">
+                <img src="https://nicksweeting.com/images/archive.png" height="36px">
+                Archived Sites <img src="https://getpocket.com/favicon.ico" height="36px"> <br/>
+                <small>
+                    Via: <a href="https://getpocket.com/export">getpocket.com/export</a> + <a href="https://github.com/pirate/pocket-archive-stream">archive_pocket.py</a>
+                     | <a href="https://getpocket.com/users/USERNAME/feed/all">RSS Feed</a>
+                </small>
+            </h1>
+        </header>
+        <table style="width:100%;height: 90%; overflow-y: scroll;table-layout: fixed">
+            <thead>
+                <tr>
+                    <th style="width: 140px;"><img src="https://getpocket.com/favicon.ico" height="12px"> Pocketed Date</th>
+                    <th style="width: 45vw;">Saved Article</th>
+                    <th style="width: 50px">Files</th>
+                    <th style="width: 50px">PDF</th>
+                    <th style="width: 80px">Screenshot</th>
+                    <th style="width: 100px;whitespace:nowrap;overflow-x:scroll;display:block">Original URL</th>
+                </tr>
+            </thead>
+            <tbody>{}</tbody>
+        </table>
+    </body>
+</html>
