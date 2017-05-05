@@ -31,9 +31,9 @@ apt update; apt install google-chrome-beta
 It produces a folder `pocket/` containing an `index.html`, and archived copies of all the sites,
 organized by timestamp.  For each sites it saves:
 
-    - wget of site, with .html appended if not present
-    - screenshot of site using headless chrome
-    - PDF of site using headless chrome
+ - wget of site, e.g. `en.wikipedia.org/wiki/Example.html` with .html appended if not present
+ - `sreenshot.png` 1440x900 screenshot of site using headless chrome
+ - `output.pdf` Printed PDF of site using headless chrome
 
 ## Publishing Your Archive
 
