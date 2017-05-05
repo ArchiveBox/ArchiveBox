@@ -18,9 +18,7 @@ Those numbers are from running it signle-threaded on my i5 machine with 50mbps d
 ```bash
 brew install Caskroom/versions/google-chrome-canary
 brew install wget python3
-
 # OR on linux
-
 wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
 sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
 apt update; apt install google-chrome-canary python3 wget
@@ -62,8 +60,10 @@ Just stick this in your nginx config to properly serve the wget-archived sites:
 
 ```nginx
 location /pocket/ {
-    alias     /var/www/pocket/;
-    try_files $uri $uri/ $uri.html =404;
+    alias       /var/www/pocket/;
+    index       index.html;
+    autoindex   on;
+    try_files   $uri $uri/ $uri.html =404;
 }
 ```
 
@@ -85,8 +85,8 @@ My published archive as an example: [sweeting.me/pocket](https://home.sweeting.m
 ## Security WARNING
 
 Hosting other people's site content has security implications for your domain, make sure you understand
-the dangers of hosting other people's CSS & JS files on your domain.  It's best to put this on a domain
-of its own to slightly mitigate CSRF attacks.
+the dangers of hosting other people's CSS & JS files [on your domain](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy).  It's best to put this on a domain
+of its own to slightly mitigate [CSRF attacks](https://en.wikipedia.org/wiki/Cross-site_request_forgery).
 
 It might also be prudent to blacklist your archive in your `robots.txt` so that search engines dont index
 the content on your domain.
