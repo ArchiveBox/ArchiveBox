@@ -13,7 +13,7 @@ Save an archived copy of all websites you star using Pocket, indexed in an html 
 **Runtime:** I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
 Those numbers are from running it signle-threaded on my i5 machine with 50mbps down.  YMMV.
 
-**Dependencies:** Google Chrome headless, wget, python3
+**Dependencies:** `google-chrome --headless`,` wget`, `python3`
 
 ```bash
 brew install Caskroom/versions/google-chrome-canary
@@ -23,7 +23,7 @@ brew install wget python3
 
 wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
 sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
-apt update; apt install google-chrome-beta python3 wget
+apt update; apt install google-chrome-canary python3 wget
 ```
 
 **Archiving:**
