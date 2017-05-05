@@ -35,9 +35,24 @@ organized by timestamp.  For each sites it saves:
     - screenshot of site using headless chrome
     - PDF of site using headless chrome
 
-The wget archive is suitable for serving on your personal server, you can upload the pocket
+## Publishing Your Archive
+
+The pocket archive is suitable for serving on your personal server, you can upload the pocket
 archive to `/var/www/pocket` and allow people to access your saved copies of sites.
 
+
+Just stick this in your nginx config to properly serve the wget-archived sites:
+
+```nginx
+location /pocket/ {
+    alias     /var/www/pocket/;
+    try_files $uri $uri/ $uri.html =404;
+}
+```
+
+Make sure you're not running any content as CGI or PHP, you only want to serve static files!
+
+Urls look like: `https://sweeting.me/pocket/archive/1493350273/en.wikipedia.org/wiki/Dining_philosophers_problem`
 
 ## Info
 
