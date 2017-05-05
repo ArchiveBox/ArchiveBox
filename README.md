@@ -30,7 +30,7 @@ apt update; apt install google-chrome-beta python3 wget
 1. Download your pocket export file `ril_export.html` from https://getpocket.com/export
 2. Download this repo `git clone https://github.com/pirate/pocket-archive-stream`
 3. `cd pocket-archive-stream/`
-4. `./archive.py ~/Downloads/ril_export.html`
+4. `./archive.py ~/Downloads/ril_export.html [pinboard|pocket]`
 
 It produces a folder `pocket/` containing an `index.html`, and archived copies of all the sites,
 organized by timestamp.  For each sites it saves:
