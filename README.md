@@ -2,7 +2,7 @@
 
 (Your own personal Way-Back Machine)
 
-Save an archived copy of all websites you star using Pocket, indexed in an html file.
+Save an archived copy of all websites you star using Pocket, indexed in an html file.  Powered by the new [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.
 
 ![](screenshot.png)
 
