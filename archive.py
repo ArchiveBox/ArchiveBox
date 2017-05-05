@@ -11,8 +11,20 @@ import sys
 from datetime import datetime
 from subprocess import run, DEVNULL
 
+INDEX_TEMPLATE = 'index_template.html'
 
+FETCH_WGET = True
+FETCH_PDF = True
+FETCH_SCREENSHOT = True
+FETCH_FAVICON = True
 RESOLUTION = '1440,900'
+
+def check_dependencies():
+    for dependency in ('google-chrome', 'wget'):
+        if run(['which', dependency]).returncode:
+            print('[X] Missing dependency: {}'.format(dependency))
+            print('    See https://github.com/pirate/pocket-archive-stream for help.')
+            raise SystemExit(1)
 
 
 def parse_pocket_export(html):
@@ -31,7 +43,7 @@ def parse_pocket_export(html):
             }
 
 def dump_index(links):
-    with open('index_template.html', 'r') as f:
+    with open(INDEX_TEMPLATE, 'r') as f:
         index_html = f.read()
 
     link_html = """\
@@ -53,6 +65,59 @@ def dump_index(links):
         )
         f.write(index_html.format(datetime.now().strftime('%Y-%m-%d %H:%M'), article_rows))
 
+def fetch_wget(out_dir, link, overwrite=False):
+    # download full site
+    if not os.path.exists('{}/{}'.format(out_dir, link, overwrite=link['domain'])) or overwrite:
+        print('    - Downloading Full Site')
+        CMD = [
+            *'wget --no-clobber --page-requisites --adjust-extension --convert-links --no-parent'.split(' '),
+            link['url'],
+        ]
+        try:
+            run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # dom.html
+        except Exception as e:
+            print('      Exception: {}'.format(e.__class__.__name__))
+    else:
+        print('    √ Skipping site download')
+
+def fetch_pdf(out_dir, link, overwrite=False):
+    # download PDF
+    if (not os.path.exists('{}/output.pdf'.format(out_dir)) or overwrite) and not link['base_url'].endswith('.pdf'):
+        print('    - Printing PDF')
+        CMD = 'google-chrome --headless --disable-gpu --print-to-pdf'.split(' ')
+        try:
+            run([*CMD, link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # output.pdf
+        except Exception as e:
+            print('      Exception: {}'.format(e.__class__.__name__))
+    else:
+        print('    √ Skipping PDF print')
+
+def fetch_screenshot(out_dir, link, overwrite=False):
+    # take screenshot
+    if (not os.path.exists('{}/screenshot.png'.format(out_dir)) or overwrite) and not link['base_url'].endswith('.pdf'):
+        print('    - Snapping Screenshot')
+        CMD = 'google-chrome --headless --disable-gpu --screenshot'.split(' ')
+        try:
+            run([*CMD, '--window-size={}'.format(RESOLUTION), link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # sreenshot.png
+        except Exception as e:
+            print('      Exception: {}'.format(e.__class__.__name__))
+    else:
+        print('    √ Skipping screenshot')
+
+def fetch_favicon(out_dir, link, overwrite=False):
+    # download favicon
+    if not os.path.exists('{}/favicon.ico'.format(out_dir)) or overwrite:
+        print('    - Fetching Favicon')
+        CMD = 'curl https://www.google.com/s2/favicons?domain={domain}'.format(**link).split(' ')
+        fout = open('{}/favicon.ico'.format(out_dir), 'w')
+        try:
+            run([*CMD], stdout=fout, stderr=DEVNULL, cwd=out_dir, timeout=20)  # dom.html
+        except Exception as e:
+            print('      Exception: {}'.format(e.__class__.__name__))
+        fout.close()
+    else:
+        print('    √ Skipping favicon')
+
 
 def dump_website(link, overwrite=False):
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
@@ -70,54 +135,17 @@ def dump_website(link, overwrite=False):
     elif 'wikipedia.org' in link['domain']:
         print('    i Wikipedia Article')
 
-    # download full site
-    if not os.path.exists('{}/{}'.format(out_dir, link['domain'])) or overwrite:
-        print('    - Downloading Full Site')
-        CMD = [
-            *'wget --no-clobber --page-requisites --adjust-extension --convert-links --no-parent'.split(' '),
-            link['url'],
-        ]
-        try:
-            proc = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # dom.html
-        except Exception as e:
-            print('      Exception: {}'.format(e.__class__.__name__))
-    else:
-        print('    √ Skipping site download')
+    if FETCH_WGET:
+        fetch_wget(out_dir, link, overwrite=overwrite)
 
-    # download PDF
-    if (not os.path.exists('{}/output.pdf'.format(out_dir)) or overwrite) and not link['base_url'].endswith('.pdf'):
-        print('    - Printing PDF')
-        CMD = 'google-chrome --headless --disable-gpu --print-to-pdf'.split(' ')
-        try:
-            proc = run([*CMD, link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # output.pdf
-        except Exception as e:
-            print('      Exception: {}'.format(e.__class__.__name__))
-    else:
-        print('    √ Skipping PDF print')
+    if FETCH_PDF:
+        fetch_pdf(out_dir, link, overwrite=overwrite)
 
-    # take screenshot
-    if (not os.path.exists('{}/screenshot.png'.format(out_dir)) or overwrite) and not link['base_url'].endswith('.pdf'):
-        print('    - Snapping Screenshot')
-        CMD = 'google-chrome --headless --disable-gpu --screenshot'.split(' ')
-        try:
-            proc = run([*CMD, '--window-size={}'.format(RESOLUTION), link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # sreenshot.png
-        except Exception as e:
-            print('      Exception: {}'.format(e.__class__.__name__))
-    else:
-        print('    √ Skipping screenshot')
+    if FETCH_SCREENSHOT:
+        fetch_screenshot(out_dir, link, overwrite=overwrite)
 
-    # download favicon
-    if not os.path.exists('{}/favicon.ico'.format(out_dir)) or overwrite:
-        print('    - Fetching Favicon')
-        CMD = 'curl https://www.google.com/s2/favicons?domain={domain}'.format(**link).split(' ')
-        fout = open('{}/favicon.ico'.format(out_dir), 'w')
-        try:
-            proc = run([*CMD], stdout=fout, stderr=DEVNULL, cwd=out_dir, timeout=20)  # dom.html
-        except Exception as e:
-            print('      Exception: {}'.format(e.__class__.__name__))
-        fout.close()
-    else:
-        print('    √ Skipping favicon')
+    if FETCH_FAVICON:
+        fetch_favicon(out_dir, link, overwrite=overwrite)
 
     run(['chmod', '-R', '755', out_dir], timeout=1)
 
@@ -137,7 +165,7 @@ def create_archive(pocket_file, resume=None):
             links = [link for link in links if link['timestamp'] >= resume]
 
     if not links:
-        print('[X] No links found in {}'.format(pocket_file))
+        print('[X] No links found in {}, is it a getpocket.com/export export?'.format(pocket_file))
         raise SystemExit(1)
 
     dump_index(links)
@@ -146,19 +174,20 @@ def create_archive(pocket_file, resume=None):
 
     print('[*] [{}] Created archive index.'.format(datetime.now()))
 
+    check_dependencies()
+
     for link in links:
         dump_website(link)
 
     print('[√] [{}] Archive complete.'.format(datetime.now()))
 
 
-
 if __name__ == '__main__':
     pocket_file = 'ril_export.html'
     resume = None
     try:
-        pocket_file = sys.argv[1]
-        resume = sys.argv[2]
+        pocket_file = sys.argv[1]       # path to pocket export file
+        resume = sys.argv[2]            # timestamp to resume dowloading from
     except IndexError:
         pass
 
