@@ -38,7 +38,9 @@ organized by timestamp.  For each sites it saves:
 I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
 Those numbers are from running it on my i5 4-core machine with 50mbps down.  YMMV.
 
-You can tweak all the parameters like screenshot size, file locations, timeouts, etc. in `archive.py`.
+You can tweak parameters like screenshot size, file paths, timeouts, etc. in `archive.py`.
+You can also tweak the outputted html index in `index_template.html`.  It just uses python
+format strings (not a proper templating engine like jinja2), which is why the CSS is double-bracketed `{{...}}`.
 
 ## Publishing Your Archive
 
