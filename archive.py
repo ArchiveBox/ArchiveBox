@@ -28,7 +28,7 @@ def check_dependencies():
 
 
 def parse_pocket_export(html):
-    pattern = re.compile("^\\s*<li><a href=\"(.+)\" time_added=\"(\\d+)\" tags=\"(.*)\">(.+)</a></li>", re.UNICODE)
+    pattern = re.compile("^\\s*<li><a href=\"(.+)\" time_added=\"(\\d+)\" tags=\"(.*)\">(.+)</a></li>", re.UNICODE)   # see sample input in ./example_ril_export.html
     for line in html:
         match = pattern.search(line)
         if match:
