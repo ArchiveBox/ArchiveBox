@@ -1,8 +1,8 @@
-# Pocket Stream Archive <img src="https://getpocket.com/favicon.ico" height="22px"/> [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
+# Pocket & Pinboard Stream Archive <img src="https://getpocket.com/favicon.ico" height="22px"/> <img src="https://pingboard.in/favicon.ico" height="22px"/> [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
 
 (Your own personal Way-Back Machine)
 
-Save an archived copy of all websites you star using Pocket, indexed in an html file.  Powered by the new [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.
+Save an archived copy of all websites you star using Pocket or Pinboard, indexed in an html file.  Powered by the new [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.
 
 ![](screenshot.png)
 
@@ -53,8 +53,8 @@ will run fast subsequent times because it only downloads new links that haven't 
 
 ## Publishing Your Archive
 
-The pocket archive is suitable for serving on your personal server, you can upload the pocket
-archive to `/var/www/pocket` and allow people to access your saved copies of sites.
+The archive is suitable for serving on your personal server, you can upload the
+archive to `/var/www/pocket` (or pinboard) and allow people to access your saved copies of sites.
 
 
 Just stick this in your nginx config to properly serve the wget-archived sites:
@@ -104,3 +104,10 @@ the content on your domain.
  - feature image extraction
  - http support (from my https-only domain)
  - try getting dead links from archive.org (https://github.com/hartator/wayback-machine-downloader)
+
+## Links
+
+ - [Hacker News Discussion](https://news.ycombinator.com/item?id=14272133)
+ - https://wallabag.org + https://github.com/wallabag/wallabag
+ - https://webrecorder.io/
+ - https://github.com/ikreymer/webarchiveplayer#auto-load-warcs
