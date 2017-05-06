@@ -208,12 +208,9 @@ def create_archive(service_file, service, resume=None):
 
 if __name__ == '__main__':
     service_file = 'ril_export.html'
-    resume = None
-    try:
-        service_file = sys.argv[1]            # path to export file
-        service = sys.argv[2] or "pocket"     # select service for file format select
-        resume = sys.argv[3]                  # timestamp to resume dowloading from
-    except IndexError:
-        pass
+    argc = len(sys.argv)
+    service_file = sys.argv[1] if argc > 1 else "ril_export.html" # path to export file
+    service = sys.argv[2] if argc > 2 else "pocket" # select service for file format select
+    resume = sys.argv[3] if argc > 3 else None # timestamp to resume dowloading from
 
     create_archive(service_file, service, resume=resume)
