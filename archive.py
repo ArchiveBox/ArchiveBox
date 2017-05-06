@@ -187,7 +187,7 @@ def create_archive(service_file, service, resume=None):
 
     if not links:
         if service == "pocket":
-            print('[X] No links found in {}, is it a getpocket.com/export export?'.format(serivce_file))
+            print('[X] No links found in {}, is it a getpocket.com/export export?'.format(service_file))
         elif service == "pinboard":
             print ('[X] No links found in {}, is it a pinboard.in/export/format:json/ export?'.format(service_file))
         raise SystemExit(1)
