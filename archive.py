@@ -7,8 +7,11 @@
 import re
 import os
 import sys
+import json
 
 from datetime import datetime
+import time
+
 from subprocess import run, DEVNULL
 
 INDEX_TEMPLATE = 'index_template.html'
@@ -42,7 +45,22 @@ def parse_pocket_export(html):
                 'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', ''),
             }
 
-def dump_index(links):
+def parse_pinboard_export(html):
+    json_content = json.load(html)
+    for line in json_content:
+        if line:
+            erg = line
+            yield {
+                'url': erg['href'].replace('http://www.readability.com/read?url=', ''),
+                'domain': erg['href'].replace('http://', '').replace('https://', '').split('/')[0],
+                'base_url': erg['href'].replace('https://', '').replace('http://', '').split('?')[0],
+                'time': datetime.fromtimestamp(time.mktime(time.strptime(erg['time'].split(',')[0],'%Y-%m-%dT%H:%M:%SZ'))),
+                'timestamp': time.mktime(time.strptime(erg['time'].split(',')[0],'%Y-%m-%dT%H:%M:%SZ')),
+                'tags': erg['tags'],
+                'title': erg['description'].replace(' — Readability', '').replace('http://www.readability.com/read?url=', ''),
+            }
+
+def dump_index(links, service):
     with open(INDEX_TEMPLATE, 'r') as f:
         index_html = f.read()
 
@@ -59,7 +77,7 @@ def dump_index(links):
         <td>🔗 <img src="https://www.google.com/s2/favicons?domain={domain}" height="16px"> <a href="{url}">{url}</a></td>
     </tr>"""
 
-    with open('pocket/index.html', 'w') as f:
+    with open(''.join((service,'/index.html')), 'w') as f:
         article_rows = '\n'.join(
             link_html.format(**link) for link in links
         )
@@ -119,12 +137,12 @@ def fetch_favicon(out_dir, link, overwrite=False):
         print('    √ Skipping favicon')
 
 
-def dump_website(link, overwrite=False):
+def dump_website(link, service, overwrite=False):
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
     print('[+] [{time}] Archiving "{title}": {url}'.format(**link))
 
-    out_dir = 'pocket/archive/{timestamp}'.format(**link)
+    out_dir = ''.join((service, '/archive/{timestamp}')).format(**link)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
@@ -149,46 +167,53 @@ def dump_website(link, overwrite=False):
 
     run(['chmod', '-R', '755', out_dir], timeout=1)
 
-def create_archive(pocket_file, resume=None):
-    print('[+] [{}] Starting pocket archive from {}'.format(datetime.now(), pocket_file))
+def create_archive(service_file, service, resume=None):
+    print('[+] [{}] Starting {} archive from {}'.format(datetime.now(), service, service_file))
 
-    if not os.path.exists('pocket'):
-        os.makedirs('pocket')
+    if not os.path.exists(service):
+        os.makedirs(service)
 
-    if not os.path.exists('pocket/archive'):
-        os.makedirs('pocket/archive')
+    if not os.path.exists(''.join((service,'/archive'))):
+        os.makedirs(''.join((service,'/archive')))
 
-    with open(pocket_file, 'r', encoding='utf-8') as f:
-        links = parse_pocket_export(f)
+    with open(service_file, 'r', encoding='utf-8') as f:
+        if service == "pocket":
+            links = parse_pocket_export(f)
+        elif service == "pinboard":
+            links = parse_pinboard_export(f)
         links = list(reversed(sorted(links, key=lambda l: l['timestamp'])))  # most recent first
         if resume:
             links = [link for link in links if link['timestamp'] >= resume]
 
     if not links:
-        print('[X] No links found in {}, is it a getpocket.com/export export?'.format(pocket_file))
+        if service == "pocket":
+            print('[X] No links found in {}, is it a getpocket.com/export export?'.format(serivce_file))
+        elif service == "pinboard":
+            print ('[X] No links found in {}, is it a pinboard.in/export/format:json/ export?'.format(service_file))
         raise SystemExit(1)
 
-    dump_index(links)
+    dump_index(links, service)
 
-    run(['chmod', '-R', '755', 'pocket'], timeout=1)
+    run(['chmod', '-R', '755', service], timeout=1)
 
     print('[*] [{}] Created archive index.'.format(datetime.now()))
 
     check_dependencies()
 
     for link in links:
-        dump_website(link)
+        dump_website(link, service)
 
     print('[√] [{}] Archive complete.'.format(datetime.now()))
 
 
 if __name__ == '__main__':
-    pocket_file = 'ril_export.html'
+    service_file = 'ril_export.html'
     resume = None
     try:
-        pocket_file = sys.argv[1]       # path to pocket export file
-        resume = sys.argv[2]            # timestamp to resume dowloading from
+        service_file = sys.argv[1]            # path to export file
+        service = sys.argv[2] or "pocket"     # select service for file format select
+        resume = sys.argv[3]                  # timestamp to resume dowloading from
     except IndexError:
         pass
 
-    create_archive(pocket_file, resume=resume)
+    create_archive(service_file, service, resume=resume)
