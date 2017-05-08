@@ -13,7 +13,7 @@ Save an archived copy of all websites you star using Pocket or Pinboard, indexed
 **Runtime:** I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
 Those numbers are from running it single-threaded on my i5 machine with 50mbps down.  YMMV.
 
-**Dependencies:** `google-chrome --headless (59)`,` wget`, `python3`
+**Dependencies:** `google-chrome >= 59`,` wget >= 1.16`, `python3 >= 3.5`
 
 ```bash
 # On Mac:
