@@ -13,12 +13,12 @@ Save an archived copy of all websites you star using Pocket or Pinboard, indexed
 **Runtime:** I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
 Those numbers are from running it single-threaded on my i5 machine with 50mbps down.  YMMV.
 
-**Dependencies:** `google-chrome --headless (59)`,` wget`, `python3`
+**Dependencies:** `google-chrome >= 59`,` wget >= 1.16`, `python3 >= 3.5`
 
 ```bash
 # On Mac:
 brew install Caskroom/versions/google-chrome-canary wget python3
-echo -e '#!/bin/bash\n/Applications/Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary \"$@"' > /usr/local/bin/google-chrome
+echo -e '#!/bin/bash\n/Applications/Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary "$@"' > /usr/local/bin/google-chrome
 chmod +x /usr/local/bin/google-chrome
 # On Linux:
 wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
@@ -27,6 +27,9 @@ apt update; apt install google-chrome-beta python3 wget
 # Check:
 google-chrome --version && which wget && which python3 && echo "[√] All dependencies installed."
 ```
+On some Linux distributions the python3 package might not be recent enough.
+If this is the case for you, resort to installing a recent enough version manually.
+[The official Python documentation](https://docs.python.org/3.6/using/unix.html) is a good place to start.
 
 **Archiving:**
 
