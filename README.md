@@ -18,7 +18,7 @@ Those numbers are from running it single-threaded on my i5 machine with 50mbps d
 ```bash
 # On Mac:
 brew install Caskroom/versions/google-chrome-canary wget python3
-echo -e '#!/bin/bash\n/Applications/Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary \"$@"' > /usr/local/bin/google-chrome
+echo -e '#!/bin/bash\n/Applications/Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary "$@"' > /usr/local/bin/google-chrome
 chmod +x /usr/local/bin/google-chrome
 # On Linux:
 wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
