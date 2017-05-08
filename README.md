@@ -27,6 +27,9 @@ apt update; apt install google-chrome-beta python3 wget
 # Check:
 google-chrome --version && which wget && which python3 && echo "[√] All dependencies installed."
 ```
+On some Linux distributions the python3 package might not be recent enough.
+If this is the case for you, resort to installing a recent enough version manually.
+[The official Python documentation](https://docs.python.org/3.6/using/unix.html) is a good place to start.
 
 **Archiving:**
 
