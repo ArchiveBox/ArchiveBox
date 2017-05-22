@@ -35,14 +35,16 @@ def parse_pocket_export(html):
     for line in html:
         match = pattern.search(line)
         if match:
+            fixed_url = match.group(1).replace('http://www.readability.com/read?url=', '')           # remove old readability prefixes to get original url
+            without_scheme = fixed_url.replace('http://', '').replace('https://', '')
             yield {
-                'url': match.group(1).replace('http://www.readability.com/read?url=', ''),
-                'domain': match.group(1).replace('http://', '').replace('https://', '').split('/')[0],
-                'base_url': match.group(1).replace('https://', '').replace('http://', '').split('?')[0],
+                'url': fixed_url,
+                'domain': without_scheme.split('/')[0],    # without pathname
+                'base_url': without_scheme.split('?')[0],  # without query args
                 'time': datetime.fromtimestamp(int(match.group(2))),
                 'timestamp': match.group(2),
                 'tags': match.group(3),
-                'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', ''),
+                'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '') or without_scheme,
             }
 
 def parse_pinboard_export(html):
@@ -51,13 +53,13 @@ def parse_pinboard_export(html):
         if line:
             erg = line
             yield {
-                'url': erg['href'].replace('http://www.readability.com/read?url=', ''),
+                'url': erg['href'],
                 'domain': erg['href'].replace('http://', '').replace('https://', '').split('/')[0],
                 'base_url': erg['href'].replace('https://', '').replace('http://', '').split('?')[0],
                 'time': datetime.fromtimestamp(time.mktime(time.strptime(erg['time'].split(',')[0],'%Y-%m-%dT%H:%M:%SZ'))),
                 'timestamp': time.mktime(time.strptime(erg['time'].split(',')[0],'%Y-%m-%dT%H:%M:%SZ')),
                 'tags': erg['tags'],
-                'title': erg['description'].replace(' — Readability', '').replace('http://www.readability.com/read?url=', ''),
+                'title': erg['description'].replace(' — Readability', ''),
             }
 
 def dump_index(links, service):
