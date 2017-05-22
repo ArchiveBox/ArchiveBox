@@ -13,7 +13,7 @@ Save an archived copy of all websites you star using Pocket or Pinboard, indexed
 **Runtime:** I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
 Those numbers are from running it single-threaded on my i5 machine with 50mbps down.  YMMV.
 
-**Dependencies:** `google-chrome >= 59`,` wget >= 1.16`, `python3 >= 3.5`
+**Dependencies:** `google-chrome >= 59`,` wget >= 1.16`, `python3 >= 3.5`  (chromium also works well, yay open source!)
 
 ```bash
 # On Mac:
@@ -29,7 +29,10 @@ google-chrome --version && which wget && which python3 && echo "[√] All depend
 ```
 On some Linux distributions the python3 package might not be recent enough.
 If this is the case for you, resort to installing a recent enough version manually.
-[The official Python documentation](https://docs.python.org/3.6/using/unix.html) is a good place to start.
+```bash
+add-apt-repository ppa:fkrull/deadsnakes && apt update && apt install python3.6
+```
+If you still need help, [the official Python docs](https://docs.python.org/3.6/using/unix.html) are a good place to start.
 
 **Archiving:**
 
@@ -51,7 +54,7 @@ format strings (not a proper templating engine like jinja2), which is why the CS
 
 **Live Updating:** (coming soon)
 
-It's possible to pull links via the pocket API instead of downloading an html export.
+It's possible to pull links via the pocket API or public pocket RSS feeds instead of downloading an html export.
 Once I write a script to do that, we can stick this in `cron` and have it auto-update on it's own.
 
 For now you just have to download `ril_export.html` and run `archive.py` each time it updates. The script
