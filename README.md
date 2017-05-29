@@ -2,7 +2,7 @@
 
 (Your own personal Way-Back Machine)
 
-Save an archived copy of all websites you star using Pocket or Pinboard, indexed in an html file.  Powered by the new [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.
+Save an archived copy of all websites you star using Pocket or Pinboard, indexed in an html file.  Powered by the new [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.  NEW: Also submits each link to archive.org!
 
 ![](screenshot.png)
 
@@ -34,6 +34,9 @@ add-apt-repository ppa:fkrull/deadsnakes && apt update && apt install python3.6
 ```
 If you still need help, [the official Python docs](https://docs.python.org/3.6/using/unix.html) are a good place to start.
 
+To swtich from Google Chrome to chromium, change the `CHROME_BINARY` variable at the top of `archive.py`.
+If you're missing `wget` or `curl`, simply install them using `apt` or your package manager of choice.
+
 **Archiving:**
 
 1. Download your pocket export file `ril_export.html` from https://getpocket.com/export
@@ -47,6 +50,7 @@ organized by timestamp.  For each sites it saves:
  - wget of site, e.g. `en.wikipedia.org/wiki/Example.html` with .html appended if not present
  - `sreenshot.png` 1440x900 screenshot of site using headless chrome
  - `output.pdf` Printed PDF of site using headless chrome
+ - `archive.org.txt` A link to the saved site on archive.org
 
 You can tweak parameters like screenshot size, file paths, timeouts, etc. in `archive.py`.
 You can also tweak the outputted html index in `index_template.html`.  It just uses python
