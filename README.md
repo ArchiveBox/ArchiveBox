@@ -13,7 +13,7 @@ NEW: Also submits each link to save on archive.org!
 ## Quickstart
 
 ```bash
-./archive.py pocket_export.html pocket      # See below for how to install dependencies
+./archive.py link_export.html [pocket|pinboard|bookmarks]
 ```
 
 `archive.py` is a script that takes a [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), or [Browser Bookmark](https://support.google.com/chrome/answer/96816?hl=en) html export file, and turns it into a browsable archive that you can store locally or host online.
