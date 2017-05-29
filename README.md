@@ -2,7 +2,8 @@
 
 (Your own personal Way-Back Machine)
 
-Save an archived copy of all websites you star using Pocket or Pinboard, indexed in an html file.  Powered by the new [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.  NEW: Also submits each link to archive.org!
+Save an archived copy of all websites you star using Pocket or Pinboard, indexed in an html file.  Powered by the new [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.
+NEW: Also submits each link to archive.org!
 
 ![](screenshot.png)
 
