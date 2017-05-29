@@ -2,7 +2,9 @@
 
 (Your own personal Way-Back Machine)
 
-Save an archived copy of all websites you star using Pocket, Pinboard, or Browser bookmarks.  Outputs browsable html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.  Powered by the new [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.
+Save an archived copy of all websites you star using Pocket, Pinboard, or Browser bookmarks.
+Outputs browsable html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.
+(Powered by the new [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.)
 
 NEW: Also submits each link to save on archive.org!
 
