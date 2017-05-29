@@ -1,9 +1,10 @@
-# Pocket & Pinboard Stream Archive <img src="https://getpocket.com/favicon.ico" height="22px"/> <img src="https://pinboard.in/favicon.ico" height="22px"/> [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
+# Pocket/Pinboard/Browser Bookmark Website Archiver <img src="https://getpocket.com/favicon.ico" height="22px"/> <img src="https://pinboard.in/favicon.ico" height="22px"/> [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
 
 (Your own personal Way-Back Machine)
 
-Save an archived copy of all websites you star using Pocket or Pinboard, indexed in an html file.  Powered by the new [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.
-NEW: Also submits each link to archive.org!
+Save an archived copy of all websites you star using Pocket, Pinboard, or Browser bookmarks.  Outputs a nice html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.  Powered by the new [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.
+
+NEW: Also submits each link to save on archive.org!
 
 ![](screenshot.png)
 
