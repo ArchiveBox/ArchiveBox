@@ -42,7 +42,7 @@ google-chrome --version && which wget && which python3 && echo "[√] All depend
 3. `cd pocket-archive-stream/`
 4. `./archive.py ~/Downloads/exported_file.html [pocket|pinboard|chrome]`
 
-It produces a folder `archive/` containing an `index.html`, and archived copies of all the sites,
+It produces a folder like `pocket/` containing an `index.html`, and archived copies of all the sites,
 organized by starred timestamp.  For each sites it saves:
 
  - wget of site, e.g. `en.wikipedia.org/wiki/Example.html` with .html appended if not present
@@ -80,14 +80,14 @@ will run fast subsequent times because it only downloads new links that haven't 
 ## Publishing Your Archive
 
 The archive is suitable for serving on your personal server, you can upload the
-archive to `/var/www/archive` and allow people to access your saved copies of sites.
+archive to `/var/www/pocket` and allow people to access your saved copies of sites.
 
 
 Just stick this in your nginx config to properly serve the wget-archived sites:
 
 ```nginx
-location /archive/ {
-    alias       /var/www/archive/;
+location /pocket/ {
+    alias       /var/www/pocket/;
     index       index.html;
     autoindex   on;
     try_files   $uri $uri/ $uri.html =404;
