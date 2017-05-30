@@ -37,20 +37,20 @@ google-chrome --version && which wget && which python3 && echo "[√] All depend
 
 **2. Run the archive script:**
 
-1. Download your export file e.g. `ril_export.html` from https://getpocket.com/export
-2. Clone the repo `git clone https://github.com/pirate/pocket-archive-stream`
+1. Get your HTML export file from [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Chrome Bookmarks](https://support.google.com/chrome/answer/96816?hl=en), [Firefox Bookmarks](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), or [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png)
+2. Clone this repo `git clone https://github.com/pirate/pocket-archive-stream`
 3. `cd pocket-archive-stream/`
-4. `./archive.py ~/Downloads/ril_export.html [pocket|pinboard|bookmarks]`
+4. `./archive.py ~/Downloads/exported_file.html [pocket|pinboard|chrome]`
 
-It produces a folder `pocket/` containing an `index.html`, and archived copies of all the sites,
-organized by timestamp.  For each sites it saves:
+It produces a folder `archive/` containing an `index.html`, and archived copies of all the sites,
+organized by starred timestamp.  For each sites it saves:
 
  - wget of site, e.g. `en.wikipedia.org/wiki/Example.html` with .html appended if not present
  - `sreenshot.png` 1440x900 screenshot of site using headless chrome
  - `output.pdf` Printed PDF of site using headless chrome
  - `archive.org.txt` A link to the saved site on archive.org
 
-You can tweak parameters like screenshot size, file paths, timeouts, etc. in `archive.py`.
+You can tweak parameters like screenshot size, file paths, timeouts, dependencies, at the top of `archive.py`.
 You can also tweak the outputted html index in `index_template.html`.  It just uses python
 format strings (not a proper templating engine like jinja2), which is why the CSS is double-bracketed `{{...}}`.
 
@@ -80,14 +80,14 @@ will run fast subsequent times because it only downloads new links that haven't 
 ## Publishing Your Archive
 
 The archive is suitable for serving on your personal server, you can upload the
-archive to `/var/www/pocket` (or pinboard) and allow people to access your saved copies of sites.
+archive to `/var/www/archive` and allow people to access your saved copies of sites.
 
 
 Just stick this in your nginx config to properly serve the wget-archived sites:
 
 ```nginx
-location /pocket/ {
-    alias       /var/www/pocket/;
+location /archive/ {
+    alias       /var/www/archive/;
     index       index.html;
     autoindex   on;
     try_files   $uri $uri/ $uri.html =404;
@@ -96,7 +96,7 @@ location /pocket/ {
 
 Make sure you're not running any content as CGI or PHP, you only want to serve static files!
 
-Urls look like: `https://sweeting.me/pocket/archive/1493350273/en.wikipedia.org/wiki/Dining_philosophers_problem`
+Urls look like: `https://sweeting.me/archive/archive/1493350273/en.wikipedia.org/wiki/Dining_philosophers_problem`
 
 ## Info
 
