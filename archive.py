@@ -291,7 +291,7 @@ def create_archive(export_file, service, resume=None):
 
     dump_index(links, service)
 
-    run(['chmod', '-R', '755', service], timeout=1)
+    run(['chmod', '-R', '755', service], timeout=10)
 
     print('[*] [{}] Created archive index.'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 
