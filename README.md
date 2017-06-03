@@ -40,7 +40,7 @@ google-chrome --version && which wget && which python3 && echo "[√] All depend
 1. Get your HTML export file from [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Chrome Bookmarks](https://support.google.com/chrome/answer/96816?hl=en), [Firefox Bookmarks](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), or [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png)
 2. Clone this repo `git clone https://github.com/pirate/pocket-archive-stream`
 3. `cd pocket-archive-stream/`
-4. `./archive.py ~/Downloads/exported_file.html [pocket|pinboard|chrome]`
+4. `./archive.py ~/Downloads/exported_file.html [pocket|pinboard|bookmarks]`
 
 It produces a folder like `pocket/` containing an `index.html`, and archived copies of all the sites,
 organized by starred timestamp.  For each sites it saves:
