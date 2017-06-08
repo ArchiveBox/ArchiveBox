@@ -9,7 +9,9 @@ import os
 import sys
 import json
 
-from datetime import datetime
+from bs4 import BeautifulSoup
+
+from datetime import datetime, timezone
 import time
 
 from subprocess import run, PIPE, DEVNULL
@@ -107,6 +109,27 @@ def parse_pinboard_export(html):
             }
             info['type'] = get_link_type(info)
             yield info
+
+def parse_bookmarks_export(html):
+    soup = BeautifulSoup(html, "html5lib")
+    for link in soup.find_all('a'):
+
+        url = link.get('href')
+        secs = link.get('add_date')
+        dt = datetime.fromtimestamp(int(secs))
+
+        info = {
+            'url': url,
+            'domain': url.replace('http://', '').replace('https://', '').split('/')[0],
+            'base_url': url.replace('https://', '').replace('http://', '').split('?')[0],
+            'time': dt,
+            'timestamp': secs,
+            'tags': link.get('tags'),
+            'title': link.string.strip(),
+        }
+
+        info['type'] = get_link_type(info)
+        yield info
 
 
 ### ACHIVING FUNCTIONS
@@ -278,6 +301,8 @@ def create_archive(export_file, service, resume=None):
             links = parse_pocket_export(f)
         elif service == "pinboard":
             links = parse_pinboard_export(f)
+        elif service == "bookmarks":
+            links = parse_bookmarks_export(f)
         links = list(reversed(sorted(links, key=lambda l: l['timestamp'])))  # most recent first
         if resume:
             links = [link for link in links if link['timestamp'] >= resume]
