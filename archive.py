@@ -9,9 +9,7 @@ import os
 import sys
 import json
 
-from bs4 import BeautifulSoup
-
-from datetime import datetime, timezone
+from datetime import datetime
 import time
 
 from subprocess import run, PIPE, DEVNULL
@@ -111,25 +109,26 @@ def parse_pinboard_export(html):
             yield info
 
 def parse_bookmarks_export(html):
-    soup = BeautifulSoup(html, "html5lib")
-    for link in soup.find_all('a'):
+    pattern = re.compile("<a href=\"(.+?)\" add_date=\"(\\d+)\"[^>]*>(.+)</a>", re.UNICODE | re.IGNORECASE)
+    for line in html:
+        match = pattern.search(line)
+        if match:
+            url = match.group(1)
+            secs = match.group(2)
+            dt = datetime.fromtimestamp(int(secs))
 
-        url = link.get('href')
-        secs = link.get('add_date')
-        dt = datetime.fromtimestamp(int(secs))
+            info = {
+                'url': url,
+                'domain': url.replace('http://', '').replace('https://', '').split('/')[0],
+                'base_url': url.replace('https://', '').replace('http://', '').split('?')[0],
+                'time': dt,
+                'timestamp': secs,
+                'tags': "",
+                'title': match.group(3)
+            }
 
-        info = {
-            'url': url,
-            'domain': url.replace('http://', '').replace('https://', '').split('/')[0],
-            'base_url': url.replace('https://', '').replace('http://', '').split('?')[0],
-            'time': dt,
-            'timestamp': secs,
-            'tags': link.get('tags'),
-            'title': link.string.strip(),
-        }
-
-        info['type'] = get_link_type(info)
-        yield info
+            info['type'] = get_link_type(info)
+            yield info
 
 
 ### ACHIVING FUNCTIONS
