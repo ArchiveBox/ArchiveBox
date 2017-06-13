@@ -33,9 +33,6 @@ apt update; apt install google-chrome-beta python3 wget
 
 # Check:
 google-chrome --version && which wget && which python3 && echo "[√] All dependencies installed."
-
-# BeautifulSoup4
-sudo pip3 install beautifulsoup4
 ```
 
 **2. Run the archive script:**
