@@ -35,7 +35,7 @@ def check_dependencies():
     if FETCH_PDF or FETCH_SCREENSHOT:
         if run(['which', CHROME_BINARY]).returncode:
             print('[X] Missing dependency: {}'.format(CHROME_BINARY))
-            print('    See https://github.com/pirate/pocket-archive-stream for help.')
+            print('    See https://github.com/pirate/bookmark-archiver for help.')
             raise SystemExit(1)
 
         # parse chrome --version e.g. Google Chrome 61.0.3114.0 canary / Chromium 59.0.3029.110 built on Ubuntu, running on Ubuntu 16.04
@@ -43,19 +43,19 @@ def check_dependencies():
         version = result.stdout.decode('utf-8').replace('Google Chrome ', '').replace('Chromium ', '').split(' ', 1)[0].split('.', 1)[0]  # TODO: regex might be better
         if int(version) < 59:
             print('[X] Chrome version must be 59 or greater for headless PDF and screenshot saving')
-            print('    See https://github.com/pirate/pocket-archive-stream for help.')
+            print('    See https://github.com/pirate/bookmark-archiver for help.')
             raise SystemExit(1)
 
     if FETCH_WGET:
         if run(['which', 'wget']).returncode:
             print('[X] Missing dependency: wget')
-            print('    See https://github.com/pirate/pocket-archive-stream for help.')
+            print('    See https://github.com/pirate/bookmark-archiver for help.')
             raise SystemExit(1)
 
     if FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG:
         if run(['which', 'curl']).returncode:
             print('[X] Missing dependency: curl')
-            print('    See https://github.com/pirate/pocket-archive-stream for help.')
+            print('    See https://github.com/pirate/bookmark-archiver for help.')
             raise SystemExit(1)
 
 
@@ -72,9 +72,10 @@ def get_link_type(link):
         return 'youtube'
     return None
 
-def parse_pocket_export(html):
+def parse_pocket_export(html_file):
+    html_file.seek(0)
     pattern = re.compile("^\\s*<li><a href=\"(.+)\" time_added=\"(\\d+)\" tags=\"(.*)\">(.+)</a></li>", re.UNICODE)   # see sample input in ./example_ril_export.html
-    for line in html:
+    for line in html_file:
         match = pattern.search(line)
         if match:
             fixed_url = match.group(1).replace('http://www.readability.com/read?url=', '')           # remove old readability prefixes to get original url
@@ -91,8 +92,11 @@ def parse_pocket_export(html):
             info['type'] = get_link_type(info)
             yield info
 
-def parse_pinboard_export(html):
-    json_content = json.load(html)
+def parse_json_export(json_file):
+    """pinboard exports are json"""
+
+    json_file.seek(0)
+    json_content = json.load(json_file)
     for line in json_content:
         if line:
             erg = line
@@ -108,9 +112,10 @@ def parse_pinboard_export(html):
             info['type'] = get_link_type(info)
             yield info
 
-def parse_bookmarks_export(html):
+def parse_bookmarks_export(html_file):
+    html_file.seek(0)
     pattern = re.compile("<a href=\"(.+?)\" add_date=\"(\\d+)\"[^>]*>(.+)</a>", re.UNICODE | re.IGNORECASE)
-    for line in html:
+    for line in html_file:
         match = pattern.search(line)
         if match:
             url = match.group(1)
@@ -336,25 +341,31 @@ def dump_website(link, service, overwrite=False):
     if FETCH_FAVICON:
         fetch_favicon(out_dir, link, overwrite=overwrite)
 
-def create_archive(export_file, service, resume=None):
-    print('[+] [{}] Starting {} archive from {}'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), service, export_file))
-
-    if not os.path.exists(service):
-        os.makedirs(service)
-
-    if not os.path.exists(''.join((service, '/archive'))):
-        os.makedirs(''.join((service, '/archive')))
-
+def create_archive(export_file, service=None, resume=None):
     with open(export_file, 'r', encoding='utf-8') as f:
+        print('[+] [{}] Starting archive from {} export file.'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), export_file))
+
         if service == "pocket":
             links = parse_pocket_export(f)
         elif service == "pinboard":
-            links = parse_pinboard_export(f)
+            links = parse_json_export(f)
         elif service == "bookmarks":
             links = parse_bookmarks_export(f)
+        else:
+            # try all parsers until one works
+            try:
+                links = list(parse_json_export(f))
+                service = 'pinboard'
+            except Exception:
+                links = list(parse_pocket_export(f))
+                if links:
+                    service = 'pocket'
+                else:
+                    links = list(parse_bookmarks_export(f))
+                    service = 'bookmarks'
 
         links = valid_links(links)              # remove chrome://, about:, mailto: etc.
-        links = uniquefied_links(links)     # fix duplicate timestamps, returns sorted list
+        links = uniquefied_links(links)         # fix duplicate timestamps, returns sorted list
         if resume:
             try:
                 links = [link for link in links if float(link['timestamp']) >= float(resume)]
@@ -365,6 +376,11 @@ def create_archive(export_file, service, resume=None):
         print('[X] No links found in {}, is it a {} export file?'.format(export_file, service))
         raise SystemExit(1)
 
+    if not os.path.exists(service):
+        os.makedirs(service)
+
+    if not os.path.exists(''.join((service, '/archive'))):
+        os.makedirs(''.join((service, '/archive')))
 
     dump_index(links, service)
 
@@ -384,7 +400,7 @@ def create_archive(export_file, service, resume=None):
 if __name__ == '__main__':
     argc = len(sys.argv)
     export_file = sys.argv[1] if argc > 1 else "ril_export.html"        # path to export file
-    export_type = sys.argv[2] if argc > 2 else "pocket"                 # select export_type for file format select
+    export_type = sys.argv[2] if argc > 2 else None                 # select export_type for file format select
     resume_from = sys.argv[3] if argc > 3 else None                     # timestamp to resume dowloading from
 
     create_archive(export_file, export_type, resume=resume_from)

@@ -4,11 +4,11 @@
 
 (Your own personal Way-Back Machine) [DEMO: sweeting.me/pocket](https://home.sweeting.me/pocket)
 
-Save an archived copy of all websites you star.  
-Outputs browsable html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.  
+Save an archived copy of all websites you star.
+Outputs browsable html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.
 
 
-(Powered by the [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.)  
+(Powered by the [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.)
 NEW: Also submits each link to save on archive.org!
 
 ![](screenshot.png)
@@ -16,7 +16,7 @@ NEW: Also submits each link to save on archive.org!
 ## Quickstart
 
 ```bash
-./archive.py link_export.html [pocket|pinboard|bookmarks]
+./archive.py bookmark_export.html
 ```
 
 `archive.py` is a script that takes a [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), or [Browser Bookmark](https://support.google.com/chrome/answer/96816?hl=en) html export file, and turns it into a browsable archive that you can store locally or host online.
@@ -43,7 +43,9 @@ google-chrome --version && which wget && which python3 && echo "[√] All depend
 1. Get your HTML export file from [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Chrome Bookmarks](https://support.google.com/chrome/answer/96816?hl=en), [Firefox Bookmarks](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), or [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png)
 2. Clone this repo `git clone https://github.com/pirate/bookmark-archiver`
 3. `cd bookmark-archiver/`
-4. `./archive.py ~/Downloads/exported_file.html [bookmarks|pocket|pinboard]`
+4. `./archive.py ~/Downloads/bookmarks_export.html`
+
+You may optionally specify a third argument to `archive.py export.html [pocket|pinboard|bookmarks]` to enforce the use of a specific link parser.
 
 It produces a folder like `pocket/` containing an `index.html`, and archived copies of all the sites,
 organized by starred timestamp.  For each sites it saves:
