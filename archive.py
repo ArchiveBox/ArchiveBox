@@ -216,6 +216,52 @@ def fetch_favicon(out_dir, link, overwrite=False):
 
 ### ORCHESTRATION
 
+def next_uniq_timestamp(used_timestamps, timestamp):
+    """resolve duplicate timestamps by appending a decimal"""
+
+    if timestamp not in used_timestamps:
+        return timestamp
+
+    if '.' in timestamp:
+        timestamp, nonce = timestamp.split('.')
+        nonce = int(nonce)
+    else:
+        nonce = 1
+
+    new_timestamp = '{}.{}'.format(timestamp, nonce)
+
+    while new_timestamp in used_timestamps:
+        nonce += 1
+        new_timestamp = '{}.{}'.format(timestamp, nonce)
+
+    return new_timestamp
+
+def uniquefied_links(links):
+    """uniqueify link timestamps by de-duping using url, returns links sorted most recent -> oldest
+
+    needed because firefox will produce exports where many links share the same timestamp, this func
+    ensures that all non-duplicate links have monotonically increasing timestamps"""
+
+    links = list(reversed(sorted(links, key=lambda l: (l['timestamp'], l['url']))))
+    seen_timestamps = {}
+
+    for link in links:
+        t = link['timestamp']
+        if t in seen_timestamps:
+            if link['url'] == seen_timestamps[t]['url']:
+                # don't create new unique timestamp if link is the same
+                continue
+            else:
+                # resolve duplicate timstamp by appending a decimal
+                link['timestamp'] = next_uniq_timestamp(seen_timestamps, link['timestamp'])
+        seen_timestamps[link['timestamp']] = link
+
+    return links
+
+def valid_links(links):
+    return (link for link in links if link['url'].startswith('http') or link['url'].startswith('ftp'))
+
+
 def dump_index(links, service):
     with open(INDEX_TEMPLATE, 'r') as f:
         index_html = f.read()
@@ -270,6 +316,10 @@ def dump_website(link, service, overwrite=False):
 
     if link['type']:
         print('    i Type: {}'.format(link['type']))
+
+    if not link['url'].startswith('http'):
+        print('    X Skipping: invalid link.')
+        return
 
     if FETCH_WGET:
         fetch_wget(out_dir, link, overwrite=overwrite)
