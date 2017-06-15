@@ -176,7 +176,7 @@ def archive_dot_org(out_dir, link, overwrite=False):
     # submit to archive.org
     if (not os.path.exists('{}/archive.org.txt'.format(out_dir)) or overwrite):
         print('    - Submitting to archive.org')
-        submit_url = 'https://web.archive.org/save/{}'.format(link['base_url'])
+        submit_url = 'https://web.archive.org/save/{}'.format(link['url'].split('?', 1)[0])
 
         success = False
         try:
