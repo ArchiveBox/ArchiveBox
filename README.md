@@ -1,6 +1,6 @@
 # Bookmark Archiver <img src="https://getpocket.com/favicon.ico" height="22px"/> <img src="https://pinboard.in/favicon.ico" height="22px"/> <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
 
-**Supports: Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera), Pocket, Pinboard, Shaarli, Delicious, and Instapaper**
+**Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera), Pocket, Pinboard, Shaarli, Delicious, Instapaper, Unmark.it**
 
 (Your own personal Way-Back Machine) [DEMO: sweeting.me/pocket](https://home.sweeting.me/pocket)
 
@@ -40,7 +40,7 @@ google-chrome --version && which wget && which python3 && echo "[√] All depend
 
 **2. Run the archive script:**
 
-1. Get your HTML export file from [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Instapaper](https://www.instapaper.com/user/export), [Chrome Bookmarks](https://support.google.com/chrome/answer/96816?hl=en), [Firefox Bookmarks](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png), [Opera Bookmarks](http://help.opera.com/Windows/12.10/en/importexport.html), [Internet Explorer Bookmarks](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows)
+1. Get your HTML export file from [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Instapaper](https://www.instapaper.com/user/export), [Shaarli](http://sebsauvage.net/wiki/lib/exe/fetch.php?media=php:php_shaarli:shaarli_cap16_dragbutton.png), [Unmark.it](http://help.unmark.it/import-export), [Chrome Bookmarks](https://support.google.com/chrome/answer/96816?hl=en), [Firefox Bookmarks](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png), [Opera Bookmarks](http://help.opera.com/Windows/12.10/en/importexport.html), [Internet Explorer Bookmarks](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows)
 2. Clone this repo `git clone https://github.com/pirate/bookmark-archiver`
 3. `cd bookmark-archiver/`
 4. `./archive.py ~/Downloads/bookmarks_export.html`
