@@ -100,8 +100,8 @@ def parse_pinboard_export(html):
                 'url': erg['href'],
                 'domain': erg['href'].replace('http://', '').replace('https://', '').split('/')[0],
                 'base_url': erg['href'].replace('https://', '').replace('http://', '').split('?')[0],
-                'time': datetime.fromtimestamp(time.mktime(time.strptime(erg['time'].split(',')[0],'%Y-%m-%dT%H:%M:%SZ'))),
-                'timestamp': time.mktime(time.strptime(erg['time'].split(',')[0],'%Y-%m-%dT%H:%M:%SZ')),
+                'time': datetime.fromtimestamp(time.mktime(time.strptime(erg['time'].split(',')[0], '%Y-%m-%dT%H:%M:%SZ'))),
+                'timestamp': time.mktime(time.strptime(erg['time'].split(',')[0], '%Y-%m-%dT%H:%M:%SZ')),
                 'tags': erg['tags'],
                 'title': erg['description'].replace(' — Readability', ''),
             }
@@ -124,7 +124,7 @@ def parse_bookmarks_export(html):
                 'time': dt,
                 'timestamp': secs,
                 'tags': "",
-                'title': match.group(3)
+                'title': match.group(3),
             }
 
             info['type'] = get_link_type(info)
@@ -135,7 +135,7 @@ def parse_bookmarks_export(html):
 
 def fetch_wget(out_dir, link, overwrite=False):
     # download full site
-    if not os.path.exists('{}/{}'.format(out_dir, link, overwrite=link['domain'])) or overwrite:
+    if not os.path.exists('{}/{}'.format(out_dir, link)) or overwrite:
         print('    - Downloading Full Site')
         CMD = [
             *'wget --no-clobber --page-requisites --adjust-extension --convert-links --no-parent'.split(' '),
@@ -150,7 +150,7 @@ def fetch_wget(out_dir, link, overwrite=False):
 
 def fetch_pdf(out_dir, link, overwrite=False):
     # download PDF
-    if (not os.path.exists('{}/output.pdf'.format(out_dir)) or overwrite) and not link['base_url'].endswith('.pdf'):
+    if (not os.path.exists('{}/output.pdf'.format(out_dir)) or overwrite) and link['type'] not in ('PDF', 'image'):
         print('    - Printing PDF')
         chrome_args = '--headless --disable-gpu --print-to-pdf'.split(' ')
         try:
@@ -162,7 +162,7 @@ def fetch_pdf(out_dir, link, overwrite=False):
 
 def fetch_screenshot(out_dir, link, overwrite=False):
     # take screenshot
-    if (not os.path.exists('{}/screenshot.png'.format(out_dir)) or overwrite) and not link['base_url'].endswith('.pdf'):
+    if (not os.path.exists('{}/screenshot.png'.format(out_dir)) or overwrite) and link['type'] not in ('PDF', 'image'):
         print('    - Snapping Screenshot')
         chrome_args = '--headless --disable-gpu --screenshot'.split(' ')
         try:
@@ -307,10 +307,7 @@ def create_archive(export_file, service, resume=None):
             links = [link for link in links if link['timestamp'] >= resume]
 
     if not links:
-        if service == 'pocket':
-            print('[X] No links found in {}, is it a getpocket.com/export export?'.format(export_file))
-        elif service == 'pinboard':
-            print('[X] No links found in {}, is it a pinboard.in/export/format:json/ export?'.format(export_file))
+        print('[X] No links found in {}, is it a {} export file?'.format(export_file, service))
         raise SystemExit(1)
 
     dump_index(links, service)
