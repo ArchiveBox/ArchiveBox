@@ -55,7 +55,8 @@ You can also tweak the outputted html index in `index_template.html`.  It just u
 format strings (not a proper templating engine like jinja2), which is why the CSS is double-bracketed `{{...}}`.
 
 **Estimated Runtime:** I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
-Those numbers are from running it single-threaded on my i5 machine with 50mbps down.  YMMV.
+Those numbers are from running it single-threaded on my i5 machine with 50mbps down.  YMMV.  Users have also reported
+running it with 50k+ bookmarks with success (though it will take more RAM while running).
 
 **Troubleshooting:**
 
