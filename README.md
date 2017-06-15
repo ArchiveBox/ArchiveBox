@@ -40,7 +40,7 @@ google-chrome --version && which wget && which python3 && echo "[√] All depend
 
 **2. Run the archive script:**
 
-1. Get your HTML export file from [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Chrome Bookmarks](https://support.google.com/chrome/answer/96816?hl=en), [Firefox Bookmarks](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), or [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png)
+1. Get your HTML export file from [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Instapaper](https://www.instapaper.com/user/export), [Chrome Bookmarks](https://support.google.com/chrome/answer/96816?hl=en), [Firefox Bookmarks](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png), [Opera Bookmarks](http://help.opera.com/Windows/12.10/en/importexport.html), [Internet Explorer Bookmarks](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows)
 2. Clone this repo `git clone https://github.com/pirate/bookmark-archiver`
 3. `cd bookmark-archiver/`
 4. `./archive.py ~/Downloads/bookmarks_export.html`
