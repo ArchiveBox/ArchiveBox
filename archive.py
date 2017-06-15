@@ -144,7 +144,7 @@ def fetch_wget(out_dir, link, overwrite=False):
         try:
             run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # dom.html
         except Exception as e:
-            print('      Exception: {}'.format(e.__class__.__name__))
+            print('      Exception: {} {}'.format(e.__class__.__name__, e))
     else:
         print('    √ Skipping site download')
 
@@ -156,7 +156,7 @@ def fetch_pdf(out_dir, link, overwrite=False):
         try:
             run([CHROME_BINARY, *chrome_args, link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # output.pdf
         except Exception as e:
-            print('      Exception: {}'.format(e.__class__.__name__))
+            print('      Exception: {} {}'.format(e.__class__.__name__, e))
     else:
         print('    √ Skipping PDF print')
 
@@ -168,7 +168,7 @@ def fetch_screenshot(out_dir, link, overwrite=False):
         try:
             run([CHROME_BINARY, *chrome_args, '--window-size={}'.format(RESOLUTION), link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # sreenshot.png
         except Exception as e:
-            print('      Exception: {}'.format(e.__class__.__name__))
+            print('      Exception: {} {}'.format(e.__class__.__name__, e))
     else:
         print('    √ Skipping screenshot')
 
@@ -190,7 +190,7 @@ def archive_dot_org(out_dir, link, overwrite=False):
             else:
                 raise Exception('Failed to find Content-Location URL in Archive.org response headers.')
         except Exception as e:
-            print('      Exception: {}'.format(e.__class__.__name__))
+            print('      Exception: {} {}'.format(e.__class__.__name__, e))
 
         if success:
             with open('{}/archive.org.txt'.format(out_dir), 'w') as f:
@@ -208,7 +208,7 @@ def fetch_favicon(out_dir, link, overwrite=False):
         try:
             run([*CMD], stdout=fout, stderr=DEVNULL, cwd=out_dir, timeout=20)  # dom.html
         except Exception as e:
-            print('      Exception: {}'.format(e.__class__.__name__))
+            print('      Exception: {} {}'.format(e.__class__.__name__, e))
         fout.close()
     else:
         print('    √ Skipping favicon')
