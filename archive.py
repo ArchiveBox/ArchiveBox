@@ -135,7 +135,7 @@ def parse_bookmarks_export(html):
 
 def fetch_wget(out_dir, link, overwrite=False):
     # download full site
-    if not os.path.exists('{}/{}'.format(out_dir, link)) or overwrite:
+    if not os.path.exists('{}/{}'.format(out_dir, link['base_url'].split('/', 1)[0])) or overwrite:
         print('    - Downloading Full Site')
         CMD = [
             *'wget --no-clobber --page-requisites --adjust-extension --convert-links --no-parent'.split(' '),
