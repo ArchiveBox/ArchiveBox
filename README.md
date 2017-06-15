@@ -19,7 +19,7 @@ NEW: Also submits each link to save on archive.org!
 ./archive.py bookmark_export.html
 ```
 
-`archive.py` is a script that takes a [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), or [Browser Bookmark](https://support.google.com/chrome/answer/96816?hl=en) html export file, and turns it into a browsable archive that you can store locally or host online.
+`archive.py` is a script that takes a [Pocket-format](https://getpocket.com/export), [Pinboard-format](https://pinboard.in/export/), or [Netscape-format](https://msdn.microsoft.com/en-us/library/aa753582(v=vs.85).aspx) bookmark export file, and turns it into a browsable archive that you can store locally or host online.
 
 **1. Install dependencies:** `google-chrome >= 59`,` wget >= 1.16`, `python3 >= 3.5`  ([chromium](https://www.chromium.org/getting-involved/download-chromium) >= v59 also works well, yay open source!)
 
