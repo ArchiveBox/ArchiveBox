@@ -25,6 +25,7 @@ FETCH_SCREENSHOT = True
 RESOLUTION = '1440,900'          # screenshot resolution
 FETCH_FAVICON = True
 SUBMIT_ARCHIVE_DOT_ORG = True
+ARCHIVE_PERMISSIONS = '755'
 
 CHROME_BINARY = 'google-chrome'  # change to chromium browser if using chromium
 WGET_BINARY = 'wget'
@@ -160,7 +161,7 @@ def fetch_pdf(out_dir, link, overwrite=False):
         chrome_args = '--headless --disable-gpu --print-to-pdf'.split(' ')
         try:
             run([CHROME_BINARY, *chrome_args, link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # output.pdf
-            run(['chmod', '755', 'output.pdf'], timeout=5)
+            run(['chmod', ARCHIVE_PERMISSIONS, 'output.pdf'], timeout=5)
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
     else:
@@ -173,7 +174,7 @@ def fetch_screenshot(out_dir, link, overwrite=False):
         chrome_args = '--headless --disable-gpu --screenshot'.split(' ')
         try:
             run([CHROME_BINARY, *chrome_args, '--window-size={}'.format(RESOLUTION), link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # sreenshot.png
-            run(['chmod', '755', 'screenshot.png'], timeout=5)
+            run(['chmod', ARCHIVE_PERMISSIONS, 'screenshot.png'], timeout=5)
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
     else:
@@ -321,6 +322,8 @@ def dump_website(link, service, overwrite=False):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
+    run(['chmod', ARCHIVE_PERMISSIONS, out_dir], timeout=5)
+
     if link['type']:
         print('    i Type: {}'.format(link['type']))
 
@@ -386,7 +389,7 @@ def create_archive(export_file, service=None, resume=None):
 
     dump_index(links, service)
 
-    run(['chmod', '-R', '755', service], timeout=30)
+    run(['chmod', '-R', ARCHIVE_PERMISSIONS, service], timeout=30)
 
     print('[*] [{}] Created archive index with {} links.'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), len(links)))
 
