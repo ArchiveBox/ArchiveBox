@@ -262,7 +262,7 @@ def dump_index(links, service):
 def dump_website(link, service, overwrite=False):
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
-    print('[+] [{time}] Archiving "{title}": {base_url}'.format(**link))
+    print('[+] [{timestamp} ({time})] "{title}": {base_url}'.format(**link))
 
     out_dir = ''.join((service, '/archive/{timestamp}')).format(**link)
     if not os.path.exists(out_dir):
@@ -302,19 +302,25 @@ def create_archive(export_file, service, resume=None):
             links = parse_pinboard_export(f)
         elif service == "bookmarks":
             links = parse_bookmarks_export(f)
-        links = list(reversed(sorted(links, key=lambda l: l['timestamp'])))  # most recent first
+
+        links = valid_links(links)              # remove chrome://, about:, mailto: etc.
+        links = uniquefied_links(links)     # fix duplicate timestamps, returns sorted list
         if resume:
-            links = [link for link in links if link['timestamp'] >= resume]
+            try:
+                links = [link for link in links if float(link['timestamp']) >= float(resume)]
+            except TypeError:
+                print('Resume value and all timestamp values must be valid numbers.')
 
     if not links:
         print('[X] No links found in {}, is it a {} export file?'.format(export_file, service))
         raise SystemExit(1)
 
+
     dump_index(links, service)
 
     run(['chmod', '-R', '755', service], timeout=10)
 
-    print('[*] [{}] Created archive index.'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+    print('[*] [{}] Created archive index with {} links.'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), len(links)))
 
     check_dependencies()
 
