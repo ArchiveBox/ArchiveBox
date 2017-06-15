@@ -142,3 +142,4 @@ it's up to you to host responsibly and respond to takedown requests appropriatel
  - https://wallabag.org + https://github.com/wallabag/wallabag
  - https://webrecorder.io/
  - https://github.com/ikreymer/webarchiveplayer#auto-load-warcs
+ - [Shaarchiver](https://github.com/nodiscc/shaarchiver) very similar project that archives Firefox, Shaarli, or Delicious bookmarks and all linked media, generating a markdown/HTML index
