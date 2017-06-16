@@ -141,7 +141,8 @@ def parse_bookmarks_export(html_file):
 
 def fetch_wget(out_dir, link, overwrite=False):
     # download full site
-    if not os.path.exists('{}/{}'.format(out_dir, link['base_url'].split('/', 1)[0])) or overwrite:
+    domain = link['base_url'].split('/', 1)[0]
+    if not os.path.exists('{}/{}'.format(out_dir, domain)) or overwrite:
         print('    - Downloading Full Site')
         CMD = [
             *'wget --no-clobber --page-requisites --adjust-extension --convert-links --no-parent'.split(' '),
@@ -161,7 +162,8 @@ def fetch_pdf(out_dir, link, overwrite=False):
         chrome_args = '--headless --disable-gpu --print-to-pdf'.split(' ')
         try:
             run([CHROME_BINARY, *chrome_args, link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # output.pdf
-            run(['chmod', ARCHIVE_PERMISSIONS, 'output.pdf'], timeout=5)
+            if run(['chmod', ARCHIVE_PERMISSIONS, 'output.pdf'], stdout=DEVNULL, stderr=DEVNULL, timeout=5).returncode:
+                raise Exception('Failed to print PDF')
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
     else:
@@ -174,7 +176,8 @@ def fetch_screenshot(out_dir, link, overwrite=False):
         chrome_args = '--headless --disable-gpu --screenshot'.split(' ')
         try:
             run([CHROME_BINARY, *chrome_args, '--window-size={}'.format(RESOLUTION), link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # sreenshot.png
-            run(['chmod', ARCHIVE_PERMISSIONS, 'screenshot.png'], timeout=5)
+            if run(['chmod', ARCHIVE_PERMISSIONS, 'screenshot.png'], stdout=DEVNULL, stderr=DEVNULL, timeout=5).returncode:
+                raise Exception('Failed to take screenshot')
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
     else:
