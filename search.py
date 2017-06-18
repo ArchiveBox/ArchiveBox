@@ -46,7 +46,7 @@ def server(port=8080):
 if __name__ == '__main__':
     argc = len(sys.argv)
     if argc == 1 or sys.argv[2] in ('-h', '-v', '--help', 'help'):
-        print('Usage:\n\t./search.py --server 8042      # Run a search REST service\n\t./search.py firefox pocket/archive           # search for "firefox" in the pocket archive')
+        print('Full-text search for a pattern in a given Bookmark Archiver archive.\nUsage:\n\t./search.py --server 8042                    # Run a /archive/search?search=pattern&regex=1 REST server on 127.0.0.1:8042\n\t./search.py "pattern" pocket/archive         # Find files containing "pattern" in the pocket/archive folder')
         raise SystemExit(0)
 
     if '--server' in sys.argv:
