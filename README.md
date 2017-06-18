@@ -110,11 +110,12 @@ Urls look like: `https://sweeting.me/archive/archive/1493350273/en.wikipedia.org
 
 If you want full-text search to work, you must also run the search backend (a simple flask app):
 ```bash
+apt install silversearcher-ag   # or on mac:  brew install the_silver_searcher
 pip3 install Flask
 ./search.py --server 8042
 
 # or to run it in the background:
-nohup ./search.py --server &
+nohup ./search.py --server 8042 &
 ```
 
 ## Info
