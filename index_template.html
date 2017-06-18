@@ -89,8 +89,9 @@
                                 highlight_matches(results);
                             }}
                         }} else {{
-                            console.log('Error: ' + xmlhttp.statusText)
-                            return '';
+                            alert('Failed to contact the search backend!\nMake sure you\'re running the search backend:\n\tpython3 search.py --serve 8080');
+                            console.log('Error: ' + xmlhttp.statusText);
+                            return [];
                         }}
                     }}
                 }}
