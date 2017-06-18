@@ -3,16 +3,13 @@
 import sys
 from subprocess import run, PIPE, DEVNULL
 
-
-if run(['which', 'ag'], stderr=DEVNULL).returncode:
+if run(['which', 'ag'], stdout=DEVNULL, stderr=DEVNULL).returncode:
     print("[X] Please install ag the silver searcher:\n\t apt install silversearcher-ag\n\t brew install the_silver_searcher")
     raise SystemExit(1)
 
 
-def search_archive(service, pattern, regex=False):
-    args = '-g' if regex else '-Qg'
-    archive_path = '{}/archive'.format(service)
-
+def search_archive(archive_path, pattern, regex=False):
+    args = '-gi' if regex else '-Qig'
     ag = run(['ag', args, pattern, archive_path], stdout=PIPE, stderr=PIPE, timeout=60)
     return (l.decode().replace(archive_path, '') for l in ag.stdout.splitlines())
 
@@ -31,7 +28,9 @@ def server(port=8080):
     def search(service):
         pattern = request.args.get('search', '')
         use_regex = request.args.get('regex', '')
-        return '\n'.join(search_archive(service, pattern, use_regex))
+        archive_path = '{}/archive'.format(service)
+        # print('[*] Searching {} for: {}'.format(archive_path, pattern))
+        return '\n'.join(search_archive(archive_path, pattern, use_regex))
 
     @app.after_request
     def after_request(response):
@@ -47,7 +46,7 @@ def server(port=8080):
 if __name__ == '__main__':
     argc = len(sys.argv)
     if argc == 1 or sys.argv[2] in ('-h', '-v', '--help', 'help'):
-        print('Usage:\n\t./search.py --server 8042      # Run a search REST service\n\t./search.py firefox pocket           # search for "firefox" in the pocket archive')
+        print('Usage:\n\t./search.py --server 8042      # Run a search REST service\n\t./search.py firefox pocket/archive           # search for "firefox" in the pocket archive')
         raise SystemExit(0)
 
     if '--server' in sys.argv:
@@ -55,7 +54,7 @@ if __name__ == '__main__':
         server(port)
     else:
         pattern = sys.argv[2] if argc > 2 else sys.argv[1]
-        service = sys.argv[2] if argc > 2 else 'bookmarks'
+        archive_path = sys.argv[2] if argc > 2 else 'bookmarks/archive'
 
-        matches = search_archive(service, pattern, regex=True)
+        matches = search_archive(archive_path, pattern, regex=True)
         print('\n'.join(matches))

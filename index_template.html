@@ -76,7 +76,7 @@
                 var host = document.location.hostname;
                 var protocol = document.location.protocol;
 
-                xmlhttp.open("GET", protocol + '//' + host + ':8080/search?search=' + encodeURIComponent(pattern) + (exact ? 'exact=1' : ''));
+                xmlhttp.open("GET", 'search?search=' + encodeURIComponent(pattern) + (exact ? 'exact=1' : ''));
                 xmlhttp.onreadystatechange = function() {{
                     if (xmlhttp.readyState == XMLHttpRequest.DONE) {{
                         if (xmlhttp.status == 200) {{
@@ -89,7 +89,7 @@
                                 highlight_matches(results);
                             }}
                         }} else {{
-                            alert('Failed to contact the search backend!\nMake sure you\'re running the search backend:\n\tpython3 search.py --serve 8080');
+                            alert('Failed to contact the search backend!\nMake sure you\'re running the search backend:\n\t./search.py --server 8042');
                             console.log('Error: ' + xmlhttp.statusText);
                             return [];
                         }}

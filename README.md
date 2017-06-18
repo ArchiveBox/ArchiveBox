@@ -86,23 +86,24 @@ will run fast subsequent times because it only downloads new links that haven't 
 ## Publishing Your Archive
 
 The archive is suitable for serving on your personal server, you can upload the
-archive to `/var/www/pocket` and allow people to access your saved copies of sites.
+archive to `/var/www/bookmarks` and allow people to access your saved copies of sites.
 
 
 Just stick this in your nginx config to properly serve the wget-archived sites:
 
 ```nginx
-location /pocket/ {
-    alias       /var/www/pocket/;
+location /bookmarks/ {
+    alias       /var/www/bookmarks/;
     index       index.html;
     autoindex   on;
     try_files   $uri $uri/ $uri.html =404;
 
     location ~* /search {
-        proxy_pass  http://127.0.0.1:8042;
+        proxy_pass  http://127.0.0.1:8042;   # Start the backend with `./search --server 8042` if you want full-text search
     }
 }
 ```
+(Replace `bookmarks` above with `pocket` or `pinboard` depending on which archive you want to publish.)
 
 Make sure you're not running any content as CGI or PHP, you only want to serve static files!
 
