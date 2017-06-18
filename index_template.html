@@ -111,8 +111,7 @@
                         var article_timestamp = elem.href.split('/archive')[1].split('/')[1];
                         var row = elem.parentElement.parentElement;
                         if (is_first) {{
-                            var topPos = row.offsetTop;
-                            window.scroll(0, topPos-10);
+                            window.scroll(0, row.offsetTop + 90);
                             is_first = false;
                         }}
                         // console.log(article_timestamp, results.has(article_timestamp))
