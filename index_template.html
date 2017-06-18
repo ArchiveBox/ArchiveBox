@@ -12,11 +12,16 @@
                 margin: 0px;
                 padding: 0px;
                 font-family: "Gill Sans", Helvetica, sans-serif;
+                overflow: auto;
             }}
             header {{
                 background-color: #aa1e55;
                 color: white;
                 padding: 10px;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
             }}
             header h1 {{
                 font-weight: 300;
@@ -40,6 +45,10 @@
             table {{
                 padding: 6px;
                 width: 100%;
+                width:100%;
+                height: 90%;
+                margin-top: 10%;
+                table-layout: fixed
             }}
             table thead th {{
                 font-weight: 400;
@@ -150,7 +159,7 @@
                 </small>
             </h1>
         </header>
-        <table style="width:100%;height: 90%; overflow-y: scroll;table-layout: fixed">
+        <table>
             <thead>
                 <tr>
                     <th style="width: 120px;"><img src="https://getpocket.com/favicon.ico" height="12px"> Starred</th>
