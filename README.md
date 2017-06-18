@@ -97,12 +97,25 @@ location /pocket/ {
     index       index.html;
     autoindex   on;
     try_files   $uri $uri/ $uri.html =404;
+
+    location ~* /search {
+        proxy_pass  http://127.0.0.1:8042;
+    }
 }
 ```
 
 Make sure you're not running any content as CGI or PHP, you only want to serve static files!
 
 Urls look like: `https://sweeting.me/archive/archive/1493350273/en.wikipedia.org/wiki/Dining_philosophers_problem`
+
+If you want full-text search to work, you must also run the search backend (a simple flask app):
+```bash
+pip3 install Flask
+./search.py --server 8042
+
+# or to run it in the background:
+nohup ./search.py --server &
+```
 
 ## Info
 
