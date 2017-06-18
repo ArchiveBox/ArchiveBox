@@ -105,11 +105,17 @@
                     // highlight matching articles
                     var rows = document.querySelectorAll('tbody a.base-url');
                     // console.log(results)
+                    var is_first = true;
                     for (let elem of rows) {{
                         // console.log(elem)
                         var article_timestamp = elem.href.split('/archive')[1].split('/')[1];
                         var row = elem.parentElement.parentElement;
-                        console.log(article_timestamp, results.has(article_timestamp))
+                        if (is_first) {{
+                            var topPos = row.offsetTop;
+                            window.scroll(0, topPos-10);
+                            is_first = false;
+                        }}
+                        // console.log(article_timestamp, results.has(article_timestamp))
                         if (results.has(article_timestamp)) {{
                             row.classList = ['matched'];
                         }} else {{
