@@ -280,7 +280,7 @@ def dump_index(links, service):
     link_html = """\
     <tr>
         <td>{time}</td>
-        <td><a href="archive/{timestamp}/{base_url}" style="font-size:1.4em;text-decoration:none;color:black;" title="{title}">
+        <td><a class="base-url" href="archive/{timestamp}/{base_url}" style="font-size:1.4em;text-decoration:none;color:black;" title="{title}">
             <img src="archive/{timestamp}/favicon.ico">
             {title} <small style="background-color: #eee;border-radius:4px; float:right">{tags}</small>
         </td>
@@ -408,7 +408,7 @@ def create_archive(export_file, service=None, resume=None):
 if __name__ == '__main__':
     argc = len(sys.argv)
     export_file = sys.argv[1] if argc > 1 else "ril_export.html"        # path to export file
-    export_type = sys.argv[2] if argc > 2 else None                 # select export_type for file format select
+    export_type = sys.argv[2] if argc > 2 else None                     # select export_type for file format select
     resume_from = sys.argv[3] if argc > 3 else None                     # timestamp to resume dowloading from
 
     create_archive(export_file, export_type, resume=resume_from)

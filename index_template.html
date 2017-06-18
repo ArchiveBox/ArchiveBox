@@ -60,10 +60,20 @@
                 padding-right: 5px;
                 text-indent: -10000px;
             }}
+            table tbody tr.matched {{
+                background-color: yellow;
+            }}
+            input {{
+                position: absolute;
+                top: 40px;
+                right: 20px;
+                border-radius: 4px;
+            }}
         </style>
     </head>
     <body>
         <header>
+            <input type="search" results="5" autosave="searches" name="searches" placeholder="Search..." onSearch="onSearch(event)">
             <h1 title="Last modified {}">
                 <img src="https://nicksweeting.com/images/archive.png" height="36px">
                 Archived Sites <img src="https://getpocket.com/favicon.ico" height="36px"> <br/>
@@ -86,5 +96,67 @@
             </thead>
             <tbody>{}</tbody>
         </table>
+        <script>
+            function search_request(pattern, exact, callback) {{
+                var xmlhttp = new XMLHttpRequest();
+                var host = document.location.hostname;
+                var protocol = document.location.protocol;
+
+                xmlhttp.open("GET", protocol + '//' + host + ':8080/search?search=' + encodeURIComponent(pattern) + (exact ? 'exact=1' : ''));
+                xmlhttp.onreadystatechange = function() {{
+                    if (xmlhttp.readyState == XMLHttpRequest.DONE) {{
+                        if (xmlhttp.status == 200) {{
+                            if (xmlhttp.responseText && xmlhttp.responseText.length) {{
+                                var results = xmlhttp.responseText.split('\n');
+                                console.log('Response: ', results);
+                                var results = results.map(function (href) {{
+                                    return href.split('/')[1]  // timestamp as unique key
+                                }})
+                                highlight_matches(results);
+                            }}
+                        }} else {{
+                            console.log('Error: ' + xmlhttp.statusText)
+                            return '';
+                        }}
+                    }}
+                }}
+                xmlhttp.send();
+            }}
+
+            function highlight_matches(results) {{
+                console.log('highlighting', results);
+                if (results && results.length) {{
+                    results = new Set(results);
+                    // highlight matching articles
+                    var rows = document.querySelectorAll('tbody a.base-url');
+                    // console.log(results)
+                    for (let elem of rows) {{
+                        // console.log(elem)
+                        var article_timestamp = elem.href.split('/archive')[1].split('/')[1];
+                        var row = elem.parentElement.parentElement;
+                        console.log(article_timestamp, results.has(article_timestamp))
+                        if (results.has(article_timestamp)) {{
+                            row.classList = ['matched'];
+                        }} else {{
+                            row.classList = [];
+                        }}
+                    }}
+                }} else {{
+                    // clear all highlights
+                    var elems = document.querySelectorAll('tbody tr.matched');
+                    for (let elem of elems) {{
+                        elem.classList = [];
+                    }}
+                }};
+            }}
+
+            function onSearch(event) {{
+                if (event.target.value.length) {{
+                    search_request(event.target.value, false, highlight_matches);
+                }} else {{
+                    highlight_matches([]);
+                }}
+            }}
+        </script>
     </body>
 </html>
