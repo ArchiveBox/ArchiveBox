@@ -19,17 +19,21 @@ from subprocess import run, PIPE, DEVNULL
 
 INDEX_TEMPLATE = 'index_template.html'
 
-FETCH_WGET = True
-FETCH_PDF = True
-FETCH_SCREENSHOT = True
-RESOLUTION = '1440,900'          # screenshot resolution
-FETCH_FAVICON = True
-SUBMIT_ARCHIVE_DOT_ORG = True
-ARCHIVE_PERMISSIONS = '755'
+# os.getenv('VARIABLE', 'DEFAULT') gets the value of environment
+# variable "VARIABLE" and if it is not set, sets it to 'DEFAULT'
 
-CHROME_BINARY = 'google-chrome'  # change to chromium browser if using chromium
-WGET_BINARY = 'wget'
+# for boolean values, check to see if the string is 'true', and
+# if so, the python variable will be True
 
+FETCH_WGET =             os.getenv('FETCH_WGET',             'True'          ).lower() == 'true'
+FETCH_PDF =              os.getenv('FETCH_PDF',              'True'          ).lower() == 'true'
+FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'          ).lower() == 'true'
+RESOLUTION =             os.getenv('RESOLUTION',             '1440,900'      ) # screenshot resolution
+FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'          ).lower() == 'true'
+SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'          ).lower() == 'true'
+ARCHIVE_PERMISSIONS =    os.getenv('ARCHIVE_PERMISSIONS',     '755'          )
+CHROME_BINARY =          os.getenv('CHROME_BINARY',           'google-chrome') # change to chromium browser if using chromium
+WGET_BINARY =            os.getenv('WGET_BINARY',             'wget'         )
 
 def check_dependencies():
     print('[*] Checking Dependencies:')
