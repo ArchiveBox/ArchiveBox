@@ -8,7 +8,7 @@ Save an archived copy of all websites you star.
 Outputs browsable html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.
 
 
-(Powered by the [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Google Chrome and good 'ol `wget`.)
+(Powered by the [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Chromium and good 'ol `wget`.)
 NEW: Also submits each link to save on archive.org!
 
 ![](screenshot.png)
@@ -21,11 +21,11 @@ NEW: Also submits each link to save on archive.org!
 
 `archive.py` is a script that takes a [Pocket-format](https://getpocket.com/export), [Pinboard-format](https://pinboard.in/export/), or [Netscape-format](https://msdn.microsoft.com/en-us/library/aa753582(v=vs.85).aspx) bookmark export file, and turns it into a browsable archive that you can store locally or host online.
 
-**1. Install dependencies:** `google-chrome >= 59`,` wget >= 1.16`, `python3 >= 3.5`  ([chromium](https://www.chromium.org/getting-involved/download-chromium) >= v59 also works well, yay open source!)
+**1. Install dependencies:** `chromium >= 59`,` wget >= 1.16`, `python3 >= 3.5`  (google-chrome >= v59 also works well, no need to install chromium if you already have Google Chrome installed)
 
 ```bash
 # On Mac:
-brew install Caskroom/versions/google-chrome-canary wget python3
+brew install Caskroom/versions/google-chrome-canary wget python3  # or chromium, up to you
 echo -e '#!/bin/bash\n/Applications/Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary "$@"' > /usr/local/bin/google-chrome
 chmod +x /usr/local/bin/google-chrome
 
