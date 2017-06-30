@@ -61,7 +61,7 @@ apt install chromium-browser python3 wget
 
 ```bash
 # Check that everything worked:
-google-chrome --version && which wget && which python3 && echo "[√] All dependencies installed."
+chromium --version && which wget && which python3 && which curl && echo "[√] All dependencies installed."
 ```
 
 **2. Get your bookmark export file:**
