@@ -12,7 +12,7 @@ sleep 5
 
 echo ""
 
-if which apt; then
+if which apt-get; then
     # On Linux:
     echo "[+] Adding Google Chrome apt signing key"
     wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
