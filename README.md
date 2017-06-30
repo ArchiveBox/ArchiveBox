@@ -294,7 +294,8 @@ will run fast subsequent times because it only downloads new links that haven't 
 
  - [Hacker News Discussion](https://news.ycombinator.com/item?id=14272133)
  - [Reddit r/selfhosted Discussion](https://www.reddit.com/r/selfhosted/comments/69eoi3/pocket_stream_archive_your_own_personal_wayback/)
- - [Reddit r/datahoarder Discussion](https://www.reddit.com/r/DataHoarder/comments/69e6i9/archive_a_browseable_copy_of_your_saved_pocket/)
+ - [Reddit r/datahoarder Discussion #1](https://www.reddit.com/r/DataHoarder/comments/69e6i9/archive_a_browseable_copy_of_your_saved_pocket/)
+ - [Reddit r/datahoarder Discussion #2](https://www.reddit.com/r/DataHoarder/comments/6kepv6/bookmarkarchiver_now_supports_archiving_all_major/)
  - https://wallabag.org + https://github.com/wallabag/wallabag
  - https://webrecorder.io/
  - https://github.com/ikreymer/webarchiveplayer#auto-load-warcs
@@ -307,7 +308,7 @@ will run fast subsequent times because it only downloads new links that haven't 
  - added [env-variable](https://github.com/pirate/bookmark-archiver/pull/25) configuration (thanks to https://github.com/hannah98!)
  - renamed from **Pocket Archive Stream** -> **Bookmark Archiver**
  - added [Netscape-format](https://github.com/pirate/bookmark-archiver/pull/20) export support (thanks to https://github.com/ilvar!)
- - added [pinboard-format](https://github.com/pirate/bookmark-archiver/pull/7) export support (thanks to https://github.com/sconeyard!)
- - front-page of HN
- - added pocket-format export support
+ - added [Pinboard-format](https://github.com/pirate/bookmark-archiver/pull/7) export support (thanks to https://github.com/sconeyard!)
+ - front-page of HN, oops! apparently I have users to support now :grin:?
+ - added Pocket-format export support
  - created Pocket Archive Stream 2017/05/05
