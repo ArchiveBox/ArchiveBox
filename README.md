@@ -240,6 +240,11 @@ See the "Manual Setup" instructions for more details.
 
 ### Archiving
 
+**No links parsed from export file:**
+
+Please open an [issue](https://github.com/pirate/bookmark-archiver/issues) with a description of where you got the export, and
+preferrably your export file attached (you can redact the links).  We'll fix the parser to support your format.
+
 **Lots of skipped sites:**
 
 If you ran the archiver once, it wont re-download sites subsequent times, it will only download new links.
