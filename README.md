@@ -141,6 +141,18 @@ Make sure you're not running any content as CGI or PHP, you only want to serve s
 
 Urls look like: `https://sweeting.me/archive/archive/1493350273/en.wikipedia.org/wiki/Dining_philosophers_problem`
 
+**Security WARNING & Content Disclaimer:**
+
+Hosting other people's site content has security implications for your domain, make sure you understand
+the dangers of hosting other people's CSS & JS files [on your domain](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy).  It's best to put this on a domain
+of its own to slightly mitigate [CSRF attacks](https://en.wikipedia.org/wiki/Cross-site_request_forgery).
+
+You may also want to blacklist your archive in your `/robots.txt` so that search engines dont index
+the content on your domain.
+
+Be aware that some sites you archive may not allow you to rehost their content publicly for copyright reasons,
+it's up to you to host responsibly and respond to takedown requests appropriately.
+
 ## Info & Motivation
 
 This is basically an open-source version of [Pocket Premium](https://getpocket.com/premium) (which you should consider paying for!).
@@ -152,18 +164,6 @@ PDFs & Screenshots of dynamic sites in addition to static html, something archiv
 Now I can rest soundly knowing important articles and resources I like wont dissapear off the internet.
 
 My published archive as an example: [sweeting.me/pocket](https://home.sweeting.me/pocket).
-
-## Security WARNING & Content Disclaimer
-
-Hosting other people's site content has security implications for your domain, make sure you understand
-the dangers of hosting other people's CSS & JS files [on your domain](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy).  It's best to put this on a domain
-of its own to slightly mitigate [CSRF attacks](https://en.wikipedia.org/wiki/Cross-site_request_forgery).
-
-You may also want to blacklist your archive in your `/robots.txt` so that search engines dont index
-the content on your domain.
-
-Be aware that some sites you archive may not allow you to rehost their content publicly for copyright reasons,
-it's up to you to host responsibly and respond to takedown requests appropriately.
 
 ## Google Chrome Instructions:
 
