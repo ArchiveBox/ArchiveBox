@@ -31,9 +31,9 @@ FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'          ).l
 RESOLUTION =             os.getenv('RESOLUTION',             '1440,900'      ) # screenshot resolution
 FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'          ).lower() == 'true'
 SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'          ).lower() == 'true'
-ARCHIVE_PERMISSIONS =    os.getenv('ARCHIVE_PERMISSIONS',     '755'          )
-CHROME_BINARY =          os.getenv('CHROME_BINARY',           'google-chrome') # change to chromium browser if using chromium
-WGET_BINARY =            os.getenv('WGET_BINARY',             'wget'         )
+ARCHIVE_PERMISSIONS =    os.getenv('ARCHIVE_PERMISSIONS',    '755'          )
+CHROME_BINARY =          os.getenv('CHROME_BINARY',          'google-chrome') # change to chromium browser if using chromium
+WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'         )
 
 def check_dependencies():
     print('[*] Checking Dependencies:')
