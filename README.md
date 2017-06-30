@@ -7,10 +7,6 @@
 Save an archived copy of all websites you star.
 Outputs browsable html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.
 
-
-(Powered by the [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Chromium and good 'ol `wget`.)
-NEW: Also submits each link to save on archive.org!
-
 ![](screenshot.png)
 
 ## Quickstart
@@ -37,7 +33,7 @@ Follow the links here to find instructions for each exporting bookmarks from eac
 ```bash
 git clone https://github.com/pirate/bookmark-archiver
 cd bookmark-archiver/
-sudo setup.sh
+./setup.sh
 ./archive.py ~/Downloads/bookmark_export.html   # replace this path with the path to your bookmarks export file
 ```
 
@@ -49,18 +45,22 @@ If you don't like `sudo` running random setup scripts off the internet (which yo
 
 **1. Install dependencies:** `chromium >= 59`,` wget >= 1.16`, `python3 >= 3.5`  (google-chrome >= v59 also works well, no need to install chromium if you already have Google Chrome installed)
 
+On Mac:
 ```bash
-# On Mac:
-brew install Caskroom/versions/google-chrome-canary wget python3  # or chromium, up to you
-echo -e '#!/bin/bash\n/Applications/Google\ Chrome\ Canary.app/Contents/MacOS/Google\ Chrome\ Canary "$@"' > /usr/local/bin/google-chrome
-chmod +x /usr/local/bin/google-chrome
+brew cask install chromium  # If you already have Google Chrome/Chromium in /Applications/, skip this command
+brew install wget python3
 
-# On Linux:
-wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
-apt update; apt install google-chrome-beta python3 wget
+echo -e '#!/bin/bash\n/Applications/Chromium.app/Contents/MacOS/Chromium "$@"' > /usr/local/bin/chromium  # see instructions for google-chrome below
+chmod +x /usr/local/bin/chromium
+```
 
-# Check:
+On Ubuntu/Debian:
+```bash
+apt install chromium-browser python3 wget
+```
+
+Check that everything worked:
+```bash
 google-chrome --version && which wget && which python3 && echo "[√] All dependencies installed."
 ```
 
@@ -78,10 +78,41 @@ Follow the instruction links above in the "Quickstart" section to download your 
 
 You may optionally specify a third argument to `archive.py export.html [pocket|pinboard|bookmarks]` to enforce the use of a specific link parser.
 
+**Google Chrome Instrutions:**
+
+I recommend Chromium instead of Google Chrome, since it's open source and doesn't send your data to Google.
+Chromium may have some issues rendering some sites though, so you're welcome to try Google-chrome instead.
+It's also easier to use Google Chrome if you already have it installed, rather than downloading Chromium all over.
+
+On Mac:
+```bash
+# If you already have Google Chrome in /Applications/, skip this brew command
+brew cask install google-chrome
+brew install wget python3
+
+echo -e '#!/bin/bash\n/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome "$@"' > /usr/local/bin/google-chrome
+chmod +x /usr/local/bin/google-chrome
+```
+
+On Linux:
+```bash
+wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+apt update; apt install google-chrome-beta python3 wget
+```
+
+2. Set the environment variable `CHROME_BINARY` to `google-chrome` before running:
+
+```bash
+env CHROME_BINARY=google-chrome ./archive.py ~/Downloads/bookmarks_export.html
+```
+
 ## Details
 
 The archiver produces a folder like `pocket/` containing an `index.html`, and archived copies of all the sites,
-organized by starred timestamp.  For each sites it saves:
+organized by starred timestamp.  It's Powered by the [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Chromium and good 'ol `wget`.
+NEW: Also submits each link to save on archive.org!
+For each sites it saves:
 
  - wget of site, e.g. `en.wikipedia.org/wiki/Example.html` with .html appended if not present
  - `sreenshot.png` 1440x900 screenshot of site using headless chrome
