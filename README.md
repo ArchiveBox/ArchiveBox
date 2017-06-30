@@ -45,8 +45,8 @@ If you don't like `sudo` running random setup scripts off the internet (which yo
 
 **1. Install dependencies:** `chromium >= 59`,` wget >= 1.16`, `python3 >= 3.5`  (google-chrome >= v59 also works well, no need to install chromium if you already have Google Chrome installed)
 
-On Mac:
 ```bash
+# On Mac:
 brew cask install chromium  # If you already have Google Chrome/Chromium in /Applications/, skip this command
 brew install wget python3
 
@@ -54,13 +54,13 @@ echo -e '#!/bin/bash\n/Applications/Chromium.app/Contents/MacOS/Chromium "$@"' >
 chmod +x /usr/local/bin/chromium
 ```
 
-On Ubuntu/Debian:
 ```bash
+# On Ubuntu/Debian:
 apt install chromium-browser python3 wget
 ```
 
-Check that everything worked:
 ```bash
+# Check that everything worked:
 google-chrome --version && which wget && which python3 && echo "[√] All dependencies installed."
 ```
 
@@ -84,8 +84,8 @@ I recommend Chromium instead of Google Chrome, since it's open source and doesn'
 Chromium may have some issues rendering some sites though, so you're welcome to try Google-chrome instead.
 It's also easier to use Google Chrome if you already have it installed, rather than downloading Chromium all over.
 
-On Mac:
 ```bash
+# On Mac:
 # If you already have Google Chrome in /Applications/, skip this brew command
 brew cask install google-chrome
 brew install wget python3
@@ -94,8 +94,8 @@ echo -e '#!/bin/bash\n/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Ch
 chmod +x /usr/local/bin/google-chrome
 ```
 
-On Linux:
 ```bash
+# On Linux:
 wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
 sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
 apt update; apt install google-chrome-beta python3 wget
