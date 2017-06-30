@@ -18,7 +18,7 @@ read
 echo ""
 
 # On Linux:
-if which apt-gets > /dev/null; then
+if which apt-get > /dev/null; then
     echo "[+] Updating apt repos..."
     apt update -q
     if which google-chrome; then
@@ -37,7 +37,7 @@ if which apt-gets > /dev/null; then
     apt install python3 wget curl
 
 # On Mac:
-elif which brews > /dev/null; then
+elif which brew > /dev/null; then
     if ls /Applications/Google\ Chrome.app > /dev/null; then
         echo "[+] Linking /usr/local/bin/google-chrome -> /Applications/Google Chrome.app"
         echo -e '#!/bin/bash\n/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome "$@"' > /usr/local/bin/chromium-browser
@@ -58,13 +58,13 @@ elif which brews > /dev/null; then
     echo "[+] Installing python3, wget, curl  (ignore 'already installed' warnings)..."
     brew install python3 wget curl
 else
-    echo "[X] Could not find aptitude or homebrew!"
+    echo "[X] Could not find aptitude or homebrew! ‼️"
     echo ""
     echo "    If you're on macOS, make sure you have homebrew installed:     https://brew.sh/"
     echo "    If you're on Ubuntu/Debian, make sure you have apt installed:  https://help.ubuntu.com/lts/serverguide/apt.html"
     echo "    (those are the only currently supported systems)"
     echo ""
-    echo "See the README.md for manual setup instructions."
+    echo "See the README.md for Manual Setup & Troubleshooting instructions."
     exit 1
 fi
 
