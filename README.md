@@ -43,8 +43,9 @@ cd bookmark-archiver/
 
 You can open `service/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
 
-If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.
-If you're not comfortable running programs in the command-line, take a look at [Pocket Premium](https://getpocket.com/premium) (yay Mozilla!) and [Pinboard Pro](https://pinboard.in/upgrade/), which both offer easy-to-use bookmark archiving with full-text-search.
+If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.  
+
+If you want something easier than running programs in the command-line, take a look at [Pocket Premium](https://getpocket.com/premium) (yay Mozilla!) and [Pinboard Pro](https://pinboard.in/upgrade/), which both offer easy-to-use bookmark archiving with full-text-search.
 
 ## Details
 
