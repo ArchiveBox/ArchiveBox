@@ -1,5 +1,9 @@
 # Bookmark Archiver <img src="https://getpocket.com/favicon.ico" height="22px"/> <img src="https://pinboard.in/favicon.ico" height="22px"/> <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
 
+▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Changelog](#changelog)
+
+
+
 **Supports: Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera), Pocket, Pinboard, Shaarli, Delicious, Instapaper, Unmark.it, and more!**
 
 (Your own personal Way-Back Machine) [DEMO: sweeting.me/pocket](https://home.sweeting.me/pocket)
@@ -38,46 +42,6 @@ cd bookmark-archiver/
 ```
 
 You can open `service/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
-
-If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.
-
-## Manual Setup
-
-If you don't like `sudo` running random setup scripts off the internet (which you shouldn't), you can follow these manual setup instructions.
-
-**1. Install dependencies:** `chromium >= 59`,` wget >= 1.16`, `python3 >= 3.5`  (google-chrome >= v59 also works well)
-
-If you already have Google Chrome installed, or wish to use that instead of Chromium, follow the [Google Chrome Instructions](#google-chrome-instructions).
-```bash
-# On Mac:
-brew cask install chromium  # If you already have Google Chrome/Chromium in /Applications/, skip this command
-brew install wget python3
-
-echo -e '#!/bin/bash\n/Applications/Chromium.app/Contents/MacOS/Chromium "$@"' > /usr/local/bin/chromium-browser  # see instructions for google-chrome below
-chmod +x /usr/local/bin/chromium-browser
-```
-
-```bash
-# On Ubuntu/Debian:
-apt install chromium-browser python3 wget
-```
-
-```bash
-# Check that everything worked:
-chromium-browser --version && which wget && which python3 && which curl && echo "[√] All dependencies installed."
-```
-
-**2. Get your bookmark export file:**
-
-Follow the instruction links above in the "Quickstart" section to download your bookmarks export file.
-
-**3. Run the archive script:**
-
-1. Clone this repo `git clone https://github.com/pirate/bookmark-archiver`
-3. `cd bookmark-archiver/`
-4. `./archive.py ~/Downloads/bookmarks_export.html`
-
-You may optionally specify a third argument to `archive.py export.html [pocket|pinboard|bookmarks]` to enforce the use of a specific link parser.
 
 If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.
 
@@ -165,12 +129,53 @@ Now I can rest soundly knowing important articles and resources I like wont diss
 
 My published archive as an example: [sweeting.me/pocket](https://home.sweeting.me/pocket).
 
-## Google Chrome Instructions:
+## Manual Setup
+
+If you don't like `sudo` running random setup scripts off the internet (which you shouldn't), you can follow these manual setup instructions.
+
+**1. Install dependencies:** `chromium >= 59`,` wget >= 1.16`, `python3 >= 3.5`  (google-chrome >= v59 also works well)
+
+If you already have Google Chrome installed, or wish to use that instead of Chromium, follow the [Google Chrome Instructions](#google-chrome-instructions).
+```bash
+# On Mac:
+brew cask install chromium  # If you already have Google Chrome/Chromium in /Applications/, skip this command
+brew install wget python3
+
+echo -e '#!/bin/bash\n/Applications/Chromium.app/Contents/MacOS/Chromium "$@"' > /usr/local/bin/chromium-browser  # see instructions for google-chrome below
+chmod +x /usr/local/bin/chromium-browser
+```
+
+```bash
+# On Ubuntu/Debian:
+apt install chromium-browser python3 wget
+```
+
+```bash
+# Check that everything worked:
+chromium-browser --version && which wget && which python3 && which curl && echo "[√] All dependencies installed."
+```
+
+**2. Get your bookmark export file:**
+
+Follow the instruction links above in the "Quickstart" section to download your bookmarks export file.
+
+**3. Run the archive script:**
+
+1. Clone this repo `git clone https://github.com/pirate/bookmark-archiver`
+3. `cd bookmark-archiver/`
+4. `./archive.py ~/Downloads/bookmarks_export.html`
+
+You may optionally specify a third argument to `archive.py export.html [pocket|pinboard|bookmarks]` to enforce the use of a specific link parser.
+
+If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.
+
+### Google Chrome Instructions:
 
 I recommend Chromium instead of Google Chrome, since it's open source and doesn't send your data to Google.
 Chromium may have some issues rendering some sites though, so you're welcome to try Google-chrome instead.
 It's also easier to use Google Chrome if you already have it installed, rather than downloading Chromium all over.
 
+1. Install & link google-chrome
 ```bash
 # On Mac:
 # If you already have Google Chrome in /Applications/, skip this brew command
