@@ -87,6 +87,7 @@ If you have any trouble, see the [Troubleshooting](#Troubleshooting) section at 
 The archiver produces a folder like `pocket/` containing an `index.html`, and archived copies of all the sites,
 organized by starred timestamp.  It's Powered by the [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Chromium and good 'ol `wget`.
 NEW: Also submits each link to save on archive.org!
+
 For each sites it saves:
 
  - wget of site, e.g. `en.wikipedia.org/wiki/Example.html` with .html appended if not present
@@ -94,11 +95,27 @@ For each sites it saves:
  - `output.pdf` Printed PDF of site using headless chrome
  - `archive.org.txt` A link to the saved site on archive.org
 
-You can tweak parameters like screenshot size, file paths, timeouts, dependencies, at the top of `archive.py`.
+**Configuration:**
+
+You can tweak parameters via environment variables, or by editing `archive.py` directly:
+```bash
+env RESOLUTION=1440,900 FETCH_PDF=False ./archive.py ~/Downloads/bookmarks_export.html
+```
+
+ - `FETCH_WGET`, `FETCH_PDF`, `FETCH_SCREENSHOT`, `FETCH_FAVICON`, `SUBMIT_ARCHIVE_DOT_ORG`: [`True`]/`False`
+ - `RESOLUTION`: [`1440,900`]/`1024,768`/`...`
+ - `ARCHIVE_PERMISSIONS`: [`755`]/`644`/`...`
+ - `CHROME_BINARY`: [`chromium-browser`]/`/usr/local/bin/chromium-browser`/`...`
+ - `WGET_BINARY`: [`wget`]/`/usr/local/bin/wget`/`...`
+
+ (See defaults & more at the top of `archive.py`)
+
 You can also tweak the outputted html index in `index_template.html`.  It just uses python
 format strings (not a proper templating engine like jinja2), which is why the CSS is double-bracketed `{{...}}`.
 
-**Estimated Runtime:** I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
+**Estimated Runtime:** 
+
+I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
 Those numbers are from running it single-threaded on my i5 machine with 50mbps down.  YMMV.  Users have also reported
 running it with 50k+ bookmarks with success (though it will take more RAM while running).
 
