@@ -39,6 +39,8 @@ cd bookmark-archiver/
 
 You can open `service/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
 
+If you have any trouble, see the [Troubleshooting](#Troubleshooting) section at the bottom.
+
 ## Manual Setup
 
 If you don't like `sudo` running random setup scripts off the internet (which you shouldn't), you can follow these manual setup instructions:
@@ -50,8 +52,8 @@ If you don't like `sudo` running random setup scripts off the internet (which yo
 brew cask install chromium  # If you already have Google Chrome/Chromium in /Applications/, skip this command
 brew install wget python3
 
-echo -e '#!/bin/bash\n/Applications/Chromium.app/Contents/MacOS/Chromium "$@"' > /usr/local/bin/chromium  # see instructions for google-chrome below
-chmod +x /usr/local/bin/chromium
+echo -e '#!/bin/bash\n/Applications/Chromium.app/Contents/MacOS/Chromium "$@"' > /usr/local/bin/chromium-browser  # see instructions for google-chrome below
+chmod +x /usr/local/bin/chromium-browser
 ```
 
 ```bash
@@ -61,7 +63,7 @@ apt install chromium-browser python3 wget
 
 ```bash
 # Check that everything worked:
-chromium --version && which wget && which python3 && which curl && echo "[√] All dependencies installed."
+chromium-browser --version && which wget && which python3 && which curl && echo "[√] All dependencies installed."
 ```
 
 **2. Get your bookmark export file:**
@@ -76,34 +78,7 @@ Follow the instruction links above in the "Quickstart" section to download your 
 
 You may optionally specify a third argument to `archive.py export.html [pocket|pinboard|bookmarks]` to enforce the use of a specific link parser.
 
-### Google Chrome Instrutions:
-
-I recommend Chromium instead of Google Chrome, since it's open source and doesn't send your data to Google.
-Chromium may have some issues rendering some sites though, so you're welcome to try Google-chrome instead.
-It's also easier to use Google Chrome if you already have it installed, rather than downloading Chromium all over.
-
-```bash
-# On Mac:
-# If you already have Google Chrome in /Applications/, skip this brew command
-brew cask install google-chrome
-brew install wget python3
-
-echo -e '#!/bin/bash\n/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome "$@"' > /usr/local/bin/google-chrome
-chmod +x /usr/local/bin/google-chrome
-```
-
-```bash
-# On Linux:
-wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
-apt update; apt install google-chrome-beta python3 wget
-```
-
-2. Set the environment variable `CHROME_BINARY` to `google-chrome` before running:
-
-```bash
-env CHROME_BINARY=google-chrome ./archive.py ~/Downloads/bookmarks_export.html
-```
+If you have any trouble, see the [Troubleshooting](#Troubleshooting) section at the bottom.
 
 ## Details
 
@@ -126,18 +101,6 @@ format strings (not a proper templating engine like jinja2), which is why the CS
 **Estimated Runtime:** I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
 Those numbers are from running it single-threaded on my i5 machine with 50mbps down.  YMMV.  Users have also reported
 running it with 50k+ bookmarks with success (though it will take more RAM while running).
-
-**Troubleshooting:**
-
-On some Linux distributions the python3 package might not be recent enough.
-If this is the case for you, resort to installing a recent enough version manually.
-```bash
-add-apt-repository ppa:fkrull/deadsnakes && apt update && apt install python3.6
-```
-If you still need help, [the official Python docs](https://docs.python.org/3.6/using/unix.html) are a good place to start.
-
-To switch from Google Chrome to chromium, change the `CHROME_BINARY` variable at the top of `archive.py`.
-If you're missing `wget` or `curl`, simply install them using `apt` or your package manager of choice.
 
 ## Publishing Your Archive
 
@@ -183,6 +146,78 @@ the content on your domain.
 
 Be aware that some sites you archive may not allow you to rehost their content publicly for copyright reasons,
 it's up to you to host responsibly and respond to takedown requests appropriately.
+
+### Google Chrome Instrutions:
+
+I recommend Chromium instead of Google Chrome, since it's open source and doesn't send your data to Google.
+Chromium may have some issues rendering some sites though, so you're welcome to try Google-chrome instead.
+It's also easier to use Google Chrome if you already have it installed, rather than downloading Chromium all over.
+
+```bash
+# On Mac:
+# If you already have Google Chrome in /Applications/, skip this brew command
+brew cask install google-chrome
+brew install wget python3
+
+echo -e '#!/bin/bash\n/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome "$@"' > /usr/local/bin/google-chrome
+chmod +x /usr/local/bin/google-chrome
+```
+
+```bash
+# On Linux:
+wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+apt update; apt install google-chrome-beta python3 wget
+```
+
+2. Set the environment variable `CHROME_BINARY` to `google-chrome` before running:
+
+```bash
+env CHROME_BINARY=google-chrome ./archive.py ~/Downloads/bookmarks_export.html
+```
+
+## Troubleshooting
+
+### Dependencies
+
+**Python:**
+
+On some Linux distributions the python3 package might not be recent enough.
+If this is the case for you, resort to installing a recent enough version manually.
+```bash
+add-apt-repository ppa:fkrull/deadsnakes && apt update && apt install python3.6
+```
+If you still need help, [the official Python docs](https://docs.python.org/3.6/using/unix.html) are a good place to start.
+
+**Chromium/Google Chrome:**
+
+`archive.py` depends on being able to access a `chromium-browser`/`google-chrome` executable.  The executable used
+defaults to `chromium-browser` but can be manually specified with the environment variable `CHROME_BINARY`:
+```bash
+env CHROME_BINARY=/usr/local/bin/chromium-browser ./archive.py ~/Downloads/bookmarks_export.html
+```
+
+1. Test to make sure you have Chrome on your `$PATH` with:
+```bash
+which chromium-browser || which google-chrome
+```
+If no executable is displayed, follow the setup instructions to install and link one of them.
+
+2. If a path is displayed, the next step is to check that it's runnable:
+```bash
+chromium-browser --version || google-chrome --version
+```
+If no version is displayed, try the setup instructions again, or confirm that you have permission to access chrome.
+
+3. If a version is displayed and it's `>=59`, make sure `archive.py` is running the right one:
+```bash
+env CHROME_BINARY=/path/from/step/1/chromium-browser ./archive.py bookmarks_export.html   # replace the path with the one you got from step 1
+```
+
+**Wget & Curl:**
+
+If you're missing `wget` or `curl`, simply install them using `apt` or your package manager of choice.
+See the "Manual Setup" instructions for more details.
 
 ## TODO
 
