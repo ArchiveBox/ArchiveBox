@@ -15,11 +15,37 @@ NEW: Also submits each link to save on archive.org!
 
 ## Quickstart
 
+**1. Get your bookmarks:**
+
+Follow the links here to find instructions for each exporting bookmarks from each service.
+
+ - [Pocket](https://getpocket.com/export)
+ - [Pinboard](https://pinboard.in/export/)
+ - [Instapaper](https://www.instapaper.com/user/export)
+ - [Shaarli](http://sebsauvage.net/wiki/lib/exe/fetch.php?media=php:php_shaarli:shaarli_cap16_dragbutton.png)
+ - [Unmark.it](http://help.unmark.it/import-export)
+ - [Chrome Bookmarks](https://support.google.com/chrome/answer/96816?hl=en)
+ - [Firefox Bookmarks](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer)
+ - [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png)
+ - [Opera Bookmarks](http://help.opera.com/Windows/12.10/en/importexport.html)
+ - [Internet Explorer Bookmarks](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows)
+
+ (If any of these links are broken, please submit an issue and I'll fix it)
+
+**2. Create your archive:**
+
 ```bash
-./archive.py bookmark_export.html
+git clone https://github.com/pirate/bookmark-archiver
+cd bookmark-archiver/
+sudo setup.sh
+./archive.py ~/Downloads/bookmark_export.html   # replace this path with the path to your bookmarks export file
 ```
 
-`archive.py` is a script that takes a [Pocket-format](https://getpocket.com/export), [Pinboard-format](https://pinboard.in/export/), or [Netscape-format](https://msdn.microsoft.com/en-us/library/aa753582(v=vs.85).aspx) bookmark export file, and turns it into a browsable archive that you can store locally or host online.
+You can open `service/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
+
+## Manual Setup
+
+If you don't like `sudo` running random setup scripts off the internet (which you shouldn't), you can follow these manual setup instructions:
 
 **1. Install dependencies:** `chromium >= 59`,` wget >= 1.16`, `python3 >= 3.5`  (google-chrome >= v59 also works well, no need to install chromium if you already have Google Chrome installed)
 
@@ -38,16 +64,23 @@ apt update; apt install google-chrome-beta python3 wget
 google-chrome --version && which wget && which python3 && echo "[√] All dependencies installed."
 ```
 
-**2. Run the archive script:**
+**2. Get your bookmark export file:**
 
-1. Get your HTML export file from [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Instapaper](https://www.instapaper.com/user/export), [Shaarli](http://sebsauvage.net/wiki/lib/exe/fetch.php?media=php:php_shaarli:shaarli_cap16_dragbutton.png), [Unmark.it](http://help.unmark.it/import-export), [Chrome Bookmarks](https://support.google.com/chrome/answer/96816?hl=en), [Firefox Bookmarks](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png), [Opera Bookmarks](http://help.opera.com/Windows/12.10/en/importexport.html), [Internet Explorer Bookmarks](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows)
-2. Clone this repo `git clone https://github.com/pirate/bookmark-archiver`
+Follow the instruction links above in the "Quickstart" section to download your bookmarks export file.
+
+**3. Run the archive script:**
+
+1. Clone this repo `git clone https://github.com/pirate/bookmark-archiver`
 3. `cd bookmark-archiver/`
 4. `./archive.py ~/Downloads/bookmarks_export.html`
 
+`archive.py` is a script that takes a [Pocket-format](https://getpocket.com/export), [Pinboard-format](https://pinboard.in/export/), or [Netscape-format](https://msdn.microsoft.com/en-us/library/aa753582(v=vs.85).aspx) bookmark export file, and turns it into a browsable archive that you can store locally or host online.
+
 You may optionally specify a third argument to `archive.py export.html [pocket|pinboard|bookmarks]` to enforce the use of a specific link parser.
 
-It produces a folder like `pocket/` containing an `index.html`, and archived copies of all the sites,
+## Details
+
+The archiver produces a folder like `pocket/` containing an `index.html`, and archived copies of all the sites,
 organized by starred timestamp.  For each sites it saves:
 
  - wget of site, e.g. `en.wikipedia.org/wiki/Example.html` with .html appended if not present
@@ -74,14 +107,6 @@ If you still need help, [the official Python docs](https://docs.python.org/3.6/u
 
 To switch from Google Chrome to chromium, change the `CHROME_BINARY` variable at the top of `archive.py`.
 If you're missing `wget` or `curl`, simply install them using `apt` or your package manager of choice.
-
-**Live Updating:** (coming soon... maybe...)
-
-It's possible to pull links via the pocket API or public pocket RSS feeds instead of downloading an html export.
-Once I write a script to do that, we can stick this in `cron` and have it auto-update on it's own.
-
-For now you just have to download `ril_export.html` and run `archive.py` each time it updates. The script
-will run fast subsequent times because it only downloads new links that haven't been archived already.
 
 ## Publishing Your Archive
 
@@ -139,6 +164,14 @@ it's up to you to host responsibly and respond to takedown requests appropriatel
  - feature image extraction
  - http support (from my https-only domain)
  - try wgetting dead sites from archive.org (https://github.com/hartator/wayback-machine-downloader)
+
+**Live Updating:** (coming soon... maybe...)
+
+It's possible to pull links via the pocket API or public pocket RSS feeds instead of downloading an html export.
+Once I write a script to do that, we can stick this in `cron` and have it auto-update on it's own.
+
+For now you just have to download `ril_export.html` and run `archive.py` each time it updates. The script
+will run fast subsequent times because it only downloads new links that haven't been archived already.
 
 ## Links
 
