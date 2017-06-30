@@ -39,7 +39,7 @@ cd bookmark-archiver/
 
 You can open `service/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
 
-If you have any trouble, see the [Troubleshooting](#Troubleshooting) section at the bottom.
+If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.
 
 ## Manual Setup
 
@@ -78,7 +78,7 @@ Follow the instruction links above in the "Quickstart" section to download your 
 
 You may optionally specify a third argument to `archive.py export.html [pocket|pinboard|bookmarks]` to enforce the use of a specific link parser.
 
-If you have any trouble, see the [Troubleshooting](#Troubleshooting) section at the bottom.
+If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.
 
 ## Details
 
@@ -95,29 +95,29 @@ For each sites it saves:
  - `output.pdf` Printed PDF of site using headless chrome
  - `archive.org.txt` A link to the saved site on archive.org
 
-**Configuration:**
+**Estimated Runtime:** 
+
+I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
+Those numbers are from running it single-threaded on my i5 machine with 50mbps down.  YMMV.  Users have also reported
+running it with 50k+ bookmarks with success (though it will take more RAM while running).
+
+## Configuration
 
 You can tweak parameters via environment variables, or by editing `archive.py` directly:
 ```bash
 env RESOLUTION=1440,900 FETCH_PDF=False ./archive.py ~/Downloads/bookmarks_export.html
 ```
 
- - `FETCH_WGET`, `FETCH_PDF`, `FETCH_SCREENSHOT`, `FETCH_FAVICON`, `SUBMIT_ARCHIVE_DOT_ORG`: [`True`]/`False`
- - `RESOLUTION`: [`1440,900`]/`1024,768`/`...`
- - `ARCHIVE_PERMISSIONS`: [`755`]/`644`/`...`
- - `CHROME_BINARY`: [`chromium-browser`]/`/usr/local/bin/chromium-browser`/`...`
- - `WGET_BINARY`: [`wget`]/`/usr/local/bin/wget`/`...`
+ - Archive methods: `FETCH_WGET`, `FETCH_PDF`, `FETCH_SCREENSHOT`, `FETCH_FAVICON`, `SUBMIT_ARCHIVE_DOT_ORG` values: [`True`]/`False`
+ - Screenshot: `RESOLUTION` values: [`1440,900`]/`1024,768`/`...`
+ - Outputted Files: `ARCHIVE_PERMISSIONS` values: [`755`]/`644`/`...`
+ - Path to Chrome: `CHROME_BINARY` values: [`chromium-browser`]/`/usr/local/bin/chromium-browser`/`...`
+ - Path to wget: `WGET_BINARY` values: [`wget`]/`/usr/local/bin/wget`/`...`
 
  (See defaults & more at the top of `archive.py`)
 
 You can also tweak the outputted html index in `index_template.html`.  It just uses python
 format strings (not a proper templating engine like jinja2), which is why the CSS is double-bracketed `{{...}}`.
-
-**Estimated Runtime:** 
-
-I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
-Those numbers are from running it single-threaded on my i5 machine with 50mbps down.  YMMV.  Users have also reported
-running it with 50k+ bookmarks with success (though it will take more RAM while running).
 
 ## Publishing Your Archive
 
