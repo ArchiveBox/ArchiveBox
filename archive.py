@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-
-# wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-# sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
-# apt update; apt install google-chrome-beta
+# Bookmark Archiver
+# Nick Sweeting 2017 | MIT License
+# https://github.com/pirate/bookmark-archiver
 
 import re
 import os
 import sys
 import json
-
-from datetime import datetime
 import time
 
+from datetime import datetime
 from subprocess import run, PIPE, DEVNULL
 
+__DESCRIPTION__ = 'Bookmark Archiver: Create a browsable html archive of a list of links.'
+__DOCUMENTATION__ = 'https://github.com/pirate/bookmark-archiver'
 
 ### SETTINGS
 
@@ -25,15 +25,16 @@ INDEX_TEMPLATE = 'index_template.html'
 # for boolean values, check to see if the string is 'true', and
 # if so, the python variable will be True
 
-FETCH_WGET =             os.getenv('FETCH_WGET',             'True'          ).lower() == 'true'
-FETCH_PDF =              os.getenv('FETCH_PDF',              'True'          ).lower() == 'true'
-FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'          ).lower() == 'true'
-RESOLUTION =             os.getenv('RESOLUTION',             '1440,900'      ) # screenshot resolution
-FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'          ).lower() == 'true'
-SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'          ).lower() == 'true'
-ARCHIVE_PERMISSIONS =    os.getenv('ARCHIVE_PERMISSIONS',    '755'          )
-CHROME_BINARY =          os.getenv('CHROME_BINARY',          'google-chrome') # change to chromium browser if using chromium
-WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'         )
+FETCH_WGET =             os.getenv('FETCH_WGET',             'True'             ).lower() == 'true'
+FETCH_PDF =              os.getenv('FETCH_PDF',              'True'             ).lower() == 'true'
+FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'             ).lower() == 'true'
+FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'
+SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             ).lower() == 'true'
+RESOLUTION =             os.getenv('RESOLUTION',             '1440,900'         )
+ARCHIVE_PERMISSIONS =    os.getenv('ARCHIVE_PERMISSIONS',    '755'              )
+CHROME_BINARY =          os.getenv('CHROME_BINARY',          'chromium-browser' )  # change to google-chrome browser if using google-chrome
+WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             )
+
 
 def check_dependencies():
     print('[*] Checking Dependencies:')
@@ -67,6 +68,8 @@ def check_dependencies():
 ### PARSING READER LIST EXPORTS
 
 def get_link_type(link):
+    """Certain types of links need to be handled specially, this figures out when that's the case"""
+
     if link['base_url'].endswith('.pdf'):
         return 'PDF'
     elif link['base_url'].rsplit('.', 1) in ('pdf', 'png', 'jpg', 'jpeg', 'svg', 'bmp', 'gif', 'tiff', 'webp'):
@@ -78,6 +81,8 @@ def get_link_type(link):
     return None
 
 def parse_pocket_export(html_file):
+    """Parse Pocket-format bookmarks export files (produced by getpocket.com/export/)"""
+
     html_file.seek(0)
     pattern = re.compile("^\\s*<li><a href=\"(.+)\" time_added=\"(\\d+)\" tags=\"(.*)\">(.+)</a></li>", re.UNICODE)   # see sample input in ./example_ril_export.html
     for line in html_file:
@@ -98,7 +103,7 @@ def parse_pocket_export(html_file):
             yield info
 
 def parse_json_export(json_file):
-    """pinboard exports are json"""
+    """Parse JSON-format bookmarks export files (produced by pinboard.in/export/)"""
 
     json_file.seek(0)
     json_content = json.load(json_file)
@@ -118,6 +123,8 @@ def parse_json_export(json_file):
             yield info
 
 def parse_bookmarks_export(html_file):
+    """Parse netscape-format bookmarks export files (produced by all browsers)"""
+
     html_file.seek(0)
     pattern = re.compile("<a href=\"(.+?)\" add_date=\"(\\d+)\"[^>]*>(.+)</a>", re.UNICODE | re.IGNORECASE)
     for line in html_file:
@@ -144,7 +151,8 @@ def parse_bookmarks_export(html_file):
 ### ACHIVING FUNCTIONS
 
 def fetch_wget(out_dir, link, overwrite=False):
-    # download full site
+    """download full site using wget"""
+
     domain = link['base_url'].split('/', 1)[0]
     if not os.path.exists('{}/{}'.format(out_dir, domain)) or overwrite:
         print('    - Downloading Full Site')
@@ -160,7 +168,8 @@ def fetch_wget(out_dir, link, overwrite=False):
         print('    √ Skipping site download')
 
 def fetch_pdf(out_dir, link, overwrite=False):
-    # download PDF
+    """print PDF of site to file using chrome --headless"""
+
     if (not os.path.exists('{}/output.pdf'.format(out_dir)) or overwrite) and link['type'] not in ('PDF', 'image'):
         print('    - Printing PDF')
         chrome_args = '--headless --disable-gpu --print-to-pdf'.split(' ')
@@ -174,7 +183,8 @@ def fetch_pdf(out_dir, link, overwrite=False):
         print('    √ Skipping PDF print')
 
 def fetch_screenshot(out_dir, link, overwrite=False):
-    # take screenshot
+    """take screenshot of site using chrome --headless"""
+
     if (not os.path.exists('{}/screenshot.png'.format(out_dir)) or overwrite) and link['type'] not in ('PDF', 'image'):
         print('    - Snapping Screenshot')
         chrome_args = '--headless --disable-gpu --screenshot'.split(' ')
@@ -188,7 +198,7 @@ def fetch_screenshot(out_dir, link, overwrite=False):
         print('    √ Skipping screenshot')
 
 def archive_dot_org(out_dir, link, overwrite=False):
-    # submit to archive.org
+    """submit site to archive.org for archiving via their service, save returned archive url"""
     if (not os.path.exists('{}/archive.org.txt'.format(out_dir)) or overwrite):
         print('    - Submitting to archive.org')
         submit_url = 'https://web.archive.org/save/{}'.format(link['url'].split('?', 1)[0])
@@ -215,7 +225,8 @@ def archive_dot_org(out_dir, link, overwrite=False):
         print('    √ Skipping archive.org')
 
 def fetch_favicon(out_dir, link, overwrite=False):
-    # download favicon
+    """download site favicon from google's favicon api"""
+
     if not os.path.exists('{}/favicon.ico'.format(out_dir)) or overwrite:
         print('    - Fetching Favicon')
         CMD = 'curl https://www.google.com/s2/favicons?domain={domain}'.format(**link).split(' ')
@@ -232,7 +243,7 @@ def fetch_favicon(out_dir, link, overwrite=False):
 ### ORCHESTRATION
 
 def next_uniq_timestamp(used_timestamps, timestamp):
-    """resolve duplicate timestamps by appending a decimal"""
+    """resolve duplicate timestamps by appending a decimal 1234, 1234 -> 1234.1, 1234.2"""
 
     if timestamp not in used_timestamps:
         return timestamp
@@ -255,7 +266,8 @@ def uniquefied_links(links):
     """uniqueify link timestamps by de-duping using url, returns links sorted most recent -> oldest
 
     needed because firefox will produce exports where many links share the same timestamp, this func
-    ensures that all non-duplicate links have monotonically increasing timestamps"""
+    ensures that all non-duplicate links have monotonically increasing timestamps
+    """
 
     links = list(reversed(sorted(links, key=lambda l: (l['timestamp'], l['url']))))
     seen_timestamps = {}
@@ -274,13 +286,17 @@ def uniquefied_links(links):
     return links
 
 def valid_links(links):
+    """remove chrome://, about:// or other schemed links that cant be archived"""
     return (link for link in links if link['url'].startswith('http') or link['url'].startswith('ftp'))
 
 
 def dump_index(links, service):
+    """create index.html file for a given list of links and service"""
+
     with open(INDEX_TEMPLATE, 'r') as f:
         index_html = f.read()
 
+    # TODO: refactor this out into index_template.html
     link_html = """\
     <tr>
         <td>{time}</td>
@@ -299,9 +315,11 @@ def dump_index(links, service):
         # since we dont screenshot or PDF links that are images or PDFs, change those links to point to the wget'ed file
         link_info = {**link}
 
+        # add link type to title
         if link['type']:
             link_info.update({'title': '{title} ({type})'.format(**link)})
 
+        # PDF and images link to wgetted version, since we dont re-screenshot/pdf them
         if link['type'] in ('PDF', 'image'):
             link_info.update({
                 'pdf_link': 'archive/{timestamp}/{base_url}'.format(**link),
@@ -314,11 +332,15 @@ def dump_index(links, service):
             })
         return link_info
 
+    article_rows = '\n'.join(
+        link_html.format(**get_template_vars(link)) for link in links
+    )
+
+    template_vars = (datetime.now().strftime('%Y-%m-%d %H:%M'), article_rows)
+
     with open(''.join((service, '/index.html')), 'w') as f:
-        article_rows = '\n'.join(
-            link_html.format(**get_template_vars(link)) for link in links
-        )
-        f.write(index_html.format(datetime.now().strftime('%Y-%m-%d %H:%M'), article_rows))
+        f.write(index_html.format(*template_vars))
+
 
 def dump_website(link, service, overwrite=False):
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
@@ -334,7 +356,7 @@ def dump_website(link, service, overwrite=False):
     if link['type']:
         print('    i Type: {}'.format(link['type']))
 
-    if not link['url'].startswith('http'):
+    if not (link['url'].startswith('http') or link['url'].startswith('ftp')):
         print('    X Skipping: invalid link.')
         return
 
@@ -353,10 +375,17 @@ def dump_website(link, service, overwrite=False):
     if FETCH_FAVICON:
         fetch_favicon(out_dir, link, overwrite=overwrite)
 
-def create_archive(export_file, service=None, resume=None):
-    with open(export_file, 'r', encoding='utf-8') as f:
-        print('[+] [{}] Starting archive from {} export file.'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), export_file))
 
+def create_archive(export_file, service=None, resume=None):
+    """update or create index.html and download archive of all links"""
+
+    with open(export_file, 'r', encoding='utf-8') as f:
+        print('[+] [{}] Starting archive from {} export file.'.format(
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            export_file
+        ))
+
+        # if specific service was passed via command line
         if service == "pocket":
             links = parse_pocket_export(f)
         elif service == "pinboard":
@@ -364,7 +393,7 @@ def create_archive(export_file, service=None, resume=None):
         elif service == "bookmarks":
             links = parse_bookmarks_export(f)
         else:
-            # try all parsers until one works
+            # otherwise try all parsers until one works
             try:
                 links = list(parse_json_export(f))
                 service = 'pinboard'
@@ -378,9 +407,14 @@ def create_archive(export_file, service=None, resume=None):
 
         links = valid_links(links)              # remove chrome://, about:, mailto: etc.
         links = uniquefied_links(links)         # fix duplicate timestamps, returns sorted list
+
         if resume:
             try:
-                links = [link for link in links if float(link['timestamp']) >= float(resume)]
+                links = [
+                    link
+                    for link in links
+                    if float(link['timestamp']) >= float(resume)
+                ]
             except TypeError:
                 print('Resume value and all timestamp values must be valid numbers.')
 
@@ -398,21 +432,34 @@ def create_archive(export_file, service=None, resume=None):
 
     run(['chmod', '-R', ARCHIVE_PERMISSIONS, service], timeout=30)
 
-    print('[*] [{}] Created archive index with {} links.'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'), len(links)))
+    print('[*] [{}] Created archive index with {} links.'.format(
+        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        len(links),
+    ))
 
     check_dependencies()
 
     for link in links:
         dump_website(link, service)
 
-    print('[√] [{}] Archive complete.'.format(datetime.now()))
+    print('[√] [{}] Archive update complete.'.format(datetime.now()))
 
 
 
 if __name__ == '__main__':
     argc = len(sys.argv)
-    export_file = sys.argv[1] if argc > 1 else "ril_export.html"        # path to export file
-    export_type = sys.argv[2] if argc > 2 else None                 # select export_type for file format select
-    resume_from = sys.argv[3] if argc > 3 else None                     # timestamp to resume dowloading from
 
-    create_archive(export_file, export_type, resume=resume_from)
+    if argc < 2 or sys.argv[1] in ('-h', '--help', 'help'):
+        print(__DESCRIPTION__)
+        print("Documentation:     {}".format(__DOCUMENTATION__))
+        print("")
+        print("Usage:")
+        print("    ./archive.py ~/Downloads/bookmarks_export.html")
+        print("")
+        raise SystemExit(0)
+
+    export_file = sys.argv[1]                                       # path to export file
+    export_type = sys.argv[2] if argc > 2 else None                 # select export_type for file format select
+    resume_from = sys.argv[3] if argc > 3 else None                 # timestamp to resume dowloading from
+
+    create_archive(export_file, service=export_type, resume=resume_from)

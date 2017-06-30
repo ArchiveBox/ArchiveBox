@@ -1,7 +1,7 @@
 #!/bin/bash
 # Bookmark Archiver Setup Script
 # Nick Sweeting 2017 | MIT License
-# https://github.com/pirate/bookmark-archiver/issues
+# https://github.com/pirate/bookmark-archiver
 
 echo "[i] Installing bookmark-archiver dependencies. 📦"
 echo ""
