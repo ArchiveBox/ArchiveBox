@@ -74,8 +74,6 @@ Follow the instruction links above in the "Quickstart" section to download your 
 3. `cd bookmark-archiver/`
 4. `./archive.py ~/Downloads/bookmarks_export.html`
 
-`archive.py` is a script that takes a [Pocket-format](https://getpocket.com/export), [Pinboard-format](https://pinboard.in/export/), or [Netscape-format](https://msdn.microsoft.com/en-us/library/aa753582(v=vs.85).aspx) bookmark export file, and turns it into a browsable archive that you can store locally or host online.
-
 You may optionally specify a third argument to `archive.py export.html [pocket|pinboard|bookmarks]` to enforce the use of a specific link parser.
 
 ### Google Chrome Instrutions:
@@ -108,6 +106,8 @@ env CHROME_BINARY=google-chrome ./archive.py ~/Downloads/bookmarks_export.html
 ```
 
 ## Details
+
+`archive.py` is a script that takes a [Pocket-format](https://getpocket.com/export), [Pinboard-format](https://pinboard.in/export/), or [Netscape-format](https://msdn.microsoft.com/en-us/library/aa753582(v=vs.85).aspx) bookmark export file, and turns it into a browsable archive that you can store locally or host online.
 
 The archiver produces a folder like `pocket/` containing an `index.html`, and archived copies of all the sites,
 organized by starred timestamp.  It's Powered by the [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Chromium and good 'ol `wget`.
