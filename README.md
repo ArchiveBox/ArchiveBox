@@ -299,3 +299,15 @@ will run fast subsequent times because it only downloads new links that haven't 
  - https://webrecorder.io/
  - https://github.com/ikreymer/webarchiveplayer#auto-load-warcs
  - [Shaarchiver](https://github.com/nodiscc/shaarchiver) very similar project that archives Firefox, Shaarli, or Delicious bookmarks and all linked media, generating a markdown/HTML index
+
+## Changelog
+
+ - added setup.sh script & docstrings & help commands
+ - made Chromium the default instead of Google Chrome (yay free software)
+ - added [env-variable](https://github.com/pirate/bookmark-archiver/pull/25) configuration (thanks to https://github.com/hannah98!)
+ - renamed from **Pocket Archive Stream** -> **Bookmark Archiver**
+ - added [Netscape-format](https://github.com/pirate/bookmark-archiver/pull/20) export support (thanks to https://github.com/ilvar!)
+ - added [pinboard-format](https://github.com/pirate/bookmark-archiver/pull/7) export support (thanks to https://github.com/sconeyard!)
+ - front-page of HN
+ - added pocket-format export support
+ - created Pocket Archive Stream 2017/05/05
