@@ -22,10 +22,9 @@ if which apt-get > /dev/null; then
     echo "[+] Updating apt repos..."
     apt update -q
     if which google-chrome; then
-        echo "[i] google-chrome already installed, using existing installation."
-        echo "[i[ You already have google-chrome installed, if you dont' want to use it, press Ctrl+C and follow the Manual Setup instructions"
-        echo "[+] Linking $(which google-chrome) -> /usr/bin/chromium-browser (press Ctrl+C to cancel in the next 3 sec...)"
-        sleep 3
+        echo "[i] You already have google-chrome installed, if you would like to download chromium-browser instead (they work pretty much the same), follow the Manual Setup instructions"
+        echo "[+] Linking $(which google-chrome) -> /usr/bin/chromium-browser (press enter to continue, or Ctrl+C to cancel...)"
+        read
         sudo ln -s "$(which google-chrome)" /usr/bin/chromium-browser
     elif which chromium-browser; then
         echo "[i] chromium-browser already installed, using existing installation."
@@ -37,7 +36,7 @@ if which apt-get > /dev/null; then
     apt install python3 wget curl
 
 # On Mac:
-elif which brew > /dev/null; then
+elif which brew > /dev/null; then   # 🐍 eye of newt
     if ls /Applications/Google\ Chrome.app > /dev/null; then
         echo "[+] Linking /usr/local/bin/google-chrome -> /Applications/Google Chrome.app"
         echo -e '#!/bin/bash\n/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome "$@"' > /usr/local/bin/chromium-browser
