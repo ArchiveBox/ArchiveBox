@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "[i] Installing bookmark-archiver dependencies.  This script may ask for your password in order to install the following:"
-echo "    - Chromium Browser   (see README for Chromium instructions)"
+echo "    - Google Chrome   (see README for Chromium instructions, yay open source)"
 echo "    - python3"
 echo "    - wget"
 echo "    - curl"
