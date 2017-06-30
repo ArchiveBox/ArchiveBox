@@ -13,7 +13,7 @@ Outputs browsable html archives of each site, a PDF, a screenshot, and a link to
 
 **1. Get your bookmarks:**
 
-Follow the links here to find instructions for each exporting bookmarks from each service.
+Follow the links here to find instructions for exporting bookmarks from each service.
 
  - [Pocket](https://getpocket.com/export)
  - [Pinboard](https://pinboard.in/export/)
@@ -141,14 +141,14 @@ Make sure you're not running any content as CGI or PHP, you only want to serve s
 
 Urls look like: `https://sweeting.me/archive/archive/1493350273/en.wikipedia.org/wiki/Dining_philosophers_problem`
 
-**Security WARNING & Content Disclaimer:**
+**Security WARNING & Content Disclaimer**
 
-Hosting other people's site content has security implications for your domain, make sure you understand
-the dangers of hosting other people's CSS & JS files [on your domain](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy).  It's best to put this on a domain
+Hosting other people's site content has security implications for other sites on the same domain, make sure you understand
+the dangers of hosting other people's CSS & JS files [on a shared domain](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy).  It's best to put this on a domain/subdomain
 of its own to slightly mitigate [CSRF attacks](https://en.wikipedia.org/wiki/Cross-site_request_forgery).
 
-You may also want to blacklist your archive in your `/robots.txt` so that search engines dont index
-the content on your domain.
+You may also want to blacklist your archive in `/robots.txt` if you don't want to be publicly assosciated
+with all the links you archive via search engine results.
 
 Be aware that some sites you archive may not allow you to rehost their content publicly for copyright reasons,
 it's up to you to host responsibly and respond to takedown requests appropriately.
