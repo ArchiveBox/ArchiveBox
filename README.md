@@ -78,7 +78,7 @@ Follow the instruction links above in the "Quickstart" section to download your 
 
 You may optionally specify a third argument to `archive.py export.html [pocket|pinboard|bookmarks]` to enforce the use of a specific link parser.
 
-**Google Chrome Instrutions:**
+### Google Chrome Instrutions:
 
 I recommend Chromium instead of Google Chrome, since it's open source and doesn't send your data to Google.
 Chromium may have some issues rendering some sites though, so you're welcome to try Google-chrome instead.
