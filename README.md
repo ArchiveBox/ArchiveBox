@@ -43,10 +43,11 @@ If you have any trouble, see the [Troubleshooting](#troubleshooting) section at 
 
 ## Manual Setup
 
-If you don't like `sudo` running random setup scripts off the internet (which you shouldn't), you can follow these manual setup instructions:
+If you don't like `sudo` running random setup scripts off the internet (which you shouldn't), you can follow these manual setup instructions.
 
-**1. Install dependencies:** `chromium >= 59`,` wget >= 1.16`, `python3 >= 3.5`  (google-chrome >= v59 also works well, no need to install chromium if you already have Google Chrome installed)
+**1. Install dependencies:** `chromium >= 59`,` wget >= 1.16`, `python3 >= 3.5`  (google-chrome >= v59 also works well)
 
+If you already have Google Chrome installed, or wish to use that instead of Chromium, follow the [Google Chrome Instructions](#google-chrome-instructions).
 ```bash
 # On Mac:
 brew cask install chromium  # If you already have Google Chrome/Chromium in /Applications/, skip this command
@@ -140,7 +141,7 @@ Make sure you're not running any content as CGI or PHP, you only want to serve s
 
 Urls look like: `https://sweeting.me/archive/archive/1493350273/en.wikipedia.org/wiki/Dining_philosophers_problem`
 
-## Info
+## Info & Motivation
 
 This is basically an open-source version of [Pocket Premium](https://getpocket.com/premium) (which you should consider paying for!).
 I got tired of sites I saved going offline or changing their URLS, so I started
@@ -164,7 +165,7 @@ the content on your domain.
 Be aware that some sites you archive may not allow you to rehost their content publicly for copyright reasons,
 it's up to you to host responsibly and respond to takedown requests appropriately.
 
-## Google Chrome Instrutions:
+## Google Chrome Instructions:
 
 I recommend Chromium instead of Google Chrome, since it's open source and doesn't send your data to Google.
 Chromium may have some issues rendering some sites though, so you're welcome to try Google-chrome instead.
@@ -192,6 +193,7 @@ apt update; apt install google-chrome-beta python3 wget
 ```bash
 env CHROME_BINARY=google-chrome ./archive.py ~/Downloads/bookmarks_export.html
 ```
+If you're having any trouble trying to set up Google Chrome or Chromium, see the Troubleshooting section below.
 
 ## Troubleshooting
 
@@ -235,6 +237,33 @@ env CHROME_BINARY=/path/from/step/1/chromium-browser ./archive.py bookmarks_expo
 
 If you're missing `wget` or `curl`, simply install them using `apt` or your package manager of choice.
 See the "Manual Setup" instructions for more details.
+
+### Archiving
+
+**Lots of skipped sites:**
+
+If you ran the archiver once, it wont re-download sites subsequent times, it will only download new links.
+If you haven't already run it, make sure you have a working internet connection and that the parsed URLs look correct.
+You can check the `archive.py` output or `index.html` to see what links it's downloading.
+
+If you're still having issues, try deleting or moving the `service/archive` folder and running `archive.py` again.
+
+**Lots of errors:**
+
+Make sure you have all the dependencies installed and that you're able to visit the links from your browser normally.
+Open an [issue](https://github.com/pirate/bookmark-archiver/issues) with a description of the errors if you're still having problems.
+
+**Lots of broken links from the index:**
+
+Not all sites can be effectively archived with each method, that's why it's best to use a combination of `wget`, PDFs, and screenshots.
+If it seems like more than 10-20% of sites in the archive are broken, open an [issue](https://github.com/pirate/bookmark-archiver/issues)
+with some of the URLs that failed to be archived and I'll investigate.
+
+### Hosting the Archive
+
+If you're having issues trying to host the archive via nginx, make sure you already have nginx running with SSL.
+If you don't, google around, there are plenty of tutorials to help get that set up.  Open an [issue](https://github.com/pirate/bookmark-archiver/issues)
+if you have problem with a particular nginx config.
 
 ## TODO
 
