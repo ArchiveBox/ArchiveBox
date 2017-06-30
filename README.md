@@ -164,7 +164,7 @@ the content on your domain.
 Be aware that some sites you archive may not allow you to rehost their content publicly for copyright reasons,
 it's up to you to host responsibly and respond to takedown requests appropriately.
 
-### Google Chrome Instrutions:
+## Google Chrome Instrutions:
 
 I recommend Chromium instead of Google Chrome, since it's open source and doesn't send your data to Google.
 Chromium may have some issues rendering some sites though, so you're welcome to try Google-chrome instead.
