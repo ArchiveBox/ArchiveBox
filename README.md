@@ -8,8 +8,9 @@
 
 (Your own personal Way-Back Machine) [DEMO: sweeting.me/pocket](https://home.sweeting.me/pocket)
 
-Save an archived copy of all websites you star.
-Outputs browsable html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.
+Save an archived copy of all websites you star (the actual *content* of the sites, not just the list of bookmarks).
+
+Outputs browsable static html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.
 
 ![](screenshot.png)
 
@@ -88,18 +89,20 @@ format strings (not a proper templating engine like jinja2), which is why the CS
 
 ## Publishing Your Archive
 
-The archive is suitable for serving on your personal server, you can upload the
-archive to `/var/www/pocket` and allow people to access your saved copies of sites.
+The archive produced by `./archive.py` is suitable for serving on any provider that 
+can host static html (e.g. github pages!).
 
+You can also serve it from a home server or VPS by uploading the archive folder 
+to your web directory, e.g. `/var/www/pocket` and configuring your webserver.
 
-Just stick this in your nginx config to properly serve the wget-archived sites:
+Here's a sample nginx configuration that works to serve archive folders:
 
 ```nginx
 location /pocket/ {
     alias       /var/www/pocket/;
-    index       index.html;
-    autoindex   on;
-    try_files   $uri $uri/ $uri.html =404;
+    index       index.html;                 # show the main index.html by default
+    autoindex   on;                         # allow people to see a directory listing when clicking on "the Files" links
+    try_files   $uri $uri/ $uri.html =404;  # append .html to links before 404ing in order to reach sites that wget appended .html to
 }
 ```
 
