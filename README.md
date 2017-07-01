@@ -63,17 +63,25 @@ For each sites it saves:
  - `output.pdf` Printed PDF of site using headless chrome
  - `archive.org.txt` A link to the saved site on archive.org
 
-**Estimated Runtime:** 
+**Large Exports & Estimated Runtime:** 
 
-I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.
-Those numbers are from running it single-threaded on my i5 machine with 50mbps down.  YMMV.  Users have also reported
-running it with 50k+ bookmarks with success (though it will take more RAM while running).
+I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.  
+Those numbers are from running it single-threaded on my i5 machine with 50mbps down.  YMMV.  
+
+You can run it in parallel by using the `resume` feature, or by manually splitting export.html into multiple files:
+```bash
+./archive.py export.html bookmarks 1498800000 &  # third argument is timestamp to resume downloading from
+./archive.py export.html bookmarks 1498810000 &
+./archive.py export.html bookmarks 1498820000 &
+./archive.py export.html bookmarks 1498830000 &
+```
+Users have reported running it with 50k+ bookmarks with success (though it will take more RAM while running).
 
 ## Configuration
 
 You can tweak parameters via environment variables, or by editing `archive.py` directly:
 ```bash
-env RESOLUTION=1440,900 FETCH_PDF=False ./archive.py ~/Downloads/bookmarks_export.html
+env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./archive.py ~/Downloads/bookmarks_export.html
 ```
 
  - Archive methods: `FETCH_WGET`, `FETCH_PDF`, `FETCH_SCREENSHOT`, `FETCH_FAVICON`, `SUBMIT_ARCHIVE_DOT_ORG` values: [`True`]/`False`
