@@ -2,13 +2,11 @@
 
 ▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Changelog](#changelog)
 
-
+Save an archived copy of all websites you star (the actual *content* of the sites, not just the list of bookmarks).
 
 **Supports: Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera), Pocket, Pinboard, Shaarli, Delicious, Instapaper, Unmark.it, and more!**
 
 (Your own personal Way-Back Machine) [DEMO: sweeting.me/pocket](https://home.sweeting.me/pocket)
-
-Save an archived copy of all websites you star (the actual *content* of the sites, not just the list of bookmarks).
 
 Outputs browsable static html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.
 
