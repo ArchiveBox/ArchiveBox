@@ -114,8 +114,8 @@ def parse_json_export(json_file):
                 'url': erg['href'],
                 'domain': erg['href'].replace('http://', '').replace('https://', '').split('/')[0],
                 'base_url': erg['href'].replace('https://', '').replace('http://', '').split('?')[0],
-                'time': datetime.fromtimestamp(time.mktime(time.strptime(erg['time'].split(',')[0], '%Y-%m-%dT%H:%M:%SZ'))),
-                'timestamp': time.mktime(time.strptime(erg['time'].split(',')[0], '%Y-%m-%dT%H:%M:%SZ')),
+                'time': datetime.fromtimestamp(int(time.mktime(time.strptime(erg['time'].split(',')[0], '%Y-%m-%dT%H:%M:%SZ')))),
+                'timestamp': str(int(time.mktime(time.strptime(erg['time'].split(',')[0], '%Y-%m-%dT%H:%M:%SZ')))),
                 'tags': erg['tags'],
                 'title': erg['description'].replace(' — Readability', ''),
             }
