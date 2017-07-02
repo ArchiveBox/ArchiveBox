@@ -253,6 +253,10 @@ env CHROME_BINARY=/path/from/step/1/chromium-browser ./archive.py bookmarks_expo
 If you're missing `wget` or `curl`, simply install them using `apt` or your package manager of choice.
 See the "Manual Setup" instructions for more details.
 
+If wget times out or randomly fails to download some sites that you have confirmed are online,
+upgrade wget to the most recent version with `brew upgrade wget` or `apt upgrade wget`.  There is
+a bug in versions `<=1.19.1_1` that caused wget to fail for perfectly valid sites.
+
 ### Archiving
 
 **No links parsed from export file:**
@@ -284,6 +288,10 @@ with some of the URLs that failed to be archived and I'll investigate.
 If you're having issues trying to host the archive via nginx, make sure you already have nginx running with SSL.
 If you don't, google around, there are plenty of tutorials to help get that set up.  Open an [issue](https://github.com/pirate/bookmark-archiver/issues)
 if you have problem with a particular nginx config.
+
+If you're getting many 404s when trying to visit links from the index, this is caused by `wget` appending `.html`
+to the end of all downloaded content if it doesn't already have it.  I will be correcting the index links to
+account for this soon, but in the meantime use the nginx config above which automatically appends .html to links before 404-ing.
 
 ## TODO
 
