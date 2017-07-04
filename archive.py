@@ -339,7 +339,7 @@ def calculate_archive_url(link):
     else:
         # .html needs to be appended
         without_scheme = split_url[0].split('://', 1)[-1]
-        if url.endswith('/'):
+        if without_scheme.endswith('/'):
             return '#'.join([without_scheme + 'index.html', *split_url[1:]])
         return '#'.join([without_scheme + '.html', *split_url[1:]])
 
