@@ -1,4 +1,6 @@
 import os
+import sys
+
 from subprocess import run, PIPE
 
 # os.getenv('VARIABLE', 'DEFAULT') gets the value of environment
@@ -26,6 +28,13 @@ INDEX_ROW_TEMPLATE =     os.getenv('INDEX_ROW_TEMPLATE',     'templates/index_ro
 
 def check_dependencies():
     print('[*] Checking Dependencies:')
+
+    python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
+    if python_vers < 3.5:
+        print('[X] Python version is not new enough: {} (>3.5 is required)'.format(python_vers))
+        print('    See https://github.com/pirate/bookmark-archiver#troubleshooting for help upgrading your Python installation.')
+        raise SystemExit(1)
+
     if FETCH_PDF or FETCH_SCREENSHOT:
         if run(['which', CHROME_BINARY]).returncode:
             print('[X] Missing dependency: {}'.format(CHROME_BINARY))
