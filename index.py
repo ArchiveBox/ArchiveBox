@@ -19,7 +19,12 @@ def dump_index(links, service):
         link_html.format(**derived_link_info(link)) for link in links
     )
 
-    template_vars = (datetime.now().strftime('%Y-%m-%d %H:%M'), article_rows)
+    template_vars = {
+        'num_links': len(links),
+        'date_updated': datetime.now().strftime('%Y-%m-%d'),
+        'time_updated': datetime.now().strftime('%Y-%m-%d %H:%M'),
+        'rows': article_rows,
+    }
 
     with open(os.path.join(service, 'index.html'), 'w', encoding='utf-8') as f:
-        f.write(index_html.format(*template_vars))
+        f.write(index_html.format(**template_vars))

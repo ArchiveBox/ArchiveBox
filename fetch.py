@@ -32,7 +32,7 @@ def fetch_wget(out_dir, link, overwrite=False, requisites=True, timeout=60):
     """download full site using wget"""
 
     domain = link['base_url'].split('/', 1)[0]
-    if not os.path.exists('{}/{}'.format(out_dir, domain)) or overwrite:
+    if not os.path.exists(os.path.join(out_dir, domain)) or overwrite:
         print('    - Downloading Full Site')
         CMD = [
             *'wget --timestamping --adjust-extension --no-parent'.split(' '),                # Docs: https://www.gnu.org/software/wget/manual/wget.html
@@ -54,7 +54,9 @@ def fetch_wget(out_dir, link, overwrite=False, requisites=True, timeout=60):
 def fetch_pdf(out_dir, link, overwrite=False, timeout=60, chrome_binary='chromium-browser'):
     """print PDF of site to file using chrome --headless"""
 
-    if (not os.path.exists('{}/output.pdf'.format(out_dir)) or overwrite) and link['type'] not in ('PDF', 'image'):
+    path = os.path.join(out_dir, 'output.pdf')
+
+    if (not os.path.exists(path) or overwrite) and link['type'] not in ('PDF', 'image'):
         print('    - Printing PDF')
         CMD = [
             chrome_binary,
@@ -76,7 +78,9 @@ def fetch_pdf(out_dir, link, overwrite=False, timeout=60, chrome_binary='chromiu
 def fetch_screenshot(out_dir, link, overwrite=False, timeout=60, chrome_binary='chromium-browser', resolution='1440,900'):
     """take screenshot of site using chrome --headless"""
 
-    if (not os.path.exists('{}/screenshot.png'.format(out_dir)) or overwrite) and link['type'] not in ('PDF', 'image'):
+    path = os.path.join(out_dir, 'screenshot.png')
+
+    if (not os.path.exists(path) or overwrite) and link['type'] not in ('PDF', 'image'):
         print('    - Snapping Screenshot')
         CMD = [
             chrome_binary,
@@ -98,7 +102,10 @@ def fetch_screenshot(out_dir, link, overwrite=False, timeout=60, chrome_binary='
 
 def archive_dot_org(out_dir, link, overwrite=False, timeout=60):
     """submit site to archive.org for archiving via their service, save returned archive url"""
-    if (not os.path.exists('{}/archive.org.txt'.format(out_dir)) or overwrite):
+
+    path = os.path.join(out_dir, 'archive.org.txt')
+
+    if not os.path.exists(path) or overwrite:
         print('    - Submitting to archive.org')
         submit_url = 'https://web.archive.org/save/{}'.format(link['url'].split('?', 1)[0])
 
@@ -129,7 +136,9 @@ def archive_dot_org(out_dir, link, overwrite=False, timeout=60):
 def fetch_favicon(out_dir, link, overwrite=False, timeout=60):
     """download site favicon from google's favicon api"""
 
-    if not os.path.exists('{}/favicon.ico'.format(out_dir)) or overwrite:
+    path = os.path.join(out_dir, 'favicon.ico')
+
+    if not os.path.exists(path) or overwrite:
         print('    - Fetching Favicon')
         CMD = 'curl https://www.google.com/s2/favicons?domain={domain}'.format(**link).split(' ')
         fout = open('{}/favicon.ico'.format(out_dir), 'w')
@@ -149,7 +158,9 @@ def fetch_audio(out_dir, link, overwrite=False, timeout=60):
     if link['type'] not in ('soundcloud',):
         return
 
-    if (not os.path.exists('{}/audio'.format(out_dir)) or overwrite):
+    path = os.path.join(out_dir, 'audio')
+
+    if not os.path.exists(path) or overwrite:
         print('    - Downloading audio')
         CMD = [
             "youtube-dl -x --audio-format mp3 --audio-quality 0 -o '%(title)s.%(ext)s'",
@@ -173,8 +184,9 @@ def fetch_video(out_dir, link, overwrite=False, timeout=60):
     if link['type'] not in ('youtube', 'youku', 'vimeo'):
         return
 
+    path = os.path.join(out_dir, 'video')
 
-    if (not os.path.exists('{}/video'.format(out_dir)) or overwrite):
+    if not os.path.exists(path) or overwrite:
         print('    - Downloading video')
         CMD = [
             "youtube-dl -x --audio-format mp3 --audio-quality 0 -o '%(title)s.%(ext)s'",

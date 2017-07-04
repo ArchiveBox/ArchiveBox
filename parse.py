@@ -168,8 +168,8 @@ def valid_links(links):
     return (link for link in links if link['url'].startswith('http') or link['url'].startswith('ftp'))
 
 
-def calculate_archive_url(link):
-    """calculate the path to the wgetted html file, since wget may
+def html_appended_url(link):
+    """calculate the path to the wgetted .html file, since wget may
     adjust some paths to be different than the base_url path.
 
     See docs on wget --adjust-extension."""
@@ -190,7 +190,13 @@ def calculate_archive_url(link):
 def derived_link_info(link):
     """extend link info with the archive urls and other derived data"""
 
-    link_info = {**link}
+    link_info = {
+        **link,
+        'files_url': 'archive/{timestamp}/'.format(**link),
+        'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**link),
+        'favicon_url': 'archive/{timestamp}/favicon.ico'.format(**link),
+        'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
+    }
 
     # PDF and images are handled slightly differently
     # wget, screenshot, & pdf urls all point to the same file
@@ -203,7 +209,7 @@ def derived_link_info(link):
         })
     else:
         link_info.update({
-            'archive_url': calculate_archive_url(link),
+            'archive_url': 'archive/{}/{}'.format(link['timestamp'], html_appended_url(link)),
             'pdf_link': 'archive/{timestamp}/output.pdf'.format(**link),
             'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**link)
         })
