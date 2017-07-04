@@ -168,7 +168,7 @@ def fetch_wget(out_dir, link, overwrite=False):
     if not os.path.exists('{}/{}'.format(out_dir, domain)) or overwrite:
         print('    - Downloading Full Site')
         CMD = [
-            *'wget --mirror --adjust-extension --convert-links --no-parent'.split(' '),
+            *'wget --timestamping --adjust-extension --convert-links --no-parent'.split(' '),
             *(('--page-requisites',) if FETCH_WGET_IMAGES else ()),
             link['url'],
         ]
@@ -225,8 +225,9 @@ def archive_dot_org(out_dir, link, overwrite=False):
         submit_url = 'https://web.archive.org/save/{}'.format(link['url'].split('?', 1)[0])
 
         success = False
+        CMD = ['curl', '-I', submit_url]
         try:
-            result = run(['curl', '-I', submit_url], stdout=PIPE, stderr=DEVNULL, cwd=out_dir, timeout=TIMEOUT)  # archive.org
+            result = run(CMD, stdout=PIPE, stderr=DEVNULL, cwd=out_dir, timeout=TIMEOUT)  # archive.org
             headers = result.stdout.splitlines()
             content_location = [h for h in headers if b'Content-Location: ' in h]
             if content_location:
@@ -234,6 +235,7 @@ def archive_dot_org(out_dir, link, overwrite=False):
                 saved_url = 'https://web.archive.org{}'.format(archive_path)
                 success = True
             else:
+                print('      Visit url to see output:', ' '.join(CMD))
                 raise Exception('Failed to find Content-Location URL in Archive.org response headers.')
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
