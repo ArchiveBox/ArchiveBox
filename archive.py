@@ -168,7 +168,7 @@ def fetch_wget(out_dir, link, overwrite=False):
     if not os.path.exists('{}/{}'.format(out_dir, domain)) or overwrite:
         print('    - Downloading Full Site')
         CMD = [
-            *'wget --timestamping --adjust-extension --no-parent'.split(' '),
+            *'wget --timestamping --adjust-extension --no-parent'.split(' '),                # Docs: https://www.gnu.org/software/wget/manual/wget.html
             *(('--page-requisites', '--convert-links') if FETCH_WGET_REQUISITES else ()),
             link['url'],
         ]
@@ -327,8 +327,9 @@ def valid_links(links):
     return (link for link in links if link['url'].startswith('http') or link['url'].startswith('ftp'))
 
 def calculate_archive_url(link):
-    """calculate the path to the wgetted html file, since wget may adjust some paths
-    to be different than the base_url path
+    """calculate the path to the wgetted html file, since wget may
+    adjust some paths to be different than the base_url path.
+
     See docs on wget --adjust-extension."""
 
     split_url = link['url'].split('#', 1)
@@ -370,21 +371,18 @@ def dump_index(links, service):
         # since we dont screenshot or PDF links that are images or PDFs, change those links to point to the wget'ed file
         link_info = {**link}
 
-        # append .html to archive links that dont have it, since wget appends .html to everything
-        link_info['archive_url'] = calculate_archive_url(link)
-
-        # add link type to title
-        if link['type']:
-            link_info.update({'title': '{title} ({type})'.format(**link)})
-
-        # PDF and images link to wgetted version, since we dont re-screenshot/pdf them
+        # PDF and images are handled slightly differently
+        # wget, screenshot, & pdf urls all point to the same file
         if link['type'] in ('PDF', 'image'):
             link_info.update({
+                'archive_url': 'archive/{timestamp}/{base_url}'.format(**link),
                 'pdf_link': 'archive/{timestamp}/{base_url}'.format(**link),
                 'screenshot_link': 'archive/{timestamp}/{base_url}'.format(**link),
+                'title': '{title} ({type})'.format(**link),
             })
         else:
             link_info.update({
+                'archive_url': calculate_archive_url(link),
                 'pdf_link': 'archive/{timestamp}/output.pdf'.format(**link),
                 'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**link)
             })
