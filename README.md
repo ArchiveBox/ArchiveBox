@@ -289,10 +289,6 @@ If you're having issues trying to host the archive via nginx, make sure you alre
 If you don't, google around, there are plenty of tutorials to help get that set up.  Open an [issue](https://github.com/pirate/bookmark-archiver/issues)
 if you have problem with a particular nginx config.
 
-If you're getting many 404s when trying to visit links from the index, this is caused by `wget` appending `.html`
-to the end of all downloaded content if it doesn't already have it.  I will be correcting the index links to
-account for this soon, but in the meantime use the nginx config above which automatically appends .html to links before 404-ing.
-
 ## TODO
 
  - body text extraction using [fathom](https://hacks.mozilla.org/2017/04/fathom-a-framework-for-understanding-web-pages/)
