@@ -173,14 +173,14 @@ def fetch_wget(out_dir, link, overwrite=False):
             link['url'],
         ]
         try:
-            result = run(CMD, stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=TIMEOUT)  # dom.html
+            result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=out_dir, timeout=TIMEOUT)  # dom.html
             if result.returncode > 0:
                 print('     ', result.stderr.decode().split('\n')[-1])
-                print('      Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
                 raise Exception('Failed to wget download')
             chmod_file(domain, cwd=out_dir)
         except Exception as e:
-            print('      Exception: {} {}'.format(e.__class__.__name__, e))
+            print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
+            print('       Failed: {} {}'.format(e.__class__.__name__, e))
     else:
         print('    √ Skipping site download')
 
@@ -189,15 +189,20 @@ def fetch_pdf(out_dir, link, overwrite=False):
 
     if (not os.path.exists('{}/output.pdf'.format(out_dir)) or overwrite) and link['type'] not in ('PDF', 'image'):
         print('    - Printing PDF')
-        chrome_args = '--headless --disable-gpu --print-to-pdf'.split(' ')
+        CMD = [
+            CHROME_BINARY,
+            *'--headless --disable-gpu --print-to-pdf'.split(' '),
+            link['url']
+        ]
         try:
-            result = run([CHROME_BINARY, *chrome_args, link['url']], stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=TIMEOUT)  # output.pdf
+            result = run(CMD, stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=TIMEOUT)  # output.pdf
             if result.returncode:
                 print('     ', result.stderr.decode())
                 raise Exception('Failed to print PDF')
             chmod_file('output.pdf', cwd=out_dir)
         except Exception as e:
-            print('      Exception: {} {}'.format(e.__class__.__name__, e))
+            print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
+            print('       Failed: {} {}'.format(e.__class__.__name__, e))
     else:
         print('    √ Skipping PDF print')
 
@@ -206,15 +211,21 @@ def fetch_screenshot(out_dir, link, overwrite=False):
 
     if (not os.path.exists('{}/screenshot.png'.format(out_dir)) or overwrite) and link['type'] not in ('PDF', 'image'):
         print('    - Snapping Screenshot')
-        chrome_args = '--headless --disable-gpu --screenshot'.split(' ')
+        CMD = [
+            CHROME_BINARY,
+            *'--headless --disable-gpu --screenshot'.split(' '),
+            '--window-size={}'.format(RESOLUTION),
+            link['url']
+        ]
         try:
-            result = run([CHROME_BINARY, *chrome_args, '--window-size={}'.format(RESOLUTION), link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=TIMEOUT)  # sreenshot.png
+            result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=TIMEOUT)  # sreenshot.png
             if result.returncode:
                 print('     ', result.stderr.decode())
                 raise Exception('Failed to take screenshot')
             chmod_file('screenshot.png', cwd=out_dir)
         except Exception as e:
-            print('      Exception: {} {}'.format(e.__class__.__name__, e))
+            print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
+            print('       Failed: {} {}'.format(e.__class__.__name__, e))
     else:
         print('    √ Skipping screenshot')
 
@@ -235,10 +246,10 @@ def archive_dot_org(out_dir, link, overwrite=False):
                 saved_url = 'https://web.archive.org{}'.format(archive_path)
                 success = True
             else:
-                print('      Visit url to see output:', ' '.join(CMD))
                 raise Exception('Failed to find "Content-Location" URL header in Archive.org response.')
         except Exception as e:
-            print('      Exception: {} {}'.format(e.__class__.__name__, e))
+            print('       Visit url to see output:', ' '.join(CMD))
+            print('       Failed: {} {}'.format(e.__class__.__name__, e))
 
         if success:
             with open('{}/archive.org.txt'.format(out_dir), 'w') as f:
@@ -259,7 +270,8 @@ def fetch_favicon(out_dir, link, overwrite=False):
             run([*CMD], stdout=fout, stderr=DEVNULL, cwd=out_dir, timeout=TIMEOUT)  # favicon.ico
             chmod_file('favicon.ico', cwd=out_dir)
         except Exception as e:
-            print('      Exception: {} {}'.format(e.__class__.__name__, e))
+            print('       Run to see full output:', ' '.join(CMD))
+            print('       Failed: {} {}'.format(e.__class__.__name__, e))
         fout.close()
     else:
         print('    √ Skipping favicon')
