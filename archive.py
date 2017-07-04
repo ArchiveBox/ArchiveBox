@@ -174,9 +174,9 @@ def fetch_wget(out_dir, link, overwrite=False):
         ]
         try:
             result = run(CMD, stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=TIMEOUT)  # dom.html
-            if not os.path.exists(domain) or result.returncode > 0:
+            if not os.path.exists(domain):
                 # print('     ', result.stderr.decode())
-                print('     Run cmd to see errors:', ' '.join(CMD))
+                print('      Run to see errors:', ' '.join(CMD))
                 raise Exception('Failed to wget download')
             chmod_file(domain, cwd=out_dir)
         except Exception as e:
@@ -235,13 +235,13 @@ def archive_dot_org(out_dir, link, overwrite=False):
                 success = True
             else:
                 raise Exception('Failed to find Content-Location URL in Archive.org response headers.')
-            chmod_file('archive.org.txt', cwd=out_dir)
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
 
         if success:
             with open('{}/archive.org.txt'.format(out_dir), 'w') as f:
                 f.write(saved_url)
+            chmod_file('archive.org.txt', cwd=out_dir)
 
     else:
         print('    √ Skipping archive.org')
