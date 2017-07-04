@@ -26,7 +26,7 @@ INDEX_TEMPLATE = 'index_template.html'
 # if so, the python variable will be True
 
 FETCH_WGET =             os.getenv('FETCH_WGET',             'True'             ).lower() == 'true'
-FETCH_WGET_IMAGES =      os.getenv('FETCH_WGET_IMAGES',      'False'            ).lower() == 'true'
+FETCH_WGET_REQUISITES =  os.getenv('FETCH_WGET_REQUISITES',  'True'             ).lower() == 'true'
 FETCH_PDF =              os.getenv('FETCH_PDF',              'True'             ).lower() == 'true'
 FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'             ).lower() == 'true'
 FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'
@@ -168,15 +168,15 @@ def fetch_wget(out_dir, link, overwrite=False):
     if not os.path.exists('{}/{}'.format(out_dir, domain)) or overwrite:
         print('    - Downloading Full Site')
         CMD = [
-            *'wget --timestamping --adjust-extension --convert-links --no-parent'.split(' '),
-            *(('--page-requisites',) if FETCH_WGET_IMAGES else ()),
+            *'wget --timestamping --adjust-extension --no-parent'.split(' '),
+            *(('--page-requisites', '--convert-links') if FETCH_WGET_REQUISITES else ()),
             link['url'],
         ]
         try:
             result = run(CMD, stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=TIMEOUT)  # dom.html
-            if not os.path.exists(domain):
-                # print('     ', result.stderr.decode())
-                print('      Run to see errors:', ' '.join(CMD))
+            if result.returncode > 0:
+                print('     ', result.stderr.decode().split('\n')[-1])
+                print('      Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
                 raise Exception('Failed to wget download')
             chmod_file(domain, cwd=out_dir)
         except Exception as e:
@@ -236,7 +236,7 @@ def archive_dot_org(out_dir, link, overwrite=False):
                 success = True
             else:
                 print('      Visit url to see output:', ' '.join(CMD))
-                raise Exception('Failed to find Content-Location URL in Archive.org response headers.')
+                raise Exception('Failed to find "Content-Location" URL header in Archive.org response.')
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
 
