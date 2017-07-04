@@ -338,9 +338,11 @@ def calculate_archive_url(link):
         return link['base_url']
     else:
         # .html needs to be appended
-        url = split_url[0] if not split_url[0].endswith('/') else split_url[0][:-1]
-        without_scheme = url.split('://', 1)[-1]
+        without_scheme = split_url[0].split('://', 1)[-1]
+        if url.endswith('/'):
+            return '#'.join([without_scheme + 'index.html', *split_url[1:]])
         return '#'.join([without_scheme + '.html', *split_url[1:]])
+
 
 
 def dump_index(links, service):
