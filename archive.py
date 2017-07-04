@@ -26,6 +26,7 @@ INDEX_TEMPLATE = 'index_template.html'
 # if so, the python variable will be True
 
 FETCH_WGET =             os.getenv('FETCH_WGET',             'True'             ).lower() == 'true'
+FETCH_WGET_IMAGES =      os.getenv('FETCH_WGET_IMAGES',      'False'            ).lower() == 'true'
 FETCH_PDF =              os.getenv('FETCH_PDF',              'True'             ).lower() == 'true'
 FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'             ).lower() == 'true'
 FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'
@@ -34,6 +35,7 @@ RESOLUTION =             os.getenv('RESOLUTION',             '1440,900'         
 ARCHIVE_PERMISSIONS =    os.getenv('ARCHIVE_PERMISSIONS',    '755'              )
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          'chromium-browser' )  # change to google-chrome browser if using google-chrome
 WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             )
+TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
 
 
 def check_dependencies():
@@ -150,14 +152,14 @@ def parse_bookmarks_export(html_file):
 
 ### ACHIVING FUNCTIONS
 
-def chmod_file(path, permissions=ARCHIVE_PERMISSIONS):
-    if not os.path.exists(path):
+def chmod_file(path, cwd='.', permissions=ARCHIVE_PERMISSIONS):
+    if not os.path.exists(os.path.join(cwd, path)):
         raise Exception('Failed to chmod: {} does not exist (did the previous step fail?)'.format(path))
 
-    chmod_result = run(['chmod', '-R', ARCHIVE_PERMISSIONS, path], stdout=DEVNULL, stderr=PIPE, timeout=5)
+    chmod_result = run(['chmod', '-R', ARCHIVE_PERMISSIONS, path], cwd=cwd, stdout=DEVNULL, stderr=PIPE, timeout=5)
     if chmod_result.returncode == 1:
         print('     ', chmod_result.stderr.decode())
-        raise Exception('Failed to chmod {}'.format(path))
+        raise Exception('Failed to chmod {}/{}'.format(cwd, path))
 
 def fetch_wget(out_dir, link, overwrite=False):
     """download full site using wget"""
@@ -166,16 +168,17 @@ def fetch_wget(out_dir, link, overwrite=False):
     if not os.path.exists('{}/{}'.format(out_dir, domain)) or overwrite:
         print('    - Downloading Full Site')
         CMD = [
-            *'wget --mirror --page-requisites --adjust-extension --convert-links --no-parent'.split(' '),
+            *'wget --mirror --adjust-extension --convert-links --no-parent'.split(' '),
+            *(('--page-requisites',) if FETCH_WGET_IMAGES else ()),
             link['url'],
         ]
         try:
-            result = run(CMD, stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=20)  # dom.html
+            result = run(CMD, stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=TIMEOUT)  # dom.html
             if not os.path.exists(domain) or result.returncode > 0:
                 # print('     ', result.stderr.decode())
                 print('     Run cmd to see errors:', ' '.join(CMD))
                 raise Exception('Failed to wget download')
-            chmod_file(domain)
+            chmod_file(domain, cwd=out_dir)
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
     else:
@@ -188,11 +191,11 @@ def fetch_pdf(out_dir, link, overwrite=False):
         print('    - Printing PDF')
         chrome_args = '--headless --disable-gpu --print-to-pdf'.split(' ')
         try:
-            result = run([CHROME_BINARY, *chrome_args, link['url']], stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=20)  # output.pdf
+            result = run([CHROME_BINARY, *chrome_args, link['url']], stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=TIMEOUT)  # output.pdf
             if result.returncode:
                 print('     ', result.stderr.decode())
                 raise Exception('Failed to print PDF')
-            chmod_file('output.pdf')
+            chmod_file('output.pdf', cwd=out_dir)
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
     else:
@@ -205,11 +208,11 @@ def fetch_screenshot(out_dir, link, overwrite=False):
         print('    - Snapping Screenshot')
         chrome_args = '--headless --disable-gpu --screenshot'.split(' ')
         try:
-            result = run([CHROME_BINARY, *chrome_args, '--window-size={}'.format(RESOLUTION), link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # sreenshot.png
+            result = run([CHROME_BINARY, *chrome_args, '--window-size={}'.format(RESOLUTION), link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=TIMEOUT)  # sreenshot.png
             if result.returncode:
                 print('     ', result.stderr.decode())
                 raise Exception('Failed to take screenshot')
-            chmod_file('screenshot.png')
+            chmod_file('screenshot.png', cwd=out_dir)
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
     else:
@@ -223,7 +226,7 @@ def archive_dot_org(out_dir, link, overwrite=False):
 
         success = False
         try:
-            result = run(['curl', '-I', submit_url], stdout=PIPE, stderr=DEVNULL, cwd=out_dir, timeout=20)  # archive.org
+            result = run(['curl', '-I', submit_url], stdout=PIPE, stderr=DEVNULL, cwd=out_dir, timeout=TIMEOUT)  # archive.org
             headers = result.stdout.splitlines()
             content_location = [h for h in headers if b'Content-Location: ' in h]
             if content_location:
@@ -232,7 +235,7 @@ def archive_dot_org(out_dir, link, overwrite=False):
                 success = True
             else:
                 raise Exception('Failed to find Content-Location URL in Archive.org response headers.')
-            chmod_file('archive.org.txt')
+            chmod_file('archive.org.txt', cwd=out_dir)
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
 
@@ -251,7 +254,8 @@ def fetch_favicon(out_dir, link, overwrite=False):
         CMD = 'curl https://www.google.com/s2/favicons?domain={domain}'.format(**link).split(' ')
         fout = open('{}/favicon.ico'.format(out_dir), 'w')
         try:
-            run([*CMD], stdout=fout, stderr=DEVNULL, cwd=out_dir, timeout=20)  # dom.html
+            run([*CMD], stdout=fout, stderr=DEVNULL, cwd=out_dir, timeout=TIMEOUT)  # favicon.ico
+            chmod_file('favicon.ico', cwd=out_dir)
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
         fout.close()
