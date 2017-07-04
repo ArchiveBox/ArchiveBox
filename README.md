@@ -4,10 +4,10 @@
 
 Save an archived copy of all websites you star (the actual *content* of the sites, not just the list of bookmarks).
 
-**Supports: Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera), Pocket, Pinboard, Shaarli, Delicious, Instapaper, Unmark.it, and more!**
-
 Outputs browsable static html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.  
 (Your own personal Way-Back Machine) [DEMO: sweeting.me/pocket](https://home.sweeting.me/pocket)
+
+**Supports: Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera), Pocket, Pinboard, Shaarli, Delicious, Instapaper, Unmark.it, and more!**
 
 ![](screenshot.png)
 
@@ -51,14 +51,15 @@ If you want something easier than running programs in the command-line, take a l
 
 The archiver produces a folder like `pocket/` containing an `index.html`, and archived copies of all the sites,
 organized by starred timestamp.  It's Powered by the [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Chromium and good 'ol `wget`.
-NEW: Also submits each link to save on archive.org!
 
 For each sites it saves:
 
  - wget of site, e.g. `en.wikipedia.org/wiki/Example.html` with .html appended if not present
- - `sreenshot.png` 1440x900 screenshot of site using headless chrome
+ - `screenshot.png` 1440x900 screenshot of site using headless chrome
  - `output.pdf` Printed PDF of site using headless chrome
  - `archive.org.txt` A link to the saved site on archive.org
+ - `link.json` A json file containing link info and archive status
+ - `audio/` and `video/` for sites like youtube, soundcloud, etc. (using youtube-dl) (WIP)
 
 **Large Exports & Estimated Runtime:** 
 
@@ -76,7 +77,7 @@ Users have reported running it with 50k+ bookmarks with success (though it will 
 
 ## Configuration
 
-You can tweak parameters via environment variables, or by editing `archive.py` directly:
+You can tweak parameters via environment variables, or by editing `config.py` directly:
 ```bash
 env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./archive.py ~/Downloads/bookmarks_export.html
 ```
@@ -88,11 +89,14 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
  - Path to Chrome: `CHROME_BINARY` values: [`chromium-browser`]/`/usr/local/bin/chromium-browser`/`...`
  - Path to wget: `WGET_BINARY` values: [`wget`]/`/usr/local/bin/wget`/`...`
  - Download timemout: `TIMEOUT` values: [`60`]/`30`/`...`
+ - html index template: `INDEX_TEMPLATE` value:  `templates/index.html`/`...`
+ - html index row template: `INDEX_ROW_TEMPLATE` value:  `templates/index_row.html`/`...`
 
- (See defaults & more at the top of `archive.py`)
+ (See defaults & more at the top of `config.py`)
 
-You can also tweak the outputted html index in `index_template.html`.  It just uses python
-format strings (not a proper templating engine like jinja2), which is why the CSS is double-bracketed `{{...}}`.
+To tweak the outputted html index file's look and feel, just copy the files in `templates/` somewhere else and edit away.  Use the two index config variables above to point the script to your new custom template files. 
+
+The templates use format strings (not a proper templating engine like jinja2), which is why the CSS is double-bracketed `{{...}}`.
 
 ## Publishing Your Archive
 
@@ -115,7 +119,7 @@ location /pocket/ {
 
 Make sure you're not running any content as CGI or PHP, you only want to serve static files!
 
-Urls look like: `https://sweeting.me/archive/archive/1493350273/en.wikipedia.org/wiki/Dining_philosophers_problem`
+Urls look like: `https://sweeting.me/archive/archive/1493350273/en.wikipedia.org/wiki/Dining_philosophers_problem.html`
 
 **Security WARNING & Content Disclaimer**
 
@@ -123,8 +127,7 @@ Hosting other people's site content has security implications for other sites on
 the dangers of hosting other people's CSS & JS files [on a shared domain](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy).  It's best to put this on a domain/subdomain
 of its own to slightly mitigate [CSRF attacks](https://en.wikipedia.org/wiki/Cross-site_request_forgery).
 
-You may also want to blacklist your archive in `/robots.txt` if you don't want to be publicly assosciated
-with all the links you archive via search engine results.
+You may also want to blacklist your archive in `/robots.txt` if you don't want to be publicly assosciated with all the links you archive via search engine results.
 
 Be aware that some sites you archive may not allow you to rehost their content publicly for copyright reasons,
 it's up to you to host responsibly and respond to takedown requests appropriately.
@@ -291,19 +294,20 @@ If you're having issues trying to host the archive via nginx, make sure you alre
 If you don't, google around, there are plenty of tutorials to help get that set up.  Open an [issue](https://github.com/pirate/bookmark-archiver/issues)
 if you have problem with a particular nginx config.
 
-## TODO
+## Roadmap
+
+If you feel like contributing a PR, some of these tasks are pretty easy.  Feel free to open an issue if you need help getting started in any way!
 
  - body text extraction using [fathom](https://hacks.mozilla.org/2017/04/fathom-a-framework-for-understanding-web-pages/)
  - auto-tagging based on important extracted words
  - audio & video archiving with `youtube-dl`
- - full-text indexing with elasticsearch
+ - full-text indexing with elasticsearch/elasticlunr/ag
  - video closed-caption downloading for full-text indexing video content
  - automatic text summaries of article with summarization library
  - feature image extraction
  - http support (from my https-only domain)
  - try wgetting dead sites from archive.org (https://github.com/hartator/wayback-machine-downloader)
-
-**Live Updating:** (coming soon... maybe...)
+ - live updating from pocket/pinboard
 
 It's possible to pull links via the pocket API or public pocket RSS feeds instead of downloading an html export.
 Once I write a script to do that, we can stick this in `cron` and have it auto-update on it's own.
@@ -324,6 +328,7 @@ will run fast subsequent times because it only downloads new links that haven't 
 
 ## Changelog
 
+ - refactored into separate files, wip audio & video archiving
  - v0.0.1 released
  - Index links now work without nginx url rewrites, archive can now be hosted on github pages
  - added setup.sh script & docstrings & help commands
