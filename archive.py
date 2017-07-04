@@ -326,6 +326,22 @@ def valid_links(links):
     """remove chrome://, about:// or other schemed links that cant be archived"""
     return (link for link in links if link['url'].startswith('http') or link['url'].startswith('ftp'))
 
+def calculate_archive_url(link):
+    """calculate the path to the wgetted html file, since wget may adjust some paths
+    to be different than the base_url path
+    See docs on wget --adjust-extension."""
+
+    split_url = link['url'].split('#', 1)
+
+    if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", split_url[0], re.I | re.M):
+        # already ends in .html
+        return link['base_url']
+    else:
+        # .html needs to be appended
+        url = split_url[0] if not split_url[0].endswith('/') else split_url[0][:-1]
+        without_scheme = url.split('://', 1)[-1]
+        return '#'.join([without_scheme + '.html', *split_url[1:]])
+
 
 def dump_index(links, service):
     """create index.html file for a given list of links and service"""
@@ -337,7 +353,7 @@ def dump_index(links, service):
     link_html = """\
     <tr>
         <td>{time}</td>
-        <td><a href="archive/{timestamp}/{base_url}" style="font-size:1.4em;text-decoration:none;color:black;" title="{title}">
+        <td><a href="archive/{timestamp}/{archive_url}" style="font-size:1.4em;text-decoration:none;color:black;" title="{title}">
             <img src="archive/{timestamp}/favicon.ico">
             {title} <small style="background-color: #eee;border-radius:4px; float:right">{tags}</small>
         </td>
@@ -351,6 +367,9 @@ def dump_index(links, service):
     def get_template_vars(link):
         # since we dont screenshot or PDF links that are images or PDFs, change those links to point to the wget'ed file
         link_info = {**link}
+
+        # append .html to archive links that dont have it, since wget appends .html to everything
+        link_info['archive_url'] = calculate_archive_url(link)
 
         # add link type to title
         if link['type']:
