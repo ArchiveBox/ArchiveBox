@@ -9,8 +9,8 @@ from subprocess import run, PIPE
 
 FETCH_WGET =             os.getenv('FETCH_WGET',             'True'             ).lower() == 'true'
 FETCH_WGET_REQUISITES =  os.getenv('FETCH_WGET_REQUISITES',  'True'             ).lower() == 'true'
-FETCH_AUDIO =            os.getenv('FETCH_AUDIO',            'True'             ).lower() == 'true'
-FETCH_VIDEO =            os.getenv('FETCH_VIDEO',            'True'             ).lower() == 'true'
+FETCH_AUDIO =            os.getenv('FETCH_AUDIO',            'False'             ).lower() == 'true'
+FETCH_VIDEO =            os.getenv('FETCH_VIDEO',            'False'             ).lower() == 'true'
 FETCH_PDF =              os.getenv('FETCH_PDF',              'True'             ).lower() == 'true'
 FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'             ).lower() == 'true'
 FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'

@@ -21,5 +21,5 @@ def dump_index(links, service):
 
     template_vars = (datetime.now().strftime('%Y-%m-%d %H:%M'), article_rows)
 
-    with open(os.path.join(service, 'index.html'), 'w') as f:
+    with open(os.path.join(service, 'index.html'), 'w', encoding='utf-8') as f:
         f.write(index_html.format(*template_vars))
