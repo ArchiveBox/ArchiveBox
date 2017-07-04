@@ -248,10 +248,18 @@ chromium-browser --version || google-chrome --version
 ```
 If no version is displayed, try the setup instructions again, or confirm that you have permission to access chrome.
 
-3. If a version is displayed and it's `>=59`, make sure `archive.py` is running the right one:
+3. If a version is displayed and it's `<59`, upgrade it:
+```bash
+apt upgrade chromium-browser -y
+# OR
+brew cask upgrade chromium-browser
+```
+
+4. If a version is displayed and it's `>=59`, make sure `archive.py` is running the right one:
 ```bash
 env CHROME_BINARY=/path/from/step/1/chromium-browser ./archive.py bookmarks_export.html   # replace the path with the one you got from step 1
 ```
+
 
 **Wget & Curl:**
 
