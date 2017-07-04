@@ -324,6 +324,8 @@ will run fast subsequent times because it only downloads new links that haven't 
 
 ## Changelog
 
+ - v0.0.1 released
+ - Index links now work without nginx url rewrites, archive can now be hosted on github pages
  - added setup.sh script & docstrings & help commands
  - made Chromium the default instead of Google Chrome (yay free software)
  - added [env-variable](https://github.com/pirate/bookmark-archiver/pull/25) configuration (thanks to https://github.com/hannah98!)
@@ -332,4 +334,4 @@ will run fast subsequent times because it only downloads new links that haven't 
  - added [Pinboard-format](https://github.com/pirate/bookmark-archiver/pull/7) export support (thanks to https://github.com/sconeyard!)
  - front-page of HN, oops! apparently I have users to support now :grin:?
  - added Pocket-format export support
- - created Pocket Archive Stream 2017/05/05
+ - v0.0.0 released: created Pocket Archive Stream 2017/05/05
