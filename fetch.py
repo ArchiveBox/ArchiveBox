@@ -126,7 +126,7 @@ def archive_dot_org(out_dir, link, overwrite=False, timeout=60):
             print('       Failed: {} {}'.format(e.__class__.__name__, e))
 
         if success:
-            with open('{}/archive.org.txt'.format(out_dir), 'w') as f:
+            with open('{}/archive.org.txt'.format(out_dir), 'w', encoding='utf-8') as f:
                 f.write(saved_url)
             chmod_file('archive.org.txt', cwd=out_dir)
 
@@ -215,7 +215,7 @@ def dump_link_info(out_dir, link, update=True):
             link_json = derived_link_info(link)
             link_json['archived_timstamp'] = str(datetime.now().timestamp()).split('.')[0]
 
-            with open(info_file_path, 'w') as link_file:
+            with open(info_file_path, 'w', encoding='utf-8') as link_file:
                 link_file.write(json.dumps(
                     link_json,
                     indent=4,

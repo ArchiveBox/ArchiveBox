@@ -8,11 +8,11 @@ from parse import derived_link_info
 def dump_index(links, service):
     """create index.html file for a given list of links and service"""
 
-    with open(INDEX_TEMPLATE, 'r') as f:
+    with open(INDEX_TEMPLATE, 'r', encoding='utf-8') as f:
         index_html = f.read()
 
     # TODO: refactor this out into index_template.html
-    with open(INDEX_ROW_TEMPLATE, 'r') as f:
+    with open(INDEX_ROW_TEMPLATE, 'r', encoding='utf-8') as f:
         link_html = f.read()
 
     article_rows = '\n'.join(
