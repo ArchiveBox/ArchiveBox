@@ -82,10 +82,12 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
 ```
 
  - Archive methods: `FETCH_WGET`, `FETCH_PDF`, `FETCH_SCREENSHOT`, `FETCH_FAVICON`, `SUBMIT_ARCHIVE_DOT_ORG` values: [`True`]/`False`
+ - Archive images/css/js: `FETCH_WGET_REQUISITES` values: [`True`]/`False`  (True is highly recommended)
  - Screenshot: `RESOLUTION` values: [`1440,900`]/`1024,768`/`...`
  - Outputted Files: `ARCHIVE_PERMISSIONS` values: [`755`]/`644`/`...`
  - Path to Chrome: `CHROME_BINARY` values: [`chromium-browser`]/`/usr/local/bin/chromium-browser`/`...`
  - Path to wget: `WGET_BINARY` values: [`wget`]/`/usr/local/bin/wget`/`...`
+ - Download timemout: `TIMEOUT` values: [`60`]/`30`/`...`
 
  (See defaults & more at the top of `archive.py`)
 
@@ -105,9 +107,9 @@ Here's a sample nginx configuration that works to serve archive folders:
 ```nginx
 location /pocket/ {
     alias       /var/www/pocket/;
-    index       index.html;                 # show the main index.html by default
-    autoindex   on;                         # allow people to see a directory listing when clicking on "the Files" links
-    try_files   $uri $uri/ $uri.html =404;  # append .html to links before 404ing in order to reach sites that wget appended .html to
+    index       index.html;
+    autoindex   on;                         # see directory listing upon clicking "The Files" links
+    try_files   $uri $uri/ =404;
 }
 ```
 
