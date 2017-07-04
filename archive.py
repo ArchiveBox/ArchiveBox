@@ -150,6 +150,15 @@ def parse_bookmarks_export(html_file):
 
 ### ACHIVING FUNCTIONS
 
+def chmod_file(path, permissions=ARCHIVE_PERMISSIONS):
+    if not os.path.exists(path):
+        raise Exception('Failed to chmod: {} does not exist (did the previous step fail?)'.format(path))
+
+    chmod_result = run(['chmod', '-R', ARCHIVE_PERMISSIONS, path], stdout=DEVNULL, stderr=PIPE, timeout=5)
+    if chmod_result.returncode == 1:
+        print('     ', chmod_result.stderr.decode())
+        raise Exception('Failed to chmod {}'.format(path))
+
 def fetch_wget(out_dir, link, overwrite=False):
     """download full site using wget"""
 
@@ -158,12 +167,15 @@ def fetch_wget(out_dir, link, overwrite=False):
         print('    - Downloading Full Site')
         CMD = [
             *'wget --mirror --page-requisites --adjust-extension --convert-links --no-parent'.split(' '),
+            link['url'],
         ]
         try:
             result = run(CMD, stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=20)  # dom.html
-            if result.returncode:
-                print('     ', result.stderr)
+            if not os.path.exists(domain) or result.returncode > 0:
+                # print('     ', result.stderr.decode())
+                print('     Run cmd to see errors:', ' '.join(CMD))
                 raise Exception('Failed to wget download')
+            chmod_file(domain)
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
     else:
@@ -178,12 +190,9 @@ def fetch_pdf(out_dir, link, overwrite=False):
         try:
             result = run([CHROME_BINARY, *chrome_args, link['url']], stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=20)  # output.pdf
             if result.returncode:
-                print('     ', result.stderr)
+                print('     ', result.stderr.decode())
                 raise Exception('Failed to print PDF')
-            chmod_result = run(['chmod', ARCHIVE_PERMISSIONS, 'output.pdf'], stdout=DEVNULL, stderr=DEVNULL, timeout=5)
-            if chmod_result.returncode:
-                print('     ', chmod_result.stderr)
-                raise Exception('Failed to chmod PDF')
+            chmod_file('output.pdf')
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
     else:
@@ -198,12 +207,9 @@ def fetch_screenshot(out_dir, link, overwrite=False):
         try:
             result = run([CHROME_BINARY, *chrome_args, '--window-size={}'.format(RESOLUTION), link['url']], stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=20)  # sreenshot.png
             if result.returncode:
-                print(result.stderr)
+                print('     ', result.stderr.decode())
                 raise Exception('Failed to take screenshot')
-            chmod_result = run(['chmod', ARCHIVE_PERMISSIONS, 'screenshot.png'], stdout=DEVNULL, stderr=DEVNULL, timeout=5)
-            if chmod_result.returncode:
-                print(result.stderr)
-                raise Exception('Failed to chmod screenshot')
+            chmod_file('screenshot.png')
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
     else:
@@ -226,6 +232,7 @@ def archive_dot_org(out_dir, link, overwrite=False):
                 success = True
             else:
                 raise Exception('Failed to find Content-Location URL in Archive.org response headers.')
+            chmod_file('archive.org.txt')
         except Exception as e:
             print('      Exception: {} {}'.format(e.__class__.__name__, e))
 
