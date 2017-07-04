@@ -28,6 +28,7 @@ if which apt-get > /dev/null; then
         sudo ln -s "$(which google-chrome)" /usr/bin/chromium-browser
     elif which chromium-browser; then
         echo "[i] chromium-browser already installed, using existing installation."
+        apt upgrade chromium-browser -y
     else
         echo "[+] Installing chromium-browser..."
         apt install chromium-browser -y
@@ -43,6 +44,7 @@ elif which brew > /dev/null; then   # 🐍 eye of newt
         chmod +x /usr/local/bin/chromium-browser
 
     elif which chromium-browser; then
+        brew cask upgrade chromium-browser
         echo "[+] Linking /usr/local/bin/chromium-browser -> /Applications/Chromium.app"
         echo -e '#!/bin/bash\n/Applications/Chromium.app/Contents/MacOS/Chromium "$@"' > /usr/local/bin/chromium-browser
         chmod +x /usr/local/bin/chromium-browser
