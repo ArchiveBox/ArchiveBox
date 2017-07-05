@@ -118,12 +118,21 @@ def archive_dot_org(out_dir, link, overwrite=False, timeout=60):
         try:
             result = run(CMD, stdout=PIPE, stderr=DEVNULL, cwd=out_dir, timeout=timeout + 1)  # archive.org.txt
             end()
+
+            # Parse archive.org response headers
             headers = result.stdout.splitlines()
             content_location = [h for h in headers if b'Content-Location: ' in h]
+            errors = [h for h in headers if b'X-Archive-Wayback-Runtime-Error: ' in h]
+
             if content_location:
                 archive_path = content_location[0].split(b'Content-Location: ', 1)[-1].decode('utf-8')
                 saved_url = 'https://web.archive.org{}'.format(archive_path)
                 success = True
+
+            elif len(errors) == 1 and b'RobotAccessControlException' in errors[0]:
+                raise ValueError('Archive.org denied by {}/robots.txt'.format(link['domain']))
+            elif errors:
+                raise Exception(', '.join(e.decode() for e in errors))
             else:
                 raise Exception('Failed to find "Content-Location" URL header in Archive.org response.')
         except Exception as e:
