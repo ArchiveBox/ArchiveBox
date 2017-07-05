@@ -7,6 +7,7 @@ from subprocess import run, PIPE, DEVNULL
 from parse import derived_link_info
 from config import (
     ARCHIVE_PERMISSIONS,
+    CHROME_BINARY,
     FETCH_WGET,
     FETCH_WGET_REQUISITES,
     FETCH_PDF,
@@ -23,7 +24,7 @@ from config import (
 )
 
 
-def fetch_wget(out_dir, link, overwrite=False, requisites=True, timeout=60):
+def fetch_wget(out_dir, link, overwrite=False, requisites=True, timeout=TIMEOUT):
     """download full site using wget"""
 
     if not os.path.exists(os.path.join(out_dir, link['domain'])) or overwrite:
@@ -38,7 +39,7 @@ def fetch_wget(out_dir, link, overwrite=False, requisites=True, timeout=60):
             result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=out_dir, timeout=timeout + 1)  # index.html
             end()
             if result.returncode > 0:
-                print('\n'.join('       ' + line for line in result.stderr.decode().rsplit('\n', 5)[-3:] if line.strip()))
+                print('\n'.join('       ' + line for line in result.stderr.decode().rsplit('\n', 10)[-10:] if line.strip()))
                 raise Exception('Failed to wget download')
             chmod_file(link['domain'], cwd=out_dir)
         except Exception as e:
@@ -48,7 +49,7 @@ def fetch_wget(out_dir, link, overwrite=False, requisites=True, timeout=60):
     else:
         print('    √ Skipping site download')
 
-def fetch_pdf(out_dir, link, overwrite=False, timeout=60, chrome_binary='chromium-browser'):
+def fetch_pdf(out_dir, link, overwrite=False, timeout=TIMEOUT, chrome_binary=CHROME_BINARY):
     """print PDF of site to file using chrome --headless"""
 
     path = os.path.join(out_dir, 'output.pdf')
@@ -75,7 +76,7 @@ def fetch_pdf(out_dir, link, overwrite=False, timeout=60, chrome_binary='chromiu
     else:
         print('    √ Skipping PDF print')
 
-def fetch_screenshot(out_dir, link, overwrite=False, timeout=60, chrome_binary='chromium-browser', resolution='1440,900'):
+def fetch_screenshot(out_dir, link, overwrite=False, timeout=TIMEOUT, chrome_binary=CHROME_BINARY, resolution=RESOLUTION):
     """take screenshot of site using chrome --headless"""
 
     path = os.path.join(out_dir, 'screenshot.png')
@@ -103,7 +104,7 @@ def fetch_screenshot(out_dir, link, overwrite=False, timeout=60, chrome_binary='
     else:
         print('    √ Skipping screenshot')
 
-def archive_dot_org(out_dir, link, overwrite=False, timeout=60):
+def archive_dot_org(out_dir, link, overwrite=False, timeout=TIMEOUT):
     """submit site to archive.org for archiving via their service, save returned archive url"""
 
     path = os.path.join(out_dir, 'archive.org.txt')
@@ -148,7 +149,7 @@ def archive_dot_org(out_dir, link, overwrite=False, timeout=60):
     else:
         print('    √ Skipping archive.org')
 
-def fetch_favicon(out_dir, link, overwrite=False, timeout=60):
+def fetch_favicon(out_dir, link, overwrite=False, timeout=TIMEOUT):
     """download site favicon from google's favicon api"""
 
     path = os.path.join(out_dir, 'favicon.ico')
@@ -170,7 +171,7 @@ def fetch_favicon(out_dir, link, overwrite=False, timeout=60):
     else:
         print('    √ Skipping favicon')
 
-def fetch_audio(out_dir, link, overwrite=False, timeout=60):
+def fetch_audio(out_dir, link, overwrite=False, timeout=TIMEOUT):
     """Download audio rip using youtube-dl"""
 
     if link['type'] not in ('soundcloud',):
@@ -199,7 +200,7 @@ def fetch_audio(out_dir, link, overwrite=False, timeout=60):
     else:
         print('    √ Skipping audio download')
 
-def fetch_video(out_dir, link, overwrite=False, timeout=60):
+def fetch_video(out_dir, link, overwrite=False, timeout=TIMEOUT):
     """Download video rip using youtube-dl"""
 
     if link['type'] not in ('youtube', 'youku', 'vimeo'):
@@ -274,10 +275,10 @@ def dump_website(link, service, overwrite=False, permissions=ARCHIVE_PERMISSIONS
         fetch_wget(out_dir, link, overwrite=overwrite, requisites=FETCH_WGET_REQUISITES)
 
     if FETCH_PDF:
-        fetch_pdf(out_dir, link, overwrite=overwrite)
+        fetch_pdf(out_dir, link, overwrite=overwrite, chrome_binary=CHROME_BINARY)
 
     if FETCH_SCREENSHOT:
-        fetch_screenshot(out_dir, link, overwrite=overwrite, resolution=RESOLUTION)
+        fetch_screenshot(out_dir, link, overwrite=overwrite, chrome_binary=CHROME_BINARY, resolution=RESOLUTION)
 
     if SUBMIT_ARCHIVE_DOT_ORG:
         archive_dot_org(out_dir, link, overwrite=overwrite)
