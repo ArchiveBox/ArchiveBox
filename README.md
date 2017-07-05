@@ -96,8 +96,6 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
 
 To tweak the outputted html index file's look and feel, just copy the files in `templates/` somewhere else and edit away.  Use the two index config variables above to point the script to your new custom template files. 
 
-The templates use format strings (not a proper templating engine like jinja2), which is why the CSS is double-bracketed `{{...}}`.
-
 ## Publishing Your Archive
 
 The archive produced by `./archive.py` is suitable for serving on any provider that 
