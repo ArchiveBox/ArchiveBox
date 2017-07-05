@@ -3,7 +3,7 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
         <title>Archived Sites</title>
         <style>
-            html, body {{
+            html, body {
                 width: 100%;
                 height: 100%;
                 font-size: 20px;
@@ -12,63 +12,63 @@
                 margin: 0px;
                 padding: 0px;
                 font-family: "Gill Sans", Helvetica, sans-serif;
-            }}
-            header {{
+            }
+            header {
                 background-color: #aa1e55;
                 color: white;
                 padding: 10px;
-            }}
-            header h1 {{
+            }
+            header h1 {
                 font-weight: 300;
                 color: black;
                 margin-top: 10px;
                 margin-bottom: 12px;
-            }}
-            header h1 small {{
+            }
+            header h1 small {
                 color: white;
                 font-size:0.5em;
-            }}
-            header h1 small a {{
+            }
+            header h1 small a {
                 text-decoration: none;
                 color: orange;
                 opacity: 0.6
                 font-weight: 300;
-            }}
-            header h1 small a:hover {{
+            }
+            header h1 small a:hover {
                 opacity: 1;
-            }}
-            table {{
+            }
+            table {
                 padding: 6px;
                 width: 100%;
-            }}
-            table thead th {{
+            }
+            table thead th {
                 font-weight: 400;
-            }}
-            tbody tr:nth-child(odd) {{
+            }
+            tbody tr:nth-child(odd) {
                background-color: #ffebeb;
-            }}
-            table tr td {{
+            }
+            table tr td {
                 white-space: nowrap;
                 overflow: hidden;
                 padding-bottom: 0.4em;
                 padding-top: 0.4em;
                 padding-left: 2px;
-            }}
-            table tr td img {{
+            }
+            table tr td img {
                 height: 24px;
                 padding: 0px;
                 padding-right: 5px;
                 text-indent: -10000px;
-            }}
+            }
         </style>
     </head>
     <body>
         <header>
-            <h1 title="Last modified {time_updated}">
+            <h1 title="Last modified ${time_updated}">
                 <img src="https://nicksweeting.com/images/archive.png" height="36px">
                 Archived Sites <img src="https://getpocket.com/favicon.ico" height="36px"> <br/>
                 <small>
-                    Archived with: <a href="https://github.com/pirate/bookmark-archiver">Bookmark Archiver</a> on {date_updated}
+                    Archived with: <a href="https://github.com/pirate/bookmark-archiver">Bookmark Archiver</a> on ${date_updated}
                 </small>
             </h1>
         </header>
@@ -76,7 +76,7 @@
             <thead>
                 <tr>
                     <th style="width: 120px;"><img src="https://getpocket.com/favicon.ico" height="12px"> Starred</th>
-                    <th style="width: 45vw;">Saved Articles ({num_links})</th>
+                    <th style="width: 45vw;">Saved Articles (${num_links})</th>
                     <th style="width: 50px">Files</th>
                     <th style="width: 50px">PDF</th>
                     <th style="width: 60px;font-size:0.8em;">Screenshot</th>
@@ -84,7 +84,7 @@
                     <th style="width: 100px;whitespace:nowrap;overflow-x:scroll;display:block">Original URL</th>
                 </tr>
             </thead>
-            <tbody>{rows}</tbody>
+            <tbody>${rows}</tbody>
         </table>
     </body>
 </html>

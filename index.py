@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from string import Template
 
 from config import INDEX_TEMPLATE, INDEX_ROW_TEMPLATE
 from parse import derived_link_info
@@ -16,7 +17,7 @@ def dump_index(links, service):
         link_html = f.read()
 
     article_rows = '\n'.join(
-        link_html.format(**derived_link_info(link)) for link in links
+        Template(link_html).substitute(**derived_link_info(link)) for link in links
     )
 
     template_vars = {
@@ -27,4 +28,4 @@ def dump_index(links, service):
     }
 
     with open(os.path.join(service, 'index.html'), 'w', encoding='utf-8') as f:
-        f.write(index_html.format(**template_vars))
+        f.write(Template(index_html).substitute(template_vars))
