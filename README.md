@@ -334,6 +334,7 @@ will run fast subsequent times because it only downloads new links that haven't 
 
 ## Changelog
 
+ - proper HTML templating instead of format strings (thanks to https://github.com/bardisty!)
  - refactored into separate files, wip audio & video archiving
  - v0.0.1 released
  - Index links now work without nginx url rewrites, archive can now be hosted on github pages
