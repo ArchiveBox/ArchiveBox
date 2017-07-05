@@ -198,10 +198,14 @@ def derived_link_info(link):
 
     link_info = {
         **link,
-        'files_url': 'archive/{timestamp}/'.format(**link),
-        'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**link),
-        'favicon_url': 'archive/{timestamp}/favicon.ico'.format(**link),
+        'date': str(link['time'])[:-3],
         'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
+        'favicon_url': 'archive/{timestamp}/favicon.ico'.format(**link),
+        'files_url': 'archive/{timestamp}/'.format(**link),
+        'archive_url': 'archive/{}/{}'.format(link['timestamp'], html_appended_url(link)),
+        'pdf_link': 'archive/{timestamp}/output.pdf'.format(**link),
+        'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**link),
+        'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**link),
     }
 
     # PDF and images are handled slightly differently
@@ -212,11 +216,5 @@ def derived_link_info(link):
             'pdf_link': 'archive/{timestamp}/{base_url}'.format(**link),
             'screenshot_link': 'archive/{timestamp}/{base_url}'.format(**link),
             'title': '{title} ({type})'.format(**link),
-        })
-    else:
-        link_info.update({
-            'archive_url': 'archive/{}/{}'.format(link['timestamp'], html_appended_url(link)),
-            'pdf_link': 'archive/{timestamp}/output.pdf'.format(**link),
-            'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**link)
         })
     return link_info
