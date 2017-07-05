@@ -16,38 +16,35 @@ from config import (
     FETCH_AUDIO,
     FETCH_VIDEO,
     FETCH_FAVICON,
+    TIMEOUT,
+    ANSI,
+    progress,
+    chmod_file,
 )
 
-
-def chmod_file(path, cwd='.', permissions='755', timeout=30):
-    if not os.path.exists(os.path.join(cwd, path)):
-        raise Exception('Failed to chmod: {} does not exist (did the previous step fail?)'.format(path))
-
-    chmod_result = run(['chmod', '-R', permissions, path], cwd=cwd, stdout=DEVNULL, stderr=PIPE, timeout=timeout)
-    if chmod_result.returncode == 1:
-        print('     ', chmod_result.stderr.decode())
-        raise Exception('Failed to chmod {}/{}'.format(cwd, path))
 
 def fetch_wget(out_dir, link, overwrite=False, requisites=True, timeout=60):
     """download full site using wget"""
 
-    domain = link['base_url'].split('/', 1)[0]
-    if not os.path.exists(os.path.join(out_dir, domain)) or overwrite:
-        print('    - Downloading Full Site')
+    if not os.path.exists(os.path.join(out_dir, link['domain'])) or overwrite:
+        print('    - Downloading full site')
         CMD = [
             *'wget --timestamping --adjust-extension --no-parent'.split(' '),                # Docs: https://www.gnu.org/software/wget/manual/wget.html
             *(('--page-requisites', '--convert-links') if requisites else ()),
             link['url'],
         ]
+        end = progress(timeout, prefix='      ')
         try:
-            result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=out_dir, timeout=timeout)  # dom.html
+            result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=out_dir, timeout=timeout + 1)  # index.html
+            end()
             if result.returncode > 0:
-                print('     ', result.stderr.decode().split('\n')[-1])
+                print('\n'.join('       ' + line for line in result.stderr.decode().rsplit('\n', 5)[-3:] if line.strip()))
                 raise Exception('Failed to wget download')
-            chmod_file(domain, cwd=out_dir)
+            chmod_file(link['domain'], cwd=out_dir)
         except Exception as e:
+            end()
             print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
-            print('       Failed: {} {}'.format(e.__class__.__name__, e))
+            print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
     else:
         print('    √ Skipping site download')
 
@@ -63,15 +60,18 @@ def fetch_pdf(out_dir, link, overwrite=False, timeout=60, chrome_binary='chromiu
             *'--headless --disable-gpu --print-to-pdf'.split(' '),
             link['url']
         ]
+        end = progress(timeout, prefix='      ')
         try:
-            result = run(CMD, stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=timeout)  # output.pdf
+            result = run(CMD, stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=timeout + 1)  # output.pdf
+            end()
             if result.returncode:
                 print('     ', result.stderr.decode())
                 raise Exception('Failed to print PDF')
             chmod_file('output.pdf', cwd=out_dir)
         except Exception as e:
+            end()
             print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
-            print('       Failed: {} {}'.format(e.__class__.__name__, e))
+            print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
     else:
         print('    √ Skipping PDF print')
 
@@ -88,15 +88,18 @@ def fetch_screenshot(out_dir, link, overwrite=False, timeout=60, chrome_binary='
             '--window-size={}'.format(resolution),
             link['url']
         ]
+        end = progress(timeout, prefix='      ')
         try:
-            result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=timeout)  # sreenshot.png
+            result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=timeout + 1)  # sreenshot.png
+            end()
             if result.returncode:
                 print('     ', result.stderr.decode())
                 raise Exception('Failed to take screenshot')
             chmod_file('screenshot.png', cwd=out_dir)
         except Exception as e:
+            end()
             print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
-            print('       Failed: {} {}'.format(e.__class__.__name__, e))
+            print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
     else:
         print('    √ Skipping screenshot')
 
@@ -111,8 +114,10 @@ def archive_dot_org(out_dir, link, overwrite=False, timeout=60):
 
         success = False
         CMD = ['curl', '-I', submit_url]
+        end = progress(timeout, prefix='      ')
         try:
-            result = run(CMD, stdout=PIPE, stderr=DEVNULL, cwd=out_dir, timeout=timeout)  # archive.org
+            result = run(CMD, stdout=PIPE, stderr=DEVNULL, cwd=out_dir, timeout=timeout + 1)  # archive.org.txt
+            end()
             headers = result.stdout.splitlines()
             content_location = [h for h in headers if b'Content-Location: ' in h]
             if content_location:
@@ -122,11 +127,12 @@ def archive_dot_org(out_dir, link, overwrite=False, timeout=60):
             else:
                 raise Exception('Failed to find "Content-Location" URL header in Archive.org response.')
         except Exception as e:
+            end()
             print('       Visit url to see output:', ' '.join(CMD))
-            print('       Failed: {} {}'.format(e.__class__.__name__, e))
+            print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
 
         if success:
-            with open('{}/archive.org.txt'.format(out_dir), 'w', encoding='utf-8') as f:
+            with open(os.path.join(out_dir, 'archive.org.txt'), 'w', encoding='utf-8') as f:
                 f.write(saved_url)
             chmod_file('archive.org.txt', cwd=out_dir)
 
@@ -140,14 +146,17 @@ def fetch_favicon(out_dir, link, overwrite=False, timeout=60):
 
     if not os.path.exists(path) or overwrite:
         print('    - Fetching Favicon')
-        CMD = 'curl https://www.google.com/s2/favicons?domain={domain}'.format(**link).split(' ')
+        CMD = ['curl', 'https://www.google.com/s2/favicons?domain={domain}'.format(**link)]
         fout = open('{}/favicon.ico'.format(out_dir), 'w')
+        end = progress(timeout, prefix='      ')
         try:
-            run([*CMD], stdout=fout, stderr=DEVNULL, cwd=out_dir, timeout=timeout)  # favicon.ico
+            run(CMD, stdout=fout, stderr=DEVNULL, cwd=out_dir, timeout=timeout + 1)  # favicon.ico
+            end()
             chmod_file('favicon.ico', cwd=out_dir)
         except Exception as e:
+            end()
             print('       Run to see full output:', ' '.join(CMD))
-            print('       Failed: {} {}'.format(e.__class__.__name__, e))
+            print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
         fout.close()
     else:
         print('    √ Skipping favicon')
@@ -166,15 +175,18 @@ def fetch_audio(out_dir, link, overwrite=False, timeout=60):
             "youtube-dl -x --audio-format mp3 --audio-quality 0 -o '%(title)s.%(ext)s'",
             link['url'],
         ]
+        end = progress(timeout, prefix='      ')
         try:
-            result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=timeout)  # sreenshot.png
+            result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=timeout + 1)  # audio/audio.mp3
+            end()
             if result.returncode:
                 print('     ', result.stderr.decode())
                 raise Exception('Failed to download audio')
             chmod_file('audio', cwd=out_dir)
         except Exception as e:
+            end()
             print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
-            print('       Failed: {} {}'.format(e.__class__.__name__, e))
+            print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
     else:
         print('    √ Skipping audio download')
 
@@ -189,27 +201,30 @@ def fetch_video(out_dir, link, overwrite=False, timeout=60):
     if not os.path.exists(path) or overwrite:
         print('    - Downloading video')
         CMD = [
-            "youtube-dl -x --audio-format mp3 --audio-quality 0 -o '%(title)s.%(ext)s'",
+            "youtube-dl -x --video-format mp4 --audio-quality 0 -o '%(title)s.%(ext)s'",
             link['url'],
         ]
+        end = progress(timeout, prefix='      ')
         try:
-            result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=timeout)  # sreenshot.png
+            result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=timeout + 1)  # video/movie.mp4
+            end()
             if result.returncode:
                 print('     ', result.stderr.decode())
                 raise Exception('Failed to download video')
             chmod_file('video', cwd=out_dir)
         except Exception as e:
+            end()
             print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
-            print('       Failed: {} {}'.format(e.__class__.__name__, e))
+            print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
     else:
         print('    √ Skipping video download')
 
-def dump_link_info(out_dir, link, update=True):
+def dump_link_info(out_dir, link, overwrite=False):
     """write a json file with some info about the link"""
 
     info_file_path = os.path.join(out_dir, 'link.json')
 
-    if (not os.path.exists(info_file_path) or update):
+    if (not os.path.exists(info_file_path) or overwrite):
         print('    - Creating link info file')
         try:
             link_json = derived_link_info(link)
@@ -223,7 +238,7 @@ def dump_link_info(out_dir, link, update=True):
 
             chmod_file('link.json', cwd=out_dir)
         except Exception as e:
-            print('       Failed: {} {}'.format(e.__class__.__name__, e))
+            print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
     else:
         print('    √ Skipping link info file')
 
@@ -231,7 +246,7 @@ def dump_link_info(out_dir, link, update=True):
 def dump_website(link, service, overwrite=False, permissions=ARCHIVE_PERMISSIONS):
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
-    print('[+] [{timestamp} ({time})] "{title}": {base_url}'.format(**link))
+    print('[{green}+{reset}] [{timestamp} ({time})] "{title}": {blue}{base_url}{reset}'.format(**link, **ANSI))
 
     out_dir = os.path.join(service, 'archive', link['timestamp'])
     if not os.path.exists(out_dir):
@@ -243,7 +258,7 @@ def dump_website(link, service, overwrite=False, permissions=ARCHIVE_PERMISSIONS
         print('    i Type: {}'.format(link['type']))
 
     if not (link['url'].startswith('http') or link['url'].startswith('ftp')):
-        print('    X Skipping: invalid link.')
+        print('    {}X Skipping: invalid link.{}', ANSI['red'], ANSI['yellow'])
         return
 
     if FETCH_WGET:
@@ -267,4 +282,4 @@ def dump_website(link, service, overwrite=False, permissions=ARCHIVE_PERMISSIONS
     if FETCH_FAVICON:
         fetch_favicon(out_dir, link, overwrite=overwrite)
 
-    dump_link_info(out_dir, link)
+    dump_link_info(out_dir, link, overwrite=overwrite)

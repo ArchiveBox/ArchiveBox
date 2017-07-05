@@ -2,8 +2,14 @@ import os
 from datetime import datetime
 from string import Template
 
-from config import INDEX_TEMPLATE, INDEX_ROW_TEMPLATE
 from parse import derived_link_info
+from config import (
+    INDEX_TEMPLATE,
+    INDEX_ROW_TEMPLATE,
+    ARCHIVE_PERMISSIONS,
+    ANSI,
+    chmod_file,
+)
 
 
 def dump_index(links, service):
@@ -28,4 +34,13 @@ def dump_index(links, service):
     }
 
     with open(os.path.join(service, 'index.html'), 'w', encoding='utf-8') as f:
-        f.write(Template(index_html).substitute(template_vars))
+        f.write(Template(index_html).substitute(**template_vars))
+
+    chmod_file(service, permissions=ARCHIVE_PERMISSIONS)
+
+    print('[+] [{}] Created archive index with {}{}{} links.'.format(
+        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        ANSI['green'],
+        len(links),
+        ANSI['reset'],
+    ))

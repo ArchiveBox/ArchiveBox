@@ -64,8 +64,8 @@ def parse_pocket_export(html_file):
             without_scheme = fixed_url.replace('http://', '').replace('https://', '')
             info = {
                 'url': fixed_url,
-                'domain': without_scheme.split('/')[0],    # without pathname
-                'base_url': without_scheme.split('?')[0],  # without query args
+                'domain': without_scheme.split('/', 1)[0],    # without pathname
+                'base_url': without_scheme.split('?', 1)[0],  # without query args
                 'time': datetime.fromtimestamp(int(match.group(2))).strftime('%Y-%m-%d %H:%M'),
                 'timestamp': match.group(2),
                 'tags': match.group(3),
@@ -84,10 +84,10 @@ def parse_json_export(json_file):
             erg = line
             info = {
                 'url': erg['href'],
-                'domain': erg['href'].replace('http://', '').replace('https://', '').split('/')[0],
-                'base_url': erg['href'].replace('https://', '').replace('http://', '').split('?')[0],
-                'time': datetime.fromtimestamp(int(time.mktime(time.strptime(erg['time'].split(',')[0], '%Y-%m-%dT%H:%M:%SZ')))),
-                'timestamp': str(int(time.mktime(time.strptime(erg['time'].split(',')[0], '%Y-%m-%dT%H:%M:%SZ')))),
+                'domain': erg['href'].replace('http://', '').replace('https://', '').split('/', 1)[0],
+                'base_url': erg['href'].replace('https://', '').replace('http://', '').split('?', 1)[0],
+                'time': datetime.fromtimestamp(int(time.mktime(time.strptime(erg['time'].split(',', 1)[0], '%Y-%m-%dT%H:%M:%SZ')))),
+                'timestamp': str(int(time.mktime(time.strptime(erg['time'].split(',', 1)[0], '%Y-%m-%dT%H:%M:%SZ')))),
                 'tags': erg['tags'],
                 'title': erg['description'].replace(' — Readability', ''),
             }
@@ -108,8 +108,8 @@ def parse_bookmarks_export(html_file):
 
             info = {
                 'url': url,
-                'domain': url.replace('http://', '').replace('https://', '').split('/')[0],
-                'base_url': url.replace('https://', '').replace('http://', '').split('?')[0],
+                'domain': url.replace('http://', '').replace('https://', '').split('/', 1)[0],
+                'base_url': url.replace('https://', '').replace('http://', '').split('?', 1)[0],
                 'time': dt,
                 'timestamp': secs,
                 'tags': "",

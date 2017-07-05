@@ -7,13 +7,13 @@ import os
 import sys
 
 from datetime import datetime
-from subprocess import run
 
 from parse import parse_export
 from index import dump_index
 from fetch import dump_website
 from config import (
     ARCHIVE_PERMISSIONS,
+    ANSI,
     check_dependencies,
 )
 
@@ -24,23 +24,23 @@ __DOCUMENTATION__ = 'https://github.com/pirate/bookmark-archiver'
 def create_archive(export_file, service=None, resume=None):
     """update or create index.html and download archive of all links"""
 
-    with open(export_file, 'r', encoding='utf-8') as f:
-        print('[+] [{}] Starting archive from {} export file.'.format(
-            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            export_file
-        ))
+    print('[*] [{}] Starting archive from {} export file.'.format(
+        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        export_file,
+    ))
 
+    with open(export_file, 'r', encoding='utf-8') as f:
         links, service = parse_export(f, service=service)
 
-        if resume:
-            try:
-                links = [
-                    link
-                    for link in links
-                    if float(link['timestamp']) >= float(resume)
-                ]
-            except TypeError:
-                print('Resume value and all timestamp values must be valid numbers.')
+    if resume:
+        try:
+            links = [
+                link
+                for link in links
+                if float(link['timestamp']) >= float(resume)
+            ]
+        except TypeError:
+            print('Resume value and all timestamp values must be valid numbers.')
 
     if not links or not service:
         print('[X] No links found in {}, is it a {} export file?'.format(export_file, service))
@@ -53,20 +53,21 @@ def create_archive(export_file, service=None, resume=None):
         os.makedirs(os.path.join(service, 'archive'))
 
     dump_index(links, service)
-
-    run(['chmod', '-R', ARCHIVE_PERMISSIONS, service], timeout=30)
-
-    print('[*] [{}] Created archive index with {} links.'.format(
-        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        len(links),
-    ))
-
     check_dependencies()
+    try:
+        for link in links:
+            dump_website(link, service)
+    except (KeyboardInterrupt, SystemExit, Exception):
+        print('{red}[X] Archive creation stopped.{reset}'.format(**ANSI))
+        print('    Continue where you left off by running:')
+        print('       ./archive.py {} {} {}'.format(
+            export_file,
+            service,
+            link['timestamp'],
+        ))
+        raise SystemExit(1)
 
-    for link in links:
-        dump_website(link, service)
-
-    print('[√] [{}] Archive update complete.'.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+    print('{}[√] [{}] Archive update complete.{}'.format(ANSI['green'], datetime.now().strftime('%Y-%m-%d %H:%M:%S'), ANSI['reset']))
 
 
 if __name__ == '__main__':
