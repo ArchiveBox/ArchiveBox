@@ -132,7 +132,7 @@ def archive_dot_org(out_dir, link, overwrite=False, timeout=TIMEOUT):
                 success = True
 
             elif len(errors) == 1 and b'RobotAccessControlException' in errors[0]:
-                raise ValueError('Archive.org denied by {}/robots.txt'.format(link['domain']))
+                raise Exception('Archive.org denied by {}/robots.txt'.format(link['domain']))
             elif errors:
                 raise Exception(', '.join(e.decode() for e in errors))
             else:
