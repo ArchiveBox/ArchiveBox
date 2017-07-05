@@ -39,7 +39,8 @@ def fetch_wget(out_dir, link, overwrite=False, requisites=True, timeout=TIMEOUT)
             result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=out_dir, timeout=timeout + 1)  # index.html
             end()
             if result.returncode > 0:
-                print('\n'.join('       ' + line for line in result.stderr.decode().rsplit('\n', 10)[-10:] if line.strip()))
+                print('       wget output:')
+                print('\n'.join('         ' + line for line in result.stderr.decode().rsplit('\n', 10)[-10:] if line.strip()))
                 raise Exception('Failed to wget download')
             chmod_file(link['domain'], cwd=out_dir)
         except Exception as e:
