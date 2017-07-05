@@ -57,7 +57,7 @@ def create_archive(export_file, service=None, resume=None):
     try:
         for link in links:
             dump_website(link, service)
-    except (KeyboardInterrupt, SystemExit, Exception):
+    except (KeyboardInterrupt, SystemExit, Exception) as e:
         print('{red}[X] Archive creation stopped.{reset}'.format(**ANSI))
         print('    Continue where you left off by running:')
         print('       ./archive.py {} {} {}'.format(
@@ -65,6 +65,8 @@ def create_archive(export_file, service=None, resume=None):
             service,
             link['timestamp'],
         ))
+        if not isinstance(e, KeyboardInterrupt):
+            raise e
         raise SystemExit(1)
 
     print('{}[√] [{}] Archive update complete.{}'.format(ANSI['green'], datetime.now().strftime('%Y-%m-%d %H:%M:%S'), ANSI['reset']))

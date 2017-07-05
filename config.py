@@ -168,7 +168,7 @@ def progress(seconds=TIMEOUT, prefix=''):
     def end():
         """immediately finish progress and clear the progressbar line"""
         p.terminate()
-        sys.stdout.write('\r{}\r'.format(' ' * TERM_WIDTH))  # clear whole terminal line
+        sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH), ANSI['reset']))  # clear whole terminal line
         sys.stdout.flush()
 
     return end
