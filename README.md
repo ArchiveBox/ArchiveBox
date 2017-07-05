@@ -82,13 +82,22 @@ You can tweak parameters via environment variables, or by editing `config.py` di
 env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./archive.py ~/Downloads/bookmarks_export.html
 ```
 
- - Archive methods: `FETCH_WGET`, `FETCH_PDF`, `FETCH_SCREENSHOT`, `FETCH_FAVICON`, `SUBMIT_ARCHIVE_DOT_ORG` values: [`True`]/`False`
- - Archive images/css/js: `FETCH_WGET_REQUISITES` values: [`True`]/`False`  (True is highly recommended)
- - Screenshot: `RESOLUTION` values: [`1440,900`]/`1024,768`/`...`
- - Outputted Files: `ARCHIVE_PERMISSIONS` values: [`755`]/`644`/`...`
- - Path to Chrome: `CHROME_BINARY` values: [`chromium-browser`]/`/usr/local/bin/chromium-browser`/`...`
- - Path to wget: `WGET_BINARY` values: [`wget`]/`/usr/local/bin/wget`/`...`
- - Download timemout: `TIMEOUT` values: [`60`]/`30`/`...`
+**Shell Options:**
+ - colorize console ouput: `USE_COLOR` value: [`True`]/`False`
+ - show progress bar: `SHOW_PROGRESS` value: [`True`]/`False`
+ - archive permissions: `ARCHIVE_PERMISSIONS` values: [`755`]/`644`/`...`
+
+**Dependency Options:**
+ - path to Chrome: `CHROME_BINARY` values: [`chromium-browser`]/`/usr/local/bin/google-chrome`/`...`
+ - path to wget: `WGET_BINARY` values: [`wget`]/`/usr/local/bin/wget`/`...`
+
+**Archive Options:**
+ - download timemout: `TIMEOUT` values: [`60`]/`30`/`...`
+ - archive methods: `FETCH_WGET`, `FETCH_PDF`, `FETCH_SCREENSHOT`, `FETCH_FAVICON`, `SUBMIT_ARCHIVE_DOT_ORG` values: [`True`]/`False`
+ - archive images/css/js: `FETCH_WGET_REQUISITES` values: [`True`]/`False`  (True is highly recommended)
+ - screenshot: `RESOLUTION` values: [`1440,900`]/`1024,768`/`...`
+
+**Index Options:**
  - html index template: `INDEX_TEMPLATE` value:  `templates/index.html`/`...`
  - html index row template: `INDEX_ROW_TEMPLATE` value:  `templates/index_row.html`/`...`
 
