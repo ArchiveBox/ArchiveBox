@@ -2,7 +2,7 @@
 
 ▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Changelog](#changelog)
 
-Save an archived copy of all websites you star (the actual *content* of the sites, not just the list of bookmarks).
+Save an archived copy of all websites you bookmark (the actual *content* of the sites, not just the list of bookmarks).
 
 Outputs browsable static html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.  
 (Your own personal Way-Back Machine) [DEMO: sweeting.me/pocket](https://home.sweeting.me/pocket)
