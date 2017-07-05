@@ -175,16 +175,22 @@ def html_appended_url(link):
     See docs on wget --adjust-extension."""
 
     split_url = link['url'].split('#', 1)
+    query = ('%3F' + link['url'].split('?', 1)[-1]) if '?' in link['url'] else ''
 
     if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", split_url[0], re.I | re.M):
         # already ends in .html
         return link['base_url']
     else:
         # .html needs to be appended
-        without_scheme = split_url[0].split('://', 1)[-1]
+        without_scheme = split_url[0].split('://', 1)[-1].split('?', 1)[0]
         if without_scheme.endswith('/'):
+            if query:
+                return '#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]])
             return '#'.join([without_scheme + 'index.html', *split_url[1:]])
-        return '#'.join([without_scheme + '.html', *split_url[1:]])
+        else:
+            if query:
+                return '#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]])
+            return '#'.join([without_scheme + '.html', *split_url[1:]])
 
 
 def derived_link_info(link):
