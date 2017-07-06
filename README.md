@@ -96,6 +96,7 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
  - archive methods: `FETCH_WGET`, `FETCH_PDF`, `FETCH_SCREENSHOT`, `FETCH_FAVICON`, `SUBMIT_ARCHIVE_DOT_ORG` values: [`True`]/`False`
  - archive images/css/js: `FETCH_WGET_REQUISITES` values: [`True`]/`False`  (True is highly recommended)
  - screenshot: `RESOLUTION` values: [`1440,900`]/`1024,768`/`...`
+ - user agent: `WGET_USER_AGENT` values: [`Wget/1.19.1`]/`"Mozilla/5.0 ..."`/`...`
 
 **Index Options:**
  - html index template: `INDEX_TEMPLATE` value:  `templates/index.html`/`...`
