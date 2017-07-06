@@ -61,6 +61,8 @@ For each sites it saves:
  - `link.json` A json file containing link info and archive status
  - `audio/` and `video/` for sites like youtube, soundcloud, etc. (using youtube-dl) (WIP)
 
+Screenshots & PDFs will be able to work for any sites you're logged-into using Chrome, but wget cannet fetch sites that need authentication (for now).
+
 **Large Exports & Estimated Runtime:** 
 
 I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.  
