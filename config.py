@@ -48,6 +48,15 @@ if not USE_COLOR:
     # dont show colors if USE_COLOR is False
     ANSI = {k: '' for k in ANSI.keys()}
 
+if sys.stdout.encoding != 'UTF-8':
+    print('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
+    print('    To fix it, add the line "export PYTHONIOENCODING=utf8" to your ~/.bashrc file (without quotes)')
+    print('')
+    print('    Confirm that it\'s fixed by opening a new shell and running:')
+    print('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
+    print('')
+    print('    Alternatively, run this script with:')
+    print('        env PYTHONIOENCODING=utf8 ./archive.py export.html')
 
 ### Util Functions
 
@@ -125,6 +134,7 @@ def progress(seconds=TIMEOUT, prefix=''):
     if not SHOW_PROGRESS:
         return lambda: None
 
+    chunk = '█' if sys.stdout.encoding == 'UTF-8' else '#'
     chunks = TERM_WIDTH - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
 
     def progress_bar(seconds=seconds, prefix=prefix):
@@ -138,7 +148,7 @@ def progress(seconds=TIMEOUT, prefix=''):
                 sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)'.format(
                     prefix,
                     ANSI['green'],
-                    ('█' * bar_width).ljust(chunks),
+                    (chunk * bar_width).ljust(chunks),
                     ANSI['reset'],
                     round(progress, 1),
                     round(s/chunks),
@@ -151,7 +161,7 @@ def progress(seconds=TIMEOUT, prefix=''):
             sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)\n'.format(
                 prefix,
                 ANSI['red'],
-                '█' * chunks,
+                chunk * chunks,
                 ANSI['reset'],
                 100.0,
                 seconds,
