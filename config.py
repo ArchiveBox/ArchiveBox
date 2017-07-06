@@ -28,6 +28,7 @@ RESOLUTION =             os.getenv('RESOLUTION',             '1440,900'         
 ARCHIVE_PERMISSIONS =    os.getenv('ARCHIVE_PERMISSIONS',    '755'              )
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          'chromium-browser' )  # change to google-chrome browser if using google-chrome
 WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             )
+WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',         None)
 TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
 INDEX_TEMPLATE =         os.getenv('INDEX_TEMPLATE',         'templates/index.html')
 INDEX_ROW_TEMPLATE =     os.getenv('INDEX_ROW_TEMPLATE',     'templates/index_row.html')
