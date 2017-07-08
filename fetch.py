@@ -33,7 +33,7 @@ def fetch_wget(out_dir, link, overwrite=False, requisites=True, timeout=TIMEOUT)
         CMD = [
             *'wget --timestamping --adjust-extension --no-parent'.split(' '),                # Docs: https://www.gnu.org/software/wget/manual/wget.html
             *(('--page-requisites', '--convert-links') if requisites else ()),
-            *(('--user-agent="{}"'.format(WGET_USER_AGENT)) if WGET_USER_AGENT else ()),
+            *(('--user-agent="{}"'.format(WGET_USER_AGENT), '') if WGET_USER_AGENT else ()),
             link['url'],
         ]
         end = progress(timeout, prefix='      ')
