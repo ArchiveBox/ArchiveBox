@@ -36,7 +36,7 @@ Follow the links here to find instructions for exporting bookmarks from each ser
 git clone https://github.com/pirate/bookmark-archiver
 cd bookmark-archiver/
 ./setup.sh
-./archive.py ~/Downloads/bookmark_export.html   # replace this path with the path to your bookmarks export file
+./archive.py ~/Downloads/bookmark_export.html   # replace with the path to your export file from step 1
 ```
 
 You can open `service/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
@@ -47,7 +47,7 @@ If you want something easier than running programs in the command-line, take a l
 
 ## Details
 
-`archive.py` is a script that takes a [Pocket-format](https://getpocket.com/export), [Pinboard-format](https://pinboard.in/export/), or [Netscape-format](https://msdn.microsoft.com/en-us/library/aa753582(v=vs.85).aspx) bookmark export file, and turns it into a browsable archive that you can store locally or host online.
+`archive.py` is a script that takes a [Pocket-format](https://getpocket.com/export), [Pinboard-format](https://pinboard.in/export/), or [Netscape-format](https://msdn.microsoft.com/en-us/library/aa753582(v=vs.85).aspx) bookmark export file, and downloads a clone of each linked website to turn into a browsable archive that you can store locally or host online.
 
 The archiver produces a folder like `pocket/` containing an `index.html`, and archived copies of all the sites,
 organized by starred timestamp.  It's Powered by the [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Chromium and good 'ol `wget`.
