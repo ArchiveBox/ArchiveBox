@@ -61,7 +61,8 @@ For each sites it saves:
  - `link.json` A json file containing link info and archive status
  - `audio/` and `video/` for sites like youtube, soundcloud, etc. (using youtube-dl) (WIP)
 
-Screenshots & PDFs will be able to work for any sites you're logged-into using Chrome, but wget cannet fetch sites that need authentication (for now).
+Wget and Chrome [don't work](https://bugs.chromium.org/p/chromium/issues/detail?id=617931) on sites you need to be logged into (yet).
+`chrome --headless` essentially runs in an incognito mode session, until they add support for `--user-data-dir=`.
 
 **Large Exports & Estimated Runtime:** 
 
