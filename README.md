@@ -157,11 +157,12 @@ My published archive as an example: [sweeting.me/pocket](https://home.sweeting.m
 
 ## Manual Setup
 
-If you don't like `sudo` running random setup scripts off the internet (which you shouldn't), you can follow these manual setup instructions.
+If you don't like running random setup scripts off the internet (:+1:), you can follow these manual setup instructions.
 
 **1. Install dependencies:** `chromium >= 59`,` wget >= 1.16`, `python3 >= 3.5`  (google-chrome >= v59 also works well)
 
 If you already have Google Chrome installed, or wish to use that instead of Chromium, follow the [Google Chrome Instructions](#google-chrome-instructions).
+
 ```bash
 # On Mac:
 brew cask install chromium  # If you already have Google Chrome/Chromium in /Applications/, skip this command
@@ -243,23 +244,27 @@ If you still need help, [the official Python docs](https://docs.python.org/3.6/u
 
 `archive.py` depends on being able to access a `chromium-browser`/`google-chrome` executable.  The executable used
 defaults to `chromium-browser` but can be manually specified with the environment variable `CHROME_BINARY`:
+
 ```bash
 env CHROME_BINARY=/usr/local/bin/chromium-browser ./archive.py ~/Downloads/bookmarks_export.html
 ```
 
 1. Test to make sure you have Chrome on your `$PATH` with:
+
 ```bash
 which chromium-browser || which google-chrome
 ```
 If no executable is displayed, follow the setup instructions to install and link one of them.
 
 2. If a path is displayed, the next step is to check that it's runnable:
+
 ```bash
 chromium-browser --version || google-chrome --version
 ```
 If no version is displayed, try the setup instructions again, or confirm that you have permission to access chrome.
 
 3. If a version is displayed and it's `<59`, upgrade it:
+
 ```bash
 apt upgrade chromium-browser -y
 # OR
@@ -267,6 +272,7 @@ brew cask upgrade chromium-browser
 ```
 
 4. If a version is displayed and it's `>=59`, make sure `archive.py` is running the right one:
+
 ```bash
 env CHROME_BINARY=/path/from/step/1/chromium-browser ./archive.py bookmarks_export.html   # replace the path with the one you got from step 1
 ```
