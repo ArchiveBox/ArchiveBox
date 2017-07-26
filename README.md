@@ -323,6 +323,7 @@ if you have problem with a particular nginx config.
 
 If you feel like contributing a PR, some of these tasks are pretty easy.  Feel free to open an issue if you need help getting started in any way!
 
+ - download closed-captions text from youtube videos
  - body text extraction using [fathom](https://hacks.mozilla.org/2017/04/fathom-a-framework-for-understanding-web-pages/)
  - auto-tagging based on important extracted words
  - audio & video archiving with `youtube-dl`
