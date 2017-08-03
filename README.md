@@ -20,7 +20,7 @@ Follow the links here to find instructions for exporting bookmarks from each ser
  - [Pocket](https://getpocket.com/export)
  - [Pinboard](https://pinboard.in/export/)
  - [Instapaper](https://www.instapaper.com/user/export)
- - [Shaarli](http://sebsauvage.net/wiki/lib/exe/fetch.php?media=php:php_shaarli:shaarli_cap16_dragbutton.png)
+ - [Shaarli](http://shaarli.readthedocs.io/en/master/Backup,-restore,-import-and-export/#export-links-as)
  - [Unmark.it](http://help.unmark.it/import-export)
  - [Chrome Bookmarks](https://support.google.com/chrome/answer/96816?hl=en)
  - [Firefox Bookmarks](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer)
@@ -35,13 +35,14 @@ Follow the links here to find instructions for exporting bookmarks from each ser
 ```bash
 git clone https://github.com/pirate/bookmark-archiver
 cd bookmark-archiver/
-./setup.sh
+./setup.sh #install ALL dependencies
 ./archive.py ~/Downloads/bookmark_export.html   # replace with the path to your export file from step 1
 ```
 
 You can open `service/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
 
 If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.  
+If you'd like to customize options, see the [Configuration](#configuration) section.  
 
 If you want something easier than running programs in the command-line, take a look at [Pocket Premium](https://getpocket.com/premium) (yay Mozilla!) and [Pinboard Pro](https://pinboard.in/upgrade/), which both offer easy-to-use bookmark archiving with full-text-search.
 
@@ -108,6 +109,8 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
  (See defaults & more at the top of `config.py`)
 
 To tweak the outputted html index file's look and feel, just copy the files in `templates/` somewhere else and edit away.  Use the two index config variables above to point the script to your new custom template files. 
+
+The chrome/chromium dependency is _optional_ and only required for screenshots and PDF output, can be safely ignored if both of those are disabled.
 
 ## Publishing Your Archive
 
