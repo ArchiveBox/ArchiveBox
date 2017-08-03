@@ -95,7 +95,7 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
  - path to wget: `WGET_BINARY` values: [`wget`]/`/usr/local/bin/wget`/`...`
 
 **Archive Options:**
- - download timemout: `TIMEOUT` values: [`60`]/`30`/`...`
+ - maximum allowed download time per link: `TIMEOUT` values: [`60`]/`30`/`...`
  - archive methods: `FETCH_WGET`, `FETCH_PDF`, `FETCH_SCREENSHOT`, `FETCH_FAVICON`, `SUBMIT_ARCHIVE_DOT_ORG` values: [`True`]/`False`
  - archive images/css/js: `FETCH_WGET_REQUISITES` values: [`True`]/`False`  (True is highly recommended)
  - screenshot: `RESOLUTION` values: [`1440,900`]/`1024,768`/`...`
