@@ -96,8 +96,13 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
 
 **Archive Options:**
  - maximum allowed download time per link: `TIMEOUT` values: [`60`]/`30`/`...`
- - archive methods: `FETCH_WGET`, `FETCH_PDF`, `FETCH_SCREENSHOT`, `FETCH_FAVICON`, `SUBMIT_ARCHIVE_DOT_ORG` values: [`True`]/`False`
- - archive images/css/js: `FETCH_WGET_REQUISITES` values: [`True`]/`False`  (True is highly recommended)
+ - archive methods (values: [`True`]/`False`):
+   - fetch page with wget: `FETCH_WGET`
+   - fetch images/css/js with wget: `FETCH_WGET_REQUISITES` (True is highly recommended)
+   - print page as PDF: `FETCH_PDF`
+   - fetch a screenshot of the page: `FETCH_SCREENSHOT`
+   - fetch a favicon for the page: `FETCH_FAVICON`
+   - submit the page to archive.org: `SUBMIT_ARCHIVE_DOT_ORG` 
  - screenshot: `RESOLUTION` values: [`1440,900`]/`1024,768`/`...`
  - user agent: `WGET_USER_AGENT` values: [`Wget/1.19.1`]/`"Mozilla/5.0 ..."`/`...`
 
