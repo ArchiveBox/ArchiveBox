@@ -7,6 +7,7 @@ from subprocess import run, PIPE, DEVNULL
 from parse import derived_link_info
 from config import (
     ARCHIVE_PERMISSIONS,
+    ARCHIVE_DIR,
     CHROME_BINARY,
     FETCH_WGET,
     FETCH_WGET_REQUISITES,
@@ -261,7 +262,7 @@ def dump_website(link, service, overwrite=False, permissions=ARCHIVE_PERMISSIONS
 
     print('[{green}+{reset}] [{timestamp} ({time})] "{title}": {blue}{base_url}{reset}'.format(**link, **ANSI))
 
-    out_dir = os.path.join(service, 'archive', link['timestamp'])
+    out_dir = os.path.join(ARCHIVE_DIR, service, 'archive', link['timestamp'])
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

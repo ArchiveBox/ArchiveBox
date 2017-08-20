@@ -13,6 +13,7 @@ from index import dump_index
 from fetch import dump_website
 from config import (
     ARCHIVE_PERMISSIONS,
+    ARCHIVE_DIR,
     ANSI,
     check_dependencies,
 )
@@ -46,11 +47,11 @@ def create_archive(export_file, service=None, resume=None):
         print('[X] No links found in {}, is it a {} export file?'.format(export_file, service))
         raise SystemExit(1)
 
-    if not os.path.exists(service):
-        os.makedirs(service)
+    if not os.path.exists(os.path.join(ARCHIVE_DIR, service)):
+        os.makedirs(os.path.join(ARCHIVE_DIR, service))
 
-    if not os.path.exists(os.path.join(service, 'archive')):
-        os.makedirs(os.path.join(service, 'archive'))
+    if not os.path.exists(os.path.join(ARCHIVE_DIR, service, 'archive')):
+        os.makedirs(os.path.join(ARCHIVE_DIR, service, 'archive'))
 
     dump_index(links, service)
     check_dependencies()
