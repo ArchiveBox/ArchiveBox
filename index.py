@@ -7,6 +7,7 @@ from config import (
     INDEX_TEMPLATE,
     INDEX_ROW_TEMPLATE,
     ARCHIVE_PERMISSIONS,
+    ARCHIVE_DIR,
     ANSI,
     chmod_file,
 )
@@ -33,10 +34,10 @@ def dump_index(links, service):
         'rows': article_rows,
     }
 
-    with open(os.path.join(service, 'index.html'), 'w', encoding='utf-8') as f:
+    with open(os.path.join(ARCHIVE_DIR, service, 'index.html'), 'w', encoding='utf-8') as f:
         f.write(Template(index_html).substitute(**template_vars))
 
-    chmod_file(service, permissions=ARCHIVE_PERMISSIONS)
+    chmod_file(os.path.join(ARCHIVE_DIR, service), permissions=ARCHIVE_PERMISSIONS)
 
     print('[+] [{}] Created archive index with {}{}{} links.'.format(
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),

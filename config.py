@@ -26,6 +26,7 @@ FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             
 SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             ).lower() == 'true'
 RESOLUTION =             os.getenv('RESOLUTION',             '1440,900'         )
 ARCHIVE_PERMISSIONS =    os.getenv('ARCHIVE_PERMISSIONS',    '755'              )
+ARCHIVE_DIR =            os.getenv('ARCHIVE_DIR',            '')
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          'chromium-browser' )  # change to google-chrome browser if using google-chrome
 WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             )
 WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',         None)
