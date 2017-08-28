@@ -359,6 +359,7 @@ will run fast subsequent times because it only downloads new links that haven't 
  - https://webrecorder.io/
  - https://github.com/ikreymer/webarchiveplayer#auto-load-warcs
  - [Shaarchiver](https://github.com/nodiscc/shaarchiver) very similar project that archives Firefox, Shaarli, or Delicious bookmarks and all linked media, generating a markdown/HTML index
+ - [Sheetsee-Pocket](http://jlord.us/sheetsee-pocket/) project that provides a pretty auto-updating index of your Pocket links (without archiving them)
 
 ## Changelog
 
