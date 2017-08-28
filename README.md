@@ -39,7 +39,12 @@ cd bookmark-archiver/
 ./archive.py ~/Downloads/bookmark_export.html   # replace with the path to your export file from step 1
 ```
 
+**3. Done!**
+
 You can open `service/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
+
+If you want to host your archive somewhere to share it with other people, see the [Publishing Your Archive](#publishing-your-archive) section below.
+
 
 If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.  
 If you'd like to customize options, see the [Configuration](#configuration) section.  
