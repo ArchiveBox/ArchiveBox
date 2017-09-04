@@ -50,7 +50,7 @@ if not USE_COLOR:
     # dont show colors if USE_COLOR is False
     ANSI = {k: '' for k in ANSI.keys()}
 
-if sys.stdout.encoding != 'UTF-8':
+if sys.stdout.encoding.lower() != 'UTF-8':
     print('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
     print('    To fix it, add the line "export PYTHONIOENCODING=utf8" to your ~/.bashrc file (without quotes)')
     print('')
