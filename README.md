@@ -22,6 +22,7 @@ Follow the links here to find instructions for exporting bookmarks from each ser
  - [Instapaper](https://www.instapaper.com/user/export)
  - [Shaarli](http://shaarli.readthedocs.io/en/master/Backup,-restore,-import-and-export/#export-links-as)
  - [Unmark.it](http://help.unmark.it/import-export)
+ - [Wallabag](https://doc.wallabag.org/en/user/import/wallabagv2.html)
  - [Chrome Bookmarks](https://support.google.com/chrome/answer/96816?hl=en)
  - [Firefox Bookmarks](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer)
  - [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png)
