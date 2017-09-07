@@ -7,7 +7,7 @@ Save an archived copy of all websites you bookmark (the actual *content* of the 
 Outputs browsable static html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.  
 (Your own personal Way-Back Machine) [DEMO: sweeting.me/pocket](https://home.sweeting.me/pocket)
 
-**Supports: Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera), Pocket, Pinboard, Shaarli, Delicious, Instapaper, Unmark.it, and more!**
+**Supports: Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera), Pocket, Pinboard, Reddit, Wallabag, Shaarli, Delicious, Instapaper, Unmark.it, and more!**
 
 ![](screenshot.png)
 
@@ -20,6 +20,7 @@ Follow the links here to find instructions for exporting bookmarks from each ser
  - [Pocket](https://getpocket.com/export)
  - [Pinboard](https://pinboard.in/export/)
  - [Instapaper](https://www.instapaper.com/user/export)
+ - [Reddit Saved Posts](https://github.com/csu/export-saved-reddit)
  - [Shaarli](http://shaarli.readthedocs.io/en/master/Backup,-restore,-import-and-export/#export-links-as)
  - [Unmark.it](http://help.unmark.it/import-export)
  - [Wallabag](https://doc.wallabag.org/en/user/import/wallabagv2.html)
