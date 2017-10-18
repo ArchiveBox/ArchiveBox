@@ -3,74 +3,79 @@
 # Nick Sweeting 2017 | MIT License
 # https://github.com/pirate/bookmark-archiver
 
-import os
 import sys
 
 from datetime import datetime
 
+from links import validate_links
 from parse import parse_export
-from index import dump_index
-from fetch import dump_website
+from archive_methods import archive_links, _RESULTS_TOTALS
+from index import (
+    write_links_index,
+    write_link_index,
+    parse_json_links_index,
+    parse_json_link_index,
+)
 from config import (
     ARCHIVE_PERMISSIONS,
-    ARCHIVE_DIR,
+    HTML_FOLDER,
+    ARCHIVE_FOLDER,
     ANSI,
+    TIMEOUT,
+)
+from util import (
+    download_url,
     check_dependencies,
+    progress,
 )
 
 DESCRIPTION = 'Bookmark Archiver: Create a browsable html archive of a list of links.'
 __DOCUMENTATION__ = 'https://github.com/pirate/bookmark-archiver'
 
 
-def create_archive(export_file, service=None, resume=None):
+
+def update_archive(export_path, resume=None, append=True):
     """update or create index.html and download archive of all links"""
 
-    print('[*] [{}] Starting archive from {} export file.'.format(
+    start_ts = datetime.now().timestamp()
+
+    # parse an validate the export file
+    new_links = validate_links(parse_export(export_path))
+
+    # load existing links if archive folder is present
+    if append:
+        existing_links = parse_json_links_index(HTML_FOLDER)
+        links = validate_links(existing_links + new_links)
+    else:
+        existing_links = []
+
+    # merge existing links and new links
+    num_new_links = len(links) - len(existing_links)
+    print('[*] [{}] Adding {} new links from {} to index'.format(
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        export_file,
+        num_new_links,
+        export_path,
     ))
 
-    with open(export_file, 'r', encoding='utf-8') as f:
-        links, service = parse_export(f, service=service)
+    # write link index html & json
+    write_links_index(HTML_FOLDER, links)
 
-    if resume:
-        try:
-            links = [
-                link
-                for link in links
-                if float(link['timestamp']) >= float(resume)
-            ]
-        except TypeError:
-            print('Resume value and all timestamp values must be valid numbers.')
+    # loop over links and archive them
+    archive_links(ARCHIVE_FOLDER, links, export_path, resume=resume)
 
-    if not links or not service:
-        print('[X] No links found in {}, is it a {} export file?'.format(export_file, service))
-        raise SystemExit(1)
-
-    if not os.path.exists(os.path.join(ARCHIVE_DIR, service)):
-        os.makedirs(os.path.join(ARCHIVE_DIR, service))
-
-    if not os.path.exists(os.path.join(ARCHIVE_DIR, service, 'archive')):
-        os.makedirs(os.path.join(ARCHIVE_DIR, service, 'archive'))
-
-    dump_index(links, service)
-    check_dependencies()
-    try:
-        for link in links:
-            dump_website(link, service)
-    except (KeyboardInterrupt, SystemExit, Exception) as e:
-        print('{red}[X] Archive creation stopped.{reset}'.format(**ANSI))
-        print('    Continue where you left off by running:')
-        print('       ./archive.py {} {} {}'.format(
-            export_file,
-            service,
-            link['timestamp'],
-        ))
-        if not isinstance(e, KeyboardInterrupt):
-            raise e
-        raise SystemExit(1)
-
-    print('{}[√] [{}] Archive update complete.{}'.format(ANSI['green'], datetime.now().strftime('%Y-%m-%d %H:%M:%S'), ANSI['reset']))
+    # print timing information & summary
+    end_ts = datetime.now().timestamp()
+    seconds = round(end_ts - start_ts, 1)
+    duration = '{} min'.format(seconds / 60) if seconds > 60 else '{} sec'.format(seconds)
+    print('{}[√] [{}] Archive update complete ({}){}'.format(
+        ANSI['green'],
+        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        duration,
+        ANSI['reset'],
+    ))
+    print('    - {} skipped'.format(_RESULTS_TOTALS['skipped']))
+    print('    - {} updates'.format(_RESULTS_TOTALS['succeded']))
+    print('    - {} errors'.format(_RESULTS_TOTALS['failed']))
 
 
 if __name__ == '__main__':
@@ -85,8 +90,10 @@ if __name__ == '__main__':
         print("")
         raise SystemExit(0)
 
-    export_file = sys.argv[1]                                       # path to export file
-    export_type = sys.argv[2] if argc > 2 else None                 # select export_type for file format select
-    resume_from = sys.argv[3] if argc > 3 else None                 # timestamp to resume dowloading from
+    export_path = sys.argv[1]                        # path to export file
+    resume_from = sys.argv[2] if argc > 2 else None  # timestamp to resume dowloading from
 
-    create_archive(export_file, service=export_type, resume=resume_from)
+    if any(export_path.startswith(s) for s in ('http://', 'https://', 'ftp://')):
+        export_path = download_url(export_path)
+
+    update_archive(export_path, resume=resume_from)

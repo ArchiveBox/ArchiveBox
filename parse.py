@@ -1,56 +1,38 @@
 import re
-import time
 import json
-
 from datetime import datetime
 
+from util import (
+    domain,
+    base_url,
+    get_str_between,
+    get_link_type,
+)
 
-def parse_export(file, service=None):
+
+def parse_export(path):
     """parse a list of links dictionaries from a bookmark export file"""
+    
+    links = []
+    with open(path, 'r', encoding='utf-8') as file:
+        for service, parser_func in get_parsers().items():
+            # otherwise try all parsers until one works
+            try:
+                links += list(parser_func(file))
+                if links:
+                    break
+            except Exception as e:
+                pass
 
-    # if specific service was passed via command line
-    if service == "pocket":
-        links = parse_pocket_export(file)
-    elif service == "pinboard":
-        links = parse_json_export(file)
-    elif service == "bookmarks":
-        links = parse_bookmarks_export(file)
-    else:
-        # otherwise try all parsers until one works
-        try:
-            links = list(parse_json_export(file))
-            service = 'pinboard'
-        except Exception:
-            links = list(parse_pocket_export(file))
-            if links:
-                service = 'pocket'
-            else:
-                links = list(parse_bookmarks_export(file))
-                service = 'bookmarks'
+    return links
 
-    links = valid_links(links)              # remove chrome://, about:, mailto: etc.
-    links = uniquefied_links(links)         # fix duplicate timestamps, returns sorted list
-    return links, service
-
-
-def get_link_type(link):
-    """Certain types of links need to be handled specially, this figures out when that's the case"""
-
-    if link['base_url'].endswith('.pdf'):
-        return 'PDF'
-    elif link['base_url'].rsplit('.', 1) in ('pdf', 'png', 'jpg', 'jpeg', 'svg', 'bmp', 'gif', 'tiff', 'webp'):
-        return 'image'
-    elif 'wikipedia.org' in link['domain']:
-        return 'wiki'
-    elif 'youtube.com' in link['domain']:
-        return 'youtube'
-    elif 'soundcloud.com' in link['domain']:
-        return 'soundcloud'
-    elif 'youku.com' in link['domain']:
-        return 'youku'
-    elif 'vimeo.com' in link['domain']:
-        return 'vimeo'
-    return None
+def get_parsers():
+    return {
+        'pocket': parse_pocket_export,
+        'pinboard': parse_json_export,
+        'bookmarks': parse_bookmarks_export,
+        'rss': parse_rss_export,
+    }
 
 def parse_pocket_export(html_file):
     """Parse Pocket-format bookmarks export files (produced by getpocket.com/export/)"""
@@ -61,15 +43,15 @@ def parse_pocket_export(html_file):
         match = pattern.search(line)
         if match:
             fixed_url = match.group(1).replace('http://www.readability.com/read?url=', '')           # remove old readability prefixes to get original url
-            without_scheme = fixed_url.replace('http://', '').replace('https://', '')
+            time = datetime.fromtimestamp(float(match.group(2)))
             info = {
                 'url': fixed_url,
-                'domain': without_scheme.split('/', 1)[0],    # without pathname
-                'base_url': without_scheme.split('?', 1)[0],  # without query args
-                'time': datetime.fromtimestamp(int(match.group(2))).strftime('%Y-%m-%d %H:%M'),
-                'timestamp': match.group(2),
+                'domain': domain(fixed_url),
+                'base_url': base_url(fixed_url),
+                'timestamp': str(time.timestamp()),
                 'tags': match.group(3),
-                'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '') or without_scheme,
+                'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '') or base_url(fixed_url),
+                'sources': [html_file.name],
             }
             info['type'] = get_link_type(info)
             yield info
@@ -82,17 +64,58 @@ def parse_json_export(json_file):
     for line in json_content:
         if line:
             erg = line
+            time = datetime.strptime(erg['time'].split(',', 1)[0], '%Y-%m-%dT%H:%M:%SZ')
             info = {
                 'url': erg['href'],
-                'domain': erg['href'].replace('http://', '').replace('https://', '').split('/', 1)[0],
-                'base_url': erg['href'].replace('https://', '').replace('http://', '').split('?', 1)[0],
-                'time': datetime.fromtimestamp(int(time.mktime(time.strptime(erg['time'].split(',', 1)[0], '%Y-%m-%dT%H:%M:%SZ')))),
-                'timestamp': str(int(time.mktime(time.strptime(erg['time'].split(',', 1)[0], '%Y-%m-%dT%H:%M:%SZ')))),
+                'domain': domain(erg['href']),
+                'base_url': base_url(erg['href']),
+                'timestamp': str(time.timestamp()),
                 'tags': erg['tags'],
                 'title': erg['description'].replace(' — Readability', ''),
+                'sources': [json_file.name],
             }
             info['type'] = get_link_type(info)
             yield info
+
+def parse_rss_export(rss_file):
+    """Parse RSS XML-format files into links"""
+
+    rss_file.seek(0)
+    items = rss_file.read().split('</item>\n<item>')
+    for item in items:
+        # example item:
+        # <item>
+        # <title><![CDATA[How JavaScript works: inside the V8 engine]]></title>
+        # <category>Unread</category>
+        # <link>https://blog.sessionstack.com/how-javascript-works-inside</link>
+        # <guid>https://blog.sessionstack.com/how-javascript-works-inside</guid>
+        # <pubDate>Mon, 21 Aug 2017 14:21:58 -0500</pubDate>
+        # </item>
+
+        trailing_removed = item.split('</item>', 1)[0]
+        leading_removed = trailing_removed.split('<item>', 1)[-1]
+        rows = leading_removed.split('\n')
+
+        row = lambda key: [r for r in rows if r.startswith('<{}>'.format(key))][0]
+
+        title = get_str_between(row('title'), '<![CDATA[', ']]')
+        url = get_str_between(row('link'), '<link>', '</link>')
+        ts_str = get_str_between(row('pubDate'), '<pubDate>', '</pubDate>')
+        time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %z")
+
+        info = {
+            'url': url,
+            'domain': domain(url),
+            'base_url': base_url(url),
+            'timestamp': str(time.timestamp()),
+            'tags': '',
+            'title': title,
+            'sources': [rss_file.name],
+        }
+
+        info['type'] = get_link_type(info)
+        # import ipdb; ipdb.set_trace()
+        yield info
 
 def parse_bookmarks_export(html_file):
     """Parse netscape-format bookmarks export files (produced by all browsers)"""
@@ -103,118 +126,17 @@ def parse_bookmarks_export(html_file):
         match = pattern.search(line)
         if match:
             url = match.group(1)
-            secs = match.group(2)
-            dt = datetime.fromtimestamp(int(secs))
+            time = datetime.fromtimestamp(float(match.group(2)))
 
             info = {
                 'url': url,
-                'domain': url.replace('http://', '').replace('https://', '').split('/', 1)[0],
-                'base_url': url.replace('https://', '').replace('http://', '').split('?', 1)[0],
-                'time': dt,
-                'timestamp': secs,
+                'domain': domain(url),
+                'base_url': base_url(url),
+                'timestamp': str(time.timestamp()),
                 'tags': "",
                 'title': match.group(3),
+                'sources': [html_file.name],
             }
 
             info['type'] = get_link_type(info)
             yield info
-
-
-def next_uniq_timestamp(used_timestamps, timestamp):
-    """resolve duplicate timestamps by appending a decimal 1234, 1234 -> 1234.1, 1234.2"""
-
-    if timestamp not in used_timestamps:
-        return timestamp
-
-    if '.' in timestamp:
-        timestamp, nonce = timestamp.split('.')
-        nonce = int(nonce)
-    else:
-        nonce = 1
-
-    new_timestamp = '{}.{}'.format(timestamp, nonce)
-
-    while new_timestamp in used_timestamps:
-        nonce += 1
-        new_timestamp = '{}.{}'.format(timestamp, nonce)
-
-    return new_timestamp
-
-def uniquefied_links(links):
-    """uniqueify link timestamps by de-duping using url, returns links sorted most recent -> oldest
-
-    needed because firefox will produce exports where many links share the same timestamp, this func
-    ensures that all non-duplicate links have monotonically increasing timestamps
-    """
-
-    links = list(reversed(sorted(links, key=lambda l: (l['timestamp'], l['url']))))
-    seen_timestamps = {}
-
-    for link in links:
-        t = link['timestamp']
-        if t in seen_timestamps:
-            if link['url'] == seen_timestamps[t]['url']:
-                # don't create new unique timestamp if link is the same
-                continue
-            else:
-                # resolve duplicate timstamp by appending a decimal
-                link['timestamp'] = next_uniq_timestamp(seen_timestamps, link['timestamp'])
-        seen_timestamps[link['timestamp']] = link
-
-    return links
-
-def valid_links(links):
-    """remove chrome://, about:// or other schemed links that cant be archived"""
-    return (link for link in links if link['url'].startswith('http') or link['url'].startswith('ftp'))
-
-
-def html_appended_url(link):
-    """calculate the path to the wgetted .html file, since wget may
-    adjust some paths to be different than the base_url path.
-
-    See docs on wget --adjust-extension."""
-
-    split_url = link['url'].split('#', 1)
-    query = ('%3F' + link['url'].split('?', 1)[-1]) if '?' in link['url'] else ''
-
-    if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", split_url[0], re.I | re.M):
-        # already ends in .html
-        return link['base_url']
-    else:
-        # .html needs to be appended
-        without_scheme = split_url[0].split('://', 1)[-1].split('?', 1)[0]
-        if without_scheme.endswith('/'):
-            if query:
-                return '#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]])
-            return '#'.join([without_scheme + 'index.html', *split_url[1:]])
-        else:
-            if query:
-                return '#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]])
-            return '#'.join([without_scheme + '.html', *split_url[1:]])
-
-
-def derived_link_info(link):
-    """extend link info with the archive urls and other derived data"""
-
-    link_info = {
-        **link,
-        'date': str(link['time'])[:-3],
-        'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
-        'favicon_url': 'archive/{timestamp}/favicon.ico'.format(**link),
-        'files_url': 'archive/{timestamp}/'.format(**link),
-        'archive_url': 'archive/{}/{}'.format(link['timestamp'], html_appended_url(link)),
-        'pdf_link': 'archive/{timestamp}/output.pdf'.format(**link),
-        'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**link),
-        'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**link),
-    }
-
-    # PDF and images are handled slightly differently
-    # wget, screenshot, & pdf urls all point to the same file
-    if link['type'] in ('PDF', 'image'):
-        link_info.update({
-            'archive_url': 'archive/{timestamp}/{base_url}'.format(**link),
-            'pdf_link': 'archive/{timestamp}/{base_url}'.format(**link),
-            'screenshot_link': 'archive/{timestamp}/{base_url}'.format(**link),
-            'title': '{title} ({type})'.format(**link),
-        })
-    return link_info

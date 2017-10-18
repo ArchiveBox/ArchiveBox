@@ -174,7 +174,7 @@ My published archive as an example: [sweeting.me/pocket](https://home.sweeting.m
 
 If you don't like running random setup scripts off the internet (:+1:), you can follow these manual setup instructions.
 
-**1. Install dependencies:** `chromium >= 59`,` wget >= 1.16`, `python3 >= 3.5`  (google-chrome >= v59 also works well)
+**1. Install dependencies:** `chromium >= 59`,` wget >= 1.16`, `python3 >= 3.5`  (`google-chrome >= v59` works fine as well)
 
 If you already have Google Chrome installed, or wish to use that instead of Chromium, follow the [Google Chrome Instructions](#google-chrome-instructions).
 
