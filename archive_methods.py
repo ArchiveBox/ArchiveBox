@@ -103,7 +103,7 @@ def fetch_wget(out_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT)
         output = html_appended_url(link)
         if result.returncode > 0:
             print('       got wget response code {}:'.format(result.returncode))
-            print('\n'.join('         ' + line for line in result.stderr.decode().rsplit('\n', 10)[-10:] if line.strip()))
+            print('\n'.join('         ' + line for line in (result.stderr or result.stdout).decode().rsplit('\n', 10)[-10:] if line.strip()))
             # raise Exception('Failed to wget download')
         chmod_file(link['domain'], cwd=out_dir)
     except Exception as e:
@@ -135,10 +135,10 @@ def fetch_pdf(out_dir, link, timeout=TIMEOUT):
     ]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=DEVNULL, stderr=PIPE, cwd=out_dir, timeout=timeout + 1)  # output.pdf
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=out_dir, timeout=timeout + 1)  # output.pdf
         end()
         if result.returncode:
-            print('     ', result.stderr.decode())
+            print('     ', (result.stderr or result.stdout).decode())
             raise Exception('Failed to print PDF')
         chmod_file('output.pdf', cwd=out_dir)
         output = 'output.pdf'
@@ -172,10 +172,10 @@ def fetch_screenshot(out_dir, link, timeout=TIMEOUT, resolution=RESOLUTION):
     ]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=timeout + 1)  # sreenshot.png
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=out_dir, timeout=timeout + 1)  # sreenshot.png
         end()
         if result.returncode:
-            print('     ', result.stderr.decode())
+            print('     ', (result.stderr or result.stdout).decode())
             raise Exception('Failed to take screenshot')
         chmod_file('screenshot.png', cwd=out_dir)
         output = 'screenshot.png'
@@ -212,7 +212,7 @@ def archive_dot_org(out_dir, link, timeout=TIMEOUT):
         # Parse archive.org response headers
         headers = result.stdout.splitlines()
         content_location = [h for h in headers if b'Content-Location: ' in h]
-        errors = [h for h in headers if b'X-Archive-Wayback-Runtime-Error: ' in h]
+        errors = [h for h in headers if h and b'X-Archive-Wayback-Runtime-Error: ' in h]
 
         if content_location:
             archive_path = content_location[0].split(b'Content-Location: ', 1)[-1].decode('utf-8')
