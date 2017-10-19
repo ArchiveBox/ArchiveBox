@@ -84,26 +84,25 @@ def uniquefied_links(sorted_links):
     ensures that all non-duplicate links have monotonically increasing timestamps
     """
 
-    seen_urls = {}
-    seen_timestamps = set()
+    unique_urls = {}
 
     lower = lambda url: url.lower().strip()
     without_www = lambda url: url.replace('://www.', '://', 1)
     without_trailing_slash = lambda url: url[:-1] if url[-1] == '/' else url.replace('/?', '?')
 
     for link in sorted_links:
-        url = without_www(without_trailing_slash(lower(link['url'])))
-        if url in seen_urls:
+        fuzzy_url = without_www(without_trailing_slash(lower(link['url'])))
+        if fuzzy_url in unique_urls:
             # merge with any other links that share the same url
-            link = merge_links(seen_urls[url], link)
-        elif link['timestamp'] in seen_timestamps:
-            # add with incremented timestamp if earlier link exist with same timestamp
-            link['timestamp'] = next_uniq_timestamp(seen_timestamps, link['timestamp'])
-        
-        seen_urls[url] = link
-        seen_timestamps.add(link['timestamp'])
-    
-    return seen_urls.values()
+            link = merge_links(unique_urls[fuzzy_url], link)
+        unique_urls[fuzzy_url] = link
+
+    unique_timestamps = {}
+    for link in unique_urls.values():
+        link['timestamp'] = lowest_uniq_timestamp(unique_timestamps, link['timestamp'])
+        unique_timestamps[link['timestamp']] = link
+
+    return unique_timestamps.values()
 
 def valid_links(links):
     """remove chrome://, about:// or other schemed links that cant be archived"""
@@ -126,20 +125,17 @@ def links_after_timestamp(links, timestamp=None):
         except (ValueError, TypeError):
             print('Resume value and all timestamp values must be valid numbers.')
 
-def next_uniq_timestamp(used_timestamps, timestamp):
+def lowest_uniq_timestamp(used_timestamps, timestamp):
     """resolve duplicate timestamps by appending a decimal 1234, 1234 -> 1234.1, 1234.2"""
 
+    timestamp = timestamp.split('.')[0]
+    nonce = 0
+
+    # first try 152323423 before 152323423.0
     if timestamp not in used_timestamps:
         return timestamp
 
-    if '.' in timestamp:
-        timestamp, nonce = timestamp.split('.')
-        nonce = int(nonce)
-    else:
-        nonce = 1
-
     new_timestamp = '{}.{}'.format(timestamp, nonce)
-
     while new_timestamp in used_timestamps:
         nonce += 1
         new_timestamp = '{}.{}'.format(timestamp, nonce)
