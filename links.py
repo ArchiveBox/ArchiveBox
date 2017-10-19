@@ -5,6 +5,39 @@ from util import (
     get_link_type,
 )
    
+"""
+In Bookmark Archiver, a Link represents a single entry that we track in the 
+json index.  All links pass through all archiver functions and the latest,
+most up-to-date canonical output for each is stored in "latest_archives".
+.
+
+Link {
+    timestamp: float,   (how we uniquely id links)        _   _  _ _  ___
+    url: str,                                            | \ / \ |\| ' |
+    base_url: str,                                       |_/ \_/ | |   |
+    domain: str,                                          _   _ _ _ _  _
+    tags: str,                                           |_) /| |\| | / `
+    type: str,                                           |  /"| | | | \_,
+    title: str,                                              ,-'"`-.
+    sources: [str],                                     /// /  @ @  \ \\\\
+    latest_archives: {                                    :=| ,._,. |=:  /
+        ...,                                            || ,\ \_../ /. ||
+        pdf: 'output.pdf',                              ||','`-._))'`.`||
+        wget: 'example.com/1234/index.html'             `-'     (/    `-'
+    },
+    history: {
+        ...
+        pdf: [
+            {timestamp: 15444234325, status: 'skipped', result='output.pdf'},
+            ...
+        ],
+        wget: [
+            {timestamp: 11534435345, status: 'succeded', result='donuts.com/eat/them.html'}
+        ]
+    },
+}
+
+"""
 
 def validate_links(links):
     links = valid_links(links)       # remove chrome://, about:, mailto: etc.
@@ -25,18 +58,20 @@ def sorted_links(links):
     )
 
 def merge_links(link1, link2):
+    """deterministially merge two links, favoring longer field values over shorter,
+    and "cleaner" values over worse ones.
+    """
     longer = lambda a, b, key: a[key] if len(a[key]) > len(b[key]) else b[key]
     earlier = lambda a, b, key: a[key] if a[key] < b[key] else b[key]
     
     url = longer(link1, link2, 'url')
-    earliest_ts = earlier(link1, link2, 'timestamp')
     longest_title = longer(link1, link2, 'title')
     cleanest_title = link1['title'] if '://' not in link1['title'] else link2['title']
     link = {
         'url': url,
         'domain': domain(url),
         'base_url': base_url(url),
-        'timestamp': earliest_ts,
+        'timestamp': earlier(link1, link2, 'timestamp'),
         'tags': longer(link1, link2, 'tags'),
         'title': longest_title if '://' not in longest_title else cleanest_title,
         'sources': list(set(link1['sources'] + link2['sources'])),
