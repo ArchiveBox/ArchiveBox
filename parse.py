@@ -1,32 +1,36 @@
+"""
+Everything related to parsing links from bookmark services.
+
+For a list of supported services, see the README.md.
+For examples of supported files see examples/.
+
+Parsed link schema: {
+    'url': 'https://example.com/example/?abc=123&xyc=345#lmnop',
+    'domain': 'example.com',
+    'base_url': 'example.com/example/',
+    'timestamp': '15442123124234',
+    'tags': 'abc,def',
+    'title': 'Example.com Page Title',
+    'sources': ['ril_export.html', 'downloads/getpocket.com.txt'],
+}
+"""
+
 import re
 import json
+
 from datetime import datetime
 
 from util import (
     domain,
     base_url,
-    get_str_between,
+    str_between,
     get_link_type,
 )
 
 
-def parse_export(path):
-    """parse a list of links dictionaries from a bookmark export file"""
-    
-    links = []
-    with open(path, 'r', encoding='utf-8') as file:
-        for service, parser_func in get_parsers().items():
-            # otherwise try all parsers until one works
-            try:
-                links += list(parser_func(file))
-                if links:
-                    break
-            except Exception as e:
-                pass
+def get_parsers(file):
+    """return all parsers that work on a given file, defaults to all of them"""
 
-    return links
-
-def get_parsers():
     return {
         'pocket': parse_pocket_export,
         'pinboard': parse_json_export,
@@ -34,12 +38,32 @@ def get_parsers():
         'rss': parse_rss_export,
     }
 
+def parse_links(path):
+    """parse a list of links dictionaries from a bookmark export file"""
+    
+    links = []
+    with open(path, 'r', encoding='utf-8') as file:
+        for parser_func in get_parsers(file).values():
+            # otherwise try all parsers until one works
+            try:
+                links += list(parser_func(file))
+                if links:
+                    break
+            except (ValueError, TypeError):
+                # parser not supported on this file
+                pass
+
+    return links
+
+
 def parse_pocket_export(html_file):
     """Parse Pocket-format bookmarks export files (produced by getpocket.com/export/)"""
 
     html_file.seek(0)
-    pattern = re.compile("^\\s*<li><a href=\"(.+)\" time_added=\"(\\d+)\" tags=\"(.*)\">(.+)</a></li>", re.UNICODE)   # see sample input in ./example_ril_export.html
+    pattern = re.compile("^\\s*<li><a href=\"(.+)\" time_added=\"(\\d+)\" tags=\"(.*)\">(.+)</a></li>", re.UNICODE)
     for line in html_file:
+        # example line
+        # <li><a href="http://example.com/ time_added="1478739709" tags="tag1,tag2">example title</a></li>
         match = pattern.search(line)
         if match:
             fixed_url = match.group(1).replace('http://www.readability.com/read?url=', '')           # remove old readability prefixes to get original url
@@ -62,6 +86,8 @@ def parse_json_export(json_file):
     json_file.seek(0)
     json_content = json.load(json_file)
     for line in json_content:
+        # example line
+        # {"href":"http:\/\/www.reddit.com\/r\/example","description":"title here","extended":"","meta":"18a973f09c9cc0608c116967b64e0419","hash":"910293f019c2f4bb1a749fb937ba58e3","time":"2014-06-14T15:51:42Z","shared":"no","toread":"no","tags":"reddit android"}]
         if line:
             erg = line
             time = datetime.strptime(erg['time'].split(',', 1)[0], '%Y-%m-%dT%H:%M:%SZ')
@@ -96,11 +122,12 @@ def parse_rss_export(rss_file):
         leading_removed = trailing_removed.split('<item>', 1)[-1]
         rows = leading_removed.split('\n')
 
-        row = lambda key: [r for r in rows if r.startswith('<{}>'.format(key))][0]
+        def get_row(key):
+            return [r for r in rows if r.startswith('<{}>'.format(key))][0]
 
-        title = get_str_between(row('title'), '<![CDATA[', ']]')
-        url = get_str_between(row('link'), '<link>', '</link>')
-        ts_str = get_str_between(row('pubDate'), '<pubDate>', '</pubDate>')
+        title = str_between(get_row('title'), '<![CDATA[', ']]')
+        url = str_between(get_row('link'), '<link>', '</link>')
+        ts_str = str_between(get_row('pubDate'), '<pubDate>', '</pubDate>')
         time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %z")
 
         info = {
@@ -112,17 +139,20 @@ def parse_rss_export(rss_file):
             'title': title,
             'sources': [rss_file.name],
         }
-
         info['type'] = get_link_type(info)
-        # import ipdb; ipdb.set_trace()
+
         yield info
 
 def parse_bookmarks_export(html_file):
     """Parse netscape-format bookmarks export files (produced by all browsers)"""
 
+
     html_file.seek(0)
     pattern = re.compile("<a href=\"(.+?)\" add_date=\"(\\d+)\"[^>]*>(.+)</a>", re.UNICODE | re.IGNORECASE)
     for line in html_file:
+        # example line
+        # <DT><A HREF="https://example.com/?q=1+2" ADD_DATE="1497562974" LAST_MODIFIED="1497562974" ICON_URI="https://example.com/favicon.ico" ICON="data:image/png;base64,...">example bookmark title</A>
+        
         match = pattern.search(line)
         if match:
             url = match.group(1)
@@ -137,6 +167,6 @@ def parse_bookmarks_export(html_file):
                 'title': match.group(3),
                 'sources': [html_file.name],
             }
-
             info['type'] = get_link_type(info)
+
             yield info

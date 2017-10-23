@@ -140,7 +140,7 @@
                 <a href="#" class="collapse-icon" title="Collapse Navbar">
                     [-]
                 </a>
-                <a href="../../../index.html" class="nav-icon" title="Archived Sites">
+                <a href="./../../index.html" class="nav-icon" title="Archived Sites">
                     <img src="https://nicksweeting.com/images/archive.png" alt="Archive Icon">
                 </a>
                 $title<br/>
@@ -221,6 +221,7 @@
     </body>
 
     <script>
+        // show selected file in iframe when preview card is clicked
         jQuery('.card').on('click', function(e) {
             jQuery('.selected-card').removeClass('selected-card')
             jQuery(e.target).closest('.card').addClass('selected-card')
@@ -233,12 +234,16 @@
             }
             return true
         })
+
+        // un-sandbox iframes showing pdfs (required to display pdf viewer)
         jQuery('iframe').map(function() {
             if (this.src.endsWith('.pdf')) {
                 this.removeAttribute('sandbox')
                 this.src = this.src
             }
         })
+
+        // hide header when collapse icon is clicked
         jQuery('.collapse-icon').on('click', function() {
             if (jQuery('.collapse-icon').text().includes('[-]')) {
                 jQuery('.collapse-icon').text('[+]')
@@ -251,6 +256,8 @@
             }
             return true
         })
+
+        // hide all preview iframes on small screens
         if (window.innerWidth < 1091) {
             jQuery('.card a[target=preview]').attr('target', '_self')
         }

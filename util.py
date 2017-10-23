@@ -1,6 +1,8 @@
 import os
+import re
 import sys
 import time
+import json
 import requests
 
 from datetime import datetime
@@ -23,6 +25,17 @@ from config import (
     FETCH_VIDEO,
     SUBMIT_ARCHIVE_DOT_ORG,
 )
+
+# URL helpers
+without_scheme = lambda url: url.replace('http://', '').replace('https://', '').replace('ftp://', '')
+without_query = lambda url: url.split('?', 1)[0]
+without_hash = lambda url: url.split('#', 1)[0]
+without_path = lambda url: url.split('/', 1)[0]
+domain = lambda url: without_hash(without_query(without_path(without_scheme(url))))
+base_url = lambda url: without_query(without_scheme(url))
+
+short_ts = lambda ts: ts.split('.')[0]
+
 
 def check_dependencies():
     """Check that all necessary dependencies are installed, and have valid versions"""
@@ -149,11 +162,15 @@ def progress(seconds=TIMEOUT, prefix=''):
 
 
 def download_url(url):
-    if not os.path.exists(os.path.join(ARCHIVE_DIR, 'downloads')):
-        os.makedirs(os.path.join(ARCHIVE_DIR, 'downloads'))
+    """download a given url's content into downloads/domain.txt"""
+
+    download_dir = os.path.join(ARCHIVE_DIR, 'downloads')
+
+    if not os.path.exists(download_dir):
+        os.makedirs(download_dir)
 
     url_domain = url.split('/', 3)[2]
-    output_path = os.path.join(ARCHIVE_DIR, 'downloads', '{}.txt'.format(url_domain))
+    output_path = os.path.join(download_dir, '{}.txt'.format(url_domain))
     
     print('[*] [{}] Downloading {} > {}'.format(
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -172,10 +189,10 @@ def download_url(url):
 
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(downloaded_xml)
+
     return output_path
 
-
-def get_str_between(string, start, end=None):
+def str_between(string, start, end=None):
     """(<abc>12345</def>, <abc>, </def>)  ->  12345"""
 
     content = string.split(start, 1)[-1]
@@ -183,9 +200,6 @@ def get_str_between(string, start, end=None):
         content = content.rsplit(end, 1)[0]
 
     return content
-
-
-
 
 def get_link_type(link):
     """Certain types of links need to be handled specially, this figures out when that's the case"""
@@ -207,10 +221,130 @@ def get_link_type(link):
     return None
 
 
-# URL helpers
-without_scheme = lambda url: url.replace('http://', '').replace('https://', '').replace('ftp://', '')
-without_query = lambda url: url.split('?', 1)[0]
-without_hash = lambda url: url.split('#', 1)[0] 
-without_path = lambda url: url.split('/', 1)[0]
-domain = lambda url: without_hash(without_query(without_path(without_scheme(url))))
-base_url = lambda url: without_query(without_scheme(url))
+def find_link(folder, links):
+    """for a given archive folder, find the corresponding link object in links"""
+    url = parse_url(folder)
+    if url:
+        for link in links:
+            if (link['base_url'] in url) or (url in link['url']):
+                return link
+
+    timestamp = folder.split('.')[0]
+    for link in links:
+        if link['timestamp'].startswith(timestamp):
+            if link['domain'] in os.listdir('./html/archive/' + folder):
+                return link      # careful now, this isn't safe for most ppl
+            if link['domain'] in parse_url(folder):
+                return link
+    return None
+
+
+def parse_url(folder):
+    """for a given archive folder, figure out what url it's for"""
+    link_json = os.path.join('./html/archive/' + folder, 'index.json')
+    if os.path.exists(link_json):
+        with open(link_json, 'r') as f:
+            link = json.load(f)
+            return link['base_url']
+
+    archive_org_txt = os.path.join('./html/archive/' + folder, 'archive.org.txt')
+    if os.path.exists(archive_org_txt):
+        with open(archive_org_txt, 'r') as f:
+            original_link = f.read().strip().split('/http', 1)[-1]
+            with_scheme = 'http{}'.format(original_link)
+            return with_scheme
+
+    return ''
+
+
+def merge_folders(folder, link):
+    """given a folder, merge it to the canonical 'correct' path for the given link object"""
+    base_url = parse_url(folder)
+    if not (base_url in link['base_url']
+            or link['base_url'] in base_url):
+        print(base_url, link['base_url'])
+        assert False
+    print('{} > {}'.format(folder, link['timestamp']))
+
+
+def cleanup_archive(path, links):
+    """move any incorrectly named folders to their canonical locations"""
+    
+    # for each folder that exists, see if we can match it up with a known good link
+    # if we can, then merge the two folders, if not, move it to lost & found
+
+    # for each timestamp, find similar timestamped folders
+    # check each folder for a "domain.com" folder or 
+
+    unmatched = []
+
+    for folder in os.listdir(path):
+        link = find_link(folder, links)
+        if link is None:
+            unmatched.append(folder)
+            continue
+        
+        if folder != link['timestamp']:
+            merge_folders(folder, link)
+
+    if unmatched:
+        print('[!] Warning! {} unrecognized folders in html/archive/'.format(len(unmatched)))
+        print('\n    '.join(unmatched))
+
+
+def html_appended_url(link):
+    """calculate the path to the wgetted .html file, since wget may
+    adjust some paths to be different than the base_url path.
+
+    See docs on wget --adjust-extension.
+    """
+
+    if link['type'] in ('PDF', 'image'):
+        return link['base_url']
+
+    split_url = link['url'].split('#', 1)
+    query = ('%3F' + link['url'].split('?', 1)[-1]) if '?' in link['url'] else ''
+
+    if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", split_url[0], re.I | re.M):
+        # already ends in .html
+        return link['base_url']
+    else:
+        # .html needs to be appended
+        without_scheme = split_url[0].split('://', 1)[-1].split('?', 1)[0]
+        if without_scheme.endswith('/'):
+            if query:
+                return '#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]])
+            return '#'.join([without_scheme + 'index.html', *split_url[1:]])
+        else:
+            if query:
+                return '#'.join([without_scheme + '/index.html' + query + '.html', *split_url[1:]])
+            elif '/' in without_scheme:
+                return '#'.join([without_scheme + '.html', *split_url[1:]])
+            return link['base_url'] + '/index.html'
+
+
+def derived_link_info(link):
+    """extend link info with the archive urls and other derived data"""
+
+    link_info = {
+        **link,
+        'date': datetime.fromtimestamp(float(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),
+        'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
+        'favicon_url': './archive/{timestamp}/favicon.ico'.format(**link),
+        'files_url': './archive/{timestamp}/index.html'.format(**link),
+        'archive_url': './archive/{}/{}'.format(link['timestamp'], html_appended_url(link)),
+        'pdf_link': './archive/{timestamp}/output.pdf'.format(**link),
+        'screenshot_link': './archive/{timestamp}/screenshot.png'.format(**link),
+        'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**link),
+    }
+
+    # PDF and images are handled slightly differently
+    # wget, screenshot, & pdf urls all point to the same file
+    if link['type'] in ('PDF', 'image'):
+        link_info.update({
+            'archive_url': 'archive/{timestamp}/{base_url}'.format(**link),
+            'pdf_link': 'archive/{timestamp}/{base_url}'.format(**link),
+            'screenshot_link': 'archive/{timestamp}/{base_url}'.format(**link),
+            'title': '{title} ({type})'.format(**link),
+        })
+    return link_info

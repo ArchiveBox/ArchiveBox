@@ -1,18 +1,11 @@
-from util import (
-    domain,
-    base_url,
-    get_str_between,
-    get_link_type,
-)
-   
 """
 In Bookmark Archiver, a Link represents a single entry that we track in the 
 json index.  All links pass through all archiver functions and the latest,
-most up-to-date canonical output for each is stored in "latest_archives".
-.
+most up-to-date canonical output for each is stored in "latest".
+
 
 Link {
-    timestamp: float,   (how we uniquely id links)        _   _  _ _  ___
+    timestamp: str,     (how we uniquely id links)        _   _  _ _  ___
     url: str,                                            | \ / \ |\| ' |
     base_url: str,                                       |_/ \_/ | |   |
     domain: str,                                          _   _ _ _ _  _
@@ -20,7 +13,7 @@ Link {
     type: str,                                           |  /"| | | | \_,
     title: str,                                              ,-'"`-.
     sources: [str],                                     /// /  @ @  \ \\\\
-    latest_archives: {                                    :=| ,._,. |=:  /
+    latest: {                                           \ :=| ,._,. |=:  /
         ...,                                            || ,\ \_../ /. ||
         pdf: 'output.pdf',                              ||','`-._))'`.`||
         wget: 'example.com/1234/index.html'             `-'     (/    `-'
@@ -39,10 +32,18 @@ Link {
 
 """
 
+from util import (
+    domain,
+    base_url,
+    get_str_between,
+    get_link_type,
+)
+
+
 def validate_links(links):
-    links = valid_links(links)       # remove chrome://, about:, mailto: etc.
-    links = uniquefied_links(links)  # fix duplicate timestamps, returns sorted list
-    links = sorted_links(links)      # deterministically sort the links
+    links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
+    links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
+    links = sorted_links(links)      # deterministically sort the links based on timstamp, url
     
     if not links:
         print('[X] No links found :(')
@@ -50,34 +51,14 @@ def validate_links(links):
 
     return list(links)
 
-def sorted_links(links):
-    return sorted(
-        links,
-        key=lambda link: (link['timestamp'], link['url']),
-        reverse=True,
-    )
 
-def merge_links(link1, link2):
-    """deterministially merge two links, favoring longer field values over shorter,
-    and "cleaner" values over worse ones.
-    """
-    longer = lambda a, b, key: a[key] if len(a[key]) > len(b[key]) else b[key]
-    earlier = lambda a, b, key: a[key] if a[key] < b[key] else b[key]
-    
-    url = longer(link1, link2, 'url')
-    longest_title = longer(link1, link2, 'title')
-    cleanest_title = link1['title'] if '://' not in link1['title'] else link2['title']
-    link = {
-        'url': url,
-        'domain': domain(url),
-        'base_url': base_url(url),
-        'timestamp': earlier(link1, link2, 'timestamp'),
-        'tags': longer(link1, link2, 'tags'),
-        'title': longest_title if '://' not in longest_title else cleanest_title,
-        'sources': list(set(link1['sources'] + link2['sources'])),
-    }
-    link['type'] = get_link_type(link)
-    return link
+def archivable_links(links):
+    """remove chrome://, about:// or other schemed links that cant be archived"""
+    return (
+        link
+        for link in links
+        if any(link['url'].startswith(s) for s in ('http://', 'https://', 'ftp://'))
+    )
 
 def uniquefied_links(sorted_links):
     """
@@ -104,13 +85,33 @@ def uniquefied_links(sorted_links):
 
     return unique_timestamps.values()
 
-def valid_links(links):
-    """remove chrome://, about:// or other schemed links that cant be archived"""
-    return (
-        link
-        for link in links
-        if any(link['url'].startswith(s) for s in ('http://', 'https://', 'ftp://'))
-    )
+def sorted_links(links):
+    sort_func = lambda link: (link['timestamp'], link['url'])
+    return sorted(links, key=sort_func, reverse=True)
+
+
+
+def merge_links(a, b):
+    """deterministially merge two links, favoring longer field values over shorter,
+    and "cleaner" values over worse ones.
+    """
+    longer = lambda key: a[key] if len(a[key]) > len(b[key]) else b[key]
+    earlier = lambda key: a[key] if a[key] < b[key] else b[key]
+    
+    url = longer('url')
+    longest_title = longer('title')
+    cleanest_title = a['title'] if '://' not in a['title'] else b['title']
+    link = {
+        'timestamp': earlier('timestamp'),
+        'url': url,
+        'domain': domain(url),
+        'base_url': base_url(url),
+        'tags': longer('tags'),
+        'title': longest_title if '://' not in longest_title else cleanest_title,
+        'sources': list(set(a.get('sources', []) + b.get('sources', []))),
+    }
+    link['type'] = get_link_type(link)
+    return link
 
 def links_after_timestamp(links, timestamp=None):
     if not timestamp:
