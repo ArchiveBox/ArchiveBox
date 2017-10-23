@@ -4,14 +4,11 @@ import shutil
 
 from subprocess import run, PIPE
 
-# os.getenv('VARIABLE', 'DEFAULT') gets the value of environment
-# variable "VARIABLE" and if it is not set, sets it to 'DEFAULT'
-
-# for boolean values, check to see if the string is 'true', and
-# if so, the python variable will be True
-
-# *******************************************************************************
-# *** TO SET YOUR PREFERENCES, EDIT THE VALUES HERE, or use the 'env' command ***
+# ******************************************************************************
+# * TO SET YOUR CONFIGURATION, EDIT THE VALUES BELOW, or use the 'env' command *
+# * e.g.                                                                       *
+# * env USE_COLOR=True CHROME_BINARY=google-chrome ./archive.py export.html    *
+# ******************************************************************************
 
 IS_TTY = sys.stdout.isatty()
 USE_COLOR =              os.getenv('USE_COLOR',              str(IS_TTY)        ).lower() == 'true'
@@ -35,8 +32,16 @@ LINK_INDEX_TEMPLATE =    os.getenv('LINK_INDEX_TEMPLATE',    'templates/link_ind
 INDEX_TEMPLATE =         os.getenv('INDEX_TEMPLATE',         'templates/index.html')
 INDEX_ROW_TEMPLATE =     os.getenv('INDEX_ROW_TEMPLATE',     'templates/index_row.html')
 
-# *******************************************************************************
+### Output Paths
+ROOT_FOLDER = os.path.dirname(os.path.abspath(__file__))
+HTML_FOLDER = os.path.join(ARCHIVE_DIR, 'html')
+ARCHIVE_FOLDER = os.path.join(HTML_FOLDER, 'archive')
 
+# ******************************************************************************
+# ********************** Do not edit below this point **************************
+# ******************************************************************************
+
+### Terminal Configuration
 TERM_WIDTH = shutil.get_terminal_size((100, 10)).columns
 ANSI = {
     'reset': '\033[00;00m',
@@ -53,16 +58,12 @@ if not USE_COLOR:
     # dont show colors if USE_COLOR is False
     ANSI = {k: '' for k in ANSI.keys()}
 
-
-ROOT_FOLDER = os.path.dirname(os.path.abspath(__file__))
-HTML_FOLDER = os.path.join(ARCHIVE_DIR, 'html')
-ARCHIVE_FOLDER = os.path.join(HTML_FOLDER, 'archive')
+### Confirm Environment Setup
 try:
     GIT_SHA = run(["git", "rev-list", "-1", "HEAD", "./"], stdout=PIPE, cwd=ROOT_FOLDER).stdout.strip().decode()
 except Exception:
     GIT_SHA = None
     print('[!] Warning, you need git installed for some archiving features to save correct version numbers!')
-
 
 if sys.stdout.encoding.upper() != 'UTF-8':
     print('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))

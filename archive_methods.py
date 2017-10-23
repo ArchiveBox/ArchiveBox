@@ -7,7 +7,6 @@ from subprocess import run, PIPE, DEVNULL
 from index import html_appended_url, parse_json_link_index, write_link_index
 from links import links_after_timestamp
 from config import (
-    ARCHIVE_PERMISSIONS,
     ARCHIVE_DIR,
     CHROME_BINARY,
     FETCH_WGET,
@@ -29,26 +28,90 @@ from util import (
     chmod_file,
 )
 
-_RESULTS_TOTALS = {
+
+_RESULTS_TOTALS = {   # globals are bad, mmkay
     'skipped': 0,
     'succeded': 0,
     'failed': 0,
 }
 
+
+def archive_links(out_dir, links, export_path, resume=None):
+    check_dependencies()
+
+    to_archive = links_after_timestamp(links, resume)
+    try:
+        for idx, link in enumerate(to_archive):
+            out_dir = os.path.join(out_dir, link['timestamp'])
+            archive_link(out_dir, link)
+    
+    except (KeyboardInterrupt, SystemExit, Exception) as e:
+        print('{red}[X] Archive update stopped on #{idx} out of {total} links{reset}'.format(
+            **ANSI,
+            idx=idx,
+            total=len(list(to_archive)),
+        ))
+        print('    Continue where you left off by running:')
+        print('       ./archive.py {} {}'.format(
+            export_path,
+            link['timestamp'],
+        ))
+        if not isinstance(e, KeyboardInterrupt):
+            raise e
+        raise SystemExit(1)
+
+
+def archive_link(out_dir, link, overwrite=False):
+    """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
+
+    link = {**parse_json_link_index(out_dir), **link}
+    log_link_archive(out_dir, link)
+
+    if FETCH_WGET:
+        link = fetch_wget(out_dir, link, overwrite=overwrite)
+
+    if FETCH_PDF:
+        link = fetch_pdf(out_dir, link, overwrite=overwrite)
+
+    if FETCH_SCREENSHOT:
+        link = fetch_screenshot(out_dir, link, overwrite=overwrite)
+
+    if SUBMIT_ARCHIVE_DOT_ORG:
+        link = archive_dot_org(out_dir, link, overwrite=overwrite)
+
+    # if FETCH_AUDIO:
+    #     link = fetch_audio(out_dir, link, overwrite=overwrite)
+
+    # if FETCH_VIDEO:
+    #     link = fetch_video(out_dir, link, overwrite=overwrite)
+
+    if FETCH_FAVICON:
+        link = fetch_favicon(out_dir, link, overwrite=overwrite)
+
+    write_link_index(out_dir, link)
+    
+    return link
+
+
 def attach_result_to_link(method):
+    """
+    Instead of returning a result={output:'...', status:'success'} object,
+    attach that result to the links's history & latest fields, then return
+    the updated link object.
+    """
     def decorator(fetch_func):
         @wraps(fetch_func)
         def timed_fetch_func(out_dir, link, overwrite=False, **kwargs):
             # initialize methods and history json field on link
-            link['methods'] = link.get('methods') or {}
-            link['methods'][method] = link['methods'].get(method) or None
+            link['latest'] = link.get('latest') or {}
+            link['latest'][method] = link['latest'].get(method) or None
             link['history'] = link.get('history') or {}
             link['history'][method] = link['history'].get(method) or []
 
             start_ts = datetime.now().timestamp()
 
             # if a valid method output is already present, dont run the fetch function
-            if link['methods'][method] and not overwrite:
+            if link['latest'][method] and not overwrite:
                 print('    √ Skipping: {}'.format(method))
                 result = None
             else:
@@ -74,7 +137,7 @@ def attach_result_to_link(method):
                 history_entry['duration'] = duration
                 history_entry.update(result or {})
                 link['history'][method].append(history_entry)
-                link['methods'][method] = result['output']
+                link['latest'][method] = result['output']
             
             _RESULTS_TOTALS[history_entry['status']] += 1
             
@@ -105,7 +168,6 @@ def fetch_wget(out_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT)
             print('       got wget response code {}:'.format(result.returncode))
             print('\n'.join('         ' + line for line in (result.stderr or result.stdout).decode().rsplit('\n', 10)[-10:] if line.strip()))
             # raise Exception('Failed to wget download')
-        chmod_file(link['domain'], cwd=out_dir)
     except Exception as e:
         end()
         print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
@@ -140,7 +202,6 @@ def fetch_pdf(out_dir, link, timeout=TIMEOUT):
         if result.returncode:
             print('     ', (result.stderr or result.stdout).decode())
             raise Exception('Failed to print PDF')
-        chmod_file('output.pdf', cwd=out_dir)
         output = 'output.pdf'
     except Exception as e:
         end()
@@ -338,67 +399,11 @@ def fetch_favicon(out_dir, link, timeout=TIMEOUT):
 #         print('    √ Skipping video download')
 
 
-def archive_links(out_dir, links, export_path, resume=None):
-    check_dependencies()
-
-    to_archive = links_after_timestamp(links, resume)
-    try:
-        for idx, link in enumerate(to_archive):
-            out_dir = os.path.join(out_dir, link['timestamp'])
-            archive_link(out_dir, link)
-    
-    except (KeyboardInterrupt, SystemExit, Exception) as e:
-        print('{red}[X] Archive update stopped on #{idx} out of {total} links{reset}'.format(
-            **ANSI,
-            idx=idx,
-            total=len(list(to_archive)),
-        ))
-        print('    Continue where you left off by running:')
-        print('       ./archive.py {} {}'.format(
-            export_path,
-            link['timestamp'],
-        ))
-        if not isinstance(e, KeyboardInterrupt):
-            raise e
-        raise SystemExit(1)
-
-
-def archive_link(out_dir, link, overwrite=False, permissions=ARCHIVE_PERMISSIONS):
-    """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
-
-    link = {**parse_json_link_index(out_dir), **link}
-    log_link_archive(out_dir, link)
-
-    if FETCH_WGET:
-        link = fetch_wget(out_dir, link, overwrite=overwrite)
-
-    if FETCH_PDF:
-        link = fetch_pdf(out_dir, link, overwrite=overwrite)
-
-    if FETCH_SCREENSHOT:
-        link = fetch_screenshot(out_dir, link, overwrite=overwrite)
-
-    if SUBMIT_ARCHIVE_DOT_ORG:
-        link = archive_dot_org(out_dir, link, overwrite=overwrite)
-
-    # if FETCH_AUDIO:
-    #     link = fetch_audio(out_dir, link, overwrite=overwrite)
-
-    # if FETCH_VIDEO:
-    #     link = fetch_video(out_dir, link, overwrite=overwrite)
-
-    if FETCH_FAVICON:
-        link = fetch_favicon(out_dir, link, overwrite=overwrite)
-
-    write_link_index(out_dir, link)
-    
-    return link
 
 def log_link_archive(out_dir, link):
     update_existing = os.path.exists(out_dir)
     if not update_existing:
         os.makedirs(out_dir)
-        run(['chmod', ARCHIVE_PERMISSIONS, out_dir], timeout=5)
     
     print('[{symbol_color}{symbol}{reset}] [{timestamp}] "{title}": {blue}{base_url}{reset}'.format(
         symbol='*' if update_existing else '+',
