@@ -146,7 +146,6 @@ def parse_rss_export(rss_file):
 def parse_bookmarks_export(html_file):
     """Parse netscape-format bookmarks export files (produced by all browsers)"""
 
-
     html_file.seek(0)
     pattern = re.compile("<a href=\"(.+?)\" add_date=\"(\\d+)\"[^>]*>(.+)</a>", re.UNICODE | re.IGNORECASE)
     for line in html_file:
