@@ -344,11 +344,12 @@ def merge_folders(path, folder, link):
             for file in files_in_source:
                 run(['mv', os.path.join(source, file), os.path.join(target, file)])
 
-    files_in_source = set(os.listdir(source))
-    if files_in_source:
-        manually_merge_folders(source, target)
-    else:
-        run(['rm', '-R', source])
+    if os.path.exists(source):
+        files_in_source = set(os.listdir(source))
+        if files_in_source:
+            manually_merge_folders(source, target)
+        else:
+            run(['rm', '-R', source])
 
 
 def cleanup_archive(path, links):
