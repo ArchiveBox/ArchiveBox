@@ -60,10 +60,10 @@ If you want something easier than running programs in the command-line, take a l
 
 ## Details
 
-`archive.py` is a script that takes a [Pocket-format](https://getpocket.com/export), [Pinboard-format](https://pinboard.in/export/), or [Netscape-format](https://msdn.microsoft.com/en-us/library/aa753582(v=vs.85).aspx) bookmark export file, and downloads a clone of each linked website to turn into a browsable archive that you can store locally or host online.
+`archive.py` is a script that takes a [Pocket-format](https://getpocket.com/export), [JSON-format](https://pinboard.in/export/), [Netscape-format](https://msdn.microsoft.com/en-us/library/aa753582(v=vs.85).aspx), or RSS-formatted list of links, and downloads a clone of each linked website to turn into a browsable archive that you can store locally or host online.
 
-The archiver produces a folder like `pocket/` containing an `index.html`, and archived copies of all the sites,
-organized by starred timestamp.  It's Powered by the [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Chromium and good 'ol `wget`.
+The archiver produces an output folder `html/` containing an `index.html`, `index.json`, and archived copies of all the sites,
+organized by timestamp bookmarked.  It's Powered by [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Chromium and good 'ol `wget`.
 
 For each sites it saves:
 
@@ -73,7 +73,7 @@ For each sites it saves:
  - `archive.org.txt` A link to the saved site on archive.org
  - `audio/` and `video/` for sites like youtube, soundcloud, etc. (using youtube-dl) (WIP)
  - `index.json` JSON index containing link info and archive details
- - `index.html` HTML index containing link info and archive details
+ - `index.html` HTML index containing link info and archive details (optional fancy or simple index)
 
 Wget doesn't work on sites you need to be logged into, but chrome headless does, see the [Configuration](#configuration)* section for `CHROME_USER_DATA_DIR`.
 
@@ -118,13 +118,13 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
    - submit the page to archive.org: `SUBMIT_ARCHIVE_DOT_ORG` 
  - screenshot: `RESOLUTION` values: [`1440,900`]/`1024,768`/`...`
  - user agent: `WGET_USER_AGENT` values: [`Wget/1.19.1`]/`"Mozilla/5.0 ..."`/`...`
- - chrome profile: `CHROME_USER_DATA_DIR` values: `~/Library/Application\ Support/Google/Chrome/Default`/`/tmp/chrome-profile`/`...`
+ - chrome profile: `CHROME_USER_DATA_DIR` values: [`~/Library/Application\ Support/Google/Chrome/Default`]/`/tmp/chrome-profile`/`...`
     To capture sites that require a user to be logged in, you must specify a path to a chrome profile (which loads the cookies needed for the user to be logged in).  If you don't have an existing chrome profile, create one with `chromium-browser --disable-gpu --user-data-dir=/tmp/chrome-profile`, and log into the sites you need.  Then set `CHROME_USER_DATA_DIR=/tmp/chrome-profile` to make Bookmark Archiver use that profile.
 
 **Index Options:**
- - html index template: `INDEX_TEMPLATE` value:  `templates/index.html`/`...`
- - html index row template: `INDEX_ROW_TEMPLATE` value:  `templates/index_row.html`/`...`
- - html link index template: `LINK_INDEX_TEMPLATE` value: `templates/link_index_fancy.html`/`templates/link_index.html`/`...`
+ - html index template: `INDEX_TEMPLATE` value:  [`templates/index.html`]/`...`
+ - html index row template: `INDEX_ROW_TEMPLATE` value:  [`templates/index_row.html`]/`...`
+ - html link index template: `LINK_INDEX_TEMPLATE` value: [`templates/link_index_fancy.html`]/`templates/link_index.html`/`...`
 
  (See defaults & more at the top of `config.py`)
 
@@ -144,7 +144,7 @@ Here's a sample nginx configuration that works to serve archive folders:
 location / {
     alias       /var/www/bookmark-archiver/;
     index       index.html;
-    autoindex   on;                         # see directory listing upon clicking "The Files" links
+    autoindex   on;               # see directory listing upon clicking "The Files" links
     try_files   $uri $uri/ =404;
 }
 ```
@@ -155,9 +155,10 @@ Urls look like: `https://archive.example.com/archive/1493350273/en.wikipedia.org
 
 **Security WARNING & Content Disclaimer**
 
-Hosting other people's site content has security implications for other sites on the same domain, make sure you understand
-the dangers of hosting other people's CSS & JS files [on a shared domain](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy).  It's best to put this on a domain/subdomain
-of its own to slightly mitigate [CSRF attacks](https://en.wikipedia.org/wiki/Cross-site_request_forgery).
+Hosting other people's site content has security implications for any sites sharing the hosting domain.  Make sure you understand
+the dangers of hosting unknown archived CSS & JS files [on your shared domain](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy).
+Due to the security risk of serving some malicious JS you archived by accident, it's best to put this on a domain/subdomain
+of its own to slightly mitigate [CSRF attacks](https://en.wikipedia.org/wiki/Cross-site_request_forgery) and other nastiness.
 
 You may also want to blacklist your archive in `/robots.txt` if you don't want to be publicly assosciated with all the links you archive via search engine results.
 
