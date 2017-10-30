@@ -39,6 +39,9 @@ git clone https://github.com/pirate/bookmark-archiver
 cd bookmark-archiver/
 ./setup.sh #install ALL dependencies
 ./archive.py ~/Downloads/bookmark_export.html   # replace with the path to your export file from step 1
+
+# OR
+./archive.py https://getpocket.com/users/yourusername/feed/all  # url to an RSS, html, or json links file
 ```
 
 **3. Done!**
@@ -47,6 +50,7 @@ You can open `service/index.html` to view your archive.  (favicons will appear n
 
 If you want to host your archive somewhere to share it with other people, see the [Publishing Your Archive](#publishing-your-archive) section below.
 
+If you want to run this as a regular script that pulls new URLs, stick it in `cron` with the second parameter as the URL to your RSS feed.
 
 If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.  
 If you'd like to customize options, see the [Configuration](#configuration) section.  
@@ -66,11 +70,11 @@ For each sites it saves:
  - `screenshot.png` 1440x900 screenshot of site using headless chrome
  - `output.pdf` Printed PDF of site using headless chrome
  - `archive.org.txt` A link to the saved site on archive.org
- - `link.json` A json file containing link info and archive status
  - `audio/` and `video/` for sites like youtube, soundcloud, etc. (using youtube-dl) (WIP)
+ - `index.json` JSON index containing link info and archive details
+ - `index.html` HTML index containing link info and archive details
 
-Wget and Chrome [don't work](https://bugs.chromium.org/p/chromium/issues/detail?id=617931) on sites you need to be logged into (yet).
-`chrome --headless` essentially runs in an incognito mode session, until they add support for `--user-data-dir=`.
+Wget doesn't work on sites you need to be logged into, but chrome headless does, see the [Configuration](#configuration)* section for `CHROME_USER_DATA_DIR`.
 
 **Large Exports & Estimated Runtime:** 
 
@@ -113,10 +117,13 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
    - submit the page to archive.org: `SUBMIT_ARCHIVE_DOT_ORG` 
  - screenshot: `RESOLUTION` values: [`1440,900`]/`1024,768`/`...`
  - user agent: `WGET_USER_AGENT` values: [`Wget/1.19.1`]/`"Mozilla/5.0 ..."`/`...`
+ - chrome profile: `CHROME_USER_DATA_DIR` values: `~/Library/Application\ Support/Google/Chrome/Default`/`/tmp/chrome-profile`/`...`
+    To capture sites that require a user to be logged in, you must specify a path to a chrome profile (which loads the cookies needed for the user to be logged in).  If you don't have an existing chrome profile, create one with `chromium-browser --disable-gpu --user-data-dir=/tmp/chrome-profile`, and log into the sites you need.  Then set `CHROME_USER_DATA_DIR=/tmp/chrome-profile` to make Bookmark Archiver use that profile.
 
 **Index Options:**
  - html index template: `INDEX_TEMPLATE` value:  `templates/index.html`/`...`
  - html index row template: `INDEX_ROW_TEMPLATE` value:  `templates/index_row.html`/`...`
+ - html link index template: `LINK_INDEX_TEMPLATE` value: `templates/link_index_fancy.html`/`templates/link_index.html`/`...`
 
  (See defaults & more at the top of `config.py`)
 

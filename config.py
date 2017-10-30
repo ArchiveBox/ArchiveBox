@@ -27,6 +27,7 @@ ARCHIVE_DIR =            os.getenv('ARCHIVE_DIR',            '')
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          'chromium-browser' )  # change to google-chrome browser if using google-chrome
 WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             )
 WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',         None)
+CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',    None)
 TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
 LINK_INDEX_TEMPLATE =    os.getenv('LINK_INDEX_TEMPLATE',    'templates/link_index_fancy.html')
 INDEX_TEMPLATE =         os.getenv('INDEX_TEMPLATE',         'templates/index.html')

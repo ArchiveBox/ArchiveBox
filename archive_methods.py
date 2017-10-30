@@ -19,6 +19,7 @@ from config import (
     FETCH_VIDEO,
     FETCH_FAVICON,
     WGET_USER_AGENT,
+    CHROME_USER_DATA_DIR,
     TIMEOUT,
     ANSI,
 )
@@ -34,7 +35,6 @@ _RESULTS_TOTALS = {   # globals are bad, mmkay
     'succeded': 0,
     'failed': 0,
 }
-
 
 def archive_links(out_dir, links, export_path, resume=None):
     check_dependencies()
@@ -198,7 +198,7 @@ def fetch_wget(out_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT)
 
 
 @attach_result_to_link('pdf')
-def fetch_pdf(out_dir, link, timeout=TIMEOUT):
+def fetch_pdf(out_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DIR):
     """print PDF of site to file using chrome --headless"""
 
     if link['type'] in ('PDF', 'image'):
@@ -210,6 +210,7 @@ def fetch_pdf(out_dir, link, timeout=TIMEOUT):
     CMD = [
         CHROME_BINARY,
         *'--headless --disable-gpu --print-to-pdf'.split(' '),
+        *chrome_data_dir_args(user_data_dir),
         link['url']
     ]
     end = progress(timeout, prefix='      ')
@@ -233,7 +234,7 @@ def fetch_pdf(out_dir, link, timeout=TIMEOUT):
 
 
 @attach_result_to_link('screenshot')
-def fetch_screenshot(out_dir, link, timeout=TIMEOUT, resolution=RESOLUTION):
+def fetch_screenshot(out_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DIR, resolution=RESOLUTION):
     """take screenshot of site using chrome --headless"""
 
     if link['type'] in ('PDF', 'image'):
@@ -245,6 +246,7 @@ def fetch_screenshot(out_dir, link, timeout=TIMEOUT, resolution=RESOLUTION):
     CMD = [
         CHROME_BINARY,
         *'--headless --disable-gpu --screenshot'.split(' '),
+        *chrome_data_dir_args(user_data_dir),
         '--window-size={}'.format(resolution),
         link['url']
     ]
@@ -414,3 +416,12 @@ def fetch_favicon(out_dir, link, timeout=TIMEOUT):
 #             raise
 #     else:
 #         print('    √ Skipping video download')
+
+
+def chrome_data_dir_args(user_data_dir=CHROME_USER_DATA_DIR):
+    default = os.path.expanduser('~/Library/Application Support/Google/Chrome/Default')
+    if user_data_dir:
+        return ('--user-data-dir={}'.format(user_data_dir),)
+    elif os.path.exists(default):
+        return ('--user-data-dir={}'.format(default),)
+    return ()
