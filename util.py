@@ -387,7 +387,7 @@ def cleanup_archive(path, links):
 
     if unmatched:
         print('[!] Warning! {} unrecognized folders in html/archive/'.format(len(unmatched)))
-        print('\n    '.join(unmatched))
+        print('    '+ '\n    '.join(unmatched))
 
 
 def html_appended_url(link):
