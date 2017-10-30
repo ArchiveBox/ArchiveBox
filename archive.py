@@ -44,8 +44,8 @@ def update_archive(export_path, links, resume=None, append=True):
 
     # print timing information & summary
     end_ts = datetime.now().timestamp()
-    seconds = round(end_ts - start_ts, 1)
-    duration = '{} min'.format(seconds / 60) if seconds > 60 else '{} sec'.format(seconds)
+    seconds = round(end_ts - start_ts, 2)
+    duration = '{} min'.format(round(seconds / 60, 2)) if seconds > 60 else '{} sec'.format(seconds)
     print('{}[√] [{}] Archive update complete ({}){}'.format(
         ANSI['green'],
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
