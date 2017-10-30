@@ -92,6 +92,23 @@ def archive_link(out_dir, link, overwrite=False):
     
     return link
 
+def log_link_archive(out_dir, link):
+    update_existing = os.path.exists(out_dir)
+    if not update_existing:
+        os.makedirs(out_dir)
+    
+    print('[{symbol_color}{symbol}{reset}] [{timestamp}] "{title}": {blue}{base_url}{reset}'.format(
+        symbol='*' if update_existing else '+',
+        symbol_color=ANSI['black' if update_existing else 'green'],
+        **link,
+        **ANSI,
+    ))
+    if link['type']:
+        print('    i Type: {}'.format(link['type']))
+
+    print('    {} ({})'.format(out_dir, 'updating' if update_existing else 'creating'))
+
+
 
 def attach_result_to_link(method):
     """
@@ -397,21 +414,3 @@ def fetch_favicon(out_dir, link, timeout=TIMEOUT):
 #             raise
 #     else:
 #         print('    √ Skipping video download')
-
-
-
-def log_link_archive(out_dir, link):
-    update_existing = os.path.exists(out_dir)
-    if not update_existing:
-        os.makedirs(out_dir)
-    
-    print('[{symbol_color}{symbol}{reset}] [{timestamp}] "{title}": {blue}{base_url}{reset}'.format(
-        symbol='*' if update_existing else '+',
-        symbol_color=ANSI['black' if update_existing else 'green'],
-        **link,
-        **ANSI,
-    ))
-    if link['type']:
-        print('    i Type: {}'.format(link['type']))
-
-    print('    {} ({})'.format(out_dir, 'exists' if update_existing else 'created'))

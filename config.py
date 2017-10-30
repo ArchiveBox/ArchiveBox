@@ -34,7 +34,7 @@ INDEX_ROW_TEMPLATE =     os.getenv('INDEX_ROW_TEMPLATE',     'templates/index_ro
 
 ### Output Paths
 ROOT_FOLDER = os.path.dirname(os.path.abspath(__file__))
-HTML_FOLDER = os.path.join(ROOT_FOLDER, ARCHIVE_DIR, 'html')
+HTML_FOLDER = os.path.join(ARCHIVE_DIR, 'html')
 ARCHIVE_FOLDER = os.path.join(HTML_FOLDER, 'archive')
 os.chdir(ROOT_FOLDER)
 
