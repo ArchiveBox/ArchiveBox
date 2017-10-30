@@ -7,7 +7,7 @@ Save an archived copy of all websites you bookmark (the actual *content* of the 
 Outputs browsable static html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.  
 (Your own personal Way-Back Machine) [DEMO: sweeting.me/pocket](https://home.sweeting.me/pocket)
 
-**Supports: Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera), Pocket, Pinboard, Reddit, Wallabag, Shaarli, Delicious, Instapaper, Unmark.it, and more!**
+**Supports: Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera), Pocket, Pinboard, Reddit, Wallabag, Shaarli, Delicious, Instapaper, Unmark.it, RSS, and more!**
 
 ![](screenshot.png)
 
@@ -29,6 +29,7 @@ Follow the links here to find instructions for exporting bookmarks from each ser
  - [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png)
  - [Opera Bookmarks](http://help.opera.com/Windows/12.10/en/importexport.html)
  - [Internet Explorer Bookmarks](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows)
+ - RSS: pass the url as the second argument in the next step
 
  (If any of these links are broken, please submit an issue and I'll fix it)
 
@@ -133,17 +134,15 @@ The chrome/chromium dependency is _optional_ and only required for screenshots a
 
 ## Publishing Your Archive
 
-The archive produced by `./archive.py` is suitable for serving on any provider that 
-can host static html (e.g. github pages!).
+The archive produced by `./archive.py` is suitable for serving on any provider that can host static html (e.g. github pages!).
 
-You can also serve it from a home server or VPS by uploading the archive folder 
-to your web directory, e.g. `/var/www/pocket` and configuring your webserver.
+You can also serve it from a home server or VPS by uploading the outputted `html` folder to your web directory, e.g. `/var/www/bookmark-archiver` and configuring your webserver.
 
 Here's a sample nginx configuration that works to serve archive folders:
 
 ```nginx
-location /pocket/ {
-    alias       /var/www/pocket/;
+location / {
+    alias       /var/www/bookmark-archiver/;
     index       index.html;
     autoindex   on;                         # see directory listing upon clicking "The Files" links
     try_files   $uri $uri/ =404;
@@ -152,7 +151,7 @@ location /pocket/ {
 
 Make sure you're not running any content as CGI or PHP, you only want to serve static files!
 
-Urls look like: `https://sweeting.me/archive/archive/1493350273/en.wikipedia.org/wiki/Dining_philosophers_problem.html`
+Urls look like: `https://archive.example.com/archive/1493350273/en.wikipedia.org/wiki/Dining_philosophers_problem.html`
 
 **Security WARNING & Content Disclaimer**
 
@@ -378,6 +377,10 @@ will run fast subsequent times because it only downloads new links that haven't 
 
 ## Changelog
 
+ - v0.0.2 released
+ - support for chrome `--user-data-dir` to archive sites that need logins
+ - fancy individual html & json indexes for each link
+ - smartly append new links to existing index instead of overwriting 
  - proper HTML templating instead of format strings (thanks to https://github.com/bardisty!)
  - refactored into separate files, wip audio & video archiving
  - v0.0.1 released
