@@ -42,8 +42,8 @@ def archive_links(out_dir, links, export_path, resume=None):
     to_archive = links_after_timestamp(links, resume)
     try:
         for idx, link in enumerate(to_archive):
-            out_dir = os.path.join(out_dir, link['timestamp'])
-            archive_link(out_dir, link)
+            link_dir = os.path.join(out_dir, link['timestamp'])
+            archive_link(link_dir, link)
     
     except (KeyboardInterrupt, SystemExit, Exception) as e:
         print('{red}[X] Archive update stopped on #{idx} out of {total} links{reset}'.format(
