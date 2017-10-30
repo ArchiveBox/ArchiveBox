@@ -106,5 +106,4 @@ if __name__ == '__main__':
 
     # make sure folder structure is sane
     cleanup_archive(ARCHIVE_FOLDER, links)
-    raise SystemExit(0)
     update_archive(export_path, links, resume=resume_from, append=True)

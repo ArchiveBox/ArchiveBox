@@ -2,264 +2,58 @@
     <head>
         <meta charset="utf-8">
         <title>$title</title>
-        <style>
-            html, body {
-                width: 100%;
-                height: 100%;
-            }
-            body {
-                background-color: #ddd;
-            }
-            header {
-                width: 100%;
-                background-color: #aa1e55;
-                margin: 0px;
-                text-align: center;
-                color: white;
-            }
-            header h1 {
-                padding-top: 5px;
-                padding-bottom: 5px;
-                margin: 0px;
-                font-weight: 200;
-                font-family: "Gill Sans", Helvetica, sans-serif;
-            }
-            .collapse-icon {
-                float: right;
-                color: black;
-                width: 126px;
-                font-size: 0.7em;
-                margin-top: 20px;
-                margin-right: -30px;
-                margin-left: -150px;
-            }
-            .nav-icon img {
-                display: inline-block;
-                margin-right: -200px;
-                float: left;
-                color: black;
-                height: 53px;
-                margin-top: 7px;
-                margin-left: 10px;
-            }
-            .nav-icon img:hover {
-                opacity: 0.5;
-            }
-            .title-url {
-                color: black;
-            }
-            .archive-page-header {
-                margin-top: 5px;
-                margin-bottom: 5px;
-            }
-            h1 small {
-                opacity: 0.4;
-                font-size: 0.6em;
-            }
-            h1 small:hover {
-                opacity: 0.8;
-            }
-            .card {
-                box-shadow: 2px 3px 14px 0px rgba(0,0,0,0.02);
-            }
-            .card h4 {
-                font-size: 1.4vw;
-            }
-            .card-body {
-                font-size: 1vw;
-                padding-top: 2vw;
-                padding-left: 1vw;
-                padding-right: 1vw;
-                padding-bottom: 5vw;
-                word-wrap: break-word;
-                max-height: 102px;
-                overflow: hidden;
-            }
-            .card-img-top {
-                border: 0px;
-                padding: 0px;
-                margin: 0px;
-                overflow: hidden;
-                opacity: 0.8;
-                border-top: 1px solid gray;
-                border-radius: 3px;
-                border-bottom: 1px solid #ddd;
-                height: 425px;
-                width: 400%;
-                margin-bottom: -330px;
-
-                transform: scale(0.25); 
-                transform-origin: 0 0;
-            }
-            .full-page-iframe {
-                border-top: 1px solid #ddd;
-                width: 100%;
-                height: 69vh;
-                margin: 0px;
-                border: 0px;
-                border-top: 3px solid #aa1e55;
-            }
-            .card.selected-card {
-                border: 2px solid orange;
-                box-shadow: 0px -6px 13px 1px rgba(0,0,0,0.05);
-            }
-            .iframe-large {
-                height: 93%;
-                margin-top: -10px;
-            }
-
-            @media(max-width: 1092px) {
-                iframe {
-                    display: none;
-                }
-            }
-                
-
-            @media(max-width: 728px) {
-                .card h4 {
-                    font-size: 5vw;
-                }
-                .card-body {
-                    font-size: 4vw;
-                }
-                .card {
-                    margin-bottom: 5px;
-                }
-            }
-        </style>
-        <script
-          src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
-          integrity="sha256-k2WSCIexGzOj3Euiig+TlR8gA0EmPjuc79OEeY5L45g="
-          crossorigin="anonymous"></script>
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+        
     </head>
     <body>
         <header>
-            <h1 class="page-title">
-                <a href="#" class="collapse-icon" title="Collapse Navbar">
-                    [-]
-                </a>
-                <a href="./../../index.html" class="nav-icon" title="Archived Sites">
-                    <img src="https://nicksweeting.com/images/archive.png" alt="Archive Icon">
-                </a>
-                $title<br/>
+            <h1>
+                <img src="$favicon" height="20px"> $title<br/>
                 <a href="$url" class="title-url">
-                    <small><img src="$favicon" height="20px"> $base_url</small>
+                    <small>$base_url</small>
                 </a>
             </h1>
         </header>
-        <div class="site-header container-fluid">
-            <div class="row archive-page-header">
-                <div class="col-lg-2">
-                    <div class="alert alert-warning">
-                        Tags:
-                        <span class="badge badge-success">$tags</span> 
-                        <span class="badge badge-default">$type</span>
-                        <div style="height:5px"></div>
-                        Bookmarked:<br/>
-                            <small>$bookmarked<br/></small>
-                        Archived:<br/>
-                            <small>$updated</small>
-                        <hr/>
-                        <a href="index.json">JSON</a> | <a href=".">Files</a>
-                    </div>
-                </div>
-                <div class="col-lg-2">
-                    <div class="card selected-card">
-                      <iframe class="card-img-top" src="$wget" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
-                      <div class="card-body">
-                        <a href="$wget" style="float:right"><small>➡️</small></a>
-                        <a href="$wget" target="preview"><h4 class="card-title">Local Archive</h4></a>
-                        <p class="card-text">archive/$domain</p>
-                      </div>
-                    </div>
-                </div>
-                <div class="col-lg-2">
-                    <div class="card">
-                      <iframe class="card-img-top" src="$pdf"></iframe>
-                      <div class="card-body">
-                        <a href="$pdf" style="float:right"><small>➡️</small></a>
-                        <a href="$pdf" target="preview" id="pdf-btn"><h4 class="card-title">PDF</h4></a>
-                        <p class="card-text">archive/output.pdf</p>
-                      </div>
-                    </div>
-                </div>
-                <div class="col-lg-2">
-                    <div class="card">
-                      <iframe class="card-img-top" src="$screenshot" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
-                      <div class="card-body">
-                        <a href="$screenshot" style="float:right"><small>➡️</small></a>
-                        <a href="$screenshot" target="preview"><h4 class="card-title">Screenshot</h4></a>
-                        <p class="card-text">archive/screenshot.png</p>
-                      </div>
-                    </div>
-                </div>
-                <div class="col-lg-2">
-                    <div class="card">
-                      <iframe class="card-img-top" src="$url" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
-                      <div class="card-body">
-                        <a href="$url" style="float:right"><small>➡️</small></a>
-                        <a href="$url" target="preview"><h4 class="card-title">Original</h4></a>
-                        <p class="card-text">$domain</p>
-                      </div>
-                    </div>
-                </div>
-                <div class="col-lg-2">
-                    <div class="card">
-                      <iframe class="card-img-top" src="$archive_org" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
-                      <div class="card-body">
-                        <a href="$archive_org" style="float:right"><small>➡️</small></a>
-                        <a href="$archive_org" target="preview"><h4 class="card-title">Archive.Org</h4></a>
-                        <p class="card-text">web.archive.org/web/...</p>
-                      </div>
-                    </div>
-                </div>
-            </div>
+        <hr/>
+        <div>
+            Tags: $tags<br/>
+            Type: $type<br/>
+            <br/>
+            Bookmarked:<br/>
+                $bookmarked<br/>
+            Archived:<br/>
+                $updated<br/>
         </div>
-        <iframe sandbox="allow-same-origin allow-scripts allow-forms" class="full-page-iframe" src="$wget" name="preview"></iframe>
+        <hr/>
+        <ul>
+            <li>
+                <a href="$url"><b>Original</b></a><br/>
+                $base_url<br/>&nbsp;
+            </li>
+            <li>
+                <a href="$wget"><b>Local Archive</b></a><br/>
+                archive/$timestamp/$domain<br/>&nbsp;
+            </li>
+            <li>
+                <a href="$pdf" id="pdf-btn"><b>PDF</b></a><br/>
+                archive/$timestamp/output.pdf<br/>&nbsp;
+            </li>
+            <li>
+                <a href="$screenshot"><b>Screenshot</b></a><br/>
+                archive/$timestamp/screenshot.png<br/>&nbsp;
+            </li>
+            <li>
+                <a href="$archive_org"><b>Archive.Org</b></a><br/>
+                web.archive.org/web/$base_url<br/>&nbsp;
+            </li>
+        </ul>
+        <footer>
+            <hr/>
+            <a href="index.json">JSON</a> | <a href=".">Files</a>
+            <hr/>
+            <a href="./../../index.html" class="nav-icon" title="Archived Sites">
+                <img src="https://nicksweeting.com/images/archive.png" alt="Archive Icon" height="20px">
+                Bookmark Archiver: Link Index
+            </a>
+        </footer>
     </body>
-
-    <script>
-        // show selected file in iframe when preview card is clicked
-        jQuery('.card').on('click', function(e) {
-            jQuery('.selected-card').removeClass('selected-card')
-            jQuery(e.target).closest('.card').addClass('selected-card')
-        })
-        jQuery('.card a[target=preview]').on('click', function(e) {
-            if (e.currentTarget.href.endsWith('.pdf')) {
-                jQuery('.full-page-iframe')[0].removeAttribute('sandbox')
-            } else {
-                jQuery('.full-page-iframe')[0].sandbox = "allow-same-origin allow-scripts allow-forms"
-            }
-            return true
-        })
-
-        // un-sandbox iframes showing pdfs (required to display pdf viewer)
-        jQuery('iframe').map(function() {
-            if (this.src.endsWith('.pdf')) {
-                this.removeAttribute('sandbox')
-                this.src = this.src
-            }
-        })
-
-        // hide header when collapse icon is clicked
-        jQuery('.collapse-icon').on('click', function() {
-            if (jQuery('.collapse-icon').text().includes('[-]')) {
-                jQuery('.collapse-icon').text('[+]')
-                jQuery('.site-header').hide()
-                jQuery('.full-page-iframe').addClass('iframe-large')
-            } else {
-                jQuery('.collapse-icon').text('[-]')
-                jQuery('.site-header').show()
-                jQuery('.full-page-iframe').removeClass('iframe-large')
-            }
-            return true
-        })
-
-        // hide all preview iframes on small screens
-        if (window.innerWidth < 1091) {
-            jQuery('.card a[target=preview]').attr('target', '_self')
-        }
-    </script>
 </html>

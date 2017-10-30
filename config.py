@@ -28,7 +28,7 @@ CHROME_BINARY =          os.getenv('CHROME_BINARY',          'chromium-browser' 
 WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             )
 WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',         None)
 TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
-LINK_INDEX_TEMPLATE =    os.getenv('LINK_INDEX_TEMPLATE',    'templates/link_index.html')
+LINK_INDEX_TEMPLATE =    os.getenv('LINK_INDEX_TEMPLATE',    'templates/link_index_fancy.html')
 INDEX_TEMPLATE =         os.getenv('INDEX_TEMPLATE',         'templates/index.html')
 INDEX_ROW_TEMPLATE =     os.getenv('INDEX_ROW_TEMPLATE',     'templates/index_row.html')
 
