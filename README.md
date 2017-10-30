@@ -84,10 +84,10 @@ Those numbers are from running it single-threaded on my i5 machine with 50mbps d
 
 You can run it in parallel by using the `resume` feature, or by manually splitting export.html into multiple files:
 ```bash
-./archive.py export.html bookmarks 1498800000 &  # third argument is timestamp to resume downloading from
-./archive.py export.html bookmarks 1498810000 &
-./archive.py export.html bookmarks 1498820000 &
-./archive.py export.html bookmarks 1498830000 &
+./archive.py export.html 1498800000 &  # second argument is timestamp to resume downloading from
+./archive.py export.html 1498810000 &
+./archive.py export.html 1498820000 &
+./archive.py export.html 1498830000 &
 ```
 Users have reported running it with 50k+ bookmarks with success (though it will take more RAM while running).
 
@@ -214,7 +214,7 @@ Follow the instruction links above in the "Quickstart" section to download your 
 3. `cd bookmark-archiver/`
 4. `./archive.py ~/Downloads/bookmarks_export.html`
 
-You may optionally specify a third argument to `archive.py export.html [pocket|pinboard|bookmarks]` to enforce the use of a specific link parser.
+You may optionally specify a second argument to `archive.py export.html 153242424324` to resume the archive update at a specific timestamp.
 
 If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.
 
