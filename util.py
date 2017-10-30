@@ -10,6 +10,7 @@ from subprocess import run, PIPE, DEVNULL
 from multiprocessing import Process
 
 from config import (
+    IS_TTY,
     ARCHIVE_PERMISSIONS,
     ARCHIVE_DIR,
     TIMEOUT,
@@ -220,6 +221,27 @@ def get_link_type(link):
         return 'vimeo'
     return None
 
+def merge_links(a, b):
+    """deterministially merge two links, favoring longer field values over shorter,
+    and "cleaner" values over worse ones.
+    """
+    longer = lambda key: a[key] if len(a[key]) > len(b[key]) else b[key]
+    earlier = lambda key: a[key] if a[key] < b[key] else b[key]
+    
+    url = longer('url')
+    longest_title = longer('title')
+    cleanest_title = a['title'] if '://' not in a['title'] else b['title']
+    link = {
+        'timestamp': earlier('timestamp'),
+        'url': url,
+        'domain': domain(url),
+        'base_url': base_url(url),
+        'tags': longer('tags'),
+        'title': longest_title if '://' not in longest_title else cleanest_title,
+        'sources': list(set(a.get('sources', []) + b.get('sources', []))),
+    }
+    link['type'] = get_link_type(link)
+    return link
 
 def find_link(folder, links):
     """for a given archive folder, find the corresponding link object in links"""
@@ -244,8 +266,13 @@ def parse_url(folder):
     link_json = os.path.join('./html/archive/' + folder, 'index.json')
     if os.path.exists(link_json):
         with open(link_json, 'r') as f:
-            link = json.load(f)
-            return link['base_url']
+            try:
+                link_json = f.read().strip()
+                if link_json:
+                    link = json.loads(link_json)
+                    return link['base_url']
+            except ValueError:
+                print('File contains invalid JSON: {}!'.format(link_json))
 
     archive_org_txt = os.path.join('./html/archive/' + folder, 'archive.org.txt')
     if os.path.exists(archive_org_txt):
@@ -256,15 +283,72 @@ def parse_url(folder):
 
     return ''
 
+def manually_merge_folders(source, target):
+    """prompt for user input to resolve a conflict between two archive folders"""
 
-def merge_folders(folder, link):
+    if not IS_TTY:
+        return
+
+    fname = lambda path: path.split('/')[-1]
+
+    print('    {} and {} have conflicting files, which do you want to keep?'.format(fname(source), fname(target)))
+    print('      - [enter]: do nothing (keep both)')
+    print('      - a:       keep everything from {}'.format(source))
+    print('      - b:       keep everything from {}'.format(target))
+    print('      - q:       quit and resolve the conflict manually')
+    try:
+        answer = input('> ').strip().lower()
+    except KeyboardInterrupt:
+        answer = 'q'
+
+    assert answer in ('', 'a', 'b', 'q'), 'Invalid choice.'
+
+    if answer == 'q':
+        print('\nJust run Bookmark Archiver again to pick up where you left off.')
+        raise SystemExit(0)
+    elif answer == '':
+        return
+
+    files_in_source = set(os.listdir(source))
+    files_in_target = set(os.listdir(target))
+    for file in files_in_source.intersection(files_in_target):
+        if file in files_in_target:
+            to_delete = target if answer == 'a' else source
+            run(['rm', '-Rf', os.path.join(to_delete, file)])
+        run(['mv', os.path.join(source, file), os.path.join(target, file)])
+
+    if not set(os.listdir(source)):
+        run(['rm', '-Rf', source])
+
+def merge_folders(path, folder, link):
     """given a folder, merge it to the canonical 'correct' path for the given link object"""
-    base_url = parse_url(folder)
+    source, target = os.path.join(path, folder), os.path.join(path, link['timestamp'])
+
+    base_url = parse_url(source)
     if not (base_url in link['base_url']
             or link['base_url'] in base_url):
-        print(base_url, link['base_url'])
-        assert False
-    print('{} > {}'.format(folder, link['timestamp']))
+        raise ValueError('The link does not match the url for this folder.')
+
+    if not os.path.exists(target):
+        # target doesn't exist so nothing needs merging, simply move A to B
+        if run(['mv', source, target]).returncode:
+            print('Failed to move {} to {}!'.format(source, target))
+            return False
+    else:
+        # target folder exists, check for conflicting files and attempt manual merge
+        files_in_source = set(os.listdir(source))
+        files_in_target = set(os.listdir(target))
+
+        if not files_in_source.intersection(files_in_target):
+            # no conflicts, move everything from A to B
+            for file in files_in_source:
+                run(['mv', os.path.join(source, file), os.path.join(target, file)])
+
+    files_in_source = set(os.listdir(source))
+    if files_in_source:
+        manually_merge_folders(source, target)
+    else:
+        run(['rm', '-R', source])
 
 
 def cleanup_archive(path, links):
@@ -277,15 +361,28 @@ def cleanup_archive(path, links):
     # check each folder for a "domain.com" folder or 
 
     unmatched = []
+    bad_folders = []
+
+    if not os.path.exists(path):
+        return
 
     for folder in os.listdir(path):
-        link = find_link(folder, links)
-        if link is None:
-            unmatched.append(folder)
-            continue
-        
-        if folder != link['timestamp']:
-            merge_folders(folder, link)
+        if not os.listdir(os.path.join(path, folder)):
+            # delete empty folders
+            run(['rm', '-R', os.path.join(path, folder)])
+        else:
+            link = find_link(folder, links)
+            if link is None:
+                unmatched.append(folder)
+                continue
+            
+            if folder != link['timestamp']:
+                bad_folders.append((folder, link))
+    
+    if bad_folders:
+        print('[!] Fixing {} improperly named folders in archive...'.format(len(bad_folders)))
+        for folder, link in bad_folders:
+            merge_folders(path, folder, link)
 
     if unmatched:
         print('[!] Warning! {} unrecognized folders in html/archive/'.format(len(unmatched)))

@@ -35,8 +35,9 @@ Link {
 from util import (
     domain,
     base_url,
-    get_str_between,
+    str_between,
     get_link_type,
+    merge_links,
 )
 
 
@@ -88,30 +89,6 @@ def uniquefied_links(sorted_links):
 def sorted_links(links):
     sort_func = lambda link: (link['timestamp'], link['url'])
     return sorted(links, key=sort_func, reverse=True)
-
-
-
-def merge_links(a, b):
-    """deterministially merge two links, favoring longer field values over shorter,
-    and "cleaner" values over worse ones.
-    """
-    longer = lambda key: a[key] if len(a[key]) > len(b[key]) else b[key]
-    earlier = lambda key: a[key] if a[key] < b[key] else b[key]
-    
-    url = longer('url')
-    longest_title = longer('title')
-    cleanest_title = a['title'] if '://' not in a['title'] else b['title']
-    link = {
-        'timestamp': earlier('timestamp'),
-        'url': url,
-        'domain': domain(url),
-        'base_url': base_url(url),
-        'tags': longer('tags'),
-        'title': longest_title if '://' not in longest_title else cleanest_title,
-        'sources': list(set(a.get('sources', []) + b.get('sources', []))),
-    }
-    link['type'] = get_link_type(link)
-    return link
 
 def links_after_timestamp(links, timestamp=None):
     if not timestamp:
