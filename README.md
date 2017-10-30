@@ -9,7 +9,7 @@ Outputs browsable static html archives of each site, a PDF, a screenshot, and a 
 
 **Supports: Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera), Pocket, Pinboard, Reddit, Wallabag, Shaarli, Delicious, Instapaper, Unmark.it, RSS, and more!**
 
-<img src="screenshot.png" width="70%" alt="Desktop Screenshot" style="vertical-align:top"><img src="screenshot_mobile.png" width="30%" alt="Mobile Screenshot" style="vertical-align:top">
+<img src="screenshot.png" width="75%" alt="Desktop Screenshot" align="top"><img src="screenshot_mobile.png" width="25%" alt="Mobile Screenshot" align="top"><br/>
 
 ## Quickstart
 
