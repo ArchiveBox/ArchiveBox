@@ -1,14 +1,19 @@
-# Bookmark Archiver <img src="https://nicksweeting.com/images/archive.png" height="22px"/> <img src="https://getpocket.com/favicon.ico" height="22px"/> <img src="https://pinboard.in/favicon.ico" height="22px"/> <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/bookmark-archiver) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
-
+# Bookmark Archiver <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/bookmark-archiver) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
 ▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Changelog](#changelog)
 
-Save an archived copy of all websites you bookmark (the actual *content* of the sites, not just the list of bookmarks).
+    "Your own personal Way-Back Machine"
 
-Outputs browsable static html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed in a nice html file.  
-(Your own personal Way-Back Machine) [DEMO: sweeting.me/pocket](https://home.sweeting.me/pocket)
+Save an archived copy of all websites you bookmark (the actual *content* of each site, not just the list of bookmarks).
 
-**Supports: Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera), Pocket, Pinboard, Reddit, Wallabag, Shaarli, Delicious, Instapaper, Unmark.it, RSS, and more!**
+ - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera)
+ - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket
+ - <img src="https://pinboard.in/favicon.ico" height="22px"/> Pinboard
+ - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS
+ - Shaarli, Delicious, Instapaper, Reddit Saved Posts, Wallabag, Unmark.it, and more!
 
+Outputs browsable static html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed with nice html & json files.  
+
+[DEMO: sweeting.me/pocket](https://home.sweeting.me/pocket)
 <img src="screenshot.png" width="75%" alt="Desktop Screenshot" align="top"><img src="screenshot_mobile.png" width="25%" alt="Mobile Screenshot" align="top"><br/>
 
 ## Quickstart
