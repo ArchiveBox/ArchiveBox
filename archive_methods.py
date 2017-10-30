@@ -36,24 +36,24 @@ _RESULTS_TOTALS = {   # globals are bad, mmkay
     'failed': 0,
 }
 
-def archive_links(out_dir, links, export_path, resume=None):
+def archive_links(archive_path, links, source=None, resume=None):
     check_dependencies()
 
     to_archive = links_after_timestamp(links, resume)
     try:
         for idx, link in enumerate(to_archive):
-            link_dir = os.path.join(out_dir, link['timestamp'])
+            link_dir = os.path.join(archive_path, link['timestamp'])
             archive_link(link_dir, link)
     
     except (KeyboardInterrupt, SystemExit, Exception) as e:
-        print('{red}[X] Archive update stopped on #{idx} out of {total} links{reset}'.format(
+        print('{red}[X] Index is up-to-date, archive update paused on link {idx}/{total}{reset}'.format(
             **ANSI,
             idx=idx,
             total=len(list(to_archive)),
         ))
         print('    Continue where you left off by running:')
         print('       ./archive.py {} {}'.format(
-            export_path,
+            source,
             link['timestamp'],
         ))
         if not isinstance(e, KeyboardInterrupt):
@@ -61,42 +61,46 @@ def archive_links(out_dir, links, export_path, resume=None):
         raise SystemExit(1)
 
 
-def archive_link(out_dir, link, overwrite=False):
+def archive_link(link_dir, link, overwrite=False):
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
-    link = {**parse_json_link_index(out_dir), **link}
-    log_link_archive(out_dir, link)
+    update_existing = os.path.exists(link_dir)
+    if update_existing:
+        link = {
+            **parse_json_link_index(link_dir),
+            **link,
+        }
+    else:
+        os.makedirs(link_dir)
+    
+    log_link_archive(link_dir, link, update_existing)
 
     if FETCH_WGET:
-        link = fetch_wget(out_dir, link, overwrite=overwrite)
+        link = fetch_wget(link_dir, link, overwrite=overwrite)
 
     if FETCH_PDF:
-        link = fetch_pdf(out_dir, link, overwrite=overwrite)
+        link = fetch_pdf(link_dir, link, overwrite=overwrite)
 
     if FETCH_SCREENSHOT:
-        link = fetch_screenshot(out_dir, link, overwrite=overwrite)
+        link = fetch_screenshot(link_dir, link, overwrite=overwrite)
 
     if SUBMIT_ARCHIVE_DOT_ORG:
-        link = archive_dot_org(out_dir, link, overwrite=overwrite)
+        link = archive_dot_org(link_dir, link, overwrite=overwrite)
 
     # if FETCH_AUDIO:
-    #     link = fetch_audio(out_dir, link, overwrite=overwrite)
+    #     link = fetch_audio(link_dir, link, overwrite=overwrite)
 
     # if FETCH_VIDEO:
-    #     link = fetch_video(out_dir, link, overwrite=overwrite)
+    #     link = fetch_video(link_dir, link, overwrite=overwrite)
 
     if FETCH_FAVICON:
-        link = fetch_favicon(out_dir, link, overwrite=overwrite)
+        link = fetch_favicon(link_dir, link, overwrite=overwrite)
 
-    write_link_index(out_dir, link)
+    write_link_index(link_dir, link)
     
     return link
 
-def log_link_archive(out_dir, link):
-    update_existing = os.path.exists(out_dir)
-    if not update_existing:
-        os.makedirs(out_dir)
-    
+def log_link_archive(link_dir, link, update_existing):
     print('[{symbol_color}{symbol}{reset}] [{timestamp}] "{title}": {blue}{base_url}{reset}'.format(
         symbol='*' if update_existing else '+',
         symbol_color=ANSI['black' if update_existing else 'green'],
@@ -106,7 +110,7 @@ def log_link_archive(out_dir, link):
     if link['type']:
         print('    i Type: {}'.format(link['type']))
 
-    print('    {} ({})'.format(out_dir, 'updating' if update_existing else 'creating'))
+    print('    {} ({})'.format(link_dir, 'updating' if update_existing else 'creating'))
 
 
 
@@ -118,7 +122,7 @@ def attach_result_to_link(method):
     """
     def decorator(fetch_func):
         @wraps(fetch_func)
-        def timed_fetch_func(out_dir, link, overwrite=False, **kwargs):
+        def timed_fetch_func(link_dir, link, overwrite=False, **kwargs):
             # initialize methods and history json field on link
             link['latest'] = link.get('latest') or {}
             link['latest'][method] = link['latest'].get(method) or None
@@ -133,7 +137,7 @@ def attach_result_to_link(method):
                 result = None
             else:
                 print('    - Fetching: {}'.format(method))
-                result = fetch_func(out_dir, link, **kwargs)
+                result = fetch_func(link_dir, link, **kwargs)
 
             end_ts = datetime.now().timestamp()
             duration = str(end_ts * 1000 - start_ts * 1000).split('.')[0]
@@ -164,10 +168,10 @@ def attach_result_to_link(method):
 
 
 @attach_result_to_link('wget')
-def fetch_wget(out_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT):
+def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT):
     """download full site using wget"""
 
-    if os.path.exists(os.path.join(out_dir, link['domain'])):
+    if os.path.exists(os.path.join(link_dir, link['domain'])):
         return {'output': html_appended_url(link), 'status': 'skipped'}
 
     CMD = [
@@ -178,7 +182,7 @@ def fetch_wget(out_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT)
     ]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=out_dir, timeout=timeout + 1)  # index.html
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 1)  # index.html
         end()
         output = html_appended_url(link)
         if result.returncode > 0:
@@ -187,7 +191,7 @@ def fetch_wget(out_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT)
             # raise Exception('Failed to wget download')
     except Exception as e:
         end()
-        print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
+        print('       Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
         print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
         output = e
 
@@ -198,24 +202,23 @@ def fetch_wget(out_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT)
 
 
 @attach_result_to_link('pdf')
-def fetch_pdf(out_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DIR):
+def fetch_pdf(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DIR):
     """print PDF of site to file using chrome --headless"""
 
     if link['type'] in ('PDF', 'image'):
         return {'output': html_appended_url(link)}
     
-    if os.path.exists(os.path.join(out_dir, 'output.pdf')):
+    if os.path.exists(os.path.join(link_dir, 'output.pdf')):
         return {'output': 'output.pdf', 'status': 'skipped'}
 
     CMD = [
-        CHROME_BINARY,
-        *'--headless --disable-gpu --print-to-pdf'.split(' '),
-        *chrome_data_dir_args(user_data_dir),
+        *chrome_headless(user_data_dir=user_data_dir),
+        '--print-to-pdf',
         link['url']
     ]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=out_dir, timeout=timeout + 1)  # output.pdf
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 1)  # output.pdf
         end()
         if result.returncode:
             print('     ', (result.stderr or result.stdout).decode())
@@ -223,7 +226,7 @@ def fetch_pdf(out_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DIR
         output = 'output.pdf'
     except Exception as e:
         end()
-        print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
+        print('       Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
         print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
         output = e
 
@@ -234,34 +237,33 @@ def fetch_pdf(out_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DIR
 
 
 @attach_result_to_link('screenshot')
-def fetch_screenshot(out_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DIR, resolution=RESOLUTION):
+def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DIR, resolution=RESOLUTION):
     """take screenshot of site using chrome --headless"""
 
     if link['type'] in ('PDF', 'image'):
         return {'output': html_appended_url(link)}
     
-    if os.path.exists(os.path.join(out_dir, 'screenshot.png')):
+    if os.path.exists(os.path.join(link_dir, 'screenshot.png')):
         return {'output': 'screenshot.png', 'status': 'skipped'}
 
     CMD = [
-        CHROME_BINARY,
-        *'--headless --disable-gpu --screenshot'.split(' '),
-        *chrome_data_dir_args(user_data_dir),
+        *chrome_headless(user_data_dir=user_data_dir),
+        '--screenshot',
         '--window-size={}'.format(resolution),
         link['url']
     ]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=out_dir, timeout=timeout + 1)  # sreenshot.png
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 1)  # sreenshot.png
         end()
         if result.returncode:
             print('     ', (result.stderr or result.stdout).decode())
             raise Exception('Failed to take screenshot')
-        chmod_file('screenshot.png', cwd=out_dir)
+        chmod_file('screenshot.png', cwd=link_dir)
         output = 'screenshot.png'
     except Exception as e:
         end()
-        print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
+        print('       Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
         print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
         output = e
 
@@ -272,10 +274,10 @@ def fetch_screenshot(out_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_D
     
 
 @attach_result_to_link('archive_org')
-def archive_dot_org(out_dir, link, timeout=TIMEOUT):
+def archive_dot_org(link_dir, link, timeout=TIMEOUT):
     """submit site to archive.org for archiving via their service, save returned archive url"""
 
-    path = os.path.join(out_dir, 'archive.org.txt')
+    path = os.path.join(link_dir, 'archive.org.txt')
     if os.path.exists(path):
         archive_org_url = open(path, 'r').read().strip()
         return {'output': archive_org_url, 'status': 'skipped'}
@@ -286,7 +288,7 @@ def archive_dot_org(out_dir, link, timeout=TIMEOUT):
     CMD = ['curl', '-I', submit_url]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=DEVNULL, cwd=out_dir, timeout=timeout + 1)  # archive.org.txt
+        result = run(CMD, stdout=PIPE, stderr=DEVNULL, cwd=link_dir, timeout=timeout + 1)  # archive.org.txt
         end()
 
         # Parse archive.org response headers
@@ -313,9 +315,9 @@ def archive_dot_org(out_dir, link, timeout=TIMEOUT):
         output = e
 
     if success:
-        with open(os.path.join(out_dir, 'archive.org.txt'), 'w', encoding='utf-8') as f:
+        with open(os.path.join(link_dir, 'archive.org.txt'), 'w', encoding='utf-8') as f:
             f.write(saved_url)
-        chmod_file('archive.org.txt', cwd=out_dir)
+        chmod_file('archive.org.txt', cwd=link_dir)
         output = saved_url
 
     return {
@@ -324,20 +326,20 @@ def archive_dot_org(out_dir, link, timeout=TIMEOUT):
     }
 
 @attach_result_to_link('favicon')
-def fetch_favicon(out_dir, link, timeout=TIMEOUT):
+def fetch_favicon(link_dir, link, timeout=TIMEOUT):
     """download site favicon from google's favicon api"""
 
-    if os.path.exists(os.path.join(out_dir, 'favicon.ico')):
+    if os.path.exists(os.path.join(link_dir, 'favicon.ico')):
         return {'output': 'favicon.ico', 'status': 'skipped'}
 
     CMD = ['curl', 'https://www.google.com/s2/favicons?domain={domain}'.format(**link)]
-    fout = open('{}/favicon.ico'.format(out_dir), 'w')
+    fout = open('{}/favicon.ico'.format(link_dir), 'w')
     end = progress(timeout, prefix='      ')
     try:
-        run(CMD, stdout=fout, stderr=DEVNULL, cwd=out_dir, timeout=timeout + 1)  # favicon.ico
+        run(CMD, stdout=fout, stderr=DEVNULL, cwd=link_dir, timeout=timeout + 1)  # favicon.ico
         fout.close()
         end()
-        chmod_file('favicon.ico', cwd=out_dir)
+        chmod_file('favicon.ico', cwd=link_dir)
         output = 'favicon.ico'
     except Exception as e:
         fout.close()
@@ -352,14 +354,14 @@ def fetch_favicon(out_dir, link, timeout=TIMEOUT):
     }
 
 # @attach_result_to_link('audio')
-# def fetch_audio(out_dir, link, timeout=TIMEOUT):
+# def fetch_audio(link_dir, link, timeout=TIMEOUT):
 #     """Download audio rip using youtube-dl"""
 
 #     if link['type'] not in ('soundcloud',)\
 #        and 'audio' not in link['tags']:
 #         return
 
-#     path = os.path.join(out_dir, 'audio')
+#     path = os.path.join(link_dir, 'audio')
 
 #     if not os.path.exists(path) or overwrite:
 #         print('    - Downloading audio')
@@ -369,30 +371,30 @@ def fetch_favicon(out_dir, link, timeout=TIMEOUT):
 #         ]
 #         end = progress(timeout, prefix='      ')
 #         try:
-#             result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=timeout + 1)  # audio/audio.mp3
+#             result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=link_dir, timeout=timeout + 1)  # audio/audio.mp3
 #             end()
 #             if result.returncode:
 #                 print('     ', result.stderr.decode())
 #                 raise Exception('Failed to download audio')
-#             chmod_file('audio.mp3', cwd=out_dir)
+#             chmod_file('audio.mp3', cwd=link_dir)
 #             return 'audio.mp3'
 #         except Exception as e:
 #             end()
-#             print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
+#             print('       Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
 #             print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
 #             raise
 #     else:
 #         print('    √ Skipping audio download')
 
 # @attach_result_to_link('video')
-# def fetch_video(out_dir, link, timeout=TIMEOUT):
+# def fetch_video(link_dir, link, timeout=TIMEOUT):
 #     """Download video rip using youtube-dl"""
 
 #     if link['type'] not in ('youtube', 'youku', 'vimeo')\
 #        and 'video' not in link['tags']:
 #         return
 
-#     path = os.path.join(out_dir, 'video')
+#     path = os.path.join(link_dir, 'video')
 
 #     if not os.path.exists(path) or overwrite:
 #         print('    - Downloading video')
@@ -402,26 +404,27 @@ def fetch_favicon(out_dir, link, timeout=TIMEOUT):
 #         ]
 #         end = progress(timeout, prefix='      ')
 #         try:
-#             result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=out_dir, timeout=timeout + 1)  # video/movie.mp4
+#             result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=link_dir, timeout=timeout + 1)  # video/movie.mp4
 #             end()
 #             if result.returncode:
 #                 print('     ', result.stderr.decode())
 #                 raise Exception('Failed to download video')
-#             chmod_file('video.mp4', cwd=out_dir)
+#             chmod_file('video.mp4', cwd=link_dir)
 #             return 'video.mp4'
 #         except Exception as e:
 #             end()
-#             print('       Run to see full output:', 'cd {}; {}'.format(out_dir, ' '.join(CMD)))
+#             print('       Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
 #             print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
 #             raise
 #     else:
 #         print('    √ Skipping video download')
 
 
-def chrome_data_dir_args(user_data_dir=CHROME_USER_DATA_DIR):
-    default = os.path.expanduser('~/Library/Application Support/Google/Chrome/Default')
+def chrome_headless(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR):
+    args = [binary, '--headless', '--disable-gpu']
+    default_profile = os.path.expanduser('~/Library/Application Support/Google/Chrome/Default')
     if user_data_dir:
-        return ('--user-data-dir={}'.format(user_data_dir),)
-    elif os.path.exists(default):
-        return ('--user-data-dir={}'.format(default),)
-    return ()
+        args.append('--user-data-dir={}'.format(user_data_dir))
+    elif os.path.exists(default_profile):
+        args.append('--user-data-dir={}'.format(default_profile))
+    return args

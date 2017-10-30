@@ -377,10 +377,11 @@ will run fast subsequent times because it only downloads new links that haven't 
 
 ## Changelog
 
- - v0.0.2 released
+ - v0.0.3 released
  - support for chrome `--user-data-dir` to archive sites that need logins
  - fancy individual html & json indexes for each link
  - smartly append new links to existing index instead of overwriting 
+  - v0.0.2 released
  - proper HTML templating instead of format strings (thanks to https://github.com/bardisty!)
  - refactored into separate files, wip audio & video archiving
  - v0.0.1 released

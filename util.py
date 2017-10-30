@@ -293,8 +293,8 @@ def manually_merge_folders(source, target):
 
     print('    {} and {} have conflicting files, which do you want to keep?'.format(fname(source), fname(target)))
     print('      - [enter]: do nothing (keep both)')
-    print('      - a:       keep everything from {}'.format(source))
-    print('      - b:       keep everything from {}'.format(target))
+    print('      - a:       prefer files from {}'.format(source))
+    print('      - b:       prefer files from {}'.format(target))
     print('      - q:       quit and resolve the conflict manually')
     try:
         answer = input('> ').strip().lower()
@@ -311,7 +311,7 @@ def manually_merge_folders(source, target):
 
     files_in_source = set(os.listdir(source))
     files_in_target = set(os.listdir(target))
-    for file in files_in_source.intersection(files_in_target):
+    for file in files_in_source:
         if file in files_in_target:
             to_delete = target if answer == 'a' else source
             run(['rm', '-Rf', os.path.join(to_delete, file)])
@@ -320,27 +320,26 @@ def manually_merge_folders(source, target):
     if not set(os.listdir(source)):
         run(['rm', '-Rf', source])
 
-def merge_folders(path, folder, link):
+def fix_folder_path(archive_path, link_folder, link):
     """given a folder, merge it to the canonical 'correct' path for the given link object"""
-    source, target = os.path.join(path, folder), os.path.join(path, link['timestamp'])
+    source = os.path.join(archive_path, link_folder)
+    target = os.path.join(archive_path, link['timestamp'])
 
-    base_url = parse_url(source)
-    if not (base_url in link['base_url']
-            or link['base_url'] in base_url):
+    url_in_folder = parse_url(source)
+    if not (url_in_folder in link['base_url']
+            or link['base_url'] in url_in_folder):
         raise ValueError('The link does not match the url for this folder.')
 
     if not os.path.exists(target):
         # target doesn't exist so nothing needs merging, simply move A to B
-        if run(['mv', source, target]).returncode:
-            print('Failed to move {} to {}!'.format(source, target))
-            return False
+        run(['mv', source, target])
     else:
         # target folder exists, check for conflicting files and attempt manual merge
         files_in_source = set(os.listdir(source))
         files_in_target = set(os.listdir(target))
+        conflicting_files = files_in_source & files_in_target
 
-        if not files_in_source.intersection(files_in_target):
-            # no conflicts, move everything from A to B
+        if not conflicting_files:
             for file in files_in_source:
                 run(['mv', os.path.join(source, file), os.path.join(target, file)])
 
@@ -352,26 +351,25 @@ def merge_folders(path, folder, link):
             run(['rm', '-R', source])
 
 
-def cleanup_archive(path, links):
+def cleanup_archive(archive_path, links):
     """move any incorrectly named folders to their canonical locations"""
     
     # for each folder that exists, see if we can match it up with a known good link
-    # if we can, then merge the two folders, if not, move it to lost & found
-
-    # for each timestamp, find similar timestamped folders
-    # check each folder for a "domain.com" folder or 
+    # if we can, then merge the two folders (TODO: if not, move it to lost & found)
 
     unmatched = []
     bad_folders = []
 
-    if not os.path.exists(path):
+    if not os.path.exists(archive_path):
         return
 
-    for folder in os.listdir(path):
-        if not os.listdir(os.path.join(path, folder)):
-            # delete empty folders
-            run(['rm', '-R', os.path.join(path, folder)])
-        else:
+    for folder in os.listdir(archive_path):
+        try:
+            files = os.listdir(os.path.join(archive_path, folder))
+        except NotADirectoryError:
+            continue
+        
+        if files:
             link = find_link(folder, links)
             if link is None:
                 unmatched.append(folder)
@@ -379,11 +377,16 @@ def cleanup_archive(path, links):
             
             if folder != link['timestamp']:
                 bad_folders.append((folder, link))
+        else:
+            # delete empty folders
+            run(['rm', '-R', os.path.join(archive_path, folder)])
     
-    if bad_folders:
+    if bad_folders and IS_TTY and input('[!] Cleanup archive? y/[n]: ') == 'y':
         print('[!] Fixing {} improperly named folders in archive...'.format(len(bad_folders)))
         for folder, link in bad_folders:
-            merge_folders(path, folder, link)
+            fix_folder_path(archive_path, folder, link)
+    elif bad_folders:
+        print('[!] Warning! {} folders need to be merged, fix by running bookmark archiver.'.format(len(bad_folders)))
 
     if unmatched:
         print('[!] Warning! {} unrecognized folders in html/archive/'.format(len(unmatched)))

@@ -3,6 +3,7 @@
 # Nick Sweeting 2017 | MIT License
 # https://github.com/pirate/bookmark-archiver
 
+import os
 import sys
 
 from datetime import datetime
@@ -19,7 +20,6 @@ from index import (
 from config import (
     ARCHIVE_PERMISSIONS,
     HTML_FOLDER,
-    ARCHIVE_FOLDER,
     ANSI,
     TIMEOUT,
 )
@@ -33,19 +33,50 @@ from util import (
 __DESCRIPTION__ = 'Bookmark Archiver: Create a browsable html archive of a list of links.'
 __DOCUMENTATION__ = 'https://github.com/pirate/bookmark-archiver'
 
+def print_help():
+    print(__DESCRIPTION__)
+    print("Documentation:     {}\n".format(__DOCUMENTATION__))
+    print("Usage:")
+    print("    ./archive.py ~/Downloads/bookmarks_export.html\n")
 
-def update_archive(export_path, links, resume=None, append=True):
+
+def get_links(new_links_file_path, archive_path=HTML_FOLDER):
+    """get new links from file and optionally append them to links in existing archive"""
+    # parse and validate the new_links_file
+    raw_links = parse_links(new_links_file_path)
+    valid_links = validate_links(raw_links)
+
+    # merge existing links in archive_path and new links
+    existing_links = []
+    if archive_path:
+        existing_links = parse_json_links_index(archive_path)
+        valid_links = validate_links(existing_links + valid_links)
+    
+    num_new_links = len(valid_links) - len(existing_links)
+    print('[*] [{}] Adding {} new links from {} to index'.format(
+        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        num_new_links,
+        new_links_file_path,
+    ))
+
+    return valid_links
+
+def update_archive(archive_path, links, source=None, resume=None, append=True):
     """update or create index.html+json given a path to an export file containing new links"""
 
     start_ts = datetime.now().timestamp()
 
     # loop over links and archive them
-    archive_links(ARCHIVE_FOLDER, links, export_path, resume=resume)
+    archive_links(archive_path, links, source=source, resume=resume)
 
     # print timing information & summary
     end_ts = datetime.now().timestamp()
-    seconds = round(end_ts - start_ts, 2)
-    duration = '{} min'.format(round(seconds / 60, 2)) if seconds > 60 else '{} sec'.format(seconds)
+    seconds = end_ts - start_ts
+    if seconds > 60:
+        duration = '{0:.2f} min'.format(seconds / 60, 2)
+    else:
+        duration = '{0:.2f} sec'.format(seconds, 2)
+
     print('{}[√] [{}] Archive update complete ({}){}'.format(
         ANSI['green'],
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -57,53 +88,37 @@ def update_archive(export_path, links, resume=None, append=True):
     print('    - {} errors'.format(_RESULTS_TOTALS['failed']))
 
 
-def update_index(export_path, resume=None, append=True):
-    """handling parsing new links into the json index, returns a set of clean links"""
-
-    # parse an validate the export file
-    new_links = validate_links(parse_links(export_path))
-
-    # load existing links if archive folder is present
-    existing_links = []
-    if append:
-        existing_links = parse_json_links_index(HTML_FOLDER)
-        links = validate_links(existing_links + new_links)
-        
-
-    # merge existing links and new links
-    num_new_links = len(links) - len(existing_links)
-    print('[*] [{}] Adding {} new links from {} to index'.format(
-        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        num_new_links,
-        export_path,
-    ))
-
-    # write link index html & json
-    write_links_index(HTML_FOLDER, links)
-
-    return links
-
-
 if __name__ == '__main__':
     argc = len(sys.argv)
 
-    if argc < 2 or sys.argv[1] in ('-h', '--help', 'help'):
-        print(__DESCRIPTION__)
-        print("Documentation:     {}".format(__DOCUMENTATION__))
-        print("")
-        print("Usage:")
-        print("    ./archive.py ~/Downloads/bookmarks_export.html")
-        print("")
+    if argc < 2 or set(sys.argv).intersection('-h', '--help', 'help'):
+        print_help()
         raise SystemExit(0)
 
-    export_path = sys.argv[1]                        # path to export file
-    resume_from = sys.argv[2] if argc > 2 else None  # timestamp to resume dowloading from
+    source = sys.argv[1]                        # path to export file
+    resume = sys.argv[2] if argc > 2 else None  # timestamp to resume dowloading from
+   
+    # See if archive folder already exists
+    for out_folder in (HTML_FOLDER, 'bookmarks', 'pocket', 'pinboard', 'html'):
+        if os.path.exists(out_folder):
+            break
+    else:
+        out_folder = HTML_FOLDER
 
-    if any(export_path.startswith(s) for s in ('http://', 'https://', 'ftp://')):
-        export_path = download_url(export_path)
+    archive_path = os.path.join(out_folder, 'archive')
 
-    links = update_index(export_path, resume=resume_from, append=True)
+    # Step 0: Download url to local file (only happens if a URL is specified instead of local path) 
+    if any(source.startswith(s) for s in ('http://', 'https://', 'ftp://')):
+        source = download_url(source)
 
-    # make sure folder structure is sane
-    cleanup_archive(ARCHIVE_FOLDER, links)
-    update_archive(export_path, links, resume=resume_from, append=True)
+    # Step 1: Parse the links and dedupe them with existing archive
+    links = get_links(source, archive_path=archive_path)
+    
+    # Step 2: Write new index
+    write_links_index(archive_path, links)
+
+    # Step 3: Verify folder structure is 1:1 with index
+    cleanup_archive(archive_path, links)
+
+    # Step 4: Run the archive methods for each link
+    update_archive(archive_path, links, source=source, resume=resume, append=True)
