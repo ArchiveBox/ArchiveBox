@@ -155,10 +155,10 @@ Urls look like: `https://archive.example.com/archive/1493350273/en.wikipedia.org
 
 **Security WARNING & Content Disclaimer**
 
-Hosting other people's site content has security implications for any sites sharing the hosting domain.  Make sure you understand
+Re-hosting other people's content has security implications for any other sites sharing your hosting domain.  Make sure you understand
 the dangers of hosting unknown archived CSS & JS files [on your shared domain](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy).
-Due to the security risk of serving some malicious JS you archived by accident, it's best to put this on a domain/subdomain
-of its own to slightly mitigate [CSRF attacks](https://en.wikipedia.org/wiki/Cross-site_request_forgery) and other nastiness.
+Due to the security risk of serving some malicious JS you archived by accident, it's best to put this on a domain or subdomain
+of its own to keep cookies separate and slightly mitigate [CSRF attacks](https://en.wikipedia.org/wiki/Cross-site_request_forgery) and other nastiness.
 
 You may also want to blacklist your archive in `/robots.txt` if you don't want to be publicly assosciated with all the links you archive via search engine results.
 
