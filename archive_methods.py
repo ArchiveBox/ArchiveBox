@@ -64,6 +64,11 @@ def archive_links(out_dir, links, export_path, resume=None):
 def archive_link(out_dir, link, overwrite=False):
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+        with open(os.path.join(out_dir, 'test.txt'), 'w') as f:
+            f.write('ffuuuuuuuuck')
+
     link = {**parse_json_link_index(out_dir), **link}
     log_link_archive(out_dir, link)
 
