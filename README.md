@@ -35,7 +35,7 @@ Follow the links here to find instructions for exporting bookmarks from each ser
  - [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png)
  - [Opera Bookmarks](http://help.opera.com/Windows/12.10/en/importexport.html)
  - [Internet Explorer Bookmarks](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows)
- - RSS: pass the url as the second argument in the next step
+ - Remote file or RSS URL: pass url as second argument in the next step
 
  (If any of these links are broken, please submit an issue and I'll fix it)
 
@@ -44,7 +44,7 @@ Follow the links here to find instructions for exporting bookmarks from each ser
 ```bash
 git clone https://github.com/pirate/bookmark-archiver
 cd bookmark-archiver/
-./setup.sh #install ALL dependencies
+./setup.sh                                      # install all dependencies
 ./archive.py ~/Downloads/bookmark_export.html   # replace with the path to your export file from step 1
 
 # OR
