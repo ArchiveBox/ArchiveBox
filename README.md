@@ -54,6 +54,20 @@ cd bookmark-archiver/
 ./archive.py https://getpocket.com/users/yourusername/feed/all  # url to an RSS, html, or json links file
 ```
 
+**3. (Optional) Schedule it to run every day**
+
+You can import links from any local file path or feed url by changing the second argument to `archive.py`.
+Bookmark Archiver will ignore links that are imported multiple times, it will keep the earliest version that it's seen.
+This means you can add multiple cron jobs to pull links from several different feeds or files each day,
+it will keep the index up-to-date without duplicate links.
+
+This example archives a pocket RSS feed and an export file every 24 hours, and saves the output to a logfile.
+```bash
+0 24 * * * /opt/bookmark-archiver/archive.py https://getpocket.com/users/yourusername/feed/all > /var/log/bookmark_archiver_rss.log
+0 24 * * * /opt/bookmark-archiver/archive.py /home/darth-vader/Desktop/bookmarks.html > /var/log/bookmark_archiver_firefox.log
+```
+(Add the above lines to `/etc/crontab`)
+
 **3. Done!**
 
 You can open `service/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
