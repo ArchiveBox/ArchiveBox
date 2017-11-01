@@ -74,7 +74,8 @@ This example archives a pocket RSS feed and an export file every 24 hours, and s
 ```
 (Add the above lines to `/etc/crontab`)
 
-**Next Steps**
+**Next Steps**  
+  
 If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.  
 If you'd like to customize options, see the [Configuration](#configuration) section.  
 
