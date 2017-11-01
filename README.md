@@ -54,7 +54,13 @@ cd bookmark-archiver/
 ./archive.py https://getpocket.com/users/yourusername/feed/all  # url to an RSS, html, or json links file
 ```
 
-**3. (Optional) Schedule it to run every day**
+**3. Done!**
+
+You can open `service/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
+
+If you want to host your archive somewhere to share it with other people, see the [Publishing Your Archive](#publishing-your-archive) section below.
+
+**4. (Optional) Schedule it to run every day**
 
 You can import links from any local file path or feed url by changing the second argument to `archive.py`.
 Bookmark Archiver will ignore links that are imported multiple times, it will keep the earliest version that it's seen.
@@ -68,14 +74,7 @@ This example archives a pocket RSS feed and an export file every 24 hours, and s
 ```
 (Add the above lines to `/etc/crontab`)
 
-**3. Done!**
-
-You can open `service/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
-
-If you want to host your archive somewhere to share it with other people, see the [Publishing Your Archive](#publishing-your-archive) section below.
-
-If you want to run this as a regular script that pulls new URLs, stick it in `cron` with the second parameter as the URL to your RSS feed.
-
+**Next Steps**
 If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.  
 If you'd like to customize options, see the [Configuration](#configuration) section.  
 
