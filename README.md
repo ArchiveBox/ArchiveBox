@@ -69,8 +69,8 @@ it will keep the index up-to-date without duplicate links.
 
 This example archives a pocket RSS feed and an export file every 24 hours, and saves the output to a logfile.
 ```bash
-0 24 * * * /opt/bookmark-archiver/archive.py https://getpocket.com/users/yourusername/feed/all > /var/log/bookmark_archiver_rss.log
-0 24 * * * /opt/bookmark-archiver/archive.py /home/darth-vader/Desktop/bookmarks.html > /var/log/bookmark_archiver_firefox.log
+0 24 * * * yourusername /opt/bookmark-archiver/archive.py https://getpocket.com/users/yourusername/feed/all > /var/log/bookmark_archiver_rss.log
+0 24 * * * yourusername /opt/bookmark-archiver/archive.py /home/darth-vader/Desktop/bookmarks.html > /var/log/bookmark_archiver_firefox.log
 ```
 (Add the above lines to `/etc/crontab`)
 
