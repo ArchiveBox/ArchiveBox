@@ -95,6 +95,7 @@ For each sites it saves:
  - `output.pdf` Printed PDF of site using headless chrome
  - `archive.org.txt` A link to the saved site on archive.org
  - `audio/` and `video/` for sites like youtube, soundcloud, etc. (using youtube-dl) (WIP)
+ - `git/` clone of the repository for github, bitbucket, or gitlab links (WIP)
  - `index.json` JSON index containing link info and archive details
  - `index.html` HTML index containing link info and archive details (optional fancy or simple index)
 
