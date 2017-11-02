@@ -254,7 +254,7 @@ def find_link(folder, links):
     timestamp = folder.split('.')[0]
     for link in links:
         if link['timestamp'].startswith(timestamp):
-            if link['domain'] in os.listdir('./html/archive/' + folder):
+            if link['domain'] in os.listdir(os.path.join(ARCHIVE_DIR, 'html/archive', folder)):
                 return link      # careful now, this isn't safe for most ppl
             if link['domain'] in parse_url(folder):
                 return link
@@ -263,7 +263,7 @@ def find_link(folder, links):
 
 def parse_url(folder):
     """for a given archive folder, figure out what url it's for"""
-    link_json = os.path.join('./html/archive/' + folder, 'index.json')
+    link_json = os.path.join(ARCHIVE_DIR, 'html/archive', folder, 'index.json')
     if os.path.exists(link_json):
         with open(link_json, 'r') as f:
             try:
@@ -274,7 +274,7 @@ def parse_url(folder):
             except ValueError:
                 print('File contains invalid JSON: {}!'.format(link_json))
 
-    archive_org_txt = os.path.join('./html/archive/' + folder, 'archive.org.txt')
+    archive_org_txt = os.path.join(ARCHIVE_DIR, 'html/archive' + folder, 'archive.org.txt')
     if os.path.exists(archive_org_txt):
         with open(archive_org_txt, 'r') as f:
             original_link = f.read().strip().split('/http', 1)[-1]
