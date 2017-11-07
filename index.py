@@ -138,8 +138,8 @@ def write_html_link_index(out_dir, link):
             'tags': link['tags'] or 'untagged',
             'bookmarked': datetime.fromtimestamp(float(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),
             'updated': datetime.fromtimestamp(float(link['updated'])).strftime('%Y-%m-%d %H:%M'),
-            'archive_org': link['latest']['archive_org'] or 'https://web.archive.org/save/{}'.format(link['url']),
-            'wget': link['latest']['wget'] or link['domain'],
+            'archive_org': link['latest'].get('archive_org') or 'https://web.archive.org/save/{}'.format(link['url']),
+            'wget': link['latest'].get('wget') or link['domain'],
         }))
 
     chmod_file(path)
