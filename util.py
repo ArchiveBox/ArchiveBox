@@ -59,12 +59,15 @@ def check_dependencies():
         # parse chrome --version e.g. Google Chrome 61.0.3114.0 canary / Chromium 59.0.3029.110 built on Ubuntu, running on Ubuntu 16.04
         try:
             result = run([CHROME_BINARY, '--version'], stdout=PIPE)
-            version = result.stdout.decode('utf-8').replace('Google Chrome ', '').replace('Chromium ', '').split(' ', 1)[0].split('.', 1)[0]  # TODO: regex might be better
+            version_str = result.stdout.decode('utf-8')
+            version_lines = re.sub("(Google Chrome|Chromium) (\\d+?)\\.(\\d+?)\\.(\\d+?).*?$", "\\2", version_str).split('\n')
+            version = [l for l in version_lines if l.isdigit()][-1]
             if int(version) < 59:
+                print(version_lines)
                 print('{red}[X] Chrome version must be 59 or greater for headless PDF and screenshot saving{reset}'.format(**ANSI))
                 print('    See https://github.com/pirate/bookmark-archiver for help.')
                 raise SystemExit(1)
-        except (TypeError, OSError):
+        except (IndexError, TypeError, OSError):
             print('{red}[X] Failed to parse Chrome version, is it installed properly?{reset}'.format(**ANSI))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(CHROME_BINARY))
             print('    See https://github.com/pirate/bookmark-archiver for help.')
