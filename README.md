@@ -423,9 +423,10 @@ will run fast subsequent times because it only downloads new links that haven't 
  
  ## Donations
  
- This project can really flourish with some more engineering effort, but unless it can support  
- me financially I'm unlikely to be able to take it to the next level alone.  It's already pretty  
- functional and robust, but it really deserves to be taken to the next level.  If you want to sponsor  
- this project long-term, contact me at bookmark-archiver@sweeting.me.
+ This project can really flourish with some more engineering effort, but unless it can support   
+ me financially I'm unlikely to be able to take it to the next level alone.  It's already pretty   
+ functional and robust, but it really deserves to be taken to the next level with a few more   
+ talented engineers.  If you or your foundation wants to sponsor this project long-term, contact  
+ me at bookmark-archiver@sweeting.me.
    
  [Grants / Donations](https://github.com/pirate/bookmark-archiver/blob/master/donate.md)
