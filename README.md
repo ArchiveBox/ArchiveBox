@@ -420,3 +420,11 @@ will run fast subsequent times because it only downloads new links that haven't 
  - front-page of HN, oops! apparently I have users to support now :grin:?
  - added Pocket-format export support
  - v0.0.0 released: created Pocket Archive Stream 2017/05/05
+ 
+ ## Donations
+ 
+ This project can really flourish with some more engineering effort, but unless it can support  
+ me financially I'm unlikely to be able to take it to the next level alone.  It's already pretty  
+ functional and robust, it deserves to be taken to the next level.
+   
+ [Donate](https://github.com/pirate/bookmark-archiver/blob/master/donate.md)
