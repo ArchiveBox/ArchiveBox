@@ -9,7 +9,7 @@ if you want me to dedicate more time to it, donate to support development!
 
 The eventual goal is to support one or two developers full-time on this project via donations.   
 With more engineering power this can become a distributed archive service with a nice UI,   
-similary to the Way-Back machine but hosted by everyone!
+like the Way-Back machine but hosted by everyone!
 
 If have any questions or want to sponsor this project long-term, contact me at  
 bookmark-archiver@sweeting.me
