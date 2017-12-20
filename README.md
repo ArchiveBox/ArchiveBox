@@ -2,7 +2,7 @@
 
     "Your own personal Way-Back Machine"
 
-▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Changelog](#changelog)
+▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Changelog](#changelog) | [Donate](https://github.com/pirate/bookmark-archiver/blob/master/donate.md)
 
 ---
 
