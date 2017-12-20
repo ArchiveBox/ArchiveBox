@@ -22,7 +22,7 @@ Outputs browsable static html archives of each site, a PDF, a screenshot, and a 
 
 ## Quickstart
 
-**1. Get your bookmarks:**
+**1. Get your list of URLs:**
 
 Follow the links here to find instructions for exporting bookmarks from each service.
 
