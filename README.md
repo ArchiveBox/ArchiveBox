@@ -38,7 +38,7 @@ Follow the links here to find instructions for exporting bookmarks from each ser
  - [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png)
  - [Opera Bookmarks](http://help.opera.com/Windows/12.10/en/importexport.html)
  - [Internet Explorer Bookmarks](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows)
- - Remote file or RSS URL: pass url as second argument in the next step
+ - Other File or URL: (e.g. RSS feed) pass as second argument in the next step
 
  (If any of these links are broken, please submit an issue and I'll fix it)
 
