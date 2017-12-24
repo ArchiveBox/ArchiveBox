@@ -3,6 +3,8 @@ import os
 from functools import wraps
 from datetime import datetime
 from subprocess import run, PIPE, DEVNULL
+import requests
+import re
 
 from index import html_appended_url, parse_json_link_index, write_link_index
 from links import links_after_timestamp
@@ -10,6 +12,7 @@ from config import (
     ARCHIVE_DIR,
     CHROME_BINARY,
     FETCH_WGET,
+    FETCH_TITLE,
     FETCH_WGET_REQUISITES,
     FETCH_PDF,
     FETCH_SCREENSHOT,
@@ -74,6 +77,9 @@ def archive_link(link_dir, link, overwrite=False):
         os.makedirs(link_dir)
     
     log_link_archive(link_dir, link, update_existing)
+
+    if FETCH_TITLE and link["title"] is None:
+        link = fetch_title(link_dir, link, overwrite=overwrite)
 
     if FETCH_WGET:
         link = fetch_wget(link_dir, link, overwrite=overwrite)
@@ -167,16 +173,26 @@ def attach_result_to_link(method):
     return decorator
 
 
+@attach_result_to_link('title')
+def fetch_title(link_dir, link):
+    try:
+        n = requests.get(link["url"]).text
+        link["title"] = re.search('<title>(.*?)</title>', n).group(1)  # Or alternatively parse the HTML
+    except:
+        print('       {}Failed to get title{}'.format(ANSI['red'], ANSI['reset']))
+    return {'cmd': '', 'output': link["title"]}
+
+
 @attach_result_to_link('wget')
 def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT):
     """download full site using wget"""
-
-    if os.path.exists(os.path.join(link_dir, link['domain'])):
+    domain_path = os.path.join(link_dir, link['domain'])
+    if os.path.exists(domain_path):
         return {'output': html_appended_url(link), 'status': 'skipped'}
 
     CMD = [
         *'wget --timestamping --adjust-extension --no-parent'.split(' '),                # Docs: https://www.gnu.org/software/wget/manual/wget.html
-        *(('--page-requisites', '--convert-links') if FETCH_WGET_REQUISITES else ()),
+        *(('--page-requisites', '--convert-links') if requisites else ()),
         *(('--user-agent="{}"'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
         link['url'],
     ]
@@ -185,6 +201,12 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT
         result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 1)  # index.html
         end()
         output = html_appended_url(link)
+        if not requisites:
+            # Move wget output as if requisites was passed
+            output1 = html_appended_url(link, True)
+            folder = os.path.join(link_dir, os.path.dirname(output))
+            os.makedirs(folder)
+            os.rename(os.path.join(link_dir, output1), os.path.join(link_dir, output))
         if result.returncode > 0:
             print('       got wget response code {}:'.format(result.returncode))
             print('\n'.join('         ' + line for line in (result.stderr or result.stdout).decode().rsplit('\n', 10)[-10:] if line.strip()))
@@ -194,7 +216,6 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT
         print('       Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
         print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
         output = e
-
     return {
         'cmd': CMD,
         'output': output,
@@ -207,7 +228,7 @@ def fetch_pdf(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
 
     if link['type'] in ('PDF', 'image'):
         return {'output': html_appended_url(link)}
-    
+
     if os.path.exists(os.path.join(link_dir, 'output.pdf')):
         return {'output': 'output.pdf', 'status': 'skipped'}
 
@@ -242,7 +263,7 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_
 
     if link['type'] in ('PDF', 'image'):
         return {'output': html_appended_url(link)}
-    
+
     if os.path.exists(os.path.join(link_dir, 'screenshot.png')):
         return {'output': 'screenshot.png', 'status': 'skipped'}
 
@@ -271,7 +292,7 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_
         'cmd': CMD,
         'output': output,
     }
-    
+
 
 @attach_result_to_link('archive_org')
 def archive_dot_org(link_dir, link, timeout=TIMEOUT):

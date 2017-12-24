@@ -36,11 +36,11 @@ def get_parsers(file):
         'pinboard': parse_json_export,
         'bookmarks': parse_bookmarks_export,
         'rss': parse_rss_export,
+        'list': parse_list_export,
     }
 
 def parse_links(path):
     """parse a list of links dictionaries from a bookmark export file"""
-    
     links = []
     with open(path, 'r', encoding='utf-8') as file:
         for parser_func in get_parsers(file).values():
@@ -49,12 +49,24 @@ def parse_links(path):
                 links += list(parser_func(file))
                 if links:
                     break
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError):                
                 # parser not supported on this file
                 pass
 
     return links
 
+def basic_link_info(url, f, title=None, time=datetime.now(), tags=""):
+    info = {
+        'url': url,
+        'domain': domain(url),
+        'base_url': base_url(url),
+        'timestamp': str(time.timestamp()),
+        'tags': tags,
+        'title': title,
+        'sources': [f.name],
+    }
+    info['type'] = get_link_type(info)
+    return info
 
 def parse_pocket_export(html_file):
     """Parse Pocket-format bookmarks export files (produced by getpocket.com/export/)"""
@@ -68,16 +80,11 @@ def parse_pocket_export(html_file):
         if match:
             fixed_url = match.group(1).replace('http://www.readability.com/read?url=', '')           # remove old readability prefixes to get original url
             time = datetime.fromtimestamp(float(match.group(2)))
-            info = {
-                'url': fixed_url,
-                'domain': domain(fixed_url),
-                'base_url': base_url(fixed_url),
-                'timestamp': str(time.timestamp()),
-                'tags': match.group(3),
-                'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '') or base_url(fixed_url),
-                'sources': [html_file.name],
-            }
-            info['type'] = get_link_type(info)
+            info = basic_link_info(fixed_url,
+                              html_file,
+                              match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', ''),
+                              time,
+                              match.group(3))
             yield info
 
 def parse_json_export(json_file):
@@ -91,18 +98,21 @@ def parse_json_export(json_file):
         if line:
             erg = line
             time = datetime.strptime(erg['time'].split(',', 1)[0], '%Y-%m-%dT%H:%M:%SZ')
-            info = {
-                'url': erg['href'],
-                'domain': domain(erg['href']),
-                'base_url': base_url(erg['href']),
-                'timestamp': str(time.timestamp()),
-                'tags': erg['tags'],
-                'title': erg['description'].replace(' — Readability', ''),
-                'sources': [json_file.name],
-            }
-            info['type'] = get_link_type(info)
+            info = basic_link_info(erg['href'],
+                              json_file,
+                              erg['description'].replace(' — Readability', ''),
+                              time,
+                              erg['tags'])
             yield info
 
+def parse_list_export(list_file):
+    """Parse newline-separated list of links into links"""
+    list_file.seek(0)
+    for l in list_file:
+        href = l.rstrip("\n")
+        info = basic_link_info(href, list_file)
+        yield info
+            
 def parse_rss_export(rss_file):
     """Parse RSS XML-format files into links"""
 
@@ -130,16 +140,7 @@ def parse_rss_export(rss_file):
         ts_str = str_between(get_row('pubDate'), '<pubDate>', '</pubDate>')
         time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %z")
 
-        info = {
-            'url': url,
-            'domain': domain(url),
-            'base_url': base_url(url),
-            'timestamp': str(time.timestamp()),
-            'tags': '',
-            'title': title,
-            'sources': [rss_file.name],
-        }
-        info['type'] = get_link_type(info)
+        info = basic_link_info(url, rss_file, title, time)
 
         yield info
 
@@ -156,16 +157,6 @@ def parse_bookmarks_export(html_file):
         if match:
             url = match.group(1)
             time = datetime.fromtimestamp(float(match.group(2)))
-
-            info = {
-                'url': url,
-                'domain': domain(url),
-                'base_url': base_url(url),
-                'timestamp': str(time.timestamp()),
-                'tags': "",
-                'title': match.group(3),
-                'sources': [html_file.name],
-            }
-            info['type'] = get_link_type(info)
+            info = basic_link_info(url, html_file, match.group(3), time)
 
             yield info

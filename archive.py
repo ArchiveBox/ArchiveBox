@@ -107,18 +107,18 @@ if __name__ == '__main__':
 
     archive_path = os.path.join(out_folder, 'archive')
 
-    # Step 0: Download url to local file (only happens if a URL is specified instead of local path) 
+    # Download url to local file (only happens if a URL is specified instead of local path) 
     if any(source.startswith(s) for s in ('http://', 'https://', 'ftp://')):
         source = download_url(source)
 
-    # Step 1: Parse the links and dedupe them with existing archive
+    # Parse the links and dedupe them with existing archive
     links = get_links(source, archive_path=archive_path)
-    
-    # Step 2: Write new index
-    write_links_index(archive_path, links)
 
-    # Step 3: Verify folder structure is 1:1 with index
+    # Verify folder structure is 1:1 with index
     cleanup_archive(archive_path, links)
 
-    # Step 4: Run the archive methods for each link
+    # Run the archive methods for each link
     update_archive(archive_path, links, source=source, resume=resume, append=True)
+
+    # Write new index
+    write_links_index(archive_path, links)
