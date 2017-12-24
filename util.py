@@ -4,6 +4,7 @@ import sys
 import time
 import json
 import requests
+from urllib.parse import urlsplit, quote_plus
 
 from datetime import datetime
 from subprocess import run, PIPE, DEVNULL
@@ -40,7 +41,7 @@ short_ts = lambda ts: ts.split('.')[0]
 
 def check_dependencies():
     """Check that all necessary dependencies are installed, and have valid versions"""
-
+    
     print('[*] Checking Dependencies:')
 
     python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
@@ -48,7 +49,7 @@ def check_dependencies():
         print('{}[X] Python version is not new enough: {} (>3.5 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
         print('    See https://github.com/pirate/bookmark-archiver#troubleshooting for help upgrading your Python installation.')
         raise SystemExit(1)
-
+    
     if FETCH_PDF or FETCH_SCREENSHOT:
         if run(['which', CHROME_BINARY]).returncode:
             print('{}[X] Missing dependency: {}{}'.format(ANSI['red'], CHROME_BINARY, ANSI['reset']))
@@ -228,10 +229,17 @@ def merge_links(a, b):
     """deterministially merge two links, favoring longer field values over shorter,
     and "cleaner" values over worse ones.
     """
-    longer = lambda key: a[key] if len(a[key]) > len(b[key]) else b[key]
+    def longer(key):
+        if a[key] is None:
+            return b[key]
+        if b[key] is None:
+            return b[key]
+        if len(a[key]) > len(b[key]):
+            return a[key]
+        return b[key]    
     earlier = lambda key: a[key] if a[key] < b[key] else b[key]
     
-    url = longer('url')
+    url = longer('url')    
     longest_title = longer('title')
     cleanest_title = a['title'] if '://' not in a['title'] else b['title']
     link = {
@@ -240,7 +248,7 @@ def merge_links(a, b):
         'domain': domain(url),
         'base_url': base_url(url),
         'tags': longer('tags'),
-        'title': longest_title if '://' not in longest_title else cleanest_title,
+        'title': longest_title if longest_title is not None and '://' not in longest_title else cleanest_title,
         'sources': list(set(a.get('sources', []) + b.get('sources', []))),
     }
     link['type'] = get_link_type(link)
@@ -396,59 +404,60 @@ def cleanup_archive(archive_path, links):
         print('    '+ '\n    '.join(unmatched))
 
 
-def html_appended_url(link):
+def html_appended_url(link, requisites=False):
     """calculate the path to the wgetted .html file, since wget may
     adjust some paths to be different than the base_url path.
 
     See docs on wget --adjust-extension.
     """
 
+    split = urlsplit(link['url'])
+    url = split.path
+
+    if requisites:
+        url = os.path.basename(split.path)
+
+    if len(split.query) > 0:
+        url = url + "?" + split.query
+
+    if url == "/" or url == "":
+        url = "/index"
+
+    if not requisites:
+        url = link["domain"] + url
+
     if link['type'] in ('PDF', 'image'):
-        return link['base_url']
+        return url
 
-    split_url = link['url'].split('#', 1)
-    query = ('%3F' + link['url'].split('?', 1)[-1]) if '?' in link['url'] else ''
-
-    if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", split_url[0], re.I | re.M):
-        # already ends in .html
-        return link['base_url']
+    if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", url, re.I | re.M): # already ends in .html        
+        return url
     else:
-        # .html needs to be appended
-        without_scheme = split_url[0].split('://', 1)[-1].split('?', 1)[0]
-        if without_scheme.endswith('/'):
-            if query:
-                return '#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]])
-            return '#'.join([without_scheme + 'index.html', *split_url[1:]])
-        else:
-            if query:
-                return '#'.join([without_scheme + '/index.html' + query + '.html', *split_url[1:]])
-            elif '/' in without_scheme:
-                return '#'.join([without_scheme + '.html', *split_url[1:]])
-            return link['base_url'] + '/index.html'
+        return url + ".html"
 
 
 def derived_link_info(link):
     """extend link info with the archive urls and other derived data"""
-
+    
     link_info = {
         **link,
         'date': datetime.fromtimestamp(float(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),
         'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
-        'favicon_url': './archive/{timestamp}/favicon.ico'.format(**link),
-        'files_url': './archive/{timestamp}/index.html'.format(**link),
-        'archive_url': './archive/{}/{}'.format(link['timestamp'], html_appended_url(link)),
-        'pdf_link': './archive/{timestamp}/output.pdf'.format(**link),
-        'screenshot_link': './archive/{timestamp}/screenshot.png'.format(**link),
+        'favicon_url': '{timestamp}/favicon.ico'.format(**link),
+        'files_url': '{timestamp}/index.html'.format(**link),
+        'archive_url': '{}/{}'.format(link['timestamp'], quote_plus(html_appended_url(link))),
+        'pdf_link': '{timestamp}/output.pdf'.format(**link),
+        'screenshot_link': '{timestamp}/screenshot.png'.format(**link),
         'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**link),
     }
 
     # PDF and images are handled slightly differently
     # wget, screenshot, & pdf urls all point to the same file
     if link['type'] in ('PDF', 'image'):
+        url = '{}/{}'.format(link['timestamp'], html_appended_url(link))
         link_info.update({
-            'archive_url': 'archive/{timestamp}/{base_url}'.format(**link),
-            'pdf_link': 'archive/{timestamp}/{base_url}'.format(**link),
-            'screenshot_link': 'archive/{timestamp}/{base_url}'.format(**link),
+            'archive_url': url,
+            'pdf_link': url,
+            'screenshot_link': url,
             'title': '{title} ({type})'.format(**link),
         })
     return link_info

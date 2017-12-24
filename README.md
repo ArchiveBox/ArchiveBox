@@ -6,15 +6,13 @@
 
 ---
 
-Save an archived copy of all websites you bookmark (the actual *content* of each site, not just the list of bookmarks).
+Save an **archived copy of all websites you bookmark** (the actual *content* of each site, not just the list of bookmarks). The script outputs a **browsable static html archive** of each site, a **PDF**, a **screenshot**, and a link to a **copy on archive.org**, all indexed with nice html & json files.
 
  - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera)
  - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket
  - <img src="https://pinboard.in/favicon.ico" height="22px"/> Pinboard
  - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS
- - Shaarli, Delicious, Instapaper, Reddit Saved Posts, Wallabag, Unmark.it, and more!
-
-Outputs browsable static html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed with nice html & json files.  
+ - Shaarli, Delicious, Instapaper, Reddit Saved Posts, Wallabag, Unmark.it, list of URLs, and more!
 
 [DEMO: sweeting.me/pocket](https://home.sweeting.me/pocket)
 
@@ -22,7 +20,7 @@ Outputs browsable static html archives of each site, a PDF, a screenshot, and a 
 
 ## Quickstart
 
-**1. Get your list of URLs:**
+### 1. Get your list of URLs
 
 Follow the links here to find instructions for exporting bookmarks from each service.
 
@@ -38,31 +36,42 @@ Follow the links here to find instructions for exporting bookmarks from each ser
  - [Safari Bookmarks](http://i.imgur.com/AtcvUZA.png)
  - [Opera Bookmarks](http://help.opera.com/Windows/12.10/en/importexport.html)
  - [Internet Explorer Bookmarks](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows)
- - Other File or URL: (e.g. RSS feed) pass as second argument in the next step
+ - RSS feeds
+ - Newline-separated lists of URLs
 
  (If any of these links are broken, please submit an issue and I'll fix it)
 
-**2. Create your archive:**
+### 2. Installation
 
 ```bash
 git clone https://github.com/pirate/bookmark-archiver
 cd bookmark-archiver/
-./setup.sh                                      # install all dependencies
+./setup.sh   # install all dependencies
+```
+
+The dependencies are `chromium >= 59`, (or `google-chrome >= v59`), ` wget >= 1.16`, `curl` and `python3 >= 3.5`. If you don't like running random setup scripts off the internet (:+1:), you can follow the [manual setup](#manual-setup) instructions below.
+
+### 3. Create your archive
+
+You can import links from any local file path or feed url by changing the argument to `archive.py`.
+
+```bash
 ./archive.py ~/Downloads/bookmark_export.html   # replace with the path to your export file from step 1
 
 # OR
 ./archive.py https://getpocket.com/users/yourusername/feed/all  # url to an RSS, html, or json links file
 ```
 
-**3. Done!**
+You may optionally specify a second argument to `archive.py export.html 153242424324` to resume the archive update at a specific timestamp.
 
-You can open `service/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
+### 4. View your archive
+
+You can open `html/archive/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
 
 If you want to host your archive somewhere to share it with other people, see the [Publishing Your Archive](#publishing-your-archive) section below.
 
-**4. (Optional) Schedule it to run every day**
+### 5. (Optional) Schedule it to run every day
 
-You can import links from any local file path or feed url by changing the second argument to `archive.py`.
 Bookmark Archiver will ignore links that are imported multiple times, it will keep the earliest version that it's seen.
 This means you can add multiple cron jobs to pull links from several different feeds or files each day,
 it will keep the index up-to-date without duplicate links.
@@ -74,7 +83,7 @@ This example archives a pocket RSS feed and an export file every 24 hours, and s
 ```
 (Add the above lines to `/etc/crontab`)
 
-**Next Steps**  
+### Next Steps
   
 If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.  
 If you'd like to customize options, see the [Configuration](#configuration) section.  
@@ -203,46 +212,32 @@ My published archive as an example: [sweeting.me/pocket](https://home.sweeting.m
 
 ## Manual Setup
 
-If you don't like running random setup scripts off the internet (:+1:), you can follow these manual setup instructions.
-
-**1. Install dependencies:** `chromium >= 59`,` wget >= 1.16`, `python3 >= 3.5`  (`google-chrome >= v59` works fine as well)
-
 If you already have Google Chrome installed, or wish to use that instead of Chromium, follow the [Google Chrome Instructions](#google-chrome-instructions).
 
+### On Mac
 ```bash
-# On Mac:
 brew cask install chromium  # If you already have Google Chrome/Chromium in /Applications/, skip this command
-brew install wget python3
+brew install wget curl python3 python3-pip
+pip3 install requests
 
 echo -e '#!/bin/bash\n/Applications/Chromium.app/Contents/MacOS/Chromium "$@"' > /usr/local/bin/chromium-browser  # see instructions for google-chrome below
 chmod +x /usr/local/bin/chromium-browser
 ```
 
+### On Ubuntu/Debian
 ```bash
-# On Ubuntu/Debian:
-apt install chromium-browser python3 wget
+apt install wget curl chromium-browser python3 python3-pip
+pip3 install requests
 ```
 
+### Check that everything worked
 ```bash
-# Check that everything worked:
 chromium-browser --version && which wget && which python3 && which curl && echo "[√] All dependencies installed."
 ```
 
-**2. Get your bookmark export file:**
-
-Follow the instruction links above in the "Quickstart" section to download your bookmarks export file.
-
-**3. Run the archive script:**
-
-1. Clone this repo `git clone https://github.com/pirate/bookmark-archiver`
-3. `cd bookmark-archiver/`
-4. `./archive.py ~/Downloads/bookmarks_export.html`
-
-You may optionally specify a second argument to `archive.py export.html 153242424324` to resume the archive update at a specific timestamp.
-
 If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.
 
-### Google Chrome Instructions:
+### Google Chrome Instructions
 
 I recommend Chromium instead of Google Chrome, since it's open source and doesn't send your data to Google.
 Chromium may have some issues rendering some sites though, so you're welcome to try Google-chrome instead.
@@ -277,7 +272,7 @@ If you're having any trouble trying to set up Google Chrome or Chromium, see the
 
 ### Dependencies
 
-**Python:**
+#### Python
 
 On some Linux distributions the python3 package might not be recent enough.
 If this is the case for you, resort to installing a recent enough version manually.
@@ -286,7 +281,7 @@ add-apt-repository ppa:fkrull/deadsnakes && apt update && apt install python3.6
 ```
 If you still need help, [the official Python docs](https://docs.python.org/3.6/using/unix.html) are a good place to start.
 
-**Chromium/Google Chrome:**
+#### Chromium/Google Chrome
 
 `archive.py` depends on being able to access a `chromium-browser`/`google-chrome` executable.  The executable used
 defaults to `chromium-browser` but can be manually specified with the environment variable `CHROME_BINARY`:
@@ -324,7 +319,7 @@ env CHROME_BINARY=/path/from/step/1/chromium-browser ./archive.py bookmarks_expo
 ```
 
 
-**Wget & Curl:**
+#### Wget & Curl
 
 If you're missing `wget` or `curl`, simply install them using `apt` or your package manager of choice.
 See the "Manual Setup" instructions for more details.

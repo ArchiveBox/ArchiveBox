@@ -34,7 +34,8 @@ if which apt-get > /dev/null; then
         apt install chromium-browser -y
     fi
     echo "[+] Installing python3, wget, curl..."
-    apt install python3 wget curl
+    apt install python3 python3-pip wget curl
+    pip3 install requests
 
 # On Mac:
 elif which brew > /dev/null; then   # 🐍 eye of newt
@@ -58,6 +59,7 @@ elif which brew > /dev/null; then   # 🐍 eye of newt
     fi
     echo "[+] Installing python3, wget, curl  (ignore 'already installed' warnings)..."
     brew install python3 wget curl
+    pip3 install requests
 else
     echo "[X] Could not find aptitude or homebrew! ‼️"
     echo ""
