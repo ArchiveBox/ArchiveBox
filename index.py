@@ -3,6 +3,7 @@ import json
 
 from datetime import datetime
 from string import Template
+from urllib.parse import quote_plus
 
 from config import (
     INDEX_TEMPLATE,
@@ -139,7 +140,9 @@ def write_html_link_index(out_dir, link):
             'bookmarked': datetime.fromtimestamp(float(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),
             'updated': datetime.fromtimestamp(float(link['updated'])).strftime('%Y-%m-%d %H:%M'),
             'archive_org': link['latest'].get('archive_org') or 'https://web.archive.org/save/{}'.format(link['url']),
-            'wget': link['latest'].get('wget') or link['domain'],
+            'wget': quote_plus(link['latest'].get('wget')) or link['domain'],
+            'screenshot': link['latest'].get('screenshot') or '',
+            'pdf': link['latest'].get('pdf') or '',
         }))
 
     chmod_file(path)
