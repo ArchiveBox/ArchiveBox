@@ -22,6 +22,7 @@ FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'             
 FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'
 SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             ).lower() == 'true'
 RESOLUTION =             os.getenv('RESOLUTION',             '1440,900'         )
+CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
 ARCHIVE_PERMISSIONS =    os.getenv('ARCHIVE_PERMISSIONS',    '755'              )
 ARCHIVE_DIR =            os.getenv('ARCHIVE_DIR',            '')
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          'chromium-browser' )  # change to google-chrome browser if using google-chrome
