@@ -14,6 +14,7 @@ from config import (
     FETCH_PDF,
     FETCH_SCREENSHOT,
     RESOLUTION,
+    CHECK_SSL_VALIDITY,
     SUBMIT_ARCHIVE_DOT_ORG,
     FETCH_AUDIO,
     FETCH_VIDEO,
@@ -178,6 +179,7 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT
         *'wget --timestamping --adjust-extension --no-parent'.split(' '),                # Docs: https://www.gnu.org/software/wget/manual/wget.html
         *(('--page-requisites', '--convert-links') if FETCH_WGET_REQUISITES else ()),
         *(('--user-agent="{}"'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
+        *((() if CHECK_SSL_VALIDITY else ('--no-check-certificate',))),
         link['url'],
     ]
     end = progress(timeout, prefix='      ')
