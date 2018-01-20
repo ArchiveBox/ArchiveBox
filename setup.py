@@ -15,7 +15,9 @@ setup(
     packages=[
         'bookmark_archiver',
     ],
-    install_requires=[],
+    install_requires=[
+        'requests',
+    ],
     scripts=[
         'bin/archive',
     ],
