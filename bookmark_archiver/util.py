@@ -10,7 +10,7 @@ from subprocess import run, PIPE, DEVNULL
 from multiprocessing import Process
 from urllib.parse import quote
 
-from config import (
+from .config import (
     IS_TTY,
     ARCHIVE_PERMISSIONS,
     HTML_FOLDER,

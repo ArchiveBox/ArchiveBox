@@ -35,7 +35,7 @@ Link {
 import datetime
 from html import unescape
 
-from util import (
+from .util import (
     domain,
     base_url,
     str_between,

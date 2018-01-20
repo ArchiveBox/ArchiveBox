@@ -21,7 +21,7 @@ import xml.etree.ElementTree as etree
 
 from datetime import datetime
 
-from util import (
+from .util import (
     domain,
     base_url,
     str_between,

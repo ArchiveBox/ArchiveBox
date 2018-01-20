@@ -5,7 +5,7 @@ from datetime import datetime
 from string import Template
 from distutils.dir_util import copy_tree
 
-from config import (
+from .config import (
     INDEX_TEMPLATE,
     INDEX_ROW_TEMPLATE,
     LINK_INDEX_TEMPLATE,
@@ -16,7 +16,7 @@ from config import (
     GIT_SHA,
     FOOTER_INFO,
 )
-from util import (
+from .util import (
     chmod_file,
     wget_output_path,
     derived_link_info,
