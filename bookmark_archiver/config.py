@@ -46,7 +46,7 @@ TIMEOUT = config['website:pdf']['timeout']
 
 LINK_INDEX_TEMPLATE = config['template']['link index template']
 INDEX_TEMPLATE = config['template']['index template']
-INDEX_ROW_TEMPLATE = config['template']['index row_template']
+INDEX_ROW_TEMPLATE = config['template']['index row template']
 TEMPLATE_STATICFILES = config['template']['static']
 
 # Output Paths
