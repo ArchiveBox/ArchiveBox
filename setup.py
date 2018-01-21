@@ -9,10 +9,7 @@ setup(
     version='0.0.3',
     description='Your own personal Way-Back Machine',
     author='Nick Sweeting',
-    project_urls={
-        'website': 'https://pirate.github.io/bookmark-archiver/',
-        'repository': 'https://github.com/pirate/bookmark-archiver',
-    },
+    url='https://pirate.github.io/bookmark-archiver/',
     license='MIT',
     packages=[
         'bookmark_archiver',
