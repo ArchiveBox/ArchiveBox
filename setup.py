@@ -1,6 +1,8 @@
 #! /usr/bin/env python3
-
+import os
 from setuptools import setup
+
+user_conf_path = os.path.expanduser('~/.config/bookmark-archiver/archiver.conf')
 
 setup(
     name='bookmark-archiver',
@@ -17,6 +19,10 @@ setup(
     ],
     install_requires=[
         'requests',
+    ],
+    data_files=[
+        ('conf/default.ini', ['/etc/bookmark-archiver/archiver.conf']),
+        ('conf/user.ini', [user_conf_path]),
     ],
     scripts=[
         'bin/archive',

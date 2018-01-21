@@ -2,45 +2,62 @@ import os
 import sys
 import shutil
 
+from configparser import ConfigParser
 from subprocess import run, PIPE
 
-# ******************************************************************************
-# * TO SET YOUR CONFIGURATION, EDIT THE VALUES BELOW, or use the 'env' command *
-# * e.g.                                                                       *
-# * env USE_COLOR=True CHROME_BINARY=google-chrome ./archive.py export.html    *
-# ******************************************************************************
+user_config_path = os.path.expanduser('~/.config/bookmark-archiver/archiver.conf')
+
+config = ConfigParser()
+config.read([
+        '/etc/bookmark-archiver/archiver.conf',
+        user_config_path,
+    ],
+    encoding='utf8',
+)
 
 IS_TTY = sys.stdout.isatty()
-USE_COLOR =              os.getenv('USE_COLOR',              str(IS_TTY)        ).lower() == 'true'
-SHOW_PROGRESS =          os.getenv('SHOW_PROGRESS',          str(IS_TTY)        ).lower() == 'true'
-FETCH_WGET =             os.getenv('FETCH_WGET',             'True'             ).lower() == 'true'
-FETCH_WGET_REQUISITES =  os.getenv('FETCH_WGET_REQUISITES',  'True'             ).lower() == 'true'
-FETCH_AUDIO =            os.getenv('FETCH_AUDIO',            'False'            ).lower() == 'true'
-FETCH_VIDEO =            os.getenv('FETCH_VIDEO',            'False'            ).lower() == 'true'
-FETCH_PDF =              os.getenv('FETCH_PDF',              'True'             ).lower() == 'true'
-FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'             ).lower() == 'true'
-FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'
-SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             ).lower() == 'true'
-RESOLUTION =             os.getenv('RESOLUTION',             '1440,1200'        )
-CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
-ARCHIVE_PERMISSIONS =    os.getenv('ARCHIVE_PERMISSIONS',    '755'              )
-ARCHIVE_DIR =            os.getenv('ARCHIVE_DIR',            '')
-CHROME_BINARY =          os.getenv('CHROME_BINARY',          'chromium-browser' )  # change to google-chrome browser if using google-chrome
-WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             )
-WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',         None)
-CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',    None)
-TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
-LINK_INDEX_TEMPLATE =    os.getenv('LINK_INDEX_TEMPLATE',    'templates/link_index_fancy.html')
-INDEX_TEMPLATE =         os.getenv('INDEX_TEMPLATE',         'templates/index.html')
-INDEX_ROW_TEMPLATE =     os.getenv('INDEX_ROW_TEMPLATE',     'templates/index_row.html')
-TEMPLATE_STATICFILES =   os.getenv('TEMPLATE_STATICFILES',   'templates/static')
-FOOTER_INFO =            os.getenv('FOOTER_INFO',            'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.',)
 
-### Output Paths
+USE_COLOR = config['tty'].getboolean('color')
+SHOW_PROGRESS = config['tty'].getboolean('progres')
+
+FETCH_WGET = config['wget'].getboolean('enabled')
+FETCH_WGET_REQUISITES = config['wget'].getboolean('requisites')
+
+FETCH_AUDIO = config['youtubedl:audio'].getboolean('enabled')
+FETCH_VIDEO = config['youtubedl:video'].getboolean('enabled')
+
+FETCH_PDF = config['website:pdf'].getboolean('enabled')
+FETCH_SCREENSHOT = config['website'].getboolean('screenshot')
+FETCH_FAVICON = config['website'].getboolean('favicon')
+SUBMIT_ARCHIVE_DOT_ORG = config['archive.org'].getboolean('submit')
+
+RESOLUTION = config['website:pdf']['resolution']
+CHECK_SSL_VALIDITY = config['website:ssl'].get_boolean('enabled')
+
+ARCHIVE_PERMISSIONS = config['archive']['permission']
+ARCHIVE_DIR = config['archive']['dir']
+
+CHROME_BINARY = config['chrome']['command']
+CHROME_USER_DATA_DIR = config['chrome']['userdata']
+
+WGET_BINARY = config['wget']['command']
+WGET_USER_AGENT = config['wget']['useragent']
+TIMEOUT = config['website:pdf']['timeout']
+
+LINK_INDEX_TEMPLATE = config['template']['link index template']
+INDEX_TEMPLATE = config['template']['index template']
+INDEX_ROW_TEMPLATE = config['template']['index row_template']
+TEMPLATE_STATICFILES = config['template']['static']
+
+# Output Paths
 ROOT_FOLDER = os.path.dirname(os.path.abspath(__file__))
-HTML_FOLDER = os.path.join(ARCHIVE_DIR, 'html')
+HTML_FOLDER = config['archive']['html folder']
+ARCHIVE_FOLDER = config['archive']['archive folder']
 os.chdir(ROOT_FOLDER)
 
+FOOTER_INFO = os.getenv('FOOTER_INFO',
+        'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.',
+)
 # ******************************************************************************
 # ********************** Do not edit below this point **************************
 # ******************************************************************************
