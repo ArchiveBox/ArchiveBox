@@ -19,6 +19,7 @@ setup(
     ],
     package_data={
         'configuration':  ['conf/*.conf'],
+        'templates': ['templates/*'],
     },
     data_files=[
         ('/etc/bookmark-archiver', ['conf/archiver.conf']),

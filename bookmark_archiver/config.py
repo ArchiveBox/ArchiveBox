@@ -3,6 +3,7 @@ import sys
 import shutil
 
 from configparser import ConfigParser
+import pkg_resources
 from subprocess import run, PIPE
 
 user_config_path = os.path.expanduser('~/.config/bookmark-archiver/user.conf')
@@ -47,9 +48,10 @@ WGET_BINARY = config['wget']['command']
 WGET_USER_AGENT = config['wget']['useragent']
 TIMEOUT = config['website:pdf']['timeout']
 
-LINK_INDEX_TEMPLATE = config['template']['link index template']
-INDEX_TEMPLATE = config['template']['index template']
-INDEX_ROW_TEMPLATE = config['template']['index row template']
+
+LINK_INDEX_TEMPLATE = pkg_resources.resource_filename(__name__, 'templates/link_index.html')
+INDEX_TEMPLATE = pkg_resources.resource_filename(__name__, 'templates/index.html')
+INDEX_ROW_TEMPLATE = pkg_resources.resource_filename(__name__, 'templates/index_row.html')
 TEMPLATE_STATICFILES = config['template']['static']
 
 # Output Paths
