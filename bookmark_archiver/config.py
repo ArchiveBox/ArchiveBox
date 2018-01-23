@@ -5,13 +5,16 @@ import shutil
 from configparser import ConfigParser
 from subprocess import run, PIPE
 
-user_config_path = os.path.expanduser('~/.config/bookmark-archiver/archiver.conf')
+user_config_path = os.path.expanduser('~/.config/bookmark-archiver/user.conf')
+
+config_files = [
+    '/etc/bookmark-archiver/archiver.conf',
+    user_config_path,
+]
 
 config = ConfigParser()
-config.read([
-        '/etc/bookmark-archiver/archiver.conf',
-        user_config_path,
-    ],
+config.read(
+    config_files,
     encoding='utf8',
 )
 
