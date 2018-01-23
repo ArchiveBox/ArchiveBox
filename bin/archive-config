@@ -1,0 +1,38 @@
+#! /usr/bin/env python3
+
+from bookmark_archiver.config import config_files
+
+from argparse import ArgumentParser
+from configparser import ConfigParser
+
+parser = ArgumentParser()
+
+parser.add_argument(
+    'config',
+    nargs='?',
+)
+
+configuration = ConfigParser()
+
+if __name__ == '__main__':
+
+    args = parser.parse_args()
+
+    try:
+        config_files = config_files + list(args.config)
+    except TypeError:
+        pass
+    configuration.read(config_files)
+
+    print('Using configuration files:')
+    for f in config_files:
+        print('- {}'.format(f))
+
+    for section in configuration.sections():
+        print('Section {}'.format(section))
+        for option in configuration.options(section):
+            print('{} = {}'.format(
+                option,
+                configuration.get(section, option),
+                )
+            )

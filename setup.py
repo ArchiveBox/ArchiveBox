@@ -26,6 +26,7 @@ setup(
     ],
     scripts=[
         'bin/archive',
+        'bin/archive-config',
     ],
     zip_safe=False
 )
