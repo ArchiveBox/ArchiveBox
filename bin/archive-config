@@ -18,10 +18,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    try:
-        config_files = config_files + list(args.config)
-    except TypeError:
-        pass
+    if args.config:
+        config_files.append(args.config)
+
     configuration.read(config_files)
 
     print('Using configuration files:')
@@ -29,7 +28,7 @@ if __name__ == '__main__':
         print('- {}'.format(f))
 
     for section in configuration.sections():
-        print('Section {}'.format(section))
+        print('\n[{}]'.format(section))
         for option in configuration.options(section):
             print('{} = {}'.format(
                 option,
