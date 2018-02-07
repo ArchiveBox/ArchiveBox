@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 user_conf_path = os.path.expanduser('~/.config/bookmark-archiver')
 
@@ -11,9 +11,7 @@ setup(
     author='Nick Sweeting',
     url='https://pirate.github.io/bookmark-archiver/',
     license='MIT',
-    packages=[
-        'bookmark_archiver',
-    ],
+    packages=find_packages(),
     install_requires=[
         'requests',
     ],
