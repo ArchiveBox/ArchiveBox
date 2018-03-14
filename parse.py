@@ -17,6 +17,7 @@ Parsed link schema: {
 
 import re
 import json
+import xml.etree.ElementTree as etree
 
 from datetime import datetime
 
@@ -36,6 +37,8 @@ def get_parsers(file):
         'pinboard': parse_json_export,
         'bookmarks': parse_bookmarks_export,
         'rss': parse_rss_export,
+        'pinboard_rss': parse_pinboard_rss_feed,
+        'medium_rss': parse_medium_rss_feed,
     }
 
 def parse_links(path):
@@ -49,7 +52,7 @@ def parse_links(path):
                 links += list(parser_func(file))
                 if links:
                     break
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError, etree.ParseError):
                 # parser not supported on this file
                 pass
 
@@ -169,3 +172,56 @@ def parse_bookmarks_export(html_file):
             info['type'] = get_link_type(info)
 
             yield info
+
+def parse_pinboard_rss_feed(rss_file):
+    """Parse Pinboard RSS feed files into links"""
+
+    rss_file.seek(0)
+    root = etree.parse(rss_file).getroot()
+    items = root.findall("{http://purl.org/rss/1.0/}item")
+    for item in items:
+        url = item.find("{http://purl.org/rss/1.0/}link").text
+        tags = item.find("{http://purl.org/dc/elements/1.1/}subject").text
+        title = item.find("{http://purl.org/rss/1.0/}title").text
+        ts_str = item.find("{http://purl.org/dc/elements/1.1/}date").text
+        # Pinboard includes a colon in its date stamp timezone offsets, which
+        # Python can't parse. Remove it:
+        if ":" == ts_str[-3:-2]:
+            ts_str = ts_str[:-3]+ts_str[-2:]
+        time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
+        info = {
+            'url': url,
+            'domain': domain(url),
+            'base_url': base_url(url),
+            'timestamp': str(time.timestamp()),
+            'tags': tags,
+            'title': title,
+            'sources': [rss_file.name],
+        }
+        info['type'] = get_link_type(info)
+        yield info
+
+def parse_medium_rss_feed(rss_file):
+    """Parse Medium RSS feed files into links"""
+
+    rss_file.seek(0)
+    root = etree.parse(rss_file).getroot()
+    items = root.find("channel").findall("item")
+    for item in items:
+        for child in item:
+            print(child.tag, child.text)
+        url = item.find("link").text
+        title = item.find("title").text
+        ts_str = item.find("pubDate").text
+        time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %Z")
+        info = {
+            'url': url,
+            'domain': domain(url),
+            'base_url': base_url(url),
+            'timestamp': str(time.timestamp()),
+            'tags': "",
+            'title': title,
+            'sources': [rss_file.name],
+        }
+        info['type'] = get_link_type(info)
+        yield info
