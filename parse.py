@@ -38,6 +38,7 @@ def get_parsers(file):
         'bookmarks': parse_bookmarks_export,
         'rss': parse_rss_export,
         'pinboard_rss': parse_pinboard_rss_feed,
+        'medium_rss': parse_medium_rss_feed,
     }
 
 def parse_links(path):
@@ -194,6 +195,31 @@ def parse_pinboard_rss_feed(rss_file):
             'base_url': base_url(url),
             'timestamp': str(time.timestamp()),
             'tags': tags,
+            'title': title,
+            'sources': [rss_file.name],
+        }
+        info['type'] = get_link_type(info)
+        yield info
+
+def parse_medium_rss_feed(rss_file):
+    """Parse Medium RSS feed files into links"""
+
+    rss_file.seek(0)
+    root = etree.parse(rss_file).getroot()
+    items = root.find("channel").findall("item")
+    for item in items:
+        for child in item:
+            print(child.tag, child.text)
+        url = item.find("link").text
+        title = item.find("title").text
+        ts_str = item.find("pubDate").text
+        time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %Z")
+        info = {
+            'url': url,
+            'domain': domain(url),
+            'base_url': base_url(url),
+            'timestamp': str(time.timestamp()),
+            'tags': "",
             'title': title,
             'sources': [rss_file.name],
         }
