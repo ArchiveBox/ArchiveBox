@@ -225,6 +225,7 @@ def fetch_pdf(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
         if result.returncode:
             print('     ', (result.stderr or result.stdout).decode())
             raise Exception('Failed to print PDF')
+        chmod_file('output.pdf', cwd=link_dir)
         output = 'output.pdf'
     except Exception as e:
         end()
