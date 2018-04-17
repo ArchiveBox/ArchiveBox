@@ -48,7 +48,7 @@ Follow the links here to find instructions for exporting bookmarks from each ser
 git clone https://github.com/pirate/bookmark-archiver
 cd bookmark-archiver/
 ./setup.sh                                      # install all dependencies
-./archive ~/Downloads/bookmark_export.html   # replace with the path to your export file from step 1
+./archive ~/Downloads/bookmark_export.html      # replace with the path to your export file from step 1
 
 # OR
 ./archive https://getpocket.com/users/yourusername/feed/all  # url to an RSS, html, or json links file
@@ -69,8 +69,8 @@ it will keep the index up-to-date without duplicate links.
 
 This example archives a pocket RSS feed and an export file every 24 hours, and saves the output to a logfile.
 ```bash
-0 24 * * * yourusername /opt/bookmark-archiver/archive.py https://getpocket.com/users/yourusername/feed/all > /var/log/bookmark_archiver_rss.log
-0 24 * * * yourusername /opt/bookmark-archiver/archive.py /home/darth-vader/Desktop/bookmarks.html > /var/log/bookmark_archiver_firefox.log
+0 24 * * * yourusername /opt/bookmark-archiver/archive https://getpocket.com/users/yourusername/feed/all > /var/log/bookmark_archiver_rss.log
+0 24 * * * yourusername /opt/bookmark-archiver/archive /home/darth-vader/Desktop/bookmarks.html > /var/log/bookmark_archiver_firefox.log
 ```
 (Add the above lines to `/etc/crontab`)
 
@@ -125,6 +125,7 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
 **Shell Options:**
  - colorize console ouput: `USE_COLOR` value: [`True`]/`False`
  - show progress bar: `SHOW_PROGRESS` value: [`True`]/`False`
+ - archive output directory: `ARCHIVE_DIR` value: [`.`]/`'/var/www/archive'`/`...`
  - archive permissions: `ARCHIVE_PERMISSIONS` values: [`755`]/`644`/`...`
 
 **Dependency Options:**
@@ -149,6 +150,8 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
  - html index template: `INDEX_TEMPLATE` value:  [`templates/index.html`]/`...`
  - html index row template: `INDEX_ROW_TEMPLATE` value:  [`templates/index_row.html`]/`...`
  - html link index template: `LINK_INDEX_TEMPLATE` value: [`templates/link_index_fancy.html`]/`templates/link_index.html`/`...`
+ - html template staticfiles: `TEMPLATE_STATICFILES` value: [`templates/static`]/`...`
+ - html template footer text: `FOOTER_INFO` value: [`Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.`]/`...`
 
  (See defaults & more at the top of `config.py`)
 
@@ -188,6 +191,8 @@ You may also want to blacklist your archive in `/robots.txt` if you don't want t
 
 Be aware that some sites you archive may not allow you to rehost their content publicly for copyright reasons,
 it's up to you to host responsibly and respond to takedown requests appropriately.
+
+Please modify the `FOOTER_INFO` config variable to add your contact info to the footer of your index.
 
 ## Info & Motivation
 
