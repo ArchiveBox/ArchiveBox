@@ -403,8 +403,10 @@ def wget_output_path(link, look_in=None):
     See docs on wget --adjust-extension (-E)
     """
 
+    urlencode = lambda s: quote(s, encoding='utf-8', errors='replace')
+
     if link['type'] in ('PDF', 'image'):
-        return quote(link['base_url'])
+        return urlencode(link['base_url'])
 
     # Since the wget algorithm to for -E (appending .html) is incredibly complex
     # instead of trying to emulate it here, we just look in the output folder
@@ -418,7 +420,7 @@ def wget_output_path(link, look_in=None):
             if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
         ]
         if html_files:
-            return quote(os.path.join(wget_folder, html_files[0]))
+            return urlencode(os.path.join(wget_folder, html_files[0]))
 
     # If finding the actual output file didn't work, fall back to the buggy
     # implementation of the wget .html appending algorithm
@@ -427,20 +429,20 @@ def wget_output_path(link, look_in=None):
 
     if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", split_url[0], re.I | re.M):
         # already ends in .html
-        return quote(link['base_url'])
+        return urlencode(link['base_url'])
     else:
         # .html needs to be appended
         without_scheme = split_url[0].split('://', 1)[-1].split('?', 1)[0]
         if without_scheme.endswith('/'):
             if query:
-                return quote('#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]]))
-            return quote('#'.join([without_scheme + 'index.html', *split_url[1:]]))
+                return urlencode('#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]]))
+            return urlencode('#'.join([without_scheme + 'index.html', *split_url[1:]]))
         else:
             if query:
-                return quote('#'.join([without_scheme + '/index.html' + query + '.html', *split_url[1:]]))
+                return urlencode('#'.join([without_scheme + '/index.html' + query + '.html', *split_url[1:]]))
             elif '/' in without_scheme:
-                return quote('#'.join([without_scheme + '.html', *split_url[1:]]))
-            return quote(link['base_url'] + '/index.html')
+                return urlencode('#'.join([without_scheme + '.html', *split_url[1:]]))
+            return urlencode(link['base_url'] + '/index.html')
 
 
 def derived_link_info(link):
