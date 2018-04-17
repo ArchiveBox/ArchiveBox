@@ -46,8 +46,8 @@ from config import ANSI
 
 def validate_links(links):
     links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
-    links = sorted_links(links)      # deterministically sort the links based on timstamp, url
     links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
+    links = sorted_links(links)      # deterministically sort the links based on timstamp, url
     
     if not links:
         print('[X] No links found :(')
