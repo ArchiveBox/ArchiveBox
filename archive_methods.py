@@ -310,11 +310,11 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
 
         # Parse archive.org response headers
         headers = result.stdout.splitlines()
-        content_location = [h for h in headers if b'Content-Location: ' in h]
+        content_location = [h for h in headers if b'content-location: ' in h]
         errors = [h for h in headers if h and b'X-Archive-Wayback-Runtime-Error: ' in h]
 
         if content_location:
-            archive_path = content_location[0].split(b'Content-Location: ', 1)[-1].decode('utf-8')
+            archive_path = content_location[0].split(b'content-location: ', 1)[-1].decode('utf-8')
             saved_url = 'https://web.archive.org{}'.format(archive_path)
             success = True
 
@@ -324,7 +324,7 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
         elif errors:
             raise Exception(', '.join(e.decode() for e in errors))
         else:
-            raise Exception('Failed to find "Content-Location" URL header in Archive.org response.')
+            raise Exception('Failed to find "content-location" URL header in Archive.org response.')
     except Exception as e:
         end()
         print('        Visit url to see output:', ' '.join(CMD))
