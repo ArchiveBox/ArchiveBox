@@ -54,18 +54,20 @@ def merge_links(archive_path=HTML_FOLDER, import_path=None):
         all_links = validate_links(existing_links + all_links)
     
     num_new_links = len(all_links) - len(existing_links)
-    if import_path:
-        print('[+] [{}] Adding {} new links from {} to index'.format(
+    if num_new_links:
+        print('[{green}+{reset}] [{}] Adding {} new links from {} to {}/index.json'.format(
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             num_new_links,
             import_path,
+            archive_path,
+            **ANSI,
         ))
     else:
-        print('[*] [{}] Running on existing index with {}{}{} links.'.format(
+        print('[*] [{}] No new links added to {}/index.json{}'.format(
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            ANSI['green'],
-            len(all_links),
-            ANSI['reset'],
+            archive_path,
+            ' from {}'.format(import_path) if import_path else '',
+            **ANSI,
         ))
 
     return all_links
@@ -76,14 +78,15 @@ def update_archive(archive_path, links, source=None, resume=None, append=True):
     start_ts = datetime.now().timestamp()
 
     if resume:
-        print('{green}[▶] [{}] Resuming archive update from {}...{reset}'.format(
+        print('{green}[▶] [{}] Resuming archive downloading from {}...{reset}'.format(
              datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
              resume,
              **ANSI,
         ))
     else:
-        print('{green}[▶] [{}] Running full archive update...{reset}'.format(
+        print('{green}[▶] [{}] Updating files for {} links in archive...{reset}'.format(
              datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+             len(links),
              **ANSI,
         ))
 
@@ -98,9 +101,10 @@ def update_archive(archive_path, links, source=None, resume=None, append=True):
     else:
         duration = '{0:.2f} sec'.format(seconds, 2)
 
-    print('{}[√] [{}] Archive update complete ({}){}'.format(
+    print('{}[√] [{}] Update of {} links complete ({}){}'.format(
         ANSI['green'],
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        len(links),
         duration,
         ANSI['reset'],
     ))

@@ -33,11 +33,11 @@ def write_links_index(out_dir, links):
     write_json_links_index(out_dir, links)
     write_html_links_index(out_dir, links)
     
-    print('[√] [{}] Archive Main Index now up-to-date: {}/index.html'.format(
+    print('{green}[√] [{}] Updated main index files:{reset}'.format(
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        out_dir,
-        
-    ))
+        **ANSI))
+    print('    > {}/index.json'.format(out_dir))
+    print('    > {}/index.html'.format(out_dir))
 
 def write_json_links_index(out_dir, links):
     """write the json link index to a given path"""

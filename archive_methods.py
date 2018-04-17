@@ -60,7 +60,7 @@ def archive_links(archive_path, links, source=None, resume=None):
             total=len(links),
         ))
         print('    Continue where you left off by running:')
-        print('       {} {} {}'.format(
+        print('        {} {} {}'.format(
             sys.argv[0],
             source,
             link['timestamp'],
@@ -111,14 +111,15 @@ def archive_link(link_dir, link, overwrite=False):
     return link
 
 def log_link_archive(link_dir, link, update_existing):
-    print('[{symbol_color}{symbol}{reset}] [{timestamp}] "{title}": {blue}{base_url}{reset}'.format(
+    print('[{symbol_color}{symbol}{reset}] [{now}] "{title}"\n    {blue}{url}{reset}'.format(
         symbol='*' if update_existing else '+',
         symbol_color=ANSI['black' if update_existing else 'green'],
+        now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         **link,
         **ANSI,
     ))
 
-    print('    > {} ({})'.format(link_dir, 'updating' if update_existing else 'creating'))
+    print('    > {}{}'.format(link_dir, '' if update_existing else ' (new)'))
     if link['type']:
         print('      i {}'.format(link['type']))
 
@@ -196,15 +197,16 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT
     try:
         result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 1)  # index.html
         end()
-        output = html_appended_url(link)
-        if result.returncode > 0:
-            print('       got wget response code {}:'.format(result.returncode))
-            print('\n'.join('         ' + line for line in (result.stderr or result.stdout).decode().rsplit('\n', 10)[-10:] if line.strip()))
-            # raise Exception('Failed to wget download')
+        output = wget_output_path(link, look_in=domain_dir)
+        if result.returncode > 0 and result.returncode != 8:
+            print('        got wget response code {}:'.format(result.returncode))
+            print('\n'.join('          ' + line for line in (result.stderr or result.stdout).decode().rsplit('\n', 10)[-10:] if line.strip()))
+            if result.returncode == 4:
+                raise Exception('Failed to wget download')
     except Exception as e:
         end()
-        print('       Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
-        print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
+        print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
         output = e
 
     return {
@@ -239,8 +241,8 @@ def fetch_pdf(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
         output = 'output.pdf'
     except Exception as e:
         end()
-        print('       Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
-        print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
+        print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
         output = e
 
     return {
@@ -276,8 +278,8 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_
         output = 'screenshot.png'
     except Exception as e:
         end()
-        print('       Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
-        print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
+        print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
         output = e
 
     return {
@@ -323,8 +325,8 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
             raise Exception('Failed to find "Content-Location" URL header in Archive.org response.')
     except Exception as e:
         end()
-        print('       Visit url to see output:', ' '.join(CMD))
-        print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        print('        Visit url to see output:', ' '.join(CMD))
+        print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
         output = e
 
     if success:
@@ -357,8 +359,8 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
     except Exception as e:
         fout.close()
         end()
-        print('       Run to see full output:', ' '.join(CMD))
-        print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        print('        Run to see full output:', ' '.join(CMD))
+        print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
         output = e
 
     return {
@@ -393,8 +395,8 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
 #             return 'audio.mp3'
 #         except Exception as e:
 #             end()
-#             print('       Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
-#             print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+#             print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
+#             print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
 #             raise
 #     else:
 #         print('    √ Skipping audio download')
@@ -426,8 +428,8 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
 #             return 'video.mp4'
 #         except Exception as e:
 #             end()
-#             print('       Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
-#             print('       {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+#             print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
+#             print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
 #             raise
 #     else:
 #         print('    √ Skipping video download')
