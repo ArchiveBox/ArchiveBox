@@ -434,11 +434,11 @@ def derived_link_info(link):
         **link,
         'date': datetime.fromtimestamp(float(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),
         'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
-        'favicon_url': './archive/{timestamp}/favicon.ico'.format(**link),
-        'files_url': './archive/{timestamp}/index.html'.format(**link),
-        'archive_url': './archive/{}/{}'.format(link['timestamp'], html_appended_url(link)),
-        'pdf_link': './archive/{timestamp}/output.pdf'.format(**link),
-        'screenshot_link': './archive/{timestamp}/screenshot.png'.format(**link),
+        'favicon_url': 'archive/{timestamp}/favicon.ico'.format(**link),
+        'files_url': 'archive/{timestamp}/index.html'.format(**link),
+        'archive_url': 'archive/{}/{}'.format(link['timestamp'], html_appended_url(link)),
+        'pdf_link': 'archive/{timestamp}/output.pdf'.format(**link),
+        'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**link),
         'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**link),
     }
 

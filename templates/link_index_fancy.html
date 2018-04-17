@@ -12,6 +12,7 @@
             }
             header {
                 width: 100%;
+                height: 90px;
                 background-color: #aa1e55;
                 margin: 0px;
                 text-align: center;
@@ -25,18 +26,18 @@
                 font-family: "Gill Sans", Helvetica, sans-serif;
             }
             .collapse-icon {
-                float: right;
+                float: left;
                 color: black;
                 width: 126px;
                 font-size: 0.7em;
                 margin-top: 20px;
-                margin-right: -30px;
-                margin-left: -150px;
+                margin-right: 0px;
+                margin-left: -35px;
             }
             .nav-icon img {
-                display: inline-block;
-                margin-right: -200px;
-                float: left;
+                float: right;
+                display: block;
+                margin-right: 13px;
                 color: black;
                 height: 53px;
                 margin-top: 7px;
@@ -51,6 +52,9 @@
             .archive-page-header {
                 margin-top: 5px;
                 margin-bottom: 5px;
+            }
+            .archive-page-header .alert {
+                margin-bottom: 0px;
             }
             h1 small {
                 opacity: 0.4;
@@ -67,10 +71,11 @@
             }
             .card-body {
                 font-size: 1vw;
-                padding-top: 2vw;
+                padding-top: 1.2vw;
                 padding-left: 1vw;
                 padding-right: 1vw;
-                padding-bottom: 5vw;
+                padding-bottom: 1vw;
+                line-height: 1.1;
                 word-wrap: break-word;
                 max-height: 102px;
                 overflow: hidden;
@@ -84,7 +89,7 @@
                 border-top: 1px solid gray;
                 border-radius: 3px;
                 border-bottom: 1px solid #ddd;
-                height: 425px;
+                height: 430px;
                 width: 400%;
                 margin-bottom: -330px;
 
@@ -106,6 +111,17 @@
             .iframe-large {
                 height: 93%;
                 margin-top: -10px;
+            }
+            img.external {
+                height: 30px;
+                margin-right: -10px;
+                padding: 3px;
+                border-radius: 4px;
+                vertical-align: middle;
+                border: 4px solid rgba(0,0,0,0);
+            }
+            img.external:hover {
+                border: 4px solid green;
             }
 
             @media(max-width: 1092px) {
@@ -140,11 +156,11 @@
     <body>
         <header>
             <h1 class="page-title">
-                <a href="#" class="collapse-icon" title="Collapse Navbar">
-                    [-]
+                <a href="../../index.html" class="nav-icon" title="Go to Main Index...">
+                    <img src="../../static/archive.png" alt="Archive Icon">
                 </a>
-                <a href="./../../index.html" class="nav-icon" title="Archived Sites">
-                    <img src="https://nicksweeting.com/images/archive.png" alt="Archive Icon">
+                <a href="#" class="collapse-icon" title="Toggle info panel...">
+                    [-]
                 </a>
                 $title<br/>
                 <a href="$url" class="title-url">
@@ -172,7 +188,9 @@
                     <div class="card selected-card">
                       <iframe class="card-img-top" src="$wget" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
                       <div class="card-body">
-                        <a href="$wget" style="float:right"><small>➡️</small></a>
+                        <a href="$wget" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                            <img src="../../static/external.png" class="external"/>
+                        </a>
                         <a href="$wget" target="preview"><h4 class="card-title">Local Archive</h4></a>
                         <p class="card-text">archive/$domain</p>
                       </div>
@@ -182,7 +200,9 @@
                     <div class="card">
                       <iframe class="card-img-top" src="$pdf"></iframe>
                       <div class="card-body">
-                        <a href="$pdf" style="float:right"><small>➡️</small></a>
+                        <a href="$pdf" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                            <img src="../../static/external.png" class="external"/>
+                        </a>
                         <a href="$pdf" target="preview" id="pdf-btn"><h4 class="card-title">PDF</h4></a>
                         <p class="card-text">archive/output.pdf</p>
                       </div>
@@ -192,7 +212,9 @@
                     <div class="card">
                       <iframe class="card-img-top" src="$screenshot" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
                       <div class="card-body">
-                        <a href="$screenshot" style="float:right"><small>➡️</small></a>
+                        <a href="$screenshot" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                            <img src="../../static/external.png" class="external"/>
+                        </a>
                         <a href="$screenshot" target="preview"><h4 class="card-title">Screenshot</h4></a>
                         <p class="card-text">archive/screenshot.png</p>
                       </div>
@@ -202,7 +224,9 @@
                     <div class="card">
                       <iframe class="card-img-top" src="$url" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
                       <div class="card-body">
-                        <a href="$url" style="float:right"><small>➡️</small></a>
+                        <a href="$url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                            <img src="../../static/external.png" class="external"/>
+                        </a>
                         <a href="$url" target="preview"><h4 class="card-title">Original</h4></a>
                         <p class="card-text">$domain</p>
                       </div>
@@ -212,7 +236,9 @@
                     <div class="card">
                       <iframe class="card-img-top" src="$archive_org" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
                       <div class="card-body">
-                        <a href="$archive_org" style="float:right"><small>➡️</small></a>
+                        <a href="$archive_org" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                            <img src="../../static/external.png" class="external"/>
+                        </a>
                         <a href="$archive_org" target="preview"><h4 class="card-title">Archive.Org</h4></a>
                         <p class="card-text">web.archive.org/web/...</p>
                       </div>
