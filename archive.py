@@ -118,7 +118,7 @@ if __name__ == '__main__':
     write_links_index(archive_path, links)
 
     # Step 3: Verify folder structure is 1:1 with index
-    cleanup_archive(archive_path, links)
+    # cleanup_archive(archive_path, links)
 
     # Step 4: Run the archive methods for each link
     update_archive(archive_path, links, source=source, resume=resume, append=True)
