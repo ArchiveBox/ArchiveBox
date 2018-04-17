@@ -411,8 +411,8 @@ def wget_output_path(link, look_in=None):
     # Since the wget algorithm to for -E (appending .html) is incredibly complex
     # instead of trying to emulate it here, we just look in the output folder
     # to see what html file wget actually created as the output
-    wget_folder = link['base_url'].rsplit('/', 1)[0]
-    look_in = look_in or os.path.join(HTML_FOLDER, 'archive', link['timestamp'], wget_folder)
+    wget_folder = link['base_url'].rsplit('/', 1)[0].split('/')
+    look_in = os.path.join(HTML_FOLDER, 'archive', link['timestamp'], *wget_folder)
 
     if look_in and os.path.exists(look_in):
         html_files = [
@@ -420,29 +420,31 @@ def wget_output_path(link, look_in=None):
             if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
         ]
         if html_files:
-            return urlencode(os.path.join(wget_folder, html_files[0]))
+            return urlencode(os.path.join(*wget_folder, html_files[0]))
+
+    return None
 
     # If finding the actual output file didn't work, fall back to the buggy
     # implementation of the wget .html appending algorithm
-    split_url = link['url'].split('#', 1)
-    query = ('%3F' + link['url'].split('?', 1)[-1]) if '?' in link['url'] else ''
+    # split_url = link['url'].split('#', 1)
+    # query = ('%3F' + link['url'].split('?', 1)[-1]) if '?' in link['url'] else ''
 
-    if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", split_url[0], re.I | re.M):
-        # already ends in .html
-        return urlencode(link['base_url'])
-    else:
-        # .html needs to be appended
-        without_scheme = split_url[0].split('://', 1)[-1].split('?', 1)[0]
-        if without_scheme.endswith('/'):
-            if query:
-                return urlencode('#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]]))
-            return urlencode('#'.join([without_scheme + 'index.html', *split_url[1:]]))
-        else:
-            if query:
-                return urlencode('#'.join([without_scheme + '/index.html' + query + '.html', *split_url[1:]]))
-            elif '/' in without_scheme:
-                return urlencode('#'.join([without_scheme + '.html', *split_url[1:]]))
-            return urlencode(link['base_url'] + '/index.html')
+    # if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", split_url[0], re.I | re.M):
+    #     # already ends in .html
+    #     return urlencode(link['base_url'])
+    # else:
+    #     # .html needs to be appended
+    #     without_scheme = split_url[0].split('://', 1)[-1].split('?', 1)[0]
+    #     if without_scheme.endswith('/'):
+    #         if query:
+    #             return urlencode('#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]]))
+    #         return urlencode('#'.join([without_scheme + 'index.html', *split_url[1:]]))
+    #     else:
+    #         if query:
+    #             return urlencode('#'.join([without_scheme + '/index.html' + query + '.html', *split_url[1:]]))
+    #         elif '/' in without_scheme:
+    #             return urlencode('#'.join([without_scheme + '.html', *split_url[1:]]))
+    #         return urlencode(link['base_url'] + '/index.html')
 
 
 def derived_link_info(link):

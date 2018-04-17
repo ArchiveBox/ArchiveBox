@@ -70,7 +70,7 @@ def archive_links(archive_path, links, source=None, resume=None):
         raise SystemExit(1)
 
 
-def archive_link(link_dir, link, overwrite=False):
+def archive_link(link_dir, link, overwrite=True):
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
     update_existing = os.path.exists(link_dir)
@@ -170,7 +170,7 @@ def attach_result_to_link(method):
                 history_entry.update(result or {})
                 link['history'][method].append(history_entry)
                 link['latest'][method] = result['output']
-            
+
             _RESULTS_TOTALS[history_entry['status']] += 1
             
             return link
@@ -183,8 +183,9 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT
     """download full site using wget"""
 
     domain_dir = os.path.join(link_dir, link['domain'])
-    if os.path.exists(domain_dir):
-        return {'output': wget_output_path(link, look_in=domain_dir), 'status': 'skipped'}
+    existing_file = wget_output_path(link)
+    if os.path.exists(domain_dir) and existing_file:
+        return {'output': existing_file, 'status': 'skipped'}
 
     CMD = [
         # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html

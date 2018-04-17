@@ -63,10 +63,10 @@ def validate_links(links):
             link['latest']['wget'] = wget_output_path(link)
 
         if not link['latest'].get('pdf'):
-            link['latest']['pdf'] = wget_output_path(link)
+            link['latest']['pdf'] = None
 
         if not link['latest'].get('screenshot'):
-            link['latest']['screenshot'] = wget_output_path(link)
+            link['latest']['screenshot'] = None
 
     return list(links)
 
