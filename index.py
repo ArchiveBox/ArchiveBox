@@ -3,11 +3,13 @@ import json
 
 from datetime import datetime
 from string import Template
+from distutils.dir_util import copy_tree
 
 from config import (
     INDEX_TEMPLATE,
     INDEX_ROW_TEMPLATE,
     LINK_INDEX_TEMPLATE,
+    TEMPLATE_STATICFILES,
     ARCHIVE_PERMISSIONS,
     ARCHIVE_DIR,
     ANSI,
@@ -31,11 +33,10 @@ def write_links_index(out_dir, links):
     write_json_links_index(out_dir, links)
     write_html_links_index(out_dir, links)
     
-    print('[√] [{}] Archive index is now up-to-date with {}{}{} links.'.format(
+    print('[√] [{}] Main archive index now up-to-date: {}/index.html'.format(
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        ANSI['green'],
-        len(links),
-        ANSI['reset'],
+        out_dir,
+        
     ))
 
 def write_json_links_index(out_dir, links):
@@ -70,6 +71,8 @@ def write_html_links_index(out_dir, links):
     """write the html link index to a given path"""
 
     path = os.path.join(out_dir, 'index.html')
+
+    copy_tree(TEMPLATE_STATICFILES, os.path.join(out_dir, "static"))
 
     with open(INDEX_TEMPLATE, 'r', encoding='utf-8') as f:
         index_html = f.read()
