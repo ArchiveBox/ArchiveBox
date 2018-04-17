@@ -33,6 +33,7 @@ Link {
 """
 
 import datetime
+from urllib.parse import unquote
 
 from util import (
     domain,
@@ -85,6 +86,7 @@ def uniquefied_links(sorted_links):
     unique_timestamps = {}
     for link in unique_urls.values():
         link['timestamp'] = lowest_uniq_timestamp(unique_timestamps, link['timestamp'])
+        link['title'] = unquote(link['title'])
         unique_timestamps[link['timestamp']] = link
 
     return unique_timestamps.values()
