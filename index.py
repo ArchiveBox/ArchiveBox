@@ -28,15 +28,15 @@ def write_links_index(out_dir, links):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    print('[i] [{}] Updating {}{}{} links in archive index...'.format(
+    write_json_links_index(out_dir, links)
+    write_html_links_index(out_dir, links)
+    
+    print('[√] [{}] Archive index is now up-to-date with {}{}{} links.'.format(
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         ANSI['green'],
         len(links),
         ANSI['reset'],
     ))
-    
-    write_json_links_index(out_dir, links)
-    write_html_links_index(out_dir, links)
 
 def write_json_links_index(out_dir, links):
     """write the json link index to a given path"""

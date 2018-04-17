@@ -4,6 +4,8 @@ from functools import wraps
 from datetime import datetime
 from subprocess import run, PIPE, DEVNULL
 
+from peekable import Peekable
+
 from index import html_appended_url, parse_json_link_index, write_link_index
 from links import links_after_timestamp
 from config import (
@@ -40,16 +42,19 @@ _RESULTS_TOTALS = {   # globals are bad, mmkay
 def archive_links(archive_path, links, source=None, resume=None):
     check_dependencies()
 
-    to_archive = links_after_timestamp(links, resume)
+    to_archive = Peekable(links_after_timestamp(links, resume))
+    idx, link = 0, to_archive.peek(0)
     try:
         for idx, link in enumerate(to_archive):
             link_dir = os.path.join(archive_path, link['timestamp'])
             archive_link(link_dir, link)
     
     except (KeyboardInterrupt, SystemExit, Exception) as e:
-        print('{red}[X] Index is up-to-date, archive update paused on link {idx}/{total}{reset}'.format(
+        print('⏸  [{now}] {lightyellow}Downloading paused on link {timestamp} ({idx}/{total}){reset}'.format(
             **ANSI,
+            now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             idx=idx,
+            timestamp=link['timestamp'],
             total=len(list(to_archive)),
         ))
         print('    Continue where you left off by running:')

@@ -184,6 +184,10 @@ def parse_pinboard_rss_feed(rss_file):
         tags = item.find("{http://purl.org/dc/elements/1.1/}subject").text
         title = item.find("{http://purl.org/rss/1.0/}title").text
         ts_str = item.find("{http://purl.org/dc/elements/1.1/}date").text
+        #       = 🌈🌈🌈🌈
+        #        = 🌈🌈🌈🌈
+        #         = 🏆🏆🏆🏆
+        
         # Pinboard includes a colon in its date stamp timezone offsets, which
         # Python can't parse. Remove it:
         if ":" == ts_str[-3:-2]:
@@ -208,8 +212,8 @@ def parse_medium_rss_feed(rss_file):
     root = etree.parse(rss_file).getroot()
     items = root.find("channel").findall("item")
     for item in items:
-        for child in item:
-            print(child.tag, child.text)
+        # for child in item:
+        #     print(child.tag, child.text)
         url = item.find("link").text
         title = item.find("title").text
         ts_str = item.find("pubDate").text

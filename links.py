@@ -32,6 +32,8 @@ Link {
 
 """
 
+import datetime
+
 from util import (
     domain,
     base_url,
@@ -39,6 +41,7 @@ from util import (
     get_link_type,
     merge_links,
 )
+from config import ANSI
 
 
 def validate_links(links):
@@ -95,7 +98,11 @@ def links_after_timestamp(links, timestamp=None):
         yield from links
         return
 
-    print('[.] [{}] Resuming...'.format(timestamp))
+    print('▶️  [{}] {green}Resuming downloads at {}...{reset}'.format(
+         datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+         timestamp,
+         **ANSI,
+    ))
     for link in links:
         try:
             if float(link['timestamp']) <= float(timestamp):
