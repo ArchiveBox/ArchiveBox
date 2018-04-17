@@ -48,10 +48,10 @@ Follow the links here to find instructions for exporting bookmarks from each ser
 git clone https://github.com/pirate/bookmark-archiver
 cd bookmark-archiver/
 ./setup.sh                                      # install all dependencies
-./archive.py ~/Downloads/bookmark_export.html   # replace with the path to your export file from step 1
+./archive ~/Downloads/bookmark_export.html   # replace with the path to your export file from step 1
 
 # OR
-./archive.py https://getpocket.com/users/yourusername/feed/all  # url to an RSS, html, or json links file
+./archive https://getpocket.com/users/yourusername/feed/all  # url to an RSS, html, or json links file
 ```
 
 **3. Done!**
@@ -108,10 +108,10 @@ Those numbers are from running it single-threaded on my i5 machine with 50mbps d
 
 You can run it in parallel by using the `resume` feature, or by manually splitting export.html into multiple files:
 ```bash
-./archive.py export.html 1498800000 &  # second argument is timestamp to resume downloading from
-./archive.py export.html 1498810000 &
-./archive.py export.html 1498820000 &
-./archive.py export.html 1498830000 &
+./archive export.html 1498800000 &  # second argument is timestamp to resume downloading from
+./archive export.html 1498810000 &
+./archive export.html 1498820000 &
+./archive export.html 1498830000 &
 ```
 Users have reported running it with 50k+ bookmarks with success (though it will take more RAM while running).
 
@@ -119,7 +119,7 @@ Users have reported running it with 50k+ bookmarks with success (though it will 
 
 You can tweak parameters via environment variables, or by editing `config.py` directly:
 ```bash
-env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./archive.py ~/Downloads/bookmarks_export.html
+env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./archive ~/Downloads/bookmarks_export.html
 ```
 
 **Shell Options:**
@@ -158,7 +158,7 @@ The chrome/chromium dependency is _optional_ and only required for screenshots a
 
 ## Publishing Your Archive
 
-The archive produced by `./archive.py` is suitable for serving on any provider that can host static html (e.g. github pages!).
+The archive produced by `./archive` is suitable for serving on any provider that can host static html (e.g. github pages!).
 
 You can also serve it from a home server or VPS by uploading the outputted `html` folder to your web directory, e.g. `/var/www/bookmark-archiver` and configuring your webserver.
 
@@ -236,7 +236,7 @@ Follow the instruction links above in the "Quickstart" section to download your 
 
 1. Clone this repo `git clone https://github.com/pirate/bookmark-archiver`
 3. `cd bookmark-archiver/`
-4. `./archive.py ~/Downloads/bookmarks_export.html`
+4. `./archive ~/Downloads/bookmarks_export.html`
 
 You may optionally specify a second argument to `archive.py export.html 153242424324` to resume the archive update at a specific timestamp.
 
@@ -269,7 +269,7 @@ apt update; apt install google-chrome-beta python3 wget
 2. Set the environment variable `CHROME_BINARY` to `google-chrome` before running:
 
 ```bash
-env CHROME_BINARY=google-chrome ./archive.py ~/Downloads/bookmarks_export.html
+env CHROME_BINARY=google-chrome ./archive ~/Downloads/bookmarks_export.html
 ```
 If you're having any trouble trying to set up Google Chrome or Chromium, see the Troubleshooting section below.
 
@@ -292,7 +292,7 @@ If you still need help, [the official Python docs](https://docs.python.org/3.6/u
 defaults to `chromium-browser` but can be manually specified with the environment variable `CHROME_BINARY`:
 
 ```bash
-env CHROME_BINARY=/usr/local/bin/chromium-browser ./archive.py ~/Downloads/bookmarks_export.html
+env CHROME_BINARY=/usr/local/bin/chromium-browser ./archive ~/Downloads/bookmarks_export.html
 ```
 
 1. Test to make sure you have Chrome on your `$PATH` with:
@@ -320,7 +320,7 @@ brew cask upgrade chromium-browser
 4. If a version is displayed and it's `>=59`, make sure `archive.py` is running the right one:
 
 ```bash
-env CHROME_BINARY=/path/from/step/1/chromium-browser ./archive.py bookmarks_export.html   # replace the path with the one you got from step 1
+env CHROME_BINARY=/path/from/step/1/chromium-browser ./archive bookmarks_export.html   # replace the path with the one you got from step 1
 ```
 
 
