@@ -106,7 +106,7 @@ def archive_link(link_dir, link, overwrite=False):
         link = fetch_favicon(link_dir, link, overwrite=overwrite)
 
     write_link_index(link_dir, link)
-    print()
+    # print()
     
     return link
 
