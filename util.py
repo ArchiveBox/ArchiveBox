@@ -33,7 +33,7 @@ without_query = lambda url: url.split('?', 1)[0]
 without_hash = lambda url: url.split('#', 1)[0]
 without_path = lambda url: url.split('/', 1)[0]
 domain = lambda url: without_hash(without_query(without_path(without_scheme(url))))
-base_url = lambda url: without_query(without_scheme(url))
+base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 
 short_ts = lambda ts: ts.split('.')[0]
 
