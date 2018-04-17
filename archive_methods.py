@@ -1,4 +1,5 @@
 import os
+import sys
 
 from functools import wraps
 from datetime import datetime
@@ -46,7 +47,7 @@ def archive_links(archive_path, links, source=None, resume=None):
     idx, link = 0, to_archive.peek(0)
     try:
         for idx, link in enumerate(to_archive):
-            link_dir = os.path.join(archive_path, link['timestamp'])
+            link_dir = os.path.join(archive_path, 'archive', link['timestamp'])
             archive_link(link_dir, link)
     
     except (KeyboardInterrupt, SystemExit, Exception) as e:
@@ -58,7 +59,8 @@ def archive_links(archive_path, links, source=None, resume=None):
             total=len(list(to_archive)),
         ))
         print('    Continue where you left off by running:')
-        print('       ./archive.py {} {}'.format(
+        print('       {} {} {}'.format(
+            sys.argv[0],
             source,
             link['timestamp'],
         ))

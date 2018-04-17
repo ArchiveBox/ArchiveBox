@@ -33,11 +33,11 @@ TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
 LINK_INDEX_TEMPLATE =    os.getenv('LINK_INDEX_TEMPLATE',    'templates/link_index_fancy.html')
 INDEX_TEMPLATE =         os.getenv('INDEX_TEMPLATE',         'templates/index.html')
 INDEX_ROW_TEMPLATE =     os.getenv('INDEX_ROW_TEMPLATE',     'templates/index_row.html')
+TEMPLATE_STATICFILES =   os.getenv('TEMPLATE_STATICFILES',   'templates/static')
 
 ### Output Paths
 ROOT_FOLDER = os.path.dirname(os.path.abspath(__file__))
 HTML_FOLDER = os.path.join(ARCHIVE_DIR, 'html')
-ARCHIVE_FOLDER = os.path.join(HTML_FOLDER, 'archive')
 os.chdir(ROOT_FOLDER)
 
 # ******************************************************************************
