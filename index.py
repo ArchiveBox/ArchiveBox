@@ -33,7 +33,7 @@ def write_links_index(out_dir, links):
     write_json_links_index(out_dir, links)
     write_html_links_index(out_dir, links)
     
-    print('[√] [{}] Main archive index now up-to-date: {}/index.html'.format(
+    print('[√] [{}] Archive Main Index now up-to-date: {}/index.html'.format(
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         out_dir,
         
@@ -110,7 +110,7 @@ def write_json_link_index(out_dir, link):
     
     path = os.path.join(out_dir, 'index.json')
 
-    print('    √ Updating: index.json')
+    print('      √ index.json')
 
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(link, f, indent=4, default=str)
@@ -131,7 +131,7 @@ def write_html_link_index(out_dir, link):
 
     path = os.path.join(out_dir, 'index.html')
 
-    print('    √ Updating: index.html')
+    print('      √ index.html')
 
     with open(path, 'w', encoding='utf-8') as f:
         f.write(Template(link_html).substitute({

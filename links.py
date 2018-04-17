@@ -98,11 +98,6 @@ def links_after_timestamp(links, timestamp=None):
         yield from links
         return
 
-    print('▶️  [{}] {green}Resuming downloads at {}...{reset}'.format(
-         datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-         timestamp,
-         **ANSI,
-    ))
     for link in links:
         try:
             if float(link['timestamp']) <= float(timestamp):

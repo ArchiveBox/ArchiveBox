@@ -41,8 +41,6 @@ short_ts = lambda ts: ts.split('.')[0]
 def check_dependencies():
     """Check that all necessary dependencies are installed, and have valid versions"""
 
-    print('[*] Checking Dependencies:')
-
     python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
     if python_vers < 3.5:
         print('{}[X] Python version is not new enough: {} (>3.5 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
@@ -50,7 +48,7 @@ def check_dependencies():
         raise SystemExit(1)
 
     if FETCH_PDF or FETCH_SCREENSHOT:
-        if run(['which', CHROME_BINARY]).returncode:
+        if run(['which', CHROME_BINARY], stdout=DEVNULL).returncode:
             print('{}[X] Missing dependency: {}{}'.format(ANSI['red'], CHROME_BINARY, ANSI['reset']))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(CHROME_BINARY))
             print('    See https://github.com/pirate/bookmark-archiver for help.')
@@ -74,21 +72,21 @@ def check_dependencies():
             raise SystemExit(1)
 
     if FETCH_WGET:
-        if run(['which', 'wget']).returncode or run(['wget', '--version'], stdout=DEVNULL).returncode:
+        if run(['which', 'wget'], stdout=DEVNULL).returncode or run(['wget', '--version'], stdout=DEVNULL).returncode:
             print('{red}[X] Missing dependency: wget{reset}'.format(**ANSI))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format('wget'))
             print('    See https://github.com/pirate/bookmark-archiver for help.')
             raise SystemExit(1)
 
     if FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG:
-        if run(['which', 'curl']).returncode or run(['curl', '--version'], stdout=DEVNULL).returncode:
+        if run(['which', 'curl'], stdout=DEVNULL).returncode or run(['curl', '--version'], stdout=DEVNULL).returncode:
             print('{red}[X] Missing dependency: curl{reset}'.format(**ANSI))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format('curl'))
             print('    See https://github.com/pirate/bookmark-archiver for help.')
             raise SystemExit(1)
 
     if FETCH_AUDIO or FETCH_VIDEO:
-        if run(['which', 'youtube-dl']).returncode or run(['youtube-dl', '--version'], stdout=DEVNULL).returncode:
+        if run(['which', 'youtube-dl'], stdout=DEVNULL).returncode or run(['youtube-dl', '--version'], stdout=DEVNULL).returncode:
             print('{red}[X] Missing dependency: youtube-dl{reset}'.format(**ANSI))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format('youtube-dl'))
             print('    See https://github.com/pirate/bookmark-archiver for help.')

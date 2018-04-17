@@ -45,18 +45,19 @@ def archive_links(archive_path, links, source=None, resume=None):
 
     to_archive = Peekable(links_after_timestamp(links, resume))
     idx, link = 0, to_archive.peek(0)
+
     try:
         for idx, link in enumerate(to_archive):
             link_dir = os.path.join(archive_path, 'archive', link['timestamp'])
             archive_link(link_dir, link)
     
     except (KeyboardInterrupt, SystemExit, Exception) as e:
-        print('⏸  [{now}] {lightyellow}Downloading paused on link {timestamp} ({idx}/{total}){reset}'.format(
+        print('{lightyellow}[X] [{now}] Downloading paused on link {timestamp} ({idx}/{total}){reset}'.format(
             **ANSI,
             now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            idx=idx,
+            idx=idx+1,
             timestamp=link['timestamp'],
-            total=len(list(to_archive)),
+            total=len(links),
         ))
         print('    Continue where you left off by running:')
         print('       {} {} {}'.format(
@@ -105,6 +106,7 @@ def archive_link(link_dir, link, overwrite=False):
         link = fetch_favicon(link_dir, link, overwrite=overwrite)
 
     write_link_index(link_dir, link)
+    print()
     
     return link
 
@@ -115,10 +117,10 @@ def log_link_archive(link_dir, link, update_existing):
         **link,
         **ANSI,
     ))
-    if link['type']:
-        print('    i Type: {}'.format(link['type']))
 
-    print('    {} ({})'.format(link_dir, 'updating' if update_existing else 'creating'))
+    print('    > {} ({})'.format(link_dir, 'updating' if update_existing else 'creating'))
+    if link['type']:
+        print('      i {}'.format(link['type']))
 
 
 
@@ -141,10 +143,10 @@ def attach_result_to_link(method):
 
             # if a valid method output is already present, dont run the fetch function
             if link['latest'][method] and not overwrite:
-                print('    √ Skipping: {}'.format(method))
+                print('      √ {}'.format(method))
                 result = None
             else:
-                print('    - Fetching: {}'.format(method))
+                print('      > {}'.format(method))
                 result = fetch_func(link_dir, link, **kwargs)
 
             end_ts = datetime.now().timestamp()

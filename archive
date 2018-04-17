@@ -55,7 +55,7 @@ def merge_links(archive_path=HTML_FOLDER, import_path=None):
     
     num_new_links = len(all_links) - len(existing_links)
     if import_path:
-        print('[*] [{}] Adding {} new links from {} to index'.format(
+        print('[+] [{}] Adding {} new links from {} to index'.format(
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             num_new_links,
             import_path,
@@ -74,6 +74,18 @@ def update_archive(archive_path, links, source=None, resume=None, append=True):
     """update or create index.html+json given a path to an export file containing new links"""
 
     start_ts = datetime.now().timestamp()
+
+    if resume:
+        print('{green}[▶] [{}] Resuming archive update from {}...{reset}'.format(
+             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+             resume,
+             **ANSI,
+        ))
+    else:
+        print('{green}[▶] [{}] Running full archive update...{reset}'.format(
+             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+             **ANSI,
+        ))
 
     # loop over links and archive them
     archive_links(archive_path, links, source=source, resume=resume)
@@ -117,7 +129,7 @@ if __name__ == '__main__':
             # argv[1] is a path to a file to import
             source, resume = sys.argv[1].strip(), None
     elif argc == 3:
-        source, resume = sys.argv[1].strip(), sys.argv[1]
+        source, resume = sys.argv[1].strip(), sys.argv[2]
     else:
         print_help()
         raise SystemExit(1)
