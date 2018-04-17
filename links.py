@@ -33,7 +33,7 @@ Link {
 """
 
 import datetime
-from urllib.parse import unquote
+from html import unescape
 
 from util import (
     domain,
@@ -41,6 +41,7 @@ from util import (
     str_between,
     get_link_type,
     merge_links,
+    wget_output_path,
 )
 from config import ANSI
 
@@ -53,6 +54,19 @@ def validate_links(links):
     if not links:
         print('[X] No links found :(')
         raise SystemExit(1)
+
+    for link in links:
+        link['title'] = unescape(link['title'])
+        link['latest'] = link.get('latest') or {}
+        
+        if not link['latest'].get('wget'):
+            link['latest']['wget'] = wget_output_path(link)
+
+        if not link['latest'].get('pdf'):
+            link['latest']['pdf'] = wget_output_path(link)
+
+        if not link['latest'].get('screenshot'):
+            link['latest']['screenshot'] = wget_output_path(link)
 
     return list(links)
 
@@ -86,7 +100,6 @@ def uniquefied_links(sorted_links):
     unique_timestamps = {}
     for link in unique_urls.values():
         link['timestamp'] = lowest_uniq_timestamp(unique_timestamps, link['timestamp'])
-        link['title'] = unquote(link['title'])
         unique_timestamps[link['timestamp']] = link
 
     return unique_timestamps.values()
