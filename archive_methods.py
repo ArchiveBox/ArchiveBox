@@ -7,7 +7,7 @@ from subprocess import run, PIPE, DEVNULL
 
 from peekable import Peekable
 
-from index import html_appended_url, parse_json_link_index, write_link_index
+from index import wget_output_path, parse_json_link_index, write_link_index
 from links import links_after_timestamp
 from config import (
     ARCHIVE_DIR,
@@ -182,8 +182,9 @@ def attach_result_to_link(method):
 def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT):
     """download full site using wget"""
 
-    if os.path.exists(os.path.join(link_dir, link['domain'])):
-        return {'output': html_appended_url(link), 'status': 'skipped'}
+    domain_dir = os.path.join(link_dir, link['domain'])
+    if os.path.exists(domain_dir):
+        return {'output': wget_output_path(link, look_in=domain_dir), 'status': 'skipped'}
 
     CMD = [
         # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
@@ -220,7 +221,7 @@ def fetch_pdf(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
     """print PDF of site to file using chrome --headless"""
 
     if link['type'] in ('PDF', 'image'):
-        return {'output': html_appended_url(link)}
+        return {'output': wget_output_path(link)}
     
     if os.path.exists(os.path.join(link_dir, 'output.pdf')):
         return {'output': 'output.pdf', 'status': 'skipped'}
@@ -256,7 +257,7 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_
     """take screenshot of site using chrome --headless"""
 
     if link['type'] in ('PDF', 'image'):
-        return {'output': html_appended_url(link)}
+        return {'output': wget_output_path(link)}
     
     if os.path.exists(os.path.join(link_dir, 'screenshot.png')):
         return {'output': 'screenshot.png', 'status': 'skipped'}

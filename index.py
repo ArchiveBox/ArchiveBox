@@ -14,10 +14,11 @@ from config import (
     ARCHIVE_DIR,
     ANSI,
     GIT_SHA,
+    FOOTER_INFO,
 )
 from util import (
     chmod_file,
-    html_appended_url,
+    wget_output_path,
     derived_link_info,
 )
 

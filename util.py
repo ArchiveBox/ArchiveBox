@@ -8,10 +8,12 @@ import requests
 from datetime import datetime
 from subprocess import run, PIPE, DEVNULL
 from multiprocessing import Process
+from urllib.parse import quote
 
 from config import (
     IS_TTY,
     ARCHIVE_PERMISSIONS,
+    HTML_FOLDER,
     ARCHIVE_DIR,
     TIMEOUT,
     TERM_WIDTH,
@@ -394,35 +396,51 @@ def cleanup_archive(archive_path, links):
         print('    '+ '\n    '.join(unmatched))
 
 
-def html_appended_url(link):
+def wget_output_path(link, look_in=None):
     """calculate the path to the wgetted .html file, since wget may
     adjust some paths to be different than the base_url path.
 
-    See docs on wget --adjust-extension.
+    See docs on wget --adjust-extension (-E)
     """
 
     if link['type'] in ('PDF', 'image'):
-        return link['base_url']
+        return quote(link['base_url'])
 
+    # Since the wget algorithm to for -E (appending .html) is incredibly complex
+    # instead of trying to emulate it here, we just look in the output folder
+    # to see what html file wget actually created as the output
+    wget_folder = link['base_url'].rsplit('/', 1)[0]
+    look_in = look_in or os.path.join(HTML_FOLDER, 'archive', link['timestamp'], wget_folder)
+
+    if look_in and os.path.exists(look_in):
+        html_files = [
+            f for f in os.listdir(look_in)
+            if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
+        ]
+        if html_files:
+            return quote(os.path.join(wget_folder, html_files[0]))
+
+    # If finding the actual output file didn't work, fall back to the buggy
+    # implementation of the wget .html appending algorithm
     split_url = link['url'].split('#', 1)
     query = ('%3F' + link['url'].split('?', 1)[-1]) if '?' in link['url'] else ''
 
     if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", split_url[0], re.I | re.M):
         # already ends in .html
-        return link['base_url']
+        return quote(link['base_url'])
     else:
         # .html needs to be appended
         without_scheme = split_url[0].split('://', 1)[-1].split('?', 1)[0]
         if without_scheme.endswith('/'):
             if query:
-                return '#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]])
-            return '#'.join([without_scheme + 'index.html', *split_url[1:]])
+                return quote('#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]]))
+            return quote('#'.join([without_scheme + 'index.html', *split_url[1:]]))
         else:
             if query:
-                return '#'.join([without_scheme + '/index.html' + query + '.html', *split_url[1:]])
+                return quote('#'.join([without_scheme + '/index.html' + query + '.html', *split_url[1:]]))
             elif '/' in without_scheme:
-                return '#'.join([without_scheme + '.html', *split_url[1:]])
-            return link['base_url'] + '/index.html'
+                return quote('#'.join([without_scheme + '.html', *split_url[1:]]))
+            return quote(link['base_url'] + '/index.html')
 
 
 def derived_link_info(link):
@@ -434,7 +452,7 @@ def derived_link_info(link):
         'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
         'favicon_url': 'archive/{timestamp}/favicon.ico'.format(**link),
         'files_url': 'archive/{timestamp}/index.html'.format(**link),
-        'archive_url': 'archive/{}/{}'.format(link['timestamp'], html_appended_url(link)),
+        'archive_url': 'archive/{}/{}'.format(link['timestamp'], wget_output_path(link)),
         'pdf_link': 'archive/{timestamp}/output.pdf'.format(**link),
         'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**link),
         'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**link),
