@@ -90,6 +90,9 @@ def write_html_links_index(out_dir, links):
         'num_links': len(links),
         'date_updated': datetime.now().strftime('%Y-%m-%d'),
         'time_updated': datetime.now().strftime('%Y-%m-%d %H:%M'),
+        'footer_info': FOOTER_INFO,
+        'git_sha': GIT_SHA,
+        'short_git_sha': GIT_SHA[:8],
         'rows': link_rows,
     }
 

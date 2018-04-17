@@ -22,11 +22,12 @@
                 height: 100px;
             }
             header h1 {
-                font-size: 36px;
+                font-size: 38px;
                 font-weight: 300;
                 color: black;
-                margin-top: 2px;
+                padding-top: 14px;
                 line-height: 1.4;
+                margin-right: -200px;
             }
             header h1 small {
                 color: white;
@@ -43,12 +44,17 @@
             header h1 small a:hover {
                 opacity: 1;
             }
+            .header-center {
+                width: 100%;
+                text-align: center;
+            }
             .header-right {
                 float: right;
                 width: 50px;
                 height: 60px;
                 text-align: center;
                 padding: 20px;
+                margin-left: -100px;
             }
             table {
                 padding: 6px;
@@ -82,7 +88,7 @@
     <body>
         <header>
             <div class="header-right">
-                <a href="?">
+                <a href="?" title="Reload...">
                     <img src="static/archive.png" style="height: 100%;"/>
                 </a>
                 <br/>
@@ -90,14 +96,12 @@
                     Docs
                 </a>
             </div>
-            <div style="float:left; height: 50px">
-                <h1 title="Last modified 2017-10-30 05:19" style="text-align:left">
+            <div class="header-center">
+                <h1>
                     Archived Sites
                     <br/>
-                    
                     <small>
-                        $num_links links, last updated $time_updated<br/>
-                        Using <a href="https://github.com/pirate/bookmark-archiver" target="_blank" rel="noopener">Bookmark Archiver</a>.
+                        <a href="?"> $num_links links</a> &nbsp; &nbsp; Last updated $time_updated<br/>
                     </small>
                 </h1>
             </div>
@@ -117,5 +121,18 @@
             </thead>
             <tbody>$rows</tbody>
         </table>
+        <footer>
+            <br/>
+            <center>
+                <small>
+                    Created using <a href="https://github.com/pirate/bookmark-archiver">Bookmark Archiver</a>
+                    version <a href="https://github.com/pirate/bookmark-archiver/commit/$git_sha">$short_git_sha</a> &nbsp; | &nbsp; 
+                    Download index as <a href="index.json">JSON</a>
+                    <br/><br/>
+                    $footer_info
+                </small>
+            </center>
+            <br/>
+        </footer>
     </body>
 </html>
