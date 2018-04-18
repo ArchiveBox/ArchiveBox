@@ -60,9 +60,8 @@ def archive_links(archive_path, links, source=None, resume=None):
             total=len(links),
         ))
         print('    Continue where you left off by running:')
-        print('        {} {} {}'.format(
+        print('        {} {}'.format(
             sys.argv[0],
-            source,
             link['timestamp'],
         ))
         if not isinstance(e, KeyboardInterrupt):
