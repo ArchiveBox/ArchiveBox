@@ -62,13 +62,13 @@ def merge_links(archive_path=HTML_FOLDER, import_path=None):
             archive_path,
             **ANSI,
         ))
-    else:
-        print('[*] [{}] No new links added to {}/index.json{}'.format(
-            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            archive_path,
-            ' from {}'.format(import_path) if import_path else '',
-            **ANSI,
-        ))
+    # else:
+    #     print('[*] [{}] No new links added to {}/index.json{}'.format(
+    #         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    #         archive_path,
+    #         ' from {}'.format(import_path) if import_path else '',
+    #         **ANSI,
+    #     ))
 
     return all_links
 
