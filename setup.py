@@ -19,7 +19,6 @@ setup(
         '': ['templates/*.html'],
     },
     data_files=[
-        ('/etc/bookmark-archiver', ['conf/archiver.conf']),
         (user_conf_path, ['conf/user.conf']),
     ],
     scripts=[
