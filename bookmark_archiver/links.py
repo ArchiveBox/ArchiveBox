@@ -43,8 +43,8 @@ from .util import (
     merge_links,
     wget_output_path,
 )
-from config import ANSI
 
+from .config import ANSI
 
 def validate_links(links):
     links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
