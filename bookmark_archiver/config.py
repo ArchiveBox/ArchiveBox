@@ -52,7 +52,7 @@ TIMEOUT = config['website:pdf']['timeout']
 LINK_INDEX_TEMPLATE = pkg_resources.resource_filename(__name__, 'templates/link_index.html')
 INDEX_TEMPLATE = pkg_resources.resource_filename(__name__, 'templates/index.html')
 INDEX_ROW_TEMPLATE = pkg_resources.resource_filename(__name__, 'templates/index_row.html')
-TEMPLATE_STATICFILES = config['template']['static']
+TEMPLATE_STATICDIR = pkg_resources.resource_filename(__name__, 'templates/static')
 
 # Output Paths
 ROOT_FOLDER = os.path.dirname(os.path.abspath(__file__))

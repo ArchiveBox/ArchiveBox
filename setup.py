@@ -16,7 +16,10 @@ setup(
         'requests',
     ],
     package_data={
-        '': ['templates/*.html'],
+        '': [
+                'templates/*.html',
+                'templates/static/*',
+            ],
     },
     data_files=[
         (user_conf_path, ['conf/user.conf']),

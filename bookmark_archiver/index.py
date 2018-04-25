@@ -3,13 +3,13 @@ import json
 
 from datetime import datetime
 from string import Template
-from distutils.dir_util import copy_tree
+from shutil import copytree
 
 from .config import (
     INDEX_TEMPLATE,
     INDEX_ROW_TEMPLATE,
     LINK_INDEX_TEMPLATE,
-    TEMPLATE_STATICFILES,
+    TEMPLATE_STATICDIR,
     ARCHIVE_PERMISSIONS,
     ARCHIVE_DIR,
     ANSI,
@@ -73,7 +73,7 @@ def write_html_links_index(out_dir, links):
 
     path = os.path.join(out_dir, 'index.html')
 
-    copy_tree(TEMPLATE_STATICFILES, os.path.join(out_dir, "static"))
+    copytree(TEMPLATE_STATICDIR, os.path.join(out_dir, "static"))
 
     with open(INDEX_TEMPLATE, 'r', encoding='utf-8') as f:
         index_html = f.read()
