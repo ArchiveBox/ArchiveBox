@@ -2,6 +2,7 @@ import os
 import sys
 
 from functools import wraps
+from collections import defaultdict
 from datetime import datetime
 from subprocess import run, PIPE, DEVNULL
 
@@ -308,20 +309,27 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
         end()
 
         # Parse archive.org response headers
-        headers = result.stdout.splitlines()
-        content_location = [h for h in headers if b'content-location: ' in h]
-        errors = [h for h in headers if h and b'X-Archive-Wayback-Runtime-Error: ' in h]
+        headers = defaultdict(list)
+
+        # lowercase all the header names and store in dict
+        for header in result.stdout.splitlines():
+            if b':' not in header or not header.strip():
+                continue
+            name, val = header.decode().split(':', 1)
+            headers[name.lower().strip()].append(val.strip())
+
+        # Get successful archive url in "content-location" header or any errors
+        content_location = headers['content-location']
+        errors = headers['x-archive-wayback-runtime-error']
 
         if content_location:
-            archive_path = content_location[0].split(b'content-location: ', 1)[-1].decode('utf-8')
-            saved_url = 'https://web.archive.org{}'.format(archive_path)
+            saved_url = 'https://web.archive.org{}'.format(content_location[0])
             success = True
-
-        elif len(errors) == 1 and b'RobotAccessControlException' in errors[0]:
+        elif len(errors) == 1 and 'RobotAccessControlException' in errors[0]:
             output = submit_url
             # raise Exception('Archive.org denied by {}/robots.txt'.format(link['domain']))
         elif errors:
-            raise Exception(', '.join(e.decode() for e in errors))
+            raise Exception(', '.join(errors))
         else:
             raise Exception('Failed to find "content-location" URL header in Archive.org response.')
     except Exception as e:
