@@ -36,7 +36,7 @@ FETCH_FAVICON = config['website'].getboolean('favicon')
 SUBMIT_ARCHIVE_DOT_ORG = config['archive.org'].getboolean('submit')
 
 RESOLUTION = config['website:pdf']['resolution']
-CHECK_SSL_VALIDITY = config['ssl'].get_boolean('enabled')
+CHECK_SSL_VALIDITY = config['ssl'].getboolean('enabled')
 
 ARCHIVE_PERMISSIONS = config['archive']['permission']
 ARCHIVE_DIR = config['archive']['dir']
