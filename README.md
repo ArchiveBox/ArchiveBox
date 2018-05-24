@@ -48,10 +48,10 @@ Follow the links here to find instructions for exporting bookmarks from each ser
 git clone https://github.com/pirate/bookmark-archiver
 cd bookmark-archiver/
 ./setup.sh                                      # install all dependencies
-./archive.py ~/Downloads/bookmark_export.html   # replace with the path to your export file from step 1
+./archive ~/Downloads/bookmark_export.html      # replace with the path to your export file from step 1
 
 # OR
-./archive.py https://getpocket.com/users/yourusername/feed/all  # url to an RSS, html, or json links file
+./archive https://getpocket.com/users/yourusername/feed/all  # url to an RSS, html, or json links file
 ```
 
 **3. Done!**
@@ -69,8 +69,8 @@ it will keep the index up-to-date without duplicate links.
 
 This example archives a pocket RSS feed and an export file every 24 hours, and saves the output to a logfile.
 ```bash
-0 24 * * * yourusername /opt/bookmark-archiver/archive.py https://getpocket.com/users/yourusername/feed/all > /var/log/bookmark_archiver_rss.log
-0 24 * * * yourusername /opt/bookmark-archiver/archive.py /home/darth-vader/Desktop/bookmarks.html > /var/log/bookmark_archiver_firefox.log
+0 24 * * * yourusername /opt/bookmark-archiver/archive https://getpocket.com/users/yourusername/feed/all > /var/log/bookmark_archiver_rss.log
+0 24 * * * yourusername /opt/bookmark-archiver/archive /home/darth-vader/Desktop/bookmarks.html > /var/log/bookmark_archiver_firefox.log
 ```
 (Add the above lines to `/etc/crontab`)
 
@@ -108,10 +108,10 @@ Those numbers are from running it single-threaded on my i5 machine with 50mbps d
 
 You can run it in parallel by using the `resume` feature, or by manually splitting export.html into multiple files:
 ```bash
-./archive.py export.html 1498800000 &  # second argument is timestamp to resume downloading from
-./archive.py export.html 1498810000 &
-./archive.py export.html 1498820000 &
-./archive.py export.html 1498830000 &
+./archive export.html 1498800000 &  # second argument is timestamp to resume downloading from
+./archive export.html 1498810000 &
+./archive export.html 1498820000 &
+./archive export.html 1498830000 &
 ```
 Users have reported running it with 50k+ bookmarks with success (though it will take more RAM while running).
 
@@ -119,12 +119,13 @@ Users have reported running it with 50k+ bookmarks with success (though it will 
 
 You can tweak parameters via environment variables, or by editing `config.py` directly:
 ```bash
-env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./archive.py ~/Downloads/bookmarks_export.html
+env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./archive ~/Downloads/bookmarks_export.html
 ```
 
 **Shell Options:**
  - colorize console ouput: `USE_COLOR` value: [`True`]/`False`
  - show progress bar: `SHOW_PROGRESS` value: [`True`]/`False`
+ - archive output directory: `ARCHIVE_DIR` value: [`.`]/`'/var/www/archive'`/`...`
  - archive permissions: `ARCHIVE_PERMISSIONS` values: [`755`]/`644`/`...`
 
 **Dependency Options:**
@@ -149,6 +150,8 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
  - html index template: `INDEX_TEMPLATE` value:  [`templates/index.html`]/`...`
  - html index row template: `INDEX_ROW_TEMPLATE` value:  [`templates/index_row.html`]/`...`
  - html link index template: `LINK_INDEX_TEMPLATE` value: [`templates/link_index_fancy.html`]/`templates/link_index.html`/`...`
+ - html template staticfiles: `TEMPLATE_STATICFILES` value: [`templates/static`]/`...`
+ - html template footer text: `FOOTER_INFO` value: [`Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.`]/`...`
 
  (See defaults & more at the top of `config.py`)
 
@@ -158,7 +161,7 @@ The chrome/chromium dependency is _optional_ and only required for screenshots a
 
 ## Publishing Your Archive
 
-The archive produced by `./archive.py` is suitable for serving on any provider that can host static html (e.g. github pages!).
+The archive produced by `./archive` is suitable for serving on any provider that can host static html (e.g. github pages!).
 
 You can also serve it from a home server or VPS by uploading the outputted `html` folder to your web directory, e.g. `/var/www/bookmark-archiver` and configuring your webserver.
 
@@ -188,6 +191,8 @@ You may also want to blacklist your archive in `/robots.txt` if you don't want t
 
 Be aware that some sites you archive may not allow you to rehost their content publicly for copyright reasons,
 it's up to you to host responsibly and respond to takedown requests appropriately.
+
+Please modify the `FOOTER_INFO` config variable to add your contact info to the footer of your index.
 
 ## Info & Motivation
 
@@ -236,7 +241,7 @@ Follow the instruction links above in the "Quickstart" section to download your 
 
 1. Clone this repo `git clone https://github.com/pirate/bookmark-archiver`
 3. `cd bookmark-archiver/`
-4. `./archive.py ~/Downloads/bookmarks_export.html`
+4. `./archive ~/Downloads/bookmarks_export.html`
 
 You may optionally specify a second argument to `archive.py export.html 153242424324` to resume the archive update at a specific timestamp.
 
@@ -269,7 +274,7 @@ apt update; apt install google-chrome-beta python3 wget
 2. Set the environment variable `CHROME_BINARY` to `google-chrome` before running:
 
 ```bash
-env CHROME_BINARY=google-chrome ./archive.py ~/Downloads/bookmarks_export.html
+env CHROME_BINARY=google-chrome ./archive ~/Downloads/bookmarks_export.html
 ```
 If you're having any trouble trying to set up Google Chrome or Chromium, see the Troubleshooting section below.
 
@@ -292,7 +297,7 @@ If you still need help, [the official Python docs](https://docs.python.org/3.6/u
 defaults to `chromium-browser` but can be manually specified with the environment variable `CHROME_BINARY`:
 
 ```bash
-env CHROME_BINARY=/usr/local/bin/chromium-browser ./archive.py ~/Downloads/bookmarks_export.html
+env CHROME_BINARY=/usr/local/bin/chromium-browser ./archive ~/Downloads/bookmarks_export.html
 ```
 
 1. Test to make sure you have Chrome on your `$PATH` with:
@@ -320,7 +325,7 @@ brew cask upgrade chromium-browser
 4. If a version is displayed and it's `>=59`, make sure `archive.py` is running the right one:
 
 ```bash
-env CHROME_BINARY=/path/from/step/1/chromium-browser ./archive.py bookmarks_export.html   # replace the path with the one you got from step 1
+env CHROME_BINARY=/path/from/step/1/chromium-browser ./archive bookmarks_export.html   # replace the path with the one you got from step 1
 ```
 
 
@@ -389,14 +394,24 @@ will run fast subsequent times because it only downloads new links that haven't 
 
 ## Links
 
+**Similar Projects:**
+ - [Memex by Worldbrain.io](https://github.com/WorldBrain/Memex) a browser extension that saves all your history and does full-text search
+ - [Hypothes.is](https://web.hypothes.is/) a web/pdf/ebook annotation tool that also archives content
+ - [Perkeep](https://perkeep.org/) "Perkeep lets you permanently keep your stuff, for life."
+ - [Fetching.io](http://fetching.io/) A personal search engine/archiver that lets you search through all archived websites that you've bookmarked
+ - [Shaarchiver](https://github.com/nodiscc/shaarchiver) very similar project that archives Firefox, Shaarli, or Delicious bookmarks and all linked media, generating a markdown/HTML index
+ - [Webrecorder.io](https://webrecorder.io/) Save full browsing sessions and archive all the content
+ - [Wallabag](https://wallabag.org) Save articles you read locally or on your phone
+
+**Discussions:**
  - [Hacker News Discussion](https://news.ycombinator.com/item?id=14272133)
  - [Reddit r/selfhosted Discussion](https://www.reddit.com/r/selfhosted/comments/69eoi3/pocket_stream_archive_your_own_personal_wayback/)
  - [Reddit r/datahoarder Discussion #1](https://www.reddit.com/r/DataHoarder/comments/69e6i9/archive_a_browseable_copy_of_your_saved_pocket/)
  - [Reddit r/datahoarder Discussion #2](https://www.reddit.com/r/DataHoarder/comments/6kepv6/bookmarkarchiver_now_supports_archiving_all_major/)
- - https://wallabag.org + https://github.com/wallabag/wallabag
- - https://webrecorder.io/
+
+
+**Tools/Other:**
  - https://github.com/ikreymer/webarchiveplayer#auto-load-warcs
- - [Shaarchiver](https://github.com/nodiscc/shaarchiver) very similar project that archives Firefox, Shaarli, or Delicious bookmarks and all linked media, generating a markdown/HTML index
  - [Sheetsee-Pocket](http://jlord.us/sheetsee-pocket/) project that provides a pretty auto-updating index of your Pocket links (without archiving them)
  - [Pocket -> IFTTT -> Dropbox](https://christopher.su/2013/saving-pocket-links-file-day-dropbox-ifttt-launchd/) Post by Christopher Su on his Pocket saving IFTTT recipie
 

@@ -25,7 +25,6 @@ from config import (
 )
 from util import (
     download_url,
-    check_dependencies,
     progress,
     cleanup_archive,
 )
@@ -40,31 +39,56 @@ def print_help():
     print("    ./archive.py ~/Downloads/bookmarks_export.html\n")
 
 
-def get_links(new_links_file_path, archive_path=HTML_FOLDER):
+def merge_links(archive_path=HTML_FOLDER, import_path=None):
     """get new links from file and optionally append them to links in existing archive"""
-    # parse and validate the new_links_file
-    raw_links = parse_links(new_links_file_path)
-    valid_links = validate_links(raw_links)
+    all_links = []
+    if import_path:
+        # parse and validate the import file
+        raw_links = parse_links(import_path)
+        all_links = validate_links(raw_links)
 
     # merge existing links in archive_path and new links
     existing_links = []
     if archive_path:
         existing_links = parse_json_links_index(archive_path)
-        valid_links = validate_links(existing_links + valid_links)
+        all_links = validate_links(existing_links + all_links)
     
-    num_new_links = len(valid_links) - len(existing_links)
-    print('[*] [{}] Adding {} new links from {} to index'.format(
-        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        num_new_links,
-        new_links_file_path,
-    ))
+    num_new_links = len(all_links) - len(existing_links)
+    if num_new_links:
+        print('[{green}+{reset}] [{}] Adding {} new links from {} to {}/index.json'.format(
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            num_new_links,
+            import_path,
+            archive_path,
+            **ANSI,
+        ))
+    # else:
+    #     print('[*] [{}] No new links added to {}/index.json{}'.format(
+    #         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    #         archive_path,
+    #         ' from {}'.format(import_path) if import_path else '',
+    #         **ANSI,
+    #     ))
 
-    return valid_links
+    return all_links
 
 def update_archive(archive_path, links, source=None, resume=None, append=True):
     """update or create index.html+json given a path to an export file containing new links"""
 
     start_ts = datetime.now().timestamp()
+
+    if resume:
+        print('{green}[▶] [{}] Resuming archive downloading from {}...{reset}'.format(
+             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+             resume,
+             **ANSI,
+        ))
+    else:
+        print('{green}[▶] [{}] Updating files for {} links in archive...{reset}'.format(
+             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+             len(links),
+             **ANSI,
+        ))
 
     # loop over links and archive them
     archive_links(archive_path, links, source=source, resume=resume)
@@ -77,9 +101,10 @@ def update_archive(archive_path, links, source=None, resume=None, append=True):
     else:
         duration = '{0:.2f} sec'.format(seconds, 2)
 
-    print('{}[√] [{}] Archive update complete ({}){}'.format(
+    print('{}[√] [{}] Update of {} links complete ({}){}'.format(
         ANSI['green'],
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        len(links),
         duration,
         ANSI['reset'],
     ))
@@ -91,34 +116,47 @@ def update_archive(archive_path, links, source=None, resume=None, append=True):
 if __name__ == '__main__':
     argc = len(sys.argv)
 
-    if argc < 2 or set(sys.argv).intersection('-h', '--help', 'help'):
+    if set(sys.argv).intersection('-h', '--help', 'help'):
         print_help()
         raise SystemExit(0)
 
-    source = sys.argv[1]                        # path to export file
+    source = sys.argv[1] if argc > 1 else None  # path of links file to import
     resume = sys.argv[2] if argc > 2 else None  # timestamp to resume dowloading from
    
+    if argc == 1:
+        source, resume = None, None
+    elif argc == 2:
+        if all(d.isdigit() for d in sys.argv[1].split('.')):
+            # argv[1] is a resume timestamp
+            source, resume = None, sys.argv[1]
+        else:
+            # argv[1] is a path to a file to import
+            source, resume = sys.argv[1].strip(), None
+    elif argc == 3:
+        source, resume = sys.argv[1].strip(), sys.argv[2]
+    else:
+        print_help()
+        raise SystemExit(1)
+
     # See if archive folder already exists
-    for out_folder in (HTML_FOLDER, 'bookmarks', 'pocket', 'pinboard', 'html'):
-        if os.path.exists(out_folder):
+    for out_dir in (HTML_FOLDER, 'bookmarks', 'pocket', 'pinboard', 'html'):
+        if os.path.exists(out_dir):
             break
     else:
-        out_folder = HTML_FOLDER
-
-    archive_path = os.path.join(out_folder, 'archive')
+        out_dir = HTML_FOLDER
 
     # Step 0: Download url to local file (only happens if a URL is specified instead of local path) 
-    if any(source.startswith(s) for s in ('http://', 'https://', 'ftp://')):
+    if source and any(source.startswith(s) for s in ('http://', 'https://', 'ftp://')):
         source = download_url(source)
 
     # Step 1: Parse the links and dedupe them with existing archive
-    links = get_links(source, archive_path=archive_path)
+    links = merge_links(archive_path=out_dir, import_path=source)
     
     # Step 2: Write new index
-    write_links_index(archive_path, links)
+    write_links_index(out_dir=out_dir, links=links)
 
     # Step 3: Verify folder structure is 1:1 with index
-    cleanup_archive(archive_path, links)
+    # cleanup_archive(out_dir, links)
 
     # Step 4: Run the archive methods for each link
-    update_archive(archive_path, links, source=source, resume=resume, append=True)
+    update_archive(out_dir, links, source=source, resume=resume, append=True)

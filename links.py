@@ -32,13 +32,18 @@ Link {
 
 """
 
+import datetime
+from html import unescape
+
 from util import (
     domain,
     base_url,
     str_between,
     get_link_type,
     merge_links,
+    wget_output_path,
 )
+from config import ANSI
 
 
 def validate_links(links):
@@ -49,6 +54,19 @@ def validate_links(links):
     if not links:
         print('[X] No links found :(')
         raise SystemExit(1)
+
+    for link in links:
+        link['title'] = unescape(link['title'])
+        link['latest'] = link.get('latest') or {}
+        
+        if not link['latest'].get('wget'):
+            link['latest']['wget'] = wget_output_path(link)
+
+        if not link['latest'].get('pdf'):
+            link['latest']['pdf'] = None
+
+        if not link['latest'].get('screenshot'):
+            link['latest']['screenshot'] = None
 
     return list(links)
 
@@ -95,7 +113,6 @@ def links_after_timestamp(links, timestamp=None):
         yield from links
         return
 
-    print('[.] [{}] Resuming...'.format(timestamp))
     for link in links:
         try:
             if float(link['timestamp']) <= float(timestamp):

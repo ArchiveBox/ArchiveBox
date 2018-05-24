@@ -21,7 +21,7 @@ FETCH_PDF =              os.getenv('FETCH_PDF',              'True'             
 FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'             ).lower() == 'true'
 FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'
 SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             ).lower() == 'true'
-RESOLUTION =             os.getenv('RESOLUTION',             '1440,900'         )
+RESOLUTION =             os.getenv('RESOLUTION',             '1440,1200'        )
 CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
 ARCHIVE_PERMISSIONS =    os.getenv('ARCHIVE_PERMISSIONS',    '755'              )
 ARCHIVE_DIR =            os.getenv('ARCHIVE_DIR',            '')
@@ -33,11 +33,12 @@ TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
 LINK_INDEX_TEMPLATE =    os.getenv('LINK_INDEX_TEMPLATE',    'templates/link_index_fancy.html')
 INDEX_TEMPLATE =         os.getenv('INDEX_TEMPLATE',         'templates/index.html')
 INDEX_ROW_TEMPLATE =     os.getenv('INDEX_ROW_TEMPLATE',     'templates/index_row.html')
+TEMPLATE_STATICFILES =   os.getenv('TEMPLATE_STATICFILES',   'templates/static')
+FOOTER_INFO =            os.getenv('FOOTER_INFO',            'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.',)
 
 ### Output Paths
 ROOT_FOLDER = os.path.dirname(os.path.abspath(__file__))
 HTML_FOLDER = os.path.join(ARCHIVE_DIR, 'html')
-ARCHIVE_FOLDER = os.path.join(HTML_FOLDER, 'archive')
 os.chdir(ROOT_FOLDER)
 
 # ******************************************************************************

@@ -3,19 +3,22 @@ import json
 
 from datetime import datetime
 from string import Template
+from distutils.dir_util import copy_tree
 
 from config import (
     INDEX_TEMPLATE,
     INDEX_ROW_TEMPLATE,
     LINK_INDEX_TEMPLATE,
+    TEMPLATE_STATICFILES,
     ARCHIVE_PERMISSIONS,
     ARCHIVE_DIR,
     ANSI,
     GIT_SHA,
+    FOOTER_INFO,
 )
 from util import (
     chmod_file,
-    html_appended_url,
+    wget_output_path,
     derived_link_info,
 )
 
@@ -28,15 +31,14 @@ def write_links_index(out_dir, links):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    print('[i] [{}] Updating {}{}{} links in archive index...'.format(
-        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        ANSI['green'],
-        len(links),
-        ANSI['reset'],
-    ))
-    
     write_json_links_index(out_dir, links)
     write_html_links_index(out_dir, links)
+    
+    print('{green}[√] [{}] Updated main index files:{reset}'.format(
+        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        **ANSI))
+    print('    > {}/index.json'.format(out_dir))
+    print('    > {}/index.html'.format(out_dir))
 
 def write_json_links_index(out_dir, links):
     """write the json link index to a given path"""
@@ -71,6 +73,8 @@ def write_html_links_index(out_dir, links):
 
     path = os.path.join(out_dir, 'index.html')
 
+    copy_tree(TEMPLATE_STATICFILES, os.path.join(out_dir, "static"))
+
     with open(INDEX_TEMPLATE, 'r', encoding='utf-8') as f:
         index_html = f.read()
 
@@ -86,6 +90,9 @@ def write_html_links_index(out_dir, links):
         'num_links': len(links),
         'date_updated': datetime.now().strftime('%Y-%m-%d'),
         'time_updated': datetime.now().strftime('%Y-%m-%d %H:%M'),
+        'footer_info': FOOTER_INFO,
+        'git_sha': GIT_SHA,
+        'short_git_sha': GIT_SHA[:8],
         'rows': link_rows,
     }
 
@@ -107,7 +114,7 @@ def write_json_link_index(out_dir, link):
     
     path = os.path.join(out_dir, 'index.json')
 
-    print('    √ Updating: index.json')
+    print('      √ index.json')
 
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(link, f, indent=4, default=str)
@@ -128,7 +135,7 @@ def write_html_link_index(out_dir, link):
 
     path = os.path.join(out_dir, 'index.html')
 
-    print('    √ Updating: index.html')
+    print('      √ index.html')
 
     with open(path, 'w', encoding='utf-8') as f:
         f.write(Template(link_html).substitute({
@@ -139,7 +146,7 @@ def write_html_link_index(out_dir, link):
             'bookmarked': datetime.fromtimestamp(float(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),
             'updated': datetime.fromtimestamp(float(link['updated'])).strftime('%Y-%m-%d %H:%M'),
             'archive_org': link['latest'].get('archive_org') or 'https://web.archive.org/save/{}'.format(link['url']),
-            'wget': link['latest'].get('wget') or link['domain'],
+            'wget': link['latest'].get('wget') or wget_output_path(link),
         }))
 
     chmod_file(path)

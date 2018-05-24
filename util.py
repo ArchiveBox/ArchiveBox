@@ -8,10 +8,12 @@ import requests
 from datetime import datetime
 from subprocess import run, PIPE, DEVNULL
 from multiprocessing import Process
+from urllib.parse import quote
 
 from config import (
     IS_TTY,
     ARCHIVE_PERMISSIONS,
+    HTML_FOLDER,
     ARCHIVE_DIR,
     TIMEOUT,
     TERM_WIDTH,
@@ -33,15 +35,13 @@ without_query = lambda url: url.split('?', 1)[0]
 without_hash = lambda url: url.split('#', 1)[0]
 without_path = lambda url: url.split('/', 1)[0]
 domain = lambda url: without_hash(without_query(without_path(without_scheme(url))))
-base_url = lambda url: without_query(without_scheme(url))
+base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 
 short_ts = lambda ts: ts.split('.')[0]
 
 
 def check_dependencies():
     """Check that all necessary dependencies are installed, and have valid versions"""
-
-    print('[*] Checking Dependencies:')
 
     python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
     if python_vers < 3.5:
@@ -50,7 +50,7 @@ def check_dependencies():
         raise SystemExit(1)
 
     if FETCH_PDF or FETCH_SCREENSHOT:
-        if run(['which', CHROME_BINARY]).returncode:
+        if run(['which', CHROME_BINARY], stdout=DEVNULL).returncode:
             print('{}[X] Missing dependency: {}{}'.format(ANSI['red'], CHROME_BINARY, ANSI['reset']))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(CHROME_BINARY))
             print('    See https://github.com/pirate/bookmark-archiver for help.')
@@ -74,21 +74,21 @@ def check_dependencies():
             raise SystemExit(1)
 
     if FETCH_WGET:
-        if run(['which', 'wget']).returncode or run(['wget', '--version'], stdout=DEVNULL).returncode:
+        if run(['which', 'wget'], stdout=DEVNULL).returncode or run(['wget', '--version'], stdout=DEVNULL).returncode:
             print('{red}[X] Missing dependency: wget{reset}'.format(**ANSI))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format('wget'))
             print('    See https://github.com/pirate/bookmark-archiver for help.')
             raise SystemExit(1)
 
     if FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG:
-        if run(['which', 'curl']).returncode or run(['curl', '--version'], stdout=DEVNULL).returncode:
+        if run(['which', 'curl'], stdout=DEVNULL).returncode or run(['curl', '--version'], stdout=DEVNULL).returncode:
             print('{red}[X] Missing dependency: curl{reset}'.format(**ANSI))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format('curl'))
             print('    See https://github.com/pirate/bookmark-archiver for help.')
             raise SystemExit(1)
 
     if FETCH_AUDIO or FETCH_VIDEO:
-        if run(['which', 'youtube-dl']).returncode or run(['youtube-dl', '--version'], stdout=DEVNULL).returncode:
+        if run(['which', 'youtube-dl'], stdout=DEVNULL).returncode or run(['youtube-dl', '--version'], stdout=DEVNULL).returncode:
             print('{red}[X] Missing dependency: youtube-dl{reset}'.format(**ANSI))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format('youtube-dl'))
             print('    See https://github.com/pirate/bookmark-archiver for help.')
@@ -396,35 +396,55 @@ def cleanup_archive(archive_path, links):
         print('    '+ '\n    '.join(unmatched))
 
 
-def html_appended_url(link):
+def wget_output_path(link, look_in=None):
     """calculate the path to the wgetted .html file, since wget may
     adjust some paths to be different than the base_url path.
 
-    See docs on wget --adjust-extension.
+    See docs on wget --adjust-extension (-E)
     """
 
+    urlencode = lambda s: quote(s, encoding='utf-8', errors='replace')
+
     if link['type'] in ('PDF', 'image'):
-        return link['base_url']
+        return urlencode(link['base_url'])
 
-    split_url = link['url'].split('#', 1)
-    query = ('%3F' + link['url'].split('?', 1)[-1]) if '?' in link['url'] else ''
+    # Since the wget algorithm to for -E (appending .html) is incredibly complex
+    # instead of trying to emulate it here, we just look in the output folder
+    # to see what html file wget actually created as the output
+    wget_folder = link['base_url'].rsplit('/', 1)[0].split('/')
+    look_in = os.path.join(HTML_FOLDER, 'archive', link['timestamp'], *wget_folder)
 
-    if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", split_url[0], re.I | re.M):
-        # already ends in .html
-        return link['base_url']
-    else:
-        # .html needs to be appended
-        without_scheme = split_url[0].split('://', 1)[-1].split('?', 1)[0]
-        if without_scheme.endswith('/'):
-            if query:
-                return '#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]])
-            return '#'.join([without_scheme + 'index.html', *split_url[1:]])
-        else:
-            if query:
-                return '#'.join([without_scheme + '/index.html' + query + '.html', *split_url[1:]])
-            elif '/' in without_scheme:
-                return '#'.join([without_scheme + '.html', *split_url[1:]])
-            return link['base_url'] + '/index.html'
+    if look_in and os.path.exists(look_in):
+        html_files = [
+            f for f in os.listdir(look_in)
+            if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
+        ]
+        if html_files:
+            return urlencode(os.path.join(*wget_folder, html_files[0]))
+
+    return None
+
+    # If finding the actual output file didn't work, fall back to the buggy
+    # implementation of the wget .html appending algorithm
+    # split_url = link['url'].split('#', 1)
+    # query = ('%3F' + link['url'].split('?', 1)[-1]) if '?' in link['url'] else ''
+
+    # if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", split_url[0], re.I | re.M):
+    #     # already ends in .html
+    #     return urlencode(link['base_url'])
+    # else:
+    #     # .html needs to be appended
+    #     without_scheme = split_url[0].split('://', 1)[-1].split('?', 1)[0]
+    #     if without_scheme.endswith('/'):
+    #         if query:
+    #             return urlencode('#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]]))
+    #         return urlencode('#'.join([without_scheme + 'index.html', *split_url[1:]]))
+    #     else:
+    #         if query:
+    #             return urlencode('#'.join([without_scheme + '/index.html' + query + '.html', *split_url[1:]]))
+    #         elif '/' in without_scheme:
+    #             return urlencode('#'.join([without_scheme + '.html', *split_url[1:]]))
+    #         return urlencode(link['base_url'] + '/index.html')
 
 
 def derived_link_info(link):
@@ -434,11 +454,11 @@ def derived_link_info(link):
         **link,
         'date': datetime.fromtimestamp(float(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),
         'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
-        'favicon_url': './archive/{timestamp}/favicon.ico'.format(**link),
-        'files_url': './archive/{timestamp}/index.html'.format(**link),
-        'archive_url': './archive/{}/{}'.format(link['timestamp'], html_appended_url(link)),
-        'pdf_link': './archive/{timestamp}/output.pdf'.format(**link),
-        'screenshot_link': './archive/{timestamp}/screenshot.png'.format(**link),
+        'favicon_url': 'archive/{timestamp}/favicon.ico'.format(**link),
+        'files_url': 'archive/{timestamp}/index.html'.format(**link),
+        'archive_url': 'archive/{}/{}'.format(link['timestamp'], wget_output_path(link)),
+        'pdf_link': 'archive/{timestamp}/output.pdf'.format(**link),
+        'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**link),
         'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**link),
     }
 
