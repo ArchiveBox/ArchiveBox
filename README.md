@@ -2,7 +2,7 @@
 
     "Your own personal Way-Back Machine"
 
-▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Changelog](#changelog) | [Donate](https://github.com/pirate/bookmark-archiver/blob/master/donate.md)
+▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Demo](https://archive.sweeting.me) | [Changelog](#changelog) | [Donate](https://github.com/pirate/bookmark-archiver/blob/master/donate.md)
 
 ---
 
@@ -11,12 +11,13 @@ Save an archived copy of all websites you bookmark (the actual *content* of each
  - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera)
  - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket
  - <img src="https://pinboard.in/favicon.ico" height="22px"/> Pinboard
- - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS
+ - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS or plain text lists
  - Shaarli, Delicious, Instapaper, Reddit Saved Posts, Wallabag, Unmark.it, and more!
+ - Contiuous archiving of browsing history (every site, not just bookmarked) (coming soon!...)
 
 Outputs browsable static html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed with nice html & json files.  
 
-[DEMO: sweeting.me/pocket](https://home.sweeting.me/pocket)
+[DEMO: archive.sweeting.me](https://archive.sweeting.me)
 
 <img src="screenshot.png" width="75%" alt="Desktop Screenshot" align="top"><img src="screenshot_mobile.png" width="25%" alt="Mobile Screenshot" align="top"><br/>
 
