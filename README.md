@@ -52,6 +52,9 @@ cd bookmark-archiver/
 
 # OR
 ./archive https://getpocket.com/users/yourusername/feed/all  # url to an RSS, html, or json links file
+
+# OR
+./archive   # at any point if you just want to continue archiving where you left off, without adding any new links
 ```
 
 **3. Done!**
