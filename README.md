@@ -15,7 +15,7 @@ Save an archived copy of all websites you bookmark (the actual *content* of each
  - Shaarli, Delicious, Instapaper, Reddit Saved Posts, Wallabag, Unmark.it, and more!
  - Contiuous archiving of browsing history (every site, not just bookmarked) (coming soon!...)
 
-Outputs browsable static html archives of each site, a PDF, a screenshot, and a link to a copy on archive.org, all indexed with nice html & json files.  
+Outputs browsable static html archives of each site made using wget, a PDF, a screenshot, a DOM dump from headless chrome, and a link to a copy on archive.org, all indexed with nice html & json files.  
 
 [DEMO: archive.sweeting.me](https://archive.sweeting.me)
 
@@ -143,6 +143,7 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
    - fetch images/css/js with wget: `FETCH_WGET_REQUISITES` (True is highly recommended)
    - print page as PDF: `FETCH_PDF`
    - fetch a screenshot of the page: `FETCH_SCREENSHOT`
+   - fetch a DOM dump of the page: `FETCH_DOM`
    - fetch a favicon for the page: `FETCH_FAVICON`
    - submit the page to archive.org: `SUBMIT_ARCHIVE_DOT_ORG` 
  - screenshot: `RESOLUTION` values: [`1440,900`]/`1024,768`/`...`
@@ -421,6 +422,7 @@ will run fast subsequent times because it only downloads new links that haven't 
 
 ## Changelog
 
+ - support for chrome `--dump-dom` to output full page HTML after JS executes
  - v0.0.3 released
  - support for chrome `--user-data-dir` to archive sites that need logins
  - fancy individual html & json indexes for each link
