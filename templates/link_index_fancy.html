@@ -24,15 +24,20 @@
                 margin: 0px;
                 font-weight: 200;
                 font-family: "Gill Sans", Helvetica, sans-serif;
+                font-size: calc(16px + 1vw);
             }
             .collapse-icon {
                 float: left;
                 color: black;
                 width: 126px;
-                font-size: 0.7em;
+                font-size: 0.8em;
                 margin-top: 20px;
                 margin-right: 0px;
                 margin-left: -35px;
+                text-decoration: none;
+            }
+            a.collapse-icon:hover {
+                text-decoration: none;
             }
             .nav-icon img {
                 float: right;
@@ -48,6 +53,11 @@
             }
             .title-url {
                 color: black;
+                display: block;
+                width: 75%;
+                white-space: nowrap;
+                overflow: hidden;
+                margin: auto;
             }
             .archive-page-header {
                 margin-top: 5px;
@@ -160,7 +170,7 @@
                     <img src="../../static/archive.png" alt="Archive Icon">
                 </a>
                 <a href="#" class="collapse-icon" title="Toggle info panel...">
-                    [-]
+                    ▾
                 </a>
                 $title<br/>
                 <a href="$url" class="title-url">
@@ -170,20 +180,22 @@
         </header>
         <div class="site-header container-fluid">
             <div class="row archive-page-header">
-                <div class="col-lg-2">
-                    <div class="alert alert-warning">
-                        Tags:
-                        <span class="badge badge-success">$tags</span> 
-                        <span class="badge badge-default">$type</span>
-                        <div style="height:5px"></div>
-                        Bookmarked:<br/>
-                            <small>$bookmarked<br/></small>
-                        Archived:<br/>
-                            <small>$updated</small>
-                        <hr/>
-                        <a href="index.json">JSON</a> | <a href=".">Files</a>
-                    </div>
+                <div class="col-lg-4 alert well">
+                    Added: <small>$bookmarked</small>
+                    &nbsp; | &nbsp;
+                    Last updated: <small>$updated</small>
                 </div>
+                <div class="col-lg-4 alert well">
+                    Type: 
+                    <span class="badge badge-default">$type</span>
+                    &nbsp; | &nbsp;
+                    Tags:
+                    <span class="badge badge-success">$tags</span> 
+                </div>
+                <div class="col-lg-4 alert well">
+                    Download: <a href="index.json">JSON</a> | <a href=".">Files</a>
+                </div>
+                <hr/>
                 <div class="col-lg-2">
                     <div class="card selected-card">
                       <iframe class="card-img-top" src="$wget" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
@@ -193,6 +205,18 @@
                         </a>
                         <a href="$wget" target="preview"><h4 class="card-title">Local Archive</h4></a>
                         <p class="card-text">archive/$domain</p>
+                      </div>
+                    </div>
+                </div>
+                <div class="col-lg-2">
+                    <div class="card">
+                      <iframe class="card-img-top" src="$dom" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+                      <div class="card-body">
+                        <a href="$dom" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                            <img src="../../static/external.png" class="external"/>
+                        </a>
+                        <a href="$dom" target="preview"><h4 class="card-title">HTML</h4></a>
+                        <p class="card-text">archive/output.html</p>
                       </div>
                     </div>
                 </div>
@@ -274,12 +298,12 @@
 
         // hide header when collapse icon is clicked
         jQuery('.collapse-icon').on('click', function() {
-            if (jQuery('.collapse-icon').text().includes('[-]')) {
-                jQuery('.collapse-icon').text('[+]')
+            if (jQuery('.collapse-icon').text().includes('▾')) {
+                jQuery('.collapse-icon').text('▸')
                 jQuery('.site-header').hide()
                 jQuery('.full-page-iframe').addClass('iframe-large')
             } else {
-                jQuery('.collapse-icon').text('[-]')
+                jQuery('.collapse-icon').text('▾')
                 jQuery('.site-header').show()
                 jQuery('.full-page-iframe').removeClass('iframe-large')
             }
