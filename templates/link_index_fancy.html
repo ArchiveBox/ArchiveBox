@@ -34,10 +34,6 @@
                 margin-top: 20px;
                 margin-right: 0px;
                 margin-left: -35px;
-                text-decoration: none;
-            }
-            a.collapse-icon:hover {
-                text-decoration: none;
             }
             .nav-icon img {
                 float: right;
@@ -169,21 +165,21 @@
                 <a href="../../index.html" class="nav-icon" title="Go to Main Index...">
                     <img src="../../static/archive.png" alt="Archive Icon">
                 </a>
-                <a href="#" class="collapse-icon" title="Toggle info panel...">
+                <a href="#" class="collapse-icon" style="text-decoration: none" title="Toggle info panel...">
                     ▾
                 </a>
-                $title<br/>
+                <img src="$favicon" height="20px"> $title<br/>
                 <a href="$url" class="title-url">
-                    <small><img src="$favicon" height="20px"> $base_url</small>
+                    <small>$base_url</small>
                 </a>
             </h1>
         </header>
         <div class="site-header container-fluid">
             <div class="row archive-page-header">
                 <div class="col-lg-4 alert well">
-                    Added: <small>$bookmarked</small>
+                    Added: <small title="Timestamp: $bookmarked_ts">$bookmarked</small>
                     &nbsp; | &nbsp;
-                    Last updated: <small>$updated</small>
+                    Last updated: <small title="Timestamp: $updated_ts">$updated</small>
                 </div>
                 <div class="col-lg-4 alert well">
                     Type: 
@@ -193,7 +189,9 @@
                     <span class="badge badge-success">$tags</span> 
                 </div>
                 <div class="col-lg-4 alert well">
-                    Download: <a href="index.json">JSON</a> | <a href=".">Files</a>
+                    Download:
+                    <a href="index.json" title="JSON summary of archived link.">JSON</a> | 
+                    <a href="." title="Webserver-provided index of files directory.">Files</a>
                 </div>
                 <hr/>
                 <div class="col-lg-2">
