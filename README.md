@@ -107,8 +107,9 @@ organized by timestamp bookmarked.  It's Powered by [headless](https://developer
 For each sites it saves:
 
  - wget of site, e.g. `en.wikipedia.org/wiki/Example.html` with .html appended if not present
- - `screenshot.png` 1440x900 screenshot of site using headless chrome
  - `output.pdf` Printed PDF of site using headless chrome
+ - `screenshot.png` 1440x900 screenshot of site using headless chrome
+ - `output.html` DOM Dump of the HTML after rendering using headless chrome
  - `archive.org.txt` A link to the saved site on archive.org
  - `audio/` and `video/` for sites like youtube, soundcloud, etc. (using youtube-dl) (WIP)
  - `code/` clone of any repository for github, bitbucket, or gitlab links (WIP)
