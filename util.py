@@ -23,6 +23,7 @@ from config import (
     FETCH_WGET,
     FETCH_PDF,
     FETCH_SCREENSHOT,
+    FETCH_DOM,
     FETCH_FAVICON,
     FETCH_AUDIO,
     FETCH_VIDEO,
@@ -49,7 +50,7 @@ def check_dependencies():
         print('    See https://github.com/pirate/bookmark-archiver#troubleshooting for help upgrading your Python installation.')
         raise SystemExit(1)
 
-    if FETCH_PDF or FETCH_SCREENSHOT:
+    if FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM:
         if run(['which', CHROME_BINARY], stdout=DEVNULL).returncode:
             print('{}[X] Missing dependency: {}{}'.format(ANSI['red'], CHROME_BINARY, ANSI['reset']))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(CHROME_BINARY))
@@ -64,7 +65,7 @@ def check_dependencies():
             version = [l for l in version_lines if l.isdigit()][-1]
             if int(version) < 59:
                 print(version_lines)
-                print('{red}[X] Chrome version must be 59 or greater for headless PDF and screenshot saving{reset}'.format(**ANSI))
+                print('{red}[X] Chrome version must be 59 or greater for headless PDF, screenshot, and DOM saving{reset}'.format(**ANSI))
                 print('    See https://github.com/pirate/bookmark-archiver for help.')
                 raise SystemExit(1)
         except (IndexError, TypeError, OSError):
@@ -459,6 +460,7 @@ def derived_link_info(link):
         'archive_url': 'archive/{}/{}'.format(link['timestamp'], wget_output_path(link)),
         'pdf_link': 'archive/{timestamp}/output.pdf'.format(**link),
         'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**link),
+        'dom_link': 'archive/{timestamp}/output.html'.format(**link),
         'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**link),
     }
 
@@ -469,6 +471,7 @@ def derived_link_info(link):
             'archive_url': 'archive/{timestamp}/{base_url}'.format(**link),
             'pdf_link': 'archive/{timestamp}/{base_url}'.format(**link),
             'screenshot_link': 'archive/{timestamp}/{base_url}'.format(**link),
+            'dom_link': 'archive/{timestamp}/{base_url}'.format(**link),
             'title': '{title} ({type})'.format(**link),
         })
     return link_info

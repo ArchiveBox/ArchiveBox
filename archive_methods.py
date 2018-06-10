@@ -17,6 +17,7 @@ from config import (
     FETCH_WGET_REQUISITES,
     FETCH_PDF,
     FETCH_SCREENSHOT,
+    FETCH_DOM,
     RESOLUTION,
     CHECK_SSL_VALIDITY,
     SUBMIT_ARCHIVE_DOT_ORG,
@@ -92,6 +93,9 @@ def archive_link(link_dir, link, overwrite=True):
 
     if FETCH_SCREENSHOT:
         link = fetch_screenshot(link_dir, link, overwrite=overwrite)
+
+    if FETCH_DOM:
+        link = fetch_dom(link_dir, link, overwrite=overwrite)
 
     if SUBMIT_ARCHIVE_DOT_ORG:
         link = archive_dot_org(link_dir, link, overwrite=overwrite)
@@ -252,7 +256,6 @@ def fetch_pdf(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
         'output': output,
     }
 
-
 @attach_result_to_link('screenshot')
 def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DIR, resolution=RESOLUTION):
     """take screenshot of site using chrome --headless"""
@@ -289,6 +292,43 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_
         'output': output,
     }
     
+@attach_result_to_link('dom')
+def fetch_dom(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DIR):
+    """print HTML of site to file using chrome --dump-html"""
+
+    if link['type'] in ('PDF', 'image'):
+        return {'output': wget_output_path(link)}
+    
+    output_path = os.path.join(link_dir, 'output.html')
+
+    if os.path.exists(output_path):
+        return {'output': 'output.html', 'status': 'skipped'}
+
+    CMD = [
+        *chrome_headless(user_data_dir=user_data_dir),
+        '--dump-dom',
+        link['url']
+    ]
+    end = progress(timeout, prefix='      ')
+    try:
+        with open(output_path, 'w+') as f:
+            result = run(CMD, stdout=f, stderr=PIPE, cwd=link_dir, timeout=timeout + 1)  # output.html
+        end()
+        if result.returncode:
+            print('     ', (result.stderr).decode())
+            raise Exception('Failed to fetch DOM')
+        chmod_file('output.html', cwd=link_dir)
+        output = 'output.html'
+    except Exception as e:
+        end()
+        print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
+        print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        output = e
+
+    return {
+        'cmd': CMD,
+        'output': output,
+    }
 
 @attach_result_to_link('archive_org')
 def archive_dot_org(link_dir, link, timeout=TIMEOUT):
@@ -445,7 +485,7 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
 
 
 def chrome_headless(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR):
-    args = [binary, '--headless', '--disable-gpu']
+    args = [binary, '--headless']  # '--disable-gpu'
     default_profile = os.path.expanduser('~/Library/Application Support/Google/Chrome/Default')
     if user_data_dir:
         args.append('--user-data-dir={}'.format(user_data_dir))

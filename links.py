@@ -68,6 +68,9 @@ def validate_links(links):
         if not link['latest'].get('screenshot'):
             link['latest']['screenshot'] = None
 
+        if not link['latest'].get('dom'):
+            link['latest']['dom'] = None
+
     return list(links)
 
 
