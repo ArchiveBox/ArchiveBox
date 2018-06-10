@@ -8,14 +8,26 @@
 
 Save an archived copy of all websites you bookmark (the actual *content* of each site, not just the list of bookmarks).
 
+Can import links from:
+
  - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera)
  - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket
  - <img src="https://pinboard.in/favicon.ico" height="22px"/> Pinboard
  - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS or plain text lists
  - Shaarli, Delicious, Instapaper, Reddit Saved Posts, Wallabag, Unmark.it, and more!
- - Contiuous archiving of browsing history (every site, not just bookmarked) (coming soon!...)
+ - Continuous archiving of browser history (every site, not just bookmarked) (coming soon!...)
 
-Outputs browsable static html archives of each site made using wget, a PDF, a screenshot, a DOM dump from headless chrome, and a link to a copy on archive.org, all indexed with nice html & json files.  
+For each site, it outputs:
+
+- Browsable static HTML archive (wget)
+- PDF (Chrome headless)
+- Screenshot (Chrome headless)
+- DOM dump (Chrome headless)
+- Favicon
+- Submits URL to archive.org
+- Index summary pages: index.html & index.json
+
+The archiving is additive, so you can schedule `./archive` to run regularly and pull new links into the index.
 
 [DEMO: archive.sweeting.me](https://archive.sweeting.me)
 
