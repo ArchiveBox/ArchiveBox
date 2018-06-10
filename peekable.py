@@ -3,6 +3,10 @@ from collections import deque
 _marker = object()
 
 class Peekable(object):
+    """Peekable version of a normal python generator.
+       Useful when you don't want to evaluate the entire iterable to look at
+       a specific item at a given idx.
+    """
     def __init__(self, iterable):
         self._it = iter(iterable)
         self._cache = deque()
