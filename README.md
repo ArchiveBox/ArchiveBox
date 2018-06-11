@@ -16,7 +16,7 @@ Can import links from:
  - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS or plain text lists
  - Shaarli, Delicious, Instapaper, Reddit Saved Posts, Wallabag, Unmark.it, and more!
 
-For each site, it outputs:
+For each site, it outputs (configurable):
 
 - Browsable static HTML archive (wget)
 - PDF (Chrome headless)
@@ -62,22 +62,24 @@ Follow the links here to find instructions for exporting bookmarks from each ser
 git clone https://github.com/pirate/bookmark-archiver
 cd bookmark-archiver/
 ./setup                                         # install all dependencies
+
+# add a list of links from a file
 ./archive ~/Downloads/bookmark_export.html      # replace with the path to your export file or URL from step 1
 
-# OR
+# OR add a list of links from remote URL
 ./archive "https://getpocket.com/users/yourusername/feed/all"  # url to an RSS, html, or json links file
 
-# OR
-./bin/export-browser-history --chrome           # works with --firefox as well
+# OR add all the links from your browser history
+./bin/export-browser-history --chrome           # works with --firefox as well, can take path to SQLite history db
 ./archive output/sources/chrome_history.json
 
-# OR
+# OR just continue archiving the existing links in the index
 ./archive   # at any point if you just want to continue archiving where you left off, without adding any new links
 ```
 
 **3. Done!**
 
-You can open `service/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
+You can open `output/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
 
 If you want to host your archive somewhere to share it with other people, see the [Publishing Your Archive](#publishing-your-archive) section below.
 
