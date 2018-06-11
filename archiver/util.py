@@ -16,6 +16,7 @@ from config import (
     REPO_DIR,
     SOURCES_DIR,
     OUTPUT_DIR,
+    ARCHIVE_DIR,
     TIMEOUT,
     TERM_WIDTH,
     SHOW_PROGRESS,
@@ -262,7 +263,7 @@ def find_link(folder, links):
     timestamp = folder.split('.')[0]
     for link in links:
         if link['timestamp'].startswith(timestamp):
-            if link['domain'] in os.listdir(os.path.join(OUTPUT_DIR, 'archive', folder)):
+            if link['domain'] in os.listdir(os.path.join(ARCHIVE_DIR, folder)):
                 return link      # careful now, this isn't safe for most ppl
             if link['domain'] in parse_url(folder):
                 return link
@@ -271,7 +272,7 @@ def find_link(folder, links):
 
 def parse_url(folder):
     """for a given archive folder, figure out what url it's for"""
-    link_json = os.path.join(OUTPUT_DIR, 'archive', folder, 'index.json')
+    link_json = os.path.join(ARCHIVE_DIR, folder, 'index.json')
     if os.path.exists(link_json):
         with open(link_json, 'r') as f:
             try:
@@ -282,7 +283,7 @@ def parse_url(folder):
             except ValueError:
                 print('File contains invalid JSON: {}!'.format(link_json))
 
-    archive_org_txt = os.path.join(OUTPUT_DIR, 'archive', folder, 'archive.org.txt')
+    archive_org_txt = os.path.join(ARCHIVE_DIR, folder, 'archive.org.txt')
     if os.path.exists(archive_org_txt):
         with open(archive_org_txt, 'r') as f:
             original_link = f.read().strip().split('/http', 1)[-1]
@@ -417,7 +418,7 @@ def wget_output_path(link, look_in=None):
     # instead of trying to emulate it here, we just look in the output folder
     # to see what html file wget actually created as the output
     wget_folder = link['base_url'].rsplit('/', 1)[0].split('/')
-    look_in = os.path.join(OUTPUT_DIR, 'archive', link['timestamp'], *wget_folder)
+    look_in = os.path.join(ARCHIVE_DIR, link['timestamp'], *wget_folder)
 
     if look_in and os.path.exists(look_in):
         html_files = [

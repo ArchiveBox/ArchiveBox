@@ -36,6 +36,7 @@ FOOTER_INFO =            os.getenv('FOOTER_INFO',            'Content is hosted 
 REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
 OUTPUT_DIR = os.path.join(REPO_DIR, 'output')
+ARCHIVE_DIR = os.path.join(OUTPUT_DIR, 'archive')
 SOURCES_DIR = os.path.join(OUTPUT_DIR, 'sources')
 
 PYTHON_PATH = os.path.join(REPO_DIR, 'archiver')

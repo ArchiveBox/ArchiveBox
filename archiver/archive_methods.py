@@ -27,6 +27,7 @@ from config import (
     CHROME_USER_DATA_DIR,
     TIMEOUT,
     ANSI,
+    ARCHIVE_DIR,
 )
 from util import (
     check_dependencies,
@@ -50,7 +51,7 @@ def archive_links(archive_path, links, source=None, resume=None):
 
     try:
         for idx, link in enumerate(to_archive):
-            link_dir = os.path.join(archive_path, 'archive', link['timestamp'])
+            link_dir = os.path.join(ARCHIVE_DIR, link['timestamp'])
             archive_link(link_dir, link)
     
     except (KeyboardInterrupt, SystemExit, Exception) as e:
