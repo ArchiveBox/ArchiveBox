@@ -31,7 +31,7 @@ The archiving is additive, so you can schedule `./archive` to run regularly and 
 
 [DEMO: archive.sweeting.me](https://archive.sweeting.me)
 
-<img src="screenshot.png" width="75%" alt="Desktop Screenshot" align="top"><img src="screenshot_mobile.png" width="25%" alt="Mobile Screenshot" align="top"><br/>
+<img src="https://i.imgur.com/q3Oz9wN.png" width="75%" alt="Desktop Screenshot" align="top"><img src="https://i.imgur.com/TG0fGVo.png" width="25%" alt="Mobile Screenshot" align="top"><br/>
 
 ## Quickstart
 
