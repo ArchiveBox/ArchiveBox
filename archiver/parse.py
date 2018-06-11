@@ -98,7 +98,7 @@ def parse_json_export(json_file):
                 'url': erg['href'],
                 'domain': domain(erg['href']),
                 'base_url': base_url(erg['href']),
-                'timestamp': erg.get('timestamp', str(time.timestamp())),
+                'timestamp': erg.get('timestamp') or str(time.timestamp()),
                 'tags': erg['tags'],
                 'title': erg['description'].replace(' — Readability', ''),
                 'sources': [json_file.name],
