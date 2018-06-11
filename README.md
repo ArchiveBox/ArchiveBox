@@ -432,6 +432,8 @@ will run fast subsequent times because it only downloads new links that haven't 
 
 ## Changelog
 
+ - v0.1.0 released
+ - support for browser history exporting added with `./bin/export-browser-history`
  - support for chrome `--dump-dom` to output full page HTML after JS executes
  - v0.0.3 released
  - support for chrome `--user-data-dir` to archive sites that need logins
