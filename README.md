@@ -60,11 +60,15 @@ Follow the links here to find instructions for exporting bookmarks from each ser
 ```bash
 git clone https://github.com/pirate/bookmark-archiver
 cd bookmark-archiver/
-./setup.sh                                      # install all dependencies
-./archive ~/Downloads/bookmark_export.html      # replace with the path to your export file from step 1
+./setup                                         # install all dependencies
+./archive ~/Downloads/bookmark_export.html      # replace with the path to your export file or URL from step 1
 
 # OR
-./archive https://getpocket.com/users/yourusername/feed/all  # url to an RSS, html, or json links file
+./archive "https://getpocket.com/users/yourusername/feed/all"  # url to an RSS, html, or json links file
+
+# OR
+./bin/export-browser-history --chrome           # works with --firefox as well
+./archive output/sources/chrome_history.json
 
 # OR
 ./archive   # at any point if you just want to continue archiving where you left off, without adding any new links
