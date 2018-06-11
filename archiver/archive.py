@@ -59,8 +59,8 @@ def merge_links(archive_path=OUTPUT_DIR, import_path=None):
         print('[{green}+{reset}] [{}] Adding {} new links from {} to {}/index.json'.format(
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             num_new_links,
-            import_path,
-            archive_path,
+            pretty_path(import_path),
+            pretty_path(archive_path),
             **ANSI,
         ))
     # else:
