@@ -6,11 +6,8 @@ from string import Template
 from distutils.dir_util import copy_tree
 
 from config import (
-    INDEX_TEMPLATE,
-    INDEX_ROW_TEMPLATE,
-    LINK_INDEX_TEMPLATE,
-    TEMPLATE_STATICFILES,
-    ARCHIVE_PERMISSIONS,
+    TEMPLATES_DIR,
+    OUTPUT_PERMISSIONS,
     ANSI,
     GIT_SHA,
     FOOTER_INFO,
@@ -73,12 +70,12 @@ def write_html_links_index(out_dir, links):
 
     path = os.path.join(out_dir, 'index.html')
 
-    copy_tree(TEMPLATE_STATICFILES, os.path.join(out_dir, "static"))
+    copy_tree(os.path.join(TEMPLATES_DIR, 'static'), os.path.join(out_dir, 'static'))
 
-    with open(INDEX_TEMPLATE, 'r', encoding='utf-8') as f:
+    with open(os.path.join(TEMPLATES_DIR, 'index.html'), 'r', encoding='utf-8') as f:
         index_html = f.read()
 
-    with open(INDEX_ROW_TEMPLATE, 'r', encoding='utf-8') as f:
+    with open(os.path.join(TEMPLATES_DIR, 'index_row.html'), 'r', encoding='utf-8') as f:
         link_row_html = f.read()
 
     link_rows = '\n'.join(
@@ -130,7 +127,7 @@ def parse_json_link_index(out_dir):
     return {}
 
 def write_html_link_index(out_dir, link):
-    with open(LINK_INDEX_TEMPLATE, 'r', encoding='utf-8') as f:
+    with open(os.path.join(TEMPLATES_DIR, 'link_index_fancy.html'), 'r', encoding='utf-8') as f:
         link_html = f.read()
 
     path = os.path.join(out_dir, 'index.html')

@@ -142,7 +142,7 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
 **Shell Options:**
  - colorize console ouput: `USE_COLOR` value: [`True`]/`False`
  - show progress bar: `SHOW_PROGRESS` value: [`True`]/`False`
- - archive permissions: `ARCHIVE_PERMISSIONS` values: [`755`]/`644`/`...`
+ - archive permissions: `OUTPUT_PERMISSIONS` values: [`755`]/`644`/`...`
 
 **Dependency Options:**
  - path to Chrome: `CHROME_BINARY` values: [`chromium-browser`]/`/usr/local/bin/google-chrome`/`...`

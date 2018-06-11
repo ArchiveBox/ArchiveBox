@@ -12,7 +12,7 @@ from urllib.parse import quote
 
 from config import (
     IS_TTY,
-    ARCHIVE_PERMISSIONS,
+    OUTPUT_PERMISSIONS,
     REPO_DIR,
     SOURCES_DIR,
     OUTPUT_DIR,
@@ -97,7 +97,7 @@ def check_dependencies():
             raise SystemExit(1)
 
 
-def chmod_file(path, cwd='.', permissions=ARCHIVE_PERMISSIONS, timeout=30):
+def chmod_file(path, cwd='.', permissions=OUTPUT_PERMISSIONS, timeout=30):
     """chmod -R <permissions> <cwd>/<path>"""
 
     if not os.path.exists(os.path.join(cwd, path)):
@@ -168,7 +168,7 @@ def progress(seconds=TIMEOUT, prefix=''):
 
 def pretty_path(path):
     """convert paths like .../bookmark-archiver/archiver/../output/abc into output/abc"""
-    return path.replace(REPO_DIR, '')
+    return path.replace(REPO_DIR + '/', '')
 
 
 def download_url(url):

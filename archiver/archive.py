@@ -18,7 +18,7 @@ from index import (
     parse_json_link_index,
 )
 from config import (
-    ARCHIVE_PERMISSIONS,
+    OUTPUT_PERMISSIONS,
     OUTPUT_DIR,
     ANSI,
     TIMEOUT,
