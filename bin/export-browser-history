@@ -13,7 +13,7 @@ if [[ "$1" == "--chrome" ]]; then
         cp "$default" "$REPO_DIR/output/sources/chrome_history.db.tmp"
     fi
     sqlite3 "$REPO_DIR/output/sources/chrome_history.db.tmp" "SELECT \"[\" || group_concat(json_object('timestamp', last_visit_time, 'description', title, 'href', url)) || \"]\" FROM urls;" > "$REPO_DIR/output/sources/chrome_history.json"
-    rm "$REPO_DIR/output/sources/chrome_history.db.tmp"
+    rm "$REPO_DIR"/output/sources/chrome_history.db.*
     echo "Chrome history exported to:"
     echo "    output/sources/chrome_history.json"
 fi
@@ -29,7 +29,7 @@ if [[ "$1" == "--firefox" ]]; then
         cp "$default" "$REPO_DIR/output/sources/firefox_history.db.tmp"
     fi
     sqlite3 "$REPO_DIR/output/sources/firefox_history.db.tmp" "SELECT \"[\" || group_concat(json_object('timestamp', last_visit_date, 'description', title, 'href', url)) || \"]\" FROM moz_places;" > "$REPO_DIR/output/sources/firefox_history.json"
-    rm "$REPO_DIR/output/sources/firefox_history.db.tmp"
+    rm "$REPO_DIR"/output/sources/firefox_history.db.*
     echo "Firefox history exported to:"
     echo "    output/sources/firefox_history.json"
 fi
