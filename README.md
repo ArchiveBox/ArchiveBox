@@ -10,12 +10,11 @@ Save an archived copy of all websites you bookmark (the actual *content* of each
 
 Can import links from:
 
- - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser Bookmarks (Chrome, Firefox, Safari, IE, Opera)
+ - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history & bookmarks (Chrome, Firefox, Safari, IE, Opera)
  - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket
  - <img src="https://pinboard.in/favicon.ico" height="22px"/> Pinboard
  - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS or plain text lists
  - Shaarli, Delicious, Instapaper, Reddit Saved Posts, Wallabag, Unmark.it, and more!
- - Continuous archiving of browser history (every site, not just bookmarked) (coming soon!...)
 
 For each site, it outputs:
 
