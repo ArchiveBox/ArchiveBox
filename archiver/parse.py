@@ -93,14 +93,19 @@ def parse_json_export(json_file):
         # {"href":"http:\/\/www.reddit.com\/r\/example","description":"title here","extended":"","meta":"18a973f09c9cc0608c116967b64e0419","hash":"910293f019c2f4bb1a749fb937ba58e3","time":"2014-06-14T15:51:42Z","shared":"no","toread":"no","tags":"reddit android"}]
         if line:
             erg = line
-            time = datetime.strptime(erg['time'].split(',', 1)[0], '%Y-%m-%dT%H:%M:%SZ')
+            if erg.get('timestamp'):
+                timestamp = str(erg['timestamp']/10000000)  # chrome/ff histories use a very precise timestamp
+            elif erg.get('time'):
+                timestamp = str(datetime.strptime(erg['time'].split(',', 1)[0], '%Y-%m-%dT%H:%M:%SZ').timestamp())
+            else:
+                timestamp = str(datetime.now().timestamp())
             info = {
                 'url': erg['href'],
                 'domain': domain(erg['href']),
                 'base_url': base_url(erg['href']),
-                'timestamp': erg.get('timestamp') or str(time.timestamp()),
-                'tags': erg['tags'],
-                'title': erg['description'].replace(' — Readability', ''),
+                'timestamp': timestamp,
+                'tags': erg.get('tags') or '',
+                'title': (erg.get('description') or '').replace(' — Readability', ''),
                 'sources': [json_file.name],
             }
             info['type'] = get_link_type(info)
