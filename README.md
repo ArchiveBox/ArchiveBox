@@ -101,7 +101,7 @@ If you want something easier than running programs in the command-line, take a l
 
 `archive.py` is a script that takes a [Pocket-format](https://getpocket.com/export), [JSON-format](https://pinboard.in/export/), [Netscape-format](https://msdn.microsoft.com/en-us/library/aa753582(v=vs.85).aspx), or RSS-formatted list of links, and downloads a clone of each linked website to turn into a browsable archive that you can store locally or host online.
 
-The archiver produces an output folder `html/` containing an `index.html`, `index.json`, and archived copies of all the sites,
+The archiver produces an output folder `output/` containing an `index.html`, `index.json`, and archived copies of all the sites,
 organized by timestamp bookmarked.  It's Powered by [headless](https://developers.google.com/web/updates/2017/04/headless-chrome) Chromium and good 'ol `wget`.
 
 For each sites it saves:
@@ -163,13 +163,6 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
  - chrome profile: `CHROME_USER_DATA_DIR` values: [`~/Library/Application\ Support/Google/Chrome/Default`]/`/tmp/chrome-profile`/`...`
     To capture sites that require a user to be logged in, you must specify a path to a chrome profile (which loads the cookies needed for the user to be logged in).  If you don't have an existing chrome profile, create one with `chromium-browser --disable-gpu --user-data-dir=/tmp/chrome-profile`, and log into the sites you need.  Then set `CHROME_USER_DATA_DIR=/tmp/chrome-profile` to make Bookmark Archiver use that profile.
 
-**Index Options:**
- - html index template: `INDEX_TEMPLATE` value:  [`templates/index.html`]/`...`
- - html index row template: `INDEX_ROW_TEMPLATE` value:  [`templates/index_row.html`]/`...`
- - html link index template: `LINK_INDEX_TEMPLATE` value: [`templates/link_index_fancy.html`]/`templates/link_index.html`/`...`
- - html template staticfiles: `TEMPLATE_STATICFILES` value: [`templates/static`]/`...`
- - html template footer text: `FOOTER_INFO` value: [`Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.`]/`...`
-
  (See defaults & more at the top of `config.py`)
 
 To tweak the outputted html index file's look and feel, just copy the files in `templates/` somewhere else and edit away.  Use the two index config variables above to point the script to your new custom template files. 
@@ -180,13 +173,13 @@ The chrome/chromium dependency is _optional_ and only required for screenshots a
 
 The archive produced by `./archive` is suitable for serving on any provider that can host static html (e.g. github pages!).
 
-You can also serve it from a home server or VPS by uploading the outputted `html` folder to your web directory, e.g. `/var/www/bookmark-archiver` and configuring your webserver.
+You can also serve it from a home server or VPS by uploading the outputted `output` folder to your web directory, e.g. `/var/www/bookmark-archiver` and configuring your webserver.
 
 Here's a sample nginx configuration that works to serve archive folders:
 
 ```nginx
 location / {
-    alias       /var/www/bookmark-archiver/;
+    alias       /path/to/bookmark-archiver/output/;
     index       index.html;
     autoindex   on;               # see directory listing upon clicking "The Files" links
     try_files   $uri $uri/ =404;
