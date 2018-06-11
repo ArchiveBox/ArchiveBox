@@ -67,7 +67,7 @@ if not USE_COLOR:
 try:
     GIT_SHA = run(["git", "rev-list", "-1", "HEAD", "./"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
 except Exception:
-    GIT_SHA = None
+    GIT_SHA = 'unknown'
     print('[!] Warning, you need git installed for some archiving features to save correct version numbers!')
 
 if sys.stdout.encoding.upper() != 'UTF-8':

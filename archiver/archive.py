@@ -22,6 +22,7 @@ from config import (
     OUTPUT_DIR,
     ANSI,
     TIMEOUT,
+    GIT_SHA,
 )
 from util import (
     download_url,
@@ -30,6 +31,8 @@ from util import (
     pretty_path,
 )
 
+__AUTHOR__ = 'Nick Sweeting <git@nicksweeting.com>'
+__VERSION__ = GIT_SHA
 __DESCRIPTION__ = 'Bookmark Archiver: Create a browsable html archive of a list of links.'
 __DOCUMENTATION__ = 'https://github.com/pirate/bookmark-archiver'
 
