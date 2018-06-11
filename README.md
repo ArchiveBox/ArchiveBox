@@ -2,7 +2,7 @@
 
     "Your own personal Way-Back Machine"
 
-▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Demo](https://archive.sweeting.me) | [Changelog](#changelog) | [Donate](https://github.com/pirate/bookmark-archiver/blob/master/donate.md)
+▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Demo](https://archive.sweeting.me) | [Changelog](#changelog) | [Donate](https://github.com/pirate/bookmark-archiver/blob/master/DONATE.md)
 
 ---
 
