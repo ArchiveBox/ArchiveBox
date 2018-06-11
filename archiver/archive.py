@@ -27,6 +27,7 @@ from util import (
     download_url,
     progress,
     cleanup_archive,
+    pretty_path,
 )
 
 __DESCRIPTION__ = 'Bookmark Archiver: Create a browsable html archive of a list of links.'

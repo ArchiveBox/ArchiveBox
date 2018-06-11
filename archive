@@ -1,6 +1,1 @@
-#!/bin/bash
-# Bookmark Archiver Shortcut
-
-REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-python3 "$REPO_DIR/archiver/archive.py" "$@"
+bin/bookmark-archiver
