@@ -208,7 +208,13 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT
             print('        got wget response code {}:'.format(result.returncode))
             print('\n'.join('          ' + line for line in (result.stderr or result.stdout).decode().rsplit('\n', 10)[-10:] if line.strip()))
             if result.returncode == 4:
-                raise Exception('Failed to wget download')
+                raise Exception('Failed wget download')
+        
+        if result.returncode > 0 and b'403: Forbidden' in result.stderr:
+            raise Exception('403 Forbidden (try changing WGET_USER_AGENT)')
+
+        if result.returncode > 0 and b'404: Not Found' in result.stderr:
+            raise Exception('404 Not Found')
     except Exception as e:
         end()
         print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
