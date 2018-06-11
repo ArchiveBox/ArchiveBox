@@ -172,9 +172,9 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
 
  (See defaults & more at the top of `config.py`)
 
-To tweak the outputted html index file's look and feel, just copy the files in `templates/` somewhere else and edit away.  Use the two index config variables above to point the script to your new custom template files. 
+To tweak the outputted html index file's look and feel, just edit the HTML files in `archiver/templates/`.
 
-The chrome/chromium dependency is _optional_ and only required for screenshots and PDF output, can be safely ignored if both of those are disabled.
+The chrome/chromium dependency is _optional_ and only required for screenshots, PDF, and DOM dump output, it can be safely ignored if those three methods are disabled.
 
 ## Publishing Your Archive
 
