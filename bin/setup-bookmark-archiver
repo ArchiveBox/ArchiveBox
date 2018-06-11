@@ -28,7 +28,7 @@ if which apt-get > /dev/null; then
         sudo ln -s "$(which google-chrome)" /usr/bin/chromium-browser
     elif which chromium-browser; then
         echo "[i] chromium-browser already installed, using existing installation."
-        apt upgrade chromium-browser -y
+        chromium-browser --version
     else
         echo "[+] Installing chromium-browser..."
         apt install chromium-browser -y
