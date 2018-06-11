@@ -142,7 +142,6 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
 **Shell Options:**
  - colorize console ouput: `USE_COLOR` value: [`True`]/`False`
  - show progress bar: `SHOW_PROGRESS` value: [`True`]/`False`
- - archive output directory: `ARCHIVE_DIR` value: [`.`]/`'/var/www/archive'`/`...`
  - archive permissions: `ARCHIVE_PERMISSIONS` values: [`755`]/`644`/`...`
 
 **Dependency Options:**

@@ -13,8 +13,9 @@ from urllib.parse import quote
 from config import (
     IS_TTY,
     ARCHIVE_PERMISSIONS,
-    HTML_FOLDER,
-    ARCHIVE_DIR,
+    REPO_DIR,
+    SOURCES_DIR,
+    OUTPUT_DIR,
     TIMEOUT,
     TERM_WIDTH,
     SHOW_PROGRESS,
@@ -165,22 +166,25 @@ def progress(seconds=TIMEOUT, prefix=''):
 
     return end
 
+def pretty_path(path):
+    """convert paths like .../bookmark-archiver/archiver/../output/abc into output/abc"""
+    return path.replace(REPO_DIR, '')
+
 
 def download_url(url):
     """download a given url's content into downloads/domain.txt"""
 
-    download_dir = os.path.join(ARCHIVE_DIR, 'downloads')
+    if not os.path.exists(SOURCES_DIR):
+        os.makedirs(SOURCES_DIR)
 
-    if not os.path.exists(download_dir):
-        os.makedirs(download_dir)
+    ts = str(datetime.now().timestamp()).split('.', 1)[0]
 
-    url_domain = url.split('/', 3)[2]
-    output_path = os.path.join(download_dir, '{}.txt'.format(url_domain))
-    
+    source_path = os.path.join(SOURCES_DIR, '{}-{}.txt'.format(domain(url), ts))
+
     print('[*] [{}] Downloading {} > {}'.format(
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         url,
-        output_path,
+        pretty_path(source_path),
     ))
     end = progress(TIMEOUT, prefix='      ')
     try:
@@ -192,10 +196,10 @@ def download_url(url):
         print('    ', e)
         raise SystemExit(1)
 
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(source_path, 'w', encoding='utf-8') as f:
         f.write(downloaded_xml)
 
-    return output_path
+    return source_path
 
 def str_between(string, start, end=None):
     """(<abc>12345</def>, <abc>, </def>)  ->  12345"""
@@ -258,7 +262,7 @@ def find_link(folder, links):
     timestamp = folder.split('.')[0]
     for link in links:
         if link['timestamp'].startswith(timestamp):
-            if link['domain'] in os.listdir(os.path.join(ARCHIVE_DIR, 'html/archive', folder)):
+            if link['domain'] in os.listdir(os.path.join(OUTPUT_DIR, 'archive', folder)):
                 return link      # careful now, this isn't safe for most ppl
             if link['domain'] in parse_url(folder):
                 return link
@@ -267,7 +271,7 @@ def find_link(folder, links):
 
 def parse_url(folder):
     """for a given archive folder, figure out what url it's for"""
-    link_json = os.path.join(ARCHIVE_DIR, 'html/archive', folder, 'index.json')
+    link_json = os.path.join(OUTPUT_DIR, 'archive', folder, 'index.json')
     if os.path.exists(link_json):
         with open(link_json, 'r') as f:
             try:
@@ -278,7 +282,7 @@ def parse_url(folder):
             except ValueError:
                 print('File contains invalid JSON: {}!'.format(link_json))
 
-    archive_org_txt = os.path.join(ARCHIVE_DIR, 'html/archive' + folder, 'archive.org.txt')
+    archive_org_txt = os.path.join(OUTPUT_DIR, 'archive', folder, 'archive.org.txt')
     if os.path.exists(archive_org_txt):
         with open(archive_org_txt, 'r') as f:
             original_link = f.read().strip().split('/http', 1)[-1]
@@ -413,7 +417,7 @@ def wget_output_path(link, look_in=None):
     # instead of trying to emulate it here, we just look in the output folder
     # to see what html file wget actually created as the output
     wget_folder = link['base_url'].rsplit('/', 1)[0].split('/')
-    look_in = os.path.join(HTML_FOLDER, 'archive', link['timestamp'], *wget_folder)
+    look_in = os.path.join(OUTPUT_DIR, 'archive', link['timestamp'], *wget_folder)
 
     if look_in and os.path.exists(look_in):
         html_files = [

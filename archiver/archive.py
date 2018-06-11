@@ -19,7 +19,7 @@ from index import (
 )
 from config import (
     ARCHIVE_PERMISSIONS,
-    HTML_FOLDER,
+    OUTPUT_DIR,
     ANSI,
     TIMEOUT,
 )
@@ -36,10 +36,10 @@ def print_help():
     print(__DESCRIPTION__)
     print("Documentation:     {}\n".format(__DOCUMENTATION__))
     print("Usage:")
-    print("    ./archive.py ~/Downloads/bookmarks_export.html\n")
+    print("    ./bin/bookmark-archiver ~/Downloads/bookmarks_export.html\n")
 
 
-def merge_links(archive_path=HTML_FOLDER, import_path=None):
+def merge_links(archive_path=OUTPUT_DIR, import_path=None):
     """get new links from file and optionally append them to links in existing archive"""
     all_links = []
     if import_path:
@@ -116,7 +116,7 @@ def update_archive(archive_path, links, source=None, resume=None, append=True):
 if __name__ == '__main__':
     argc = len(sys.argv)
 
-    if set(sys.argv).intersection('-h', '--help', 'help'):
+    if set(sys.argv).intersection(('-h', '--help', 'help')):
         print_help()
         raise SystemExit(0)
 
@@ -139,11 +139,11 @@ if __name__ == '__main__':
         raise SystemExit(1)
 
     # See if archive folder already exists
-    for out_dir in (HTML_FOLDER, 'bookmarks', 'pocket', 'pinboard', 'html'):
+    for out_dir in (OUTPUT_DIR, 'bookmarks', 'pocket', 'pinboard', 'html'):
         if os.path.exists(out_dir):
             break
     else:
-        out_dir = HTML_FOLDER
+        out_dir = OUTPUT_DIR
 
     # Step 0: Download url to local file (only happens if a URL is specified instead of local path) 
     if source and any(source.startswith(s) for s in ('http://', 'https://', 'ftp://')):

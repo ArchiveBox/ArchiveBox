@@ -11,7 +11,6 @@ from config import (
     LINK_INDEX_TEMPLATE,
     TEMPLATE_STATICFILES,
     ARCHIVE_PERMISSIONS,
-    ARCHIVE_DIR,
     ANSI,
     GIT_SHA,
     FOOTER_INFO,
@@ -20,6 +19,7 @@ from util import (
     chmod_file,
     wget_output_path,
     derived_link_info,
+    pretty_path,
 )
 
 
@@ -37,8 +37,8 @@ def write_links_index(out_dir, links):
     print('{green}[√] [{}] Updated main index files:{reset}'.format(
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         **ANSI))
-    print('    > {}/index.json'.format(out_dir))
-    print('    > {}/index.html'.format(out_dir))
+    print('    > {}/index.json'.format(pretty_path(out_dir)))
+    print('    > {}/index.html'.format(pretty_path(out_dir)))
 
 def write_json_links_index(out_dir, links):
     """write the json link index to a given path"""

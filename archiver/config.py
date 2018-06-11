@@ -25,7 +25,6 @@ SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             
 RESOLUTION =             os.getenv('RESOLUTION',             '1440,1200'        )
 CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
 ARCHIVE_PERMISSIONS =    os.getenv('ARCHIVE_PERMISSIONS',    '755'              )
-ARCHIVE_DIR =            os.getenv('ARCHIVE_DIR',            '')
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          'chromium-browser' )  # change to google-chrome browser if using google-chrome
 WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             )
 WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',         None)
@@ -37,16 +36,17 @@ INDEX_ROW_TEMPLATE =     os.getenv('INDEX_ROW_TEMPLATE',     'templates/index_ro
 TEMPLATE_STATICFILES =   os.getenv('TEMPLATE_STATICFILES',   'templates/static')
 FOOTER_INFO =            os.getenv('FOOTER_INFO',            'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.',)
 
-### Output Paths
-ROOT_FOLDER = os.path.dirname(os.path.abspath(__file__))
-HTML_FOLDER = os.path.join(ARCHIVE_DIR, 'html')
-os.chdir(ROOT_FOLDER)
+### Paths
+REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+OUTPUT_DIR = os.path.abspath(os.path.join(REPO_DIR, 'output'))
+SOURCES_DIR = os.path.abspath(os.path.join(OUTPUT_DIR, 'sources'))
 
 # ******************************************************************************
 # ********************** Do not edit below this point **************************
 # ******************************************************************************
 
 ### Terminal Configuration
+os.chdir(os.path.join(REPO_DIR, 'archiver'))
 TERM_WIDTH = shutil.get_terminal_size((100, 10)).columns
 ANSI = {
     'reset': '\033[00;00m',
@@ -65,7 +65,7 @@ if not USE_COLOR:
 
 ### Confirm Environment Setup
 try:
-    GIT_SHA = run(["git", "rev-list", "-1", "HEAD", "./"], stdout=PIPE, cwd=ROOT_FOLDER).stdout.strip().decode()
+    GIT_SHA = run(["git", "rev-list", "-1", "HEAD", "./"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
 except Exception:
     GIT_SHA = None
     print('[!] Warning, you need git installed for some archiving features to save correct version numbers!')

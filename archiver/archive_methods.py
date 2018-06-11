@@ -11,7 +11,6 @@ from peekable import Peekable
 from index import wget_output_path, parse_json_link_index, write_link_index
 from links import links_after_timestamp
 from config import (
-    ARCHIVE_DIR,
     CHROME_BINARY,
     FETCH_WGET,
     FETCH_WGET_REQUISITES,
@@ -33,6 +32,7 @@ from util import (
     check_dependencies,
     progress,
     chmod_file,
+    pretty_path,
 )
 
 
@@ -123,7 +123,7 @@ def log_link_archive(link_dir, link, update_existing):
         **ANSI,
     ))
 
-    print('    > {}{}'.format(link_dir, '' if update_existing else ' (new)'))
+    print('    > {}{}'.format(pretty_path(link_dir), '' if update_existing else ' (new)'))
     if link['type']:
         print('      i {}'.format(link['type']))
 
