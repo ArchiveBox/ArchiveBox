@@ -7,6 +7,7 @@ import os
 import sys
 
 from datetime import datetime
+from subprocess import run
 
 from parse import parse_links
 from links import validate_links
@@ -29,6 +30,7 @@ from util import (
     progress,
     cleanup_archive,
     pretty_path,
+    migrate_data,
 )
 
 __AUTHOR__ = 'Nick Sweeting <git@nicksweeting.com>'
@@ -123,6 +125,8 @@ if __name__ == '__main__':
     if set(sys.argv).intersection(('-h', '--help', 'help')):
         print_help()
         raise SystemExit(0)
+
+    migrate_data()
 
     source = sys.argv[1] if argc > 1 else None  # path of links file to import
     resume = sys.argv[2] if argc > 2 else None  # timestamp to resume dowloading from

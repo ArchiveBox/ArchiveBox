@@ -360,6 +360,14 @@ def fix_folder_path(archive_path, link_folder, link):
             run(['rm', '-R', source])
 
 
+def migrate_data():
+    # migrate old folder to new OUTPUT folder
+    old_dir = os.path.join(REPO_DIR, 'html')
+    if os.path.exists(old_dir):
+        print('[!] WARNING: Moved old output folder "html" to new location: {}'.format(OUTPUT_DIR))
+        run(['mv', old_dir, OUTPUT_DIR], timeout=10)
+
+
 def cleanup_archive(archive_path, links):
     """move any incorrectly named folders to their canonical locations"""
     
