@@ -409,6 +409,10 @@ def wget_output_path(link, look_in=None):
     See docs on wget --adjust-extension (-E)
     """
 
+    # if we have it stored, always prefer the actual output path to computed one
+    if link.get('latest', {}).get('wget'):
+        return link['latest']['wget']
+
     urlencode = lambda s: quote(s, encoding='utf-8', errors='replace')
 
     if link['type'] in ('PDF', 'image'):
