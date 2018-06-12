@@ -27,6 +27,7 @@ For each site, it outputs (configurable):
 - Index summary pages: index.html & index.json
 
 The archiving is additive, so you can schedule `./archive` to run regularly and pull new links into the index.
+All the saved content is static and indexed with json files, so it lives forever & is easily parseable, it requires no always-running backend.
 
 [DEMO: archive.sweeting.me](https://archive.sweeting.me)
 
