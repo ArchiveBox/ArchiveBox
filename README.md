@@ -368,7 +368,7 @@ If you ran the archiver once, it wont re-download sites subsequent times, it wil
 If you haven't already run it, make sure you have a working internet connection and that the parsed URLs look correct.
 You can check the `archive.py` output or `index.html` to see what links it's downloading.
 
-If you're still having issues, try deleting or moving the `service/archive` folder and running `archive.py` again.
+If you're still having issues, try deleting or moving the `output/archive` folder (back it up first!) and running `./archive` again.
 
 **Lots of errors:**
 
