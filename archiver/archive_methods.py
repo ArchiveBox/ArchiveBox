@@ -280,7 +280,9 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_
         *chrome_headless(user_data_dir=user_data_dir),
         '--screenshot',
         '--window-size={}'.format(resolution),
-        link['url']
+        '--hide-scrollbars',
+        # '--full-page',   # TODO: make this actually work using ./bin/screenshot fullPage: true
+        link['url'],
     ]
     end = progress(timeout, prefix='      ')
     try:
