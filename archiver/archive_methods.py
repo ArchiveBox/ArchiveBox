@@ -207,17 +207,18 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT
         output = wget_output_path(link, look_in=domain_dir)
 
         # Check for common failure cases
-        if result.returncode > 0 and result.returncode != 8:
+        if result.returncode > 0:
             print('        got wget response code {}:'.format(result.returncode))
-            print('\n'.join('          ' + line for line in (result.stderr or result.stdout).decode().rsplit('\n', 10)[-10:] if line.strip()))
+            if result.returncode != 8:
+                print('\n'.join('          ' + line for line in (result.stderr or result.stdout).decode().rsplit('\n', 10)[-10:] if line.strip()))
+            if b'403: Forbidden' in result.stderr:
+                raise Exception('403 Forbidden (try changing WGET_USER_AGENT)')
+            if b'404: Not Found' in result.stderr:
+                raise Exception('404 Not Found')
+            if b'ERROR 500: Internal Server Error' in result.stderr:
+                raise Exception('500 Internal Server Error')
             if result.returncode == 4:
                 raise Exception('Failed wget download')
-        if result.returncode > 0 and b'403: Forbidden' in result.stderr:
-            raise Exception('403 Forbidden (try changing WGET_USER_AGENT)')
-        if result.returncode > 0 and b'404: Not Found' in result.stderr:
-            raise Exception('404 Not Found')
-        if result.returncode > 0 and b'ERROR 500: Internal Server Error' in result.stderr:
-            raise Exception('500 Internal Server Error')
     except Exception as e:
         end()
         print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
