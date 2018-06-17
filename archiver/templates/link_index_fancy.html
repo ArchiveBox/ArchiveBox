@@ -27,7 +27,7 @@
                 font-size: calc(16px + 1vw);
             }
             .collapse-icon {
-                float: left;
+                float: right;
                 color: black;
                 width: 126px;
                 font-size: 0.8em;
@@ -36,7 +36,7 @@
                 margin-left: -35px;
             }
             .nav-icon img {
-                float: right;
+                float: left;
                 display: block;
                 margin-right: 13px;
                 color: black;
@@ -152,12 +152,7 @@
                 }
             }
         </style>
-        <script
-          src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
-          integrity="sha256-k2WSCIexGzOj3Euiig+TlR8gA0EmPjuc79OEeY5L45g="
-          crossorigin="anonymous"></script>
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
     </head>
     <body>
         <header>
@@ -269,48 +264,54 @@
             </div>
         </div>
         <iframe sandbox="allow-same-origin allow-scripts allow-forms" class="full-page-iframe" src="$wget" name="preview"></iframe>
+    
+        <script
+              src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+              integrity="sha256-k2WSCIexGzOj3Euiig+TlR8gA0EmPjuc79OEeY5L45g="
+              crossorigin="anonymous"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+
+        <script>
+            // show selected file in iframe when preview card is clicked
+            jQuery('.card').on('click', function(e) {
+                jQuery('.selected-card').removeClass('selected-card')
+                jQuery(e.target).closest('.card').addClass('selected-card')
+            })
+            jQuery('.card a[target=preview]').on('click', function(e) {
+                if (e.currentTarget.href.endsWith('.pdf')) {
+                    jQuery('.full-page-iframe')[0].removeAttribute('sandbox')
+                } else {
+                    jQuery('.full-page-iframe')[0].sandbox = "allow-same-origin allow-scripts allow-forms"
+                }
+                return true
+            })
+
+            // un-sandbox iframes showing pdfs (required to display pdf viewer)
+            jQuery('iframe').map(function() {
+                if (this.src.endsWith('.pdf')) {
+                    this.removeAttribute('sandbox')
+                    this.src = this.src
+                }
+            })
+
+            // hide header when collapse icon is clicked
+            jQuery('.collapse-icon').on('click', function() {
+                if (jQuery('.collapse-icon').text().includes('▾')) {
+                    jQuery('.collapse-icon').text('▸')
+                    jQuery('.site-header').hide()
+                    jQuery('.full-page-iframe').addClass('iframe-large')
+                } else {
+                    jQuery('.collapse-icon').text('▾')
+                    jQuery('.site-header').show()
+                    jQuery('.full-page-iframe').removeClass('iframe-large')
+                }
+                return true
+            })
+
+            // hide all preview iframes on small screens
+            if (window.innerWidth < 1091) {
+                jQuery('.card a[target=preview]').attr('target', '_self')
+            }
+        </script>
     </body>
-
-    <script>
-        // show selected file in iframe when preview card is clicked
-        jQuery('.card').on('click', function(e) {
-            jQuery('.selected-card').removeClass('selected-card')
-            jQuery(e.target).closest('.card').addClass('selected-card')
-        })
-        jQuery('.card a[target=preview]').on('click', function(e) {
-            if (e.currentTarget.href.endsWith('.pdf')) {
-                jQuery('.full-page-iframe')[0].removeAttribute('sandbox')
-            } else {
-                jQuery('.full-page-iframe')[0].sandbox = "allow-same-origin allow-scripts allow-forms"
-            }
-            return true
-        })
-
-        // un-sandbox iframes showing pdfs (required to display pdf viewer)
-        jQuery('iframe').map(function() {
-            if (this.src.endsWith('.pdf')) {
-                this.removeAttribute('sandbox')
-                this.src = this.src
-            }
-        })
-
-        // hide header when collapse icon is clicked
-        jQuery('.collapse-icon').on('click', function() {
-            if (jQuery('.collapse-icon').text().includes('▾')) {
-                jQuery('.collapse-icon').text('▸')
-                jQuery('.site-header').hide()
-                jQuery('.full-page-iframe').addClass('iframe-large')
-            } else {
-                jQuery('.collapse-icon').text('▾')
-                jQuery('.site-header').show()
-                jQuery('.full-page-iframe').removeClass('iframe-large')
-            }
-            return true
-        })
-
-        // hide all preview iframes on small screens
-        if (window.innerWidth < 1091) {
-            jQuery('.card a[target=preview]').attr('target', '_self')
-        }
-    </script>
 </html>
