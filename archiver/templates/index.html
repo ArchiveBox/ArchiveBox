@@ -48,13 +48,13 @@
                 width: 100%;
                 text-align: center;
             }
-            .header-right {
-                float: right;
+            .header-left {
+                float: left;
                 width: 50px;
                 height: 60px;
                 text-align: center;
                 padding: 20px;
-                margin-left: -100px;
+                margin-right: -70px;
             }
             table {
                 padding: 6px;
@@ -94,21 +94,21 @@
     </head>
     <body>
         <header>
-            <div class="header-right">
+            <div class="header-left">
                 <a href="?" title="Reload...">
                     <img src="static/archive.png" style="height: 100%;"/>
                 </a>
                 <br/>
-                <a href="https://pirate.github.io/bookmark-archiver">
-                    Docs
+                <a href="https://github.com/pirate/bookmark-archiver">
+                    Github
                 </a>
             </div>
             <div class="header-center">
                 <h1>
-                    Archived Sites
+                    &nbsp;Archived Sites
                     <br/>
                     <small>
-                        <a href="?"> $num_links links</a> &nbsp; &nbsp; Last updated $time_updated<br/>
+                        <a href="?">Last updated $time_updated</a><br/>
                     </small>
                 </h1>
             </div>
@@ -117,13 +117,13 @@
             <thead>
                 <tr>
                     <th style="width: 80px;">Bookmarked</th>
-                    <th style="width: 26px;">Info</th>
-                    <th style="width: 26vw;">Saved Links ($num_links)</th>
+                    <th style="width: 26px;">Files</th>
+                    <th style="width: 26vw;">Saved Link ($num_links)</th>
+                    <th style="width: 30px;">PNG</th>
                     <th style="width: 30px">PDF</th>
-                    <th style="width: 30px;font-size:0.8em;">Screenshot</th>
-                    <th style="width: 30px">DOM</th>
+                    <th style="width: 30px">HTML</th>
                     <th style="width: 30px">A.org</th>
-                    <th style="width: 16vw;whitespace:nowrap;overflow-x:scroll">Original URL</th>
+                    <th style="width: 16vw;whitespace:nowrap;overflow-x:hidden;">Original URL</th>
                 </tr>
             </thead>
             <tbody>$rows</tbody>
@@ -132,9 +132,9 @@
             <br/>
             <center>
                 <small>
-                    Created using <a href="https://github.com/pirate/bookmark-archiver">Bookmark Archiver</a>
-                    version <a href="https://github.com/pirate/bookmark-archiver/commit/$git_sha">$short_git_sha</a> &nbsp; | &nbsp; 
-                    Download index as <a href="index.json">JSON</a>
+                    Archive created using <a href="https://github.com/pirate/bookmark-archiver" title="Github">Bookmark Archiver</a>
+                    version <a href="https://github.com/pirate/bookmark-archiver/commit/$git_sha" title="Git commit">$short_git_sha</a> &nbsp; | &nbsp; 
+                    Download index as <a href="index.json" title="JSON summary of archived links.">JSON</a>
                     <br/><br/>
                     $footer_info
                 </small>
