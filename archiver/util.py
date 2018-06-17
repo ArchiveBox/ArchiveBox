@@ -474,7 +474,7 @@ def derived_link_info(link):
         'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
         'favicon_url': 'archive/{timestamp}/favicon.ico'.format(**link),
         'files_url': 'archive/{timestamp}/index.html'.format(**link),
-        'archive_url': 'archive/{}/{}'.format(link['timestamp'], wget_output_path(link)),
+        'archive_url': 'archive/{}/{}'.format(link['timestamp'], wget_output_path(link) or 'index.html'),
         'pdf_link': 'archive/{timestamp}/output.pdf'.format(**link),
         'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**link),
         'dom_link': 'archive/{timestamp}/output.html'.format(**link),
