@@ -222,7 +222,7 @@ PDFs & Screenshots of dynamic sites in addition to static html, something archiv
 
 Now I can rest soundly knowing important articles and resources I like wont dissapear off the internet.
 
-My published archive as an example: [sweeting.me/pocket](https://home.sweeting.me/pocket).
+My published archive as an example: [archive.sweeting.me](https://archive.sweeting.me).
 
 ## Manual Setup
 
