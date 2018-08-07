@@ -41,9 +41,25 @@ def get_parsers(file):
         'medium_rss': parse_medium_rss_feed,
     }
 
+
+def basic_link_info(url, f, title=None, time=datetime.now(), tags=""):
+    """ Helper function that populates the link info dictionary. """
+    info = {
+        'url': url,
+        'domain': domain(url),
+        'base_url': base_url(url),
+        'timestamp': str(time.timestamp()),
+        'tags': tags,
+        'title': title,
+        'sources': [f.name],
+    }
+    info['type'] = get_link_type(info)
+    return info
+
+
 def parse_links(path):
     """parse a list of links dictionaries from a bookmark export file"""
-    
+
     links = []
     with open(path, 'r', encoding='utf-8') as file:
         for parser_func in get_parsers(file).values():
@@ -71,16 +87,11 @@ def parse_pocket_export(html_file):
         if match:
             fixed_url = match.group(1).replace('http://www.readability.com/read?url=', '')           # remove old readability prefixes to get original url
             time = datetime.fromtimestamp(float(match.group(2)))
-            info = {
-                'url': fixed_url,
-                'domain': domain(fixed_url),
-                'base_url': base_url(fixed_url),
-                'timestamp': str(time.timestamp()),
-                'tags': match.group(3),
-                'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '') or base_url(fixed_url),
-                'sources': [html_file.name],
-            }
-            info['type'] = get_link_type(info)
+            info = basic_link_info(fixed_url,
+                              html_file,
+                              match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', ''),
+                              time,
+                              match.group(3))
             yield info
 
 def parse_json_export(json_file):
@@ -99,16 +110,11 @@ def parse_json_export(json_file):
                 timestamp = str(datetime.strptime(erg['time'].split(',', 1)[0], '%Y-%m-%dT%H:%M:%SZ').timestamp())
             else:
                 timestamp = str(datetime.now().timestamp())
-            info = {
-                'url': erg['href'],
-                'domain': domain(erg['href']),
-                'base_url': base_url(erg['href']),
-                'timestamp': timestamp,
-                'tags': erg.get('tags') or '',
-                'title': (erg.get('description') or '').replace(' — Readability', ''),
-                'sources': [json_file.name],
-            }
-            info['type'] = get_link_type(info)
+            info = basic_link_info(erg['href'],
+                              json_file,
+                              erg['description'].replace(' — Readability', ''),
+                              time,
+                              erg['tags'])
             yield info
 
 def parse_rss_export(rss_file):
@@ -137,18 +143,7 @@ def parse_rss_export(rss_file):
         url = str_between(get_row('link'), '<link>', '</link>')
         ts_str = str_between(get_row('pubDate'), '<pubDate>', '</pubDate>')
         time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %z")
-
-        info = {
-            'url': url,
-            'domain': domain(url),
-            'base_url': base_url(url),
-            'timestamp': str(time.timestamp()),
-            'tags': '',
-            'title': title,
-            'sources': [rss_file.name],
-        }
-        info['type'] = get_link_type(info)
-
+        info = basic_link_info(url, rss_file, title, time)
         yield info
 
 def parse_bookmarks_export(html_file):
@@ -159,23 +154,12 @@ def parse_bookmarks_export(html_file):
     for line in html_file:
         # example line
         # <DT><A HREF="https://example.com/?q=1+2" ADD_DATE="1497562974" LAST_MODIFIED="1497562974" ICON_URI="https://example.com/favicon.ico" ICON="data:image/png;base64,...">example bookmark title</A>
-        
+
         match = pattern.search(line)
         if match:
             url = match.group(1)
             time = datetime.fromtimestamp(float(match.group(2)))
-
-            info = {
-                'url': url,
-                'domain': domain(url),
-                'base_url': base_url(url),
-                'timestamp': str(time.timestamp()),
-                'tags': "",
-                'title': match.group(3),
-                'sources': [html_file.name],
-            }
-            info['type'] = get_link_type(info)
-
+            info = basic_link_info(url, html_file, match.group(3), time)
             yield info
 
 def parse_pinboard_rss_feed(rss_file):
@@ -192,7 +176,7 @@ def parse_pinboard_rss_feed(rss_file):
         #       = 🌈🌈🌈🌈
         #        = 🌈🌈🌈🌈
         #         = 🏆🏆🏆🏆
-        
+
         # Pinboard includes a colon in its date stamp timezone offsets, which
         # Python can't parse. Remove it:
         if ":" == ts_str[-3:-2]:
