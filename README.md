@@ -6,7 +6,7 @@
 
 ---
 
-Save an archived copy of all websites you bookmark (the actual *content* of each site, not just the list of bookmarks).
+Save an **archived copy of all websites you bookmark** (the actual *content* of each site, not just the list of bookmarks). The script outputs a **browsable static html archive** of each site, a **PDF**, a **screenshot**, and a link to a **copy on archive.org**, all indexed with nice html & json files.
 
 Can import links from:
 
@@ -14,7 +14,7 @@ Can import links from:
  - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket
  - <img src="https://pinboard.in/favicon.ico" height="22px"/> Pinboard
  - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS or plain text lists
- - Shaarli, Delicious, Instapaper, Reddit Saved Posts, Wallabag, Unmark.it, and more!
+-  Shaarli, Delicious, Instapaper, Reddit Saved Posts, Wallabag, Unmark.it, and more!
 
 For each site, it outputs (configurable):
 
@@ -35,7 +35,7 @@ All the saved content is static and indexed with json files, so it lives forever
 
 ## Quickstart
 
-**1. Get your list of URLs:**
+### 1. Get your list of URLs
 
 Follow the links here to find instructions for exporting bookmarks from each service.
 
@@ -57,12 +57,12 @@ Follow the links here to find instructions for exporting bookmarks from each ser
 
  (If any of these links are broken, please submit an issue and I'll fix it)
 
-**2. Create your archive:**
+###  2. Installation
 
 ```bash
 git clone https://github.com/pirate/bookmark-archiver
 cd bookmark-archiver/
-./setup                                         # install all dependencies
+./setup    # install all dependencies
 
 # add a list of links from a file
 ./archive ~/Downloads/bookmark_export.html      # replace with the path to your export file or URL from step 1
@@ -76,17 +76,31 @@ cd bookmark-archiver/
 
 # OR just continue archiving the existing links in the index
 ./archive   # at any point if you just want to continue archiving where you left off, without adding any new links
+
+# You may optionally specify a second argument to resume the archive update at a specific timestamp.
+./archive /path/to/export.html 153242424324
 ```
 
-**3. Done!**
+ The dependencies are `chromium >= 59`, (or `google-chrome >= v59`), ` wget >= 1.16`, `curl` and `python3 >= 3.5`. If you don't like running random setup scripts off the internet (:+1:), you can follow the [manual setup](#manual-setup) instructions below.
 
-You can open `output/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
+### 3. Create your archive
+
+You can import links from any local file path or feed url by changing the argument to `archive.py`.
+
+```bash
+./archive.py ~/Downloads/bookmark_export.html   # replace with the path to your export file from step 1
+ # OR
+./archive.py https://getpocket.com/users/yourusername/feed/all  # url to an RSS, html, or json links file
+```
+
+### 4. View your archive
+
+You can open `html/archive/index.html` to view your archive.  (favicons will appear next to each title once it has finished downloading)
 
 If you want to host your archive somewhere to share it with other people, see the [Publishing Your Archive](#publishing-your-archive) section below.
 
-**4. (Optional) Schedule it to run every day**
+### 5. (Optional) Schedule it to run every day
 
-You can import links from any local file path or feed url by changing the second argument to `archive.py`.
 Bookmark Archiver will ignore links that are imported multiple times, it will keep the earliest version that it's seen.
 This means you can add multiple cron jobs to pull links from several different feeds or files each day,
 it will keep the index up-to-date without duplicate links.
@@ -98,8 +112,8 @@ This example archives a pocket RSS feed and an export file every 24 hours, and s
 ```
 (Add the above lines to `/etc/crontab`)
 
-**Next Steps**  
-  
+### Next Steps
+
 If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.  
 If you'd like to customize options, see the [Configuration](#configuration) section.  
 
@@ -126,7 +140,7 @@ For each sites it saves:
 
 Wget doesn't work on sites you need to be logged into, but chrome headless does, see the [Configuration](#configuration)* section for `CHROME_USER_DATA_DIR`.
 
-**Large Exports & Estimated Runtime:** 
+**Large Exports & Estimated Runtime:**
 
 I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.  
 Those numbers are from running it single-threaded on my i5 machine with 50mbps down.  YMMV.  
@@ -148,15 +162,18 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
 ```
 
 **Shell Options:**
+
  - colorize console ouput: `USE_COLOR` value: [`True`]/`False`
  - show progress bar: `SHOW_PROGRESS` value: [`True`]/`False`
  - archive permissions: `OUTPUT_PERMISSIONS` values: [`755`]/`644`/`...`
 
 **Dependency Options:**
+
  - path to Chrome: `CHROME_BINARY` values: [`chromium-browser`]/`/usr/local/bin/google-chrome`/`...`
  - path to wget: `WGET_BINARY` values: [`wget`]/`/usr/local/bin/wget`/`...`
 
 **Archive Options:**
+
  - maximum allowed download time per link: `TIMEOUT` values: [`60`]/`30`/`...`
  - archive methods (values: [`True`]/`False`):
    - fetch page with wget: `FETCH_WGET`
@@ -165,7 +182,7 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
    - fetch a screenshot of the page: `FETCH_SCREENSHOT`
    - fetch a DOM dump of the page: `FETCH_DOM`
    - fetch a favicon for the page: `FETCH_FAVICON`
-   - submit the page to archive.org: `SUBMIT_ARCHIVE_DOT_ORG` 
+   - submit the page to archive.org: `SUBMIT_ARCHIVE_DOT_ORG`
  - screenshot: `RESOLUTION` values: [`1440,900`]/`1024,768`/`...`
  - user agent: `WGET_USER_AGENT` values: [`Wget/1.19.1`]/`"Mozilla/5.0 ..."`/`...`
  - chrome profile: `CHROME_USER_DATA_DIR` values: [`~/Library/Application\ Support/Google/Chrome/Default`]/`/tmp/chrome-profile`/`...`
@@ -232,46 +249,39 @@ If you don't like running random setup scripts off the internet (:+1:), you can 
 
 If you already have Google Chrome installed, or wish to use that instead of Chromium, follow the [Google Chrome Instructions](#google-chrome-instructions).
 
+### On Mac
+
 ```bash
-# On Mac:
 brew cask install chromium  # If you already have Google Chrome/Chromium in /Applications/, skip this command
-brew install wget python3
+brew install wget curl python3 python3-pip
+pip3 install requests
 
 echo -e '#!/bin/bash\n/Applications/Chromium.app/Contents/MacOS/Chromium "$@"' > /usr/local/bin/chromium-browser  # see instructions for google-chrome below
 chmod +x /usr/local/bin/chromium-browser
 ```
 
-```bash
-# On Ubuntu/Debian:
-apt install chromium-browser python3 wget
-```
+### On Ubuntu/Debian
 
 ```bash
-# Check that everything worked:
+apt install wget curl chromium-browser python3 python3-pip
+pip3 install requests
+```
+
+### Check that everything worked
+```bash
 chromium-browser --version && which wget && which python3 && which curl && echo "[√] All dependencies installed."
 ```
 
-**2. Get your bookmark export file:**
-
-Follow the instruction links above in the "Quickstart" section to download your bookmarks export file.
-
-**3. Run the archive script:**
-
-1. Clone this repo `git clone https://github.com/pirate/bookmark-archiver`
-3. `cd bookmark-archiver/`
-4. `./archive ~/Downloads/bookmarks_export.html`
-
-You may optionally specify a second argument to `archive.py export.html 153242424324` to resume the archive update at a specific timestamp.
-
 If you have any trouble, see the [Troubleshooting](#troubleshooting) section at the bottom.
 
-### Google Chrome Instructions:
+### Google Chrome Instructions
 
 I recommend Chromium instead of Google Chrome, since it's open source and doesn't send your data to Google.
 Chromium may have some issues rendering some sites though, so you're welcome to try Google-chrome instead.
 It's also easier to use Google Chrome if you already have it installed, rather than downloading Chromium all over.
 
-1. Install & link google-chrome
+Install & link google-chrome:
+
 ```bash
 # On Mac:
 # If you already have Google Chrome in /Applications/, skip this brew command
@@ -289,18 +299,19 @@ sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable
 apt update; apt install google-chrome-beta python3 wget
 ```
 
-2. Set the environment variable `CHROME_BINARY` to `google-chrome` before running:
+Set the environment variable `CHROME_BINARY` to `google-chrome` before running:
 
 ```bash
 env CHROME_BINARY=google-chrome ./archive ~/Downloads/bookmarks_export.html
 ```
+
 If you're having any trouble trying to set up Google Chrome or Chromium, see the Troubleshooting section below.
 
 ## Troubleshooting
 
 ### Dependencies
 
-**Python:**
+#### Python
 
 On some Linux distributions the python3 package might not be recent enough.
 If this is the case for you, resort to installing a recent enough version manually.
@@ -309,7 +320,7 @@ add-apt-repository ppa:fkrull/deadsnakes && apt update && apt install python3.6
 ```
 If you still need help, [the official Python docs](https://docs.python.org/3.6/using/unix.html) are a good place to start.
 
-**Chromium/Google Chrome:**
+#### Chromium/Google Chrome
 
 `archive.py` depends on being able to access a `chromium-browser`/`google-chrome` executable.  The executable used
 defaults to `chromium-browser` but can be manually specified with the environment variable `CHROME_BINARY`:
@@ -318,21 +329,21 @@ defaults to `chromium-browser` but can be manually specified with the environmen
 env CHROME_BINARY=/usr/local/bin/chromium-browser ./archive ~/Downloads/bookmarks_export.html
 ```
 
-1. Test to make sure you have Chrome on your `$PATH` with:
+Test to make sure you have Chrome on your `$PATH` with:
 
 ```bash
 which chromium-browser || which google-chrome
 ```
 If no executable is displayed, follow the setup instructions to install and link one of them.
 
-2. If a path is displayed, the next step is to check that it's runnable:
+If a path is displayed, the next step is to check that it's runnable:
 
 ```bash
 chromium-browser --version || google-chrome --version
 ```
 If no version is displayed, try the setup instructions again, or confirm that you have permission to access chrome.
 
-3. If a version is displayed and it's `<59`, upgrade it:
+If a version is displayed and it's `<59`, upgrade it:
 
 ```bash
 apt upgrade chromium-browser -y
@@ -340,14 +351,14 @@ apt upgrade chromium-browser -y
 brew cask upgrade chromium-browser
 ```
 
-4. If a version is displayed and it's `>=59`, make sure `archive.py` is running the right one:
+If a version is displayed and it's `>=59`, make sure `archive.py` is running the right one:
 
 ```bash
 env CHROME_BINARY=/path/from/step/1/chromium-browser ./archive bookmarks_export.html   # replace the path with the one you got from step 1
 ```
 
 
-**Wget & Curl:**
+#### Wget & Curl
 
 If you're missing `wget` or `curl`, simply install them using `apt` or your package manager of choice.
 See the "Manual Setup" instructions for more details.
@@ -413,6 +424,7 @@ will run fast subsequent times because it only downloads new links that haven't 
 ## Links
 
 **Similar Projects:**
+
  - [Memex by Worldbrain.io](https://github.com/WorldBrain/Memex) a browser extension that saves all your history and does full-text search
  - [Hypothes.is](https://web.hypothes.is/) a web/pdf/ebook annotation tool that also archives content
  - [Perkeep](https://perkeep.org/) "Perkeep lets you permanently keep your stuff, for life."
@@ -422,6 +434,7 @@ will run fast subsequent times because it only downloads new links that haven't 
  - [Wallabag](https://wallabag.org) Save articles you read locally or on your phone
 
 **Discussions:**
+
  - [Hacker News Discussion](https://news.ycombinator.com/item?id=14272133)
  - [Reddit r/selfhosted Discussion](https://www.reddit.com/r/selfhosted/comments/69eoi3/pocket_stream_archive_your_own_personal_wayback/)
  - [Reddit r/datahoarder Discussion #1](https://www.reddit.com/r/DataHoarder/comments/69e6i9/archive_a_browseable_copy_of_your_saved_pocket/)
@@ -429,40 +442,42 @@ will run fast subsequent times because it only downloads new links that haven't 
 
 
 **Tools/Other:**
+
  - https://github.com/ikreymer/webarchiveplayer#auto-load-warcs
  - [Sheetsee-Pocket](http://jlord.us/sheetsee-pocket/) project that provides a pretty auto-updating index of your Pocket links (without archiving them)
  - [Pocket -> IFTTT -> Dropbox](https://christopher.su/2013/saving-pocket-links-file-day-dropbox-ifttt-launchd/) Post by Christopher Su on his Pocket saving IFTTT recipie
 
 ## Changelog
 
- - v0.1.0 released
- - support for browser history exporting added with `./bin/export-browser-history`
- - support for chrome `--dump-dom` to output full page HTML after JS executes
- - v0.0.3 released
- - support for chrome `--user-data-dir` to archive sites that need logins
- - fancy individual html & json indexes for each link
- - smartly append new links to existing index instead of overwriting 
-  - v0.0.2 released
- - proper HTML templating instead of format strings (thanks to https://github.com/bardisty!)
- - refactored into separate files, wip audio & video archiving
- - v0.0.1 released
- - Index links now work without nginx url rewrites, archive can now be hosted on github pages
- - added setup.sh script & docstrings & help commands
- - made Chromium the default instead of Google Chrome (yay free software)
- - added [env-variable](https://github.com/pirate/bookmark-archiver/pull/25) configuration (thanks to https://github.com/hannah98!)
- - renamed from **Pocket Archive Stream** -> **Bookmark Archiver**
- - added [Netscape-format](https://github.com/pirate/bookmark-archiver/pull/20) export support (thanks to https://github.com/ilvar!)
- - added [Pinboard-format](https://github.com/pirate/bookmark-archiver/pull/7) export support (thanks to https://github.com/sconeyard!)
- - front-page of HN, oops! apparently I have users to support now :grin:?
- - added Pocket-format export support
- - v0.0.0 released: created Pocket Archive Stream 2017/05/05
- 
- ## Donations
- 
- This project can really flourish with some more engineering effort, but unless it can support   
- me financially I'm unlikely to be able to take it to the next level alone.  It's already pretty   
- functional and robust, but it really deserves to be taken to the next level with a few more   
- talented engineers.  If you or your foundation wants to sponsor this project long-term, contact  
- me at bookmark-archiver@sweeting.me.
-   
+- v0.1.0 released
+- support for browser history exporting added with `./bin/export-browser-history`
+- support for chrome `--dump-dom` to output full page HTML after JS executes
+- v0.0.3 released
+- support for chrome `--user-data-dir` to archive sites that need logins
+- fancy individual html & json indexes for each link
+- smartly append new links to existing index instead of overwriting
+- v0.0.2 released
+- proper HTML templating instead of format strings (thanks to https://github.com/bardisty!)
+- refactored into separate files, wip audio & video archiving
+- v0.0.1 released
+- Index links now work without nginx url rewrites, archive can now be hosted on github pages
+- added setup.sh script & docstrings & help commands
+- made Chromium the default instead of Google Chrome (yay free software)
+- added [env-variable](https://github.com/pirate/bookmark-archiver/pull/25) configuration (thanks to https://github.com/hannah98!)
+- renamed from **Pocket Archive Stream** -> **Bookmark Archiver**
+- added [Netscape-format](https://github.com/pirate/bookmark-archiver/pull/20) export support (thanks to https://github.com/ilvar!)
+- added [Pinboard-format](https://github.com/pirate/bookmark-archiver/pull/7) export support (thanks to https://github.com/sconeyard!)
+- front-page of HN, oops! apparently I have users to support now :grin:?
+- added Pocket-format export support
+- v0.0.0 released: created Pocket Archive Stream 2017/05/05
+
+
+## Donations
+
+This project can really flourish with some more engineering effort, but unless it can support   
+me financially I'm unlikely to be able to take it to the next level alone.  It's already pretty   
+functional and robust, but it really deserves to be taken to the next level with a few more   
+talented engineers.  If you or your foundation wants to sponsor this project long-term, contact  
+me at bookmark-archiver@sweeting.me.
+
  [Grants / Donations](https://github.com/pirate/bookmark-archiver/blob/master/donate.md)
