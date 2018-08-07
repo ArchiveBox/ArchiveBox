@@ -4,33 +4,37 @@ import shutil
 
 from subprocess import run, PIPE
 
+IS_TTY = sys.stdout.isatty()
+
+def parse_boolean_env(var, default_value):
+    """Parse string environment variables into booleans."""
+    return os.getenv(var, default_value)
+
 # ******************************************************************************
 # * TO SET YOUR CONFIGURATION, EDIT THE VALUES BELOW, or use the 'env' command *
-# * e.g.                                                                       *
+# * e.g.      *
 # * env USE_COLOR=True CHROME_BINARY=google-chrome ./archive.py export.html    *
 # ******************************************************************************
-
-IS_TTY = sys.stdout.isatty()
-USE_COLOR =              os.getenv('USE_COLOR',              str(IS_TTY)        ).lower() == 'true'
-SHOW_PROGRESS =          os.getenv('SHOW_PROGRESS',          str(IS_TTY)        ).lower() == 'true'
-FETCH_WGET =             os.getenv('FETCH_WGET',             'True'             ).lower() == 'true'
-FETCH_WGET_REQUISITES =  os.getenv('FETCH_WGET_REQUISITES',  'True'             ).lower() == 'true'
-FETCH_AUDIO =            os.getenv('FETCH_AUDIO',            'False'            ).lower() == 'true'
-FETCH_VIDEO =            os.getenv('FETCH_VIDEO',            'False'            ).lower() == 'true'
-FETCH_PDF =              os.getenv('FETCH_PDF',              'True'             ).lower() == 'true'
-FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'             ).lower() == 'true'
-FETCH_DOM =              os.getenv('FETCH_DOM',              'True'             ).lower() == 'true'
-FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'
-SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             ).lower() == 'true'
-RESOLUTION =             os.getenv('RESOLUTION',             '1440,1200'        )
-CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
-OUTPUT_PERMISSIONS =     os.getenv('OUTPUT_PERMISSIONS',     '755'              )
-CHROME_BINARY =          os.getenv('CHROME_BINARY',          'chromium-browser' )  # change to google-chrome browser if using google-chrome
-WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             )
-WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'Bookmark Archiver')
-CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',    None)
-TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
-FOOTER_INFO =            os.getenv('FOOTER_INFO',            'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.',)
+CHECK_SSL_VALIDITY     = parse_boolean_env('CHECK_SSL_VALIDITY'     , 'True')
+CHROME_BINARY          = os.getenv('CHROME_BINARY'                  , 'chromium-browser')  # change to google-chrome browser if using google-chrome
+CHROME_USER_DATA_DIR   = os.getenv('CHROME_USER_DATA_DIR'           , None)
+FETCH_AUDIO            = parse_boolean_env('FETCH_AUDIO'            , 'False')
+FETCH_DOM              = parse_boolean_env('FETCH_DOM'              , 'True')
+FETCH_FAVICON          = parse_boolean_env('FETCH_FAVICON'          , 'True')
+FETCH_PDF              = parse_boolean_env('FETCH_PDF'              , 'True')
+FETCH_SCREENSHOT       = parse_boolean_env('FETCH_SCREENSHOT'       , 'True')
+FETCH_VIDEO            = parse_boolean_env('FETCH_VIDEO'            , 'False')
+FETCH_WGET             = parse_boolean_env('FETCH_WGET'             , 'True')
+FETCH_WGET_REQUISITES  = parse_boolean_env('FETCH_WGET_REQUISITES'  , 'True')
+FOOTER_INFO            = os.getenv('FOOTER_INFO'                    , 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.')
+OUTPUT_PERMISSIONS     = os.getenv('OUTPUT_PERMISSIONS'             , '755' )
+RESOLUTION             = os.getenv('RESOLUTION'                     , '1440,1200')
+SHOW_PROGRESS          = parse_boolean_env('SHOW_PROGRESS'          , str(IS_TTY))
+SUBMIT_ARCHIVE_DOT_ORG = parse_boolean_env('SUBMIT_ARCHIVE_DOT_ORG' , 'True')
+TIMEOUT                = int(os.getenv('TIMEOUT'                    , '60'))
+USE_COLOR              = parse_boolean_env('USE_COLOR'              , str(IS_TTY))
+WGET_BINARY            = os.getenv('WGET_BINARY'                    , 'wget')
+WGET_USER_AGENT        = os.getenv('WGET_USER_AGENT'                , 'Bookmark Archiver')
 
 ### Paths
 REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
