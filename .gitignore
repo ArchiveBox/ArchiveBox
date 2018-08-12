@@ -1,4 +1,13 @@
-output/
+# OS cruft
 .DS_Store
+._*
+
+# python
 __pycache__/
 archiver/venv
+
+# vim
+.swp*
+
+# output artifacts
+output/
