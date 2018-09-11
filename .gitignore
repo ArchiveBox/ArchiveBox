@@ -10,4 +10,5 @@ archiver/venv
 .swp*
 
 # output artifacts
+output
 output/
