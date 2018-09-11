@@ -196,7 +196,7 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT
         # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
         *'wget -N -E -np -x -H -k -K -S --restrict-file-names=unix'.split(' '),
         *(('-p',) if FETCH_WGET_REQUISITES else ()),
-        *(('--user-agent="{}"'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
+        *(('--user-agent={}'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
         *((() if CHECK_SSL_VALIDITY else ('--no-check-certificate',))),
         link['url'],
     ]
