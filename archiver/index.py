@@ -72,6 +72,9 @@ def write_html_links_index(out_dir, links):
 
     copy_tree(os.path.join(TEMPLATES_DIR, 'static'), os.path.join(out_dir, 'static'))
 
+    with open(os.path.join(out_dir, 'robots.txt'), 'w+') as f:
+        f.write('User-agent: *\nDisallow: /')
+
     with open(os.path.join(TEMPLATES_DIR, 'index.html'), 'r', encoding='utf-8') as f:
         index_html = f.read()
 
