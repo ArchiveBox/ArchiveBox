@@ -34,6 +34,7 @@ Link {
 
 import datetime
 from html import unescape
+from collections import OrderedDict
 
 from util import (
     domain,
@@ -87,7 +88,7 @@ def uniquefied_links(sorted_links):
     ensures that all non-duplicate links have monotonically increasing timestamps
     """
 
-    unique_urls = {}
+    unique_urls = OrderedDict()
 
     lower = lambda url: url.lower().strip()
     without_www = lambda url: url.replace('://www.', '://', 1)
@@ -100,7 +101,7 @@ def uniquefied_links(sorted_links):
             link = merge_links(unique_urls[fuzzy_url], link)
         unique_urls[fuzzy_url] = link
 
-    unique_timestamps = {}
+    unique_timestamps = OrderedDict()
     for link in unique_urls.values():
         link['timestamp'] = lowest_uniq_timestamp(unique_timestamps, link['timestamp'])
         unique_timestamps[link['timestamp']] = link
@@ -108,7 +109,7 @@ def uniquefied_links(sorted_links):
     return unique_timestamps.values()
 
 def sorted_links(links):
-    sort_func = lambda link: (link['timestamp'], link['url'])
+    sort_func = lambda link: (link['timestamp'].split('.', 1)[0], link['url'])
     return sorted(links, key=sort_func, reverse=True)
 
 def links_after_timestamp(links, timestamp=None):
