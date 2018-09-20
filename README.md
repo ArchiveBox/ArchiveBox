@@ -6,7 +6,7 @@
 
 ---
 
-Save an archived copy of all websites you bookmark (the actual *content* of each site, not just the list of bookmarks).
+Save an archived copy of the websites you visit (the actual *content* of each site, not just the list of links).
 
 Can import links from:
 
