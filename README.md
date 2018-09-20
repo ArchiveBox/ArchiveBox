@@ -10,7 +10,7 @@ Save an archived copy of the websites you visit (the actual *content* of each si
 
 Can import links from:
 
- - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history & bookmarks (Chrome, Firefox, Safari, IE, Opera)
+ - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history or bookmarks (Chrome, Firefox, Safari, IE, Opera)
  - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket
  - <img src="https://pinboard.in/favicon.ico" height="22px"/> Pinboard
  - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS or plain text lists
