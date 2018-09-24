@@ -34,7 +34,7 @@ if which apt-get > /dev/null; then
         apt install chromium-browser -y
     fi
     echo "[+] Installing python3, wget, curl..."
-    apt install python3 python3-distutils wget curl
+    apt install -y python3 python3-distutils wget curl
 
 # On Mac:
 elif which brew > /dev/null; then   # 🐍 eye of newt
