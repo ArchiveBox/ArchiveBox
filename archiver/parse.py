@@ -1,3 +1,5 @@
+# coding: utf-8
+
 """
 Everything related to parsing links from bookmark services.
 
@@ -84,8 +86,7 @@ def parse_pocket_export(html_file):
             yield info
 
 def parse_json_export(json_file):
-    """Parse JSON-format bookmarks export files (produced by pinboard.in/export/)"""
-
+    """Parse JSON-format bookmarks export files (produced by pinboard.in/export/, or wallabag)"""
     json_file.seek(0)
     json_content = json.load(json_file)
     for line in json_content:
@@ -97,15 +98,25 @@ def parse_json_export(json_file):
                 timestamp = str(erg['timestamp']/10000000)  # chrome/ff histories use a very precise timestamp
             elif erg.get('time'):
                 timestamp = str(datetime.strptime(erg['time'].split(',', 1)[0], '%Y-%m-%dT%H:%M:%SZ').timestamp())
+            elif erg.get('created_at'):
+                timestamp = str(datetime.strptime(erg['created_at'], '%Y-%m-%dT%H:%M:%S%z').timestamp())
             else:
                 timestamp = str(datetime.now().timestamp())
+            if erg.get('href'):
+                url = erg['href']
+            else:
+                url = erg['url']
+            if erg.get('description'):
+                title = (erg.get('description') or '').replace(' — Readability', '')
+            else:
+                title = erg['title']
             info = {
-                'url': erg['href'],
-                'domain': domain(erg['href']),
-                'base_url': base_url(erg['href']),
+                'url': url,
+                'domain': domain(url),
+                'base_url': base_url(url),
                 'timestamp': timestamp,
                 'tags': erg.get('tags') or '',
-                'title': (erg.get('description') or '').replace(' — Readability', ''),
+                'title': title,
                 'sources': [json_file.name],
             }
             info['type'] = get_link_type(info)
