@@ -74,10 +74,10 @@ except Exception:
 
 if sys.stdout.encoding.upper() != 'UTF-8':
     print('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
-    print('    To fix it, add the line "export PYTHONIOENCODING=utf8" to your ~/.bashrc file (without quotes)')
+    print('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
     print('')
     print('    Confirm that it\'s fixed by opening a new shell and running:')
     print('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
     print('')
     print('    Alternatively, run this script with:')
-    print('        env PYTHONIOENCODING=utf8 ./archive.py export.html')
+    print('        env PYTHONIOENCODING=UTF-8 ./archive.py export.html')
