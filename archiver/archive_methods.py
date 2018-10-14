@@ -25,6 +25,7 @@ from config import (
     FETCH_FAVICON,
     WGET_USER_AGENT,
     CHROME_USER_DATA_DIR,
+    CHROME_SANDBOX,
     TIMEOUT,
     ANSI,
     ARCHIVE_DIR,
@@ -498,6 +499,8 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
 
 def chrome_headless(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR):
     args = [binary, '--headless']  # '--disable-gpu'
+    if not CHROME_SANDBOX:
+        args.append('--no-sandbox')
     default_profile = os.path.expanduser('~/Library/Application Support/Google/Chrome/Default')
     if user_data_dir:
         args.append('--user-data-dir={}'.format(user_data_dir))

@@ -46,6 +46,8 @@ TEMPLATES_DIR = os.path.join(PYTHON_PATH, 'templates')
 # ********************** Do not edit below this point **************************
 # ******************************************************************************
 
+CHROME_SANDBOX =        os.getenv('CHROME_SANDBOX',         'True'             ).lower() == 'true'
+
 ### Terminal Configuration
 TERM_WIDTH = shutil.get_terminal_size((100, 10)).columns
 ANSI = {
