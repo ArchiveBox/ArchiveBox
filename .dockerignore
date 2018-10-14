@@ -1,0 +1,6 @@
+archiver/output
+archiver/tests
+__pycache__
+.DS_Store
+venv
+.venv
