@@ -355,7 +355,7 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
     submit_url = 'https://web.archive.org/save/{}'.format(link['url'].split('?', 1)[0])
 
     success = False
-    CMD = ['curl', '-I', submit_url]
+    CMD = ['curl', '-L', '-I', '-X', 'GET', submit_url]
     end = progress(timeout, prefix='      ')
     try:
         result = run(CMD, stdout=PIPE, stderr=DEVNULL, cwd=link_dir, timeout=timeout + 1)  # archive.org.txt
