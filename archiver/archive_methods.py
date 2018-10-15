@@ -352,7 +352,7 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
         archive_org_url = open(path, 'r').read().strip()
         return {'output': archive_org_url, 'status': 'skipped'}
 
-    submit_url = 'https://web.archive.org/save/{}'.format(link['url'].split('?', 1)[0])
+    submit_url = 'https://web.archive.org/save/{}'.format(link['url'])
 
     success = False
     CMD = ['curl', '-L', '-I', '-X', 'GET', submit_url]
