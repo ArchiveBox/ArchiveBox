@@ -64,7 +64,7 @@ def merge_links(archive_path=OUTPUT_DIR, import_path=None, only_new=False):
         all_links = validate_links(existing_links + all_links)
     
     num_new_links = len(all_links) - len(existing_links)
-    if num_new_links:
+    if num_new_links and not only_new:
         print('[{green}+{reset}] [{}] Adding {} new links from {} to {}/index.json'.format(
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             num_new_links,
@@ -166,7 +166,8 @@ if __name__ == '__main__':
 
     # Step 1: Parse the links and dedupe them with existing archive
     links = merge_links(archive_path=out_dir, import_path=source, only_new=False)
-    
+    new_links = merge_links(archive_path=out_dir, import_path=source, only_new=True)
+
     # Step 2: Write new index
     write_links_index(out_dir=out_dir, links=links)
 
@@ -175,7 +176,6 @@ if __name__ == '__main__':
 
     # Step 4: Run the archive methods for each link
     if ONLY_NEW:
-        new_links = merge_links(archive_path=out_dir, import_path=source, only_new=True)
         update_archive(out_dir, new_links, source=source, resume=resume, append=True)
     else:
         update_archive(out_dir, links, source=source, resume=resume, append=True)
