@@ -140,6 +140,11 @@ You can run it in parallel by using the `resume` feature, or by manually splitti
 ```
 Users have reported running it with 50k+ bookmarks with success (though it will take more RAM while running).
 
+If you already imported a huge list of bookmarks and want to import only new
+bookmarks, you can use the `ONLY_NEW` environment variable. This is useful if
+you want to import a bookmark dump periodically and want to skip broken links
+which are already in the index.
+
 ## Configuration
 
 You can tweak parameters via environment variables, or by editing `config.py` directly:
@@ -158,6 +163,7 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
 
 **Archive Options:**
  - maximum allowed download time per link: `TIMEOUT` values: [`60`]/`30`/`...`
+ - import only new links: `ONLY_NEW` values `True`/[`False`]
  - archive methods (values: [`True`]/`False`):
    - fetch page with wget: `FETCH_WGET`
    - fetch images/css/js with wget: `FETCH_WGET_REQUISITES` (True is highly recommended)
