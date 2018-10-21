@@ -74,21 +74,14 @@ def validate_links(links):
 
     return list(links)
 
-def new_links(imported_links, existing_links):
+def new_links(all_links, existing_links):
     """
-    Return all links which are in the imported_links but not in the existing_links.
+    Return all links which are in the all_links but not in the existing_links.
     This is used to determine which links are new and not indexed jet. Set the
     ONLY_NEW environment variable to activate this filter mechanism.
     """
-    new_links = []
-    for i_link in imported_links:
-        found_link_in_existing_links = False
-        for e_link in existing_links:
-            if i_link['url'] == e_link['url']:
-                found_link_in_existing_links = True
-        if not found_link_in_existing_links:
-            new_links.append(i_link)
-    return new_links
+    existing_urls = list(map(lambda l: l['url'], existing_links))
+    return list(filter(lambda l: l['url'] not in existing_urls, all_links))
 
 def archivable_links(links):
     """remove chrome://, about:// or other schemed links that cant be archived"""
