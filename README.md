@@ -37,7 +37,7 @@ All the saved content is static and indexed with json files, so it lives forever
 
 **1. Get your list of URLs:**
 
-Follow the links here to find instructions for exporting bookmarks from each service.
+Follow the links here to find instructions for exporting a list of URLs from each service.
 
  - [Pocket](https://getpocket.com/export)
  - [Pinboard](https://pinboard.in/export/)
