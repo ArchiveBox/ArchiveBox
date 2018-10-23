@@ -21,7 +21,7 @@ For each site, it outputs (configurable):
 - Browsable static HTML archive (wget)
 - PDF (Chrome headless)
 - Screenshot (Chrome headless)
-- DOM dump (Chrome headless)
+- HTML after 2s of JS running (Chrome headless)
 - Favicon
 - Submits URL to archive.org
 - Index summary pages: index.html & index.json
