@@ -1,5 +1,7 @@
 # Bookmark Archiver <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/bookmark-archiver) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
 
+## ANNOUNCEMENT: SOON TO BE RENAMED, [COMMENT HERE](https://github.com/pirate/bookmark-archiver/issues/108) TO DISCUSS NEW NAMES.
+
     "Your own personal Way-Back Machine"
 
 ▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Demo](https://archive.sweeting.me) | [Changelog](#changelog) | [Donate](https://github.com/pirate/bookmark-archiver/blob/master/DONATE.md)
