@@ -13,6 +13,7 @@ from subprocess import run, PIPE
 IS_TTY = sys.stdout.isatty()
 USE_COLOR =              os.getenv('USE_COLOR',              str(IS_TTY)        ).lower() == 'true'
 SHOW_PROGRESS =          os.getenv('SHOW_PROGRESS',          str(IS_TTY)        ).lower() == 'true'
+ONLY_NEW =               os.getenv('ONLY_NEW',               'False'            ).lower() == 'true'
 FETCH_WGET =             os.getenv('FETCH_WGET',             'True'             ).lower() == 'true'
 FETCH_WGET_REQUISITES =  os.getenv('FETCH_WGET_REQUISITES',  'True'             ).lower() == 'true'
 FETCH_AUDIO =            os.getenv('FETCH_AUDIO',            'False'            ).lower() == 'true'

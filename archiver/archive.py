@@ -10,7 +10,10 @@ from datetime import datetime
 from subprocess import run
 
 from parse import parse_links
-from links import validate_links
+from links import (
+    new_links,
+    validate_links
+)
 from archive_methods import archive_links, _RESULTS_TOTALS
 from index import (
     write_links_index,
@@ -19,6 +22,7 @@ from index import (
     parse_json_link_index,
 )
 from config import (
+    ONLY_NEW,
     OUTPUT_PERMISSIONS,
     OUTPUT_DIR,
     ANSI,
@@ -45,7 +49,7 @@ def print_help():
     print("    ./bin/bookmark-archiver ~/Downloads/bookmarks_export.html\n")
 
 
-def merge_links(archive_path=OUTPUT_DIR, import_path=None):
+def merge_links(archive_path=OUTPUT_DIR, import_path=None, only_new=False):
     """get new links from file and optionally append them to links in existing archive"""
     all_links = []
     if import_path:
@@ -60,7 +64,7 @@ def merge_links(archive_path=OUTPUT_DIR, import_path=None):
         all_links = validate_links(existing_links + all_links)
     
     num_new_links = len(all_links) - len(existing_links)
-    if num_new_links:
+    if num_new_links and not only_new:
         print('[{green}+{reset}] [{}] Adding {} new links from {} to {}/index.json'.format(
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             num_new_links,
@@ -75,6 +79,9 @@ def merge_links(archive_path=OUTPUT_DIR, import_path=None):
     #         ' from {}'.format(import_path) if import_path else '',
     #         **ANSI,
     #     ))
+
+    if only_new:
+        return new_links(all_links, existing_links)
 
     return all_links
 
@@ -158,8 +165,9 @@ if __name__ == '__main__':
         source = download_url(source)
 
     # Step 1: Parse the links and dedupe them with existing archive
-    links = merge_links(archive_path=out_dir, import_path=source)
-    
+    links = merge_links(archive_path=out_dir, import_path=source, only_new=False)
+    new_links = merge_links(archive_path=out_dir, import_path=source, only_new=True)
+
     # Step 2: Write new index
     write_links_index(out_dir=out_dir, links=links)
 
@@ -167,4 +175,7 @@ if __name__ == '__main__':
     # cleanup_archive(out_dir, links)
 
     # Step 4: Run the archive methods for each link
-    update_archive(out_dir, links, source=source, resume=resume, append=True)
+    if ONLY_NEW:
+        update_archive(out_dir, new_links, source=source, resume=resume, append=True)
+    else:
+        update_archive(out_dir, links, source=source, resume=resume, append=True)
