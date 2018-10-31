@@ -397,28 +397,6 @@ If you're having issues trying to host the archive via nginx, make sure you alre
 If you don't, google around, there are plenty of tutorials to help get that set up.  Open an [issue](https://github.com/pirate/bookmark-archiver/issues)
 if you have problem with a particular nginx config.
 
-## Roadmap
-
-If you feel like contributing a PR, some of these tasks are pretty easy.  Feel free to open an issue if you need help getting started in any way!
-
- - download closed-captions text from youtube videos
- - body text extraction using [fathom](https://hacks.mozilla.org/2017/04/fathom-a-framework-for-understanding-web-pages/)
- - auto-tagging based on important extracted words
- - audio & video archiving with `youtube-dl`
- - full-text indexing with elasticsearch/elasticlunr/ag
- - video closed-caption downloading for full-text indexing video content
- - automatic text summaries of article with summarization library
- - feature image extraction
- - http support (from my https-only domain)
- - try wgetting dead sites from archive.org (https://github.com/hartator/wayback-machine-downloader)
- - live updating from pocket/pinboard
-
-It's possible to pull links via the pocket API or public pocket RSS feeds instead of downloading an html export.
-Once I write a script to do that, we can stick this in `cron` and have it auto-update on it's own.
-
-For now you just have to download `ril_export.html` and run `archive.py` each time it updates. The script
-will run fast subsequent times because it only downloads new links that haven't been archived already.
-
 ## Links
 
 **Similar Projects:**
@@ -442,6 +420,29 @@ will run fast subsequent times because it only downloads new links that haven't 
  - [Sheetsee-Pocket](http://jlord.us/sheetsee-pocket/) project that provides a pretty auto-updating index of your Pocket links (without archiving them)
  - [Pocket -> IFTTT -> Dropbox](https://christopher.su/2013/saving-pocket-links-file-day-dropbox-ifttt-launchd/) Post by Christopher Su on his Pocket saving IFTTT recipie
 
+## Roadmap
+
+If you feel like contributing a PR, some of these tasks are pretty easy.  Feel free to open an issue if you need help getting started in any way!
+
+**Major upcoming changes:**
+
+ - change the name
+ - make it a modularized python package to allow installing via pip and importing individual componenets
+ - add a plugin architecture and allow people to contribute plugins for archive methods, indexers, parsers, etc
+ - add a web GUI for managing sources and adding new links
+
+**Minor upcoming changes:**
+ - download closed-captions text from youtube videos
+ - body text extraction using [fathom](https://hacks.mozilla.org/2017/04/fathom-a-framework-for-understanding-web-pages/)
+ - auto-tagging based on important extracted words
+ - audio & video archiving with `youtube-dl`
+ - full-text indexing with elasticsearch/elasticlunr/ag
+ - video closed-caption downloading on Youtube for full-text indexing of video content
+ - automatic text summaries of article with nlp summarization library
+ - featured image extraction
+ - http support (from my https-only domain)
+ - try wgetting dead sites from archive.org (https://github.com/hartator/wayback-machine-downloader)
+ 
 ## Changelog
 
  - v0.1.0 released
@@ -471,7 +472,7 @@ will run fast subsequent times because it only downloads new links that haven't 
  This project can really flourish with some more engineering effort, but unless it can support   
  me financially I'm unlikely to be able to take it to the next level alone.  It's already pretty   
  functional and robust, but it really deserves to be taken to the next level with a few more   
- talented engineers.  If you or your foundation wants to sponsor this project long-term, contact  
+ talented engineers.  If you want to help sponsor this project long-term or just say thanks or suggest changes, contact  
  me at bookmark-archiver@sweeting.me.
    
  [Grants / Donations](https://github.com/pirate/bookmark-archiver/blob/master/donate.md)
