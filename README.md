@@ -4,7 +4,7 @@
 
     "Your own personal Way-Back Machine"
 
-▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Demo](https://archive.sweeting.me) | [Changelog](#changelog) | [Donate](https://github.com/pirate/bookmark-archiver/blob/master/DONATE.md)
+▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Demo](https://archive.sweeting.me) | [Source](https://github.com/pirate/bookmark-archiver/tree/master) | [Changelog](#changelog) | [Donate](https://github.com/pirate/bookmark-archiver/blob/master/DONATE.md)
 
 ---
 
@@ -397,6 +397,7 @@ If you're having issues trying to host the archive via nginx, make sure you alre
 If you don't, google around, there are plenty of tutorials to help get that set up.  Open an [issue](https://github.com/pirate/bookmark-archiver/issues)
 if you have problem with a particular nginx config.
 
+
 ## Links
 
 **Similar Projects:**
@@ -419,6 +420,7 @@ if you have problem with a particular nginx config.
  - https://github.com/ikreymer/webarchiveplayer#auto-load-warcs
  - [Sheetsee-Pocket](http://jlord.us/sheetsee-pocket/) project that provides a pretty auto-updating index of your Pocket links (without archiving them)
  - [Pocket -> IFTTT -> Dropbox](https://christopher.su/2013/saving-pocket-links-file-day-dropbox-ifttt-launchd/) Post by Christopher Su on his Pocket saving IFTTT recipie
+
 
 ## Roadmap
 
@@ -443,6 +445,7 @@ If you feel like contributing a PR, some of these tasks are pretty easy.  Feel f
  - http support (from my https-only domain)
  - try wgetting dead sites from archive.org (https://github.com/hartator/wayback-machine-downloader)
  
+ 
 ## Changelog
 
  - v0.1.0 released
@@ -466,6 +469,7 @@ If you feel like contributing a PR, some of these tasks are pretty easy.  Feel f
  - front-page of HN, oops! apparently I have users to support now :grin:?
  - added Pocket-format export support
  - v0.0.0 released: created Pocket Archive Stream 2017/05/05
+ 
  
  ## Donations
  
