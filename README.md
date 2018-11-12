@@ -391,6 +391,10 @@ Not all sites can be effectively archived with each method, that's why it's best
 If it seems like more than 10-20% of sites in the archive are broken, open an [issue](https://github.com/pirate/bookmark-archiver/issues)
 with some of the URLs that failed to be archived and I'll investigate.
 
+**Removing unwanted links from the index:**
+
+If you accidentally added lots of unwanted links into index and they slow down your archiving, you can use the `bin/purge` script to remove them from your index, which removes everything matching python regexes you pass into it. E.g: `bin/purge -r 'amazon\.com' -r 'google\.com'`. It would prompt before removing links from index, but for extra safety you might want to back up `index.json` first (or put in undex version control).
+
 ### Hosting the Archive
 
 If you're having issues trying to host the archive via nginx, make sure you already have nginx running with SSL.
