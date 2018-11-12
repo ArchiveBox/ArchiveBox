@@ -388,7 +388,7 @@ Open an [issue](https://github.com/pirate/bookmark-archiver/issues) with a descr
 **Lots of broken links from the index:**
 
 Not all sites can be effectively archived with each method, that's why it's best to use a combination of `wget`, PDFs, and screenshots.
-If it seems like more than 10-20% of sites in the archive are broken, open an [issue](https://github.com/pirate/bookmark-archiver/issues**
+If it seems like more than 10-20% of sites in the archive are broken, open an [issue](https://github.com/pirate/bookmark-archiver/issues)
 with some of the URLs that failed to be archived and I'll investigate.
 
 **Removing unwanted links from the index:**
