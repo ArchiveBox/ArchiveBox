@@ -405,6 +405,7 @@ if you have problem with a particular nginx config.
 ## Links
 
 **Similar Projects:**
+ - [Reminiscence](https://github.com/kanishka-linux/reminiscence/) extremely similar to BA, uses a Django backend + UI and provides auto tagging and summary features with NLTK
  - [Memex by Worldbrain.io](https://github.com/WorldBrain/Memex) a browser extension that saves all your history and does full-text search
  - [Hypothes.is](https://web.hypothes.is/) a web/pdf/ebook annotation tool that also archives content
  - [Perkeep](https://perkeep.org/) "Perkeep lets you permanently keep your stuff, for life."
