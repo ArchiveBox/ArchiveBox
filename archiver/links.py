@@ -60,6 +60,7 @@ def validate_links(links):
         link['title'] = unescape(link['title'])
         link['latest'] = link.get('latest') or {}
         
+        latest = link['latest']
         if not link['latest'].get('wget'):
             link['latest']['wget'] = wget_output_path(link)
 
@@ -71,6 +72,9 @@ def validate_links(links):
 
         if not link['latest'].get('dom'):
             link['latest']['dom'] = None
+
+        if not latest.get('favicon'):
+            latest['favicon'] = None
 
     return list(links)
 
