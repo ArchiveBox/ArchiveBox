@@ -161,7 +161,13 @@ def progress(seconds=TIMEOUT, prefix=''):
 
     def end():
         """immediately finish progress and clear the progressbar line"""
+        nonlocal p
+        if p is None: # protect from double termination
+            return
+
         p.terminate()
+        p = None
+
         sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH), ANSI['reset']))  # clear whole terminal line
         sys.stdout.flush()
 
