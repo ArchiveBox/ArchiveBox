@@ -38,11 +38,14 @@
             header h1 small a {
                 text-decoration: none;
                 color: orange;
-                opacity: 0.6
+                opacity: 0.6;
                 font-weight: 300;
             }
             header h1 small a:hover {
                 opacity: 1;
+            }
+            header + div {
+                margin-top: 10px;
             }
             .header-center {
                 width: 100%;
@@ -56,6 +59,9 @@
                 padding: 20px;
                 margin-right: -70px;
             }
+            #table-bookmarks_length, #table-bookmarks_filter {
+                padding: 0px 15px;
+            }
             table {
                 padding: 6px;
                 width: 100%;
@@ -67,7 +73,7 @@
                 height: 35px;
             }
             tbody tr:nth-child(odd) {
-               background-color: #ffebeb;
+               background-color: #ffebeb !important;
             }
             table tr td {
                 white-space: nowrap;
@@ -90,7 +96,13 @@
                 vertical-align: middle;
                 margin-left: 4px;
             }
+            #table-bookmarks {
+                width: 100%; 
+                overflow-y: scroll;
+                table-layout: fixed;
+            }
         </style>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.19/css/jquery.dataTables.min.css" />
     </head>
     <body>
         <header>
@@ -113,7 +125,7 @@
                 </h1>
             </div>
         </header>
-        <table style="width:100%;height: 90%; overflow-y: scroll;table-layout: fixed">
+        <table id="table-bookmarks">
             <thead>
                 <tr>
                     <th style="width: 80px;">Bookmarked</th>
@@ -141,5 +153,15 @@
             </center>
             <br/>
         </footer>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.19/js/jquery.dataTables.min.js"></script>
+        <script>
+            jQuery(document).ready(function() {
+                jQuery('#table-bookmarks').DataTable({
+                    stateSave: true, // save state (filtered input, number of entries shown, etc) in localStorage
+                    dom: '<lf<t>ip>' // how to show the table and its helpers (filter, etc) in the DOM
+                });
+            });
+        </script>
     </body>
 </html>
