@@ -484,4 +484,4 @@ If you feel like contributing a PR, some of these tasks are pretty easy.  Feel f
  talented engineers.  If you want to help sponsor this project long-term or just say thanks or suggest changes, contact  
  me at bookmark-archiver@sweeting.me.
    
- [Grants / Donations](https://github.com/pirate/bookmark-archiver/blob/master/donate.md)
+ [Grants / Donations](https://github.com/pirate/bookmark-archiver/blob/master/DONATE.md)
