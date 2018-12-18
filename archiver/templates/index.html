@@ -102,7 +102,6 @@
                 table-layout: fixed;
             }
         </style>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.19/css/jquery.dataTables.min.css" />
     </head>
     <body>
         <header>
@@ -153,13 +152,16 @@
             </center>
             <br/>
         </footer>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.19/js/jquery.dataTables.min.js"></script>
+        <link rel="stylesheet" href="static/jquery.dataTables.min.css"/>
+        <script src="static/jquery.min.js"></script>
+        <script src="static/jquery.dataTables.min.js"></script>
         <script>
             jQuery(document).ready(function() {
                 jQuery('#table-bookmarks').DataTable({
                     stateSave: true, // save state (filtered input, number of entries shown, etc) in localStorage
-                    dom: '<lf<t>ip>' // how to show the table and its helpers (filter, etc) in the DOM
+                    dom: '<lf<t>ip>', // how to show the table and its helpers (filter, etc) in the DOM
+                    order: [[0, 'desc']],
+                    iDisplayLength: 100,
                 });
             });
         </script>
