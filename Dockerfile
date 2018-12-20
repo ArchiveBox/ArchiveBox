@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y curl --no-install-recommends \
 # ADD https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_1.2.0_amd64 /usr/local/bin/dumb-init
 # RUN chmod +x /usr/local/bin/dumb-init
 
-RUN git clone https://github.com/pirate/bookmark-archiver /home/chromeuser/app \
+RUN git clone https://github.com/pirate/ArchiveBox /home/chromeuser/app \
     && pip3 install -r /home/chromeuser/app/archiver/requirements.txt
 
 # Add user so we area strong, independent chrome that don't need --no-sandbox.
