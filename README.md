@@ -1,4 +1,4 @@
-# ArchiveBox: Open source, locally-hosted web archiving <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/bookmark-archiver) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
+# ArchiveBox: Open source local web archiving <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/bookmark-archiver) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
 
 ### (Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)
 
@@ -429,14 +429,14 @@ if you have problem with a particular nginx config.
 
 ## Roadmap
 
+[*Official Roadmap*](https://github.com/pirate/ArchiveBox/issues/120).
+
 If you feel like contributing a PR, some of these tasks are pretty easy.  Feel free to open an issue if you need help getting started in any way!
 
 **Major upcoming changes:**
 
- - change the name
- - make it a modularized python package to allow installing via pip and importing individual componenets
- - add a plugin architecture and allow people to contribute plugins for archive methods, indexers, parsers, etc
- - add a web GUI for managing sources and adding new links
+ - finalize python packaging to allow installing via pip and importing individual componenets
+ - add an optional web GUI for managing sources, adding new links, and viewing the archive
 
 **Minor upcoming changes:**
  - download closed-captions text from youtube videos
