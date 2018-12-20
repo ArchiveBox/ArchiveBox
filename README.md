@@ -1,6 +1,6 @@
-# Bookmark Archiver <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/bookmark-archiver) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
+# ArchiveBox: Open source, locally-hosted web archiving <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/bookmark-archiver) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
 
-## ANNOUNCEMENT: SOON TO BE RENAMED, [COMMENT HERE](https://github.com/pirate/bookmark-archiver/issues/108) TO DISCUSS NEW NAMES.
+### (Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)
 
     "Your own personal Way-Back Machine"
 
@@ -8,9 +8,9 @@
 
 ---
 
-Save an archived copy of the websites you visit (the actual *content* of each site, not just the list of links).
+Save an archived copy of the websites you visit (the actual *content* of each site, not just the list of links).  Can archive entire browsing history, or just links matching a filter or bookmarks list.
 
-Can import links from:
+ArchiveBox can import links from:
 
  - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history or bookmarks (Chrome, Firefox, Safari, IE, Opera)
  - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket
@@ -89,7 +89,7 @@ If you want to host your archive somewhere to share it with other people, see th
 **4. (Optional) Schedule it to run every day**
 
 You can import links from any local file path or feed url by changing the second argument to `archive.py`.
-Bookmark Archiver will ignore links that are imported multiple times, it will keep the earliest version that it's seen.
+ArchiveBox will ignore links that are imported multiple times, it will keep the earliest version that it's seen.
 This means you can add multiple cron jobs to pull links from several different feeds or files each day,
 it will keep the index up-to-date without duplicate links.
 
@@ -177,7 +177,7 @@ env CHROME_BINARY=google-chrome-stable RESOLUTION=1440,900 FETCH_PDF=False ./arc
  - screenshot: `RESOLUTION` values: [`1440,900`]/`1024,768`/`...`
  - user agent: `WGET_USER_AGENT` values: [`Wget/1.19.1`]/`"Mozilla/5.0 ..."`/`...`
  - chrome profile: `CHROME_USER_DATA_DIR` values: [`~/Library/Application\ Support/Google/Chrome/Default`]/`/tmp/chrome-profile`/`...`
-    To capture sites that require a user to be logged in, you must specify a path to a chrome profile (which loads the cookies needed for the user to be logged in).  If you don't have an existing chrome profile, create one with `chromium-browser --disable-gpu --user-data-dir=/tmp/chrome-profile`, and log into the sites you need.  Then set `CHROME_USER_DATA_DIR=/tmp/chrome-profile` to make Bookmark Archiver use that profile.
+    To capture sites that require a user to be logged in, you must specify a path to a chrome profile (which loads the cookies needed for the user to be logged in).  If you don't have an existing chrome profile, create one with `chromium-browser --disable-gpu --user-data-dir=/tmp/chrome-profile`, and log into the sites you need.  Then set `CHROME_USER_DATA_DIR=/tmp/chrome-profile` to make ArchiveBox use that profile.
  - output directory: `OUTPUT_DIR` values: [`$REPO_DIR/output`]/`/srv/www/bookmarks`/`...` Optionally output the archives to an alternative directory.
 
  (See defaults & more at the top of `config.py`)
@@ -453,6 +453,7 @@ If you feel like contributing a PR, some of these tasks are pretty easy.  Feel f
  
 ## Changelog
 
+ - [renamed](https://github.com/pirate/ArchiveBox/issues/108) from **Bookmark Archiver** -> **ArchiveBox**
  - v0.1.0 released
  - support for browser history exporting added with `./bin/export-browser-history`
  - support for chrome `--dump-dom` to output full page HTML after JS executes
