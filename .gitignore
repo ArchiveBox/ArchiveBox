@@ -12,3 +12,5 @@ archiver/venv
 # output artifacts
 output
 output/
+data
+data/
