@@ -453,6 +453,7 @@ If you feel like contributing a PR, some of these tasks are pretty easy.  Feel f
  
 ## Changelog
 
+ - v0.2.0 released with new name
  - [renamed](https://github.com/pirate/ArchiveBox/issues/108) from **Bookmark Archiver** -> **ArchiveBox**
  - v0.1.0 released
  - support for browser history exporting added with `./bin/export-browser-history`
