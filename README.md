@@ -4,9 +4,9 @@
 
     "Your own personal Way-Back Machine"
 
-▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) |
+▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Troubleshooting](#troubleshooting)
 
-[Troubleshooting](#troubleshooting) | [Demo](https://archive.sweeting.me) | [Source](https://github.com/pirate/ArchiveBox/tree/master) | [Changelog](#changelog) | [Donate](https://github.com/pirate/ArchiveBox/blob/master/DONATE.md)
+[Demo](https://archive.sweeting.me) | [Source](https://github.com/pirate/ArchiveBox/tree/master) | [Changelog](#changelog) | [Donate](https://github.com/pirate/ArchiveBox/blob/master/DONATE.md)
 
 ---
 
