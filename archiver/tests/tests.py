@@ -9,7 +9,7 @@ from typing import List
 import pytest
 
 
-ARCHIVER_BIN = join(dirname(__file__), pardir, 'archive')
+ARCHIVER_BIN = join(dirname(__file__), pardir, 'archive.py')
 
 
 class Helper:
