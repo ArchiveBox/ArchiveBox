@@ -413,6 +413,7 @@ if you have problem with a particular nginx config.
  - [Shaarchiver](https://github.com/nodiscc/shaarchiver) very similar project that archives Firefox, Shaarli, or Delicious bookmarks and all linked media, generating a markdown/HTML index
  - [Webrecorder.io](https://webrecorder.io/) Save full browsing sessions and archive all the content
  - [Wallabag](https://wallabag.org) Save articles you read locally or on your phone
+ - [Archivematica](https://github.com/artefactual/archivematica) web GUI for institutional long-term archiving of web and other content
 
 **Discussions:**
  - [Hacker News Discussion](https://news.ycombinator.com/item?id=14272133)
