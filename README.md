@@ -1,6 +1,8 @@
 # ArchiveBox: Open source local web archiving <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/ArchiveBox) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
 
- ### (Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)
+
+### (Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)
+
 
     "Your own personal Way-Back Machine"
 
@@ -481,7 +483,7 @@ If you feel like contributing a PR, some of these tasks are pretty easy.  Feel f
  - v0.0.0 released: created Pocket Archive Stream 2017/05/05
  
  
- ## Donations
+## Donations
  
  This project can really flourish with some more engineering effort, but unless it can support   
  me financially I'm unlikely to be able to take it to the next level alone.  It's already pretty   
