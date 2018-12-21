@@ -73,7 +73,7 @@ cd ArchiveBox/
 ./archive "https://getpocket.com/users/yourusername/feed/all"  # url to an RSS, html, or json links file
 
 # OR add all the links from your browser history
-./bin/export-browser-history --chrome           # works with --firefox as well, can take path to SQLite history db
+./bin/archivebox-export-browser-history --chrome           # works with --firefox as well, can take path to SQLite history db
 ./archive output/sources/chrome_history.json
 
 # OR just continue archiving the existing links in the index
@@ -456,7 +456,7 @@ If you feel like contributing a PR, some of these tasks are pretty easy.  Feel f
  - v0.2.0 released with new name
  - [renamed](https://github.com/pirate/ArchiveBox/issues/108) from **Bookmark Archiver** -> **ArchiveBox**
  - v0.1.0 released
- - support for browser history exporting added with `./bin/export-browser-history`
+ - support for browser history exporting added with `./bin/archivebox-export-browser-history`
  - support for chrome `--dump-dom` to output full page HTML after JS executes
  - v0.0.3 released
  - support for chrome `--user-data-dir` to archive sites that need logins
