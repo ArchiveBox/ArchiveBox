@@ -49,14 +49,14 @@ def check_dependencies():
     python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
     if python_vers < 3.5:
         print('{}[X] Python version is not new enough: {} (>3.5 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
-        print('    See https://github.com/pirate/bookmark-archiver#troubleshooting for help upgrading your Python installation.')
+        print('    See https://github.com/pirate/ArchiveBox#troubleshooting for help upgrading your Python installation.')
         raise SystemExit(1)
 
     if FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM:
         if run(['which', CHROME_BINARY], stdout=DEVNULL).returncode:
             print('{}[X] Missing dependency: {}{}'.format(ANSI['red'], CHROME_BINARY, ANSI['reset']))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(CHROME_BINARY))
-            print('    See https://github.com/pirate/bookmark-archiver for help.')
+            print('    See https://github.com/pirate/ArchiveBox for help.')
             raise SystemExit(1)
 
         # parse chrome --version e.g. Google Chrome 61.0.3114.0 canary / Chromium 59.0.3029.110 built on Ubuntu, running on Ubuntu 16.04
@@ -68,33 +68,33 @@ def check_dependencies():
             if int(version) < 59:
                 print(version_lines)
                 print('{red}[X] Chrome version must be 59 or greater for headless PDF, screenshot, and DOM saving{reset}'.format(**ANSI))
-                print('    See https://github.com/pirate/bookmark-archiver for help.')
+                print('    See https://github.com/pirate/ArchiveBox for help.')
                 raise SystemExit(1)
         except (IndexError, TypeError, OSError):
             print('{red}[X] Failed to parse Chrome version, is it installed properly?{reset}'.format(**ANSI))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(CHROME_BINARY))
-            print('    See https://github.com/pirate/bookmark-archiver for help.')
+            print('    See https://github.com/pirate/ArchiveBox for help.')
             raise SystemExit(1)
 
     if FETCH_WGET:
         if run(['which', 'wget'], stdout=DEVNULL).returncode or run(['wget', '--version'], stdout=DEVNULL).returncode:
             print('{red}[X] Missing dependency: wget{reset}'.format(**ANSI))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format('wget'))
-            print('    See https://github.com/pirate/bookmark-archiver for help.')
+            print('    See https://github.com/pirate/ArchiveBox for help.')
             raise SystemExit(1)
 
     if FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG:
         if run(['which', 'curl'], stdout=DEVNULL).returncode or run(['curl', '--version'], stdout=DEVNULL).returncode:
             print('{red}[X] Missing dependency: curl{reset}'.format(**ANSI))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format('curl'))
-            print('    See https://github.com/pirate/bookmark-archiver for help.')
+            print('    See https://github.com/pirate/ArchiveBox for help.')
             raise SystemExit(1)
 
     if FETCH_AUDIO or FETCH_VIDEO:
         if run(['which', 'youtube-dl'], stdout=DEVNULL).returncode or run(['youtube-dl', '--version'], stdout=DEVNULL).returncode:
             print('{red}[X] Missing dependency: youtube-dl{reset}'.format(**ANSI))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format('youtube-dl'))
-            print('    See https://github.com/pirate/bookmark-archiver for help.')
+            print('    See https://github.com/pirate/ArchiveBox for help.')
             raise SystemExit(1)
 
 
@@ -174,7 +174,7 @@ def progress(seconds=TIMEOUT, prefix=''):
     return end
 
 def pretty_path(path):
-    """convert paths like .../bookmark-archiver/archiver/../output/abc into output/abc"""
+    """convert paths like .../ArchiveBox/archiver/../output/abc into output/abc"""
     return path.replace(REPO_DIR + '/', '')
 
 
@@ -319,7 +319,7 @@ def manually_merge_folders(source, target):
     assert answer in ('', 'a', 'b', 'q'), 'Invalid choice.'
 
     if answer == 'q':
-        print('\nJust run Bookmark Archiver again to pick up where you left off.')
+        print('\nJust run ArchiveBox again to pick up where you left off.')
         raise SystemExit(0)
     elif answer == '':
         return
@@ -409,7 +409,7 @@ def cleanup_archive(archive_path, links):
         for folder, link in bad_folders:
             fix_folder_path(archive_path, folder, link)
     elif bad_folders:
-        print('[!] Warning! {} folders need to be merged, fix by running bookmark archiver.'.format(len(bad_folders)))
+        print('[!] Warning! {} folders need to be merged, fix by running ArchiveBox.'.format(len(bad_folders)))
 
     if unmatched:
         print('[!] Warning! {} unrecognized folders in html/archive/'.format(len(unmatched)))

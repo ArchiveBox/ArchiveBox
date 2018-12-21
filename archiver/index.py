@@ -43,8 +43,8 @@ def write_json_links_index(out_dir, links):
     path = os.path.join(out_dir, 'index.json')
 
     index_json = {
-        'info': 'Bookmark Archiver Index',
-        'help': 'https://github.com/pirate/bookmark-archiver',
+        'info': 'ArchiveBox Index',
+        'help': 'https://github.com/pirate/ArchiveBox',
         'version': GIT_SHA,
         'num_links': len(links),
         'updated': str(datetime.now().timestamp()),

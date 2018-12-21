@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-# Bookmark Archiver
+# ArchiveBox
 # Nick Sweeting 2017 | MIT License
-# https://github.com/pirate/bookmark-archiver
+# https://github.com/pirate/ArchiveBox
 
 import os
 import sys
@@ -39,14 +39,14 @@ from util import (
 
 __AUTHOR__ = 'Nick Sweeting <git@nicksweeting.com>'
 __VERSION__ = GIT_SHA
-__DESCRIPTION__ = 'Bookmark Archiver: Create a browsable html archive of a list of links.'
-__DOCUMENTATION__ = 'https://github.com/pirate/bookmark-archiver'
+__DESCRIPTION__ = 'ArchiveBox: Create a browsable html archive of a list of links.'
+__DOCUMENTATION__ = 'https://github.com/pirate/ArchiveBox'
 
 def print_help():
     print(__DESCRIPTION__)
     print("Documentation:     {}\n".format(__DOCUMENTATION__))
     print("Usage:")
-    print("    ./bin/bookmark-archiver ~/Downloads/bookmarks_export.html\n")
+    print("    ./bin/archivebox ~/Downloads/bookmarks_export.html\n")
 
 
 def merge_links(archive_path=OUTPUT_DIR, import_path=None, only_new=False):

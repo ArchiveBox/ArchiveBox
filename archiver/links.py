@@ -1,5 +1,5 @@
 """
-In Bookmark Archiver, a Link represents a single entry that we track in the 
+In ArchiveBox, a Link represents a single entry that we track in the 
 json index.  All links pass through all archiver functions and the latest,
 most up-to-date canonical output for each is stored in "latest".
 

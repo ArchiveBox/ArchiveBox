@@ -1,10 +1,10 @@
-# ArchiveBox: Open source local web archiving <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/bookmark-archiver) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
+# ArchiveBox: Open source local web archiving <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/ArchiveBox) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
 
-### (Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)
+ ### (Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)
 
     "Your own personal Way-Back Machine"
 
-▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Demo](https://archive.sweeting.me) | [Source](https://github.com/pirate/bookmark-archiver/tree/master) | [Changelog](#changelog) | [Donate](https://github.com/pirate/bookmark-archiver/blob/master/DONATE.md)
+▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Manual Setup](#manual-setup) | [Troubleshooting](#troubleshooting) | [Demo](https://archive.sweeting.me) | [Source](https://github.com/pirate/ArchiveBox/tree/master) | [Changelog](#changelog) | [Donate](https://github.com/pirate/ArchiveBox/blob/master/DONATE.md)
 
 ---
 
@@ -62,8 +62,8 @@ Follow the links here to find instructions for exporting a list of URLs from eac
 **2. Create your archive:**
 
 ```bash
-git clone https://github.com/pirate/bookmark-archiver
-cd bookmark-archiver/
+git clone https://github.com/pirate/ArchiveBox
+cd ArchiveBox/
 ./setup                                         # install all dependencies
 
 # add a list of links from a file
@@ -95,8 +95,8 @@ it will keep the index up-to-date without duplicate links.
 
 This example archives a pocket RSS feed and an export file every 24 hours, and saves the output to a logfile.
 ```bash
-0 24 * * * yourusername /opt/bookmark-archiver/archive https://getpocket.com/users/yourusername/feed/all > /var/log/bookmark_archiver_rss.log
-0 24 * * * yourusername /opt/bookmark-archiver/archive /home/darth-vader/Desktop/bookmarks.html > /var/log/bookmark_archiver_firefox.log
+0 24 * * * yourusername /opt/ArchiveBox/archive https://getpocket.com/users/yourusername/feed/all > /var/log/archivebox_rss.log
+0 24 * * * yourusername /opt/ArchiveBox/archive /home/darth-vader/Desktop/bookmarks.html > /var/log/archivebox_firefox.log
 ```
 (Add the above lines to `/etc/crontab`)
 
@@ -190,13 +190,13 @@ The chrome/chromium dependency is _optional_ and only required for screenshots, 
 
 The archive produced by `./archive` is suitable for serving on any provider that can host static html (e.g. github pages!).
 
-You can also serve it from a home server or VPS by uploading the outputted `output` folder to your web directory, e.g. `/var/www/bookmark-archiver` and configuring your webserver.
+You can also serve it from a home server or VPS by uploading the outputted `output` folder to your web directory, e.g. `/var/www/ArchiveBox` and configuring your webserver.
 
 Here's a sample nginx configuration that works to serve archive folders:
 
 ```nginx
 location / {
-    alias       /path/to/bookmark-archiver/output/;
+    alias       /path/to/ArchiveBox/output/;
     index       index.html;
     autoindex   on;               # see directory listing upon clicking "The Files" links
     try_files   $uri $uri/ =404;
@@ -266,8 +266,8 @@ Follow the instruction links above in the "Quickstart" section to download your 
 
 **3. Run the archive script:**
 
-1. Clone this repo `git clone https://github.com/pirate/bookmark-archiver`
-3. `cd bookmark-archiver/`
+1. Clone this repo `git clone https://github.com/pirate/ArchiveBox`
+3. `cd ArchiveBox/`
 4. `./archive ~/Downloads/bookmarks_export.html`
 
 You may optionally specify a second argument to `archive.py export.html 153242424324` to resume the archive update at a specific timestamp.
@@ -369,7 +369,7 @@ a bug in versions `<=1.19.1_1` that caused wget to fail for perfectly valid site
 
 **No links parsed from export file:**
 
-Please open an [issue](https://github.com/pirate/bookmark-archiver/issues) with a description of where you got the export, and
+Please open an [issue](https://github.com/pirate/ArchiveBox/issues) with a description of where you got the export, and
 preferrably your export file attached (you can redact the links).  We'll fix the parser to support your format.
 
 **Lots of skipped sites:**
@@ -383,12 +383,12 @@ If you're still having issues, try deleting or moving the `output/archive` folde
 **Lots of errors:**
 
 Make sure you have all the dependencies installed and that you're able to visit the links from your browser normally.
-Open an [issue](https://github.com/pirate/bookmark-archiver/issues) with a description of the errors if you're still having problems.
+Open an [issue](https://github.com/pirate/ArchiveBox/issues) with a description of the errors if you're still having problems.
 
 **Lots of broken links from the index:**
 
 Not all sites can be effectively archived with each method, that's why it's best to use a combination of `wget`, PDFs, and screenshots.
-If it seems like more than 10-20% of sites in the archive are broken, open an [issue](https://github.com/pirate/bookmark-archiver/issues)
+If it seems like more than 10-20% of sites in the archive are broken, open an [issue](https://github.com/pirate/ArchiveBox/issues)
 with some of the URLs that failed to be archived and I'll investigate.
 
 **Removing unwanted links from the index:**
@@ -398,7 +398,7 @@ If you accidentally added lots of unwanted links into index and they slow down y
 ### Hosting the Archive
 
 If you're having issues trying to host the archive via nginx, make sure you already have nginx running with SSL.
-If you don't, google around, there are plenty of tutorials to help get that set up.  Open an [issue](https://github.com/pirate/bookmark-archiver/issues)
+If you don't, google around, there are plenty of tutorials to help get that set up.  Open an [issue](https://github.com/pirate/ArchiveBox/issues)
 if you have problem with a particular nginx config.
 
 
@@ -468,10 +468,10 @@ If you feel like contributing a PR, some of these tasks are pretty easy.  Feel f
  - Index links now work without nginx url rewrites, archive can now be hosted on github pages
  - added setup.sh script & docstrings & help commands
  - made Chromium the default instead of Google Chrome (yay free software)
- - added [env-variable](https://github.com/pirate/bookmark-archiver/pull/25) configuration (thanks to https://github.com/hannah98!)
+ - added [env-variable](https://github.com/pirate/ArchiveBox/pull/25) configuration (thanks to https://github.com/hannah98!)
  - renamed from **Pocket Archive Stream** -> **Bookmark Archiver**
- - added [Netscape-format](https://github.com/pirate/bookmark-archiver/pull/20) export support (thanks to https://github.com/ilvar!)
- - added [Pinboard-format](https://github.com/pirate/bookmark-archiver/pull/7) export support (thanks to https://github.com/sconeyard!)
+ - added [Netscape-format](https://github.com/pirate/ArchiveBox/pull/20) export support (thanks to https://github.com/ilvar!)
+ - added [Pinboard-format](https://github.com/pirate/ArchiveBox/pull/7) export support (thanks to https://github.com/sconeyard!)
  - front-page of HN, oops! apparently I have users to support now :grin:?
  - added Pocket-format export support
  - v0.0.0 released: created Pocket Archive Stream 2017/05/05
@@ -485,4 +485,4 @@ If you feel like contributing a PR, some of these tasks are pretty easy.  Feel f
  talented engineers.  If you want to help sponsor this project long-term or just say thanks or suggest changes, contact  
  me at bookmark-archiver@sweeting.me.
    
- [Grants / Donations](https://github.com/pirate/bookmark-archiver/blob/master/DONATE.md)
+ [Grants / Donations](https://github.com/pirate/ArchiveBox/blob/master/DONATE.md)

@@ -1,9 +1,9 @@
 #!/bin/bash
-# Bookmark Archiver Setup Script
+# ArchiveBox Setup Script
 # Nick Sweeting 2017 | MIT License
-# https://github.com/pirate/bookmark-archiver
+# https://github.com/pirate/ArchiveBox
 
-echo "[i] Installing bookmark-archiver dependencies. 📦"
+echo "[i] Installing ArchiveBox dependencies. 📦"
 echo ""
 echo "    You may be prompted for a password in order to install the following dependencies:"
 echo "        - Chromium Browser   (see README for Google-Chrome instructions instead)"
@@ -84,5 +84,5 @@ echo ""
 echo "[X] Failed to install some dependencies! ‼️"
 echo "    - Try the Manual Setup instructions in the README.md"
 echo "    - Try the Troubleshooting: Dependencies instructions in the README.md"
-echo "    - Open an issue on github to get help: https://github.com/pirate/bookmark-archiver/issues"
+echo "    - Open an issue on github to get help: https://github.com/pirate/ArchiveBox/issues"
 exit 1
