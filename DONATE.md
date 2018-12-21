@@ -12,4 +12,4 @@ With more engineering power this can become a distributed archive service with a
 like the Way-Back machine but hosted by everyone!
 
 If have any questions or want to sponsor this project long-term, contact me at  
-bookmark-archiver@sweeting.me
+archivebox-hello@sweeting.me
