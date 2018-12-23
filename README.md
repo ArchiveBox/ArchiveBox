@@ -1,4 +1,4 @@
-# ArchiveBox: Open source local web archiving <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/ArchiveBox) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
+# ArchiveBox: Open source local web archiving <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/ArchiveBox) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH) [![](https://img.shields.io/badge/Donate-Patreon-%23DD5D76.svg)](https://www.patreon.com/theSquashSH)
 
 
 ### (Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)
@@ -8,7 +8,7 @@
 
 ▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Troubleshooting](#troubleshooting)
 
-💻 [Demo](https://archive.sweeting.me) | [Source](https://github.com/pirate/ArchiveBox/tree/master) | [Changelog](#changelog) | [Donate](https://github.com/pirate/ArchiveBox/blob/master/DONATE.md)
+💻 [Demo](https://archive.sweeting.me) | [Source](https://github.com/pirate/ArchiveBox/tree/master) | [Changelog](#changelog)
 
 ---
 
@@ -485,10 +485,8 @@ If you feel like contributing a PR, some of these tasks are pretty easy.  Feel f
  
 ## Donations
  
- This project can really flourish with some more engineering effort, but unless it can support   
- me financially I'm unlikely to be able to take it to the next level alone.  It's already pretty   
- functional and robust, but it really deserves to be taken to the next level with a few more   
- talented engineers.  If you want to help sponsor this project long-term or just say thanks or suggest changes, contact  
- me at bookmark-archiver@sweeting.me.
-   
- [Grants / Donations](https://github.com/pirate/ArchiveBox/blob/master/DONATE.md)
+https://www.patreon.com/theSquashSH 
+ 
+If you want to help sponsor this project long-term or just say thanks or suggest changes, contact me at bookmark-archiver@sweeting.me.
+  
+[Other Grants / Donations Info](https://github.com/pirate/ArchiveBox/blob/master/DONATE.md)
