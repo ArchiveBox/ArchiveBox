@@ -1,4 +1,4 @@
-# ArchiveBox: Open source local web archiving <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/ArchiveBox) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH) [![](https://img.shields.io/badge/Donate-Patreon-%23DD5D76.svg)](https://www.patreon.com/theSquashSH)
+# ArchiveBox: Open source local web archiving <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/ArchiveBox) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
 
 
 ### (Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)
@@ -6,9 +6,9 @@
 
     "Your own personal Way-Back Machine"
 
-▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Troubleshooting](#troubleshooting)
-
 💻 [Demo](https://archive.sweeting.me) | [Source](https://github.com/pirate/ArchiveBox/tree/master) | [Changelog](#changelog)
+
+▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -36,6 +36,8 @@ The archiving is additive, so you can schedule `./archive` to run regularly and 
 All the saved content is static and indexed with json files, so it lives forever & is easily parseable, it requires no always-running backend.
 
 [DEMO: archive.sweeting.me](https://archive.sweeting.me)
+
+[![](https://img.shields.io/badge/Donate-Patreon-%23DD5D76.svg)](https://www.patreon.com/theSquashSH)
 
 <img src="https://i.imgur.com/q3Oz9wN.png" width="75%" alt="Desktop Screenshot" align="top"><img src="https://i.imgur.com/TG0fGVo.png" width="25%" alt="Mobile Screenshot" align="top"><br/>
 
