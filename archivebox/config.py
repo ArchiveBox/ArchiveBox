@@ -40,7 +40,7 @@ OUTPUT_DIR = os.getenv('OUTPUT_DIR', os.path.join(REPO_DIR, 'output'))
 ARCHIVE_DIR = os.path.join(OUTPUT_DIR, 'archive')
 SOURCES_DIR = os.path.join(OUTPUT_DIR, 'sources')
 
-PYTHON_PATH = os.path.join(REPO_DIR, 'archiver')
+PYTHON_PATH = os.path.join(REPO_DIR, 'archivebox')
 TEMPLATES_DIR = os.path.join(PYTHON_PATH, 'templates')
 
 # ******************************************************************************

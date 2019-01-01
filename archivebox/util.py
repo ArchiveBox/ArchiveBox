@@ -174,7 +174,7 @@ def progress(seconds=TIMEOUT, prefix=''):
     return end
 
 def pretty_path(path):
-    """convert paths like .../ArchiveBox/archiver/../output/abc into output/abc"""
+    """convert paths like .../ArchiveBox/archivebox/../output/abc into output/abc"""
     return path.replace(REPO_DIR + '/', '')
 
 

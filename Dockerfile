@@ -1,5 +1,5 @@
 FROM debian:stretch
-LABEL maintainer="Nick Sweeting <bookmark-archiver@sweeting.me>"
+LABEL maintainer="Nick Sweeting <archivebox-git@sweeting.me>"
 
 RUN apt-get update \
     && apt-get install -qy git wget gnupg2 libgconf-2-4 python3 python3-pip \
@@ -21,22 +21,22 @@ RUN apt-get update && apt-get install -y curl --no-install-recommends \
 # RUN chmod +x /usr/local/bin/dumb-init
 
 RUN git clone https://github.com/pirate/ArchiveBox /home/chromeuser/app \
-    && pip3 install -r /home/chromeuser/app/archiver/requirements.txt
+    && pip3 install -r /home/chromeuser/app/archivebox/requirements.txt
 
 # Add user so we area strong, independent chrome that don't need --no-sandbox.
 RUN groupadd -r chromeuser && useradd -r -g chromeuser -G audio,video chromeuser \
-    && mkdir -p /home/chromeuser/app/archiver/output \
-    && chown -R chromeuser:chromeuser /home/chromeuser/app/archiver/output \
+    && mkdir -p /home/chromeuser/app/archivebox/output \
+    && chown -R chromeuser:chromeuser /home/chromeuser/app/archivebox/output \
     && chown -R chromeuser:chromeuser /home/chromeuser
 
-VOLUME /home/chromeuser/app/archiver/output
+VOLUME /home/chromeuser/app/archivebox/output
 
 ENV LANG=en_US.UTF-8 \
     LANGUAGE=en_US:en \
     LC_ALL=en_US.UTF-8 \
     PYTHONIOENCODING=UTF-8 \
     CHROME_SANDBOX=False \
-    OUTPUT_DIR=/home/chromeuser/app/archiver/output
+    OUTPUT_DIR=/home/chromeuser/app/archivebox/output
 
 # Run everything from here on out as non-privileged user
 USER chromeuser
@@ -45,4 +45,4 @@ WORKDIR /home/chromeuser/app
 # ENTRYPOINT ["dumb-init", "--"]
 # CMD ["/home/chromeuser/app/archive"]
 
-ENTRYPOINT ["python3", "-u", "/home/chromeuser/app/archiver/archive.py"]
+ENTRYPOINT ["python3", "-u", "/home/chromeuser/app/archivebox/archive.py"]
