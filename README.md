@@ -6,9 +6,9 @@
 
     "Your own personal Way-Back Machine"
 
-💻 [Demo](https://archive.sweeting.me) | [Source](https://github.com/pirate/ArchiveBox/tree/master) | [Changelog](#changelog)
+💻 [Demo](https://archive.sweeting.me) | [Source](https://github.com/pirate/ArchiveBox/tree/master) | [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
 
-▶️ [Quickstart](#quickstart) | [Details](#details) | [Configuration](#configuration) | [Troubleshooting](#troubleshooting)
+▶️ [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart) | [Details](https://github.com/pirate/ArchiveBox/wiki) | [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) | [Troubleshooting](https://github.com/pirate/ArchiveBox/wiki/Troubleshooting)
 
 ---
 
