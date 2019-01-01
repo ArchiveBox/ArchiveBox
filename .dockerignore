@@ -1,5 +1,4 @@
-archiver/output
-archiver/tests
+output
 __pycache__
 .DS_Store
 venv
