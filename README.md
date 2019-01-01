@@ -41,20 +41,24 @@ All the saved content is static and indexed with json files, so it lives forever
 
 <img src="https://i.imgur.com/q3Oz9wN.png" width="75%" alt="Desktop Screenshot" align="top"><img src="https://i.imgur.com/TG0fGVo.png" width="25%" alt="Mobile Screenshot" align="top"><br/>
 
-# Getting Started
+# Documentation
+
+We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for documentation.
+
+## Getting Started
 
  - [Details & Motivation](https://github.com/pirate/ArchiveBox/wiki)
  - [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart)
  - [Install](https://github.com/pirate/ArchiveBox/wiki/Install)
 
-# Documentation
+## Reference
 
  - [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration)
  - [Chromium Install](https://github.com/pirate/ArchiveBox/wiki/Chromium-Install)
  - [Publishing Your Archive](https://github.com/pirate/ArchiveBox/wiki/Publishing-Your-Archive)
  - [Troubleshooting](https://github.com/pirate/ArchiveBox/wiki/Troubleshooting)
 
-# More Info
+## More Info
 
  - [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)
  - [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
