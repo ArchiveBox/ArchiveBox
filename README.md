@@ -45,6 +45,8 @@ All the saved content is static and indexed with json files, so it lives forever
 
 We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for documentation.
 
+You can also access the docs locally by looking in the [`ArchiveBox/docs/`](https://github.com/pirate/ArchiveBox/wiki/Home) folder.
+
 ## Getting Started
 
  - [Details & Motivation](https://github.com/pirate/ArchiveBox/wiki)
