@@ -4,7 +4,10 @@
 
 # python
 __pycache__/
-archiver/venv
+venv
+.venv
+archivebox/.venv
+archivebox/venv
 
 # vim
 .swp*
@@ -14,3 +17,4 @@ output
 output/
 data
 data/
+archivebox/output
