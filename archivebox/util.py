@@ -3,12 +3,12 @@ import re
 import sys
 import time
 import json
-import requests
+import urllib.request
 
+from urllib.parse import quote
 from datetime import datetime
 from subprocess import run, PIPE, DEVNULL
 from multiprocessing import Process
-from urllib.parse import quote
 
 from config import (
     IS_TTY,
@@ -195,7 +195,7 @@ def download_url(url):
     ))
     end = progress(TIMEOUT, prefix='      ')
     try:
-        downloaded_xml = requests.get(url).content.decode()
+        downloaded_xml = urllib.request.urlopen(url).read().decode('utf-8')
         end()
     except Exception as e:
         end()
