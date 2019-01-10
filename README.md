@@ -41,6 +41,15 @@ All the saved content is static and indexed with json files, so it lives forever
 
 [![](https://img.shields.io/badge/Donate-Patreon-%23DD5D76.svg)](https://www.patreon.com/theSquashSH)
 
+```bash
+git clone https://github.com/pirate/ArchiveBox.git
+./setup
+
+# Export your bookmarks, then run the archive command to start archiving!
+./archive ~/Downloads/firefox_bookmarks.html
+```
+
+
 # Documentation
 
 We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for documentation.
