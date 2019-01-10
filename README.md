@@ -43,6 +43,7 @@ All the saved content is static and indexed with json files, so it lives forever
 
 ```bash
 git clone https://github.com/pirate/ArchiveBox.git
+cd ArchiveBox
 ./setup
 
 # Export your bookmarks, then run the archive command to start archiving!
