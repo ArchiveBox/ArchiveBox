@@ -1,3 +1,5 @@
+![Logo](https://i.imgur.com/PVO88AZ.png)
+
 # ArchiveBox <br/> The open source self-hosted web archive <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Github Stars](https://img.shields.io/github/stars/pirate/bookmark-archiver.svg)](https://github.com/pirate/ArchiveBox) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
 
 
@@ -69,3 +71,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 
 <img src="https://i.imgur.com/q3Oz9wN.png" width="75%" alt="Desktop Screenshot" align="top"><img src="https://i.imgur.com/TG0fGVo.png" width="25%" alt="Mobile Screenshot" align="top"><br/>
 <img src="https://i.imgur.com/3tBL7PU.png" width="100%" alt="CLI Screenshot">
+
+---
+
+<img src="https://i.imgur.com/8y6hvZa.png" alt="Logo"/>
