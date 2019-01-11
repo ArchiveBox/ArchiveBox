@@ -19,6 +19,7 @@ Parsed link schema: {
 
 import re
 import json
+import urllib
 import xml.etree.ElementTree as etree
 
 from datetime import datetime
@@ -28,6 +29,8 @@ from util import (
     base_url,
     str_between,
     get_link_type,
+    fetch_page_title,
+    URL_REGEX,
 )
 
 
@@ -41,6 +44,7 @@ def get_parsers(file):
         'rss': parse_rss_export,
         'pinboard_rss': parse_pinboard_rss_feed,
         'medium_rss': parse_medium_rss_feed,
+        'plain_text': parse_plain_text,
     }
 
 def parse_links(path):
@@ -109,14 +113,14 @@ def parse_json_export(json_file):
             if erg.get('description'):
                 title = (erg.get('description') or '').replace(' — Readability', '')
             else:
-                title = erg['title']
+                title = erg['title'].strip()
             info = {
                 'url': url,
                 'domain': domain(url),
                 'base_url': base_url(url),
                 'timestamp': timestamp,
                 'tags': erg.get('tags') or '',
-                'title': title,
+                'title': title or fetch_page_title(url),
                 'sources': [json_file.name],
             }
             info['type'] = get_link_type(info)
@@ -144,7 +148,7 @@ def parse_rss_export(rss_file):
         def get_row(key):
             return [r for r in rows if r.startswith('<{}>'.format(key))][0]
 
-        title = str_between(get_row('title'), '<![CDATA[', ']]')
+        title = str_between(get_row('title'), '<![CDATA[', ']]').strip()
         url = str_between(get_row('link'), '<link>', '</link>')
         ts_str = str_between(get_row('pubDate'), '<pubDate>', '</pubDate>')
         time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %z")
@@ -155,7 +159,7 @@ def parse_rss_export(rss_file):
             'base_url': base_url(url),
             'timestamp': str(time.timestamp()),
             'tags': '',
-            'title': title,
+            'title': title or fetch_page_title(url),
             'sources': [rss_file.name],
         }
         info['type'] = get_link_type(info)
@@ -182,7 +186,7 @@ def parse_bookmarks_export(html_file):
                 'base_url': base_url(url),
                 'timestamp': str(time.timestamp()),
                 'tags': "",
-                'title': match.group(3),
+                'title': match.group(3).strip() or fetch_page_title(url),
                 'sources': [html_file.name],
             }
             info['type'] = get_link_type(info)
@@ -198,7 +202,7 @@ def parse_pinboard_rss_feed(rss_file):
     for item in items:
         url = item.find("{http://purl.org/rss/1.0/}link").text
         tags = item.find("{http://purl.org/dc/elements/1.1/}subject").text
-        title = item.find("{http://purl.org/rss/1.0/}title").text
+        title = item.find("{http://purl.org/rss/1.0/}title").text.strip()
         ts_str = item.find("{http://purl.org/dc/elements/1.1/}date").text
         #       = 🌈🌈🌈🌈
         #        = 🌈🌈🌈🌈
@@ -215,7 +219,7 @@ def parse_pinboard_rss_feed(rss_file):
             'base_url': base_url(url),
             'timestamp': str(time.timestamp()),
             'tags': tags,
-            'title': title,
+            'title': title or fetch_page_title(url),
             'sources': [rss_file.name],
         }
         info['type'] = get_link_type(info)
@@ -231,7 +235,7 @@ def parse_medium_rss_feed(rss_file):
         # for child in item:
         #     print(child.tag, child.text)
         url = item.find("link").text
-        title = item.find("title").text
+        title = item.find("title").text.strip()
         ts_str = item.find("pubDate").text
         time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %Z")
         info = {
@@ -239,9 +243,35 @@ def parse_medium_rss_feed(rss_file):
             'domain': domain(url),
             'base_url': base_url(url),
             'timestamp': str(time.timestamp()),
-            'tags': "",
-            'title': title,
+            'tags': '',
+            'title': title or fetch_page_title(url),
             'sources': [rss_file.name],
         }
         info['type'] = get_link_type(info)
         yield info
+
+
+def parse_plain_text(text_file):
+    """Parse raw links from each line in a text file"""
+
+    text_file.seek(0)
+    text_content = text_file.readlines()
+    for line in text_content:
+        if line:
+            urls = re.findall(URL_REGEX, line)
+            
+            for url in urls:
+                timestamp = str(datetime.now().timestamp())
+
+                info = {
+                    'url': url,
+                    'domain': domain(url),
+                    'base_url': base_url(url),
+                    'timestamp': timestamp,
+                    'tags': '',
+                    'title': fetch_page_title(url),
+                    'sources': [text_file.name],
+                }
+                info['type'] = get_link_type(info)
+                yield info
+

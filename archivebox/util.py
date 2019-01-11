@@ -42,6 +42,8 @@ base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 
 short_ts = lambda ts: ts.split('.')[0]
 
+URL_REGEX = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+
 
 def check_dependencies():
     """Check that all necessary dependencies are installed, and have valid versions"""
@@ -207,6 +209,19 @@ def download_url(url):
         f.write(downloaded_xml)
 
     return source_path
+
+
+def fetch_page_title(url, default=None):
+    """Attempt to guess a page's title by downloading the html"""
+    
+    try:
+        html_content = urllib.request.urlopen(url).read().decode('utf-8')
+
+        match = re.search('<title>(.*?)</title>', html_content)
+        return match.group(1) if match else default
+    except Exception:
+        return default
+
 
 def str_between(string, start, end=None):
     """(<abc>12345</def>, <abc>, </def>)  ->  12345"""
