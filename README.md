@@ -42,8 +42,6 @@ All the saved content is static and indexed with JSON files, so it lives forever
 
 [DEMO: archive.sweeting.me](https://archive.sweeting.me)
 
-[![](https://img.shields.io/badge/Donate-Patreon-%23DD5D76.svg)](https://www.patreon.com/theSquashSH)
-
 ```bash
 git clone https://github.com/pirate/ArchiveBox.git
 cd ArchiveBox
@@ -84,3 +82,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 
 <img src="https://i.imgur.com/q3Oz9wN.png" width="75%" alt="Desktop Screenshot" align="top"><img src="https://i.imgur.com/TG0fGVo.png" width="25%" alt="Mobile Screenshot" align="top"><br/>
 <img src="https://i.imgur.com/3tBL7PU.png" width="100%" alt="CLI Screenshot">
+
+---
+
+[![](https://img.shields.io/badge/Donate-Patreon-%23DD5D76.svg)](https://www.patreon.com/theSquashSH)[![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
