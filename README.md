@@ -81,7 +81,3 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 
 <img src="https://i.imgur.com/q3Oz9wN.png" width="75%" alt="Desktop Screenshot" align="top"><img src="https://i.imgur.com/TG0fGVo.png" width="25%" alt="Mobile Screenshot" align="top"><br/>
 <img src="https://i.imgur.com/3tBL7PU.png" width="100%" alt="CLI Screenshot">
-
----
-
-<img src="https://i.imgur.com/JffzvjI.png" alt="Logo" style="width: 50%; border-radius: 14px; text-align: center"/>
