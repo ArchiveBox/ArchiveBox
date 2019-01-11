@@ -29,6 +29,7 @@ from config import (
     CHROME_USER_DATA_DIR,
     CHROME_SANDBOX,
     TIMEOUT,
+    MEDIA_TIMEOUT,
     ANSI,
     ARCHIVE_DIR,
     GIT_DOMAINS,
@@ -441,28 +442,29 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
     }
 
 @attach_result_to_link('media')
-def fetch_media(link_dir, link, timeout=TIMEOUT, overwrite=False):
+def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
     """Download playlists or individual video, audio, and subtitles using youtube-dl"""
 
-    output = os.path.join(link_dir, 'media')
 
+    # import ipdb; ipdb.set_trace()
+    output = os.path.join(link_dir, 'media')
     if os.path.exists(output) and not overwrite:
         return {'output': 'media', 'status': 'skipped'}
 
-    os.mkdir(output)
-    print('    - Downloading media')
+    os.makedirs(output, exist_ok=True)
     CMD = [
         'youtube-dl',
         '--write-description',
         '--write-info-json',
         '--write-annotations',
         '--yes-playlist',
-        '--write-thumbnail ',
+        '--write-thumbnail',
         '--no-call-home',
         '--no-check-certificate',
-        '--user-agent ',
+        '--user-agent',
         '--all-subs',
         '-x',
+        '-k',
         '--audio-format', 'mp3',
         '--audio-quality', '320K',
         '--embed-thumbnail',
@@ -472,17 +474,20 @@ def fetch_media(link_dir, link, timeout=TIMEOUT, overwrite=False):
 
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=output, timeout=timeout + 1)  # audio/audio.mp3
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=output, timeout=timeout + 1)  # audio/audio.mp3
         end()
         if result.returncode:
-            print('        got youtubedl response code {}:'.format(result.returncode))
-            raise Exception('Failed to download media')
-        chmod_file('media', cwd=link_dir)
-        return 'media'
+            if b'ERROR: Unsupported URL' in result.stderr:
+                # print('        none found')
+                pass
+            else:
+                print('        got youtubedl response code {}:'.format(result.returncode))
+                raise Exception('Failed to download media')
     except Exception as e:
         end()
         print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
         print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        output = e
 
     return {
         'cmd': CMD,

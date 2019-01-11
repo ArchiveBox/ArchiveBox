@@ -22,7 +22,7 @@ FETCH_PDF =              os.getenv('FETCH_PDF',              'True'             
 FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'             ).lower() == 'true'
 FETCH_DOM =              os.getenv('FETCH_DOM',              'True'             ).lower() == 'true'
 FETCH_GIT =              os.getenv('FETCH_GIT',              'True'             ).lower() == 'true'
-FETCH_MEDIA =            os.getenv('FETCH_MEDIA',            'True'             ).lower() == 'true'
+FETCH_MEDIA =            os.getenv('FETCH_MEDIA',            'False'            ).lower() == 'true'
 FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'
 SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             ).lower() == 'true'
 RESOLUTION =             os.getenv('RESOLUTION',             '1440,1200'        )
@@ -33,6 +33,7 @@ WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             
 WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox')
 CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',    None)
 TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
+MEDIA_TIMEOUT =          int(os.getenv('MEDIA_TIMEOUT',      '3600'))
 FOOTER_INFO =            os.getenv('FOOTER_INFO',            'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.',)
 GIT_DOMAINS =            os.getenv('GIT_DOMAINS',            'github.com,bitbucket.org,gitlab.com').split(',')
 
