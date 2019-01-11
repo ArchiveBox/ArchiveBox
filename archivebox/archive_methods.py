@@ -18,6 +18,7 @@ from config import (
     FETCH_SCREENSHOT,
     FETCH_DOM,
     FETCH_GIT,
+    FETCH_MEDIA,
     RESOLUTION,
     CHECK_SSL_VALIDITY,
     SUBMIT_ARCHIVE_DOT_ORG,
@@ -89,6 +90,9 @@ def archive_link(link_dir, link, overwrite=True):
     
     log_link_archive(link_dir, link, update_existing)
 
+    if FETCH_FAVICON:
+        link = fetch_favicon(link_dir, link, overwrite=overwrite)
+
     if FETCH_WGET:
         link = fetch_wget(link_dir, link, overwrite=overwrite)
 
@@ -113,8 +117,9 @@ def archive_link(link_dir, link, overwrite=True):
     if FETCH_GIT:
         link = fetch_git(link_dir, link, overwrite=overwrite)
 
-    if FETCH_FAVICON:
-        link = fetch_favicon(link_dir, link, overwrite=overwrite)
+    if FETCH_MEDIA:
+        link = fetch_media(link_dir, link, overwrite=overwrite)
+
 
     write_link_index(link_dir, link)
     # print()
@@ -435,71 +440,54 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
         'output': output,
     }
 
-# @attach_result_to_link('audio')
-# def fetch_audio(link_dir, link, timeout=TIMEOUT):
-#     """Download audio rip using youtube-dl"""
+@attach_result_to_link('media')
+def fetch_media(link_dir, link, timeout=TIMEOUT, overwrite=False):
+    """Download playlists or individual video, audio, and subtitles using youtube-dl"""
 
-#     if link['type'] not in ('soundcloud',)\
-#        and 'audio' not in link['tags']:
-#         return
+    output = os.path.join(link_dir, 'media')
 
-#     path = os.path.join(link_dir, 'audio')
+    if os.path.exists(output) and not overwrite:
+        return {'output': 'media', 'status': 'skipped'}
 
-#     if not os.path.exists(path) or overwrite:
-#         print('    - Downloading audio')
-#         CMD = [
-#             "youtube-dl -x --audio-format mp3 --audio-quality 0 -o '%(title)s.%(ext)s'",
-#             link['url'],
-#         ]
-#         end = progress(timeout, prefix='      ')
-#         try:
-#             result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=link_dir, timeout=timeout + 1)  # audio/audio.mp3
-#             end()
-#             if result.returncode:
-#                 print('     ', result.stderr.decode())
-#                 raise Exception('Failed to download audio')
-#             chmod_file('audio.mp3', cwd=link_dir)
-#             return 'audio.mp3'
-#         except Exception as e:
-#             end()
-#             print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
-#             print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
-#             raise
-#     else:
-#         print('    √ Skipping audio download')
+    os.mkdir(output)
+    print('    - Downloading media')
+    CMD = [
+        'youtube-dl',
+        '--write-description',
+        '--write-info-json',
+        '--write-annotations',
+        '--yes-playlist',
+        '--write-thumbnail ',
+        '--no-call-home',
+        '--no-check-certificate',
+        '--user-agent ',
+        '--all-subs',
+        '-x',
+        '--audio-format', 'mp3',
+        '--audio-quality', '320K',
+        '--embed-thumbnail',
+        '--add-metadata',
+        link['url']
+    ]
 
-# @attach_result_to_link('video')
-# def fetch_video(link_dir, link, timeout=TIMEOUT):
-#     """Download video rip using youtube-dl"""
+    end = progress(timeout, prefix='      ')
+    try:
+        result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=output, timeout=timeout + 1)  # audio/audio.mp3
+        end()
+        if result.returncode:
+            print('        got youtubedl response code {}:'.format(result.returncode))
+            raise Exception('Failed to download media')
+        chmod_file('media', cwd=link_dir)
+        return 'media'
+    except Exception as e:
+        end()
+        print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
+        print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
 
-#     if link['type'] not in ('youtube', 'youku', 'vimeo')\
-#        and 'video' not in link['tags']:
-#         return
-
-#     path = os.path.join(link_dir, 'video')
-
-#     if not os.path.exists(path) or overwrite:
-#         print('    - Downloading video')
-#         CMD = [
-#             "youtube-dl -x --video-format mp4 --audio-quality 0 -o '%(title)s.%(ext)s'",
-#             link['url'],
-#         ]
-#         end = progress(timeout, prefix='      ')
-#         try:
-#             result = run(CMD, stdout=DEVNULL, stderr=DEVNULL, cwd=link_dir, timeout=timeout + 1)  # video/movie.mp4
-#             end()
-#             if result.returncode:
-#                 print('     ', result.stderr.decode())
-#                 raise Exception('Failed to download video')
-#             chmod_file('video.mp4', cwd=link_dir)
-#             return 'video.mp4'
-#         except Exception as e:
-#             end()
-#             print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
-#             print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
-#             raise
-#     else:
-#         print('    √ Skipping video download')
+    return {
+        'cmd': CMD,
+        'output': output,
+    }
 
 @attach_result_to_link('git')
 def fetch_git(link_dir, link, timeout=TIMEOUT):
