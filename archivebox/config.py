@@ -33,6 +33,7 @@ WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox')
 CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',    None)
 TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
 FOOTER_INFO =            os.getenv('FOOTER_INFO',            'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.',)
+GIT_DOMAINS =            os.getenv('GIT_DOMAINS',            'github.com,bitbucket.org,gitlab.com').split(',')
 
 ### Paths
 REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))

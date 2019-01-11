@@ -30,6 +30,7 @@ from config import (
     TIMEOUT,
     ANSI,
     ARCHIVE_DIR,
+    GIT_DOMAINS,
 )
 from util import (
     check_dependencies,
@@ -504,7 +505,7 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
 def fetch_git(link_dir, link, timeout=TIMEOUT):
     """download full site using git"""
 
-    if not (link['domain'] == 'github.com'
+    if not (link['domain'] in GIT_DOMAINS
             or link['url'].endswith('.git')
             or link['type'] == 'git'):
         return
