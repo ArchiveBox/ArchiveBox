@@ -212,15 +212,19 @@ def download_url(url):
     return source_path
 
 
-def fetch_page_title(url, default=None):
+def fetch_page_title(url, default=True):
     """Attempt to guess a page's title by downloading the html"""
-    
+    if default is True:
+        default = url
+
     try:
         html_content = urllib.request.urlopen(url).read().decode('utf-8')
 
         match = re.search('<title>(.*?)</title>', html_content)
-        return match.group(1) if match else default
+        return match.group(1) if match else default or None
     except Exception:
+        if default is False:
+            raise
         return default
 
 
