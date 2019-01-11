@@ -14,9 +14,9 @@
 
 ---
 
-Save an archived copy of the websites you visit (the actual *content* of each site, not just the list of links).  Can archive entire browsing history, or just links matching a filter or bookmarks list.
+ArchiveBox saves an archived copy of the websites you visit into a local browsable folder (the actual *content* of each site, not just the list of links).  It can archive your entire browsing history, or import links from bookmarks managers, rss, text files and more.
 
-ArchiveBox can import links from:
+### Can import links from:
 
  - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history or bookmarks (Chrome, Firefox, Safari, IE, Opera)
  - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket
@@ -24,18 +24,21 @@ ArchiveBox can import links from:
  - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS or plain text lists
  - Shaarli, Delicious, Instapaper, Reddit Saved Posts, Wallabag, Unmark.it, and more!
 
-For each site, it outputs (configurable):
+### Can save these things for each site:
 
+- Favicon
 - Browsable static HTML archive (wget)
 - PDF (Chrome headless)
 - Screenshot (Chrome headless)
-- HTML after 2s of JS running (Chrome headless)
-- Favicon
+- HTML DUMP after 2s of JS running in Chrome headless
+- Git repo download (git clone)
+- Media download (youtube-dl: video, audio, subtitles, including playlists)
+- WARC archive (wget warc)
 - Submits URL to archive.org
 - Index summary pages: index.html & index.json
 
 The archiving is additive, so you can schedule `./archive` to run regularly and pull new links into the index.
-All the saved content is static and indexed with json files, so it lives forever & is easily parseable, it requires no always-running backend.
+All the saved content is static and indexed with JSON files, so it lives forever & is easily parseable, it requires no always-running backend.
 
 [DEMO: archive.sweeting.me](https://archive.sweeting.me)
 
