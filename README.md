@@ -84,4 +84,4 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 
 ---
 
-<img src="https://i.imgur.com/8y6hvZa.png" alt="Logo"/>
+<img src="https://i.imgur.com/JffzvjI.png" alt="Logo" style="width: 50%; border-radius: 14px; text-align: center"/>
