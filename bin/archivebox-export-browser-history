@@ -2,6 +2,8 @@
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )"; cd .. && pwd )"
 
+mkdir -p "$REPO_DIR/output/sources"
+
 if [[ "$1" == "--chrome" ]]; then
     # Google Chrome / Chromium
     default=$(ls ~/Library/Application\ Support/Google/Chrome/Default/History)
