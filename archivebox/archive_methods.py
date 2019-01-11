@@ -448,7 +448,8 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
 
     # import ipdb; ipdb.set_trace()
     output = os.path.join(link_dir, 'media')
-    if os.path.exists(output) and not overwrite:
+    already_done = os.path.exists(output) and os.listdir(output)
+    if already_done and not overwrite:
         return {'output': 'media', 'status': 'skipped'}
 
     os.makedirs(output, exist_ok=True)
@@ -469,7 +470,7 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
         '--audio-quality', '320K',
         '--embed-thumbnail',
         '--add-metadata',
-        link['url']
+        link['url'],
     ]
 
     end = progress(timeout, prefix='      ')
@@ -478,10 +479,10 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
         end()
         if result.returncode:
             if b'ERROR: Unsupported URL' in result.stderr:
-                # print('        none found')
                 pass
             else:
                 print('        got youtubedl response code {}:'.format(result.returncode))
+                print(result.stderr)
                 raise Exception('Failed to download media')
     except Exception as e:
         end()
