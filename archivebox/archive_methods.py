@@ -17,6 +17,7 @@ from config import (
     FETCH_PDF,
     FETCH_SCREENSHOT,
     FETCH_DOM,
+    FETCH_WARC,
     FETCH_GIT,
     FETCH_MEDIA,
     RESOLUTION,
@@ -105,6 +106,9 @@ def archive_link(link_dir, link, overwrite=True):
 
     if FETCH_DOM:
         link = fetch_dom(link_dir, link, overwrite=overwrite)
+
+    if FETCH_WARC:
+        link = fetch_warc(link_dir, link, overwrite=overwrite)
 
     if SUBMIT_ARCHIVE_DOT_ORG:
         link = archive_dot_org(link_dir, link, overwrite=overwrite)
@@ -495,6 +499,7 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
         'output': output,
     }
 
+
 @attach_result_to_link('git')
 def fetch_git(link_dir, link, timeout=TIMEOUT):
     """download full site using git"""
@@ -518,6 +523,53 @@ def fetch_git(link_dir, link, timeout=TIMEOUT):
         if result.returncode > 0:
             print('        got git response code {}:'.format(result.returncode))
             raise Exception('Failed git download')
+    except Exception as e:
+        end()
+        print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
+        print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        output = e
+
+    return {
+        'cmd': CMD,
+        'output': output,
+    }
+
+
+@attach_result_to_link('warc')
+def fetch_warc(link_dir, link, timeout=TIMEOUT):
+    """download full site using wget's warc saving feature"""
+
+    output = os.path.join(link_dir, 'warc')
+    if os.path.exists(output) and os.listdir(output):
+        return {'output': 'warc', 'status': 'skipped'}
+
+    os.makedirs(output, exist_ok=True)
+    CMD = [
+        'wget',
+        '--warc-file={}'.format(int(datetime.now().timestamp())),
+        *(('--user-agent={}'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
+        *((() if CHECK_SSL_VALIDITY else ('--no-check-certificate',))),
+        link['url'],
+    ]
+
+    end = progress(timeout, prefix='      ')
+    try:
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=output, timeout=timeout + 1)  # warc/at-00000.warc.gz
+        end()
+
+        # Check for common failure cases
+        if result.returncode > 0:
+            print('        got wget response code {}:'.format(result.returncode))
+            if result.returncode != 8:
+                print('\n'.join('          ' + line for line in (result.stderr or result.stdout).decode().rsplit('\n', 10)[-10:] if line.strip()))
+            if b'403: Forbidden' in result.stderr:
+                raise Exception('403 Forbidden (try changing WGET_USER_AGENT)')
+            if b'404: Not Found' in result.stderr:
+                raise Exception('404 Not Found')
+            if b'ERROR 500: Internal Server Error' in result.stderr:
+                raise Exception('500 Internal Server Error')
+            if result.returncode == 4:
+                raise Exception('Failed warc download')
     except Exception as e:
         end()
         print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
