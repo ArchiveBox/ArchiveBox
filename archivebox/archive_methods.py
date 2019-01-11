@@ -17,6 +17,7 @@ from config import (
     FETCH_PDF,
     FETCH_SCREENSHOT,
     FETCH_DOM,
+    FETCH_GIT,
     RESOLUTION,
     CHECK_SSL_VALIDITY,
     SUBMIT_ARCHIVE_DOT_ORG,
@@ -107,6 +108,9 @@ def archive_link(link_dir, link, overwrite=True):
 
     # if FETCH_VIDEO:
     #     link = fetch_video(link_dir, link, overwrite=overwrite)
+
+    if FETCH_GIT:
+        link = fetch_git(link_dir, link, overwrite=overwrite)
 
     if FETCH_FAVICON:
         link = fetch_favicon(link_dir, link, overwrite=overwrite)
@@ -495,6 +499,40 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
 #             raise
 #     else:
 #         print('    √ Skipping video download')
+
+@attach_result_to_link('git')
+def fetch_git(link_dir, link, timeout=TIMEOUT):
+    """download full site using git"""
+
+    if not (link['domain'] == 'github.com'
+            or link['url'].endswith('.git')
+            or link['type'] == 'git'):
+        return
+
+    if os.path.exists(os.path.join(link_dir, 'git')):
+        return {'output': 'git', 'status': 'skipped'}
+
+    CMD = ['git', 'clone', '--recursive', link['url'], 'git']
+    output = 'git'
+
+    end = progress(timeout, prefix='      ')
+    try:
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 1)  # git/<reponame>
+        end()
+
+        if result.returncode > 0:
+            print('        got git response code {}:'.format(result.returncode))
+            raise Exception('Failed git download')
+    except Exception as e:
+        end()
+        print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
+        print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        output = e
+
+    return {
+        'cmd': CMD,
+        'output': output,
+    }
 
 
 def chrome_headless(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR):

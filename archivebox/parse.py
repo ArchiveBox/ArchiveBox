@@ -81,9 +81,9 @@ def parse_pocket_export(html_file):
                 'url': fixed_url,
                 'domain': domain(fixed_url),
                 'base_url': base_url(fixed_url),
-                'timestamp': str(time.timestamp()),
+                'timestamp': str(datetime.now().timestamp()),
                 'tags': match.group(3),
-                'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '') or base_url(fixed_url),
+                'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '') or fetch_page_title(url),
                 'sources': [html_file.name],
             }
             info['type'] = get_link_type(info)
@@ -157,7 +157,7 @@ def parse_rss_export(rss_file):
             'url': url,
             'domain': domain(url),
             'base_url': base_url(url),
-            'timestamp': str(time.timestamp()),
+            'timestamp': str(datetime.now().timestamp()),
             'tags': '',
             'title': title or fetch_page_title(url),
             'sources': [rss_file.name],
@@ -184,7 +184,7 @@ def parse_bookmarks_export(html_file):
                 'url': url,
                 'domain': domain(url),
                 'base_url': base_url(url),
-                'timestamp': str(time.timestamp()),
+                'timestamp': str(datetime.now().timestamp()),
                 'tags': "",
                 'title': match.group(3).strip() or fetch_page_title(url),
                 'sources': [html_file.name],
@@ -217,7 +217,7 @@ def parse_pinboard_rss_feed(rss_file):
             'url': url,
             'domain': domain(url),
             'base_url': base_url(url),
-            'timestamp': str(time.timestamp()),
+            'timestamp': str(datetime.now().timestamp()),
             'tags': tags,
             'title': title or fetch_page_title(url),
             'sources': [rss_file.name],
@@ -242,7 +242,7 @@ def parse_medium_rss_feed(rss_file):
             'url': url,
             'domain': domain(url),
             'base_url': base_url(url),
-            'timestamp': str(time.timestamp()),
+            'timestamp': str(datetime.now().timestamp()),
             'tags': '',
             'title': title or fetch_page_title(url),
             'sources': [rss_file.name],
@@ -261,13 +261,11 @@ def parse_plain_text(text_file):
             urls = re.findall(URL_REGEX, line)
             
             for url in urls:
-                timestamp = str(datetime.now().timestamp())
-
                 info = {
                     'url': url,
                     'domain': domain(url),
                     'base_url': base_url(url),
-                    'timestamp': timestamp,
+                    'timestamp': str(datetime.now().timestamp()),
                     'tags': '',
                     'title': fetch_page_title(url),
                     'sources': [text_file.name],
