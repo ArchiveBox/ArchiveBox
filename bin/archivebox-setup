@@ -25,7 +25,6 @@ if which apt-get > /dev/null; then
         echo "[i] You already have google-chrome installed, if you would like to download chromium-browser instead (they work pretty much the same), follow the Manual Setup instructions"
         echo "[+] Linking $(which google-chrome) -> /usr/bin/chromium-browser (press enter to continue, or Ctrl+C to cancel...)"
         read
-        sudo ln -s "$(which google-chrome)" /usr/bin/chromium-browser
     elif which chromium-browser; then
         echo "[i] chromium-browser already installed, using existing installation."
         chromium-browser --version

@@ -26,7 +26,7 @@ SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             
 RESOLUTION =             os.getenv('RESOLUTION',             '1440,1200'        )
 CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
 OUTPUT_PERMISSIONS =     os.getenv('OUTPUT_PERMISSIONS',     '755'              )
-CHROME_BINARY =          os.getenv('CHROME_BINARY',          'chromium-browser' )  # change to google-chrome browser if using google-chrome
+CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)  # change to google-chrome browser if using google-chrome
 WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             )
 WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox')
 CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',    None)
@@ -48,6 +48,25 @@ TEMPLATES_DIR = os.path.join(PYTHON_PATH, 'templates')
 # ******************************************************************************
 
 CHROME_SANDBOX =        os.getenv('CHROME_SANDBOX',         'True'             ).lower() == 'true'
+
+if not CHROME_BINARY:
+    common_chrome_executable_names = (
+        'chromium-browser',
+        'chromium',
+        'google-chrome',
+        'google-chrome-beta',
+        'google-chrome-canary',
+        'google-chrome-dev',
+    )
+    for name in common_chrome_executable_names:
+        full_path_exists = shutil.which(name)
+        if full_path_exists:
+            CHROME_BINARY = name
+            break
+    else:
+        CHROME_BINARY = 'chromium-browser'
+
+# print('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
 
 ### Terminal Configuration
 TERM_WIDTH = shutil.get_terminal_size((100, 10)).columns
@@ -71,9 +90,10 @@ try:
     GIT_SHA = run(["git", "rev-list", "-1", "HEAD", "./"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
 except Exception:
     GIT_SHA = 'unknown'
-    print('[!] Warning, you need git installed for some archiving features to save correct version numbers!')
+    print('[!] Warning, you need git installed for code version to be saved with archive json!')
 
-if sys.stdout.encoding.upper() != 'UTF-8':
+
+if sys.stdout.encoding.upper() not in ('UTF-8', 'UTF8'):
     print('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
     print('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
     print('')
