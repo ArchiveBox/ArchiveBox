@@ -5,6 +5,7 @@ import time
 import json
 import urllib.request
 
+from decimal import Decimal
 from urllib.parse import quote
 from datetime import datetime
 from subprocess import run, PIPE, DEVNULL
@@ -491,7 +492,7 @@ def derived_link_info(link):
 
     link_info = {
         **link,
-        'date': datetime.fromtimestamp(float(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),
+        'date': datetime.fromtimestamp(Decimal(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),
         'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
         'favicon_url': 'archive/{timestamp}/favicon.ico'.format(**link),
         'files_url': 'archive/{timestamp}/index.html'.format(**link),
