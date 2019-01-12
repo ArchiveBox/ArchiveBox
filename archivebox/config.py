@@ -11,13 +11,15 @@ from subprocess import run, PIPE
 # ******************************************************************************
 
 IS_TTY = sys.stdout.isatty()
+ONLY_NEW =               os.getenv('ONLY_NEW',               'False'            ).lower() == 'true'
 USE_COLOR =              os.getenv('USE_COLOR',              str(IS_TTY)        ).lower() == 'true'
 SHOW_PROGRESS =          os.getenv('SHOW_PROGRESS',          str(IS_TTY)        ).lower() == 'true'
-ONLY_NEW =               os.getenv('ONLY_NEW',               'False'            ).lower() == 'true'
+OUTPUT_PERMISSIONS =     os.getenv('OUTPUT_PERMISSIONS',     '755'              )
+MEDIA_TIMEOUT =          int(os.getenv('MEDIA_TIMEOUT',      '3600'))
+TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
+
 FETCH_WGET =             os.getenv('FETCH_WGET',             'True'             ).lower() == 'true'
 FETCH_WGET_REQUISITES =  os.getenv('FETCH_WGET_REQUISITES',  'True'             ).lower() == 'true'
-FETCH_AUDIO =            os.getenv('FETCH_AUDIO',            'False'            ).lower() == 'true'
-FETCH_VIDEO =            os.getenv('FETCH_VIDEO',            'False'            ).lower() == 'true'
 FETCH_PDF =              os.getenv('FETCH_PDF',              'True'             ).lower() == 'true'
 FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'             ).lower() == 'true'
 FETCH_DOM =              os.getenv('FETCH_DOM',              'True'             ).lower() == 'true'
@@ -26,17 +28,16 @@ FETCH_GIT =              os.getenv('FETCH_GIT',              'True'             
 FETCH_MEDIA =            os.getenv('FETCH_MEDIA',            'False'            ).lower() == 'true'
 FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'
 SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             ).lower() == 'true'
-RESOLUTION =             os.getenv('RESOLUTION',             '1440,1200'        )
-CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
-OUTPUT_PERMISSIONS =     os.getenv('OUTPUT_PERMISSIONS',     '755'              )
-CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)  # change to google-chrome browser if using google-chrome
-WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             )
+
+CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'False'            ).lower() == 'true'
+RESOLUTION =             os.getenv('RESOLUTION',             '1440,2000'        )
+GIT_DOMAINS =            os.getenv('GIT_DOMAINS',            'github.com,bitbucket.org,gitlab.com').split(',')
 WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox')
 CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',    None)
-TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
-MEDIA_TIMEOUT =          int(os.getenv('MEDIA_TIMEOUT',      '3600'))
+
+CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)  # change to google-chrome browser if using google-chrome
+WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             )
 FOOTER_INFO =            os.getenv('FOOTER_INFO',            'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.',)
-GIT_DOMAINS =            os.getenv('GIT_DOMAINS',            'github.com,bitbucket.org,gitlab.com').split(',')
 
 ### Paths
 REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))

@@ -208,10 +208,10 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, timeout=TIMEOUT
     if os.path.exists(domain_dir) and existing_file:
         return {'output': existing_file, 'status': 'skipped'}
 
+    # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
     CMD = [
-        # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
         'wget',
-        # '--server-response',
+        # '--server-response',  # print headers for better error parsing
         '--no-verbose',
         '--timestamping',
         '--adjust-extension',
@@ -270,6 +270,9 @@ def fetch_pdf(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
     CMD = [
         *chrome_headless(user_data_dir=user_data_dir),
         '--print-to-pdf',
+        '--hide-scrollbars',
+        '--timeout=58000',
+        *(() if CHECK_SSL_VALIDITY else ('--disable-web-security', '--ignore-certificate-errors')),
         link['url']
     ]
     end = progress(timeout, prefix='      ')
@@ -307,6 +310,8 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_
         '--screenshot',
         '--window-size={}'.format(resolution),
         '--hide-scrollbars',
+        '--timeout=58000',
+        *(() if CHECK_SSL_VALIDITY else ('--disable-web-security', '--ignore-certificate-errors')),
         # '--full-page',   # TODO: make this actually work using ./bin/screenshot fullPage: true
         link['url'],
     ]
@@ -556,7 +561,7 @@ def fetch_warc(link_dir, link, timeout=TIMEOUT):
     os.makedirs(output, exist_ok=True)
     CMD = [
         'wget',
-        '--warc-file={}'.format(int(datetime.now().timestamp())),
+        '--warc-file="{}"'.format(int(datetime.now().timestamp())),
         *(('--user-agent="{}"'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
         *((() if CHECK_SSL_VALIDITY else ('--no-check-certificate',))),
         link['url'],
@@ -598,7 +603,7 @@ def chrome_headless(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR):
         args.append('--no-sandbox')
     default_profile = os.path.expanduser('~/Library/Application Support/Google/Chrome/Default')
     if user_data_dir:
-        args.append('--user-data-dir={}'.format(user_data_dir))
+        args.append('--user-data-dir="{}"'.format(user_data_dir))
     elif os.path.exists(default_profile):
-        args.append('--user-data-dir={}'.format(default_profile))
+        args.append('--user-data-dir="{}"'.format(default_profile))
     return args
