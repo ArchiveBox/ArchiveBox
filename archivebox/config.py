@@ -29,7 +29,7 @@ FETCH_MEDIA =            os.getenv('FETCH_MEDIA',            'False'            
 FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'
 SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             ).lower() == 'true'
 
-CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'False'            ).lower() == 'true'
+CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
 RESOLUTION =             os.getenv('RESOLUTION',             '1440,2000'        )
 GIT_DOMAINS =            os.getenv('GIT_DOMAINS',            'github.com,bitbucket.org,gitlab.com').split(',')
 WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox')
