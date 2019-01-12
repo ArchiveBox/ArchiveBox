@@ -23,8 +23,6 @@ from config import (
     RESOLUTION,
     CHECK_SSL_VALIDITY,
     SUBMIT_ARCHIVE_DOT_ORG,
-    FETCH_AUDIO,
-    FETCH_VIDEO,
     FETCH_FAVICON,
     WGET_USER_AGENT,
     CHROME_USER_DATA_DIR,
@@ -113,12 +111,6 @@ def archive_link(link_dir, link, overwrite=True):
     if SUBMIT_ARCHIVE_DOT_ORG:
         link = archive_dot_org(link_dir, link, overwrite=overwrite)
 
-    # if FETCH_AUDIO:
-    #     link = fetch_audio(link_dir, link, overwrite=overwrite)
-
-    # if FETCH_VIDEO:
-    #     link = fetch_video(link_dir, link, overwrite=overwrite)
-
     if FETCH_GIT:
         link = fetch_git(link_dir, link, overwrite=overwrite)
 
@@ -127,7 +119,6 @@ def archive_link(link_dir, link, overwrite=True):
 
 
     write_link_index(link_dir, link)
-    # print()
     
     return link
 

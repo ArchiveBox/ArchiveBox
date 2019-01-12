@@ -28,8 +28,7 @@ from config import (
     FETCH_SCREENSHOT,
     FETCH_DOM,
     FETCH_FAVICON,
-    FETCH_AUDIO,
-    FETCH_VIDEO,
+    FETCH_MEDIA,
     SUBMIT_ARCHIVE_DOT_ORG,
 )
 
@@ -93,7 +92,7 @@ def check_dependencies():
             print('    See https://github.com/pirate/ArchiveBox for help.')
             raise SystemExit(1)
 
-    if FETCH_AUDIO or FETCH_VIDEO:
+    if FETCH_MEDIA:
         if run(['which', 'youtube-dl'], stdout=DEVNULL).returncode or run(['youtube-dl', '--version'], stdout=DEVNULL).returncode:
             print('{red}[X] Missing dependency: youtube-dl{reset}'.format(**ANSI))
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format('youtube-dl'))
