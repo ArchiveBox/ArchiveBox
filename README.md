@@ -49,6 +49,9 @@ cd ArchiveBox
 
 # Export your bookmarks, then run the archive command to start archiving!
 ./archive ~/Downloads/firefox_bookmarks.html
+
+# Or to add just one page to your archive
+echo 'https://example.com' | ./archive
 ```
 
 
