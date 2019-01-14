@@ -32,7 +32,7 @@ SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             
 CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
 RESOLUTION =             os.getenv('RESOLUTION',             '1440,2000'        )
 GIT_DOMAINS =            os.getenv('GIT_DOMAINS',            'github.com,bitbucket.org,gitlab.com').split(',')
-WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox')
+WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox/{GIT_SHA} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}')
 CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',    None)
 
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)  # change to google-chrome browser if using google-chrome
@@ -98,6 +98,14 @@ except Exception:
     GIT_SHA = 'unknown'
     print('[!] Warning, you need git installed for code version to be saved with archive json!')
 
+WGET_VERSION = 'unknown'
+try:
+    wget_vers_str = run(["wget", "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
+    WGET_VERSION = wget_vers_str.split('\n')[0].split(' ')[2]
+except Exception:
+    print('[!] Warning, unable to determine wget version, is wget installed and in your $PATH?')
+
+WGET_USER_AGENT = WGET_USER_AGENT.format(GIT_SHA=GIT_SHA[:9], WGET_VERSION=WGET_VERSION)
 
 if sys.stdout.encoding.upper() not in ('UTF-8', 'UTF8'):
     print('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
@@ -108,3 +116,4 @@ if sys.stdout.encoding.upper() not in ('UTF-8', 'UTF8'):
     print('')
     print('    Alternatively, run this script with:')
     print('        env PYTHONIOENCODING=UTF-8 ./archive.py export.html')
+
