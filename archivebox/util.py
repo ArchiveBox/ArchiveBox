@@ -180,6 +180,20 @@ def pretty_path(path):
     return path.replace(REPO_DIR + '/', '')
 
 
+def save_source(raw_text):
+    if not os.path.exists(SOURCES_DIR):
+        os.makedirs(SOURCES_DIR)
+
+    ts = str(datetime.now().timestamp()).split('.', 1)[0]
+
+    source_path = os.path.join(SOURCES_DIR, '{}-{}.txt'.format('stdin', ts))
+
+    with open(source_path, 'w', encoding='utf-8') as f:
+        f.write(raw_text)
+
+    return source_path
+
+
 def download_url(url):
     """download a given url's content into downloads/domain.txt"""
 

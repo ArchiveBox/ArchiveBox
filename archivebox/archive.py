@@ -31,6 +31,7 @@ from config import (
 )
 from util import (
     download_url,
+    save_source,
     progress,
     cleanup_archive,
     pretty_path,
@@ -39,14 +40,18 @@ from util import (
 
 __AUTHOR__ = 'Nick Sweeting <git@nicksweeting.com>'
 __VERSION__ = GIT_SHA
-__DESCRIPTION__ = 'ArchiveBox: Create a browsable html archive of a list of links.'
-__DOCUMENTATION__ = 'https://github.com/pirate/ArchiveBox'
+__DESCRIPTION__ = 'ArchiveBox Usage:  Create a browsable html archive of a list of links.'
+__DOCUMENTATION__ = 'https://github.com/pirate/ArchiveBox/wiki'
 
 def print_help():
     print(__DESCRIPTION__)
     print("Documentation:     {}\n".format(__DOCUMENTATION__))
     print("Usage:")
     print("    ./bin/archivebox ~/Downloads/bookmarks_export.html\n")
+    print("")
+    print("    ./bin/archivebox https://example.com/feed.rss\n")
+    print("")
+    print("    echo 'https://examplecom' | ./bin/archivebox\n")
 
 
 def merge_links(archive_path=OUTPUT_DIR, import_path=None, only_new=False):
@@ -138,6 +143,20 @@ if __name__ == '__main__':
     source = sys.argv[1] if argc > 1 else None  # path of links file to import
     resume = sys.argv[2] if argc > 2 else None  # timestamp to resume dowloading from
    
+    stdin_raw_text = []
+
+    if not sys.stdin.isatty():
+        stdin_raw_text = sys.stdin.read()
+
+    if source and stdin_raw_text:
+        print(
+            '[X] You should pass either a path as an argument, '
+            'or pass a list of links via stdin, but not both.\n'
+        )
+        print_help()
+        raise SystemExit(1)
+
+
     if argc == 1:
         source, resume = None, None
     elif argc == 2:
@@ -163,6 +182,8 @@ if __name__ == '__main__':
     # Step 0: Download url to local file (only happens if a URL is specified instead of local path) 
     if source and any(source.startswith(s) for s in ('http://', 'https://', 'ftp://')):
         source = download_url(source)
+    elif stdin_raw_text:
+        source = save_source(stdin_raw_text)
 
     # Step 1: Parse the links and dedupe them with existing archive
     links = merge_links(archive_path=out_dir, import_path=source, only_new=False)
