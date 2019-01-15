@@ -40,7 +40,7 @@ ArchiveBox saves an archived copy of the websites you visit into a local browsab
 The archiving is additive, so you can schedule `./archive` to run regularly and pull new links into the index.
 All the saved content is static and indexed with JSON files, so it lives forever & is easily parseable, it requires no always-running backend.
 
-[DEMO: archive.sweeting.me](https://archive.sweeting.me)
+[DEMO: archive.sweeting.me](https://archive.sweeting.me) 网站存档 / 爬虫
 
 ```bash
 git clone https://github.com/pirate/ArchiveBox.git
