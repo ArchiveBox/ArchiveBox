@@ -23,7 +23,7 @@ FETCH_WGET_REQUISITES =  os.getenv('FETCH_WGET_REQUISITES',  'True'             
 FETCH_PDF =              os.getenv('FETCH_PDF',              'True'             ).lower() == 'true'
 FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'             ).lower() == 'true'
 FETCH_DOM =              os.getenv('FETCH_DOM',              'True'             ).lower() == 'true'
-FETCH_WARC =             os.getenv('FETCH_WARC',             'False'            ).lower() == 'true'
+FETCH_WARC =             os.getenv('FETCH_WARC',             'True'             ).lower() == 'true'
 FETCH_GIT =              os.getenv('FETCH_GIT',              'True'             ).lower() == 'true'
 FETCH_MEDIA =            os.getenv('FETCH_MEDIA',            'False'            ).lower() == 'true'
 FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'
@@ -42,7 +42,7 @@ FOOTER_INFO =            os.getenv('FOOTER_INFO',            'Content is hosted 
 ### Paths
 REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-OUTPUT_DIR = os.getenv('OUTPUT_DIR', os.path.join(REPO_DIR, 'output'))
+OUTPUT_DIR = os.path.abspath(os.getenv('OUTPUT_DIR', os.path.join(REPO_DIR, 'output')))
 ARCHIVE_DIR = os.path.join(OUTPUT_DIR, 'archive')
 SOURCES_DIR = os.path.join(OUTPUT_DIR, 'sources')
 
