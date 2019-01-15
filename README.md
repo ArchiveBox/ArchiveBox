@@ -69,6 +69,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 
 ## Reference
 
+ - [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage)
  - [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration)
  - [Chromium Install](https://github.com/pirate/ArchiveBox/wiki/Chromium-Install)
  - [Publishing Your Archive](https://github.com/pirate/ArchiveBox/wiki/Publishing-Your-Archive)
