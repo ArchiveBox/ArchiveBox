@@ -92,18 +92,18 @@ if not USE_COLOR:
     ANSI = {k: '' for k in ANSI.keys()}
 
 ### Confirm Environment Setup
+GIT_SHA = 'unknown'
 try:
     GIT_SHA = run(["git", "rev-list", "-1", "HEAD", "./"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
 except Exception:
-    GIT_SHA = 'unknown'
-    print('[!] Warning, you need git installed for code version to be saved with archive json!')
+    print('[!] Warning: unable to determine git version, is git installed and in your $PATH?')
 
 WGET_VERSION = 'unknown'
 try:
     wget_vers_str = run(["wget", "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
     WGET_VERSION = wget_vers_str.split('\n')[0].split(' ')[2]
 except Exception:
-    print('[!] Warning, unable to determine wget version, is wget installed and in your $PATH?')
+    print('[!] Warning: unable to determine wget version, is wget installed and in your $PATH?')
 
 WGET_USER_AGENT = WGET_USER_AGENT.format(GIT_SHA=GIT_SHA[:9], WGET_VERSION=WGET_VERSION)
 
