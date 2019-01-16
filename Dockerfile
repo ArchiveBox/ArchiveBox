@@ -2,7 +2,7 @@ FROM debian:stretch
 LABEL maintainer="Nick Sweeting <archivebox-git@sweeting.me>"
 
 RUN apt-get update \
-    && apt-get install -qy git wget gnupg2 libgconf-2-4 python3 python3-pip \
+    && apt-get install -qy git wget curl youtube-dl gnupg2 libgconf-2-4 python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install latest chrome package and fonts to support major charsets (Chinese, Japanese, Arabic, Hebrew, Thai and a few others)
@@ -25,18 +25,19 @@ RUN git clone https://github.com/pirate/ArchiveBox /home/chromeuser/app \
 
 # Add user so we area strong, independent chrome that don't need --no-sandbox.
 RUN groupadd -r chromeuser && useradd -r -g chromeuser -G audio,video chromeuser \
-    && mkdir -p /home/chromeuser/app/archivebox/output \
+    && mkdir -p /data \
+    && ln -s /data /home/chromeuser/app/archivebox/output \
     && chown -R chromeuser:chromeuser /home/chromeuser/app/archivebox/output \
     && chown -R chromeuser:chromeuser /home/chromeuser
 
-VOLUME /home/chromeuser/app/archivebox/output
+VOLUME /data
 
 ENV LANG=en_US.UTF-8 \
     LANGUAGE=en_US:en \
     LC_ALL=en_US.UTF-8 \
     PYTHONIOENCODING=UTF-8 \
     CHROME_SANDBOX=False \
-    OUTPUT_DIR=/home/chromeuser/app/archivebox/output
+    OUTPUT_DIR=/data
 
 # Run everything from here on out as non-privileged user
 USER chromeuser
