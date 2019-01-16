@@ -21,7 +21,8 @@ RUN apt-get update && apt-get install -y curl --no-install-recommends \
 # RUN chmod +x /usr/local/bin/dumb-init
 
 RUN git clone https://github.com/pirate/ArchiveBox /home/chromeuser/app \
-    && pip3 install -r /home/chromeuser/app/archivebox/requirements.txt
+    && pip3 install -r /home/chromeuser/app/archivebox/requirements.txt \
+    && ln -s /home/chromeuser/app/bin/archivebox /usr/bin/archive
 
 # Add user so we area strong, independent chrome that don't need --no-sandbox.
 RUN groupadd -r chromeuser && useradd -r -g chromeuser -G audio,video chromeuser \
@@ -43,7 +44,4 @@ ENV LANG=en_US.UTF-8 \
 USER chromeuser
 WORKDIR /home/chromeuser/app
 
-# ENTRYPOINT ["dumb-init", "--"]
-# CMD ["/home/chromeuser/app/archive"]
-
-ENTRYPOINT ["python3", "-u", "/home/chromeuser/app/archivebox/archive.py"]
+CMD ["/usr/bin/archive"]

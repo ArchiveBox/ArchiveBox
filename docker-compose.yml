@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+    archivebox:
+        build: .
+        stdin_open: true
+        tty: true
+        environment:
+            - FETCH_SCREENSHOT=False
+            - FETCH_PDF=False
+            - FETCH_DOM=False
+            - FETCH_MEDIA=False
+            - USE_COLOR=False
+            - SHOW_PROGRESS=False
+        volumes:
+            - ./data:/data
+        command: bash -c 'echo "https://example.com" | /usr/bin/archive; tail -f /dev/null'
+
+    nginx:
+        image: 'nginx'
+        ports:
+            - '8098:80'
+        volumes:
+            - ./etc/nginx/nginx.conf:/etc/nginx/nginx.conf
+            - ./data:/var/www
