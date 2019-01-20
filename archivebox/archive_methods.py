@@ -214,6 +214,7 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
         '--span-hosts',
         '--no-parent',
         '--restrict-file-names=unix',
+        f'--timeout={timeout}',
         *(('--warc-file={}'.format(warc_path),) if warc else ()),
         *(('--page-requisites',) if FETCH_WGET_REQUISITES else ()),
         *(('--user-agent="{}"'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
@@ -222,7 +223,7 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
     ]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 1)  # index.html
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 5)  # index.html
         end()
         output = wget_output_path(link, look_in=domain_dir)
 
@@ -265,13 +266,13 @@ def fetch_pdf(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
         *chrome_headless(user_data_dir=user_data_dir),
         '--print-to-pdf',
         '--hide-scrollbars',
-        '--timeout=58000',
+        '--timeout={timeout * 1000}',
         *(() if CHECK_SSL_VALIDITY else ('--disable-web-security', '--ignore-certificate-errors')),
         link['url']
     ]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 1)  # output.pdf
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 5)  # output.pdf
         end()
         if result.returncode:
             print('     ', (result.stderr or result.stdout).decode())
@@ -304,14 +305,14 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_
         '--screenshot',
         '--window-size={}'.format(resolution),
         '--hide-scrollbars',
-        '--timeout=58000',
+        '--timeout={timeout * 1000}',
         *(() if CHECK_SSL_VALIDITY else ('--disable-web-security', '--ignore-certificate-errors')),
         # '--full-page',   # TODO: make this actually work using ./bin/screenshot fullPage: true
         link['url'],
     ]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 1)  # sreenshot.png
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 5)  # sreenshot.png
         end()
         if result.returncode:
             print('     ', (result.stderr or result.stdout).decode())
@@ -344,12 +345,13 @@ def fetch_dom(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
     CMD = [
         *chrome_headless(user_data_dir=user_data_dir),
         '--dump-dom',
+        '--timeout={timeout * 1000}',
         link['url']
     ]
     end = progress(timeout, prefix='      ')
     try:
         with open(output_path, 'w+') as f:
-            result = run(CMD, stdout=f, stderr=PIPE, cwd=link_dir, timeout=timeout + 1)  # output.html
+            result = run(CMD, stdout=f, stderr=PIPE, cwd=link_dir, timeout=timeout + 5)  # output.html
         end()
         if result.returncode:
             print('     ', (result.stderr).decode())
@@ -379,7 +381,15 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
     submit_url = 'https://web.archive.org/save/{}'.format(link['url'])
 
     success = False
-    CMD = ['curl', '-L', '-I', '-X', 'GET', submit_url]
+    CMD = [
+        'curl',
+        '--location',
+        '--head',
+        '--max-time', str(timeout),
+        '--get',
+        *(() if CHECK_SSL_VALIDITY else ('--insecure',)),
+        submit_url,
+    ]
     end = progress(timeout, prefix='      ')
     try:
         result = run(CMD, stdout=PIPE, stderr=DEVNULL, cwd=link_dir, timeout=timeout + 1)  # archive.org.txt
