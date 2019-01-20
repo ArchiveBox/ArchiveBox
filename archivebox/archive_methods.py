@@ -224,27 +224,27 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
     ]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 5)  # index.html
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)  # index.html
         end()
         output = wget_output_path(link, look_in=domain_dir)
 
         # Check for common failure cases
         if result.returncode > 0:
-            print('        got wget response code {}:'.format(result.returncode))
-            if result.returncode != 8:
-                print('\n'.join('          ' + line for line in (result.stderr or result.stdout).decode().rsplit('\n', 10)[-10:] if line.strip()))
+            print('        Got wget response code {}:'.format(result.returncode))
+            print('\n'.join('          ' + line for line in (result.stdout + result.stderr).decode().rsplit('\n', 3)[-3:] if line.strip()))
             if b'403: Forbidden' in result.stderr:
                 raise Exception('403 Forbidden (try changing WGET_USER_AGENT)')
             if b'404: Not Found' in result.stderr:
                 raise Exception('404 Not Found')
             if b'ERROR 500: Internal Server Error' in result.stderr:
                 raise Exception('500 Internal Server Error')
-            if result.returncode == 4:
-                raise Exception('Failed wget download')
+            raise Exception('Got an error from the server')
     except Exception as e:
         end()
-        print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
-        print('        {}Warning: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        print('        {}Some resources were skipped: {}{}'.format(ANSI['lightyellow'], e, ANSI['reset']))
+        print('        Run to see full output:')
+        print('            cd {};'.format(link_dir))
+        print('            {}'.format(' '.join(CMD)))
         output = e
 
     return {
@@ -267,13 +267,13 @@ def fetch_pdf(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
         *chrome_headless(user_data_dir=user_data_dir),
         '--print-to-pdf',
         '--hide-scrollbars',
-        '--timeout={timeout * 1000}',
+        '--timeout={}'.format((timeout) * 1000),
         *(() if CHECK_SSL_VALIDITY else ('--disable-web-security', '--ignore-certificate-errors')),
         link['url']
     ]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 5)  # output.pdf
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)  # output.pdf
         end()
         if result.returncode:
             print('     ', (result.stderr or result.stdout).decode())
@@ -282,8 +282,10 @@ def fetch_pdf(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
         output = 'output.pdf'
     except Exception as e:
         end()
-        print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
         print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        print('        Run to see full output:')
+        print('            cd {};'.format(link_dir))
+        print('            {}'.format(' '.join(CMD)))
         output = e
 
     return {
@@ -306,14 +308,14 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_
         '--screenshot',
         '--window-size={}'.format(resolution),
         '--hide-scrollbars',
-        '--timeout={timeout * 1000}',
+        '--timeout={}'.format((timeout) * 1000),
         *(() if CHECK_SSL_VALIDITY else ('--disable-web-security', '--ignore-certificate-errors')),
         # '--full-page',   # TODO: make this actually work using ./bin/screenshot fullPage: true
         link['url'],
     ]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 5)  # sreenshot.png
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)  # sreenshot.png
         end()
         if result.returncode:
             print('     ', (result.stderr or result.stdout).decode())
@@ -322,8 +324,10 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_
         output = 'screenshot.png'
     except Exception as e:
         end()
-        print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
         print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        print('        Run to see full output:')
+        print('            cd {};'.format(link_dir))
+        print('            {}'.format(' '.join(CMD)))
         output = e
 
     return {
@@ -346,13 +350,13 @@ def fetch_dom(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
     CMD = [
         *chrome_headless(user_data_dir=user_data_dir),
         '--dump-dom',
-        '--timeout={timeout * 1000}',
+        '--timeout={}'.format((timeout) * 1000),
         link['url']
     ]
     end = progress(timeout, prefix='      ')
     try:
         with open(output_path, 'w+') as f:
-            result = run(CMD, stdout=f, stderr=PIPE, cwd=link_dir, timeout=timeout + 5)  # output.html
+            result = run(CMD, stdout=f, stderr=PIPE, cwd=link_dir, timeout=timeout)  # output.html
         end()
         if result.returncode:
             print('     ', (result.stderr).decode())
@@ -361,8 +365,10 @@ def fetch_dom(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
         output = 'output.html'
     except Exception as e:
         end()
-        print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
         print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        print('        Run to see full output:')
+        print('            cd {};'.format(link_dir))
+        print('            {}'.format(' '.join(CMD)))
         output = e
 
     return {
@@ -393,7 +399,7 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
     ]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=DEVNULL, cwd=link_dir, timeout=timeout + 1)  # archive.org.txt
+        result = run(CMD, stdout=PIPE, stderr=DEVNULL, cwd=link_dir, timeout=timeout)  # archive.org.txt
         end()
 
         # Parse archive.org response headers
@@ -422,8 +428,9 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
             raise Exception('Failed to find "content-location" URL header in Archive.org response.')
     except Exception as e:
         end()
-        print('        Visit url to see output:', ' '.join(CMD))
         print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        print('        Run to see full output:')
+        print('            {}'.format(' '.join(CMD)))
         output = e
 
     if success:
@@ -444,11 +451,15 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
     if os.path.exists(os.path.join(link_dir, 'favicon.ico')):
         return {'output': 'favicon.ico', 'status': 'skipped'}
 
-    CMD = ['curl', 'https://www.google.com/s2/favicons?domain={domain}'.format(**link)]
+    CMD = [
+        'curl',
+        '--max-time', str(timeout),
+        'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
+    ]
     fout = open('{}/favicon.ico'.format(link_dir), 'w')
     end = progress(timeout, prefix='      ')
     try:
-        run(CMD, stdout=fout, stderr=DEVNULL, cwd=link_dir, timeout=timeout + 1)  # favicon.ico
+        run(CMD, stdout=fout, stderr=DEVNULL, cwd=link_dir, timeout=timeout)  # favicon.ico
         fout.close()
         end()
         chmod_file('favicon.ico', cwd=link_dir)
@@ -456,8 +467,9 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
     except Exception as e:
         fout.close()
         end()
-        print('        Run to see full output:', ' '.join(CMD))
         print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        print('        Run to see full output:')
+        print('            {}'.format(' '.join(CMD)))
         output = e
 
     return {
@@ -510,8 +522,10 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
                 raise Exception('Failed to download media')
     except Exception as e:
         end()
-        print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
         print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        print('        Run to see full output:')
+        print('            cd {};'.format(link_dir))
+        print('            {}'.format(' '.join(CMD)))
         output = e
 
     return {
@@ -545,8 +559,10 @@ def fetch_git(link_dir, link, timeout=TIMEOUT):
             raise Exception('Failed git download')
     except Exception as e:
         end()
-        print('        Run to see full output:', 'cd {}; {}'.format(link_dir, ' '.join(CMD)))
         print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        print('        Run to see full output:')
+        print('            cd {};'.format(link_dir))
+        print('            {}'.format(' '.join(CMD)))
         output = e
 
     return {
