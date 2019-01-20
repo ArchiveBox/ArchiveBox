@@ -1,10 +1,10 @@
 import os
+import re
 import sys
 
 from functools import wraps
 from collections import defaultdict
 from datetime import datetime
-from subprocess import run, PIPE, DEVNULL
 
 from peekable import Peekable
 
@@ -38,6 +38,7 @@ from util import (
     progress,
     chmod_file,
     pretty_path,
+    run, PIPE, DEVNULL
 )
 
 

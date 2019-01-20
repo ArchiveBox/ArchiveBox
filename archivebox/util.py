@@ -3,12 +3,13 @@ import re
 import sys
 import time
 import json
+import signal
 import urllib.request
 
 from decimal import Decimal
 from urllib.parse import quote
 from datetime import datetime
-from subprocess import run, PIPE, DEVNULL
+from subprocess import TimeoutExpired, Popen, PIPE, DEVNULL, CompletedProcess, CalledProcessError
 from multiprocessing import Process
 
 from config import (
@@ -533,3 +534,39 @@ def derived_link_info(link):
             'title': '{title} ({type})'.format(**link),
         })
     return link_info
+
+
+def run(*popenargs, input=None, capture_output=False, timeout=None, check=False, **kwargs):
+    """Patched of subprocess.run to fix blocking io making timeout=innefective"""
+
+    if input is not None:
+        if 'stdin' in kwargs:
+            raise ValueError('stdin and input arguments may not both be used.')
+        kwargs['stdin'] = PIPE
+
+    if capture_output:
+        if ('stdout' in kwargs) or ('stderr' in kwargs):
+            raise ValueError('stdout and stderr arguments may not be used '
+                             'with capture_output.')
+        kwargs['stdout'] = PIPE
+        kwargs['stderr'] = PIPE
+
+    with Popen(*popenargs, **kwargs) as process:
+        try:
+            stdout, stderr = process.communicate(input, timeout=timeout)
+        except TimeoutExpired:
+            process.kill()
+            try:
+                stdout, stderr = process.communicate(input, timeout=2)
+            except:
+                pass
+            raise TimeoutExpired(popenargs[0][0], timeout)
+        except BaseException as err:
+            process.kill()
+            # We don't call process.wait() as .__exit__ does that for us.
+            raise 
+        retcode = process.poll()
+        if check and retcode:
+            raise CalledProcessError(retcode, process.args,
+                                     output=stdout, stderr=stderr)
+    return CompletedProcess(process.args, retcode, stdout, stderr)
