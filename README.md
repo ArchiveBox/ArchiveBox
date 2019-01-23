@@ -4,11 +4,19 @@
 
 <h1>ArchiveBox<br/><sub>The open-source self-hosted web archive.</sub></h1>
 
-▶️ [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart) | [Details](https://github.com/pirate/ArchiveBox/wiki) | [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) | [Troubleshooting](https://github.com/pirate/ArchiveBox/wiki/Troubleshooting) | [Demo](https://archive.sweeting.me) | [Website](https://archivebox.io/) | [Github](https://github.com/pirate/ArchiveBox/) | [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog) | [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)
+▶️ <a href="https://github.com/pirate/ArchiveBox/wiki/Quickstart">Quickstart</a> | 
+<a href="https://archive.sweeting.me">Demo</a> | 
+<a href="https://archivebox.io">Website</a> | 
+<a href="https://github.com/pirate/ArchiveBox">Github</a> | 
+<a href=https://github.com/pirate/ArchiveBox/wiki">Documentation</a> | 
+https://github.com/pirate/ArchiveBox/wiki/Troubleshooting">Troubleshooting</a> | 
+https://github.com/pirate/ArchiveBox/wiki/Changelog">Changelog</a> | 
+https://github.com/pirate/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
 
-
-    "Your own personal Way-Back Machine" (网站存档 / 爬虫)
+<pre>
+"Your own personal Way-Back Machine" (网站存档 / 爬虫)
+</pre>
 
 
 
