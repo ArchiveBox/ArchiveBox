@@ -65,13 +65,18 @@ cd ArchiveBox
 echo 'https://example.com' | ./archive
 ```
 
-*(Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)*
+# Documentation
 
+
+<div align="center">
 
 <img src="https://i.imgur.com/PVO88AZ.png"/>
 
+*(Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)*
 
-# Documentation
+</div>
+
+---
 
 We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for documentation.
 
