@@ -9,21 +9,31 @@
 
     "Your own personal Way-Back Machine"
 
-💻 [Demo](https://archive.sweeting.me) | [Website](https://archivebox.io/) | [Source](https://github.com/pirate/ArchiveBox/tree/master) | [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog) | [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)
-
 ▶️ [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart) | [Details](https://github.com/pirate/ArchiveBox/wiki) | [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) | [Troubleshooting](https://github.com/pirate/ArchiveBox/wiki/Troubleshooting)
+
+💻 [Demo](https://archive.sweeting.me) | [Website](https://archivebox.io/) | [Github](https://github.com/pirate/ArchiveBox/) | [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog) | [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)
 
 ---
 
-ArchiveBox saves an archived copy of the websites you visit into a local browsable folder (the actual *content* of each site, not just the list of links).  It can archive your entire browsing history, or import links from bookmarks managers, rss, text files and more.
+ArchiveBox saves an archived copy of websites you choose into a local static HTML folder.  
+
+Because modern websites are complicated and often rely on dynamic content, 
+ArchiveBox saves the sites in a number of formats beyond what sites sites like
+Archive.org and Archive.is are capable of saving.  ArchiveBox uses wget to save the 
+html, youtube-dl for media, and a full instance of Chrome headless for PDF, Screenshot,
+and DOM dumps to greatly improve redundancy.  Using multiple methods in conjunction 
+with the most popular browser on the market ensures we can execute almost all the JS
+out there, and archive even the most difficult sites in at least one format.
+
+If you run it on a schedule to import your history or bookmarks continusously, you can rest soundly knowing that
+the slice of the internet you care about can be preserved long after the servers go down or the links break.
 
 ### Can import links from:
 
  - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history or bookmarks (Chrome, Firefox, Safari, IE, Opera)
- - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket
- - <img src="https://pinboard.in/favicon.ico" height="22px"/> Pinboard
  - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS or plain text lists
- - Shaarli, Delicious, Instapaper, Reddit Saved Posts, Wallabag, Unmark.it, and more!
+ - <img src="https://getpocket.com/favicon.ico" height="22px"/><img src="https://pinboard.in/favicon.ico" height="22px"/> Pocket, Pinboard, Instapaper
+ - *Shaarli, Delicious, Reddit Saved Posts, Wallabag, Unmark.it, and any other text with links in it! *
 
 ### Can save these things for each site:
 
@@ -43,6 +53,7 @@ All the saved content is static and indexed with JSON files, so it lives forever
 
 [DEMO: archive.sweeting.me](https://archive.sweeting.me) 网站存档 / 爬虫
 
+To get startarted, you can install [automatically](https://github.com/pirate/ArchiveBox/wiki/Quickstart), follow the [manual instructions](https://github.com/pirate/ArchiveBox/wiki/Install), or use [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker).
 ```bash
 git clone https://github.com/pirate/ArchiveBox.git
 cd ArchiveBox
@@ -55,6 +66,19 @@ cd ArchiveBox
 echo 'https://example.com' | ./archive
 ```
 
+# Background & Motivation
+
+Vast treasure troves of knowledge are lost every day on the internet to link rot.  As a society, we have an imperative
+to preserve some important parts of that treasure, just like we would the library of Alexandria or a collection of art. 
+
+Whether it's to resist censorship by saving articles before they get taken down or editied, or
+to save that collection of early 2010's flash games you love to play, having the tools to 
+archive the internet enable to you save some of the content you care about before it dissapears.
+
+The balance between the permanence and ephemeral nature of the internet is what makes it beautiful, 
+I don't think everything should be preserved, and but I do think people should be able to decide
+for themselves and effectively archive content in a format that will survive being passed down to
+historians and archivists through many generations.
 
 # Documentation
 
