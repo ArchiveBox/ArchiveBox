@@ -25,6 +25,11 @@
 **ArchiveBox archives a copy of websites you choose into a local static HTML folder.**  
 You can use it to archive and browse content you care about long after it's deleted or moved off the internet.
 
+If you run it on a schedule to import your history or bookmarks continusously, you can rest soundly knowing that
+the slice of the internet you care about can be preserved long after the servers go down or the links break.
+
+---
+
 Because modern websites are complicated and often rely on dynamic content, 
 *ArchiveBox saves the sites in a number of formats* beyond what sites sites like
 Archive.org and Archive.is are capable of saving.  ArchiveBox uses wget to save the 
@@ -33,8 +38,6 @@ and DOM dumps to greatly improve redundancy.  Using multiple methods in conjunct
 with the most popular browser on the market ensures we can execute almost all the JS
 out there, and archive even the most difficult sites in at least one format.
 
-If you run it on a schedule to import your history or bookmarks continusously, you can rest soundly knowing that
-the slice of the internet you care about can be preserved long after the servers go down or the links break.
 
 ### Can import links from:
 
