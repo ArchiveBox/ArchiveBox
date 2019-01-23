@@ -125,15 +125,17 @@ historians and archivists through many generations.
 
 <div align="center">
 
-[![Twitter URL](https://img.shields.io/badge/Tweet-%40theSquashSH-blue.svg?style=flat)](https://twitter.com/thesquashSH) [![Github Stars](https://img.shields.io/github/stars/pirate/ArchiveBox.svg?style=flat&label=Star+on+Github)](https://github.com/pirate/ArchiveBox)
-
 <br/><br/>
 
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" height="40px"/>
 <br/>
 <sub><i>This project is maintained solely in my spare time.</i></sub>
-<br/>
+<br/><br/>
 
 [![Donate via Patreon](https://img.shields.io/badge/Donate_to_support_development-via_Patreon-%23DD5D76.svg?style=flat)](https://www.patreon.com/theSquashSH)
+
+---
+
+[![Twitter URL](https://img.shields.io/badge/Tweet-%40theSquashSH-blue.svg?style=flat)](https://twitter.com/thesquashSH) [![Github Stars](https://img.shields.io/github/stars/pirate/ArchiveBox.svg?style=flat&label=Star+on+Github)](https://github.com/pirate/ArchiveBox)
 
 </div>
