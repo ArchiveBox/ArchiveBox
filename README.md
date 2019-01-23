@@ -129,7 +129,7 @@ historians and archivists through many generations.
 
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" height="40px"/>
 <br/>
-<sub><i>This project is maintained solely in my spare time.</i></sub>
+<sub><i>This project is maintained mostly in my spare time with the help from generous contributors.</i></sub>
 <br/><br/>
 
 [![Donate via Patreon](https://img.shields.io/badge/Donate_to_support_development-via_Patreon-%23DD5D76.svg?style=flat)](https://www.patreon.com/theSquashSH)
