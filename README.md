@@ -1,7 +1,5 @@
 <div align="center">
-
 <img src="https://nicksweeting.com/images/archive.png" height="50px"><br/>
-
 <h1>ArchiveBox<br/><sub>The open-source self-hosted web archive.</sub></h1>
 
 ▶️ <a href="https://github.com/pirate/ArchiveBox/wiki/Quickstart">Quickstart</a> | 
@@ -13,12 +11,9 @@
 <a href="https://github.com/pirate/ArchiveBox/wiki/Changelog">Changelog</a> | 
 <a href="https://github.com/pirate/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
-
 <pre>
 "Your own personal Way-Back Machine" (网站存档 / 爬虫)
 </pre>
-
-
 
 <a href="https://github.com/pirate/ArchiveBox">
 <img src="https://img.shields.io/badge/Open_source-free-green.svg?logo=git"/> 
@@ -29,9 +24,7 @@
 <img src="https://img.shields.io/badge/Chromium-%3E%3D65-orange.svg?logo=Google+Chrome"/>
 <img src="https://img.shields.io/badge/Docker-all%20platforms-blue.svg?logo=docker"/>
 </a>
-
----
-
+<hr/>
 </div>
 
 **ArchiveBox archives a copy of websites you choose into a local static HTML folder.**  
