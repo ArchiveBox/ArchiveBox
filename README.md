@@ -29,7 +29,7 @@
 
 **ArchiveBox takes a list of website URLs you want to archive, and creates a local, static, browsable HTML clone of the content from those websites (it saves HTML, JS, Media files, PDFs, Images and more).** 
 
-You can use it to preserve access to websites you care about, by storing them locally offline in common formats that will last long after they're deleted or moved off the internet.
+You can use it to preserve access to websites you care about, by storing them locally offline in multiple common formats that will last long after they're deleted or moved off the internet.
 
 If you run it on a schedule and import your browser history or bookmarks continuously, you can sleep soundly knowing that
 at the end of the day the slice of the internet you care about will be automatically preserved in a durable format for long-term storage.
