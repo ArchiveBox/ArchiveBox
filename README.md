@@ -125,7 +125,7 @@ historians and archivists through many generations.
 
 <div align="center">
 
-[![Donate via Patreon](https://img.shields.io/badge/Donate-Patreon-%23DD5D76.svg?style=plastic&label=Donate-via)](https://www.patreon.com/theSquashSH) <br/><br/>
-[![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=plastic&label=Tweet)](https://twitter.com/thesquashSH) [![Github Stars](https://img.shields.io/github/stars/pirate/ArchiveBox.svg?style=plastic&label=Github-stars)](https://github.com/pirate/ArchiveBox)
+[![Donate via Patreon](https://img.shields.io/badge/Donate-Patreon-%23DD5D76.svg?style=plastic&label=Support+development+via)](https://www.patreon.com/theSquashSH) <br/><br/>
+[![Twitter URL](https://img.shields.io/badge/Tweet-%40theSquashSH-blue.svg)](https://twitter.com/thesquashSH) [![Github Stars](https://img.shields.io/github/stars/pirate/ArchiveBox.svg?style=plastic&label=Github+stars)](https://github.com/pirate/ArchiveBox)
 
 </div>
