@@ -1,11 +1,14 @@
 ![Logo](https://i.imgur.com/PVO88AZ.png)
 
+<div align="center">
+
 # ArchiveBox <br/> The open source self-hosted web archive <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
+
+</div>
 
 [![Github Stars](https://img.shields.io/github/stars/pirate/ArchiveBox.svg) ![Activity](https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg) ![Github](https://img.shields.io/badge/Open_source-Free-green.svg?logo=github) ![License](https://img.shields.io/github/license/pirate/ArchiveBox.svg) ![Language](https://img.shields.io/badge/python-3.5%20%7C%203.6%20%7C%203.7-yellow.svg) ![Chromium](https://img.shields.io/badge/chromium-%3E%3D65-silver.svg) ![Docker](https://img.shields.io/badge/docker-all%20platforms-silver.svg?logo=docker)](https://github.com/pirate/ArchiveBox)
 
 ### (Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)
-
 
     "Your own personal Way-Back Machine"
 
