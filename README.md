@@ -4,7 +4,15 @@
 
 <h1>ArchiveBox<br/><sub>The open-source self-hosted web archive</sub></h1>
 
-[![Github](https://img.shields.io/badge/Open_source-free-green.svg?logo=git) ![License](https://img.shields.io/badge/License-MIT-silver.svg?logo=MakerBot&logoColor=white) ![Activity](https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg?logo=Sublime+Text&logoColor=silver&label=Last+Commit) ![Github Stars](https://img.shields.io/github/stars/pirate/ArchiveBox.svg?logo=github&label=Stars) ![Language](https://img.shields.io/badge/Python-%3E%3D3.5-yellow.svg?logo=python&logoColor=yellow) ![Chromium](https://img.shields.io/badge/Chromium-%3E%3D65-orange.svg?logo=Google+Chrome) ![Docker](https://img.shields.io/badge/Docker-all%20platforms-blue.svg?logo=docker)](https://github.com/pirate/ArchiveBox)
+<a href="https://github.com/pirate/ArchiveBox">
+<img src="https://img.shields.io/badge/Open_source-free-green.svg?logo=git"/> 
+<img src="https://img.shields.io/badge/License-MIT-silver.svg?logo=MakerBot&logoColor=white"/>
+<img src="https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg?logo=Sublime+Text&logoColor=silver&label=Last+Commit"/>
+<img src="https://img.shields.io/github/stars/pirate/ArchiveBox.svg?logo=github&label=Stars"/>
+<img src="https://img.shields.io/badge/Python-%3E%3D3.5-yellow.svg?logo=python&logoColor=yellow"/>
+<img src="https://img.shields.io/badge/Chromium-%3E%3D65-orange.svg?logo=Google+Chrome"/>
+<img src="https://img.shields.io/badge/Docker-all%20platforms-blue.svg?logo=docker"/>
+</a>
 
     "Your own personal Way-Back Machine" (网站存档 / 爬虫)
 
@@ -71,11 +79,9 @@ echo 'https://example.com' | ./archive
 
 
 <div align="center">
-
 <img src="https://i.imgur.com/PVO88AZ.png"/>
-
-*(Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)*
-
+<br/>
+    <sub><i>(Recently <a href="https://github.com/pirate/ArchiveBox/issues/108">renamed</a> from <code>Bookmark Archiver</code>)</i></sub>
 </div>
 
 ---
@@ -131,16 +137,14 @@ historians and archivists through many generations.
 ---
 
 <div align="center">
-
 <br/><br/>
-
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" height="40px"/>
 <br/>
 <sub><i>This project is maintained mostly in my spare time with the help from generous contributors.</i></sub>
 <br/><br/>
-
-[![Donate via Patreon](https://img.shields.io/badge/Donate_to_support_development-via_Patreon-%23DD5D76.svg?style=flat)](https://www.patreon.com/theSquashSH)
-
-[![Twitter URL](https://img.shields.io/badge/Tweet-%40theSquashSH-blue.svg?style=flat)](https://twitter.com/thesquashSH) [![Github Stars](https://img.shields.io/github/stars/pirate/ArchiveBox.svg?style=flat&label=Star+on+Github)](https://github.com/pirate/ArchiveBox)
-
+<a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Donate_to_support_development-via_Patreon-%23DD5D76.svg?style=flat"/></a>
+<br/>
+<br/>
+<a href="https://twitter.com/thesquashSH"><img src="https://img.shields.io/badge/Tweet-%40theSquashSH-blue.svg?style=flat"/></a>
+<a href="https://github.com/pirate/ArchiveBox"><img src="https://img.shields.io/github/stars/pirate/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>
 </div>
