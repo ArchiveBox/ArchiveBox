@@ -15,7 +15,7 @@
 
 ---
 
-ArchiveBox saves an archived copy of websites you choose into a local static HTML folder.  
+ArchiveBox saves an archived copy of websites you choose into a local static HTML folder.  (网站存档 / 爬虫)
 
 Because modern websites are complicated and often rely on dynamic content, 
 ArchiveBox saves the sites in a number of formats beyond what sites sites like
@@ -37,21 +37,22 @@ the slice of the internet you care about can be preserved long after the servers
 
 ### Can save these things for each site:
 
-- Favicon
-- Browsable static HTML archive (wget)
-- PDF (Chrome headless)
-- Screenshot (Chrome headless)
-- HTML DUMP after 2s of JS running in Chrome headless
-- Git repo download (git clone)
-- Media download (youtube-dl: video, audio, subtitles, including playlists)
-- WARC archive (wget warc)
-- Submits URL to archive.org
-- Index summary pages: index.html & index.json
+ - `favicon.ico` favicon of the site
+ - `en.wikipedia.org/wiki/Example.html` wget clone of the site, with .html appended if not present
+ - `output.pdf` Printed PDF of site using headless chrome
+ - `screenshot.png` 1440x900 screenshot of site using headless chrome
+ - `output.html` DOM Dump of the HTML after rendering using headless chrome
+ - `archive.org.txt` A link to the saved site on archive.org
+ - `warc/` for the html + gzipped warc file <timestamp>.gz
+ - `media/` for sites like youtube, soundcloud, etc. (using youtube-dl)
+ - `git/` clone of any repository for github, bitbucket, or gitlab links)
+ - `index.json` JSON index containing link info and archive details
+ - `index.html` HTML index containing link info and archive details (optional fancy or simple index)
 
 The archiving is additive, so you can schedule `./archive` to run regularly and pull new links into the index.
 All the saved content is static and indexed with JSON files, so it lives forever & is easily parseable, it requires no always-running backend.
 
-[DEMO: archive.sweeting.me](https://archive.sweeting.me) 网站存档 / 爬虫
+[DEMO: archive.sweeting.me](https://archive.sweeting.me)
 
 To get startarted, you can install [automatically](https://github.com/pirate/ArchiveBox/wiki/Quickstart), follow the [manual instructions](https://github.com/pirate/ArchiveBox/wiki/Install), or use [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker).
 ```bash
@@ -80,6 +81,7 @@ I don't think everything should be preserved, and but I do think people should b
 for themselves and effectively archive content in a format that will survive being passed down to
 historians and archivists through many generations.
 
+
 # Documentation
 
 We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for documentation.
@@ -88,7 +90,6 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 
 ## Getting Started
 
- - [Details & Motivation](https://github.com/pirate/ArchiveBox/wiki)
  - [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart)
  - [Install](https://github.com/pirate/ArchiveBox/wiki/Install)
  - [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker)
