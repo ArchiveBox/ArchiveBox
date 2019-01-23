@@ -113,9 +113,7 @@ I don't think everything should be preserved, and but I do think people should b
 for themselves and effectively archive content in a format that will survive being passed down to
 historians and archivists through many generations.
 
-*Read more about the [web archiving ethos](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/) or discover the [community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community).*
-
-Or reach out to me on Twitter for questions and comments: [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
+*Read more about the [web archiving ethos](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/), discover the [community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community), or reach out to me on [Twitter](https://twitter.com/thesquashSH) for questions and comments.*
 
 
 # Screenshots
