@@ -113,7 +113,7 @@ I don't think everything should be preserved, and but I do think people should b
 for themselves and effectively archive content in a format that will survive being passed down to
 historians and archivists through many generations.
 
-*Read more about the [web archiving ethos](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/), discover the [community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community), or reach out to me on [Twitter](https://twitter.com/thesquashSH) for questions and comments.*
+*You can read more about [why web archiving is important](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/), discover the [community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community), or reach out to me on [Twitter](https://twitter.com/thesquashSH) for questions and comments.*
 
 
 # Screenshots
@@ -123,4 +123,8 @@ historians and archivists through many generations.
 
 ---
 
-[![](https://img.shields.io/badge/Donate-Patreon-%23DD5D76.svg)](https://www.patreon.com/theSquashSH)[![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
+<div align="center">
+
+[![Donate via Patreon](https://img.shields.io/badge/Donate-Patreon-%23DD5D76.svg)](https://www.patreon.com/theSquashSH) [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH) [![Watch Repository](https://img.shields.io/github/watchers/badges/shields.svg?label=Watch&style=social)](https://github.com/pirate/ArchiveBox)
+
+</div>
