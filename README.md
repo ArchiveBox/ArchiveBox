@@ -8,8 +8,6 @@
 
 ▶️ [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart) | [Details](https://github.com/pirate/ArchiveBox/wiki) | [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) | [Troubleshooting](https://github.com/pirate/ArchiveBox/wiki/Troubleshooting) | [Demo](https://archive.sweeting.me) | [Website](https://archivebox.io/) | [Github](https://github.com/pirate/ArchiveBox/) | [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog) | [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)
 
-<img src="https://i.imgur.com/PVO88AZ.png" height="200px"/>
-
 ---
 
 </div>
@@ -68,6 +66,10 @@ echo 'https://example.com' | ./archive
 ```
 
 *(Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)*
+
+
+<img src="https://i.imgur.com/PVO88AZ.png"/>
+
 
 # Documentation
 
