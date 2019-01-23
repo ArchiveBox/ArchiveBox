@@ -134,8 +134,6 @@ historians and archivists through many generations.
 
 [![Donate via Patreon](https://img.shields.io/badge/Donate_to_support_development-via_Patreon-%23DD5D76.svg?style=flat)](https://www.patreon.com/theSquashSH)
 
----
-
 [![Twitter URL](https://img.shields.io/badge/Tweet-%40theSquashSH-blue.svg?style=flat)](https://twitter.com/thesquashSH) [![Github Stars](https://img.shields.io/github/stars/pirate/ArchiveBox.svg?style=flat&label=Star+on+Github)](https://github.com/pirate/ArchiveBox)
 
 </div>
