@@ -162,12 +162,11 @@ def progress(seconds=TIMEOUT, prefix=''):
     p = Process(target=progress_bar, args=(seconds, prefix))
     p.start()
 
-    def end():
+    def end(p=p):
         """immediately finish progress and clear the progressbar line"""
 
         # protect from double termination
-        nonlocal p
-        if p is None:
+        if p is None or not hasattr(p, 'kill'):
             return
 
         p.kill()
