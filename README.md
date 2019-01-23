@@ -137,10 +137,10 @@ historians and archivists through many generations.
 
 *Read more:*
 
-- Why archiving the internet is important: *[On the Importance of Web Archiving](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/)* blog post
-- Discover the web archiving community: [Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community) wiki page
-- Fine other archving projects on Github: [awesome-web-archiving](https://github.com/iipc/awesome-web-archiving) list
-- Or reach out to me for questions and comments: [@theSquashSH](https://twitter.com/thesquashSH)  on twitter
+- Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/)" blog post.
+- Discover the web archiving community on the [community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community) wiki page.
+- Find other archving projects on Github using the [awesome-web-archiving](https://github.com/iipc/awesome-web-archiving) list.
+- Or reach out to me for questions and comments via [@theSquashSH](https://twitter.com/thesquashSH) on Twitter.
 
 # Screenshots
 
