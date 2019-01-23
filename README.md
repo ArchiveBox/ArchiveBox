@@ -2,7 +2,7 @@
 
 <img src="https://nicksweeting.com/images/archive.png" height="50px"><br/>
 
-<h1>ArchiveBox<br/><sub>The open-source self-hosted web archive</sub></h1>
+<h1>ArchiveBox<br/><sub>The open-source self-hosted web archive.</sub></h1>
 
 <a href="https://github.com/pirate/ArchiveBox">
 <img src="https://img.shields.io/badge/Open_source-free-green.svg?logo=git"/> 
@@ -28,7 +28,7 @@ You can use it to archive and browse content you care about long after it's dele
 If you run it on a schedule to import your history or bookmarks continusously, you can rest soundly knowing that
 the slice of the internet you care about can be preserved long after the servers go down or the links break.
 
-<div align="center">~ ~ ~</div><br/>
+<div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
 Because modern websites are complicated and often rely on dynamic content, 
 *ArchiveBox saves the sites in a number of formats* beyond what sites sites like
