@@ -8,10 +8,10 @@
 <a href="https://archive.sweeting.me">Demo</a> | 
 <a href="https://archivebox.io">Website</a> | 
 <a href="https://github.com/pirate/ArchiveBox">Github</a> | 
-<a href=https://github.com/pirate/ArchiveBox/wiki">Documentation</a> | 
-https://github.com/pirate/ArchiveBox/wiki/Troubleshooting">Troubleshooting</a> | 
-https://github.com/pirate/ArchiveBox/wiki/Changelog">Changelog</a> | 
-https://github.com/pirate/ArchiveBox/wiki/Roadmap">Roadmap</a>
+<a href="https://github.com/pirate/ArchiveBox/wiki">Documentation</a> | 
+<a href="https://github.com/pirate/ArchiveBox/wiki/Troubleshooting">Troubleshooting</a> | 
+<a href="https://github.com/pirate/ArchiveBox/wiki/Changelog">Changelog</a> | 
+<a href="https://github.com/pirate/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
 
 <pre>
