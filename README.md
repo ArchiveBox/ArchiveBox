@@ -129,7 +129,11 @@ historians and archivists through many generations.
 
 <br/><br/>
 
-<sub><i>To support development:</i></sub><br/>
+<sub><i>
+&gt;3<br/>
+This project is maintained solely in my spare time.
+</i></sub><br/>
+
 [![Donate via Patreon](https://img.shields.io/badge/Donate-Patreon-%23DD5D76.svg?style=flat&label=Donate)](https://www.patreon.com/theSquashSH)
 
 </div>
