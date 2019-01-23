@@ -1,0 +1,33 @@
+# Config file uses python syntax but can also be sourced as a .env
+
+ONLY_NEW=False
+
+OUTPUT_PERMISSIONS=755
+MEDIA_TIMEOUT=3600
+TIMEOUT=60
+
+FETCH_WGET=True
+
+FETCH_WGET=True
+FETCH_WGET_REQUISITES=True
+FETCH_PDF=True
+FETCH_SCREENSHOT=True
+FETCH_DOM=True
+FETCH_WARC=False
+FETCH_GIT=True
+FETCH_MEDIA=False
+FETCH_FAVICON=True
+SUBMIT_ARCHIVE_DOT_ORG=True
+
+CHECK_SSL_VALIDITY=True
+RESOLUTION="1440,2000"
+GIT_DOMAINS="github.com,bitbucket.org,gitlab.com"
+WGET_USER_AGENT="ArchiveBox/{GIT_SHA} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}"
+
+
+CHROME_BINARY="chromium-browser"
+CHROME_USER_DATA_DIR=None
+
+WGET_BINARY="wget"
+
+FOOTER_INFO="Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests."
