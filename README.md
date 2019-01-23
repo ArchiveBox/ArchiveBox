@@ -16,13 +16,13 @@
 </pre>
 
 <a href="https://github.com/pirate/ArchiveBox">
-<img src="https://img.shields.io/badge/Open_source-free-green.svg?logo=git"/> 
-<img src="https://img.shields.io/badge/License-MIT-silver.svg?logo=MakerBot&logoColor=white"/>
-<img src="https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg?logo=Sublime+Text&logoColor=silver&label=Last+Commit"/>
-<img src="https://img.shields.io/github/stars/pirate/ArchiveBox.svg?logo=github&label=Stars"/>
+<img src="https://img.shields.io/badge/Open_source-free-green.svg?logo=git&logoColor=green"/> 
+<img src="https://img.shields.io/badge/License-MIT-silver.svg?logo=MakerBot&logoColor=silver"/>
+<img src="https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=Last+Commit"/>
+<img src="https://img.shields.io/github/stars/pirate/ArchiveBox.svg?logo=github&label=Stars&labelColor=blue"/>
 <img src="https://img.shields.io/badge/Python-%3E%3D3.5-yellow.svg?logo=python&logoColor=yellow"/>
-<img src="https://img.shields.io/badge/Chromium-%3E%3D65-orange.svg?logo=Google+Chrome"/>
-<img src="https://img.shields.io/badge/Docker-all%20platforms-blue.svg?logo=docker"/>
+<img src="https://img.shields.io/badge/Chromium-%3E%3D65-orange.svg?logo=Google+Chrome&logoColor=orange"/>
+<img src="https://img.shields.io/badge/Docker-all%20platforms-blue.svg?logo=docker&logoColor=blue"/>
 </a>
 <hr/>
 </div>
