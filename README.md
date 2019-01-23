@@ -37,15 +37,15 @@ the slice of the internet you care about can be preserved long after the servers
 
 ### Can save these things for each site:
 
- - `favicon.ico` favicon of the site
- - `en.wikipedia.org/wiki/Example.html` wget clone of the site, with .html appended if not present
+ - `example.com/page-name.html` wget clone of the site, with .html appended if not present
  - `output.pdf` Printed PDF of site using headless chrome
  - `screenshot.png` 1440x900 screenshot of site using headless chrome
  - `output.html` DOM Dump of the HTML after rendering using headless chrome
  - `archive.org.txt` A link to the saved site on archive.org
  - `warc/` for the html + gzipped warc file <timestamp>.gz
- - `media/` for sites like youtube, soundcloud, etc. (using youtube-dl)
- - `git/` clone of any repository for github, bitbucket, or gitlab links)
+ - `media/` any mp4, mp3, subtitles, and metadata found using youtube-dl
+ - `git/` clone of any repository for github, bitbucket, or gitlab links
+ - `favicon.ico` favicon of the site
  - `index.json` JSON index containing link info and archive details
  - `index.html` HTML index containing link info and archive details (optional fancy or simple index)
 
@@ -66,21 +66,6 @@ cd ArchiveBox
 # Or to add just one page to your archive
 echo 'https://example.com' | ./archive
 ```
-
-# Background & Motivation
-
-Vast treasure troves of knowledge are lost every day on the internet to link rot.  As a society, we have an imperative
-to preserve some important parts of that treasure, just like we would the library of Alexandria or a collection of art. 
-
-Whether it's to resist censorship by saving articles before they get taken down or editied, or
-to save that collection of early 2010's flash games you love to play, having the tools to 
-archive the internet enable to you save some of the content you care about before it dissapears.
-
-The balance between the permanence and ephemeral nature of the internet is what makes it beautiful, 
-I don't think everything should be preserved, and but I do think people should be able to decide
-for themselves and effectively archive content in a format that will survive being passed down to
-historians and archivists through many generations.
-
 
 # Documentation
 
@@ -108,6 +93,24 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
  - [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
  - [Donations](https://github.com/pirate/ArchiveBox/wiki/Donations)
  - [Web Archiving Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
+
+
+# Background & Motivation
+
+Vast treasure troves of knowledge are lost every day on the internet to link rot.  As a society, we have an imperative
+to preserve some important parts of that treasure, just like we would the library of Alexandria or a collection of art. 
+
+Whether it's to resist censorship by saving articles before they get taken down or editied, or
+to save that collection of early 2010's flash games you love to play, having the tools to 
+archive the internet enable to you save some of the content you care about before it dissapears.
+
+The balance between the permanence and ephemeral nature of the internet is what makes it beautiful, 
+I don't think everything should be preserved, and but I do think people should be able to decide
+for themselves and effectively archive content in a format that will survive being passed down to
+historians and archivists through many generations.
+
+*Read more about the [web archiving ethos](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/) or discover the [community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community).*
+
 
 # Screenshots
 
