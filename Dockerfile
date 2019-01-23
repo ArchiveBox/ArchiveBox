@@ -1,47 +1,56 @@
-FROM debian:stretch
+FROM node:8-slim
 LABEL maintainer="Nick Sweeting <archivebox-git@sweeting.me>"
 
 RUN apt-get update \
-    && apt-get install -qy git wget curl youtube-dl gnupg2 libgconf-2-4 python3 python3-pip \
+    && apt-get install -yq --no-install-recommends \
+        git wget curl youtube-dl gnupg2 libgconf-2-4 python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install latest chrome package and fonts to support major charsets (Chinese, Japanese, Arabic, Hebrew, Thai and a few others)
-RUN apt-get update && apt-get install -y curl --no-install-recommends \
+RUN apt-get update && apt-get install -y wget --no-install-recommends \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
     && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
     && apt-get update \
-    && apt-get install -y chromium fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst ttf-freefont \
+    && apt-get install -y google-chrome-unstable fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst ttf-freefont \
       --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /src/*.deb \
-    && ln -s /usr/bin/chromium /usr/bin/chromium-browser
+    && rm -rf /src/*.deb
 
-# It might be a good idea to use dumb-init to help prevent zombie chrome processes.
-# ADD https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_1.2.0_amd64 /usr/local/bin/dumb-init
-# RUN chmod +x /usr/local/bin/dumb-init
+# It's a good idea to use dumb-init to help prevent zombie chrome processes.
+ADD https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_1.2.0_amd64 /usr/local/bin/dumb-init
+RUN chmod +x /usr/local/bin/dumb-init
 
-RUN git clone https://github.com/pirate/ArchiveBox /home/chromeuser/app \
-    && pip3 install -r /home/chromeuser/app/archivebox/requirements.txt \
-    && ln -s /home/chromeuser/app/bin/archivebox /usr/bin/archive
+# Install puppeteer so it's available in the container.
+RUN npm i puppeteer
 
-# Add user so we area strong, independent chrome that don't need --no-sandbox.
-RUN groupadd -r chromeuser && useradd -r -g chromeuser -G audio,video chromeuser \
+# Add user so we don't need --no-sandbox.
+RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
+    && mkdir -p /home/pptruser/Downloads \
+    && chown -R pptruser:pptruser /home/pptruser \
+    && chown -R pptruser:pptruser /node_modules
+
+# Install the ArchiveBox repository and pip requirements
+RUN git clone https://github.com/pirate/ArchiveBox /home/pptruser/app \
     && mkdir -p /data \
-    && ln -s /data /home/chromeuser/app/archivebox/output \
-    && chown -R chromeuser:chromeuser /home/chromeuser/app/archivebox/output \
-    && chown -R chromeuser:chromeuser /home/chromeuser
+    && chown -R pptruser:pptruser /data \
+    && ln -s /data /home/pptruser/app/archivebox/output \
+    && ln -s /home/pptruser/app/bin/archivebox /bin/archive \
+    && chown -R pptruser:pptruser /home/pptruser/app/archivebox
+    # && pip3 install -r /home/pptruser/app/archivebox/requirements.txt
 
 VOLUME /data
 
-ENV LANG=en_US.UTF-8 \
+ENV LANG=C.UTF-8 \
     LANGUAGE=en_US:en \
-    LC_ALL=en_US.UTF-8 \
+    LC_ALL=C.UTF-8 \
     PYTHONIOENCODING=UTF-8 \
     CHROME_SANDBOX=False \
+    CHROME_BINARY=google-chrome-unstable \
     OUTPUT_DIR=/data
 
 # Run everything from here on out as non-privileged user
-USER chromeuser
-WORKDIR /home/chromeuser/app
+USER pptruser
+WORKDIR /home/pptruser/app
 
-CMD ["/usr/bin/archive"]
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["/bin/archive"]

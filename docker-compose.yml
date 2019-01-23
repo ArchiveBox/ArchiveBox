@@ -6,15 +6,11 @@ services:
         stdin_open: true
         tty: true
         environment:
-            - FETCH_SCREENSHOT=False
-            - FETCH_PDF=False
-            - FETCH_DOM=False
-            - FETCH_MEDIA=False
             - USE_COLOR=False
             - SHOW_PROGRESS=False
         volumes:
             - ./data:/data
-        command: bash -c 'echo "https://example.com" | /usr/bin/archive; tail -f /dev/null'
+        command: bash -c 'echo "https://example.com" | /bin/archive; tail -f /dev/null'
 
     nginx:
         image: 'nginx'

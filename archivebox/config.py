@@ -63,6 +63,7 @@ if not CHROME_BINARY:
         'google-chrome-beta',
         'google-chrome-canary',
         'google-chrome-dev',
+        'google-chrome-unstable',
     )
     for name in common_chrome_executable_names:
         full_path_exists = shutil.which(name)
