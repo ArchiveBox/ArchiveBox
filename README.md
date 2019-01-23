@@ -35,16 +35,16 @@ the slice of the internet you care about can be preserved long after the servers
 <div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
 
-To get started, you can install [automatically](https://github.com/pirate/ArchiveBox/wiki/Quickstart), follow the [manual instructions](https://github.com/pirate/ArchiveBox/wiki/Install), or use [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker).
+To get started, you can install ArchiveBox [automatically](https://github.com/pirate/ArchiveBox/wiki/Quickstart), follow the [manual instructions](https://github.com/pirate/ArchiveBox/wiki/Install), or use [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker).
 ```bash
 git clone https://github.com/pirate/ArchiveBox.git
 cd ArchiveBox
 ./setup
 
 # Export your bookmarks, then run the archive command to start archiving!
-./archive ~/Downloads/firefox_bookmarks.html
+./archive ~/Downloads/bookmarks.html
 
-# Or to add just one page to your archive
+# Or pass in links to archive via stdin
 echo 'https://example.com' | ./archive
 ```
 
@@ -52,25 +52,23 @@ echo 'https://example.com' | ./archive
 ## Overview
 
 Because modern websites are complicated and often rely on dynamic content, 
-*ArchiveBox saves the sites in a number of formats* beyond what sites sites like
-Archive.org and Archive.is are capable of saving.  ArchiveBox uses wget to save the 
-html, youtube-dl for media, and a full instance of Chrome headless for PDF, Screenshot,
-and DOM dumps to greatly improve redundancy.
+ArchiveBox archives the sites in **several different formats** beyond what public 
+archiving services like Archive.org and Archive.is are capable of saving.
 
-Using multiple methods in conjunction with the most popular browser on the 
-market ensures we can execute almost all the JS out there, and archive even the 
-most difficult sites in at least one format.
+ArchiveBox imports a list of URLs from stdin, remote url, or file, then adds the pages to a local archive folder using wget to create a browsable html clone, youtube-dl to extract media, and a full instance of Chrome headless for PDF, Screenshot, and DOM dumps, and more...
 
+Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finnicky websites in at least a few high-quality, long-term data formats.
 
 ### Can import links from:
 
  - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history or bookmarks (Chrome, Firefox, Safari, IE, Opera)
  - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS or plain text lists
- - <img src="https://getpocket.com/favicon.ico" height="22px"/> <img src="https://pinboard.in/favicon.ico" height="22px"/> Pocket, Pinboard, Instapaper
+ - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket, Pinboard, Instapaper
  - *Shaarli, Delicious, Reddit Saved Posts, Wallabag, Unmark.it, and any other text with links in it!*
 
 ### Can save these things for each site:
 
+ - `favicon.ico` favicon of the site
  - `example.com/page-name.html` wget clone of the site, with .html appended if not present
  - `output.pdf` Printed PDF of site using headless chrome
  - `screenshot.png` 1440x900 screenshot of site using headless chrome
@@ -79,9 +77,9 @@ most difficult sites in at least one format.
  - `warc/` for the html + gzipped warc file <timestamp>.gz
  - `media/` any mp4, mp3, subtitles, and metadata found using youtube-dl
  - `git/` clone of any repository for github, bitbucket, or gitlab links
- - `favicon.ico` favicon of the site
- - `index.json` JSON index containing link info and archive details
- - `index.html` HTML index containing link info and archive details (optional fancy or simple index)
+ - `index.html` & `index.json` HTML and JSON index files containing metadata and details
+
+ By default it does everything, visit the [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) page for details on how to disable or fine-tune certain methods.
 
 The archiving is additive, so you can schedule `./archive` to run regularly and pull new links into the index.
 All the saved content is static and indexed with JSON files, so it lives forever & is easily parseable, it requires no always-running backend.
