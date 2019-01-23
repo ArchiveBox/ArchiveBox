@@ -32,7 +32,7 @@
 You can use it to preserve access to websites you care about by storing them locally offline.  ArchiveBox works by rendering the pages in a headless browser, then saving the fully loaded pages in multiple redundant common formats (HTML, PDF, PNG, WARC) that will last long after the original content dissapears off the internet.  It also automatically extracts assets like git repositories, audio, video, subtitles, images, and pdfs into separate files using `youtube-dl` and `wget`.
 
 If you run it on a schedule and import your browser history or bookmarks continuously, you can sleep soundly knowing that
-at the end of the day the slice of the internet you care about will be automatically preserved in a durable format for long-term storage.
+at the end of the day the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will last for decades.
 
 <div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
