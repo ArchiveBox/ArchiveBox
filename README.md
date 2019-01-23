@@ -2,7 +2,7 @@
 
 # ArchiveBox <br/> <sub><img src="https://nicksweeting.com/images/archive.png" height="20px"/> The open-source self-hosted web archive <img src="https://nicksweeting.com/images/archive.png" height="20px"/></sub>
 
-[![Activity](https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg?logo=Sublime+Text&logoColor=silver&label=Last+Commit) ![Github](https://img.shields.io/badge/Open_source-free-green.svg?logo=git) ![License](https://img.shields.io/badge/License-MIT-silver.svg?logo=MakerBot&logoColor=white) ![Github Stars](https://img.shields.io/github/stars/pirate/ArchiveBox.svg?logo=github&label=Stars) ![Language](https://img.shields.io/badge/Python-%3E%3D3.5-yellow.svg?logo=python&logoColor=yellow) ![Chromium](https://img.shields.io/badge/Chromium-%3E%3D65-orange.svg?logo=Google+Chrome) ![Docker](https://img.shields.io/badge/Docker-all%20platforms-blue.svg?logo=docker)](https://github.com/pirate/ArchiveBox)
+[![Github](https://img.shields.io/badge/Open_source-free-green.svg?logo=git) ![License](https://img.shields.io/badge/License-MIT-silver.svg?logo=MakerBot&logoColor=white) ![Activity](https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg?logo=Sublime+Text&logoColor=silver&label=Last+Commit) ![Github Stars](https://img.shields.io/github/stars/pirate/ArchiveBox.svg?logo=github&label=Stars) ![Language](https://img.shields.io/badge/Python-%3E%3D3.5-yellow.svg?logo=python&logoColor=yellow) ![Chromium](https://img.shields.io/badge/Chromium-%3E%3D65-orange.svg?logo=Google+Chrome) ![Docker](https://img.shields.io/badge/Docker-all%20platforms-blue.svg?logo=docker)](https://github.com/pirate/ArchiveBox)
 
     "Your own personal Way-Back Machine" (网站存档 / 爬虫)
 
