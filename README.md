@@ -113,8 +113,9 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 
  - [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage)
  - [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration)
- - [Chromium Install](https://github.com/pirate/ArchiveBox/wiki/Chromium-Install)
+ - [Scheduled Archiving](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving)
  - [Publishing Your Archive](https://github.com/pirate/ArchiveBox/wiki/Publishing-Your-Archive)
+ - [Chromium Install](https://github.com/pirate/ArchiveBox/wiki/Chromium-Install)
  - [Troubleshooting](https://github.com/pirate/ArchiveBox/wiki/Troubleshooting)
 
 ## More Info
