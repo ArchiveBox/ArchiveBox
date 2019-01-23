@@ -27,11 +27,12 @@
 <hr/>
 </div>
 
-**ArchiveBox archives a copy of websites you choose into a local static HTML folder.**  
-You can use it to archive and browse content you care about long after it's deleted or moved off the internet.
+**ArchiveBox takes a list of website URLs you want to archive, and creates a local, static, browsable HTML clone of the content from those websites (it saves HTML, JS, Media files, PDFs, Images and more).** 
 
-If you run it on a schedule to import your history or bookmarks continusously, you can rest soundly knowing that
-the slice of the internet you care about can be preserved long after the servers go down or the links break.
+You can use it to preserve access to websites you care about, by storing them locally offline in common formats that will last long after they're deleted or moved off the internet.
+
+If you run it on a schedule and import your browser history or bookmarks continuously, you can sleep soundly knowing that
+at the end of the day the slice of the internet you care about will be automatically preserved in a durable format for long-term storage.
 
 <div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
