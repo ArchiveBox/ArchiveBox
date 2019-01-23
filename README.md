@@ -2,7 +2,7 @@
 
 # ArchiveBox <br/> The open source self-hosted web archive <img src="https://nicksweeting.com/images/archive.png" height="22px"/>  [![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/thesquashSH)
 
-[![Github Stars](https://img.shields.io/github/stars/pirate/ArchiveBox.svg)](https://github.com/pirate/ArchiveBox) ![Activity](https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg) ![Github](https://img.shields.io/badge/Open_source-Free-green.svg?logo=github) ![License](https://img.shields.io/github/license/pirate/ArchiveBox.svg) ![Language](https://img.shields.io/badge/python-3.5%20%7C%203.6%20%7C%203.7-yellow.svg) ![Chromium](https://img.shields.io/badge/chromium-%3E%3D65-silver.svg) ![Docker](https://img.shields.io/badge/docker-all%20platforms-silver.svg?logo=docker) 
+[![Github Stars](https://img.shields.io/github/stars/pirate/ArchiveBox.svg) ![Activity](https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg) ![Github](https://img.shields.io/badge/Open_source-Free-green.svg?logo=github) ![License](https://img.shields.io/github/license/pirate/ArchiveBox.svg) ![Language](https://img.shields.io/badge/python-3.5%20%7C%203.6%20%7C%203.7-yellow.svg) ![Chromium](https://img.shields.io/badge/chromium-%3E%3D65-silver.svg) ![Docker](https://img.shields.io/badge/docker-all%20platforms-silver.svg?logo=docker)](https://github.com/pirate/ArchiveBox)
 
 ### (Recently [renamed](https://github.com/pirate/ArchiveBox/issues/108) from `Bookmark Archiver`)
 
@@ -32,8 +32,8 @@ the slice of the internet you care about can be preserved long after the servers
 
  - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history or bookmarks (Chrome, Firefox, Safari, IE, Opera)
  - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS or plain text lists
- - <img src="https://getpocket.com/favicon.ico" height="22px"/><img src="https://pinboard.in/favicon.ico" height="22px"/> Pocket, Pinboard, Instapaper
- - *Shaarli, Delicious, Reddit Saved Posts, Wallabag, Unmark.it, and any other text with links in it! *
+ - <img src="https://getpocket.com/favicon.ico" height="22px"/> <img src="https://pinboard.in/favicon.ico" height="22px"/> Pocket, Pinboard, Instapaper
+ - *Shaarli, Delicious, Reddit Saved Posts, Wallabag, Unmark.it, and any other text with links in it!*
 
 ### Can save these things for each site:
 
