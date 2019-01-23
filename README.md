@@ -50,6 +50,7 @@ cd ArchiveBox
 echo 'https://example.com' | ./archive
 ```
 
+Open `output/index.html` in a browser to view your archive.  [DEMO: archive.sweeting.me](https://archive.sweeting.me)
 
 ## Overview
 
@@ -85,8 +86,6 @@ Using multiple methods and the market-dominant browser to execute JS ensures we 
 
 The archiving is additive, so you can schedule `./archive` to run regularly and pull new links into the index.
 All the saved content is static and indexed with JSON files, so it lives forever & is easily parseable, it requires no always-running backend.
-
-[DEMO: archive.sweeting.me](https://archive.sweeting.me)
 
 
 # Documentation
