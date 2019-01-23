@@ -34,6 +34,23 @@ the slice of the internet you care about can be preserved long after the servers
 
 <div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
+
+To get started, you can install [automatically](https://github.com/pirate/ArchiveBox/wiki/Quickstart), follow the [manual instructions](https://github.com/pirate/ArchiveBox/wiki/Install), or use [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker).
+```bash
+git clone https://github.com/pirate/ArchiveBox.git
+cd ArchiveBox
+./setup
+
+# Export your bookmarks, then run the archive command to start archiving!
+./archive ~/Downloads/firefox_bookmarks.html
+
+# Or to add just one page to your archive
+echo 'https://example.com' | ./archive
+```
+
+
+## Overview
+
 Because modern websites are complicated and often rely on dynamic content, 
 *ArchiveBox saves the sites in a number of formats* beyond what sites sites like
 Archive.org and Archive.is are capable of saving.  ArchiveBox uses wget to save the 
@@ -71,18 +88,6 @@ All the saved content is static and indexed with JSON files, so it lives forever
 
 [DEMO: archive.sweeting.me](https://archive.sweeting.me)
 
-To get started, you can install [automatically](https://github.com/pirate/ArchiveBox/wiki/Quickstart), follow the [manual instructions](https://github.com/pirate/ArchiveBox/wiki/Install), or use [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker).
-```bash
-git clone https://github.com/pirate/ArchiveBox.git
-cd ArchiveBox
-./setup
-
-# Export your bookmarks, then run the archive command to start archiving!
-./archive ~/Downloads/firefox_bookmarks.html
-
-# Or to add just one page to your archive
-echo 'https://example.com' | ./archive
-```
 
 # Documentation
 
