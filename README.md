@@ -15,7 +15,8 @@
 
 ---
 
-ArchiveBox saves an archived copy of websites you choose into a local static HTML folder.  (网站存档 / 爬虫)
+**ArchiveBox archives a copy of websites you choose into a local static HTML folder.  (网站存档 / 爬虫)**  
+You can use it to archive and browse content you care about, long after it's deleted or moved off the internet.
 
 Because modern websites are complicated and often rely on dynamic content, 
 ArchiveBox saves the sites in a number of formats beyond what sites sites like
