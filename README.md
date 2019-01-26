@@ -29,7 +29,7 @@
 
 **ArchiveBox takes a list of website URLs you want to archive, and creates a local, static, browsable HTML clone of the content from those websites (it saves HTML, JS, Media files, PDFs, Images and more).** 
 
-You can use it to preserve access to websites you care about by storing them locally offline.  ArchiveBox works by rendering the pages in a headless browser, then saving the fully loaded pages in multiple redundant common formats (HTML, PDF, PNG, WARC) that will last long after the original content dissapears off the internet.  It also automatically extracts assets like git repositories, audio, video, subtitles, images, and pdfs into separate files using `youtube-dl` and `wget`.
+You can use it to preserve access to websites you care about by storing them locally offline.  ArchiveBox works by rendering the pages in a headless browser, then saving all the requests for needed for the fully loaded pages in multiple redundant common formats (HTML, PDF, PNG, WARC) that will last long after the original content dissapears off the internet.  It also automatically extracts assets like git repositories, audio, video, subtitles, images, and pdfs into separate files using `youtube-dl` and `wget`.
 
 If you run it on a schedule and import your browser history or bookmarks continuously, you can sleep soundly knowing that
 at the end of the day the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will last for decades.
