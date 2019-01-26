@@ -51,7 +51,7 @@ echo 'https://example.com' | ./archive
 ```
 
 Open `output/index.html` in a browser to view your archive.  [DEMO: archive.sweeting.me](https://archive.sweeting.me)  
-For more information, see the [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Install](https://github.com/pirate/ArchiveBox/wiki/Install), and [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage) pages in the docs.
+For more information, see the [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) docs.
 
 ## Overview
 
