@@ -10,6 +10,7 @@ echo "        - Chromium Browser   (see README for Google-Chrome instructions in
 echo "        - python3"
 echo "        - wget"
 echo "        - curl"
+echo "        - youtube-dl"
 echo ""
 echo "    You may follow Manual Setup instructions in README.md instead if you prefer not to run an unknown script."
 echo "    Press enter to continue, or Ctrl+C to cancel..."

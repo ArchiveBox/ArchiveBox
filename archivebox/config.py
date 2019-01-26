@@ -25,7 +25,7 @@ FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'             
 FETCH_DOM =              os.getenv('FETCH_DOM',              'True'             ).lower() == 'true'
 FETCH_WARC =             os.getenv('FETCH_WARC',             'True'             ).lower() == 'true'
 FETCH_GIT =              os.getenv('FETCH_GIT',              'True'             ).lower() == 'true'
-FETCH_MEDIA =            os.getenv('FETCH_MEDIA',            'False'            ).lower() == 'true'
+FETCH_MEDIA =            os.getenv('FETCH_MEDIA',            'True'             ).lower() == 'true'
 FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'
 SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             ).lower() == 'true'
 
