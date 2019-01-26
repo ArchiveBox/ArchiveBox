@@ -65,9 +65,9 @@ Using multiple methods and the market-dominant browser to execute JS ensures we 
 
 ### Can import links from:
 
- - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history or bookmarks (Chrome, Firefox, Safari, IE, Opera)
- - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS, XML, JSON, or plain text lists
  - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket, Pinboard, Instapaper
+ - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS, XML, JSON, or plain text lists
+ - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history or bookmarks (Chrome, Firefox, Safari, IE, Opera)
  - *Shaarli, Delicious, Reddit Saved Posts, Wallabag, Unmark.it, and any other text with links in it!*
 
 ### Can save these things for each site:
