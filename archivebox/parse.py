@@ -20,6 +20,7 @@ Parsed link schema: {
 import re
 import json
 import urllib
+from collections import OrderedDict
 import xml.etree.ElementTree as etree
 
 from datetime import datetime
@@ -37,15 +38,15 @@ from util import (
 def get_parsers(file):
     """return all parsers that work on a given file, defaults to all of them"""
 
-    return {
-        'pocket': parse_pocket_export,
-        'pinboard': parse_json_export,
-        'bookmarks': parse_bookmarks_export,
-        'rss': parse_rss_export,
-        'pinboard_rss': parse_pinboard_rss_feed,
-        'medium_rss': parse_medium_rss_feed,
-        'plain_text': parse_plain_text,
-    }
+    return OrderedDict((
+        ('pocket', parse_pocket_export)
+        ('pinboard', parse_json_export)
+        ('bookmarks', parse_bookmarks_export)
+        ('rss', parse_rss_export)
+        ('pinboard_rss', parse_pinboard_rss_feed)
+        ('medium_rss', parse_medium_rss_feed)
+        ('plain_text', parse_plain_text)
+    ))
 
 def parse_links(path):
     """parse a list of links dictionaries from a bookmark export file"""
