@@ -1,4 +1,4 @@
-FROM node:8-slim
+FROM node:11-slim
 LABEL maintainer="Nick Sweeting <archivebox-git@sweeting.me>"
 
 RUN apt-get update \
