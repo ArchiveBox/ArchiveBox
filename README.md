@@ -12,7 +12,7 @@
 <a href="https://github.com/pirate/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
 <pre>
-"Your own personal Way-Back Machine" (网站存档 / 爬虫)
+"Your own personal internet archive" (网站存档 / 爬虫)
 </pre>
 
 <a href="https://github.com/pirate/ArchiveBox">
