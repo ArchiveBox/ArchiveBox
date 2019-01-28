@@ -1,5 +1,5 @@
 <div align="center">
-<img src="https://nicksweeting.com/images/archive.png" height="50px"><br/>
+<img src="https://i.imgur.com/4nkFjdv.png" height="80px">
 <h1>ArchiveBox<br/><sub>The open-source self-hosted web archive.</sub></h1>
 
 ▶️ <a href="https://github.com/pirate/ArchiveBox/wiki/Quickstart">Quickstart</a> | 
