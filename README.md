@@ -129,16 +129,16 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 # Background & Motivation
 
 Vast treasure troves of knowledge are lost every day on the internet to link rot.  As a society, we have an imperative
-to preserve some important parts of that treasure, just like we would the library of Alexandria or a collection of art. 
+to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
 
 Whether it's to resist censorship by saving articles before they get taken down or editied, or
-to save that collection of early 2010's flash games you love to play, having the tools to 
-archive the internet enable to you save some of the content you care about before it dissapears.
+just to save a collection of early 2010's flash games you love to play, having the tools to 
+archive internet content enables to you save the stuff you care most about before it dissapears.
 
-The balance between the permanence and ephemeral nature of the internet is what makes it beautiful, 
-I don't think everything should be preserved, and but I do think people should be able to decide
-for themselves and effectively archive content in a format that will survive being passed down to
-historians and archivists through many generations.
+The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful. 
+I don't think everything should be preserved in an automated fashion, making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
+
+The aim of ArchiveBox is to go beyond what the Wayback machine and Archive.is do by adding a headless browser to replay sessions accurately, and to automatically extract all the content in multiple redundant formats that will survive being passed down to historians and archivists through many generations.
 
 *Read more:*
 
