@@ -151,7 +151,7 @@ To learn more about ArchiveBox's past history and future plans, check out the [r
 
 # Screenshots
 
-<img src="https://i.imgur.com/q3Oz9wN.png" width="75%" alt="Desktop index screenshot" align="top"><img src="https://i.imgur.com/TG0fGVo.png" width="25%" alt="Mobile details page screenshot" align="top"><br/>
+<img src="https://i.imgur.com/viklZNG.png" width="75%" alt="Desktop index screenshot" align="top"><img src="https://i.imgur.com/TG0fGVo.png" width="25%" alt="Mobile details page screenshot" align="top"><br/>
 <img src="https://i.imgur.com/wnpdAVM.jpg" width="100%" alt="Desktop details page Screenshot"/><br/>
 <img src="https://i.imgur.com/3tBL7PU.png" width="100%" alt="CLI Screenshot">
 
