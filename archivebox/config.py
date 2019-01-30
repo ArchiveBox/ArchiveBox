@@ -55,6 +55,9 @@ TEMPLATES_DIR = os.path.join(PYTHON_PATH, 'templates')
 
 CHROME_SANDBOX =        os.getenv('CHROME_SANDBOX',         'True'             ).lower() == 'true'
 
+USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
+USE_WGET = FETCH_WGET or FETCH_WGET_REQUISITES or FETCH_WARC
+
 if not CHROME_BINARY:
     common_chrome_executable_names = (
         'chromium-browser',
@@ -100,12 +103,21 @@ try:
 except Exception:
     print('[!] Warning: unable to determine git version, is git installed and in your $PATH?')
 
+CHROME_VERSION = 'unknown'
+try:
+    chrome_vers_str = run([CHROME_BINARY, "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
+    CHROME_VERSION = [v for v in chrome_vers_str.strip().split(' ') if v.replace('.', '').isdigit()][0]
+except Exception:
+    if USE_CHROME:
+        print('[!] Warning: unable to determine chrome version, is chrome installed and in your $PATH?')
+
 WGET_VERSION = 'unknown'
 try:
     wget_vers_str = run(["wget", "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
     WGET_VERSION = wget_vers_str.split('\n')[0].split(' ')[2]
 except Exception:
-    print('[!] Warning: unable to determine wget version, is wget installed and in your $PATH?')
+    if USE_WGET:
+        print('[!] Warning: unable to determine wget version, is wget installed and in your $PATH?')
 
 WGET_USER_AGENT = WGET_USER_AGENT.format(GIT_SHA=GIT_SHA[:9], WGET_VERSION=WGET_VERSION)
 
