@@ -61,7 +61,7 @@ archiving services like Archive.org and Archive.is are capable of saving.
 
 ArchiveBox imports a list of URLs from stdin, remote url, or file, then adds the pages to a local archive folder using wget to create a browsable html clone, youtube-dl to extract media, and a full instance of Chrome headless for PDF, Screenshot, and DOM dumps, and more...
 
-Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finnicky websites in at least a few high-quality, long-term data formats.
+Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats.
 
 ### Can import links from:
 
