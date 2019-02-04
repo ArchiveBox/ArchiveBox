@@ -138,7 +138,7 @@ archive internet content enables to you save the stuff you care most about befor
 The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful. 
 I don't think everything should be preserved in an automated fashion, making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
 
-The aim of ArchiveBox is to go beyond what the Wayback machine and Archive.is do by adding a headless browser to replay sessions accurately, and to automatically extract all the content in multiple redundant formats that will survive being passed down to historians and archivists through many generations.
+The aim of ArchiveBox is to go beyond what the Wayback Machine and other public archiving services can do, by adding a headless browser to replay sessions accurately, and by automatically extracting all the content in multiple redundant formats that will survive being passed down to historians and archivists through many generations.
 
 *Read more:*
 
