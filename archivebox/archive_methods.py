@@ -80,43 +80,46 @@ def archive_links(archive_path, links, source=None, resume=None):
 def archive_link(link_dir, link, overwrite=True):
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
-    update_existing = os.path.exists(link_dir)
-    if update_existing:
-        link = {
-            **parse_json_link_index(link_dir),
-            **link,
-        }
-    else:
-        os.makedirs(link_dir)
-    
-    log_link_archive(link_dir, link, update_existing)
+    try:
+        update_existing = os.path.exists(link_dir)
+        if update_existing:
+            link = {
+                **parse_json_link_index(link_dir),
+                **link,
+            }
+        else:
+            os.makedirs(link_dir)
+        
+        log_link_archive(link_dir, link, update_existing)
 
-    if FETCH_FAVICON:
-        link = fetch_favicon(link_dir, link, overwrite=overwrite)
+        if FETCH_FAVICON:
+            link = fetch_favicon(link_dir, link, overwrite=overwrite)
 
-    if FETCH_WGET:
-        link = fetch_wget(link_dir, link, overwrite=overwrite)
+        if FETCH_WGET:
+            link = fetch_wget(link_dir, link, overwrite=overwrite)
 
-    if FETCH_PDF:
-        link = fetch_pdf(link_dir, link, overwrite=overwrite)
+        if FETCH_PDF:
+            link = fetch_pdf(link_dir, link, overwrite=overwrite)
 
-    if FETCH_SCREENSHOT:
-        link = fetch_screenshot(link_dir, link, overwrite=overwrite)
+        if FETCH_SCREENSHOT:
+            link = fetch_screenshot(link_dir, link, overwrite=overwrite)
 
-    if FETCH_DOM:
-        link = fetch_dom(link_dir, link, overwrite=overwrite)
+        if FETCH_DOM:
+            link = fetch_dom(link_dir, link, overwrite=overwrite)
 
-    if SUBMIT_ARCHIVE_DOT_ORG:
-        link = archive_dot_org(link_dir, link, overwrite=overwrite)
+        if SUBMIT_ARCHIVE_DOT_ORG:
+            link = archive_dot_org(link_dir, link, overwrite=overwrite)
 
-    if FETCH_GIT:
-        link = fetch_git(link_dir, link, overwrite=overwrite)
+        if FETCH_GIT:
+            link = fetch_git(link_dir, link, overwrite=overwrite)
 
-    if FETCH_MEDIA:
-        link = fetch_media(link_dir, link, overwrite=overwrite)
+        if FETCH_MEDIA:
+            link = fetch_media(link_dir, link, overwrite=overwrite)
 
+        write_link_index(link_dir, link)
 
-    write_link_index(link_dir, link)
+    except Exception as err:
+        print('    ! Failed to archive link: {err.__class__.__name__}: {err}')
     
     return link
 
