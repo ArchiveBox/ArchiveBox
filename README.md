@@ -36,7 +36,8 @@ ArchiveBox doesn't require a constantly running server or backend, instead you j
 <div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
 
-To get started, you can install ArchiveBox [automatically](https://github.com/pirate/ArchiveBox/wiki/Quickstart), follow the [manual instructions](https://github.com/pirate/ArchiveBox/wiki/Install), or use [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker). There are only [4 main dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies): `python3`, `wget`, `chromium`, and `youtube-dl`, and you can skip installing them if you're ok with fewer archive methods.
+To get started, you can install ArchiveBox [automatically](https://github.com/pirate/ArchiveBox/wiki/Quickstart), follow the [manual instructions](https://github.com/pirate/ArchiveBox/wiki/Install), or use [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker).  
+There are only [4 main dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies): `python3`, `wget`, `chromium`, and `youtube-dl`, and you can skip installing most of them if you're ok with fewer archive methods.
 ```bash
 git clone https://github.com/pirate/ArchiveBox.git
 cd ArchiveBox
