@@ -70,7 +70,7 @@ def merge_links(archive_path=OUTPUT_DIR, import_path=None, only_new=False):
     
     num_new_links = len(all_links) - len(existing_links)
     if num_new_links and not only_new:
-        print('[{green}+{reset}] [{}] Adding {} new links from {} to {}/index.json (parsed as {})'.format(
+        print('[{green}+{reset}] [{}] Adding {} new links from {} to {}/index.json (detected {} format)'.format(
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             num_new_links,
             pretty_path(import_path),
