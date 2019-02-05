@@ -15,49 +15,46 @@
             }
             header {
                 background-color: #aa1e55;
-                color: white;
+                color: #1a1a1a;
                 padding: 10px;
                 padding-top: 0px;
                 padding-bottom: 15px;
-                height: 100px;
+                /*height: 40px;*/
             }
             header h1 {
-                font-size: 38px;
+                margin: 7px 0px;
+                font-size: 35px;
                 font-weight: 300;
-                color: black;
-                padding-top: 14px;
-                line-height: 1.4;
-                width: 100%;
+                color: #1a1a1a;
             }
-            header h1 small {
-                color: white;
-                font-size:0.45em;
-                margin-left: 10px;
-                display: block;
+            header h1 img {
+                height: 44px;
+                vertical-align: bottom;
             }
-            header h1 small a {
-                text-decoration: none;
-                color: orange;
-                opacity: 0.6;
-                font-weight: 300;
-            }
-            header h1 small a:hover {
-                opacity: 1;
-            }
-            header + div {
-                margin-top: 10px;
+            header a {
+                text-decoration: none !important;
+                color: #1a1a1a;
             }
             .header-center {
-                width: 100%;
+                margin: auto;
+                float: none;
                 text-align: center;
+                padding-top: 6px;
+            }
+            .header-center small {
+                color: #eaeaea;
+                opacity: 0.7;
             }
             .header-left {
                 float: left;
-                width: 50px;
-                height: 60px;
-                text-align: center;
-                padding: 20px;
-                margin-right: -70px;
+            }
+            .header-right {
+                float: right;
+                padding-top: 17px;
+                padding-right: 10px;
+            }
+            header + div {
+                margin-top: 10px;
             }
             #table-bookmarks_length, #table-bookmarks_filter {
                 padding: 0px 15px;
@@ -105,23 +102,19 @@
     </head>
     <body>
         <header>
+            <div class="header-right">
+                <a href="https://github.com/pirate/ArchiveBox/wiki">Documentation</a> &nbsp; | &nbsp; 
+                <a href="https://github.com/pirate/ArchiveBox">Source</a> &nbsp; | &nbsp; 
+                <a href="https://archivebox.io">Website</a>
+            </div>
             <div class="header-left">
                 <a href="?" title="Reload...">
-                    <img src="static/archive.png" style="height: 100%;"/>
-                </a>
-                <br/>
-                <a href="https://github.com/pirate/ArchiveBox">
-                    Github
+                    <h1><img src="static/archive.png"/> ArchiveBox: Index</h1>
                 </a>
             </div>
             <div class="header-center">
-                <h1>
-                    &nbsp;Archived Sites
-                    <br/>
-                    <small>
-                        <a href="?">Last updated $time_updated</a><br/>
-                    </small>
-                </h1>
+                Archived Sites<br/>
+                <small>Last updated $time_updated</small>
             </div>
         </header>
         <table id="table-bookmarks">
