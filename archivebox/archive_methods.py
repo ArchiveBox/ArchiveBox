@@ -588,7 +588,7 @@ def chrome_headless(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR):
     args = [binary, '--headless']  # '--disable-gpu'
     if not CHROME_SANDBOX:
         args.append('--no-sandbox')
-    default_profile = os.path.expanduser('~/Library/Application Support/Google/Chrome/Default')
+    default_profile = os.path.expanduser('~/Library/Application Support/Google/Chrome')
     if user_data_dir:
         args.append('--user-data-dir={}'.format(user_data_dir))
     elif os.path.exists(default_profile):
