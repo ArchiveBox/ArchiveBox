@@ -231,10 +231,19 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
         end()
         output = wget_output_path(link, look_in=domain_dir)
 
+        output_tail = ['          ' + line for line in (result.stdout + result.stderr).decode().rsplit('\n', 3)[-3:] if line.strip()]
+
+        # parse out number of files downloaded from "Downloaded: 76 files, 4.0M in 1.6s (2.52 MB/s)"
+        files_downloaded = (
+            int(output_tail[-1].strip().split(' ', 2)[1] or 0)
+            if 'Downloaded:' in output_tail[-1]
+            else 0
+        )
+
         # Check for common failure cases
-        if result.returncode > 0:
+        if result.returncode > 0 and files_downloaded < 1:
             print('        Got wget response code {}:'.format(result.returncode))
-            print('\n'.join('          ' + line for line in (result.stdout + result.stderr).decode().rsplit('\n', 3)[-3:] if line.strip()))
+            print('\n'.join(output_tail))
             if b'403: Forbidden' in result.stderr:
                 raise Exception('403 Forbidden (try changing WGET_USER_AGENT)')
             if b'404: Not Found' in result.stderr:
