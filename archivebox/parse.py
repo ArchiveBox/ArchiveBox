@@ -262,6 +262,7 @@ def parse_plain_text(text_file):
             urls = re.findall(URL_REGEX, line)
             
             for url in urls:
+                url = url.strip()
                 info = {
                     'url': url,
                     'domain': domain(url),
