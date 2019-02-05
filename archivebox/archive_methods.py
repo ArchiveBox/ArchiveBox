@@ -496,7 +496,7 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
 
     # import ipdb; ipdb.set_trace()
     output = os.path.join(link_dir, 'media')
-    already_done = os.path.exists(output) and os.listdir(output)
+    already_done = os.path.exists(output)  # and os.listdir(output)
     if already_done and not overwrite:
         return {'output': 'media', 'status': 'skipped'}
 
