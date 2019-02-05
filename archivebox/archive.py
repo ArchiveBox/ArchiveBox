@@ -186,8 +186,7 @@ if __name__ == '__main__':
         source = save_source(stdin_raw_text)
 
     # Step 1: Parse the links and dedupe them with existing archive
-    links = merge_links(archive_path=out_dir, import_path=source, only_new=False)
-    new_links = merge_links(archive_path=out_dir, import_path=source, only_new=True)
+    links = merge_links(archive_path=out_dir, import_path=source, only_new=ONLY_NEW)
 
     # Step 2: Write new index
     write_links_index(out_dir=out_dir, links=links)
@@ -196,7 +195,4 @@ if __name__ == '__main__':
     # cleanup_archive(out_dir, links)
 
     # Step 4: Run the archive methods for each link
-    if ONLY_NEW:
-        update_archive(out_dir, new_links, source=source, resume=resume, append=True)
-    else:
-        update_archive(out_dir, links, source=source, resume=resume, append=True)
+    update_archive(out_dir, links, source=source, resume=resume, append=True)
