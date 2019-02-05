@@ -528,7 +528,10 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
         result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=output, timeout=timeout + 1)  # audio/audio.mp3
         end()
         if result.returncode:
-            if b'ERROR: Unsupported URL' in result.stderr or b'HTTP Error 404' in result.stderr:
+            if (b'ERROR: Unsupported URL' in result.stderr
+                or b'HTTP Error 404' in result.stderr
+                or b'HTTP Error 403' in result.stderr
+                or b'URL could be a direct video link' in result.stderr):
                 pass
             else:
                 print('        got youtubedl response code {}:'.format(result.returncode))
