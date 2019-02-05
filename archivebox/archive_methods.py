@@ -120,7 +120,7 @@ def archive_link(link_dir, link, overwrite=True):
         write_link_index(link_dir, link)
 
     except Exception as err:
-        print('    ! Failed to archive link: {err.__class__.__name__}: {err}')
+        print('    ! Failed to archive link: {}: {}'.format(err.__class__.__name__, err))
     
     return link
 
