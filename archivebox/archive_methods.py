@@ -533,7 +533,9 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
             if (b'ERROR: Unsupported URL' in result.stderr
                 or b'HTTP Error 404' in result.stderr
                 or b'HTTP Error 403' in result.stderr
-                or b'URL could be a direct video link' in result.stderr):
+                or b'URL could be a direct video link' in result.stderr
+                or b'Unable to extract container ID' in result.stderr):
+                # These happen too frequently on non-media pages to warrant printing to console
                 pass
             else:
                 print('        got youtubedl response code {}:'.format(result.returncode))
