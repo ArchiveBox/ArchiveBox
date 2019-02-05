@@ -43,7 +43,7 @@ base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 
 short_ts = lambda ts: ts.split('.')[0]
 
-URL_REGEX = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))[^<]+'
+URL_REGEX = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))[^<\""]+'
 
 
 def check_dependencies():
