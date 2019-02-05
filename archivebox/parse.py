@@ -82,7 +82,7 @@ def parse_pocket_export(html_file):
                 'url': fixed_url,
                 'domain': domain(fixed_url),
                 'base_url': base_url(fixed_url),
-                'timestamp': str(datetime.now().timestamp()),
+                'timestamp': str(time.timestamp()),
                 'tags': match.group(3),
                 'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '') or fetch_page_title(fixed_url),
                 'sources': [html_file.name],
