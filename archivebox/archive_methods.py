@@ -32,6 +32,7 @@ from config import (
     ANSI,
     ARCHIVE_DIR,
     GIT_DOMAINS,
+    GIT_SHA,
 )
 from util import (
     check_dependencies,
@@ -404,6 +405,7 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
         'curl',
         '--location',
         '--head',
+        '--user-agent', 'ArchiveBox/{} (+https://github.com/pirate/ArchiveBox/)'.format(GIT_SHA),
         '--max-time', str(timeout),
         '--get',
         *(() if CHECK_SSL_VALIDITY else ('--insecure',)),
