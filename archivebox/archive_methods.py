@@ -223,7 +223,7 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
         *(('--warc-file={}'.format(warc_path),) if warc else ()),
         *(('--page-requisites',) if FETCH_WGET_REQUISITES else ()),
         *(('--user-agent={}'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
-        *((() if CHECK_SSL_VALIDITY else ('--no-check-certificate',))),
+        *((() if CHECK_SSL_VALIDITY else ('--no-check-certificate', '--no-hsts'))),
         link['url'],
     ]
     end = progress(timeout, prefix='      ')
