@@ -53,7 +53,7 @@ def parse_links(path):
     
     links = []
     with open(path, 'r', encoding='utf-8') as file:
-        for parser_func in get_parsers(file).values():
+        for parser_name, parser_func in get_parsers(file).items():
             # otherwise try all parsers until one works
             try:
                 links += list(parser_func(file))
@@ -63,7 +63,7 @@ def parse_links(path):
                 # parser not supported on this file
                 pass
 
-    return links
+    return links, parser_name
 
 
 def parse_pocket_export(html_file):
