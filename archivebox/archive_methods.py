@@ -222,7 +222,7 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
         *(() if warc else ('--timestamping',)),
         *(('--warc-file={}'.format(warc_path),) if warc else ()),
         *(('--page-requisites',) if FETCH_WGET_REQUISITES else ()),
-        *(('--user-agent="{}"'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
+        *(('--user-agent={}'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
         *((() if CHECK_SSL_VALIDITY else ('--no-check-certificate',))),
         link['url'],
     ]
@@ -257,7 +257,7 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
         print('        {}Some resources were skipped: {}{}'.format(ANSI['lightyellow'], e, ANSI['reset']))
         print('        Run to see full output:')
         print('            cd {};'.format(link_dir))
-        print('            {}'.format(' '.join(CMD)))
+        print('            {}'.format(' '.join(CMD).replace(WGET_USER_AGENT, '"{}"'.format(WGET_USER_AGENT))))
         output = e
 
     return {
