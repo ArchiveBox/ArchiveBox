@@ -121,11 +121,10 @@ def progress(seconds=TIMEOUT, prefix=''):
     if not SHOW_PROGRESS:
         return lambda: None
 
-    chunk = '█' if sys.stdout.encoding == 'UTF-8' else '#'
-    chunks = TERM_WIDTH - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
-
     def progress_bar(seconds, prefix):
         """show timer in the form of progress bar, with percentage and seconds remaining"""
+        chunk = '█' if sys.stdout.encoding == 'UTF-8' else '#'
+        chunks = TERM_WIDTH - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
         try:
             for s in range(seconds * chunks):
                 progress = s / chunks / seconds * 100
