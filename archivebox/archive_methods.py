@@ -526,6 +526,8 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
     end = progress(timeout, prefix='      ')
     try:
         result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=output, timeout=timeout + 1)  # audio/audio.mp3
+        chmod_file('media', cwd=link_dir)
+        output = 'media'
         end()
         if result.returncode:
             if (b'ERROR: Unsupported URL' in result.stderr
