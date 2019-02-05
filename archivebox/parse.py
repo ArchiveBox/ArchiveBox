@@ -44,6 +44,7 @@ def get_parsers(file):
         ('bookmarks', parse_bookmarks_export),
         ('rss', parse_rss_export),
         ('pinboard_rss', parse_pinboard_rss_feed),
+        ('shaarli_rss', parse_shaarli_rss_export),
         ('medium_rss', parse_medium_rss_feed),
         ('plain_text', parse_plain_text),
     ])
@@ -159,6 +160,48 @@ def parse_rss_export(rss_file):
             'domain': domain(url),
             'base_url': base_url(url),
             'timestamp': str(datetime.now().timestamp()),
+            'tags': '',
+            'title': title or fetch_page_title(url),
+            'sources': [rss_file.name],
+        }
+        info['type'] = get_link_type(info)
+
+        yield info
+
+def parse_shaarli_rss_export(rss_file):
+    """Parse Shaarli-specific RSS XML-format files into links"""
+
+    rss_file.seek(0)
+    entries = rss_file.read().split('<entry>')[1:]
+    for entry in entries:
+        # example entry:
+        # <entry>
+        #   <title>Aktuelle Trojaner-Welle: Emotet lauert in gefÃ¤lschten Rechnungsmails | heise online</title>
+        #   <link href="https://www.heise.de/security/meldung/Aktuelle-Trojaner-Welle-Emotet-lauert-in-gefaelschten-Rechnungsmails-4291268.html" />
+        #   <id>https://demo.shaarli.org/?cEV4vw</id>
+        #   <published>2019-01-30T06:06:01+00:00</published>
+        #   <updated>2019-01-30T06:06:01+00:00</updated>
+        #   <content type="html" xml:lang="en"><![CDATA[<div class="markdown"><p>&#8212; <a href="https://demo.shaarli.org/?cEV4vw">Permalink</a></p></div>]]></content>
+        # </entry>
+
+        trailing_removed = entry.split('</entry>', 1)[0]
+        leading_removed = trailing_removed.strip()
+        rows = leading_removed.split('\n')
+
+        def get_row(key):
+            return [r.strip() for r in rows if r.strip().startswith('<{}'.format(key))][0]
+
+        title = str_between(get_row('title'), '<title>', '</title>').strip()
+        url = str_between(get_row('link'), '<link href="', '" />')
+        ts_str = str_between(get_row('published'), '<published>', '</published>')
+        time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
+
+
+        info = {
+            'url': url,
+            'domain': domain(url),
+            'base_url': base_url(url),
+            'timestamp': str(time.timestamp()),
             'tags': '',
             'title': title or fetch_page_title(url),
             'sources': [rss_file.name],
