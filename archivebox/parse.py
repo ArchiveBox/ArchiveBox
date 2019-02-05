@@ -25,6 +25,7 @@ import xml.etree.ElementTree as etree
 
 from datetime import datetime
 
+from config import ANSI
 from util import (
     domain,
     base_url,
@@ -39,14 +40,14 @@ def get_parsers(file):
     """return all parsers that work on a given file, defaults to all of them"""
 
     return OrderedDict([
-        ('pocket', parse_pocket_export),
-        ('pinboard', parse_json_export),
-        ('bookmarks', parse_bookmarks_export),
-        ('rss', parse_rss_export),
-        ('pinboard_rss', parse_pinboard_rss_feed),
-        ('shaarli_rss', parse_shaarli_rss_export),
-        ('medium_rss', parse_medium_rss_feed),
-        ('plain_text', parse_plain_text),
+        ('Pocket HTML', parse_pocket_html_export),
+        ('Pinboard JSON', parse_pinboard_json_export),
+        ('Netscape HTML', parse_netscape_html_export),
+        ('RSS', parse_rss_export),
+        ('Pinboard RSS', parse_pinboard_rss_export),
+        ('Shaarli RSS', parse_shaarli_rss_export),
+        ('Medium RSS', parse_medium_rss_export),
+        ('Plain Text', parse_plain_text_export),
     ])
 
 def parse_links(path):
@@ -54,6 +55,12 @@ def parse_links(path):
     
     links = []
     with open(path, 'r', encoding='utf-8') as file:
+        print('{green}[*] [{}] Parsing new links from output/sources/{} and fetching titles...{reset}'.format(
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            path.rsplit('/', 1)[-1],
+            **ANSI,
+        ))
+
         for parser_name, parser_func in get_parsers(file).items():
             # otherwise try all parsers until one works
             try:
@@ -64,10 +71,12 @@ def parse_links(path):
                 # parser not supported on this file
                 pass
 
+    print()
+
     return links, parser_name
 
 
-def parse_pocket_export(html_file):
+def parse_pocket_html_export(html_file):
     """Parse Pocket-format bookmarks export files (produced by getpocket.com/export/)"""
 
     html_file.seek(0)
@@ -91,7 +100,7 @@ def parse_pocket_export(html_file):
             info['type'] = get_link_type(info)
             yield info
 
-def parse_json_export(json_file):
+def parse_pinboard_json_export(json_file):
     """Parse JSON-format bookmarks export files (produced by pinboard.in/export/, or wallabag)"""
     json_file.seek(0)
     json_content = json.load(json_file)
@@ -210,7 +219,7 @@ def parse_shaarli_rss_export(rss_file):
 
         yield info
 
-def parse_bookmarks_export(html_file):
+def parse_netscape_html_export(html_file):
     """Parse netscape-format bookmarks export files (produced by all browsers)"""
 
     html_file.seek(0)
@@ -237,7 +246,7 @@ def parse_bookmarks_export(html_file):
 
             yield info
 
-def parse_pinboard_rss_feed(rss_file):
+def parse_pinboard_rss_export(rss_file):
     """Parse Pinboard RSS feed files into links"""
 
     rss_file.seek(0)
@@ -269,7 +278,7 @@ def parse_pinboard_rss_feed(rss_file):
         info['type'] = get_link_type(info)
         yield info
 
-def parse_medium_rss_feed(rss_file):
+def parse_medium_rss_export(rss_file):
     """Parse Medium RSS feed files into links"""
 
     rss_file.seek(0)
@@ -295,7 +304,7 @@ def parse_medium_rss_feed(rss_file):
         yield info
 
 
-def parse_plain_text(text_file):
+def parse_plain_text_export(text_file):
     """Parse raw links from each line in a text file"""
 
     text_file.seek(0)

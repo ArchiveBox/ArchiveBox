@@ -67,14 +67,13 @@ def merge_links(archive_path=OUTPUT_DIR, import_path=None, only_new=False):
     if archive_path:
         existing_links = parse_json_links_index(archive_path)
         all_links = validate_links(existing_links + all_links)
-    
+
     num_new_links = len(all_links) - len(existing_links)
     if num_new_links and not only_new:
-        print('[{green}+{reset}] [{}] Adding {} new links from {} to {}/index.json (detected {} format)'.format(
+        print('{green}[+] [{}] Adding {} new links to index from {} ({} format){reset}'.format(
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             num_new_links,
             pretty_path(import_path),
-            pretty_path(archive_path),
             parser_name,
             **ANSI,
         ))
@@ -103,7 +102,7 @@ def update_archive(archive_path, links, source=None, resume=None, append=True):
              **ANSI,
         ))
     else:
-        print('{green}[▶] [{}] Updating files for {} links in archive...{reset}'.format(
+        print('{green}[▶] [{}] Downloading content for {} pages in archive...{reset}'.format(
              datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
              len(links),
              **ANSI,
