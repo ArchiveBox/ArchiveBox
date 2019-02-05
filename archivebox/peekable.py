@@ -1,3 +1,5 @@
+from sys import maxsize
+from itertools import islice
 from collections import deque
 
 _marker = object()
