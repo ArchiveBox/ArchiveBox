@@ -558,7 +558,7 @@ def fetch_git(link_dir, link, timeout=TIMEOUT):
     if os.path.exists(os.path.join(link_dir, 'git')):
         return {'output': 'git', 'status': 'skipped'}
 
-    CMD = ['git', 'clone', '--mirror', '--recursive', link['url'], 'git']
+    CMD = ['git', 'clone', '--mirror', '--recursive', link['url'].split('#')[0], 'git']
     output = 'git'
 
     end = progress(timeout, prefix='      ')
