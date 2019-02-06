@@ -67,8 +67,9 @@ def parse_links(path):
                 links += list(parser_func(file))
                 if links:
                     break
-            except (ValueError, TypeError, IndexError, AttributeError, etree.ParseError):
+            except (ValueError, TypeError, IndexError, AttributeError, etree.ParseError) as err:
                 # parser not supported on this file
+                # print('[!] Parser {} failed: {} {}'.format(parser_name, err.__class__.__name__, err))
                 pass
 
     print()
