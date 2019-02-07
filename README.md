@@ -90,7 +90,7 @@ All the saved content is static and indexed with JSON files, so it lives forever
 
 ### Related Projects
 
-There are tons of great web archiving tools out there.  In particular https://Webrecorder.io (pywb) and https://getpolarized.io/ are robust, stable pieces of software that have lots of overlap with ArchiveBox.  ArchiveBox differentiates itself by being primarily a one-shot CLI tool that specializing in importing streams of links from RSS, JSON (good for automatically archiving from a stream of browser history or bookmarks on a schedule), as opposed to a desktop application or web service that requires human interaction to add links.
+There are tons of great web archiving tools out there.  In particular https://webrecorder.io ([pywb](https://github.com/webrecorder/pywb)) and https://getpolarized.io/ are robust, stable pieces of software that have lots of overlap with ArchiveBox.  ArchiveBox differentiates itself by being primarily a one-shot CLI tool that specializing in importing streams of links from RSS, JSON (good for automatically archiving from a stream of browser history or bookmarks on a schedule), as opposed to a desktop application or web service that requires human interaction to add links.
 
 To learn more about the motivation for this project and how it fits into the broader community, see our [Web Archiving Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community) wiki page.
 
