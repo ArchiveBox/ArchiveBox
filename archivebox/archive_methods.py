@@ -134,8 +134,8 @@ def log_link_archive(link_dir, link, update_existing):
     ))
 
     print('    > {}{}'.format(pretty_path(link_dir), '' if update_existing else ' (new)'))
-    if link['type']:
-        print('      i {}'.format(link['type']))
+    # if link['type']:
+    #     print('      i {}'.format(link['type']))
 
 
 

@@ -25,8 +25,10 @@ from config import (
     ONLY_NEW,
     OUTPUT_PERMISSIONS,
     OUTPUT_DIR,
+    REPO_DIR,
     ANSI,
     TIMEOUT,
+    SHOW_PROGRESS,
     GIT_SHA,
 )
 from util import (
@@ -69,21 +71,13 @@ def merge_links(archive_path=OUTPUT_DIR, import_path=None, only_new=False):
         all_links = validate_links(existing_links + all_links)
 
     num_new_links = len(all_links) - len(existing_links)
-    if num_new_links and not only_new:
-        print('{green}[+] [{}] Adding {} new links to index from {} ({} format){reset}'.format(
-            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            num_new_links,
-            pretty_path(import_path),
-            parser_name,
-            **ANSI,
-        ))
-    # else:
-    #     print('[*] [{}] No new links added to {}/index.json{}'.format(
-    #         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-    #         archive_path,
-    #         ' from {}'.format(import_path) if import_path else '',
-    #         **ANSI,
-    #     ))
+    if SHOW_PROGRESS:
+        print()
+    print('    > Adding {} new links to index from {} (parsed as {} format)'.format(
+        num_new_links,
+        pretty_path(import_path),
+        parser_name,
+    ))
 
     if only_new:
         return new_links(all_links, existing_links)
@@ -102,7 +96,7 @@ def update_archive(archive_path, links, source=None, resume=None, append=True):
              **ANSI,
         ))
     else:
-        print('{green}[▶] [{}] Downloading content for {} pages in archive...{reset}'.format(
+        print('{green}[▶] [{}] Updating content for {} pages in archive...{reset}'.format(
              datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
              len(links),
              **ANSI,
@@ -119,7 +113,7 @@ def update_archive(archive_path, links, source=None, resume=None, append=True):
     else:
         duration = '{0:.2f} sec'.format(seconds, 2)
 
-    print('{}[√] [{}] Update of {} links complete ({}){}'.format(
+    print('{}[√] [{}] Update of {} pages complete ({}){}'.format(
         ANSI['green'],
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         len(links),
@@ -129,6 +123,7 @@ def update_archive(archive_path, links, source=None, resume=None, append=True):
     print('    - {} entries skipped'.format(_RESULTS_TOTALS['skipped']))
     print('    - {} entries updated'.format(_RESULTS_TOTALS['succeded']))
     print('    - {} errors'.format(_RESULTS_TOTALS['failed']))
+    print('    To view your archive, open: {}/index.html'.format(OUTPUT_DIR.replace(REPO_DIR + '/', '')))
 
 
 if __name__ == '__main__':

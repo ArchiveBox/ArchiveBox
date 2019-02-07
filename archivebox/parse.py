@@ -18,6 +18,7 @@ Parsed link schema: {
 """
 
 import re
+import sys
 import json
 import urllib
 from collections import OrderedDict
@@ -25,7 +26,7 @@ import xml.etree.ElementTree as etree
 
 from datetime import datetime
 
-from config import ANSI
+from config import ANSI, SHOW_PROGRESS
 from util import (
     domain,
     base_url,
@@ -60,6 +61,8 @@ def parse_links(path):
             path.rsplit('/', 1)[-1],
             **ANSI,
         ))
+        if SHOW_PROGRESS:
+            sys.stdout.write('    ')
 
         for parser_name, parser_func in get_parsers(file).items():
             # otherwise try all parsers until one works
@@ -71,8 +74,6 @@ def parse_links(path):
                 # parser not supported on this file
                 # print('[!] Parser {} failed: {} {}'.format(parser_name, err.__class__.__name__, err))
                 pass
-
-    print()
 
     return links, parser_name
 
