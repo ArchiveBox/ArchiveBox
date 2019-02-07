@@ -217,6 +217,7 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
         '--backup-converted',
         '--span-hosts',
         '--no-parent',
+        '-e', 'robots=off',
         '--restrict-file-names=unix',
         '--timeout={}'.format(timeout),
         *(() if warc else ('--timestamping',)),
