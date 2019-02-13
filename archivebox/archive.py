@@ -73,11 +73,12 @@ def merge_links(archive_path=OUTPUT_DIR, import_path=None, only_new=False):
     num_new_links = len(all_links) - len(existing_links)
     if SHOW_PROGRESS:
         print()
-    print('    > Adding {} new links to index from {} (parsed as {} format)'.format(
-        num_new_links,
-        pretty_path(import_path),
-        parser_name,
-    ))
+    if import_path:
+        print('    > Adding {} new links to index from {} (parsed as {} format)'.format(
+            num_new_links,
+            pretty_path(import_path),
+            parser_name,
+        ))
 
     if only_new:
         return new_links(all_links, existing_links)
