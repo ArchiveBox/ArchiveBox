@@ -238,7 +238,7 @@ def fetch_page_title(url, default=True):
             sys.stdout.flush()
         html_content = urllib.request.urlopen(url, timeout=10).read().decode('utf-8')
         match = re.search('<title>(.*?)</title>', html_content)
-        return match.group(1) if match else default or None
+        return match.group(1) if match and '<' not in match.group(1) else default or None
     except Exception:
         if default is False:
             raise
