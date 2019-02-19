@@ -72,9 +72,8 @@ def parse_links(path):
                     break
             except Exception as err:
                 # we try each parser one by one, each parser will throw exeption an exception if unsupported
-                # so we accept the first one that doesn't throw any exceptions and produces some non-0 output.
+                # so we accept the first one that
                 # uncomment the following line to see why the parser was unsupported for each attempted format
-                
                 # print('[!] Parser {} failed: {} {}'.format(parser_name, err.__class__.__name__, err))
                 pass
 
