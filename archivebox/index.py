@@ -143,6 +143,7 @@ def write_html_link_index(out_dir, link):
         f.write(Template(link_html).substitute({
             **link,
             **link['latest'],
+            'title': link['title'] or link['url'],
             'type': link['type'] or 'website',
             'tags': link['tags'] or 'untagged',
             'bookmarked': datetime.fromtimestamp(float(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),

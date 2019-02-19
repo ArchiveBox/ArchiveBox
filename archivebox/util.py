@@ -526,6 +526,7 @@ def derived_link_info(link):
         'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**link),
         'dom_link': 'archive/{timestamp}/output.html'.format(**link),
         'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**link),
+        'title': link['title'] or link['url'],
     }
 
     # PDF and images are handled slightly differently
