@@ -44,6 +44,7 @@ base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 short_ts = lambda ts: ts.split('.')[0]
 
 URL_REGEX = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))[^<\""]+'
+HTML_TITLE_REGEX = '<title>(.[^<>]+)'
 
 
 def check_dependencies():
@@ -227,22 +228,17 @@ def download_url(url):
     return source_path
 
 
-def fetch_page_title(url, default=True):
+def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
     """Attempt to guess a page's title by downloading the html"""
-    if default is True:
-        default = url
-
     try:
-        if SHOW_PROGRESS:
+        if progress:
             sys.stdout.write('.')
             sys.stdout.flush()
         html_content = urllib.request.urlopen(url, timeout=10).read().decode('utf-8')
         match = re.search('<title>(.*?)</title>', html_content)
         return match.group(1) if match else default or None
     except Exception:
-        if default is False:
-            raise
-        return default
+        return None
 
 
 def str_between(string, start, end=None):
@@ -277,19 +273,19 @@ def merge_links(a, b):
     """deterministially merge two links, favoring longer field values over shorter,
     and "cleaner" values over worse ones.
     """
-    longer = lambda key: a[key] if len(a[key]) > len(b[key]) else b[key]
+    longer = lambda key: (a[key] if len(a[key]) > len(b[key]) else b[key]) if (a[key] and b[key]) else (a[key] or b[key])
     earlier = lambda key: a[key] if a[key] < b[key] else b[key]
     
     url = longer('url')
     longest_title = longer('title')
-    cleanest_title = a['title'] if '://' not in a['title'] else b['title']
+    cleanest_title = a['title'] if '://' not in (a['title'] or '') else b['title']
     link = {
         'timestamp': earlier('timestamp'),
         'url': url,
         'domain': domain(url),
         'base_url': base_url(url),
         'tags': longer('tags'),
-        'title': longest_title if '://' not in longest_title else cleanest_title,
+        'title': longest_title if '://' not in (longest_title or '') else cleanest_title,
         'sources': list(set(a.get('sources', []) + b.get('sources', []))),
     }
     link['type'] = get_link_type(link)
@@ -532,7 +528,7 @@ def derived_link_info(link):
             'pdf_link': 'archive/{timestamp}/{base_url}'.format(**link),
             'screenshot_link': 'archive/{timestamp}/{base_url}'.format(**link),
             'dom_link': 'archive/{timestamp}/{base_url}'.format(**link),
-            'title': '{title} ({type})'.format(**link),
+            'title': link['title'] or basename(link['url']),
         })
     return link_info
 

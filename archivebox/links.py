@@ -57,7 +57,7 @@ def validate_links(links):
         raise SystemExit(1)
 
     for link in links:
-        link['title'] = unescape(link['title'])
+        link['title'] = unescape(link['title']) if link['title'] else None
         link['latest'] = link.get('latest') or {}
         
         latest = link['latest']
@@ -75,6 +75,9 @@ def validate_links(links):
 
         if not latest.get('favicon'):
             latest['favicon'] = None
+
+        if not link['latest'].get('title'):
+            link['latest']['title'] = link['title']
 
     return list(links)
 

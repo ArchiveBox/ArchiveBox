@@ -10,6 +10,7 @@
 # FETCH_MEDIA=False
 # FETCH_GIT=True
 # FETCH_FAVICON=True
+# FETCH_TITLE=True
 # SUBMIT_ARCHIVE_DOT_ORG=True
 
 ### To only download new links, and never attempt to update old ones, uncomment this line:

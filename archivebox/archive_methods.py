@@ -12,6 +12,8 @@ from index import wget_output_path, parse_json_link_index, write_link_index
 from links import links_after_timestamp
 from config import (
     CHROME_BINARY,
+    FETCH_FAVICON,
+    FETCH_TITLE,
     FETCH_WGET,
     FETCH_WGET_REQUISITES,
     FETCH_PDF,
@@ -23,7 +25,6 @@ from config import (
     RESOLUTION,
     CHECK_SSL_VALIDITY,
     SUBMIT_ARCHIVE_DOT_ORG,
-    FETCH_FAVICON,
     WGET_USER_AGENT,
     CHROME_USER_DATA_DIR,
     CHROME_SANDBOX,
@@ -36,6 +37,7 @@ from config import (
 )
 from util import (
     check_dependencies,
+    fetch_page_title,
     progress,
     chmod_file,
     pretty_path,
@@ -96,6 +98,9 @@ def archive_link(link_dir, link, overwrite=True):
         if FETCH_FAVICON:
             link = fetch_favicon(link_dir, link, overwrite=overwrite)
 
+        if FETCH_TITLE:
+            link = fetch_title(link_dir, link, overwrite=overwrite)
+
         if FETCH_WGET:
             link = fetch_wget(link_dir, link, overwrite=overwrite)
 
@@ -129,7 +134,7 @@ def log_link_archive(link_dir, link, update_existing):
         symbol='*' if update_existing else '+',
         symbol_color=ANSI['black' if update_existing else 'green'],
         now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        **link,
+        **{**link, 'title': link['title'] or link['url']},
         **ANSI,
     ))
 
@@ -489,6 +494,29 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
 
     return {
         'cmd': CMD,
+        'output': output,
+    }
+
+@attach_result_to_link('title')
+def fetch_title(link_dir, link, timeout=TIMEOUT):
+    """try to guess the page's title from its content"""
+
+    # if link already has valid title, skip it
+    if link['title'] and not link['title'].lower().startswith('http'):
+        return {'output': link['title'], 'cmd': 'fetch_page_title("{}")'.format(link['url'])}
+
+    end = progress(timeout, prefix='      ')
+    try:
+        title = fetch_page_title(link['url'], timeout=timeout, progress=False)
+        end()
+        output = title
+    except Exception as e:
+        end()
+        print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
+        output = e
+
+    return {
+        'cmd': 'fetch_page_title("{}")'.format(link['url']),
         'output': output,
     }
 
