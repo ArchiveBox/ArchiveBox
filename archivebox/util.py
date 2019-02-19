@@ -4,7 +4,8 @@ import sys
 import time
 import json
 import signal
-import urllib.request
+from urllib.request import urlopen
+from urllib.parse import urlparse
 
 from decimal import Decimal
 from urllib.parse import quote
@@ -33,12 +34,18 @@ from config import (
     SUBMIT_ARCHIVE_DOT_ORG,
 )
 
-# URL helpers
-without_scheme = lambda url: url.replace('http://', '').replace('https://', '').replace('ftp://', '')
-without_query = lambda url: url.split('?', 1)[0]
-without_hash = lambda url: url.split('#', 1)[0]
-without_path = lambda url: url.split('/', 1)[0]
-domain = lambda url: without_hash(without_query(without_path(without_scheme(url))))
+# URL helpers: https://docs.python.org/3/library/urllib.parse.html#url-parsing
+scheme = lambda url: urlparse(url).scheme
+without_scheme = lambda url: urlparse(url)._replace(scheme='').geturl().strip('//')
+without_query = lambda url: urlparse(url)._replace(query='').geturl().strip('//')
+without_fragment = lambda url: urlparse(url)._replace(fragment='').geturl().strip('//')
+without_path = lambda url: urlparse(url)._replace(path='', fragment='', query='').geturl().strip('//')
+path = lambda url: urlparse(url).path
+basename = lambda url: urlparse(url).path.rsplit('/', 1)[-1]
+domain = lambda url: urlparse(url).netloc
+query = lambda url: urlparse(url).query
+fragment = lambda url: urlparse(url).fragment
+extension = lambda url: basename(url).rsplit('.', 1)[-1].lower() if '.' in basename(url) else ''
 base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 
 short_ts = lambda ts: ts.split('.')[0]
@@ -214,7 +221,7 @@ def download_url(url):
     ))
     end = progress(TIMEOUT, prefix='      ')
     try:
-        downloaded_xml = urllib.request.urlopen(url).read().decode('utf-8')
+        downloaded_xml = urlopen(url).read().decode('utf-8')
         end()
     except Exception as e:
         end()
@@ -234,9 +241,10 @@ def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
         if progress:
             sys.stdout.write('.')
             sys.stdout.flush()
-        html_content = urllib.request.urlopen(url, timeout=10).read().decode('utf-8')
-        match = re.search('<title>(.*?)</title>', html_content)
-        return match.group(1) if match else default or None
+
+        html_content = urlopen(url, timeout=timeout).read().decode('utf-8')
+        match = re.search(HTML_TITLE_REGEX, html_content)
+        return match.group(1).strip() if match else None
     except Exception:
         return None
 
