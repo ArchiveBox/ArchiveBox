@@ -10,10 +10,7 @@ from datetime import datetime
 from subprocess import run
 
 from parse import parse_links
-from links import (
-    new_links,
-    validate_links
-)
+from links import validate_links
 from archive_methods import archive_links, _RESULTS_TOTALS
 from index import (
     write_links_index,
@@ -56,34 +53,34 @@ def print_help():
     print("    echo 'https://examplecom' | ./bin/archivebox\n")
 
 
-def merge_links(archive_path=OUTPUT_DIR, import_path=None, only_new=False):
+def load_links(archive_path=OUTPUT_DIR, import_path=None):
     """get new links from file and optionally append them to links in existing archive"""
-    all_links = []
-    if import_path:
-        # parse and validate the import file
-        raw_links, parser_name = parse_links(import_path)
-        all_links = validate_links(raw_links)
-
-    # merge existing links in archive_path and new links
+    
     existing_links = []
     if archive_path:
         existing_links = parse_json_links_index(archive_path)
-        all_links = validate_links(existing_links + all_links)
+        existing_links = validate_links(existing_links)
 
-    num_new_links = len(all_links) - len(existing_links)
-    if SHOW_PROGRESS:
-        print()
+    new_links = []
     if import_path:
+        # parse and validate the import file
+        raw_links, parser_name = parse_links(import_path)
+        new_links = validate_links(raw_links)
+        if SHOW_PROGRESS:
+            print()
+
+    # merge existing links in archive_path and new links
+    all_links = validate_links(existing_links + new_links)
+    num_new_links = len(all_links) - len(existing_links)
+
+    if import_path and parser_name:
         print('    > Adding {} new links to index from {} (parsed as {} format)'.format(
             num_new_links,
             pretty_path(import_path),
             parser_name,
         ))
 
-    if only_new:
-        return new_links(all_links, existing_links)
-
-    return all_links
+    return all_links, new_links
 
 def update_archive(archive_path, links, source=None, resume=None, append=True):
     """update or create index.html+json given a path to an export file containing new links"""
@@ -182,13 +179,16 @@ if __name__ == '__main__':
         source = save_source(stdin_raw_text)
 
     # Step 1: Parse the links and dedupe them with existing archive
-    links = merge_links(archive_path=out_dir, import_path=source, only_new=ONLY_NEW)
+    all_links, new_links = load_links(archive_path=out_dir, import_path=source)
 
     # Step 2: Write new index
-    write_links_index(out_dir=out_dir, links=links)
+    write_links_index(out_dir=out_dir, links=all_links)
 
     # Step 3: Verify folder structure is 1:1 with index
     # cleanup_archive(out_dir, links)
 
     # Step 4: Run the archive methods for each link
-    update_archive(out_dir, links, source=source, resume=resume, append=True)
+    if ONLY_NEW:
+        update_archive(out_dir, new_links, source=source, resume=resume, append=True)
+    else:
+        update_archive(out_dir, all_links, source=source, resume=resume, append=True)
