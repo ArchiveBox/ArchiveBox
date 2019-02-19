@@ -59,7 +59,6 @@ def load_links(archive_path=OUTPUT_DIR, import_path=None):
     existing_links = []
     if archive_path:
         existing_links = parse_json_links_index(archive_path)
-        existing_links = validate_links(existing_links)
 
     new_links = []
     if import_path:
@@ -177,6 +176,7 @@ if __name__ == '__main__':
         source = download_url(source)
     elif stdin_raw_text:
         source = save_source(stdin_raw_text)
+
 
     # Step 1: Parse the links and dedupe them with existing archive
     all_links, new_links = load_links(archive_path=out_dir, import_path=source)

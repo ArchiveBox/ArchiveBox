@@ -161,7 +161,7 @@ def parse_rss_export(rss_file):
         rows = leading_removed.split('\n')
 
         def get_row(key):
-            return [r for r in rows if r.startswith('<{}>'.format(key))][0]
+            return [r for r in rows if r.strip().startswith('<{}>'.format(key))][0]
 
         title = str_between(get_row('title'), '<![CDATA[', ']]').strip()
         url = str_between(get_row('link'), '<link>', '</link>')
@@ -208,7 +208,6 @@ def parse_shaarli_rss_export(rss_file):
         url = str_between(get_row('link'), '<link href="', '" />')
         ts_str = str_between(get_row('published'), '<published>', '</published>')
         time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
-
 
         info = {
             'url': url,
