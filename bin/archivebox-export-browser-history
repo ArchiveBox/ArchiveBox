@@ -6,10 +6,10 @@ mkdir -p "$REPO_DIR/output/sources"
 
 if [[ "$1" == "--chrome" ]]; then
     # Google Chrome / Chromium
-    default=$(ls ~/Library/Application\ Support/Google/Chrome/Default/History)
     if [[ -e "$2" ]]; then
         cp "$2" "$REPO_DIR/output/sources/chrome_history.db.tmp"
     else
+        default=$(ls ~/Library/Application\ Support/Google/Chrome/Default/History)
         echo "Defaulting to history db: $default"
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
         cp "$default" "$REPO_DIR/output/sources/chrome_history.db.tmp"
@@ -22,10 +22,10 @@ fi
 
 if [[ "$1" == "--firefox" ]]; then
     # Firefox
-    default=$(ls ~/Library/Application\ Support/Firefox/Profiles/*.default/places.sqlite)
     if [[ -e "$2" ]]; then
         cp "$2" "$REPO_DIR/output/sources/firefox_history.db.tmp"
     else
+        default=$(ls ~/Library/Application\ Support/Firefox/Profiles/*.default/places.sqlite)
         echo "Defaulting to history db: $default"
         echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
         cp "$default" "$REPO_DIR/output/sources/firefox_history.db.tmp"
