@@ -172,7 +172,7 @@ def parse_rss_export(rss_file):
             'url': url,
             'domain': domain(url),
             'base_url': base_url(url),
-            'timestamp': str(datetime.now().timestamp()),
+            'timestamp': str(time.timestamp()),
             'tags': '',
             'title': title or fetch_page_title(url),
             'sources': [rss_file.name],
