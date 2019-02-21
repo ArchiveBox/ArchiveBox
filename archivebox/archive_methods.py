@@ -25,6 +25,7 @@ from config import (
     RESOLUTION,
     CHECK_SSL_VALIDITY,
     SUBMIT_ARCHIVE_DOT_ORG,
+    COOKIES_FILE,
     WGET_USER_AGENT,
     CHROME_USER_DATA_DIR,
     CHROME_SANDBOX,
@@ -229,6 +230,7 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
         *(('--warc-file={}'.format(warc_path),) if warc else ()),
         *(('--page-requisites',) if FETCH_WGET_REQUISITES else ()),
         *(('--user-agent={}'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
+        *(('--load-cookies', COOKIES_FILE) if COOKIES_FILE else ()),
         *((() if CHECK_SSL_VALIDITY else ('--no-check-certificate', '--no-hsts'))),
         link['url'],
     ]
@@ -260,12 +262,19 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
             raise Exception('Got an error from the server')
     except Exception as e:
         end()
+
+        # to let the user copy-paste the command and run it safely we have
+        # to quote some of the arguments that could have spaces in them
+        quoted_cmd = ' '.join(CMD)
+        quoted_cmd = quoted_cmd.replace(WGET_USER_AGENT, '"{}"'.format(WGET_USER_AGENT))
+        if COOKIES_FILE:
+            quoted_cmd = quoted_cmd.replace(COOKIES_FILE, '"{}"'.format(COOKIES_FILE))
+
         print('        {}Some resources were skipped: {}{}'.format(ANSI['lightyellow'], e, ANSI['reset']))
         print('        Run to see full output:')
         print('            cd {};'.format(link_dir))
-        print('            {}'.format(' '.join(CMD).replace(WGET_USER_AGENT, '"{}"'.format(WGET_USER_AGENT))))
+        print('            {}'.format(quoted_cmd))
         output = e
-
     return {
         'cmd': CMD,
         'output': output,
