@@ -14,23 +14,30 @@ from subprocess import TimeoutExpired, Popen, PIPE, DEVNULL, CompletedProcess, C
 from multiprocessing import Process
 
 from config import (
-    IS_TTY,
-    OUTPUT_PERMISSIONS,
-    REPO_DIR,
-    SOURCES_DIR,
-    OUTPUT_DIR,
-    ARCHIVE_DIR,
-    TIMEOUT,
-    TERM_WIDTH,
-    SHOW_PROGRESS,
     ANSI,
+    IS_TTY,
+    TERM_WIDTH,
+    REPO_DIR,
+    OUTPUT_DIR,
+    SOURCES_DIR,
+    ARCHIVE_DIR,
+    OUTPUT_PERMISSIONS,
+    TIMEOUT,
+    SHOW_PROGRESS,
+    CHECK_SSL_VALIDITY,
+    CURL_BINARY,
+    WGET_BINARY,
     CHROME_BINARY,
+    GIT_BINARY,
+    YOUTUBEDL_BINARY,
+    FETCH_TITLE,
+    FETCH_FAVICON,
     FETCH_WGET,
+    FETCH_WARC,
     FETCH_PDF,
     FETCH_SCREENSHOT,
     FETCH_DOM,
-    FETCH_FAVICON,
-    FETCH_TITLE,
+    FETCH_GIT,
     FETCH_MEDIA,
     SUBMIT_ARCHIVE_DOT_ORG,
 )
@@ -64,6 +71,20 @@ def check_dependencies():
         print('    See https://github.com/pirate/ArchiveBox#troubleshooting for help upgrading your Python installation.')
         raise SystemExit(1)
 
+    if FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG:
+        if run(['which', CURL_BINARY], stdout=DEVNULL).returncode or run([CURL_BINARY, '--version'], stdout=DEVNULL).returncode:
+            print('{red}[X] Missing dependency: curl{reset}'.format(**ANSI))
+            print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(CURL_BINARY))
+            print('    See https://github.com/pirate/ArchiveBox for help.')
+            raise SystemExit(1)
+
+    if FETCH_WGET or FETCH_WARC:
+        if run(['which', WGET_BINARY], stdout=DEVNULL).returncode or run([WGET_BINARY, '--version'], stdout=DEVNULL).returncode:
+            print('{red}[X] Missing dependency: wget{reset}'.format(**ANSI))
+            print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(WGET_BINARY))
+            print('    See https://github.com/pirate/ArchiveBox for help.')
+            raise SystemExit(1)
+
     if FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM:
         if run(['which', CHROME_BINARY], stdout=DEVNULL).returncode:
             print('{}[X] Missing dependency: {}{}'.format(ANSI['red'], CHROME_BINARY, ANSI['reset']))
@@ -88,24 +109,17 @@ def check_dependencies():
             print('    See https://github.com/pirate/ArchiveBox for help.')
             raise SystemExit(1)
 
-    if FETCH_WGET:
-        if run(['which', 'wget'], stdout=DEVNULL).returncode or run(['wget', '--version'], stdout=DEVNULL).returncode:
-            print('{red}[X] Missing dependency: wget{reset}'.format(**ANSI))
-            print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format('wget'))
-            print('    See https://github.com/pirate/ArchiveBox for help.')
-            raise SystemExit(1)
-
-    if FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG:
-        if run(['which', 'curl'], stdout=DEVNULL).returncode or run(['curl', '--version'], stdout=DEVNULL).returncode:
-            print('{red}[X] Missing dependency: curl{reset}'.format(**ANSI))
-            print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format('curl'))
+    if FETCH_GIT:
+        if run(['which', GIT_BINARY], stdout=DEVNULL).returncode or run([GIT_BINARY, '--version'], stdout=DEVNULL).returncode:
+            print('{red}[X] Missing dependency: git{reset}'.format(**ANSI))
+            print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(GIT_BINARY))
             print('    See https://github.com/pirate/ArchiveBox for help.')
             raise SystemExit(1)
 
     if FETCH_MEDIA:
-        if run(['which', 'youtube-dl'], stdout=DEVNULL).returncode or run(['youtube-dl', '--version'], stdout=DEVNULL).returncode:
+        if run(['which', YOUTUBEDL_BINARY], stdout=DEVNULL).returncode or run([YOUTUBEDL_BINARY, '--version'], stdout=DEVNULL).returncode:
             print('{red}[X] Missing dependency: youtube-dl{reset}'.format(**ANSI))
-            print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format('youtube-dl'))
+            print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(YOUTUBEDL_BINARY))
             print('    See https://github.com/pirate/ArchiveBox for help.')
             raise SystemExit(1)
 
@@ -246,8 +260,17 @@ def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
             sys.stdout.write('.')
             sys.stdout.flush()
 
-        html_content = urlopen(url, timeout=timeout).read().decode('utf-8')
-        match = re.search(HTML_TITLE_REGEX, html_content)
+        if CHECK_SSL_VALIDITY:
+            html_content = urlopen(url, timeout=timeout)
+        else:
+            try:
+                import ssl
+                insecure = ssl._create_unverified_context()
+                html_content = urlopen(url, timeout=timeout, context=insecure)
+            except ImportError:
+                html_content = urlopen(url, timeout=timeout)
+
+        match = re.search(HTML_TITLE_REGEX, html_content.read().decode('utf-8'))
         return match.group(1).strip() if match else None
     except Exception:
         return None

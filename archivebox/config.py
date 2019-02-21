@@ -11,12 +11,13 @@ from subprocess import run, PIPE
 # ******************************************************************************
 
 IS_TTY = sys.stdout.isatty()
-ONLY_NEW =               os.getenv('ONLY_NEW',               'False'            ).lower() == 'true'
 USE_COLOR =              os.getenv('USE_COLOR',              str(IS_TTY)        ).lower() == 'true'
 SHOW_PROGRESS =          os.getenv('SHOW_PROGRESS',          str(IS_TTY)        ).lower() == 'true'
-OUTPUT_PERMISSIONS =     os.getenv('OUTPUT_PERMISSIONS',     '755'              )
+ONLY_NEW =               os.getenv('ONLY_NEW',               'False'            ).lower() == 'true'
 MEDIA_TIMEOUT =          int(os.getenv('MEDIA_TIMEOUT',      '3600'))
 TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
+OUTPUT_PERMISSIONS =     os.getenv('OUTPUT_PERMISSIONS',     '755'              )
+FOOTER_INFO =            os.getenv('FOOTER_INFO',            'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.',)
 
 FETCH_WGET =             os.getenv('FETCH_WGET',             'True'             ).lower() == 'true'
 FETCH_WGET_REQUISITES =  os.getenv('FETCH_WGET_REQUISITES',  'True'             ).lower() == 'true'
@@ -33,13 +34,15 @@ SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             
 CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
 RESOLUTION =             os.getenv('RESOLUTION',             '1440,2000'        )
 GIT_DOMAINS =            os.getenv('GIT_DOMAINS',            'github.com,bitbucket.org,gitlab.com').split(',')
-COOKIES_FILE =           os.getenv('COOKIES_FILE',           None)
 WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox/{GIT_SHA} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}')
+COOKIES_FILE =           os.getenv('COOKIES_FILE',           None)
 CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',   None)
 
-CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)  # change to google-chrome browser if using google-chrome
-WGET_BINARY =            os.getenv('WGET_BINARY',            'wget'             )
-FOOTER_INFO =            os.getenv('FOOTER_INFO',            'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.',)
+CURL_BINARY =            os.getenv('CURL_BINARY',            'curl')
+GIT_BINARY =             os.getenv('GIT_BINARY',             'git')
+WGET_BINARY =            os.getenv('WGET_BINARY',            'wget')
+YOUTUBEDL_BINARY =       os.getenv('YOUTUBEDL_BINARY',       'youtube-dl')
+CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)
 
 ### Paths
 REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
@@ -101,7 +104,7 @@ if not USE_COLOR:
 ### Confirm Environment Setup
 GIT_SHA = 'unknown'
 try:
-    GIT_SHA = run(["git", "rev-list", "-1", "HEAD", "./"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
+    GIT_SHA = run([GIT_BINARY, 'rev-list', '-1', 'HEAD', './'], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
 except Exception:
     print('[!] Warning: unable to determine git version, is git installed and in your $PATH?')
 
@@ -115,7 +118,7 @@ except Exception:
 
 WGET_VERSION = 'unknown'
 try:
-    wget_vers_str = run(["wget", "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
+    wget_vers_str = run([WGET_BINARY, "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
     WGET_VERSION = wget_vers_str.split('\n')[0].split(' ')[2]
 except Exception:
     if USE_WGET:

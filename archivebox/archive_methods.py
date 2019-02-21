@@ -11,6 +11,10 @@ from peekable import Peekable
 from index import wget_output_path, parse_json_link_index, write_link_index
 from links import links_after_timestamp
 from config import (
+    CURL_BINARY,
+    GIT_BINARY,
+    WGET_BINARY,
+    YOUTUBEDL_BINARY,
     CHROME_BINARY,
     FETCH_FAVICON,
     FETCH_TITLE,
@@ -37,6 +41,7 @@ from config import (
     GIT_SHA,
 )
 from util import (
+    without_hash,
     check_dependencies,
     fetch_page_title,
     progress,
@@ -214,7 +219,7 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
 
     # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
     CMD = [
-        'wget',
+        WGET_BINARY,
         # '--server-response',  # print headers for better error parsing
         '--no-verbose',
         '--adjust-extension',
@@ -417,7 +422,7 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
 
     success = False
     CMD = [
-        'curl',
+        CURL_BINARY,
         '--location',
         '--head',
         '--user-agent', 'ArchiveBox/{} (+https://github.com/pirate/ArchiveBox/)'.format(GIT_SHA),
@@ -481,8 +486,9 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
         return {'output': 'favicon.ico', 'status': 'skipped'}
 
     CMD = [
-        'curl',
+        CURL_BINARY,
         '--max-time', str(timeout),
+        *(() if CHECK_SSL_VALIDITY else ('--insecure',)),
         'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
     ]
     fout = open('{}/favicon.ico'.format(link_dir), 'w')
@@ -542,7 +548,7 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
 
     os.makedirs(output, exist_ok=True)
     CMD = [
-        'youtube-dl',
+        YOUTUBEDL_BINARY,
         '--write-description',
         '--write-info-json',
         '--write-annotations',
@@ -552,12 +558,15 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
         '--no-check-certificate',
         '--user-agent',
         '--all-subs',
-        '-x',
-        '-k',
+        '--extract-audio',
+        '--keep-video',
+        '--ignore-errors',
+        '--geo-bypass',
         '--audio-format', 'mp3',
         '--audio-quality', '320K',
         '--embed-thumbnail',
         '--add-metadata',
+        *(() if CHECK_SSL_VALIDITY else ('--no-check-certificate',)),
         link['url'],
     ]
 
@@ -605,7 +614,14 @@ def fetch_git(link_dir, link, timeout=TIMEOUT):
     if os.path.exists(os.path.join(link_dir, 'git')):
         return {'output': 'git', 'status': 'skipped'}
 
-    CMD = ['git', 'clone', '--mirror', '--recursive', link['url'].split('#')[0], 'git']
+    CMD = [
+        GIT_BINARY,
+        *(() if CHECK_SSL_VALIDITY else ('-c', 'http.sslVerify=false')),
+        'clone',
+        '--mirror',
+        '--recursive',
+        without_hash(link['url']),
+    ]
     output = 'git'
 
     end = progress(timeout, prefix='      ')
