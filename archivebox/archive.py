@@ -28,7 +28,7 @@ from config import (
 from util import (
     check_dependencies,
     download_url,
-    save_source,
+    save_stdin_source,
     pretty_path,
     migrate_data,
     check_links_structure,
@@ -204,8 +204,7 @@ if __name__ == '__main__':
     if source and any(source.startswith(s) for s in ('http://', 'https://', 'ftp://')):
         source = download_url(source)
     elif stdin_raw_text:
-        source = save_source(stdin_raw_text)
-
+        source = save_stdin_source(stdin_raw_text)
 
     # Step 1: Parse the links and dedupe them with existing archive
     all_links, new_links = load_links(archive_path=out_dir, import_path=source)
@@ -213,15 +212,12 @@ if __name__ == '__main__':
     # Step 2: Write new index
     write_links_index(out_dir=out_dir, links=all_links)
 
-    # Step 3: Verify folder structure is 1:1 with index
-    # cleanup_archive(out_dir, links)
-
-    # Step 4: Run the archive methods for each link
+    # Step 3: Run the archive methods for each link
     if ONLY_NEW:
         update_archive(out_dir, new_links, source=source, resume=resume, append=True)
     else:
         update_archive(out_dir, all_links, source=source, resume=resume, append=True)
 
-    # Step 5: Re-write links index with updated titles, icons, and resources
+    # Step 4: Re-write links index with updated titles, icons, and resources
     all_links, _ = load_links(archive_path=out_dir)
     write_links_index(out_dir=out_dir, links=all_links)

@@ -205,7 +205,7 @@ def pretty_path(path):
     return path.replace(REPO_DIR + '/', '')
 
 
-def save_source(raw_text):
+def save_stdin_source(raw_text):
     if not os.path.exists(SOURCES_DIR):
         os.makedirs(SOURCES_DIR)
 
@@ -233,7 +233,7 @@ def fetch_page_content(url, timeout=TIMEOUT):
     return resp.read().decode(encoding)
 
 
-def download_url(url, timeout=TIMEOUT):
+def save_remote_source(url, timeout=TIMEOUT):
     """download a given url's content into downloads/domain.txt"""
 
     if not os.path.exists(SOURCES_DIR):
@@ -265,7 +265,7 @@ def download_url(url, timeout=TIMEOUT):
 
     with open(source_path, 'w', encoding='utf-8') as f:
         f.write(downloaded_xml)
-        
+
     print('    > {}'.format(pretty_path(source_path)))
 
     return source_path
