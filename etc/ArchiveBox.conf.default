@@ -32,6 +32,9 @@
 ### To customize which domains we attempted to `git clone`, uncomment and change this line:
 # GIT_DOMAINS="github.com,bitbucket.org,gitlab.com"
 
+### To pass a netscape-format cookies.txt file to wget, uncomment and change this line:
+# COOKIES_FILE=/path/to/cookies.txt
+
 ### To lie and pretend to be Google Chrome when archiving, uncomment this line:
 # WGET_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
 
