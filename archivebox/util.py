@@ -243,10 +243,11 @@ def download_url(url, timeout=TIMEOUT):
 
     source_path = os.path.join(SOURCES_DIR, '{}-{}.txt'.format(domain(url), ts))
 
-    print('[*] [{}] Downloading {} > {}'.format(
+    print('{}[*] [{}] Downloading {}{}'.format(
+        ANSI['green'],
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         url,
-        pretty_path(source_path),
+        ANSI['reset'],
     ))
     end = progress(TIMEOUT, prefix='      ')
     try:
@@ -254,12 +255,18 @@ def download_url(url, timeout=TIMEOUT):
         end()
     except Exception as e:
         end()
-        print('[!] Failed to download {}\n'.format(url))
+        print('{}[!] Failed to download {}{}\n'.format(
+            ANSI['red'],
+            url,
+            ANSI['reset'],
+        ))
         print('    ', e)
         raise SystemExit(1)
 
     with open(source_path, 'w', encoding='utf-8') as f:
         f.write(downloaded_xml)
+        
+    print('    > {}'.format(pretty_path(source_path)))
 
     return source_path
 

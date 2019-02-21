@@ -72,9 +72,8 @@ def load_links(archive_path=OUTPUT_DIR, import_path=None):
     num_new_links = len(all_links) - len(existing_links)
 
     if import_path and parser_name:
-        print('    > Adding {} new links to index from {} (parsed as {} format)'.format(
+        print('    > Adding {} new links to index (parsed import as {})'.format(
             num_new_links,
-            pretty_path(import_path),
             parser_name,
         ))
 
