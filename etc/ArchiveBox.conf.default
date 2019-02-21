@@ -1,53 +1,65 @@
+# Example config file for ArchiveBox
+# Copy this file to ~/.ArchiveBox.conf and then edit it
 # Config file uses python syntax but can also be sourced as a .env
+# For documentation, see:
+#    https://github.com/pirate/ArchiveBox/wiki/Configuration
 
-### To disable specific archive methods, uncomment the line and change it to False
-# FETCH_WGET=True
-# FETCH_WGET_REQUISITES=True
-# FETCH_PDF=True
-# FETCH_SCREENSHOT=True
-# FETCH_DOM=True
-# FETCH_WARC=False
-# FETCH_MEDIA=False
-# FETCH_GIT=True
-# FETCH_FAVICON=True
-# FETCH_TITLE=True
-# SUBMIT_ARCHIVE_DOT_ORG=True
+################################################################################
+## General Settings
+################################################################################
 
-### To only download new links, and never attempt to update old ones, uncomment this line:
-# ONLY_NEW=True
+#OUTPUT_DIR=output
+#OUTPUT_PERMISSIONS=755
+#ONLY_NEW=False
+#TIMEOUT=60
+#MEDIA_TIMEOUT=3600
+#TEMPLATES_DIR=archivebox/templates
+#FOOTER_INFO="Run by ACME co."
 
-### To change your ouput folder permissions, uncomment and edit this line:
-# OUTPUT_PERMISSIONS=755
 
-### To change how much time is allowed before marking a link as failed, uncomment and edit these lines:
-# MEDIA_TIMEOUT=3600
-# TIMEOUT=60
+################################################################################
+## Archive Method Toggles
+################################################################################
 
-### To ignore SSL certificate errors, uncomment this line:
-# CHECK_SSL_VALIDITY=False
+#FETCH_TITLE=True
+#FETCH_FAVICON=True
+#FETCH_WGET=True
+#FETCH_WARC=True
+#FETCH_PDF=True
+#FETCH_SCREENSHOT=True
+#FETCH_DOM=True
+#FETCH_GIT=True
+#FETCH_MEDIA=False
+#SUBMIT_ARCHIVE_DOT_ORG=True
 
-### To customize the screenshot resolution, uncomment and change this line:
-# RESOLUTION="1440,2000"
 
-### To customize which domains we attempted to `git clone`, uncomment and change this line:
-# GIT_DOMAINS="github.com,bitbucket.org,gitlab.com"
+################################################################################
+## Archive Method Options
+################################################################################
 
-### To pass a netscape-format cookies.txt file to wget, uncomment and change this line:
-# COOKIES_FILE=/path/to/cookies.txt
+#CHECK_SSL_VALIDITY=True
+#FETCH_WGET_REQUISITES=True
+#RESOLUTION="1440,900"
+#WGET_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
+#GIT_DOMAINS="github.com,bitbucket.org,gitlab.com"
+#COOKIES_FILE="path/to/cookies.txt"
+#CHROME_USER_DATA_DIR="~/.config/google-chrome/Default"
 
-### To lie and pretend to be Google Chrome when archiving, uncomment this line:
-# WGET_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
 
-### To share a chrome data directory with your main browser, uncomment one of these lines:
-# CHROME_USER_DATA_DIR="~/Library/Application Support/Google/Chrome/Default"
-# CHROME_USER_DATA_DIR="~/.config/google-chrome/Default"
+################################################################################
+## Shell Options
+################################################################################
 
-### To use a custom chrome binary, uncomment and set to binary name or full path:
-# CHROME_BINARY="chromium-browser"
+#USE_COLOR=True
+#SHOW_PROGRESS=True
 
-### To use a custom wget binary, uncomment and set to binary name or full path:
-# WGET_BINARY="wget"
 
-### To customize Text displayed in html output footer, uncomment and edit this line:
-# FOOTER_INFO="Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests."
+################################################################################
+## Dependency Options
+################################################################################
 
+#CURL_BINARY="curl"
+#GIT_BINARY="git"
+#WGET_BINARY="wget"
+#YOUTUBEDL_BINARY="youtube-dl"
+#CHROME_BINARY="chromium-browser"
