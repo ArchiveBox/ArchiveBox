@@ -30,6 +30,7 @@ from config import (
     FETCH_SCREENSHOT,
     FETCH_DOM,
     FETCH_FAVICON,
+    FETCH_TITLE,
     FETCH_MEDIA,
     SUBMIT_ARCHIVE_DOT_ORG,
 )
@@ -237,6 +238,9 @@ def download_url(url):
 
 def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
     """Attempt to guess a page's title by downloading the html"""
+    if not FETCH_TITLE:
+        return None
+
     try:
         if progress:
             sys.stdout.write('.')
