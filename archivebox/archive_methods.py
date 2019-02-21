@@ -41,7 +41,7 @@ from config import (
     GIT_SHA,
 )
 from util import (
-    without_hash,
+    without_fragment,
     check_dependencies,
     fetch_page_title,
     progress,
@@ -620,7 +620,7 @@ def fetch_git(link_dir, link, timeout=TIMEOUT):
         'clone',
         '--mirror',
         '--recursive',
-        without_hash(link['url']),
+        without_fragment(link['url']),
     ]
     output = 'git'
 
