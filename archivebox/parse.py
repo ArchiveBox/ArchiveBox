@@ -20,7 +20,6 @@ Parsed link schema: {
 import re
 import sys
 import json
-import urllib
 from collections import OrderedDict
 import xml.etree.ElementTree as etree
 
@@ -32,7 +31,6 @@ from util import (
     base_url,
     str_between,
     get_link_type,
-    fetch_page_title,
     URL_REGEX,
 )
 
@@ -56,13 +54,11 @@ def parse_links(path):
     
     links = []
     with open(path, 'r', encoding='utf-8') as file:
-        print('{green}[*] [{}] Parsing new links from output/sources/{} and fetching titles...{reset}'.format(
+        print('{green}[*] [{}] Parsing new links from output/sources/{}...{reset}'.format(
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             path.rsplit('/', 1)[-1],
             **ANSI,
         ))
-        if SHOW_PROGRESS:
-            sys.stdout.write('    ')
 
         for parser_name, parser_func in get_parsers(file).items():
             # otherwise try all parsers until one works
@@ -98,7 +94,7 @@ def parse_pocket_html_export(html_file):
                 'base_url': base_url(fixed_url),
                 'timestamp': str(time.timestamp()),
                 'tags': match.group(3),
-                'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '') or fetch_page_title(fixed_url),
+                'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '') or None,
                 'sources': [html_file.name],
             }
             info['type'] = get_link_type(info)
@@ -135,7 +131,7 @@ def parse_pinboard_json_export(json_file):
                 'base_url': base_url(url),
                 'timestamp': timestamp,
                 'tags': erg.get('tags') or '',
-                'title': title or fetch_page_title(url),
+                'title': title or None,
                 'sources': [json_file.name],
             }
             info['type'] = get_link_type(info)
@@ -174,7 +170,7 @@ def parse_rss_export(rss_file):
             'base_url': base_url(url),
             'timestamp': str(time.timestamp()),
             'tags': '',
-            'title': title or fetch_page_title(url),
+            'title': title or None,
             'sources': [rss_file.name],
         }
         info['type'] = get_link_type(info)
@@ -215,7 +211,7 @@ def parse_shaarli_rss_export(rss_file):
             'base_url': base_url(url),
             'timestamp': str(time.timestamp()),
             'tags': '',
-            'title': title or fetch_page_title(url),
+            'title': title or None,
             'sources': [rss_file.name],
         }
         info['type'] = get_link_type(info)
@@ -242,7 +238,7 @@ def parse_netscape_html_export(html_file):
                 'base_url': base_url(url),
                 'timestamp': str(time.timestamp()),
                 'tags': "",
-                'title': match.group(3).strip() or fetch_page_title(url),
+                'title': match.group(3).strip() or None,
                 'sources': [html_file.name],
             }
             info['type'] = get_link_type(info)
@@ -275,7 +271,7 @@ def parse_pinboard_rss_export(rss_file):
             'base_url': base_url(url),
             'timestamp': str(time.timestamp()),
             'tags': tags,
-            'title': title or fetch_page_title(url),
+            'title': title or None,
             'sources': [rss_file.name],
         }
         info['type'] = get_link_type(info)
@@ -300,7 +296,7 @@ def parse_medium_rss_export(rss_file):
             'base_url': base_url(url),
             'timestamp': str(time.timestamp()),
             'tags': '',
-            'title': title or fetch_page_title(url),
+            'title': title or None,
             'sources': [rss_file.name],
         }
         info['type'] = get_link_type(info)
@@ -324,7 +320,7 @@ def parse_plain_text_export(text_file):
                     'base_url': base_url(url),
                     'timestamp': str(datetime.now().timestamp()),
                     'tags': '',
-                    'title': fetch_page_title(url),
+                    'title': None,
                     'sources': [text_file.name],
                 }
                 info['type'] = get_link_type(info)

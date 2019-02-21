@@ -3,8 +3,7 @@ import re
 import sys
 import time
 import json
-import signal
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 from urllib.parse import urlparse
 
 from decimal import Decimal
@@ -25,6 +24,7 @@ from config import (
     TIMEOUT,
     SHOW_PROGRESS,
     CHECK_SSL_VALIDITY,
+    WGET_USER_AGENT,
     CURL_BINARY,
     WGET_BINARY,
     CHROME_BINARY,
@@ -219,7 +219,21 @@ def save_source(raw_text):
     return source_path
 
 
-def download_url(url):
+def fetch_page_content(url, timeout=TIMEOUT):
+    req = Request(url, headers={'User-Agent': WGET_USER_AGENT})
+
+    if CHECK_SSL_VALIDITY:
+        resp = urlopen(req, timeout=timeout)
+    else:
+        import ssl
+        insecure = ssl._create_unverified_context()
+        resp = urlopen(req, timeout=timeout, context=insecure)
+
+    encoding = resp.headers.get_content_charset() or 'utf-8'
+    return resp.read().decode(encoding)
+
+
+def download_url(url, timeout=TIMEOUT):
     """download a given url's content into downloads/domain.txt"""
 
     if not os.path.exists(SOURCES_DIR):
@@ -236,7 +250,7 @@ def download_url(url):
     ))
     end = progress(TIMEOUT, prefix='      ')
     try:
-        downloaded_xml = urlopen(url).read().decode('utf-8')
+        downloaded_xml = fetch_page_content(url, timeout=timeout)
         end()
     except Exception as e:
         end()
@@ -260,19 +274,15 @@ def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
             sys.stdout.write('.')
             sys.stdout.flush()
 
-        if CHECK_SSL_VALIDITY:
-            html_content = urlopen(url, timeout=timeout)
-        else:
-            try:
-                import ssl
-                insecure = ssl._create_unverified_context()
-                html_content = urlopen(url, timeout=timeout, context=insecure)
-            except ImportError:
-                html_content = urlopen(url, timeout=timeout)
+        html = fetch_page_content(url, timeout=timeout)
 
-        match = re.search(HTML_TITLE_REGEX, html_content.read().decode('utf-8'))
+        match = re.search(HTML_TITLE_REGEX, html)
         return match.group(1).strip() if match else None
-    except Exception:
+    except Exception as err:
+        # print('[!] Failed to fetch title because of {}: {}'.format(
+        #     err.__class__.__name__,
+        #     err,
+        # ))
         return None
 
 
@@ -603,3 +613,15 @@ def run(*popenargs, input=None, capture_output=False, timeout=None, check=False,
             raise CalledProcessError(retcode, process.args,
                                      output=stdout, stderr=stderr)
     return CompletedProcess(process.args, retcode, stdout, stderr)
+
+
+def check_link_structure(link):
+    assert isinstance(link, dict)
+    assert isinstance(link.get('url'), str)
+    assert len(link['url']) > 2
+
+
+def check_links_structure(links):
+    assert isinstance(links, list)
+    if links:
+        check_link_structure(links[0])

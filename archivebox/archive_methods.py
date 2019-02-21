@@ -1,16 +1,17 @@
 import os
-import re
-import sys
 
 from functools import wraps
 from collections import defaultdict
 from datetime import datetime
 
-from peekable import Peekable
-
-from index import wget_output_path, parse_json_link_index, write_link_index
-from links import links_after_timestamp
+from index import (
+    wget_output_path,
+    parse_json_link_index,
+    write_link_index,
+    patch_index_title_hack,
+)
 from config import (
+    OUTPUT_DIR,
     CURL_BINARY,
     GIT_BINARY,
     WGET_BINARY,
@@ -42,12 +43,12 @@ from config import (
 )
 from util import (
     without_fragment,
-    check_dependencies,
     fetch_page_title,
     progress,
     chmod_file,
     pretty_path,
-    run, PIPE, DEVNULL
+    check_link_structure,
+    run, PIPE, DEVNULL,
 )
 
 
@@ -57,37 +58,11 @@ _RESULTS_TOTALS = {   # globals are bad, mmkay
     'failed': 0,
 }
 
-def archive_links(archive_path, links, source=None, resume=None):
-    check_dependencies()
-
-    to_archive = Peekable(links_after_timestamp(links, resume))
-    idx, link = 0, to_archive.peek(0)
-
-    try:
-        for idx, link in enumerate(to_archive):
-            link_dir = os.path.join(ARCHIVE_DIR, link['timestamp'])
-            archive_link(link_dir, link)
-    
-    except (KeyboardInterrupt, SystemExit, Exception) as e:
-        print('{lightyellow}[X] [{now}] Downloading paused on link {timestamp} ({idx}/{total}){reset}'.format(
-            **ANSI,
-            now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            idx=idx+1,
-            timestamp=link['timestamp'],
-            total=len(links),
-        ))
-        print('    Continue where you left off by running:')
-        print('        {} {}'.format(
-            pretty_path(sys.argv[0]),
-            link['timestamp'],
-        ))
-        if not isinstance(e, KeyboardInterrupt):
-            raise e
-        raise SystemExit(1)
-
 
 def archive_link(link_dir, link, overwrite=True):
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
+
+    check_link_structure(link)
 
     try:
         update_existing = os.path.exists(link_dir)
@@ -99,7 +74,7 @@ def archive_link(link_dir, link, overwrite=True):
         else:
             os.makedirs(link_dir)
         
-        log_link_archive(link_dir, link, update_existing)
+        print_link_status_line(link_dir, link, update_existing)
 
         if FETCH_FAVICON:
             link = fetch_favicon(link_dir, link, overwrite=overwrite)
@@ -135,7 +110,7 @@ def archive_link(link_dir, link, overwrite=True):
     
     return link
 
-def log_link_archive(link_dir, link, update_existing):
+def print_link_status_line(link_dir, link, update_existing):
     print('[{symbol_color}{symbol}{reset}] [{now}] "{title}"\n    {blue}{url}{reset}'.format(
         symbol='*' if update_existing else '+',
         symbol_color=ANSI['black' if update_existing else 'green'],
@@ -518,7 +493,7 @@ def fetch_title(link_dir, link, timeout=TIMEOUT):
 
     # if link already has valid title, skip it
     if link['title'] and not link['title'].lower().startswith('http'):
-        return {'output': link['title'], 'cmd': 'fetch_page_title("{}")'.format(link['url'])}
+        return {'output': link['title'], 'status': 'skipped'}
 
     end = progress(timeout, prefix='      ')
     try:
@@ -529,6 +504,13 @@ def fetch_title(link_dir, link, timeout=TIMEOUT):
         end()
         print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
         output = e
+
+    # titles should show up in the global index immediatley for better UX,
+    # do a hacky immediate replacement to add them in as we're archiving
+    # TODO: figure out how to do this without gnarly string replacement
+    if title:
+        link['title'] = title
+        patch_index_title_hack(link['url'], title)
 
     return {
         'cmd': 'fetch_page_title("{}")'.format(link['url']),

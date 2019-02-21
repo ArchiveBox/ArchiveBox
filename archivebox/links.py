@@ -32,34 +32,33 @@ Link {
 
 """
 
-import datetime
 from html import unescape
 from collections import OrderedDict
 
 from util import (
-    domain,
-    base_url,
-    str_between,
-    get_link_type,
     merge_links,
     wget_output_path,
+    check_link_structure,
+    check_links_structure,
 )
-from config import ANSI
 
 
 def validate_links(links):
+    check_links_structure(links)
     links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
     links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
     links = sorted_links(links)      # deterministically sort the links based on timstamp, url
-    
+
     if not links:
         print('[X] No links found :(')
         raise SystemExit(1)
 
     for link in links:
+        check_link_structure(link)
+
         link['title'] = unescape(link['title']) if link['title'] else None
         link['latest'] = link.get('latest') or {}
-        
+
         latest = link['latest']
         if not link['latest'].get('wget'):
             link['latest']['wget'] = wget_output_path(link)
@@ -81,13 +80,15 @@ def validate_links(links):
 
     return list(links)
 
+
 def archivable_links(links):
     """remove chrome://, about:// or other schemed links that cant be archived"""
     return (
         link
         for link in links
-        if any(link['url'].startswith(s) for s in ('http://', 'https://', 'ftp://'))
+        if any(link['url'].lower().startswith(s) for s in ('http://', 'https://', 'ftp://'))
     )
+
 
 def uniquefied_links(sorted_links):
     """
@@ -114,9 +115,11 @@ def uniquefied_links(sorted_links):
 
     return unique_timestamps.values()
 
+
 def sorted_links(links):
     sort_func = lambda link: (link['timestamp'].split('.', 1)[0], link['url'])
     return sorted(links, key=sort_func, reverse=True)
+
 
 def links_after_timestamp(links, timestamp=None):
     if not timestamp:
@@ -129,6 +132,7 @@ def links_after_timestamp(links, timestamp=None):
                 yield link
         except (ValueError, TypeError):
             print('Resume value and all timestamp values must be valid numbers.')
+
 
 def lowest_uniq_timestamp(used_timestamps, timestamp):
     """resolve duplicate timestamps by appending a decimal 1234, 1234 -> 1234.1, 1234.2"""

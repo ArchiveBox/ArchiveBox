@@ -7,40 +7,38 @@ import os
 import sys
 
 from datetime import datetime
-from subprocess import run
+from peekable import Peekable
+
 
 from parse import parse_links
-from links import validate_links
-from archive_methods import archive_links, _RESULTS_TOTALS
+from links import validate_links, links_after_timestamp
+from archive_methods import archive_link, _RESULTS_TOTALS
 from index import (
     write_links_index,
-    write_link_index,
     parse_json_links_index,
-    parse_json_link_index,
 )
 from config import (
+    ARCHIVE_DIR,
     ONLY_NEW,
-    OUTPUT_PERMISSIONS,
     OUTPUT_DIR,
     REPO_DIR,
     ANSI,
-    TIMEOUT,
-    SHOW_PROGRESS,
     GIT_SHA,
 )
 from util import (
+    check_dependencies,
     download_url,
     save_source,
-    progress,
-    cleanup_archive,
     pretty_path,
     migrate_data,
+    check_links_structure,
 )
 
 __AUTHOR__ = 'Nick Sweeting <git@nicksweeting.com>'
 __VERSION__ = GIT_SHA
 __DESCRIPTION__ = 'ArchiveBox Usage:  Create a browsable html archive of a list of links.'
 __DOCUMENTATION__ = 'https://github.com/pirate/ArchiveBox/wiki'
+
 
 def print_help():
     print(__DESCRIPTION__)
@@ -55,21 +53,22 @@ def print_help():
 
 def load_links(archive_path=OUTPUT_DIR, import_path=None):
     """get new links from file and optionally append them to links in existing archive"""
-    
+
     existing_links = []
     if archive_path:
         existing_links = parse_json_links_index(archive_path)
+        check_links_structure(existing_links)
 
     new_links = []
     if import_path:
         # parse and validate the import file
         raw_links, parser_name = parse_links(import_path)
         new_links = validate_links(raw_links)
-        if SHOW_PROGRESS:
-            print()
+        check_links_structure(new_links)
 
     # merge existing links in archive_path and new links
     all_links = validate_links(existing_links + new_links)
+    check_links_structure(all_links)
     num_new_links = len(all_links) - len(existing_links)
 
     if import_path and parser_name:
@@ -80,6 +79,7 @@ def load_links(archive_path=OUTPUT_DIR, import_path=None):
         ))
 
     return all_links, new_links
+
 
 def update_archive(archive_path, links, source=None, resume=None, append=True):
     """update or create index.html+json given a path to an export file containing new links"""
@@ -99,8 +99,38 @@ def update_archive(archive_path, links, source=None, resume=None, append=True):
              **ANSI,
         ))
 
+    check_links_structure(links)
+
+    # prefetch the first link off the generator so that if we pause or fail
+    # immediately we can show that we paused on the first link and not just None
+    to_archive = Peekable(links_after_timestamp(links, resume))
+    idx, link = 0, to_archive.peek(0)
+
     # loop over links and archive them
-    archive_links(archive_path, links, source=source, resume=resume)
+    try:
+        check_dependencies()
+        for idx, link in enumerate(to_archive):
+            link_dir = os.path.join(ARCHIVE_DIR, link['timestamp'])
+            archive_link(link_dir, link)
+
+    except (KeyboardInterrupt, SystemExit, Exception) as e:
+        print('\n{lightyellow}[X] [{now}] Downloading paused on link {timestamp} ({idx}/{total}){reset}'.format(
+            **ANSI,
+            now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            idx=idx+1,
+            timestamp=link['timestamp'],
+            total=len(links),
+        ))
+        print('    To view your archive, open: {}/index.html'.format(OUTPUT_DIR.replace(REPO_DIR + '/', '')))
+        print('    Continue where you left off by running:')
+        print('        {} {}'.format(
+            pretty_path(sys.argv[0]),
+            link['timestamp'],
+        ))
+        if not isinstance(e, KeyboardInterrupt):
+            print()
+            raise e
+        raise SystemExit(1)
 
     # print timing information & summary
     end_ts = datetime.now().timestamp()
@@ -135,7 +165,7 @@ if __name__ == '__main__':
     source = sys.argv[1] if argc > 1 else None  # path of links file to import
     resume = sys.argv[2] if argc > 2 else None  # timestamp to resume dowloading from
    
-    stdin_raw_text = []
+    stdin_raw_text = ''
 
     if not sys.stdin.isatty():
         stdin_raw_text = sys.stdin.read()
@@ -192,3 +222,7 @@ if __name__ == '__main__':
         update_archive(out_dir, new_links, source=source, resume=resume, append=True)
     else:
         update_archive(out_dir, all_links, source=source, resume=resume, append=True)
+
+    # Step 5: Re-write links index with updated titles, icons, and resources
+    all_links, _ = load_links(archive_path=out_dir)
+    write_links_index(out_dir=out_dir, links=all_links)

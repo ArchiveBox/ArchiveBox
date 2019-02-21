@@ -6,6 +6,7 @@ from string import Template
 from distutils.dir_util import copy_tree
 
 from config import (
+    OUTPUT_DIR,
     TEMPLATES_DIR,
     OUTPUT_PERMISSIONS,
     ANSI,
@@ -17,6 +18,8 @@ from util import (
     wget_output_path,
     derived_link_info,
     pretty_path,
+    check_link_structure,
+    check_links_structure,
 )
 
 
@@ -24,6 +27,8 @@ from util import (
 
 def write_links_index(out_dir, links):
     """create index.html file for a given list of links"""
+
+    check_links_structure(links)
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -41,6 +46,8 @@ def write_links_index(out_dir, links):
 
 def write_json_links_index(out_dir, links):
     """write the json link index to a given path"""
+
+    check_links_structure(links)
 
     path = os.path.join(out_dir, 'index.json')
 
@@ -63,12 +70,16 @@ def parse_json_links_index(out_dir):
     index_path = os.path.join(out_dir, 'index.json')
     if os.path.exists(index_path):
         with open(index_path, 'r', encoding='utf-8') as f:
-            return json.load(f)['links']
+            links = json.load(f)['links']
+            check_links_structure(links)
+            return links
 
     return []
 
 def write_html_links_index(out_dir, links):
     """write the html link index to a given path"""
+
+    check_links_structure(links)
 
     path = os.path.join(out_dir, 'index.html')
 
@@ -104,6 +115,25 @@ def write_html_links_index(out_dir, links):
     chmod_file(path)
 
 
+def patch_index_title_hack(link_url, new_title):
+    """hack to update just one link's title in the link index json"""
+
+    json_path = os.path.join(OUTPUT_DIR, 'index.json')
+
+    links = parse_json_links_index(OUTPUT_DIR)
+
+    changed = False
+    for link in links:
+        if link['url'] == link_url:
+            link['title'] = new_title
+            changed = True
+            break
+
+    if changed:
+        write_json_links_index(OUTPUT_DIR, links)
+
+
+
 ### Individual link index
 
 def write_link_index(out_dir, link):
@@ -114,6 +144,7 @@ def write_link_index(out_dir, link):
 def write_json_link_index(out_dir, link):
     """write a json file with some info about the link"""
     
+    check_link_structure(link)
     path = os.path.join(out_dir, 'index.json')
 
     print('      √ index.json')
@@ -128,10 +159,13 @@ def parse_json_link_index(out_dir):
     existing_index = os.path.join(out_dir, 'index.json')
     if os.path.exists(existing_index):
         with open(existing_index, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            link_json = json.load(f)
+            check_link_structure(link_json)
+            return link_json
     return {}
 
 def write_html_link_index(out_dir, link):
+    check_link_structure(link)
     with open(os.path.join(TEMPLATES_DIR, 'link_index_fancy.html'), 'r', encoding='utf-8') as f:
         link_html = f.read()
 
