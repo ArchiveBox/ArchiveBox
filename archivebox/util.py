@@ -559,18 +559,30 @@ def wget_output_path(link, look_in=None):
 def derived_link_info(link):
     """extend link info with the archive urls and other derived data"""
 
+    url = link['url']
+
     link_info = {
         **link,
+        'title': link['title'] or url,
         'date': datetime.fromtimestamp(Decimal(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),
-        'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
+        'base_url': base_url(url),
+        'domain': domain(url),
+        'basename': basename(url),
+        'path': path(url),
+
+        # Archive Method Output URLs
         'favicon_url': 'archive/{timestamp}/favicon.ico'.format(**link),
+        'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
         'files_url': 'archive/{timestamp}/index.html'.format(**link),
         'archive_url': 'archive/{}/{}'.format(link['timestamp'], wget_output_path(link) or 'index.html'),
+        'warc_url': 'archive/{timestamp}/warc'.format(**link),
         'pdf_link': 'archive/{timestamp}/output.pdf'.format(**link),
         'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**link),
         'dom_link': 'archive/{timestamp}/output.html'.format(**link),
         'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**link),
-        'title': link['title'] or link['url'],
+        'git_url': 'archive/{timestamp}/git'.format(**link),
+        'media_url': 'archive/{timestamp}/media'.format(**link),
+        
     }
 
     # PDF and images are handled slightly differently
@@ -583,6 +595,7 @@ def derived_link_info(link):
             'dom_link': 'archive/{timestamp}/{base_url}'.format(**link),
             'title': link['title'] or basename(link['url']),
         })
+
     return link_info
 
 

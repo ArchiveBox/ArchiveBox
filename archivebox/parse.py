@@ -8,27 +8,22 @@ For examples of supported files see examples/.
 
 Parsed link schema: {
     'url': 'https://example.com/example/?abc=123&xyc=345#lmnop',
-    'domain': 'example.com',
-    'base_url': 'example.com/example/',
     'timestamp': '15442123124234',
-    'tags': 'abc,def',
     'title': 'Example.com Page Title',
+    'tags': 'abc,def',
     'sources': ['ril_export.html', 'downloads/getpocket.com.txt'],
 }
 """
 
 import re
-import sys
 import json
+
+from datetime import datetime
 from collections import OrderedDict
 import xml.etree.ElementTree as etree
 
-from datetime import datetime
-
-from config import ANSI, SHOW_PROGRESS
+from config import ANSI
 from util import (
-    domain,
-    base_url,
     str_between,
     get_link_type,
     URL_REGEX,
@@ -90,8 +85,6 @@ def parse_pocket_html_export(html_file):
             time = datetime.fromtimestamp(float(match.group(2)))
             info = {
                 'url': fixed_url,
-                'domain': domain(fixed_url),
-                'base_url': base_url(fixed_url),
                 'timestamp': str(time.timestamp()),
                 'tags': match.group(3),
                 'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '') or None,
@@ -127,8 +120,6 @@ def parse_pinboard_json_export(json_file):
                 title = erg['title'].strip()
             info = {
                 'url': url,
-                'domain': domain(url),
-                'base_url': base_url(url),
                 'timestamp': timestamp,
                 'tags': erg.get('tags') or '',
                 'title': title or None,
@@ -136,6 +127,7 @@ def parse_pinboard_json_export(json_file):
             }
             info['type'] = get_link_type(info)
             yield info
+
 
 def parse_rss_export(rss_file):
     """Parse RSS XML-format files into links"""
@@ -166,8 +158,6 @@ def parse_rss_export(rss_file):
 
         info = {
             'url': url,
-            'domain': domain(url),
-            'base_url': base_url(url),
             'timestamp': str(time.timestamp()),
             'tags': '',
             'title': title or None,
@@ -176,6 +166,7 @@ def parse_rss_export(rss_file):
         info['type'] = get_link_type(info)
 
         yield info
+
 
 def parse_shaarli_rss_export(rss_file):
     """Parse Shaarli-specific RSS XML-format files into links"""
@@ -207,8 +198,6 @@ def parse_shaarli_rss_export(rss_file):
 
         info = {
             'url': url,
-            'domain': domain(url),
-            'base_url': base_url(url),
             'timestamp': str(time.timestamp()),
             'tags': '',
             'title': title or None,
@@ -217,6 +206,7 @@ def parse_shaarli_rss_export(rss_file):
         info['type'] = get_link_type(info)
 
         yield info
+
 
 def parse_netscape_html_export(html_file):
     """Parse netscape-format bookmarks export files (produced by all browsers)"""
@@ -234,8 +224,6 @@ def parse_netscape_html_export(html_file):
 
             info = {
                 'url': url,
-                'domain': domain(url),
-                'base_url': base_url(url),
                 'timestamp': str(time.timestamp()),
                 'tags': "",
                 'title': match.group(3).strip() or None,
@@ -267,8 +255,6 @@ def parse_pinboard_rss_export(rss_file):
         time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
         info = {
             'url': url,
-            'domain': domain(url),
-            'base_url': base_url(url),
             'timestamp': str(time.timestamp()),
             'tags': tags,
             'title': title or None,
@@ -292,8 +278,6 @@ def parse_medium_rss_export(rss_file):
         time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %Z")
         info = {
             'url': url,
-            'domain': domain(url),
-            'base_url': base_url(url),
             'timestamp': str(time.timestamp()),
             'tags': '',
             'title': title or None,
@@ -316,8 +300,6 @@ def parse_plain_text_export(text_file):
                 url = url.strip()
                 info = {
                     'url': url,
-                    'domain': domain(url),
-                    'base_url': base_url(url),
                     'timestamp': str(datetime.now().timestamp()),
                     'tags': '',
                     'title': None,
