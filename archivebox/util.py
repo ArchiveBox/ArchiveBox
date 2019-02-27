@@ -340,19 +340,19 @@ def str_between(string, start, end=None):
 def get_link_type(link):
     """Certain types of links need to be handled specially, this figures out when that's the case"""
 
-    if link['base_url'].endswith('.pdf'):
+    if extension(link['url']) == 'pdf':
         return 'PDF'
-    elif link['base_url'].rsplit('.', 1) in ('pdf', 'png', 'jpg', 'jpeg', 'svg', 'bmp', 'gif', 'tiff', 'webp'):
+    elif extension(link['url']) in ('pdf', 'png', 'jpg', 'jpeg', 'svg', 'bmp', 'gif', 'tiff', 'webp'):
         return 'image'
-    elif 'wikipedia.org' in link['domain']:
+    elif 'wikipedia.org' in domain(link['url']).lower():
         return 'wiki'
-    elif 'youtube.com' in link['domain']:
+    elif 'youtube.com' in domain(link['url']).lower():
         return 'youtube'
-    elif 'soundcloud.com' in link['domain']:
+    elif 'soundcloud.com' in domain(link['url']).lower():
         return 'soundcloud'
-    elif 'youku.com' in link['domain']:
+    elif 'youku.com' in domain(link['url']).lower():
         return 'youku'
-    elif 'vimeo.com' in link['domain']:
+    elif 'vimeo.com' in domain(link['url']).lower():
         return 'vimeo'
     return None
 
@@ -383,15 +383,15 @@ def find_link(folder, links):
     url = parse_url(folder)
     if url:
         for link in links:
-            if (link['base_url'] in url) or (url in link['url']):
+            if (base_url(link['url']) in url) or (url in link['url']):
                 return link
 
     timestamp = folder.split('.')[0]
     for link in links:
         if link['timestamp'].startswith(timestamp):
-            if link['domain'] in os.listdir(os.path.join(ARCHIVE_DIR, folder)):
+            if domain(link['url']) in os.listdir(os.path.join(ARCHIVE_DIR, folder)):
                 return link      # careful now, this isn't safe for most ppl
-            if link['domain'] in parse_url(folder):
+            if domain(link['url']) in parse_url(folder):
                 return link
     return None
 
@@ -405,7 +405,7 @@ def parse_url(folder):
                 link_json = f.read().strip()
                 if link_json:
                     link = json.loads(link_json)
-                    return link['base_url']
+                    return base_url(link['url'])
             except ValueError:
                 print('File contains invalid JSON: {}!'.format(link_json))
 
@@ -461,8 +461,8 @@ def fix_folder_path(archive_path, link_folder, link):
     target = os.path.join(archive_path, link['timestamp'])
 
     url_in_folder = parse_url(source)
-    if not (url_in_folder in link['base_url']
-            or link['base_url'] in url_in_folder):
+    if not (url_in_folder in base_url(link['url'])
+            or base_url(link['url']) in url_in_folder):
         raise ValueError('The link does not match the url for this folder.')
 
     if not os.path.exists(target):
@@ -550,12 +550,12 @@ def wget_output_path(link, look_in=None):
     urlencode = lambda s: quote(s, encoding='utf-8', errors='replace')
 
     if link['type'] in ('PDF', 'image'):
-        return urlencode(link['base_url'])
+        return urlencode(base_url(link['url']))
 
     # Since the wget algorithm to for -E (appending .html) is incredibly complex
     # instead of trying to emulate it here, we just look in the output folder
     # to see what html file wget actually created as the output
-    wget_folder = link['base_url'].rsplit('/', 1)[0].split('/')
+    wget_folder = base_url(link['url']).rsplit('/', 1)[0].split('/')
     look_in = os.path.join(ARCHIVE_DIR, link['timestamp'], *wget_folder)
 
     if look_in and os.path.exists(look_in):
@@ -575,7 +575,7 @@ def wget_output_path(link, look_in=None):
 
     # if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", split_url[0], re.I | re.M):
     #     # already ends in .html
-    #     return urlencode(link['base_url'])
+    #     return urlencode(base_url(link['url']))
     # else:
     #     # .html needs to be appended
     #     without_scheme = split_url[0].split('://', 1)[-1].split('?', 1)[0]
@@ -588,7 +588,7 @@ def wget_output_path(link, look_in=None):
     #             return urlencode('#'.join([without_scheme + '/index.html' + query + '.html', *split_url[1:]]))
     #         elif '/' in without_scheme:
     #             return urlencode('#'.join([without_scheme + '.html', *split_url[1:]]))
-    #         return urlencode(link['base_url'] + '/index.html')
+    #         return urlencode(base_url(link['url']) + '/index.html')
 
 
 def derived_link_info(link):
@@ -596,42 +596,45 @@ def derived_link_info(link):
 
     url = link['url']
 
-    link_info = {
+    extended_info = {
         **link,
-        'title': link['title'] or url,
+        'title': link['title'] or base_url(url),
         'date': datetime.fromtimestamp(Decimal(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),
         'base_url': base_url(url),
         'domain': domain(url),
         'basename': basename(url),
         'path': path(url),
+    }
 
-        # Archive Method Output URLs
-        'favicon_url': 'archive/{timestamp}/favicon.ico'.format(**link),
-        'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
-        'files_url': 'archive/{timestamp}/index.html'.format(**link),
+    # Archive Method Output URLs
+    extended_info = {
+        **extended_info,
+        'favicon_url': 'archive/{timestamp}/favicon.ico'.format(**extended_info),
+        'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**extended_info),
+        'files_url': 'archive/{timestamp}/index.html'.format(**extended_info),
         'archive_url': 'archive/{}/{}'.format(link['timestamp'], wget_output_path(link) or 'index.html'),
-        'warc_url': 'archive/{timestamp}/warc'.format(**link),
-        'pdf_link': 'archive/{timestamp}/output.pdf'.format(**link),
-        'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**link),
-        'dom_link': 'archive/{timestamp}/output.html'.format(**link),
-        'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**link),
-        'git_url': 'archive/{timestamp}/git'.format(**link),
-        'media_url': 'archive/{timestamp}/media'.format(**link),
+        'warc_url': 'archive/{timestamp}/warc'.format(**extended_info),
+        'pdf_link': 'archive/{timestamp}/output.pdf'.format(**extended_info),
+        'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**extended_info),
+        'dom_link': 'archive/{timestamp}/output.html'.format(**extended_info),
+        'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**extended_info),
+        'git_url': 'archive/{timestamp}/git'.format(**extended_info),
+        'media_url': 'archive/{timestamp}/media'.format(**extended_info),
         
     }
 
     # PDF and images are handled slightly differently
     # wget, screenshot, & pdf urls all point to the same file
     if link['type'] in ('PDF', 'image'):
-        link_info.update({
-            'archive_url': 'archive/{timestamp}/{base_url}'.format(**link),
-            'pdf_link': 'archive/{timestamp}/{base_url}'.format(**link),
-            'screenshot_link': 'archive/{timestamp}/{base_url}'.format(**link),
-            'dom_link': 'archive/{timestamp}/{base_url}'.format(**link),
+        extended_info.update({
+            'archive_url': 'archive/{timestamp}/{base_url}'.format(**extended_info),
+            'pdf_link': 'archive/{timestamp}/{base_url}'.format(**extended_info),
+            'screenshot_link': 'archive/{timestamp}/{base_url}'.format(**extended_info),
+            'dom_link': 'archive/{timestamp}/{base_url}'.format(**extended_info),
             'title': link['title'] or basename(link['url']),
         })
 
-    return link_info
+    return extended_info
 
 
 def run(*popenargs, input=None, capture_output=False, timeout=None, check=False, **kwargs):
