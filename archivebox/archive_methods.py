@@ -43,6 +43,7 @@ from config import (
 )
 from util import (
     domain,
+    without_query,
     without_fragment,
     fetch_page_title,
     progress,
@@ -589,30 +590,38 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
 def fetch_git(link_dir, link, timeout=TIMEOUT):
     """download full site using git"""
 
-    if not (domain(link['url']) in GIT_DOMAINS
-            or link['url'].endswith('.git')
-            or link['type'] == 'git'):
-        return
+    url_is_clonable = (
+        domain(link['url']) in GIT_DOMAINS
+        or link['url'].endswith('.git')
+        or link['type'] == 'git'
+    )
+    
+    if not url_is_clonable:
+        return {'output': None, 'status': 'skipped'}
 
-    if os.path.exists(os.path.join(link_dir, 'git')):
+    git_dir = os.path.join(link_dir, 'git')
+    if os.path.exists(git_dir):
         return {'output': 'git', 'status': 'skipped'}
 
+    os.makedirs(git_dir, exist_ok=True)
+    output = 'git'
     CMD = [
         GIT_BINARY,
-        *(() if CHECK_SSL_VALIDITY else ('-c', 'http.sslVerify=false')),
         'clone',
         '--mirror',
         '--recursive',
-        without_fragment(link['url']),
+        *(() if CHECK_SSL_VALIDITY else ('-c', 'http.sslVerify=false')),
+        without_query(without_fragment(link['url'])),
     ]
-    output = 'git'
-
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout + 1)  # git/<reponame>
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=git_dir, timeout=timeout + 1)  # git/<reponame>
         end()
 
-        if result.returncode > 0:
+        if result.returncode == 128:
+            # ignore failed re-download when the folder already exists
+            pass
+        elif result.returncode > 0:
             print('        got git response code {}:'.format(result.returncode))
             raise Exception('Failed git download')
     except Exception as e:
