@@ -42,6 +42,7 @@ from config import (
     GIT_SHA,
 )
 from util import (
+    domain,
     without_fragment,
     fetch_page_title,
     progress,
@@ -182,7 +183,7 @@ def attach_result_to_link(method):
 def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC, timeout=TIMEOUT):
     """download full site using wget"""
 
-    domain_dir = os.path.join(link_dir, link['domain'])
+    domain_dir = os.path.join(link_dir, domain(link['url']))
     existing_file = wget_output_path(link)
     if os.path.exists(domain_dir) and existing_file:
         return {'output': existing_file, 'status': 'skipped'}
@@ -430,7 +431,7 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
             success = True
         elif len(errors) == 1 and 'RobotAccessControlException' in errors[0]:
             output = submit_url
-            # raise Exception('Archive.org denied by {}/robots.txt'.format(link['domain']))
+            # raise Exception('Archive.org denied by {}/robots.txt'.format(domain(link['url'])))
         elif errors:
             raise Exception(', '.join(errors))
         else:
@@ -464,7 +465,7 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
         CURL_BINARY,
         '--max-time', str(timeout),
         *(() if CHECK_SSL_VALIDITY else ('--insecure',)),
-        'https://www.google.com/s2/favicons?domain={domain}'.format(**link),
+        'https://www.google.com/s2/favicons?domain={}'.format(domain(link['url'])),
     ]
     fout = open('{}/favicon.ico'.format(link_dir), 'w')
     end = progress(timeout, prefix='      ')
@@ -588,7 +589,7 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
 def fetch_git(link_dir, link, timeout=TIMEOUT):
     """download full site using git"""
 
-    if not (link['domain'] in GIT_DOMAINS
+    if not (domain(link['url']) in GIT_DOMAINS
             or link['url'].endswith('.git')
             or link['type'] == 'git'):
         return
