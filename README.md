@@ -83,9 +83,9 @@ Using multiple methods and the market-dominant browser to execute JS ensures we 
  - `git/` clone of any repository for github, bitbucket, or gitlab links
  - `index.html` & `index.json` HTML and JSON index files containing metadata and details
 
-By default it does everything, but can disable or tweak individual options via environment variables or config file.
+By default it does everything, but can disable or tweak [individual options](https://github.com/pirate/ArchiveBox/wiki/Configuration) via environment variables or config file.
 
-The archiving is additive, so you can schedule `./archive` to run regularly and pull new links into the index.
+The archiving is additive, so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.
 All the saved content is static and indexed with JSON files, so it lives forever & is easily parseable, it requires no always-running backend.
 
 ### Related Projects
