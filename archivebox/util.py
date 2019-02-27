@@ -677,6 +677,7 @@ def check_link_structure(link):
     assert isinstance(link, dict)
     assert isinstance(link.get('url'), str)
     assert len(link['url']) > 2
+    assert len(re.findall(URL_REGEX, link['url'])) == 1
 
 
 def check_links_structure(links):
