@@ -58,8 +58,19 @@ base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 
 short_ts = lambda ts: ts.split('.')[0]
 
-URL_REGEX = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))[^<\""]+'
-HTML_TITLE_REGEX = '<title>(.[^<>]+)'
+URL_REGEX = re.compile(
+    r'http[s]?://'                    # start matching from allowed schemes
+    r'(?:[a-zA-Z]|[0-9]'              # followed by allowed alphanum characters
+    r'|[$-_@.&+]|[!*\(\),]'           #    or allowed symbols
+    r'|(?:%[0-9a-fA-F][0-9a-fA-F]))'  #    or allowed unicode bytes
+    r'[^\]\[\(\)<>\""\'\s]+',         # stop parsing at these symbols
+    re.IGNORECASE,
+)
+HTML_TITLE_REGEX = re.compile(
+    r'<title>'                         # start matching text after <title> tag
+    r'(.[^<>]+)',                      # get everything up to these symbols
+    re.IGNORECASE,
+)
 
 
 def check_dependencies():
@@ -122,6 +133,30 @@ def check_dependencies():
             print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(YOUTUBEDL_BINARY))
             print('    See https://github.com/pirate/ArchiveBox for help.')
             raise SystemExit(1)
+
+
+def check_url_parsing():
+    """Check that plain text regex URL parsing works as expected"""
+    test_urls = '''
+    https://example1.com/what/is/happening.html?what=1#how-about-this=1
+    https://example2.com/what/is/happening/?what=1#how-about-this=1
+    HTtpS://example3.com/what/is/happening/?what=1#how-about-this=1f
+    https://example4.com/what/is/happening.html
+    https://example5.com/
+    https://example6.com
+
+    <test>http://example7.com</test>
+    [https://example8.com/what/is/this.php?what=1]
+    [and http://example9.com?what=1&other=3#and-thing=2]
+    <what>https://example10.com#and-thing=2 "</about>
+    abc<this["https://example11.com/what/is#and-thing=2?whoami=23&where=1"]that>def
+    sdflkf[what](https://example12.com/who/what.php?whoami=1#whatami=2)?am=hi
+    example13.bada
+    and example14.badb
+    <or>htt://example15.badc</that>
+    '''
+    # print('\n'.join(re.findall(URL_REGEX, test_urls)))
+    assert len(re.findall(URL_REGEX, test_urls)) == 12
 
 
 def chmod_file(path, cwd='.', permissions=OUTPUT_PERMISSIONS, timeout=30):

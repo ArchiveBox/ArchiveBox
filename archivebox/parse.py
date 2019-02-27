@@ -27,12 +27,15 @@ from util import (
     str_between,
     get_link_type,
     URL_REGEX,
+    check_url_parsing,
 )
 
 
 def parse_links(path):
     """parse a list of links dictionaries from a bookmark export file"""
     
+    check_url_parsing()
+
     links = []
     with open(path, 'r', encoding='utf-8') as file:
         print('{green}[*] [{}] Parsing new links from output/sources/{}...{reset}'.format(
@@ -191,7 +194,6 @@ def parse_shaarli_rss_export(rss_file):
         info['type'] = get_link_type(info)
 
         yield info
-
 
 def parse_netscape_html_export(html_file):
     """Parse netscape-format bookmarks export files (produced by all browsers)"""
