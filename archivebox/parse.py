@@ -30,20 +30,6 @@ from util import (
 )
 
 
-def get_parsers(file):
-    """return all parsers that work on a given file, defaults to all of them"""
-
-    return OrderedDict([
-        ('Pocket HTML', parse_pocket_html_export),
-        ('Pinboard JSON', parse_pinboard_json_export),
-        ('Netscape HTML', parse_netscape_html_export),
-        ('RSS', parse_rss_export),
-        ('Pinboard RSS', parse_pinboard_rss_export),
-        ('Shaarli RSS', parse_shaarli_rss_export),
-        ('Medium RSS', parse_medium_rss_export),
-        ('Plain Text', parse_plain_text_export),
-    ])
-
 def parse_links(path):
     """parse a list of links dictionaries from a bookmark export file"""
     
@@ -55,15 +41,14 @@ def parse_links(path):
             **ANSI,
         ))
 
-        for parser_name, parser_func in get_parsers(file).items():
-            # otherwise try all parsers until one works
+        for parser_name, parser_func in PARSERS.items():
             try:
                 links += list(parser_func(file))
                 if links:
                     break
             except Exception as err:
-                # we try each parser one by one, each parser will throw exeption an exception if unsupported
-                # so we accept the first one that
+                # we try each parser one by one, wong parsers will throw exeptions
+                # if unsupported and we accept the first one that passes
                 # uncomment the following line to see why the parser was unsupported for each attempted format
                 # print('[!] Parser {} failed: {} {}'.format(parser_name, err.__class__.__name__, err))
                 pass
@@ -308,3 +293,14 @@ def parse_plain_text_export(text_file):
                 info['type'] = get_link_type(info)
                 yield info
 
+
+PARSERS = OrderedDict([
+    ('Pocket HTML', parse_pocket_html_export),
+    ('Pinboard JSON', parse_pinboard_json_export),
+    ('Netscape HTML', parse_netscape_html_export),
+    ('RSS', parse_rss_export),
+    ('Pinboard RSS', parse_pinboard_rss_export),
+    ('Shaarli RSS', parse_shaarli_rss_export),
+    ('Medium RSS', parse_medium_rss_export),
+    ('Plain Text', parse_plain_text_export),
+])
