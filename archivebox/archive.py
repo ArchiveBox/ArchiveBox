@@ -27,7 +27,7 @@ from config import (
 )
 from util import (
     check_dependencies,
-    download_url,
+    save_remote_source,
     save_stdin_source,
     pretty_path,
     migrate_data,
@@ -202,7 +202,7 @@ if __name__ == '__main__':
 
     # Step 0: Download url to local file (only happens if a URL is specified instead of local path) 
     if source and any(source.startswith(s) for s in ('http://', 'https://', 'ftp://')):
-        source = download_url(source)
+        source = save_remote_source(source)
     elif stdin_raw_text:
         source = save_stdin_source(stdin_raw_text)
 
