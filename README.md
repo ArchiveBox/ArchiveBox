@@ -109,27 +109,30 @@ We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for d
 
 You can also access the docs locally by looking in the [`ArchiveBox/docs/`](https://github.com/pirate/ArchiveBox/wiki/Home) folder.
 
-## Getting Started
+# Getting Started
 
+ - [Home](https://github.com/pirate/ArchiveBox/wiki/Home)
  - [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart)
  - [Install](https://github.com/pirate/ArchiveBox/wiki/Install)
  - [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker)
 
-## Reference
+# Documentation
 
  - [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage)
  - [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration)
- - [Scheduled Archiving](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving)
+ - [Supported Sources](https://github.com/pirate/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
+ - [Supported Outputs](https://github.com/pirate/ArchiveBox/wiki#can-save-these-things-for-each-site)
+ - [Scheduled Archiving](#Scheduledhttps://github.com/pirate/ArchiveBox/wiki/Archiving)
  - [Publishing Your Archive](https://github.com/pirate/ArchiveBox/wiki/Publishing-Your-Archive)
- - [Chromium Install](https://github.com/pirate/ArchiveBox/wiki/Chromium-Install)
+ - [Chromium Install](#https://github.com/pirate/ArchiveBox/wiki/Install-Chromium)
  - [Troubleshooting](https://github.com/pirate/ArchiveBox/wiki/Troubleshooting)
 
-## More Info
+# More Info
 
  - [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)
  - [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
  - [Donations](https://github.com/pirate/ArchiveBox/wiki/Donations)
- - [Web Archiving Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
+ - [Web Archiving Community](#https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
 
 
 # Background & Motivation
