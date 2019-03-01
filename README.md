@@ -122,9 +122,9 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
  - [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration)
  - [Supported Sources](https://github.com/pirate/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
  - [Supported Outputs](https://github.com/pirate/ArchiveBox/wiki#can-save-these-things-for-each-site)
- - [Scheduled Archiving](#Scheduledhttps://github.com/pirate/ArchiveBox/wiki/Archiving)
+ - [Scheduled Archiving](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving)
  - [Publishing Your Archive](https://github.com/pirate/ArchiveBox/wiki/Publishing-Your-Archive)
- - [Chromium Install](#https://github.com/pirate/ArchiveBox/wiki/Install-Chromium)
+ - [Chromium Install](https://github.com/pirate/ArchiveBox/wiki/Install-Chromium)
  - [Troubleshooting](https://github.com/pirate/ArchiveBox/wiki/Troubleshooting)
 
 # More Info
@@ -132,7 +132,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
  - [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)
  - [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
  - [Donations](https://github.com/pirate/ArchiveBox/wiki/Donations)
- - [Web Archiving Community](#https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
+ - [Web Archiving Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
 
 
 # Background & Motivation
