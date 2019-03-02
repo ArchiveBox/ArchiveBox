@@ -69,4 +69,4 @@ USER pptruser
 WORKDIR /home/pptruser/app
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["/bin/archive"]
+CMD ["/bin/archivebox"]
