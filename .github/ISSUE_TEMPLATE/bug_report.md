@@ -23,6 +23,8 @@ If applicable, use screenshots or copy/pasted terminal output to help explain yo
 
 **Software versions (please complete the following information):**
  - ArchiveBox version: <commit_id>
- - Python version: python3 --version [e.g. 3.7.0]
  - OS: [e.g. macOS 10.14]
- - Chrome version: chromium-browser --version [e.g. v73.1.2.3]
+ - Docker version: docker --version [e.g. 18.09.2] (if using Docker)
+ - Python version: python3 --version [e.g. 3.7.0]
+ - Chrome version: chromium-browser --version [e.g. 73.1.2.3] (if relevant to bug)
+ - Wget version: wget --version [e.g. 1.20.1] (if relevant to bug)
