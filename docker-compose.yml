@@ -21,7 +21,7 @@ services:
             - SHOW_PROGRESS=False
         volumes:
             - ./data:/data
-        command: bash -c 'echo "https://github.com/pirate/ArchiveBox" | /bin/archivebox; tail -f /dev/null'
+        command: bash -c 'echo "https://github.com/pirate/ArchiveBox" | /bin/archive; tail -f /dev/null'
 
     nginx:
         image: 'nginx'
