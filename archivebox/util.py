@@ -596,14 +596,19 @@ def derived_link_info(link):
 
     url = link['url']
 
+    to_date_str = lambda ts: datetime.fromtimestamp(Decimal(ts)).strftime('%Y-%m-%d %H:%M')
+
     extended_info = {
         **link,
         'title': link['title'] or base_url(url),
-        'date': datetime.fromtimestamp(Decimal(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),
+        'date': to_date_str(link['timestamp']),
+        'updated_date': to_date_str(link['updated']) if 'updated' in link else None,
         'base_url': base_url(url),
         'domain': domain(url),
         'basename': basename(url),
         'path': path(url),
+        'type': link['type'] or 'website',
+        'tags': link['tags'] or 'untagged',
     }
 
     # Archive Method Output URLs
@@ -614,9 +619,9 @@ def derived_link_info(link):
         'files_url': 'archive/{timestamp}/index.html'.format(**extended_info),
         'archive_url': 'archive/{}/{}'.format(link['timestamp'], wget_output_path(link) or 'index.html'),
         'warc_url': 'archive/{timestamp}/warc'.format(**extended_info),
-        'pdf_link': 'archive/{timestamp}/output.pdf'.format(**extended_info),
-        'screenshot_link': 'archive/{timestamp}/screenshot.png'.format(**extended_info),
-        'dom_link': 'archive/{timestamp}/output.html'.format(**extended_info),
+        'pdf_url': 'archive/{timestamp}/output.pdf'.format(**extended_info),
+        'screenshot_url': 'archive/{timestamp}/screenshot.png'.format(**extended_info),
+        'dom_url': 'archive/{timestamp}/output.html'.format(**extended_info),
         'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**extended_info),
         'git_url': 'archive/{timestamp}/git'.format(**extended_info),
         'media_url': 'archive/{timestamp}/media'.format(**extended_info),
@@ -627,11 +632,11 @@ def derived_link_info(link):
     # wget, screenshot, & pdf urls all point to the same file
     if link['type'] in ('PDF', 'image'):
         extended_info.update({
+            'title': basename(link['url']),
             'archive_url': 'archive/{timestamp}/{base_url}'.format(**extended_info),
-            'pdf_link': 'archive/{timestamp}/{base_url}'.format(**extended_info),
-            'screenshot_link': 'archive/{timestamp}/{base_url}'.format(**extended_info),
-            'dom_link': 'archive/{timestamp}/{base_url}'.format(**extended_info),
-            'title': link['title'] or basename(link['url']),
+            'pdf_url': 'archive/{timestamp}/{base_url}'.format(**extended_info),
+            'screenshot_url': 'archive/{timestamp}/{base_url}'.format(**extended_info),
+            'dom_url': 'archive/{timestamp}/{base_url}'.format(**extended_info),
         })
 
     return extended_info

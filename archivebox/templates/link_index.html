@@ -2,7 +2,6 @@
     <head>
         <meta charset="utf-8">
         <title>$title</title>
-        
     </head>
     <body>
         <header>
@@ -19,9 +18,9 @@
             Type: $type<br/>
             <br/>
             Bookmarked:<br/>
-                $bookmarked<br/>
+                <span title="$timestamp">$bookmarked</span><br/>
             Archived:<br/>
-                $updated<br/>
+                <span title="$updated">$updated_date</span><br/>
         </div>
         <hr/>
         <ul>
@@ -30,23 +29,23 @@
                 $base_url<br/>&nbsp;
             </li>
             <li>
-                <a href="$wget"><b>Local Archive</b></a><br/>
+                <a href="$archive_url"><b>Local Archive</b></a><br/>
                 archive/$timestamp/$domain<br/>&nbsp;
             </li>
             <li>
-                <a href="$pdf" id="pdf-btn"><b>PDF</b></a><br/>
+                <a href="$pdf_url" id="pdf-btn"><b>PDF</b></a><br/>
                 archive/$timestamp/output.pdf<br/>&nbsp;
             </li>
             <li>
-                <a href="$screenshot"><b>Screenshot</b></a><br/>
+                <a href="$screenshot_url"><b>Screenshot</b></a><br/>
                 archive/$timestamp/screenshot.png<br/>&nbsp;
             </li>
             <li>
-                <a href="$dom"><b>HTML</b></a><br/>
+                <a href="$dom_url"><b>HTML</b></a><br/>
                 archive/$timestamp/output.html<br/>&nbsp;
             </li>
             <li>
-                <a href="$archive_org"><b>Archive.Org</b></a><br/>
+                <a href="$archive_org_url"><b>Archive.Org</b></a><br/>
                 web.archive.org/web/$base_url<br/>&nbsp;
             </li>
         </ul>

@@ -172,9 +172,9 @@
         <div class="site-header container-fluid">
             <div class="row archive-page-header">
                 <div class="col-lg-4 alert well">
-                    Bookmarked: <small title="Timestamp: $bookmarked_ts">$bookmarked</small>
+                    Bookmarked: <small title="Timestamp: $timestamp">$date</small>
                     &nbsp; | &nbsp;
-                    Last updated: <small title="Timestamp: $updated_ts">$updated</small>
+                    Last updated: <small title="Timestamp: $updated">$updated_date</small>
                 </div>
                 <div class="col-lg-4 alert well">
                     Type: 
@@ -193,48 +193,48 @@
                 <hr/>
                 <div class="col-lg-2">
                     <div class="card selected-card">
-                      <iframe class="card-img-top" src="$wget" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+                      <iframe class="card-img-top" src="$archive_url" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
                       <div class="card-body">
-                        <a href="$wget" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                        <a href="$archive_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
                             <img src="../../static/external.png" class="external"/>
                         </a>
-                        <a href="$wget" target="preview"><h4 class="card-title">Local Archive</h4></a>
+                        <a href="$archive_url" target="preview"><h4 class="card-title">Local Archive</h4></a>
                         <p class="card-text">archive/$domain</p>
                       </div>
                     </div>
                 </div>
                 <div class="col-lg-2">
                     <div class="card">
-                      <iframe class="card-img-top" src="$dom" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+                      <iframe class="card-img-top" src="$dom_url" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
                       <div class="card-body">
-                        <a href="$dom" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                        <a href="$dom_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
                             <img src="../../static/external.png" class="external"/>
                         </a>
-                        <a href="$dom" target="preview"><h4 class="card-title">HTML</h4></a>
+                        <a href="$dom_url" target="preview"><h4 class="card-title">HTML</h4></a>
                         <p class="card-text">archive/output.html</p>
                       </div>
                     </div>
                 </div>
                 <div class="col-lg-2">
                     <div class="card">
-                      <iframe class="card-img-top" src="$pdf"></iframe>
+                      <iframe class="card-img-top" src="$pdf_url"></iframe>
                       <div class="card-body">
-                        <a href="$pdf" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                        <a href="$pdf_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
                             <img src="../../static/external.png" class="external"/>
                         </a>
-                        <a href="$pdf" target="preview" id="pdf-btn"><h4 class="card-title">PDF</h4></a>
+                        <a href="$pdf_url" target="preview" id="pdf-btn"><h4 class="card-title">PDF</h4></a>
                         <p class="card-text">archive/output.pdf</p>
                       </div>
                     </div>
                 </div>
                 <div class="col-lg-2">
                     <div class="card">
-                      <iframe class="card-img-top" src="$screenshot" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+                      <iframe class="card-img-top" src="$screenshot_url" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
                       <div class="card-body">
-                        <a href="$screenshot" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                        <a href="$screenshot_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
                             <img src="../../static/external.png" class="external"/>
                         </a>
-                        <a href="$screenshot" target="preview"><h4 class="card-title">Screenshot</h4></a>
+                        <a href="$screenshot_url" target="preview"><h4 class="card-title">Screenshot</h4></a>
                         <p class="card-text">archive/screenshot.png</p>
                       </div>
                     </div>
@@ -253,19 +253,19 @@
                 </div>
                 <div class="col-lg-2">
                     <div class="card">
-                      <iframe class="card-img-top" src="$archive_org" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+                      <iframe class="card-img-top" src="$archive_org_url" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
                       <div class="card-body">
-                        <a href="$archive_org" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                        <a href="$archive_org_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
                             <img src="../../static/external.png" class="external"/>
                         </a>
-                        <a href="$archive_org" target="preview"><h4 class="card-title">Archive.Org</h4></a>
+                        <a href="$archive_org_url" target="preview"><h4 class="card-title">Archive.Org</h4></a>
                         <p class="card-text">web.archive.org/web/...</p>
                       </div>
                     </div>
                 </div>
             </div>
         </div>
-        <iframe sandbox="allow-same-origin allow-scripts allow-forms" class="full-page-iframe" src="$wget" name="preview"></iframe>
+        <iframe sandbox="allow-same-origin allow-scripts allow-forms" class="full-page-iframe" src="$archive_url" name="preview"></iframe>
     
         <script
               src="https://code.jquery.com/jquery-3.2.1.slim.min.js"

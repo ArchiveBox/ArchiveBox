@@ -175,17 +175,8 @@ def write_html_link_index(out_dir, link):
 
     with open(path, 'w', encoding='utf-8') as f:
         f.write(Template(link_html).substitute({
-            **link,
+            **derived_link_info(link),
             **link['latest'],
-            'title': link['title'] or link['url'],
-            'type': link['type'] or 'website',
-            'tags': link['tags'] or 'untagged',
-            'bookmarked': datetime.fromtimestamp(float(link['timestamp'])).strftime('%Y-%m-%d %H:%M'),
-            'updated': datetime.fromtimestamp(float(link['updated'])).strftime('%Y-%m-%d %H:%M'),
-            'bookmarked_ts': link['timestamp'],
-            'updated_ts': link['updated'],
-            'archive_org': link['latest'].get('archive_org') or 'https://web.archive.org/save/{}'.format(link['url']),
-            'wget': link['latest'].get('wget') or wget_output_path(link),
         }))
 
     chmod_file(path)
