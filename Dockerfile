@@ -45,7 +45,7 @@ RUN git clone https://github.com/pirate/ArchiveBox /home/pptruser/app \
     && chown -R pptruser:pptruser /data \
     && ln -s /data /home/pptruser/app/archivebox/output \
     && ln -s /home/pptruser/app/bin/* /bin/ \
-    && ln -s /home/pptruser/app/bin/archive /bin/archivebox \
+    && ln -s /home/pptruser/app/bin/archivebox /bin/archive \
     && chown -R pptruser:pptruser /home/pptruser/app/archivebox
     # && pip3 install -r /home/pptruser/app/archivebox/requirements.txt
 
