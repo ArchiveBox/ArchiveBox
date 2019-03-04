@@ -45,7 +45,7 @@ RUN git clone https://github.com/pirate/ArchiveBox /home/pptruser/app \
     && chown -R pptruser:pptruser /data \
     && ln -s /data /home/pptruser/app/archivebox/output \
     && ln -s /home/pptruser/app/bin/* /bin/ \
-    && ln -s /home/pptruser/app/bin/archivebox /bin/archive \
+    && ln -s /home/pptruser/app/bin/archive /bin/archivebox \
     && chown -R pptruser:pptruser /home/pptruser/app/archivebox
     # && pip3 install -r /home/pptruser/app/archivebox/requirements.txt
 
@@ -63,5 +63,5 @@ ENV LANG=C.UTF-8 \
 USER pptruser
 WORKDIR /home/pptruser/app
 
-ENTRYPOINT ["/home/pptruser/app/archivebox/api_server.py"]
-#CMD ["/home/pptruser/app/archivebox/api_server.py"]
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["/bin/archive"]
