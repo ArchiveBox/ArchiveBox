@@ -13,7 +13,7 @@ LABEL maintainer="Nick Sweeting <archivebox-git@sweeting.me>"
 
 RUN apt-get update \
     && apt-get install -yq --no-install-recommends \
-        git wget curl youtube-dl gnupg2 libgconf-2-4 python3 python3-pip \
+        git wget curl youtube-dl gnupg2 libgconf-2-4 python3 python3-pip python3-flask \
     && rm -rf /var/lib/apt/lists/*
 
 # Install latest chrome package and fonts to support major charsets (Chinese, Japanese, Arabic, Hebrew, Thai and a few others)
@@ -40,8 +40,8 @@ RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
     && chown -R pptruser:pptruser /node_modules
 
 # Install the ArchiveBox repository and pip requirements
-RUN git clone https://github.com/pirate/ArchiveBox /home/pptruser/app \
-    && mkdir -p /data \
+COPY . /home/pptruser/app
+RUN mkdir -p /data \
     && chown -R pptruser:pptruser /data \
     && ln -s /data /home/pptruser/app/archivebox/output \
     && ln -s /home/pptruser/app/bin/* /bin/ \
@@ -63,5 +63,5 @@ ENV LANG=C.UTF-8 \
 USER pptruser
 WORKDIR /home/pptruser/app
 
-ENTRYPOINT ["/home/pptruser/app/archivebox/api_server.py"]
+ENTRYPOINT ["python3", "-u", "/home/pptruser/app/archivebox/api_server.py"]
 #CMD ["/home/pptruser/app/archivebox/api_server.py"]

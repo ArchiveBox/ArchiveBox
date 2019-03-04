@@ -1,5 +1,9 @@
+# ArchiveBox
+# MatthewJohn 2019 | MIT License
+# https://github.com/matthewjohn/ArchiveBox
 
-from flask import Flask
+
+from flask import Flask, request
 
 from archive_queue import ArchiveQueue, ArchiveAgent
 
@@ -11,18 +15,21 @@ class ApiServer(object):
         """Create server object"""
         self.app = Flask('ArchiveBox')
 
-        @self.app.route('/add-link/<string:url>')
-        def add_link(url):
+        @self.app.route('/add-link')
+        def add_link():
             """Add link to queue"""
-            ArchiveQueue.add_link_to_queue(url)
-            return url
+            url = request.args.get('url')
+            if url:
+                ArchiveQueue.add_link_to_queue(url)
+            return url or 'No link provided'
 
     def start(self):
         """Start app"""
-        self.app.run()
+        self.app.run(host='0.0.0.0')
 
 
 if __name__ == '__main__':
+
     # Create archive agent object and start
     # daemon
     ARCHIVE_AGENT = ArchiveAgent.get_instance()

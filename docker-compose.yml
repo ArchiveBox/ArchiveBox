@@ -11,6 +11,19 @@
 version: '3'
 
 services:
+
+    # Uncomment the below to enable an API to add URLs
+    #api:
+    #    build: .
+    #    dockerfile: Dockerfile.api
+    #    ports:
+    #        - '8099:5000'
+    #    environment:
+    #        - USE_COLOR=False
+    #        - SHOW_PROGRESS=False
+    #    volumes:
+    #        - ./data:/data
+
     archivebox:
         build: .
         stdin_open: true
