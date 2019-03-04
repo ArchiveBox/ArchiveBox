@@ -14,8 +14,9 @@ services:
 
     # Uncomment the below to enable an API to add URLs
     #api:
-    #    build: .
-    #    dockerfile: Dockerfile.api
+    #    build:
+    #        context: .
+    #        dockerfile: Dockerfile.api
     #    ports:
     #        - '8099:5000'
     #    environment:

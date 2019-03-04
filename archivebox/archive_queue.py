@@ -83,26 +83,32 @@ class ArchiveAgent(Thread):
                 sleep(5)
                 continue
 
-            print('Processing %s' % link)
+            try:
+                print('Processing %s' % link)
 
-            source = save_stdin_source(link)
+                source = save_stdin_source(link)
 
-            # Step 1: Parse the links and dedupe them with existing archive
-            all_links, new_links = load_links(archive_path=out_dir,
-                                              import_path=source)
+                # Step 1: Parse the links and dedupe them with existing archive
+                all_links, new_links = load_links(archive_path=out_dir,
+                                                  import_path=source)
 
-            # Step 2: Write new index
-            write_links_index(out_dir=out_dir, links=all_links)
+                # Step 2: Write new index
+                write_links_index(out_dir=out_dir, links=all_links)
 
-            # Step 3: Run the archive methods for each link
-            if ONLY_NEW:
-                update_archive(out_dir, new_links, source=source,
-                               resume=resume, append=True)
-            else:
-                update_archive(out_dir, all_links, source=source,
-                               resume=resume, append=True)
+                # Step 3: Run the archive methods for each link
+                if ONLY_NEW:
+                    update_archive(out_dir, new_links, source=source,
+                                   resume=resume, append=True)
+                else:
+                    update_archive(out_dir, all_links, source=source,
+                                   resume=resume, append=True)
 
-            # Step 4: Re-write links index with
-            # updated titles, icons, and resources
-            all_links, _ = load_links(archive_path=out_dir)
-            write_links_index(out_dir=out_dir, links=all_links)
+                # Step 4: Re-write links index with
+                # updated titles, icons, and resources
+                all_links, _ = load_links(archive_path=out_dir)
+                write_links_index(out_dir=out_dir, links=all_links)
+
+                print('Processing complete: %s' % link)
+
+            except Exception as exc:
+                print('Exception thrown whilst processing: %s' % str(exc))
