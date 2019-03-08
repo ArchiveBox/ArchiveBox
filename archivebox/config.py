@@ -73,6 +73,9 @@ if not CHROME_BINARY:
         'google-chrome-beta',
         'google-chrome-canary',
         'google-chrome-dev',
+        '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
     )
     for name in common_chrome_executable_names:
         full_path_exists = shutil.which(name)
