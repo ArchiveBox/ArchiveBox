@@ -164,7 +164,7 @@ def parse_json_link_index(out_dir):
 
 def write_html_link_index(out_dir, link):
     check_link_structure(link)
-    with open(os.path.join(TEMPLATES_DIR, 'link_index_fancy.html'), 'r', encoding='utf-8') as f:
+    with open(os.path.join(TEMPLATES_DIR, 'link_index.html'), 'r', encoding='utf-8') as f:
         link_html = f.read()
 
     path = os.path.join(out_dir, 'index.html')

@@ -36,6 +36,7 @@ from config import (
     FETCH_GIT,
     FETCH_MEDIA,
     SUBMIT_ARCHIVE_DOT_ORG,
+    ARCHIVE_DIR_NAME,
 )
 
 ### Parsing Helpers
@@ -271,7 +272,7 @@ def wget_output_path(link, look_in=None):
             if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
         ]
         if html_files:
-            return urlencode(os.path.join('archive', link['timestamp'], *wget_folder, html_files[0]))
+            return urlencode(os.path.join(*wget_folder, html_files[0]))
 
     return None
 
@@ -389,6 +390,7 @@ def derived_link_info(link):
 
     extended_info = {
         **link,
+        'link_dir': '{}/{}'.format(ARCHIVE_DIR_NAME, link['timestamp']),
         'bookmarked_date': to_date_str(link['timestamp']),
         'updated_date': to_date_str(link['updated']) if 'updated' in link else None,
         'domain': domain(url),
@@ -400,17 +402,17 @@ def derived_link_info(link):
     # Archive Method Output URLs
     extended_info = {
         **extended_info,
-        'favicon_url': 'archive/{timestamp}/favicon.ico'.format(**extended_info),
+        'index_url': 'index.html',
+        'favicon_url': 'favicon.ico',
         'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**extended_info),
-        'files_url': 'archive/{timestamp}/index.html'.format(**extended_info),
-        'archive_url': wget_output_path(link) or 'archive/{}/index.html'.format(link['timestamp']),
-        'warc_url': 'archive/{timestamp}/warc'.format(**extended_info),
-        'pdf_url': 'archive/{timestamp}/output.pdf'.format(**extended_info),
-        'screenshot_url': 'archive/{timestamp}/screenshot.png'.format(**extended_info),
-        'dom_url': 'archive/{timestamp}/output.html'.format(**extended_info),
+        'archive_url': wget_output_path(link) or 'index.html',
+        'warc_url': 'warc',
+        'pdf_url': 'output.pdf',
+        'screenshot_url': 'screenshot.png',
+        'dom_url': 'output.html',
         'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**extended_info),
-        'git_url': 'archive/{timestamp}/git'.format(**extended_info),
-        'media_url': 'archive/{timestamp}/media'.format(**extended_info),
+        'git_url': 'git',
+        'media_url': 'media',
         
     }
 
@@ -419,10 +421,10 @@ def derived_link_info(link):
     if link['type'] in ('PDF', 'image'):
         extended_info.update({
             'title': basename(link['url']),
-            'archive_url': 'archive/{timestamp}/{base_url}'.format(**extended_info),
-            'pdf_url': 'archive/{timestamp}/{base_url}'.format(**extended_info),
-            'screenshot_url': 'archive/{timestamp}/{base_url}'.format(**extended_info),
-            'dom_url': 'archive/{timestamp}/{base_url}'.format(**extended_info),
+            'archive_url': base_url(url),
+            'pdf_url': base_url(url),
+            'screenshot_url': base_url(url),
+            'dom_url': base_url(url),
         })
 
     return extended_info
