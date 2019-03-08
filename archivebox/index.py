@@ -174,7 +174,7 @@ def write_html_link_index(out_dir, link):
     with open(path, 'w', encoding='utf-8') as f:
         f.write(Template(link_html).substitute({
             **derived_link_info(link),
-            **link['latest'],
+            # **link['latest'],
         }))
 
     chmod_file(path)
