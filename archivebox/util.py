@@ -159,6 +159,31 @@ def check_url_parsing():
     assert len(re.findall(URL_REGEX, test_urls)) == 12
 
 
+def print_error_hints(cmd, pwd, err=None, hints=None, prefix='        '):
+    """quote the argument with whitespace in a command so the user can 
+       copy-paste the outputted string directly to run the cmd
+    """
+
+    quoted_cmd = ' '.join(
+        '"{}"'.format(arg) if ' ' in arg else arg
+        for arg in cmd
+    )
+
+    output_lines = [
+        '{}Failed: {} {}{}'.format(ANSI['red'], err.__class__.__name__, err, ANSI['reset']),
+        '    {}{}{}'.format(ANSI['lightyellow'], hints, ANSI['reset']) if hints else None,
+        'Run to see full output:'        
+        '    cd {};'.format(pwd),
+        '    {}'.format(quoted_cmd),
+    ]
+
+    return '\n'.join(
+        '{}{}'.format(prefix, line)
+        for line in output_lines
+        if line
+    )
+
+
 def chmod_file(path, cwd='.', permissions=OUTPUT_PERMISSIONS, timeout=30):
     """chmod -R <permissions> <cwd>/<path>"""
 

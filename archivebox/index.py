@@ -8,14 +8,12 @@ from distutils.dir_util import copy_tree
 from config import (
     OUTPUT_DIR,
     TEMPLATES_DIR,
-    OUTPUT_PERMISSIONS,
     ANSI,
     GIT_SHA,
     FOOTER_INFO,
 )
 from util import (
     chmod_file,
-    wget_output_path,
     derived_link_info,
     pretty_path,
     check_link_structure,
