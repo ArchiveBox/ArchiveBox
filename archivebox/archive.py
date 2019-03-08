@@ -30,7 +30,6 @@ from util import (
     save_remote_source,
     save_stdin_source,
     pretty_path,
-    migrate_data,
     check_links_structure,
 )
 
@@ -158,8 +157,6 @@ if __name__ == '__main__':
     if set(sys.argv).intersection(('-h', '--help', 'help')):
         print_help()
         raise SystemExit(0)
-
-    migrate_data()
 
     source = sys.argv[1] if argc > 1 else None  # path of links file to import
     resume = sys.argv[2] if argc > 2 else None  # timestamp to resume dowloading from
