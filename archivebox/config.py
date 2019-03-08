@@ -44,14 +44,19 @@ WGET_BINARY =            os.getenv('WGET_BINARY',            'wget')
 YOUTUBEDL_BINARY =       os.getenv('YOUTUBEDL_BINARY',       'youtube-dl')
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)
 
-### Paths
+try:
+    OUTPUT_DIR = os.path.abspath(os.getenv('OUTPUT_DIR'))
+except Exception:
+    OUTPUT_DIR = None
+
+
+# ******************************************************************************
+# **************************** Derived Settings ********************************
+# ******************************************************************************
+
 REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-
-OUTPUT_DIR = os.path.abspath(os.getenv('OUTPUT_DIR', os.path.join(REPO_DIR, 'output')))
-
-# ******************************************************************************
-# ********************** Do not edit below this point **************************
-# ******************************************************************************
+if not OUTPUT_DIR:
+    OUTPUT_DIR = os.path.join(REPO_DIR, 'output')
 
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
