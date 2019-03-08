@@ -28,5 +28,5 @@ A clear and concise description of any alternative solutions or features you've 
 **How badly do you want this new feature?**
  - [ ] It's an urgent deal-breaker, I cant live without it
  - [ ] It's important to add it in the near-mid term future
- - [ ] It would be nice to have eventualy
+ - [ ] It would be nice to have eventually
  - [ ] I'm willing to contribute to development
