@@ -271,7 +271,7 @@ def wget_output_path(link, look_in=None):
             if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
         ]
         if html_files:
-            return urlencode(os.path.join(*wget_folder, html_files[0]))
+            return urlencode(os.path.join(ARCHIVE_DIR, link['timestamp'], *wget_folder, html_files[0]))
 
     return None
 
