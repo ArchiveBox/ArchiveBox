@@ -13,6 +13,7 @@ echo "        - curl"
 echo "        - youtube-dl"
 echo ""
 echo "    You may follow Manual Setup instructions in README.md instead if you prefer not to run an unknown script."
+echo "    This script uses homebrew or aptitude to install the dependencies depending on whether you're on macOS or Debian/Ubuntu.
 echo "    Press enter to continue, or Ctrl+C to cancel..."
 read
 
@@ -38,32 +39,35 @@ if which apt-get > /dev/null; then
 
 # On Mac:
 elif which brew > /dev/null; then   # 🐍 eye of newt
-    if ls /Applications/Google\ Chrome.app > /dev/null; then
-        echo "[+] Linking /usr/local/bin/google-chrome -> /Applications/Google Chrome.app"
-        echo -e '#!/bin/bash\n/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome "$@"' > /usr/local/bin/chromium-browser
-        chmod +x /usr/local/bin/chromium-browser
-
+    if ls /Applications/Google\ Chrome*.app > /dev/null; then
+        echo "[√] Using existing /Applications/Google Chrome.app"
+    elif ls /Applications/Chromium.app; then
+        echo "[√] Using existing /Applications/Chromium.app"
     elif which chromium-browser; then
-        brew cask upgrade chromium-browser
-        echo "[+] Linking /usr/local/bin/chromium-browser -> /Applications/Chromium.app"
-        echo -e '#!/bin/bash\n/Applications/Chromium.app/Contents/MacOS/Chromium "$@"' > /usr/local/bin/chromium-browser
-        chmod +x /usr/local/bin/chromium-browser
-
+        echo "[√] Using existing $(which chromium-browser)"
     else
         echo "[+] Installing chromium-browser..."
         brew cask install chromium
-        echo "[+] Linking /usr/local/bin/chromium-browser -> /Applications/Chromium.app"
-        echo -e '#!/bin/bash\n/Applications/Chromium.app/Contents/MacOS/Chromium "$@"' > /usr/local/bin/chromium-browser
-        chmod +x /usr/local/bin/chromium-browser
     fi
     echo "[+] Installing python3, wget, curl  (ignore 'already installed' warnings)..."
-    brew install python3 wget curl youtube-dl
+    if which python3; then
+        if python3 -c 'import sys; raise SystemExit(sys.version_info < (3,5,0))'; then
+            echo "[√] Using existing $(which python3)..."
+        else
+            echo "[+] Installing python3..."
+            brew install python3
+        fi
+    else
+        echo "[+] Installing python3..."
+        brew install python3
+    fi
+    brew install wget curl youtube-dl
 else
     echo "[X] Could not find aptitude or homebrew! ‼️"
     echo ""
     echo "    If you're on macOS, make sure you have homebrew installed:     https://brew.sh/"
     echo "    If you're on Ubuntu/Debian, make sure you have apt installed:  https://help.ubuntu.com/lts/serverguide/apt.html"
-    echo "    (those are the only currently supported systems)"
+    echo "    (those are the only currently supported systems for the automatic setup script)"
     echo ""
     echo "See the README.md for Manual Setup & Troubleshooting instructions."
     exit 1
