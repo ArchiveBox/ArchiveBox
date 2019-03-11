@@ -49,6 +49,7 @@ cd ArchiveBox
 # Or pass in links to archive via stdin
 echo 'https://example.com' | ./archive
 ```
+*(pip, apt, and homebrew distributions of ArchiveBox will be available in the near future)*
 
 Open `output/index.html` in a browser to view your archive.  [DEMO: archive.sweeting.me](https://archive.sweeting.me)  
 For more information, see the [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) docs.
