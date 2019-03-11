@@ -36,8 +36,11 @@ ArchiveBox doesn't require a constantly running server or backend, instead you j
 <div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
 
-To get started, you can install ArchiveBox [automatically](https://github.com/pirate/ArchiveBox/wiki/Quickstart), follow the [manual instructions](https://github.com/pirate/ArchiveBox/wiki/Install), or use [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker).  
-There are only [3 main dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies) beyond `python3`: `wget`, `chromium`, and `youtube-dl`, and you can skip installing them if you don't need those archive methods.
+ArchiveBox has [3 main dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies) beyond `python3`: `wget`, `chromium`, and `youtube-dl` (all the dependencies are optional if you're ok disabling the archive methods that require them).
+To install them automatically, you can use the [helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart), install them [manually](https://github.com/pirate/ArchiveBox/wiki/Install), or use [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker).  
+
+*(pip, apt, and homebrew distributions of ArchiveBox will be available in the [near future](https://github.com/pirate/ArchiveBox/wiki/Roadmap))*
+
 ```bash
 git clone https://github.com/pirate/ArchiveBox.git
 cd ArchiveBox
@@ -49,7 +52,6 @@ cd ArchiveBox
 # Or pass in links to archive via stdin
 echo 'https://example.com' | ./archive
 ```
-*(pip, apt, and homebrew distributions of ArchiveBox will be available in the near future)*
 
 Open `output/index.html` in a browser to view your archive.  [DEMO: archive.sweeting.me](https://archive.sweeting.me)  
 For more information, see the [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) docs.
