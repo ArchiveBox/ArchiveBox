@@ -72,16 +72,17 @@ Using multiple methods and the market-dominant browser to execute JS ensures we 
 
 ### Can save these things for each site:
 
- - `favicon.ico` favicon of the site
- - `example.com/page-name.html` wget clone of the site, with .html appended if not present
- - `output.pdf` Printed PDF of site using headless chrome
- - `screenshot.png` 1440x900 screenshot of site using headless chrome
- - `output.html` DOM Dump of the HTML after rendering using headless chrome
- - `archive.org.txt` A link to the saved site on archive.org
- - `warc/` for the html + gzipped warc file <timestamp>.gz
- - `media/` any mp4, mp3, subtitles, and metadata found using youtube-dl
- - `git/` clone of any repository for github, bitbucket, or gitlab links
- - `index.html` & `index.json` HTML and JSON index files containing metadata and details
+ - **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
+ - **Title:** `title` title of the site
+ - **Favicon:** `favicon.ico` favicon of the site
+ - **WGET Clone:** `example.com/page-name.html` wget clone of the site, with .html appended if not present
+ - **WARC:** `warc/` for the html + gzipped warc file `<timestamp>.gz`
+ - **PDF:** `output.pdf` Printed PDF of site using headless chrome
+ - **Screenshot:** `screenshot.png` 1440x900 screenshot of site using headless chrome
+ - **DOM Dump:** `output.html` DOM Dump of the HTML after rendering using headless chrome
+ - **URL to Archive.org:** `archive.org.txt` A link to the saved site on archive.org
+ - **Audio & Video:** `media/` all audio/video files + playlists, including subtitles & metadata with youtube-dl
+ - **Source Code:** `git/` clone of any repository found on github, bitbucket, or gitlab links
 
 By default it does everything, but can disable or tweak [individual options](https://github.com/pirate/ArchiveBox/wiki/Configuration) via environment variables or config file.
 
