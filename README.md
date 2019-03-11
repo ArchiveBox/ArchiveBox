@@ -29,7 +29,7 @@
 
 **ArchiveBox takes a list of website URLs you want to archive, and creates a local, static, browsable HTML clone of the content from those websites (it saves HTML, JS, media files, PDFs, images and more).** 
 
-You can use it to preserve access to websites you care about by storing them locally offline.  ArchiveBox works by rendering the pages in a headless browser, then saving all the requests and fully loaded pages in multiple redundant common formats (HTML, PDF, PNG, WARC) that will last long after the original content dissapears off the internet.  It also automatically extracts assets like git repositories, audio, video, subtitles, images, and PDFs into separate files using `youtube-dl`, `pywb`, and `wget`.
+You can use it to preserve access to websites you care about by storing them locally offline.  ArchiveBox works by rendering the pages in a headless browser, then saving all the requests and fully loaded pages in multiple redundant common formats (HTML, PDF, PNG, WARC) that will last long after the original content disappears off the internet.  It also automatically extracts assets like git repositories, audio, video, subtitles, images, and PDFs into separate files using `youtube-dl`, `pywb`, and `wget`.
 
 ArchiveBox doesn't require a constantly running server or backend, instead you just run the `./archive` command each time you want to import new links and update the static output.  It can import and export JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
@@ -144,7 +144,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 Vast treasure troves of knowledge are lost every day on the internet to link rot.  As a society, we have an imperative
 to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
 
-Whether it's to resist censorship by saving articles before they get taken down or editied, or
+Whether it's to resist censorship by saving articles before they get taken down or edited, or
 just to save a collection of early 2010's flash games you love to play, having the tools to 
 archive internet content enables to you save the stuff you care most about before it dissapears.
 
@@ -157,7 +157,7 @@ The aim of ArchiveBox is to go beyond what the Wayback Machine and other public 
 
 - Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/)" blog post.
 - Discover the web archiving community on the [community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community) wiki page.
-- Find other archving projects on Github using the [awesome-web-archiving](https://github.com/iipc/awesome-web-archiving) list.
+- Find other archiving projects on Github using the [awesome-web-archiving](https://github.com/iipc/awesome-web-archiving) list.
 - Or reach out to me for questions and comments via [@theSquashSH](https://twitter.com/thesquashSH) on Twitter.
 
 To learn more about ArchiveBox's past history and future plans, check out the [roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) and [changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog).
