@@ -93,7 +93,7 @@ def archive_link(link_dir, link, overwrite=True):
         (FETCH_MEDIA, fetch_media),
         (SUBMIT_ARCHIVE_DOT_ORG, archive_dot_org),
     )
-    active_methods = [method for toggle, method in ARCHIVE_METHODS]
+    active_methods = [method for toggle, method in ARCHIVE_METHODS if toggle]
     
     try:
         link = load_link_index(link_dir, link)
