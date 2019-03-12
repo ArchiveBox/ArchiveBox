@@ -31,13 +31,13 @@
 
 You can use it to preserve access to websites you care about by storing them locally offline.  ArchiveBox works by rendering the pages in a headless browser, then saving all the requests and fully loaded pages in multiple redundant common formats (HTML, PDF, PNG, WARC) that will last long after the original content disappears off the internet.  It also automatically extracts assets like git repositories, audio, video, subtitles, images, and PDFs into separate files using `youtube-dl`, `pywb`, and `wget`.
 
-ArchiveBox doesn't require a constantly running server or backend, instead you just run the `./archive` command each time you want to import new links and update the static output.  It can import and export JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
+ArchiveBox doesn't require a constantly running server or backend, instead, you just run the `./archive` command each time you want to import new links and update the static output.  It can import and export JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
 <div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
 
 ArchiveBox has [3 main dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies) beyond `python3`: `wget`, `chromium`, and `youtube-dl`.
-To get started, you can [install them manually](https://github.com/pirate/ArchiveBox/wiki/Install) using your system's package manager, you can use the [automated helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart), or you can use the offical [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker) container.  All three dependencies are optional if the methods that depend on them are [disabled](https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles).
+To get started, you can [install them manually](https://github.com/pirate/ArchiveBox/wiki/Install) using your system's package manager, you can use the [automated helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart), or you can use the official [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker) container.  All three dependencies are optional if the methods that depend on them are [disabled](https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles).
 
 *(`pip install archivebox` will be available in the near future, follow our [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) for progress)*
 
@@ -64,7 +64,7 @@ Because modern websites are complicated and often rely on dynamic content,
 ArchiveBox archives the sites in **several different formats** beyond what public 
 archiving services like Archive.org and Archive.is are capable of saving.
 
-ArchiveBox imports a list of URLs from stdin, remote url, or file, then adds the pages to a local archive folder using wget to create a browsable html clone, youtube-dl to extract media, and a full instance of Chrome headless for PDF, Screenshot, and DOM dumps, and more...
+ArchiveBox imports a list of URLs from stdin, remote URL, or file, then adds the pages to a local archive folder using wget to create a browsable HTML clone, youtube-dl to extract media, and a full instance of Chrome headless for PDF, Screenshot, and DOM dumps, and more...
 
 Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats.
 
@@ -90,14 +90,14 @@ Using multiple methods and the market-dominant browser to execute JS ensures we 
  - **Source Code:** `git/` clone of any repository found on github, bitbucket, or gitlab links
  - *More coming soon! See the [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)...*
 
-By default it does everything, but can disable or tweak [individual options](https://github.com/pirate/ArchiveBox/wiki/Configuration) via environment variables or config file.
+By default it does everything but you can disable or tweak [individual options](https://github.com/pirate/ArchiveBox/wiki/Configuration) via environment variables or config file.
 
-The archiving is additive, so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.
+The archiving is additive so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.
 All the saved content is static and indexed with JSON files, so it lives forever & is easily parseable, it requires no always-running backend.
 
 ### Related Projects
 
-There are tons of other [great web archiving tools out there](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community).  ArchiveBox differentiates itself by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view and care about locally.  Unlike crawler software that starts from a seed url and work outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't want to share with a centralized service.
+There are tons of other [great web archiving tools out there](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community).  ArchiveBox differentiates itself by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view and care about locally.  Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't want to share with a centralized service.
 
 To learn more about the motivation for this project and how it fits into the broader community, see our [Background & Motivation](#background--motivation) section or [Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community) wiki page.
 
@@ -149,7 +149,7 @@ to preserve some important parts of that treasure, just like we preserve our boo
 
 Whether it's to resist censorship by saving articles before they get taken down or edited, or
 just to save a collection of early 2010's flash games you love to play, having the tools to 
-archive internet content enables to you save the stuff you care most about before it dissapears.
+archive internet content enables to you save the stuff you care most about before it disappears.
 
 The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful. 
 I don't think everything should be preserved in an automated fashion, making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
