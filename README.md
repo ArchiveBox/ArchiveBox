@@ -195,7 +195,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 
 # Screenshots
 
-<img src="https://i.imgur.com/biVfFYr.png" width="25%" alt="CLI Screenshot" align="top"><img src="https://i.imgur.com/viklZNG.png" width="33%" alt="Desktop index screenshot" align="top"><img src="https://i.imgur.com/wnpdAVM.jpg" width="15%" alt="Desktop details page Screenshot" align="top"><img src="https://i.imgur.com/mW2dITg.png" width="15%" alt="Mobile details page screenshot" align="top">
+<img src="https://i.imgur.com/biVfFYr.png" width="20%" alt="CLI Screenshot" align="top"><img src="https://i.imgur.com/viklZNG.png" width="35%" alt="Desktop index screenshot" align="top"><img src="https://i.imgur.com/wnpdAVM.jpg" width="25%" alt="Desktop details page Screenshot" align="top"><img src="https://i.imgur.com/mW2dITg.png" width="15%" alt="Mobile details page screenshot" align="top">
 <br/>
 
 ---
