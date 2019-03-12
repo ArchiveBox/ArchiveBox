@@ -125,7 +125,7 @@ ArchiveBox differentiates itself from [similar projects](https://github.com/pira
 
 Whether you want learn which organizations are the big players in the web archiving space, want to find a specific open source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community.  Check it out to learn about some of the coolest web archiving projects and communities on the web!
 
-<img src="https://i.imgur.com/0ZOmOvN.png" width="18%" align="right"/>
+<img src="https://i.imgur.com/0ZOmOvN.png" width="16%" align="right"/>
 
  - [Community Wiki](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
    + [The Master Lists](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community#The-Master-Lists)  
@@ -142,7 +142,7 @@ Whether you want learn which organizations are the big players in the web archiv
  
 # Documentation
 
-<img src="https://read-the-docs-guidelines.readthedocs-hosted.com/_images/logo-dark.png" width="12%" align="right"/>
+<img src="https://read-the-docs-guidelines.readthedocs-hosted.com/_images/logo-dark.png" width="14%" align="right"/>
 
 We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for documentation.
 
