@@ -131,12 +131,7 @@ Whether you want learn which organizations are the big players in the web archiv
  
 # Documentation
 
-
-<div align="center">
-<img src="https://i.imgur.com/PVO88AZ.png" width="80%"/>
-</div>
-
----
+<img src="https://read-the-docs-guidelines.readthedocs-hosted.com/_images/logo-dark.png" width="10%" align="right"/>
 
 We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for documentation.
 
@@ -166,6 +161,12 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
  - [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
  - [Donations](https://github.com/pirate/ArchiveBox/wiki/Donations)
  - [Web Archiving Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
+
+---
+
+<div align="center">
+<img src="https://i.imgur.com/PVO88AZ.png" width="80%"/>
+</div>
 
 
 # Screenshots
