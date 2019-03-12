@@ -3,18 +3,22 @@
 # Nick Sweeting 2017 | MIT License
 # https://github.com/pirate/ArchiveBox
 
-echo "[i] Installing ArchiveBox dependencies. 📦"
+echo "[i] ArchiveBox Setup Script 📦"
 echo ""
-echo "    You may be prompted for a password in order to install the following dependencies:"
-echo "        - Chromium Browser   (see README for Google-Chrome instructions instead)"
-echo "        - python3"
-echo "        - wget"
+echo "    This is a helper script which installs the ArchiveBox dependencies on your system using homebrew/aptitude."
+echo "    You may be prompted for a password in order to install the following:"
+echo ""
+echo "        - git"
+echo "        - python3, python3-pip, python3-distutils"
 echo "        - curl"
+echo "        - wget"
 echo "        - youtube-dl"
+echo "        - chromium-browser  (skip this if Chrome/Chromium is already installed)"
 echo ""
-echo "    You may follow Manual Setup instructions in README.md instead if you prefer not to run an unknown script."
-echo "    This script uses homebrew or aptitude to install the dependencies depending on whether you're on macOS or Debian/Ubuntu."
-echo "    Press enter to continue, or Ctrl+C to cancel..."
+echo "    If you'd rather install these manually, you can find documentation here:"
+echo "        https://github.com/pirate/ArchiveBox/wiki/Install"
+echo ""
+echo "Press enter to continue with the automatic install, or Ctrl+C to cancel..."
 read
 
 echo ""
@@ -23,33 +27,24 @@ echo ""
 if which apt-get > /dev/null; then
     echo "[+] Updating apt repos..."
     apt update -q
+    echo "[+] Installing python3, wget, curl..."
+    apt install git python3 python3-pip python3-distutils wget curl youtube-dl
+
     if which google-chrome; then
         echo "[i] You already have google-chrome installed, if you would like to download chromium-browser instead (they work pretty much the same), follow the Manual Setup instructions"
-        echo "[+] Linking $(which google-chrome) -> /usr/bin/chromium-browser (press enter to continue, or Ctrl+C to cancel...)"
-        read
+        google-chrome --version
     elif which chromium-browser; then
         echo "[i] chromium-browser already installed, using existing installation."
         chromium-browser --version
     else
         echo "[+] Installing chromium-browser..."
-        apt install chromium-browser -y
+        apt install chromium-browser
     fi
-    echo "[+] Installing python3, wget, curl..."
-    apt install -y python3 python3-distutils wget curl youtube-dl
 
 # On Mac:
 elif which brew > /dev/null; then   # 🐍 eye of newt
-    if ls /Applications/Google\ Chrome*.app > /dev/null; then
-        echo "[√] Using existing /Applications/Google Chrome.app"
-    elif ls /Applications/Chromium.app; then
-        echo "[√] Using existing /Applications/Chromium.app"
-    elif which chromium-browser; then
-        echo "[√] Using existing $(which chromium-browser)"
-    else
-        echo "[+] Installing chromium-browser..."
-        brew cask install chromium
-    fi
     echo "[+] Installing python3, wget, curl  (ignore 'already installed' warnings)..."
+    brew install git wget curl youtube-dl
     if which python3; then
         if python3 -c 'import sys; raise SystemExit(sys.version_info < (3,5,0))'; then
             echo "[√] Using existing $(which python3)..."
@@ -61,7 +56,17 @@ elif which brew > /dev/null; then   # 🐍 eye of newt
         echo "[+] Installing python3..."
         brew install python3
     fi
-    brew install wget curl youtube-dl
+
+    if ls /Applications/Google\ Chrome*.app > /dev/null; then
+        echo "[√] Using existing /Applications/Google Chrome.app"
+    elif ls /Applications/Chromium.app; then
+        echo "[√] Using existing /Applications/Chromium.app"
+    elif which chromium-browser; then
+        echo "[√] Using existing $(which chromium-browser)"
+    else
+        echo "[+] Installing chromium-browser..."
+        brew cask install chromium
+    fi
 else
     echo "[X] Could not find aptitude or homebrew! ‼️"
     echo ""
@@ -76,15 +81,26 @@ fi
 # Check:
 echo ""
 echo "[*] Checking installed versions:"
-which chromium-browser &&
-chromium-browser --version &&
-which wget &&
+echo "---------------------------------------------------"
 which python3 &&
+python3 --version | head -n 1 &&
+echo "" &&
+which git &&
+git --version | head -n 1 &&
+echo "" &&
+which wget &&
+wget --version | head -n 1 &&
+echo "" &&
 which curl &&
+curl --version | head -n 1 &&
+echo "" &&
+which youtube-dl &&
+youtube-dl --version | head -n 1 &&
+echo "---------------------------------------------------" &&
 echo "[√] All dependencies installed. ✅" &&
 exit 0
 
-echo ""
+echo "---------------------------------------------------"
 echo "[X] Failed to install some dependencies! ‼️"
 echo "    - Try the Manual Setup instructions in the README.md"
 echo "    - Try the Troubleshooting: Dependencies instructions in the README.md"
