@@ -31,6 +31,7 @@ from config import (
     COOKIES_FILE,
     WGET_USER_AGENT,
     CHROME_USER_DATA_DIR,
+    CHROME_HEADLESS,
     CHROME_SANDBOX,
     TIMEOUT,
     MEDIA_TIMEOUT,
@@ -613,14 +614,42 @@ def fetch_git(link_dir, link, timeout=TIMEOUT):
         'output': output,
     }
 
-def chrome_headless(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR):
-    args = [binary, '--headless']
-    if not CHROME_SANDBOX:
+def chrome_headless(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR, headless=CHROME_HEADLESS, sandbox=CHROME_SANDBOX):
+    global USER_DATA_DIR
+    user_data_dir = user_data_dir or USER_DATA_DIR
+    cmd_args = [binary]
+
+    if headless:
+        cmd_args += ('--headless',)
+    
+    if not sandbox:
         # dont use GPU or sandbox when running inside docker container
-        args += ['--no-sandbox', '--disable-gpu']
-    default_profile = os.path.expanduser('~/Library/Application Support/Google/Chrome')
+        cmd_args += ('--no-sandbox', '--disable-gpu')
+
+    
+    # Find chrome user data directory
+    default_profile_paths = (
+        '~/.config/chromium',
+        '~/.config/google-chrome',
+        '~/.config/google-chrome-beta',
+        '~/.config/google-chrome-unstable',
+        '~/Library/Application Support/Chromium',
+        '~/Library/Application Support/Google/Chrome',
+        '~/Library/Application Support/Google/Chrome Canary',
+        '~/AppData/Local/Chromium/User Data',
+        '~/AppData/Local/Google/Chrome/User Data',
+        '~/AppData/Local/Google/Chrome SxS/User Data',
+    )
     if user_data_dir:
-        args.append('--user-data-dir={}'.format(user_data_dir))
-    elif os.path.exists(default_profile):
-        args.append('--user-data-dir={}'.format(default_profile))
-    return args
+        cmd_args.append('--user-data-dir={}'.format(user_data_dir))
+    else:
+        for path in default_profile_paths:
+            full_path = os.path.expanduser(path)
+            if os.path.exists(full_path):
+                USER_DATA_DIR = full_path
+                cmd_args.append('--user-data-dir={}'.format(full_path))
+                break
+    return cmd_args
+
+
+USER_DATA_DIR = CHROME_USER_DATA_DIR

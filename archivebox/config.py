@@ -37,6 +37,7 @@ GIT_DOMAINS =            os.getenv('GIT_DOMAINS',            'github.com,bitbuck
 WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox/{GIT_SHA} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}')
 COOKIES_FILE =           os.getenv('COOKIES_FILE',           None)
 CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',   None)
+CHROME_HEADLESS =        os.getenv('CHROME_HEADLESS',        'True'             ).lower() == 'true'
 
 CURL_BINARY =            os.getenv('CURL_BINARY',            'curl')
 GIT_BINARY =             os.getenv('GIT_BINARY',             'git')
