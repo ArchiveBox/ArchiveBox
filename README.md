@@ -116,11 +116,11 @@ ArchiveBox differentiates itself from similar projects by trying to be a simple,
 
 ### Read more
 
-Whether you want learn which organizations are the big players in the web archiving space, want to find a specific open source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community.  Check it out to learn about some of the coolest web archivnig projects and communities on the web!
+Whether you want learn which organizations are the big players in the web archiving space, want to find a specific open source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community.  Check it out to learn about some of the coolest web archiving projects and communities on the web!
 
  - [Community Wiki](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
    + [The Master Lists](#The-Master-Lists)  
-     *Community-maintained indexes of web archiving tools and groups by IIPC, COPTR, ArchiveTeam, Wikipedia, & the ASA.* 
+     *Community-maintained indexes of archiving tools and institutions.* 
    + [Web Archiving Software](#Web-Archiving-Projects)  
      *Open source tools and projects in the internet archiving space.*
    + [Reading List](#Reading-List)  
