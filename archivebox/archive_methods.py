@@ -614,9 +614,10 @@ def fetch_git(link_dir, link, timeout=TIMEOUT):
     }
 
 def chrome_headless(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR):
-    args = [binary, '--headless']  # '--disable-gpu'
+    args = [binary, '--headless']
     if not CHROME_SANDBOX:
-        args.append('--no-sandbox')
+        # dont use GPU or sandbox when running inside docker container
+        args += ['--no-sandbox', '--disable-gpu']
     default_profile = os.path.expanduser('~/Library/Application Support/Google/Chrome')
     if user_data_dir:
         args.append('--user-data-dir={}'.format(user_data_dir))
