@@ -41,7 +41,7 @@ It doesn't require a constantly running server or backend, just run the command 
 <a href="#screenshots">
 <img src="https://i.imgur.com/3tBL7PU.png" width="30%" alt="CLI Screenshot" align="top">
 <img src="https://i.imgur.com/viklZNG.png" width="30%" alt="Desktop index screenshot" align="top">
-<img src="https://i.imgur.com/wnpdAVM.jpg" width="30%" alt="Desktop details page Screenshot"/>
+<img src="https://i.imgur.com/RefWsXB.jpg" width="30%" alt="Desktop details page Screenshot"/>
 </a><br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 </div><br/>
