@@ -98,8 +98,11 @@ All the saved content is static and indexed with JSON files, so it lives forever
 
 # Background & Motivation
 
-Vast treasure troves of knowledge are lost every day on the internet to link rot.  As a society, we have an imperative
-to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
+Vast treasure troves of knowledge are lost every day on the internet to link rot.  As a society, we have an imperative to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
+
+<div align="center">
+<img src="https://i.imgur.com/bC6eZcV.png" width="60%"/>
+</div>
 
 Whether it's to resist censorship by saving articles before they get taken down or edited, or
 just to save a collection of early 2010's flash games you love to play, having the tools to 
@@ -117,6 +120,8 @@ ArchiveBox differentiates itself from similar projects by trying to be a simple,
 ### Read more
 
 Whether you want learn which organizations are the big players in the web archiving space, want to find a specific open source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community.  Check it out to learn about some of the coolest web archiving projects and communities on the web!
+
+<img src="https://i.imgur.com/0ZOmOvN.png" width="10%" align="right"/>
 
  - [Community Wiki](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
    + [The Master Lists](#The-Master-Lists)  
