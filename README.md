@@ -86,14 +86,14 @@ ArchiveBox imports a list of URLs from stdin, remote URL, or file, then adds the
 
 Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats.
 
-### Can import links from:
+#### Can import links from:
 
  - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket, Pinboard, Instapaper
  - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS, XML, JSON, HTML, Markdown, or plain text lists
  - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history or bookmarks (Chrome, Firefox, Safari, IE, Opera, and more)
  - *Shaarli, Delicious, Reddit Saved Posts, Wallabag, Unmark.it, and any other text with links in it!*
 
-### Can save these things for each site:
+#### Can save these things for each site:
 
  - **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
  - **Title:** `title` title of the site
@@ -157,7 +157,7 @@ Whether you want learn which organizations are the big players in the web archiv
  
 ---
  
-## Documentation
+# Documentation
 
 <img src="https://read-the-docs-guidelines.readthedocs-hosted.com/_images/logo-dark.png" width="13%" align="right"/>
 
@@ -165,14 +165,14 @@ We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for d
 
 You can also access the docs locally by looking in the [`ArchiveBox/docs/`](https://github.com/pirate/ArchiveBox/wiki/Home) folder.
 
-### Getting Started
+## Getting Started
 
  - [Home](https://github.com/pirate/ArchiveBox/wiki/Home)
  - [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart)
  - [Install](https://github.com/pirate/ArchiveBox/wiki/Install)
  - [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker)
 
-### Reference
+## Reference
 
  - [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage)
  - [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration)
@@ -183,7 +183,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
  - [Chromium Install](https://github.com/pirate/ArchiveBox/wiki/Install-Chromium)
  - [Troubleshooting](https://github.com/pirate/ArchiveBox/wiki/Troubleshooting)
 
-### More Info
+## More Info
 
  - [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)
  - [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
@@ -193,7 +193,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 ---
 
 
-## Screenshots
+# Screenshots
 
 <div align="center">
 <img src="https://i.imgur.com/biVfFYr.png" width="20%" alt="CLI Screenshot" align="top">
