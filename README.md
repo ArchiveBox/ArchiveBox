@@ -100,19 +100,19 @@ All the saved content is static and indexed with JSON files, so it lives forever
 
 Vast treasure troves of knowledge are lost every day on the internet to link rot.  As a society, we have an imperative to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
 
-<div align="center">
-<img src="https://i.imgur.com/bC6eZcV.png" width="50%"/><br/>
- <sup><i>Image from <a href="https://digiday.com/media/wtf-link-rot/">WTF is Link Rot?</a>...</i><br/></sup>
-</div>
-
 Whether it's to resist censorship by saving articles before they get taken down or edited, or
 just to save a collection of early 2010's flash games you love to play, having the tools to 
 archive internet content enables to you save the stuff you care most about before it disappears.
 
+<div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
+
 The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful. 
 I don't think everything should be preserved in an automated fashion, making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
 
-<div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
+<div align="center">
+<img src="https://i.imgur.com/bC6eZcV.png" width="50%"/><br/>
+ <sup><i>Image from <a href="https://digiday.com/media/wtf-link-rot/">WTF is Link Rot?</a>...</i><br/></sup>
+</div>
 
 
 ### Comparison to other Projects
