@@ -102,8 +102,8 @@ Vast treasure troves of knowledge are lost every day on the internet to link rot
 
 <div align="center">
 <img src="https://i.imgur.com/bC6eZcV.png" width="50%"/><br/>
-<sup>Via <a href="https://digiday.com/media/wtf-link-rot/">WTF is Link Rot?</a></sup>
-</div><br/>
+ <sup><i>Image from <a href="https://digiday.com/media/wtf-link-rot/">WTF is Link Rot?</a>...</i><br/></sup>
+</div>
 
 Whether it's to resist censorship by saving articles before they get taken down or edited, or
 just to save a collection of early 2010's flash games you love to play, having the tools to 
