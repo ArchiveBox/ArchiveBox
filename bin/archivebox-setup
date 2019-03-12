@@ -13,7 +13,7 @@ echo "        - curl"
 echo "        - youtube-dl"
 echo ""
 echo "    You may follow Manual Setup instructions in README.md instead if you prefer not to run an unknown script."
-echo "    This script uses homebrew or aptitude to install the dependencies depending on whether you're on macOS or Debian/Ubuntu.
+echo "    This script uses homebrew or aptitude to install the dependencies depending on whether you're on macOS or Debian/Ubuntu."
 echo "    Press enter to continue, or Ctrl+C to cancel..."
 read
 
