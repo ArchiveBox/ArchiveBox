@@ -114,9 +114,12 @@ I don't think everything should be preserved in an automated fashion, making all
 
 <div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
+
+### Comparison to other Projects
+
 <img src="https://i.imgur.com/4nkFjdv.png" width="10%" align="left"/> The aim of ArchiveBox is to go beyond what the Wayback Machine and other public archiving services can do, by adding a headless browser to replay sessions accurately, and by automatically extracting all the content in multiple redundant formats that will survive being passed down to historians and archivists through many generations.
 
-ArchiveBox differentiates itself from similar projects by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view and care about locally.  Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't want to share with a centralized service.
+ArchiveBox differentiates itself from [similar projects](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view and care about locally.  Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't want to share with a centralized service.
 
 ### Read more
 
@@ -125,13 +128,13 @@ Whether you want learn which organizations are the big players in the web archiv
 <img src="https://i.imgur.com/0ZOmOvN.png" width="18%" align="right"/>
 
  - [Community Wiki](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
-   + [The Master Lists](#The-Master-Lists)  
+   + [The Master Lists](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community#The-Master-Lists)  
      *Community-maintained indexes of archiving tools and institutions.* 
-   + [Web Archiving Software](#Web-Archiving-Projects)  
+   + [Web Archiving Software](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects)  
      *Open source tools and projects in the internet archiving space.*
-   + [Reading List](#Reading-List)  
+   + [Reading List](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community#Reading-List)  
      *Articles, posts, and blogs relevant to ArchiveBox and web archiving in general.*
-   + [Communities](#Communities)  
+   + [Communities](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community#Communities)  
      *A collection of the most active internet archiving communities and initiatives.*
  - Check out the ArchiveBox [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) and [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
  - Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/)" blog post.
