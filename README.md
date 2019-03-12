@@ -96,53 +96,6 @@ By default it does everything but you can disable or tweak [individual options](
 The archiving is additive so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.
 All the saved content is static and indexed with JSON files, so it lives forever & is easily parseable, it requires no always-running backend.
 
-### Related Projects
-
-There are tons of other [great web archiving tools out there](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community).  ArchiveBox differentiates itself by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view and care about locally.  Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't want to share with a centralized service.
-
-To learn more about the motivation for this project and how it fits into the broader community, see our [Background & Motivation](#background--motivation) section or [Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community) wiki page.
-
-# Documentation
-
-
-<div align="center">
-<img src="https://i.imgur.com/PVO88AZ.png"/>
-<br/>
-    <sub><i>(Recently <a href="https://github.com/pirate/ArchiveBox/issues/108">renamed</a> from <code>Bookmark Archiver</code>)</i></sub>
-</div>
-
----
-
-We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for documentation.
-
-You can also access the docs locally by looking in the [`ArchiveBox/docs/`](https://github.com/pirate/ArchiveBox/wiki/Home) folder.
-
-# Getting Started
-
- - [Home](https://github.com/pirate/ArchiveBox/wiki/Home)
- - [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart)
- - [Install](https://github.com/pirate/ArchiveBox/wiki/Install)
- - [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker)
-
-# Documentation
-
- - [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage)
- - [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration)
- - [Supported Sources](https://github.com/pirate/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
- - [Supported Outputs](https://github.com/pirate/ArchiveBox/wiki#can-save-these-things-for-each-site)
- - [Scheduled Archiving](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving)
- - [Publishing Your Archive](https://github.com/pirate/ArchiveBox/wiki/Publishing-Your-Archive)
- - [Chromium Install](https://github.com/pirate/ArchiveBox/wiki/Install-Chromium)
- - [Troubleshooting](https://github.com/pirate/ArchiveBox/wiki/Troubleshooting)
-
-# More Info
-
- - [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)
- - [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
- - [Donations](https://github.com/pirate/ArchiveBox/wiki/Donations)
- - [Web Archiving Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
-
-
 # Background & Motivation
 
 Vast treasure troves of knowledge are lost every day on the internet to link rot.  As a society, we have an imperative
@@ -165,6 +118,52 @@ The aim of ArchiveBox is to go beyond what the Wayback Machine and other public 
 - Or reach out to me for questions and comments via [@theSquashSH](https://twitter.com/thesquashSH) on Twitter.
 
 To learn more about ArchiveBox's past history and future plans, check out the [roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) and [changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog).
+
+
+# Related Projects
+
+There are tons of other [great web archiving tools out there](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community).  ArchiveBox differentiates itself by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view and care about locally.  Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't want to share with a centralized service.
+
+To learn more about the motivation for this project and how it fits into the broader community, see our [Background & Motivation](#background--motivation) section or [Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community) wiki page.
+
+# Documentation
+
+
+<div align="center">
+<img src="https://i.imgur.com/PVO88AZ.png"/>
+</div>
+
+---
+
+We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for documentation.
+
+You can also access the docs locally by looking in the [`ArchiveBox/docs/`](https://github.com/pirate/ArchiveBox/wiki/Home) folder.
+
+## Getting Started
+
+ - [Home](https://github.com/pirate/ArchiveBox/wiki/Home)
+ - [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart)
+ - [Install](https://github.com/pirate/ArchiveBox/wiki/Install)
+ - [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker)
+
+## Reference
+
+ - [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage)
+ - [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration)
+ - [Supported Sources](https://github.com/pirate/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
+ - [Supported Outputs](https://github.com/pirate/ArchiveBox/wiki#can-save-these-things-for-each-site)
+ - [Scheduled Archiving](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving)
+ - [Publishing Your Archive](https://github.com/pirate/ArchiveBox/wiki/Publishing-Your-Archive)
+ - [Chromium Install](https://github.com/pirate/ArchiveBox/wiki/Install-Chromium)
+ - [Troubleshooting](https://github.com/pirate/ArchiveBox/wiki/Troubleshooting)
+
+## More Info
+
+ - [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)
+ - [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
+ - [Donations](https://github.com/pirate/ArchiveBox/wiki/Donations)
+ - [Web Archiving Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
+
 
 # Screenshots
 
