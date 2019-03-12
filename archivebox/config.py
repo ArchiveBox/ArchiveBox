@@ -5,12 +5,12 @@ import shutil
 from subprocess import run, PIPE
 
 # ******************************************************************************
-# * TO SET YOUR CONFIGURATION, EDIT THE VALUES BELOW, or use the 'env' command *
-# * e.g.                                                                       *
-# * env USE_COLOR=True CHROME_BINARY=google-chrome ./archive.py export.html    *
+# Documentation: https://github.com/pirate/ArchiveBox/wiki/Configuration
+# Use the 'env' command to pass config options to ArchiveBox.  e.g.:
+#     env USE_COLOR=True CHROME_BINARY=google-chrome ./archive export.html
 # ******************************************************************************
 
-IS_TTY = sys.stdout.isatty()
+IS_TTY =                 sys.stdout.isatty()
 USE_COLOR =              os.getenv('USE_COLOR',              str(IS_TTY)        ).lower() == 'true'
 SHOW_PROGRESS =          os.getenv('SHOW_PROGRESS',          str(IS_TTY)        ).lower() == 'true'
 ONLY_NEW =               os.getenv('ONLY_NEW',               'False'            ).lower() == 'true'
