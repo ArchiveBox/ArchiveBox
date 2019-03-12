@@ -31,10 +31,11 @@
 
 You can use it to preserve access to websites you care about by storing them locally offline.  ArchiveBox works by rendering the pages in a headless browser, then saving all the requests and fully loaded pages in multiple redundant common formats (HTML, PDF, PNG, WARC) that will last long after the original content disappears off the internet.  It also automatically extracts assets like git repositories, audio, video, subtitles, images, and PDFs into separate files using `youtube-dl`, `pywb`, and `wget`.
 
-ArchiveBox doesn't require a constantly running server or backend, instead, you just run the `./archive` command each time you want to import new links and update the static output.  It can import and export JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
-
 <div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
+ArchiveBox doesn't require a constantly running server or backend, instead, you just run the `./archive` command each time you want to import new links and update the static output.  It can import and export JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
+
+## Quickstart
 
 ArchiveBox has [3 main dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies) beyond `python3`: `wget`, `chromium`, and `youtube-dl`.
 To get started, you can [install them manually](https://github.com/pirate/ArchiveBox/wiki/Install) using your system's package manager, you can use the [automated helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart), or you can use the official [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker) container.  All three dependencies are optional if the methods that depend on them are [disabled](https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles).
@@ -56,7 +57,7 @@ echo 'https://example.com' | ./archive                  # pass URLs to archive v
 ```
 
 One you've added your first links, open `output/index.html` in a browser to view the archive.  [DEMO: archive.sweeting.me](https://archive.sweeting.me)  
-For more information, see the [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) docs.
+For more information, see the [full Quickstart guide](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) docs.
 
 ## Overview
 
@@ -186,7 +187,7 @@ To learn more about ArchiveBox's past history and future plans, check out the [r
 <a href="https://github.com/pirate/ArchiveBox"><img src="https://img.shields.io/github/stars/pirate/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>
 
 <br/><br/>
-
+Top Contributors:<br/>
 [![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/0)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/0)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/1)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/1)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/2)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/2)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/3)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/3)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/4)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/4)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/5)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/5)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/6)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/6)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/7)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/7)
 
 </div>
