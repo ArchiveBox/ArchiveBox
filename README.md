@@ -41,16 +41,18 @@ To get started, you can [install them manually](https://github.com/pirate/Archiv
 
 *(`pip install archivebox` will be available in the near future, follow our [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) for progress)*
 
-```bash
-apt install python3 python3-pip wget curl chromium-browser youtube-dl  # or brew install on mac
 
+```bash
+# 1. Install dependencies (use apt on ubuntu, brew on mac, or pkg on BSD)
+apt install python3 python3-pip wget curl chromium-browser youtube-dl
+
+# 2. Download ArchiveBox
 git clone https://github.com/pirate/ArchiveBox.git && cd ArchiveBox
 
-# Oass in some links to archive via stdin
-echo 'https://example.com' | ./archive
+# 3. Add your first links to your archive
+echo 'https://example.com' | ./archive                  # pass URLs to archive via stdin
 
-# Or import links from a feed or file
-./archive https://getpocket.com/users/example/feed/all
+./archive https://getpocket.com/users/example/feed/all  # or import an RSS/JSON/XML/TXT feed
 ```
 
 One you've added your first links, open `output/index.html` in a browser to view the archive.  [DEMO: archive.sweeting.me](https://archive.sweeting.me)  
