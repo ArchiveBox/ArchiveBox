@@ -72,6 +72,11 @@ For more information, see the [full Quickstart guide](https://github.com/pirate/
 
 <div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
+
+<div align="center">
+<img src="https://i.imgur.com/PVO88AZ.png" width="80%"/>
+</div>
+
 ## Overview
 
 Because modern websites are complicated and often rely on dynamic content, 
@@ -187,10 +192,6 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
  - [Web Archiving Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
 
 ---
-
-<div align="center">
-<img src="https://i.imgur.com/PVO88AZ.png" width="80%"/>
-</div>
 
 
 # Screenshots
