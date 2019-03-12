@@ -37,7 +37,14 @@ Simply download this repo, and run the `./archive` command each time you want to
 
 It doesn't require a constantly running server or backend, just run the command and open the outputted static HTML in a browser to view the archive. It can import and export JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
-<div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
+<div align="center">
+<a href="#screenshots">
+<img src="https://i.imgur.com/3tBL7PU.png" width="30%" alt="CLI Screenshot" align="top">
+<img src="https://i.imgur.com/viklZNG.png" width="30%" alt="Desktop index screenshot" align="top">
+<img src="https://i.imgur.com/wnpdAVM.jpg" width="30%" alt="Desktop details page Screenshot"/>
+</a><br/>
+<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
+</div><br/>
 
 ## Quickstart
 
