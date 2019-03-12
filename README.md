@@ -184,4 +184,9 @@ To learn more about ArchiveBox's past history and future plans, check out the [r
 <br/>
 <a href="https://twitter.com/thesquashSH"><img src="https://img.shields.io/badge/Tweet-%40theSquashSH-blue.svg?style=flat"/></a>
 <a href="https://github.com/pirate/ArchiveBox"><img src="https://img.shields.io/github/stars/pirate/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>
+
+<br/><br/>
+
+[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/0)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/0)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/1)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/1)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/2)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/2)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/3)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/3)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/4)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/4)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/5)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/5)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/6)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/6)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/7)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/7)
+
 </div>
