@@ -42,7 +42,7 @@ It doesn't require a constantly running server or backend, just run the command 
 <img src="https://i.imgur.com/3tBL7PU.png" width="30%" alt="CLI Screenshot" align="top">
 <img src="https://i.imgur.com/viklZNG.png" width="30%" alt="Desktop index screenshot" align="top">
 <img src="https://i.imgur.com/RefWsXB.jpg" width="30%" alt="Desktop details page Screenshot"/><br/>
-<sup><a href="https://archive.sweeting.me/">Demo</a> | <a href="#screenshots">Screenshots</a></sup>
+<sup><a href="https://archive.sweeting.me/">Demo</a> | <a href="https://github.com/pirate/ArchiveBox/wiki/Usage">Usage</a> | <a href="#screenshots">Screenshots</a></sup>
 <br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 </div><br/>
