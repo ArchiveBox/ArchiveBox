@@ -38,11 +38,12 @@ Simply download this repo, and run the `./archive < urls` command each time you 
 It doesn't require a constantly running server or backend, just run the command and open the generated `output/index.html` in a browser to view the archive. It can import and export JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
 <div align="center">
-<a href="#screenshots">
+
 <img src="https://i.imgur.com/3tBL7PU.png" width="30%" alt="CLI Screenshot" align="top">
 <img src="https://i.imgur.com/viklZNG.png" width="30%" alt="Desktop index screenshot" align="top">
-<img src="https://i.imgur.com/RefWsXB.jpg" width="30%" alt="Desktop details page Screenshot"/>
-</a><br/>
+<img src="https://i.imgur.com/RefWsXB.jpg" width="30%" alt="Desktop details page Screenshot"/><br/>
+<sup><a href="https://archive.sweeting.me/">Demo</a> | <a href="#screenshots">Screenshots</a></sup>
+<br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 </div><br/>
 
