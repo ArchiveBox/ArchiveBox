@@ -114,9 +114,7 @@ I don't think everything should be preserved in an automated fashion, making all
 
 <div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
-<img src="https://i.imgur.com/4nkFjdv.png" width="10%" align="left"/>
-
-The aim of ArchiveBox is to go beyond what the Wayback Machine and other public archiving services can do, by adding a headless browser to replay sessions accurately, and by automatically extracting all the content in multiple redundant formats that will survive being passed down to historians and archivists through many generations.
+<img src="https://i.imgur.com/4nkFjdv.png" width="10%" align="left"/> The aim of ArchiveBox is to go beyond what the Wayback Machine and other public archiving services can do, by adding a headless browser to replay sessions accurately, and by automatically extracting all the content in multiple redundant formats that will survive being passed down to historians and archivists through many generations.
 
 ArchiveBox differentiates itself from similar projects by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view and care about locally.  Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't want to share with a centralized service.
 
@@ -124,7 +122,7 @@ ArchiveBox differentiates itself from similar projects by trying to be a simple,
 
 Whether you want learn which organizations are the big players in the web archiving space, want to find a specific open source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community.  Check it out to learn about some of the coolest web archiving projects and communities on the web!
 
-<img src="https://i.imgur.com/0ZOmOvN.png" width="15%" align="right"/>
+<img src="https://i.imgur.com/0ZOmOvN.png" width="18%" align="right"/>
 
  - [Community Wiki](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
    + [The Master Lists](#The-Master-Lists)  
@@ -141,7 +139,7 @@ Whether you want learn which organizations are the big players in the web archiv
  
 # Documentation
 
-<img src="https://read-the-docs-guidelines.readthedocs-hosted.com/_images/logo-dark.png" width="15%" align="right"/>
+<img src="https://read-the-docs-guidelines.readthedocs-hosted.com/_images/logo-dark.png" width="12%" align="right"/>
 
 We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for documentation.
 
