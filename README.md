@@ -37,23 +37,23 @@ ArchiveBox doesn't require a constantly running server or backend, instead you j
 
 
 ArchiveBox has [3 main dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies) beyond `python3`: `wget`, `chromium`, and `youtube-dl` (all the dependencies are optional if you're ok disabling the archive methods that require them).
-To install them automatically, you can use the [helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart), install them [manually](https://github.com/pirate/ArchiveBox/wiki/Install), or use [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker).  
+To get started, you can [install them manually](https://github.com/pirate/ArchiveBox/wiki/Install) using your system's package manager, you can use the [automated helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart) to install them, or you can use the offical [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker) container.  
 
-*(pip, apt, and homebrew distributions of ArchiveBox will be available in the [near future](https://github.com/pirate/ArchiveBox/wiki/Roadmap))*
+*(`pip install archivebox` will be available in the near future, follow our [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) for progress)*
 
 ```bash
-git clone https://github.com/pirate/ArchiveBox.git
-cd ArchiveBox
-./setup
+apt install python3 python3-pip wget curl chromium-browser youtube-dl  # or brew install on mac
 
-# Export your bookmarks, then run the archive command to start archiving!
-./archive ~/Downloads/bookmarks.html
+git clone https://github.com/pirate/ArchiveBox.git && cd ArchiveBox
 
-# Or pass in links to archive via stdin
+# Oass in some links to archive via stdin
 echo 'https://example.com' | ./archive
+
+# Or import links from a feed or file
+./archive https://getpocket.com/users/example/feed/all
 ```
 
-Open `output/index.html` in a browser to view your archive.  [DEMO: archive.sweeting.me](https://archive.sweeting.me)  
+One you've added your first links, open `output/index.html` in a browser to view the archive.  [DEMO: archive.sweeting.me](https://archive.sweeting.me)  
 For more information, see the [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) docs.
 
 ## Overview
@@ -86,6 +86,7 @@ Using multiple methods and the market-dominant browser to execute JS ensures we 
  - **URL to Archive.org:** `archive.org.txt` A link to the saved site on archive.org
  - **Audio & Video:** `media/` all audio/video files + playlists, including subtitles & metadata with youtube-dl
  - **Source Code:** `git/` clone of any repository found on github, bitbucket, or gitlab links
+ - *More coming soon! See the [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)...*
 
 By default it does everything, but can disable or tweak [individual options](https://github.com/pirate/ArchiveBox/wiki/Configuration) via environment variables or config file.
 
@@ -94,9 +95,9 @@ All the saved content is static and indexed with JSON files, so it lives forever
 
 ### Related Projects
 
-There are tons of great web archiving tools out there.  In particular https://webrecorder.io ([pywb](https://github.com/webrecorder/pywb)) and https://getpolarized.io/ are robust, stable pieces of software that have lots of overlap with ArchiveBox.  ArchiveBox differentiates itself by being primarily a one-shot CLI tool that specializing in importing streams of links from RSS, JSON (good for automatically archiving from a stream of browser history or bookmarks on a schedule), as opposed to a desktop application or web service that requires human interaction to add links.
+There are tons of other [great web archiving tools out there](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community).  ArchiveBox differentiates itself by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view and care about locally.  Unlike crawler software that starts from a seed url and work outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't want to share with a centralized service.
 
-To learn more about the motivation for this project and how it fits into the broader community, see our [Web Archiving Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community) wiki page.
+To learn more about the motivation for this project and how it fits into the broader community, see our [Background & Motivation](#background--motivation) section or [Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community) wiki page.
 
 # Documentation
 
