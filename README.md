@@ -110,27 +110,30 @@ I don't think everything should be preserved in an automated fashion, making all
 
 The aim of ArchiveBox is to go beyond what the Wayback Machine and other public archiving services can do, by adding a headless browser to replay sessions accurately, and by automatically extracting all the content in multiple redundant formats that will survive being passed down to historians and archivists through many generations.
 
-*Read more:*
+ArchiveBox differentiates itself from similar projects by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view and care about locally.  Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't want to share with a centralized service.
 
-- Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/)" blog post.
-- Discover the web archiving community on the [community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community) wiki page.
-- Find other archiving projects on Github using the [awesome-web-archiving](https://github.com/iipc/awesome-web-archiving) list.
-- Or reach out to me for questions and comments via [@theSquashSH](https://twitter.com/thesquashSH) on Twitter.
+### Read more
 
-To learn more about ArchiveBox's past history and future plans, check out the [roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) and [changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog).
+Whether you want learn which organizations are the big players in the web archiving space, want to find a specific open source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community.  Check it out to learn about some of the coolest web archivnig projects and communities on the web!
 
-
-# Related Projects
-
-There are tons of other [great web archiving tools out there](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community).  ArchiveBox differentiates itself by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view and care about locally.  Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't want to share with a centralized service.
-
-To learn more about the motivation for this project and how it fits into the broader community, see our [Background & Motivation](#background--motivation) section or [Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community) wiki page.
-
+ - [Community Wiki](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
+   + [The Master Lists](#The-Master-Lists)  
+     *Community-maintained indexes of web archiving tools and groups by IIPC, COPTR, ArchiveTeam, Wikipedia, & the ASA.* 
+   + [Web Archiving Software](#Web-Archiving-Projects)  
+     *Open source tools and projects in the internet archiving space.*
+   + [Reading List](#Reading-List)  
+     *Articles, posts, and blogs relevant to ArchiveBox and web archiving in general.*
+   + [Communities](#Communities)  
+     *A collection of the most active internet archiving communities and initiatives.*
+ - Check out the ArchiveBox [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) and [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
+ - Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/)" blog post.
+ - Or reach out to me for questions and comments via [@theSquashSH](https://twitter.com/thesquashSH) on Twitter.
+ 
 # Documentation
 
 
 <div align="center">
-<img src="https://i.imgur.com/PVO88AZ.png"/>
+<img src="https://i.imgur.com/PVO88AZ.png" width="80%"/>
 </div>
 
 ---
