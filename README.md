@@ -76,7 +76,7 @@ For more information, see the [full Quickstart guide](https://github.com/pirate/
 <img src="https://i.imgur.com/PVO88AZ.png" width="80%"/>
 </div>
 
-## Overview
+# Overview
 
 Because modern websites are complicated and often rely on dynamic content, 
 ArchiveBox archives the sites in **several different formats** beyond what public 
@@ -113,7 +113,7 @@ By default it does everything but you can disable or tweak [individual options](
 The archiving is additive so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.
 All the saved content is static and indexed with JSON files, so it lives forever & is easily parseable, it requires no always-running backend.
 
-### Background & Motivation
+## Background & Motivation
 
 Vast treasure troves of knowledge are lost every day on the internet to link rot.  As a society, we have an imperative to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
 
@@ -130,13 +130,13 @@ The balance between the permanence and ephemeral nature of content on the intern
 I don't think everything should be preserved in an automated fashion, making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
 
 
-### Comparison to other Projects
+## Comparison to other Projects
 
 <img src="https://i.imgur.com/4nkFjdv.png" width="10%" align="left"/> The aim of ArchiveBox is to go beyond what the Wayback Machine and other public archiving services can do, by adding a headless browser to replay sessions accurately, and by automatically extracting all the content in multiple redundant formats that will survive being passed down to historians and archivists through many generations.
 
 ArchiveBox differentiates itself from [similar projects](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view and care about locally.  Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't want to share with a centralized service.
 
-### Read more
+## Read more
 
 Whether you want learn which organizations are the big players in the web archiving space, want to find a specific open source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community.  Check it out to learn about some of the coolest web archiving projects and communities on the web!
 
@@ -157,7 +157,7 @@ Whether you want learn which organizations are the big players in the web archiv
  
 ---
  
-# Documentation
+## Documentation
 
 <img src="https://read-the-docs-guidelines.readthedocs-hosted.com/_images/logo-dark.png" width="13%" align="right"/>
 
@@ -165,14 +165,14 @@ We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for d
 
 You can also access the docs locally by looking in the [`ArchiveBox/docs/`](https://github.com/pirate/ArchiveBox/wiki/Home) folder.
 
-## Getting Started
+### Getting Started
 
  - [Home](https://github.com/pirate/ArchiveBox/wiki/Home)
  - [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart)
  - [Install](https://github.com/pirate/ArchiveBox/wiki/Install)
  - [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker)
 
-## Reference
+### Reference
 
  - [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage)
  - [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration)
@@ -183,7 +183,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
  - [Chromium Install](https://github.com/pirate/ArchiveBox/wiki/Install-Chromium)
  - [Troubleshooting](https://github.com/pirate/ArchiveBox/wiki/Troubleshooting)
 
-## More Info
+### More Info
 
  - [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)
  - [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
@@ -193,7 +193,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 ---
 
 
-# Screenshots
+## Screenshots
 
 <div align="center">
 <img src="https://i.imgur.com/biVfFYr.png" width="20%" alt="CLI Screenshot" align="top">
