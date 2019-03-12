@@ -37,7 +37,7 @@ ArchiveBox doesn't require a constantly running server or backend, instead you j
 
 
 ArchiveBox has [3 main dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies) beyond `python3`: `wget`, `chromium`, and `youtube-dl`.
-To get started, you can [install them manually](https://github.com/pirate/ArchiveBox/wiki/Install) using your system's package manager, you can use the [automated helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart) to install them, or you can use the offical [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker) container.  All three dependencies are optional if the mehtods that depend on them are [disabled](https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles).
+To get started, you can [install them manually](https://github.com/pirate/ArchiveBox/wiki/Install) using your system's package manager, you can use the [automated helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart), or you can use the offical [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker) container.  All three dependencies are optional if the methods that depend on them are [disabled](https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles).
 
 *(`pip install archivebox` will be available in the near future, follow our [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) for progress)*
 
