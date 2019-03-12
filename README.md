@@ -70,8 +70,7 @@ For more information, see the [full Quickstart guide](https://github.com/pirate/
 
 *(`pip install archivebox` will be available in the near future, follow our [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) for progress)*
 
-<div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
-
+---
 
 <div align="center">
 <img src="https://i.imgur.com/PVO88AZ.png" width="80%"/>
@@ -114,7 +113,7 @@ By default it does everything but you can disable or tweak [individual options](
 The archiving is additive so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.
 All the saved content is static and indexed with JSON files, so it lives forever & is easily parseable, it requires no always-running backend.
 
-## Background & Motivation
+### Background & Motivation
 
 Vast treasure troves of knowledge are lost every day on the internet to link rot.  As a society, we have an imperative to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
 
@@ -156,7 +155,7 @@ Whether you want learn which organizations are the big players in the web archiv
  - Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/)" blog post.
  - Or reach out to me for questions and comments via [@theSquashSH](https://twitter.com/thesquashSH) on Twitter.
  
-<div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
+---
  
 # Documentation
 
