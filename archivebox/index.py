@@ -3,7 +3,11 @@ import json
 
 from datetime import datetime
 from string import Template
-from distutils.dir_util import copy_tree
+try:
+    from distutils.dir_util import copy_tree
+except ImportError:
+    print('[X] Missing "distutils" python package. To install it, run:')
+    print('    pip install distutils')
 
 from config import (
     OUTPUT_DIR,
