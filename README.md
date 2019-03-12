@@ -81,7 +81,7 @@ Using multiple methods and the market-dominant browser to execute JS ensures we 
  - **Title:** `title` title of the site
  - **Favicon:** `favicon.ico` favicon of the site
  - **WGET Clone:** `example.com/page-name.html` wget clone of the site, with .html appended if not present
- - **WARC:** `warc/` for the html + gzipped warc file `<timestamp>.gz`
+ - **WARC:** `warc/<timestamp>.gz` gzipped WARC of all the resources fetched while archiving
  - **PDF:** `output.pdf` Printed PDF of site using headless chrome
  - **Screenshot:** `screenshot.png` 1440x900 screenshot of site using headless chrome
  - **DOM Dump:** `output.html` DOM Dump of the HTML after rendering using headless chrome
