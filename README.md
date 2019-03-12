@@ -177,7 +177,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 <br/><br/>
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" height="40px"/>
 <br/>
-<sub><i>This project is maintained mostly in my spare time with the help from generous contributors.</i></sub>
+<sub><i>This project is maintained mostly in [my spare time](https://nicksweeting.com/blog#About) with the help from generous contributors.</i></sub>
 <br/><br/>
 Contributor Spotlight:<br/><br/>
  
