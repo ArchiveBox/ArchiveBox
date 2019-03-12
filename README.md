@@ -114,7 +114,7 @@ I don't think everything should be preserved in an automated fashion, making all
 
 <div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
-<img src="https://i.imgur.com/4nkFjdv.png" width="15%" align="right"/>
+<img src="https://i.imgur.com/4nkFjdv.png" width="10%" align="left"/>
 
 The aim of ArchiveBox is to go beyond what the Wayback Machine and other public archiving services can do, by adding a headless browser to replay sessions accurately, and by automatically extracting all the content in multiple redundant formats that will survive being passed down to historians and archivists through many generations.
 
