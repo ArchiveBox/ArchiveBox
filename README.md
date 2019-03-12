@@ -108,6 +108,8 @@ archive internet content enables to you save the stuff you care most about befor
 The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful. 
 I don't think everything should be preserved in an automated fashion, making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
 
+<div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
+
 The aim of ArchiveBox is to go beyond what the Wayback Machine and other public archiving services can do, by adding a headless browser to replay sessions accurately, and by automatically extracting all the content in multiple redundant formats that will survive being passed down to historians and archivists through many generations.
 
 ArchiveBox differentiates itself from similar projects by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view and care about locally.  Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't want to share with a centralized service.
