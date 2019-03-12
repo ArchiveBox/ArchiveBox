@@ -44,7 +44,7 @@ To get started, you can [install them manually](https://github.com/pirate/Archiv
 
 ```bash
 # 1. Install dependencies (use apt on ubuntu, brew on mac, or pkg on BSD)
-apt install python3 python3-pip git wget curl chromium-browser youtube-dl
+apt install python3 python3-pip git curl wget youtube-dl chromium-browser
 
 # 2. Download ArchiveBox
 git clone https://github.com/pirate/ArchiveBox.git && cd ArchiveBox
