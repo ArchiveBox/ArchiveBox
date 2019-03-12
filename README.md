@@ -31,9 +31,11 @@
 
 You can use it to preserve access to websites you care about by storing them locally offline.  ArchiveBox works by rendering the pages in a headless browser, then saving all the requests and fully loaded pages in multiple redundant common formats (HTML, PDF, PNG, WARC) that will last long after the original content disappears off the internet.  It also automatically extracts assets like git repositories, audio, video, subtitles, images, and PDFs into separate files using `youtube-dl`, `pywb`, and `wget`.
 
-#### How it works
+#### How does it work?
 
-ArchiveBox is a CLI application written in Python, using wget, chrome, youtube-dl, and other common tools to archive URLs. It doesn't require a constantly running server or backend, instead, you just run the `./archive` command each time you want to import new links and update the static output.  It can import and export JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
+Simply download this repo, and run the `./archive` command each time you want to import new links and update your local archive. ArchiveBox is written in Python 3, and it uses wget, Chrome headless, youtube-dl, pywb, and other common tools to save each page you add in multiple redundant formats. 
+
+It doesn't require a constantly running server or backend, just run the command and open the outputted static HTML in a browser to view the archive. It can import and export JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
 <div align="center"><sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub></div><br/>
 
