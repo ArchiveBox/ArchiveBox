@@ -167,7 +167,6 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 
 ## Getting Started
 
- - [Home](https://github.com/pirate/ArchiveBox/wiki/Home)
  - [Quickstart](https://github.com/pirate/ArchiveBox/wiki/Quickstart)
  - [Install](https://github.com/pirate/ArchiveBox/wiki/Install)
  - [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker)
