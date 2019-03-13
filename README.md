@@ -186,6 +186,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
  - [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)
  - [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
  - [Donations](https://github.com/pirate/ArchiveBox/wiki/Donations)
+ - [Background & Motivation](https://github.com/pirate/ArchiveBox#background--motivation)
  - [Web Archiving Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
 
 ---
