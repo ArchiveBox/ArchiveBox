@@ -211,7 +211,14 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 <br/><br/>
 Contributor Spotlight:<br/><br/>
  
-[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/0)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/0)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/1)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/1)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/2)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/2)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/3)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/3)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/4)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/4)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/5)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/5)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/6)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/6)[![](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/7)](https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/7)
+<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/0"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/0"></a>
+<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/1"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/1"></a>
+<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/2"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/2"></a>
+<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/3"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/3"></a>
+<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/4"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/4"></a>
+<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/5"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/5"></a>
+<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/6"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/6"></a>
+<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/7"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/7"></a>
 
 <br/>
 <a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Donate_to_support_development-via_Patreon-%23DD5D76.svg?style=flat"/></a>
