@@ -129,11 +129,19 @@ The balance between the permanence and ephemeral nature of content on the intern
 I don't think everything should be preserved in an automated fashion, making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
 
 
-## Comparison to other Projects
+## Comparison to Other Projects
 
 <img src="https://i.imgur.com/4nkFjdv.png" width="10%" align="left"/> The aim of ArchiveBox is to go beyond what the Wayback Machine and other public archiving services can do, by adding a headless browser to replay sessions accurately, and by automatically extracting all the content in multiple redundant formats that will survive being passed down to historians and archivists through many generations.
 
-ArchiveBox differentiates itself from [similar projects](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view and care about locally.  Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't want to share with a centralized service.
+ArchiveBox differentiates itself from [similar projects](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by trying to be a simple, robust, way for the average tech-savvy user to save sizable portions of the content they view every day locally.
+
+#### Private Local Archives vs Centralized Public Archives
+
+Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your entire browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't otherwise share with a centralized service.
+
+Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today.  However, as storage space gets cheaper and compression improves, you should be able to use it continuously over the years without having to delete anything.  In my experience, ArchiveBox uses about 5gb per 1000 articles, but your milage may vary depending on which options you have enabled and what types of sites you're archiving. By default, it archives everything in as many formats as possible, meaning it takes more space than a using a single method, but more content is accurately replayable over extended periods of time. Storage requirements can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by setting `FETCH_MEDIA=False` to skip audio & video files.
+
+An alternative tool [pywb](https://github.com/webrecorder/pywb) allows you to run a browser through an archiving proxy which records all traffic to WARC files.  ArchiveBox intends to natively support live proxy-archiving using `pywb` in the future, but for now it only ingests chunks of links at a time via browser history, bookmarks, RSS, etc.
 
 ## Read more
 
