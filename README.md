@@ -85,7 +85,7 @@ ArchiveBox imports a list of URLs from stdin, remote URL, or file, then adds the
 
 Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats.
 
-#### Can import links from:
+#### Can import links from many formats:
 
 ```bash
 ./archive < any_text_file.txt
@@ -93,9 +93,9 @@ Using multiple methods and the market-dominant browser to execute JS ensures we 
 
  - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS, XML, JSON, CSV, SQL, HTML, Markdown, or any other text-based format
  - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history or bookmarks exports (Chrome, Firefox, Safari, IE, Opera, and more)
- - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket, Pinboard, Instapaper, Shaarli, Delicious, Reddit Saved Posts, Wallabag, Unmark.it, OneTab, and many more!
+ - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket, Pinboard, Instapaper, Shaarli, Delicious, Reddit Saved Posts, Wallabag, Unmark.it, OneTab, and more
 
-#### Saves these things for each imported link:
+#### Saves lots of useful stuff for each imported link:
 
 ```bash
  output/archive/<timestamp>/
@@ -114,7 +114,7 @@ Using multiple methods and the market-dominant browser to execute JS ensures we 
  - **Source Code:** `git/` clone of any repository found on github, bitbucket, or gitlab links
  - *More coming soon! See the [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)...*
 
-By default it saves everything but you can disable or tweak [individual archive methods](https://github.com/pirate/ArchiveBox/wiki/Configuration) via environment variables or config file.
+It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/pirate/ArchiveBox/wiki/Configuration) via environment variables or config file.
 
 The archiving is additive so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.
 All the saved content is static and indexed with JSON files, so it lives forever & is easily parseable, it requires no always-running backend.
