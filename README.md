@@ -87,11 +87,19 @@ Using multiple methods and the market-dominant browser to execute JS ensures we 
 
 #### Can import links from:
 
- - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS, XML, JSON, CSV, SQL, HTML, Markdown, or plain text files
+```bash
+./archive < any_text_file.txt
+```
+
+ - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> RSS, XML, JSON, CSV, SQL, HTML, Markdown, or any other text-based format
  - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history or bookmarks exports (Chrome, Firefox, Safari, IE, Opera, and more)
  - <img src="https://getpocket.com/favicon.ico" height="22px"/> Pocket, Pinboard, Instapaper, Shaarli, Delicious, Reddit Saved Posts, Wallabag, Unmark.it, OneTab, and many more!
 
-#### Can save these things for each site:
+#### Saves these things for each imported link:
+
+```bash
+ output/archive/<timestamp>/
+```
 
  - **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
  - **Title:** `title` title of the site
@@ -106,7 +114,7 @@ Using multiple methods and the market-dominant browser to execute JS ensures we 
  - **Source Code:** `git/` clone of any repository found on github, bitbucket, or gitlab links
  - *More coming soon! See the [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)...*
 
-By default it does everything but you can disable or tweak [individual options](https://github.com/pirate/ArchiveBox/wiki/Configuration) via environment variables or config file.
+By default it saves everything but you can disable or tweak [individual archive methods](https://github.com/pirate/ArchiveBox/wiki/Configuration) via environment variables or config file.
 
 The archiving is additive so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.
 All the saved content is static and indexed with JSON files, so it lives forever & is easily parseable, it requires no always-running backend.
