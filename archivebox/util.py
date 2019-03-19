@@ -66,9 +66,9 @@ URL_REGEX = re.compile(
     re.IGNORECASE,
 )
 HTML_TITLE_REGEX = re.compile(
-    r'<title>'                         # start matching text after <title> tag
+    r'<title.*?>'                      # start matching text after <title> tag
     r'(.[^<>]+)',                      # get everything up to these symbols
-    re.IGNORECASE,
+    re.IGNORECASE | re.MULTILINE | re.DOTALL | re.UNICODE,
 )
 
 ### Checks & Tests
