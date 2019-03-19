@@ -263,16 +263,29 @@ def wget_output_path(link):
     # Since the wget algorithm to for -E (appending .html) is incredibly complex
     # instead of trying to emulate it here, we just look in the output folder
     # to see what html file wget actually created as the output
-    wget_folder = base_url(link['url']).rsplit('/', 1)[0].split('/')
-    look_in = os.path.join(ARCHIVE_DIR, link['timestamp'], *wget_folder)
+    url_path = without_fragment(without_query(path(link['url']))).strip('/')
+    html_parent_folder = (domain(link['url']), *url_path.rsplit('/', 1)[0].split('/'))
+    look_in = os.path.join(ARCHIVE_DIR, link['timestamp'], *html_parent_folder)
 
-    if look_in and os.path.exists(look_in):
+    # look inside innermost path folder for an html file
+    if os.path.exists(look_in):
         html_files = [
             f for f in os.listdir(look_in)
             if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
         ]
         if html_files:
-            return urlencode(os.path.join(*wget_folder, html_files[0]))
+            return urlencode(os.path.join(*html_parent_folder, html_files[0]))
+
+    # Look one level up in case last path fragment was a file and not a folder
+    look_in = look_in.rsplit('/', 1)[0]
+    html_parent_folder = html_parent_folder[:-1]
+    if os.path.exists(look_in):
+        html_files = [
+            f for f in os.listdir(look_in)
+            if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
+        ]
+        if html_files:
+            return urlencode(os.path.join(*html_parent_folder, html_files[0]))
 
     return None
 
@@ -397,6 +410,12 @@ def derived_link_info(link):
         'path': path(url),
         'basename': basename(url),
         'base_url': base_url(url),
+        'is_archived': os.path.exists(os.path.join(
+            ARCHIVE_DIR,
+            link['timestamp'],
+            wget_output_path(link) or domain(url)
+        )),
+        'num_outputs': len([entry for entry in link['latest'].values() if entry]) if 'latest' in link else 0,
     }
 
     # Archive Method Output URLs
@@ -405,7 +424,7 @@ def derived_link_info(link):
         'index_url': 'index.html',
         'favicon_url': 'favicon.ico',
         'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**extended_info),
-        'archive_url': wget_output_path(link) or 'index.html',
+        'archive_url': wget_output_path(link),
         'warc_url': 'warc',
         'pdf_url': 'output.pdf',
         'screenshot_url': 'screenshot.png',
