@@ -126,6 +126,8 @@ See the [Usage: CLI](https://github.com/pirate/ArchiveBox/wiki/Usage#CLI-Usage) 
 
 It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/pirate/ArchiveBox/wiki/Configuration) via environment variables or config file.
 
+If you're importing URLs with secret tokens in them (e.g Google Docs, CodiMD notepads, etc), you may want to disable some of these methods to avoid leaking private URLs to 3rd party APIs during the archiving process.  See the [Security Overview](https://github.com/pirate/ArchiveBox/wiki/Security-Overview) page for more details.
+
 ## Key Features
 
  - [**Free & open source**](https://github.com/pirate/ArchiveBox/blob/master/LICENSE), doesn't require signing up for anything, stores all data locally
