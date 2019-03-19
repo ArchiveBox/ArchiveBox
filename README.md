@@ -85,6 +85,10 @@ ArchiveBox imports a list of URLs from stdin, remote URL, or file, then adds the
 
 Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats.
 
+Archiving is additive so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.  For each link, it saves the first succesful snapshot (it will retry any that failed on the next run). Support for saving multiple snapshots of each site over time will be added soon (along with the ability to view diffs of the changes between runs).
+
+All the archived links are stored by date bookmarked in `output/archive/<timestamp>`, and everything is indexed nicely with JSON & HTML files. The intent is for all the content to be viewable with common software in 50 - 100 years without needing to run ArchiveBox in a VM.
+
 #### Can import links from many formats:
 
 ```bash
@@ -116,7 +120,7 @@ Using multiple methods and the market-dominant browser to execute JS ensures we 
 
 It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/pirate/ArchiveBox/wiki/Configuration) via environment variables or config file.
 
-#### Key features
+## Key Features
 
  - **Free & open source**, doesn't require signing up for anything, stores all data locally
  - **Few dependencies** and simple command line interface
@@ -126,10 +130,6 @@ It does everything out-of-the-box by default, but you can disable or tweak [indi
  - **Suitable for paywalled / authenticated content** (can use your Cookies)
  - Can **run scripts during archiving** to scroll pages, close modals, expand comment threads, etc.
  - Can also **mirror content to 3rd-party archiving services** automatically for redundancy
-
-The archiving is additive so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.  For each link, it saves the first succesful snapshot (it will retry any that failed on the next run). Support for saving multiple snapshots of each site over time will be added soon (along with the ability to view diffs of the changes between runs).
-
-All the archived links are stored by date bookmarked in `output/archive/<timestamp>`, and everything is indexed nicely with JSON & HTML files. The intent is for all the content to be viewable with common software in 50 - 100 years without needing to run ArchiveBox in a VM.
 
 ## Background & Motivation
 
