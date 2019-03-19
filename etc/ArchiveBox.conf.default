@@ -1,6 +1,6 @@
 # Example config file for ArchiveBox: The self-hosted internet archive.
 # Copy this file to ~/.ArchiveBox.conf before editing it.
-# Config file uses python syntax but can also be sourced as a .env file.
+# Config file is in both Python and .env syntax (all strings must be quoted).
 # For documentation, see:
 #    https://github.com/pirate/ArchiveBox/wiki/Configuration
 
@@ -8,12 +8,12 @@
 ## General Settings
 ################################################################################
 
-#OUTPUT_DIR=output
+#OUTPUT_DIR="output"
 #OUTPUT_PERMISSIONS=755
 #ONLY_NEW=False
 #TIMEOUT=60
 #MEDIA_TIMEOUT=3600
-#TEMPLATES_DIR=archivebox/templates
+#TEMPLATES_DIR="archivebox/templates"
 #FOOTER_INFO="Content is hosted for personal archiving purposes only. Contact server owner for any takedown requests."
 
 
