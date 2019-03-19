@@ -28,13 +28,13 @@
 
 **ArchiveBox takes a list of website URLs you want to archive, and creates a local, static, browsable HTML clone of the content from those websites (it saves HTML, JS, media files, PDFs, images and more).** 
 
-You can use it to preserve access to websites you care about by storing them locally offline.  ArchiveBox imports lists of URLs, renders the pages in a headless, autheticated, user-scriptable browser, and then saves archive of the content in multiple redundant common formats (HTML, PDF, PNG, WARC) that will last long after the originals disappear off the internet.  It automatically extracts assets and media from pages and saves them in easily-accessible folders, with out-of-the-box support for git repositories, audio, video, subtitles, images, PDFs, and more.
+You can use it to preserve access to websites you care about by storing them locally offline.  ArchiveBox imports lists of URLs, renders the pages in a headless, autheticated, user-scriptable browser, and then archives the content in multiple redundant common formats (HTML, PDF, PNG, WARC) that will last long after the originals disappear off the internet.  It automatically extracts assets and media from pages and saves them in easily-accessible folders, with out-of-the-box support for extracting git repositories, audio, video, subtitles, images, PDFs, and more.
 
 #### How does it work?
 
 Simply download the repo, then run the `./archive < urls` command each time you want to import new links and update your archive `./output` HTML folder. ArchiveBox is written in Python 3 and uses wget, Chrome headless, youtube-dl, pywb, and other common unix tools to save each page you add in multiple redundant formats. 
 
-It doesn't require a constantly running server or backend, just run the command and open the generated `output/index.html` in a browser to view the archive. It can import and export JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
+It doesn't require a constantly running server or backend, just open the generated `output/index.html` in a browser to view the archive. It can import and export links as JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
 <div align="center">
 
@@ -116,8 +116,20 @@ Using multiple methods and the market-dominant browser to execute JS ensures we 
 
 It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/pirate/ArchiveBox/wiki/Configuration) via environment variables or config file.
 
-The archiving is additive so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.
-All the saved content is static and indexed with JSON files, so it lives forever & is easily parseable, it requires no always-running backend.
+#### Key features
+
+ - **Free & open source**, doesn't require signing up for anything, stores all data locally
+ - **Few dependencies** and simple command line interface
+ - **Doesn't require a constantly-running server**, proxy, or native app
+ - Easy to set up **scheduled importing from multiple sources**
+ - Uses common, **durable, long-term formats** like HTML, JSON, PDF, PNG, WARC
+ - **Suitable for paywalled / authenticated content** (can use your Cookies)
+ - Can **run scripts during archiving** to scroll pages, close modals, expand comment threads, etc.
+ - Can also **mirror content to 3rd-party archiving services** automatically for redundancy
+
+The archiving is additive so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.  For each link, it saves the first succesful snapshot (it will retry any that failed on the next run). Support for saving multiple snapshots of each site over time will be added soon (along with the ability to view diffs of the changes between runs).
+
+All the archived links are stored by date bookmarked in `output/archive/<timestamp>`, and everything is indexed nicely with JSON & HTML files. The intent is for all the content to be viewable with common software in 50 - 100 years without needing to run ArchiveBox in a VM.
 
 ## Background & Motivation
 
