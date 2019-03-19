@@ -22,7 +22,10 @@ from util import (
     pretty_path,
     check_link_structure,
     check_links_structure,
+    wget_output_path,
 )
+
+TITLE_LOADING_MSG = 'Not yet archived...'
 
 
 ### Homepage index for all the links
@@ -96,9 +99,20 @@ def write_html_links_index(out_dir, links, finished=False):
     with open(os.path.join(TEMPLATES_DIR, 'index_row.html'), 'r', encoding='utf-8') as f:
         link_row_html = f.read()
 
+    full_links_info = (derived_link_info(link) for link in links)
+
     link_rows = '\n'.join(
-        Template(link_row_html).substitute(**derived_link_info(link))
-        for link in links
+        Template(link_row_html).substitute(**{
+            **link,
+            'title': (
+                link['title']
+                or (link['base_url'] if link['is_archived'] else TITLE_LOADING_MSG)
+            ),
+            'archive_url': (
+                wget_output_path(link) or 'index.html'
+            ),
+        })
+        for link in full_links_info
     )
 
     template_vars = {
@@ -118,24 +132,41 @@ def write_html_links_index(out_dir, links, finished=False):
     chmod_file(path)
 
 
-def patch_index_title_hack(link_url, new_title):
-    """hack to update just one link's title in the link index json"""
+def update_main_index(link):
+    """hack to in-place update one row's info in the generated index html"""
 
+    title = link['latest']['title']
+    successful = len([entry for entry in link['latest'].values() if entry])
+
+    # Patch JSON index
     json_path = os.path.join(OUTPUT_DIR, 'index.json')
 
     links = parse_json_links_index(OUTPUT_DIR)
 
     changed = False
-    for link in links:
-        if link['url'] == link_url:
-            link['title'] = new_title
+    for json_link in links:
+        if json_link['url'] == link['url']:
+            json_link['title'] = title
+            json_link['latest'] = link['latest']
             changed = True
             break
 
     if changed:
         write_json_links_index(OUTPUT_DIR, links)
 
+    # Patch HTML index
+    html_path = os.path.join(OUTPUT_DIR, 'index.html')
 
+    html = open(html_path, 'r').read().split('\n')
+    for idx, line in enumerate(html):
+        if title and ('<span data-title-for="{}"'.format(link['url']) in line):
+            html[idx] = '<span>{}</span>'.format(title)
+        elif successful and ('<span data-number-for="{}"'.format(link['url']) in line):
+            html[idx] = '<span>{}</span>'.format(successful)
+            break
+
+    with open(html_path, 'w') as f:
+        f.write('\n'.join(html))
 
 ### Individual link index
 
@@ -176,10 +207,19 @@ def write_html_link_index(out_dir, link):
 
     print('      √ index.html')
 
+    link = derived_link_info(link)
+
     with open(path, 'w', encoding='utf-8') as f:
         f.write(Template(link_html).substitute({
-            **derived_link_info(link),
-            # **link['latest'],
+            **link,
+            'title': (
+                link['title']
+                or (link['base_url'] if link['is_archived'] else TITLE_LOADING_MSG)
+            ),
+            'archive_url': (
+                wget_output_path(link)
+                or (link['domain'] if link['is_archived'] else 'about:blank')
+            ),
         }))
 
     chmod_file(path)

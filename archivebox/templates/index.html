@@ -98,6 +98,28 @@
                 overflow-y: scroll;
                 table-layout: fixed;
             }
+            table tr a span[data-archived~=False] {
+                opacity: 0.2;
+            }
+            .files-spinner {
+                height: 15px;
+                width: auto;
+                opacity: 0.5;
+                vertical-align: -2px;
+            }
+            .link-favicon {
+                padding-right: 8px;
+                vertical-align: -4px;
+            }
+            .in-progress {
+                display: none;
+            }
+            body[data-status~=finished] .files-spinner {
+                display: none;
+            }
+            body[data-status~=running] .in-progress {
+                display: inline-block;
+            }
         </style>
     </head>
     <body data-status="$status">
@@ -121,12 +143,8 @@
             <thead>
                 <tr>
                     <th style="width: 80px;">Bookmarked</th>
-                    <th style="width: 26px;">Files</th>
                     <th style="width: 26vw;">Saved Link ($num_links)</th>
-                    <th style="width: 30px;">PNG</th>
-                    <th style="width: 30px">PDF</th>
-                    <th style="width: 30px">HTML</th>
-                    <th style="width: 30px">A.org</th>
+                    <th style="width: 50px">Saved Files</th>
                     <th style="width: 16vw;whitespace:nowrap;overflow-x:hidden;">Original URL</th>
                 </tr>
             </thead>

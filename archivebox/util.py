@@ -244,7 +244,7 @@ def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
         # ))
         return None
 
-def wget_output_path(link, look_in=None):
+def wget_output_path(link):
     """calculate the path to the wgetted .html file, since wget may
     adjust some paths to be different than the base_url path.
 

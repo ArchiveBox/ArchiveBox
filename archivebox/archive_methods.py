@@ -7,7 +7,7 @@ from datetime import datetime
 from index import (
     parse_json_link_index,
     write_link_index,
-    patch_index_title_hack,
+    update_main_index,
 )
 from config import (
     CURL_BINARY,
@@ -103,7 +103,9 @@ def archive_link(link_dir, link, overwrite=True):
         for archive_method in active_methods:
             archive_method(link_dir, link, overwrite=overwrite)
 
+
         write_link_index(link_dir, link)
+        update_main_index(link)
 
     except Exception as err:
         print('    ! Failed to archive link: {}: {}'.format(err.__class__.__name__, err))
@@ -218,7 +220,7 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
     try:
         result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)
         end()
-        output = wget_output_path(link, look_in=domain_dir)
+        output = wget_output_path(link)
 
         output_tail = ['          ' + line for line in (result.stdout + result.stderr).decode().rsplit('\n', 3)[-3:] if line.strip()]
 
@@ -391,10 +393,12 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
     output = 'archive.org.txt'
     archive_org_url = None
 
+
     path = os.path.join(link_dir, output)
     if os.path.exists(path):
         archive_org_url = open(path, 'r').read().strip()
         return {'output': archive_org_url, 'status': 'skipped'}
+
 
     submit_url = 'https://web.archive.org/save/{}'.format(link['url'])
     CMD = [
@@ -412,7 +416,6 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
         end()
 
         content_location, errors = parse_archive_dot_org_response(result.stdout)
-
         if content_location:
             archive_org_url = 'https://web.archive.org{}'.format(content_location[0])
         elif len(errors) == 1 and 'RobotAccessControlException' in errors[0]:
@@ -426,6 +429,7 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
         end()
         output = e
         print_error_hints(cmd=CMD, pwd=link_dir, err=e)
+
 
     if not isinstance(output, Exception):
         # instead of writing None when archive.org rejects the url write the
@@ -499,7 +503,6 @@ def fetch_title(link_dir, link, timeout=TIMEOUT):
     # TODO: figure out how to do this without gnarly string replacement
     if title:
         link['title'] = title
-        patch_index_title_hack(link['url'], title)
 
     return {
         'cmd': 'fetch_page_title("{}")'.format(link['url']),
