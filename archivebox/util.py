@@ -413,7 +413,7 @@ def derived_link_info(link):
         'is_archived': os.path.exists(os.path.join(
             ARCHIVE_DIR,
             link['timestamp'],
-            wget_output_path(link) or domain(url)
+            domain(url),
         )),
         'num_outputs': len([entry for entry in link['latest'].values() if entry]) if 'latest' in link else 0,
     }

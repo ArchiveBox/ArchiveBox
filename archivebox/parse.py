@@ -228,9 +228,9 @@ def parse_pinboard_rss_export(rss_file):
     items = root.findall("{http://purl.org/rss/1.0/}item")
     for item in items:
         url = item.find("{http://purl.org/rss/1.0/}link").text
-        tags = item.find("{http://purl.org/dc/elements/1.1/}subject").text
-        title = item.find("{http://purl.org/rss/1.0/}title").text.strip()
-        ts_str = item.find("{http://purl.org/dc/elements/1.1/}date").text
+        tags = item.find("{http://purl.org/dc/elements/1.1/}subject").text if item.find("{http://purl.org/dc/elements/1.1/}subject") else None
+        title = item.find("{http://purl.org/rss/1.0/}title").text.strip() if item.find("{http://purl.org/rss/1.0/}title").text.strip() else None
+        ts_str = item.find("{http://purl.org/dc/elements/1.1/}date").text if item.find("{http://purl.org/dc/elements/1.1/}date").text else None
         #       = 🌈🌈🌈🌈
         #        = 🌈🌈🌈🌈
         #         = 🏆🏆🏆🏆
@@ -243,7 +243,7 @@ def parse_pinboard_rss_export(rss_file):
         info = {
             'url': url,
             'timestamp': str(time.timestamp()),
-            'tags': tags,
+            'tags': tags or '',
             'title': title or None,
             'sources': [rss_file.name],
         }
