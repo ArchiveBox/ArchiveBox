@@ -30,7 +30,7 @@ from config import (
     SUBMIT_ARCHIVE_DOT_ORG,
     COOKIES_FILE,
     WGET_USER_AGENT,
-    HEADLESS_USER_AGENT,
+    CHROME_USER_AGENT,
     CHROME_USER_DATA_DIR,
     CHROME_HEADLESS,
     CHROME_SANDBOX,
@@ -267,7 +267,7 @@ def fetch_pdf(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
         '--hide-scrollbars',
         '--timeout={}'.format((timeout) * 1000),
         *(() if CHECK_SSL_VALIDITY else ('--disable-web-security', '--ignore-certificate-errors')),
-        *(('--user-agent={}'.format(HEADLESS_USER_AGENT),) if HEADLESS_USER_AGENT else ()),
+        *(('--user-agent={}'.format(CHROME_USER_AGENT),) if CHROME_USER_AGENT else ()),
         link['url']
     ]
     end = progress(timeout, prefix='      ')
@@ -306,7 +306,7 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_
         '--hide-scrollbars',
         '--timeout={}'.format((timeout) * 1000),
         *(() if CHECK_SSL_VALIDITY else ('--disable-web-security', '--ignore-certificate-errors')),
-        *(('--user-agent={}'.format(HEADLESS_USER_AGENT),) if HEADLESS_USER_AGENT else ()),
+        *(('--user-agent={}'.format(CHROME_USER_AGENT),) if CHROME_USER_AGENT else ()),
         # '--full-page',   # TODO: make this actually work using ./bin/screenshot fullPage: true
         link['url'],
     ]
@@ -345,7 +345,7 @@ def fetch_dom(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
         *chrome_headless(user_data_dir=user_data_dir),
         '--dump-dom',
         '--timeout={}'.format((timeout) * 1000),
-        *(('--user-agent={}'.format(HEADLESS_USER_AGENT),) if HEADLESS_USER_AGENT else ()),
+        *(('--user-agent={}'.format(CHROME_USER_AGENT),) if CHROME_USER_AGENT else ()),
         link['url']
     ]
     end = progress(timeout, prefix='      ')
