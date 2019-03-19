@@ -85,7 +85,7 @@ ArchiveBox imports a list of URLs from stdin, remote URL, or file, then adds the
 
 Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats.
 
-Archiving is additive so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.  For each link, it saves the first succesful snapshot (it will retry any that failed on the next run). Support for saving multiple snapshots of each site over time will be added soon (along with the ability to view diffs of the changes between runs).
+Archiving is additive so you can schedule `./archive` to [run regularly](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and pull new links into the index.  For each link, it saves the first succesful snapshot (it will retry any that failed on the next run). Support for saving multiple snapshots of each site over time will be [added soon](https://github.com/pirate/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs).
 
 All the archived links are stored by date bookmarked in `output/archive/<timestamp>`, and everything is indexed nicely with JSON & HTML files. The intent is for all the content to be viewable with common software in 50 - 100 years without needing to run ArchiveBox in a VM.
 
@@ -122,14 +122,15 @@ It does everything out-of-the-box by default, but you can disable or tweak [indi
 
 ## Key Features
 
- - **Free & open source**, doesn't require signing up for anything, stores all data locally
- - **Few dependencies** and simple command line interface
+ - [**Free & open source**](https://github.com/pirate/ArchiveBox/blob/master/LICENSE), doesn't require signing up for anything, stores all data locally
+ - [**Few dependencies**](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies) and [simple command line interface](https://github.com/pirate/ArchiveBox/wiki/Usage#CLI-Usage)
+ - [**Comprehensive documentation**](https://github.com/pirate/ArchiveBox/wiki), [active development](https://github.com/pirate/ArchiveBox/wiki/Roadmap) and [rich community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
  - **Doesn't require a constantly-running server**, proxy, or native app
- - Easy to set up **scheduled importing from multiple sources**
- - Uses common, **durable, long-term formats** like HTML, JSON, PDF, PNG, WARC
- - **Suitable for paywalled / authenticated content** (can use your Cookies)
- - Can **run scripts during archiving** to scroll pages, close modals, expand comment threads, etc.
- - Can also **mirror content to 3rd-party archiving services** automatically for redundancy
+ - Easy to set up **[scheduled importing](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) from multiple sources**
+ - Uses common, [**durable, long-term formats**](#saves-lots-of-useful-stuff-for-each-imported-link) like HTML, JSON, PDF, PNG, WARC
+ - **Suitable for paywalled / [authenticated content](https://github.com/pirate/ArchiveBox/wiki/Configuration#chrome_user_data_dir)** (can use your cookies)
+ - Can [**run scripts during archiving**](https://github.com/pirate/ArchiveBox/issues/51) to [scroll pages](https://github.com/pirate/ArchiveBox/issues/80), [close modals](https://github.com/pirate/ArchiveBox/issues/175), expand comment threads, etc.
+ - Can also [**mirror content to 3rd-party archiving services**](https://github.com/pirate/ArchiveBox/wiki/Configuration#submit_archive_dot_org) automatically for redundancy
 
 ## Background & Motivation
 
