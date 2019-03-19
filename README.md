@@ -109,7 +109,7 @@ See the [Usage: CLI](https://github.com/pirate/ArchiveBox/wiki/Usage#CLI-Usage) 
 #### Saves lots of useful stuff for each imported link:
 
 ```bash
- output/archive/<timestamp>/
+ ls output/archive/<timestamp>/
 ```
 
  - **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
