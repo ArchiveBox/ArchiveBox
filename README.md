@@ -32,7 +32,11 @@ You can use it to preserve access to websites you care about by storing them loc
 
 #### How does it work?
 
-Simply download the repo, then run the `./archive < urls` command each time you want to import new links and update your archive `./output` HTML folder. ArchiveBox is written in Python 3 and uses wget, Chrome headless, youtube-dl, pywb, and other common unix tools to save each page you add in multiple redundant formats. 
+```bash
+echo 'http://example.com' | ./archive
+```
+
+Simply download the repo and run the `./archive` command each time you want to archive new links and add them to your local archive folder. ArchiveBox is written in Python 3 and uses wget, Chrome headless, youtube-dl, pywb, and other common unix tools to save each page you add in multiple redundant formats. 
 
 It doesn't require a constantly running server or backend, just open the generated `output/index.html` in a browser to view the archive. It can import and export links as JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
