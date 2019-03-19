@@ -27,7 +27,7 @@ from util import (
 
 ### Homepage index for all the links
 
-def write_links_index(out_dir, links):
+def write_links_index(out_dir, links, finished=False):
     """create index.html file for a given list of links"""
 
     check_links_structure(links)
@@ -35,14 +35,14 @@ def write_links_index(out_dir, links):
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
-    print('{green}[*] [{}] Updating main index files...{reset}'.format(
+    print('{green}[*] [{}] Saving main index files...{reset}'.format(
         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         **ANSI,
     ))
     write_json_links_index(out_dir, links)
     print('    > {}/index.json'.format(pretty_path(out_dir)))
     
-    write_html_links_index(out_dir, links)
+    write_html_links_index(out_dir, links, finished=finished)
     print('    > {}/index.html'.format(pretty_path(out_dir)))
     
 
@@ -78,7 +78,7 @@ def parse_json_links_index(out_dir):
 
     return []
 
-def write_html_links_index(out_dir, links):
+def write_html_links_index(out_dir, links, finished=False):
     """write the html link index to a given path"""
 
     check_links_structure(links)
@@ -109,6 +109,7 @@ def write_html_links_index(out_dir, links):
         'git_sha': GIT_SHA,
         'short_git_sha': GIT_SHA[:8],
         'rows': link_rows,
+        'status': 'finished' if finished else 'running',
     }
 
     with open(path, 'w', encoding='utf-8') as f:
