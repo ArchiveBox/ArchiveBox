@@ -82,11 +82,11 @@ For more information, see the [full Quickstart guide](https://github.com/pirate/
 
 Because modern websites are complicated and often rely on dynamic content, 
 ArchiveBox archives the sites in **several different formats** beyond what public 
-archiving services like Archive.org and Archive.is are capable of saving.
+archiving services like Archive.org and Archive.is are capable of saving. Using multiple 
+methods and the market-dominant browser to execute JS ensures we can save even the most 
+complex, finicky websites in at least a few high-quality, long-term data formats.
 
 ArchiveBox imports a list of URLs from stdin, remote URL, or file, then adds the pages to a local archive folder using wget to create a browsable HTML clone, youtube-dl to extract media, and a full instance of Chrome headless for PDF, Screenshot, and DOM dumps, and more...
-
-Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats.
 
 Running `./archive` adds only new, unique links into `output/` on each run. Because it will ignore duplicates and only archive each link the first time you add it, you can schedule it to [run on a timer](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and re-import all your feeds multiple times a day. It will run quickly even if the feeds are large, because it's only archiving the newest links since the last run.  For each link, it runs through all the archive methods. Methods that fail will save `None` and be automatically retried on the next run, methods that succeed save their output into the data folder and are never retried/overwritten by subsequent runs.  Support for saving multiple snapshots of each site over time will be [added soon](https://github.com/pirate/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs).
 
