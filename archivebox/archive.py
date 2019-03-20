@@ -112,10 +112,10 @@ def update_archive(archive_path, links, source=None, resume=None, append=True):
             archive_link(link_dir, link)
 
     except (KeyboardInterrupt, SystemExit, Exception) as e:
-        if isinstance(e, KeyboardInterrupt):
-            # Step 4: Re-write links index with updated titles, icons, and resources
-            all_links, _ = load_links(archive_path=out_dir)
-            write_links_index(out_dir=out_dir, links=all_links, finished=True)
+        # if isinstance(e, KeyboardInterrupt):
+        #     # Step 4: Re-write links index with updated titles, icons, and resources
+        #     all_links, _ = load_links(archive_path=out_dir)
+        #     write_links_index(out_dir=out_dir, links=all_links, finished=True)
         print()
         print('\n{lightyellow}[X] [{now}] Downloading paused on link {timestamp} ({idx}/{total}){reset}'.format(
             **ANSI,

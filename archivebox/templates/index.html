@@ -117,9 +117,9 @@
             body[data-status~=finished] .files-spinner {
                 display: none;
             }
-            body[data-status~=running] .in-progress {
+            /*body[data-status~=running] .in-progress {
                 display: inline-block;
-            }
+            }*/
         </style>
     </head>
     <body data-status="$status">
@@ -135,7 +135,9 @@
                 </a>
             </div>
             <div class="header-center">
-                Archived Sites <span class="in-progress">(Currently Updating)</span><br/>
+                Archived Sites
+                <!--<span class="in-progress">(Currently Updating)</span>-->
+                <br/>
                 <small>Last updated $time_updated</small>
             </div>
         </header>
