@@ -118,6 +118,12 @@
                 height: 93%;
                 margin-top: -10px;
             }
+            .pdf-frame {
+                transform: none;
+                width: 100%;
+                height: 100px;
+                margin-bottom: 0px;
+            }
             img.external {
                 height: 30px;
                 margin-right: -10px;
@@ -177,7 +183,7 @@
                     Last updated: <small title="Timestamp: $updated">$updated_date</small>
                 </div>
                 <div class="col-lg-4 alert well">
-                    Type: 
+                    Metadata: 
                     <span class="badge badge-default">$type</span>
                     &nbsp; | &nbsp;
                     Tags:
@@ -186,9 +192,11 @@
                 <div class="col-lg-4 alert well">
                     Download:
                     <a href="index.json" title="JSON summary of archived link.">JSON</a> | 
-                    <a href="." title="Webserver-provided index of files directory.">Files</a> | 
+                    <a href="warc/" title="Any WARC archives for the page">WARC</a> | 
                     <a href="media/" title="Audio, Video, and Subtitle files.">Media</a> | 
-                    <a href="git/" title="Any git repos at the url">Git Code</a>
+                    <a href="git/" title="Any git repos at the url">Git Repos</a> | 
+                    <a href="favicon.ico" title="Any git repos at the url">Favicon</a> | 
+                    <a href="." title="Webserver-provided index of files directory.">More files...</a>
                 </div>
                 <hr/>
                 <div class="col-lg-2">
@@ -217,7 +225,7 @@
                 </div>
                 <div class="col-lg-2">
                     <div class="card">
-                      <iframe class="card-img-top" src="$pdf_url"></iframe>
+                      <iframe class="card-img-top pdf-frame" src="$pdf_url"></iframe>
                       <div class="card-body">
                         <a href="$pdf_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
                             <img src="../../static/external.png" class="external"/>
