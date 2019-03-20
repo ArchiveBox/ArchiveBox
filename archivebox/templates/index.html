@@ -116,7 +116,38 @@
             /*body[data-status~=running] .in-progress {
                 display: inline-block;
             }*/
+            tr td a.favicon img {
+                padding-left: 6px;
+                padding-right: 12px;
+                vertical-align: -4px;
+            }
+            tr td a.title {
+                font-size: 1.4em;
+                text-decoration:none;
+                color:black;
+            }
+            tr td a.title small {
+                background-color: #efefef;
+                border-radius: 4px;
+                float:right
+            }
         </style>
+        <link rel="stylesheet" href="static/jquery.dataTables.min.css"/>
+        <script src="static/jquery.min.js"></script>
+        <script src="static/jquery.dataTables.min.js"></script>
+        <script>
+            document.addEventListener('error', function(e) {
+              e.target.style.opacity = 0;
+            }, true)
+            jQuery(document).ready(function() {
+                jQuery('#table-bookmarks').DataTable({
+                    stateSave: true, // save state (filtered input, number of entries shown, etc) in localStorage
+                    dom: '<lf<t>ip>', // how to show the table and its helpers (filter, etc) in the DOM
+                    order: [[0, 'desc']],
+                    iDisplayLength: 100,
+                });
+            });
+        </script>
     </head>
     <body data-status="$status">
         <header>
@@ -161,18 +192,5 @@
             </center>
             <br/>
         </footer>
-        <link rel="stylesheet" href="static/jquery.dataTables.min.css"/>
-        <script src="static/jquery.min.js"></script>
-        <script src="static/jquery.dataTables.min.js"></script>
-        <script>
-            jQuery(document).ready(function() {
-                jQuery('#table-bookmarks').DataTable({
-                    stateSave: true, // save state (filtered input, number of entries shown, etc) in localStorage
-                    dom: '<lf<t>ip>', // how to show the table and its helpers (filter, etc) in the DOM
-                    order: [[0, 'desc']],
-                    iDisplayLength: 100,
-                });
-            });
-        </script>
     </body>
 </html>
