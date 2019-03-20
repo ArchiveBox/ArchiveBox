@@ -70,6 +70,7 @@
                 opacity: 0.8;
             }
             .card {
+                overflow: hidden;
                 box-shadow: 2px 3px 14px 0px rgba(0,0,0,0.02);
             }
             .card h4 {
@@ -121,7 +122,8 @@
             .pdf-frame {
                 transform: none;
                 width: 100%;
-                height: 100px;
+                height: 160px;
+                margin-top: -60px;
                 margin-bottom: 0px;
             }
             img.external {
@@ -134,6 +136,15 @@
             }
             img.external:hover {
                 border: 4px solid green;
+            }
+            .screenshot {
+                transform: none;
+                width: 100%;
+                height: auto;
+                max-height: 100px;
+                margin-bottom: 0px;
+                object-fit: cover;
+                object-position: top;
             }
 
             @media(max-width: 1092px) {
@@ -201,7 +212,7 @@
                 <hr/>
                 <div class="col-lg-2">
                     <div class="card selected-card">
-                      <iframe class="card-img-top" src="$archive_url" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+                      <iframe class="card-img-top" src="$archive_url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
                       <div class="card-body">
                         <a href="$archive_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
                             <img src="../../static/external.png" class="external"/>
@@ -213,7 +224,7 @@
                 </div>
                 <div class="col-lg-2">
                     <div class="card">
-                      <iframe class="card-img-top" src="$dom_url" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+                      <iframe class="card-img-top" src="$dom_url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
                       <div class="card-body">
                         <a href="$dom_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
                             <img src="../../static/external.png" class="external"/>
@@ -225,7 +236,7 @@
                 </div>
                 <div class="col-lg-2">
                     <div class="card">
-                      <iframe class="card-img-top pdf-frame" src="$pdf_url"></iframe>
+                      <iframe class="card-img-top pdf-frame" src="$pdf_url" scrolling="no"></iframe>
                       <div class="card-body">
                         <a href="$pdf_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
                             <img src="../../static/external.png" class="external"/>
@@ -237,7 +248,7 @@
                 </div>
                 <div class="col-lg-2">
                     <div class="card">
-                      <iframe class="card-img-top" src="$screenshot_url" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+                      <img class="card-img-top screenshot" src="$screenshot_url"></iframe>
                       <div class="card-body">
                         <a href="$screenshot_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
                             <img src="../../static/external.png" class="external"/>
@@ -249,7 +260,7 @@
                 </div>
                 <div class="col-lg-2">
                     <div class="card">
-                      <iframe class="card-img-top" src="$url" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+                      <iframe class="card-img-top" src="$url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
                       <div class="card-body">
                         <a href="$url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
                             <img src="../../static/external.png" class="external"/>
@@ -261,7 +272,7 @@
                 </div>
                 <div class="col-lg-2">
                     <div class="card">
-                      <iframe class="card-img-top" src="$archive_org_url" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+                      <iframe class="card-img-top" src="$archive_org_url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
                       <div class="card-body">
                         <a href="$archive_org_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
                             <img src="../../static/external.png" class="external"/>
@@ -321,6 +332,11 @@
             // hide all preview iframes on small screens
             if (window.innerWidth < 1091) {
                 jQuery('.card a[target=preview]').attr('target', '_self')
+            }
+
+            var pdf_frame = document.querySelector('.pdf-frame');
+            pdf_frame.onload = function () {
+                pdf_frame.contentWindow.scrollTo(0, 400);
             }
         </script>
     </body>
