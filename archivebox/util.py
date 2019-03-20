@@ -263,29 +263,30 @@ def wget_output_path(link):
     # Since the wget algorithm to for -E (appending .html) is incredibly complex
     # instead of trying to emulate it here, we just look in the output folder
     # to see what html file wget actually created as the output
-    url_path = without_fragment(without_query(path(link['url']))).strip('/')
-    html_parent_folder = (domain(link['url']), *url_path.rsplit('/', 1)[0].split('/'))
-    look_in = os.path.join(ARCHIVE_DIR, link['timestamp'], *html_parent_folder)
+    link_dir = os.path.join(ARCHIVE_DIR, link['timestamp'])
+    full_path = without_fragment(without_query(path(link['url']))).strip('/')
+    search_dir = os.path.join(
+        link_dir,
+        domain(link['url']),
+        full_path,
+    )
 
-    # look inside innermost path folder for an html file
-    if os.path.exists(look_in):
-        html_files = [
-            f for f in os.listdir(look_in)
-            if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
-        ]
-        if html_files:
-            return urlencode(os.path.join(*html_parent_folder, html_files[0]))
+    for _ in range(4):
+        if os.path.exists(search_dir):
+            if os.path.isdir(search_dir):
+                html_files = [
+                    f for f in os.listdir(search_dir)
+                    if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
+                ]
+                if html_files:
+                    relative_path = search_dir.split(link_dir)[-1].strip('/')
+                    return urlencode(os.path.join(relative_path, html_files[0]))
 
-    # Look one level up in case last path fragment was a file and not a folder
-    look_in = look_in.rsplit('/', 1)[0]
-    html_parent_folder = html_parent_folder[:-1]
-    if os.path.exists(look_in):
-        html_files = [
-            f for f in os.listdir(look_in)
-            if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
-        ]
-        if html_files:
-            return urlencode(os.path.join(*html_parent_folder, html_files[0]))
+        # Move up one directory level
+        search_dir = search_dir.rsplit('/', 1)[0]
+
+        if search_dir == link_dir:
+            break
 
     return None
 
