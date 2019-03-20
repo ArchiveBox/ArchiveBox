@@ -108,6 +108,10 @@ def write_html_links_index(out_dir, links, finished=False):
                 link['title']
                 or (link['base_url'] if link['is_archived'] else TITLE_LOADING_MSG)
             ),
+            'favicon_url': (
+                os.path.join('archive', link['timestamp'], 'favicon.ico')
+                # if link['is_archived'] else 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
+            ),
             'archive_url': (
                 wget_output_path(link) or 'index.html'
             ),
