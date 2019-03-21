@@ -46,6 +46,7 @@ from util import (
     without_query,
     without_fragment,
     fetch_page_title,
+    is_static_file,
     progress,
     chmod_file,
     pretty_path,
@@ -554,7 +555,7 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
                 pass
             else:
                 hints = (
-                    'got youtubedl response code {}:'.format(result.returncode)),
+                    'got youtubedl response code {}:'.format(result.returncode),
                     *result.stderr.decode().split('\n'),
                 )
                 raise ArchiveError('Failed to download media', hints)
