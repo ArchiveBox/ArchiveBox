@@ -81,6 +81,12 @@ def load_link_index(link_dir, link):
     return link
 
 
+class ArchiveError(Exception):
+    def __init__(self, message, hints=None):
+        super().__init__(message)
+        self.hints = hints
+
+
 def archive_link(link_dir, link, overwrite=True):
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
@@ -122,8 +128,6 @@ def print_link_status_line(link_dir, link, is_new):
     ))
 
     print('    > {}{}'.format(pretty_path(link_dir), ' (new)' if is_new else ''))
-    # if link['type']:
-    #     print('      i {}'.format(link['type']))
 
 
 
@@ -222,7 +226,11 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
         end()
         output = wget_output_path(link)
 
-        output_tail = ['          ' + line for line in (result.stdout + result.stderr).decode().rsplit('\n', 3)[-3:] if line.strip()]
+        output_tail = [
+            line.strip()
+            for line in (result.stdout + result.stderr).decode().rsplit('\n', 3)[-3:]
+            if line.strip()
+        ]
 
         # parse out number of files downloaded from "Downloaded: 76 files, 4.0M in 1.6s (2.52 MB/s)"
         files_downloaded = (
@@ -233,15 +241,17 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
 
         # Check for common failure cases
         if result.returncode > 0 and files_downloaded < 1:
-            print('        Got wget response code {}:'.format(result.returncode))
-            print('\n'.join(output_tail))
+            hints = (
+                'Got wget response code {}:\n'.format(result.returncode),
+                *output_tail,
+            )
             if b'403: Forbidden' in result.stderr:
-                raise Exception('403 Forbidden (try changing WGET_USER_AGENT)')
+                raise ArchiveError('403 Forbidden (try changing WGET_USER_AGENT)', hints)
             if b'404: Not Found' in result.stderr:
-                raise Exception('404 Not Found')
+                raise ArchiveError('404 Not Found', hints)
             if b'ERROR 500: Internal Server Error' in result.stderr:
-                raise Exception('500 Internal Server Error')
-            raise Exception('Got an error from the server')
+                raise ArchiveError('500 Internal Server Error', hints)
+            raise ArchiveError('Got an error from the server', hints)
     except Exception as e:
         end()
         output = e
@@ -254,37 +264,36 @@ def fetch_wget(link_dir, link, requisites=FETCH_WGET_REQUISITES, warc=FETCH_WARC
 
 
 @attach_result_to_link('pdf')
-def fetch_pdf(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DIR):
+def fetch_pdf(link_dir, link, timeout=TIMEOUT, **chrome_kwargs):
     """print PDF of site to file using chrome --headless"""
 
-    if link['type'] in ('PDF', 'image'):
-        return {'output': wget_output_path(link)}
+    if is_static_file(link['url']):
+        return {'output': wget_output_path(link), 'status': 'skipped'}
     
-    if os.path.exists(os.path.join(link_dir, 'output.pdf')):
-        return {'output': 'output.pdf', 'status': 'skipped'}
+    output = 'output.pdf'
+    if os.path.exists(os.path.join(link_dir, output)):
+        return {'output': output, 'status': 'skipped'}
 
     CMD = [
-        *chrome_headless(user_data_dir=user_data_dir),
+        *chrome_headless(timeout=timeout, **chrome_kwargs),
         '--print-to-pdf',
-        '--hide-scrollbars',
-        '--timeout={}'.format((timeout) * 1000),
-        *(() if CHECK_SSL_VALIDITY else ('--disable-web-security', '--ignore-certificate-errors')),
-        *(('--user-agent={}'.format(CHROME_USER_AGENT),) if CHROME_USER_AGENT else ()),
         link['url']
     ]
     end = progress(timeout, prefix='      ')
+    hints = None
     try:
         result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)
         end()
+
         if result.returncode:
-            print('     ', (result.stderr or result.stdout).decode())
-            raise Exception('Failed to print PDF')
+            hints = (result.stderr or result.stdout).decode()
+            raise ArchiveError('Failed to print PDF', hints)
+        
         chmod_file('output.pdf', cwd=link_dir)
-        output = 'output.pdf'
     except Exception as e:
         end()
         output = e
-        print_error_hints(cmd=CMD, pwd=link_dir, err=e)
+        print_error_hints(cmd=CMD, pwd=link_dir, err=e, hints=hints)
 
     return {
         'cmd': CMD,
@@ -292,24 +301,19 @@ def fetch_pdf(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
     }
 
 @attach_result_to_link('screenshot')
-def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DIR, resolution=RESOLUTION):
+def fetch_screenshot(link_dir, link, timeout=TIMEOUT, **chrome_kwargs):
     """take screenshot of site using chrome --headless"""
 
-    if link['type'] in ('PDF', 'image'):
-        return {'output': wget_output_path(link)}
+    if is_static_file(link['url']):
+        return {'output': wget_output_path(link), 'status': 'skipped'}
     
-    if os.path.exists(os.path.join(link_dir, 'screenshot.png')):
-        return {'output': 'screenshot.png', 'status': 'skipped'}
+    output = 'screenshot.png'
+    if os.path.exists(os.path.join(link_dir, output)):
+        return {'output': output, 'status': 'skipped'}
 
     CMD = [
-        *chrome_headless(user_data_dir=user_data_dir),
+        *chrome_headless(timeout=timeout, **chrome_kwargs),
         '--screenshot',
-        '--window-size={}'.format(resolution),
-        '--hide-scrollbars',
-        '--timeout={}'.format((timeout) * 1000),
-        *(() if CHECK_SSL_VALIDITY else ('--disable-web-security', '--ignore-certificate-errors')),
-        *(('--user-agent={}'.format(CHROME_USER_AGENT),) if CHROME_USER_AGENT else ()),
-        # '--full-page',   # TODO: make this actually work using ./bin/screenshot fullPage: true
         link['url'],
     ]
     end = progress(timeout, prefix='      ')
@@ -317,10 +321,10 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_
         result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)
         end()
         if result.returncode:
-            print('     ', (result.stderr or result.stdout).decode())
-            raise Exception('Failed to take screenshot')
-        chmod_file('screenshot.png', cwd=link_dir)
-        output = 'screenshot.png'
+            hints = (result.stderr or result.stdout).decode()
+            raise ArchiveError('Failed to take screenshot', hints)
+
+        chmod_file(output, cwd=link_dir)
     except Exception as e:
         end()
         output = e
@@ -332,22 +336,19 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_
     }
     
 @attach_result_to_link('dom')
-def fetch_dom(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DIR):
+def fetch_dom(link_dir, link, timeout=TIMEOUT, **chrome_kwargs):
     """print HTML of site to file using chrome --dump-html"""
 
-    if link['type'] in ('PDF', 'image'):
-        return {'output': wget_output_path(link)}
+    if is_static_file(link['url']):
+        return {'output': wget_output_path(link), 'status': 'skipped'}
     
-    output_path = os.path.join(link_dir, 'output.html')
-
-    if os.path.exists(output_path):
-        return {'output': 'output.html', 'status': 'skipped'}
+    output = 'output.html'
+    if os.path.exists(os.path.join(link_dir, output)):
+        return {'output': output, 'status': 'skipped'}
 
     CMD = [
-        *chrome_headless(user_data_dir=user_data_dir),
+        *chrome_headless(timeout=timeout, **chrome_kwargs),
         '--dump-dom',
-        '--timeout={}'.format((timeout) * 1000),
-        *(('--user-agent={}'.format(CHROME_USER_AGENT),) if CHROME_USER_AGENT else ()),
         link['url']
     ]
     end = progress(timeout, prefix='      ')
@@ -356,10 +357,10 @@ def fetch_dom(link_dir, link, timeout=TIMEOUT, user_data_dir=CHROME_USER_DATA_DI
             result = run(CMD, stdout=f, stderr=PIPE, cwd=link_dir, timeout=timeout)
         end()
         if result.returncode:
-            print('     ', (result.stderr).decode())
-            raise Exception('Failed to fetch DOM')
-        chmod_file('output.html', cwd=link_dir)
-        output = 'output.html'
+            hints = result.stderr.decode()
+            raise ArchiveError('Failed to fetch DOM', hints)
+
+        chmod_file(output, cwd=link_dir)
     except Exception as e:
         end()
         output = e
@@ -393,12 +394,10 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
     output = 'archive.org.txt'
     archive_org_url = None
 
-
     path = os.path.join(link_dir, output)
     if os.path.exists(path):
         archive_org_url = open(path, 'r').read().strip()
         return {'output': archive_org_url, 'status': 'skipped'}
-
 
     submit_url = 'https://web.archive.org/save/{}'.format(link['url'])
     CMD = [
@@ -414,22 +413,20 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
     try:
         result = run(CMD, stdout=PIPE, stderr=DEVNULL, cwd=link_dir, timeout=timeout)
         end()
-
         content_location, errors = parse_archive_dot_org_response(result.stdout)
         if content_location:
             archive_org_url = 'https://web.archive.org{}'.format(content_location[0])
         elif len(errors) == 1 and 'RobotAccessControlException' in errors[0]:
             archive_org_url = None
-            # raise Exception('Archive.org denied by {}/robots.txt'.format(domain(link['url'])))
+            # raise ArchiveError('Archive.org denied by {}/robots.txt'.format(domain(link['url'])))
         elif errors:
-            raise Exception(', '.join(errors))
+            raise ArchiveError(', '.join(errors))
         else:
-            raise Exception('Failed to find "content-location" URL header in Archive.org response.')
+            raise ArchiveError('Failed to find "content-location" URL header in Archive.org response.')
     except Exception as e:
         end()
         output = e
         print_error_hints(cmd=CMD, pwd=link_dir, err=e)
-
 
     if not isinstance(output, Exception):
         # instead of writing None when archive.org rejects the url write the
@@ -452,7 +449,6 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
     """download site favicon from google's favicon api"""
 
     output = 'favicon.ico'
-
     if os.path.exists(os.path.join(link_dir, output)):
         return {'output': output, 'status': 'skipped'}
 
@@ -468,8 +464,7 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
     try:
         run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)
         end()
-        chmod_file('favicon.ico', cwd=link_dir)
-        output = 'favicon.ico'
+        chmod_file(output, cwd=link_dir)
     except Exception as e:
         end()
         output = e
@@ -488,6 +483,9 @@ def fetch_title(link_dir, link, timeout=TIMEOUT):
     if link['title'] and not link['title'].lower().startswith('http'):
         return {'output': link['title'], 'status': 'skipped'}
 
+    if is_static_file(link['url']):
+        return {'output': None, 'status': 'skipped'}
+
     end = progress(timeout, prefix='      ')
     try:
         title = fetch_page_title(link['url'], timeout=timeout, progress=False)
@@ -495,14 +493,12 @@ def fetch_title(link_dir, link, timeout=TIMEOUT):
         output = title
     except Exception as e:
         end()
-        print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
         output = e
+        print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
 
-    # titles should show up in the global index immediatley for better UX,
-    # do a hacky immediate replacement to add them in as we're archiving
-    # TODO: figure out how to do this without gnarly string replacement
-    if title:
+    if title and title.strip():
         link['title'] = title
+        output = title
 
     return {
         'cmd': 'fetch_page_title("{}")'.format(link['url']),
@@ -513,14 +509,13 @@ def fetch_title(link_dir, link, timeout=TIMEOUT):
 def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
     """Download playlists or individual video, audio, and subtitles using youtube-dl"""
 
+    output = 'media'
+    output_path = os.path.join(link_dir, 'media')
 
-    # import ipdb; ipdb.set_trace()
-    output = os.path.join(link_dir, 'media')
-    already_done = os.path.exists(output)  # and os.listdir(output)
-    if already_done and not overwrite:
-        return {'output': 'media', 'status': 'skipped'}
+    if os.path.exists(output_path) and not overwrite:
+        return {'output': output, 'status': 'skipped'}
 
-    os.makedirs(output, exist_ok=True)
+    os.makedirs(output_path, exist_ok=True)
     CMD = [
         YOUTUBEDL_BINARY,
         '--write-description',
@@ -546,9 +541,8 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
 
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=output, timeout=timeout + 1)
-        chmod_file('media', cwd=link_dir)
-        output = 'media'
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=output_path, timeout=timeout + 1)
+        chmod_file(output, cwd=link_dir)
         end()
         if result.returncode:
             if (b'ERROR: Unsupported URL' in result.stderr
@@ -559,9 +553,11 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
                 # These happen too frequently on non-media pages to warrant printing to console
                 pass
             else:
-                print('        got youtubedl response code {}:'.format(result.returncode))
-                print(result.stderr)
-                raise Exception('Failed to download media')
+                hints = (
+                    'got youtubedl response code {}:'.format(result.returncode)),
+                    *result.stderr.decode().split('\n'),
+                )
+                raise ArchiveError('Failed to download media', hints)
     except Exception as e:
         end()
         output = e
@@ -580,18 +576,17 @@ def fetch_git(link_dir, link, timeout=TIMEOUT):
     url_is_clonable = (
         domain(link['url']) in GIT_DOMAINS
         or link['url'].endswith('.git')
-        or link['type'] == 'git'
     )
-    
-    if not url_is_clonable:
+    if not url_is_clonable or is_static_file(link['url']):
         return {'output': None, 'status': 'skipped'}
 
-    git_dir = os.path.join(link_dir, 'git')
-    if os.path.exists(git_dir):
-        return {'output': 'git', 'status': 'skipped'}
-
-    os.makedirs(git_dir, exist_ok=True)
     output = 'git'
+    output_path = os.path.join(link_dir, 'git')
+
+    if os.path.exists(output_path):
+        return {'output': output, 'status': 'skipped'}
+
+    os.makedirs(output_path, exist_ok=True)
     CMD = [
         GIT_BINARY,
         'clone',
@@ -602,15 +597,15 @@ def fetch_git(link_dir, link, timeout=TIMEOUT):
     ]
     end = progress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=git_dir, timeout=timeout + 1)
+        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=output_path, timeout=timeout + 1)
         end()
 
         if result.returncode == 128:
             # ignore failed re-download when the folder already exists
             pass
         elif result.returncode > 0:
-            print('        got git response code {}:'.format(result.returncode))
-            raise Exception('Failed git download')
+            hints = 'got git response code {}:'.format(result.returncode)
+            raise ArchiveError('Failed git download', hints)
     except Exception as e:
         end()
         output = e
@@ -621,9 +616,9 @@ def fetch_git(link_dir, link, timeout=TIMEOUT):
         'output': output,
     }
 
-def chrome_headless(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR, headless=CHROME_HEADLESS, sandbox=CHROME_SANDBOX):
-    global USER_DATA_DIR
-    user_data_dir = user_data_dir or USER_DATA_DIR
+def chrome_headless(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR, headless=CHROME_HEADLESS, sandbox=CHROME_SANDBOX, check_ssl_validity=CHECK_SSL_VALIDITY, user_agent=CHROME_USER_AGENT, resolution=RESOLUTION, timeout=TIMEOUT):
+    global CACHED_USER_DATA_DIR
+    user_data_dir = user_data_dir or CACHED_USER_DATA_DIR
     cmd_args = [binary]
 
     if headless:
@@ -633,7 +628,18 @@ def chrome_headless(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR, he
         # dont use GPU or sandbox when running inside docker container
         cmd_args += ('--no-sandbox', '--disable-gpu')
 
-    
+    if not check_ssl_validity:
+        cmd_args += ('--disable-web-security', '--ignore-certificate-errors')
+
+    if user_agent:
+        cmd_args += ('--user-agent={}'.format(user_agent),)
+
+    if resolution:
+        cmd_args += ('--window-size={}'.format(RESOLUTION),)
+
+    if timeout:
+        cmd_args += ('--timeout={}'.format((timeout) * 1000),)
+
     # Find chrome user data directory
     default_profile_paths = (
         '~/.config/chromium',
@@ -653,10 +659,11 @@ def chrome_headless(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR, he
         for path in default_profile_paths:
             full_path = os.path.expanduser(path)
             if os.path.exists(full_path):
-                USER_DATA_DIR = full_path
+                CACHED_USER_DATA_DIR = full_path
                 cmd_args.append('--user-data-dir={}'.format(full_path))
                 break
+    
     return cmd_args
 
 
-USER_DATA_DIR = CHROME_USER_DATA_DIR
+CACHED_USER_DATA_DIR = CHROME_USER_DATA_DIR
