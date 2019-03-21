@@ -1,10 +1,64 @@
+"""
+Patches, additions, and shortcuts for Python standard library functions.
+"""
+
+### subprocess
+
+from subprocess import (
+    Popen,
+    PIPE,
+    DEVNULL, 
+    CompletedProcess,
+    TimeoutExpired,
+    CalledProcessError,
+)
+
+def run(*popenargs, input=None, capture_output=False, timeout=None, check=False, **kwargs):
+    """Patched of subprocess.run to fix blocking io making timeout=innefective"""
+
+    if input is not None:
+        if 'stdin' in kwargs:
+            raise ValueError('stdin and input arguments may not both be used.')
+        kwargs['stdin'] = PIPE
+
+    if capture_output:
+        if ('stdout' in kwargs) or ('stderr' in kwargs):
+            raise ValueError('stdout and stderr arguments may not be used '
+                             'with capture_output.')
+        kwargs['stdout'] = PIPE
+        kwargs['stderr'] = PIPE
+
+    with Popen(*popenargs, **kwargs) as process:
+        try:
+            stdout, stderr = process.communicate(input, timeout=timeout)
+        except TimeoutExpired:
+            process.kill()
+            try:
+                stdout, stderr = process.communicate(input, timeout=2)
+            except:
+                pass
+            raise TimeoutExpired(popenargs[0][0], timeout)
+        except BaseException as err:
+            process.kill()
+            # We don't call process.wait() as .__exit__ does that for us.
+            raise 
+        retcode = process.poll()
+        if check and retcode:
+            raise CalledProcessError(retcode, process.args,
+                                     output=stdout, stderr=stderr)
+    return CompletedProcess(process.args, retcode, stdout, stderr)
+
+
+
+### collections
+
 from sys import maxsize
 from itertools import islice
 from collections import deque
 
 _marker = object()
 
-class Peekable(object):
+class PeekableGenerator:
     """Peekable version of a normal python generator.
        Useful when you don't want to evaluate the entire iterable to look at
        a specific item at a given idx.
@@ -73,8 +127,6 @@ class Peekable(object):
             return self._cache.popleft()
 
         return next(self._it)
-
-    next = __next__  # For Python 2 compatibility
 
     def _get_slice(self, index):
         # Normalize the slice's arguments

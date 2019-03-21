@@ -8,8 +8,8 @@ from urllib.parse import urlparse, quote
 from decimal import Decimal
 from datetime import datetime
 from multiprocessing import Process
-from subprocess import TimeoutExpired, Popen, PIPE, DEVNULL, CompletedProcess, CalledProcessError
 
+from stdlib_patches import run, PIPE, DEVNULL
 from config import (
     ANSI,
     TERM_WIDTH,
@@ -19,8 +19,6 @@ from config import (
     OUTPUT_PERMISSIONS,
     TIMEOUT,
     SHOW_PROGRESS,
-    CHECK_SSL_VALIDITY,
-    WGET_USER_AGENT,
     CURL_BINARY,
     WGET_BINARY,
     CHROME_BINARY,
@@ -37,6 +35,13 @@ from config import (
     FETCH_MEDIA,
     SUBMIT_ARCHIVE_DOT_ORG,
     ARCHIVE_DIR_NAME,
+    RESOLUTION,
+    CHECK_SSL_VALIDITY,
+    WGET_USER_AGENT,
+    CHROME_USER_AGENT,
+    CHROME_USER_DATA_DIR,
+    CHROME_HEADLESS,
+    CHROME_SANDBOX,
 )
 
 ### Parsing Helpers
@@ -56,6 +61,7 @@ extension = lambda url: basename(url).rsplit('.', 1)[-1].lower() if '.' in basen
 base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 
 short_ts = lambda ts: ts.split('.')[0]
+urlencode = lambda s: quote(s, encoding='utf-8', errors='replace')
 
 URL_REGEX = re.compile(
     r'http[s]?://'                    # start matching from allowed schemes
@@ -109,66 +115,74 @@ def check_links_structure(links):
 def check_dependencies():
     """Check that all necessary dependencies are installed, and have valid versions"""
 
-    python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
-    if python_vers < 3.5:
-        print('{}[X] Python version is not new enough: {} (>3.5 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
-        print('    See https://github.com/pirate/ArchiveBox#troubleshooting for help upgrading your Python installation.')
+    try:
+        python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
+        if python_vers < 3.5:
+            print('{}[X] Python version is not new enough: {} (>3.5 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
+            print('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
+            raise SystemExit(1)
+
+        if FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG:
+            if run(['which', CURL_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode or run([CURL_BINARY, '--version'], stdout=DEVNULL, stderr=DEVNULL).returncode:
+                print('{red}[X] Missing dependency: curl{reset}'.format(**ANSI))
+                print('    Install it, then confirm it works with: {} --version'.format(CURL_BINARY))
+                print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+                raise SystemExit(1)
+
+        if FETCH_WGET or FETCH_WARC:
+            if run(['which', WGET_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode or run([WGET_BINARY, '--version'], stdout=DEVNULL, stderr=DEVNULL).returncode:
+                print('{red}[X] Missing dependency: wget{reset}'.format(**ANSI))
+                print('    Install it, then confirm it works with: {} --version'.format(WGET_BINARY))
+                print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+                raise SystemExit(1)
+
+        if FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM:
+            if run(['which', CHROME_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode:
+                print('{}[X] Missing dependency: {}{}'.format(ANSI['red'], CHROME_BINARY, ANSI['reset']))
+                print('    Install it, then confirm it works with: {} --version'.format(CHROME_BINARY))
+                print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+                raise SystemExit(1)
+
+            # parse chrome --version e.g. Google Chrome 61.0.3114.0 canary / Chromium 59.0.3029.110 built on Ubuntu, running on Ubuntu 16.04
+            try:
+                result = run([CHROME_BINARY, '--version'], stdout=PIPE)
+                version_str = result.stdout.decode('utf-8')
+                version_lines = re.sub("(Google Chrome|Chromium) (\\d+?)\\.(\\d+?)\\.(\\d+?).*?$", "\\2", version_str).split('\n')
+                version = [l for l in version_lines if l.isdigit()][-1]
+                if int(version) < 59:
+                    print(version_lines)
+                    print('{red}[X] Chrome version must be 59 or greater for headless PDF, screenshot, and DOM saving{reset}'.format(**ANSI))
+                    print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+                    raise SystemExit(1)
+            except (IndexError, TypeError, OSError):
+                print('{red}[X] Failed to parse Chrome version, is it installed properly?{reset}'.format(**ANSI))
+                print('    Install it, then confirm it works with: {} --version'.format(CHROME_BINARY))
+                print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+                raise SystemExit(1)
+
+        if FETCH_GIT:
+            if run(['which', GIT_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode or run([GIT_BINARY, '--version'], stdout=DEVNULL, stderr=DEVNULL).returncode:
+                print('{red}[X] Missing dependency: git{reset}'.format(**ANSI))
+                print('    Install it, then confirm it works with: {} --version'.format(GIT_BINARY))
+                print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+                raise SystemExit(1)
+
+        if FETCH_MEDIA:
+            if run(['which', YOUTUBEDL_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode or run([YOUTUBEDL_BINARY, '--version'], stdout=DEVNULL, stderr=DEVNULL).returncode:
+                print('{red}[X] Missing dependency: youtube-dl{reset}'.format(**ANSI))
+                print('    Install it, then confirm it was installed with: {} --version'.format(YOUTUBEDL_BINARY))
+                print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+                raise SystemExit(1)
+    except (KeyboardInterrupt, Exception):
         raise SystemExit(1)
 
-    if FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG:
-        if run(['which', CURL_BINARY], stdout=DEVNULL).returncode or run([CURL_BINARY, '--version'], stdout=DEVNULL).returncode:
-            print('{red}[X] Missing dependency: curl{reset}'.format(**ANSI))
-            print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(CURL_BINARY))
-            print('    See https://github.com/pirate/ArchiveBox for help.')
-            raise SystemExit(1)
-
-    if FETCH_WGET or FETCH_WARC:
-        if run(['which', WGET_BINARY], stdout=DEVNULL).returncode or run([WGET_BINARY, '--version'], stdout=DEVNULL).returncode:
-            print('{red}[X] Missing dependency: wget{reset}'.format(**ANSI))
-            print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(WGET_BINARY))
-            print('    See https://github.com/pirate/ArchiveBox for help.')
-            raise SystemExit(1)
-
-    if FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM:
-        if run(['which', CHROME_BINARY], stdout=DEVNULL).returncode:
-            print('{}[X] Missing dependency: {}{}'.format(ANSI['red'], CHROME_BINARY, ANSI['reset']))
-            print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(CHROME_BINARY))
-            print('    See https://github.com/pirate/ArchiveBox for help.')
-            raise SystemExit(1)
-
-        # parse chrome --version e.g. Google Chrome 61.0.3114.0 canary / Chromium 59.0.3029.110 built on Ubuntu, running on Ubuntu 16.04
-        try:
-            result = run([CHROME_BINARY, '--version'], stdout=PIPE)
-            version_str = result.stdout.decode('utf-8')
-            version_lines = re.sub("(Google Chrome|Chromium) (\\d+?)\\.(\\d+?)\\.(\\d+?).*?$", "\\2", version_str).split('\n')
-            version = [l for l in version_lines if l.isdigit()][-1]
-            if int(version) < 59:
-                print(version_lines)
-                print('{red}[X] Chrome version must be 59 or greater for headless PDF, screenshot, and DOM saving{reset}'.format(**ANSI))
-                print('    See https://github.com/pirate/ArchiveBox for help.')
-                raise SystemExit(1)
-        except (IndexError, TypeError, OSError):
-            print('{red}[X] Failed to parse Chrome version, is it installed properly?{reset}'.format(**ANSI))
-            print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(CHROME_BINARY))
-            print('    See https://github.com/pirate/ArchiveBox for help.')
-            raise SystemExit(1)
-
-    if FETCH_GIT:
-        if run(['which', GIT_BINARY], stdout=DEVNULL).returncode or run([GIT_BINARY, '--version'], stdout=DEVNULL).returncode:
-            print('{red}[X] Missing dependency: git{reset}'.format(**ANSI))
-            print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(GIT_BINARY))
-            print('    See https://github.com/pirate/ArchiveBox for help.')
-            raise SystemExit(1)
-
-    if FETCH_MEDIA:
-        if run(['which', YOUTUBEDL_BINARY], stdout=DEVNULL).returncode or run([YOUTUBEDL_BINARY, '--version'], stdout=DEVNULL).returncode:
-            print('{red}[X] Missing dependency: youtube-dl{reset}'.format(**ANSI))
-            print('    Run ./setup.sh, then confirm it was installed with: {} --version'.format(YOUTUBEDL_BINARY))
-            print('    See https://github.com/pirate/ArchiveBox for help.')
-            raise SystemExit(1)
-
-def check_url_parsing():
+def check_url_parsing_invariants():
     """Check that plain text regex URL parsing works as expected"""
+
+    # this is last-line-of-defense to make sure the URL_REGEX isn't
+    # misbehaving, as the consequences could be disastrous and lead to many
+    # incorrect/badly parsed links being added to the archive
+
     test_urls = '''
     https://example1.com/what/is/happening.html?what=1#how-about-this=1
     https://example2.com/what/is/happening/?what=1#how-about-this=1
@@ -276,21 +290,8 @@ def wget_output_path(link):
     if link.get('latest', {}).get('wget'):
         return link['latest']['wget']
 
-    urlencode = lambda s: quote(s, encoding='utf-8', errors='replace')
-
     if is_static_file(link['url']):
         return urlencode(without_scheme(without_fragment(link['url'])))
-
-    # Since the wget algorithm to for -E (appending .html) is incredibly complex
-    # instead of trying to emulate it here, we just look in the output folder
-    # to see what html file wget actually created as the output
-    link_dir = os.path.join(ARCHIVE_DIR, link['timestamp'])
-    full_path = without_fragment(without_query(path(link['url']))).strip('/')
-    search_dir = os.path.join(
-        link_dir,
-        domain(link['url']),
-        full_path,
-    )
 
     # Wget downloads can save in a number of different ways depending on the url
     #    https://example.com
@@ -304,6 +305,19 @@ def wget_output_path(link):
 
     # There's also lots of complexity around how the urlencoding and renaming
     # is done for pages with query and hash fragments or extensions like shtml / htm
+
+    # Since the wget algorithm for -E (appending .html) is incredibly complex
+    # and there's no way to get the computed output path from wget
+    # in order to avoid having to reverse-engineer how they calculate it,
+    # we just look in the output folder read the filename wget used from the filesystem
+    link_dir = os.path.join(ARCHIVE_DIR, link['timestamp'])
+    full_path = without_fragment(without_query(path(link['url']))).strip('/')
+    search_dir = os.path.join(
+        link_dir,
+        domain(link['url']),
+        full_path,
+    )
+
     for _ in range(4):
         if os.path.exists(search_dir):
             if os.path.isdir(search_dir):
@@ -355,47 +369,6 @@ def str_between(string, start, end=None):
         content = content.rsplit(end, 1)[0]
 
     return content
-
-def pretty_path(path):
-    """convert paths like .../ArchiveBox/archivebox/../output/abc into output/abc"""
-    return path.replace(REPO_DIR + '/', '')
-
-
-def print_error_hints(cmd, pwd, err=None, hints=None, prefix='        '):
-    """quote the argument with whitespace in a command so the user can 
-       copy-paste the outputted string directly to run the cmd
-    """
-
-    # Prettify CMD string and make it save to copy-paste by quoting arguments
-    quoted_cmd = ' '.join(
-        '"{}"'.format(arg) if ' ' in arg else arg
-        for arg in cmd
-    )
-
-    # Prettify error output hints string and limit to five lines
-    hints = hints or getattr(err, 'hints', None)
-    if hints:
-        hints = hints if isinstance(hints, (list, tuple)) else hints.split('\n')
-        hints = (
-            '    {}{}{}'.format(ANSI['lightyellow'], line.strip(), ANSI['reset'])
-            for line in hints[:5] if line.strip()
-        )
-    else:
-        hints = ()
-
-    output_lines = [
-        '{}Failed: {} {}{}'.format(ANSI['red'], err.__class__.__name__, err, ANSI['reset']),
-        *hints,
-        'Run to see full output:'        
-        '    cd {};'.format(pwd),
-        '    {}'.format(quoted_cmd),
-    ]
-
-    return '\n'.join(
-        '{}{}'.format(prefix, line)
-        for line in output_lines
-        if line
-    )
 
 
 ### Link Helpers
@@ -571,37 +544,59 @@ def chmod_file(path, cwd='.', permissions=OUTPUT_PERMISSIONS, timeout=30):
         print('     ', chmod_result.stderr.decode())
         raise Exception('Failed to chmod {}/{}'.format(cwd, path))
 
-def run(*popenargs, input=None, capture_output=False, timeout=None, check=False, **kwargs):
-    """Patched of subprocess.run to fix blocking io making timeout=innefective"""
 
-    if input is not None:
-        if 'stdin' in kwargs:
-            raise ValueError('stdin and input arguments may not both be used.')
-        kwargs['stdin'] = PIPE
+CACHED_USER_DATA_DIR = CHROME_USER_DATA_DIR
 
-    if capture_output:
-        if ('stdout' in kwargs) or ('stderr' in kwargs):
-            raise ValueError('stdout and stderr arguments may not be used '
-                             'with capture_output.')
-        kwargs['stdout'] = PIPE
-        kwargs['stderr'] = PIPE
+def chrome_args(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR,
+               headless=CHROME_HEADLESS, sandbox=CHROME_SANDBOX,
+               check_ssl_validity=CHECK_SSL_VALIDITY, user_agent=CHROME_USER_AGENT,
+               resolution=RESOLUTION, timeout=TIMEOUT):
+    """helper to build up a chrome shell command with arguments"""
 
-    with Popen(*popenargs, **kwargs) as process:
-        try:
-            stdout, stderr = process.communicate(input, timeout=timeout)
-        except TimeoutExpired:
-            process.kill()
-            try:
-                stdout, stderr = process.communicate(input, timeout=2)
-            except:
-                pass
-            raise TimeoutExpired(popenargs[0][0], timeout)
-        except BaseException as err:
-            process.kill()
-            # We don't call process.wait() as .__exit__ does that for us.
-            raise 
-        retcode = process.poll()
-        if check and retcode:
-            raise CalledProcessError(retcode, process.args,
-                                     output=stdout, stderr=stderr)
-    return CompletedProcess(process.args, retcode, stdout, stderr)
+    global CACHED_USER_DATA_DIR
+    user_data_dir = user_data_dir or CACHED_USER_DATA_DIR
+    cmd_args = [binary]
+
+    if headless:
+        cmd_args += ('--headless',)
+    
+    if not sandbox:
+        # dont use GPU or sandbox when running inside docker container
+        cmd_args += ('--no-sandbox', '--disable-gpu')
+
+    if not check_ssl_validity:
+        cmd_args += ('--disable-web-security', '--ignore-certificate-errors')
+
+    if user_agent:
+        cmd_args += ('--user-agent={}'.format(user_agent),)
+
+    if resolution:
+        cmd_args += ('--window-size={}'.format(RESOLUTION),)
+
+    if timeout:
+        cmd_args += ('--timeout={}'.format((timeout) * 1000),)
+
+    # Find chrome user data directory
+    default_profile_paths = (
+        '~/.config/chromium',
+        '~/.config/google-chrome',
+        '~/.config/google-chrome-beta',
+        '~/.config/google-chrome-unstable',
+        '~/Library/Application Support/Chromium',
+        '~/Library/Application Support/Google/Chrome',
+        '~/Library/Application Support/Google/Chrome Canary',
+        '~/AppData/Local/Chromium/User Data',
+        '~/AppData/Local/Google/Chrome/User Data',
+        '~/AppData/Local/Google/Chrome SxS/User Data',
+    )
+    if user_data_dir:
+        cmd_args.append('--user-data-dir={}'.format(user_data_dir))
+    else:
+        for path in default_profile_paths:
+            full_path = os.path.expanduser(path)
+            if os.path.exists(full_path):
+                CACHED_USER_DATA_DIR = full_path
+                cmd_args.append('--user-data-dir={}'.format(full_path))
+                break
+    
+    return cmd_args

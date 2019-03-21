@@ -1,17 +1,19 @@
-# coding: utf-8
-
 """
-Everything related to parsing links from bookmark services.
+Everything related to parsing links from input sources.
 
 For a list of supported services, see the README.md.
-For examples of supported files see examples/.
+For examples of supported import formats see tests/.
 
-Parsed link schema: {
+Link: {
     'url': 'https://example.com/example/?abc=123&xyc=345#lmnop',
-    'timestamp': '15442123124234',
+    'timestamp': '1544212312.4234',
     'title': 'Example.com Page Title',
-    'sources': ['ril_export.html', 'downloads/getpocket.com.txt'],
     'tags': 'abc,def',
+    'sources': [
+        'output/sources/ril_export.html',
+        'output/sources/getpocket.com-1523422111.txt',
+        'output/sources/stdin-234234112312.txt'
+    ]
 }
 """
 
@@ -19,44 +21,58 @@ import re
 import json
 
 from datetime import datetime
-from collections import OrderedDict
 import xml.etree.ElementTree as etree
 
-from config import ANSI
+from config import TIMEOUT
 from util import (
     str_between,
     URL_REGEX,
-    check_url_parsing,
+    check_url_parsing_invariants,
+    progress,
 )
 
 
-def parse_links(path):
-    """parse a list of links dictionaries from a bookmark export file"""
-    
-    check_url_parsing()
+def parse_links(source_file):
+    """parse a list of URLs with their metadata from an 
+       RSS feed, bookmarks export, or text file
+    """
 
-    links = []
-    with open(path, 'r', encoding='utf-8') as file:
-        print('{green}[*] [{}] Parsing new links from output/sources/{}...{reset}'.format(
-            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            path.rsplit('/', 1)[-1],
-            **ANSI,
-        ))
+    check_url_parsing_invariants()
+    PARSERS = (
+        # Specialized parsers
+        ('Pocket HTML', parse_pocket_html_export),
+        ('Pinboard RSS', parse_pinboard_rss_export),
+        ('Shaarli RSS', parse_shaarli_rss_export),
+        ('Medium RSS', parse_medium_rss_export),
+        
+        # General parsers
+        ('Netscape HTML', parse_netscape_html_export),
+        ('Generic RSS', parse_rss_export),
+        ('Generic JSON', parse_json_export),
 
-        for parser_name, parser_func in PARSERS.items():
+        # Fallback parser
+        ('Plain Text', parse_plain_text_export),
+    )
+    end = progress(TIMEOUT * 4, prefix='      ')
+    with open(source_file, 'r', encoding='utf-8') as file:
+        for parser_name, parser_func in PARSERS:
             try:
-                links += list(parser_func(file))
+                links = list(parser_func(file))
                 if links:
-                    break
+                    end()
+                    return links, parser_name
             except Exception as err:
-                # we try each parser one by one, wong parsers will throw exeptions
-                # if unsupported and we accept the first one that passes
-                # uncomment the following line to see why the parser was unsupported for each attempted format
+                # Parsers are tried one by one down the list, and the first one
+                # that succeeds is used. To see why a certain parser was not used
+                # due to error or format incompatibility, uncomment this line:
                 # print('[!] Parser {} failed: {} {}'.format(parser_name, err.__class__.__name__, err))
                 pass
 
-    return links, parser_name
+    end()
+    return [], 'Plain Text'
 
+
+### Import Parser Functions
 
 def parse_pocket_html_export(html_file):
     """Parse Pocket-format bookmarks export files (produced by getpocket.com/export/)"""
@@ -81,40 +97,57 @@ def parse_pocket_html_export(html_file):
                 'sources': [html_file.name],
             }
 
-def parse_pinboard_json_export(json_file):
+
+def parse_json_export(json_file):
     """Parse JSON-format bookmarks export files (produced by pinboard.in/export/, or wallabag)"""
+
     json_file.seek(0)
-    json_content = json.load(json_file)
-    for line in json_content:
+    links = json.load(json_file)
+    json_date = lambda s: datetime.strptime(s, '%Y-%m-%dT%H:%M:%S%z')
+
+    for link in links:
         # example line
         # {"href":"http:\/\/www.reddit.com\/r\/example","description":"title here","extended":"","meta":"18a973f09c9cc0608c116967b64e0419","hash":"910293f019c2f4bb1a749fb937ba58e3","time":"2014-06-14T15:51:42Z","shared":"no","toread":"no","tags":"reddit android"}]
-        if line:
-            erg = line
-            if erg.get('timestamp'):
-                timestamp = str(erg['timestamp']/10000000)  # chrome/ff histories use a very precise timestamp
-            elif erg.get('time'):
-                timestamp = str(datetime.strptime(erg['time'].split(',', 1)[0], '%Y-%m-%dT%H:%M:%SZ').timestamp())
-            elif erg.get('created_at'):
-                timestamp = str(datetime.strptime(erg['created_at'], '%Y-%m-%dT%H:%M:%S%z').timestamp())
-            else:
-                timestamp = str(datetime.now().timestamp())
-            if erg.get('href'):
-                url = erg['href']
-            else:
-                url = erg['url']
-            if erg.get('description'):
-                title = (erg.get('description') or '').replace(' — Readability', '')
-            else:
-                title = erg['title'].strip()
+        if link:
+            # Parse URL
+            url = link.get('href') or link.get('url') or link.get('URL')
+            if not url:
+                raise Exception('JSON must contain URL in each entry [{"url": "http://...", ...}, ...]')
 
-            info = {
+            # Parse the timestamp
+            ts_str = str(datetime.now().timestamp())
+            if link.get('timestamp'):
+                # chrome/ff histories use a very precise timestamp
+                ts_str = str(link['timestamp'] / 10000000)  
+            elif link.get('time'):
+                ts_str = str(json_date(link['time'].split(',', 1)[0]).timestamp())
+            elif link.get('created_at'):
+                ts_str = str(json_date(link['created_at']).timestamp())
+            elif link.get('created'):
+                ts_str = str(json_date(link['created']).timestamp())
+            elif link.get('date'):
+                ts_str = str(json_date(link['date']).timestamp())
+            elif link.get('bookmarked'):
+                ts_str = str(json_date(link['bookmarked']).timestamp())
+            elif link.get('saved'):
+                ts_str = str(json_date(link['saved']).timestamp())
+            
+            # Parse the title
+            title = None
+            if link.get('title'):
+                title = link['title'].strip() or None
+            elif link.get('description'):
+                title = link['description'].replace(' — Readability', '').strip() or None
+            elif link.get('name'):
+                title = link['name'].strip() or None
+
+            yield {
                 'url': url,
-                'timestamp': timestamp,
-                'title': title or None,
-                'tags': erg.get('tags') or '',
+                'timestamp': ts_str,
+                'title': title,
+                'tags': link.get('tags') or '',
                 'sources': [json_file.name],
             }
-            yield info
 
 
 def parse_rss_export(rss_file):
@@ -139,15 +172,15 @@ def parse_rss_export(rss_file):
         def get_row(key):
             return [r for r in rows if r.strip().startswith('<{}>'.format(key))][0]
 
-        title = str_between(get_row('title'), '<![CDATA[', ']]').strip()
         url = str_between(get_row('link'), '<link>', '</link>')
         ts_str = str_between(get_row('pubDate'), '<pubDate>', '</pubDate>')
         time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %z")
+        title = str_between(get_row('title'), '<![CDATA[', ']]').strip() or None
 
         yield {
             'url': url,
             'timestamp': str(time.timestamp()),
-            'title': title or None,
+            'title': title,
             'tags': '',
             'sources': [rss_file.name],
         }
@@ -224,9 +257,6 @@ def parse_pinboard_rss_export(rss_file):
         tags = item.find("{http://purl.org/dc/elements/1.1/}subject").text if item.find("{http://purl.org/dc/elements/1.1/}subject") else None
         title = item.find("{http://purl.org/rss/1.0/}title").text.strip() if item.find("{http://purl.org/rss/1.0/}title").text.strip() else None
         ts_str = item.find("{http://purl.org/dc/elements/1.1/}date").text if item.find("{http://purl.org/dc/elements/1.1/}date").text else None
-        #       = 🌈🌈🌈🌈
-        #        = 🌈🌈🌈🌈
-        #         = 🏆🏆🏆🏆
         
         # Pinboard includes a colon in its date stamp timezone offsets, which
         # Python can't parse. Remove it:
@@ -254,8 +284,6 @@ def parse_medium_rss_export(rss_file):
     root = etree.parse(rss_file).getroot()
     items = root.find("channel").findall("item")
     for item in items:
-        # for child in item:
-        #     print(child.tag, child.text)
         url = item.find("link").text
         title = item.find("title").text.strip()
         ts_str = item.find("pubDate").text
@@ -274,31 +302,13 @@ def parse_plain_text_export(text_file):
     """Parse raw links from each line in a text file"""
 
     text_file.seek(0)
-    text_content = text_file.readlines()
-    for line in text_content:
-        if line:
-            urls = re.findall(URL_REGEX, line)
-            
-            for url in urls:
-                url = url.strip()
-                time = datetime.now()
-                
-                yield {
-                    'url': url,
-                    'timestamp': str(time.timestamp()),
-                    'title': None,
-                    'tags': '',
-                    'sources': [text_file.name],
-                }
-
-
-PARSERS = OrderedDict([
-    ('Pocket HTML', parse_pocket_html_export),
-    ('Pinboard JSON', parse_pinboard_json_export),
-    ('Netscape HTML', parse_netscape_html_export),
-    ('RSS', parse_rss_export),
-    ('Pinboard RSS', parse_pinboard_rss_export),
-    ('Shaarli RSS', parse_shaarli_rss_export),
-    ('Medium RSS', parse_medium_rss_export),
-    ('Plain Text', parse_plain_text_export),
-])
+    for line in text_file.readlines():
+        urls = re.findall(URL_REGEX, line) if line.strip() else ()
+        for url in urls:
+            yield {
+                'url': url,
+                'timestamp': str(datetime.now().timestamp()),
+                'title': None,
+                'tags': '',
+                'sources': [text_file.name],
+            }

@@ -12,17 +12,23 @@ except ImportError:
 from config import (
     OUTPUT_DIR,
     TEMPLATES_DIR,
-    ANSI,
     GIT_SHA,
     FOOTER_INFO,
 )
 from util import (
     chmod_file,
     derived_link_info,
-    pretty_path,
     check_link_structure,
     check_links_structure,
     wget_output_path,
+)
+from parse import parse_links
+from links import validate_links
+from logs import (
+    log_indexing_started,
+    log_indexing_finished,
+    log_parsing_started,
+    log_parsing_finished,
 )
 
 TITLE_LOADING_MSG = 'Not yet archived...'
@@ -33,21 +39,40 @@ TITLE_LOADING_MSG = 'Not yet archived...'
 def write_links_index(out_dir, links, finished=False):
     """create index.html file for a given list of links"""
 
+    log_indexing_started()
     check_links_structure(links)
 
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-
-    print('{green}[*] [{}] Saving main index files...{reset}'.format(
-        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        **ANSI,
-    ))
     write_json_links_index(out_dir, links)
-    print('    > {}/index.json'.format(pretty_path(out_dir)))
+    log_indexing_finished(out_dir, 'index.json')
     
     write_html_links_index(out_dir, links, finished=finished)
-    print('    > {}/index.html'.format(pretty_path(out_dir)))
+    log_indexing_finished(out_dir, 'index.html')
     
+def load_links_index(out_dir=OUTPUT_DIR, import_path=None):
+    """parse and load existing index with any new links from import_path merged in"""
+
+    existing_links = []
+    if out_dir:
+        existing_links = parse_json_links_index(out_dir)
+        check_links_structure(existing_links)
+
+    new_links = []
+    if import_path:
+        # parse and validate the import file
+        log_parsing_started(import_path)
+        raw_links, parser_name = parse_links(import_path)
+        new_links = validate_links(raw_links)
+        check_links_structure(new_links)
+
+    # merge existing links in out_dir and new links
+    all_links = validate_links(existing_links + new_links)
+    check_links_structure(all_links)
+    num_new_links = len(all_links) - len(existing_links)
+
+    if import_path and parser_name:
+        log_parsing_finished(num_new_links, parser_name)
+
+    return all_links, new_links
 
 def write_json_links_index(out_dir, links):
     """write the json link index to a given path"""
@@ -70,8 +95,8 @@ def write_json_links_index(out_dir, links):
 
     chmod_file(path)
 
-def parse_json_links_index(out_dir):
-    """load the index in a given directory and merge it with the given link"""
+def parse_json_links_index(out_dir=OUTPUT_DIR):
+    """parse a archive index json file and return the list of links"""
     index_path = os.path.join(out_dir, 'index.json')
     if os.path.exists(index_path):
         with open(index_path, 'r', encoding='utf-8') as f:
@@ -136,31 +161,26 @@ def write_html_links_index(out_dir, links, finished=False):
     chmod_file(path)
 
 
-def update_main_index(link):
+def patch_links_index(link, out_dir=OUTPUT_DIR):
     """hack to in-place update one row's info in the generated index html"""
 
     title = link['latest']['title']
     successful = len([entry for entry in link['latest'].values() if entry])
 
     # Patch JSON index
-    json_path = os.path.join(OUTPUT_DIR, 'index.json')
-
-    links = parse_json_links_index(OUTPUT_DIR)
-
     changed = False
-    for json_link in links:
-        if json_link['url'] == link['url']:
-            json_link['title'] = title
-            json_link['latest'] = link['latest']
+    json_file_links = parse_json_links_index(out_dir)
+    for saved_link in json_file_links:
+        if saved_link['url'] == link['url']:
+            saved_link['title'] = title
+            saved_link['latest'] = link['latest']
             changed = True
             break
-
     if changed:
-        write_json_links_index(OUTPUT_DIR, links)
+        write_json_links_index(out_dir, json_file_links)
 
     # Patch HTML index
-    html_path = os.path.join(OUTPUT_DIR, 'index.html')
-
+    html_path = os.path.join(out_dir, 'index.html')
     html = open(html_path, 'r').read().split('\n')
     for idx, line in enumerate(html):
         if title and ('<span data-title-for="{}"'.format(link['url']) in line):
@@ -171,6 +191,7 @@ def update_main_index(link):
 
     with open(html_path, 'w') as f:
         f.write('\n'.join(html))
+
 
 ### Individual link index
 
@@ -202,6 +223,18 @@ def parse_json_link_index(out_dir):
             return link_json
     return {}
 
+def load_json_link_index(out_dir, link):
+    """check for an existing link archive in the given directory, 
+       and load+merge it into the given link dict
+    """
+    link = {
+        **parse_json_link_index(out_dir),
+        **link,
+    }
+
+    check_link_structure(link)
+    return link
+
 def write_html_link_index(out_dir, link):
     check_link_structure(link)
     with open(os.path.join(TEMPLATES_DIR, 'link_index.html'), 'r', encoding='utf-8') as f:
@@ -224,7 +257,10 @@ def write_html_link_index(out_dir, link):
                 wget_output_path(link)
                 or (link['domain'] if link['is_archived'] else 'about:blank')
             ),
-            'extension': link['extension'] or 'HTML',
+            'extension': link['extension'] or 'html',
+            'tags': link['tags'].strip() or 'untagged',
+            'status': 'Archived' if link['is_archived'] else 'Not yet archived',
+            'status_color': 'success' if link['is_archived'] else 'danger',
         }))
 
     chmod_file(path)

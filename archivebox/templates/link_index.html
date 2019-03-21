@@ -192,22 +192,27 @@
                     Bookmarked: <small title="Timestamp: $timestamp">$bookmarked_date</small>
                     &nbsp; | &nbsp;
                     Last updated: <small title="Timestamp: $updated">$updated_date</small>
+                    &nbsp; | &nbsp;
+                    Total files: <small title="Archive methods">🗃 $num_outputs</small>
                 </div>
                 <div class="col-lg-4 alert well">
                     Type: 
                     <span class="badge badge-default">$extension</span>
                     &nbsp; | &nbsp;
                     Tags:
-                    <span class="badge badge-success">$tags</span> 
+                    <span class="badge badge-warning">$tags</span> 
+                    &nbsp; | &nbsp;
+                    Status:
+                    <span class="badge badge-$status_color">$status</span> 
                 </div>
                 <div class="col-lg-4 alert well">
-                    Download:
+                    Archive Methods:
                     <a href="index.json" title="JSON summary of archived link.">JSON</a> | 
                     <a href="warc/" title="Any WARC archives for the page">WARC</a> | 
                     <a href="media/" title="Audio, Video, and Subtitle files.">Media</a> | 
                     <a href="git/" title="Any git repos at the url">Git Repos</a> | 
                     <a href="favicon.ico" title="Any git repos at the url">Favicon</a> | 
-                    <a href="." title="Webserver-provided index of files directory.">More files...</a>
+                    <a href="." title="Webserver-provided index of files directory.">See all files...</a>
                 </div>
                 <hr/>
                 <div class="col-lg-2">
