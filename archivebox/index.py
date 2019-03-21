@@ -224,6 +224,7 @@ def write_html_link_index(out_dir, link):
                 wget_output_path(link)
                 or (link['domain'] if link['is_archived'] else 'about:blank')
             ),
+            'extension': link['extension'] or 'HTML',
         }))
 
     chmod_file(path)

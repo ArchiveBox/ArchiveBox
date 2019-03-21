@@ -10,8 +10,8 @@ Parsed link schema: {
     'url': 'https://example.com/example/?abc=123&xyc=345#lmnop',
     'timestamp': '15442123124234',
     'title': 'Example.com Page Title',
-    'tags': 'abc,def',
     'sources': ['ril_export.html', 'downloads/getpocket.com.txt'],
+    'tags': 'abc,def',
 }
 """
 
@@ -25,7 +25,6 @@ import xml.etree.ElementTree as etree
 from config import ANSI
 from util import (
     str_between,
-    get_link_type,
     URL_REGEX,
     check_url_parsing,
 )
@@ -69,17 +68,18 @@ def parse_pocket_html_export(html_file):
         # <li><a href="http://example.com/ time_added="1478739709" tags="tag1,tag2">example title</a></li>
         match = pattern.search(line)
         if match:
-            fixed_url = match.group(1).replace('http://www.readability.com/read?url=', '')           # remove old readability prefixes to get original url
+            url = match.group(1).replace('http://www.readability.com/read?url=', '')           # remove old readability prefixes to get original url
             time = datetime.fromtimestamp(float(match.group(2)))
-            info = {
-                'url': fixed_url,
+            tags = match.group(3)
+            title = match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '')
+            
+            yield {
+                'url': url,
                 'timestamp': str(time.timestamp()),
-                'tags': match.group(3),
-                'title': match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '') or None,
+                'title': title or None,
+                'tags': tags or '',
                 'sources': [html_file.name],
             }
-            info['type'] = get_link_type(info)
-            yield info
 
 def parse_pinboard_json_export(json_file):
     """Parse JSON-format bookmarks export files (produced by pinboard.in/export/, or wallabag)"""
@@ -106,14 +106,14 @@ def parse_pinboard_json_export(json_file):
                 title = (erg.get('description') or '').replace(' — Readability', '')
             else:
                 title = erg['title'].strip()
+
             info = {
                 'url': url,
                 'timestamp': timestamp,
-                'tags': erg.get('tags') or '',
                 'title': title or None,
+                'tags': erg.get('tags') or '',
                 'sources': [json_file.name],
             }
-            info['type'] = get_link_type(info)
             yield info
 
 
@@ -144,16 +144,13 @@ def parse_rss_export(rss_file):
         ts_str = str_between(get_row('pubDate'), '<pubDate>', '</pubDate>')
         time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %z")
 
-        info = {
+        yield {
             'url': url,
             'timestamp': str(time.timestamp()),
-            'tags': '',
             'title': title or None,
+            'tags': '',
             'sources': [rss_file.name],
         }
-        info['type'] = get_link_type(info)
-
-        yield info
 
 
 def parse_shaarli_rss_export(rss_file):
@@ -184,16 +181,14 @@ def parse_shaarli_rss_export(rss_file):
         ts_str = str_between(get_row('published'), '<published>', '</published>')
         time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
 
-        info = {
+        yield {
             'url': url,
             'timestamp': str(time.timestamp()),
-            'tags': '',
             'title': title or None,
+            'tags': '',
             'sources': [rss_file.name],
         }
-        info['type'] = get_link_type(info)
 
-        yield info
 
 def parse_netscape_html_export(html_file):
     """Parse netscape-format bookmarks export files (produced by all browsers)"""
@@ -209,16 +204,14 @@ def parse_netscape_html_export(html_file):
             url = match.group(1)
             time = datetime.fromtimestamp(float(match.group(2)))
 
-            info = {
+            yield {
                 'url': url,
                 'timestamp': str(time.timestamp()),
-                'tags': "",
                 'title': match.group(3).strip() or None,
+                'tags': '',
                 'sources': [html_file.name],
             }
-            info['type'] = get_link_type(info)
 
-            yield info
 
 def parse_pinboard_rss_export(rss_file):
     """Parse Pinboard RSS feed files into links"""
@@ -237,18 +230,22 @@ def parse_pinboard_rss_export(rss_file):
         
         # Pinboard includes a colon in its date stamp timezone offsets, which
         # Python can't parse. Remove it:
-        if ":" == ts_str[-3:-2]:
+        if ts_str and ts_str[-3:-2] == ":":
             ts_str = ts_str[:-3]+ts_str[-2:]
-        time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
-        info = {
+
+        if ts_str:
+            time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
+        else:
+            time = datetime.now()
+
+        yield {
             'url': url,
             'timestamp': str(time.timestamp()),
-            'tags': tags or '',
             'title': title or None,
+            'tags': tags or '',
             'sources': [rss_file.name],
         }
-        info['type'] = get_link_type(info)
-        yield info
+
 
 def parse_medium_rss_export(rss_file):
     """Parse Medium RSS feed files into links"""
@@ -263,15 +260,14 @@ def parse_medium_rss_export(rss_file):
         title = item.find("title").text.strip()
         ts_str = item.find("pubDate").text
         time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %Z")
-        info = {
+        
+        yield {
             'url': url,
             'timestamp': str(time.timestamp()),
-            'tags': '',
             'title': title or None,
+            'tags': '',
             'sources': [rss_file.name],
         }
-        info['type'] = get_link_type(info)
-        yield info
 
 
 def parse_plain_text_export(text_file):
@@ -285,15 +281,15 @@ def parse_plain_text_export(text_file):
             
             for url in urls:
                 url = url.strip()
-                info = {
+                time = datetime.now()
+                
+                yield {
                     'url': url,
-                    'timestamp': str(datetime.now().timestamp()),
-                    'tags': '',
+                    'timestamp': str(time.timestamp()),
                     'title': None,
+                    'tags': '',
                     'sources': [text_file.name],
                 }
-                info['type'] = get_link_type(info)
-                yield info
 
 
 PARSERS = OrderedDict([

@@ -70,6 +70,26 @@ HTML_TITLE_REGEX = re.compile(
     r'(.[^<>]+)',                      # get everything up to these symbols
     re.IGNORECASE | re.MULTILINE | re.DOTALL | re.UNICODE,
 )
+STATICFILE_EXTENSIONS = {
+    # 99.999% of the time, URLs ending in these extentions are static files
+    # that can be downloaded as-is, not html pages that need to be rendered
+    'gif', 'jpeg', 'jpg', 'png', 'tif', 'tiff', 'wbmp', 'ico', 'jng', 'bmp',
+    'svg', 'svgz', 'webp', 'ps', 'eps', 'ai',
+    'mp3', 'mp4', 'm4a', 'mpeg', 'mpg', 'mkv', 'mov', 'webm', 'm4v', 'flv', 'wmv', 'avi', 'ogg', 'ts', 'm3u8'
+    'pdf', 'txt', 'rtf', 'rtfd', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
+    'atom', 'rss', 'css', 'js', 'json',
+    'dmg', 'iso', 'img',
+    'rar', 'war', 'hqx', 'zip', 'gz', 'bz2', '7z',
+
+    # Less common extensions to consider adding later
+    # jar, swf, bin, com, exe, dll, deb
+    # ear, hqx, eot, wmlc, kml, kmz, cco, jardiff, jnlp, run, msi, msp, msm, 
+    # pl pm, prc pdb, rar, rpm, sea, sit, tcl tk, der, pem, crt, xpi, xspf,
+    # ra, mng, asx, asf, 3gpp, 3gp, mid, midi, kar, jad, wml, htc, mml
+
+    # Thse are always treated as pages, not as static files, never add them:
+    # html, htm, shtml, xhtml, xml, aspx, php, cgi
+}
 
 ### Checks & Tests
 
@@ -225,6 +245,7 @@ def save_remote_source(url, timeout=TIMEOUT):
 
 def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
     """Attempt to guess a page's title by downloading the html"""
+    
     if not FETCH_TITLE:
         return None
 
@@ -257,8 +278,8 @@ def wget_output_path(link):
 
     urlencode = lambda s: quote(s, encoding='utf-8', errors='replace')
 
-    if link['type'] in ('PDF', 'image'):
-        return urlencode(base_url(link['url']))
+    if is_static_file(link['url']):
+        return urlencode(without_scheme(without_fragment(link['url'])))
 
     # Since the wget algorithm to for -E (appending .html) is incredibly complex
     # instead of trying to emulate it here, we just look in the output folder
@@ -271,6 +292,18 @@ def wget_output_path(link):
         full_path,
     )
 
+    # Wget downloads can save in a number of different ways depending on the url
+    #    https://example.com
+    #       > output/archive/<timestamp>/example.com/index.html
+    #    https://example.com/abc
+    #       > output/archive/<timestamp>/example.com/abc.html
+    #    https://example.com/abc/
+    #       > output/archive/<timestamp>/example.com/abc/index.html
+    #    https://example.com/abc/test.html
+    #       > output/archive/<timestamp>/example.com/abc/test.html
+
+    # There's also lots of complexity around how the urlencoding and renaming
+    # is done for pages with query and hash fragments or extensions like shtml / htm
     for _ in range(4):
         if os.path.exists(search_dir):
             if os.path.isdir(search_dir):
@@ -279,8 +312,8 @@ def wget_output_path(link):
                     if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
                 ]
                 if html_files:
-                    relative_path = search_dir.split(link_dir)[-1].strip('/')
-                    return urlencode(os.path.join(relative_path, html_files[0]))
+                    path_from_link_dir = search_dir.split(link_dir)[-1].strip('/')
+                    return urlencode(os.path.join(path_from_link_dir, html_files[0]))
 
         # Move up one directory level
         search_dir = search_dir.rsplit('/', 1)[0]
@@ -327,19 +360,32 @@ def pretty_path(path):
     """convert paths like .../ArchiveBox/archivebox/../output/abc into output/abc"""
     return path.replace(REPO_DIR + '/', '')
 
+
 def print_error_hints(cmd, pwd, err=None, hints=None, prefix='        '):
     """quote the argument with whitespace in a command so the user can 
        copy-paste the outputted string directly to run the cmd
     """
 
+    # Prettify CMD string and make it save to copy-paste by quoting arguments
     quoted_cmd = ' '.join(
         '"{}"'.format(arg) if ' ' in arg else arg
         for arg in cmd
     )
 
+    # Prettify error output hints string and limit to five lines
+    hints = hints or getattr(err, 'hints', None)
+    if hints:
+        hints = hints if isinstance(hints, (list, tuple)) else hints.split('\n')
+        hints = (
+            '    {}{}{}'.format(ANSI['lightyellow'], line.strip(), ANSI['reset'])
+            for line in hints[:5] if line.strip()
+        )
+    else:
+        hints = ()
+
     output_lines = [
         '{}Failed: {} {}{}'.format(ANSI['red'], err.__class__.__name__, err, ANSI['reset']),
-        '    {}{}{}'.format(ANSI['lightyellow'], hints, ANSI['reset']) if hints else None,
+        *hints,
         'Run to see full output:'        
         '    cd {};'.format(pwd),
         '    {}'.format(quoted_cmd),
@@ -364,36 +410,21 @@ def merge_links(a, b):
     url = longer('url')
     longest_title = longer('title')
     cleanest_title = a['title'] if '://' not in (a['title'] or '') else b['title']
-    link = {
-        'timestamp': earlier('timestamp'),
+    return {
         'url': url,
-        'domain': domain(url),
-        'base_url': base_url(url),
-        'tags': longer('tags'),
+        'timestamp': earlier('timestamp'),
         'title': longest_title if '://' not in (longest_title or '') else cleanest_title,
+        'tags': longer('tags'),
         'sources': list(set(a.get('sources', []) + b.get('sources', []))),
     }
-    link['type'] = get_link_type(link)
-    return link
 
-def get_link_type(link):
-    """Certain types of links need to be handled specially, this figures out when that's the case"""
+def is_static_file(url):
+    """Certain URLs just point to a single static file, and 
+       don't need to be re-archived in many formats
+    """
 
-    if extension(link['url']) == 'pdf':
-        return 'PDF'
-    elif extension(link['url']) in ('pdf', 'png', 'jpg', 'jpeg', 'svg', 'bmp', 'gif', 'tiff', 'webp'):
-        return 'image'
-    elif 'wikipedia.org' in domain(link['url']).lower():
-        return 'wiki'
-    elif 'youtube.com' in domain(link['url']).lower():
-        return 'youtube'
-    elif 'soundcloud.com' in domain(link['url']).lower():
-        return 'soundcloud'
-    elif 'youku.com' in domain(link['url']).lower():
-        return 'youku'
-    elif 'vimeo.com' in domain(link['url']).lower():
-        return 'vimeo'
-    return None
+    # TODO: the proper way is with MIME type detection, not using extension
+    return extension(url) in STATICFILE_EXTENSIONS
 
 def derived_link_info(link):
     """extend link info with the archive urls and other derived data"""
@@ -410,7 +441,9 @@ def derived_link_info(link):
         'domain': domain(url),
         'path': path(url),
         'basename': basename(url),
+        'extension': extension(url),
         'base_url': base_url(url),
+        'is_static': is_static_file(url),
         'is_archived': os.path.exists(os.path.join(
             ARCHIVE_DIR,
             link['timestamp'],
@@ -420,8 +453,7 @@ def derived_link_info(link):
     }
 
     # Archive Method Output URLs
-    extended_info = {
-        **extended_info,
+    extended_info.update({
         'index_url': 'index.html',
         'favicon_url': 'favicon.ico',
         'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**extended_info),
@@ -433,14 +465,13 @@ def derived_link_info(link):
         'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**extended_info),
         'git_url': 'git',
         'media_url': 'media',
-        
-    }
-
-    # PDF and images are handled slightly differently
-    # wget, screenshot, & pdf urls all point to the same file
-    if link['type'] in ('PDF', 'image'):
+    })
+    # static binary files like PDF and images are handled slightly differently.
+    # they're just downloaded once and aren't archived separately multiple times, 
+    # so the wget, screenshot, & pdf urls should all point to the same file
+    if is_static_file(url):
         extended_info.update({
-            'title': basename(link['url']),
+            'title': basename(url),
             'archive_url': base_url(url),
             'pdf_url': base_url(url),
             'screenshot_url': base_url(url),
