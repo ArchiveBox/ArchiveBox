@@ -169,6 +169,6 @@ def log_archiving_finished(num_links):
         ANSI['reset'],
     ))
     print('    - {} entries skipped'.format(_LAST_RUN_STATS['skipped']))
-    print('    - {} entries updated'.format(_LAST_RUN_STATS['succeded']))
+    print('    - {} entries updated'.format(_LAST_RUN_STATS['succeeded']))
     print('    - {} errors'.format(_LAST_RUN_STATS['failed']))
     print('    To view your archive, open: {}/index.html'.format(OUTPUT_DIR.replace(REPO_DIR + '/', '')))
