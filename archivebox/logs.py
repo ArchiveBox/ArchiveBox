@@ -6,7 +6,7 @@ from config import ANSI, REPO_DIR, OUTPUT_DIR
 # globals are bad, mmkay
 _LAST_RUN_STATS = {
     'skipped': 0,
-    'succeded': 0,
+    'succeeded': 0,
     'failed': 0,
 
     'parsing_start_ts': 0,
@@ -38,41 +38,54 @@ def log_link_archiving_started(link_dir, link, is_new):
     print('    > {}{}'.format(pretty_path(link_dir), ' (new)' if is_new else ''))
 
 
-def log_link_archiving_failed(cmd, pwd, err=None, hints=None, prefix='        '):
+def log_archive_method_starting(method):
+    print('      > {}'.format(method))
+
+def log_archive_method_finished(result):
     """quote the argument with whitespace in a command so the user can 
        copy-paste the outputted string directly to run the cmd
     """
+    required_keys = ('cmd', 'pwd', 'output', 'status', 'start_ts', 'end_ts')
+    assert (
+        isinstance(result, dict)
+        and all(key in result for key in required_keys)
+        and ('output' in result)
+    ), 'Archive method did not return a valid result.'
 
     # Prettify CMD string and make it save to copy-paste by quoting arguments
     quoted_cmd = ' '.join(
         '"{}"'.format(arg) if ' ' in arg else arg
-        for arg in cmd
+        for arg in result['cmd']
     )
 
-    # Prettify error output hints string and limit to five lines
-    hints = hints or getattr(err, 'hints', None)
-    if hints:
-        hints = hints if isinstance(hints, (list, tuple)) else hints.split('\n')
-        hints = (
-            '    {}{}{}'.format(ANSI['lightyellow'], line.strip(), ANSI['reset'])
-            for line in hints[:5] if line.strip()
-        )
-    else:
-        hints = ()
+    if result['status'] == 'failed':
+        # Prettify error output hints string and limit to five lines
+        hints = getattr(result['output'], 'hints', None) or ()
+        if hints:
+            hints = hints if isinstance(hints, (list, tuple)) else hints.split('\n')
+            hints = (
+                '    {}{}{}'.format(ANSI['lightyellow'], line.strip(), ANSI['reset'])
+                for line in hints[:5] if line.strip()
+            )
 
-    output_lines = [
-        '{}Failed: {} {}{}'.format(ANSI['red'], err.__class__.__name__, err, ANSI['reset']),
-        *hints,
-        'Run to see full output:'        
-        '    cd {};'.format(pwd),
-        '    {}'.format(quoted_cmd),
-    ]
-
-    return '\n'.join(
-        '{}{}'.format(prefix, line)
-        for line in output_lines
-        if line
-    )
+        # Collect and prefix output lines with indentation
+        output_lines = [
+            '{}Failed:{} {}{}'.format(
+                ANSI['red'],
+                result['output'].__class__.__name__.replace('ArchiveError', ''), 
+                result['output'],
+                ANSI['reset']
+            ),
+            *hints,
+            '{}Run to see full output:{}'.format(ANSI['lightred'], ANSI['reset']),
+            '    cd {};'.format(result['pwd']),
+            '    {}'.format(quoted_cmd),
+        ]
+        print('\n'.join(
+            '        {}'.format(line)
+            for line in output_lines
+            if line
+        ))
 
 ### Logging Helpers
 
@@ -102,7 +115,7 @@ def log_indexing_started():
 def log_indexing_finished(out_dir, out_file):
     end_ts = datetime.now()
     _LAST_RUN_STATS['index_end_ts'] = end_ts
-    print('    > {}/{}'.format(pretty_path(out_dir), out_file))
+    print('    √ {}/{}'.format(pretty_path(out_dir), out_file))
 
 def log_archiving_started(num_links, resume):
     start_ts = datetime.now()

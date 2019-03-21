@@ -8,12 +8,18 @@ from urllib.parse import urlparse, quote
 from decimal import Decimal
 from datetime import datetime
 from multiprocessing import Process
+from subprocess import (
+    Popen,
+    PIPE,
+    DEVNULL, 
+    CompletedProcess,
+    TimeoutExpired,
+    CalledProcessError,
+)
 
-from stdlib_patches import run, PIPE, DEVNULL
 from config import (
     ANSI,
     TERM_WIDTH,
-    REPO_DIR,
     SOURCES_DIR,
     ARCHIVE_DIR,
     OUTPUT_PERMISSIONS,
@@ -43,6 +49,7 @@ from config import (
     CHROME_HEADLESS,
     CHROME_SANDBOX,
 )
+from logs import pretty_path
 
 ### Parsing Helpers
 
@@ -105,6 +112,17 @@ def check_link_structure(link):
     assert isinstance(link.get('url'), str)
     assert len(link['url']) > 2
     assert len(re.findall(URL_REGEX, link['url'])) == 1
+    if 'history' in link:
+        assert isinstance(link['history'], dict), 'history must be a Dict'
+        for key, val in link['history'].items():
+            assert isinstance(key, str)
+            assert isinstance(val, list), 'history must be a Dict[str, List], got: {}'.format(link['history'])
+    
+    if 'latest' in link:
+        assert isinstance(link['latest'], dict), 'latest must be a Dict'
+        for key, val in link['latest'].items():
+            assert isinstance(key, str)
+            assert (val is None) or isinstance(val, (str, Exception)), 'latest must be a Dict[str, Optional[str]], got: {}'.format(link['latest'])
 
 def check_links_structure(links):
     """basic sanity check invariants to make sure the data is valid"""
@@ -236,12 +254,12 @@ def save_remote_source(url, timeout=TIMEOUT):
         url,
         ANSI['reset'],
     ))
-    end = progress(TIMEOUT, prefix='      ')
+    timer = TimedProgress(timeout, prefix='      ')
     try:
         downloaded_xml = download_url(url, timeout=timeout)
-        end()
+        timer.end()
     except Exception as e:
-        end()
+        timer.end()
         print('{}[!] Failed to download {}{}\n'.format(
             ANSI['red'],
             url,
@@ -291,9 +309,9 @@ def wget_output_path(link):
         return link['latest']['wget']
 
     if is_static_file(link['url']):
-        return urlencode(without_scheme(without_fragment(link['url'])))
+        return without_scheme(without_fragment(link['url']))
 
-    # Wget downloads can save in a number of different ways depending on the url
+    # Wget downloads can save in a number of different ways depending on the url:
     #    https://example.com
     #       > output/archive/<timestamp>/example.com/index.html
     #    https://example.com/abc
@@ -302,6 +320,10 @@ def wget_output_path(link):
     #       > output/archive/<timestamp>/example.com/abc/index.html
     #    https://example.com/abc/test.html
     #       > output/archive/<timestamp>/example.com/abc/test.html
+    #    https://example.com/abc/test?v=zzVa_tX1OiI
+    #       > output/archive/<timestamp>/example.com/abc/test?v=zzVa_tX1OiI.html
+    #    https://example.com/abc/test/?v=zzVa_tX1OiI
+    #       > output/archive/<timestamp>/example.com/abc/test/index.html?v=zzVa_tX1OiI.html
 
     # There's also lots of complexity around how the urlencoding and renaming
     # is done for pages with query and hash fragments or extensions like shtml / htm
@@ -327,7 +349,7 @@ def wget_output_path(link):
                 ]
                 if html_files:
                     path_from_link_dir = search_dir.split(link_dir)[-1].strip('/')
-                    return urlencode(os.path.join(path_from_link_dir, html_files[0]))
+                    return os.path.join(path_from_link_dir, html_files[0])
 
         # Move up one directory level
         search_dir = search_dir.rsplit('/', 1)[0]
@@ -456,69 +478,109 @@ def derived_link_info(link):
 
 ### Python / System Helpers
 
-def progress(seconds=TIMEOUT, prefix=''):
-    """Show a (subprocess-controlled) progress bar with a <seconds> timeout,
-       returns end() function to instantly finish the progress
-    """
+def run(*popenargs, input=None, capture_output=False, timeout=None, check=False, **kwargs):
+    """Patched of subprocess.run to fix blocking io making timeout=innefective"""
 
-    if not SHOW_PROGRESS:
-        return lambda: None
+    if input is not None:
+        if 'stdin' in kwargs:
+            raise ValueError('stdin and input arguments may not both be used.')
+        kwargs['stdin'] = PIPE
 
-    def progress_bar(seconds, prefix):
-        """show timer in the form of progress bar, with percentage and seconds remaining"""
-        chunk = '█' if sys.stdout.encoding == 'UTF-8' else '#'
-        chunks = TERM_WIDTH - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
+    if capture_output:
+        if ('stdout' in kwargs) or ('stderr' in kwargs):
+            raise ValueError('stdout and stderr arguments may not be used '
+                             'with capture_output.')
+        kwargs['stdout'] = PIPE
+        kwargs['stderr'] = PIPE
+
+    with Popen(*popenargs, **kwargs) as process:
         try:
-            for s in range(seconds * chunks):
-                progress = s / chunks / seconds * 100
-                bar_width = round(progress/(100/chunks))
+            stdout, stderr = process.communicate(input, timeout=timeout)
+        except TimeoutExpired:
+            process.kill()
+            try:
+                stdout, stderr = process.communicate(input, timeout=2)
+            except:
+                pass
+            raise TimeoutExpired(popenargs[0][0], timeout)
+        except BaseException:
+            process.kill()
+            # We don't call process.wait() as .__exit__ does that for us.
+            raise 
+        retcode = process.poll()
+        if check and retcode:
+            raise CalledProcessError(retcode, process.args,
+                                     output=stdout, stderr=stderr)
+    return CompletedProcess(process.args, retcode, stdout, stderr)
 
-                # ████████████████████           0.9% (1/60sec)
-                sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)'.format(
-                    prefix,
-                    ANSI['green'],
-                    (chunk * bar_width).ljust(chunks),
-                    ANSI['reset'],
-                    round(progress, 1),
-                    round(s/chunks),
-                    seconds,
-                ))
-                sys.stdout.flush()
-                time.sleep(1 / chunks)
 
-            # ██████████████████████████████████ 100.0% (60/60sec)
-            sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)\n'.format(
+def progress_bar(seconds, prefix):
+    """show timer in the form of progress bar, with percentage and seconds remaining"""
+    chunk = '█' if sys.stdout.encoding == 'UTF-8' else '#'
+    chunks = TERM_WIDTH - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
+    try:
+        for s in range(seconds * chunks):
+            progress = s / chunks / seconds * 100
+            bar_width = round(progress/(100/chunks))
+
+            # ████████████████████           0.9% (1/60sec)
+            sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)'.format(
                 prefix,
-                ANSI['red'],
-                chunk * chunks,
+                ANSI['green'],
+                (chunk * bar_width).ljust(chunks),
                 ANSI['reset'],
-                100.0,
-                seconds,
+                round(progress, 1),
+                round(s/chunks),
                 seconds,
             ))
             sys.stdout.flush()
-        except KeyboardInterrupt:
-            print()
-            pass
+            time.sleep(1 / chunks)
 
-    p = Process(target=progress_bar, args=(seconds, prefix))
-    p.start()
+        # ██████████████████████████████████ 100.0% (60/60sec)
+        sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)\n'.format(
+            prefix,
+            ANSI['red'],
+            chunk * chunks,
+            ANSI['reset'],
+            100.0,
+            seconds,
+            seconds,
+        ))
+        sys.stdout.flush()
+    except KeyboardInterrupt:
+        print()
+        pass
 
-    def end():
+class TimedProgress:
+    def __init__(self, seconds, prefix=''):
+        if SHOW_PROGRESS:
+            self.p = Process(target=progress_bar, args=(seconds, prefix))
+            self.p.start()
+        self.stats = {
+            'start_ts': datetime.now(),
+            'end_ts': None,
+            'duration': None,
+        }
+
+    def end(self):
         """immediately finish progress and clear the progressbar line"""
 
-        # protect from double termination
-        #if p is None or not hasattr(p, 'kill'):
-        #    return
-        nonlocal p
-        if p is not None:
-            p.terminate()
-        p = None
+        end_ts = datetime.now()
+        self.stats.update({
+            'end_ts': end_ts,
+            'duration': (end_ts - self.stats['start_ts']).seconds,
+        })
 
-        sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH), ANSI['reset']))  # clear whole terminal line
-        sys.stdout.flush()
+        if SHOW_PROGRESS:
+            # protect from double termination
+            #if p is None or not hasattr(p, 'kill'):
+            #    return
+            if self.p is not None:
+                self.p.terminate()
+            self.p = None
 
-    return end
+            sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH), ANSI['reset']))  # clear whole terminal line
+            sys.stdout.flush()
 
 def download_url(url, timeout=TIMEOUT):
     req = Request(url, headers={'User-Agent': WGET_USER_AGENT})

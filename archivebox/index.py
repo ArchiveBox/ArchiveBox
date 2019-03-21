@@ -17,6 +17,7 @@ from config import (
 )
 from util import (
     chmod_file,
+    urlencode,
     derived_link_info,
     check_link_structure,
     check_links_structure,
@@ -137,7 +138,7 @@ def write_html_links_index(out_dir, links, finished=False):
                 os.path.join('archive', link['timestamp'], 'favicon.ico')
                 # if link['is_archived'] else 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
             ),
-            'archive_url': (
+            'archive_url': urlencode(
                 wget_output_path(link) or 'index.html'
             ),
         })
@@ -174,6 +175,7 @@ def patch_links_index(link, out_dir=OUTPUT_DIR):
         if saved_link['url'] == link['url']:
             saved_link['title'] = title
             saved_link['latest'] = link['latest']
+            saved_link['history'] = link['history']
             changed = True
             break
     if changed:
@@ -199,14 +201,13 @@ def write_link_index(out_dir, link):
     link['updated'] = str(datetime.now().timestamp())
     write_json_link_index(out_dir, link)
     write_html_link_index(out_dir, link)
+    # print('     √ index.html, index.json')
 
 def write_json_link_index(out_dir, link):
     """write a json file with some info about the link"""
     
     check_link_structure(link)
     path = os.path.join(out_dir, 'index.json')
-
-    print('      √ index.json')
 
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(link, f, indent=4, default=str)
@@ -231,8 +232,13 @@ def load_json_link_index(out_dir, link):
         **parse_json_link_index(out_dir),
         **link,
     }
+    link.update({
+        'latest': link.get('latest') or {},
+        'history': link.get('history') or {},
+    })
 
     check_link_structure(link)
+
     return link
 
 def write_html_link_index(out_dir, link):
@@ -241,8 +247,6 @@ def write_html_link_index(out_dir, link):
         link_html = f.read()
 
     path = os.path.join(out_dir, 'index.html')
-
-    print('      √ index.html')
 
     link = derived_link_info(link)
 
@@ -253,7 +257,7 @@ def write_html_link_index(out_dir, link):
                 link['title']
                 or (link['base_url'] if link['is_archived'] else TITLE_LOADING_MSG)
             ),
-            'archive_url': (
+            'archive_url': urlencode(
                 wget_output_path(link)
                 or (link['domain'] if link['is_archived'] else 'about:blank')
             ),

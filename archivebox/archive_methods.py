@@ -3,7 +3,6 @@ import os
 from functools import wraps
 from collections import defaultdict
 from datetime import datetime
-from stdlib_patches import run, PIPE, DEVNULL
 
 from index import (
     write_link_index,
@@ -43,16 +42,18 @@ from util import (
     without_fragment,
     fetch_page_title,
     is_static_file,
-    progress,
+    TimedProgress,
     chmod_file,
-    check_link_structure,
     wget_output_path,
     chrome_args,
+    check_link_structure,
+    run, PIPE, DEVNULL
 )
 from logs import (
     _LAST_RUN_STATS,
     log_link_archiving_started,
-    log_link_archiving_failed,
+    log_archive_method_starting,
+    log_archive_method_finished,
 )
 
 
@@ -63,21 +64,20 @@ class ArchiveError(Exception):
         self.hints = hints
 
 
-def archive_link(link_dir, link, overwrite=True):
+def archive_link(link_dir, link):
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
     ARCHIVE_METHODS = (
-        (FETCH_TITLE, fetch_title),
-        (FETCH_FAVICON, fetch_favicon),
-        (FETCH_WGET, fetch_wget),
-        (FETCH_PDF, fetch_pdf),
-        (FETCH_SCREENSHOT, fetch_screenshot),
-        (FETCH_DOM, fetch_dom),
-        (FETCH_GIT, fetch_git),
-        (FETCH_MEDIA, fetch_media),
-        (SUBMIT_ARCHIVE_DOT_ORG, archive_dot_org),
+        ('title', should_fetch_title, fetch_title),
+        ('favicon', should_fetch_favicon, fetch_favicon),
+        ('wget', should_fetch_wget, fetch_wget),
+        ('pdf', should_fetch_pdf, fetch_pdf),
+        ('screenshot', should_fetch_screenshot, fetch_screenshot),
+        ('dom', should_fetch_dom, fetch_dom),
+        ('git', should_fetch_git, fetch_git),
+        ('media', should_fetch_media, fetch_media),
+        ('archive_org', should_fetch_archive_dot_org, archive_dot_org),
     )
-    active_methods = [method for toggle, method in ARCHIVE_METHODS if toggle]
     
     try:
         is_new = not os.path.exists(link_dir)
@@ -87,109 +87,88 @@ def archive_link(link_dir, link, overwrite=True):
         link = load_json_link_index(link_dir, link)
         log_link_archiving_started(link_dir, link, is_new)
 
-        for archive_method in active_methods:
-            archive_method(link_dir, link, overwrite=overwrite)
+        for method_name, should_run, method_function in ARCHIVE_METHODS:
+            if method_name not in link['history']:
+                link['history'][method_name] = []
+            if method_name not in link['latest']:
+                link['latest'][method_name] = None
+            if not should_run(link_dir, link):
+                continue
+
+            log_archive_method_starting(method_name)
+            result = method_function(link_dir, link)
+            log_archive_method_finished(result)
+
+            link['history'][method_name].append(result)
+            if result['status'] == 'succeeded':
+                link['latest'][method_name] = result['output']
+            
+            _LAST_RUN_STATS[result['status']] += 1
 
         write_link_index(link_dir, link)
         patch_links_index(link)
 
     except Exception as err:
         print('    ! Failed to archive link: {}: {}'.format(err.__class__.__name__, err))
+        raise
     
     return link
 
 
-def attach_result_to_link(method):
-    """
-    Instead of returning a result={output:'...', status:'success'} object,
-    attach that result to the links's history & latest fields, then return
-    the updated link object.
-    """
-    def decorator(fetch_func):
-        @wraps(fetch_func)
-        def timed_fetch_func(link_dir, link, overwrite=False, **kwargs):
-            # initialize methods and history json field on link
-            link['latest'] = link.get('latest') or {}
-            link['latest'][method] = link['latest'].get(method) or None
-            link['history'] = link.get('history') or {}
-            link['history'][method] = link['history'].get(method) or []
 
-            start_ts = datetime.now().timestamp()
+def should_fetch_title(link_dir, link):
+    # if link already has valid title, skip it
+    if link['title'] and not link['title'].lower().startswith('http'):
+        return False
 
-            # if a valid method output is already present, dont run the fetch function
-            if link['latest'][method] and not overwrite:
-                print('      √ {}'.format(method))
-                result = None
-            else:
-                print('      > {}'.format(method))
-                result = fetch_func(link_dir, link, **kwargs)
+    if is_static_file(link['url']):
+        return False
 
-            end_ts = datetime.now().timestamp()
-            duration = str(end_ts * 1000 - start_ts * 1000).split('.')[0]
+    return FETCH_TITLE
 
-            # append a history item recording fail/success
-            history_entry = {
-                'timestamp': str(start_ts).split('.')[0],
-            }
-            if result is None:
-                history_entry['status'] = 'skipped'
-            elif isinstance(result.get('output'), Exception):
-                history_entry['status'] = 'failed'
-                history_entry['duration'] = duration
-                history_entry.update(result or {})
-                link['history'][method].append(history_entry)
-            else:
-                history_entry['status'] = 'succeded'
-                history_entry['duration'] = duration
-                history_entry.update(result or {})
-                link['history'][method].append(history_entry)
-                link['latest'][method] = result['output']
-
-            _LAST_RUN_STATS[history_entry['status']] += 1
-            
-            return link
-        return timed_fetch_func
-    return decorator
-
-@attach_result_to_link('title')
 def fetch_title(link_dir, link, timeout=TIMEOUT):
     """try to guess the page's title from its content"""
 
-    # if link already has valid title, skip it
-    if link['title'] and not link['title'].lower().startswith('http'):
-        return {'output': link['title'], 'status': 'skipped'}
-
-    if is_static_file(link['url']):
-        return {'output': None, 'status': 'skipped'}
-
-    end = progress(timeout, prefix='      ')
+    output = None
+    cmd = [
+        CURL_BINARY,
+        link['url'],
+        '|',
+        'grep',
+        '<title>',
+    ]
+    status = 'succeeded'
+    timer = TimedProgress(timeout, prefix='      ')
     try:
-        title = fetch_page_title(link['url'], timeout=timeout, progress=False)
-        end()
-        output = title
-    except Exception as e:
-        end()
-        output = e
-        print('        {}Failed: {} {}{}'.format(ANSI['red'], e.__class__.__name__, e, ANSI['reset']))
-
-    if title and title.strip():
-        link['title'] = title
-        output = title
+        output = fetch_page_title(link['url'], timeout=timeout, progress=False)
+        if not output:
+            raise ArchiveError('Unable to detect page title')
+    except Exception as err:
+        status = 'failed'
+        output = err
+    finally:
+        timer.end()
 
     return {
-        'cmd': 'fetch_page_title("{}")'.format(link['url']),
+        'cmd': cmd,
+        'pwd': link_dir,
         'output': output,
+        'status': status,
+        **timer.stats,
     }
 
-@attach_result_to_link('favicon')
+
+def should_fetch_favicon(link_dir, link):
+    if os.path.exists(os.path.join(link_dir, 'favicon.ico')):
+        return False
+
+    return FETCH_FAVICON
+
 def fetch_favicon(link_dir, link, timeout=TIMEOUT):
     """download site favicon from google's favicon api"""
 
     output = 'favicon.ico'
-    if os.path.exists(os.path.join(link_dir, output)):
-        return {'output': output, 'status': 'skipped'}
-
-    CMD = [
+    cmd = [
         CURL_BINARY,
         '--max-time', str(timeout),
         '--location',
@@ -197,29 +176,35 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
         *(() if CHECK_SSL_VALIDITY else ('--insecure',)),
         'https://www.google.com/s2/favicons?domain={}'.format(domain(link['url'])),
     ]
-    end = progress(timeout, prefix='      ')
+    status = 'succeeded'
+    timer = TimedProgress(timeout, prefix='      ')
     try:
-        run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)
-        end()
+        run(cmd, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)
         chmod_file(output, cwd=link_dir)
-    except Exception as e:
-        end()
-        output = e
-        print_error_hints(cmd=CMD, pwd=link_dir, err=e)
+    except Exception as err:
+        status = 'failed'
+        output = err
+    finally:
+        timer.end()
 
     return {
-        'cmd': CMD,
+        'cmd': cmd,
+        'pwd': link_dir,
         'output': output,
+        'status': status,
+        **timer.stats,
     }
 
-@attach_result_to_link('wget')
+def should_fetch_wget(link_dir, link):
+    output_path = wget_output_path(link)
+    if output_path and os.path.exists(os.path.join(link_dir, output_path)):
+        return False
+
+    return FETCH_WGET
+
+
 def fetch_wget(link_dir, link, timeout=TIMEOUT):
     """download full site using wget"""
-
-    domain_dir = os.path.join(link_dir, domain(link['url']))
-    existing_file = wget_output_path(link)
-    if os.path.exists(domain_dir) and existing_file:
-        return {'output': existing_file, 'status': 'skipped'}
 
     if FETCH_WARC:
         warc_dir = os.path.join(link_dir, 'warc')
@@ -227,7 +212,8 @@ def fetch_wget(link_dir, link, timeout=TIMEOUT):
         warc_path = os.path.join('warc', str(int(datetime.now().timestamp())))
 
     # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
-    CMD = [
+    output = None
+    cmd = [
         WGET_BINARY,
         # '--server-response',  # print headers for better error parsing
         '--no-verbose',
@@ -248,20 +234,19 @@ def fetch_wget(link_dir, link, timeout=TIMEOUT):
         *((() if CHECK_SSL_VALIDITY else ('--no-check-certificate', '--no-hsts'))),
         link['url'],
     ]
-    end = progress(timeout, prefix='      ')
+    status = 'succeeded'
+    timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)
-        end()
+        result = run(cmd, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)
         output = wget_output_path(link)
 
+        # parse out number of files downloaded from last line of stderr:
+        #  "Downloaded: 76 files, 4.0M in 1.6s (2.52 MB/s)"
         output_tail = [
             line.strip()
             for line in (result.stdout + result.stderr).decode().rsplit('\n', 3)[-3:]
             if line.strip()
         ]
-
-        # parse out number of files downloaded from last line of stderr:
-        #  "Downloaded: 76 files, 4.0M in 1.6s (2.52 MB/s)"
         files_downloaded = (
             int(output_tail[-1].strip().split(' ', 2)[1] or 0)
             if 'Downloaded:' in output_tail[-1]
@@ -271,7 +256,7 @@ def fetch_wget(link_dir, link, timeout=TIMEOUT):
         # Check for common failure cases
         if result.returncode > 0 and files_downloaded < 1:
             hints = (
-                'Got wget response code {}:\n'.format(result.returncode),
+                'Got wget response code: {}.'.format(result.returncode),
                 *output_tail,
             )
             if b'403: Forbidden' in result.stderr:
@@ -281,144 +266,173 @@ def fetch_wget(link_dir, link, timeout=TIMEOUT):
             if b'ERROR 500: Internal Server Error' in result.stderr:
                 raise ArchiveError('500 Internal Server Error', hints)
             raise ArchiveError('Got an error from the server', hints)
-    except Exception as e:
-        end()
-        output = e
-        print_error_hints(cmd=CMD, pwd=link_dir, err=e)
+    except Exception as err:
+        status = 'failed'
+        output = err
+    finally:
+        timer.end()
 
     return {
-        'cmd': CMD,
+        'cmd': cmd,
+        'pwd': link_dir,
         'output': output,
+        'status': status,
+        **timer.stats,
     }
 
-@attach_result_to_link('pdf')
+def should_fetch_pdf(link_dir, link):
+    if is_static_file(link['url']):
+        return False
+    
+    if os.path.exists(os.path.join(link_dir, 'output.pdf')):
+        return False
+
+    return FETCH_PDF
+
+
 def fetch_pdf(link_dir, link, timeout=TIMEOUT):
     """print PDF of site to file using chrome --headless"""
 
-    if is_static_file(link['url']):
-        return {'output': None, 'status': 'skipped'}
-    
     output = 'output.pdf'
-    if os.path.exists(os.path.join(link_dir, output)):
-        return {'output': output, 'status': 'skipped'}
-
-    CMD = [
+    cmd = [
         *chrome_args(timeout=timeout),
         '--print-to-pdf',
-        link['url']
+        link['url'],
     ]
-    end = progress(timeout, prefix='      ')
-    hints = None
+    status = 'succeeded'
+    timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)
-        end()
+        result = run(cmd, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)
 
         if result.returncode:
             hints = (result.stderr or result.stdout).decode()
             raise ArchiveError('Failed to print PDF', hints)
         
         chmod_file('output.pdf', cwd=link_dir)
-    except Exception as e:
-        end()
-        output = e
-        print_error_hints(cmd=CMD, pwd=link_dir, err=e, hints=hints)
+    except Exception as err:
+        status = 'failed'
+        output = err
+    finally:
+        timer.end()
 
     return {
-        'cmd': CMD,
+        'cmd': cmd,
+        'pwd': link_dir,
         'output': output,
+        'status': status,
+        **timer.stats,
     }
 
-@attach_result_to_link('screenshot')
+def should_fetch_screenshot(link_dir, link):
+    if is_static_file(link['url']):
+        return False
+    
+    if os.path.exists(os.path.join(link_dir, 'screenshot.png')):
+        return False
+
+    return FETCH_SCREENSHOT
+
 def fetch_screenshot(link_dir, link, timeout=TIMEOUT):
     """take screenshot of site using chrome --headless"""
 
-    if is_static_file(link['url']):
-        return {'output': None, 'status': 'skipped'}
-    
     output = 'screenshot.png'
-    if os.path.exists(os.path.join(link_dir, output)):
-        return {'output': output, 'status': 'skipped'}
-
-    CMD = [
+    cmd = [
         *chrome_args(timeout=timeout),
         '--screenshot',
         link['url'],
     ]
-    end = progress(timeout, prefix='      ')
+    status = 'succeeded'
+    timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)
-        end()
+        result = run(cmd, stdout=PIPE, stderr=PIPE, cwd=link_dir, timeout=timeout)
+
         if result.returncode:
             hints = (result.stderr or result.stdout).decode()
             raise ArchiveError('Failed to take screenshot', hints)
 
         chmod_file(output, cwd=link_dir)
-    except Exception as e:
-        end()
-        output = e
-        print_error_hints(cmd=CMD, pwd=link_dir, err=e)
+    except Exception as err:
+        status = 'failed'
+        output = err
+    finally:
+        timer.end()
 
     return {
-        'cmd': CMD,
+        'cmd': cmd,
+        'pwd': link_dir,
         'output': output,
+        'status': status,
+        **timer.stats,
     }
+
+def should_fetch_dom(link_dir, link):
+    if is_static_file(link['url']):
+        return False
     
-@attach_result_to_link('dom')
+    if os.path.exists(os.path.join(link_dir, 'output.html')):
+        return False
+
+    return FETCH_DOM
+    
 def fetch_dom(link_dir, link, timeout=TIMEOUT):
     """print HTML of site to file using chrome --dump-html"""
 
-    if is_static_file(link['url']):
-        return {'output': None, 'status': 'skipped'}
-    
     output = 'output.html'
     output_path = os.path.join(link_dir, output)
-    if os.path.exists(output_path):
-        return {'output': output, 'status': 'skipped'}
-
-    CMD = [
+    cmd = [
         *chrome_args(timeout=timeout),
         '--dump-dom',
         link['url']
     ]
-    end = progress(timeout, prefix='      ')
+    status = 'succeeded'
+    timer = TimedProgress(timeout, prefix='      ')
     try:
         with open(output_path, 'w+') as f:
-            result = run(CMD, stdout=f, stderr=PIPE, cwd=link_dir, timeout=timeout)
-        end()
+            result = run(cmd, stdout=f, stderr=PIPE, cwd=link_dir, timeout=timeout)
+
         if result.returncode:
             hints = result.stderr.decode()
             raise ArchiveError('Failed to fetch DOM', hints)
 
         chmod_file(output, cwd=link_dir)
-    except Exception as e:
-        end()
-        output = e
-        print_error_hints(cmd=CMD, pwd=link_dir, err=e)
+    except Exception as err:
+        status = 'failed'
+        output = err
+    finally:
+        timer.end()
 
     return {
-        'cmd': CMD,
+        'cmd': cmd,
+        'pwd': link_dir,
         'output': output,
+        'status': status,
+        **timer.stats,
     }
 
-@attach_result_to_link('git')
-def fetch_git(link_dir, link, timeout=TIMEOUT):
-    """download full site using git"""
+def should_fetch_git(link_dir, link):
+    if is_static_file(link['url']):
+        return False
+
+    if os.path.exists(os.path.join(link_dir, 'git')):
+        return False
 
     is_clonable_url = (
         domain(link['url']) in GIT_DOMAINS
         or extension(link['url']) == 'git'
     )
-    if is_static_file(link['url']) or not is_clonable_url:
-        return {'output': None, 'status': 'skipped'}
+    if not is_clonable_url:
+        return False
+
+    return FETCH_GIT
+
+
+def fetch_git(link_dir, link, timeout=TIMEOUT):
+    """download full site using git"""
 
     output = 'git'
     output_path = os.path.join(link_dir, 'git')
-
-    if os.path.exists(output_path):
-        return {'output': output, 'status': 'skipped'}
-
     os.makedirs(output_path, exist_ok=True)
-    CMD = [
+    cmd = [
         GIT_BINARY,
         'clone',
         '--mirror',
@@ -426,39 +440,48 @@ def fetch_git(link_dir, link, timeout=TIMEOUT):
         *(() if CHECK_SSL_VALIDITY else ('-c', 'http.sslVerify=false')),
         without_query(without_fragment(link['url'])),
     ]
-    end = progress(timeout, prefix='      ')
+    status = 'succeeded'
+    timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=output_path, timeout=timeout + 1)
-        end()
+        result = run(cmd, stdout=PIPE, stderr=PIPE, cwd=output_path, timeout=timeout + 1)
 
         if result.returncode == 128:
             # ignore failed re-download when the folder already exists
             pass
         elif result.returncode > 0:
-            hints = 'got git response code {}:'.format(result.returncode)
+            hints = 'Got git response code: {}.'.format(result.returncode)
             raise ArchiveError('Failed git download', hints)
-    except Exception as e:
-        end()
-        output = e
-        print_error_hints(cmd=CMD, pwd=link_dir, err=e)
+
+    except Exception as err:
+        status = 'failed'
+        output = err
+    finally:
+        timer.end()
 
     return {
-        'cmd': CMD,
+        'cmd': cmd,
+        'pwd': link_dir,
         'output': output,
+        'status': status,
+        **timer.stats,
     }
 
-@attach_result_to_link('media')
-def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
+def should_fetch_media(link_dir, link):
+    if is_static_file(link['url']):
+        return False
+
+    if os.path.exists(os.path.join(link_dir, 'media')):
+        return False
+
+    return FETCH_MEDIA
+
+def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT):
     """Download playlists or individual video, audio, and subtitles using youtube-dl"""
 
     output = 'media'
     output_path = os.path.join(link_dir, 'media')
-
-    if os.path.exists(output_path) and not overwrite:
-        return {'output': output, 'status': 'skipped'}
-
     os.makedirs(output_path, exist_ok=True)
-    CMD = [
+    cmd = [
         YOUTUBEDL_BINARY,
         '--write-description',
         '--write-info-json',
@@ -480,12 +503,11 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
         *(() if CHECK_SSL_VALIDITY else ('--no-check-certificate',)),
         link['url'],
     ]
-
-    end = progress(timeout, prefix='      ')
+    status = 'succeeded'
+    timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=PIPE, cwd=output_path, timeout=timeout + 1)
+        result = run(cmd, stdout=PIPE, stderr=PIPE, cwd=output_path, timeout=timeout + 1)
         chmod_file(output, cwd=link_dir)
-        end()
         if result.returncode:
             if (b'ERROR: Unsupported URL' in result.stderr
                 or b'HTTP Error 404' in result.stderr
@@ -496,18 +518,22 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT, overwrite=False):
                 pass
             else:
                 hints = (
-                    'got youtubedl response code {}:'.format(result.returncode),
+                    'Got youtube-dl response code: {}.'.format(result.returncode),
                     *result.stderr.decode().split('\n'),
                 )
                 raise ArchiveError('Failed to download media', hints)
-    except Exception as e:
-        end()
-        output = e
-        print_error_hints(cmd=CMD, pwd=link_dir, err=e)
+    except Exception as err:
+        status = 'failed'
+        output = err
+    finally:
+        timer.end()
 
     return {
-        'cmd': CMD,
+        'cmd': cmd,
+        'pwd': link_dir,
         'output': output,
+        'status': status,
+        **timer.stats,
     }
 
 def parse_archive_dot_org_response(response):
@@ -526,20 +552,23 @@ def parse_archive_dot_org_response(response):
     errors = headers['x-archive-wayback-runtime-error']
     return content_location, errors
 
-@attach_result_to_link('archive_org')
+def should_fetch_archive_dot_org(link_dir, link):
+    if is_static_file(link['url']):
+        return False
+
+    if os.path.exists(os.path.join(link_dir, 'archive.org.txt')):
+        # if open(path, 'r').read().strip() != 'None':
+        return False
+
+    return SUBMIT_ARCHIVE_DOT_ORG
+
 def archive_dot_org(link_dir, link, timeout=TIMEOUT):
     """submit site to archive.org for archiving via their service, save returned archive url"""
 
     output = 'archive.org.txt'
     archive_org_url = None
-
-    path = os.path.join(link_dir, output)
-    if os.path.exists(path):
-        archive_org_url = open(path, 'r').read().strip()
-        return {'output': archive_org_url, 'status': 'skipped'}
-
     submit_url = 'https://web.archive.org/save/{}'.format(link['url'])
-    CMD = [
+    cmd = [
         CURL_BINARY,
         '--location',
         '--head',
@@ -548,10 +577,10 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
         *(() if CHECK_SSL_VALIDITY else ('--insecure',)),
         submit_url,
     ]
-    end = progress(timeout, prefix='      ')
+    status = 'succeeded'
+    timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(CMD, stdout=PIPE, stderr=DEVNULL, cwd=link_dir, timeout=timeout)
-        end()
+        result = run(cmd, stdout=PIPE, stderr=DEVNULL, cwd=link_dir, timeout=timeout)
         content_location, errors = parse_archive_dot_org_response(result.stdout)
         if content_location:
             archive_org_url = 'https://web.archive.org{}'.format(content_location[0])
@@ -562,10 +591,11 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
             raise ArchiveError(', '.join(errors))
         else:
             raise ArchiveError('Failed to find "content-location" URL header in Archive.org response.')
-    except Exception as e:
-        end()
-        output = e
-        print_error_hints(cmd=CMD, pwd=link_dir, err=e)
+    except Exception as err:
+        status = 'failed'
+        output = err
+    finally:
+        timer.end()
 
     if not isinstance(output, Exception):
         # instead of writing None when archive.org rejects the url write the
@@ -579,8 +609,11 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
         output = archive_org_url
 
     return {
-        'cmd': CMD,
+        'cmd': cmd,
+        'pwd': link_dir,
         'output': output,
+        'status': status,
+        **timer.stats,
     }
 
 

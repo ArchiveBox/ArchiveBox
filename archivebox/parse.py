@@ -28,7 +28,7 @@ from util import (
     str_between,
     URL_REGEX,
     check_url_parsing_invariants,
-    progress,
+    TimedProgress,
 )
 
 
@@ -53,13 +53,13 @@ def parse_links(source_file):
         # Fallback parser
         ('Plain Text', parse_plain_text_export),
     )
-    end = progress(TIMEOUT * 4, prefix='      ')
+    timer = TimedProgress(TIMEOUT * 4)
     with open(source_file, 'r', encoding='utf-8') as file:
         for parser_name, parser_func in PARSERS:
             try:
                 links = list(parser_func(file))
                 if links:
-                    end()
+                    timer.end()
                     return links, parser_name
             except Exception as err:
                 # Parsers are tried one by one down the list, and the first one
@@ -68,7 +68,7 @@ def parse_links(source_file):
                 # print('[!] Parser {} failed: {} {}'.format(parser_name, err.__class__.__name__, err))
                 pass
 
-    end()
+    timer.end()
     return [], 'Plain Text'
 
 
