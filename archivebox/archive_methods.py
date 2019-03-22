@@ -52,6 +52,7 @@ from util import (
 from logs import (
     _LAST_RUN_STATS,
     log_link_archiving_started,
+    log_link_archiving_finished,
     log_archive_method_starting,
     log_archive_method_finished,
 )
@@ -86,6 +87,7 @@ def archive_link(link_dir, link):
 
         link = load_json_link_index(link_dir, link)
         log_link_archiving_started(link_dir, link, is_new)
+        skipped_entirely = True
 
         for method_name, should_run, method_function in ARCHIVE_METHODS:
             if method_name not in link['history']:
@@ -95,6 +97,10 @@ def archive_link(link_dir, link):
             if not should_run(link_dir, link):
                 continue
 
+            if skipped_entirely:
+                skipped_entirely = False
+                print()
+
             log_archive_method_starting(method_name)
             result = method_function(link_dir, link)
             log_archive_method_finished(result)
@@ -102,11 +108,16 @@ def archive_link(link_dir, link):
             link['history'][method_name].append(result)
             if result['status'] == 'succeeded':
                 link['latest'][method_name] = result['output']
-            
+
+            if result['status'] != 'skipped':
+                made_changes = True
+
             _LAST_RUN_STATS[result['status']] += 1
 
         write_link_index(link_dir, link)
         patch_links_index(link)
+
+        log_link_archiving_finished(link_dir, link, is_new, skipped_entirely)
 
     except Exception as err:
         print('    ! Failed to archive link: {}: {}'.format(err.__class__.__name__, err))

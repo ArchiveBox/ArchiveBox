@@ -201,7 +201,6 @@ def write_link_index(out_dir, link):
     link['updated'] = str(datetime.now().timestamp())
     write_json_link_index(out_dir, link)
     write_html_link_index(out_dir, link)
-    # print('     √ index.html, index.json')
 
 def write_json_link_index(out_dir, link):
     """write a json file with some info about the link"""

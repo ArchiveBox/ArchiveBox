@@ -27,16 +27,29 @@ def pretty_path(path):
 
 
 def log_link_archiving_started(link_dir, link, is_new):
-    print('[{symbol_color}{symbol}{reset}] [{now}] "{title}"\n    {blue}{url}{reset}'.format(
-        symbol='+' if is_new else '*',
+    # [*] [2019-03-22 13:46:45] "Log Structured Merge Trees - ben stopford"
+    #     http://www.benstopford.com/2015/02/14/log-structured-merge-trees/
+    #     > output/archive/1478739709
+
+    print('\n[{symbol_color}{symbol}{reset}] [{symbol_color}{now}{reset}] "{title}"'.format(
         symbol_color=ANSI['green' if is_new else 'black'],
+        symbol='+' if is_new else '*',
         now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        **{**link, 'title': link['title'] or link['url']},
+        title=link['title'] or link['url'],
         **ANSI,
     ))
+    print('    {blue}{url}{reset}'.format(url=link['url'], **ANSI))
+    sys.stdout.write('    > {}{}'.format(
+        pretty_path(link_dir),
+        ' (new)' if is_new else '',
+    ))
 
-    print('    > {}{}'.format(pretty_path(link_dir), ' (new)' if is_new else ''))
-
+def log_link_archiving_finished(link_dir, link, is_new, skipped_entirely):
+    if skipped_entirely:
+        print('\r    √ {}{}'.format(
+            pretty_path(link_dir),
+            ' (new)' if is_new else '',
+        ))
 
 def log_archive_method_starting(method):
     print('      > {}'.format(method))
