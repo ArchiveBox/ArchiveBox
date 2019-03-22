@@ -18,11 +18,10 @@ e.g. I need to be able to archive spanish and french subtitle files
 from a particular <example.com> movie site that's going down soon.
 
 ## Describe the ideal specific solution you'd want, and whether it fits into any broader scope of changes
-e.g.  
-  specifically: a new archive method to look for multilingual subtitle files related to pages.  
-  bigger picture: the ability for custom user scripts to be run in a puppeteer context to archive content
+e.g.  I specifically need a new archive method to look for multilingual subtitle files related to pages.  
+The bigger picture solution is the ability for custom user scripts to be run in a puppeteer context during archiving.
 
-**What hacks or alternative solutions have you tried to solve the problem?**  
+## What hacks or alternative solutions have you tried to solve the problem?
 A clear and concise description of any alternative solutions or features you've considered.
 
 ## How badly do you want this new feature?
