@@ -155,7 +155,7 @@ def log_archiving_paused(num_links, idx, timestamp):
 def log_archiving_finished(num_links):
     end_ts = datetime.now()
     _LAST_RUN_STATS['end_ts'] = end_ts
-    seconds = end_ts - _LAST_RUN_STATS['start_ts'].timestamp()
+    seconds = end_ts.timestamp() - _LAST_RUN_STATS['start_ts'].timestamp()
     if seconds > 60:
         duration = '{0:.2f} min'.format(seconds / 60, 2)
     else:
