@@ -7,6 +7,8 @@ assignees: ''
 
 ---
 
+(feel free to delete this template and write your own issue description if you don't find it helpful)
+
 ## Type 
 
  - [ ] General Question or Disussion
@@ -30,8 +32,7 @@ A clear and concise description of any alternative solutions or features you've 
  - [ ] It's important to add it in the near-mid term future
  - [ ] It would be nice to have eventually
 
-## Closing remarks
+---
 
  - [ ] I'm willing to contribute to development / fixing this issue
  - [ ] I like ArchiveBox so far / would recommend it to a friend
- - [ ] I am annoyed by long issue templates 😁
