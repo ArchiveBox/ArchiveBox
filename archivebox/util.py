@@ -314,10 +314,20 @@ def wget_output_path(link):
     # Wget downloads can save in a number of different ways depending on the url:
     #    https://example.com
     #       > output/archive/<timestamp>/example.com/index.html
+    #    https://example.com?v=zzVa_tX1OiI
+    #       > output/archive/<timestamp>/example.com/index.html?v=zzVa_tX1OiI.html
+    #    https://www.example.com/?v=zzVa_tX1OiI
+    #       > output/archive/<timestamp>/example.com/index.html?v=zzVa_tX1OiI.html
+
     #    https://example.com/abc
     #       > output/archive/<timestamp>/example.com/abc.html
     #    https://example.com/abc/
     #       > output/archive/<timestamp>/example.com/abc/index.html
+    #    https://example.com/abc?v=zzVa_tX1OiI.html
+    #       > output/archive/<timestamp>/example.com/abc?v=zzVa_tX1OiI.html
+    #    https://example.com/abc/?v=zzVa_tX1OiI.html
+    #       > output/archive/<timestamp>/example.com/abc/index.html?v=zzVa_tX1OiI.html
+
     #    https://example.com/abc/test.html
     #       > output/archive/<timestamp>/example.com/abc/test.html
     #    https://example.com/abc/test?v=zzVa_tX1OiI
@@ -326,7 +336,7 @@ def wget_output_path(link):
     #       > output/archive/<timestamp>/example.com/abc/test/index.html?v=zzVa_tX1OiI.html
 
     # There's also lots of complexity around how the urlencoding and renaming
-    # is done for pages with query and hash fragments or extensions like shtml / htm
+    # is done for pages with query and hash fragments or extensions like shtml / htm / php / etc
 
     # Since the wget algorithm for -E (appending .html) is incredibly complex
     # and there's no way to get the computed output path from wget
@@ -359,27 +369,6 @@ def wget_output_path(link):
 
     return None
 
-    # If finding the actual output file didn't work, fall back to the buggy
-    # implementation of the wget .html appending algorithm
-    # split_url = link['url'].split('#', 1)
-    # query = ('%3F' + link['url'].split('?', 1)[-1]) if '?' in link['url'] else ''
-
-    # if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", split_url[0], re.I | re.M):
-    #     # already ends in .html
-    #     return urlencode(base_url(link['url']))
-    # else:
-    #     # .html needs to be appended
-    #     without_scheme = split_url[0].split('://', 1)[-1].split('?', 1)[0]
-    #     if without_scheme.endswith('/'):
-    #         if query:
-    #             return urlencode('#'.join([without_scheme + 'index.html' + query + '.html', *split_url[1:]]))
-    #         return urlencode('#'.join([without_scheme + 'index.html', *split_url[1:]]))
-    #     else:
-    #         if query:
-    #             return urlencode('#'.join([without_scheme + '/index.html' + query + '.html', *split_url[1:]]))
-    #         elif '/' in without_scheme:
-    #             return urlencode('#'.join([without_scheme + '.html', *split_url[1:]]))
-    #         return urlencode(base_url(link['url']) + '/index.html')
 
 ### String Manipulation & Logging Helpers
 

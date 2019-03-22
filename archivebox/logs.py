@@ -45,13 +45,21 @@ def log_link_archiving_started(link_dir, link, is_new):
     ))
 
 def log_link_archiving_finished(link_dir, link, is_new, skipped_entirely):
+    if all(output == 'succeeded' for output in link['latest']):
+        _LAST_RUN_STATS['succeeded'] += 1
+    elif skipped_entirely or all(output == 'skipped' for output in link['latest']):
+        _LAST_RUN_STATS['skipped'] += 1
+    else:
+        _LAST_RUN_STATS['failed'] += 1
+        # import ipdb; ipdb.set_trace()
+
     if skipped_entirely:
         print('\r    √ {}{}'.format(
             pretty_path(link_dir),
             ' (new)' if is_new else '',
         ))
 
-def log_archive_method_starting(method):
+def log_archive_method_started(method):
     print('      > {}'.format(method))
 
 def log_archive_method_finished(result):
@@ -117,7 +125,7 @@ def log_parsing_finished(num_new_links, parser_name):
         parser_name,
     ))
 
-def log_indexing_started():
+def log_indexing_process_started():
     start_ts = datetime.now()
     _LAST_RUN_STATS['index_start_ts'] = start_ts
     print('{green}[*] [{}] Saving main index files...{reset}'.format(
@@ -125,10 +133,13 @@ def log_indexing_started():
         **ANSI,
     ))
 
+def log_indexing_started(out_dir, out_file):
+    sys.stdout.write('    > {}/{}'.format(pretty_path(out_dir), out_file))
+
 def log_indexing_finished(out_dir, out_file):
     end_ts = datetime.now()
     _LAST_RUN_STATS['index_end_ts'] = end_ts
-    print('    √ {}/{}'.format(pretty_path(out_dir), out_file))
+    print('\r    √ {}/{}'.format(pretty_path(out_dir), out_file))
 
 def log_archiving_started(num_links, resume):
     start_ts = datetime.now()

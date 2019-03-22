@@ -94,7 +94,7 @@ def main(*args):
 
 
 def update_archive_data(import_path=None, resume=None):
-    """The main ArchiveBox entrancepoint.  Everything starts here."""
+    """The main ArchiveBox entrancepoint. Everything starts here."""
     check_dependencies()
 
     # Step 1: Load list of links from the existing index

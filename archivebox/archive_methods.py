@@ -1,6 +1,5 @@
 import os
 
-from functools import wraps
 from collections import defaultdict
 from datetime import datetime
 
@@ -50,10 +49,9 @@ from util import (
     run, PIPE, DEVNULL
 )
 from logs import (
-    _LAST_RUN_STATS,
     log_link_archiving_started,
     log_link_archiving_finished,
-    log_archive_method_starting,
+    log_archive_method_started,
     log_archive_method_finished,
 )
 
@@ -94,6 +92,7 @@ def archive_link(link_dir, link):
                 link['history'][method_name] = []
             if method_name not in link['latest']:
                 link['latest'][method_name] = None
+            
             if not should_run(link_dir, link):
                 continue
 
@@ -101,18 +100,13 @@ def archive_link(link_dir, link):
                 skipped_entirely = False
                 print()
 
-            log_archive_method_starting(method_name)
+            log_archive_method_started(method_name)
             result = method_function(link_dir, link)
             log_archive_method_finished(result)
 
             link['history'][method_name].append(result)
             if result['status'] == 'succeeded':
                 link['latest'][method_name] = result['output']
-
-            if result['status'] != 'skipped':
-                made_changes = True
-
-            _LAST_RUN_STATS[result['status']] += 1
 
         write_link_index(link_dir, link)
         patch_links_index(link)
@@ -126,6 +120,7 @@ def archive_link(link_dir, link):
     return link
 
 
+### Archive Method Functions
 
 def should_fetch_title(link_dir, link):
     # if link already has valid title, skip it
@@ -428,8 +423,8 @@ def should_fetch_git(link_dir, link):
         return False
 
     is_clonable_url = (
-        domain(link['url']) in GIT_DOMAINS
-        or extension(link['url']) == 'git'
+        (domain(link['url']) in GIT_DOMAINS)
+        or (extension(link['url']) == 'git')
     )
     if not is_clonable_url:
         return False
@@ -476,6 +471,7 @@ def fetch_git(link_dir, link, timeout=TIMEOUT):
         'status': status,
         **timer.stats,
     }
+
 
 def should_fetch_media(link_dir, link):
     if is_static_file(link['url']):
@@ -547,21 +543,6 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT):
         **timer.stats,
     }
 
-def parse_archive_dot_org_response(response):
-    # Parse archive.org response headers
-    headers = defaultdict(list)
-
-    # lowercase all the header names and store in dict
-    for header in response.splitlines():
-        if b':' not in header or not header.strip():
-            continue
-        name, val = header.decode().split(':', 1)
-        headers[name.lower().strip()].append(val.strip())
-
-    # Get successful archive url in "content-location" header or any errors
-    content_location = headers['content-location']
-    errors = headers['x-archive-wayback-runtime-error']
-    return content_location, errors
 
 def should_fetch_archive_dot_org(link_dir, link):
     if is_static_file(link['url']):
@@ -627,4 +608,18 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
         **timer.stats,
     }
 
+def parse_archive_dot_org_response(response):
+    # Parse archive.org response headers
+    headers = defaultdict(list)
 
+    # lowercase all the header names and store in dict
+    for header in response.splitlines():
+        if b':' not in header or not header.strip():
+            continue
+        name, val = header.decode().split(':', 1)
+        headers[name.lower().strip()].append(val.strip())
+
+    # Get successful archive url in "content-location" header or any errors
+    content_location = headers['content-location']
+    errors = headers['x-archive-wayback-runtime-error']
+    return content_location, errors

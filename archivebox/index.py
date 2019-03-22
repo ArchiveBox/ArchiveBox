@@ -26,6 +26,7 @@ from util import (
 from parse import parse_links
 from links import validate_links
 from logs import (
+    log_indexing_process_started,
     log_indexing_started,
     log_indexing_finished,
     log_parsing_started,
@@ -40,12 +41,14 @@ TITLE_LOADING_MSG = 'Not yet archived...'
 def write_links_index(out_dir, links, finished=False):
     """create index.html file for a given list of links"""
 
-    log_indexing_started()
+    log_indexing_process_started()
     check_links_structure(links)
 
+    log_indexing_started(out_dir, 'index.json')
     write_json_links_index(out_dir, links)
     log_indexing_finished(out_dir, 'index.json')
     
+    log_indexing_started(out_dir, 'index.html')
     write_html_links_index(out_dir, links, finished=finished)
     log_indexing_finished(out_dir, 'index.html')
     

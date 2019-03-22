@@ -3,33 +3,26 @@ In ArchiveBox, a Link represents a single entry that we track in the
 json index.  All links pass through all archiver functions and the latest,
 most up-to-date canonical output for each is stored in "latest".
 
-
 Link {
-    timestamp: str,     (how we uniquely id links)        _   _  _ _  ___
-    url: str,                                            | \ / \ |\| ' |
-    base_url: str,                                       |_/ \_/ | |   |
-    domain: str,                                          _   _ _ _ _  _
-    tags: str,                                           |_) /| |\| | / `
-    type: str,                                           |  /"| | | | \_,
-    title: str,                                              ,-'"`-.
-    sources: [str],                                     /// /  @ @  \ \\\\
-    latest: {                                           \ :=| ,._,. |=:  /
-        ...,                                            || ,\ \_../ /. ||
-        pdf: 'output.pdf',                              ||','`-._))'`.`||
-        wget: 'example.com/1234/index.html'             `-'     (/    `-'
+    timestamp: str,     (how we uniquely id links)    
+    url: str,                                         
+    title: str,                                       
+    tags: str,                                        
+    sources: [str],                                   
+    latest: {                                         
+        ...,                                          
+        pdf: 'output.pdf',                            
+        wget: 'example.com/1234/index.html',
+        screenshot: null,        
     },
     history: {
-        ...
         pdf: [
-            {timestamp: 15444234325, status: 'skipped', result='output.pdf'},
+            {start_ts, end_ts, duration, cmd, pwd, status, output},
             ...
         ],
-        wget: [
-            {timestamp: 11534435345, status: 'succeded', result='donuts.com/eat/them.html'}
-        ]
+        ...
     },
 }
-
 """
 
 from html import unescape
