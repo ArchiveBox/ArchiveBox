@@ -1,8 +1,9 @@
 import os
+import re
 import sys
 import shutil
 
-from subprocess import run, PIPE
+from subprocess import run, PIPE, DEVNULL
 
 # ******************************************************************************
 # Documentation: https://github.com/pirate/ArchiveBox/wiki/Configuration
@@ -67,7 +68,6 @@ SOURCES_DIR = os.path.join(OUTPUT_DIR, SOURCES_DIR_NAME)
 
 PYTHON_PATH = os.path.join(REPO_DIR, 'archivebox')
 TEMPLATES_DIR = os.path.join(PYTHON_PATH, 'templates')
-
 
 CHROME_SANDBOX = os.getenv('CHROME_SANDBOX', 'True').lower() == 'true'
 USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
@@ -137,44 +137,115 @@ if not USE_COLOR:
     # dont show colors if USE_COLOR is False
     ANSI = {k: '' for k in ANSI.keys()}
 
+
 ### Confirm Environment Setup
-GIT_SHA = 'unknown'
-try:
-    GIT_SHA = run([GIT_BINARY, 'rev-list', '-1', 'HEAD', './'], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
-except Exception:
-    print('[!] Warning: unable to determine git version, is git installed and in your $PATH?')
-
-CHROME_VERSION = 'unknown'
-try:
-    chrome_vers_str = run([CHROME_BINARY, "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
-    CHROME_VERSION = [v for v in chrome_vers_str.strip().split(' ') if v.replace('.', '').isdigit()][0]
-except Exception:
-    if USE_CHROME:
-        print('[!] Warning: unable to determine chrome version, is chrome installed and in your $PATH?')
-
-WGET_VERSION = 'unknown'
-try:
-    wget_vers_str = run([WGET_BINARY, "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
-    WGET_VERSION = wget_vers_str.split('\n')[0].split(' ')[2]
-except Exception:
-    if USE_WGET:
-        print('[!] Warning: unable to determine wget version, is wget installed and in your $PATH?')
-
-WGET_USER_AGENT = WGET_USER_AGENT.format(GIT_SHA=GIT_SHA[:9], WGET_VERSION=WGET_VERSION)
 
 try:
-    COOKIES_FILE = os.path.abspath(COOKIES_FILE) if COOKIES_FILE else None
-except Exception:
-    print('[!] Warning: unable to get full path to COOKIES_FILE, are you sure you specified it correctly?')
-    raise
+    ### Check Python environment
+    python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
+    if python_vers < 3.5:
+        print('{}[X] Python version is not new enough: {} (>3.5 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
+        print('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
+        raise SystemExit(1)
 
-if sys.stdout.encoding.upper() not in ('UTF-8', 'UTF8'):
-    print('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
-    print('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
-    print('')
-    print('    Confirm that it\'s fixed by opening a new shell and running:')
-    print('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
-    print('')
-    print('    Alternatively, run this script with:')
-    print('        env PYTHONIOENCODING=UTF-8 ./archive.py export.html')
+    if sys.stdout.encoding.upper() not in ('UTF-8', 'UTF8'):
+        print('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
+        print('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
+        print('')
+        print('    Confirm that it\'s fixed by opening a new shell and running:')
+        print('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
+        print('')
+        print('    Alternatively, run this script with:')
+        print('        env PYTHONIOENCODING=UTF-8 ./archive.py export.html')
 
+    ### Get code version by parsing git log
+    GIT_SHA = 'unknown'
+    try:
+        GIT_SHA = run([GIT_BINARY, 'rev-list', '-1', 'HEAD', './'], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
+    except Exception:
+        print('[!] Warning: unable to determine git version, is git installed and in your $PATH?')
+
+    ### Get absolute path for cookies file
+    try:
+        COOKIES_FILE = os.path.abspath(COOKIES_FILE) if COOKIES_FILE else None
+    except Exception:
+        print('[!] Warning: unable to get full path to COOKIES_FILE, are you sure you specified it correctly?')
+        raise
+
+    ### Make sure curl is installed
+    if FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG:
+        if run(['which', CURL_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode or run([CURL_BINARY, '--version'], stdout=DEVNULL, stderr=DEVNULL).returncode:
+            print('{red}[X] Missing dependency: curl{reset}'.format(**ANSI))
+            print('    Install it, then confirm it works with: {} --version'.format(CURL_BINARY))
+            print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+            raise SystemExit(1)
+
+    ### Make sure wget is installed and calculate version
+    if FETCH_WGET or FETCH_WARC:
+        if run(['which', WGET_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode or run([WGET_BINARY, '--version'], stdout=DEVNULL, stderr=DEVNULL).returncode:
+            print('{red}[X] Missing dependency: wget{reset}'.format(**ANSI))
+            print('    Install it, then confirm it works with: {} --version'.format(WGET_BINARY))
+            print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+            raise SystemExit(1)
+
+        WGET_VERSION = 'unknown'
+        try:
+            wget_vers_str = run([WGET_BINARY, "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
+            WGET_VERSION = wget_vers_str.split('\n')[0].split(' ')[2]
+        except Exception:
+            if USE_WGET:
+                print('[!] Warning: unable to determine wget version, is wget installed and in your $PATH?')
+
+        WGET_USER_AGENT = WGET_USER_AGENT.format(GIT_SHA=GIT_SHA[:9], WGET_VERSION=WGET_VERSION)
+
+    ### Make sure chrome is installed and calculate version
+    if FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM:
+        if run(['which', CHROME_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode:
+            print('{}[X] Missing dependency: {}{}'.format(ANSI['red'], CHROME_BINARY, ANSI['reset']))
+            print('    Install it, then confirm it works with: {} --version'.format(CHROME_BINARY))
+            print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+            raise SystemExit(1)
+
+        # parse chrome --version e.g. Google Chrome 61.0.3114.0 canary / Chromium 59.0.3029.110 built on Ubuntu, running on Ubuntu 16.04
+        try:
+            result = run([CHROME_BINARY, '--version'], stdout=PIPE)
+            version_str = result.stdout.decode('utf-8')
+            version_lines = re.sub("(Google Chrome|Chromium) (\\d+?)\\.(\\d+?)\\.(\\d+?).*?$", "\\2", version_str).split('\n')
+            version = [l for l in version_lines if l.isdigit()][-1]
+            if int(version) < 59:
+                print(version_lines)
+                print('{red}[X] Chrome version must be 59 or greater for headless PDF, screenshot, and DOM saving{reset}'.format(**ANSI))
+                print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+                raise SystemExit(1)
+        except (IndexError, TypeError, OSError):
+            print('{red}[X] Failed to parse Chrome version, is it installed properly?{reset}'.format(**ANSI))
+            print('    Install it, then confirm it works with: {} --version'.format(CHROME_BINARY))
+            print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+            raise SystemExit(1)
+
+        CHROME_VERSION = 'unknown'
+        try:
+            chrome_vers_str = run([CHROME_BINARY, "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
+            CHROME_VERSION = [v for v in chrome_vers_str.strip().split(' ') if v.replace('.', '').isdigit()][0]
+        except Exception:
+            if USE_CHROME:
+                print('[!] Warning: unable to determine chrome version, is chrome installed and in your $PATH?')
+
+    ### Make sure git is installed
+    if FETCH_GIT:
+        if run(['which', GIT_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode or run([GIT_BINARY, '--version'], stdout=DEVNULL, stderr=DEVNULL).returncode:
+            print('{red}[X] Missing dependency: git{reset}'.format(**ANSI))
+            print('    Install it, then confirm it works with: {} --version'.format(GIT_BINARY))
+            print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+            raise SystemExit(1)
+
+    ### Make sure youtube-dl is installed
+    if FETCH_MEDIA:
+        if run(['which', YOUTUBEDL_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode or run([YOUTUBEDL_BINARY, '--version'], stdout=DEVNULL, stderr=DEVNULL).returncode:
+            print('{red}[X] Missing dependency: youtube-dl{reset}'.format(**ANSI))
+            print('    Install it, then confirm it was installed with: {} --version'.format(YOUTUBEDL_BINARY))
+            print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+            raise SystemExit(1)
+
+except KeyboardInterrupt:
+    raise SystemExit(1)

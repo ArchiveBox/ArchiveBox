@@ -22,7 +22,6 @@ from config import (
     GIT_SHA,
 )
 from util import (
-    check_dependencies,
     save_remote_source,
     save_stdin_source,
 )
@@ -33,7 +32,7 @@ from logs import (
 )
 
 __AUTHOR__ = 'Nick Sweeting <git@nicksweeting.com>'
-__VERSION__ = GIT_SHA
+__VERSION__ = GIT_SHA[:9]
 __DESCRIPTION__ = 'ArchiveBox: The self-hosted internet archive.'
 __DOCUMENTATION__ = 'https://github.com/pirate/ArchiveBox/wiki'
 
@@ -42,16 +41,22 @@ def print_help():
     print('ArchiveBox: The self-hosted internet archive.\n')
     print("Documentation:")
     print("    https://github.com/pirate/ArchiveBox/wiki\n")
-    print("Usage:")
-    print("    echo 'https://examplecom' | ./bin/archivebox\n")
-    print("    ./bin/archivebox ~/Downloads/bookmarks_export.html\n")
-    print("    ./bin/archivebox https://example.com/feed.rss\n")
-    print("    ./bin/archivebox 15109948213.123\n")
+    print("UI Usage:")
+    print("    Open output/index.html to view your archive.\n")
+    print("CLI Usage:")
+    print("    echo 'https://example.com' | ./archive\n")
+    print("    ./archive ~/Downloads/bookmarks_export.html\n")
+    print("    ./archive https://example.com/feed.rss\n")
+    print("    ./archive 15109948213.123\n")
 
 
 def main(*args):
     if set(args).intersection(('-h', '--help', 'help')) or len(args) > 2:
         print_help()
+        raise SystemExit(0)
+
+    if set(args).intersection(('--version', 'version')):
+        print('ArchiveBox version {}'.format(__VERSION__))
         raise SystemExit(0)
 
     ### Handle CLI arguments
@@ -95,7 +100,6 @@ def main(*args):
 
 def update_archive_data(import_path=None, resume=None):
     """The main ArchiveBox entrancepoint. Everything starts here."""
-    check_dependencies()
 
     # Step 1: Load list of links from the existing index
     #         merge in and dedupe new links from import_path

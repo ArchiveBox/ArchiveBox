@@ -297,7 +297,7 @@ def fetch_pdf(link_dir, link, timeout=TIMEOUT):
 
     output = 'output.pdf'
     cmd = [
-        *chrome_args(timeout=timeout),
+        *chrome_args(TIMEOUT=timeout),
         '--print-to-pdf',
         link['url'],
     ]
@@ -339,7 +339,7 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT):
 
     output = 'screenshot.png'
     cmd = [
-        *chrome_args(timeout=timeout),
+        *chrome_args(TIMEOUT=timeout),
         '--screenshot',
         link['url'],
     ]
@@ -382,7 +382,7 @@ def fetch_dom(link_dir, link, timeout=TIMEOUT):
     output = 'output.html'
     output_path = os.path.join(link_dir, output)
     cmd = [
-        *chrome_args(timeout=timeout),
+        *chrome_args(TIMEOUT=timeout),
         '--dump-dom',
         link['url']
     ]

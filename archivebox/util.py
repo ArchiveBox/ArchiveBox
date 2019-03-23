@@ -25,11 +25,6 @@ from config import (
     OUTPUT_PERMISSIONS,
     TIMEOUT,
     SHOW_PROGRESS,
-    CURL_BINARY,
-    WGET_BINARY,
-    CHROME_BINARY,
-    GIT_BINARY,
-    YOUTUBEDL_BINARY,
     FETCH_TITLE,
     FETCH_FAVICON,
     FETCH_WGET,
@@ -123,70 +118,6 @@ def check_links_structure(links):
     assert isinstance(links, list)
     if links:
         check_link_structure(links[0])
-
-def check_dependencies():
-    """Check that all necessary dependencies are installed, and have valid versions"""
-
-    try:
-        python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
-        if python_vers < 3.5:
-            print('{}[X] Python version is not new enough: {} (>3.5 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
-            print('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
-            raise SystemExit(1)
-
-        if FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG:
-            if run(['which', CURL_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode or run([CURL_BINARY, '--version'], stdout=DEVNULL, stderr=DEVNULL).returncode:
-                print('{red}[X] Missing dependency: curl{reset}'.format(**ANSI))
-                print('    Install it, then confirm it works with: {} --version'.format(CURL_BINARY))
-                print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
-                raise SystemExit(1)
-
-        if FETCH_WGET or FETCH_WARC:
-            if run(['which', WGET_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode or run([WGET_BINARY, '--version'], stdout=DEVNULL, stderr=DEVNULL).returncode:
-                print('{red}[X] Missing dependency: wget{reset}'.format(**ANSI))
-                print('    Install it, then confirm it works with: {} --version'.format(WGET_BINARY))
-                print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
-                raise SystemExit(1)
-
-        if FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM:
-            if run(['which', CHROME_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode:
-                print('{}[X] Missing dependency: {}{}'.format(ANSI['red'], CHROME_BINARY, ANSI['reset']))
-                print('    Install it, then confirm it works with: {} --version'.format(CHROME_BINARY))
-                print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
-                raise SystemExit(1)
-
-            # parse chrome --version e.g. Google Chrome 61.0.3114.0 canary / Chromium 59.0.3029.110 built on Ubuntu, running on Ubuntu 16.04
-            try:
-                result = run([CHROME_BINARY, '--version'], stdout=PIPE)
-                version_str = result.stdout.decode('utf-8')
-                version_lines = re.sub("(Google Chrome|Chromium) (\\d+?)\\.(\\d+?)\\.(\\d+?).*?$", "\\2", version_str).split('\n')
-                version = [l for l in version_lines if l.isdigit()][-1]
-                if int(version) < 59:
-                    print(version_lines)
-                    print('{red}[X] Chrome version must be 59 or greater for headless PDF, screenshot, and DOM saving{reset}'.format(**ANSI))
-                    print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
-                    raise SystemExit(1)
-            except (IndexError, TypeError, OSError):
-                print('{red}[X] Failed to parse Chrome version, is it installed properly?{reset}'.format(**ANSI))
-                print('    Install it, then confirm it works with: {} --version'.format(CHROME_BINARY))
-                print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
-                raise SystemExit(1)
-
-        if FETCH_GIT:
-            if run(['which', GIT_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode or run([GIT_BINARY, '--version'], stdout=DEVNULL, stderr=DEVNULL).returncode:
-                print('{red}[X] Missing dependency: git{reset}'.format(**ANSI))
-                print('    Install it, then confirm it works with: {} --version'.format(GIT_BINARY))
-                print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
-                raise SystemExit(1)
-
-        if FETCH_MEDIA:
-            if run(['which', YOUTUBEDL_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode or run([YOUTUBEDL_BINARY, '--version'], stdout=DEVNULL, stderr=DEVNULL).returncode:
-                print('{red}[X] Missing dependency: youtube-dl{reset}'.format(**ANSI))
-                print('    Install it, then confirm it was installed with: {} --version'.format(YOUTUBEDL_BINARY))
-                print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
-                raise SystemExit(1)
-    except (KeyboardInterrupt, Exception):
-        raise SystemExit(1)
 
 def check_url_parsing_invariants():
     """Check that plain text regex URL parsing works as expected"""
@@ -284,7 +215,7 @@ def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
 
         match = re.search(HTML_TITLE_REGEX, html)
         return match.group(1).strip() if match else None
-    except Exception as err:
+    except Exception as err:  # noqa
         # print('[!] Failed to fetch title because of {}: {}'.format(
         #     err.__class__.__name__,
         #     err,
@@ -560,10 +491,13 @@ def progress_bar(seconds, prefix):
         pass
 
 class TimedProgress:
+    """Show a progress bar and measure elapsed time until .end() is called"""
+
     def __init__(self, seconds, prefix=''):
         if SHOW_PROGRESS:
             self.p = Process(target=progress_bar, args=(seconds, prefix))
             self.p.start()
+
         self.stats = {
             'start_ts': datetime.now(),
             'end_ts': None,
@@ -571,7 +505,7 @@ class TimedProgress:
         }
 
     def end(self):
-        """immediately finish progress and clear the progressbar line"""
+        """immediately end progress, clear the progressbar line, and save end_ts"""
 
         end_ts = datetime.now()
         self.stats.update({
@@ -591,6 +525,8 @@ class TimedProgress:
             sys.stdout.flush()
 
 def download_url(url, timeout=TIMEOUT):
+    """Download the contents of a remote url and return the text"""
+
     req = Request(url, headers={'User-Agent': WGET_USER_AGENT})
 
     if CHECK_SSL_VALIDITY:
@@ -615,34 +551,31 @@ def chmod_file(path, cwd='.', permissions=OUTPUT_PERMISSIONS, timeout=30):
         raise Exception('Failed to chmod {}/{}'.format(cwd, path))
 
 
-def chrome_args(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR,
-               headless=CHROME_HEADLESS, sandbox=CHROME_SANDBOX,
-               check_ssl_validity=CHECK_SSL_VALIDITY, user_agent=CHROME_USER_AGENT,
-               resolution=RESOLUTION, timeout=TIMEOUT):
+def chrome_args(**options):
     """helper to build up a chrome shell command with arguments"""
 
-    cmd_args = [binary]
+    cmd_args = [options['CHROME_BINARY']]
 
-    if headless:
+    if options['HEADLESS']:
         cmd_args += ('--headless',)
     
-    if not sandbox:
+    if not options['CHROME_SANDBOX']:
         # dont use GPU or sandbox when running inside docker container
         cmd_args += ('--no-sandbox', '--disable-gpu')
 
-    if not check_ssl_validity:
+    if not options['CHECK_SSL_VALIDITY']:
         cmd_args += ('--disable-web-security', '--ignore-certificate-errors')
 
-    if user_agent:
-        cmd_args += ('--user-agent={}'.format(user_agent),)
+    if options['CHROME_USER_AGENT']:
+        cmd_args += ('--user-agent={}'.format(options['CHROME_USER_AGENT']),)
 
-    if resolution:
-        cmd_args += ('--window-size={}'.format(RESOLUTION),)
+    if options['RESOLUTION']:
+        cmd_args += ('--window-size={}'.format(options['RESOLUTION']),)
 
-    if timeout:
-        cmd_args += ('--timeout={}'.format((timeout) * 1000),)
+    if options['TIMEOUT']:
+        cmd_args += ('--timeout={}'.format((options['TIMEOUT']) * 1000),)
 
-    if user_data_dir:
-        cmd_args.append('--user-data-dir={}'.format(user_data_dir))
+    if options['CHROME_USER_DATA_DIR']:
+        cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
     
     return cmd_args
