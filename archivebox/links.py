@@ -40,7 +40,7 @@ def validate_links(links):
         raise SystemExit(1)
 
     for link in links:
-        link['title'] = unescape(link['title'].strip()) if link['title'].strip() else None
+        link['title'] = unescape(link['title'].strip()) if link['title'] else None
         check_link_structure(link)
 
     return list(links)
