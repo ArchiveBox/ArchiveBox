@@ -118,12 +118,6 @@ def check_link_structure(link):
             assert isinstance(key, str)
             assert isinstance(val, list), 'history must be a Dict[str, List], got: {}'.format(link['history'])
     
-    if 'latest' in link:
-        assert isinstance(link['latest'], dict), 'latest must be a Dict'
-        for key, val in link['latest'].items():
-            assert isinstance(key, str)
-            assert (val is None) or isinstance(val, (str, Exception)), 'latest must be a Dict[str, Optional[str]], got: {}'.format(link['latest'])
-
 def check_links_structure(links):
     """basic sanity check invariants to make sure the data is valid"""
     assert isinstance(links, list)
@@ -304,10 +298,6 @@ def wget_output_path(link):
     See docs on wget --adjust-extension (-E)
     """
 
-    # if we have it stored, always prefer the actual output path to computed one
-    if link.get('latest', {}).get('wget'):
-        return link['latest']['wget']
-
     if is_static_file(link['url']):
         return without_scheme(without_fragment(link['url']))
 
@@ -433,7 +423,7 @@ def derived_link_info(link):
             link['timestamp'],
             domain(url),
         )),
-        'num_outputs': len([entry for entry in link['latest'].values() if entry]) if 'latest' in link else 0,
+        'num_outputs': len([entry for entry in latest_output(link).values() if entry]),
     }
 
     # Archive Method Output URLs
@@ -463,6 +453,35 @@ def derived_link_info(link):
         })
 
     return extended_info
+
+
+def latest_output(link, status=None):
+    """get the latest output that each archive method produced for link"""
+    
+    latest = {
+        'title': None,
+        'favicon': None,
+        'wget': None,
+        'warc': None,
+        'pdf': None,
+        'screenshot': None,
+        'dom': None,
+        'git': None,
+        'media': None,
+        'archive_org': None,
+    }
+    for archive_method in latest.keys():
+        # get most recent succesful result in history for each archive method
+        history = link.get('history', {}).get(archive_method) or []
+        history = filter(lambda result: result['output'], reversed(history))
+        if status is not None:
+            history = filter(lambda result: result['status'] == status, history)
+
+        history = list(history)
+        if history:
+            latest[archive_method] = history[0]['output']
+
+    return latest
 
 
 ### Python / System Helpers

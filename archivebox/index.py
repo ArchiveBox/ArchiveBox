@@ -22,6 +22,7 @@ from util import (
     check_link_structure,
     check_links_structure,
     wget_output_path,
+    latest_output,
 )
 from parse import parse_links
 from links import validate_links
@@ -168,8 +169,8 @@ def write_html_links_index(out_dir, links, finished=False):
 def patch_links_index(link, out_dir=OUTPUT_DIR):
     """hack to in-place update one row's info in the generated index html"""
 
-    title = link['latest']['title']
-    successful = len([entry for entry in link['latest'].values() if entry])
+    title = link['title'] or latest_output(link)['title']
+    successful = len(tuple(filter(None, latest_output(link).values())))
 
     # Patch JSON index
     changed = False
@@ -177,7 +178,6 @@ def patch_links_index(link, out_dir=OUTPUT_DIR):
     for saved_link in json_file_links:
         if saved_link['url'] == link['url']:
             saved_link['title'] = title
-            saved_link['latest'] = link['latest']
             saved_link['history'] = link['history']
             changed = True
             break
@@ -235,12 +235,10 @@ def load_json_link_index(out_dir, link):
         **link,
     }
     link.update({
-        'latest': link.get('latest') or {},
         'history': link.get('history') or {},
     })
 
     check_link_structure(link)
-
     return link
 
 def write_html_link_index(out_dir, link):

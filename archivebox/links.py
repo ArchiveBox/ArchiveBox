@@ -9,12 +9,6 @@ Link {
     title: str,                                       
     tags: str,                                        
     sources: [str],                                   
-    latest: {                                         
-        ...,                                          
-        pdf: 'output.pdf',                            
-        wget: 'example.com/1234/index.html',
-        screenshot: null,        
-    },
     history: {
         pdf: [
             {start_ts, end_ts, duration, cmd, pwd, status, output},
@@ -30,7 +24,6 @@ from collections import OrderedDict
 
 from util import (
     merge_links,
-    wget_output_path,
     check_link_structure,
     check_links_structure,
 )
@@ -47,29 +40,8 @@ def validate_links(links):
         raise SystemExit(1)
 
     for link in links:
+        link['title'] = unescape(link['title'].strip()) if link['title'].strip() else None
         check_link_structure(link)
-
-        link['title'] = unescape(link['title']) if link['title'] else None
-        link['latest'] = link.get('latest') or {}
-
-        latest = link['latest']
-        if not link['latest'].get('wget'):
-            link['latest']['wget'] = wget_output_path(link)
-
-        if not link['latest'].get('pdf'):
-            link['latest']['pdf'] = None
-
-        if not link['latest'].get('screenshot'):
-            link['latest']['screenshot'] = None
-
-        if not link['latest'].get('dom'):
-            link['latest']['dom'] = None
-
-        if not latest.get('favicon'):
-            latest['favicon'] = None
-
-        if not link['latest'].get('title'):
-            link['latest']['title'] = link['title']
 
     return list(links)
 

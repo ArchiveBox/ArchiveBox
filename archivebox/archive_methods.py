@@ -90,8 +90,6 @@ def archive_link(link_dir, link):
         for method_name, should_run, method_function in ARCHIVE_METHODS:
             if method_name not in link['history']:
                 link['history'][method_name] = []
-            if method_name not in link['latest']:
-                link['latest'][method_name] = None
             
             if not should_run(link_dir, link):
                 continue
@@ -105,8 +103,6 @@ def archive_link(link_dir, link):
             log_archive_method_finished(result)
 
             link['history'][method_name].append(result)
-            if result['status'] == 'succeeded':
-                link['latest'][method_name] = result['output']
 
         write_link_index(link_dir, link)
         patch_links_index(link)
