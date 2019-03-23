@@ -73,74 +73,86 @@ CHROME_SANDBOX = os.getenv('CHROME_SANDBOX', 'True').lower() == 'true'
 USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
 USE_WGET = FETCH_WGET or FETCH_WGET_REQUISITES or FETCH_WARC
 
-if not CHROME_BINARY:
-    # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
-    default_executable_paths = (
-        'chromium-browser',
-        'chromium',
-        '/Applications/Chromium.app/Contents/MacOS/Chromium',
-        'google-chrome',
-        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        'google-chrome-stable',
-        'google-chrome-beta',
-        'google-chrome-canary',
-        '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-        'google-chrome-unstable',
-        'google-chrome-dev',
-    )
-    for name in default_executable_paths:
-        full_path_exists = shutil.which(name)
-        if full_path_exists:
-            CHROME_BINARY = name
-            break
-    else:
-        CHROME_BINARY = 'chromium-browser'
-
-if not CHROME_USER_DATA_DIR:
-    # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
-    default_profile_paths = (
-        '~/.config/chromium',
-        '~/Library/Application Support/Chromium',
-        '~/AppData/Local/Chromium/User Data',
-        '~/.config/google-chrome',
-        '~/Library/Application Support/Google/Chrome',
-        '~/AppData/Local/Google/Chrome/User Data',
-        '~/.config/google-chrome-stable',
-        '~/.config/google-chrome-beta',
-        '~/Library/Application Support/Google/Chrome Canary',
-        '~/AppData/Local/Google/Chrome SxS/User Data',
-        '~/.config/google-chrome-unstable',
-        '~/.config/google-chrome-dev',
-    )
-    for path in default_profile_paths:
-        full_path = os.path.expanduser(path)
-        if os.path.exists(full_path):
-            CHROME_USER_DATA_DIR = full_path
-            break
-
-# print('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
-
-### Terminal Configuration
-TERM_WIDTH = shutil.get_terminal_size((100, 10)).columns
-ANSI = {
-    'reset': '\033[00;00m',
-    'lightblue': '\033[01;30m',
-    'lightyellow': '\033[01;33m',
-    'lightred': '\033[01;35m',
-    'red': '\033[01;31m',
-    'green': '\033[01;32m',
-    'blue': '\033[01;34m',
-    'white': '\033[01;37m',
-    'black': '\033[01;30m',
-}
-if not USE_COLOR:
-    # dont show colors if USE_COLOR is False
-    ANSI = {k: '' for k in ANSI.keys()}
-
-
-### Confirm Environment Setup
+########################### Environment & Dependencies #########################
 
 try:
+    ### Terminal Configuration
+    TERM_WIDTH = shutil.get_terminal_size((100, 10)).columns
+    ANSI = {
+        'reset': '\033[00;00m',
+        'lightblue': '\033[01;30m',
+        'lightyellow': '\033[01;33m',
+        'lightred': '\033[01;35m',
+        'red': '\033[01;31m',
+        'green': '\033[01;32m',
+        'blue': '\033[01;34m',
+        'white': '\033[01;37m',
+        'black': '\033[01;30m',
+    }
+    if not USE_COLOR:
+        # dont show colors if USE_COLOR is False
+        ANSI = {k: '' for k in ANSI.keys()}
+
+
+    if not CHROME_BINARY:
+        # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
+        default_executable_paths = (
+            'chromium-browser',
+            'chromium',
+            '/Applications/Chromium.app/Contents/MacOS/Chromium',
+            'google-chrome',
+            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            'google-chrome-stable',
+            'google-chrome-beta',
+            'google-chrome-canary',
+            '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+            'google-chrome-unstable',
+            'google-chrome-dev',
+        )
+        for name in default_executable_paths:
+            full_path_exists = shutil.which(name)
+            if full_path_exists:
+                CHROME_BINARY = name
+                break
+        else:
+            CHROME_BINARY = 'chromium-browser'
+    # print('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
+
+    if CHROME_USER_DATA_DIR is None:
+        # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
+        default_profile_paths = (
+            '~/.config/chromium',
+            '~/Library/Application Support/Chromium',
+            '~/AppData/Local/Chromium/User Data',
+            '~/.config/google-chrome',
+            '~/Library/Application Support/Google/Chrome',
+            '~/AppData/Local/Google/Chrome/User Data',
+            '~/.config/google-chrome-stable',
+            '~/.config/google-chrome-beta',
+            '~/Library/Application Support/Google/Chrome Canary',
+            '~/AppData/Local/Google/Chrome SxS/User Data',
+            '~/.config/google-chrome-unstable',
+            '~/.config/google-chrome-dev',
+        )
+        for path in default_profile_paths:
+            full_path = os.path.expanduser(path)
+            if os.path.exists(full_path):
+                CHROME_USER_DATA_DIR = full_path
+                break
+    # print('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
+
+    CHROME_OPTIONS = {
+        'TIMEOUT': TIMEOUT,
+        'RESOLUTION': RESOLUTION,
+        'CHECK_SSL_VALIDITY': CHECK_SSL_VALIDITY,
+        'CHROME_BINARY': CHROME_BINARY,
+        'CHROME_HEADLESS': CHROME_HEADLESS,
+        'CHROME_SANDBOX': CHROME_SANDBOX,
+        'CHROME_USER_AGENT': CHROME_USER_AGENT,
+        'CHROME_USER_DATA_DIR': CHROME_USER_DATA_DIR,
+    }
+
+
     ### Check Python environment
     python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
     if python_vers < 3.5:
@@ -249,3 +261,7 @@ try:
 
 except KeyboardInterrupt:
     raise SystemExit(1)
+
+except:
+    print('[X] There was an error during the startup procedure, your archive data is unaffected.')
+    raise

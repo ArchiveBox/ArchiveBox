@@ -26,23 +26,10 @@ from config import (
     TIMEOUT,
     SHOW_PROGRESS,
     FETCH_TITLE,
-    FETCH_FAVICON,
-    FETCH_WGET,
-    FETCH_WARC,
-    FETCH_PDF,
-    FETCH_SCREENSHOT,
-    FETCH_DOM,
-    FETCH_GIT,
-    FETCH_MEDIA,
-    SUBMIT_ARCHIVE_DOT_ORG,
     ARCHIVE_DIR_NAME,
-    RESOLUTION,
     CHECK_SSL_VALIDITY,
     WGET_USER_AGENT,
-    CHROME_USER_AGENT,
-    CHROME_USER_DATA_DIR,
-    CHROME_HEADLESS,
-    CHROME_SANDBOX,
+    CHROME_OPTIONS,
 )
 from logs import pretty_path
 
@@ -554,9 +541,11 @@ def chmod_file(path, cwd='.', permissions=OUTPUT_PERMISSIONS, timeout=30):
 def chrome_args(**options):
     """helper to build up a chrome shell command with arguments"""
 
+    options = {**CHROME_OPTIONS, **options}
+
     cmd_args = [options['CHROME_BINARY']]
 
-    if options['HEADLESS']:
+    if options['CHROME_HEADLESS']:
         cmd_args += ('--headless',)
     
     if not options['CHROME_SANDBOX']:
