@@ -630,14 +630,14 @@ def chrome_args(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR,
     # Find chrome user data directory
     default_profile_paths = (
         '~/.config/chromium',
+        '~/Library/Application Support/Chromium',
+        '~/AppData/Local/Chromium/User Data',
         '~/.config/google-chrome',
+        '~/Library/Application Support/Google/Chrome',
+        '~/AppData/Local/Google/Chrome/User Data',
         '~/.config/google-chrome-beta',
         '~/.config/google-chrome-unstable',
-        '~/Library/Application Support/Chromium',
-        '~/Library/Application Support/Google/Chrome',
         '~/Library/Application Support/Google/Chrome Canary',
-        '~/AppData/Local/Chromium/User Data',
-        '~/AppData/Local/Google/Chrome/User Data',
         '~/AppData/Local/Google/Chrome SxS/User Data',
     )
     if user_data_dir:
