@@ -74,29 +74,49 @@ USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
 USE_WGET = FETCH_WGET or FETCH_WGET_REQUISITES or FETCH_WARC
 
 if not CHROME_BINARY:
-    common_chrome_executable_names = (
+    # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
+    default_executable_paths = (
         'chromium-browser',
         'chromium',
         '/Applications/Chromium.app/Contents/MacOS/Chromium',
-
         'google-chrome',
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         'google-chrome-stable',
-        
         'google-chrome-beta',
-        'google-chrome-unstable',
-        'google-chrome-dev',
         'google-chrome-canary',
         '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-
+        'google-chrome-unstable',
+        'google-chrome-dev',
     )
-    for name in common_chrome_executable_names:
+    for name in default_executable_paths:
         full_path_exists = shutil.which(name)
         if full_path_exists:
             CHROME_BINARY = name
             break
     else:
         CHROME_BINARY = 'chromium-browser'
+
+if not CHROME_USER_DATA_DIR:
+    # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
+    default_profile_paths = (
+        '~/.config/chromium',
+        '~/Library/Application Support/Chromium',
+        '~/AppData/Local/Chromium/User Data',
+        '~/.config/google-chrome',
+        '~/Library/Application Support/Google/Chrome',
+        '~/AppData/Local/Google/Chrome/User Data',
+        '~/.config/google-chrome-stable',
+        '~/.config/google-chrome-beta',
+        '~/Library/Application Support/Google/Chrome Canary',
+        '~/AppData/Local/Google/Chrome SxS/User Data',
+        '~/.config/google-chrome-unstable',
+        '~/.config/google-chrome-dev',
+    )
+    for path in default_profile_paths:
+        full_path = os.path.expanduser(path)
+        if os.path.exists(full_path):
+            CHROME_USER_DATA_DIR = full_path
+            break
 
 # print('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
 

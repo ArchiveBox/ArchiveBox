@@ -596,16 +596,12 @@ def chmod_file(path, cwd='.', permissions=OUTPUT_PERMISSIONS, timeout=30):
         raise Exception('Failed to chmod {}/{}'.format(cwd, path))
 
 
-CACHED_USER_DATA_DIR = CHROME_USER_DATA_DIR
-
 def chrome_args(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR,
                headless=CHROME_HEADLESS, sandbox=CHROME_SANDBOX,
                check_ssl_validity=CHECK_SSL_VALIDITY, user_agent=CHROME_USER_AGENT,
                resolution=RESOLUTION, timeout=TIMEOUT):
     """helper to build up a chrome shell command with arguments"""
 
-    global CACHED_USER_DATA_DIR
-    user_data_dir = user_data_dir or CACHED_USER_DATA_DIR
     cmd_args = [binary]
 
     if headless:
@@ -627,27 +623,7 @@ def chrome_args(binary=CHROME_BINARY, user_data_dir=CHROME_USER_DATA_DIR,
     if timeout:
         cmd_args += ('--timeout={}'.format((timeout) * 1000),)
 
-    # Find chrome user data directory
-    default_profile_paths = (
-        '~/.config/chromium',
-        '~/Library/Application Support/Chromium',
-        '~/AppData/Local/Chromium/User Data',
-        '~/.config/google-chrome',
-        '~/Library/Application Support/Google/Chrome',
-        '~/AppData/Local/Google/Chrome/User Data',
-        '~/.config/google-chrome-beta',
-        '~/.config/google-chrome-unstable',
-        '~/Library/Application Support/Google/Chrome Canary',
-        '~/AppData/Local/Google/Chrome SxS/User Data',
-    )
     if user_data_dir:
         cmd_args.append('--user-data-dir={}'.format(user_data_dir))
-    else:
-        for path in default_profile_paths:
-            full_path = os.path.expanduser(path)
-            if os.path.exists(full_path):
-                CACHED_USER_DATA_DIR = full_path
-                cmd_args.append('--user-data-dir={}'.format(full_path))
-                break
     
     return cmd_args
