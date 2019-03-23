@@ -47,6 +47,8 @@ WGET_BINARY =            os.getenv('WGET_BINARY',            'wget')
 YOUTUBEDL_BINARY =       os.getenv('YOUTUBEDL_BINARY',       'youtube-dl')
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)
 
+URL_BLACKLIST =          os.getenv('URL_BLACKLIST',          '.*youtube.com.*,.*facebook.com/.*,.*.exe') 
+
 try:
     OUTPUT_DIR = os.path.abspath(os.getenv('OUTPUT_DIR'))
 except Exception:
@@ -265,3 +267,10 @@ except KeyboardInterrupt:
 except:
     print('[X] There was an error during the startup procedure, your archive data is unaffected.')
     raise
+
+URL_BLACKLIST = re.compile(
+    r'(.*\.youtube\.com)|'
+    r'(.*\.amazon\.com)|'
+    r'(.*\.reddit\.com)',
+    re.IGNORECASE,
+    )
