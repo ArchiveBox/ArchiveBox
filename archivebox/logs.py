@@ -26,89 +26,7 @@ def pretty_path(path):
     return path.replace(REPO_DIR + '/', '')
 
 
-def log_link_archiving_started(link_dir, link, is_new):
-    # [*] [2019-03-22 13:46:45] "Log Structured Merge Trees - ben stopford"
-    #     http://www.benstopford.com/2015/02/14/log-structured-merge-trees/
-    #     > output/archive/1478739709
-
-    print('\n[{symbol_color}{symbol}{reset}] [{symbol_color}{now}{reset}] "{title}"'.format(
-        symbol_color=ANSI['green' if is_new else 'black'],
-        symbol='+' if is_new else '*',
-        now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        title=link['title'] or link['url'],
-        **ANSI,
-    ))
-    print('    {blue}{url}{reset}'.format(url=link['url'], **ANSI))
-    sys.stdout.write('    > {}{}'.format(
-        pretty_path(link_dir),
-        ' (new)' if is_new else '',
-    ))
-
-def log_link_archiving_finished(link_dir, link, is_new, skipped_entirely):
-    if all(output == 'succeeded' for output in link['latest']):
-        _LAST_RUN_STATS['succeeded'] += 1
-    elif skipped_entirely or all(output == 'skipped' for output in link['latest']):
-        _LAST_RUN_STATS['skipped'] += 1
-    else:
-        _LAST_RUN_STATS['failed'] += 1
-        # import ipdb; ipdb.set_trace()
-
-    if skipped_entirely:
-        print('\r    √ {}{}'.format(
-            pretty_path(link_dir),
-            ' (new)' if is_new else '',
-        ))
-
-def log_archive_method_started(method):
-    print('      > {}'.format(method))
-
-def log_archive_method_finished(result):
-    """quote the argument with whitespace in a command so the user can 
-       copy-paste the outputted string directly to run the cmd
-    """
-    required_keys = ('cmd', 'pwd', 'output', 'status', 'start_ts', 'end_ts')
-    assert (
-        isinstance(result, dict)
-        and all(key in result for key in required_keys)
-        and ('output' in result)
-    ), 'Archive method did not return a valid result.'
-
-    # Prettify CMD string and make it save to copy-paste by quoting arguments
-    quoted_cmd = ' '.join(
-        '"{}"'.format(arg) if ' ' in arg else arg
-        for arg in result['cmd']
-    )
-
-    if result['status'] == 'failed':
-        # Prettify error output hints string and limit to five lines
-        hints = getattr(result['output'], 'hints', None) or ()
-        if hints:
-            hints = hints if isinstance(hints, (list, tuple)) else hints.split('\n')
-            hints = (
-                '    {}{}{}'.format(ANSI['lightyellow'], line.strip(), ANSI['reset'])
-                for line in hints[:5] if line.strip()
-            )
-
-        # Collect and prefix output lines with indentation
-        output_lines = [
-            '{}Failed:{} {}{}'.format(
-                ANSI['red'],
-                result['output'].__class__.__name__.replace('ArchiveError', ''), 
-                result['output'],
-                ANSI['reset']
-            ),
-            *hints,
-            '{}Run to see full output:{}'.format(ANSI['lightred'], ANSI['reset']),
-            '    cd {};'.format(result['pwd']),
-            '    {}'.format(quoted_cmd),
-        ]
-        print('\n'.join(
-            '        {}'.format(line)
-            for line in output_lines
-            if line
-        ))
-
-### Logging Helpers
+### Parsing Stage
 
 def log_parsing_started(source_file):
     start_ts = datetime.now()
@@ -125,6 +43,9 @@ def log_parsing_finished(num_new_links, parser_name):
         parser_name,
     ))
 
+
+### Indexing Stage
+
 def log_indexing_process_started():
     start_ts = datetime.now()
     _LAST_RUN_STATS['index_start_ts'] = start_ts
@@ -140,6 +61,9 @@ def log_indexing_finished(out_dir, out_file):
     end_ts = datetime.now()
     _LAST_RUN_STATS['index_end_ts'] = end_ts
     print('\r    √ {}/{}'.format(pretty_path(out_dir), out_file))
+
+
+### Archiving Stage
 
 def log_archiving_started(num_links, resume):
     start_ts = datetime.now()
@@ -196,3 +120,88 @@ def log_archiving_finished(num_links):
     print('    - {} entries updated'.format(_LAST_RUN_STATS['succeeded']))
     print('    - {} errors'.format(_LAST_RUN_STATS['failed']))
     print('    To view your archive, open: {}/index.html'.format(OUTPUT_DIR.replace(REPO_DIR + '/', '')))
+
+
+def log_link_archiving_started(link_dir, link, is_new):
+    # [*] [2019-03-22 13:46:45] "Log Structured Merge Trees - ben stopford"
+    #     http://www.benstopford.com/2015/02/14/log-structured-merge-trees/
+    #     > output/archive/1478739709
+
+    print('\n[{symbol_color}{symbol}{reset}] [{symbol_color}{now}{reset}] "{title}"'.format(
+        symbol_color=ANSI['green' if is_new else 'black'],
+        symbol='+' if is_new else '*',
+        now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        title=link['title'] or link['url'],
+        **ANSI,
+    ))
+    print('    {blue}{url}{reset}'.format(url=link['url'], **ANSI))
+    sys.stdout.write('    > {}{}'.format(
+        pretty_path(link_dir),
+        ' (new)' if is_new else '',
+    ))
+
+def log_link_archiving_finished(link_dir, link, is_new, skipped_entirely):
+    from util import latest_output
+    
+    if all(output == 'succeeded' for output in latest_output(link).values()):
+        _LAST_RUN_STATS['succeeded'] += 1
+    elif any(output == 'failed' for output in latest_output(link).values()):
+        _LAST_RUN_STATS['failed'] += 1
+    else:
+        _LAST_RUN_STATS['skipped'] += 1
+
+    if skipped_entirely:
+        print('\r    √ {}{}'.format(
+            pretty_path(link_dir),
+            ' (new)' if is_new else '',
+        ))
+
+
+def log_archive_method_started(method):
+    print('      > {}'.format(method))
+
+def log_archive_method_finished(result):
+    """quote the argument with whitespace in a command so the user can 
+       copy-paste the outputted string directly to run the cmd
+    """
+    required_keys = ('cmd', 'pwd', 'output', 'status', 'start_ts', 'end_ts')
+    assert (
+        isinstance(result, dict)
+        and all(key in result for key in required_keys)
+        and ('output' in result)
+    ), 'Archive method did not return a valid result.'
+
+    # Prettify CMD string and make it safe to copy-paste by quoting arguments
+    quoted_cmd = ' '.join(
+        '"{}"'.format(arg) if ' ' in arg else arg
+        for arg in result['cmd']
+    )
+
+    if result['status'] == 'failed':
+        # Prettify error output hints string and limit to five lines
+        hints = getattr(result['output'], 'hints', None) or ()
+        if hints:
+            hints = hints if isinstance(hints, (list, tuple)) else hints.split('\n')
+            hints = (
+                '    {}{}{}'.format(ANSI['lightyellow'], line.strip(), ANSI['reset'])
+                for line in hints[:5] if line.strip()
+            )
+
+        # Collect and prefix output lines with indentation
+        output_lines = [
+            '{}Failed:{} {}{}'.format(
+                ANSI['red'],
+                result['output'].__class__.__name__.replace('ArchiveError', ''), 
+                result['output'],
+                ANSI['reset']
+            ),
+            *hints,
+            '{}Run to see full output:{}'.format(ANSI['lightred'], ANSI['reset']),
+            '    cd {};'.format(result['pwd']),
+            '    {}'.format(quoted_cmd),
+        ]
+        print('\n'.join(
+            '        {}'.format(line)
+            for line in output_lines
+            if line
+        ))

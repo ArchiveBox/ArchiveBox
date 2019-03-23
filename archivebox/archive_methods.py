@@ -91,12 +91,12 @@ def archive_link(link_dir, link):
             if method_name not in link['history']:
                 link['history'][method_name] = []
             
-            if not should_run(link_dir, link):
+            if should_run(link_dir, link):
+                if skipped_entirely:
+                    skipped_entirely = False
+                    print()
+            else:
                 continue
-
-            if skipped_entirely:
-                skipped_entirely = False
-                print()
 
             log_archive_method_started(method_name)
             result = method_function(link_dir, link)

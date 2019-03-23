@@ -69,7 +69,7 @@ def parse_links(source_file):
                 pass
 
     timer.end()
-    return [], 'Plain Text'
+    return [], 'Failed to parse'
 
 
 ### Import Parser Functions
