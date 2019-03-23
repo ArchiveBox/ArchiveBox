@@ -116,9 +116,9 @@ def log_archiving_finished(num_links):
         duration,
         ANSI['reset'],
     ))
-    print('    - {} entries skipped'.format(_LAST_RUN_STATS['skipped']))
-    print('    - {} entries updated'.format(_LAST_RUN_STATS['succeeded']))
-    print('    - {} errors'.format(_LAST_RUN_STATS['failed']))
+    print('    - {} links skipped'.format(_LAST_RUN_STATS['skipped']))
+    print('    - {} links updated'.format(_LAST_RUN_STATS['succeeded']))
+    print('    - {} links had errors'.format(_LAST_RUN_STATS['failed']))
     print('    To view your archive, open: {}/index.html'.format(OUTPUT_DIR.replace(REPO_DIR + '/', '')))
 
 
@@ -135,26 +135,20 @@ def log_link_archiving_started(link_dir, link, is_new):
         **ANSI,
     ))
     print('    {blue}{url}{reset}'.format(url=link['url'], **ANSI))
-    sys.stdout.write('    > {}{}'.format(
+    print('    {} {}'.format(
+        '>' if is_new else '√',
         pretty_path(link_dir),
-        ' (new)' if is_new else '',
     ))
 
-def log_link_archiving_finished(link_dir, link, is_new, skipped_entirely):
-    from util import latest_output
-    
-    if all(output == 'succeeded' for output in latest_output(link).values()):
-        _LAST_RUN_STATS['succeeded'] += 1
-    elif any(output == 'failed' for output in latest_output(link).values()):
-        _LAST_RUN_STATS['failed'] += 1
-    else:
-        _LAST_RUN_STATS['skipped'] += 1
+def log_link_archiving_finished(link_dir, link, is_new, stats):
+    total = sum(stats.values())
 
-    if skipped_entirely:
-        print('\r    √ {}{}'.format(
-            pretty_path(link_dir),
-            ' (new)' if is_new else '',
-        ))
+    if stats['failed'] > 0 :
+        _LAST_RUN_STATS['failed'] += 1
+    elif stats['skipped'] == total:
+        _LAST_RUN_STATS['skipped'] += 1
+    else:
+        _LAST_RUN_STATS['succeeded'] += 1
 
 
 def log_archive_method_started(method):
