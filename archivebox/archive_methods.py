@@ -224,6 +224,7 @@ def fetch_wget(link_dir, link, timeout=TIMEOUT):
         '--backup-converted',
         '--span-hosts',
         '--no-parent',
+        '--compression=auto',
         '-e', 'robots=off',
         '--restrict-file-names=unix',
         '--timeout={}'.format(timeout),
