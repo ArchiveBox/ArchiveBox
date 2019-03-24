@@ -38,9 +38,7 @@ def validate_links(links):
     links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
     links = sorted_links(links)      # deterministically sort the links based on timstamp, url
     links = exclude_links(links)     # exclude links that are in blacklist
-    
-    print(links)
-     
+
     if not links:
         print('[X] No links found :(')
         raise SystemExit(1)
@@ -49,7 +47,6 @@ def validate_links(links):
         link['title'] = unescape(link['title'].strip()) if link['title'] else None
         check_link_structure(link)
     
-    print("FINAL LIST", list(links))
     return list(links)
 
 
@@ -124,7 +121,7 @@ def lowest_uniq_timestamp(used_timestamps, timestamp):
     return new_timestamp
 
 def exclude_links(links):
-    """ exclude links that are in blacklist"""
+    """exclude links that are in blacklist"""
 
     links = [link for link in links if not URL_BLACKLIST.match(link['url'])]
 
