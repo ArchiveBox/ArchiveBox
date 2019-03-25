@@ -154,7 +154,8 @@ def parse_rss_export(rss_file):
     """Parse RSS XML-format files into links"""
 
     rss_file.seek(0)
-    items = rss_file.read().split('</item>\n<item>')
+    items = rss_file.read().split('<item>')
+    items = items[1:] if items else []
     for item in items:
         # example item:
         # <item>
@@ -166,7 +167,7 @@ def parse_rss_export(rss_file):
         # </item>
 
         trailing_removed = item.split('</item>', 1)[0]
-        leading_removed = trailing_removed.split('<item>', 1)[-1]
+        leading_removed = trailing_removed.split('<item>', 1)[-1].strip()
         rows = leading_removed.split('\n')
 
         def get_row(key):
