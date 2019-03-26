@@ -3,6 +3,7 @@ import re
 import sys
 import time
 
+import lxml.html
 from urllib.request import Request, urlopen
 from urllib.parse import urlparse, quote
 from decimal import Decimal
@@ -59,11 +60,6 @@ URL_REGEX = re.compile(
     r'|(?:%[0-9a-fA-F][0-9a-fA-F]))'  #    or allowed unicode bytes
     r'[^\]\[\(\)<>\""\'\s]+',         # stop parsing at these symbols
     re.IGNORECASE,
-)
-HTML_TITLE_REGEX = re.compile(
-    r'<title.*?>'                      # start matching text after <title> tag
-    r'(.[^<>]+)',                      # get everything up to these symbols
-    re.IGNORECASE | re.MULTILINE | re.DOTALL | re.UNICODE,
 )
 STATICFILE_EXTENSIONS = {
     # 99.999% of the time, URLs ending in these extentions are static files
@@ -199,9 +195,10 @@ def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
             sys.stdout.flush()
 
         html = download_url(url, timeout=timeout)
-
-        match = re.search(HTML_TITLE_REGEX, html)
-        return match.group(1).strip() if match else None
+        document = lxml.html.parse(html)
+        
+        result = document.find(".//title")
+        return result.text.strip() if result else None
     except Exception as err:  # noqa
         # print('[!] Failed to fetch title because of {}: {}'.format(
         #     err.__class__.__name__,
