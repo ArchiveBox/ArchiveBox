@@ -1,10 +1,10 @@
 import os
-import json
 
-from typing import Union, Dict, List, Tuple, NamedTuple
+from typing import Dict, List, Tuple
 from collections import defaultdict
 from datetime import datetime
 
+from schema import Link, ArchiveResult, ArchiveError
 from index import (
     write_link_index,
     patch_links_index,
@@ -102,7 +102,7 @@ def archive_link(link_dir: str, link: Link, page=None) -> Link:
                 link['history'][method_name].append(result._asdict())
 
                 stats[result.status] += 1
-                log_archive_method_finished(result._asdict())
+                log_archive_method_finished(result)
             else:
                 stats['skipped'] += 1
 

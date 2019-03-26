@@ -3,11 +3,13 @@ import re
 import sys
 import time
 
-from typing import List, Dict, Any, Optional, Union
+from json import JSONEncoder
+
+from typing import List, Dict, Optional, Iterable
 
 from urllib.request import Request, urlopen
-from urllib.parse import urlparse, quote
-from decimal import Decimal
+from urllib.parse import urlparse, quote, unquote
+from html import escape, unescape
 from datetime import datetime
 from multiprocessing import Process
 from subprocess import (
@@ -19,6 +21,7 @@ from subprocess import (
     CalledProcessError,
 )
 
+from schema import Link
 from config import (
     ANSI,
     TERM_WIDTH,
@@ -38,7 +41,8 @@ from logs import pretty_path
 
 ### Parsing Helpers
 
-# Url Parsing: https://docs.python.org/3/library/urllib.parse.html#url-parsing
+# All of these are (str) -> str
+# shortcuts to: https://docs.python.org/3/library/urllib.parse.html#url-parsing
 scheme = lambda url: urlparse(url).scheme
 without_scheme = lambda url: urlparse(url)._replace(scheme='').geturl().strip('//')
 without_query = lambda url: urlparse(url)._replace(query='').geturl().strip('//')
@@ -54,6 +58,9 @@ base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 
 short_ts = lambda ts: ts.split('.')[0]
 urlencode = lambda s: quote(s, encoding='utf-8', errors='replace')
+urldecode = lambda s: unquote(s)
+htmlencode = lambda s: escape(s, quote=True)
+htmldecode = lambda s: unescape(s)
 
 URL_REGEX = re.compile(
     r'http[s]?://'                    # start matching from allowed schemes
@@ -89,7 +96,7 @@ STATICFILE_EXTENSIONS = {
     # html, htm, shtml, xhtml, xml, aspx, php, cgi
 }
 
-Link = Dict[str, Any]
+
 
 ### Checks & Tests
 
@@ -105,7 +112,7 @@ def check_link_structure(link: Link) -> None:
             assert isinstance(key, str)
             assert isinstance(val, list), 'history must be a Dict[str, List], got: {}'.format(link['history'])
     
-def check_links_structure(links: List[Link]) -> None:
+def check_links_structure(links: Iterable[Link]) -> None:
     """basic sanity check invariants to make sure the data is valid"""
     assert isinstance(links, list)
     if links:
@@ -334,7 +341,7 @@ def derived_link_info(link: Link) -> dict:
 
     url = link['url']
 
-    to_date_str = lambda ts: datetime.fromtimestamp(Decimal(ts)).strftime('%Y-%m-%d %H:%M')
+    to_date_str = lambda ts: datetime.fromtimestamp(float(ts)).strftime('%Y-%m-%d %H:%M')
 
     extended_info = {
         **link,
@@ -582,3 +589,30 @@ def chrome_args(**options) -> List[str]:
         cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
     
     return cmd_args
+
+
+class ExtendedEncoder(JSONEncoder):
+    """
+    Extended json serializer that supports serializing several model
+    fields and objects
+    """
+
+    def default(self, obj):
+        cls_name = obj.__class__.__name__
+
+        if hasattr(obj, '_asdict'):
+            return obj._asdict()
+
+        elif isinstance(obj, bytes):
+            return obj.decode()
+
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+
+        elif isinstance(obj, Exception):
+            return '{}: {}'.format(obj.__class__.__name__, obj)
+
+        elif cls_name in ('dict_items', 'dict_keys', 'dict_values'):
+            return tuple(obj)
+
+        return JSONEncoder.default(self, obj)

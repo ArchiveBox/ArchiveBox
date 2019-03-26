@@ -19,17 +19,19 @@ Link {
 }
 """
 
-from html import unescape
+from typing import List, Iterable
 from collections import OrderedDict
 
+from schema import Link
 from util import (
     merge_links,
     check_link_structure,
     check_links_structure,
+    htmldecode,
 )
 
 
-def validate_links(links):
+def validate_links(links: Iterable[Link]) -> List[Link]:
     check_links_structure(links)
     links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
     links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
@@ -40,13 +42,13 @@ def validate_links(links):
         raise SystemExit(1)
 
     for link in links:
-        link['title'] = unescape(link['title'].strip()) if link['title'] else None
+        link['title'] = htmldecode(link['title'].strip()) if link['title'] else None
         check_link_structure(link)
 
     return list(links)
 
 
-def archivable_links(links):
+def archivable_links(links: Iterable[Link]) -> Iterable[Link]:
     """remove chrome://, about:// or other schemed links that cant be archived"""
     return (
         link
@@ -55,12 +57,12 @@ def archivable_links(links):
     )
 
 
-def uniquefied_links(sorted_links):
+def uniquefied_links(sorted_links: Iterable[Link]) -> Iterable[Link]:
     """
     ensures that all non-duplicate links have monotonically increasing timestamps
     """
 
-    unique_urls = OrderedDict()
+    unique_urls: OrderedDict[str, Link] = OrderedDict()
 
     lower = lambda url: url.lower().strip()
     without_www = lambda url: url.replace('://www.', '://', 1)
@@ -73,7 +75,7 @@ def uniquefied_links(sorted_links):
             link = merge_links(unique_urls[fuzzy_url], link)
         unique_urls[fuzzy_url] = link
 
-    unique_timestamps = OrderedDict()
+    unique_timestamps: OrderedDict[str, Link] = OrderedDict()
     for link in unique_urls.values():
         link['timestamp'] = lowest_uniq_timestamp(unique_timestamps, link['timestamp'])
         unique_timestamps[link['timestamp']] = link
@@ -81,12 +83,12 @@ def uniquefied_links(sorted_links):
     return unique_timestamps.values()
 
 
-def sorted_links(links):
+def sorted_links(links: Iterable[Link]) -> Iterable[Link]:
     sort_func = lambda link: (link['timestamp'].split('.', 1)[0], link['url'])
     return sorted(links, key=sort_func, reverse=True)
 
 
-def links_after_timestamp(links, timestamp=None):
+def links_after_timestamp(links: Iterable[Link], timestamp: str=None) -> Iterable[Link]:
     if not timestamp:
         yield from links
         return
@@ -99,7 +101,7 @@ def links_after_timestamp(links, timestamp=None):
             print('Resume value and all timestamp values must be valid numbers.')
 
 
-def lowest_uniq_timestamp(used_timestamps, timestamp):
+def lowest_uniq_timestamp(used_timestamps: OrderedDict, timestamp: str) -> str:
     """resolve duplicate timestamps by appending a decimal 1234, 1234 -> 1234.1, 1234.2"""
 
     timestamp = timestamp.split('.')[0]

@@ -12,6 +12,9 @@ Usage & Documentation:
 import os
 import sys
 
+from typing import List
+
+from schema import Link
 from links import links_after_timestamp
 from index import write_links_index, load_links_index
 from archive_methods import archive_link
@@ -50,7 +53,7 @@ def print_help():
     print("    ./archive 15109948213.123\n")
 
 
-def main(*args):
+def main(*args) -> List[Link]:
     if set(args).intersection(('-h', '--help', 'help')) or len(args) > 2:
         print_help()
         raise SystemExit(0)
@@ -95,10 +98,10 @@ def main(*args):
         import_path = save_remote_source(import_path)
 
     ### Run the main archive update process
-    update_archive_data(import_path=import_path, resume=resume)
+    return update_archive_data(import_path=import_path, resume=resume)
 
 
-def update_archive_data(import_path=None, resume=None):
+def update_archive_data(import_path: str=None, resume: float=None) -> List[Link]:
     """The main ArchiveBox entrancepoint. Everything starts here."""
 
     # Step 1: Load list of links from the existing index
@@ -111,14 +114,14 @@ def update_archive_data(import_path=None, resume=None):
     # Step 3: Run the archive methods for each link
     links = new_links if ONLY_NEW else all_links
     log_archiving_started(len(links), resume)
-    idx, link = 0, 0
+    idx, link = 0, {'timestamp': 0}
     try:
         for idx, link in enumerate(links_after_timestamp(links, resume)):
             link_dir = os.path.join(ARCHIVE_DIR, link['timestamp'])
             archive_link(link_dir, link)
 
     except KeyboardInterrupt:
-        log_archiving_paused(len(links), idx, link and link['timestamp'])
+        log_archiving_paused(len(links), idx, link['timestamp'])
         raise SystemExit(0)
 
     except:
@@ -130,7 +133,7 @@ def update_archive_data(import_path=None, resume=None):
     # Step 4: Re-write links index with updated titles, icons, and resources
     all_links, _ = load_links_index(out_dir=OUTPUT_DIR)
     write_links_index(out_dir=OUTPUT_DIR, links=all_links, finished=True)
-
+    return all_links
 
 if __name__ == '__main__':
     main(*sys.argv)

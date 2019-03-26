@@ -11,6 +11,7 @@ except ImportError:
     print('[X] Missing "distutils" python package. To install it, run:')
     print('    pip install distutils')
 
+from schema import Link, ArchiveIndex
 from config import (
     OUTPUT_DIR,
     TEMPLATES_DIR,
@@ -25,7 +26,7 @@ from util import (
     check_links_structure,
     wget_output_path,
     latest_output,
-    Link,
+    ExtendedEncoder,
 )
 from parse import parse_links
 from links import validate_links
@@ -56,6 +57,7 @@ def write_links_index(out_dir: str, links: List[Link], finished: bool=False) -> 
     write_html_links_index(out_dir, links, finished=finished)
     log_indexing_finished(out_dir, 'index.html')
     
+
 def load_links_index(out_dir: str=OUTPUT_DIR, import_path: str=None) -> Tuple[List[Link], List[Link]]:
     """parse and load existing index with any new links from import_path merged in"""
 
@@ -82,6 +84,7 @@ def load_links_index(out_dir: str=OUTPUT_DIR, import_path: str=None) -> Tuple[Li
 
     return all_links, new_links
 
+
 def write_json_links_index(out_dir: str, links: List[Link]) -> None:
     """write the json link index to a given path"""
 
@@ -89,19 +92,23 @@ def write_json_links_index(out_dir: str, links: List[Link]) -> None:
 
     path = os.path.join(out_dir, 'index.json')
 
-    index_json = {
-        'info': 'ArchiveBox Index',
-        'help': 'https://github.com/pirate/ArchiveBox',
-        'version': GIT_SHA,
-        'num_links': len(links),
-        'updated': str(datetime.now().timestamp()),
-        'links': links,
-    }
+    index_json = ArchiveIndex(
+        info='ArchiveBox Index',
+        source='https://github.com/pirate/ArchiveBox',
+        docs='https://github.com/pirate/ArchiveBox/wiki',
+        version=GIT_SHA,
+        num_links=len(links),
+        updated=str(datetime.now().timestamp()),
+        links=links,
+    )
+
+    assert isinstance(index_json._asdict(), dict)
 
     with open(path, 'w', encoding='utf-8') as f:
-        json.dump(index_json, f, indent=4, default=str)
+        json.dump(index_json._asdict(), f, indent=4, cls=ExtendedEncoder)
 
     chmod_file(path)
+
 
 def parse_json_links_index(out_dir: str=OUTPUT_DIR) -> List[Link]:
     """parse a archive index json file and return the list of links"""
@@ -113,6 +120,7 @@ def parse_json_links_index(out_dir: str=OUTPUT_DIR) -> List[Link]:
             return links
 
     return []
+
 
 def write_html_links_index(out_dir: str, links: List[Link], finished: bool=False) -> None:
     """write the html link index to a given path"""
@@ -208,6 +216,7 @@ def write_link_index(out_dir: str, link: Link) -> None:
     write_json_link_index(out_dir, link)
     write_html_link_index(out_dir, link)
 
+
 def write_json_link_index(out_dir: str, link: Link) -> None:
     """write a json file with some info about the link"""
     
@@ -215,9 +224,10 @@ def write_json_link_index(out_dir: str, link: Link) -> None:
     path = os.path.join(out_dir, 'index.json')
 
     with open(path, 'w', encoding='utf-8') as f:
-        json.dump(link, f, indent=4, default=str)
+        json.dump(link, f, indent=4, cls=ExtendedEncoder)
 
     chmod_file(path)
+
 
 def parse_json_link_index(out_dir: str) -> dict:
     """load the json link index from a given directory"""
@@ -228,6 +238,7 @@ def parse_json_link_index(out_dir: str) -> dict:
             check_link_structure(link_json)
             return link_json
     return {}
+
 
 def load_json_link_index(out_dir: str, link: Link) -> Link:
     """check for an existing link archive in the given directory, 
@@ -243,6 +254,7 @@ def load_json_link_index(out_dir: str, link: Link) -> Link:
 
     check_link_structure(link)
     return link
+
 
 def write_html_link_index(out_dir: str, link: Link) -> None:
     check_link_structure(link)

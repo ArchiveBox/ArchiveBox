@@ -20,6 +20,7 @@ Link: {
 import re
 import json
 
+from typing import Tuple, List, IO, Iterable
 from datetime import datetime
 import xml.etree.ElementTree as etree
 
@@ -29,10 +30,11 @@ from util import (
     URL_REGEX,
     check_url_parsing_invariants,
     TimedProgress,
+    Link,
 )
 
 
-def parse_links(source_file):
+def parse_links(source_file: str) -> Tuple[List[Link], str]:
     """parse a list of URLs with their metadata from an 
        RSS feed, bookmarks export, or text file
     """
@@ -74,7 +76,7 @@ def parse_links(source_file):
 
 ### Import Parser Functions
 
-def parse_pocket_html_export(html_file):
+def parse_pocket_html_export(html_file: IO[str]) -> Iterable[Link]:
     """Parse Pocket-format bookmarks export files (produced by getpocket.com/export/)"""
 
     html_file.seek(0)
@@ -98,7 +100,7 @@ def parse_pocket_html_export(html_file):
             }
 
 
-def parse_json_export(json_file):
+def parse_json_export(json_file: IO[str]) -> Iterable[Link]:
     """Parse JSON-format bookmarks export files (produced by pinboard.in/export/, or wallabag)"""
 
     json_file.seek(0)
@@ -150,7 +152,7 @@ def parse_json_export(json_file):
             }
 
 
-def parse_rss_export(rss_file):
+def parse_rss_export(rss_file: IO[str]) -> Iterable[Link]:
     """Parse RSS XML-format files into links"""
 
     rss_file.seek(0)
@@ -187,7 +189,7 @@ def parse_rss_export(rss_file):
         }
 
 
-def parse_shaarli_rss_export(rss_file):
+def parse_shaarli_rss_export(rss_file: IO[str]) -> Iterable[Link]:
     """Parse Shaarli-specific RSS XML-format files into links"""
 
     rss_file.seek(0)
@@ -224,7 +226,7 @@ def parse_shaarli_rss_export(rss_file):
         }
 
 
-def parse_netscape_html_export(html_file):
+def parse_netscape_html_export(html_file: IO[str]) -> Iterable[Link]:
     """Parse netscape-format bookmarks export files (produced by all browsers)"""
 
     html_file.seek(0)
@@ -247,7 +249,7 @@ def parse_netscape_html_export(html_file):
             }
 
 
-def parse_pinboard_rss_export(rss_file):
+def parse_pinboard_rss_export(rss_file: IO[str]) -> Iterable[Link]:
     """Parse Pinboard RSS feed files into links"""
 
     rss_file.seek(0)
@@ -278,7 +280,7 @@ def parse_pinboard_rss_export(rss_file):
         }
 
 
-def parse_medium_rss_export(rss_file):
+def parse_medium_rss_export(rss_file: IO[str]) -> Iterable[Link]:
     """Parse Medium RSS feed files into links"""
 
     rss_file.seek(0)
@@ -299,7 +301,7 @@ def parse_medium_rss_export(rss_file):
         }
 
 
-def parse_plain_text_export(text_file):
+def parse_plain_text_export(text_file: IO[str]) -> Iterable[Link]:
     """Parse raw links from each line in a text file"""
 
     text_file.seek(0)
