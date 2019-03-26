@@ -1,5 +1,7 @@
 import os
+import json
 
+from typing import Union, Dict, List, Tuple, NamedTuple
 from collections import defaultdict
 from datetime import datetime
 
@@ -40,13 +42,15 @@ from util import (
     without_query,
     without_fragment,
     fetch_page_title,
+    read_js_script,
     is_static_file,
     TimedProgress,
     chmod_file,
     wget_output_path,
     chrome_args,
     check_link_structure,
-    run, PIPE, DEVNULL
+    run, PIPE, DEVNULL,
+    Link,
 )
 from logs import (
     log_link_archiving_started,
@@ -55,15 +59,22 @@ from logs import (
     log_archive_method_finished,
 )
 
-
-
 class ArchiveError(Exception):
     def __init__(self, message, hints=None):
         super().__init__(message)
         self.hints = hints
 
+class ArchiveResult(NamedTuple):
+    cmd: List[str]
+    pwd: str
+    output: Union[str, Exception, None]
+    status: str
+    start_ts: datetime
+    end_ts: datetime
+    duration: int
 
-def archive_link(link_dir, link):
+
+def archive_link(link_dir: str, link: Link, page=None) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
     ARCHIVE_METHODS = (
@@ -95,10 +106,11 @@ def archive_link(link_dir, link):
                 log_archive_method_started(method_name)
 
                 result = method_function(link_dir, link)
-                link['history'][method_name].append(result)
 
-                stats[result['status']] += 1
-                log_archive_method_finished(result)
+                link['history'][method_name].append(result._asdict())
+
+                stats[result.status] += 1
+                log_archive_method_finished(result._asdict())
             else:
                 stats['skipped'] += 1
 
@@ -117,7 +129,7 @@ def archive_link(link_dir, link):
 
 ### Archive Method Functions
 
-def should_fetch_title(link_dir, link):
+def should_fetch_title(link_dir: str, link: Link) -> bool:
     # if link already has valid title, skip it
     if link['title'] and not link['title'].lower().startswith('http'):
         return False
@@ -127,7 +139,7 @@ def should_fetch_title(link_dir, link):
 
     return FETCH_TITLE
 
-def fetch_title(link_dir, link, timeout=TIMEOUT):
+def fetch_title(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """try to guess the page's title from its content"""
 
     output = None
@@ -150,22 +162,22 @@ def fetch_title(link_dir, link, timeout=TIMEOUT):
     finally:
         timer.end()
 
-    return {
-        'cmd': cmd,
-        'pwd': link_dir,
-        'output': output,
-        'status': status,
+    return ArchiveResult(
+        cmd=cmd,
+        pwd=link_dir,
+        output=output,
+        status=status,
         **timer.stats,
-    }
+    )
 
 
-def should_fetch_favicon(link_dir, link):
+def should_fetch_favicon(link_dir: str, link: Link) -> bool:
     if os.path.exists(os.path.join(link_dir, 'favicon.ico')):
         return False
 
     return FETCH_FAVICON
 
-def fetch_favicon(link_dir, link, timeout=TIMEOUT):
+def fetch_favicon(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """download site favicon from google's favicon api"""
 
     output = 'favicon.ico'
@@ -188,15 +200,15 @@ def fetch_favicon(link_dir, link, timeout=TIMEOUT):
     finally:
         timer.end()
 
-    return {
-        'cmd': cmd,
-        'pwd': link_dir,
-        'output': output,
-        'status': status,
+    return ArchiveResult(
+        cmd=cmd,
+        pwd=link_dir,
+        output=output,
+        status=status,
         **timer.stats,
-    }
+    )
 
-def should_fetch_wget(link_dir, link):
+def should_fetch_wget(link_dir: str, link: Link) -> bool:
     output_path = wget_output_path(link)
     if output_path and os.path.exists(os.path.join(link_dir, output_path)):
         return False
@@ -204,7 +216,7 @@ def should_fetch_wget(link_dir, link):
     return FETCH_WGET
 
 
-def fetch_wget(link_dir, link, timeout=TIMEOUT):
+def fetch_wget(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """download full site using wget"""
 
     if FETCH_WARC:
@@ -274,15 +286,15 @@ def fetch_wget(link_dir, link, timeout=TIMEOUT):
     finally:
         timer.end()
 
-    return {
-        'cmd': cmd,
-        'pwd': link_dir,
-        'output': output,
-        'status': status,
+    return ArchiveResult(
+        cmd=cmd,
+        pwd=link_dir,
+        output=output,
+        status=status,
         **timer.stats,
-    }
+    )
 
-def should_fetch_pdf(link_dir, link):
+def should_fetch_pdf(link_dir: str, link: Link) -> bool:
     if is_static_file(link['url']):
         return False
     
@@ -292,7 +304,7 @@ def should_fetch_pdf(link_dir, link):
     return FETCH_PDF
 
 
-def fetch_pdf(link_dir, link, timeout=TIMEOUT):
+def fetch_pdf(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """print PDF of site to file using chrome --headless"""
 
     output = 'output.pdf'
@@ -317,15 +329,15 @@ def fetch_pdf(link_dir, link, timeout=TIMEOUT):
     finally:
         timer.end()
 
-    return {
-        'cmd': cmd,
-        'pwd': link_dir,
-        'output': output,
-        'status': status,
+    return ArchiveResult(
+        cmd=cmd,
+        pwd=link_dir,
+        output=output,
+        status=status,
         **timer.stats,
-    }
+    )
 
-def should_fetch_screenshot(link_dir, link):
+def should_fetch_screenshot(link_dir: str, link: Link) -> bool:
     if is_static_file(link['url']):
         return False
     
@@ -334,7 +346,7 @@ def should_fetch_screenshot(link_dir, link):
 
     return FETCH_SCREENSHOT
 
-def fetch_screenshot(link_dir, link, timeout=TIMEOUT):
+def fetch_screenshot(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """take screenshot of site using chrome --headless"""
 
     output = 'screenshot.png'
@@ -359,15 +371,15 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT):
     finally:
         timer.end()
 
-    return {
-        'cmd': cmd,
-        'pwd': link_dir,
-        'output': output,
-        'status': status,
+    return ArchiveResult(
+        cmd=cmd,
+        pwd=link_dir,
+        output=output,
+        status=status,
         **timer.stats,
-    }
+    )
 
-def should_fetch_dom(link_dir, link):
+def should_fetch_dom(link_dir: str, link: Link) -> bool:
     if is_static_file(link['url']):
         return False
     
@@ -376,7 +388,7 @@ def should_fetch_dom(link_dir, link):
 
     return FETCH_DOM
     
-def fetch_dom(link_dir, link, timeout=TIMEOUT):
+def fetch_dom(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """print HTML of site to file using chrome --dump-html"""
 
     output = 'output.html'
@@ -403,15 +415,15 @@ def fetch_dom(link_dir, link, timeout=TIMEOUT):
     finally:
         timer.end()
 
-    return {
-        'cmd': cmd,
-        'pwd': link_dir,
-        'output': output,
-        'status': status,
+    return ArchiveResult(
+        cmd=cmd,
+        pwd=link_dir,
+        output=output,
+        status=status,
         **timer.stats,
-    }
+    )
 
-def should_fetch_git(link_dir, link):
+def should_fetch_git(link_dir: str, link: Link) -> bool:
     if is_static_file(link['url']):
         return False
 
@@ -428,7 +440,7 @@ def should_fetch_git(link_dir, link):
     return FETCH_GIT
 
 
-def fetch_git(link_dir, link, timeout=TIMEOUT):
+def fetch_git(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """download full site using git"""
 
     output = 'git'
@@ -460,16 +472,16 @@ def fetch_git(link_dir, link, timeout=TIMEOUT):
     finally:
         timer.end()
 
-    return {
-        'cmd': cmd,
-        'pwd': link_dir,
-        'output': output,
-        'status': status,
+    return ArchiveResult(
+        cmd=cmd,
+        pwd=link_dir,
+        output=output,
+        status=status,
         **timer.stats,
-    }
+    )
 
 
-def should_fetch_media(link_dir, link):
+def should_fetch_media(link_dir: str, link: Link) -> bool:
     if is_static_file(link['url']):
         return False
 
@@ -478,7 +490,7 @@ def should_fetch_media(link_dir, link):
 
     return FETCH_MEDIA
 
-def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT):
+def fetch_media(link_dir: str, link: Link, timeout: int=MEDIA_TIMEOUT) -> ArchiveResult:
     """Download playlists or individual video, audio, and subtitles using youtube-dl"""
 
     output = 'media'
@@ -531,16 +543,16 @@ def fetch_media(link_dir, link, timeout=MEDIA_TIMEOUT):
     finally:
         timer.end()
 
-    return {
-        'cmd': cmd,
-        'pwd': link_dir,
-        'output': output,
-        'status': status,
+    return ArchiveResult(
+        cmd=cmd,
+        pwd=link_dir,
+        output=output,
+        status=status,
         **timer.stats,
-    }
+    )
 
 
-def should_fetch_archive_dot_org(link_dir, link):
+def should_fetch_archive_dot_org(link_dir: str, link: Link) -> bool:
     if is_static_file(link['url']):
         return False
 
@@ -550,7 +562,7 @@ def should_fetch_archive_dot_org(link_dir, link):
 
     return SUBMIT_ARCHIVE_DOT_ORG
 
-def archive_dot_org(link_dir, link, timeout=TIMEOUT):
+def archive_dot_org(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """submit site to archive.org for archiving via their service, save returned archive url"""
 
     output = 'archive.org.txt'
@@ -596,17 +608,17 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
         chmod_file('archive.org.txt', cwd=link_dir)
         output = archive_org_url
 
-    return {
-        'cmd': cmd,
-        'pwd': link_dir,
-        'output': output,
-        'status': status,
+    return ArchiveResult(
+        cmd=cmd,
+        pwd=link_dir,
+        output=output,
+        status=status,
         **timer.stats,
-    }
+    )
 
-def parse_archive_dot_org_response(response):
+def parse_archive_dot_org_response(response: bytes) -> Tuple[List[str], List[str]]:
     # Parse archive.org response headers
-    headers = defaultdict(list)
+    headers: Dict[str, List[str]] = defaultdict(list)
 
     # lowercase all the header names and store in dict
     for header in response.splitlines():

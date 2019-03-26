@@ -3,6 +3,8 @@ import json
 
 from datetime import datetime
 from string import Template
+from typing import List, Tuple
+
 try:
     from distutils.dir_util import copy_tree
 except ImportError:
@@ -23,6 +25,7 @@ from util import (
     check_links_structure,
     wget_output_path,
     latest_output,
+    Link,
 )
 from parse import parse_links
 from links import validate_links
@@ -39,7 +42,7 @@ TITLE_LOADING_MSG = 'Not yet archived...'
 
 ### Homepage index for all the links
 
-def write_links_index(out_dir, links, finished=False):
+def write_links_index(out_dir: str, links: List[Link], finished: bool=False) -> None:
     """create index.html file for a given list of links"""
 
     log_indexing_process_started()
@@ -53,15 +56,15 @@ def write_links_index(out_dir, links, finished=False):
     write_html_links_index(out_dir, links, finished=finished)
     log_indexing_finished(out_dir, 'index.html')
     
-def load_links_index(out_dir=OUTPUT_DIR, import_path=None):
+def load_links_index(out_dir: str=OUTPUT_DIR, import_path: str=None) -> Tuple[List[Link], List[Link]]:
     """parse and load existing index with any new links from import_path merged in"""
 
-    existing_links = []
+    existing_links: List[Link] = []
     if out_dir:
         existing_links = parse_json_links_index(out_dir)
         check_links_structure(existing_links)
 
-    new_links = []
+    new_links: List[Link] = []
     if import_path:
         # parse and validate the import file
         log_parsing_started(import_path)
@@ -79,7 +82,7 @@ def load_links_index(out_dir=OUTPUT_DIR, import_path=None):
 
     return all_links, new_links
 
-def write_json_links_index(out_dir, links):
+def write_json_links_index(out_dir: str, links: List[Link]) -> None:
     """write the json link index to a given path"""
 
     check_links_structure(links)
@@ -100,7 +103,7 @@ def write_json_links_index(out_dir, links):
 
     chmod_file(path)
 
-def parse_json_links_index(out_dir=OUTPUT_DIR):
+def parse_json_links_index(out_dir: str=OUTPUT_DIR) -> List[Link]:
     """parse a archive index json file and return the list of links"""
     index_path = os.path.join(out_dir, 'index.json')
     if os.path.exists(index_path):
@@ -111,7 +114,7 @@ def parse_json_links_index(out_dir=OUTPUT_DIR):
 
     return []
 
-def write_html_links_index(out_dir, links, finished=False):
+def write_html_links_index(out_dir: str, links: List[Link], finished: bool=False) -> None:
     """write the html link index to a given path"""
 
     check_links_structure(links)
@@ -166,7 +169,7 @@ def write_html_links_index(out_dir, links, finished=False):
     chmod_file(path)
 
 
-def patch_links_index(link, out_dir=OUTPUT_DIR):
+def patch_links_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
     """hack to in-place update one row's info in the generated index html"""
 
     title = link['title'] or latest_output(link)['title']
@@ -200,12 +203,12 @@ def patch_links_index(link, out_dir=OUTPUT_DIR):
 
 ### Individual link index
 
-def write_link_index(out_dir, link):
+def write_link_index(out_dir: str, link: Link) -> None:
     link['updated'] = str(datetime.now().timestamp())
     write_json_link_index(out_dir, link)
     write_html_link_index(out_dir, link)
 
-def write_json_link_index(out_dir, link):
+def write_json_link_index(out_dir: str, link: Link) -> None:
     """write a json file with some info about the link"""
     
     check_link_structure(link)
@@ -216,7 +219,7 @@ def write_json_link_index(out_dir, link):
 
     chmod_file(path)
 
-def parse_json_link_index(out_dir):
+def parse_json_link_index(out_dir: str) -> dict:
     """load the json link index from a given directory"""
     existing_index = os.path.join(out_dir, 'index.json')
     if os.path.exists(existing_index):
@@ -226,7 +229,7 @@ def parse_json_link_index(out_dir):
             return link_json
     return {}
 
-def load_json_link_index(out_dir, link):
+def load_json_link_index(out_dir: str, link: Link) -> Link:
     """check for an existing link archive in the given directory, 
        and load+merge it into the given link dict
     """
@@ -241,7 +244,7 @@ def load_json_link_index(out_dir, link):
     check_link_structure(link)
     return link
 
-def write_html_link_index(out_dir, link):
+def write_html_link_index(out_dir: str, link: Link) -> None:
     check_link_structure(link)
     with open(os.path.join(TEMPLATES_DIR, 'link_index.html'), 'r', encoding='utf-8') as f:
         link_html = f.read()

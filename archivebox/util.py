@@ -3,6 +3,8 @@ import re
 import sys
 import time
 
+from typing import List, Dict, Any, Optional, Union
+
 from urllib.request import Request, urlopen
 from urllib.parse import urlparse, quote
 from decimal import Decimal
@@ -30,6 +32,7 @@ from config import (
     CHECK_SSL_VALIDITY,
     WGET_USER_AGENT,
     CHROME_OPTIONS,
+    PYTHON_PATH,
 )
 from logs import pretty_path
 
@@ -86,9 +89,11 @@ STATICFILE_EXTENSIONS = {
     # html, htm, shtml, xhtml, xml, aspx, php, cgi
 }
 
+Link = Dict[str, Any]
+
 ### Checks & Tests
 
-def check_link_structure(link):
+def check_link_structure(link: Link) -> None:
     """basic sanity check invariants to make sure the data is valid"""
     assert isinstance(link, dict)
     assert isinstance(link.get('url'), str)
@@ -100,13 +105,13 @@ def check_link_structure(link):
             assert isinstance(key, str)
             assert isinstance(val, list), 'history must be a Dict[str, List], got: {}'.format(link['history'])
     
-def check_links_structure(links):
+def check_links_structure(links: List[Link]) -> None:
     """basic sanity check invariants to make sure the data is valid"""
     assert isinstance(links, list)
     if links:
         check_link_structure(links[0])
 
-def check_url_parsing_invariants():
+def check_url_parsing_invariants() -> None:
     """Check that plain text regex URL parsing works as expected"""
 
     # this is last-line-of-defense to make sure the URL_REGEX isn't
@@ -137,7 +142,7 @@ def check_url_parsing_invariants():
 
 ### Random Helpers
 
-def save_stdin_source(raw_text):
+def save_stdin_source(raw_text: str) -> str:
     if not os.path.exists(SOURCES_DIR):
         os.makedirs(SOURCES_DIR)
 
@@ -150,7 +155,7 @@ def save_stdin_source(raw_text):
 
     return source_path
 
-def save_remote_source(url, timeout=TIMEOUT):
+def save_remote_source(url: str, timeout: int=TIMEOUT) -> str:
     """download a given url's content into output/sources/domain-<timestamp>.txt"""
 
     if not os.path.exists(SOURCES_DIR):
@@ -187,7 +192,7 @@ def save_remote_source(url, timeout=TIMEOUT):
 
     return source_path
 
-def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
+def fetch_page_title(url: str, timeout: int=10, progress: bool=SHOW_PROGRESS) -> Optional[str]:
     """Attempt to guess a page's title by downloading the html"""
     
     if not FETCH_TITLE:
@@ -209,7 +214,7 @@ def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
         # ))
         return None
 
-def wget_output_path(link):
+def wget_output_path(link: Link) -> Optional[str]:
     """calculate the path to the wgetted .html file, since wget may
     adjust some paths to be different than the base_url path.
 
@@ -278,9 +283,15 @@ def wget_output_path(link):
     return None
 
 
+def read_js_script(script_name: str) -> str:
+    script_path = os.path.join(PYTHON_PATH, 'scripts', script_name)
+
+    with open(script_path, 'r') as f:
+        return f.read().split('// INFO BELOW HERE')[0].strip()
+
 ### String Manipulation & Logging Helpers
 
-def str_between(string, start, end=None):
+def str_between(string: str, start: str, end: str=None) -> str:
     """(<abc>12345</def>, <abc>, </def>)  ->  12345"""
 
     content = string.split(start, 1)[-1]
@@ -292,7 +303,7 @@ def str_between(string, start, end=None):
 
 ### Link Helpers
 
-def merge_links(a, b):
+def merge_links(a: Link, b: Link) -> Link:
     """deterministially merge two links, favoring longer field values over shorter,
     and "cleaner" values over worse ones.
     """
@@ -310,7 +321,7 @@ def merge_links(a, b):
         'sources': list(set(a.get('sources', []) + b.get('sources', []))),
     }
 
-def is_static_file(url):
+def is_static_file(url: str) -> bool:
     """Certain URLs just point to a single static file, and 
        don't need to be re-archived in many formats
     """
@@ -318,7 +329,7 @@ def is_static_file(url):
     # TODO: the proper way is with MIME type detection, not using extension
     return extension(url) in STATICFILE_EXTENSIONS
 
-def derived_link_info(link):
+def derived_link_info(link: Link) -> dict:
     """extend link info with the archive urls and other derived data"""
 
     url = link['url']
@@ -373,7 +384,7 @@ def derived_link_info(link):
     return extended_info
 
 
-def latest_output(link, status=None):
+def latest_output(link: Link, status: str=None) -> Dict[str, Optional[str]]:
     """get the latest output that each archive method produced for link"""
     
     latest = {
@@ -440,7 +451,42 @@ def run(*popenargs, input=None, capture_output=False, timeout=None, check=False,
     return CompletedProcess(process.args, retcode, stdout, stderr)
 
 
-def progress_bar(seconds, prefix):
+class TimedProgress:
+    """Show a progress bar and measure elapsed time until .end() is called"""
+
+    def __init__(self, seconds, prefix=''):
+        if SHOW_PROGRESS:
+            self.p = Process(target=progress_bar, args=(seconds, prefix))
+            self.p.start()
+
+        self.stats = {
+            'start_ts': datetime.now(),
+            'end_ts': None,
+            'duration': None,
+        }
+
+    def end(self):
+        """immediately end progress, clear the progressbar line, and save end_ts"""
+
+        end_ts = datetime.now()
+        self.stats.update({
+            'end_ts': end_ts,
+            'duration': (end_ts - self.stats['start_ts']).seconds,
+        })
+
+        if SHOW_PROGRESS:
+            # protect from double termination
+            #if p is None or not hasattr(p, 'kill'):
+            #    return
+            if self.p is not None:
+                self.p.terminate()
+            self.p = None
+
+            sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH), ANSI['reset']))  # clear whole terminal line
+            sys.stdout.flush()
+
+
+def progress_bar(seconds: int, prefix: str='') -> None:
     """show timer in the form of progress bar, with percentage and seconds remaining"""
     chunk = '█' if sys.stdout.encoding == 'UTF-8' else '#'
     chunks = TERM_WIDTH - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
@@ -477,41 +523,8 @@ def progress_bar(seconds, prefix):
         print()
         pass
 
-class TimedProgress:
-    """Show a progress bar and measure elapsed time until .end() is called"""
 
-    def __init__(self, seconds, prefix=''):
-        if SHOW_PROGRESS:
-            self.p = Process(target=progress_bar, args=(seconds, prefix))
-            self.p.start()
-
-        self.stats = {
-            'start_ts': datetime.now(),
-            'end_ts': None,
-            'duration': None,
-        }
-
-    def end(self):
-        """immediately end progress, clear the progressbar line, and save end_ts"""
-
-        end_ts = datetime.now()
-        self.stats.update({
-            'end_ts': end_ts,
-            'duration': (end_ts - self.stats['start_ts']).seconds,
-        })
-
-        if SHOW_PROGRESS:
-            # protect from double termination
-            #if p is None or not hasattr(p, 'kill'):
-            #    return
-            if self.p is not None:
-                self.p.terminate()
-            self.p = None
-
-            sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH), ANSI['reset']))  # clear whole terminal line
-            sys.stdout.flush()
-
-def download_url(url, timeout=TIMEOUT):
+def download_url(url: str, timeout: int=TIMEOUT) -> str:
     """Download the contents of a remote url and return the text"""
 
     req = Request(url, headers={'User-Agent': WGET_USER_AGENT})
@@ -526,7 +539,7 @@ def download_url(url, timeout=TIMEOUT):
     encoding = resp.headers.get_content_charset() or 'utf-8'
     return resp.read().decode(encoding)
 
-def chmod_file(path, cwd='.', permissions=OUTPUT_PERMISSIONS, timeout=30):
+def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS, timeout: int=30) -> None:
     """chmod -R <permissions> <cwd>/<path>"""
 
     if not os.path.exists(os.path.join(cwd, path)):
@@ -538,7 +551,7 @@ def chmod_file(path, cwd='.', permissions=OUTPUT_PERMISSIONS, timeout=30):
         raise Exception('Failed to chmod {}/{}'.format(cwd, path))
 
 
-def chrome_args(**options):
+def chrome_args(**options) -> List[str]:
     """helper to build up a chrome shell command with arguments"""
 
     options = {**CHROME_OPTIONS, **options}
