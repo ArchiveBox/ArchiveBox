@@ -35,6 +35,11 @@ from config import (
     WGET_USER_AGENT,
     CHECK_SSL_VALIDITY,
     COOKIES_FILE,
+    CURL_VERSION,
+    WGET_VERSION,
+    CHROME_VERSION,
+    GIT_VERSION,
+    YOUTUBEDL_VERSION,
 )
 from util import (
     domain,
@@ -42,7 +47,6 @@ from util import (
     without_query,
     without_fragment,
     fetch_page_title,
-    read_js_script,
     is_static_file,
     TimedProgress,
     chmod_file,
@@ -59,19 +63,7 @@ from logs import (
     log_archive_method_finished,
 )
 
-class ArchiveError(Exception):
-    def __init__(self, message, hints=None):
-        super().__init__(message)
-        self.hints = hints
 
-class ArchiveResult(NamedTuple):
-    cmd: List[str]
-    pwd: str
-    output: Union[str, Exception, None]
-    status: str
-    start_ts: datetime
-    end_ts: datetime
-    duration: int
 
 
 def archive_link(link_dir: str, link: Link, page=None) -> Link:
@@ -165,6 +157,7 @@ def fetch_title(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResul
     return ArchiveResult(
         cmd=cmd,
         pwd=link_dir,
+        cmd_version=CURL_VERSION,
         output=output,
         status=status,
         **timer.stats,
@@ -203,6 +196,7 @@ def fetch_favicon(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveRes
     return ArchiveResult(
         cmd=cmd,
         pwd=link_dir,
+        cmd_version=CURL_VERSION,
         output=output,
         status=status,
         **timer.stats,
@@ -289,6 +283,7 @@ def fetch_wget(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult
     return ArchiveResult(
         cmd=cmd,
         pwd=link_dir,
+        cmd_version=WGET_VERSION,
         output=output,
         status=status,
         **timer.stats,
@@ -332,6 +327,7 @@ def fetch_pdf(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     return ArchiveResult(
         cmd=cmd,
         pwd=link_dir,
+        cmd_version=CHROME_VERSION,
         output=output,
         status=status,
         **timer.stats,
@@ -374,6 +370,7 @@ def fetch_screenshot(link_dir: str, link: Link, timeout: int=TIMEOUT) -> Archive
     return ArchiveResult(
         cmd=cmd,
         pwd=link_dir,
+        cmd_version=CHROME_VERSION,
         output=output,
         status=status,
         **timer.stats,
@@ -418,6 +415,7 @@ def fetch_dom(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     return ArchiveResult(
         cmd=cmd,
         pwd=link_dir,
+        cmd_version=CHROME_VERSION,
         output=output,
         status=status,
         **timer.stats,
@@ -475,6 +473,7 @@ def fetch_git(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     return ArchiveResult(
         cmd=cmd,
         pwd=link_dir,
+        cmd_version=GIT_VERSION,
         output=output,
         status=status,
         **timer.stats,
@@ -546,6 +545,7 @@ def fetch_media(link_dir: str, link: Link, timeout: int=MEDIA_TIMEOUT) -> Archiv
     return ArchiveResult(
         cmd=cmd,
         pwd=link_dir,
+        cmd_version=YOUTUBEDL_VERSION,
         output=output,
         status=status,
         **timer.stats,
@@ -611,6 +611,7 @@ def archive_dot_org(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveR
     return ArchiveResult(
         cmd=cmd,
         pwd=link_dir,
+        cmd_version=CURL_VERSION,
         output=output,
         status=status,
         **timer.stats,
