@@ -1,6 +1,7 @@
 import sys
 from datetime import datetime
 
+from typing import Optional
 from schema import Link, ArchiveResult, RuntimeStats
 from config import ANSI, REPO_DIR, OUTPUT_DIR
 
@@ -66,7 +67,7 @@ def log_indexing_finished(out_dir: str, out_file: str):
 
 ### Archiving Stage
 
-def log_archiving_started(num_links: int, resume: float):
+def log_archiving_started(num_links: int, resume: Optional[float]):
     start_ts = datetime.now()
     _LAST_RUN_STATS.archiving_start_ts = start_ts
     if resume:
@@ -132,10 +133,10 @@ def log_link_archiving_started(link_dir: str, link: Link, is_new: bool):
         symbol_color=ANSI['green' if is_new else 'black'],
         symbol='+' if is_new else '*',
         now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        title=link['title'] or link['url'],
+        title=link.title or link.base_url,
         **ANSI,
     ))
-    print('    {blue}{url}{reset}'.format(url=link['url'], **ANSI))
+    print('    {blue}{url}{reset}'.format(url=link.url, **ANSI))
     print('    {} {}'.format(
         '>' if is_new else '√',
         pretty_path(link_dir),

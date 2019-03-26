@@ -26,6 +26,7 @@ import xml.etree.ElementTree as etree
 
 from config import TIMEOUT
 from util import (
+    htmldecode,
     str_between,
     URL_REGEX,
     check_url_parsing_invariants,
@@ -91,13 +92,13 @@ def parse_pocket_html_export(html_file: IO[str]) -> Iterable[Link]:
             tags = match.group(3)
             title = match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '')
             
-            yield {
-                'url': url,
-                'timestamp': str(time.timestamp()),
-                'title': title or None,
-                'tags': tags or '',
-                'sources': [html_file.name],
-            }
+            yield Link(
+                url=url,
+                timestamp=str(time.timestamp()),
+                title=title or None,
+                tags=tags or '',
+                sources=[html_file.name],
+            )
 
 
 def parse_json_export(json_file: IO[str]) -> Iterable[Link]:
@@ -137,19 +138,19 @@ def parse_json_export(json_file: IO[str]) -> Iterable[Link]:
             # Parse the title
             title = None
             if link.get('title'):
-                title = link['title'].strip() or None
+                title = link['title'].strip()
             elif link.get('description'):
-                title = link['description'].replace(' — Readability', '').strip() or None
+                title = link['description'].replace(' — Readability', '').strip()
             elif link.get('name'):
-                title = link['name'].strip() or None
+                title = link['name'].strip()
 
-            yield {
-                'url': url,
-                'timestamp': ts_str,
-                'title': title,
-                'tags': link.get('tags') or '',
-                'sources': [json_file.name],
-            }
+            yield Link(
+                url=url,
+                timestamp=ts_str,
+                title=htmldecode(title) or None,
+                tags=link.get('tags') or '',
+                sources=[json_file.name],
+            )
 
 
 def parse_rss_export(rss_file: IO[str]) -> Iterable[Link]:
@@ -178,15 +179,15 @@ def parse_rss_export(rss_file: IO[str]) -> Iterable[Link]:
         url = str_between(get_row('link'), '<link>', '</link>')
         ts_str = str_between(get_row('pubDate'), '<pubDate>', '</pubDate>')
         time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %z")
-        title = str_between(get_row('title'), '<![CDATA[', ']]').strip() or None
+        title = str_between(get_row('title'), '<![CDATA[', ']]').strip()
 
-        yield {
-            'url': url,
-            'timestamp': str(time.timestamp()),
-            'title': title,
-            'tags': '',
-            'sources': [rss_file.name],
-        }
+        yield Link(
+            url=url,
+            timestamp=str(time.timestamp()),
+            title=htmldecode(title) or None,
+            tags='',
+            sources=[rss_file.name],
+        )
 
 
 def parse_shaarli_rss_export(rss_file: IO[str]) -> Iterable[Link]:
@@ -217,13 +218,13 @@ def parse_shaarli_rss_export(rss_file: IO[str]) -> Iterable[Link]:
         ts_str = str_between(get_row('published'), '<published>', '</published>')
         time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
 
-        yield {
-            'url': url,
-            'timestamp': str(time.timestamp()),
-            'title': title or None,
-            'tags': '',
-            'sources': [rss_file.name],
-        }
+        yield Link(
+            url=url,
+            timestamp=str(time.timestamp()),
+            title=htmldecode(title) or None,
+            tags='',
+            sources=[rss_file.name],
+        )
 
 
 def parse_netscape_html_export(html_file: IO[str]) -> Iterable[Link]:
@@ -239,14 +240,15 @@ def parse_netscape_html_export(html_file: IO[str]) -> Iterable[Link]:
         if match:
             url = match.group(1)
             time = datetime.fromtimestamp(float(match.group(2)))
+            title = match.group(3).strip()
 
-            yield {
-                'url': url,
-                'timestamp': str(time.timestamp()),
-                'title': match.group(3).strip() or None,
-                'tags': '',
-                'sources': [html_file.name],
-            }
+            yield Link(
+                url=url,
+                timestamp=str(time.timestamp()),
+                title=htmldecode(title) or None,
+                tags='',
+                sources=[html_file.name],
+            )
 
 
 def parse_pinboard_rss_export(rss_file: IO[str]) -> Iterable[Link]:
@@ -271,13 +273,13 @@ def parse_pinboard_rss_export(rss_file: IO[str]) -> Iterable[Link]:
         else:
             time = datetime.now()
 
-        yield {
-            'url': url,
-            'timestamp': str(time.timestamp()),
-            'title': title or None,
-            'tags': tags or '',
-            'sources': [rss_file.name],
-        }
+        yield Link(
+            url=url,
+            timestamp=str(time.timestamp()),
+            title=htmldecode(title) or None,
+            tags=tags or '',
+            sources=[rss_file.name],
+        )
 
 
 def parse_medium_rss_export(rss_file: IO[str]) -> Iterable[Link]:
@@ -292,13 +294,13 @@ def parse_medium_rss_export(rss_file: IO[str]) -> Iterable[Link]:
         ts_str = item.find("pubDate").text
         time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %Z")
         
-        yield {
-            'url': url,
-            'timestamp': str(time.timestamp()),
-            'title': title or None,
-            'tags': '',
-            'sources': [rss_file.name],
-        }
+        yield Link(
+            url=url,
+            timestamp=str(time.timestamp()),
+            title=htmldecode(title) or None,
+            tags='',
+            sources=[rss_file.name],
+        )
 
 
 def parse_plain_text_export(text_file: IO[str]) -> Iterable[Link]:
@@ -308,10 +310,10 @@ def parse_plain_text_export(text_file: IO[str]) -> Iterable[Link]:
     for line in text_file.readlines():
         urls = re.findall(URL_REGEX, line) if line.strip() else ()
         for url in urls:
-            yield {
-                'url': url,
-                'timestamp': str(datetime.now().timestamp()),
-                'title': None,
-                'tags': '',
-                'sources': [text_file.name],
-            }
+            yield Link(
+                url=url,
+                timestamp=str(datetime.now().timestamp()),
+                title=None,
+                tags='',
+                sources=[text_file.name],
+            )

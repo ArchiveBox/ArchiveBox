@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 import shutil
 
@@ -77,7 +76,7 @@ if COOKIES_FILE:
     COOKIES_FILE = os.path.abspath(COOKIES_FILE)
 
 # ******************************************************************************
-# ************************ Environment & Dependencies **************************
+# ***************************** Helper Functions *******************************
 # ******************************************************************************
 
 def check_version(binary: str) -> str:
@@ -94,6 +93,7 @@ def check_version(binary: str) -> str:
     except Exception:
         print('{red}[X] Unable to find a working version of {cmd}, is it installed and in your $PATH?'.format(cmd=binary, **ANSI))
         raise SystemExit(1)
+
 
 def find_chrome_binary() -> Optional[str]:
     """find any installed chrome binaries in the default locations"""
@@ -119,6 +119,7 @@ def find_chrome_binary() -> Optional[str]:
     print('{red}[X] Unable to find a working version of Chrome/Chromium, is it installed and in your $PATH?'.format(**ANSI))
     raise SystemExit(1)
 
+
 def find_chrome_data_dir() -> Optional[str]:
     """find any installed chrome user data directories in the default locations"""
     # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
@@ -142,6 +143,7 @@ def find_chrome_data_dir() -> Optional[str]:
             return full_path
     return None
 
+
 def get_git_version() -> str:
     """get the git commit hash of the python code folder (aka code version)"""
     try:
@@ -150,6 +152,10 @@ def get_git_version() -> str:
         print('[!] Warning: unable to determine git version, is git installed and in your $PATH?')
     return 'unknown'
 
+
+# ******************************************************************************
+# ************************ Environment & Dependencies **************************
+# ******************************************************************************
 
 try:
     GIT_SHA = get_git_version()
@@ -188,19 +194,33 @@ try:
         print('    Alternatively, run this script with:')
         print('        env PYTHONIOENCODING=UTF-8 ./archive.py export.html')
 
-
     ### Make sure curl is installed
     USE_CURL = FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG
-    CURL_VERSION = USE_CURL and check_version(CURL_BINARY)
+    CURL_VERSION = None
+    if USE_CURL:
+        CURL_VERSION = check_version(CURL_BINARY)
 
     ### Make sure wget is installed and calculate version
     USE_WGET = FETCH_WGET or FETCH_WARC
-    WGET_VERSION = USE_WGET and check_version(WGET_BINARY)
+    WGET_VERSION = None
+    if USE_WGET:
+        WGET_VERSION = check_version(WGET_BINARY)
+        
     WGET_USER_AGENT = WGET_USER_AGENT.format(
         GIT_SHA=GIT_SHA[:9],
         WGET_VERSION=WGET_VERSION or '',
     )
     
+    ### Make sure git is installed
+    GIT_VERSION = None
+    if FETCH_GIT:
+        GIT_VERSION = check_version(GIT_BINARY)
+
+    ### Make sure youtube-dl is installed
+    YOUTUBEDL_VERSION = None
+    if FETCH_MEDIA:
+        check_version(YOUTUBEDL_BINARY)
+
     ### Make sure chrome is installed and calculate version
     USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
     CHROME_VERSION = None
@@ -214,13 +234,6 @@ try:
             CHROME_USER_DATA_DIR = find_chrome_data_dir()
         # print('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
 
-    ### Make sure git is installed
-    GIT_VERSION = FETCH_GIT and check_version(GIT_BINARY)
-
-    ### Make sure youtube-dl is installed
-    YOUTUBEDL_VERSION = FETCH_MEDIA and check_version(YOUTUBEDL_BINARY)
-
-    ### Chrome housekeeping options
     CHROME_OPTIONS = {
         'TIMEOUT': TIMEOUT,
         'RESOLUTION': RESOLUTION,
@@ -236,7 +249,6 @@ try:
     #     'ignoreHTTPSErrors': not CHECK_SSL_VALIDITY,
     #     # 'executablePath': CHROME_BINARY,
     # }
-
 except KeyboardInterrupt:
     raise SystemExit(1)
 

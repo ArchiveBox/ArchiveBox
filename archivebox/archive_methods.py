@@ -52,7 +52,6 @@ from util import (
     chmod_file,
     wget_output_path,
     chrome_args,
-    check_link_structure,
     run, PIPE, DEVNULL,
     Link,
 )
@@ -64,9 +63,7 @@ from logs import (
 )
 
 
-
-
-def archive_link(link_dir: str, link: Link, page=None) -> Link:
+def archive_link(link: Link, page=None) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
     ARCHIVE_METHODS = (
@@ -82,24 +79,24 @@ def archive_link(link_dir: str, link: Link, page=None) -> Link:
     )
     
     try:
-        is_new = not os.path.exists(link_dir)
+        is_new = not os.path.exists(link.link_dir)
         if is_new:
-            os.makedirs(link_dir)
+            os.makedirs(link.link_dir)
 
-        link = load_json_link_index(link_dir, link)
-        log_link_archiving_started(link_dir, link, is_new)
+        link = load_json_link_index(link.link_dir, link)
+        log_link_archiving_started(link.link_dir, link, is_new)
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
 
         for method_name, should_run, method_function in ARCHIVE_METHODS:
-            if method_name not in link['history']:
-                link['history'][method_name] = []
+            if method_name not in link.history:
+                link.history[method_name] = []
             
-            if should_run(link_dir, link):
+            if should_run(link.link_dir, link):
                 log_archive_method_started(method_name)
 
-                result = method_function(link_dir, link)
+                result = method_function(link.link_dir, link)
 
-                link['history'][method_name].append(result._asdict())
+                link.history[method_name].append(result)
 
                 stats[result.status] += 1
                 log_archive_method_finished(result)
@@ -108,14 +105,22 @@ def archive_link(link_dir: str, link: Link, page=None) -> Link:
 
         # print('    ', stats)
 
-        write_link_index(link_dir, link)
+        link = Link(**{
+            **link._asdict(),
+            'updated': datetime.now(),
+        })
+
+        write_link_index(link.link_dir, link)
         patch_links_index(link)
-        log_link_archiving_finished(link_dir, link, is_new, stats)
+        log_link_archiving_finished(link.link_dir, link, is_new, stats)
+
+    except KeyboardInterrupt:
+        raise
 
     except Exception as err:
         print('    ! Failed to archive link: {}: {}'.format(err.__class__.__name__, err))
         raise
-    
+
     return link
 
 
@@ -123,10 +128,10 @@ def archive_link(link_dir: str, link: Link, page=None) -> Link:
 
 def should_fetch_title(link_dir: str, link: Link) -> bool:
     # if link already has valid title, skip it
-    if link['title'] and not link['title'].lower().startswith('http'):
+    if link.title and not link.title.lower().startswith('http'):
         return False
 
-    if is_static_file(link['url']):
+    if is_static_file(link.url):
         return False
 
     return FETCH_TITLE
@@ -137,7 +142,7 @@ def fetch_title(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResul
     output = None
     cmd = [
         CURL_BINARY,
-        link['url'],
+        link.url,
         '|',
         'grep',
         '<title>',
@@ -145,7 +150,7 @@ def fetch_title(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResul
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        output = fetch_page_title(link['url'], timeout=timeout, progress=False)
+        output = fetch_page_title(link.url, timeout=timeout, progress=False)
         if not output:
             raise ArchiveError('Unable to detect page title')
     except Exception as err:
@@ -180,7 +185,7 @@ def fetch_favicon(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveRes
         '--location',
         '--output', output,
         *(() if CHECK_SSL_VALIDITY else ('--insecure',)),
-        'https://www.google.com/s2/favicons?domain={}'.format(domain(link['url'])),
+        'https://www.google.com/s2/favicons?domain={}'.format(domain(link.url)),
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
@@ -240,7 +245,7 @@ def fetch_wget(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult
         *(('--user-agent={}'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
         *(('--load-cookies', COOKIES_FILE) if COOKIES_FILE else ()),
         *((() if CHECK_SSL_VALIDITY else ('--no-check-certificate', '--no-hsts'))),
-        link['url'],
+        link.url,
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
@@ -290,7 +295,7 @@ def fetch_wget(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult
     )
 
 def should_fetch_pdf(link_dir: str, link: Link) -> bool:
-    if is_static_file(link['url']):
+    if is_static_file(link.url):
         return False
     
     if os.path.exists(os.path.join(link_dir, 'output.pdf')):
@@ -306,7 +311,7 @@ def fetch_pdf(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     cmd = [
         *chrome_args(TIMEOUT=timeout),
         '--print-to-pdf',
-        link['url'],
+        link.url,
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
@@ -334,7 +339,7 @@ def fetch_pdf(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     )
 
 def should_fetch_screenshot(link_dir: str, link: Link) -> bool:
-    if is_static_file(link['url']):
+    if is_static_file(link.url):
         return False
     
     if os.path.exists(os.path.join(link_dir, 'screenshot.png')):
@@ -349,7 +354,7 @@ def fetch_screenshot(link_dir: str, link: Link, timeout: int=TIMEOUT) -> Archive
     cmd = [
         *chrome_args(TIMEOUT=timeout),
         '--screenshot',
-        link['url'],
+        link.url,
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
@@ -377,7 +382,7 @@ def fetch_screenshot(link_dir: str, link: Link, timeout: int=TIMEOUT) -> Archive
     )
 
 def should_fetch_dom(link_dir: str, link: Link) -> bool:
-    if is_static_file(link['url']):
+    if is_static_file(link.url):
         return False
     
     if os.path.exists(os.path.join(link_dir, 'output.html')):
@@ -393,7 +398,7 @@ def fetch_dom(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     cmd = [
         *chrome_args(TIMEOUT=timeout),
         '--dump-dom',
-        link['url']
+        link.url
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
@@ -422,15 +427,15 @@ def fetch_dom(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     )
 
 def should_fetch_git(link_dir: str, link: Link) -> bool:
-    if is_static_file(link['url']):
+    if is_static_file(link.url):
         return False
 
     if os.path.exists(os.path.join(link_dir, 'git')):
         return False
 
     is_clonable_url = (
-        (domain(link['url']) in GIT_DOMAINS)
-        or (extension(link['url']) == 'git')
+        (domain(link.url) in GIT_DOMAINS)
+        or (extension(link.url) == 'git')
     )
     if not is_clonable_url:
         return False
@@ -450,7 +455,7 @@ def fetch_git(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
         '--mirror',
         '--recursive',
         *(() if CHECK_SSL_VALIDITY else ('-c', 'http.sslVerify=false')),
-        without_query(without_fragment(link['url'])),
+        without_query(without_fragment(link.url)),
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
@@ -481,7 +486,7 @@ def fetch_git(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
 
 
 def should_fetch_media(link_dir: str, link: Link) -> bool:
-    if is_static_file(link['url']):
+    if is_static_file(link.url):
         return False
 
     if os.path.exists(os.path.join(link_dir, 'media')):
@@ -515,7 +520,7 @@ def fetch_media(link_dir: str, link: Link, timeout: int=MEDIA_TIMEOUT) -> Archiv
         '--embed-thumbnail',
         '--add-metadata',
         *(() if CHECK_SSL_VALIDITY else ('--no-check-certificate',)),
-        link['url'],
+        link.url,
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
@@ -553,7 +558,7 @@ def fetch_media(link_dir: str, link: Link, timeout: int=MEDIA_TIMEOUT) -> Archiv
 
 
 def should_fetch_archive_dot_org(link_dir: str, link: Link) -> bool:
-    if is_static_file(link['url']):
+    if is_static_file(link.url):
         return False
 
     if os.path.exists(os.path.join(link_dir, 'archive.org.txt')):
@@ -567,7 +572,7 @@ def archive_dot_org(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveR
 
     output = 'archive.org.txt'
     archive_org_url = None
-    submit_url = 'https://web.archive.org/save/{}'.format(link['url'])
+    submit_url = 'https://web.archive.org/save/{}'.format(link.url)
     cmd = [
         CURL_BINARY,
         '--location',
@@ -586,7 +591,7 @@ def archive_dot_org(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveR
             archive_org_url = 'https://web.archive.org{}'.format(content_location[0])
         elif len(errors) == 1 and 'RobotAccessControlException' in errors[0]:
             archive_org_url = None
-            # raise ArchiveError('Archive.org denied by {}/robots.txt'.format(domain(link['url'])))
+            # raise ArchiveError('Archive.org denied by {}/robots.txt'.format(domain(link.url)))
         elif errors:
             raise ArchiveError(', '.join(errors))
         else:

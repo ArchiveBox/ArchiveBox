@@ -12,14 +12,13 @@ Usage & Documentation:
 import os
 import sys
 
-from typing import List
+from typing import List, Optional
 
 from schema import Link
 from links import links_after_timestamp
 from index import write_links_index, load_links_index
 from archive_methods import archive_link
 from config import (
-    ARCHIVE_DIR,
     ONLY_NEW,
     OUTPUT_DIR,
     GIT_SHA,
@@ -109,19 +108,19 @@ def update_archive_data(import_path: str=None, resume: float=None) -> List[Link]
     all_links, new_links = load_links_index(out_dir=OUTPUT_DIR, import_path=import_path)
 
     # Step 2: Write updated index with deduped old and new links back to disk
-    write_links_index(out_dir=OUTPUT_DIR, links=all_links)
+    write_links_index(out_dir=OUTPUT_DIR, links=list(all_links))
 
     # Step 3: Run the archive methods for each link
     links = new_links if ONLY_NEW else all_links
     log_archiving_started(len(links), resume)
-    idx, link = 0, {'timestamp': 0}
+    idx: int = 0
+    link: Optional[Link] = None
     try:
         for idx, link in enumerate(links_after_timestamp(links, resume)):
-            link_dir = os.path.join(ARCHIVE_DIR, link['timestamp'])
-            archive_link(link_dir, link)
+            archive_link(link)
 
     except KeyboardInterrupt:
-        log_archiving_paused(len(links), idx, link['timestamp'])
+        log_archiving_paused(len(links), idx, link.timestamp if link else '0')
         raise SystemExit(0)
 
     except:
@@ -132,7 +131,7 @@ def update_archive_data(import_path: str=None, resume: float=None) -> List[Link]
 
     # Step 4: Re-write links index with updated titles, icons, and resources
     all_links, _ = load_links_index(out_dir=OUTPUT_DIR)
-    write_links_index(out_dir=OUTPUT_DIR, links=all_links, finished=True)
+    write_links_index(out_dir=OUTPUT_DIR, links=list(all_links), finished=True)
     return all_links
 
 if __name__ == '__main__':

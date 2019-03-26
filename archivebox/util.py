@@ -4,9 +4,8 @@ import sys
 import time
 
 from json import JSONEncoder
-
-from typing import List, Dict, Optional, Iterable
-
+from typing import List, Optional, Iterable
+from hashlib import sha256
 from urllib.request import Request, urlopen
 from urllib.parse import urlparse, quote, unquote
 from html import escape, unescape
@@ -21,17 +20,17 @@ from subprocess import (
     CalledProcessError,
 )
 
-from schema import Link
+from base32_crockford import encode as base32_encode
+
+from schema import Link, LinkDict, ArchiveResult
 from config import (
     ANSI,
     TERM_WIDTH,
     SOURCES_DIR,
-    ARCHIVE_DIR,
     OUTPUT_PERMISSIONS,
     TIMEOUT,
     SHOW_PROGRESS,
     FETCH_TITLE,
-    ARCHIVE_DIR_NAME,
     CHECK_SSL_VALIDITY,
     WGET_USER_AGENT,
     CHROME_OPTIONS,
@@ -43,7 +42,7 @@ from logs import pretty_path
 
 # All of these are (str) -> str
 # shortcuts to: https://docs.python.org/3/library/urllib.parse.html#url-parsing
-scheme = lambda url: urlparse(url).scheme
+scheme = lambda url: urlparse(url).scheme.lower()
 without_scheme = lambda url: urlparse(url)._replace(scheme='').geturl().strip('//')
 without_query = lambda url: urlparse(url)._replace(query='').geturl().strip('//')
 without_fragment = lambda url: urlparse(url)._replace(fragment='').geturl().strip('//')
@@ -56,11 +55,33 @@ fragment = lambda url: urlparse(url).fragment
 extension = lambda url: basename(url).rsplit('.', 1)[-1].lower() if '.' in basename(url) else ''
 base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 
-short_ts = lambda ts: ts.split('.')[0]
-urlencode = lambda s: quote(s, encoding='utf-8', errors='replace')
-urldecode = lambda s: unquote(s)
-htmlencode = lambda s: escape(s, quote=True)
-htmldecode = lambda s: unescape(s)
+
+without_www = lambda url: url.replace('://www.', '://', 1)
+without_trailing_slash = lambda url: url[:-1] if url[-1] == '/' else url.replace('/?', '?')
+fuzzy_url = lambda url: without_trailing_slash(without_www(without_scheme(url.lower())))
+
+short_ts = lambda ts: (
+    str(ts.timestamp()).split('.')[0]
+    if isinstance(ts, datetime) else
+    str(ts).split('.')[0]
+)
+ts_to_date = lambda ts: (
+    ts.strftime('%Y-%m-%d %H:%M')
+    if isinstance(ts, datetime) else
+    datetime.fromtimestamp(float(ts)).strftime('%Y-%m-%d %H:%M')
+)
+ts_to_iso = lambda ts: (
+    ts.isoformat()
+    if isinstance(ts, datetime) else
+    datetime.fromtimestamp(float(ts)).isoformat()
+)
+
+urlencode = lambda s: s and quote(s, encoding='utf-8', errors='replace')
+urldecode = lambda s: s and unquote(s)
+htmlencode = lambda s: s and escape(s, quote=True)
+htmldecode = lambda s: s and unescape(s)
+
+hashurl = lambda url: base32_encode(int(sha256(base_url(url).encode('utf-8')).hexdigest(), 16))[:20]
 
 URL_REGEX = re.compile(
     r'http[s]?://'                    # start matching from allowed schemes
@@ -80,7 +101,8 @@ STATICFILE_EXTENSIONS = {
     # that can be downloaded as-is, not html pages that need to be rendered
     'gif', 'jpeg', 'jpg', 'png', 'tif', 'tiff', 'wbmp', 'ico', 'jng', 'bmp',
     'svg', 'svgz', 'webp', 'ps', 'eps', 'ai',
-    'mp3', 'mp4', 'm4a', 'mpeg', 'mpg', 'mkv', 'mov', 'webm', 'm4v', 'flv', 'wmv', 'avi', 'ogg', 'ts', 'm3u8'
+    'mp3', 'mp4', 'm4a', 'mpeg', 'mpg', 'mkv', 'mov', 'webm', 'm4v', 
+    'flv', 'wmv', 'avi', 'ogg', 'ts', 'm3u8'
     'pdf', 'txt', 'rtf', 'rtfd', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
     'atom', 'rss', 'css', 'js', 'json',
     'dmg', 'iso', 'img',
@@ -100,7 +122,7 @@ STATICFILE_EXTENSIONS = {
 
 ### Checks & Tests
 
-def check_link_structure(link: Link) -> None:
+def check_link_structure(link: LinkDict) -> None:
     """basic sanity check invariants to make sure the data is valid"""
     assert isinstance(link, dict)
     assert isinstance(link.get('url'), str)
@@ -112,7 +134,7 @@ def check_link_structure(link: Link) -> None:
             assert isinstance(key, str)
             assert isinstance(val, list), 'history must be a Dict[str, List], got: {}'.format(link['history'])
     
-def check_links_structure(links: Iterable[Link]) -> None:
+def check_links_structure(links: Iterable[LinkDict]) -> None:
     """basic sanity check invariants to make sure the data is valid"""
     assert isinstance(links, list)
     if links:
@@ -213,7 +235,7 @@ def fetch_page_title(url: str, timeout: int=10, progress: bool=SHOW_PROGRESS) ->
         html = download_url(url, timeout=timeout)
 
         match = re.search(HTML_TITLE_REGEX, html)
-        return match.group(1).strip() if match else None
+        return htmldecode(match.group(1).strip()) if match else None
     except Exception as err:  # noqa
         # print('[!] Failed to fetch title because of {}: {}'.format(
         #     err.__class__.__name__,
@@ -228,8 +250,8 @@ def wget_output_path(link: Link) -> Optional[str]:
     See docs on wget --adjust-extension (-E)
     """
 
-    if is_static_file(link['url']):
-        return without_scheme(without_fragment(link['url']))
+    if is_static_file(link.url):
+        return without_scheme(without_fragment(link.url))
 
     # Wget downloads can save in a number of different ways depending on the url:
     #    https://example.com
@@ -262,11 +284,10 @@ def wget_output_path(link: Link) -> Optional[str]:
     # and there's no way to get the computed output path from wget
     # in order to avoid having to reverse-engineer how they calculate it,
     # we just look in the output folder read the filename wget used from the filesystem
-    link_dir = os.path.join(ARCHIVE_DIR, link['timestamp'])
-    full_path = without_fragment(without_query(path(link['url']))).strip('/')
+    full_path = without_fragment(without_query(path(link.url))).strip('/')
     search_dir = os.path.join(
-        link_dir,
-        domain(link['url']),
+        link.link_dir,
+        domain(link.url),
         full_path,
     )
 
@@ -278,13 +299,13 @@ def wget_output_path(link: Link) -> Optional[str]:
                     if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
                 ]
                 if html_files:
-                    path_from_link_dir = search_dir.split(link_dir)[-1].strip('/')
+                    path_from_link_dir = search_dir.split(link.link_dir)[-1].strip('/')
                     return os.path.join(path_from_link_dir, html_files[0])
 
         # Move up one directory level
         search_dir = search_dir.rsplit('/', 1)[0]
 
-        if search_dir == link_dir:
+        if search_dir == link.link_dir:
             break
 
     return None
@@ -314,19 +335,20 @@ def merge_links(a: Link, b: Link) -> Link:
     """deterministially merge two links, favoring longer field values over shorter,
     and "cleaner" values over worse ones.
     """
+    a, b = a._asdict(), b._asdict()
     longer = lambda key: (a[key] if len(a[key]) > len(b[key]) else b[key]) if (a[key] and b[key]) else (a[key] or b[key])
     earlier = lambda key: a[key] if a[key] < b[key] else b[key]
     
     url = longer('url')
     longest_title = longer('title')
     cleanest_title = a['title'] if '://' not in (a['title'] or '') else b['title']
-    return {
-        'url': url,
-        'timestamp': earlier('timestamp'),
-        'title': longest_title if '://' not in (longest_title or '') else cleanest_title,
-        'tags': longer('tags'),
-        'sources': list(set(a.get('sources', []) + b.get('sources', []))),
-    }
+    return Link(
+        url=url,
+        timestamp=earlier('timestamp'),
+        title=longest_title if '://' not in (longest_title or '') else cleanest_title,
+        tags=longer('tags'),
+        sources=list(set(a.get('sources', []) + b.get('sources', []))),
+    )
 
 def is_static_file(url: str) -> bool:
     """Certain URLs just point to a single static file, and 
@@ -339,85 +361,11 @@ def is_static_file(url: str) -> bool:
 def derived_link_info(link: Link) -> dict:
     """extend link info with the archive urls and other derived data"""
 
-    url = link['url']
+    info = link._asdict(extended=True)
+    info.update(link.canonical_outputs())
 
-    to_date_str = lambda ts: datetime.fromtimestamp(float(ts)).strftime('%Y-%m-%d %H:%M')
+    return info
 
-    extended_info = {
-        **link,
-        'link_dir': '{}/{}'.format(ARCHIVE_DIR_NAME, link['timestamp']),
-        'bookmarked_date': to_date_str(link['timestamp']),
-        'updated_date': to_date_str(link['updated']) if 'updated' in link else None,
-        'domain': domain(url),
-        'path': path(url),
-        'basename': basename(url),
-        'extension': extension(url),
-        'base_url': base_url(url),
-        'is_static': is_static_file(url),
-        'is_archived': os.path.exists(os.path.join(
-            ARCHIVE_DIR,
-            link['timestamp'],
-            domain(url),
-        )),
-        'num_outputs': len([entry for entry in latest_output(link).values() if entry]),
-    }
-
-    # Archive Method Output URLs
-    extended_info.update({
-        'index_url': 'index.html',
-        'favicon_url': 'favicon.ico',
-        'google_favicon_url': 'https://www.google.com/s2/favicons?domain={domain}'.format(**extended_info),
-        'archive_url': wget_output_path(link),
-        'warc_url': 'warc',
-        'pdf_url': 'output.pdf',
-        'screenshot_url': 'screenshot.png',
-        'dom_url': 'output.html',
-        'archive_org_url': 'https://web.archive.org/web/{base_url}'.format(**extended_info),
-        'git_url': 'git',
-        'media_url': 'media',
-    })
-    # static binary files like PDF and images are handled slightly differently.
-    # they're just downloaded once and aren't archived separately multiple times, 
-    # so the wget, screenshot, & pdf urls should all point to the same file
-    if is_static_file(url):
-        extended_info.update({
-            'title': basename(url),
-            'archive_url': base_url(url),
-            'pdf_url': base_url(url),
-            'screenshot_url': base_url(url),
-            'dom_url': base_url(url),
-        })
-
-    return extended_info
-
-
-def latest_output(link: Link, status: str=None) -> Dict[str, Optional[str]]:
-    """get the latest output that each archive method produced for link"""
-    
-    latest = {
-        'title': None,
-        'favicon': None,
-        'wget': None,
-        'warc': None,
-        'pdf': None,
-        'screenshot': None,
-        'dom': None,
-        'git': None,
-        'media': None,
-        'archive_org': None,
-    }
-    for archive_method in latest.keys():
-        # get most recent succesful result in history for each archive method
-        history = link.get('history', {}).get(archive_method) or []
-        history = filter(lambda result: result['output'], reversed(history))
-        if status is not None:
-            history = filter(lambda result: result['status'] == status, history)
-
-        history = list(history)
-        if history:
-            latest[archive_method] = history[0]['output']
-
-    return latest
 
 
 ### Python / System Helpers
@@ -466,21 +414,13 @@ class TimedProgress:
             self.p = Process(target=progress_bar, args=(seconds, prefix))
             self.p.start()
 
-        self.stats = {
-            'start_ts': datetime.now(),
-            'end_ts': None,
-            'duration': None,
-        }
+        self.stats = {'start_ts': datetime.now(), 'end_ts': None}
 
     def end(self):
         """immediately end progress, clear the progressbar line, and save end_ts"""
 
         end_ts = datetime.now()
-        self.stats.update({
-            'end_ts': end_ts,
-            'duration': (end_ts - self.stats['start_ts']).seconds,
-        })
-
+        self.stats['end_ts'] = end_ts
         if SHOW_PROGRESS:
             # protect from double termination
             #if p is None or not hasattr(p, 'kill'):

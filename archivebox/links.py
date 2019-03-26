@@ -11,7 +11,7 @@ Link {
     sources: [str],                                   
     history: {
         pdf: [
-            {start_ts, end_ts, duration, cmd, pwd, status, output},
+            {start_ts, end_ts, cmd, pwd, cmd_version, status, output},
             ...
         ],
         ...
@@ -19,41 +19,36 @@ Link {
 }
 """
 
-from typing import List, Iterable
+from typing import Iterable
 from collections import OrderedDict
 
 from schema import Link
 from util import (
+    scheme,
+    fuzzy_url,
     merge_links,
-    check_link_structure,
-    check_links_structure,
     htmldecode,
+    hashurl,
 )
 
 
-def validate_links(links: Iterable[Link]) -> List[Link]:
-    check_links_structure(links)
+def validate_links(links: Iterable[Link]) -> Iterable[Link]:
     links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
-    links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
     links = sorted_links(links)      # deterministically sort the links based on timstamp, url
+    links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
 
     if not links:
         print('[X] No links found :(')
         raise SystemExit(1)
 
-    for link in links:
-        link['title'] = htmldecode(link['title'].strip()) if link['title'] else None
-        check_link_structure(link)
-
-    return list(links)
-
+    return links
 
 def archivable_links(links: Iterable[Link]) -> Iterable[Link]:
     """remove chrome://, about:// or other schemed links that cant be archived"""
     return (
         link
         for link in links
-        if any(link['url'].lower().startswith(s) for s in ('http://', 'https://', 'ftp://'))
+        if scheme(link.url) in ('http', 'https', 'ftp')
     )
 
 
@@ -64,38 +59,37 @@ def uniquefied_links(sorted_links: Iterable[Link]) -> Iterable[Link]:
 
     unique_urls: OrderedDict[str, Link] = OrderedDict()
 
-    lower = lambda url: url.lower().strip()
-    without_www = lambda url: url.replace('://www.', '://', 1)
-    without_trailing_slash = lambda url: url[:-1] if url[-1] == '/' else url.replace('/?', '?')
-
     for link in sorted_links:
-        fuzzy_url = without_www(without_trailing_slash(lower(link['url'])))
-        if fuzzy_url in unique_urls:
+        fuzzy = fuzzy_url(link.url)
+        if fuzzy in unique_urls:
             # merge with any other links that share the same url
-            link = merge_links(unique_urls[fuzzy_url], link)
-        unique_urls[fuzzy_url] = link
+            link = merge_links(unique_urls[fuzzy], link)
+        unique_urls[fuzzy] = link
 
     unique_timestamps: OrderedDict[str, Link] = OrderedDict()
     for link in unique_urls.values():
-        link['timestamp'] = lowest_uniq_timestamp(unique_timestamps, link['timestamp'])
-        unique_timestamps[link['timestamp']] = link
+        new_link = Link(**{
+            **link._asdict(),
+            'timestamp': lowest_uniq_timestamp(unique_timestamps, link.timestamp),
+        })
+        unique_timestamps[new_link.timestamp] = new_link
 
     return unique_timestamps.values()
 
 
 def sorted_links(links: Iterable[Link]) -> Iterable[Link]:
-    sort_func = lambda link: (link['timestamp'].split('.', 1)[0], link['url'])
+    sort_func = lambda link: (link.timestamp.split('.', 1)[0], link.url)
     return sorted(links, key=sort_func, reverse=True)
 
 
-def links_after_timestamp(links: Iterable[Link], timestamp: str=None) -> Iterable[Link]:
-    if not timestamp:
+def links_after_timestamp(links: Iterable[Link], resume: float=None) -> Iterable[Link]:
+    if not resume:
         yield from links
         return
 
     for link in links:
         try:
-            if float(link['timestamp']) <= float(timestamp):
+            if float(link.timestamp) <= resume:
                 yield link
         except (ValueError, TypeError):
             print('Resume value and all timestamp values must be valid numbers.')
