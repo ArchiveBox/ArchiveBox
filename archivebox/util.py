@@ -482,16 +482,17 @@ class TimedProgress:
                 self.p.terminate()
             self.p = None
 
-            sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH), ANSI['reset']))  # clear whole terminal line
+            sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))  # clear whole terminal line
             sys.stdout.flush()
 
 
 def progress_bar(seconds: int, prefix: str='') -> None:
     """show timer in the form of progress bar, with percentage and seconds remaining"""
     chunk = '█' if sys.stdout.encoding == 'UTF-8' else '#'
-    chunks = TERM_WIDTH - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
+    chunks = TERM_WIDTH() - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
     try:
         for s in range(seconds * chunks):
+            chunks = TERM_WIDTH() - len(prefix) - 20
             progress = s / chunks / seconds * 100
             bar_width = round(progress/(100/chunks))
 

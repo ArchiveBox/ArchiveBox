@@ -77,7 +77,7 @@ USE_WGET = FETCH_WGET or FETCH_WGET_REQUISITES or FETCH_WARC
 
 try:
     ### Terminal Configuration
-    TERM_WIDTH = shutil.get_terminal_size((100, 10)).columns
+    TERM_WIDTH = lambda: shutil.get_terminal_size((100, 10)).columns
     ANSI = {
         'reset': '\033[00;00m',
         'lightblue': '\033[01;30m',
