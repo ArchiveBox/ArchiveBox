@@ -72,6 +72,7 @@ TEMPLATES_DIR = os.path.join(PYTHON_PATH, 'templates')
 CHROME_SANDBOX = os.getenv('CHROME_SANDBOX', 'True').lower() == 'true'
 USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
 USE_WGET = FETCH_WGET or FETCH_WGET_REQUISITES or FETCH_WARC
+WGET_AUTO_COMPRESSION =   not run([WGET_BINARY, "--compression=auto", "--help"], stdout=DEVNULL).returncode
 
 ########################### Environment & Dependencies #########################
 
