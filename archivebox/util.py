@@ -193,12 +193,14 @@ def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
         if progress:
             sys.stdout.write('.')
             sys.stdout.flush()
-
-        html = download_url(url, timeout=timeout)
-        document = lxml.html.parse(html)
         
-        result = document.find(".//title")
-        return result.text.strip() if result else None
+        html = download_url(url, timeout=timeout)
+        document = lxml.html.fromstring(html)
+        result = document.xpath(".//title")
+        if len(result) == 0:
+            return None
+        
+        return result[0].text.strip()
     except Exception as err:  # noqa
         # print('[!] Failed to fetch title because of {}: {}'.format(
         #     err.__class__.__name__,
