@@ -213,14 +213,16 @@ try:
     else:
         FETCH_WGET = FETCH_WARC = False
     WGET_VERSION = None
+    WGET_AUTO_COMPRESSION = False
     if USE_WGET:
         WGET_VERSION = check_version(WGET_BINARY)
+        WGET_AUTO_COMPRESSION = not run([WGET_BINARY, "--compression=auto", "--help"], stdout=DEVNULL).returncode
         
     WGET_USER_AGENT = WGET_USER_AGENT.format(
         GIT_SHA=GIT_SHA[:9],
         WGET_VERSION=WGET_VERSION or '',
     )
-    
+
     ### Make sure git is installed
     GIT_VERSION = None
     if FETCH_GIT:

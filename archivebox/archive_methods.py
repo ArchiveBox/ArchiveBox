@@ -41,6 +41,7 @@ from config import (
     GIT_VERSION,
     YOUTUBEDL_VERSION,
     ONLY_NEW,
+    WGET_AUTO_COMPRESSION,
 )
 from util import (
     enforce_types,
@@ -251,7 +252,6 @@ def fetch_wget(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult
         '--backup-converted',
         '--span-hosts',
         '--no-parent',
-        '--compression=auto',
         '-e', 'robots=off',
         '--restrict-file-names=unix',
         '--timeout={}'.format(timeout),
@@ -260,6 +260,7 @@ def fetch_wget(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult
         *(('--page-requisites',) if FETCH_WGET_REQUISITES else ()),
         *(('--user-agent={}'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
         *(('--load-cookies', COOKIES_FILE) if COOKIES_FILE else ()),
+        *(('--compression=auto',) if WGET_AUTO_COMPRESSION else ()),
         *((() if CHECK_SSL_VALIDITY else ('--no-check-certificate', '--no-hsts'))),
         link.url,
     ]
