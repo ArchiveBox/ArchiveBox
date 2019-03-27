@@ -66,15 +66,30 @@ REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__
 if OUTPUT_DIR:
     OUTPUT_DIR = os.path.abspath(OUTPUT_DIR)
 else:
-    OUTPUT_DIR = os.path.join(REPO_DIR, 'output')
+    OUTPUT_DIR = os.path.abspath(os.curdir)
+
+if not os.path.exists(OUTPUT_DIR):
+    print('{green}[+] Created a new archive directory: {}{reset}'.format(OUTPUT_DIR, **ANSI))
+    os.makedirs(OUTPUT_DIR)
+else:
+    not_empty = len(set(os.listdir(OUTPUT_DIR)) - {'.DS_Store'})
+    index_exists = os.path.exists(os.path.join(OUTPUT_DIR, 'index.json'))
+    if not_empty and not index_exists:
+        print(
+            ('{red}[X] Could not find index.json in the OUTPUT_DIR: {reset}{}\n'
+            '    You must run ArchiveBox in an existing archive directory, \n'
+            '     or an empty/new directory to start a new archive collection.'
+            ).format(OUTPUT_DIR, **ANSI)
+        )
+        raise SystemExit(1)
     
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
 ARCHIVE_DIR = os.path.join(OUTPUT_DIR, ARCHIVE_DIR_NAME)
 SOURCES_DIR = os.path.join(OUTPUT_DIR, SOURCES_DIR_NAME)
 
-PYTHON_PATH = os.path.join(REPO_DIR, 'archivebox')
-TEMPLATES_DIR = os.path.join(PYTHON_PATH, 'templates')
+PYTHON_DIR = os.path.join(REPO_DIR, 'archivebox')
+TEMPLATES_DIR = os.path.join(PYTHON_DIR, 'templates')
 
 if COOKIES_FILE:
     COOKIES_FILE = os.path.abspath(COOKIES_FILE)
