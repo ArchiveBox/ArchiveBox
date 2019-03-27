@@ -1,0 +1,3 @@
+include archivebox/VERSION
+graft archivebox/templates
+graft archivebox/templates/static

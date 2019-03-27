@@ -19,3 +19,9 @@ output/
 data
 data/
 archivebox/output
+archivebox/data
+archivebox/VERSION
+
+archivebox.egg-info/
+build/
+dist/
