@@ -76,10 +76,11 @@ def load_links_index(out_dir: str=OUTPUT_DIR, import_path: Optional[str]=None) -
 
     # merge existing links in out_dir and new links
     all_links = list(validate_links(existing_links + new_links))
-    num_new_links = len(all_links) - len(existing_links)
 
     if import_path and parser_name:
-        log_parsing_finished(num_new_links, parser_name)
+        num_parsed = len(raw_links)
+        num_new_links = len(all_links) - len(existing_links)
+        log_parsing_finished(num_parsed, num_new_links, parser_name)
 
     return all_links, new_links
 

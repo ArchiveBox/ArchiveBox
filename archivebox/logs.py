@@ -37,12 +37,13 @@ def log_parsing_started(source_file: str):
         **ANSI,
     ))
 
-def log_parsing_finished(num_new_links: int, parser_name: str):
+def log_parsing_finished(num_parsed: int, num_new_links: int, parser_name: str):
     end_ts = datetime.now()
     _LAST_RUN_STATS.parse_end_ts = end_ts
-    print('    > Adding {} new links to index (parsed import as {})'.format(
+    print('    > Parsed {} links as {}'.format(num_parsed, parser_name))
+    print('    > Adding {} new links to collection: {}'.format(
         num_new_links,
-        parser_name,
+        OUTPUT_DIR,
     ))
 
 
@@ -95,12 +96,10 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
         timestamp=timestamp,
         total=num_links,
     ))
-    print('    To view your archive, open: {}/index.html'.format(OUTPUT_DIR.replace(REPO_DIR + '/', '')))
-    print('    Continue where you left off by running:')
-    print('        {} {}'.format(
-        pretty_path(sys.argv[0]),
-        timestamp,
-    ))
+    print('    To view your archive, open:')
+    print('        {}/index.html'.format(OUTPUT_DIR))
+    print('    Continue archiving where you left off by running:')
+    print('        archivebox {}'.format(timestamp))
 
 def log_archiving_finished(num_links: int):
     end_ts = datetime.now()
@@ -121,7 +120,8 @@ def log_archiving_finished(num_links: int):
     print('    - {} links skipped'.format(_LAST_RUN_STATS.skipped))
     print('    - {} links updated'.format(_LAST_RUN_STATS.succeeded))
     print('    - {} links had errors'.format(_LAST_RUN_STATS.failed))
-    print('    To view your archive, open: {}/index.html'.format(OUTPUT_DIR.replace(REPO_DIR + '/', '')))
+    print('    To view your archive, open:')
+    print('        {}/index.html'.format(OUTPUT_DIR))
 
 
 def log_link_archiving_started(link_dir: str, link: Link, is_new: bool):
