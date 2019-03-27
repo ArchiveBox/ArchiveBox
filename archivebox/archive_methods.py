@@ -33,6 +33,7 @@ from config import (
     WGET_USER_AGENT,
     CHECK_SSL_VALIDITY,
     COOKIES_FILE,
+    WGET_AUTO_COMPRESSION
 )
 from util import (
     domain,
@@ -224,10 +225,10 @@ def fetch_wget(link_dir, link, timeout=TIMEOUT):
         '--backup-converted',
         '--span-hosts',
         '--no-parent',
-        '--compression=auto',
         '-e', 'robots=off',
         '--restrict-file-names=unix',
         '--timeout={}'.format(timeout),
+        *(('--compression=auto',) if WGET_AUTO_COMPRESSION else ()),
         *(() if FETCH_WARC else ('--timestamping',)),
         *(('--warc-file={}'.format(warc_path),) if FETCH_WARC else ()),
         *(('--page-requisites',) if FETCH_WGET_REQUISITES else ()),
