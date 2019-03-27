@@ -190,11 +190,11 @@ def log_archive_method_finished(result: ArchiveResult):
 
         # Collect and prefix output lines with indentation
         output_lines = [
-            '{}Failed:{} {}{}'.format(
-                ANSI['red'],
-                result.output.__class__.__name__.replace('ArchiveError', ''), 
-                result.output,
-                ANSI['reset']
+            '{lightred}Failed:{reset}'.format(**ANSI),
+            '    {reset}{} {red}{}{reset}'.format(
+                result.output.__class__.__name__.replace('ArchiveError', ''),
+                result.output, 
+                **ANSI,
             ),
             *hints,
             '{}Run to see full output:{}'.format(ANSI['lightred'], ANSI['reset']),
@@ -206,3 +206,4 @@ def log_archive_method_finished(result: ArchiveResult):
             for line in output_lines
             if line
         ))
+        print()
