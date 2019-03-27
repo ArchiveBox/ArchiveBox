@@ -528,10 +528,10 @@ class TimedProgress:
             #    return
             if self.p is not None:
                 self.p.terminate()
+            
             self.p = None
 
             sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))  # clear whole terminal line
-            sys.stdout.flush()
 
 
 @enforce_types

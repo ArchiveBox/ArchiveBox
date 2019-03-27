@@ -59,6 +59,10 @@ class Link:
 
         object.__setattr__(self, 'history', cast_history)
 
+    def overwrite(self, **kwargs):
+        """pure functional version of dict.update that returns a new instance"""
+        return Link(**{**self._asdict(), **kwargs})
+
     def __eq__(self, other):
         if not isinstance(other, Link):
             return NotImplemented
@@ -96,6 +100,9 @@ class Link:
                 'is_static': self.is_static,
                 'is_archived': self.is_archived,
                 'num_outputs': self.num_outputs,
+                'num_failures': self.num_failures,
+                'oldest_archive_date': self.oldest_archive_date,
+                'newest_archive_date': self.newest_archive_date,
             })
         return info
 
@@ -152,10 +159,41 @@ class Link:
         from util import ts_to_date
         return ts_to_date(self.updated) if self.updated else None
 
+    @property
+    def oldest_archive_date(self) -> Optional[datetime]:
+        from util import ts_to_date
+
+        most_recent = min(
+            (result.start_ts
+             for method in self.history.keys()
+                for result in self.history[method]),
+            default=None,
+        )
+        return ts_to_date(most_recent) if most_recent else None
+
+    @property
+    def newest_archive_date(self) -> Optional[datetime]:
+        from util import ts_to_date
+
+        most_recent = max(
+            (result.start_ts
+             for method in self.history.keys()
+                for result in self.history[method]),
+            default=None,
+        )
+        return ts_to_date(most_recent) if most_recent else None
+
     ### Archive Status Helpers
     @property
     def num_outputs(self) -> int:
         return len(tuple(filter(None, self.latest_outputs().values())))
+
+    @property
+    def num_failures(self) -> int:
+        return sum(1
+                   for method in self.history.keys()
+                       for result in self.history[method]
+                            if result.status == 'failed')
 
     @property
     def is_static(self) -> bool:

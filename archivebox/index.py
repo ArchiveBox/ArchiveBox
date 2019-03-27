@@ -154,7 +154,7 @@ def write_html_links_index(out_dir: str, links: List[Link], finished: bool=False
                 link.title
                 or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
             ),
-            'tags': link.tags or '',
+            'tags': (link.tags or '') + (' {}'.format(link.extension) if link.is_static else ''),
             'favicon_url': (
                 os.path.join('archive', link.timestamp, 'favicon.ico')
                 # if link['is_archived'] else 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
@@ -196,12 +196,11 @@ def patch_links_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
     patched_links = []
     for saved_link in json_file_links:
         if saved_link.url == link.url:
-            patched_links.append(Link(**{
-                **saved_link._asdict(),
-                'title': title,
-                'history': link.history,
-                'updated': link.updated,
-            }))
+            patched_links.append(saved_link.overwrite(
+                title=title,
+                history=link.history,
+                updated=link.updated,
+            ))
         else:
             patched_links.append(saved_link)
     
@@ -283,7 +282,7 @@ def write_html_link_index(out_dir: str, link: Link) -> None:
             ),
             'extension': link.extension or 'html',
             'tags': link.tags or 'untagged',
-            'status': 'Archived' if link.is_archived else 'Not yet archived',
+            'status': 'archived' if link.is_archived else 'not yet archived',
             'status_color': 'success' if link.is_archived else 'danger',
         }))
 

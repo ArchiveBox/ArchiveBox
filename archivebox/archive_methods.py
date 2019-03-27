@@ -40,6 +40,7 @@ from config import (
     CHROME_VERSION,
     GIT_VERSION,
     YOUTUBEDL_VERSION,
+    ONLY_NEW,
 )
 from util import (
     enforce_types,
@@ -87,33 +88,40 @@ def archive_link(link: Link, page=None) -> Link:
 
         link = load_json_link_index(link.link_dir, link)
         log_link_archiving_started(link.link_dir, link, is_new)
+        link = link.overwrite(updated=datetime.now())
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
 
         for method_name, should_run, method_function in ARCHIVE_METHODS:
-            if method_name not in link.history:
-                link.history[method_name] = []
-            
-            if should_run(link.link_dir, link):
-                log_archive_method_started(method_name)
+            try:
+                if method_name not in link.history:
+                    link.history[method_name] = []
+                
+                if should_run(link.link_dir, link):
+                    log_archive_method_started(method_name)
 
-                result = method_function(link.link_dir, link)
+                    result = method_function(link.link_dir, link)
 
-                link.history[method_name].append(result)
+                    link.history[method_name].append(result)
 
-                stats[result.status] += 1
-                log_archive_method_finished(result)
-            else:
-                stats['skipped'] += 1
+                    stats[result.status] += 1
+                    log_archive_method_finished(result)
+                else:
+                    stats['skipped'] += 1
+            except Exception as e:
+                raise Exception('Exception in archive_methods.fetch_{}(Link(url={}))'.format(
+                    method_name,
+                    link.url,
+                )) from e
 
         # print('    ', stats)
 
-        link = Link(**{
-            **link._asdict(),
-            'updated': datetime.now(),
-        })
-
+        # If any changes were made, update the link index json and html
         write_link_index(link.link_dir, link)
-        patch_links_index(link)
+        
+        was_changed = stats['succeeded'] or stats['failed']
+        if was_changed:
+            patch_links_index(link)
+
         log_link_archiving_finished(link.link_dir, link, is_new, stats)
 
     except KeyboardInterrupt:

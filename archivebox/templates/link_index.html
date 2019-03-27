@@ -6,68 +6,71 @@
             html, body {
                 width: 100%;
                 height: 100%;
-            }
-            body {
                 background-color: #ddd;
             }
             header {
-                width: 100%;
-                height: 90px;
                 background-color: #aa1e55;
+                padding-bottom: 12px;
+            }
+            small {
+                font-weight: 200;
+            }
+            .header-top {
+                width: 100%;
+                height: auto;
+                min-height: 40px;
                 margin: 0px;
                 text-align: center;
                 color: white;
-            }
-            header h1 {
-                padding-top: 5px;
-                padding-bottom: 5px;
-                margin: 0px;
+                font-size: calc(11px + 0.86vw);
                 font-weight: 200;
-                font-family: "Gill Sans", Helvetica, sans-serif;
-                font-size: calc(16px + 1vw);
+                padding: 4px 4px;
+                background-color: #aa1e55;
             }
-            .collapse-icon {
-                float: right;
-                color: black;
-                width: 126px;
-                font-size: 0.8em;
-                margin-top: 20px;
-                margin-right: 0px;
-                margin-left: -35px;
+            .nav > div {
+                min-height: 30px;
+                margin: 8px 0px;
             }
-            .nav-icon img {
-                float: left;
-                display: block;
-                margin-right: 13px;
-                color: black;
-                height: 53px;
-                margin-top: 12px;
-                margin-left: 10px;
+            .header-top a {
+                text-decoration: none;
+                color: rgba(0,0,0,0.6);
             }
-            .nav-icon img:hover {
+            .header-top a:hover {
+                text-decoration: none;
+                color: rgba(0,0,0,0.9);
+            }
+            .header-top .col-lg-4 {
+                text-align: center;
+                padding-top: 4px;
+                padding-bottom: 4px;
+            }
+            .header-archivebox img {
+                display: inline-block;
+                margin-right: 3px;
+                height: 30px;
+                margin-left: 12px;
+                margin-top: -4px;
+                margin-bottom: 2px;
+            }
+            .header-archivebox img:hover {
                 opacity: 0.5;
             }
-            .title-url {
-                color: black;
-                display: block;
-                width: 75%;
+            .header-url small {
                 white-space: nowrap;
-                overflow: hidden;
-                margin: auto;
+                font-weight: 200;
             }
-            .archive-page-header {
-                margin-top: 5px;
+            .header-url img {
+                height: 20px;
+                vertical-align: -2px;
+                margin-right: 4px;
+            }
+            
+            .info-row {
+                margin-top: 2px;
                 margin-bottom: 5px;
             }
-            .archive-page-header .alert {
+            .info-row .alert {
                 margin-bottom: 0px;
-            }
-            h1 small {
-                opacity: 0.4;
-                font-size: 0.6em;
-            }
-            h1 small:hover {
-                opacity: 0.8;
             }
             .card {
                 overflow: hidden;
@@ -87,18 +90,24 @@
                 max-height: 102px;
                 overflow: hidden;
             }
+            .card-title {
+                margin-bottom: 4px;
+            }
             .card-img-top {
                 border: 0px;
                 padding: 0px;
                 margin: 0px;
                 overflow: hidden;
                 opacity: 0.8;
-                border-top: 1px solid gray;
-                border-radius: 3px;
-                border-bottom: 1px solid #ddd;
+                border-top: 1px solid rgba(0,0,0,0);
+                border-radius: 4px;
+                border-bottom: 1px solid rgba(0,0,0,0);
                 height: 430px;
-                width: 400%;
+                width: 405%;
                 margin-bottom: -330px;
+                background-color: #333;
+                margin-left: -1%;
+                margin-right: -1%;
 
                 transform: scale(0.25); 
                 transform-origin: 0 0;
@@ -116,8 +125,7 @@
                 box-shadow: 0px -6px 13px 1px rgba(0,0,0,0.05);
             }
             .iframe-large {
-                height: 93%;
-                margin-top: -10px;
+                height: calc(100% - 40px);
             }
             .pdf-frame {
                 transform: none;
@@ -125,6 +133,9 @@
                 height: 160px;
                 margin-top: -60px;
                 margin-bottom: 0px;
+                transform: scale(1.1);
+                width: 100%;
+                margin-left: -10%;
             }
             img.external {
                 height: 30px;
@@ -138,13 +149,61 @@
                 border: 4px solid green;
             }
             .screenshot {
+                background-color: #333;
                 transform: none;
                 width: 100%;
-                height: auto;
+                min-height: 100px;
                 max-height: 100px;
                 margin-bottom: 0px;
                 object-fit: cover;
-                object-position: top;
+                object-position: top center;
+            }
+            .header-bottom {
+                border-top: 1px solid rgba(170, 30, 85, 0.9);
+                padding-bottom: 12px;
+                border-bottom: 5px solid rgb(170, 30, 85);
+                margin-bottom: -1px;
+
+                border-radius: 4px;
+                background-color: rgba(23, 22, 22, 0.88);
+                width: 98%;
+                border: 1px solid rgba(0,0,0,0.2);
+                box-shadow: 4px 4px 4px rgba(0,0,0,0.2);
+                margin-top: 5px;
+            }
+            .header-bottom-info {
+                color: #6f6f6f;
+                padding-top: 8px;
+                padding-bottom: 13px;
+            }
+
+            .header-bottom-info > div {
+                text-align: center;
+            }
+            .header-bottom-info h5 {
+                font-size: 1.1em;
+                font-weight: 200;
+                margin-top: 3px;
+                margin-bottom: 3px;
+                color: rgba(255, 255, 255, 0.74);
+            }
+            .info-chunk {
+                width: auto;
+                display:inline-block;
+                text-align: center;
+                margin: 10px 10px;
+                vertical-align: top;
+            }
+            .info-chunk .badge {
+                margin-top: 5px;
+            }
+            .header-bottom-frames .card-title {
+                padding-bottom: 0px;
+                font-size: 1.2vw;
+                margin-bottom: 5px;
+            }
+            .header-bottom-frames .card-text {
+                font-size: 0.9em;
             }
 
             @media(max-width: 1092px) {
@@ -164,131 +223,170 @@
                 .card {
                     margin-bottom: 5px;
                 }
-                header > h1 > a.collapse-icon, header > h1 > a.nav-icon {
+                header > h1 > a.header-url, header > h1 > a.header-archivebox {
                     display: none;
                 }
             }
         </style>
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+        <link rel="stylesheet" href="../../static/bootstrap.min.css">
     </head>
     <body>
         <header>
-            <h1 class="page-title">
-                <a href="../../index.html" class="nav-icon" title="Go to Main Index...">
-                    <img src="../../static/archive.png" alt="Archive Icon">
-                </a>
-                <a href="#" class="collapse-icon" style="text-decoration: none" title="Toggle info panel...">
-                    ▾
-                </a>
-                <img src="$favicon_url" height="20px"> $title<br/>
-                <a href="$url" class="title-url">
-                    <small>$base_url</small>
-                </a>
-            </h1>
-        </header>
-        <div class="site-header container-fluid">
-            <div class="row archive-page-header">
-                <div class="col-lg-4 alert well">
-                    Bookmarked: <small title="Timestamp: $timestamp">$bookmarked_date</small>
-                    &nbsp; | &nbsp;
-                    Last updated: <small title="Timestamp: $updated">$updated_date</small>
-                    &nbsp; | &nbsp;
-                    Total files: <small title="Archive methods">🗃 $num_outputs</small>
-                </div>
-                <div class="col-lg-4 alert well">
-                    Type: 
-                    <span class="badge badge-default">$extension</span>
-                    &nbsp; | &nbsp;
-                    Tags:
-                    <span class="badge badge-warning">$tags</span> 
-                    &nbsp; | &nbsp;
-                    Status:
-                    <span class="badge badge-$status_color">$status</span> 
-                </div>
-                <div class="col-lg-4 alert well">
-                    Archive Methods:
-                    <a href="index.json" title="JSON summary of archived link.">JSON</a> | 
-                    <a href="warc/" title="Any WARC archives for the page">WARC</a> | 
-                    <a href="media/" title="Audio, Video, and Subtitle files.">Media</a> | 
-                    <a href="git/" title="Any git repos at the url">Git Repos</a> | 
-                    <a href="favicon.ico" title="Any git repos at the url">Favicon</a> | 
-                    <a href="." title="Webserver-provided index of files directory.">See all files...</a>
-                </div>
-                <hr/>
-                <div class="col-lg-2">
-                    <div class="card selected-card">
-                      <iframe class="card-img-top" src="$archive_url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
-                      <div class="card-body">
-                        <a href="$archive_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                            <img src="../../static/external.png" class="external"/>
+            <div class="header-top container-fluid">
+                <div class="row nav">
+                    <div class="col-lg-6">
+                        <a href="../../index.html" class="header-archivebox" title="Go to Main Index...">
+                            <img src="../../static/archive.png" alt="Archive Icon">
+                            ArchiveBox:
                         </a>
-                        <a href="$archive_url" target="preview"><h4 class="card-title">Local Archive</h4></a>
-                        <p class="card-text">archive/$domain</p>
-                      </div>
+                        <a href="#">Page Details</a><br/>
+                        <small style="margin-top: 5px; display: block">
+                            <a href="../../index.html">Home</a> &nbsp; | &nbsp; 
+                            <a href="https://github.com/pirate/ArchiveBox">Github</a> &nbsp; | &nbsp; 
+                            <a href="https://github.com/pirate/ArchiveBox/wiki">Documentation</a>
+                        </small>
                     </div>
-                </div>
-                <div class="col-lg-2">
-                    <div class="card">
-                      <iframe class="card-img-top" src="$dom_url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
-                      <div class="card-body">
-                        <a href="$dom_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                            <img src="../../static/external.png" class="external"/>
-                        </a>
-                        <a href="$dom_url" target="preview"><h4 class="card-title">HTML</h4></a>
-                        <p class="card-text">archive/output.html</p>
-                      </div>
-                    </div>
-                </div>
-                <div class="col-lg-2">
-                    <div class="card">
-                      <iframe class="card-img-top pdf-frame" src="$pdf_url" scrolling="no"></iframe>
-                      <div class="card-body">
-                        <a href="$pdf_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                            <img src="../../static/external.png" class="external"/>
-                        </a>
-                        <a href="$pdf_url" target="preview" id="pdf-btn"><h4 class="card-title">PDF</h4></a>
-                        <p class="card-text">archive/output.pdf</p>
-                      </div>
-                    </div>
-                </div>
-                <div class="col-lg-2">
-                    <div class="card">
-                      <img class="card-img-top screenshot" src="$screenshot_url"></iframe>
-                      <div class="card-body">
-                        <a href="$screenshot_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                            <img src="../../static/external.png" class="external"/>
-                        </a>
-                        <a href="$screenshot_url" target="preview"><h4 class="card-title">Screenshot</h4></a>
-                        <p class="card-text">archive/screenshot.png</p>
-                      </div>
-                    </div>
-                </div>
-                <div class="col-lg-2">
-                    <div class="card">
-                      <iframe class="card-img-top" src="$url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
-                      <div class="card-body">
-                        <a href="$url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                            <img src="../../static/external.png" class="external"/>
-                        </a>
-                        <a href="$url" target="preview"><h4 class="card-title">Original</h4></a>
-                        <p class="card-text">$domain</p>
-                      </div>
-                    </div>
-                </div>
-                <div class="col-lg-2">
-                    <div class="card">
-                      <iframe class="card-img-top" src="$archive_org_url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
-                      <div class="card-body">
-                        <a href="$archive_org_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                            <img src="../../static/external.png" class="external"/>
-                        </a>
-                        <a href="$archive_org_url" target="preview"><h4 class="card-title">Archive.Org</h4></a>
-                        <p class="card-text">web.archive.org/web/...</p>
-                      </div>
+                    <div class="col-lg-6">
+                        <img src="$link_dir/$favicon_url" alt="Favicon">
+                        &nbsp; &nbsp;
+                        $title
+                        &nbsp; &nbsp;
+                        <small>
+                            <a href="$url" title="Toggle info panel..." class="header-url" title="$url">
+                                $base_url
+                            </a>
+                        </small>
+                        &nbsp; &nbsp;
+                        <a href="#" class="header-toggle">▾</a>
                     </div>
                 </div>
             </div>
-        </div>
+            <div class="header-bottom container-fluid">
+                <div class="row header-bottom-info">
+                    <div class="col-lg-4">
+                        <div title="Date bookmarked or imported" class="info-chunk">
+                            <h5>Added</h5>
+                            $bookmarked_date
+                        </div>
+                        <div title="Date first archived" class="info-chunk">
+                            <h5>First Archived</h5>
+                            $oldest_archive_date
+                        </div>
+                        <div title="Date last checked" class="info-chunk">
+                            <h5>Last Checked</h5>
+                            $updated_date
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="info-chunk">
+                            <h5>Type</h5>
+                            <div class="badge badge-default">$extension</div>
+                        </div>
+                        <div class="info-chunk">
+                            <h5>Tags</h5>
+                            <div class="badge badge-warning">$tags</div> 
+                        </div>
+                        <div class="info-chunk">
+                            <h5>Status</h5>
+                            <div class="badge badge-$status_color">$status</div>
+                        </div>
+                        <div class="info-chunk">
+                            <h5>Saved</h5>
+                            ✅  $num_outputs
+                        </div>
+                        <div class="info-chunk">
+                            <h5>Errors</h5>
+                            ❌  $num_failures
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="info-chunk">
+                            <h5>🗃 Files</h5>
+                            <a href="index.json" title="JSON summary of archived link.">JSON</a> | 
+                            <a href="warc/" title="Any WARC archives for the page">WARC</a> | 
+                            <a href="media/" title="Audio, Video, and Subtitle files.">Media</a> | 
+                            <a href="git/" title="Any git repos at the url">Git</a> | 
+                            <a href="favicon.ico" title="Any git repos at the url">Favicon</a> | 
+                            <a href="." title="Webserver-provided index of files directory.">See all...</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="row header-bottom-frames">
+                    <div class="col-lg-2">
+                        <div class="card selected-card">
+                          <iframe class="card-img-top" src="$archive_url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                          <div class="card-body">
+                            <a href="$archive_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                <img src="../../static/external.png" class="external"/>
+                            </a>
+                            <a href="$archive_url" target="preview"><h4 class="card-title">Local Archive</h4></a>
+                            <p class="card-text">archive/$domain</p>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2">
+                        <div class="card">
+                          <iframe class="card-img-top" src="$dom_url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                          <div class="card-body">
+                            <a href="$dom_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                <img src="../../static/external.png" class="external"/>
+                            </a>
+                            <a href="$dom_url" target="preview"><h4 class="card-title">HTML</h4></a>
+                            <p class="card-text">archive/output.html</p>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2">
+                        <div class="card">
+                          <iframe class="card-img-top pdf-frame" src="$pdf_url" scrolling="no"></iframe>
+                          <div class="card-body">
+                            <a href="$pdf_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                <img src="../../static/external.png" class="external"/>
+                            </a>
+                            <a href="$pdf_url" target="preview" id="pdf-btn"><h4 class="card-title">PDF</h4></a>
+                            <p class="card-text">archive/output.pdf</p>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2">
+                        <div class="card">
+                          <img class="card-img-top screenshot" src="$screenshot_url"></iframe>
+                          <div class="card-body">
+                            <a href="$screenshot_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                <img src="../../static/external.png" class="external"/>
+                            </a>
+                            <a href="$screenshot_url" target="preview"><h4 class="card-title">Screenshot</h4></a>
+                            <p class="card-text">archive/screenshot.png</p>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2">
+                        <div class="card">
+                          <iframe class="card-img-top" src="$url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                          <div class="card-body">
+                            <a href="$url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                <img src="../../static/external.png" class="external"/>
+                            </a>
+                            <a href="$url" target="preview"><h4 class="card-title">Original</h4></a>
+                            <p class="card-text">$domain</p>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2">
+                        <div class="card">
+                          <iframe class="card-img-top" src="$archive_org_url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                          <div class="card-body">
+                            <a href="$archive_org_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                <img src="../../static/external.png" class="external"/>
+                            </a>
+                            <a href="$archive_org_url" target="preview"><h4 class="card-title">Archive.Org</h4></a>
+                            <p class="card-text">web.archive.org/web/...</p>
+                          </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
         <iframe sandbox="allow-same-origin allow-scripts allow-forms" class="full-page-iframe" src="$archive_url" name="preview"></iframe>
     
         <script
@@ -321,14 +419,14 @@
             })
 
             // hide header when collapse icon is clicked
-            jQuery('.collapse-icon').on('click', function() {
-                if (jQuery('.collapse-icon').text().includes('▾')) {
-                    jQuery('.collapse-icon').text('▸')
-                    jQuery('.site-header').hide()
+            jQuery('.header-toggle').on('click', function() {
+                if (jQuery('.header-toggle').text().includes('▾')) {
+                    jQuery('.header-toggle').text('▸')
+                    jQuery('.header-bottom').hide()
                     jQuery('.full-page-iframe').addClass('iframe-large')
                 } else {
-                    jQuery('.collapse-icon').text('▾')
-                    jQuery('.site-header').show()
+                    jQuery('.header-toggle').text('▾')
+                    jQuery('.header-bottom').show()
                     jQuery('.full-page-iframe').removeClass('iframe-large')
                 }
                 return true

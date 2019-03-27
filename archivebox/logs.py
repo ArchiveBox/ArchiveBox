@@ -131,7 +131,7 @@ def log_link_archiving_started(link_dir: str, link: Link, is_new: bool):
 
     print('\n[{symbol_color}{symbol}{reset}] [{symbol_color}{now}{reset}] "{title}"'.format(
         symbol_color=ANSI['green' if is_new else 'black'],
-        symbol='+' if is_new else '*',
+        symbol='+' if is_new else '√',
         now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         title=link.title or link.base_url,
         **ANSI,
