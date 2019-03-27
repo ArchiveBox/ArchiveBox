@@ -1,15 +1,14 @@
 base32-crockford
 
-# pip
-# setuptools
-# ipdb
-# mypy
-# flake8
+setuptools
+ipdb
+mypy
+flake8
 
-# wpull
-# pywb
-# pyppeteer
-# GitPython
-# youtube-dl
-# archivenow
-# requests
+#wpull
+#pywb
+#pyppeteer
+#GitPython
+#youtube-dl
+#archivenow
+#requests
