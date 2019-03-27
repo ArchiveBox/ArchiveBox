@@ -1,29 +1,40 @@
+import os
 import sys
-from datetime import datetime
 
+from datetime import datetime
+from dataclasses import dataclass
 from typing import Optional
-from schema import Link, ArchiveResult, RuntimeStats
-from config import ANSI, REPO_DIR, OUTPUT_DIR
+
+from .schema import Link, ArchiveResult
+from .config import ANSI, REPO_DIR, OUTPUT_DIR
+
+
+@dataclass
+class RuntimeStats:
+    """mutable stats counter for logging archiving timing info to CLI output"""
+
+    skipped: int = 0
+    succeeded: int = 0
+    failed: int = 0
+
+    parse_start_ts: datetime = None
+    parse_end_ts: datetime = None
+
+    index_start_ts: datetime = None
+    index_end_ts: datetime = None
+
+    archiving_start_ts: datetime = None
+    archiving_end_ts: datetime = None
 
 # globals are bad, mmkay
-_LAST_RUN_STATS = RuntimeStats(
-    skipped=0,
-    succeeded=0,
-    failed=0,
+_LAST_RUN_STATS = RuntimeStats()
 
-    parse_start_ts=0,
-    parse_end_ts=0,
-
-    index_start_ts=0,
-    index_end_ts=0,
-
-    archiving_start_ts=0,
-    archiving_end_ts=0,
-)
 
 def pretty_path(path: str) -> str:
     """convert paths like .../ArchiveBox/archivebox/../output/abc into output/abc"""
-    return path.replace(REPO_DIR + '/', '')
+    pwd = os.path.abspath('.')
+    # parent = os.path.abspath(os.path.join(pwd, os.path.pardir))
+    return path.replace(pwd + '/', './')
 
 
 ### Parsing Stage

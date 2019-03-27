@@ -101,20 +101,18 @@ def write_json_links_index(out_dir: str, links: List[Link]) -> None:
 
     path = os.path.join(out_dir, 'index.json')
 
-    index_json = ArchiveIndex(
-        info='ArchiveBox Index',
-        source='https://github.com/pirate/ArchiveBox',
-        docs='https://github.com/pirate/ArchiveBox/wiki',
-        version=GIT_SHA,
-        num_links=len(links),
-        updated=datetime.now(),
-        links=links,
-    )
-
-    assert isinstance(index_json._asdict(), dict)
+    index_json = {
+        'info': 'ArchiveBox Index',
+        'source': 'https://github.com/pirate/ArchiveBox',
+        'docs': 'https://github.com/pirate/ArchiveBox/wiki',
+        'version': VERSION,
+        'num_links': len(links),
+        'updated': datetime.now(),
+        'links': links,
+    }
 
     with open(path, 'w', encoding='utf-8') as f:
-        json.dump(index_json._asdict(), f, indent=4, cls=ExtendedEncoder)
+        json.dump(index_json, f, indent=4, cls=ExtendedEncoder)
 
     chmod_file(path)
 

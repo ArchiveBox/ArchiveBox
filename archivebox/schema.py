@@ -268,38 +268,3 @@ class Link:
                 'dom_url': static_url,
             })
         return canonical
-
-
-@dataclass(frozen=True)
-class ArchiveIndex:
-    info: str
-    version: str
-    source: str
-    docs: str
-    num_links: int
-    updated: str
-    links: List[Link]
-    schema: str = 'ArchiveIndex'
-
-    def __post_init__(self):
-        assert self.schema == self.__class__.__name__
-
-    def _asdict(self):
-        return asdict(self)
-
-@dataclass
-class RuntimeStats:
-    """mutable stats counter for logging archiving timing info to CLI output"""
-
-    skipped: int
-    succeeded: int
-    failed: int
-
-    parse_start_ts: datetime
-    parse_end_ts: datetime
-
-    index_start_ts: datetime
-    index_end_ts: datetime
-
-    archiving_start_ts: datetime
-    archiving_end_ts: datetime
