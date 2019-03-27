@@ -51,11 +51,7 @@ def log_parsing_started(source_file: str):
 def log_parsing_finished(num_parsed: int, num_new_links: int, parser_name: str):
     end_ts = datetime.now()
     _LAST_RUN_STATS.parse_end_ts = end_ts
-    print('    > Parsed {} links as {}'.format(num_parsed, parser_name))
-    print('    > Adding {} new links to collection: {}'.format(
-        num_new_links,
-        OUTPUT_DIR,
-    ))
+    print('    > Parsed {} links as {} ({} new links added)'.format(num_parsed, parser_name, num_new_links))
 
 
 ### Indexing Stage
