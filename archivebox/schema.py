@@ -39,15 +39,24 @@ class Link:
     tags: Optional[str]
     sources: List[str]
     history: Dict[str, List[ArchiveResult]] = field(default_factory=lambda: {})
-    updated: Optional[str] = None
+    updated: Optional[datetime] = None
 
-    def __hash__(self):
-        return self.urlhash
+    def __post_init__(self):
+        """fix any history result items to be type-checked ArchiveResults"""
+        cast_history = {}
+        for method, method_history in self.history.items():
+            cast_history[method] = []
+            for result in method_history:
+                if isinstance(result, dict):
+                    result = ArchiveResult(**result)
+                cast_history[method].append(result)
+
+        object.__setattr__(self, 'history', cast_history)
 
     def __eq__(self, other):
         if not isinstance(other, Link):
             return NotImplemented
-        return self.urlhash == other.urlhash
+        return self.url == other.url
 
     def __gt__(self, other):
         if not isinstance(other, Link):

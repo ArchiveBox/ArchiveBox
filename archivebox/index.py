@@ -1,7 +1,6 @@
 import os
 import json
 
-from itertools import chain
 from datetime import datetime
 from string import Template
 from typing import List, Tuple, Iterator, Optional
@@ -20,13 +19,13 @@ from config import (
     FOOTER_INFO,
 )
 from util import (
+    merge_links,
     chmod_file,
     urlencode,
     derived_link_info,
     wget_output_path,
     ExtendedEncoder,
-    check_link_structure,
-    check_links_structure,
+    enforce_types,
 )
 from parse import parse_links
 from links import validate_links
@@ -43,6 +42,7 @@ TITLE_LOADING_MSG = 'Not yet archived...'
 
 ### Homepage index for all the links
 
+@enforce_types
 def write_links_index(out_dir: str, links: List[Link], finished: bool=False) -> None:
     """create index.html file for a given list of links"""
 
@@ -55,8 +55,9 @@ def write_links_index(out_dir: str, links: List[Link], finished: bool=False) -> 
     log_indexing_started(out_dir, 'index.html')
     write_html_links_index(out_dir, links, finished=finished)
     log_indexing_finished(out_dir, 'index.html')
-    
 
+
+@enforce_types
 def load_links_index(out_dir: str=OUTPUT_DIR, import_path: str=None) -> Tuple[List[Link], List[Link]]:
     """parse and load existing index with any new links from import_path merged in"""
 
@@ -81,6 +82,7 @@ def load_links_index(out_dir: str=OUTPUT_DIR, import_path: str=None) -> Tuple[Li
     return all_links, new_links
 
 
+@enforce_types
 def write_json_links_index(out_dir: str, links: List[Link]) -> None:
     """write the json link index to a given path"""
 
@@ -114,6 +116,7 @@ def write_json_links_index(out_dir: str, links: List[Link]) -> None:
     chmod_file(path)
 
 
+@enforce_types
 def parse_json_links_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
     """parse a archive index json file and return the list of links"""
 
@@ -121,13 +124,13 @@ def parse_json_links_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
     if os.path.exists(index_path):
         with open(index_path, 'r', encoding='utf-8') as f:
             links = json.load(f)['links']
-            check_links_structure(links)
             for link in links:
                 yield Link(**link)
 
     return ()
 
 
+@enforce_types
 def write_html_links_index(out_dir: str, links: List[Link], finished: bool=False) -> None:
     """write the html link index to a given path"""
 
@@ -151,6 +154,7 @@ def write_html_links_index(out_dir: str, links: List[Link], finished: bool=False
                 link.title
                 or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
             ),
+            'tags': link.tags or '',
             'favicon_url': (
                 os.path.join('archive', link.timestamp, 'favicon.ico')
                 # if link['is_archived'] else 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
@@ -179,6 +183,7 @@ def write_html_links_index(out_dir: str, links: List[Link], finished: bool=False
     chmod_file(path)
 
 
+@enforce_types
 def patch_links_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
     """hack to in-place update one row's info in the generated index html"""
 
@@ -218,11 +223,13 @@ def patch_links_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
 
 ### Individual link index
 
+@enforce_types
 def write_link_index(out_dir: str, link: Link) -> None:
     write_json_link_index(out_dir, link)
     write_html_link_index(out_dir, link)
 
 
+@enforce_types
 def write_json_link_index(out_dir: str, link: Link) -> None:
     """write a json file with some info about the link"""
     
@@ -234,29 +241,29 @@ def write_json_link_index(out_dir: str, link: Link) -> None:
     chmod_file(path)
 
 
+@enforce_types
 def parse_json_link_index(out_dir: str) -> Optional[Link]:
     """load the json link index from a given directory"""
     existing_index = os.path.join(out_dir, 'index.json')
     if os.path.exists(existing_index):
         with open(existing_index, 'r', encoding='utf-8') as f:
             link_json = json.load(f)
-            check_link_structure(link_json)
             return Link(**link_json)
     return None
 
 
+@enforce_types
 def load_json_link_index(out_dir: str, link: Link) -> Link:
     """check for an existing link archive in the given directory, 
        and load+merge it into the given link dict
     """
-
     existing_link = parse_json_link_index(out_dir)
-    existing_link = existing_link._asdict() if existing_link else {}
-    new_link = link._asdict()
+    if existing_link:
+        return merge_links(existing_link, link)
+    return link
 
-    return Link(**{**existing_link, **new_link})
 
-
+@enforce_types
 def write_html_link_index(out_dir: str, link: Link) -> None:
     with open(os.path.join(TEMPLATES_DIR, 'link_index.html'), 'r', encoding='utf-8') as f:
         link_html = f.read()

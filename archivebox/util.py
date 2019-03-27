@@ -4,7 +4,9 @@ import sys
 import time
 
 from json import JSONEncoder
-from typing import List, Optional, Iterable
+from typing import List, Optional, Any
+from inspect import signature, _empty
+from functools import wraps
 from hashlib import sha256
 from urllib.request import Request, urlopen
 from urllib.parse import urlparse, quote, unquote
@@ -22,7 +24,7 @@ from subprocess import (
 
 from base32_crockford import encode as base32_encode
 
-from schema import Link, LinkDict, ArchiveResult
+from schema import Link
 from config import (
     ANSI,
     TERM_WIDTH,
@@ -55,26 +57,13 @@ fragment = lambda url: urlparse(url).fragment
 extension = lambda url: basename(url).rsplit('.', 1)[-1].lower() if '.' in basename(url) else ''
 base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 
-
 without_www = lambda url: url.replace('://www.', '://', 1)
 without_trailing_slash = lambda url: url[:-1] if url[-1] == '/' else url.replace('/?', '?')
 fuzzy_url = lambda url: without_trailing_slash(without_www(without_scheme(url.lower())))
 
-short_ts = lambda ts: (
-    str(ts.timestamp()).split('.')[0]
-    if isinstance(ts, datetime) else
-    str(ts).split('.')[0]
-)
-ts_to_date = lambda ts: (
-    ts.strftime('%Y-%m-%d %H:%M')
-    if isinstance(ts, datetime) else
-    datetime.fromtimestamp(float(ts)).strftime('%Y-%m-%d %H:%M')
-)
-ts_to_iso = lambda ts: (
-    ts.isoformat()
-    if isinstance(ts, datetime) else
-    datetime.fromtimestamp(float(ts)).isoformat()
-)
+short_ts = lambda ts: str(parse_date(ts).timestamp()).split('.')[0]
+ts_to_date = lambda ts: parse_date(ts).strftime('%Y-%m-%d %H:%M')
+ts_to_iso = lambda ts: parse_date(ts).isoformat()
 
 urlencode = lambda s: s and quote(s, encoding='utf-8', errors='replace')
 urldecode = lambda s: s and unquote(s)
@@ -122,23 +111,46 @@ STATICFILE_EXTENSIONS = {
 
 ### Checks & Tests
 
-def check_link_structure(link: LinkDict) -> None:
-    """basic sanity check invariants to make sure the data is valid"""
-    assert isinstance(link, dict)
-    assert isinstance(link.get('url'), str)
-    assert len(link['url']) > 2
-    assert len(re.findall(URL_REGEX, link['url'])) == 1
-    if 'history' in link:
-        assert isinstance(link['history'], dict), 'history must be a Dict'
-        for key, val in link['history'].items():
-            assert isinstance(key, str)
-            assert isinstance(val, list), 'history must be a Dict[str, List], got: {}'.format(link['history'])
-    
-def check_links_structure(links: Iterable[LinkDict]) -> None:
-    """basic sanity check invariants to make sure the data is valid"""
-    assert isinstance(links, list)
-    if links:
-        check_link_structure(links[0])
+def enforce_types(func):
+    """
+    Checks parameters type signatures against arg and kwarg type hints.
+    """
+
+    @wraps(func)
+    def typechecked_function(*args, **kwargs):
+        sig = signature(func)
+
+        def check_argument_type(arg_key, arg_val):
+            try:
+                annotation = sig.parameters[arg_key].annotation
+            except KeyError:
+                annotation = _empty
+
+            if annotation is not _empty and annotation.__class__ is type:
+                if not isinstance(arg_val, annotation):
+                    raise TypeError(
+                        '{}(..., {}: {}) got unexpected {} argument {}={}'.format(
+                            func.__name__,
+                            arg_key,
+                            annotation.__name__,
+                            type(arg_val).__name__,
+                            arg_key,
+                            arg_val,
+                        )
+                    )
+
+        # check args
+        for arg_val, arg_key in zip(args, sig.parameters):
+            check_argument_type(arg_key, arg_val)
+
+        # check kwargs
+        for arg_key, arg_val in kwargs.items():
+            check_argument_type(arg_key, arg_val)
+
+        return func(*args, **kwargs)
+
+    return typechecked_function
+
 
 def check_url_parsing_invariants() -> None:
     """Check that plain text regex URL parsing works as expected"""
@@ -329,25 +341,98 @@ def str_between(string: str, start: str, end: str=None) -> str:
     return content
 
 
+def parse_date(date: Any) -> Optional[datetime]:
+    """Parse unix timestamps, iso format, and human-readable strings"""
+    
+    if isinstance(date, datetime):
+        return date
+
+    if date is None:
+        return None
+    
+    if isinstance(date, (float, int)):
+        date = str(date)
+
+    if isinstance(date, str):
+        if date.replace('.', '').isdigit():
+            timestamp = float(date)
+
+            EARLIEST_POSSIBLE = 473403600.0  # 1985
+            LATEST_POSSIBLE = 1735707600.0   # 2025
+
+            if EARLIEST_POSSIBLE < timestamp < LATEST_POSSIBLE:
+                # number is seconds
+                return datetime.fromtimestamp(timestamp)
+            elif EARLIEST_POSSIBLE * 1000 < timestamp < LATEST_POSSIBLE * 1000:
+                # number is milliseconds
+                return datetime.fromtimestamp(timestamp / 1000)
+
+            elif EARLIEST_POSSIBLE * 1000*1000 < timestamp < LATEST_POSSIBLE * 1000*1000:
+                # number is microseconds
+                return datetime.fromtimestamp(timestamp / (1000*1000))
+
+        if '-' in date:
+            try:
+                return datetime.fromisoformat(date)
+            except Exception:
+                try:
+                    return datetime.strptime(date, '%Y-%m-%d %H:%M')
+                except Exception:
+                    pass
+    
+    raise ValueError('Tried to parse invalid date! {}'.format(date))
+
+
+
 ### Link Helpers
 
+@enforce_types
 def merge_links(a: Link, b: Link) -> Link:
     """deterministially merge two links, favoring longer field values over shorter,
     and "cleaner" values over worse ones.
     """
-    a, b = a._asdict(), b._asdict()
-    longer = lambda key: (a[key] if len(a[key]) > len(b[key]) else b[key]) if (a[key] and b[key]) else (a[key] or b[key])
-    earlier = lambda key: a[key] if a[key] < b[key] else b[key]
-    
-    url = longer('url')
-    longest_title = longer('title')
-    cleanest_title = a['title'] if '://' not in (a['title'] or '') else b['title']
+    assert a.base_url == b.base_url, 'Cannot merge two links with different URLs'
+
+    url = a.url if len(a.url) > len(b.url) else b.url
+
+    possible_titles = [
+        title
+        for title in (a.title, b.title)
+        if title and title.strip() and '://' not in title
+    ]
+    title = None
+    if len(possible_titles) == 2:
+        title = max(possible_titles, key=lambda t: len(t))
+    elif len(possible_titles) == 1:
+        title = possible_titles[0]
+
+    timestamp = (
+        a.timestamp
+        if float(a.timestamp or 0) < float(b.timestamp or 0) else
+        b.timestamp
+    )
+
+    tags_set = (
+        set(tag.strip() for tag in (a.tags or '').split(','))
+        | set(tag.strip() for tag in (b.tags or '').split(','))
+    )
+    tags = ','.join(tags_set) or None
+
+    sources = list(set(a.sources + b.sources))
+
+    all_methods = (set(a.history.keys()) | set(a.history.keys()))
+    history = {
+        method: (a.history.get(method) or []) + (b.history.get(method) or [])
+        for method in all_methods
+    }
+
     return Link(
         url=url,
-        timestamp=earlier('timestamp'),
-        title=longest_title if '://' not in (longest_title or '') else cleanest_title,
-        tags=longer('tags'),
-        sources=list(set(a.get('sources', []) + b.get('sources', []))),
+        timestamp=timestamp,
+        title=title,
+        tags=tags,
+        sources=sources,
+        history=history,
     )
 
 def is_static_file(url: str) -> bool:
