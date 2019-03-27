@@ -150,6 +150,12 @@
             input[type=search]::-webkit-search-cancel-button {
                 -webkit-appearance: searchfield-cancel-button;
             }
+            .title-col {
+                text-align: left;
+            }
+            .title-col a {
+                color: black;
+            }
         </style>
         <link rel="stylesheet" href="static/bootstrap.min.css">
         <link rel="stylesheet" href="static/jquery.dataTables.min.css"/>
@@ -190,7 +196,7 @@
         <table id="table-bookmarks">
             <thead>
                 <tr>
-                    <th style="width: 80px;">Bookmarked</th>
+                    <th style="width: 100px;">Bookmarked</th>
                     <th style="width: 26vw;">Saved Link ($num_links)</th>
                     <th style="width: 50px">Files</th>
                     <th style="width: 16vw;whitespace:nowrap;overflow-x:hidden;">Original URL</th>
