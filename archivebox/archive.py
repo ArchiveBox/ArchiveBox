@@ -137,9 +137,13 @@ def main(args=None) -> None:
         index_exists = os.path.exists(os.path.join(OUTPUT_DIR, 'index.json'))
         if not_empty and not index_exists:
             print(
-                ('{red}[X] Could not find index.json in the OUTPUT_DIR: {reset}{}\n'
-                '    You must run ArchiveBox in an existing archive directory, \n'
-                '     or an empty/new directory to start a new archive collection.'
+                ("{red}[X] Could not find index.json in the OUTPUT_DIR: {reset}{}\n\n"
+                "    If you're trying to update an existing archive, you must set OUTPUT_DIR to or run archivebox from inside the archive folder you're trying to update.\n"
+                "    If you're trying to create a new archive, you must run archivebox inside a completely empty directory."
+                "\n\n"
+                "    {lightred}Hint:{reset} To import a data folder created by an older version of ArchiveBox, \n"
+                "    just cd into the folder and run the archivebox comamnd to pick up where you left off.\n\n"
+                "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
                 ).format(OUTPUT_DIR, **ANSI)
             )
             raise SystemExit(1)
