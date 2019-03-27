@@ -14,12 +14,14 @@ class ArchiveError(Exception):
 
 LinkDict = Dict[str, Any]
 
+ArchiveOutput = Union[str, Exception, None]
+
 @dataclass(frozen=True)
 class ArchiveResult:
     cmd: List[str]
     pwd: Optional[str]
     cmd_version: Optional[str]
-    output: Union[str, Exception, None]
+    output: ArchiveOutput
     status: str
     start_ts: datetime
     end_ts: datetime
@@ -211,31 +213,26 @@ class Link:
             domain(self.url),
         ))
 
-    def latest_outputs(self, status: str=None) -> Dict[str, Optional[str]]:
+    def latest_outputs(self, status: str=None) -> Dict[str, ArchiveOutput]:
         """get the latest output that each archive method produced for link"""
         
-        latest = {
-            'title': None,
-            'favicon': None,
-            'wget': None,
-            'warc': None,
-            'pdf': None,
-            'screenshot': None,
-            'dom': None,
-            'git': None,
-            'media': None,
-            'archive_org': None,
-        }
-        for archive_method in latest.keys():
+        ARCHIVE_METHODS = (
+            'title', 'favicon', 'wget', 'warc', 'pdf',
+            'screenshot', 'dom', 'git', 'media', 'archive_org',
+        )
+        latest: Dict[str, ArchiveOutput] = {}
+        for archive_method in ARCHIVE_METHODS:
             # get most recent succesful result in history for each archive method
             history = self.history.get(archive_method) or []
-            history = filter(lambda result: result.output, reversed(history))
+            history = list(filter(lambda result: result.output, reversed(history)))
             if status is not None:
-                history = filter(lambda result: result.status == status, history)
+                history = list(filter(lambda result: result.status == status, history))
 
             history = list(history)
             if history:
                 latest[archive_method] = history[0].output
+            else:
+                latest[archive_method] = None
 
         return latest
 
