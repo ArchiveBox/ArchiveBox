@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 from string import Template
 from typing import List, Tuple, Iterator, Optional
+from dataclasses import fields
 
 try:
     from distutils.dir_util import copy_tree
@@ -17,6 +18,7 @@ from config import (
     TEMPLATES_DIR,
     GIT_SHA,
     FOOTER_INFO,
+    TIMEOUT,
 )
 from util import (
     merge_links,
@@ -26,6 +28,7 @@ from util import (
     wget_output_path,
     ExtendedEncoder,
     enforce_types,
+    TimedProgress,
 )
 from parse import parse_links
 from links import validate_links
@@ -49,11 +52,15 @@ def write_links_index(out_dir: str, links: List[Link], finished: bool=False) -> 
     log_indexing_process_started()
 
     log_indexing_started(out_dir, 'index.json')
+    timer = TimedProgress(TIMEOUT * 2, prefix='      ')
     write_json_links_index(out_dir, links)
+    timer.end()
     log_indexing_finished(out_dir, 'index.json')
     
     log_indexing_started(out_dir, 'index.html')
+    timer = TimedProgress(TIMEOUT * 2, prefix='      ')
     write_html_links_index(out_dir, links, finished=finished)
+    timer.end()
     log_indexing_finished(out_dir, 'index.html')
 
 
