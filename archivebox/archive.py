@@ -48,13 +48,19 @@ def print_help():
     print("UI Usage:")
     print("    Open output/index.html to view your archive.\n")
     print("CLI Usage:")
-    print("    echo 'https://example.com' | ./archive\n")
-    print("    ./archive ~/Downloads/bookmarks_export.html\n")
-    print("    ./archive https://example.com/feed.rss\n")
-    print("    ./archive 15109948213.123\n")
+    print("    mkdir data; cd data/")
+    print("    archivebox init\n")
+    print("    echo 'https://example.com/some/page' | archivebox add")
+    print("    archivebox add https://example.com/some/other/page")
+    print("    archivebox add --depth=1 ~/Downloads/bookmarks_export.html")
+    print("    archivebox add --depth=1 https://example.com/feed.rss")
+    print("    archivebox update --resume=15109948213.123")
 
 
-def main(*args) -> List[Link]:
+def main(args=None) -> List[Link]:
+    if args is None:
+        args = sys.argv
+
     if set(args).intersection(('-h', '--help', 'help')) or len(args) > 2:
         print_help()
         raise SystemExit(0)
@@ -99,7 +105,7 @@ def main(*args) -> List[Link]:
         import_path = save_remote_source(import_path)
 
     ### Run the main archive update process
-    return update_archive_data(import_path=import_path, resume=resume)
+    update_archive_data(import_path=import_path, resume=resume)
 
 
 @enforce_types
@@ -138,4 +144,4 @@ def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]
     return all_links
 
 if __name__ == '__main__':
-    main(*sys.argv)
+    main(sys.argv)
