@@ -96,9 +96,9 @@ def parse_pocket_html_export(html_file: IO[str]) -> Iterable[Link]:
             title = match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '')
             
             yield Link(
-                url=url,
+                url=htmldecode(url),
                 timestamp=str(time.timestamp()),
-                title=title or None,
+                title=htmldecode(title) or None,
                 tags=tags or '',
                 sources=[html_file.name],
             )
@@ -149,10 +149,10 @@ def parse_json_export(json_file: IO[str]) -> Iterable[Link]:
                 title = link['name'].strip()
 
             yield Link(
-                url=url,
+                url=htmldecode(url),
                 timestamp=ts_str,
                 title=htmldecode(title) or None,
-                tags=link.get('tags') or '',
+                tags=htmldecode(link.get('tags')) or '',
                 sources=[json_file.name],
             )
 
@@ -187,10 +187,10 @@ def parse_rss_export(rss_file: IO[str]) -> Iterable[Link]:
         title = str_between(get_row('title'), '<![CDATA[', ']]').strip()
 
         yield Link(
-            url=url,
+            url=htmldecode(url),
             timestamp=str(time.timestamp()),
             title=htmldecode(title) or None,
-            tags='',
+            tags=None,
             sources=[rss_file.name],
         )
 
@@ -225,10 +225,10 @@ def parse_shaarli_rss_export(rss_file: IO[str]) -> Iterable[Link]:
         time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
 
         yield Link(
-            url=url,
+            url=htmldecode(url),
             timestamp=str(time.timestamp()),
             title=htmldecode(title) or None,
-            tags='',
+            tags=None,
             sources=[rss_file.name],
         )
 
@@ -250,10 +250,10 @@ def parse_netscape_html_export(html_file: IO[str]) -> Iterable[Link]:
             title = match.group(3).strip()
 
             yield Link(
-                url=url,
+                url=htmldecode(url),
                 timestamp=str(time.timestamp()),
                 title=htmldecode(title) or None,
-                tags='',
+                tags=None,
                 sources=[html_file.name],
             )
 
@@ -282,10 +282,10 @@ def parse_pinboard_rss_export(rss_file: IO[str]) -> Iterable[Link]:
             time = datetime.now()
 
         yield Link(
-            url=url,
+            url=htmldecode(url),
             timestamp=str(time.timestamp()),
             title=htmldecode(title) or None,
-            tags=tags or '',
+            tags=htmldecode(tags) or None,
             sources=[rss_file.name],
         )
 
@@ -304,10 +304,10 @@ def parse_medium_rss_export(rss_file: IO[str]) -> Iterable[Link]:
         time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %Z")
         
         yield Link(
-            url=url,
+            url=htmldecode(url),
             timestamp=str(time.timestamp()),
             title=htmldecode(title) or None,
-            tags='',
+            tags=None,
             sources=[rss_file.name],
         )
 
@@ -321,9 +321,9 @@ def parse_plain_text_export(text_file: IO[str]) -> Iterable[Link]:
         urls = re.findall(URL_REGEX, line) if line.strip() else ()
         for url in urls:
             yield Link(
-                url=url,
+                url=htmldecode(url),
                 timestamp=str(datetime.now().timestamp()),
                 title=None,
-                tags='',
+                tags=None,
                 sources=[text_file.name],
             )
