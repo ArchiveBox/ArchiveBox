@@ -164,7 +164,7 @@ class Link:
         from util import ts_to_date
 
         most_recent = min(
-            (result.start_ts
+            (ts_to_date(result.start_ts)
              for method in self.history.keys()
                 for result in self.history[method]),
             default=None,
@@ -176,7 +176,7 @@ class Link:
         from util import ts_to_date
 
         most_recent = max(
-            (result.start_ts
+            (ts_to_date(result.start_ts)
              for method in self.history.keys()
                 for result in self.history[method]),
             default=None,
