@@ -25,6 +25,7 @@ from .util import (
     enforce_types,
     TimedProgress,
     copy_and_overwrite,
+    atomic_write,
 )
 from .parse import parse_links
 from .links import validate_links
@@ -113,11 +114,7 @@ def write_json_links_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
         'updated': datetime.now(),
         'links': links,
     }
-
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(index_json, f, indent=4, cls=ExtendedEncoder)
-
-    chmod_file(path)
+    atomic_write(index_json, path)
 
 
 @enforce_types
@@ -141,15 +138,17 @@ def parse_json_links_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
 
 
 @enforce_types
-def write_html_links_index(out_dir: str, links: List[Link], finished: bool=False) -> None:
+def write_html_links_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=False) -> None:
     """write the html link index to a given path"""
 
     path = os.path.join(out_dir, 'index.html')
 
-    copy_and_overwrite(os.path.join(TEMPLATES_DIR, 'static'), os.path.join(out_dir, 'static'))
+    copy_and_overwrite(
+        os.path.join(TEMPLATES_DIR, 'static'),
+        os.path.join(out_dir, 'static'),
+    )
 
-    with open(os.path.join(out_dir, 'robots.txt'), 'w+') as f:
-        f.write('User-agent: *\nDisallow: /')
+    atomic_write('User-agent: *\nDisallow: /', os.path.join(out_dir, 'robots.txt'))
 
     with open(os.path.join(TEMPLATES_DIR, 'index.html'), 'r', encoding='utf-8') as f:
         index_html = f.read()
@@ -187,10 +186,8 @@ def write_html_links_index(out_dir: str, links: List[Link], finished: bool=False
         'status': 'finished' if finished else 'running',
     }
 
-    with open(path, 'w', encoding='utf-8') as f:
-        f.write(Template(index_html).substitute(**template_vars))
+    atomic_write(Template(index_html).substitute(**template_vars), path)
 
-    chmod_file(path)
 
 
 @enforce_types
@@ -225,8 +222,7 @@ def patch_links_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
             html[idx] = '<span>{}</span>'.format(successful)
             break
 
-    with open(html_path, 'w') as f:
-        f.write('\n'.join(html))
+    atomic_write('\n'.join(html), html_path)
 
 
 ### Individual link index
@@ -246,7 +242,7 @@ def write_json_link_index(link: Link, link_dir: Optional[str]=None) -> None:
     link_dir = link_dir or link.link_dir
     path = os.path.join(link_dir, 'index.json')
 
-    chmod_file(path)
+    atomic_write(link._asdict(), path)
 
 
 @enforce_types
@@ -279,23 +275,22 @@ def write_html_link_index(link: Link, link_dir: Optional[str]=None) -> None:
     with open(os.path.join(TEMPLATES_DIR, 'link_index.html'), 'r', encoding='utf-8') as f:
         link_html = f.read()
 
-    path = os.path.join(out_dir, 'index.html')
+    path = os.path.join(link_dir, 'index.html')
 
-    with open(path, 'w', encoding='utf-8') as f:
-        f.write(Template(link_html).substitute({
-            **derived_link_info(link),
-            'title': (
-                link.title
-                or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
-            ),
-            'archive_url': urlencode(
-                wget_output_path(link)
-                or (link.domain if link.is_archived else 'about:blank')
-            ),
-            'extension': link.extension or 'html',
-            'tags': link.tags or 'untagged',
-            'status': 'archived' if link.is_archived else 'not yet archived',
-            'status_color': 'success' if link.is_archived else 'danger',
-        }))
+    html_index = Template(link_html).substitute({
+        **derived_link_info(link),
+        'title': (
+            link.title
+            or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
+        ),
+        'archive_url': urlencode(
+            wget_output_path(link)
+            or (link.domain if link.is_archived else 'about:blank')
+        ),
+        'extension': link.extension or 'html',
+        'tags': link.tags or 'untagged',
+        'status': 'archived' if link.is_archived else 'not yet archived',
+        'status_color': 'success' if link.is_archived else 'danger',
+    })
 
-    chmod_file(path)
+    atomic_write(html_index, path)

@@ -670,3 +670,22 @@ class ExtendedEncoder(JSONEncoder):
             return tuple(obj)
 
         return JSONEncoder.default(self, obj)
+
+
+def atomic_write(contents: Union[dict, str], path: str):
+    """Safe atomic file write and swap using a tmp file"""
+    try:
+        tmp_file = '{}.tmp'.format(path)
+        with open(tmp_file, 'w+', encoding='utf-8') as f:
+            if isinstance(contents, dict):
+                json.dump(contents, f, indent=4, cls=ExtendedEncoder)
+            else:
+                f.write(contents)
+            
+            os.fsync(f.fileno())
+
+        os.rename(tmp_file, path)
+        chmod_file(path)
+    finally:
+        if os.path.exists(tmp_file):
+            os.remove(tmp_file)
