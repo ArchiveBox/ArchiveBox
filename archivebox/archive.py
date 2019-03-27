@@ -8,6 +8,7 @@ but you can also run it directly using `python3 archive.py`
 Usage & Documentation:
     https://github.com/pirate/ArchiveBox/Wiki
 """
+__package__ = 'archivebox'
 
 import os
 import sys
