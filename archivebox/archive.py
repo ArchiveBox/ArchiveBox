@@ -24,6 +24,7 @@ from config import (
     GIT_SHA,
 )
 from util import (
+    enforce_types,
     save_remote_source,
     save_stdin_source,
 )
@@ -100,7 +101,8 @@ def main(*args) -> List[Link]:
     return update_archive_data(import_path=import_path, resume=resume)
 
 
-def update_archive_data(import_path: str=None, resume: float=None) -> List[Link]:
+@enforce_types
+def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]=None) -> List[Link]:
     """The main ArchiveBox entrancepoint. Everything starts here."""
 
     # Step 1: Load list of links from the existing index

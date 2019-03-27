@@ -42,6 +42,7 @@ from config import (
     YOUTUBEDL_VERSION,
 )
 from util import (
+    enforce_types,
     domain,
     extension,
     without_query,
@@ -63,6 +64,7 @@ from logs import (
 )
 
 
+@enforce_types
 def archive_link(link: Link, page=None) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
@@ -126,6 +128,7 @@ def archive_link(link: Link, page=None) -> Link:
 
 ### Archive Method Functions
 
+@enforce_types
 def should_fetch_title(link_dir: str, link: Link) -> bool:
     # if link already has valid title, skip it
     if link.title and not link.title.lower().startswith('http'):
@@ -136,6 +139,7 @@ def should_fetch_title(link_dir: str, link: Link) -> bool:
 
     return FETCH_TITLE
 
+@enforce_types
 def fetch_title(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """try to guess the page's title from its content"""
 
@@ -169,12 +173,14 @@ def fetch_title(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResul
     )
 
 
+@enforce_types
 def should_fetch_favicon(link_dir: str, link: Link) -> bool:
     if os.path.exists(os.path.join(link_dir, 'favicon.ico')):
         return False
 
     return FETCH_FAVICON
-
+    
+@enforce_types
 def fetch_favicon(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """download site favicon from google's favicon api"""
 
@@ -207,6 +213,7 @@ def fetch_favicon(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveRes
         **timer.stats,
     )
 
+@enforce_types
 def should_fetch_wget(link_dir: str, link: Link) -> bool:
     output_path = wget_output_path(link)
     if output_path and os.path.exists(os.path.join(link_dir, output_path)):
@@ -215,6 +222,7 @@ def should_fetch_wget(link_dir: str, link: Link) -> bool:
     return FETCH_WGET
 
 
+@enforce_types
 def fetch_wget(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """download full site using wget"""
 
@@ -294,6 +302,7 @@ def fetch_wget(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult
         **timer.stats,
     )
 
+@enforce_types
 def should_fetch_pdf(link_dir: str, link: Link) -> bool:
     if is_static_file(link.url):
         return False
@@ -304,6 +313,7 @@ def should_fetch_pdf(link_dir: str, link: Link) -> bool:
     return FETCH_PDF
 
 
+@enforce_types
 def fetch_pdf(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """print PDF of site to file using chrome --headless"""
 
@@ -338,6 +348,7 @@ def fetch_pdf(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
         **timer.stats,
     )
 
+@enforce_types
 def should_fetch_screenshot(link_dir: str, link: Link) -> bool:
     if is_static_file(link.url):
         return False
@@ -347,6 +358,7 @@ def should_fetch_screenshot(link_dir: str, link: Link) -> bool:
 
     return FETCH_SCREENSHOT
 
+@enforce_types
 def fetch_screenshot(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """take screenshot of site using chrome --headless"""
 
@@ -381,6 +393,7 @@ def fetch_screenshot(link_dir: str, link: Link, timeout: int=TIMEOUT) -> Archive
         **timer.stats,
     )
 
+@enforce_types
 def should_fetch_dom(link_dir: str, link: Link) -> bool:
     if is_static_file(link.url):
         return False
@@ -390,6 +403,7 @@ def should_fetch_dom(link_dir: str, link: Link) -> bool:
 
     return FETCH_DOM
     
+@enforce_types
 def fetch_dom(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """print HTML of site to file using chrome --dump-html"""
 
@@ -426,6 +440,7 @@ def fetch_dom(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
         **timer.stats,
     )
 
+@enforce_types
 def should_fetch_git(link_dir: str, link: Link) -> bool:
     if is_static_file(link.url):
         return False
@@ -443,6 +458,7 @@ def should_fetch_git(link_dir: str, link: Link) -> bool:
     return FETCH_GIT
 
 
+@enforce_types
 def fetch_git(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """download full site using git"""
 
@@ -485,6 +501,7 @@ def fetch_git(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     )
 
 
+@enforce_types
 def should_fetch_media(link_dir: str, link: Link) -> bool:
     if is_static_file(link.url):
         return False
@@ -494,6 +511,7 @@ def should_fetch_media(link_dir: str, link: Link) -> bool:
 
     return FETCH_MEDIA
 
+@enforce_types
 def fetch_media(link_dir: str, link: Link, timeout: int=MEDIA_TIMEOUT) -> ArchiveResult:
     """Download playlists or individual video, audio, and subtitles using youtube-dl"""
 
@@ -557,6 +575,7 @@ def fetch_media(link_dir: str, link: Link, timeout: int=MEDIA_TIMEOUT) -> Archiv
     )
 
 
+@enforce_types
 def should_fetch_archive_dot_org(link_dir: str, link: Link) -> bool:
     if is_static_file(link.url):
         return False
@@ -567,6 +586,7 @@ def should_fetch_archive_dot_org(link_dir: str, link: Link) -> bool:
 
     return SUBMIT_ARCHIVE_DOT_ORG
 
+@enforce_types
 def archive_dot_org(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveResult:
     """submit site to archive.org for archiving via their service, save returned archive url"""
 
@@ -622,6 +642,7 @@ def archive_dot_org(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveR
         **timer.stats,
     )
 
+@enforce_types
 def parse_archive_dot_org_response(response: bytes) -> Tuple[List[str], List[str]]:
     # Parse archive.org response headers
     headers: Dict[str, List[str]] = defaultdict(list)

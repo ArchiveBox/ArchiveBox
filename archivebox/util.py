@@ -91,7 +91,7 @@ STATICFILE_EXTENSIONS = {
     'gif', 'jpeg', 'jpg', 'png', 'tif', 'tiff', 'wbmp', 'ico', 'jng', 'bmp',
     'svg', 'svgz', 'webp', 'ps', 'eps', 'ai',
     'mp3', 'mp4', 'm4a', 'mpeg', 'mpg', 'mkv', 'mov', 'webm', 'm4v', 
-    'flv', 'wmv', 'avi', 'ogg', 'ts', 'm3u8'
+    'flv', 'wmv', 'avi', 'ogg', 'ts', 'm3u8',
     'pdf', 'txt', 'rtf', 'rtfd', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
     'atom', 'rss', 'css', 'js', 'json',
     'dmg', 'iso', 'img',
@@ -113,8 +113,9 @@ STATICFILE_EXTENSIONS = {
 
 def enforce_types(func):
     """
-    Checks parameters type signatures against arg and kwarg type hints.
+    Enforce function arg and kwarg types at runtime using its python3 type hints
     """
+    # TODO: check return type as well
 
     @wraps(func)
     def typechecked_function(*args, **kwargs):
@@ -183,6 +184,7 @@ def check_url_parsing_invariants() -> None:
 
 ### Random Helpers
 
+@enforce_types
 def save_stdin_source(raw_text: str) -> str:
     if not os.path.exists(SOURCES_DIR):
         os.makedirs(SOURCES_DIR)
@@ -196,6 +198,8 @@ def save_stdin_source(raw_text: str) -> str:
 
     return source_path
 
+
+@enforce_types
 def save_remote_source(url: str, timeout: int=TIMEOUT) -> str:
     """download a given url's content into output/sources/domain-<timestamp>.txt"""
 
@@ -233,6 +237,8 @@ def save_remote_source(url: str, timeout: int=TIMEOUT) -> str:
 
     return source_path
 
+
+@enforce_types
 def fetch_page_title(url: str, timeout: int=10, progress: bool=SHOW_PROGRESS) -> Optional[str]:
     """Attempt to guess a page's title by downloading the html"""
     
@@ -255,6 +261,8 @@ def fetch_page_title(url: str, timeout: int=10, progress: bool=SHOW_PROGRESS) ->
         # ))
         return None
 
+
+@enforce_types
 def wget_output_path(link: Link) -> Optional[str]:
     """calculate the path to the wgetted .html file, since wget may
     adjust some paths to be different than the base_url path.
@@ -323,14 +331,17 @@ def wget_output_path(link: Link) -> Optional[str]:
     return None
 
 
+@enforce_types
 def read_js_script(script_name: str) -> str:
     script_path = os.path.join(PYTHON_PATH, 'scripts', script_name)
 
     with open(script_path, 'r') as f:
         return f.read().split('// INFO BELOW HERE')[0].strip()
 
+
 ### String Manipulation & Logging Helpers
 
+@enforce_types
 def str_between(string: str, start: str, end: str=None) -> str:
     """(<abc>12345</def>, <abc>, </def>)  ->  12345"""
 
@@ -341,6 +352,7 @@ def str_between(string: str, start: str, end: str=None) -> str:
     return content
 
 
+@enforce_types
 def parse_date(date: Any) -> Optional[datetime]:
     """Parse unix timestamps, iso format, and human-readable strings"""
     
@@ -435,6 +447,8 @@ def merge_links(a: Link, b: Link) -> Link:
         history=history,
     )
 
+
+@enforce_types
 def is_static_file(url: str) -> bool:
     """Certain URLs just point to a single static file, and 
        don't need to be re-archived in many formats
@@ -443,6 +457,8 @@ def is_static_file(url: str) -> bool:
     # TODO: the proper way is with MIME type detection, not using extension
     return extension(url) in STATICFILE_EXTENSIONS
 
+
+@enforce_types
 def derived_link_info(link: Link) -> dict:
     """extend link info with the archive urls and other derived data"""
 
@@ -518,6 +534,7 @@ class TimedProgress:
             sys.stdout.flush()
 
 
+@enforce_types
 def progress_bar(seconds: int, prefix: str='') -> None:
     """show timer in the form of progress bar, with percentage and seconds remaining"""
     chunk = '█' if sys.stdout.encoding == 'UTF-8' else '#'
@@ -557,6 +574,7 @@ def progress_bar(seconds: int, prefix: str='') -> None:
         pass
 
 
+@enforce_types
 def download_url(url: str, timeout: int=TIMEOUT) -> str:
     """Download the contents of a remote url and return the text"""
 
@@ -572,6 +590,8 @@ def download_url(url: str, timeout: int=TIMEOUT) -> str:
     encoding = resp.headers.get_content_charset() or 'utf-8'
     return resp.read().decode(encoding)
 
+
+@enforce_types
 def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS, timeout: int=30) -> None:
     """chmod -R <permissions> <cwd>/<path>"""
 
@@ -584,6 +604,7 @@ def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS, tim
         raise Exception('Failed to chmod {}/{}'.format(cwd, path))
 
 
+@enforce_types
 def chrome_args(**options) -> List[str]:
     """helper to build up a chrome shell command with arguments"""
 

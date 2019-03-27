@@ -46,6 +46,10 @@ CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',   None)
 CHROME_HEADLESS =        os.getenv('CHROME_HEADLESS',        'True'             ).lower() == 'true'
 CHROME_USER_AGENT =      os.getenv('CHROME_USER_AGENT',      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36')
 
+USE_CURL =               os.getenv('USE_CURL',               'True'             ).lower() == 'true'
+USE_WGET =               os.getenv('USE_WGET',               'True'             ).lower() == 'true'
+USE_CHROME =             os.getenv('USE_CHROME',             'True'             ).lower() == 'true'
+
 CURL_BINARY =            os.getenv('CURL_BINARY',            'curl')
 GIT_BINARY =             os.getenv('GIT_BINARY',             'git')
 WGET_BINARY =            os.getenv('WGET_BINARY',            'wget')
@@ -195,13 +199,19 @@ try:
         print('        env PYTHONIOENCODING=UTF-8 ./archive.py export.html')
 
     ### Make sure curl is installed
-    USE_CURL = FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG
+    if USE_CURL:
+        USE_CURL = FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG
+    else:
+        FETCH_FAVICON = SUBMIT_ARCHIVE_DOT_ORG = False
     CURL_VERSION = None
     if USE_CURL:
         CURL_VERSION = check_version(CURL_BINARY)
 
     ### Make sure wget is installed and calculate version
-    USE_WGET = FETCH_WGET or FETCH_WARC
+    if USE_WGET:
+        USE_WGET = FETCH_WGET or FETCH_WARC
+    else:
+        FETCH_WGET = FETCH_WARC = False
     WGET_VERSION = None
     if USE_WGET:
         WGET_VERSION = check_version(WGET_BINARY)
@@ -222,17 +232,21 @@ try:
         check_version(YOUTUBEDL_BINARY)
 
     ### Make sure chrome is installed and calculate version
-    USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
+    if USE_CHROME:
+        USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
+    else:
+        FETCH_PDF = FETCH_SCREENSHOT = FETCH_DOM = False
     CHROME_VERSION = None
     if USE_CHROME:
         if CHROME_BINARY is None:
             CHROME_BINARY = find_chrome_binary()
-        CHROME_VERSION = check_version(CHROME_BINARY)
-        # print('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
+        if CHROME_BINARY:
+            CHROME_VERSION = check_version(CHROME_BINARY)
+            # print('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
 
-        if CHROME_USER_DATA_DIR is None:
-            CHROME_USER_DATA_DIR = find_chrome_data_dir()
-        # print('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
+            if CHROME_USER_DATA_DIR is None:
+                CHROME_USER_DATA_DIR = find_chrome_data_dir()
+            # print('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
 
     CHROME_OPTIONS = {
         'TIMEOUT': TIMEOUT,

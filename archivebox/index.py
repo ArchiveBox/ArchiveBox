@@ -58,7 +58,7 @@ def write_links_index(out_dir: str, links: List[Link], finished: bool=False) -> 
 
 
 @enforce_types
-def load_links_index(out_dir: str=OUTPUT_DIR, import_path: str=None) -> Tuple[List[Link], List[Link]]:
+def load_links_index(out_dir: str=OUTPUT_DIR, import_path: Optional[str]=None) -> Tuple[List[Link], List[Link]]:
     """parse and load existing index with any new links from import_path merged in"""
 
     existing_links: List[Link] = []

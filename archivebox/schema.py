@@ -23,6 +23,10 @@ class ArchiveResult:
     status: str
     start_ts: datetime
     end_ts: datetime
+    schema: str = 'ArchiveResult'
+
+    def __post_init__(self):
+        assert self.schema == self.__class__.__name__
 
     def _asdict(self):
         return asdict(self)
@@ -40,9 +44,11 @@ class Link:
     sources: List[str]
     history: Dict[str, List[ArchiveResult]] = field(default_factory=lambda: {})
     updated: Optional[datetime] = None
+    schema: str = 'Link'
 
     def __post_init__(self):
         """fix any history result items to be type-checked ArchiveResults"""
+        assert self.schema == self.__class__.__name__
         cast_history = {}
         for method, method_history in self.history.items():
             cast_history[method] = []
@@ -67,6 +73,7 @@ class Link:
     
     def _asdict(self, extended=False):
         info = {
+            'schema': 'Link',
             'url': self.url,
             'title': self.title or None,
             'timestamp': self.timestamp,
@@ -234,12 +241,18 @@ class ArchiveIndex:
     num_links: int
     updated: str
     links: List[Link]
+    schema: str = 'ArchiveIndex'
+
+    def __post_init__(self):
+        assert self.schema == self.__class__.__name__
 
     def _asdict(self):
         return asdict(self)
 
 @dataclass
 class RuntimeStats:
+    """mutable stats counter for logging archiving timing info to CLI output"""
+
     skipped: int
     succeeded: int
     failed: int
