@@ -108,60 +108,60 @@ class Link:
 
     @property
     def link_dir(self) -> str:
-        from config import ARCHIVE_DIR
+        from .config import ARCHIVE_DIR
         return os.path.join(ARCHIVE_DIR, self.timestamp)
 
     @property
     def archive_path(self) -> str:
-        from config import ARCHIVE_DIR_NAME
+        from .config import ARCHIVE_DIR_NAME
         return '{}/{}'.format(ARCHIVE_DIR_NAME, self.timestamp)
     
     ### URL Helpers
     @property
     def urlhash(self):
-        from util import hashurl
+        from .util import hashurl
 
         return hashurl(self.url)
 
     @property
     def extension(self) -> str:
-        from util import extension
+        from .util import extension
         return extension(self.url)
 
     @property
     def domain(self) -> str:
-        from util import domain
+        from .util import domain
         return domain(self.url)
 
     @property
     def path(self) -> str:
-        from util import path
+        from .util import path
         return path(self.url)
 
     @property
     def basename(self) -> str:
-        from util import basename
+        from .util import basename
         return basename(self.url)
 
     @property
     def base_url(self) -> str:
-        from util import base_url
+        from .util import base_url
         return base_url(self.url)
 
     ### Pretty Printing Helpers
     @property
     def bookmarked_date(self) -> Optional[str]:
-        from util import ts_to_date
+        from .util import ts_to_date
         return ts_to_date(self.timestamp) if self.timestamp else None
 
     @property
     def updated_date(self) -> Optional[str]:
-        from util import ts_to_date
+        from .util import ts_to_date
         return ts_to_date(self.updated) if self.updated else None
 
     @property
     def oldest_archive_date(self) -> Optional[datetime]:
-        from util import ts_to_date
+        from .util import ts_to_date
 
         most_recent = min(
             (ts_to_date(result.start_ts)
@@ -173,7 +173,7 @@ class Link:
 
     @property
     def newest_archive_date(self) -> Optional[datetime]:
-        from util import ts_to_date
+        from .util import ts_to_date
 
         most_recent = max(
             (ts_to_date(result.start_ts)
@@ -197,13 +197,13 @@ class Link:
 
     @property
     def is_static(self) -> bool:
-        from util import is_static_file
+        from .util import is_static_file
         return is_static_file(self.url)
 
     @property
     def is_archived(self) -> bool:
-        from config import ARCHIVE_DIR
-        from util import domain
+        from .config import ARCHIVE_DIR
+        from .util import domain
 
         return os.path.exists(os.path.join(
             ARCHIVE_DIR,
@@ -240,7 +240,7 @@ class Link:
         return latest
 
     def canonical_outputs(self) -> Dict[str, Optional[str]]:
-        from util import wget_output_path
+        from .util import wget_output_path
         canonical = {
             'index_url': 'index.html',
             'favicon_url': 'favicon.ico',

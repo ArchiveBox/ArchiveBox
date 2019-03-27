@@ -25,8 +25,8 @@ from subprocess import (
 
 from base32_crockford import encode as base32_encode
 
-from schema import Link
-from config import (
+from .schema import Link
+from .config import (
     ANSI,
     TERM_WIDTH,
     SOURCES_DIR,
@@ -37,9 +37,9 @@ from config import (
     CHECK_SSL_VALIDITY,
     WGET_USER_AGENT,
     CHROME_OPTIONS,
-    PYTHON_PATH,
+    PYTHON_DIR,
 )
-from logs import pretty_path
+from .logs import pretty_path
 
 ### Parsing Helpers
 
@@ -334,7 +334,7 @@ def wget_output_path(link: Link) -> Optional[str]:
 
 @enforce_types
 def read_js_script(script_name: str) -> str:
-    script_path = os.path.join(PYTHON_PATH, 'scripts', script_name)
+    script_path = os.path.join(PYTHON_DIR, 'scripts', script_name)
 
     with open(script_path, 'r') as f:
         return f.read().split('// INFO BELOW HERE')[0].strip()

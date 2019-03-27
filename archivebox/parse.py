@@ -24,8 +24,8 @@ from typing import Tuple, List, IO, Iterable
 from datetime import datetime
 import xml.etree.ElementTree as etree
 
-from config import TIMEOUT
-from util import (
+from .config import TIMEOUT
+from .util import (
     htmldecode,
     str_between,
     URL_REGEX,

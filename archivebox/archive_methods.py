@@ -4,13 +4,13 @@ from typing import Dict, List, Tuple
 from collections import defaultdict
 from datetime import datetime
 
-from schema import Link, ArchiveResult, ArchiveError
-from index import (
+from .schema import Link, ArchiveResult, ArchiveError
+from .index import (
     write_link_index,
     patch_links_index,
     load_json_link_index,
 )
-from config import (
+from .config import (
     CURL_BINARY,
     GIT_BINARY,
     WGET_BINARY,
@@ -31,7 +31,7 @@ from config import (
     ANSI,
     OUTPUT_DIR,
     GIT_DOMAINS,
-    GIT_SHA,
+    VERSION,
     WGET_USER_AGENT,
     CHECK_SSL_VALIDITY,
     COOKIES_FILE,
@@ -43,7 +43,7 @@ from config import (
     ONLY_NEW,
     WGET_AUTO_COMPRESSION,
 )
-from util import (
+from .util import (
     enforce_types,
     domain,
     extension,
@@ -58,7 +58,7 @@ from util import (
     run, PIPE, DEVNULL,
     Link,
 )
-from logs import (
+from .logs import (
     log_link_archiving_started,
     log_link_archiving_finished,
     log_archive_method_started,
@@ -122,6 +122,7 @@ def archive_link(link: Link, page=None) -> Link:
         was_changed = stats['succeeded'] or stats['failed']
         if was_changed:
             patch_links_index(link)
+
 
         log_link_archiving_finished(link.link_dir, link, is_new, stats)
 
@@ -606,7 +607,7 @@ def archive_dot_org(link_dir: str, link: Link, timeout: int=TIMEOUT) -> ArchiveR
         CURL_BINARY,
         '--location',
         '--head',
-        '--user-agent', 'ArchiveBox/{} (+https://github.com/pirate/ArchiveBox/)'.format(GIT_SHA),  # be nice to the Archive.org people and show them where all this ArchiveBox traffic is coming from
+        '--user-agent', 'ArchiveBox/{} (+https://github.com/pirate/ArchiveBox/)'.format(VERSION),  # be nice to the Archive.org people and show them where all this ArchiveBox traffic is coming from
         '--max-time', str(timeout),
         *(() if CHECK_SSL_VALIDITY else ('--insecure',)),
         submit_url,

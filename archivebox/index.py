@@ -6,15 +6,16 @@ from string import Template
 from typing import List, Tuple, Iterator, Optional
 from dataclasses import fields
 
-from schema import Link, ArchiveIndex, ArchiveResult
-from config import (
+from .schema import Link, ArchiveResult
+from .config import (
     OUTPUT_DIR,
     TEMPLATES_DIR,
+    VERSION,
     GIT_SHA,
     FOOTER_INFO,
     TIMEOUT,
 )
-from util import (
+from .util import (
     merge_links,
     chmod_file,
     urlencode,
@@ -25,9 +26,9 @@ from util import (
     TimedProgress,
     copy_and_overwrite,
 )
-from parse import parse_links
-from links import validate_links
-from logs import (
+from .parse import parse_links
+from .links import validate_links
+from .logs import (
     log_indexing_process_started,
     log_indexing_started,
     log_indexing_finished,
@@ -178,8 +179,8 @@ def write_html_links_index(out_dir: str, links: List[Link], finished: bool=False
         'date_updated': datetime.now().strftime('%Y-%m-%d'),
         'time_updated': datetime.now().strftime('%Y-%m-%d %H:%M'),
         'footer_info': FOOTER_INFO,
+        'version': VERSION,
         'git_sha': GIT_SHA,
-        'short_git_sha': GIT_SHA[:8],
         'rows': link_rows,
         'status': 'finished' if finished else 'running',
     }

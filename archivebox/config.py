@@ -40,7 +40,7 @@ SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             
 CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
 RESOLUTION =             os.getenv('RESOLUTION',             '1440,2000'        )
 GIT_DOMAINS =            os.getenv('GIT_DOMAINS',            'github.com,bitbucket.org,gitlab.com').split(',')
-WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox/{GIT_SHA} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}')
+WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox/{VERSION} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}')
 COOKIES_FILE =           os.getenv('COOKIES_FILE',           None)
 CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',   None)
 CHROME_HEADLESS =        os.getenv('CHROME_HEADLESS',        'True'             ).lower() == 'true'
@@ -163,21 +163,13 @@ def find_chrome_data_dir() -> Optional[str]:
     return None
 
 
-def get_git_version() -> str:
-    """get the git commit hash of the python code folder (aka code version)"""
-    try:
-        return run([GIT_BINARY, 'rev-list', '-1', 'HEAD', './'], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
-    except Exception:
-        print('[!] Warning: unable to determine git version, is git installed and in your $PATH?')
-    return 'unknown'
-
-
 # ******************************************************************************
 # ************************ Environment & Dependencies **************************
 # ******************************************************************************
 
 try:
-    GIT_SHA = get_git_version()
+    VERSION = open(os.path.join(PYTHON_DIR, 'VERSION'), 'r').read().strip()
+    GIT_SHA = VERSION.split('+')[1]
 
     ### Terminal Configuration
     TERM_WIDTH = lambda: shutil.get_terminal_size((100, 10)).columns
@@ -234,7 +226,7 @@ try:
         WGET_AUTO_COMPRESSION = not run([WGET_BINARY, "--compression=auto", "--help"], stdout=DEVNULL).returncode
         
     WGET_USER_AGENT = WGET_USER_AGENT.format(
-        GIT_SHA=GIT_SHA[:9],
+        VERSION=VERSION,
         WGET_VERSION=WGET_VERSION or '',
     )
 

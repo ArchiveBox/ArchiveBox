@@ -13,32 +13,35 @@ __package__ = 'archivebox'
 import os
 import sys
 
+
 from typing import List, Optional
 
-from schema import Link
-from links import links_after_timestamp
-from index import write_links_index, load_links_index
-from archive_methods import archive_link
-from config import (
+from .schema import Link
+from .links import links_after_timestamp
+from .index import write_links_index, load_links_index
+from .archive_methods import archive_link
+from .config import (
     ONLY_NEW,
     OUTPUT_DIR,
-    GIT_SHA,
+    PYTHON_DIR,
+    VERSION,
 )
-from util import (
+from .util import (
     enforce_types,
     save_remote_source,
     save_stdin_source,
 )
-from logs import (
+from .logs import (
     log_archiving_started,
     log_archiving_paused,
     log_archiving_finished,
 )
 
 __AUTHOR__ = 'Nick Sweeting <git@nicksweeting.com>'
-__VERSION__ = GIT_SHA[:9]
+__VERSION__ = VERSION
 __DESCRIPTION__ = 'ArchiveBox: The self-hosted internet archive.'
 __DOCUMENTATION__ = 'https://github.com/pirate/ArchiveBox/wiki'
+
 
 
 def print_help():

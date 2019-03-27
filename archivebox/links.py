@@ -22,8 +22,8 @@ Link {
 from typing import Iterable
 from collections import OrderedDict
 
-from schema import Link
-from util import (
+from .schema import Link
+from .util import (
     scheme,
     fuzzy_url,
     merge_links,
