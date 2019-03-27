@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import time
+import shutil
 
 from json import JSONEncoder
 from typing import List, Optional, Any
@@ -603,6 +604,12 @@ def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS, tim
         print('     ', chmod_result.stderr.decode())
         raise Exception('Failed to chmod {}/{}'.format(cwd, path))
 
+
+@enforce_types
+def copy_and_overwrite(from_path: str, to_path: str):
+    if os.path.exists(to_path):
+        shutil.rmtree(to_path)
+    shutil.copytree(from_path, to_path)
 
 @enforce_types
 def chrome_args(**options) -> List[str]:

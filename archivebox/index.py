@@ -6,12 +6,6 @@ from string import Template
 from typing import List, Tuple, Iterator, Optional
 from dataclasses import fields
 
-try:
-    from distutils.dir_util import copy_tree
-except ImportError:
-    print('[X] Missing "distutils" python package. To install it, run:')
-    print('    pip install distutils')
-
 from schema import Link, ArchiveIndex, ArchiveResult
 from config import (
     OUTPUT_DIR,
@@ -29,6 +23,7 @@ from util import (
     ExtendedEncoder,
     enforce_types,
     TimedProgress,
+    copy_and_overwrite,
 )
 from parse import parse_links
 from links import validate_links
@@ -149,7 +144,7 @@ def write_html_links_index(out_dir: str, links: List[Link], finished: bool=False
 
     path = os.path.join(out_dir, 'index.html')
 
-    copy_tree(os.path.join(TEMPLATES_DIR, 'static'), os.path.join(out_dir, 'static'))
+    copy_and_overwrite(os.path.join(TEMPLATES_DIR, 'static'), os.path.join(out_dir, 'static'))
 
     with open(os.path.join(out_dir, 'robots.txt'), 'w+') as f:
         f.write('User-agent: *\nDisallow: /')
