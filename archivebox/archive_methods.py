@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple
 from collections import defaultdict
 from datetime import datetime
 
-from .schema import Link, ArchiveResult, ArchiveError
+from .schema import Link, ArchiveResult
 from .index import (
     write_link_index,
     patch_links_index,
@@ -28,8 +28,6 @@ from .config import (
     SUBMIT_ARCHIVE_DOT_ORG,
     TIMEOUT,
     MEDIA_TIMEOUT,
-    ANSI,
-    OUTPUT_DIR,
     GIT_DOMAINS,
     VERSION,
     WGET_USER_AGENT,
@@ -40,7 +38,6 @@ from .config import (
     CHROME_VERSION,
     GIT_VERSION,
     YOUTUBEDL_VERSION,
-    ONLY_NEW,
     WGET_AUTO_COMPRESSION,
 )
 from .util import (
@@ -56,7 +53,6 @@ from .util import (
     wget_output_path,
     chrome_args,
     run, PIPE, DEVNULL,
-    Link,
 )
 from .logs import (
     log_link_archiving_started,
@@ -64,6 +60,12 @@ from .logs import (
     log_archive_method_started,
     log_archive_method_finished,
 )
+
+
+class ArchiveError(Exception):
+    def __init__(self, message, hints=None):
+        super().__init__(message)
+        self.hints = hints
 
 
 @enforce_types

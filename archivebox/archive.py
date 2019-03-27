@@ -12,7 +12,7 @@ __package__ = 'archivebox'
 
 import os
 import sys
-
+import shutil
 
 from typing import List, Optional
 
@@ -23,8 +23,23 @@ from .archive_methods import archive_link
 from .config import (
     ONLY_NEW,
     OUTPUT_DIR,
-    PYTHON_DIR,
     VERSION,
+    ANSI,
+    CURL_VERSION,
+    GIT_VERSION,
+    WGET_VERSION,
+    YOUTUBEDL_VERSION,
+    CHROME_VERSION,
+    USE_CURL,
+    USE_WGET,
+    USE_CHROME,
+    CURL_BINARY,
+    GIT_BINARY,
+    WGET_BINARY,
+    YOUTUBEDL_BINARY,
+    CHROME_BINARY,
+    FETCH_GIT,
+    FETCH_MEDIA,
 )
 from .util import (
     enforce_types,
@@ -59,8 +74,37 @@ def print_help():
     print("    archivebox add --depth=1 https://example.com/feed.rss")
     print("    archivebox update --resume=15109948213.123")
 
+def print_version():
+    print('ArchiveBox v{}'.format(__VERSION__))
+    print()
+    print(
+        '[{}] CURL:'.format('√' if USE_CURL else 'X').ljust(14),
+        '{} --version\n'.format(shutil.which(CURL_BINARY)),
+        ' '*13, CURL_VERSION, '\n',
+    )
+    print(
+        '[{}] GIT:'.format('√' if FETCH_GIT else 'X').ljust(14),
+        '{} --version\n'.format(shutil.which(GIT_BINARY)),
+        ' '*13, GIT_VERSION, '\n',
+    )
+    print(
+        '[{}] WGET:'.format('√' if USE_WGET else 'X').ljust(14),
+        '{} --version\n'.format(shutil.which(WGET_BINARY)),
+        ' '*13, WGET_VERSION, '\n',
+    )
+    print(
+        '[{}] YOUTUBEDL:'.format('√' if FETCH_MEDIA else 'X').ljust(14),
+        '{} --version\n'.format(shutil.which(YOUTUBEDL_BINARY)),
+        ' '*13, YOUTUBEDL_VERSION, '\n',
+    )
+    print(
+        '[{}] CHROME:'.format('√' if USE_CHROME else 'X').ljust(14),
+        '{} --version\n'.format(shutil.which(CHROME_BINARY)),
+        ' '*13, CHROME_VERSION, '\n',
+    )
 
-def main(args=None) -> List[Link]:
+
+def main(args=None) -> None:
     if args is None:
         args = sys.argv
 
@@ -69,7 +113,7 @@ def main(args=None) -> List[Link]:
         raise SystemExit(0)
 
     if set(args).intersection(('--version', 'version')):
-        print('ArchiveBox version {}'.format(__VERSION__))
+        print_version()
         raise SystemExit(0)
 
     ### Handle CLI arguments
@@ -86,7 +130,19 @@ def main(args=None) -> List[Link]:
 
     ### Set up output folder
     if not os.path.exists(OUTPUT_DIR):
+        print('{green}[+] Created a new archive directory: {}{reset}'.format(OUTPUT_DIR, **ANSI))
         os.makedirs(OUTPUT_DIR)
+    else:
+        not_empty = len(set(os.listdir(OUTPUT_DIR)) - {'.DS_Store'})
+        index_exists = os.path.exists(os.path.join(OUTPUT_DIR, 'index.json'))
+        if not_empty and not index_exists:
+            print(
+                ('{red}[X] Could not find index.json in the OUTPUT_DIR: {reset}{}\n'
+                '    You must run ArchiveBox in an existing archive directory, \n'
+                '     or an empty/new directory to start a new archive collection.'
+                ).format(OUTPUT_DIR, **ANSI)
+            )
+            raise SystemExit(1)
 
     ### Handle ingesting urls piped in through stdin
     # (.e.g if user does cat example_urls.txt | ./archive)

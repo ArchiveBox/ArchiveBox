@@ -59,8 +59,24 @@ CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)
 CHROME_SANDBOX =         os.getenv('CHROME_SANDBOX', 'True').lower() == 'true'
 
 # ******************************************************************************
-# *************************** Directory Settings *******************************
-# ******************************************************************************
+
+### Terminal Configuration
+TERM_WIDTH = lambda: shutil.get_terminal_size((100, 10)).columns
+ANSI = {
+    'reset': '\033[00;00m',
+    'lightblue': '\033[01;30m',
+    'lightyellow': '\033[01;33m',
+    'lightred': '\033[01;35m',
+    'red': '\033[01;31m',
+    'green': '\033[01;32m',
+    'blue': '\033[01;34m',
+    'white': '\033[01;37m',
+    'black': '\033[01;30m',
+}
+if not USE_COLOR:
+    # dont show colors if USE_COLOR is False
+    ANSI = {k: '' for k in ANSI.keys()}
+
 
 REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 if OUTPUT_DIR:
@@ -68,21 +84,6 @@ if OUTPUT_DIR:
 else:
     OUTPUT_DIR = os.path.abspath(os.curdir)
 
-if not os.path.exists(OUTPUT_DIR):
-    print('{green}[+] Created a new archive directory: {}{reset}'.format(OUTPUT_DIR, **ANSI))
-    os.makedirs(OUTPUT_DIR)
-else:
-    not_empty = len(set(os.listdir(OUTPUT_DIR)) - {'.DS_Store'})
-    index_exists = os.path.exists(os.path.join(OUTPUT_DIR, 'index.json'))
-    if not_empty and not index_exists:
-        print(
-            ('{red}[X] Could not find index.json in the OUTPUT_DIR: {reset}{}\n'
-            '    You must run ArchiveBox in an existing archive directory, \n'
-            '     or an empty/new directory to start a new archive collection.'
-            ).format(OUTPUT_DIR, **ANSI)
-        )
-        raise SystemExit(1)
-    
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
 ARCHIVE_DIR = os.path.join(OUTPUT_DIR, ARCHIVE_DIR_NAME)
@@ -94,13 +95,34 @@ TEMPLATES_DIR = os.path.join(PYTHON_DIR, 'templates')
 if COOKIES_FILE:
     COOKIES_FILE = os.path.abspath(COOKIES_FILE)
 
+
+VERSION = open(os.path.join(PYTHON_DIR, 'VERSION'), 'r').read().strip()
+GIT_SHA = VERSION.split('+')[1]
+
+### Check Python environment
+python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
+if python_vers < 3.5:
+    print('{}[X] Python version is not new enough: {} (>3.5 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
+    print('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
+    raise SystemExit(1)
+
+if sys.stdout.encoding.upper() not in ('UTF-8', 'UTF8'):
+    print('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
+    print('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
+    print('')
+    print('    Confirm that it\'s fixed by opening a new shell and running:')
+    print('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
+    print('')
+    print('    Alternatively, run this script with:')
+    print('        env PYTHONIOENCODING=UTF-8 ./archive.py export.html')
+
 # ******************************************************************************
 # ***************************** Helper Functions *******************************
 # ******************************************************************************
 
 def check_version(binary: str) -> str:
     """check the presence and return valid version line of a specified binary"""
-    if run(['which', binary], stdout=DEVNULL, stderr=DEVNULL).returncode:
+    if not shutil.which(binary):
         print('{red}[X] Missing dependency: wget{reset}'.format(**ANSI))
         print('    Install it, then confirm it works with: {} --version'.format(binary))
         print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
@@ -168,43 +190,6 @@ def find_chrome_data_dir() -> Optional[str]:
 # ******************************************************************************
 
 try:
-    VERSION = open(os.path.join(PYTHON_DIR, 'VERSION'), 'r').read().strip()
-    GIT_SHA = VERSION.split('+')[1]
-
-    ### Terminal Configuration
-    TERM_WIDTH = lambda: shutil.get_terminal_size((100, 10)).columns
-    ANSI = {
-        'reset': '\033[00;00m',
-        'lightblue': '\033[01;30m',
-        'lightyellow': '\033[01;33m',
-        'lightred': '\033[01;35m',
-        'red': '\033[01;31m',
-        'green': '\033[01;32m',
-        'blue': '\033[01;34m',
-        'white': '\033[01;37m',
-        'black': '\033[01;30m',
-    }
-    if not USE_COLOR:
-        # dont show colors if USE_COLOR is False
-        ANSI = {k: '' for k in ANSI.keys()}
-
-    ### Check Python environment
-    python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
-    if python_vers < 3.5:
-        print('{}[X] Python version is not new enough: {} (>3.5 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
-        print('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
-        raise SystemExit(1)
-
-    if sys.stdout.encoding.upper() not in ('UTF-8', 'UTF8'):
-        print('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
-        print('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
-        print('')
-        print('    Confirm that it\'s fixed by opening a new shell and running:')
-        print('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
-        print('')
-        print('    Alternatively, run this script with:')
-        print('        env PYTHONIOENCODING=UTF-8 ./archive.py export.html')
-
     ### Make sure curl is installed
     if USE_CURL:
         USE_CURL = FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG
@@ -238,17 +223,18 @@ try:
     ### Make sure youtube-dl is installed
     YOUTUBEDL_VERSION = None
     if FETCH_MEDIA:
-        check_version(YOUTUBEDL_BINARY)
+        YOUTUBEDL_VERSION = check_version(YOUTUBEDL_BINARY)
 
     ### Make sure chrome is installed and calculate version
     if USE_CHROME:
         USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
     else:
         FETCH_PDF = FETCH_SCREENSHOT = FETCH_DOM = False
+    
+    if CHROME_BINARY is None:
+        CHROME_BINARY = find_chrome_binary() or 'chromium-browser'
     CHROME_VERSION = None
     if USE_CHROME:
-        if CHROME_BINARY is None:
-            CHROME_BINARY = find_chrome_binary()
         if CHROME_BINARY:
             CHROME_VERSION = check_version(CHROME_BINARY)
             # print('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))

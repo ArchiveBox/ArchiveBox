@@ -1,24 +1,3 @@
-"""
-In ArchiveBox, a Link represents a single entry that we track in the 
-json index.  All links pass through all archiver functions and the latest,
-most up-to-date canonical output for each is stored in "latest".
-
-Link {
-    timestamp: str,     (how we uniquely id links)    
-    url: str,                                         
-    title: str,                                       
-    tags: str,                                        
-    sources: [str],                                   
-    history: {
-        pdf: [
-            {start_ts, end_ts, cmd, pwd, cmd_version, status, output},
-            ...
-        ],
-        ...
-    },
-}
-"""
-
 from typing import Iterable
 from collections import OrderedDict
 
@@ -27,8 +6,6 @@ from .util import (
     scheme,
     fuzzy_url,
     merge_links,
-    htmldecode,
-    hashurl,
 )
 
 
@@ -68,10 +45,9 @@ def uniquefied_links(sorted_links: Iterable[Link]) -> Iterable[Link]:
 
     unique_timestamps: OrderedDict[str, Link] = OrderedDict()
     for link in unique_urls.values():
-        new_link = Link(**{
-            **link._asdict(),
-            'timestamp': lowest_uniq_timestamp(unique_timestamps, link.timestamp),
-        })
+        new_link = link.overwrite(
+            timestamp=lowest_uniq_timestamp(unique_timestamps, link.timestamp),
+        )
         unique_timestamps[new_link.timestamp] = new_link
 
     return unique_timestamps.values()
