@@ -39,23 +39,25 @@ from .logs import (
 TITLE_LOADING_MSG = 'Not yet archived...'
 
 
+
+
 ### Homepage index for all the links
 
 @enforce_types
-def write_links_index(out_dir: str, links: List[Link], finished: bool=False) -> None:
+def write_links_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=False) -> None:
     """create index.html file for a given list of links"""
 
     log_indexing_process_started()
 
     log_indexing_started(out_dir, 'index.json')
     timer = TimedProgress(TIMEOUT * 2, prefix='      ')
-    write_json_links_index(out_dir, links)
+    write_json_links_index(links, out_dir=out_dir)
     timer.end()
     log_indexing_finished(out_dir, 'index.json')
     
     log_indexing_started(out_dir, 'index.html')
     timer = TimedProgress(TIMEOUT * 2, prefix='      ')
-    write_html_links_index(out_dir, links, finished=finished)
+    write_html_links_index(links, out_dir=out_dir, finished=finished)
     timer.end()
     log_indexing_finished(out_dir, 'index.html')
 
@@ -87,7 +89,7 @@ def load_links_index(out_dir: str=OUTPUT_DIR, import_path: Optional[str]=None) -
 
 
 @enforce_types
-def write_json_links_index(out_dir: str, links: List[Link]) -> None:
+def write_json_links_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
     """write the json link index to a given path"""
 
     assert isinstance(links, List), 'Links must be a list, not a generator.'
@@ -199,7 +201,6 @@ def patch_links_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
     successful = link.num_outputs
 
     # Patch JSON index
-    changed = False
     json_file_links = parse_json_links_index(out_dir)
     patched_links = []
     for saved_link in json_file_links:
@@ -212,7 +213,7 @@ def patch_links_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
         else:
             patched_links.append(saved_link)
     
-    write_json_links_index(out_dir, patched_links)
+    write_json_links_index(patched_links, out_dir=out_dir)
 
     # Patch HTML index
     html_path = os.path.join(out_dir, 'index.html')
@@ -231,27 +232,27 @@ def patch_links_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
 ### Individual link index
 
 @enforce_types
-def write_link_index(out_dir: str, link: Link) -> None:
-    write_json_link_index(out_dir, link)
-    write_html_link_index(out_dir, link)
+def write_link_index(link: Link, link_dir: Optional[str]=None) -> None:
+    link_dir = link_dir or link.link_dir
+
+    write_json_link_index(link, link_dir)
+    write_html_link_index(link, link_dir)
 
 
 @enforce_types
-def write_json_link_index(out_dir: str, link: Link) -> None:
+def write_json_link_index(link: Link, link_dir: Optional[str]=None) -> None:
     """write a json file with some info about the link"""
     
-    path = os.path.join(out_dir, 'index.json')
-
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(link._asdict(), f, indent=4, cls=ExtendedEncoder)
+    link_dir = link_dir or link.link_dir
+    path = os.path.join(link_dir, 'index.json')
 
     chmod_file(path)
 
 
 @enforce_types
-def parse_json_link_index(out_dir: str) -> Optional[Link]:
+def parse_json_link_index(link_dir: str) -> Optional[Link]:
     """load the json link index from a given directory"""
-    existing_index = os.path.join(out_dir, 'index.json')
+    existing_index = os.path.join(link_dir, 'index.json')
     if os.path.exists(existing_index):
         with open(existing_index, 'r', encoding='utf-8') as f:
             link_json = json.load(f)
@@ -260,18 +261,21 @@ def parse_json_link_index(out_dir: str) -> Optional[Link]:
 
 
 @enforce_types
-def load_json_link_index(out_dir: str, link: Link) -> Link:
+def load_json_link_index(link: Link, link_dir: Optional[str]=None) -> Link:
     """check for an existing link archive in the given directory, 
        and load+merge it into the given link dict
     """
-    existing_link = parse_json_link_index(out_dir)
+    link_dir = link_dir or link.link_dir
+    existing_link = parse_json_link_index(link_dir)
     if existing_link:
         return merge_links(existing_link, link)
     return link
 
 
 @enforce_types
-def write_html_link_index(out_dir: str, link: Link) -> None:
+def write_html_link_index(link: Link, link_dir: Optional[str]=None) -> None:
+    link_dir = link_dir or link.link_dir
+
     with open(os.path.join(TEMPLATES_DIR, 'link_index.html'), 'r', encoding='utf-8') as f:
         link_html = f.read()
 

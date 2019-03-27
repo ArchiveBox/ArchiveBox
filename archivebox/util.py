@@ -1,11 +1,12 @@
 import os
 import re
 import sys
+import json
 import time
 import shutil
 
 from json import JSONEncoder
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Union
 from inspect import signature, _empty
 from functools import wraps
 from hashlib import sha256

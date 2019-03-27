@@ -180,7 +180,7 @@ def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]
     all_links, new_links = load_links_index(out_dir=OUTPUT_DIR, import_path=import_path)
 
     # Step 2: Write updated index with deduped old and new links back to disk
-    write_links_index(out_dir=OUTPUT_DIR, links=list(all_links))
+    write_links_index(links=list(all_links), out_dir=OUTPUT_DIR)
 
     # Step 3: Run the archive methods for each link
     links = new_links if ONLY_NEW else all_links
@@ -189,7 +189,7 @@ def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]
     link: Optional[Link] = None
     try:
         for idx, link in enumerate(links_after_timestamp(links, resume)):
-            archive_link(link)
+            archive_link(link, link_dir=link.link_dir)
 
     except KeyboardInterrupt:
         log_archiving_paused(len(links), idx, link.timestamp if link else '0')
@@ -203,7 +203,7 @@ def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]
 
     # Step 4: Re-write links index with updated titles, icons, and resources
     all_links, _ = load_links_index(out_dir=OUTPUT_DIR)
-    write_links_index(out_dir=OUTPUT_DIR, links=list(all_links), finished=True)
+    write_links_index(links=list(all_links), out_dir=OUTPUT_DIR, finished=True)
     return all_links
 
 if __name__ == '__main__':

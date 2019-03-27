@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from .schema import Link, ArchiveResult
-from .config import ANSI, REPO_DIR, OUTPUT_DIR
+from .config import ANSI, OUTPUT_DIR
 
 
 @dataclass
@@ -17,14 +17,14 @@ class RuntimeStats:
     succeeded: int = 0
     failed: int = 0
 
-    parse_start_ts: datetime = None
-    parse_end_ts: datetime = None
+    parse_start_ts: Optional[datetime] = None
+    parse_end_ts: Optional[datetime] = None
 
-    index_start_ts: datetime = None
-    index_end_ts: datetime = None
+    index_start_ts: Optional[datetime] = None
+    index_end_ts: Optional[datetime] = None
 
-    archiving_start_ts: datetime = None
-    archiving_end_ts: datetime = None
+    archiving_start_ts: Optional[datetime] = None
+    archiving_end_ts: Optional[datetime] = None
 
 # globals are bad, mmkay
 _LAST_RUN_STATS = RuntimeStats()
@@ -131,7 +131,7 @@ def log_archiving_finished(num_links: int):
     print('        {}/index.html'.format(OUTPUT_DIR))
 
 
-def log_link_archiving_started(link_dir: str, link: Link, is_new: bool):
+def log_link_archiving_started(link: Link, link_dir: str, is_new: bool):
     # [*] [2019-03-22 13:46:45] "Log Structured Merge Trees - ben stopford"
     #     http://www.benstopford.com/2015/02/14/log-structured-merge-trees/
     #     > output/archive/1478739709
@@ -149,7 +149,7 @@ def log_link_archiving_started(link_dir: str, link: Link, is_new: bool):
         pretty_path(link_dir),
     ))
 
-def log_link_archiving_finished(link_dir: str, link: Link, is_new: bool, stats: dict):
+def log_link_archiving_finished(link: Link, link_dir: str, is_new: bool, stats: dict):
     total = sum(stats.values())
 
     if stats['failed'] > 0 :
