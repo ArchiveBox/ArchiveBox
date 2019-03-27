@@ -138,7 +138,7 @@ def enforce_types(func):
                             annotation.__name__,
                             type(arg_val).__name__,
                             arg_key,
-                            arg_val,
+                            str(arg_val)[:64],
                         )
                     )
 
