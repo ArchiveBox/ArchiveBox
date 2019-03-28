@@ -1,5 +1,5 @@
 ---
-name: 📑 Documentation Change
+name: 📑 Documentation change
 about: Submit a suggestion for the Wiki documentation
 title: ''
 labels: ''
