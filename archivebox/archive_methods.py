@@ -120,16 +120,19 @@ def archive_link(link: Link, link_dir: Optional[str]=None) -> Link:
         # print('    ', stats)
 
         # If any changes were made, update the link index json and html
-        write_link_index(link.link_dir, link)
+        write_link_index(link, link_dir=link.link_dir)
         
         was_changed = stats['succeeded'] or stats['failed']
         if was_changed:
             patch_links_index(link)
 
-
         log_link_archiving_finished(link, link.link_dir, is_new, stats)
 
     except KeyboardInterrupt:
+        try:
+            write_link_index(link, link_dir=link.link_dir)
+        except:
+            pass
         raise
 
     except Exception as err:
