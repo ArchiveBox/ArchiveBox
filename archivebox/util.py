@@ -187,7 +187,7 @@ def check_url_parsing_invariants() -> None:
 ### Random Helpers
 
 @enforce_types
-def save_stdin_source(raw_text: str) -> str:
+def handle_stdin_import(raw_text: str) -> str:
     if not os.path.exists(SOURCES_DIR):
         os.makedirs(SOURCES_DIR)
 
@@ -195,14 +195,12 @@ def save_stdin_source(raw_text: str) -> str:
 
     source_path = os.path.join(SOURCES_DIR, '{}-{}.txt'.format('stdin', ts))
 
-    with open(source_path, 'w', encoding='utf-8') as f:
-        f.write(raw_text)
-
+    atomic_write(raw_text, source_path)
     return source_path
 
 
 @enforce_types
-def save_remote_source(url: str, timeout: int=TIMEOUT) -> str:
+def handle_file_import(path: str, timeout: int=TIMEOUT) -> str:
     """download a given url's content into output/sources/domain-<timestamp>.txt"""
 
     if not os.path.exists(SOURCES_DIR):
@@ -210,30 +208,35 @@ def save_remote_source(url: str, timeout: int=TIMEOUT) -> str:
 
     ts = str(datetime.now().timestamp()).split('.', 1)[0]
 
-    source_path = os.path.join(SOURCES_DIR, '{}-{}.txt'.format(domain(url), ts))
+    source_path = os.path.join(SOURCES_DIR, '{}-{}.txt'.format(basename(path), ts))
 
-    print('{}[*] [{}] Downloading {}{}'.format(
-        ANSI['green'],
-        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        url,
-        ANSI['reset'],
-    ))
-    timer = TimedProgress(timeout, prefix='      ')
-    try:
-        downloaded_xml = download_url(url, timeout=timeout)
-        timer.end()
-    except Exception as e:
-        timer.end()
-        print('{}[!] Failed to download {}{}\n'.format(
-            ANSI['red'],
-            url,
+    if any(path.startswith(s) for s in ('http://', 'https://', 'ftp://')):
+        source_path = os.path.join(SOURCES_DIR, '{}-{}.txt'.format(domain(path), ts))
+        print('{}[*] [{}] Downloading {}{}'.format(
+            ANSI['green'],
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            path,
             ANSI['reset'],
         ))
-        print('    ', e)
-        raise SystemExit(1)
+        timer = TimedProgress(timeout, prefix='      ')
+        try:
+            raw_source_text = download_url(path, timeout=timeout)
+            timer.end()
+        except Exception as e:
+            timer.end()
+            print('{}[!] Failed to download {}{}\n'.format(
+                ANSI['red'],
+                path,
+                ANSI['reset'],
+            ))
+            print('    ', e)
+            raise SystemExit(1)
 
-    with open(source_path, 'w', encoding='utf-8') as f:
-        f.write(downloaded_xml)
+    else:
+        with open(path, 'r') as f:
+            raw_source_text = f.read()
+
+    atomic_write(raw_source_text, source_path)
 
     print('    > {}'.format(pretty_path(source_path)))
 

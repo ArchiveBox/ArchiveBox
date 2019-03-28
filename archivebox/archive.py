@@ -43,8 +43,8 @@ from .config import (
 )
 from .util import (
     enforce_types,
-    save_remote_source,
-    save_stdin_source,
+    handle_stdin_import,
+    handle_file_import,
 )
 from .logs import (
     log_archiving_started,
@@ -160,12 +160,12 @@ def main(args=None) -> None:
             print_help()
             raise SystemExit(1)
 
-        import_path = save_stdin_source(stdin_raw_text)
+        import_path = handle_stdin_import(stdin_raw_text)
 
-    ### Handle ingesting urls from a remote file/feed
+    ### Handle ingesting url from a remote file/feed
     # (e.g. if an RSS feed URL is used as the import path) 
-    if import_path and any(import_path.startswith(s) for s in ('http://', 'https://', 'ftp://')):
-        import_path = save_remote_source(import_path)
+    if import_path:
+        import_path = handle_file_import(import_path)
 
     ### Run the main archive update process
     update_archive_data(import_path=import_path, resume=resume)

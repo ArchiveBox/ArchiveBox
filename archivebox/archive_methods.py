@@ -90,7 +90,7 @@ def archive_link(link: Link, link_dir: Optional[str]=None) -> Link:
         if is_new:
             os.makedirs(link_dir)
 
-        link = load_json_link_index(link, link_dir)
+        link = load_json_link_index(link, link_dir=link_dir)
         log_link_archiving_started(link, link_dir, is_new)
         link = link.overwrite(updated=datetime.now())
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
@@ -103,7 +103,7 @@ def archive_link(link: Link, link_dir: Optional[str]=None) -> Link:
                 if should_run(link, link_dir):
                     log_archive_method_started(method_name)
 
-                    result = method_function(link, link_dir)
+                    result = method_function(link=link, link_dir=link_dir)
 
                     link.history[method_name].append(result)
 
