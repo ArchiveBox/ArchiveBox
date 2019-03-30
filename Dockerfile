@@ -1,5 +1,5 @@
 # This Dockerfile for ArchiveBox installs the following in a container:
-#     - curl, wget, python3, youtube-dl, chromium-browser
+#     - curl, wget, python3, youtube-dl, google-chrome-beta
 #     - ArchiveBox
 # Usage:
 #     docker build github.com/pirate/ArchiveBox -t archivebox
@@ -20,7 +20,7 @@ RUN apt-get update \
 RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
     && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
     && apt-get update \
-    && apt-get install -y chromium-browser fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst ttf-freefont \
+    && apt-get install -y google-chrome-beta fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst ttf-freefont \
       --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /src/*.deb
@@ -31,7 +31,7 @@ RUN chmod +x /usr/local/bin/dumb-init
 
 # Uncomment to skip the chromium download when installing puppeteer. If you do,
 # you'll need to launch puppeteer with:
-#     browser.launch({executablePath: 'chromium-browser'})
+#     browser.launch({executablePath: 'google-chrome-beta'})
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
 
 # Install puppeteer so it's available in the container.
@@ -60,7 +60,7 @@ ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     PYTHONIOENCODING=UTF-8 \
     CHROME_SANDBOX=False \
-    CHROME_BINARY=chromium-browser \
+    CHROME_BINARY=google-chrome-beta \
     OUTPUT_DIR=/data
 
 # Run everything from here on out as non-privileged user
