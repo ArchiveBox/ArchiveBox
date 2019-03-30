@@ -368,6 +368,11 @@ def parse_date(date: Any) -> Optional[datetime]:
 
     if isinstance(date, str):
         if date.replace('.', '').isdigit():
+            # this is a brittle attempt at unix timestamp parsing (which is
+            # notoriously hard to do). It may lead to dates being off by
+            # anything from hours to decades, depending on which app, OS,
+            # and sytem time configuration was used for the original timestamp
+            # more info: https://github.com/pirate/ArchiveBox/issues/119
             timestamp = float(date)
 
             EARLIEST_POSSIBLE = 473403600.0  # 1985
