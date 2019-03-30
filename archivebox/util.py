@@ -251,10 +251,6 @@ def fetch_page_title(url: str, timeout: int=10, progress: bool=SHOW_PROGRESS) ->
         return None
 
     try:
-        if progress:
-            sys.stdout.write('.')
-            sys.stdout.flush()
-
         html = download_url(url, timeout=timeout)
 
         match = re.search(HTML_TITLE_REGEX, html)
