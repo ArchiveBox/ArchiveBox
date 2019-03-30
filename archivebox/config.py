@@ -5,6 +5,7 @@ import shutil
 from typing import Optional
 from subprocess import run, PIPE, DEVNULL
 
+import archivebox
 
 OUTPUT_DIR: str
 
@@ -96,7 +97,9 @@ if COOKIES_FILE:
     COOKIES_FILE = os.path.abspath(COOKIES_FILE)
 
 
-VERSION = open(os.path.join(PYTHON_DIR, 'VERSION'), 'r').read().strip()
+# VERSION = open(os.path.join(PYTHON_DIR, 'VERSION'), 'r').read().strip()
+VERSION = archivebox.__version__
+
 GIT_SHA = VERSION.split('+')[1]
 
 ### Check Python environment
