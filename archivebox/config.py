@@ -61,8 +61,9 @@ CHROME_SANDBOX =         os.getenv('CHROME_SANDBOX', 'True').lower() == 'true'
 
 # ******************************************************************************
 
-### Terminal Configuration
+# Terminal Configuration
 TERM_WIDTH = lambda: shutil.get_terminal_size((100, 10)).columns
+
 ANSI = {
     'reset': '\033[00;00m',
     'lightblue': '\033[01;30m',
@@ -79,7 +80,10 @@ if not USE_COLOR:
     ANSI = {k: '' for k in ANSI.keys()}
 
 
-REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+REPO_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+)
+
 if OUTPUT_DIR:
     OUTPUT_DIR = os.path.abspath(OUTPUT_DIR)
 else:
@@ -102,40 +106,56 @@ VERSION = archivebox.__version__
 
 GIT_SHA = VERSION.split('+')[1]
 
-### Check Python environment
-python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
+# Check Python environment
+python_vers = float(
+    '{}.{}'.format(sys.version_info.major, sys.version_info.minor)
+)
+
 if python_vers < 3.5:
-    print('{}[X] Python version is not new enough: {} (>3.5 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
-    print('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
+    print('{}[X] Python version is not new enough: {} (>3.5 is required){}'
+          .format(ANSI['red'], python_vers, ANSI['reset']))
+    print('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting'
+          '#python for help upgrading your Python installation.')
     raise SystemExit(1)
 
 if sys.stdout.encoding.upper() not in ('UTF-8', 'UTF8'):
-    print('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
-    print('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
-    print('')
+    print('[X] Your system is running python3 scripts with a bad locale'
+          ' setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
+    print('    To fix it, add the line "export PYTHONIOENCODING=UTF-8"'
+          ' to your ~/.bashrc file (without quotes)\n')
     print('    Confirm that it\'s fixed by opening a new shell and running:')
-    print('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
+    print('        python3 -c "import sys; print(sys.stdout.encoding)"'
+          '  # should output UTF-8')
     print('')
     print('    Alternatively, run this script with:')
     print('        env PYTHONIOENCODING=UTF-8 ./archive.py export.html')
 
-# ******************************************************************************
-# ***************************** Helper Functions *******************************
-# ******************************************************************************
+
+# *****************************************************************************
+# ***************************** Helper Functions ******************************
+# *****************************************************************************
 
 def check_version(binary: str) -> str:
-    """check the presence and return valid version line of a specified binary"""
+    """check the presence and return valid version line
+       of a specified binary"""
     if not shutil.which(binary):
         print('{red}[X] Missing dependency: wget{reset}'.format(**ANSI))
-        print('    Install it, then confirm it works with: {} --version'.format(binary))
-        print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+        print('    Install it, then confirm it works with: {} --version'
+              .format(binary))
+        print('    See https://github.com/pirate/ArchiveBox/wiki/Install'
+              ' for help.')
         raise SystemExit(1)
-    
+
     try:
-        version_str = run([binary, "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
+        version_str = run(
+                [binary, "--version"],
+                stdout=PIPE,
+                cwd=REPO_DIR
+                ).stdout.strip().decode()
         return version_str.split('\n')[0].strip()
     except Exception:
-        print('{red}[X] Unable to find a working version of {cmd}, is it installed and in your $PATH?'.format(cmd=binary, **ANSI))
+        print('{red}[X] Unable to find a working version of {cmd},'
+              ' is it installed and in your $PATH?'.format(cmd=binary, **ANSI))
         raise SystemExit(1)
 
 
@@ -151,7 +171,8 @@ def find_chrome_binary() -> Optional[str]:
         'google-chrome-stable',
         'google-chrome-beta',
         'google-chrome-canary',
-        '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
+        '/Applications/Google Chrome Canary.app/'
+        'Contents/MacOS/Google Chrome Canary',
         'google-chrome-unstable',
         'google-chrome-dev',
     )
@@ -159,13 +180,15 @@ def find_chrome_binary() -> Optional[str]:
         full_path_exists = shutil.which(name)
         if full_path_exists:
             return name
-    
-    print('{red}[X] Unable to find a working version of Chrome/Chromium, is it installed and in your $PATH?'.format(**ANSI))
+
+    print('{red}[X] Unable to find a working version of Chrome/Chromium,'
+          'is it installed and in your $PATH?'.format(**ANSI))
     raise SystemExit(1)
 
 
 def find_chrome_data_dir() -> Optional[str]:
-    """find any installed chrome user data directories in the default locations"""
+    """find any installed chrome user data directories
+       in the default locations"""
     # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
     default_profile_paths = (
         '~/.config/chromium',
@@ -188,12 +211,12 @@ def find_chrome_data_dir() -> Optional[str]:
     return None
 
 
-# ******************************************************************************
-# ************************ Environment & Dependencies **************************
-# ******************************************************************************
+# *****************************************************************************
+# ************************ Environment & Dependencies *************************
+# *****************************************************************************
 
 try:
-    ### Make sure curl is installed
+    # Make sure curl is installed
     if USE_CURL:
         USE_CURL = FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG
     else:
@@ -202,7 +225,7 @@ try:
     if USE_CURL:
         CURL_VERSION = check_version(CURL_BINARY)
 
-    ### Make sure wget is installed and calculate version
+    # Make sure wget is installed and calculate version
     if USE_WGET:
         USE_WGET = FETCH_WGET or FETCH_WARC
     else:
@@ -211,40 +234,45 @@ try:
     WGET_AUTO_COMPRESSION = False
     if USE_WGET:
         WGET_VERSION = check_version(WGET_BINARY)
-        WGET_AUTO_COMPRESSION = not run([WGET_BINARY, "--compression=auto", "--help"], stdout=DEVNULL).returncode
-        
+        WGET_AUTO_COMPRESSION = not run(
+                [WGET_BINARY, "--compression=auto", "--help"],
+                stdout=DEVNULL
+                ).returncode
+
     WGET_USER_AGENT = WGET_USER_AGENT.format(
         VERSION=VERSION,
         WGET_VERSION=WGET_VERSION or '',
     )
 
-    ### Make sure git is installed
+    # Make sure git is installed
     GIT_VERSION = None
     if FETCH_GIT:
         GIT_VERSION = check_version(GIT_BINARY)
 
-    ### Make sure youtube-dl is installed
+    # Make sure youtube-dl is installed
     YOUTUBEDL_VERSION = None
     if FETCH_MEDIA:
         YOUTUBEDL_VERSION = check_version(YOUTUBEDL_BINARY)
 
-    ### Make sure chrome is installed and calculate version
+    # Make sure chrome is installed and calculate version
     if USE_CHROME:
         USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
     else:
         FETCH_PDF = FETCH_SCREENSHOT = FETCH_DOM = False
-    
+
     if CHROME_BINARY is None:
         CHROME_BINARY = find_chrome_binary() or 'chromium-browser'
     CHROME_VERSION = None
     if USE_CHROME:
         if CHROME_BINARY:
             CHROME_VERSION = check_version(CHROME_BINARY)
-            # print('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
+            # print('[i] Using Chrome binary: {}'
+            # .format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
 
             if CHROME_USER_DATA_DIR is None:
                 CHROME_USER_DATA_DIR = find_chrome_data_dir()
-            # print('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
+            # print('[i] Using Chrome data dir: {}'
+            # .format(os.path.abspath(CHROME_USER_DATA_DIR)))
 
     CHROME_OPTIONS = {
         'TIMEOUT': TIMEOUT,
@@ -261,9 +289,11 @@ try:
     #     'ignoreHTTPSErrors': not CHECK_SSL_VALIDITY,
     #     # 'executablePath': CHROME_BINARY,
     # }
+
 except KeyboardInterrupt:
     raise SystemExit(1)
 
-except:
-    print('[X] There was an error while reading configuration. Your archive data is unaffected.')
+except Exception:
+    print('[X] There was an error while reading configuration.'
+          'Your archive data is unaffected.')
     raise
