@@ -8,9 +8,8 @@ from .util import (
     merge_links,
 )
 
-from config import (
-    URL_BLACKLIST,
-)
+from .config import URL_BLACKLIST
+
 
 def validate_links(links: Iterable[Link]) -> Iterable[Link]:
     links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
