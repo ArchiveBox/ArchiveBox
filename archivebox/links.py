@@ -28,13 +28,16 @@ from util import (
     check_links_structure,
 )
 
+from config import (
+    URL_BLACKLIST,
+)
 
 def validate_links(links):
     check_links_structure(links)
-    links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
-    links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
-    links = sorted_links(links)      # deterministically sort the links based on timstamp, url
-
+    links = archivable_links(links)     # remove chrome://, about:, mailto: etc.
+    links = uniquefied_links(links)     # merge/dedupe duplicate timestamps & urls
+    links = sorted_links(links)         # deterministically sort the links based on timstamp, url
+    
     if not links:
         print('[X] No links found :(')
         raise SystemExit(1)
@@ -48,11 +51,11 @@ def validate_links(links):
 
 def archivable_links(links):
     """remove chrome://, about:// or other schemed links that cant be archived"""
-    return (
-        link
-        for link in links
-        if any(link['url'].lower().startswith(s) for s in ('http://', 'https://', 'ftp://'))
-    )
+    for link in links:
+        scheme_is_valid = scheme(url) in ('http', 'https', 'ftp)
+        not_blacklisted = (not URL_BLACKLIST.match(link['url'])) if URL_BLACKLIST else True
+        if scheme_is_valid and not_blacklisted:
+            yield link
 
 
 def uniquefied_links(sorted_links):
@@ -115,3 +118,5 @@ def lowest_uniq_timestamp(used_timestamps, timestamp):
         new_timestamp = '{}.{}'.format(timestamp, nonce)
 
     return new_timestamp
+    
+    

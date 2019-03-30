@@ -47,6 +47,8 @@ WGET_BINARY =            os.getenv('WGET_BINARY',            'wget')
 YOUTUBEDL_BINARY =       os.getenv('YOUTUBEDL_BINARY',       'youtube-dl')
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)
 
+URL_BLACKLIST =          os.getenv('URL_BLACKLIST',          None)
+
 try:
     OUTPUT_DIR = os.path.abspath(os.getenv('OUTPUT_DIR'))
 except Exception:
@@ -73,6 +75,8 @@ CHROME_SANDBOX = os.getenv('CHROME_SANDBOX', 'True').lower() == 'true'
 USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
 USE_WGET = FETCH_WGET or FETCH_WGET_REQUISITES or FETCH_WARC
 WGET_AUTO_COMPRESSION = USE_WGET and WGET_BINARY and (not run([WGET_BINARY, "--compression=auto", "--help"], stdout=DEVNULL).returncode)
+
+URL_BLACKLIST = URL_BLACKLIST and re.compile(URL_BLACKLIST, re.IGNORECASE)
 
 ########################### Environment & Dependencies #########################
 
