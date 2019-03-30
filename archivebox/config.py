@@ -120,7 +120,7 @@ if sys.stdout.encoding.upper() not in ('UTF-8', 'UTF8'):
 # ***************************** Helper Functions *******************************
 # ******************************************************************************
 
-def check_version(binary: str) -> str:
+def bin_version(binary: str) -> str:
     """check the presence and return valid version line of a specified binary"""
     if not shutil.which(binary):
         print('{red}[X] Missing dependency: wget{reset}'.format(**ANSI))
@@ -139,6 +139,7 @@ def check_version(binary: str) -> str:
 def find_chrome_binary() -> Optional[str]:
     """find any installed chrome binaries in the default locations"""
     # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
+    # make sure data dir finding precedence order always matches binary finding order
     default_executable_paths = (
         'chromium-browser',
         'chromium',
@@ -164,6 +165,7 @@ def find_chrome_binary() -> Optional[str]:
 def find_chrome_data_dir() -> Optional[str]:
     """find any installed chrome user data directories in the default locations"""
     # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
+    # make sure data dir finding precedence order always matches binary finding order
     default_profile_paths = (
         '~/.config/chromium',
         '~/Library/Application Support/Chromium',
@@ -197,7 +199,7 @@ try:
         FETCH_FAVICON = SUBMIT_ARCHIVE_DOT_ORG = False
     CURL_VERSION = None
     if USE_CURL:
-        CURL_VERSION = check_version(CURL_BINARY)
+        CURL_VERSION = bin_version(CURL_BINARY)
 
     ### Make sure wget is installed and calculate version
     if USE_WGET:
@@ -207,7 +209,7 @@ try:
     WGET_VERSION = None
     WGET_AUTO_COMPRESSION = False
     if USE_WGET:
-        WGET_VERSION = check_version(WGET_BINARY)
+        WGET_VERSION = bin_version(WGET_BINARY)
         WGET_AUTO_COMPRESSION = not run([WGET_BINARY, "--compression=auto", "--help"], stdout=DEVNULL).returncode
         
     WGET_USER_AGENT = WGET_USER_AGENT.format(
@@ -218,12 +220,12 @@ try:
     ### Make sure git is installed
     GIT_VERSION = None
     if FETCH_GIT:
-        GIT_VERSION = check_version(GIT_BINARY)
+        GIT_VERSION = bin_version(GIT_BINARY)
 
     ### Make sure youtube-dl is installed
     YOUTUBEDL_VERSION = None
     if FETCH_MEDIA:
-        YOUTUBEDL_VERSION = check_version(YOUTUBEDL_BINARY)
+        YOUTUBEDL_VERSION = bin_version(YOUTUBEDL_BINARY)
 
     ### Make sure chrome is installed and calculate version
     if USE_CHROME:
@@ -236,7 +238,7 @@ try:
     CHROME_VERSION = None
     if USE_CHROME:
         if CHROME_BINARY:
-            CHROME_VERSION = check_version(CHROME_BINARY)
+            CHROME_VERSION = bin_version(CHROME_BINARY)
             # print('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
 
             if CHROME_USER_DATA_DIR is None:
