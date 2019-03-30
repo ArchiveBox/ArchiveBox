@@ -121,18 +121,12 @@ def write_json_links_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
 def parse_json_links_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
     """parse a archive index json file and return the list of links"""
 
-    allowed_fields = {f.name for f in fields(Link)}
-
     index_path = os.path.join(out_dir, 'index.json')
     if os.path.exists(index_path):
         with open(index_path, 'r', encoding='utf-8') as f:
             links = json.load(f)['links']
             for link_json in links:
-                yield Link(**{
-                    key: val
-                    for key, val in link_json.items()
-                    if key in allowed_fields
-                })
+                yield Link.from_json(link_json)
 
     return ()
 

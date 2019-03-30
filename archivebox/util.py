@@ -675,8 +675,8 @@ class ExtendedEncoder(JSONEncoder):
         return JSONEncoder.default(self, obj)
 
 
-def atomic_write(contents: Union[dict, str], path: str):
-    """Safe atomic file write and swap using a tmp file"""
+def atomic_write(contents: Union[dict, str], path: str) -> None:
+    """Safe atomic write to filesystem by writing to temp file + atomic rename"""
     try:
         tmp_file = '{}.tmp'.format(path)
         with open(tmp_file, 'w+', encoding='utf-8') as f:

@@ -4,7 +4,7 @@ from datetime import datetime
 
 from typing import List, Dict, Any, Optional, Union
 
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict, field, fields
 
 
 class ArchiveError(Exception):
@@ -28,10 +28,37 @@ class ArchiveResult:
     schema: str = 'ArchiveResult'
 
     def __post_init__(self):
-        assert self.schema == self.__class__.__name__
+        self.typecheck()
 
     def _asdict(self):
         return asdict(self)
+
+    def typecheck(self) -> None:
+        assert self.schema == self.__class__.__name__
+        assert isinstance(self.status, str) and self.status
+        assert isinstance(self.start_ts, datetime)
+        assert isinstance(self.end_ts, datetime)
+        assert isinstance(self.cmd, list)
+        assert all(isinstance(arg, str) and arg for arg in self.cmd)
+        assert self.pwd is None or isinstance(self.pwd, str) and self.pwd
+        assert self.cmd_version is None or isinstance(self.cmd_version, str) and self.cmd_version
+        assert self.output is None or isinstance(self.output, (str, Exception))
+        if isinstance(self.output, str):
+            assert self.output
+
+    @classmethod
+    def from_json(cls, json_info):
+        from .util import parse_date
+
+        allowed_fields = {f.name for f in fields(cls)}
+        info = {
+            key: val
+            for key, val in json_info.items()
+            if key in allowed_fields
+        }
+        info['start_ts'] = parse_date(info['start_ts'])
+        info['end_ts'] = parse_date(info['end_ts'])
+        return cls(**info)
 
     @property
     def duration(self) -> int:
@@ -49,17 +76,7 @@ class Link:
     schema: str = 'Link'
 
     def __post_init__(self):
-        """fix any history result items to be type-checked ArchiveResults"""
-        assert self.schema == self.__class__.__name__
-        cast_history = {}
-        for method, method_history in self.history.items():
-            cast_history[method] = []
-            for result in method_history:
-                if isinstance(result, dict):
-                    result = ArchiveResult(**result)
-                cast_history[method].append(result)
-
-        object.__setattr__(self, 'history', cast_history)
+        self.typecheck()
 
     def overwrite(self, **kwargs):
         """pure functional version of dict.update that returns a new instance"""
@@ -76,6 +93,22 @@ class Link:
         if not self.timestamp or not other.timestamp:
             return 
         return float(self.timestamp) > float(other.timestamp)
+
+    def typecheck(self) -> None:
+        assert self.schema == self.__class__.__name__
+        assert isinstance(self.timestamp, str) and self.timestamp
+        assert self.timestamp.replace('.', '').isdigit()
+        assert isinstance(self.url, str) and '://' in self.url
+        assert self.updated is None or isinstance(self.updated, datetime)
+        assert self.title is None or isinstance(self.title, str) and self.title
+        assert self.tags is None or isinstance(self.tags, str) and self.tags
+        assert isinstance(self.sources, list)
+        assert all(isinstance(source, str) and source for source in self.sources)
+        assert isinstance(self.history, dict)
+        for method, results in self.history.items():
+            assert isinstance(method, str) and method
+            assert isinstance(results, list)
+            assert all(isinstance(result, ArchiveResult) for result in results)
     
     def _asdict(self, extended=False):
         info = {
@@ -107,6 +140,32 @@ class Link:
                 'newest_archive_date': self.newest_archive_date,
             })
         return info
+
+    @classmethod
+    def from_json(cls, json_info):
+        from .util import parse_date
+        
+        allowed_fields = {f.name for f in fields(cls)}
+        info = {
+            key: val
+            for key, val in json_info.items()
+            if key in allowed_fields
+        }
+        info['updated'] = parse_date(info['updated'])
+
+        json_history = info['history']
+        cast_history = {}
+
+        for method, method_history in json_history.items():
+            cast_history[method] = []
+            for json_result in method_history:
+                assert isinstance(json_result, dict), 'Items in Link["history"][method] must be dicts'
+                cast_result = ArchiveResult.from_json(json_result)
+                cast_history[method].append(cast_result)
+
+        info['history'] = cast_history
+        return cls(**info)
+
 
     @property
     def link_dir(self) -> str:
