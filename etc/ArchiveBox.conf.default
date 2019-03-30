@@ -15,7 +15,7 @@
 #MEDIA_TIMEOUT=3600
 #TEMPLATES_DIR="archivebox/templates"
 #FOOTER_INFO="Content is hosted for personal archiving purposes only. Contact server owner for any takedown requests."
-
+#URL_BLACKLIST="(://(.*\.)?youtube\.com)|(://(.*\.)?amazon\.com)|(.*\.exe$)"
 
 ################################################################################
 ## Archive Method Toggles
@@ -45,6 +45,8 @@
 #GIT_DOMAINS="github.com,bitbucket.org,gitlab.com"
 #COOKIES_FILE="path/to/cookies.txt"
 #CHROME_USER_DATA_DIR="~/.config/google-chrome/Default"
+#CROME_HEADLESS=True
+#CROME_SANDBOX=True
 
 
 ################################################################################
@@ -58,6 +60,10 @@
 ################################################################################
 ## Dependency Options
 ################################################################################
+
+#USE_CURL=True
+#USE_WGET=True
+#USE_CHROME=True
 
 #CURL_BINARY="curl"
 #GIT_BINARY="git"
