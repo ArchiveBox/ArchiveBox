@@ -14,11 +14,10 @@
 "Your own personal internet archive" (网站存档 / 爬虫)
 </pre>
 
-<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_Chat-IRC-%2328A745.svg"/></a>
+<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>
 <a href="https://github.com/pirate/ArchiveBox">
-<img src="https://img.shields.io/badge/Open_source-free-green.svg?logo=git&logoColor=green"/>
+<img src="https://img.shields.io/badge/Open_source-MIT-green.svg?logo=git&logoColor=green"/>
 <img src="https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=Active"/>
-<img src="https://img.shields.io/badge/License-MIT-lightgreen.svg?logo=MakerBot&logoColor=lightgreen"/>
 <img src="https://img.shields.io/github/stars/pirate/ArchiveBox.svg?logo=github&label=Stars&logoColor=blue"/>
 <img src="https://img.shields.io/badge/Python-%3E%3D3.5-yellow.svg?logo=python&logoColor=yellow"/>
 <img src="https://img.shields.io/badge/Chromium-%3E%3D59-orange.svg?logo=Google+Chrome&logoColor=orange"/>
