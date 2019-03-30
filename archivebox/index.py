@@ -15,13 +15,12 @@ from .config import (
     FOOTER_INFO,
     TIMEOUT,
 )
+
 from .util import (
     merge_links,
-    chmod_file,
     urlencode,
     derived_link_info,
     wget_output_path,
-    ExtendedEncoder,
     enforce_types,
     TimedProgress,
     copy_and_overwrite,
@@ -39,13 +38,15 @@ from .logs import (
 
 TITLE_LOADING_MSG = 'Not yet archived...'
 
+# Homepage index for all the links
 
-
-
-### Homepage index for all the links
 
 @enforce_types
-def write_links_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=False) -> None:
+def write_links_index(
+        links: List[Link],
+        out_dir: str = OUTPUT_DIR,
+        finished: bool = False
+        ) -> None:
     """create index.html file for a given list of links"""
 
     log_indexing_process_started()
@@ -55,7 +56,7 @@ def write_links_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool
     write_json_links_index(links, out_dir=out_dir)
     timer.end()
     log_indexing_finished(out_dir, 'index.json')
-    
+
     log_indexing_started(out_dir, 'index.html')
     timer = TimedProgress(TIMEOUT * 2, prefix='      ')
     write_html_links_index(links, out_dir=out_dir, finished=finished)
@@ -64,8 +65,12 @@ def write_links_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool
 
 
 @enforce_types
-def load_links_index(out_dir: str=OUTPUT_DIR, import_path: Optional[str]=None) -> Tuple[List[Link], List[Link]]:
-    """parse and load existing index with any new links from import_path merged in"""
+def load_links_index(
+        out_dir: str = OUTPUT_DIR,
+        import_path: Optional[str] = None
+        ) -> Tuple[List[Link], List[Link]]:
+    """parse and load existing index with any new links
+       from import_path merged in"""
 
     existing_links: List[Link] = []
     if out_dir:
@@ -90,7 +95,10 @@ def load_links_index(out_dir: str=OUTPUT_DIR, import_path: Optional[str]=None) -
 
 
 @enforce_types
-def write_json_links_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
+def write_json_links_index(
+        links: List[Link],
+        out_dir: str = OUTPUT_DIR
+        ) -> None:
     """write the json link index to a given path"""
 
     assert isinstance(links, List), 'Links must be a list, not a generator.'
@@ -118,7 +126,9 @@ def write_json_links_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
 
 
 @enforce_types
-def parse_json_links_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
+def parse_json_links_index(
+        out_dir: str = OUTPUT_DIR
+        ) -> Iterator[Link]:
     """parse a archive index json file and return the list of links"""
 
     allowed_fields = {f.name for f in fields(Link)}
@@ -138,7 +148,11 @@ def parse_json_links_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
 
 
 @enforce_types
-def write_html_links_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=False) -> None:
+def write_html_links_index(
+        links: List[Link],
+        out_dir: str = OUTPUT_DIR,
+        finished: bool = False
+        ) -> None:
     """write the html link index to a given path"""
 
     path = os.path.join(out_dir, 'index.html')
@@ -148,12 +162,23 @@ def write_html_links_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished:
         os.path.join(out_dir, 'static'),
     )
 
-    atomic_write('User-agent: *\nDisallow: /', os.path.join(out_dir, 'robots.txt'))
+    atomic_write(
+        'User-agent: *\nDisallow: /',
+        os.path.join(out_dir, 'robots.txt')
+    )
 
-    with open(os.path.join(TEMPLATES_DIR, 'index.html'), 'r', encoding='utf-8') as f:
+    with open(
+            os.path.join(TEMPLATES_DIR, 'index.html'),
+            'r',
+            encoding='utf-8'
+            ) as f:
         index_html = f.read()
 
-    with open(os.path.join(TEMPLATES_DIR, 'index_row.html'), 'r', encoding='utf-8') as f:
+    with open(
+            os.path.join(TEMPLATES_DIR, 'index_row.html'),
+            'r',
+            encoding='utf-8'
+            ) as f:
         link_row_html = f.read()
 
     link_rows = '\n'.join(
@@ -163,10 +188,12 @@ def write_html_links_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished:
                 link.title
                 or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
             ),
-            'tags': (link.tags or '') + (' {}'.format(link.extension) if link.is_static else ''),
+            'tags': (link.tags or '') +
+                    (' {}'.format(link.extension) if link.is_static else ''),
             'favicon_url': (
                 os.path.join('archive', link.timestamp, 'favicon.ico')
-                # if link['is_archived'] else 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
+                # if link['is_archived'] else
+                # 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
             ),
             'archive_url': urlencode(
                 wget_output_path(link) or 'index.html'
@@ -189,9 +216,11 @@ def write_html_links_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished:
     atomic_write(Template(index_html).substitute(**template_vars), path)
 
 
-
 @enforce_types
-def patch_links_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
+def patch_links_index(
+        link: Link,
+        out_dir: str = OUTPUT_DIR
+        ) -> None:
     """hack to in-place update one row's info in the generated index html"""
 
     title = link.title or link.latest_outputs()['title']
@@ -209,7 +238,7 @@ def patch_links_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
             ))
         else:
             patched_links.append(saved_link)
-    
+
     write_json_links_index(patched_links, out_dir=out_dir)
 
     # Patch HTML index
@@ -218,17 +247,19 @@ def patch_links_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
     for idx, line in enumerate(html):
         if title and ('<span data-title-for="{}"'.format(link.url) in line):
             html[idx] = '<span>{}</span>'.format(title)
-        elif successful and ('<span data-number-for="{}"'.format(link.url) in line):
+        elif successful and (
+                '<span data-number-for="{}"'.format(link.url) in line
+                ):
             html[idx] = '<span>{}</span>'.format(successful)
             break
 
     atomic_write('\n'.join(html), html_path)
 
+# Individual link index
 
-### Individual link index
 
 @enforce_types
-def write_link_index(link: Link, link_dir: Optional[str]=None) -> None:
+def write_link_index(link: Link, link_dir: Optional[str] = None) -> None:
     link_dir = link_dir or link.link_dir
 
     write_json_link_index(link, link_dir)
@@ -236,9 +267,9 @@ def write_link_index(link: Link, link_dir: Optional[str]=None) -> None:
 
 
 @enforce_types
-def write_json_link_index(link: Link, link_dir: Optional[str]=None) -> None:
+def write_json_link_index(link: Link, link_dir: Optional[str] = None) -> None:
     """write a json file with some info about the link"""
-    
+
     link_dir = link_dir or link.link_dir
     path = os.path.join(link_dir, 'index.json')
 
@@ -257,10 +288,9 @@ def parse_json_link_index(link_dir: str) -> Optional[Link]:
 
 
 @enforce_types
-def load_json_link_index(link: Link, link_dir: Optional[str]=None) -> Link:
-    """check for an existing link archive in the given directory, 
-       and load+merge it into the given link dict
-    """
+def load_json_link_index(link: Link, link_dir: Optional[str] = None) -> Link:
+    """check for an existing link archive in the given directory,
+       and load+merge it into the given link dict"""
     link_dir = link_dir or link.link_dir
     existing_link = parse_json_link_index(link_dir)
     if existing_link:
@@ -269,10 +299,14 @@ def load_json_link_index(link: Link, link_dir: Optional[str]=None) -> Link:
 
 
 @enforce_types
-def write_html_link_index(link: Link, link_dir: Optional[str]=None) -> None:
+def write_html_link_index(link: Link, link_dir: Optional[str] = None) -> None:
     link_dir = link_dir or link.link_dir
 
-    with open(os.path.join(TEMPLATES_DIR, 'link_index.html'), 'r', encoding='utf-8') as f:
+    with open(
+            os.path.join(TEMPLATES_DIR, 'link_index.html'),
+            'r',
+            encoding='utf-8'
+            ) as f:
         link_html = f.read()
 
     path = os.path.join(link_dir, 'index.html')

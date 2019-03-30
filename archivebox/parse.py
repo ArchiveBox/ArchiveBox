@@ -38,7 +38,7 @@ from .util import (
 
 @enforce_types
 def parse_links(source_file: str) -> Tuple[List[Link], str]:
-    """parse a list of URLs with their metadata from an 
+    """parse a list of URLs with their metadata from an
        RSS feed, bookmarks export, or text file
     """
 
@@ -49,7 +49,7 @@ def parse_links(source_file: str) -> Tuple[List[Link], str]:
         ('Pinboard RSS', parse_pinboard_rss_export),
         ('Shaarli RSS', parse_shaarli_rss_export),
         ('Medium RSS', parse_medium_rss_export),
-        
+
         # General parsers
         ('Netscape HTML', parse_netscape_html_export),
         ('Generic RSS', parse_rss_export),
@@ -66,35 +66,50 @@ def parse_links(source_file: str) -> Tuple[List[Link], str]:
                 if links:
                     timer.end()
                     return links, parser_name
-            except Exception as err:
+            except Exception:
                 # Parsers are tried one by one down the list, and the first one
-                # that succeeds is used. To see why a certain parser was not used
-                # due to error or format incompatibility, uncomment this line:
-                # print('[!] Parser {} failed: {} {}'.format(parser_name, err.__class__.__name__, err))
+                # that succeeds is used. To see why a certain parser was not
+                # used due to error or format incompatibility, uncomment this
+                # lines:
+                # print('[!] Parser {} failed: {} {}'
+                # .format(parser_name, err.__class__.__name__, err))
                 pass
 
     timer.end()
     return [], 'Failed to parse'
 
+# Import Parser Functions
 
-### Import Parser Functions
 
 @enforce_types
 def parse_pocket_html_export(html_file: IO[str]) -> Iterable[Link]:
-    """Parse Pocket-format bookmarks export files (produced by getpocket.com/export/)"""
+    """Parse Pocket-format bookmarks export files
+       (produced by getpocket.com/export/)"""
 
     html_file.seek(0)
-    pattern = re.compile("^\\s*<li><a href=\"(.+)\" time_added=\"(\\d+)\" tags=\"(.*)\">(.+)</a></li>", re.UNICODE)
+    pattern = re.compile(
+        "^\\s*<li><a href=\"(.+)\" time"
+        "_added=\"(\\d+)\" tags=\"(.*)\">(.+)</a></li>",
+        re.UNICODE
+    )
     for line in html_file:
         # example line
-        # <li><a href="http://example.com/ time_added="1478739709" tags="tag1,tag2">example title</a></li>
+        # <li><a href="http://example.com/
+        # time_added="1478739709" tags="tag1,tag2">example title</a></li>
         match = pattern.search(line)
         if match:
-            url = match.group(1).replace('http://www.readability.com/read?url=', '')           # remove old readability prefixes to get original url
+            # remove old readability prefixes to get original url
+            url = match.group(1).replace(
+                'http://www.readability.com/read?url=',
+                ''
+            )
             time = datetime.fromtimestamp(float(match.group(2)))
             tags = match.group(3)
-            title = match.group(4).replace(' — Readability', '').replace('http://www.readability.com/read?url=', '')
-            
+            title = (
+                match.group(4).replace(' — Readability', '')
+                .replace('http://www.readability.com/read?url=', '')
+            )
+
             yield Link(
                 url=htmldecode(url),
                 timestamp=str(time.timestamp()),
@@ -106,28 +121,39 @@ def parse_pocket_html_export(html_file: IO[str]) -> Iterable[Link]:
 
 @enforce_types
 def parse_json_export(json_file: IO[str]) -> Iterable[Link]:
-    """Parse JSON-format bookmarks export files (produced by pinboard.in/export/, or wallabag)"""
+    """Parse JSON-format bookmarks export files
+       (produced by pinboard.in/export/, or wallabag)"""
 
     json_file.seek(0)
     links = json.load(json_file)
-    json_date = lambda s: datetime.strptime(s, '%Y-%m-%dT%H:%M:%S%z')
+    json_date = lambda s: datetime.strptime(s, '%Y-%m-%dT%H:%M:%S%z') # noqa
 
     for link in links:
         # example line
-        # {"href":"http:\/\/www.reddit.com\/r\/example","description":"title here","extended":"","meta":"18a973f09c9cc0608c116967b64e0419","hash":"910293f019c2f4bb1a749fb937ba58e3","time":"2014-06-14T15:51:42Z","shared":"no","toread":"no","tags":"reddit android"}]
+        # {"href":"http:\/\/www.reddit.com\/r\/example",
+        # "description":"title here","extended":"",
+        # "meta":"18a973f09c9cc0608c116967b64e0419",
+        # "hash":"910293f019c2f4bb1a749fb937ba58e3",
+        # "time":"2014-06-14T15:51:42Z",
+        # "shared":"no","toread":"no","tags":"reddit android"}]
         if link:
             # Parse URL
             url = link.get('href') or link.get('url') or link.get('URL')
             if not url:
-                raise Exception('JSON must contain URL in each entry [{"url": "http://...", ...}, ...]')
+                raise Exception(
+                        'JSON must contain URL in each entry '
+                        '[{"url": "http://...", ...}, ...]'
+                )
 
             # Parse the timestamp
             ts_str = str(datetime.now().timestamp())
             if link.get('timestamp'):
                 # chrome/ff histories use a very precise timestamp
-                ts_str = str(link['timestamp'] / 10000000)  
+                ts_str = str(link['timestamp'] / 10000000)
             elif link.get('time'):
-                ts_str = str(json_date(link['time'].split(',', 1)[0]).timestamp())
+                ts_str = str(
+                    json_date(link['time'].split(',', 1)[0]).timestamp()
+                )
             elif link.get('created_at'):
                 ts_str = str(json_date(link['created_at']).timestamp())
             elif link.get('created'):
@@ -138,13 +164,15 @@ def parse_json_export(json_file: IO[str]) -> Iterable[Link]:
                 ts_str = str(json_date(link['bookmarked']).timestamp())
             elif link.get('saved'):
                 ts_str = str(json_date(link['saved']).timestamp())
-            
+
             # Parse the title
             title = None
             if link.get('title'):
                 title = link['title'].strip()
             elif link.get('description'):
-                title = link['description'].replace(' — Readability', '').strip()
+                title = (
+                    link['description'].replace(' — Readability', '').strip()
+                )
             elif link.get('name'):
                 title = link['name'].strip()
 
@@ -179,7 +207,9 @@ def parse_rss_export(rss_file: IO[str]) -> Iterable[Link]:
         rows = leading_removed.split('\n')
 
         def get_row(key):
-            return [r for r in rows if r.strip().startswith('<{}>'.format(key))][0]
+            return [
+                r for r in rows if r.strip().startswith('<{}>'.format(key))
+            ][0]
 
         url = str_between(get_row('link'), '<link>', '</link>')
         ts_str = str_between(get_row('pubDate'), '<pubDate>', '</pubDate>')
@@ -204,12 +234,16 @@ def parse_shaarli_rss_export(rss_file: IO[str]) -> Iterable[Link]:
     for entry in entries:
         # example entry:
         # <entry>
-        #   <title>Aktuelle Trojaner-Welle: Emotet lauert in gefÃ¤lschten Rechnungsmails | heise online</title>
-        #   <link href="https://www.heise.de/security/meldung/Aktuelle-Trojaner-Welle-Emotet-lauert-in-gefaelschten-Rechnungsmails-4291268.html" />
+        #   <title>Aktuelle Trojaner-Welle: Emotet lauert in gefÃ¤lschten
+        # Rechnungsmails | heise online</title>
+        #   <link href="https://www.heise.de/security/meldung/Aktuelle-Trojaner
+        # -Welle-Emotet-lauert-in-gefaelschten-Rechnungsmails-4291268.html" />
         #   <id>https://demo.shaarli.org/?cEV4vw</id>
         #   <published>2019-01-30T06:06:01+00:00</published>
         #   <updated>2019-01-30T06:06:01+00:00</updated>
-        #   <content type="html" xml:lang="en"><![CDATA[<div class="markdown"><p>&#8212; <a href="https://demo.shaarli.org/?cEV4vw">Permalink</a></p></div>]]></content>
+        #   <content type="html" xml:lang="en"><![CDATA[<div class="markdown">
+        # <p>&#8212; <a href="https://demo.shaarli.org/?cEV4vw">Permalink</a>
+        # </p></div>]]></content>
         # </entry>
 
         trailing_removed = entry.split('</entry>', 1)[0]
@@ -217,11 +251,19 @@ def parse_shaarli_rss_export(rss_file: IO[str]) -> Iterable[Link]:
         rows = leading_removed.split('\n')
 
         def get_row(key):
-            return [r.strip() for r in rows if r.strip().startswith('<{}'.format(key))][0]
+            return [
+                r.strip() for r in rows if (
+                    r.strip().startswith('<{}'.format(key))
+                )
+            ][0]
 
         title = str_between(get_row('title'), '<title>', '</title>').strip()
         url = str_between(get_row('link'), '<link href="', '" />')
-        ts_str = str_between(get_row('published'), '<published>', '</published>')
+        ts_str = str_between(
+            get_row('published'),
+            '<published>',
+            '</published>'
+        )
         time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
 
         yield Link(
@@ -235,14 +277,20 @@ def parse_shaarli_rss_export(rss_file: IO[str]) -> Iterable[Link]:
 
 @enforce_types
 def parse_netscape_html_export(html_file: IO[str]) -> Iterable[Link]:
-    """Parse netscape-format bookmarks export files (produced by all browsers)"""
+    """Parse netscape-format bookmarks export files
+       (produced by all browsers)"""
 
     html_file.seek(0)
-    pattern = re.compile("<a href=\"(.+?)\" add_date=\"(\\d+)\"[^>]*>(.+)</a>", re.UNICODE | re.IGNORECASE)
+    pattern = re.compile(
+        "<a href=\"(.+?)\" add_date=\"(\\d+)\"[^>]*>(.+)</a>",
+        re.UNICODE | re.IGNORECASE
+    )
     for line in html_file:
         # example line
-        # <DT><A HREF="https://example.com/?q=1+2" ADD_DATE="1497562974" LAST_MODIFIED="1497562974" ICON_URI="https://example.com/favicon.ico" ICON="data:image/png;base64,...">example bookmark title</A>
-        
+        # <DT><A HREF="https://example.com/?q=1+2" ADD_DATE="1497562974"
+        # LAST_MODIFIED="1497562974" ICON_URI="https://example.com/favicon.ico"
+        # ICON="data:image/png;base64,...">example bookmark title</A>
+
         match = pattern.search(line)
         if match:
             url = match.group(1)
@@ -266,11 +314,19 @@ def parse_pinboard_rss_export(rss_file: IO[str]) -> Iterable[Link]:
     root = etree.parse(rss_file).getroot()
     items = root.findall("{http://purl.org/rss/1.0/}item")
     for item in items:
+        # FIXME: This parsing seems weird. Somebody should check.
+
         url = item.find("{http://purl.org/rss/1.0/}link").text
-        tags = item.find("{http://purl.org/dc/elements/1.1/}subject").text if item.find("{http://purl.org/dc/elements/1.1/}subject") else None
-        title = item.find("{http://purl.org/rss/1.0/}title").text.strip() if item.find("{http://purl.org/rss/1.0/}title").text.strip() else None
-        ts_str = item.find("{http://purl.org/dc/elements/1.1/}date").text if item.find("{http://purl.org/dc/elements/1.1/}date").text else None
-        
+
+        tag_search = "{http://purl.org/dc/elements/1.1/}subject"
+        tags = item.find(tag_search).text if item.find(tag_search) else None
+
+        title_text = item.find("{http://purl.org/rss/1.0/}title").text.strip()
+        title = title_text if title_text else None
+
+        ts_text = item.find("{http://purl.org/dc/elements/1.1/}date").text
+        ts_str = ts_text if ts_text else None
+
         # Pinboard includes a colon in its date stamp timezone offsets, which
         # Python can't parse. Remove it:
         if ts_str and ts_str[-3:-2] == ":":
@@ -302,7 +358,7 @@ def parse_medium_rss_export(rss_file: IO[str]) -> Iterable[Link]:
         title = item.find("title").text.strip()
         ts_str = item.find("pubDate").text
         time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %Z")
-        
+
         yield Link(
             url=htmldecode(url),
             timestamp=str(time.timestamp()),

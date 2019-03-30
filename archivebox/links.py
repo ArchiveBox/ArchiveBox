@@ -10,9 +10,12 @@ from .util import (
 
 
 def validate_links(links: Iterable[Link]) -> Iterable[Link]:
-    links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
-    links = sorted_links(links)      # deterministically sort the links based on timstamp, url
-    links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
+    # remove chrome://, about:, mailto: etc.
+    links = archivable_links(links)
+    # deterministically sort the links based on timstamp, url
+    links = sorted_links(links)
+    # merge/dedupe duplicate timestamps & urls
+    links = uniquefied_links(links)
 
     if not links:
         print('[X] No links found :(')
@@ -20,8 +23,10 @@ def validate_links(links: Iterable[Link]) -> Iterable[Link]:
 
     return links
 
+
 def archivable_links(links: Iterable[Link]) -> Iterable[Link]:
-    """remove chrome://, about:// or other schemed links that cant be archived"""
+    """remove chrome://, about:// or other schemed links
+       that cant be archived"""
     return (
         link
         for link in links
@@ -30,9 +35,8 @@ def archivable_links(links: Iterable[Link]) -> Iterable[Link]:
 
 
 def uniquefied_links(sorted_links: Iterable[Link]) -> Iterable[Link]:
-    """
-    ensures that all non-duplicate links have monotonically increasing timestamps
-    """
+    """ensures that all non-duplicate links have monotonically
+       increasing timestamps"""
 
     unique_urls: OrderedDict[str, Link] = OrderedDict()
 
@@ -54,11 +58,14 @@ def uniquefied_links(sorted_links: Iterable[Link]) -> Iterable[Link]:
 
 
 def sorted_links(links: Iterable[Link]) -> Iterable[Link]:
-    sort_func = lambda link: (link.timestamp.split('.', 1)[0], link.url)
+    sort_func = lambda link: (link.timestamp.split('.', 1)[0], link.url) # noqa
     return sorted(links, key=sort_func, reverse=True)
 
 
-def links_after_timestamp(links: Iterable[Link], resume: float=None) -> Iterable[Link]:
+def links_after_timestamp(
+        links: Iterable[Link],
+        resume: float = None
+        ) -> Iterable[Link]:
     if not resume:
         yield from links
         return
@@ -68,11 +75,14 @@ def links_after_timestamp(links: Iterable[Link], resume: float=None) -> Iterable
             if float(link.timestamp) <= resume:
                 yield link
         except (ValueError, TypeError):
-            print('Resume value and all timestamp values must be valid numbers.')
+            print(
+                'Resume value and all timestamp values must be valid numbers.'
+            )
 
 
 def lowest_uniq_timestamp(used_timestamps: OrderedDict, timestamp: str) -> str:
-    """resolve duplicate timestamps by appending a decimal 1234, 1234 -> 1234.1, 1234.2"""
+    """resolve duplicate timestamps by appending a decimal
+       1234, 1234 -> 1234.1, 1234.2"""
 
     timestamp = timestamp.split('.')[0]
     nonce = 0

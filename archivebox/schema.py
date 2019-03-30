@@ -12,9 +12,11 @@ class ArchiveError(Exception):
         super().__init__(message)
         self.hints = hints
 
+
 LinkDict = Dict[str, Any]
 
 ArchiveOutput = Union[str, Exception, None]
+
 
 @dataclass(frozen=True)
 class ArchiveResult:
@@ -36,6 +38,7 @@ class ArchiveResult:
     @property
     def duration(self) -> int:
         return (self.end_ts - self.start_ts).seconds
+
 
 @dataclass(frozen=True)
 class Link:
@@ -62,7 +65,8 @@ class Link:
         object.__setattr__(self, 'history', cast_history)
 
     def overwrite(self, **kwargs):
-        """pure functional version of dict.update that returns a new instance"""
+        """pure functional version of dict.update
+           that returns a new instance"""
         return Link(**{**self._asdict(), **kwargs})
 
     def __eq__(self, other):
@@ -74,9 +78,9 @@ class Link:
         if not isinstance(other, Link):
             return NotImplemented
         if not self.timestamp or not other.timestamp:
-            return 
+            return
         return float(self.timestamp) > float(other.timestamp)
-    
+
     def _asdict(self, extended=False):
         info = {
             'schema': 'Link',
@@ -117,8 +121,8 @@ class Link:
     def archive_path(self) -> str:
         from .config import ARCHIVE_DIR_NAME
         return '{}/{}'.format(ARCHIVE_DIR_NAME, self.timestamp)
-    
-    ### URL Helpers
+
+    # URL Helpers
     @property
     def urlhash(self):
         from .util import hashurl
@@ -150,7 +154,7 @@ class Link:
         from .util import base_url
         return base_url(self.url)
 
-    ### Pretty Printing Helpers
+    # Pretty Printing Helpers
     @property
     def bookmarked_date(self) -> Optional[str]:
         from .util import ts_to_date
@@ -185,7 +189,7 @@ class Link:
         )
         return ts_to_date(most_recent) if most_recent else None
 
-    ### Archive Status Helpers
+    # Archive Status Helpers
     @property
     def num_outputs(self) -> int:
         return len(tuple(filter(None, self.latest_outputs().values())))
@@ -194,8 +198,8 @@ class Link:
     def num_failures(self) -> int:
         return sum(1
                    for method in self.history.keys()
-                       for result in self.history[method]
-                            if result.status == 'failed')
+                   for result in self.history[method]
+                   if result.status == 'failed')
 
     @property
     def is_static(self) -> bool:
@@ -213,20 +217,25 @@ class Link:
             domain(self.url),
         ))
 
-    def latest_outputs(self, status: str=None) -> Dict[str, ArchiveOutput]:
+    def latest_outputs(self, status: str = None) -> Dict[str, ArchiveOutput]:
         """get the latest output that each archive method produced for link"""
-        
+
         ARCHIVE_METHODS = (
             'title', 'favicon', 'wget', 'warc', 'pdf',
             'screenshot', 'dom', 'git', 'media', 'archive_org',
         )
         latest: Dict[str, ArchiveOutput] = {}
         for archive_method in ARCHIVE_METHODS:
-            # get most recent succesful result in history for each archive method
+            # get most recent succesful result in history for
+            # each archive method
             history = self.history.get(archive_method) or []
-            history = list(filter(lambda result: result.output, reversed(history)))
+            history = list(
+                filter(lambda result: result.output, reversed(history))
+            )
             if status is not None:
-                history = list(filter(lambda result: result.status == status, history))
+                history = list(
+                    filter(lambda result: result.status == status, history)
+                )
 
             history = list(history)
             if history:
@@ -241,20 +250,27 @@ class Link:
         canonical = {
             'index_url': 'index.html',
             'favicon_url': 'favicon.ico',
-            'google_favicon_url': 'https://www.google.com/s2/favicons?domain={}'.format(self.domain),
+            'google_favicon_url': (
+                'https://www.google.com/s2/favicons?domain={}'.format(
+                    self.domain
+                )
+            ),
             'archive_url': wget_output_path(self),
             'warc_url': 'warc',
             'pdf_url': 'output.pdf',
             'screenshot_url': 'screenshot.png',
             'dom_url': 'output.html',
-            'archive_org_url': 'https://web.archive.org/web/{}'.format(self.base_url),
+            'archive_org_url': (
+                'https://web.archive.org/web/{}'.format(self.base_url)
+            ),
             'git_url': 'git',
             'media_url': 'media',
         }
         if self.is_static:
-            # static binary files like PDF and images are handled slightly differently.
-            # they're just downloaded once and aren't archived separately multiple times, 
-            # so the wget, screenshot, & pdf urls should all point to the same file
+            # static binary files like PDF and images are handled slightly
+            # differently. they're just downloaded once and aren't archived
+            # separately multiple times, so the wget, screenshot, & pdf urls
+            # should all point to the same file.
 
             static_url = wget_output_path(self)
             canonical.update({

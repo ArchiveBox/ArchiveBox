@@ -7,7 +7,9 @@ import shutil
 
 from json import JSONEncoder
 from typing import List, Optional, Any, Union
+
 from inspect import signature, _empty
+
 from functools import wraps
 from hashlib import sha256
 from urllib.request import Request, urlopen
@@ -18,7 +20,7 @@ from multiprocessing import Process
 from subprocess import (
     Popen,
     PIPE,
-    DEVNULL, 
+    DEVNULL,
     CompletedProcess,
     TimeoutExpired,
     CalledProcessError,
@@ -42,7 +44,7 @@ from .config import (
 )
 from .logs import pretty_path
 
-### Parsing Helpers
+# Parsing Helpers
 
 # All of these are (str) -> str
 # shortcuts to: https://docs.python.org/3/library/urllib.parse.html#url-parsing
@@ -77,8 +79,8 @@ hashurl = lambda url: base32_encode(int(sha256(base_url(url).encode('utf-8')).he
 URL_REGEX = re.compile(
     r'http[s]?://'                    # start matching from allowed schemes
     r'(?:[a-zA-Z]|[0-9]'              # followed by allowed alphanum characters
-    r'|[$-_@.&+]|[!*\(\),]'           #    or allowed symbols
-    r'|(?:%[0-9a-fA-F][0-9a-fA-F]))'  #    or allowed unicode bytes
+    r'|[$-_@.&+]|[!*\(\),]'           # or allowed symbols
+    r'|(?:%[0-9a-fA-F][0-9a-fA-F]))'  # or allowed unicode bytes
     r'[^\]\[\(\)<>\""\'\s]+',         # stop parsing at these symbols
     re.IGNORECASE,
 )
@@ -92,7 +94,7 @@ STATICFILE_EXTENSIONS = {
     # that can be downloaded as-is, not html pages that need to be rendered
     'gif', 'jpeg', 'jpg', 'png', 'tif', 'tiff', 'wbmp', 'ico', 'jng', 'bmp',
     'svg', 'svgz', 'webp', 'ps', 'eps', 'ai',
-    'mp3', 'mp4', 'm4a', 'mpeg', 'mpg', 'mkv', 'mov', 'webm', 'm4v', 
+    'mp3', 'mp4', 'm4a', 'mpeg', 'mpg', 'mkv', 'mov', 'webm', 'm4v',
     'flv', 'wmv', 'avi', 'ogg', 'ts', 'm3u8',
     'pdf', 'txt', 'rtf', 'rtfd', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
     'atom', 'rss', 'css', 'js', 'json',
@@ -101,7 +103,7 @@ STATICFILE_EXTENSIONS = {
 
     # Less common extensions to consider adding later
     # jar, swf, bin, com, exe, dll, deb
-    # ear, hqx, eot, wmlc, kml, kmz, cco, jardiff, jnlp, run, msi, msp, msm, 
+    # ear, hqx, eot, wmlc, kml, kmz, cco, jardiff, jnlp, run, msi, msp, msm,
     # pl pm, prc pdb, rar, rpm, sea, sit, tcl tk, der, pem, crt, xpi, xspf,
     # ra, mng, asx, asf, 3gpp, 3gp, mid, midi, kar, jad, wml, htc, mml
 
@@ -109,14 +111,12 @@ STATICFILE_EXTENSIONS = {
     # html, htm, shtml, xhtml, xml, aspx, php, cgi
 }
 
+# Checks & Tests
 
-
-### Checks & Tests
 
 def enforce_types(func):
-    """
-    Enforce function arg and kwarg types at runtime using its python3 type hints
-    """
+    """Enforce function arg and kwarg types at runtime using
+       its python3 type hints."""
     # TODO: check return type as well
 
     @wraps(func)
@@ -132,7 +132,8 @@ def enforce_types(func):
             if annotation is not _empty and annotation.__class__ is type:
                 if not isinstance(arg_val, annotation):
                     raise TypeError(
-                        '{}(..., {}: {}) got unexpected {} argument {}={}'.format(
+                        '{}(..., {}: {}) got unexpected {} argument {}={}'
+                        .format(
                             func.__name__,
                             arg_key,
                             annotation.__name__,
@@ -183,8 +184,8 @@ def check_url_parsing_invariants() -> None:
     # print('\n'.join(re.findall(URL_REGEX, test_urls)))
     assert len(re.findall(URL_REGEX, test_urls)) == 12
 
+# Random Helpers
 
-### Random Helpers
 
 @enforce_types
 def handle_stdin_import(raw_text: str) -> str:
@@ -200,18 +201,24 @@ def handle_stdin_import(raw_text: str) -> str:
 
 
 @enforce_types
-def handle_file_import(path: str, timeout: int=TIMEOUT) -> str:
-    """download a given url's content into output/sources/domain-<timestamp>.txt"""
+def handle_file_import(path: str, timeout: int = TIMEOUT) -> str:
+    """download a given url's content into
+       output/sources/domain-<timestamp>.txt"""
 
     if not os.path.exists(SOURCES_DIR):
         os.makedirs(SOURCES_DIR)
 
     ts = str(datetime.now().timestamp()).split('.', 1)[0]
 
-    source_path = os.path.join(SOURCES_DIR, '{}-{}.txt'.format(basename(path), ts))
+    source_path = os.path.join(
+        SOURCES_DIR, '{}-{}.txt'.format(basename(path), ts)
+    )
 
     if any(path.startswith(s) for s in ('http://', 'https://', 'ftp://')):
-        source_path = os.path.join(SOURCES_DIR, '{}-{}.txt'.format(domain(path), ts))
+        source_path = os.path.join(
+                SOURCES_DIR,
+                '{}-{}.txt'.format(domain(path), ts)
+        )
         print('{}[*] [{}] Downloading {}{}'.format(
             ANSI['green'],
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -244,9 +251,13 @@ def handle_file_import(path: str, timeout: int=TIMEOUT) -> str:
 
 
 @enforce_types
-def fetch_page_title(url: str, timeout: int=10, progress: bool=SHOW_PROGRESS) -> Optional[str]:
+def fetch_page_title(
+        url: str,
+        timeout: int = 10,
+        progress: bool = SHOW_PROGRESS
+        ) -> Optional[str]:
     """Attempt to guess a page's title by downloading the html"""
-    
+
     if not FETCH_TITLE:
         return None
 
@@ -278,37 +289,43 @@ def wget_output_path(link: Link) -> Optional[str]:
     if is_static_file(link.url):
         return without_scheme(without_fragment(link.url))
 
-    # Wget downloads can save in a number of different ways depending on the url:
-    #    https://example.com
-    #       > output/archive/<timestamp>/example.com/index.html
-    #    https://example.com?v=zzVa_tX1OiI
-    #       > output/archive/<timestamp>/example.com/index.html?v=zzVa_tX1OiI.html
-    #    https://www.example.com/?v=zzVa_tX1OiI
-    #       > output/archive/<timestamp>/example.com/index.html?v=zzVa_tX1OiI.html
+    # Wget downloads can save in a number of different
+    # ways depending on the url:
+    #  https://example.com
+    #   > output/archive/<timestamp>/example.com/index.html
+    #  https://example.com?v=zzVa_tX1OiI
+    #   > output/archive/<timestamp>/example.com/index.html?v=zzVa_tX1OiI.html
+    #  https://www.example.com/?v=zzVa_tX1OiI
+    #   > output/archive/<timestamp>/example.com/index.html?v=zzVa_tX1OiI.html
 
-    #    https://example.com/abc
-    #       > output/archive/<timestamp>/example.com/abc.html
-    #    https://example.com/abc/
-    #       > output/archive/<timestamp>/example.com/abc/index.html
-    #    https://example.com/abc?v=zzVa_tX1OiI.html
-    #       > output/archive/<timestamp>/example.com/abc?v=zzVa_tX1OiI.html
-    #    https://example.com/abc/?v=zzVa_tX1OiI.html
-    #       > output/archive/<timestamp>/example.com/abc/index.html?v=zzVa_tX1OiI.html
+    #  https://example.com/abc
+    #   > output/archive/<timestamp>/example.com/abc.html
+    #  https://example.com/abc/
+    #   > output/archive/<timestamp>/example.com/abc/index.html
+    #  https://example.com/abc?v=zzVa_tX1OiI.html
+    #   > output/archive/<timestamp>/example.com/abc?v=zzVa_tX1OiI.html
+    #  https://example.com/abc/?v=zzVa_tX1OiI.html
+    #   > output/archive/<timestamp>/example.com/abc/index.html
+    #   >?v=zzVa_tX1OiI.html
 
-    #    https://example.com/abc/test.html
-    #       > output/archive/<timestamp>/example.com/abc/test.html
-    #    https://example.com/abc/test?v=zzVa_tX1OiI
-    #       > output/archive/<timestamp>/example.com/abc/test?v=zzVa_tX1OiI.html
-    #    https://example.com/abc/test/?v=zzVa_tX1OiI
-    #       > output/archive/<timestamp>/example.com/abc/test/index.html?v=zzVa_tX1OiI.html
+    #  https://example.com/abc/test.html
+    #   > output/archive/<timestamp>/example.com/abc/test.html
+    #  https://example.com/abc/test?v=zzVa_tX1OiI
+    #   > output/archive/<timestamp>/example.com/abc/test?v=zzVa_tX1OiI.html
+    #  https://example.com/abc/test/?v=zzVa_tX1OiI
+    #   > output/archive/<timestamp>/example.com/abc/test/index.html
+    #   >?v=zzVa_tX1OiI.html
 
     # There's also lots of complexity around how the urlencoding and renaming
-    # is done for pages with query and hash fragments or extensions like shtml / htm / php / etc
+    # is done for pages with query and hash fragments or extensions like
+    # shtml / htm / php / etc
 
     # Since the wget algorithm for -E (appending .html) is incredibly complex
     # and there's no way to get the computed output path from wget
     # in order to avoid having to reverse-engineer how they calculate it,
-    # we just look in the output folder read the filename wget used from the filesystem
+    # we just look in the output folder read the filename wget used from the
+    # filesystem
+
     full_path = without_fragment(without_query(path(link.url))).strip('/')
     search_dir = os.path.join(
         link.link_dir,
@@ -324,7 +341,9 @@ def wget_output_path(link: Link) -> Optional[str]:
                     if re.search(".+\\.[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
                 ]
                 if html_files:
-                    path_from_link_dir = search_dir.split(link.link_dir)[-1].strip('/')
+                    path_from_link_dir = (
+                        search_dir.split(link.link_dir)[-1].strip('/')
+                    )
                     return os.path.join(path_from_link_dir, html_files[0])
 
         # Move up one directory level
@@ -343,11 +362,11 @@ def read_js_script(script_name: str) -> str:
     with open(script_path, 'r') as f:
         return f.read().split('// INFO BELOW HERE')[0].strip()
 
+# String Manipulation & Logging Helpers
 
-### String Manipulation & Logging Helpers
 
 @enforce_types
-def str_between(string: str, start: str, end: str=None) -> str:
+def str_between(string: str, start: str, end: str = None) -> str:
     """(<abc>12345</def>, <abc>, </def>)  ->  12345"""
 
     content = string.split(start, 1)[-1]
@@ -360,13 +379,13 @@ def str_between(string: str, start: str, end: str=None) -> str:
 @enforce_types
 def parse_date(date: Any) -> Optional[datetime]:
     """Parse unix timestamps, iso format, and human-readable strings"""
-    
+
     if isinstance(date, datetime):
         return date
 
     if date is None:
         return None
-    
+
     if isinstance(date, (float, int)):
         date = str(date)
 
@@ -384,7 +403,8 @@ def parse_date(date: Any) -> Optional[datetime]:
                 # number is milliseconds
                 return datetime.fromtimestamp(timestamp / 1000)
 
-            elif EARLIEST_POSSIBLE * 1000*1000 < timestamp < LATEST_POSSIBLE * 1000*1000:
+            elif EARLIEST_POSSIBLE * 1000 * 1000 < timestamp < (
+                    LATEST_POSSIBLE * 1000 * 1000):
                 # number is microseconds
                 return datetime.fromtimestamp(timestamp / (1000*1000))
 
@@ -396,19 +416,20 @@ def parse_date(date: Any) -> Optional[datetime]:
                     return datetime.strptime(date, '%Y-%m-%d %H:%M')
                 except Exception:
                     pass
-    
+
     raise ValueError('Tried to parse invalid date! {}'.format(date))
 
+# Link Helpers
 
-
-### Link Helpers
 
 @enforce_types
 def merge_links(a: Link, b: Link) -> Link:
     """deterministially merge two links, favoring longer field values over shorter,
     and "cleaner" values over worse ones.
     """
-    assert a.base_url == b.base_url, 'Cannot merge two links with different URLs'
+    assert a.base_url == b.base_url, (
+        'Cannot merge two links with different URLs'
+    )
 
     url = a.url if len(a.url) > len(b.url) else b.url
 
@@ -455,9 +476,8 @@ def merge_links(a: Link, b: Link) -> Link:
 
 @enforce_types
 def is_static_file(url: str) -> bool:
-    """Certain URLs just point to a single static file, and 
-       don't need to be re-archived in many formats
-    """
+    """Certain URLs just point to a single static file, and
+       don't need to be re-archived in many formats"""
 
     # TODO: the proper way is with MIME type detection, not using extension
     return extension(url) in STATICFILE_EXTENSIONS
@@ -472,12 +492,19 @@ def derived_link_info(link: Link) -> dict:
 
     return info
 
+# Python / System Helpers
 
 
-### Python / System Helpers
-
-def run(*popenargs, input=None, capture_output=False, timeout=None, check=False, **kwargs):
-    """Patched of subprocess.run to fix blocking io making timeout=innefective"""
+def run(
+        *popenargs,
+        input=None,
+        capture_output=False,
+        timeout=None,
+        check=False,
+        **kwargs
+        ):
+    """Patched of subprocess.run to fix blocking io
+       making timeout=innefective"""
 
     if input is not None:
         if 'stdin' in kwargs:
@@ -498,13 +525,13 @@ def run(*popenargs, input=None, capture_output=False, timeout=None, check=False,
             process.kill()
             try:
                 stdout, stderr = process.communicate(input, timeout=2)
-            except:
+            except Exception:
                 pass
             raise TimeoutExpired(popenargs[0][0], timeout)
         except BaseException:
             process.kill()
             # We don't call process.wait() as .__exit__ does that for us.
-            raise 
+            raise
         retcode = process.poll()
         if check and retcode:
             raise CalledProcessError(retcode, process.args,
@@ -523,27 +550,32 @@ class TimedProgress:
         self.stats = {'start_ts': datetime.now(), 'end_ts': None}
 
     def end(self):
-        """immediately end progress, clear the progressbar line, and save end_ts"""
+        """immediately end progress, clear the progressbar line,
+           and save end_ts"""
 
         end_ts = datetime.now()
         self.stats['end_ts'] = end_ts
         if SHOW_PROGRESS:
             # protect from double termination
-            #if p is None or not hasattr(p, 'kill'):
+            # if p is None or not hasattr(p, 'kill'):
             #    return
             if self.p is not None:
                 self.p.terminate()
-            
-            self.p = None
 
-            sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))  # clear whole terminal line
+            self.p = None
+            # clear the whole ternimal line
+            sys.stdout.write(
+                '\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset'])
+            )
 
 
 @enforce_types
-def progress_bar(seconds: int, prefix: str='') -> None:
-    """show timer in the form of progress bar, with percentage and seconds remaining"""
+def progress_bar(seconds: int, prefix: str = '') -> None:
+    """show timer in the form of progress bar,
+       with percentage and seconds remaining"""
     chunk = '█' if sys.stdout.encoding == 'UTF-8' else '#'
-    chunks = TERM_WIDTH() - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
+    # number of progress chunks to show (aka max bar width)
+    chunks = TERM_WIDTH() - len(prefix) - 20
     try:
         for s in range(seconds * chunks):
             chunks = TERM_WIDTH() - len(prefix) - 20
@@ -580,7 +612,7 @@ def progress_bar(seconds: int, prefix: str='') -> None:
 
 
 @enforce_types
-def download_url(url: str, timeout: int=TIMEOUT) -> str:
+def download_url(url: str, timeout: int = TIMEOUT) -> str:
     """Download the contents of a remote url and return the text"""
 
     req = Request(url, headers={'User-Agent': WGET_USER_AGENT})
@@ -597,13 +629,28 @@ def download_url(url: str, timeout: int=TIMEOUT) -> str:
 
 
 @enforce_types
-def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS, timeout: int=30) -> None:
+def chmod_file(
+        path: str,
+        cwd: str = '.',
+        permissions: str = OUTPUT_PERMISSIONS,
+        timeout: int = 30
+        ) -> None:
     """chmod -R <permissions> <cwd>/<path>"""
 
     if not os.path.exists(os.path.join(cwd, path)):
-        raise Exception('Failed to chmod: {} does not exist (did the previous step fail?)'.format(path))
+        raise Exception(
+            'Failed to chmod: {} does not exist (did the previous step fail?)'
+            .format(path)
+        )
 
-    chmod_result = run(['chmod', '-R', permissions, path], cwd=cwd, stdout=DEVNULL, stderr=PIPE, timeout=timeout)
+    chmod_result = run(
+        ['chmod', '-R', permissions, path],
+        cwd=cwd,
+        stdout=DEVNULL,
+        stderr=PIPE,
+        timeout=timeout
+    )
+
     if chmod_result.returncode == 1:
         print('     ', chmod_result.stderr.decode())
         raise Exception('Failed to chmod {}/{}'.format(cwd, path))
@@ -615,6 +662,7 @@ def copy_and_overwrite(from_path: str, to_path: str):
         shutil.rmtree(to_path)
     shutil.copytree(from_path, to_path)
 
+
 @enforce_types
 def chrome_args(**options) -> List[str]:
     """helper to build up a chrome shell command with arguments"""
@@ -625,7 +673,7 @@ def chrome_args(**options) -> List[str]:
 
     if options['CHROME_HEADLESS']:
         cmd_args += ('--headless',)
-    
+
     if not options['CHROME_SANDBOX']:
         # dont use GPU or sandbox when running inside docker container
         cmd_args += ('--no-sandbox', '--disable-gpu')
@@ -643,8 +691,10 @@ def chrome_args(**options) -> List[str]:
         cmd_args += ('--timeout={}'.format((options['TIMEOUT']) * 1000),)
 
     if options['CHROME_USER_DATA_DIR']:
-        cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
-    
+        cmd_args.append(
+            '--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR'])
+        )
+
     return cmd_args
 
 
@@ -684,7 +734,7 @@ def atomic_write(contents: Union[dict, str], path: str):
                 json.dump(contents, f, indent=4, cls=ExtendedEncoder)
             else:
                 f.write(contents)
-            
+
             os.fsync(f.fileno())
 
         os.rename(tmp_file, path)
