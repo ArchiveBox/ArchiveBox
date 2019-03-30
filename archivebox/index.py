@@ -246,7 +246,7 @@ def parse_json_link_index(link_dir: str) -> Optional[Link]:
     if os.path.exists(existing_index):
         with open(existing_index, 'r', encoding='utf-8') as f:
             link_json = json.load(f)
-            return Link(**link_json)
+            return Link.from_json(link_json)
     return None
 
 
