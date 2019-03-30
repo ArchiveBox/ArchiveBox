@@ -386,6 +386,7 @@ def parse_date(date: Any) -> Optional[datetime]:
             if EARLIEST_POSSIBLE < timestamp < LATEST_POSSIBLE:
                 # number is seconds
                 return datetime.fromtimestamp(timestamp)
+                
             elif EARLIEST_POSSIBLE * 1000 < timestamp < LATEST_POSSIBLE * 1000:
                 # number is milliseconds
                 return datetime.fromtimestamp(timestamp / 1000)
