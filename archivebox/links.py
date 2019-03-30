@@ -23,6 +23,7 @@ from html import unescape
 from collections import OrderedDict
 
 from util import (
+    scheme,
     merge_links,
     check_link_structure,
     check_links_structure,
@@ -52,7 +53,7 @@ def validate_links(links):
 def archivable_links(links):
     """remove chrome://, about:// or other schemed links that cant be archived"""
     for link in links:
-        scheme_is_valid = scheme(url) in ('http', 'https', 'ftp)
+        scheme_is_valid = scheme(link['url']) in ('http', 'https', 'ftp')
         not_blacklisted = (not URL_BLACKLIST.match(link['url'])) if URL_BLACKLIST else True
         if scheme_is_valid and not_blacklisted:
             yield link
