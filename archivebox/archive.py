@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
+
 """
 ArchiveBox command line application.
 
-./archive and ./bin/archivebox both point to this file, 
+./archive and ./bin/archivebox both point to this file,
 but you can also run it directly using `python3 archive.py`
 
 Usage & Documentation:
     https://github.com/pirate/ArchiveBox/Wiki
 """
+
 __package__ = 'archivebox'
 
 import os
@@ -20,6 +22,7 @@ from .schema import Link
 from .links import links_after_timestamp
 from .index import write_links_index, load_links_index
 from .archive_methods import archive_link
+
 from .config import (
     ONLY_NEW,
     OUTPUT_DIR,
@@ -58,7 +61,6 @@ __DESCRIPTION__ = 'ArchiveBox: The self-hosted internet archive.'
 __DOCUMENTATION__ = 'https://github.com/pirate/ArchiveBox/wiki'
 
 
-
 def print_help():
     print('ArchiveBox: The self-hosted internet archive.\n')
     print("Documentation:")
@@ -73,6 +75,7 @@ def print_help():
     print("    archivebox add --depth=1 ~/Downloads/bookmarks_export.html")
     print("    archivebox add --depth=1 https://example.com/feed.rss")
     print("    archivebox update --resume=15109948213.123")
+
 
 def print_version():
     print('ArchiveBox v{}'.format(__VERSION__))
@@ -116,9 +119,9 @@ def main(args=None) -> None:
         print_version()
         raise SystemExit(0)
 
-    ### Handle CLI arguments
-    #     ./archive bookmarks.html
-    #     ./archive 1523422111.234
+    # Handle CLI arguments
+    # ./archive bookmarks.html
+    # ./archive 1523422111.234
     import_path, resume = None, None
     if len(args) == 2:
         # if the argument is a string, it's a import_path file to import
@@ -128,27 +131,36 @@ def main(args=None) -> None:
         else:
             import_path, resume = args[1], None
 
-    ### Set up output folder
+    # Set up output folder
     if not os.path.exists(OUTPUT_DIR):
-        print('{green}[+] Created a new archive directory: {}{reset}'.format(OUTPUT_DIR, **ANSI))
+        print(
+            '{green}[+] Created a new archive directory: {}{reset}'
+            .format(OUTPUT_DIR, **ANSI)
+        )
         os.makedirs(OUTPUT_DIR)
     else:
         not_empty = len(set(os.listdir(OUTPUT_DIR)) - {'.DS_Store'})
         index_exists = os.path.exists(os.path.join(OUTPUT_DIR, 'index.json'))
         if not_empty and not index_exists:
-            print(
-                ("{red}[X] Could not find index.json in the OUTPUT_DIR: {reset}{}\n\n"
-                "    If you're trying to update an existing archive, you must set OUTPUT_DIR to or run archivebox from inside the archive folder you're trying to update.\n"
-                "    If you're trying to create a new archive, you must run archivebox inside a completely empty directory."
-                "\n\n"
-                "    {lightred}Hint:{reset} To import a data folder created by an older version of ArchiveBox, \n"
-                "    just cd into the folder and run the archivebox comamnd to pick up where you left off.\n\n"
-                "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
+            print((
+                "{red}[X] Could not find index.json in the OUTPUT_DIR:"
+                "{reset}{}\n\n"
+                "    If you're trying to update an existing archive, you must"
+                " set OUTPUT_DIR to or run archivebox from inside the archive"
+                " folder you're trying to update.\n"
+                "    If you're trying to create a new archive, you must run"
+                " archivebox inside a completely empty directory.\n\n"
+                "    {lightred}Hint:{reset} To import a data folder created"
+                " by an older version of ArchiveBox, \n"
+                "    just cd into the folder and run the archivebox comamnd"
+                " to pick up where you left off.\n\n"
+                "    (Always make sure your data folder is backed up first"
+                " before updating ArchiveBox)"
                 ).format(OUTPUT_DIR, **ANSI)
             )
             raise SystemExit(1)
 
-    ### Handle ingesting urls piped in through stdin
+    # Handle ingesting urls piped in through stdin
     # (.e.g if user does cat example_urls.txt | ./archive)
     if not sys.stdin.isatty():
         stdin_raw_text = sys.stdin.read()
@@ -162,22 +174,28 @@ def main(args=None) -> None:
 
         import_path = handle_stdin_import(stdin_raw_text)
 
-    ### Handle ingesting url from a remote file/feed
-    # (e.g. if an RSS feed URL is used as the import path) 
+    # Handle ingesting url from a remote file/feed
+    # (e.g. if an RSS feed URL is used as the import path)
     if import_path:
         import_path = handle_file_import(import_path)
 
-    ### Run the main archive update process
+    # Run the main archive update process
     update_archive_data(import_path=import_path, resume=resume)
 
 
 @enforce_types
-def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]=None) -> List[Link]:
+def update_archive_data(
+        import_path: Optional[str] = None,
+        resume: Optional[float] = None
+        ) -> List[Link]:
     """The main ArchiveBox entrancepoint. Everything starts here."""
 
     # Step 1: Load list of links from the existing index
     #         merge in and dedupe new links from import_path
-    all_links, new_links = load_links_index(out_dir=OUTPUT_DIR, import_path=import_path)
+    all_links, new_links = load_links_index(
+            out_dir=OUTPUT_DIR,
+            import_path=import_path
+            )
 
     # Step 2: Write updated index with deduped old and new links back to disk
     write_links_index(links=list(all_links), out_dir=OUTPUT_DIR)
@@ -195,16 +213,13 @@ def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]
         log_archiving_paused(len(links), idx, link.timestamp if link else '0')
         raise SystemExit(0)
 
-    except:
-        print()
-        raise    
-
     log_archiving_finished(len(links))
 
     # Step 4: Re-write links index with updated titles, icons, and resources
     all_links, _ = load_links_index(out_dir=OUTPUT_DIR)
     write_links_index(links=list(all_links), out_dir=OUTPUT_DIR, finished=True)
     return all_links
+
 
 if __name__ == '__main__':
     main(sys.argv)
