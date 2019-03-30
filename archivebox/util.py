@@ -373,6 +373,11 @@ def parse_date(date: Any) -> Optional[datetime]:
             # anything from hours to decades, depending on which app, OS,
             # and sytem time configuration was used for the original timestamp
             # more info: https://github.com/pirate/ArchiveBox/issues/119
+
+            # Note: always always always store the original timestamp string
+            # somewhere indepentendly of the parsed datetime, so that later
+            # bugs dont repeatedly misparse and rewrite increasingly worse dates.
+            # the correct date can always be re-derived from the timestamp str
             timestamp = float(date)
 
             EARLIEST_POSSIBLE = 473403600.0  # 1985
@@ -388,6 +393,12 @@ def parse_date(date: Any) -> Optional[datetime]:
             elif EARLIEST_POSSIBLE * 1000*1000 < timestamp < LATEST_POSSIBLE * 1000*1000:
                 # number is microseconds
                 return datetime.fromtimestamp(timestamp / (1000*1000))
+
+            else:
+                # continue to the end and raise a parsing failed error.
+                # we dont want to even attempt parsing timestamp strings that
+                # arent within these ranges
+                pass
 
         if '-' in date:
             try:
