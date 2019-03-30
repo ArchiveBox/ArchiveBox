@@ -83,27 +83,27 @@ def print_version():
     print(
         '[{}] CURL:'.format('√' if USE_CURL else 'X').ljust(14),
         '{} --version\n'.format(shutil.which(CURL_BINARY)),
-        ' '*13, CURL_VERSION, '\n',
+        ' ' * 13, CURL_VERSION, '\n',
     )
     print(
         '[{}] GIT:'.format('√' if FETCH_GIT else 'X').ljust(14),
         '{} --version\n'.format(shutil.which(GIT_BINARY)),
-        ' '*13, GIT_VERSION, '\n',
+        ' ' * 13, GIT_VERSION, '\n',
     )
     print(
         '[{}] WGET:'.format('√' if USE_WGET else 'X').ljust(14),
         '{} --version\n'.format(shutil.which(WGET_BINARY)),
-        ' '*13, WGET_VERSION, '\n',
+        ' ' * 13, WGET_VERSION, '\n',
     )
     print(
         '[{}] YOUTUBEDL:'.format('√' if FETCH_MEDIA else 'X').ljust(14),
         '{} --version\n'.format(shutil.which(YOUTUBEDL_BINARY)),
-        ' '*13, YOUTUBEDL_VERSION, '\n',
+        ' ' * 13, YOUTUBEDL_VERSION, '\n',
     )
     print(
         '[{}] CHROME:'.format('√' if USE_CHROME else 'X').ljust(14),
         '{} --version\n'.format(shutil.which(CHROME_BINARY)),
-        ' '*13, CHROME_VERSION, '\n',
+        ' ' * 13, CHROME_VERSION, '\n',
     )
 
 
@@ -155,8 +155,7 @@ def main(args=None) -> None:
                 "    just cd into the folder and run the archivebox comamnd"
                 " to pick up where you left off.\n\n"
                 "    (Always make sure your data folder is backed up first"
-                " before updating ArchiveBox)"
-                ).format(OUTPUT_DIR, **ANSI)
+                " before updating ArchiveBox)").format(OUTPUT_DIR, **ANSI)
             )
             raise SystemExit(1)
 

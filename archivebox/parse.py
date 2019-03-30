@@ -330,7 +330,7 @@ def parse_pinboard_rss_export(rss_file: IO[str]) -> Iterable[Link]:
         # Pinboard includes a colon in its date stamp timezone offsets, which
         # Python can't parse. Remove it:
         if ts_str and ts_str[-3:-2] == ":":
-            ts_str = ts_str[:-3]+ts_str[-2:]
+            ts_str = ts_str[:-3] + ts_str[-2:]
 
         if ts_str:
             time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")

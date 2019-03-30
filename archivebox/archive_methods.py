@@ -553,8 +553,9 @@ def should_fetch_git(link: Link, link_dir: Optional[str] = None) -> bool:
         return False
 
     is_clonable_url = (
-        (domain(link.url) in GIT_DOMAINS)
-        or (extension(link.url) == 'git')
+        (domain(link.url) in GIT_DOMAINS) or (
+            extension(link.url) == 'git'
+        )
     )
     if not is_clonable_url:
         return False
@@ -675,12 +676,12 @@ def fetch_media(
         chmod_file(output, cwd=link_dir)
         if result.returncode:
             if (
-                b'ERROR: Unsupported URL' in result.stderr
-                or b'HTTP Error 404' in result.stderr
-                or b'HTTP Error 403' in result.stderr
-                or b'URL could be a direct video link' in result.stderr
-                or b'Unable to extract container ID' in result.stderr
-               ):
+                    b'ERROR: Unsupported URL' in result.stderr or (
+                    b'HTTP Error 404' in result.stderr) or (
+                    b'HTTP Error 403' in result.stderr) or (
+                    b'URL could be a direct video link' in result.stderr) or (
+                    b'Unable to extract container ID' in result.stderr)
+                    ):
                 # These happen too frequently on non-media pages
                 # to warrant printing to console
                 pass

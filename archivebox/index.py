@@ -185,11 +185,13 @@ def write_html_links_index(
         Template(link_row_html).substitute(**{
             **derived_link_info(link),
             'title': (
-                link.title
-                or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
+                link.title or (
+                    link.base_url if link.is_archived else TITLE_LOADING_MSG
+                )
             ),
-            'tags': (link.tags or '') +
-                    (' {}'.format(link.extension) if link.is_static else ''),
+            'tags': (link.tags or '') + (
+                ' {}'.format(link.extension) if link.is_static else ''
+            ),
             'favicon_url': (
                 os.path.join('archive', link.timestamp, 'favicon.ico')
                 # if link['is_archived'] else
@@ -314,12 +316,14 @@ def write_html_link_index(link: Link, link_dir: Optional[str] = None) -> None:
     html_index = Template(link_html).substitute({
         **derived_link_info(link),
         'title': (
-            link.title
-            or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
+            link.title or (
+                link.base_url if link.is_archived else TITLE_LOADING_MSG
+            )
         ),
         'archive_url': urlencode(
-            wget_output_path(link)
-            or (link.domain if link.is_archived else 'about:blank')
+            wget_output_path(link) or (
+                link.domain if link.is_archived else 'about:blank'
+            )
         ),
         'extension': link.extension or 'html',
         'tags': link.tags or 'untagged',

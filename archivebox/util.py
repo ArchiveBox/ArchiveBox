@@ -406,7 +406,7 @@ def parse_date(date: Any) -> Optional[datetime]:
             elif EARLIEST_POSSIBLE * 1000 * 1000 < timestamp < (
                     LATEST_POSSIBLE * 1000 * 1000):
                 # number is microseconds
-                return datetime.fromtimestamp(timestamp / (1000*1000))
+                return datetime.fromtimestamp(timestamp / (1000 * 1000))
 
         if '-' in date:
             try:
@@ -451,8 +451,8 @@ def merge_links(a: Link, b: Link) -> Link:
     )
 
     tags_set = (
-        set(tag.strip() for tag in (a.tags or '').split(','))
-        | set(tag.strip() for tag in (b.tags or '').split(','))
+        set(tag.strip() for tag in (a.tags or '').split(',')) | (
+            set(tag.strip() for tag in (b.tags or '').split(',')))
     )
     tags = ','.join(tags_set) or None
 
@@ -580,7 +580,7 @@ def progress_bar(seconds: int, prefix: str = '') -> None:
         for s in range(seconds * chunks):
             chunks = TERM_WIDTH() - len(prefix) - 20
             progress = s / chunks / seconds * 100
-            bar_width = round(progress/(100/chunks))
+            bar_width = round(progress / (100 / chunks))
 
             # ████████████████████           0.9% (1/60sec)
             sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)'.format(
@@ -589,7 +589,7 @@ def progress_bar(seconds: int, prefix: str = '') -> None:
                 (chunk * bar_width).ljust(chunks),
                 ANSI['reset'],
                 round(progress, 1),
-                round(s/chunks),
+                round(s / chunks),
                 seconds,
             ))
             sys.stdout.flush()

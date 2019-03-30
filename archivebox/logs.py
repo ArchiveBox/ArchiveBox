@@ -46,9 +46,9 @@ def log_parsing_started(source_file: str):
     _LAST_RUN_STATS.parse_start_ts = start_ts
     print('{green}[*] [{}] Parsing new links from output/sources/{}...{reset}'
           .format(
-            start_ts.strftime('%Y-%m-%d %H:%M:%S'),
-            source_file.rsplit('/', 1)[-1],
-            **ANSI,))
+              start_ts.strftime('%Y-%m-%d %H:%M:%S'),
+              source_file.rsplit('/', 1)[-1],
+              **ANSI,))
 
 
 def log_parsing_finished(
@@ -100,9 +100,9 @@ def log_archiving_started(num_links: int, resume: Optional[float]):
     else:
         print('{green}[▶] [{}] Updating content for {} pages'
               ' in archive...{reset}'.format(
-                start_ts.strftime('%Y-%m-%d %H:%M:%S'),
-                num_links,
-                **ANSI,))
+                  start_ts.strftime('%Y-%m-%d %H:%M:%S'),
+                  num_links,
+                  **ANSI,))
 
 
 def log_archiving_paused(num_links: int, idx: int, timestamp: str):
@@ -111,11 +111,11 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
     print()
     print('\n{lightyellow}[X] [{now}] Downloading paused on link'
           ' {timestamp} ({idx}/{total}){reset}'.format(
-            **ANSI,
-            now=end_ts.strftime('%Y-%m-%d %H:%M:%S'),
-            idx=idx+1,
-            timestamp=timestamp,
-            total=num_links,))
+              **ANSI,
+              now=end_ts.strftime('%Y-%m-%d %H:%M:%S'),
+              idx=idx + 1,
+              timestamp=timestamp,
+              total=num_links,))
     print('    To view your archive, open:')
     print('        {}/index.html'.format(OUTPUT_DIR))
     print('    Continue archiving where you left off by running:')
@@ -154,11 +154,11 @@ def log_link_archiving_started(link: Link, link_dir: str, is_new: bool):
 
     print('\n[{symbol_color}{symbol}{reset}]'
           ' [{symbol_color}{now}{reset}] "{title}"'.format(
-            symbol_color=ANSI['green' if is_new else 'black'],
-            symbol='+' if is_new else '√',
-            now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            title=link.title or link.base_url,
-            **ANSI,))
+              symbol_color=ANSI['green' if is_new else 'black'],
+              symbol='+' if is_new else '√',
+              now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+              title=link.title or link.base_url,
+              **ANSI,))
     print('    {blue}{url}{reset}'.format(url=link.url, **ANSI))
     print('    {} {}'.format(
         '>' if is_new else '√',
