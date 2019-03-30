@@ -221,7 +221,7 @@ try:
     WGET_AUTO_COMPRESSION = False
     if USE_WGET:
         WGET_VERSION = bin_version(WGET_BINARY)
-        WGET_AUTO_COMPRESSION = not run([WGET_BINARY, "--compression=auto", "--help"], stdout=DEVNULL).returncode
+        WGET_AUTO_COMPRESSION = not run([WGET_BINARY, "--compression=auto", "--help"], stdout=DEVNULL, stderr=DEVNULL).returncode
         
     WGET_USER_AGENT = WGET_USER_AGENT.format(
         VERSION=VERSION,
