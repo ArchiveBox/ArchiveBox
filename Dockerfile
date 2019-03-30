@@ -1,5 +1,5 @@
 # This Dockerfile for ArchiveBox installs the following in a container:
-#     - curl, wget, python3, youtube-dl, google-chrome-unstable
+#     - curl, wget, python3, youtube-dl, chromium-browser
 #     - ArchiveBox
 # Usage:
 #     docker build github.com/pirate/ArchiveBox -t archivebox
@@ -13,15 +13,14 @@ LABEL maintainer="Nick Sweeting <archivebox-git@sweeting.me>"
 
 RUN apt-get update \
     && apt-get install -yq --no-install-recommends \
-        git wget curl youtube-dl gnupg2 libgconf-2-4 python3 python3-pip \
+        git zlib1g-dev wget curl youtube-dl gnupg2 libgconf-2-4 python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install latest chrome package and fonts to support major charsets (Chinese, Japanese, Arabic, Hebrew, Thai and a few others)
-RUN apt-get update && apt-get install -y wget --no-install-recommends \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
     && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
     && apt-get update \
-    && apt-get install -y google-chrome-unstable fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst ttf-freefont \
+    && apt-get install -y chromium-browser fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst ttf-freefont \
       --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /src/*.deb
@@ -32,7 +31,7 @@ RUN chmod +x /usr/local/bin/dumb-init
 
 # Uncomment to skip the chromium download when installing puppeteer. If you do,
 # you'll need to launch puppeteer with:
-#     browser.launch({executablePath: 'google-chrome-unstable'})
+#     browser.launch({executablePath: 'chromium-browser'})
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
 
 # Install puppeteer so it's available in the container.
@@ -61,7 +60,7 @@ ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     PYTHONIOENCODING=UTF-8 \
     CHROME_SANDBOX=False \
-    CHROME_BINARY=google-chrome-unstable \
+    CHROME_BINARY=chromium-browser \
     OUTPUT_DIR=/data
 
 # Run everything from here on out as non-privileged user
