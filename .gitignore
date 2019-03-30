@@ -10,6 +10,9 @@ venv
 archivebox/.venv
 archivebox/venv
 
+# Testing artifacts
+.coverage
+
 # vim
 .swp*
 

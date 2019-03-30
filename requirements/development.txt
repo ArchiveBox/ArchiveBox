@@ -1,4 +1,9 @@
 -r base.txt
 
-flake8==3.7.7
 mypy==0.670
+pytest==4.3.1
+pytest-cov==2.6.1
+pytest-flake8==1.0.4
+
+# Pytest integration
+# pytest-mypy==0.3.2
