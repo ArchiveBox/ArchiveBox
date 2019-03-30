@@ -6,8 +6,8 @@
 <a href="https://archive.sweeting.me">Demo</a> | 
 <a href="https://github.com/pirate/ArchiveBox">Github</a> | 
 <a href="https://github.com/pirate/ArchiveBox/wiki">Documentation</a> | 
-<a href="#background--motivation">Background & Motivation</a> | 
-<a href="https://github.com/pirate/ArchiveBox/wiki/Changelog">Changelog</a> | 
+<a href="#background--motivation">Info & Motivation</a> | 
+<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4">Chat</a> | 
 <a href="https://github.com/pirate/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
 <pre>
@@ -177,7 +177,9 @@ Unlike crawler software that starts from a seed URL and works outwards, or publi
 
 Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today.  However, as storage space gets cheaper and compression improves, you should be able to use it continuously over the years without having to delete anything.  In my experience, ArchiveBox uses about 5gb per 1000 articles, but your milage may vary depending on which options you have enabled and what types of sites you're archiving. By default, it archives everything in as many formats as possible, meaning it takes more space than a using a single method, but more content is accurately replayable over extended periods of time. Storage requirements can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by setting `FETCH_MEDIA=False` to skip audio & video files.
 
-## Read more
+## Learn more
+
+▶ **Join out our [community chat](http://webchat.freenode.net?channels=ArchiveBox&uio=d4) hosted on IRC freenode.net:`#ArchiveBox`!**
 
 Whether you want learn which organizations are the big players in the web archiving space, want to find a specific open source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community.  Check it out to learn about some of the coolest web archiving projects and communities on the web!
 
