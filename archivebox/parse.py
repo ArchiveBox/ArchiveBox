@@ -66,7 +66,7 @@ def parse_links(source_file: str) -> Tuple[List[Link], str]:
                 if links:
                     timer.end()
                     return links, parser_name
-            except Exception as err:
+            except Exception as err:   # noqa
                 # Parsers are tried one by one down the list, and the first one
                 # that succeeds is used. To see why a certain parser was not used
                 # due to error or format incompatibility, uncomment this line:

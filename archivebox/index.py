@@ -4,7 +4,6 @@ import json
 from datetime import datetime
 from string import Template
 from typing import List, Tuple, Iterator, Optional
-from dataclasses import fields
 
 from .schema import Link, ArchiveResult
 from .config import (
@@ -17,11 +16,9 @@ from .config import (
 )
 from .util import (
     merge_links,
-    chmod_file,
     urlencode,
     derived_link_info,
     wget_output_path,
-    ExtendedEncoder,
     enforce_types,
     TimedProgress,
     copy_and_overwrite,

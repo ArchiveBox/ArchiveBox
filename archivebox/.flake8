@@ -1,0 +1,4 @@
+[flake8]
+ignore = D100,D101,D102,D103,D104,D105,D202,D203,D205,D400,E127,E131,E241,E252,E266,E272,E701,E731,W293,W503
+select = F,E9
+exclude = migrations,util_scripts,node_modules,venv
