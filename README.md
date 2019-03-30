@@ -7,13 +7,14 @@
 <a href="https://github.com/pirate/ArchiveBox">Github</a> | 
 <a href="https://github.com/pirate/ArchiveBox/wiki">Documentation</a> | 
 <a href="#background--motivation">Info & Motivation</a> | 
-<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4">Chat</a> | 
+<a href="https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community">Community</a> | 
 <a href="https://github.com/pirate/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
 <pre>
 "Your own personal internet archive" (网站存档 / 爬虫)
 </pre>
 
+<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_Chat-IRC-%2328A745.svg"/></a>
 <a href="https://github.com/pirate/ArchiveBox">
 <img src="https://img.shields.io/badge/Open_source-free-green.svg?logo=git&logoColor=green"/>
 <img src="https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=Active"/>
