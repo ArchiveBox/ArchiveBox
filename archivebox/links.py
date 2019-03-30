@@ -37,7 +37,6 @@ def validate_links(links):
     links = archivable_links(links)     # remove chrome://, about:, mailto: etc.
     links = uniquefied_links(links)     # merge/dedupe duplicate timestamps & urls
     links = sorted_links(links)         # deterministically sort the links based on timstamp, url
-    links = list(exclude_links(links))  # exclude URLs that match the blacklisted url pattern regex
     
     if not links:
         print('[X] No links found :(')
@@ -52,11 +51,11 @@ def validate_links(links):
 
 def archivable_links(links):
     """remove chrome://, about:// or other schemed links that cant be archived"""
-    return (
-        link
-        for link in links
-        if any(link['url'].lower().startswith(s) for s in ('http://', 'https://', 'ftp://'))
-    )
+    for link in links:
+        scheme_is_valid = scheme(url) in ('http', 'https', 'ftp)
+        not_blacklisted = (not URL_BLACKLIST.match(link['url'])) if URL_BLACKLIST else True
+        if scheme_is_valid and not_blacklisted:
+            yield link
 
 
 def uniquefied_links(sorted_links):
@@ -119,9 +118,5 @@ def lowest_uniq_timestamp(used_timestamps, timestamp):
         new_timestamp = '{}.{}'.format(timestamp, nonce)
 
     return new_timestamp
-
-def exclude_blacklisted(links):
-    """exclude URLs that match the blacklisted url pattern regex"""
-    return (link for link in links if not URL_BLACKLIST.match(link['url']))
     
     
