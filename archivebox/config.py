@@ -1,12 +1,14 @@
 import os
+import re
 import sys
 import shutil
 
-from typing import Optional
+from typing import Optional, Pattern
 from subprocess import run, PIPE, DEVNULL
 
 
 OUTPUT_DIR: str
+URL_BLACKLIST: Optional[Pattern[str]]
 
 # ******************************************************************************
 # Documentation: https://github.com/pirate/ArchiveBox/wiki/Configuration
@@ -24,6 +26,7 @@ TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
 MEDIA_TIMEOUT =          int(os.getenv('MEDIA_TIMEOUT',      '3600'))
 OUTPUT_PERMISSIONS =     os.getenv('OUTPUT_PERMISSIONS',     '755'              )
 FOOTER_INFO =            os.getenv('FOOTER_INFO',            'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.',)
+URL_BLACKLIST =          os.getenv('URL_BLACKLIST',          None)
 
 FETCH_WGET =             os.getenv('FETCH_WGET',             'True'             ).lower() == 'true'
 FETCH_WGET_REQUISITES =  os.getenv('FETCH_WGET_REQUISITES',  'True'             ).lower() == 'true'
@@ -57,6 +60,11 @@ YOUTUBEDL_BINARY =       os.getenv('YOUTUBEDL_BINARY',       'youtube-dl')
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)
 
 CHROME_SANDBOX =         os.getenv('CHROME_SANDBOX', 'True').lower() == 'true'
+
+try:
+    OUTPUT_DIR = os.path.abspath(os.getenv('OUTPUT_DIR'))
+except Exception:
+    OUTPUT_DIR = None
 
 # ******************************************************************************
 
@@ -95,6 +103,9 @@ TEMPLATES_DIR = os.path.join(PYTHON_DIR, 'templates')
 if COOKIES_FILE:
     COOKIES_FILE = os.path.abspath(COOKIES_FILE)
 
+URL_BLACKLIST = URL_BLACKLIST and re.compile(URL_BLACKLIST, re.IGNORECASE)
+
+########################### Environment & Dependencies #########################
 
 VERSION = open(os.path.join(PYTHON_DIR, 'VERSION'), 'r').read().strip()
 GIT_SHA = VERSION.split('+')[1]
