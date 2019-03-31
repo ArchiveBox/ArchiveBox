@@ -74,7 +74,7 @@ TEMPLATES_DIR = os.path.join(PYTHON_PATH, 'templates')
 CHROME_SANDBOX = os.getenv('CHROME_SANDBOX', 'True').lower() == 'true'
 USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
 USE_WGET = FETCH_WGET or FETCH_WGET_REQUISITES or FETCH_WARC
-WGET_AUTO_COMPRESSION = USE_WGET and WGET_BINARY and (not run([WGET_BINARY, "--compression=auto", "--help"], stdout=DEVNULL).returncode)
+WGET_AUTO_COMPRESSION = USE_WGET and WGET_BINARY and (not run([WGET_BINARY, "--compression=auto", "--help"], stdout=DEVNULL, stderr=DEVNULL).returncode)
 
 URL_BLACKLIST = URL_BLACKLIST and re.compile(URL_BLACKLIST, re.IGNORECASE)
 
