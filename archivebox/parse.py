@@ -266,10 +266,12 @@ def parse_pinboard_rss_export(rss_file: IO[str]) -> Iterable[Link]:
     root = etree.parse(rss_file).getroot()
     items = root.findall("{http://purl.org/rss/1.0/}item")
     for item in items:
-        url = item.find("{http://purl.org/rss/1.0/}link").text
-        tags = item.find("{http://purl.org/dc/elements/1.1/}subject").text if item.find("{http://purl.org/dc/elements/1.1/}subject") else None
-        title = item.find("{http://purl.org/rss/1.0/}title").text.strip() if item.find("{http://purl.org/rss/1.0/}title").text.strip() else None
-        ts_str = item.find("{http://purl.org/dc/elements/1.1/}date").text if item.find("{http://purl.org/dc/elements/1.1/}date").text else None
+        find = lambda p: item.find(p).text.strip() if item.find(p) else None    # type: ignore
+
+        url = find("{http://purl.org/rss/1.0/}link")
+        tags = find("{http://purl.org/dc/elements/1.1/}subject")
+        title = find("{http://purl.org/rss/1.0/}title")
+        ts_str = find("{http://purl.org/dc/elements/1.1/}date")
         
         # Pinboard includes a colon in its date stamp timezone offsets, which
         # Python can't parse. Remove it:
@@ -296,12 +298,12 @@ def parse_medium_rss_export(rss_file: IO[str]) -> Iterable[Link]:
 
     rss_file.seek(0)
     root = etree.parse(rss_file).getroot()
-    items = root.find("channel").findall("item")
+    items = root.find("channel").findall("item")                        # type: ignore
     for item in items:
-        url = item.find("link").text
-        title = item.find("title").text.strip()
-        ts_str = item.find("pubDate").text
-        time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %Z")
+        url = item.find("link").text                                    # type: ignore
+        title = item.find("title").text.strip()                         # type: ignore
+        ts_str = item.find("pubDate").text                              # type: ignore
+        time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %Z")    # type: ignore
         
         yield Link(
             url=htmldecode(url),
@@ -319,7 +321,7 @@ def parse_plain_text_export(text_file: IO[str]) -> Iterable[Link]:
     text_file.seek(0)
     for line in text_file.readlines():
         urls = re.findall(URL_REGEX, line) if line.strip() else ()
-        for url in urls:
+        for url in urls:                                                # type: ignore
             yield Link(
                 url=htmldecode(url),
                 timestamp=str(datetime.now().timestamp()),

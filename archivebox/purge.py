@@ -6,9 +6,8 @@ from os.path import exists, join
 from shutil import rmtree
 from typing import List
 
-from archive import parse_json_link_index
-from config import ARCHIVE_DIR, OUTPUT_DIR
-from index import write_html_links_index, write_json_links_index
+from .config import ARCHIVE_DIR, OUTPUT_DIR
+from .index import parse_json_links_index, write_html_links_index, write_json_links_index
 
 
 def cleanup_index(regexes: List[str], proceed: bool, delete: bool) -> None:
@@ -16,18 +15,18 @@ def cleanup_index(regexes: List[str], proceed: bool, delete: bool) -> None:
         exit('index.json is missing; nothing to do')
 
     compiled = [re.compile(r) for r in regexes]
-    links = parse_json_link_index(OUTPUT_DIR)['links']
+    links = parse_json_links_index(OUTPUT_DIR)
     filtered = []
     remaining = []
 
-    for l in links:
-        url = l['url']
+    for link in links:
+        url = link.url
         for r in compiled:
             if r.search(url):
-                filtered.append((l, r))
+                filtered.append((link, r))
                 break
         else:
-            remaining.append(l)
+            remaining.append(link)
 
     if not filtered:
         exit('Search did not match any entries.')
@@ -35,7 +34,7 @@ def cleanup_index(regexes: List[str], proceed: bool, delete: bool) -> None:
     print('Filtered out {}/{} urls:'.format(len(filtered), len(links)))
 
     for link, regex in filtered:
-        url = link['url']
+        url = link.url
         print(' {url} via {regex}'.format(url=url, regex=regex.pattern))
 
     if not proceed:

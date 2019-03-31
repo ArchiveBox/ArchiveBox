@@ -7,7 +7,7 @@ import shutil
 
 from json import JSONEncoder
 from typing import List, Optional, Any, Union
-from inspect import signature, _empty
+from inspect import signature
 from functools import wraps
 from hashlib import sha256
 from urllib.request import Request, urlopen
@@ -24,7 +24,7 @@ from subprocess import (
     CalledProcessError,
 )
 
-from base32_crockford import encode as base32_encode
+from base32_crockford import encode as base32_encode         # type: ignore
 
 from .schema import Link
 from .config import (
@@ -127,9 +127,9 @@ def enforce_types(func):
             try:
                 annotation = sig.parameters[arg_key].annotation
             except KeyError:
-                annotation = _empty
+                annotation = None
 
-            if annotation is not _empty and annotation.__class__ is type:
+            if annotation is not None and annotation.__class__ is type:
                 if not isinstance(arg_val, annotation):
                     raise TypeError(
                         '{}(..., {}: {}) got unexpected {} argument {}={}'.format(
@@ -605,7 +605,7 @@ def download_url(url: str, timeout: int=TIMEOUT) -> str:
         insecure = ssl._create_unverified_context()
         resp = urlopen(req, timeout=timeout, context=insecure)
 
-    encoding = resp.headers.get_content_charset() or 'utf-8'
+    encoding = resp.headers.get_content_charset() or 'utf-8'  # type: ignore
     return resp.read().decode(encoding)
 
 

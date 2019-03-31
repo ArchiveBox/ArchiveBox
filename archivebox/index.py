@@ -3,7 +3,7 @@ import json
 
 from datetime import datetime
 from string import Template
-from typing import List, Tuple, Iterator, Optional
+from typing import List, Tuple, Iterator, Optional, Mapping
 
 from .schema import Link, ArchiveResult
 from .config import (
@@ -132,8 +132,6 @@ def parse_json_links_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
 def write_html_links_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=False) -> None:
     """write the html link index to a given path"""
 
-    path = os.path.join(out_dir, 'index.html')
-
     copy_and_overwrite(
         os.path.join(TEMPLATES_DIR, 'static'),
         os.path.join(out_dir, 'static'),
@@ -147,8 +145,9 @@ def write_html_links_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished:
     with open(os.path.join(TEMPLATES_DIR, 'index_row.html'), 'r', encoding='utf-8') as f:
         link_row_html = f.read()
 
-    link_rows = '\n'.join(
-        Template(link_row_html).substitute(**{
+    link_rows = []
+    for link in links:
+        template_row_vars: Mapping[str, str] = {
             **derived_link_info(link),
             'title': (
                 link.title
@@ -162,22 +161,22 @@ def write_html_links_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished:
             'archive_url': urlencode(
                 wget_output_path(link) or 'index.html'
             ),
-        })
-        for link in links
-    )
+        }
+        link_rows.append(Template(link_row_html).substitute(**template_row_vars))
 
-    template_vars = {
-        'num_links': len(links),
+    template_vars: Mapping[str, str] = {
+        'num_links': str(len(links)),
         'date_updated': datetime.now().strftime('%Y-%m-%d'),
         'time_updated': datetime.now().strftime('%Y-%m-%d %H:%M'),
         'footer_info': FOOTER_INFO,
         'version': VERSION,
         'git_sha': GIT_SHA,
-        'rows': link_rows,
+        'rows': '\n'.join(link_rows),
         'status': 'finished' if finished else 'running',
     }
+    template_html = Template(index_html).substitute(**template_vars)
 
-    atomic_write(Template(index_html).substitute(**template_vars), path)
+    atomic_write(template_html, os.path.join(out_dir, 'index.html'))
 
 
 

@@ -111,6 +111,7 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
 def log_archiving_finished(num_links: int):
     end_ts = datetime.now()
     _LAST_RUN_STATS.archiving_end_ts = end_ts
+    assert _LAST_RUN_STATS.archiving_start_ts is not None
     seconds = end_ts.timestamp() - _LAST_RUN_STATS.archiving_start_ts.timestamp()
     if seconds > 60:
         duration = '{0:.2f} min'.format(seconds / 60, 2)
@@ -194,7 +195,7 @@ def log_archive_method_finished(result: ArchiveResult):
             ),
             *hints,
             '{}Run to see full output:{}'.format(ANSI['lightred'], ANSI['reset']),
-            *(('    cd {};'.format(result.pwd),) if result.pwd else ()),
+            *(['    cd {};'.format(result.pwd)] if result.pwd else []),
             '    {}'.format(quoted_cmd),
         ]
         print('\n'.join(
