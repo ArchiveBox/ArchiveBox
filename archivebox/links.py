@@ -22,6 +22,8 @@ Link {
 from html import unescape
 from collections import OrderedDict
 
+import requests
+
 from util import (
     scheme,
     merge_links,
@@ -31,6 +33,7 @@ from util import (
 
 from config import (
     URL_BLACKLIST,
+    SKIP_BROKEN_LINKS,
 )
 
 def validate_links(links):
@@ -38,6 +41,9 @@ def validate_links(links):
     links = archivable_links(links)     # remove chrome://, about:, mailto: etc.
     links = uniquefied_links(links)     # merge/dedupe duplicate timestamps & urls
     links = sorted_links(links)         # deterministically sort the links based on timstamp, url
+    links = healthy_links(links) if SKIP_BROKEN_LINKS else links
+                                        # Skip links that do not exist any more or
+                                        # return server error
     
     if not links:
         print('[X] No links found :(')
@@ -88,6 +94,14 @@ def uniquefied_links(sorted_links):
 def sorted_links(links):
     sort_func = lambda link: (link['timestamp'].split('.', 1)[0], link['url'])
     return sorted(links, key=sort_func, reverse=True)
+
+
+def healthy_links(links):
+    """filter out broken (4xx or 5xx) links"""
+    for link in links:
+        response = requests.get(link['url'])
+        if response.status_code < 400:
+            yield link
 
 
 def links_after_timestamp(links, timestamp=None):

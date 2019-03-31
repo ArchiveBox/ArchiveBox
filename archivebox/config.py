@@ -48,6 +48,7 @@ YOUTUBEDL_BINARY =       os.getenv('YOUTUBEDL_BINARY',       'youtube-dl')
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)
 
 URL_BLACKLIST =          os.getenv('URL_BLACKLIST',          None)
+SKIP_BROKEN_LINKS =      os.getenv('SKIP_BROKEN_LINKS',      'False'            ).lower() == 'true'
 
 try:
     OUTPUT_DIR = os.path.abspath(os.getenv('OUTPUT_DIR'))
