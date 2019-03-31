@@ -309,7 +309,7 @@ def wget_output_path(link: Link) -> Optional[str]:
     search_dir = os.path.join(
         link.link_dir,
         domain(link.url),
-        full_path,
+        urldecode(full_path),
     )
 
     for _ in range(4):

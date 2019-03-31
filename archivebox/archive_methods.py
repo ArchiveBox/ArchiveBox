@@ -119,9 +119,9 @@ def archive_link(link: Link, link_dir: Optional[str]=None) -> Link:
 
         # print('    ', stats)
 
-        # If any changes were made, update the link index json and html
         write_link_index(link, link_dir=link.link_dir)
         
+        # If any changes were made, update the main links index json and html
         was_changed = stats['succeeded'] or stats['failed']
         if was_changed:
             patch_links_index(link)

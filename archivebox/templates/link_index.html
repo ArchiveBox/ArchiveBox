@@ -1,7 +1,8 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
     <head>
-        <meta charset="utf-8">
         <title>$title</title>
+        <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
         <style>
             html, body {
                 width: 100%;
@@ -237,21 +238,14 @@
         <header>
             <div class="header-top container-fluid">
                 <div class="row nav">
-                    <div class="col-lg-6">
+                    <div class="col-lg-2" style="line-height: 64px;">
 
                         <a href="../../index.html" class="header-archivebox" title="Go to Main Index...">
                             <img src="../../static/archive.png" alt="Archive Icon">
-                            ArchiveBox:
+                            ArchiveBox
                         </a>
-                        <a href="#">Page Details</a>&nbsp;&nbsp;
-                        <br/>
-                        <small style="margin-top: 5px; display: block; opacity: 0.7">
-                            <a href="../../index.html">Index</a> &nbsp; | &nbsp; 
-                            <a href="https://github.com/pirate/ArchiveBox">Github</a> &nbsp; | &nbsp; 
-                            <a href="https://github.com/pirate/ArchiveBox/wiki">Documentation</a>
-                        </small>
                     </div>
-                    <div class="col-lg-6">
+                    <div class="col-lg-10">
                         <img src="$link_dir/$favicon_url" alt="Favicon">
                         &nbsp;&nbsp;
                         $title
@@ -259,8 +253,8 @@
                         <a href="#" class="header-toggle">▾</a>
                         <br/>
                         <small>
-                            <a href="$url" title="Toggle info panel..." class="header-url" title="$url">
-                                $base_url
+                            <a href="$url" class="header-url" title="$url">
+                                $url_str
                             </a>
                         </small>
                     </div>

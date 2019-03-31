@@ -17,6 +17,8 @@ from .config import (
 from .util import (
     merge_links,
     urlencode,
+    htmlencode,
+    urldecode,
     derived_link_info,
     wget_output_path,
     enforce_types,
@@ -267,12 +269,13 @@ def write_html_link_index(link: Link, link_dir: Optional[str]=None) -> None:
 
     path = os.path.join(link_dir, 'index.html')
 
-    html_index = Template(link_html).substitute({
+    template_vars: Mapping[str, str] = {
         **derived_link_info(link),
         'title': (
             link.title
             or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
         ),
+        'url_str': htmlencode(urldecode(link.base_url)),
         'archive_url': urlencode(
             wget_output_path(link)
             or (link.domain if link.is_archived else 'about:blank')
@@ -281,6 +284,8 @@ def write_html_link_index(link: Link, link_dir: Optional[str]=None) -> None:
         'tags': link.tags or 'untagged',
         'status': 'archived' if link.is_archived else 'not yet archived',
         'status_color': 'success' if link.is_archived else 'danger',
-    })
+    }
+
+    html_index = Template(link_html).substitute(**template_vars)
 
     atomic_write(html_index, path)
