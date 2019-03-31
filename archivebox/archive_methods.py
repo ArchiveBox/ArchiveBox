@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 from datetime import datetime
 
-from .schema import Link, ArchiveResult
+from .schema import Link, ArchiveResult, ArchiveOutput
 from .index import (
     write_link_index,
     patch_links_index,
@@ -159,13 +159,13 @@ def should_fetch_title(link: Link, link_dir: Optional[str]=None) -> bool:
 def fetch_title(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """try to guess the page's title from its content"""
 
-    output = None
+    output: ArchiveOutput = None
     cmd = [
         CURL_BINARY,
         link.url,
         '|',
         'grep',
-        '<title>',
+        '<title',
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
@@ -191,6 +191,7 @@ def fetch_title(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) 
 
 @enforce_types
 def should_fetch_favicon(link: Link, link_dir: Optional[str]=None) -> bool:
+    link_dir = link_dir or link.link_dir
     if os.path.exists(os.path.join(link_dir, 'favicon.ico')):
         return False
 
@@ -200,13 +201,14 @@ def should_fetch_favicon(link: Link, link_dir: Optional[str]=None) -> bool:
 def fetch_favicon(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download site favicon from google's favicon api"""
 
-    output = 'favicon.ico'
+    link_dir = link_dir or link.link_dir
+    output: ArchiveOutput = 'favicon.ico'
     cmd = [
         CURL_BINARY,
         '--max-time', str(timeout),
         '--location',
-        '--output', output,
-        *(() if CHECK_SSL_VALIDITY else ('--insecure',)),
+        '--output', str(output),
+        *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         'https://www.google.com/s2/favicons?domain={}'.format(domain(link.url)),
     ]
     status = 'succeeded'
@@ -232,6 +234,7 @@ def fetch_favicon(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT
 @enforce_types
 def should_fetch_wget(link: Link, link_dir: Optional[str]=None) -> bool:
     output_path = wget_output_path(link)
+    link_dir = link_dir or link.link_dir
     if output_path and os.path.exists(os.path.join(link_dir, output_path)):
         return False
 
@@ -242,13 +245,14 @@ def should_fetch_wget(link: Link, link_dir: Optional[str]=None) -> bool:
 def fetch_wget(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download full site using wget"""
 
+    link_dir = link_dir or link.link_dir
     if FETCH_WARC:
         warc_dir = os.path.join(link_dir, 'warc')
         os.makedirs(warc_dir, exist_ok=True)
         warc_path = os.path.join('warc', str(int(datetime.now().timestamp())))
 
     # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
-    output = None
+    output: ArchiveOutput = None
     cmd = [
         WGET_BINARY,
         # '--server-response',  # print headers for better error parsing
@@ -262,13 +266,13 @@ def fetch_wget(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) -
         '-e', 'robots=off',
         '--restrict-file-names=unix',
         '--timeout={}'.format(timeout),
-        *(() if FETCH_WARC else ('--timestamping',)),
-        *(('--warc-file={}'.format(warc_path),) if FETCH_WARC else ()),
-        *(('--page-requisites',) if FETCH_WGET_REQUISITES else ()),
-        *(('--user-agent={}'.format(WGET_USER_AGENT),) if WGET_USER_AGENT else ()),
-        *(('--load-cookies', COOKIES_FILE) if COOKIES_FILE else ()),
-        *(('--compression=auto',) if WGET_AUTO_COMPRESSION else ()),
-        *((() if CHECK_SSL_VALIDITY else ('--no-check-certificate', '--no-hsts'))),
+        *([] if FETCH_WARC else ['--timestamping']),
+        *(['--warc-file={}'.format(warc_path)] if FETCH_WARC else []),
+        *(['--page-requisites'] if FETCH_WGET_REQUISITES else []),
+        *(['--user-agent={}'.format(WGET_USER_AGENT)] if WGET_USER_AGENT else []),
+        *(['--load-cookies', COOKIES_FILE] if COOKIES_FILE else []),
+        *(['--compression=auto'] if WGET_AUTO_COMPRESSION else []),
+        *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate', '--no-hsts']),
         link.url,
     ]
     status = 'succeeded'
@@ -320,6 +324,7 @@ def fetch_wget(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) -
 
 @enforce_types
 def should_fetch_pdf(link: Link, link_dir: Optional[str]=None) -> bool:
+    link_dir = link_dir or link.link_dir
     if is_static_file(link.url):
         return False
     
@@ -333,7 +338,8 @@ def should_fetch_pdf(link: Link, link_dir: Optional[str]=None) -> bool:
 def fetch_pdf(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """print PDF of site to file using chrome --headless"""
 
-    output = 'output.pdf'
+    link_dir = link_dir or link.link_dir
+    output: ArchiveOutput = 'output.pdf'
     cmd = [
         *chrome_args(TIMEOUT=timeout),
         '--print-to-pdf',
@@ -366,6 +372,7 @@ def fetch_pdf(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) ->
 
 @enforce_types
 def should_fetch_screenshot(link: Link, link_dir: Optional[str]=None) -> bool:
+    link_dir = link_dir or link.link_dir
     if is_static_file(link.url):
         return False
     
@@ -377,8 +384,9 @@ def should_fetch_screenshot(link: Link, link_dir: Optional[str]=None) -> bool:
 @enforce_types
 def fetch_screenshot(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """take screenshot of site using chrome --headless"""
-
-    output = 'screenshot.png'
+    
+    link_dir = link_dir or link.link_dir
+    output: ArchiveOutput = 'screenshot.png'
     cmd = [
         *chrome_args(TIMEOUT=timeout),
         '--screenshot',
@@ -411,6 +419,7 @@ def fetch_screenshot(link: Link, link_dir: Optional[str]=None, timeout: int=TIME
 
 @enforce_types
 def should_fetch_dom(link: Link, link_dir: Optional[str]=None) -> bool:
+    link_dir = link_dir or link.link_dir
     if is_static_file(link.url):
         return False
     
@@ -423,8 +432,9 @@ def should_fetch_dom(link: Link, link_dir: Optional[str]=None) -> bool:
 def fetch_dom(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """print HTML of site to file using chrome --dump-html"""
 
-    output = 'output.html'
-    output_path = os.path.join(link_dir, output)
+    link_dir = link_dir or link.link_dir
+    output: ArchiveOutput = 'output.html'
+    output_path = os.path.join(link_dir, str(output))
     cmd = [
         *chrome_args(TIMEOUT=timeout),
         '--dump-dom',
@@ -458,6 +468,7 @@ def fetch_dom(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) ->
 
 @enforce_types
 def should_fetch_git(link: Link, link_dir: Optional[str]=None) -> bool:
+    link_dir = link_dir or link.link_dir
     if is_static_file(link.url):
         return False
 
@@ -478,15 +489,16 @@ def should_fetch_git(link: Link, link_dir: Optional[str]=None) -> bool:
 def fetch_git(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download full site using git"""
 
-    output = 'git'
-    output_path = os.path.join(link_dir, 'git')
+    link_dir = link_dir or link.link_dir
+    output: ArchiveOutput = 'git'
+    output_path = os.path.join(link_dir, str(output))
     os.makedirs(output_path, exist_ok=True)
     cmd = [
         GIT_BINARY,
         'clone',
         '--mirror',
         '--recursive',
-        *(() if CHECK_SSL_VALIDITY else ('-c', 'http.sslVerify=false')),
+        *([] if CHECK_SSL_VALIDITY else ['-c', 'http.sslVerify=false']),
         without_query(without_fragment(link.url)),
     ]
     status = 'succeeded'
@@ -519,6 +531,8 @@ def fetch_git(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) ->
 
 @enforce_types
 def should_fetch_media(link: Link, link_dir: Optional[str]=None) -> bool:
+    link_dir = link_dir or link.link_dir
+
     if is_static_file(link.url):
         return False
 
@@ -531,8 +545,9 @@ def should_fetch_media(link: Link, link_dir: Optional[str]=None) -> bool:
 def fetch_media(link: Link, link_dir: Optional[str]=None, timeout: int=MEDIA_TIMEOUT) -> ArchiveResult:
     """Download playlists or individual video, audio, and subtitles using youtube-dl"""
 
-    output = 'media'
-    output_path = os.path.join(link_dir, 'media')
+    link_dir = link_dir or link.link_dir
+    output: ArchiveOutput = 'media'
+    output_path = os.path.join(link_dir, str(output))
     os.makedirs(output_path, exist_ok=True)
     cmd = [
         YOUTUBEDL_BINARY,
@@ -553,7 +568,7 @@ def fetch_media(link: Link, link_dir: Optional[str]=None, timeout: int=MEDIA_TIM
         '--audio-quality', '320K',
         '--embed-thumbnail',
         '--add-metadata',
-        *(() if CHECK_SSL_VALIDITY else ('--no-check-certificate',)),
+        *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate']),
         link.url,
     ]
     status = 'succeeded'
@@ -593,6 +608,7 @@ def fetch_media(link: Link, link_dir: Optional[str]=None, timeout: int=MEDIA_TIM
 
 @enforce_types
 def should_fetch_archive_dot_org(link: Link, link_dir: Optional[str]=None) -> bool:
+    link_dir = link_dir or link.link_dir
     if is_static_file(link.url):
         return False
 
@@ -606,7 +622,8 @@ def should_fetch_archive_dot_org(link: Link, link_dir: Optional[str]=None) -> bo
 def archive_dot_org(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """submit site to archive.org for archiving via their service, save returned archive url"""
 
-    output = 'archive.org.txt'
+    link_dir = link_dir or link.link_dir
+    output: ArchiveOutput = 'archive.org.txt'
     archive_org_url = None
     submit_url = 'https://web.archive.org/save/{}'.format(link.url)
     cmd = [
@@ -615,7 +632,7 @@ def archive_dot_org(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEO
         '--head',
         '--user-agent', 'ArchiveBox/{} (+https://github.com/pirate/ArchiveBox/)'.format(VERSION),  # be nice to the Archive.org people and show them where all this ArchiveBox traffic is coming from
         '--max-time', str(timeout),
-        *(() if CHECK_SSL_VALIDITY else ('--insecure',)),
+        *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         submit_url,
     ]
     status = 'succeeded'
@@ -638,13 +655,13 @@ def archive_dot_org(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEO
     finally:
         timer.end()
 
-    if not isinstance(output, Exception):
+    if output and not isinstance(output, Exception):
         # instead of writing None when archive.org rejects the url write the
         # url to resubmit it to archive.org. This is so when the user visits
         # the URL in person, it will attempt to re-archive it, and it'll show the
         # nicer error message explaining why the url was rejected if it fails.
         archive_org_url = archive_org_url or submit_url
-        with open(os.path.join(link_dir, output), 'w', encoding='utf-8') as f:
+        with open(os.path.join(link_dir, str(output)), 'w', encoding='utf-8') as f:
             f.write(archive_org_url)
         chmod_file('archive.org.txt', cwd=link_dir)
         output = archive_org_url

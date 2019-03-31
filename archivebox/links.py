@@ -8,7 +8,7 @@ from .util import (
     merge_links,
 )
 
-from .config import URL_BLACKLIST
+from .config import URL_BLACKLIST_PTN
 
 
 def validate_links(links: Iterable[Link]) -> Iterable[Link]:
@@ -26,7 +26,7 @@ def archivable_links(links: Iterable[Link]) -> Iterable[Link]:
     """remove chrome://, about:// or other schemed links that cant be archived"""
     for link in links:
         scheme_is_valid = scheme(link.url) in ('http', 'https', 'ftp')
-        not_blacklisted = (not URL_BLACKLIST.match(link.url)) if URL_BLACKLIST else True
+        not_blacklisted = (not URL_BLACKLIST_PTN.match(link.url)) if URL_BLACKLIST_PTN else True
         if scheme_is_valid and not_blacklisted:
             yield link
 

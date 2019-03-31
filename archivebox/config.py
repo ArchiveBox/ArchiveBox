@@ -3,12 +3,9 @@ import re
 import sys
 import shutil
 
-from typing import Optional, Pattern
+from typing import Optional
 from subprocess import run, PIPE, DEVNULL
 
-
-OUTPUT_DIR: str
-URL_BLACKLIST: Optional[Pattern[str]]
 
 # ******************************************************************************
 # Documentation: https://github.com/pirate/ArchiveBox/wiki/Configuration
@@ -48,6 +45,7 @@ COOKIES_FILE =           os.getenv('COOKIES_FILE',           None)
 CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',   None)
 CHROME_HEADLESS =        os.getenv('CHROME_HEADLESS',        'True'             ).lower() == 'true'
 CHROME_USER_AGENT =      os.getenv('CHROME_USER_AGENT',      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36')
+CHROME_SANDBOX =         os.getenv('CHROME_SANDBOX',         'True'             ).lower() == 'true'
 
 USE_CURL =               os.getenv('USE_CURL',               'True'             ).lower() == 'true'
 USE_WGET =               os.getenv('USE_WGET',               'True'             ).lower() == 'true'
@@ -59,12 +57,7 @@ WGET_BINARY =            os.getenv('WGET_BINARY',            'wget')
 YOUTUBEDL_BINARY =       os.getenv('YOUTUBEDL_BINARY',       'youtube-dl')
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)
 
-CHROME_SANDBOX =         os.getenv('CHROME_SANDBOX', 'True').lower() == 'true'
 
-try:
-    OUTPUT_DIR = os.path.abspath(os.getenv('OUTPUT_DIR'))
-except Exception:
-    OUTPUT_DIR = None
 
 # ******************************************************************************
 
@@ -103,7 +96,7 @@ TEMPLATES_DIR = os.path.join(PYTHON_DIR, 'templates')
 if COOKIES_FILE:
     COOKIES_FILE = os.path.abspath(COOKIES_FILE)
 
-URL_BLACKLIST = URL_BLACKLIST and re.compile(URL_BLACKLIST, re.IGNORECASE)
+URL_BLACKLIST_PTN = re.compile(URL_BLACKLIST, re.IGNORECASE) if URL_BLACKLIST else None
 
 ########################### Environment & Dependencies #########################
 
@@ -147,7 +140,7 @@ def bin_version(binary: str) -> str:
         raise SystemExit(1)
 
 
-def find_chrome_binary() -> Optional[str]:
+def find_chrome_binary() -> str:
     """find any installed chrome binaries in the default locations"""
     # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
     # make sure data dir finding precedence order always matches binary finding order
@@ -244,7 +237,7 @@ try:
     else:
         FETCH_PDF = FETCH_SCREENSHOT = FETCH_DOM = False
     
-    if CHROME_BINARY is None:
+    if not CHROME_BINARY:
         CHROME_BINARY = find_chrome_binary() or 'chromium-browser'
     CHROME_VERSION = None
     if USE_CHROME:
