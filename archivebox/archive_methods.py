@@ -120,11 +120,12 @@ def archive_link(link: Link, link_dir: Optional[str]=None) -> Link:
         # print('    ', stats)
 
         write_link_index(link, link_dir=link.link_dir)
+        patch_links_index(link)
         
-        # If any changes were made, update the main links index json and html
-        was_changed = stats['succeeded'] or stats['failed']
-        if was_changed:
-            patch_links_index(link)
+        # # If any changes were made, update the main links index json and html
+        # was_changed = stats['succeeded'] or stats['failed']
+        # if was_changed:
+        #     patch_links_index(link)
 
         log_link_archiving_finished(link, link.link_dir, is_new, stats)
 
