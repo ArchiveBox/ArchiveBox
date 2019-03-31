@@ -450,7 +450,7 @@ def merge_links(a: Link, b: Link) -> Link:
 
     sources = list(set(a.sources + b.sources))
 
-    all_methods = (set(a.history.keys()) | set(a.history.keys()))
+    all_methods = set(list(a.history.keys()) + list(a.history.keys()))
     history = {
         method: (a.history.get(method) or []) + (b.history.get(method) or [])
         for method in all_methods
