@@ -4,13 +4,13 @@ from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 from datetime import datetime
 
-from core.schema import Link, ArchiveResult, ArchiveOutput
-from core.index import (
+from .schema import Link, ArchiveResult, ArchiveOutput
+from .index import (
     write_link_index,
     patch_links_index,
     load_json_link_index,
 )
-from core.config import (
+from .config import (
     CURL_BINARY,
     GIT_BINARY,
     WGET_BINARY,
@@ -40,7 +40,7 @@ from core.config import (
     YOUTUBEDL_VERSION,
     WGET_AUTO_COMPRESSION,
 )
-from core.util import (
+from .util import (
     enforce_types,
     domain,
     extension,
@@ -54,7 +54,7 @@ from core.util import (
     chrome_args,
     run, PIPE, DEVNULL,
 )
-from core.logs import (
+from .logs import (
     log_link_archiving_started,
     log_link_archiving_finished,
     log_archive_method_started,

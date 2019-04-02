@@ -5,8 +5,8 @@ from datetime import datetime
 from string import Template
 from typing import List, Tuple, Iterator, Optional, Mapping
 
-from core.schema import Link, ArchiveResult
-from core.config import (
+from .schema import Link, ArchiveResult
+from .config import (
     OUTPUT_DIR,
     TEMPLATES_DIR,
     VERSION,
@@ -14,7 +14,7 @@ from core.config import (
     FOOTER_INFO,
     TIMEOUT,
 )
-from core.util import (
+from .util import (
     ts_to_date,
     merge_links,
     urlencode,
@@ -27,9 +27,9 @@ from core.util import (
     copy_and_overwrite,
     atomic_write,
 )
-from core.parse import parse_links
-from core.links import validate_links
-from core.logs import (
+from .parse import parse_links
+from .links import validate_links
+from .logs import (
     log_indexing_process_started,
     log_indexing_started,
     log_indexing_finished,

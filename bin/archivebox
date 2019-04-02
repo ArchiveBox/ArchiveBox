@@ -1,1 +1,15 @@
-../archivebox/archive.py
+#!/usr/bin/env python3
+
+import os
+import sys
+
+
+BIN_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_DIR = os.path.abspath(os.path.join(BIN_DIR, os.pardir))
+sys.path.append(REPO_DIR)
+
+from archivebox.__main__ import main
+
+
+if __name__ == '__main__':
+    main(sys.argv)

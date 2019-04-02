@@ -37,10 +37,11 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=[
         "base32-crockford==0.3.0",
+        "django==2.2",
     ],
     entry_points={
         'console_scripts': [
-            'archivebox = archivebox.archive:main',
+            'archivebox = archivebox.__main__:main',
         ],
     },
     package_data={

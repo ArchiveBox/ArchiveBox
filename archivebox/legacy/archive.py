@@ -8,7 +8,7 @@ but you can also run it directly using `python3 archive.py`
 Usage & Documentation:
     https://github.com/pirate/ArchiveBox/Wiki
 """
-__package__ = 'archivebox'
+__package__ = 'legacy'
 
 import os
 import sys
@@ -16,37 +16,50 @@ import shutil
 
 from typing import List, Optional
 
-from core.schema import Link
-from core.links import links_after_timestamp
-from core.index import write_links_index, load_links_index
-from core.archive_methods import archive_link
-from core.config import (
+from .schema import Link
+from .links import links_after_timestamp
+from .index import write_links_index, load_links_index
+from .archive_methods import archive_link
+from .config import (
     ONLY_NEW,
-    OUTPUT_DIR,
     VERSION,
     ANSI,
-    CURL_VERSION,
-    GIT_VERSION,
-    WGET_VERSION,
-    YOUTUBEDL_VERSION,
-    CHROME_VERSION,
+
+    REPO_DIR,
+    PYTHON_DIR,
+    LEGACY_DIR,
+    TEMPLATES_DIR,
+    OUTPUT_DIR,
+    SOURCES_DIR,
+    ARCHIVE_DIR,
+    DATABASE_DIR,
+
     USE_CURL,
     USE_WGET,
     USE_CHROME,
+    FETCH_GIT,
+    FETCH_MEDIA,
+
+    DJANGO_BINARY,
     CURL_BINARY,
     GIT_BINARY,
     WGET_BINARY,
     YOUTUBEDL_BINARY,
     CHROME_BINARY,
-    FETCH_GIT,
-    FETCH_MEDIA,
+
+    DJANGO_VERSION,
+    CURL_VERSION,
+    GIT_VERSION,
+    WGET_VERSION,
+    YOUTUBEDL_VERSION,
+    CHROME_VERSION,
 )
-from core.util import (
+from .util import (
     enforce_types,
     handle_stdin_import,
     handle_file_import,
 )
-from core.logs import (
+from .logs import (
     log_archiving_started,
     log_archiving_paused,
     log_archiving_finished,
@@ -74,9 +87,26 @@ def print_help():
     print("    archivebox add --depth=1 https://example.com/feed.rss")
     print("    archivebox update --resume=15109948213.123")
 
+
 def print_version():
     print('ArchiveBox v{}'.format(__VERSION__))
     print()
+    print('[i] Folder locations:')
+    print('    REPO_DIR:      ', REPO_DIR)
+    print('    PYTHON_DIR:    ', PYTHON_DIR)
+    print('    LEGACY_DIR:    ', LEGACY_DIR)
+    print('    TEMPLATES_DIR: ', TEMPLATES_DIR)
+    print()
+    print('    OUTPUT_DIR:    ', OUTPUT_DIR)
+    print('    SOURCES_DIR:   ', SOURCES_DIR)
+    print('    ARCHIVE_DIR:   ', ARCHIVE_DIR)
+    print('    DATABASE_DIR:  ', DATABASE_DIR)
+    print()
+    print(
+        '[√] Django:'.ljust(14),
+        'python3 {} --version\n'.format(DJANGO_BINARY),
+        ' '*13, DJANGO_VERSION, '\n',
+    )
     print(
         '[{}] CURL:'.format('√' if USE_CURL else 'X').ljust(14),
         '{} --version\n'.format(shutil.which(CURL_BINARY)),
@@ -132,8 +162,11 @@ def main(args=None) -> None:
     if not os.path.exists(OUTPUT_DIR):
         print('{green}[+] Created a new archive directory: {}{reset}'.format(OUTPUT_DIR, **ANSI))
         os.makedirs(OUTPUT_DIR)
+        os.makedirs(SOURCES_DIR)
+        os.makedirs(ARCHIVE_DIR)
+        os.makedirs(DATABASE_DIR)
     else:
-        not_empty = len(set(os.listdir(OUTPUT_DIR)) - {'.DS_Store'})
+        not_empty = len(set(os.listdir(OUTPUT_DIR)) - {'.DS_Store', '.venv', 'venv', 'virtualenv', '.virtualenv'})
         index_exists = os.path.exists(os.path.join(OUTPUT_DIR, 'index.json'))
         if not_empty and not index_exists:
             print(

@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import django
 import shutil
 
 from typing import Optional
@@ -58,7 +59,6 @@ YOUTUBEDL_BINARY =       os.getenv('YOUTUBEDL_BINARY',       'youtube-dl')
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)
 
 
-
 # ******************************************************************************
 
 ### Terminal Configuration
@@ -79,7 +79,7 @@ if not USE_COLOR:
     ANSI = {k: '' for k in ANSI.keys()}
 
 
-REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 if OUTPUT_DIR:
     OUTPUT_DIR = os.path.abspath(OUTPUT_DIR)
 else:
@@ -87,11 +87,14 @@ else:
 
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
+DATABASE_DIR_NAME = 'database'
 ARCHIVE_DIR = os.path.join(OUTPUT_DIR, ARCHIVE_DIR_NAME)
 SOURCES_DIR = os.path.join(OUTPUT_DIR, SOURCES_DIR_NAME)
+DATABASE_DIR = os.path.join(OUTPUT_DIR, DATABASE_DIR_NAME)
 
 PYTHON_DIR = os.path.join(REPO_DIR, 'archivebox')
-TEMPLATES_DIR = os.path.join(PYTHON_DIR, 'templates')
+LEGACY_DIR = os.path.join(PYTHON_DIR, 'legacy')
+TEMPLATES_DIR = os.path.join(LEGACY_DIR, 'templates')
 
 if COOKIES_FILE:
     COOKIES_FILE = os.path.abspath(COOKIES_FILE)
@@ -100,8 +103,8 @@ URL_BLACKLIST_PTN = re.compile(URL_BLACKLIST, re.IGNORECASE) if URL_BLACKLIST el
 
 ########################### Environment & Dependencies #########################
 
-VERSION = open(os.path.join(PYTHON_DIR, 'VERSION'), 'r').read().strip()
-GIT_SHA = VERSION.split('+')[1]
+VERSION = open(os.path.join(REPO_DIR, 'VERSION'), 'r').read().strip()
+GIT_SHA = VERSION.split('+')[-1] or 'unknown'
 
 ### Check Python environment
 python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
@@ -196,6 +199,10 @@ def find_chrome_data_dir() -> Optional[str]:
 # ******************************************************************************
 
 try:
+    ### Get Django version
+    DJANGO_BINARY = django.__file__.replace('__init__.py', 'bin/django-admin.py')
+    DJANGO_VERSION = '{}.{}.{} {} ({})'.format(*django.VERSION)
+
     ### Make sure curl is installed
     if USE_CURL:
         USE_CURL = FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG

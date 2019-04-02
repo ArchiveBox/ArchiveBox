@@ -26,8 +26,8 @@ from subprocess import (
 
 from base32_crockford import encode as base32_encode         # type: ignore
 
-from core.schema import Link
-from core.config import (
+from .schema import Link
+from .config import (
     ANSI,
     TERM_WIDTH,
     SOURCES_DIR,
@@ -38,9 +38,8 @@ from core.config import (
     CHECK_SSL_VALIDITY,
     WGET_USER_AGENT,
     CHROME_OPTIONS,
-    PYTHON_DIR,
 )
-from core.logs import pretty_path
+from .logs import pretty_path
 
 ### Parsing Helpers
 
@@ -330,14 +329,6 @@ def wget_output_path(link: Link) -> Optional[str]:
             break
 
     return None
-
-
-@enforce_types
-def read_js_script(script_name: str) -> str:
-    script_path = os.path.join(PYTHON_DIR, 'scripts', script_name)
-
-    with open(script_path, 'r') as f:
-        return f.read().split('// INFO BELOW HERE')[0].strip()
 
 
 ### String Manipulation & Logging Helpers

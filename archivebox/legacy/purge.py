@@ -6,8 +6,8 @@ from os.path import exists, join
 from shutil import rmtree
 from typing import List
 
-from core.config import ARCHIVE_DIR, OUTPUT_DIR
-from core.index import parse_json_links_index, write_html_links_index, write_json_links_index
+from .config import ARCHIVE_DIR, OUTPUT_DIR
+from .index import parse_json_links_index, write_html_links_index, write_json_links_index
 
 
 def cleanup_index(regexes: List[str], proceed: bool, delete: bool) -> None:
