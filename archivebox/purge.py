@@ -6,9 +6,9 @@ from os.path import exists, join
 from shutil import rmtree
 from typing import List
 
-from archive import parse_json_link_index
 from config import ARCHIVE_DIR, OUTPUT_DIR
-from index import write_html_links_index, write_json_links_index
+from index import (parse_json_links_index, write_html_links_index,
+                   write_json_links_index)
 
 
 def cleanup_index(regexes: List[str], proceed: bool, delete: bool) -> None:
@@ -16,7 +16,7 @@ def cleanup_index(regexes: List[str], proceed: bool, delete: bool) -> None:
         exit('index.json is missing; nothing to do')
 
     compiled = [re.compile(r) for r in regexes]
-    links = parse_json_link_index(OUTPUT_DIR)['links']
+    links = parse_json_links_index(OUTPUT_DIR)
     filtered = []
     remaining = []
 
