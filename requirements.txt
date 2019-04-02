@@ -1,3 +1,4 @@
+django
 base32-crockford
 
 setuptools

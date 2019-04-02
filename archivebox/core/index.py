@@ -5,8 +5,8 @@ from datetime import datetime
 from string import Template
 from typing import List, Tuple, Iterator, Optional, Mapping
 
-from .schema import Link, ArchiveResult
-from .config import (
+from core.schema import Link, ArchiveResult
+from core.config import (
     OUTPUT_DIR,
     TEMPLATES_DIR,
     VERSION,
@@ -14,7 +14,8 @@ from .config import (
     FOOTER_INFO,
     TIMEOUT,
 )
-from .util import (
+from core.util import (
+    ts_to_date,
     merge_links,
     urlencode,
     htmlencode,
@@ -26,9 +27,9 @@ from .util import (
     copy_and_overwrite,
     atomic_write,
 )
-from .parse import parse_links
-from .links import validate_links
-from .logs import (
+from core.parse import parse_links
+from core.links import validate_links
+from core.logs import (
     log_indexing_process_started,
     log_indexing_started,
     log_indexing_finished,
@@ -284,6 +285,7 @@ def write_html_link_index(link: Link, link_dir: Optional[str]=None) -> None:
         'tags': link.tags or 'untagged',
         'status': 'archived' if link.is_archived else 'not yet archived',
         'status_color': 'success' if link.is_archived else 'danger',
+        'oldest_archive_date': ts_to_date(link.oldest_archive_date),
     }
 
     html_index = Template(link_html).substitute(**template_vars)

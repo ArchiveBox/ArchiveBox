@@ -16,11 +16,11 @@ import shutil
 
 from typing import List, Optional
 
-from .schema import Link
-from .links import links_after_timestamp
-from .index import write_links_index, load_links_index
-from .archive_methods import archive_link
-from .config import (
+from core.schema import Link
+from core.links import links_after_timestamp
+from core.index import write_links_index, load_links_index
+from core.archive_methods import archive_link
+from core.config import (
     ONLY_NEW,
     OUTPUT_DIR,
     VERSION,
@@ -41,12 +41,12 @@ from .config import (
     FETCH_GIT,
     FETCH_MEDIA,
 )
-from .util import (
+from core.util import (
     enforce_types,
     handle_stdin_import,
     handle_file_import,
 )
-from .logs import (
+from core.logs import (
     log_archiving_started,
     log_archiving_paused,
     log_archiving_finished,
@@ -142,7 +142,7 @@ def main(args=None) -> None:
                 "    If you're trying to create a new archive, you must run archivebox inside a completely empty directory."
                 "\n\n"
                 "    {lightred}Hint:{reset} To import a data folder created by an older version of ArchiveBox, \n"
-                "    just cd into the folder and run the archivebox comamnd to pick up where you left off.\n\n"
+                "    just cd into the folder and run the archivebox command to pick up where you left off.\n\n"
                 "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
                 ).format(OUTPUT_DIR, **ANSI)
             )

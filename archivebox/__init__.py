@@ -1,5 +1,5 @@
 
 
-__name__ = 'archivebox'
-__package__ = 'archivebox'
+#__name__ = 'archivebox'
+#__package__ = 'archivebox'
 

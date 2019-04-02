@@ -5,8 +5,8 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Optional
 
-from .schema import Link, ArchiveResult
-from .config import ANSI, OUTPUT_DIR
+from core.schema import Link, ArchiveResult
+from core.config import ANSI, OUTPUT_DIR
 
 
 @dataclass

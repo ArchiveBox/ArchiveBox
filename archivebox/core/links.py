@@ -1,14 +1,14 @@
 from typing import Iterable
 from collections import OrderedDict
 
-from .schema import Link
-from .util import (
+from core.schema import Link
+from core.util import (
     scheme,
     fuzzy_url,
     merge_links,
 )
 
-from .config import URL_BLACKLIST_PTN
+from core.config import URL_BLACKLIST_PTN
 
 
 def validate_links(links: Iterable[Link]) -> Iterable[Link]:

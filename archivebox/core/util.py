@@ -26,8 +26,8 @@ from subprocess import (
 
 from base32_crockford import encode as base32_encode         # type: ignore
 
-from .schema import Link
-from .config import (
+from core.schema import Link
+from core.config import (
     ANSI,
     TERM_WIDTH,
     SOURCES_DIR,
@@ -40,7 +40,7 @@ from .config import (
     CHROME_OPTIONS,
     PYTHON_DIR,
 )
-from .logs import pretty_path
+from core.logs import pretty_path
 
 ### Parsing Helpers
 
@@ -62,17 +62,17 @@ base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 without_www = lambda url: url.replace('://www.', '://', 1)
 without_trailing_slash = lambda url: url[:-1] if url[-1] == '/' else url.replace('/?', '?')
 fuzzy_url = lambda url: without_trailing_slash(without_www(without_scheme(url.lower())))
-
-short_ts = lambda ts: str(parse_date(ts).timestamp()).split('.')[0]
-ts_to_date = lambda ts: parse_date(ts).strftime('%Y-%m-%d %H:%M')
-ts_to_iso = lambda ts: parse_date(ts).isoformat()
+hashurl = lambda url: base32_encode(int(sha256(base_url(url).encode('utf-8')).hexdigest(), 16))[:20]
 
 urlencode = lambda s: s and quote(s, encoding='utf-8', errors='replace')
 urldecode = lambda s: s and unquote(s)
 htmlencode = lambda s: s and escape(s, quote=True)
 htmldecode = lambda s: s and unescape(s)
 
-hashurl = lambda url: base32_encode(int(sha256(base_url(url).encode('utf-8')).hexdigest(), 16))[:20]
+short_ts = lambda ts: str(parse_date(ts).timestamp()).split('.')[0]
+ts_to_date = lambda ts: ts and parse_date(ts).strftime('%Y-%m-%d %H:%M')
+ts_to_iso = lambda ts: ts and parse_date(ts).isoformat()
+
 
 URL_REGEX = re.compile(
     r'http[s]?://'                    # start matching from allowed schemes
@@ -357,11 +357,11 @@ def str_between(string: str, start: str, end: str=None) -> str:
 def parse_date(date: Any) -> Optional[datetime]:
     """Parse unix timestamps, iso format, and human-readable strings"""
     
-    if isinstance(date, datetime):
-        return date
-
     if date is None:
         return None
+
+    if isinstance(date, datetime):
+        return date
     
     if isinstance(date, (float, int)):
         date = str(date)
