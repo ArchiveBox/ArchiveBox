@@ -15,6 +15,7 @@ from .config import (
     TIMEOUT,
 )
 from .util import (
+    ts_to_date,
     merge_links,
     urlencode,
     htmlencode,
@@ -284,6 +285,7 @@ def write_html_link_index(link: Link, link_dir: Optional[str]=None) -> None:
         'tags': link.tags or 'untagged',
         'status': 'archived' if link.is_archived else 'not yet archived',
         'status_color': 'success' if link.is_archived else 'danger',
+        'oldest_archive_date': ts_to_date(link.oldest_archive_date),
     }
 
     html_index = Template(link_html).substitute(**template_vars)

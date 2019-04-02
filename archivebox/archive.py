@@ -142,7 +142,7 @@ def main(args=None) -> None:
                 "    If you're trying to create a new archive, you must run archivebox inside a completely empty directory."
                 "\n\n"
                 "    {lightred}Hint:{reset} To import a data folder created by an older version of ArchiveBox, \n"
-                "    just cd into the folder and run the archivebox comamnd to pick up where you left off.\n\n"
+                "    just cd into the folder and run the archivebox command to pick up where you left off.\n\n"
                 "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
                 ).format(OUTPUT_DIR, **ANSI)
             )

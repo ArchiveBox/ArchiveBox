@@ -221,28 +221,20 @@ class Link:
         return ts_to_date(self.updated) if self.updated else None
 
     @property
-    def oldest_archive_date(self) -> Optional[datetime]:
-        from .util import ts_to_date
+    def archive_dates(self) -> List[datetime]:
+        return [
+            result.start_ts
+            for method in self.history.keys()
+                for result in self.history[method]
+        ]
 
-        most_recent = min(
-            (ts_to_date(result.start_ts)
-             for method in self.history.keys()
-                for result in self.history[method]),
-            default=None,
-        )
-        return ts_to_date(most_recent) if most_recent else None
+    @property
+    def oldest_archive_date(self) -> Optional[datetime]:
+        return min(self.archive_dates, default=None)
 
     @property
     def newest_archive_date(self) -> Optional[datetime]:
-        from .util import ts_to_date
-
-        most_recent = max(
-            (ts_to_date(result.start_ts)
-             for method in self.history.keys()
-                for result in self.history[method]),
-            default=None,
-        )
-        return ts_to_date(most_recent) if most_recent else None
+        return max(self.archive_dates, default=None)
 
     ### Archive Status Helpers
     @property
