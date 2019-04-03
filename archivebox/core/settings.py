@@ -13,12 +13,12 @@ DEBUG = True
 
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+    # 'django.contrib.admin',
+    # 'django.contrib.auth',
+    # 'django.contrib.contenttypes',
+    # 'django.contrib.sessions',
+    # 'django.contrib.messages',
+    # 'django.contrib.staticfiles',
 
     'core',
 ]
@@ -53,10 +53,11 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 
+DATABASE_FILE = os.path.join(DATABASE_DIR, 'database.sqlite3')
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(DATABASE_DIR, 'database.sqlite3'),
+        'NAME': DATABASE_FILE,
     }
 }
 

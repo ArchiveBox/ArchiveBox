@@ -9,3 +9,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
 
 import django
 django.setup()
+
+from django.conf import settings
+
+DATABASE_FILE = settings.DATABASE_FILE

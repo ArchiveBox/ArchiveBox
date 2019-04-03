@@ -404,59 +404,6 @@ def parse_date(date: Any) -> Optional[datetime]:
     raise ValueError('Tried to parse invalid date! {}'.format(date))
 
 
-
-### Link Helpers
-
-@enforce_types
-def merge_links(a: Link, b: Link) -> Link:
-    """deterministially merge two links, favoring longer field values over shorter,
-    and "cleaner" values over worse ones.
-    """
-    assert a.base_url == b.base_url, 'Cannot merge two links with different URLs'
-
-    url = a.url if len(a.url) > len(b.url) else b.url
-
-    possible_titles = [
-        title
-        for title in (a.title, b.title)
-        if title and title.strip() and '://' not in title
-    ]
-    title = None
-    if len(possible_titles) == 2:
-        title = max(possible_titles, key=lambda t: len(t))
-    elif len(possible_titles) == 1:
-        title = possible_titles[0]
-
-    timestamp = (
-        a.timestamp
-        if float(a.timestamp or 0) < float(b.timestamp or 0) else
-        b.timestamp
-    )
-
-    tags_set = (
-        set(tag.strip() for tag in (a.tags or '').split(','))
-        | set(tag.strip() for tag in (b.tags or '').split(','))
-    )
-    tags = ','.join(tags_set) or None
-
-    sources = list(set(a.sources + b.sources))
-
-    all_methods = set(list(a.history.keys()) + list(a.history.keys()))
-    history = {
-        method: (a.history.get(method) or []) + (b.history.get(method) or [])
-        for method in all_methods
-    }
-
-    return Link(
-        url=url,
-        timestamp=timestamp,
-        title=title,
-        tags=tags,
-        sources=sources,
-        history=history,
-    )
-
-
 @enforce_types
 def is_static_file(url: str) -> bool:
     """Certain URLs just point to a single static file, and 
@@ -465,16 +412,6 @@ def is_static_file(url: str) -> bool:
 
     # TODO: the proper way is with MIME type detection, not using extension
     return extension(url) in STATICFILE_EXTENSIONS
-
-
-@enforce_types
-def derived_link_info(link: Link) -> dict:
-    """extend link info with the archive urls and other derived data"""
-
-    info = link._asdict(extended=True)
-    info.update(link.canonical_outputs())
-
-    return info
 
 
 
@@ -696,3 +633,22 @@ def atomic_write(contents: Union[dict, str], path: str) -> None:
     finally:
         if os.path.exists(tmp_file):
             os.remove(tmp_file)
+
+
+def reject_stdin(caller: str) -> None:
+    """Tell the user they passed stdin to a command that doesn't accept it"""
+
+    if not sys.stdin.isatty():
+        stdin_raw_text = sys.stdin.read().strip()
+        if stdin_raw_text:
+            print(
+                '{red}[X] The "{}" command does not accept stdin.{reset}\n'.format(
+                    caller,
+                    **ANSI,
+                )
+            )
+            print('    Run archivebox "{} --help" to see usage and examples.'.format(
+                caller,
+            ))
+            print()
+            raise SystemExit(1)
