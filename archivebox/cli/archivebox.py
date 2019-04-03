@@ -62,8 +62,26 @@ def parse_args(args=None):
     return command.subcommand, command.args
 
 
+def print_import_tutorial():
+    print('Welcome to ArchiveBox!')
+    print()
+    print('To import an existing archive (from a previous version of ArchiveBox):')
+    print('    1. cd into your data dir OUTPUT_DIR (usually ArchiveBox/output) and run:')
+    print('    2. archivebox init')
+    print()
+    print('To start a new archive:')
+    print('    1. Create an emptry directory, then cd into it and run:')
+    print('    2. archivebox init')
+    print()
+    print('For more information, see the migration docs here:')
+    print('    https://github.com/pirate/ArchiveBox/wiki/Migration')
+
 def main(args=None):
     subcommand, subcommand_args = parse_args(args)
+    if subcommand is None:
+        print_import_tutorial()
+        raise SystemExit(0)
+
     run_subcommand(subcommand, subcommand_args)
     
 

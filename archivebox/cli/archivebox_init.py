@@ -28,7 +28,11 @@ def init(output_dir: str=OUTPUT_DIR):
 
     if not is_empty:
         if existing_index:
-            print('You already have an archive in this folder!')
+            print('[√] You already have an archive setup up in this folder. To add new links, you can run:')
+            print('    archivebox add https://example.com')
+            print()
+            print('[i] Fore more usage and examples, run "archivebox help" or visit:')
+            print('    https://github.com/pirate/ArchiveBox/wiki/Usage')
             # TODO: import old archivebox version's archive data folder
 
             raise SystemExit(1)
