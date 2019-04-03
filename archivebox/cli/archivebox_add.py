@@ -4,7 +4,6 @@ __package__ = 'archivebox.cli'
 __command__ = 'archivebox add'
 __description__ = 'Add a new URL or list of URLs to your archive'
 
-import os
 import sys
 import argparse
 
@@ -34,17 +33,17 @@ def main(args=None):
         action='store_true',
         help="Don't attempt to retry previously skipped/failed links when updating",
     )
-    parser.add_argument(
-        '--mirror', #'-m',
-        action='store_true',
-        help='Archive an entire site (finding all linked pages below it on the same domain)',
-    )
-    parser.add_argument(
-        '--crawler', #'-r',
-        choices=('depth_first', 'breadth_first'),
-        help='Controls which crawler to use in order to find outlinks in a given page',
-        default=None,
-    )
+    # parser.add_argument(
+    #     '--mirror', #'-m',
+    #     action='store_true',
+    #     help='Archive an entire site (finding all linked pages below it on the same domain)',
+    # )
+    # parser.add_argument(
+    #     '--crawler', #'-r',
+    #     choices=('depth_first', 'breadth_first'),
+    #     help='Controls which crawler to use in order to find outlinks in a given page',
+    #     default=None,
+    # )
     parser.add_argument(
         'url',
         nargs='?',
@@ -55,7 +54,7 @@ def main(args=None):
     command = parser.parse_args(args)
 
     ### Handle ingesting urls piped in through stdin
-    # (.e.g if user does cat example_urls.txt | ./archive)
+    # (.e.g if user does cat example_urls.txt | archivebox add)
     import_path = None
     if not sys.stdin.isatty():
         stdin_raw_text = sys.stdin.read()
@@ -72,7 +71,6 @@ def main(args=None):
     # (e.g. if an RSS feed URL is used as the import path) 
     elif command.url:
         import_path = handle_file_import(command.url)
-
 
     update_archive_data(
         import_path=import_path,

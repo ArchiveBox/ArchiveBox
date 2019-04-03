@@ -39,11 +39,12 @@ Example Use:
     mkdir my-archive; cd my-archive/
     archivebox init
 
-    echo 'https://example.com/some/page' | archivebox add
-    archivebox add https://example.com/some/other/page
+    archivebox add https://example.com/some/page
     archivebox add --depth=1 ~/Downloads/bookmarks_export.html
-    archivebox add --depth=1 https://example.com/feed.rss
+    
+    archivebox subscribe https://example.com/some/feed.rss
     archivebox update --resume=15109948213.123
+    archivebox list --sort=timestamp --csv=timestamp,url,is_archived
 
 Documentation:
     https://github.com/pirate/ArchiveBox/wiki
