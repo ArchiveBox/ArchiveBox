@@ -15,6 +15,8 @@ from .config import (
     FOOTER_INFO,
     TIMEOUT,
     URL_BLACKLIST_PTN,
+    ANSI,
+    stderr,
 )
 from .util import (
     scheme,

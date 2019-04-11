@@ -5,12 +5,11 @@ __command__ = 'archivebox list'
 __description__ = 'List all the URLs currently in the archive.'
 
 import sys
-import json
 import argparse
 
 
-from ..legacy.util import reject_stdin, ExtendedEncoder
-from ..legacy.main import list_archive_data, csv_format
+from ..legacy.util import reject_stdin, to_json, to_csv
+from ..legacy.main import list_archive_data
 
 
 def main(args=None):
@@ -34,15 +33,9 @@ def main(args=None):
         help="Print the output in JSON format with all columns included.",
     )
     parser.add_argument(
-        '--filter', #'-f',
-        type=str,
-        help="List only URLs matching the given regex pattern.",
-        default=None,
-    )
-    parser.add_argument(
         '--sort', #'-s',
         type=str,
-        help="List the links sorted using the given key, e.g. timestamp or updated",
+        help="List the links sorted using the given key, e.g. timestamp or updated.",
         default=None,
     )
     parser.add_argument(
@@ -57,11 +50,26 @@ def main(args=None):
         help="List only URLs bookmarked after the given timestamp.",
         default=None,
     )
+    parser.add_argument(
+        '--filter-type',
+        type=str,
+        choices=('exact', 'substring', 'domain', 'regex'),
+        default='exact',
+        help='Type of pattern matching to use when filtering URLs',
+    )
+    parser.add_argument(
+        'patterns',
+        nargs='*',
+        type=str,
+        default=None,
+        help='List only URLs matching these filter patterns.'
+    )
     command = parser.parse_args(args)
     reject_stdin(__command__)
 
     links = list_archive_data(
-        filter_regex=command.filter,
+        filter_patterns=command.patterns,
+        filter_type=command.filter_type,
         before=command.before,
         after=command.after,
     )
@@ -69,10 +77,9 @@ def main(args=None):
         links = sorted(links, key=lambda link: getattr(link, command.sort))
 
     if command.csv:
-        print(command.csv)
-        print('\n'.join(csv_format(link, command.csv) for link in links))
+        print(to_csv(links, csv_cols=command.csv.split(','), header=True))
     elif command.json:
-        print(json.dumps(list(links), indent=4, cls=ExtendedEncoder))
+        print(to_json(links, indent=4, sort_keys=True))
     else:
         print('\n'.join(link.url for link in links))
     

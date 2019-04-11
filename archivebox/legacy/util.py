@@ -6,7 +6,7 @@ import time
 import shutil
 
 from json import JSONEncoder
-from typing import List, Optional, Any, Union
+from typing import List, Optional, Any, Union, IO
 from inspect import signature
 from functools import wraps
 from hashlib import sha256
@@ -616,13 +616,27 @@ class ExtendedEncoder(JSONEncoder):
         return JSONEncoder.default(self, obj)
 
 
+def to_json(obj: Any, file: IO=None, indent: Optional[int]=4, sort_keys: bool=True, cls=ExtendedEncoder) -> Optional[str]:
+    if file:
+        json.dump(obj, file, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder)
+        return None
+    else:
+        return json.dumps(obj, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder)
+
+
+def to_csv(links: List[Link], csv_cols: Optional[List[str]]=None, header: bool=True) -> str:
+    csv_cols = csv_cols or ['timestamp', 'is_archived', 'url']
+    header_str = '{}\n'.format(','.join(csv_cols)) if header else ''
+    return header_str + '\n'.join(link.to_csv(csv_cols=csv_cols) for link in links)
+
+
 def atomic_write(contents: Union[dict, str], path: str) -> None:
     """Safe atomic write to filesystem by writing to temp file + atomic rename"""
     try:
         tmp_file = '{}.tmp'.format(path)
         with open(tmp_file, 'w+', encoding='utf-8') as f:
             if isinstance(contents, dict):
-                json.dump(contents, f, indent=4, cls=ExtendedEncoder)
+                to_json(contents, file=f)
             else:
                 f.write(contents)
             

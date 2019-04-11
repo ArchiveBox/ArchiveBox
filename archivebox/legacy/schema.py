@@ -50,15 +50,32 @@ class ArchiveResult:
     def from_json(cls, json_info):
         from .util import parse_date
 
-        allowed_fields = {f.name for f in fields(cls)}
         info = {
             key: val
             for key, val in json_info.items()
-            if key in allowed_fields
+            if key in cls.field_names()
         }
         info['start_ts'] = parse_date(info['start_ts'])
         info['end_ts'] = parse_date(info['end_ts'])
         return cls(**info)
+
+    def to_json(self, indent=4, sort_keys=True):
+        from .util import to_json
+
+        return to_json(self, indent=indent, sort_keys=sort_keys)
+
+    def to_csv(self, cols=None):
+        from .util import to_json
+
+        cols = cols or self.field_names()
+        return ','.join(
+            to_json(getattr(self, col), indent=False)
+            for col in cols
+        )
+    
+    @classmethod
+    def field_names(cls):
+        return [f.name for f in fields(cls)]
 
     @property
     def duration(self) -> int:
@@ -145,11 +162,10 @@ class Link:
     def from_json(cls, json_info):
         from .util import parse_date
         
-        allowed_fields = {f.name for f in fields(cls)}
         info = {
             key: val
             for key, val in json_info.items()
-            if key in allowed_fields
+            if key in cls.field_names()
         }
         info['updated'] = parse_date(info['updated'])
 
@@ -166,6 +182,22 @@ class Link:
         info['history'] = cast_history
         return cls(**info)
 
+    def to_json(self, indent=4, sort_keys=True):
+        from .util import to_json
+
+        return to_json(self, indent=indent, sort_keys=sort_keys)
+
+    def to_csv(self, csv_cols: List[str]):
+        from .util import to_json
+
+        return ','.join(
+            to_json(getattr(self, col), indent=None)
+            for col in csv_cols
+        )
+
+    @classmethod
+    def field_names(cls):
+        return [f.name for f in fields(cls)]
 
     @property
     def link_dir(self) -> str:
