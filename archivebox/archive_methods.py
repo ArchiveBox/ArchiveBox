@@ -226,7 +226,7 @@ def fetch_wget(link_dir, link, timeout=TIMEOUT):
         '--span-hosts',
         '--no-parent',
         '-e', 'robots=off',
-        '--restrict-file-names=unix',
+        '--restrict-file-names=windows',
         '--timeout={}'.format(timeout),
         *(('--compression=auto',) if WGET_AUTO_COMPRESSION else ()),
         *(() if FETCH_WARC else ('--timestamping',)),
