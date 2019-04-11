@@ -81,7 +81,7 @@ if not USE_COLOR:
 
 REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 if OUTPUT_DIR:
-    OUTPUT_DIR = os.path.abspath(OUTPUT_DIR)
+    OUTPUT_DIR = os.path.abspath(os.path.expanduser(OUTPUT_DIR))
 else:
     OUTPUT_DIR = os.path.abspath(os.curdir)
 
@@ -98,7 +98,10 @@ LEGACY_DIR = os.path.join(PYTHON_DIR, 'legacy')
 TEMPLATES_DIR = os.path.join(LEGACY_DIR, 'templates')
 
 if COOKIES_FILE:
-    COOKIES_FILE = os.path.abspath(COOKIES_FILE)
+    COOKIES_FILE = os.path.abspath(os.path.expanduser(COOKIES_FILE))
+
+if CHROME_USER_DATA_DIR:
+    CHROME_USER_DATA_DIR = os.path.abspath(os.path.expanduser(CHROME_USER_DATA_DIR))
 
 URL_BLACKLIST_PTN = re.compile(URL_BLACKLIST, re.IGNORECASE) if URL_BLACKLIST else None
 
