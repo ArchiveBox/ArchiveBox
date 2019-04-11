@@ -30,11 +30,12 @@ def init(output_dir: str=OUTPUT_DIR):
 
     if not is_empty:
         if existing_index:
-            stderr('[√] You already have an archive setup up in this folder. To add new links, you can run:')
-            stderr('    archivebox add https://example.com')
+            stderr('{green}[√] You already have an archive index in this folder.{reset}'.format(**ANSI))
+            stderr('    To add new links, you can run:')
+            stderr("        archivebox add 'https://example.com'")
             stderr()
-            stderr('[i] Fore more usage and examples, run "archivebox help" or visit:')
-            stderr('    https://github.com/pirate/ArchiveBox/wiki/Usage')
+            stderr('    For more usage and examples, run:')
+            stderr('        archivebox help')
             # TODO: import old archivebox version's archive data folder
 
             raise SystemExit(1)

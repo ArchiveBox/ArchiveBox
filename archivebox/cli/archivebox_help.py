@@ -8,6 +8,7 @@ import sys
 import argparse
 
 from ..legacy.util import reject_stdin
+from ..legacy.config import ANSI
 from . import list_subcommands
 
 
@@ -28,14 +29,15 @@ def main(args=None):
         for cmd, summary in list_subcommands().items()
     )
 
-    print(f'''ArchiveBox: The self-hosted internet archive.
-Usage:
+    print('''{green}ArchiveBox: The self-hosted internet archive.{reset}
+        
+{lightblue}Usage:{reset}
     archivebox [command] [--help] [--version] [...args]
 
-Comamnds:
-    {COMMANDS_HELP_TEXT}
+{lightblue}Comamnds:{reset}
+    {}
 
-Example Use:
+{lightblue}Example Use:{reset}
     mkdir my-archive; cd my-archive/
     archivebox init
 
@@ -46,9 +48,9 @@ Example Use:
     archivebox update --resume=15109948213.123
     archivebox list --sort=timestamp --csv=timestamp,url,is_archived
 
-Documentation:
+{lightblue}Documentation:{reset}
     https://github.com/pirate/ArchiveBox/wiki
-''')
+'''.format(COMMANDS_HELP_TEXT, **ANSI))
 
 
 if __name__ == '__main__':

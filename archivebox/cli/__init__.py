@@ -8,8 +8,11 @@ CLI_DIR = os.path.dirname(os.path.abspath(__file__))
 required_attrs = ('__package__', '__command__', '__description__', 'main')
 
 
+order = ('help', 'version', 'init', 'list', 'update', 'add', 'remove')
+
+
 def list_subcommands():
-    COMMANDS = {}
+    COMMANDS = []
     for filename in os.listdir(CLI_DIR):
         if filename.startswith('archivebox_') and filename.endswith('.py'):
             subcommand = filename.replace('archivebox_', '').replace('.py', '')
@@ -17,9 +20,9 @@ def list_subcommands():
 
             assert all(hasattr(module, attr) for attr in required_attrs)
             assert module.__command__.split(' ')[-1] == subcommand
-            COMMANDS[subcommand] = module.__description__
+            COMMANDS.append((subcommand, module.__description__))
 
-    return COMMANDS
+    return dict(sorted(COMMANDS, key=lambda cmd: order.index(cmd[0]) if cmd[0] in order else 10 + len(cmd[0]))) 
 
 
 def run_subcommand(subcommand: str, args=None):
