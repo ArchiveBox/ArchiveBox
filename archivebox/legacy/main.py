@@ -4,7 +4,7 @@ import shutil
 from typing import List, Optional, Iterable
 
 from .schema import Link
-from .util import enforce_types, TimedProgress, to_csv
+from .util import enforce_types, TimedProgress
 from .index import (
     links_after_timestamp,
     load_links_index,
@@ -21,6 +21,10 @@ from .logs import (
     log_archiving_started,
     log_archiving_paused,
     log_archiving_finished,
+    log_removal_started,
+    log_removal_finished,
+    log_list_started,
+    log_list_finished,
 )
 
 
@@ -69,6 +73,7 @@ LINK_FILTERS = {
     'domain': lambda link, pattern: link.domain == pattern,
 }
 
+@enforce_types
 def link_matches_filter(link: Link, filter_patterns: List[str], filter_type: str='exact') -> bool:
     for pattern in filter_patterns:
         if LINK_FILTERS[filter_type](link, pattern):
@@ -99,12 +104,10 @@ def list_archive_data(filter_patterns: Optional[List[str]]=None, filter_type: st
 @enforce_types
 def remove_archive_links(filter_patterns: List[str], filter_type: str='exact',
                          after: Optional[float]=None, before: Optional[float]=None,
-                         yes: bool=False, delete: bool=False):
+                         yes: bool=False, delete: bool=False) -> List[Link]:
     
     check_dependencies()
-
-    print('[*] Finding links in the archive index matching these {} patterns:'.format(filter_type))
-    print('    {}'.format(' '.join(filter_patterns)))
+    log_list_started(filter_patterns, filter_type)
     timer = TimedProgress(360, prefix='      ')
     try:
         links = list(list_archive_data(
@@ -116,37 +119,28 @@ def remove_archive_links(filter_patterns: List[str], filter_type: str='exact',
     finally:
         timer.end()
     if not len(links):
-        print()
-        print('{red}[X] No matching links found.{reset}'.format(**ANSI))
+        log_removal_finished(0, 0)
         raise SystemExit(1)
 
-    print()
-    print('-------------------------------------------------------------------')
-    print(to_csv(links, csv_cols=['link_dir', 'url', 'is_archived', 'num_outputs']))
-    print('-------------------------------------------------------------------')
-    print()
-    if not yes:
-        resp = input('{lightyellow}[?] Are you sure you want to permanently remove these {} archived links? N/y: {reset}'.format(len(links), **ANSI))
-        
-        if not resp.lower() == 'y':
-            raise SystemExit(0)
+    log_removal_started(links, yes=yes, delete=delete)
+    timer = TimedProgress(360, prefix='      ')
+    try:
+        to_keep = []
+        all_links, _ = load_links_index(out_dir=OUTPUT_DIR)
+        for link in all_links:
+            should_remove = (
+                (after is not None and float(link.timestamp) < after)
+                or (before is not None and float(link.timestamp) > before)
+                or link_matches_filter(link, filter_patterns, filter_type)
+            )
+            if not should_remove:
+                to_keep.append(link)
+            elif should_remove and delete:
+                shutil.rmtree(link.link_dir)
+    finally:
+        timer.end()
 
-    all_links, _ = load_links_index(out_dir=OUTPUT_DIR)
-    to_keep = []
-
-    for link in all_links:
-        should_remove = (
-            (after is not None and float(link.timestamp) < after)
-            or (before is not None and float(link.timestamp) > before)
-            or link_matches_filter(link, filter_patterns, filter_type)
-        )
-        if not should_remove:
-            to_keep.append(link)
-        elif should_remove and delete:
-            shutil.rmtree(link.link_dir)
-
-    num_removed = len(all_links) - len(to_keep)
     write_links_index(links=to_keep, out_dir=OUTPUT_DIR, finished=True)
-    print()
-    print('{red}[√] Removed {} out of {} links from the archive index.{reset}'.format(num_removed, len(all_links), **ANSI))
-    print('    Index now contains {} links.'.format(len(to_keep)))
+    log_removal_finished(len(all_links), len(to_keep))
+    
+    return to_keep

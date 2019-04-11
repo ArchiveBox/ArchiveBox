@@ -64,12 +64,12 @@ class ArchiveResult:
 
         return to_json(self, indent=indent, sort_keys=sort_keys)
 
-    def to_csv(self, cols=None):
+    def to_csv(self, cols=None, ljust: int=0, separator: str=','):
         from .util import to_json
 
         cols = cols or self.field_names()
-        return ','.join(
-            to_json(getattr(self, col), indent=False)
+        return separator.join(
+            to_json(getattr(self, col), indent=False).ljust(ljust)
             for col in cols
         )
     
@@ -187,11 +187,11 @@ class Link:
 
         return to_json(self, indent=indent, sort_keys=sort_keys)
 
-    def to_csv(self, csv_cols: List[str]):
+    def to_csv(self, csv_cols: List[str], ljust: int=0, separator: str=','):
         from .util import to_json
 
-        return ','.join(
-            to_json(getattr(self, col), indent=None)
+        return separator.join(
+            to_json(getattr(self, col), indent=None).ljust(ljust)
             for col in csv_cols
         )
 

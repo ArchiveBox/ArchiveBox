@@ -624,10 +624,20 @@ def to_json(obj: Any, file: IO=None, indent: Optional[int]=4, sort_keys: bool=Tr
         return json.dumps(obj, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder)
 
 
-def to_csv(links: List[Link], csv_cols: Optional[List[str]]=None, header: bool=True) -> str:
+def to_csv(links: List[Link], csv_cols: Optional[List[str]]=None,
+           header: bool=True, ljust: int=0, separator: str=',') -> str:
     csv_cols = csv_cols or ['timestamp', 'is_archived', 'url']
-    header_str = '{}\n'.format(','.join(csv_cols)) if header else ''
-    return header_str + '\n'.join(link.to_csv(csv_cols=csv_cols) for link in links)
+    
+    header_str = ''
+    if header:
+        header_str = separator.join(col.ljust(ljust) for col in csv_cols)
+
+    row_strs = (
+        link.to_csv(csv_cols=csv_cols, ljust=ljust, separator=separator)
+        for link in links
+    )
+
+    return '\n'.join((header_str, *row_strs))
 
 
 def atomic_write(contents: Union[dict, str], path: str) -> None:

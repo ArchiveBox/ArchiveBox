@@ -3,7 +3,7 @@ import sys
 
 from datetime import datetime
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
 
 from .schema import Link, ArchiveResult
 from .config import ANSI, OUTPUT_DIR
@@ -205,3 +205,58 @@ def log_archive_method_finished(result: ArchiveResult):
             if line
         ))
         print()
+
+
+def log_list_started(filter_patterns: List[str], filter_type: str):
+    print('{green}[*] Finding links in the archive index matching these {} patterns:{reset}'.format(
+        filter_type,
+        **ANSI,
+    ))
+    print('    {}'.format(' '.join(filter_patterns)))
+
+def log_list_finished(links):
+    from .util import to_csv
+    print()
+    print('---------------------------------------------------------------------------------------------------')
+    print(to_csv(links, csv_cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))
+    print('---------------------------------------------------------------------------------------------------')
+    print()
+
+
+def log_removal_started(links: List[Link], yes: bool, delete: bool):
+    
+    log_list_finished(links)
+    print('{lightyellow}[i] Found {} matching URLs to remove.{reset}'.format(len(links), **ANSI))
+    if delete:
+        file_counts = [link.num_outputs for link in links if os.path.exists(link.link_dir)]
+        print(
+            f'    {len(links)} Links will be de-listed from the main index, and their archived content folders will be deleted from disk.\n'
+            f'    ({len(file_counts)} data folders with {sum(file_counts)} archived files will be deleted!)'
+        )
+    else:
+        print(
+            f'    Matching links will be de-listed from the main index, but their archived content folders will remain in place on disk.\n'
+            f'    (Pass --delete if you also want to permanently delete the data folders)'
+        )
+
+    if not yes:
+        print()
+        print('{lightyellow}[?] Do you want to proceed with removing these {} links?{reset}'.format(len(links), **ANSI))
+        try:
+            assert input('    y/[n]: ').lower() == 'y'
+        except (KeyboardInterrupt, EOFError, AssertionError):
+            raise SystemExit(0)
+
+def log_removal_finished(all_links: int, to_keep: int):
+    if all_links == 0:
+        print()
+        print('{red}[X] No matching links found.{reset}'.format(**ANSI))
+    else:
+        num_removed = all_links - to_keep
+        print()
+        print('{red}[√] Removed {} out of {} links from the archive index.{reset}'.format(
+            num_removed,
+            all_links,
+            **ANSI,
+        ))
+        print('    Index now contains {} links.'.format(to_keep))
