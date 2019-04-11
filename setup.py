@@ -38,6 +38,7 @@ setuptools.setup(
     install_requires=[
         "base32-crockford==0.3.0",
         "django==2.2",
+        "dataclasses==0.6",
     ],
     entry_points={
         'console_scripts': [

@@ -1,3 +1,4 @@
+dataclasses
 django
 base32-crockford
 
