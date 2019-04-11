@@ -59,6 +59,7 @@ def log_parsing_finished(num_parsed: int, num_new_links: int, parser_name: str):
 def log_indexing_process_started():
     start_ts = datetime.now()
     _LAST_RUN_STATS.index_start_ts = start_ts
+    print()
     print('{green}[*] [{}] Saving main index files...{reset}'.format(
         start_ts.strftime('%Y-%m-%d %H:%M:%S'),
         **ANSI,

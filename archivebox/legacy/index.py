@@ -122,7 +122,12 @@ def validate_links(links: Iterable[Link]) -> Iterable[Link]:
     links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
 
     if not links:
-        print('[X] No links found :(')
+        stderr('{red}[X] No links found in index.json{reset}'.format(**ANSI))
+        stderr('    To add a link to your archive, run:')
+        stderr("        archivebox add 'https://example.com'")
+        stderr()
+        stderr('    For more usage and examples, run:')
+        stderr('        archivebox help')
         raise SystemExit(1)
 
     return links
