@@ -28,6 +28,7 @@ from .util import (
     TimedProgress,
     copy_and_overwrite,
     atomic_write,
+    ExtendedEncoder,
 )
 from .parse import parse_links
 from .logs import (
@@ -93,6 +94,16 @@ def merge_links(a: Link, b: Link) -> Link:
         method: (a.history.get(method) or []) + (b.history.get(method) or [])
         for method in all_methods
     }
+    for method in all_methods:
+        deduped_jsons = {
+            json.dumps(result, sort_keys=True, cls=ExtendedEncoder)
+            for result in history[method]
+        }
+        history[method] = list(reversed(sorted(
+            (ArchiveResult.from_json(json.loads(result)) for result in deduped_jsons),
+            key=lambda result: result.start_ts,
+        )))
+
 
     return Link(
         url=url,
