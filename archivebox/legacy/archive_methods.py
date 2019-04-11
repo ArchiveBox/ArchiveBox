@@ -265,7 +265,7 @@ def fetch_wget(link: Link, link_dir: Optional[str]=None, timeout: int=TIMEOUT) -
         '--span-hosts',
         '--no-parent',
         '-e', 'robots=off',
-        '--restrict-file-names=unix',
+        '--restrict-file-names=windows',
         '--timeout={}'.format(timeout),
         *([] if FETCH_WARC else ['--timestamping']),
         *(['--warc-file={}'.format(warc_path)] if FETCH_WARC else []),
