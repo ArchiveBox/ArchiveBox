@@ -1,10 +1,8 @@
-import os
+__package__ = 'archivebox.core'
 
-from legacy.config import (
-    REPO_DIR,
-    OUTPUT_DIR,
+from ..legacy.config import (
     TEMPLATES_DIR,
-    DATABASE_DIR,
+    DATABASE_FILE,
 )
 
 
@@ -52,8 +50,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-
-DATABASE_FILE = os.path.join(DATABASE_DIR, 'database.sqlite3')
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',

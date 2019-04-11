@@ -91,6 +91,7 @@ DATABASE_DIR_NAME = 'database'
 ARCHIVE_DIR = os.path.join(OUTPUT_DIR, ARCHIVE_DIR_NAME)
 SOURCES_DIR = os.path.join(OUTPUT_DIR, SOURCES_DIR_NAME)
 DATABASE_DIR = os.path.join(OUTPUT_DIR, DATABASE_DIR_NAME)
+DATABASE_FILE = os.path.join(DATABASE_DIR, 'database.sqlite3')
 
 PYTHON_DIR = os.path.join(REPO_DIR, 'archivebox')
 LEGACY_DIR = os.path.join(PYTHON_DIR, 'legacy')
