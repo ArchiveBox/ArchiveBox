@@ -205,14 +205,18 @@ def write_links_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool
 
     log_indexing_started(out_dir, 'index.json')
     timer = TimedProgress(TIMEOUT * 2, prefix='      ')
-    write_json_links_index(links, out_dir=out_dir)
-    timer.end()
+    try:
+        write_json_links_index(links, out_dir=out_dir)
+    finally:
+        timer.end()
     log_indexing_finished(out_dir, 'index.json')
     
     log_indexing_started(out_dir, 'index.html')
     timer = TimedProgress(TIMEOUT * 2, prefix='      ')
-    write_html_links_index(links, out_dir=out_dir, finished=finished)
-    timer.end()
+    try:
+        write_html_links_index(links, out_dir=out_dir, finished=finished)
+    finally:
+        timer.end()
     log_indexing_finished(out_dir, 'index.html')
 
 
@@ -247,13 +251,13 @@ def write_json_links_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
     """write the json link index to a given path"""
 
     assert isinstance(links, List), 'Links must be a list, not a generator.'
-    assert isinstance(links[0].history, dict)
-    assert isinstance(links[0].sources, list)
+    assert not links or isinstance(links[0].history, dict)
+    assert not links or isinstance(links[0].sources, list)
 
-    if links[0].history.get('title'):
+    if links and links[0].history.get('title'):
         assert isinstance(links[0].history['title'][0], ArchiveResult)
 
-    if links[0].sources:
+    if links and links[0].sources:
         assert isinstance(links[0].sources[0], str)
 
     path = os.path.join(out_dir, 'index.json')
