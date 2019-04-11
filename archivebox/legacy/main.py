@@ -14,6 +14,7 @@ from .archive_methods import archive_link
 from .config import (
     ONLY_NEW,
     OUTPUT_DIR,
+    check_dependencies,
 )
 from .logs import (
     log_archiving_started,
@@ -25,6 +26,8 @@ from .logs import (
 @enforce_types
 def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]=None, only_new: bool=False) -> List[Link]:
     """The main ArchiveBox entrancepoint. Everything starts here."""
+
+    check_dependencies()
 
     # Step 1: Load list of links from the existing index
     #         merge in and dedupe new links from import_path

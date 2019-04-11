@@ -109,45 +109,57 @@ URL_BLACKLIST_PTN = re.compile(URL_BLACKLIST, re.IGNORECASE) if URL_BLACKLIST el
 
 VERSION = open(os.path.join(REPO_DIR, 'VERSION'), 'r').read().strip()
 GIT_SHA = VERSION.split('+')[-1] or 'unknown'
+HAS_INVALID_DEPENDENCIES = False
+HAS_INVALID_DB = not os.path.exists(os.path.join(OUTPUT_DIR, 'index.json'))
+
+def stderr(*args):
+    sys.stderr.write(' '.join(str(a) for a in args) + '\n')
 
 ### Check Python environment
 python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
 if python_vers < 3.5:
-    print('{}[X] Python version is not new enough: {} (>3.5 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
-    print('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
+    stderr('{}[X] Python version is not new enough: {} (>3.5 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
+    stderr('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
     raise SystemExit(1)
 
 if sys.stdout.encoding.upper() not in ('UTF-8', 'UTF8'):
-    print('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
-    print('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
-    print('')
-    print('    Confirm that it\'s fixed by opening a new shell and running:')
-    print('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
-    print('')
-    print('    Alternatively, run this script with:')
-    print('        env PYTHONIOENCODING=UTF-8 ./archive.py export.html')
+    stderr('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
+    stderr('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
+    stderr('')
+    stderr('    Confirm that it\'s fixed by opening a new shell and running:')
+    stderr('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
+    stderr('')
+    stderr('    Alternatively, run this script with:')
+    stderr('        env PYTHONIOENCODING=UTF-8 ./archive.py export.html')
 
 # ******************************************************************************
 # ***************************** Helper Functions *******************************
 # ******************************************************************************
 
-def bin_version(binary: str) -> str:
+def bin_version(binary: str) -> Optional[str]:
     """check the presence and return valid version line of a specified binary"""
-    if not shutil.which(binary):
-        print('{red}[X] Missing dependency: wget{reset}'.format(**ANSI))
-        print('    Install it, then confirm it works with: {} --version'.format(binary))
-        print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
-        raise SystemExit(1)
-    
+    global HAS_INVALID_DEPENDENCIES
+    binary = os.path.expanduser(binary)
     try:
+        if not shutil.which(binary):
+            raise Exception
+
         version_str = run([binary, "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
-        return version_str.split('\n')[0].strip()
+        # take first 3 columns of first line of version info
+        return ' '.join(version_str.split('\n')[0].strip().split()[:3])
     except Exception:
-        print('{red}[X] Unable to find a working version of {cmd}, is it installed and in your $PATH?'.format(cmd=binary, **ANSI))
-        raise SystemExit(1)
+        HAS_INVALID_DEPENDENCIES = True
+        stderr('{red}[X] Unable to find working version of dependency: {}{reset}'.format(binary, **ANSI))
+        stderr('    Make sure it\'s installed, then confirm it\'s working by running:')
+        stderr('        {} --version'.format(binary))
+        stderr()
+        stderr('    If you don\'t want to install it, you can disable it via config. See here for more info:')
+        stderr('        https://github.com/pirate/ArchiveBox/wiki/Install')
+        stderr()
+        return None
 
 
-def find_chrome_binary() -> str:
+def find_chrome_binary() -> Optional[str]:
     """find any installed chrome binaries in the default locations"""
     # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
     # make sure data dir finding precedence order always matches binary finding order
@@ -169,8 +181,9 @@ def find_chrome_binary() -> str:
         if full_path_exists:
             return name
     
-    print('{red}[X] Unable to find a working version of Chrome/Chromium, is it installed and in your $PATH?'.format(**ANSI))
-    raise SystemExit(1)
+    stderr('{red}[X] Unable to find a working version of Chrome/Chromium, is it installed and in your $PATH?'.format(**ANSI))
+    stderr()
+    return None
 
 
 def find_chrome_data_dir() -> Optional[str]:
@@ -251,14 +264,122 @@ try:
     if not CHROME_BINARY:
         CHROME_BINARY = find_chrome_binary() or 'chromium-browser'
     CHROME_VERSION = None
+
     if USE_CHROME:
         if CHROME_BINARY:
             CHROME_VERSION = bin_version(CHROME_BINARY)
-            # print('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
+            # stderr('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
 
             if CHROME_USER_DATA_DIR is None:
                 CHROME_USER_DATA_DIR = find_chrome_data_dir()
-            # print('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
+            elif CHROME_USER_DATA_DIR == '':
+                CHROME_USER_DATA_DIR = None
+            else:
+                if not os.path.exists(os.path.join(CHROME_USER_DATA_DIR, 'Default')):
+                    stderr('{red}[X] Could not find profile "Default" in CHROME_USER_DATA_DIR:{reset} {}'.format(CHROME_USER_DATA_DIR, **ANSI))
+                    stderr('    Make sure you set it to a Chrome user data directory containing a Default profile folder.')
+                    stderr('    For more info see:')
+                    stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#CHROME_USER_DATA_DIR')
+                    if 'Default' in CHROME_USER_DATA_DIR:
+                        stderr()
+                        stderr('    Try removing /Default from the end e.g.:')
+                        stderr('        CHROME_USER_DATA_DIR="{}"'.format(CHROME_USER_DATA_DIR.split('/Default')[0]))
+                    raise SystemExit(1)
+            # stderr('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
+
+
+    ### Summary Lookup Dicts
+    FOLDERS = {
+        'REPO_DIR': {
+            'path': os.path.abspath(REPO_DIR),
+            'enabled': True,
+            'is_valid': os.path.exists(os.path.join(REPO_DIR, '.github')),
+        },
+        'PYTHON_DIR': {
+            'path': os.path.abspath(PYTHON_DIR),
+            'enabled': True,
+            'is_valid': os.path.exists(os.path.join(PYTHON_DIR, '__main__.py')),
+        },
+        'LEGACY_DIR': {
+            'path': os.path.abspath(LEGACY_DIR),
+            'enabled': True,
+            'is_valid': os.path.exists(os.path.join(LEGACY_DIR, 'util.py')),
+        },
+        'TEMPLATES_DIR': {
+            'path': os.path.abspath(TEMPLATES_DIR),
+            'enabled': True,
+            'is_valid': os.path.exists(os.path.join(TEMPLATES_DIR, 'static')),
+        },
+        'OUTPUT_DIR': {
+            'path': os.path.abspath(OUTPUT_DIR),
+            'enabled': True,
+            'is_valid': os.path.exists(os.path.join(OUTPUT_DIR, 'index.json')),
+        },
+        'SOURCES_DIR': {
+            'path': os.path.abspath(SOURCES_DIR),
+            'enabled': True,
+            'is_valid': os.path.exists(SOURCES_DIR),
+        },
+        'ARCHIVE_DIR': {
+            'path': os.path.abspath(ARCHIVE_DIR),
+            'enabled': True,
+            'is_valid': os.path.exists(ARCHIVE_DIR),
+        },
+        'DATABASE_DIR': {
+            'path': os.path.abspath(DATABASE_DIR),
+            'enabled': True,
+            'is_valid': os.path.exists(os.path.join(DATABASE_DIR, DATABASE_FILE)),
+        },
+        'CHROME_USER_DATA_DIR': {
+            'path': CHROME_USER_DATA_DIR and os.path.abspath(CHROME_USER_DATA_DIR),
+            'enabled': USE_CHROME and CHROME_USER_DATA_DIR,
+            'is_valid': os.path.exists(os.path.join(CHROME_USER_DATA_DIR, 'Default')) if CHROME_USER_DATA_DIR else False,
+        },
+        'COOKIES_FILE': {
+            'path': COOKIES_FILE and os.path.abspath(COOKIES_FILE),
+            'enabled': USE_WGET and COOKIES_FILE,
+            'is_valid': COOKIES_FILE and os.path.exists(COOKIES_FILE),
+        },
+    }
+
+    DEPENDENCIES = {
+        'DJANGO_BINARY': {
+            'path': DJANGO_BINARY,
+            'version': DJANGO_VERSION,
+            'enabled': True,
+            'is_valid': bool(DJANGO_VERSION),
+        },
+        'CURL_BINARY': {
+            'path': CURL_BINARY and shutil.which(CURL_BINARY),
+            'version': CURL_VERSION,
+            'enabled': USE_CURL,
+            'is_valid': bool(CURL_VERSION),
+        },
+        'WGET_BINARY': {
+            'path': WGET_BINARY and shutil.which(WGET_BINARY),
+            'version': WGET_VERSION,
+            'enabled': USE_WGET,
+            'is_valid': bool(WGET_VERSION),
+        },
+        'GIT_BINARY': {
+            'path': GIT_BINARY and shutil.which(GIT_BINARY),
+            'version': GIT_VERSION,
+            'enabled': FETCH_GIT,
+            'is_valid': bool(GIT_VERSION),
+        },
+        'YOUTUBEDL_BINARY': {
+            'path': YOUTUBEDL_BINARY and shutil.which(YOUTUBEDL_BINARY),
+            'version': YOUTUBEDL_VERSION,
+            'enabled': FETCH_MEDIA,
+            'is_valid': bool(YOUTUBEDL_VERSION),
+        },
+        'CHROME_BINARY': {
+            'path': CHROME_BINARY and shutil.which(CHROME_BINARY),
+            'version': CHROME_VERSION,
+            'enabled': USE_CHROME,
+            'is_valid': bool(CHROME_VERSION),
+        },
+    }
 
     CHROME_OPTIONS = {
         'TIMEOUT': TIMEOUT,
@@ -270,14 +391,39 @@ try:
         'CHROME_USER_AGENT': CHROME_USER_AGENT,
         'CHROME_USER_DATA_DIR': CHROME_USER_DATA_DIR,
     }
+
     # PYPPETEER_ARGS = {
     #     'headless': CHROME_HEADLESS,
     #     'ignoreHTTPSErrors': not CHECK_SSL_VALIDITY,
     #     # 'executablePath': CHROME_BINARY,
     # }
+    
 except KeyboardInterrupt:
     raise SystemExit(1)
 
-except:
-    print('[X] There was an error while reading configuration. Your archive data is unaffected.')
+except Exception as e:
+    stderr()
+    stderr('{red}[X] Error during configuration: {} {}{reset}'.format(e.__class__.__name__, e, **ANSI))
+    stderr('    Your archive data is unaffected.')
+    stderr('    Check your config or environemnt variables for mistakes and try again.')
+    stderr('    For more info see:')
+    stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration')
+    stderr()
     raise
+
+
+def check_dependencies() -> None:
+    if HAS_INVALID_DEPENDENCIES:
+        stderr('{red}[X] Missing some required dependencies.{reset}'.format(**ANSI))
+        raise SystemExit(1)
+        
+    if HAS_INVALID_DB:
+        stderr('{red}[X] No archive data found in:{reset} {}'.format(OUTPUT_DIR, **ANSI))
+        stderr('    Are you running archivebox in the right folder?')
+        stderr('        cd path/to/your/archive')
+        stderr('        archivebox [command]')
+        stderr()
+        stderr('    To create a new archive folder, run:')
+        stderr('        mkdir new_archive_dir && cd new_archive_dir')
+        stderr('        archivebox init')
+        raise SystemExit(1)

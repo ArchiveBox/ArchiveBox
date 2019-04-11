@@ -9,12 +9,14 @@ import sys
 import argparse
 
 from ..legacy.util import reject_stdin
+from ..legacy.index import write_links_index
 from ..legacy.config import (
     OUTPUT_DIR,
     SOURCES_DIR,
     ARCHIVE_DIR,
     DATABASE_DIR,
     ANSI,
+    stderr,
 )
 
 
@@ -28,16 +30,16 @@ def init(output_dir: str=OUTPUT_DIR):
 
     if not is_empty:
         if existing_index:
-            print('[√] You already have an archive setup up in this folder. To add new links, you can run:')
-            print('    archivebox add https://example.com')
-            print()
-            print('[i] Fore more usage and examples, run "archivebox help" or visit:')
-            print('    https://github.com/pirate/ArchiveBox/wiki/Usage')
+            stderr('[√] You already have an archive setup up in this folder. To add new links, you can run:')
+            stderr('    archivebox add https://example.com')
+            stderr()
+            stderr('[i] Fore more usage and examples, run "archivebox help" or visit:')
+            stderr('    https://github.com/pirate/ArchiveBox/wiki/Usage')
             # TODO: import old archivebox version's archive data folder
 
             raise SystemExit(1)
         else:
-            print(
+            stderr(
                 ("{red}[X] This folder already has files in it. You must run init inside a completely empty directory.{reset}"
                 "\n\n"
                 "    {lightred}Hint:{reset} To import a data folder created by an older version of ArchiveBox, \n"
@@ -48,14 +50,17 @@ def init(output_dir: str=OUTPUT_DIR):
             raise SystemExit(1)
 
 
-    print('{green}[+] Initializing new archive directory: {}{reset}'.format(output_dir, **ANSI))
+    stderr('{green}[+] Initializing new archive directory: {}{reset}'.format(output_dir, **ANSI))
     os.makedirs(SOURCES_DIR)
-    print(f'    > {SOURCES_DIR}')
+    stderr(f'    > {SOURCES_DIR}')
     os.makedirs(ARCHIVE_DIR)
-    print(f'    > {ARCHIVE_DIR}')
+    stderr(f'    > {ARCHIVE_DIR}')
     os.makedirs(DATABASE_DIR)
-    print(f'    > {DATABASE_DIR}')
-    print('{green}[√] Done.{reset}'.format(**ANSI))
+    stderr(f'    > {DATABASE_DIR}')
+
+    write_links_index([], out_dir=OUTPUT_DIR, finished=True)
+
+    stderr('{green}[√] Done.{reset}'.format(**ANSI))
 
 
 def main(args=None):

@@ -4,42 +4,18 @@ __package__ = 'archivebox.cli'
 __command__ = 'archivebox version'
 __description__ = 'Print the ArchiveBox version and dependency information'
 
+import os
+import re
 import sys
-import shutil
 import argparse
 
 from ..legacy.util import reject_stdin
 from ..legacy.config import (
+    ANSI,
     VERSION,
-
-    REPO_DIR,
-    PYTHON_DIR,
-    LEGACY_DIR,
-    TEMPLATES_DIR,
-    OUTPUT_DIR,
-    SOURCES_DIR,
-    ARCHIVE_DIR,
-    DATABASE_DIR,
-
-    USE_CURL,
-    USE_WGET,
-    USE_CHROME,
-    FETCH_GIT,
-    FETCH_MEDIA,
-
-    DJANGO_BINARY,
-    CURL_BINARY,
-    GIT_BINARY,
-    WGET_BINARY,
-    YOUTUBEDL_BINARY,
-    CHROME_BINARY,
-
-    DJANGO_VERSION,
-    CURL_VERSION,
-    GIT_VERSION,
-    WGET_VERSION,
-    YOUTUBEDL_VERSION,
-    CHROME_VERSION,
+    FOLDERS,
+    DEPENDENCIES,
+    check_dependencies,
 )
 
 
@@ -51,51 +27,84 @@ def main(args=None):
         description=__description__,
         add_help=True,
     )
-    parser.parse_args(args)
+    parser.add_argument(
+        '--quiet', '-q',
+        action='store_true',
+        help='Only print ArchiveBox version number and nothing else.',
+    )
+    command = parser.parse_args(args)
     reject_stdin(__command__)
     
-    print('ArchiveBox v{}'.format(VERSION))
-    print()
-    print('[i] Folder locations:')
-    print('    REPO_DIR:      ', REPO_DIR)
-    print('    PYTHON_DIR:    ', PYTHON_DIR)
-    print('    LEGACY_DIR:    ', LEGACY_DIR)
-    print('    TEMPLATES_DIR: ', TEMPLATES_DIR)
-    print()
-    print('    OUTPUT_DIR:    ', OUTPUT_DIR)
-    print('    SOURCES_DIR:   ', SOURCES_DIR)
-    print('    ARCHIVE_DIR:   ', ARCHIVE_DIR)
-    print('    DATABASE_DIR:  ', DATABASE_DIR)
-    print()
+    if command.quiet:
+        print(VERSION)
+    else:
+        print('ArchiveBox v{}'.format(VERSION))
+        print()
+
+        print('{white}[i] Dependency versions:{reset}'.format(**ANSI))
+        for name, dependency in DEPENDENCIES.items():
+            print_dependency_version(name, dependency)
+        print()
+        print('{white}[i] Folder locations:{reset}'.format(**ANSI))
+        for name, folder in FOLDERS.items():
+            print_folder_status(name, folder)
+
+        print()
+        check_dependencies()
+
+
+def print_folder_status(name, folder):
+    if folder['enabled']:
+        if folder['is_valid']:
+            color, symbol, note = 'green', '√', 'valid'
+        else:
+            color, symbol, note, num_files = 'red', 'X', 'invalid', '?'
+    else:
+        color, symbol, note, num_files = 'lightyellow', '-', 'disabled', '-'
+
+    if folder['path']:
+        if os.path.exists(folder['path']):
+            num_files = (
+                f'{len(os.listdir(folder["path"]))} files'
+                if os.path.isdir(folder['path']) else
+                'exists'
+            )
+        else:
+            num_files = '?'
+
     print(
-        '[√] Django:'.ljust(14),
-        'python3 {} --version\n'.format(DJANGO_BINARY),
-        ' '*13, DJANGO_VERSION, '\n',
+        ANSI[color],
+        symbol,
+        ANSI['reset'],
+        name.ljust(24),
+        (folder["path"] or '').ljust(70),
+        num_files.ljust(14),
+        ANSI[color],
+        note,
+        ANSI['reset'],
     )
+
+
+def print_dependency_version(name, dependency):
+    if dependency['enabled']:
+        if dependency['is_valid']:
+            color, symbol, note = 'green', '√', 'valid'
+            version = 'v' + re.search(r'[\d\.]+', dependency['version'])[0]
+        else:
+            color, symbol, note, version = 'red', 'X', 'invalid', '?'
+    else:
+        color, symbol, note, version = 'lightyellow', '-', 'disabled', '-'
+
     print(
-        '[{}] CURL:'.format('√' if USE_CURL else 'X').ljust(14),
-        '{} --version\n'.format(shutil.which(CURL_BINARY)),
-        ' '*13, CURL_VERSION, '\n',
-    )
-    print(
-        '[{}] GIT:'.format('√' if FETCH_GIT else 'X').ljust(14),
-        '{} --version\n'.format(shutil.which(GIT_BINARY)),
-        ' '*13, GIT_VERSION, '\n',
-    )
-    print(
-        '[{}] WGET:'.format('√' if USE_WGET else 'X').ljust(14),
-        '{} --version\n'.format(shutil.which(WGET_BINARY)),
-        ' '*13, WGET_VERSION, '\n',
-    )
-    print(
-        '[{}] YOUTUBEDL:'.format('√' if FETCH_MEDIA else 'X').ljust(14),
-        '{} --version\n'.format(shutil.which(YOUTUBEDL_BINARY)),
-        ' '*13, YOUTUBEDL_VERSION, '\n',
-    )
-    print(
-        '[{}] CHROME:'.format('√' if USE_CHROME else 'X').ljust(14),
-        '{} --version\n'.format(shutil.which(CHROME_BINARY)),
-        ' '*13, CHROME_VERSION, '\n',
+        ANSI[color],
+        symbol,
+        ANSI['reset'],
+        name.ljust(24),
+        (dependency["path"] or '').ljust(70),
+        version.ljust(14),
+        ANSI[color],
+        note,
+        ANSI['reset'],
     )
 
 
