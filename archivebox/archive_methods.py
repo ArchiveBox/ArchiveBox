@@ -33,7 +33,9 @@ from config import (
     WGET_USER_AGENT,
     CHECK_SSL_VALIDITY,
     COOKIES_FILE,
-    WGET_AUTO_COMPRESSION
+    WGET_AUTO_COMPRESSION,
+    CHROME_AVAILABLE,
+    FIREFOX_AVAILABLE,
 )
 from util import (
     domain,
@@ -46,6 +48,7 @@ from util import (
     chmod_file,
     wget_output_path,
     chrome_args,
+    firefox_args,
     check_link_structure,
     run, PIPE, DEVNULL
 )
@@ -339,11 +342,18 @@ def fetch_screenshot(link_dir, link, timeout=TIMEOUT):
     """take screenshot of site using chrome --headless"""
 
     output = 'screenshot.png'
-    cmd = [
-        *chrome_args(TIMEOUT=timeout),
-        '--screenshot',
-        link['url'],
-    ]
+    if CHROME_AVAILABLE:
+        cmd = [
+            *chrome_args(TIMEOUT=timeout),
+            '--screenshot',
+            link['url'],
+        ]
+    elif FIREFOX_AVAILABLE:
+        cmd = [
+            *firefox_args(),
+            '--screenshot',
+            link['url'],
+        ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:

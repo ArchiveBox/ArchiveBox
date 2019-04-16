@@ -30,6 +30,7 @@ from config import (
     CHECK_SSL_VALIDITY,
     WGET_USER_AGENT,
     CHROME_OPTIONS,
+    FIREFOX_OPTIONS,
 )
 from logs import pretty_path
 
@@ -567,4 +568,22 @@ def chrome_args(**options):
     if options['CHROME_USER_DATA_DIR']:
         cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
     
+    return cmd_args
+
+def firefox_args(**options):
+    """helper to build up a firefox shell command with arguments"""
+
+    options = {**FIREFOX_OPTIONS, **options}
+
+    cmd_args = [options['FIREFOX_BINARY']]
+
+    if options['FIREFOX_HEADLESS']:
+        cmd_args += ('--headless',)
+
+    if options['FIREFOX_PROFILE']:
+        cmd_args += ('-P', options['FIREFOX_PROFILE'])
+    
+    if options['FIREFOX_RESOLUTION']:
+        cmd_args += ('--window-size={}'.format(options['FIREFOX_RESOLUTION']),)
+
     return cmd_args

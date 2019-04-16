@@ -41,11 +41,16 @@ CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',   None)
 CHROME_HEADLESS =        os.getenv('CHROME_HEADLESS',        'True'             ).lower() == 'true'
 CHROME_USER_AGENT =      os.getenv('CHROME_USER_AGENT',      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36')
 
+FIREFOX_HEADLESS =       os.getenv('FIREFOX_HEADLESS',       'True'             ).lower() == 'true'
+FIREFOX_PROFILE =        os.getenv('FIREFOX_PROFILE',        'ArchiveBox'       )
+FIREFOX_RESOLUTION =     os.getenv('FIREFOX_RESOLUTION',     None               )
+
 CURL_BINARY =            os.getenv('CURL_BINARY',            'curl')
 GIT_BINARY =             os.getenv('GIT_BINARY',             'git')
 WGET_BINARY =            os.getenv('WGET_BINARY',            'wget')
 YOUTUBEDL_BINARY =       os.getenv('YOUTUBEDL_BINARY',       'youtube-dl')
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)
+FIREFOX_BINARY =         os.getenv('FIREFOX_BINARY',         None)
 
 URL_BLACKLIST =          os.getenv('URL_BLACKLIST',          None)
 
@@ -72,7 +77,6 @@ PYTHON_PATH = os.path.join(REPO_DIR, 'archivebox')
 TEMPLATES_DIR = os.path.join(PYTHON_PATH, 'templates')
 
 CHROME_SANDBOX = os.getenv('CHROME_SANDBOX', 'True').lower() == 'true'
-USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
 USE_WGET = FETCH_WGET or FETCH_WGET_REQUISITES or FETCH_WARC
 WGET_AUTO_COMPRESSION = USE_WGET and WGET_BINARY and (not run([WGET_BINARY, "--compression=auto", "--help"], stdout=DEVNULL, stderr=DEVNULL).returncode)
 
@@ -157,6 +161,31 @@ try:
         'CHROME_USER_DATA_DIR': CHROME_USER_DATA_DIR,
     }
 
+    
+    if not FIREFOX_BINARY:
+        # Precedence: Stable, Developer Edition, Nightly
+        # Missing paths to Developer Edition on linux, Nightly on MacOS
+        default_executable_paths = (
+            'firefox',
+            '/Applications/Firefox.app/Contents/MacOS/Firefox',
+            '/Applications/FirefoxDeveloperEdition.app/Contents/MacOS/Firefox',
+            'firefox-nightly',
+        )
+        for name in default_executable_paths:
+            full_path_exists = shutil.which(name)
+            if full_path_exists:
+                FIREFOX_BINARY = name
+                break
+        else:
+            FIREFOX_BINARY = 'firefox'
+    # print('[i] Using Firefox binary: {}'.format(shutil.which(FIREFOX_BINARY) or FIREFOX_BINARY))
+    
+    FIREFOX_OPTIONS = {
+        'FIREFOX_BINARY': FIREFOX_BINARY,
+        'FIREFOX_HEADLESS': FIREFOX_HEADLESS,
+        'FIREFOX_PROFILE': FIREFOX_PROFILE,
+        'FIREFOX_RESOLUTION': FIREFOX_RESOLUTION,
+    }
 
     ### Check Python environment
     python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
@@ -215,14 +244,13 @@ try:
 
         WGET_USER_AGENT = WGET_USER_AGENT.format(GIT_SHA=GIT_SHA[:9], WGET_VERSION=WGET_VERSION)
 
-    ### Make sure chrome is installed and calculate version
-    if FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM:
-        if run(['which', CHROME_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode:
-            print('{}[X] Missing dependency: {}{}'.format(ANSI['red'], CHROME_BINARY, ANSI['reset']))
-            print('    Install it, then confirm it works with: {} --version'.format(CHROME_BINARY))
-            print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
-            raise SystemExit(1)
-
+    ### Checks if chrome is installed and calculate version
+    if run(['which', CHROME_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode:
+        CHROME_AVAILABLE = False
+    else:
+        CHROME_AVAILABLE = True
+    
+    if CHROME_AVAILABLE:
         # parse chrome --version e.g. Google Chrome 61.0.3114.0 canary / Chromium 59.0.3029.110 built on Ubuntu, running on Ubuntu 16.04
         try:
             result = run([CHROME_BINARY, '--version'], stdout=PIPE)
@@ -230,23 +258,38 @@ try:
             version_lines = re.sub("(Google Chrome|Chromium) (\\d+?)\\.(\\d+?)\\.(\\d+?).*?$", "\\2", version_str).split('\n')
             version = [l for l in version_lines if l.isdigit()][-1]
             if int(version) < 59:
+                CHROME_AVAILABLE = False
                 print(version_lines)
                 print('{red}[X] Chrome version must be 59 or greater for headless PDF, screenshot, and DOM saving{reset}'.format(**ANSI))
                 print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
-                raise SystemExit(1)
         except (IndexError, TypeError, OSError):
+            CHROME_AVAILABLE = False
             print('{red}[X] Failed to parse Chrome version, is it installed properly?{reset}'.format(**ANSI))
             print('    Install it, then confirm it works with: {} --version'.format(CHROME_BINARY))
             print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
-            raise SystemExit(1)
 
-        CHROME_VERSION = 'unknown'
+    ### Checks if firefox is installed and calculates version
+    if run(['which', FIREFOX_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode:
+        FIREFOX_AVAILABLE = False
+    else:
+        FIREFOX_AVAILABLE = True
+
+    if FIREFOX_AVAILABLE:
+        # parse firefox --version e.g. Mozilla Firefox 66.0.3
         try:
-            chrome_vers_str = run([CHROME_BINARY, "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
-            CHROME_VERSION = [v for v in chrome_vers_str.strip().split(' ') if v.replace('.', '').isdigit()][0]
-        except Exception:
-            if USE_CHROME:
-                print('[!] Warning: unable to determine chrome version, is chrome installed and in your $PATH?')
+            result = run([FIREFOX_BINARY, '--version'], stdout=PIPE)
+            version_str = result.stdout.decode('utf-8').strip()
+            version_matches = re.match("Mozilla Firefox (\d+)\.(\d+)\.(\d+)", version_str)
+            major_version = version_matches.group(1)
+            if int(major_version) < 57: 
+                FIREFOX_AVAILABLE = False
+                print(version_str)
+                print('{red}[X] Firefox version must be 57 or greater for headless screenshot.{reset}'.format(**ANSI))
+        except (IndexError, TypeError, OSError):
+            FIREFOX_AVAILABLE = False
+            print('{red}[X] Failed to parse Firefox version, is it installed properly?{reset}'.format(**ANSI))
+            print('    Install it, then confirm it works with: {} --version'.format(FIREFOX_BINARY))
+            print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
 
     ### Make sure git is installed
     if FETCH_GIT:
@@ -263,6 +306,21 @@ try:
             print('    Install it, then confirm it was installed with: {} --version'.format(YOUTUBEDL_BINARY))
             print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
             raise SystemExit(1)
+
+    if FETCH_PDF or FETCH_DOM:
+        if not CHROME_AVAILABLE:
+            print('{}[X] Missing dependency: {}{}'.format(ANSI['red'], CHROME_BINARY, ANSI['reset']))
+            print('    Install it, then confirm it works with: {} --version'.format(CHROME_BINARY))
+            print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+            raise SystemExit(1)
+
+    if FETCH_SCREENSHOT:
+        if (not CHROME_AVAILABLE) and (not FIREFOX_AVAILABLE):
+            print('{}[X] Missing FETCH_SCREENSHOT dependency: {} or {}{}'.format(ANSI['red'], CHROME_BINARY, FIREFOX_BINARY, ANSI['reset']))
+            print('    Install any of them, then confirm it works with: {} --version or '.format(CHROME_BINARY, FIREFOX_BINARY))
+            print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
+            raise SystemExit(1)
+
 
 except KeyboardInterrupt:
     raise SystemExit(1)
