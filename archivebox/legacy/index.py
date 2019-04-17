@@ -48,16 +48,6 @@ TITLE_LOADING_MSG = 'Not yet archived...'
 ### Link filtering and checking
 
 @enforce_types
-def derived_link_info(link: Link) -> dict:
-    """extend link info with the archive urls and other derived data"""
-
-    info = link._asdict(extended=True)
-    info.update(link.canonical_outputs())
-
-    return info
-
-
-@enforce_types
 def merge_links(a: Link, b: Link) -> Link:
     """deterministially merge two links, favoring longer field values over shorter,
     and "cleaner" values over worse ones.

@@ -60,7 +60,6 @@ base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 
 without_www = lambda url: url.replace('://www.', '://', 1)
 without_trailing_slash = lambda url: url[:-1] if url[-1] == '/' else url.replace('/?', '?')
-fuzzy_url = lambda url: without_trailing_slash(without_www(without_scheme(url.lower())))
 hashurl = lambda url: base32_encode(int(sha256(base_url(url).encode('utf-8')).hexdigest(), 16))[:20]
 
 urlencode = lambda s: s and quote(s, encoding='utf-8', errors='replace')
@@ -393,6 +392,7 @@ def parse_date(date: Any) -> Optional[datetime]:
                 pass
 
         if '-' in date:
+            # 2019-04-07T05:44:39.227520
             try:
                 return datetime.fromisoformat(date)
             except Exception:

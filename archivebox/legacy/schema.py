@@ -142,19 +142,27 @@ class Link:
             info.update({
                 'link_dir': self.link_dir,
                 'archive_path': self.archive_path,
-                'bookmarked_date': self.bookmarked_date,
-                'updated_date': self.updated_date,
+                
+                'hash': self.url_hash,
+                'base_url': self.base_url,
+                'scheme': self.scheme,
                 'domain': self.domain,
                 'path': self.path,
                 'basename': self.basename,
                 'extension': self.extension,
-                'base_url': self.base_url,
                 'is_static': self.is_static,
+
+                'bookmarked_date': self.bookmarked_date,
+                'updated_date': self.updated_date,
+                'oldest_archive_date': self.oldest_archive_date,
+                'newest_archive_date': self.newest_archive_date,
+        
                 'is_archived': self.is_archived,
                 'num_outputs': self.num_outputs,
                 'num_failures': self.num_failures,
-                'oldest_archive_date': self.oldest_archive_date,
-                'newest_archive_date': self.newest_archive_date,
+                
+                'latest': self.latest_outputs(),
+                'canonical': self.canonical_outputs(),
             })
         return info
 
@@ -211,10 +219,15 @@ class Link:
     
     ### URL Helpers
     @property
-    def urlhash(self):
+    def url_hash(self):
         from .util import hashurl
 
         return hashurl(self.url)
+
+    @property
+    def scheme(self) -> str:
+        from .util import scheme
+        return scheme(self.url)
 
     @property
     def extension(self) -> str:
@@ -319,32 +332,35 @@ class Link:
 
         return latest
 
+
     def canonical_outputs(self) -> Dict[str, Optional[str]]:
+        """predict the expected output paths that should be present after archiving"""
+
         from .util import wget_output_path
         canonical = {
-            'index_url': 'index.html',
-            'favicon_url': 'favicon.ico',
-            'google_favicon_url': 'https://www.google.com/s2/favicons?domain={}'.format(self.domain),
-            'archive_url': wget_output_path(self),
-            'warc_url': 'warc',
-            'pdf_url': 'output.pdf',
-            'screenshot_url': 'screenshot.png',
-            'dom_url': 'output.html',
-            'archive_org_url': 'https://web.archive.org/web/{}'.format(self.base_url),
-            'git_url': 'git',
-            'media_url': 'media',
+            'index_path': 'index.html',
+            'favicon_path': 'favicon.ico',
+            'google_favicon_path': 'https://www.google.com/s2/favicons?domain={}'.format(self.domain),
+            'wget_path': wget_output_path(self),
+            'warc_path': 'warc',
+            'pdf_path': 'output.pdf',
+            'screenshot_path': 'screenshot.png',
+            'dom_path': 'output.html',
+            'archive_org_path': 'https://web.archive.org/web/{}'.format(self.base_url),
+            'git_path': 'git',
+            'media_path': 'media',
         }
         if self.is_static:
             # static binary files like PDF and images are handled slightly differently.
             # they're just downloaded once and aren't archived separately multiple times, 
             # so the wget, screenshot, & pdf urls should all point to the same file
 
-            static_url = wget_output_path(self)
+            static_path = wget_output_path(self)
             canonical.update({
                 'title': self.basename,
-                'archive_url': static_url,
-                'pdf_url': static_url,
-                'screenshot_url': static_url,
-                'dom_url': static_url,
+                'wget_path': static_path,
+                'pdf_path': static_path,
+                'screenshot_path': static_path,
+                'dom_path': static_path,
             })
         return canonical
