@@ -71,7 +71,7 @@ def log_indexing_started(out_dir: str, out_file: str):
 def log_indexing_finished(out_dir: str, out_file: str):
     end_ts = datetime.now()
     _LAST_RUN_STATS.index_end_ts = end_ts
-    print('\r    √ {}/{}'.format(pretty_path(out_dir), out_file))
+    print('\r    √ {}/{}'.format(out_dir, out_file))
 
 
 ### Archiving Stage

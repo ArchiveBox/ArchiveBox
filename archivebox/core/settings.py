@@ -5,6 +5,11 @@ import os
 SECRET_KEY = '---------------- not a valid secret key ! ----------------'
 DEBUG = True
 
+OUTPUT_DIR = os.path.abspath(os.curdir)
+DATABASE_DIR_NAME = 'database'
+DATABASE_FILE_NAME = 'database.sqlite3'
+DATABASE_FILE = os.path.join(OUTPUT_DIR, DATABASE_DIR_NAME, DATABASE_FILE_NAME)
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -15,7 +20,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'core',
-    
+
     'django_extensions',
 ]
 
@@ -51,7 +56,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(os.path.abspath(os.curdir), 'database', 'database.sqlite3'),
+        'NAME': DATABASE_FILE,
     }
 }
 
@@ -67,7 +72,7 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_L10N = True
-USE_TZ = True
+USE_TZ = False
 
 
 STATIC_URL = '/static/'

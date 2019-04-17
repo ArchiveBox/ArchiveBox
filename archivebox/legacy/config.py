@@ -98,7 +98,7 @@ DATABASE_FILE_NAME = 'database.sqlite3'
 ARCHIVE_DIR = os.path.join(OUTPUT_DIR, ARCHIVE_DIR_NAME)
 SOURCES_DIR = os.path.join(OUTPUT_DIR, SOURCES_DIR_NAME)
 DATABASE_DIR = os.path.join(OUTPUT_DIR, DATABASE_DIR_NAME)
-DATABASE_FILE = os.path.join(DATABASE_DIR, DATABASE_FILE_NAME)
+DATABASE_FILE = os.path.join(OUTPUT_DIR, DATABASE_DIR_NAME, DATABASE_FILE_NAME)
 
 PYTHON_DIR = os.path.join(REPO_DIR, 'archivebox')
 LEGACY_DIR = os.path.join(PYTHON_DIR, 'legacy')
@@ -346,7 +346,7 @@ try:
         'DATABASE_DIR': {
             'path': os.path.abspath(DATABASE_DIR),
             'enabled': True,
-            'is_valid': os.path.exists(os.path.join(DATABASE_DIR, DATABASE_FILE)),
+            'is_valid': os.path.exists(DATABASE_FILE),
         },
         'CHROME_USER_DATA_DIR': {
             'path': CHROME_USER_DATA_DIR and os.path.abspath(CHROME_USER_DATA_DIR),

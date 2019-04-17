@@ -20,6 +20,7 @@ from .config import (
     SOURCES_DIR,
     ARCHIVE_DIR,
     DATABASE_DIR,
+    DATABASE_FILE,
     check_dependencies,
     check_data_folder,
     setup_django,
@@ -39,21 +40,19 @@ from .logs import (
 def init():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    harmless_files = {'.DS_Store', '.venv', 'venv', 'virtualenv', '.virtualenv'}
+    harmless_files = {'.DS_Store', '.venv', 'venv', 'virtualenv', '.virtualenv', 'sources', 'archive', 'database', 'logs', 'static'}
     is_empty = not len(set(os.listdir(OUTPUT_DIR)) - harmless_files)
     existing_index = os.path.exists(os.path.join(OUTPUT_DIR, 'index.json'))
 
-    if not is_empty:
+    if is_empty:
+        stderr('{green}[+] Initializing new archive directory: {}{reset}'.format(OUTPUT_DIR, **ANSI))
+        write_main_index([], out_dir=OUTPUT_DIR, finished=True)
+    else:
         if existing_index:
-            stderr('{green}[√] You already have an archive index in: {}{reset}'.format(OUTPUT_DIR, **ANSI))
-            stderr('    To add new links, you can run:')
-            stderr("        archivebox add 'https://example.com'")
-            stderr()
-            stderr('    For more usage and examples, run:')
-            stderr('        archivebox help')
-            # TODO: import old archivebox version's archive data folder
-
-            raise SystemExit(1)
+            stderr('{green}[√] You already have an ArchiveBox collection in the current folder.{reset}'.format(**ANSI))
+            stderr(f'    {OUTPUT_DIR}')
+            stderr(f'    > index.html')
+            stderr(f'    > index.json')
         else:
             stderr(
                 ("{red}[X] This folder already has files in it. You must run init inside a completely empty directory.{reset}"
@@ -65,23 +64,32 @@ def init():
             )
             raise SystemExit(1)
 
-
-    stderr('{green}[+] Initializing new archive directory: {}{reset}'.format(OUTPUT_DIR, **ANSI))
-    os.makedirs(SOURCES_DIR)
-    stderr(f'    > {SOURCES_DIR}')
-    os.makedirs(ARCHIVE_DIR)
-    stderr(f'    > {ARCHIVE_DIR}')
-    os.makedirs(DATABASE_DIR)
-    stderr(f'    > {DATABASE_DIR}')
-
-    write_main_index([], out_dir=OUTPUT_DIR, finished=True)
+    os.makedirs(SOURCES_DIR, exist_ok=True)
+    stderr(f'    > sources/')
+    os.makedirs(ARCHIVE_DIR, exist_ok=True)
+    stderr(f'    > archive/')
+    os.makedirs(DATABASE_DIR, exist_ok=True)
 
     setup_django()
     from django.core.management import call_command
+    from django.contrib.auth.models import User
+    stderr(f'    > database/')
+    
+    stderr('\n{green}[+] Running Django migrations...{reset}'.format(**ANSI))
     call_command("makemigrations", interactive=False)
     call_command("migrate", interactive=False)
+    
+    if not User.objects.filter(is_superuser=True).exists():
+        stderr('{green}[+] Creating admin user account...{reset}'.format(**ANSI))
+        call_command("createsuperuser", interactive=True)
 
-    stderr('{green}[√] Done.{reset}'.format(**ANSI))
+    stderr('\n{green}------------------------------------------------------------{reset}'.format(**ANSI))
+    stderr('{green}[√] Done. ArchiveBox collection is set up in current folder.{reset}'.format(**ANSI))
+    stderr('    To add new links, you can run:')
+    stderr("        archivebox add 'https://example.com'")
+    stderr()
+    stderr('    For more usage and examples, run:')
+    stderr('        archivebox help')
 
 
 
