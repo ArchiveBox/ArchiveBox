@@ -121,11 +121,15 @@ def remove_archive_links(filter_patterns: List[str], filter_type: str='exact',
         ))
     finally:
         timer.end()
+
     if not len(links):
         log_removal_finished(0, 0)
         raise SystemExit(1)
 
+
+    log_list_finished(links)
     log_removal_started(links, yes=yes, delete=delete)
+
     timer = TimedProgress(360, prefix='      ')
     try:
         to_keep = []

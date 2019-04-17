@@ -79,6 +79,7 @@ def log_indexing_finished(out_dir: str, out_file: str):
 def log_archiving_started(num_links: int, resume: Optional[float]):
     start_ts = datetime.now()
     _LAST_RUN_STATS.archiving_start_ts = start_ts
+    print()
     if resume:
         print('{green}[▶] [{}] Resuming archive updating for {} pages starting from {}...{reset}'.format(
              start_ts.strftime('%Y-%m-%d %H:%M:%S'),
@@ -119,6 +120,7 @@ def log_archiving_finished(num_links: int):
     else:
         duration = '{0:.2f} sec'.format(seconds, 2)
 
+    print()
     print('{}[√] [{}] Update of {} pages complete ({}){}'.format(
         ANSI['green'],
         end_ts.strftime('%Y-%m-%d %H:%M:%S'),
@@ -224,8 +226,6 @@ def log_list_finished(links):
 
 
 def log_removal_started(links: List[Link], yes: bool, delete: bool):
-    
-    log_list_finished(links)
     print('{lightyellow}[i] Found {} matching URLs to remove.{reset}'.format(len(links), **ANSI))
     if delete:
         file_counts = [link.num_outputs for link in links if os.path.exists(link.link_dir)]
