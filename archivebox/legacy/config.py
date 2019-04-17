@@ -428,6 +428,7 @@ def check_dependencies() -> None:
         stderr('{red}[X] Missing some required dependencies.{reset}'.format(**ANSI))
         raise SystemExit(1)
         
+def check_data_folder() -> None:
     if HAS_INVALID_DB:
         stderr('{red}[X] No archive data found in:{reset} {}'.format(OUTPUT_DIR, **ANSI))
         stderr('    Are you running archivebox in the right folder?')

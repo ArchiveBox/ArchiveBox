@@ -12,10 +12,10 @@ from .index import (
 )
 from .archive_methods import archive_link
 from .config import (
-    ANSI,
     ONLY_NEW,
     OUTPUT_DIR,
     check_dependencies,
+    check_data_folder,
 )
 from .logs import (
     log_archiving_started,
@@ -33,6 +33,7 @@ def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]
     """The main ArchiveBox entrancepoint. Everything starts here."""
 
     check_dependencies()
+    check_data_folder()
 
     # Step 1: Load list of links from the existing index
     #         merge in and dedupe new links from import_path
@@ -107,6 +108,8 @@ def remove_archive_links(filter_patterns: List[str], filter_type: str='exact',
                          yes: bool=False, delete: bool=False) -> List[Link]:
     
     check_dependencies()
+    check_data_folder()
+
     log_list_started(filter_patterns, filter_type)
     timer = TimedProgress(360, prefix='      ')
     try:

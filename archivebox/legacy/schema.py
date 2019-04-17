@@ -69,7 +69,7 @@ class ArchiveResult:
 
         cols = cols or self.field_names()
         return separator.join(
-            to_json(getattr(self, col), indent=False).ljust(ljust)
+            to_json(getattr(self, col), indent=None).ljust(ljust)
             for col in cols
         )
     
