@@ -20,7 +20,6 @@ from .config import (
 )
 from .util import (
     scheme,
-    fuzzy_url,
     ts_to_date,
     urlencode,
     htmlencode,

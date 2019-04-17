@@ -618,8 +618,10 @@ class ExtendedEncoder(JSONEncoder):
 
 def to_json(obj: Any, file: IO=None, indent: Optional[int]=4, sort_keys: bool=True, cls=ExtendedEncoder) -> Optional[str]:
     if file:
-        json.dump(obj, file, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder)
-        return None
+        path = os.path.realpath(file.name)
+        contents = json.dumps(obj, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder)
+        atomic_write(contents, path)
+        return contents
     else:
         return json.dumps(obj, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder)
 
