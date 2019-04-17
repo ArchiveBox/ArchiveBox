@@ -18,15 +18,15 @@ class Page(models.Model):
     updated = models.DateTimeField(null=True, default=None)
     # bookmarked = models.DateTimeField()
 
-    sql_args = ('url', 'timestamp', 'title', 'tags', 'updated')
+    keys = ('url', 'timestamp', 'title', 'tags', 'updated')
 
     @classmethod
     def from_json(cls, info: dict):
-        info = {k: v for k, v in info.items() if k in cls.sql_args}
+        info = {k: v for k, v in info.items() if k in cls.keys}
         return cls(**info)
 
     def as_json(self, *args) -> dict:
-        args = args or self.sql_args
+        args = args or self.keys
         return {
             key: getattr(self, key)
             for key in args
