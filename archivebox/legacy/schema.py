@@ -112,20 +112,25 @@ class Link:
         return float(self.timestamp) > float(other.timestamp)
 
     def typecheck(self) -> None:
-        assert self.schema == self.__class__.__name__
-        assert isinstance(self.timestamp, str) and self.timestamp
-        assert self.timestamp.replace('.', '').isdigit()
-        assert isinstance(self.url, str) and '://' in self.url
-        assert self.updated is None or isinstance(self.updated, datetime)
-        assert self.title is None or isinstance(self.title, str) and self.title
-        assert self.tags is None or isinstance(self.tags, str) and self.tags
-        assert isinstance(self.sources, list)
-        assert all(isinstance(source, str) and source for source in self.sources)
-        assert isinstance(self.history, dict)
-        for method, results in self.history.items():
-            assert isinstance(method, str) and method
-            assert isinstance(results, list)
-            assert all(isinstance(result, ArchiveResult) for result in results)
+        from .config import stderr, ANSI
+        try:
+            assert self.schema == self.__class__.__name__
+            assert isinstance(self.timestamp, str) and self.timestamp
+            assert self.timestamp.replace('.', '').isdigit()
+            assert isinstance(self.url, str) and '://' in self.url
+            assert self.updated is None or isinstance(self.updated, datetime)
+            assert self.title is None or (isinstance(self.title, str) and self.title)
+            assert self.tags is None or (isinstance(self.tags, str) and self.tags)
+            assert isinstance(self.sources, list)
+            assert all(isinstance(source, str) and source for source in self.sources)
+            assert isinstance(self.history, dict)
+            for method, results in self.history.items():
+                assert isinstance(method, str) and method
+                assert isinstance(results, list)
+                assert all(isinstance(result, ArchiveResult) for result in results)
+        except Exception:
+            stderr('{red}[X] Error while loading link! [{}] {} "{}"{reset}'.format(self.timestamp, self.url, self.title, **ANSI))
+            raise
     
     def _asdict(self, extended=False):
         info = {

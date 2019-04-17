@@ -115,7 +115,6 @@ URL_BLACKLIST_PTN = re.compile(URL_BLACKLIST, re.IGNORECASE) if URL_BLACKLIST el
 VERSION = open(os.path.join(REPO_DIR, 'VERSION'), 'r').read().strip()
 GIT_SHA = VERSION.split('+')[-1] or 'unknown'
 HAS_INVALID_DEPENDENCIES = False
-HAS_INVALID_DB = not os.path.exists(os.path.join(OUTPUT_DIR, 'index.json'))
 
 ### Check system environment
 if USER == 'root':
@@ -429,13 +428,12 @@ def check_dependencies() -> None:
         raise SystemExit(1)
         
 def check_data_folder() -> None:
-    if HAS_INVALID_DB:
-        stderr('{red}[X] No archive data found in:{reset} {}'.format(OUTPUT_DIR, **ANSI))
+    if not os.path.exists(os.path.join(OUTPUT_DIR, 'index.json')):
+        stderr('{red}[X] No archive data was found in:{reset} {}'.format(OUTPUT_DIR, **ANSI))
         stderr('    Are you running archivebox in the right folder?')
-        stderr('        cd path/to/your/archive')
+        stderr('        cd path/to/your/archive/folder')
         stderr('        archivebox [command]')
         stderr()
-        stderr('    To create a new archive folder, run:')
-        stderr('        mkdir new_archive_dir && cd new_archive_dir')
+        stderr('    To create a new archive collection in this folder, run:')
         stderr('        archivebox init')
         raise SystemExit(1)

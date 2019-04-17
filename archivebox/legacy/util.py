@@ -5,8 +5,9 @@ import json
 import time
 import shutil
 
+from string import Template
 from json import JSONEncoder
-from typing import List, Optional, Any, Union, IO
+from typing import List, Optional, Any, Union, IO, Mapping
 from inspect import signature
 from functools import wraps
 from hashlib import sha256
@@ -396,10 +397,11 @@ def parse_date(date: Any) -> Optional[datetime]:
             try:
                 return datetime.fromisoformat(date)
             except Exception:
-                try:
-                    return datetime.strptime(date, '%Y-%m-%d %H:%M')
-                except Exception:
-                    pass
+                pass
+            try:
+                return datetime.strptime(date, '%Y-%m-%d %H:%M')
+            except Exception:
+                pass
     
     raise ValueError('Tried to parse invalid date! {}'.format(date))
 
@@ -552,9 +554,12 @@ def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS, tim
 
 @enforce_types
 def copy_and_overwrite(from_path: str, to_path: str):
-    if os.path.exists(to_path):
-        shutil.rmtree(to_path)
-    shutil.copytree(from_path, to_path)
+    if os.path.isdir(from_path):
+        shutil.rmtree(to_path, ignore_errors=True)
+        shutil.copytree(from_path, to_path)
+    else:
+        with open(from_path, 'rb') as src:
+            atomic_write(src.read(), to_path)
 
 @enforce_types
 def chrome_args(**options) -> List[str]:
@@ -642,11 +647,27 @@ def to_csv(links: List[Link], csv_cols: Optional[List[str]]=None,
     return '\n'.join((header_str, *row_strs))
 
 
-def atomic_write(contents: Union[dict, str], path: str) -> None:
+@enforce_types
+def render_template(template_path: str, context: Mapping[str, str]) -> str:
+    """render a given html template string with the given template content"""
+
+    # will be replaced by django templates in the future
+    with open(template_path, 'r', encoding='utf-8') as template:
+        template_str = template.read()
+    return Template(template_str).substitute(**context)
+
+
+def atomic_write(contents: Union[dict, str, bytes], path: str) -> None:
     """Safe atomic write to filesystem by writing to temp file + atomic rename"""
     try:
         tmp_file = '{}.tmp'.format(path)
-        with open(tmp_file, 'w+', encoding='utf-8') as f:
+        
+        if isinstance(contents, bytes):
+            args = {'mode': 'wb+'}
+        else:
+            args = {'mode': 'w+', 'encoding': 'utf-8'}
+
+        with open(tmp_file, **args) as f:
             if isinstance(contents, dict):
                 to_json(contents, file=f)
             else:
@@ -678,3 +699,5 @@ def reject_stdin(caller: str) -> None:
             ))
             print()
             raise SystemExit(1)
+
+

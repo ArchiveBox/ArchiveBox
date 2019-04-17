@@ -1,3 +1,4 @@
+import os
 import re
 import shutil
 
@@ -7,13 +8,18 @@ from .schema import Link
 from .util import enforce_types, TimedProgress
 from .index import (
     links_after_timestamp,
-    load_links_index,
-    write_links_index,
+    load_main_index,
+    write_main_index,
 )
 from .archive_methods import archive_link
 from .config import (
+    stderr,
+    ANSI,
     ONLY_NEW,
     OUTPUT_DIR,
+    SOURCES_DIR,
+    ARCHIVE_DIR,
+    DATABASE_DIR,
     check_dependencies,
     check_data_folder,
 )
@@ -29,6 +35,51 @@ from .logs import (
 
 
 @enforce_types
+def init():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    harmless_files = {'.DS_Store', '.venv', 'venv', 'virtualenv', '.virtualenv'}
+    is_empty = not len(set(os.listdir(OUTPUT_DIR)) - harmless_files)
+    existing_index = os.path.exists(os.path.join(OUTPUT_DIR, 'index.json'))
+
+    if not is_empty:
+        if existing_index:
+            stderr('{green}[√] You already have an archive index in: {}{reset}'.format(OUTPUT_DIR, **ANSI))
+            stderr('    To add new links, you can run:')
+            stderr("        archivebox add 'https://example.com'")
+            stderr()
+            stderr('    For more usage and examples, run:')
+            stderr('        archivebox help')
+            # TODO: import old archivebox version's archive data folder
+
+            raise SystemExit(1)
+        else:
+            stderr(
+                ("{red}[X] This folder already has files in it. You must run init inside a completely empty directory.{reset}"
+                "\n\n"
+                "    {lightred}Hint:{reset} To import a data folder created by an older version of ArchiveBox, \n"
+                "    just cd into the folder and run the archivebox command to pick up where you left off.\n\n"
+                "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
+                ).format(OUTPUT_DIR, **ANSI)
+            )
+            raise SystemExit(1)
+
+
+    stderr('{green}[+] Initializing new archive directory: {}{reset}'.format(OUTPUT_DIR, **ANSI))
+    os.makedirs(SOURCES_DIR)
+    stderr(f'    > {SOURCES_DIR}')
+    os.makedirs(ARCHIVE_DIR)
+    stderr(f'    > {ARCHIVE_DIR}')
+    os.makedirs(DATABASE_DIR)
+    stderr(f'    > {DATABASE_DIR}')
+
+    write_main_index([], out_dir=OUTPUT_DIR, finished=True)
+
+    stderr('{green}[√] Done.{reset}'.format(**ANSI))
+
+
+
+@enforce_types
 def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]=None, only_new: bool=False) -> List[Link]:
     """The main ArchiveBox entrancepoint. Everything starts here."""
 
@@ -37,19 +88,19 @@ def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]
 
     # Step 1: Load list of links from the existing index
     #         merge in and dedupe new links from import_path
-    all_links, new_links = load_links_index(out_dir=OUTPUT_DIR, import_path=import_path)
+    all_links, new_links = load_main_index(out_dir=OUTPUT_DIR, import_path=import_path)
 
     # Step 2: Write updated index with deduped old and new links back to disk
-    write_links_index(links=list(all_links), out_dir=OUTPUT_DIR)
+    write_main_index(links=list(all_links), out_dir=OUTPUT_DIR)
 
     # Step 3: Run the archive methods for each link
     links = new_links if ONLY_NEW else all_links
     log_archiving_started(len(links), resume)
     idx: int = 0
-    link: Optional[Link] = None
+    link: Link = None                                             # type: ignore
     try:
         for idx, link in enumerate(links_after_timestamp(links, resume)):
-            archive_link(link, link_dir=link.link_dir)
+            archive_link(link, out_dir=link.link_dir)
 
     except KeyboardInterrupt:
         log_archiving_paused(len(links), idx, link.timestamp if link else '0')
@@ -62,8 +113,8 @@ def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]
     log_archiving_finished(len(links))
 
     # Step 4: Re-write links index with updated titles, icons, and resources
-    all_links, _ = load_links_index(out_dir=OUTPUT_DIR)
-    write_links_index(links=list(all_links), out_dir=OUTPUT_DIR, finished=True)
+    all_links, _ = load_main_index(out_dir=OUTPUT_DIR)
+    write_main_index(links=list(all_links), out_dir=OUTPUT_DIR, finished=True)
     return all_links
 
 
@@ -87,7 +138,7 @@ def link_matches_filter(link: Link, filter_patterns: List[str], filter_type: str
 def list_archive_data(filter_patterns: Optional[List[str]]=None, filter_type: str='exact',
                       after: Optional[float]=None, before: Optional[float]=None) -> Iterable[Link]:
     
-    all_links, _ = load_links_index(out_dir=OUTPUT_DIR)
+    all_links, _ = load_main_index(out_dir=OUTPUT_DIR)
 
     for link in all_links:
         if after is not None and float(link.timestamp) < after:
@@ -133,7 +184,7 @@ def remove_archive_links(filter_patterns: List[str], filter_type: str='exact',
     timer = TimedProgress(360, prefix='      ')
     try:
         to_keep = []
-        all_links, _ = load_links_index(out_dir=OUTPUT_DIR)
+        all_links, _ = load_main_index(out_dir=OUTPUT_DIR)
         for link in all_links:
             should_remove = (
                 (after is not None and float(link.timestamp) < after)
@@ -147,7 +198,7 @@ def remove_archive_links(filter_patterns: List[str], filter_type: str='exact',
     finally:
         timer.end()
 
-    write_links_index(links=to_keep, out_dir=OUTPUT_DIR, finished=True)
+    write_main_index(links=to_keep, out_dir=OUTPUT_DIR, finished=True)
     log_removal_finished(len(all_links), len(to_keep))
     
     return to_keep

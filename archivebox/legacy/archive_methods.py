@@ -6,9 +6,9 @@ from datetime import datetime
 
 from .schema import Link, ArchiveResult, ArchiveOutput
 from .index import (
-    write_link_index,
-    patch_links_index,
-    load_json_link_index,
+    load_link_details,
+    write_link_details,
+    patch_main_index,
 )
 from .config import (
     CURL_BINARY,
