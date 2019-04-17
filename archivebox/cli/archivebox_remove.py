@@ -55,7 +55,7 @@ def main(args=None):
     )
     parser.add_argument(
         'pattern',
-        nargs='?',
+        nargs='*',
         type=str,
         default=None,
         help='URLs matching this filter pattern will be removed from the index.'
@@ -74,7 +74,7 @@ def main(args=None):
 
         patterns = [pattern.strip() for pattern in stdin_raw_text.split('\n')]
     else:
-        patterns = [command.pattern]
+        patterns = command.pattern
 
     remove_archive_links(
         filter_patterns=patterns, filter_type=command.filter_type,
