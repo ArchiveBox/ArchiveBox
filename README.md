@@ -24,7 +24,7 @@
 
 <hr/>
 
-*💥 Attention: Big API changes are coming soon! See [v0.4.0](https://github.com/pirate/ArchiveBox/pull/207) for more info... 💥*
+*💥 Attention: Big API changes are coming soon! Check out [v0.4.0](https://github.com/pirate/ArchiveBox/pull/207) and help us test it! 💥*
 
 </div>
 
