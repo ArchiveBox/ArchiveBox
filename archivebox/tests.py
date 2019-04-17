@@ -83,6 +83,9 @@ def output_hidden(show_failing=True):
             with open('stderr.txt', 'r') as f:
                 print(f.read())
         raise
+    finally:
+        os.remove('stdout.txt')
+        os.remove('stderr.txt')
 
 
 class TestInit(unittest.TestCase):
