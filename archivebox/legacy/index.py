@@ -149,11 +149,10 @@ def uniquefied_links(sorted_links: Iterable[Link]) -> Iterable[Link]:
     unique_urls: OrderedDict[str, Link] = OrderedDict()
 
     for link in sorted_links:
-        fuzzy = fuzzy_url(link.url)
-        if fuzzy in unique_urls:
+        if link.base_url in unique_urls:
             # merge with any other links that share the same url
-            link = merge_links(unique_urls[fuzzy], link)
-        unique_urls[fuzzy] = link
+            link = merge_links(unique_urls[link.base_url], link)
+        unique_urls[link.base_url] = link
 
     unique_timestamps: OrderedDict[str, Link] = OrderedDict()
     for link in unique_urls.values():
