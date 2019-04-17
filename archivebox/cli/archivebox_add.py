@@ -7,6 +7,7 @@ __description__ = 'Add a new URL or list of URLs to your archive'
 import sys
 import argparse
 
+from ..legacy.config import stderr, check_dependencies, check_data_folder
 from ..legacy.util import (
     handle_stdin_import,
     handle_file_import,
@@ -14,7 +15,7 @@ from ..legacy.util import (
 from ..legacy.main import update_archive_data
 
 
-def main(args=None):
+def main(args=None, stdin=None):
     args = sys.argv[1:] if args is None else args
 
     parser = argparse.ArgumentParser(
@@ -53,13 +54,16 @@ def main(args=None):
     )
     command = parser.parse_args(args)
 
+    check_dependencies()
+    check_data_folder()
+
     ### Handle ingesting urls piped in through stdin
     # (.e.g if user does cat example_urls.txt | archivebox add)
     import_path = None
-    if not sys.stdin.isatty():
-        stdin_raw_text = sys.stdin.read()
+    if stdin or not sys.stdin.isatty():
+        stdin_raw_text = stdin or sys.stdin.read()
         if stdin_raw_text and command.url:
-            print(
+            stderr(
                 '[X] You should pass either a path as an argument, '
                 'or pass a list of links via stdin, but not both.\n'
             )
