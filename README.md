@@ -23,6 +23,9 @@
 <a href="https://hub.docker.com/r/nikisweeting/archivebox"><img src="https://img.shields.io/badge/Docker-all%20platforms-lightblue.svg?logo=docker&logoColor=lightblue"/></a>
 
 <hr/>
+
+*Attention: Big API changes are coming soon! See [v0.4.0](https://github.com/pirate/ArchiveBox/pull/207) for more info...*
+
 </div>
 
 **ArchiveBox takes a list of website URLs you want to archive, and creates a local, static, browsable HTML clone of the content from those websites (it saves HTML, JS, media files, PDFs, images and more).** 
