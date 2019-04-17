@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import getpass
 import django
 import shutil
 
@@ -11,7 +12,7 @@ from subprocess import run, PIPE, DEVNULL
 # ******************************************************************************
 # Documentation: https://github.com/pirate/ArchiveBox/wiki/Configuration
 # Use the 'env' command to pass config options to ArchiveBox.  e.g.:
-#     env USE_COLOR=True CHROME_BINARY=google-chrome ./archive export.html
+#     env USE_COLOR=True CHROME_BINARY=chromium archivebox add < example.html
 # ******************************************************************************
 
 IS_TTY =                 sys.stdout.isatty()
@@ -78,6 +79,10 @@ if not USE_COLOR:
     # dont show colors if USE_COLOR is False
     ANSI = {k: '' for k in ANSI.keys()}
 
+def stderr(*args):
+    sys.stderr.write(' '.join(str(a) for a in args) + '\n')
+
+USER = getpass.getuser() or os.getlogin()
 
 REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 if OUTPUT_DIR:
@@ -112,25 +117,31 @@ GIT_SHA = VERSION.split('+')[-1] or 'unknown'
 HAS_INVALID_DEPENDENCIES = False
 HAS_INVALID_DB = not os.path.exists(os.path.join(OUTPUT_DIR, 'index.json'))
 
-def stderr(*args):
-    sys.stderr.write(' '.join(str(a) for a in args) + '\n')
+### Check system environment
+if USER == 'root':
+    stderr('{red}[!] ArchiveBox should never be run as root!{reset}'.format(**ANSI))
+    stderr('    For more information, see the security overview documentation:')
+    stderr('        https://github.com/pirate/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
+    raise SystemExit(1)
 
 ### Check Python environment
 python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
-if python_vers < 3.5:
-    stderr('{}[X] Python version is not new enough: {} (>3.5 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
+if python_vers < 3.6:
+    stderr('{}[X] Python version is not new enough: {} (>3.6 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
     stderr('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
     raise SystemExit(1)
 
 if sys.stdout.encoding.upper() not in ('UTF-8', 'UTF8'):
     stderr('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
     stderr('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
+    stderr('    Or if you\'re using ubuntu/debian, run "dpkg-reconfigure locales"')
     stderr('')
     stderr('    Confirm that it\'s fixed by opening a new shell and running:')
     stderr('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
     stderr('')
     stderr('    Alternatively, run this script with:')
     stderr('        env PYTHONIOENCODING=UTF-8 ./archive.py export.html')
+    raise SystemExit(1)
 
 # ******************************************************************************
 # ***************************** Helper Functions *******************************
