@@ -36,9 +36,10 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     python_requires='>=3.6',
     install_requires=[
+        "dataclasses==0.6",
         "base32-crockford==0.3.0",
         "django==2.2",
-        "dataclasses==0.6",
+        "django-extensions==2.1.6",
     ],
     entry_points={
         'console_scripts': [

@@ -6,6 +6,8 @@ from collections import OrderedDict
 
 from .schema import Link, ArchiveResult
 from .config import (
+    DATABASE_DIR,
+    DATABASE_FILE_NAME,
     OUTPUT_DIR,
     TIMEOUT,
     URL_BLACKLIST_PTN,
@@ -18,6 +20,10 @@ from .storage.json import (
     write_json_main_index,
     parse_json_link_details, 
     write_json_link_details,
+)
+from .storage.sql import (
+    write_sql_main_index,
+    parse_sql_main_index,
 )
 from .util import (
     scheme,
@@ -204,6 +210,14 @@ def write_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=
 
     log_indexing_process_started()
 
+    log_indexing_started(DATABASE_DIR, DATABASE_FILE_NAME)
+    timer = TimedProgress(TIMEOUT * 2, prefix='      ')
+    try:
+        write_sql_main_index(links)
+    finally:
+        timer.end()
+    log_indexing_finished(DATABASE_DIR, DATABASE_FILE_NAME)
+
     log_indexing_started(out_dir, 'index.json')
     timer = TimedProgress(TIMEOUT * 2, prefix='      ')
     try:
@@ -228,6 +242,8 @@ def load_main_index(out_dir: str=OUTPUT_DIR, import_path: Optional[str]=None) ->
     existing_links: List[Link] = []
     if out_dir:
         existing_links = list(parse_json_main_index(out_dir))
+        existing_sql_links = list(parse_sql_main_index())
+        assert set(l.url for l in existing_links) == set(l['url'] for l in existing_sql_links)
 
     new_links: List[Link] = []
     if import_path:

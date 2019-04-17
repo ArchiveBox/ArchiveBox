@@ -1,24 +1,22 @@
 __package__ = 'archivebox.core'
 
-from ..legacy.config import (
-    TEMPLATES_DIR,
-    DATABASE_FILE,
-)
-
+import os
 
 SECRET_KEY = '---------------- not a valid secret key ! ----------------'
 DEBUG = True
 
 
 INSTALLED_APPS = [
-    # 'django.contrib.admin',
-    # 'django.contrib.auth',
-    # 'django.contrib.contenttypes',
-    # 'django.contrib.sessions',
-    # 'django.contrib.messages',
-    # 'django.contrib.staticfiles',
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
 
     'core',
+    
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
@@ -35,7 +33,7 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [TEMPLATES_DIR],
+        'DIRS': ['templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -53,7 +51,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': DATABASE_FILE,
+        'NAME': os.path.join(os.path.abspath(os.curdir), 'database', 'database.sqlite3'),
     }
 }
 

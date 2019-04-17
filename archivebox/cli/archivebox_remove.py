@@ -8,9 +8,8 @@ import sys
 import argparse
 
 
-from ..legacy.main import list_archive_data, remove_archive_links
-from ..legacy.util import reject_stdin, to_csv, TimedProgress
-from ..legacy.config import ANSI
+from ..legacy.main import remove_archive_links
+from ..legacy.util import reject_stdin
 
 
 def main(args=None):

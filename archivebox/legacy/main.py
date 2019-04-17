@@ -22,6 +22,7 @@ from .config import (
     DATABASE_DIR,
     check_dependencies,
     check_data_folder,
+    setup_django,
 )
 from .logs import (
     log_archiving_started,
@@ -74,6 +75,11 @@ def init():
     stderr(f'    > {DATABASE_DIR}')
 
     write_main_index([], out_dir=OUTPUT_DIR, finished=True)
+
+    setup_django()
+    from django.core.management import call_command
+    call_command("makemigrations", interactive=False)
+    call_command("migrate", interactive=False)
 
     stderr('{green}[√] Done.{reset}'.format(**ANSI))
 

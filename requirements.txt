@@ -5,6 +5,7 @@ base32-crockford
 setuptools
 ipdb
 mypy
+django-stubs
 flake8
 
 #wpull

@@ -1,13 +1,14 @@
+__package__ = 'archivebox.legacy'
+
 import os
 import re
 import sys
-import getpass
 import django
+import getpass
 import shutil
 
 from typing import Optional
 from subprocess import run, PIPE, DEVNULL
-
 
 # ******************************************************************************
 # Documentation: https://github.com/pirate/ArchiveBox/wiki/Configuration
@@ -93,10 +94,11 @@ else:
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
 DATABASE_DIR_NAME = 'database'
+DATABASE_FILE_NAME = 'database.sqlite3'
 ARCHIVE_DIR = os.path.join(OUTPUT_DIR, ARCHIVE_DIR_NAME)
 SOURCES_DIR = os.path.join(OUTPUT_DIR, SOURCES_DIR_NAME)
 DATABASE_DIR = os.path.join(OUTPUT_DIR, DATABASE_DIR_NAME)
-DATABASE_FILE = os.path.join(DATABASE_DIR, 'database.sqlite3')
+DATABASE_FILE = os.path.join(DATABASE_DIR, DATABASE_FILE_NAME)
 
 PYTHON_DIR = os.path.join(REPO_DIR, 'archivebox')
 LEGACY_DIR = os.path.join(PYTHON_DIR, 'legacy')
@@ -220,6 +222,12 @@ def find_chrome_data_dir() -> Optional[str]:
             return full_path
     return None
 
+
+def setup_django():
+    import django
+    sys.path.append(PYTHON_DIR)
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+    django.setup()
 
 # ******************************************************************************
 # ************************ Environment & Dependencies **************************
