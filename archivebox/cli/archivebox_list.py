@@ -76,10 +76,11 @@ def main(args=None):
     if command.sort:
         links = sorted(links, key=lambda link: getattr(link, command.sort))
 
+
     if command.csv:
         print(to_csv(links, csv_cols=command.csv.split(','), header=True))
     elif command.json:
-        print(to_json(links, indent=4, sort_keys=True))
+        print(to_json(list(links), indent=4, sort_keys=True))
     else:
         print('\n'.join(link.url for link in links))
     
