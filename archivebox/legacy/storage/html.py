@@ -1,3 +1,5 @@
+__package__ = 'archivebox.legacy.storage'
+
 import os
 
 from datetime import datetime
