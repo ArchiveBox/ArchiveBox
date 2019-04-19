@@ -7,7 +7,7 @@ __description__ = 'Run the ArchiveBox HTTP server'
 import sys
 import argparse
 
-from ..legacy.config import setup_django
+from ..legacy.config import setup_django, OUTPUT_DIR
 from ..legacy.util import reject_stdin
 
 
@@ -29,7 +29,7 @@ def main(args=None):
     command = parser.parse_args(args)
     reject_stdin(__command__)
     
-    setup_django()
+    setup_django(OUTPUT_DIR)
     from django.core.management import call_command
     call_command("runserver", *command.runserver_args)
 

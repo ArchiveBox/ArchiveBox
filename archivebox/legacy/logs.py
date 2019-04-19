@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Optional, List
 
 from .schema import Link, ArchiveResult
-from .config import ANSI, OUTPUT_DIR
+from .config import ANSI, OUTPUT_DIR, IS_TTY
 
 
 @dataclass
@@ -42,7 +42,7 @@ def pretty_path(path: str) -> str:
 def log_parsing_started(source_file: str):
     start_ts = datetime.now()
     _LAST_RUN_STATS.parse_start_ts = start_ts
-    print('{green}[*] [{}] Parsing new links from output/sources/{}...{reset}'.format(
+    print('\n{green}[*] [{}] Parsing new links from output/sources/{}...{reset}'.format(
         start_ts.strftime('%Y-%m-%d %H:%M:%S'),
         source_file.rsplit('/', 1)[-1],
         **ANSI,
@@ -56,22 +56,26 @@ def log_parsing_finished(num_parsed: int, num_new_links: int, parser_name: str):
 
 ### Indexing Stage
 
-def log_indexing_process_started():
+def log_indexing_process_started(num_links: int):
     start_ts = datetime.now()
     _LAST_RUN_STATS.index_start_ts = start_ts
     print()
-    print('{green}[*] [{}] Saving main index files...{reset}'.format(
+    print('{green}[*] [{}] Updating {} links in main index...{reset}'.format(
         start_ts.strftime('%Y-%m-%d %H:%M:%S'),
+        num_links,
         **ANSI,
     ))
 
-def log_indexing_started(out_dir: str, out_file: str):
-    sys.stdout.write('    > {}/{}'.format(pretty_path(out_dir), out_file))
-
-def log_indexing_finished(out_dir: str, out_file: str):
+def log_indexing_process_finished():
     end_ts = datetime.now()
     _LAST_RUN_STATS.index_end_ts = end_ts
-    print('\r    √ {}/{}'.format(out_dir, out_file))
+
+def log_indexing_started(out_path: str):
+    if IS_TTY:
+        sys.stdout.write(f'    > {out_path}')
+
+def log_indexing_finished(out_path: str):
+    print(f'\r    √ {out_path}')
 
 
 ### Archiving Stage
@@ -108,7 +112,7 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
     print('    To view your archive, open:')
     print('        {}/index.html'.format(OUTPUT_DIR))
     print('    Continue archiving where you left off by running:')
-    print('        archivebox {}'.format(timestamp))
+    print('        archivebox update --resume={}'.format(timestamp))
 
 def log_archiving_finished(num_links: int):
     end_ts = datetime.now()

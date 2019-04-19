@@ -9,6 +9,7 @@ from .util import enforce_types, TimedProgress
 from .index import (
     links_after_timestamp,
     load_main_index,
+    import_new_links,
     write_main_index,
 )
 from .archive_methods import archive_link
@@ -19,8 +20,9 @@ from .config import (
     OUTPUT_DIR,
     SOURCES_DIR,
     ARCHIVE_DIR,
-    DATABASE_DIR,
-    DATABASE_FILE,
+    LOGS_DIR,
+    JSON_INDEX_FILENAME,
+    SQL_INDEX_FILENAME,
     check_dependencies,
     check_data_folder,
     setup_django,
@@ -36,60 +38,85 @@ from .logs import (
 )
 
 
+ALLOWED_IN_OUTPUT_DIR = {
+    '.DS_Store',
+    '.venv',
+    'venv',
+    'virtualenv',
+    '.virtualenv',
+    'sources',
+    'archive',
+    'logs',
+    'static',
+}
+
+
 @enforce_types
 def init():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    harmless_files = {'.DS_Store', '.venv', 'venv', 'virtualenv', '.virtualenv', 'sources', 'archive', 'database', 'logs', 'static'}
-    is_empty = not len(set(os.listdir(OUTPUT_DIR)) - harmless_files)
-    existing_index = os.path.exists(os.path.join(OUTPUT_DIR, 'index.json'))
+    is_empty = not len(set(os.listdir(OUTPUT_DIR)) - ALLOWED_IN_OUTPUT_DIR)
+    existing_index = os.path.exists(os.path.join(OUTPUT_DIR, JSON_INDEX_FILENAME))
 
     if is_empty:
-        stderr('{green}[+] Initializing new archive directory: {}{reset}'.format(OUTPUT_DIR, **ANSI))
-        write_main_index([], out_dir=OUTPUT_DIR, finished=True)
+        print('{green}[+] Initializing new archive directory: {}{reset}'.format(OUTPUT_DIR, **ANSI))
+        print('{green}----------------------------------------------------------------{reset}'.format(**ANSI))
     else:
         if existing_index:
-            stderr('{green}[√] You already have an ArchiveBox collection in the current folder.{reset}'.format(**ANSI))
-            stderr(f'    {OUTPUT_DIR}')
-            stderr(f'    > index.html')
-            stderr(f'    > index.json')
+            print('{green}[√] You already have an ArchiveBox collection in the current folder.{reset}'.format(**ANSI))
+            print('{green}----------------------------------------------------------------{reset}'.format(**ANSI))
+            print(f'    {OUTPUT_DIR}')
         else:
             stderr(
-                ("{red}[X] This folder already has files in it. You must run init inside a completely empty directory.{reset}"
+                ("{red}[X] This folder appears to have non-ArchiveBox files in it. You must run 'archivebox init' inside a completely empty directory.{reset}"
                 "\n\n"
                 "    {lightred}Hint:{reset} To import a data folder created by an older version of ArchiveBox, \n"
-                "    just cd into the folder and run the archivebox command to pick up where you left off.\n\n"
+                "    just cd into the folder and run 'archivebox update' to pick up where you left off.\n\n"
                 "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
                 ).format(OUTPUT_DIR, **ANSI)
             )
             raise SystemExit(1)
 
     os.makedirs(SOURCES_DIR, exist_ok=True)
-    stderr(f'    > sources/')
-    os.makedirs(ARCHIVE_DIR, exist_ok=True)
-    stderr(f'    > archive/')
-    os.makedirs(DATABASE_DIR, exist_ok=True)
-
-    setup_django()
-    from django.core.management import call_command
-    from django.contrib.auth.models import User
-    stderr(f'    > database/')
+    print(f'    > {SOURCES_DIR}')
     
-    stderr('\n{green}[+] Running Django migrations...{reset}'.format(**ANSI))
+    os.makedirs(ARCHIVE_DIR, exist_ok=True)
+    print(f'    > {ARCHIVE_DIR}')
+
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    print(f'    > {LOGS_DIR}')
+    
+    print('\n{green}[+] Running Django migrations...{reset}'.format(**ANSI))
+    setup_django(OUTPUT_DIR, check_db=False)
+    from django.core.management import call_command
+    from django.conf import settings
+    assert settings.DATABASE_FILE == os.path.join(OUTPUT_DIR, SQL_INDEX_FILENAME)
+    print(f'    {settings.DATABASE_FILE}')
+
+
     call_command("makemigrations", interactive=False)
     call_command("migrate", interactive=False)
-    
-    if not User.objects.filter(is_superuser=True).exists():
-        stderr('{green}[+] Creating admin user account...{reset}'.format(**ANSI))
-        call_command("createsuperuser", interactive=True)
 
-    stderr('\n{green}------------------------------------------------------------{reset}'.format(**ANSI))
-    stderr('{green}[√] Done. ArchiveBox collection is set up in current folder.{reset}'.format(**ANSI))
-    stderr('    To add new links, you can run:')
-    stderr("        archivebox add 'https://example.com'")
-    stderr()
-    stderr('    For more usage and examples, run:')
-    stderr('        archivebox help')
+    assert os.path.exists(settings.DATABASE_FILE)
+    
+    # from django.contrib.auth.models import User
+    # if IS_TTY and not User.objects.filter(is_superuser=True).exists():
+    #     print('{green}[+] Creating admin user account...{reset}'.format(**ANSI))
+    #     call_command("createsuperuser", interactive=True)
+
+    if existing_index:
+        all_links = load_main_index(out_dir=OUTPUT_DIR)
+        write_main_index(links=list(all_links), out_dir=OUTPUT_DIR)
+    else:
+        write_main_index([], out_dir=OUTPUT_DIR)
+
+    print('\n{green}----------------------------------------------------------------{reset}'.format(**ANSI))
+    print('{green}[√] Done. ArchiveBox collection is set up in the current folder.{reset}'.format(**ANSI))
+    print('    To add new links, you can run:')
+    print("        archivebox add 'https://example.com'")
+    print()
+    print('    For more usage and examples, run:')
+    print('        archivebox help')
 
 
 
@@ -102,7 +129,11 @@ def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]
 
     # Step 1: Load list of links from the existing index
     #         merge in and dedupe new links from import_path
-    all_links, new_links = load_main_index(out_dir=OUTPUT_DIR, import_path=import_path)
+    all_links: List[Link] = []
+    new_links: List[Link] = []
+    all_links = load_main_index(out_dir=OUTPUT_DIR)
+    if import_path:
+        all_links, new_links = import_new_links(all_links, import_path)
 
     # Step 2: Write updated index with deduped old and new links back to disk
     write_main_index(links=list(all_links), out_dir=OUTPUT_DIR)
@@ -127,7 +158,7 @@ def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]
     log_archiving_finished(len(links))
 
     # Step 4: Re-write links index with updated titles, icons, and resources
-    all_links, _ = load_main_index(out_dir=OUTPUT_DIR)
+    all_links = load_main_index(out_dir=OUTPUT_DIR)
     write_main_index(links=list(all_links), out_dir=OUTPUT_DIR, finished=True)
     return all_links
 
@@ -152,7 +183,7 @@ def link_matches_filter(link: Link, filter_patterns: List[str], filter_type: str
 def list_archive_data(filter_patterns: Optional[List[str]]=None, filter_type: str='exact',
                       after: Optional[float]=None, before: Optional[float]=None) -> Iterable[Link]:
     
-    all_links, _ = load_main_index(out_dir=OUTPUT_DIR)
+    all_links = load_main_index(out_dir=OUTPUT_DIR)
 
     for link in all_links:
         if after is not None and float(link.timestamp) < after:
@@ -198,7 +229,7 @@ def remove_archive_links(filter_patterns: List[str], filter_type: str='exact',
     timer = TimedProgress(360, prefix='      ')
     try:
         to_keep = []
-        all_links, _ = load_main_index(out_dir=OUTPUT_DIR)
+        all_links = load_main_index(out_dir=OUTPUT_DIR)
         for link in all_links:
             should_remove = (
                 (after is not None and float(link.timestamp) < after)

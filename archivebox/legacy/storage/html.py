@@ -13,6 +13,7 @@ from ..config import (
     GIT_SHA,
     FOOTER_INFO,
     ARCHIVE_DIR_NAME,
+    HTML_INDEX_FILENAME,
 )
 from ..util import (
     enforce_types,
@@ -44,7 +45,7 @@ def write_html_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: 
     copy_and_overwrite(join(TEMPLATES_DIR, 'static'), join(out_dir, 'static'))
     
     rendered_html = main_index_template(links, finished=finished)
-    atomic_write(rendered_html, join(out_dir, 'index.html'))
+    atomic_write(rendered_html, join(out_dir, HTML_INDEX_FILENAME))
 
 
 @enforce_types
@@ -100,7 +101,7 @@ def write_html_link_details(link: Link, out_dir: Optional[str]=None) -> None:
     out_dir = out_dir or link.link_dir
 
     rendered_html = link_details_template(link)
-    atomic_write(rendered_html, join(out_dir, 'index.html'))
+    atomic_write(rendered_html, join(out_dir, HTML_INDEX_FILENAME))
 
 
 @enforce_types

@@ -1,6 +1,7 @@
 __package__ = 'archivebox.legacy.storage'
 
 import os
+import sys
 import json
 
 from datetime import datetime
@@ -10,11 +11,32 @@ from ..schema import Link, ArchiveResult
 from ..config import (
     VERSION,
     OUTPUT_DIR,
+    FOOTER_INFO,
+    GIT_SHA,
+    DEPENDENCIES,
+    JSON_INDEX_FILENAME,
 )
 from ..util import (
     enforce_types,
     atomic_write,
 )
+
+MAIN_INDEX_HEADER = {
+    'info': 'This is an index of site data archived by ArchiveBox: The self-hosted web archive.',
+    'schema': 'archivebox.legacy.storage.json',
+    'copyright_info': FOOTER_INFO,
+    'meta': {
+        'project': 'ArchiveBox',
+        'cmd': sys.argv,
+        'version': VERSION,
+        'git_sha': GIT_SHA,
+        'website': 'https://ArchiveBox.io',
+        'docs': 'https://github.com/pirate/ArchiveBox/wiki',
+        'source': 'https://github.com/pirate/ArchiveBox',
+        'issues': 'https://github.com/pirate/ArchiveBox/issues',
+        'dependencies': DEPENDENCIES,
+    },
+}
 
 
 ### Main Links Index
@@ -23,7 +45,7 @@ from ..util import (
 def parse_json_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
     """parse a archive index json file and return the list of links"""
 
-    index_path = os.path.join(out_dir, 'index.json')
+    index_path = os.path.join(out_dir, JSON_INDEX_FILENAME)
     if os.path.exists(index_path):
         with open(index_path, 'r', encoding='utf-8') as f:
             links = json.load(f)['links']
@@ -46,18 +68,13 @@ def write_json_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
     if links and links[0].sources:
         assert isinstance(links[0].sources[0], str)
 
-    path = os.path.join(out_dir, 'index.json')
-
-    index_json = {
-        'info': 'ArchiveBox Index',
-        'source': 'https://github.com/pirate/ArchiveBox',
-        'docs': 'https://github.com/pirate/ArchiveBox/wiki',
-        'version': VERSION,
+    main_index_json = {
+        **MAIN_INDEX_HEADER,
         'num_links': len(links),
         'updated': datetime.now(),
         'links': links,
     }
-    atomic_write(index_json, path)
+    atomic_write(main_index_json, os.path.join(out_dir, JSON_INDEX_FILENAME))
 
 
 ### Link Details Index
@@ -67,7 +84,7 @@ def write_json_link_details(link: Link, out_dir: Optional[str]=None) -> None:
     """write a json file with some info about the link"""
     
     out_dir = out_dir or link.link_dir
-    path = os.path.join(out_dir, 'index.json')
+    path = os.path.join(out_dir, JSON_INDEX_FILENAME)
 
     atomic_write(link._asdict(extended=True), path)
 
@@ -75,7 +92,7 @@ def write_json_link_details(link: Link, out_dir: Optional[str]=None) -> None:
 @enforce_types
 def parse_json_link_details(out_dir: str) -> Optional[Link]:
     """load the json link index from a given directory"""
-    existing_index = os.path.join(out_dir, 'index.json')
+    existing_index = os.path.join(out_dir, JSON_INDEX_FILENAME)
     if os.path.exists(existing_index):
         with open(existing_index, 'r', encoding='utf-8') as f:
             link_json = json.load(f)

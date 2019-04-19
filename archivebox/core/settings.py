@@ -5,10 +5,8 @@ import os
 SECRET_KEY = '---------------- not a valid secret key ! ----------------'
 DEBUG = True
 
-OUTPUT_DIR = os.path.abspath(os.curdir)
-DATABASE_DIR_NAME = 'database'
-DATABASE_FILE_NAME = 'database.sqlite3'
-DATABASE_FILE = os.path.join(OUTPUT_DIR, DATABASE_DIR_NAME, DATABASE_FILE_NAME)
+OUTPUT_DIR = os.path.abspath(os.getenv('OUTPUT_DIR', os.curdir))
+DATABASE_FILE = os.path.join(OUTPUT_DIR, 'index.sqlite3')
 
 
 INSTALLED_APPS = [
@@ -38,7 +36,7 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': ['templates'],
+        'DIRS': ['themes'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

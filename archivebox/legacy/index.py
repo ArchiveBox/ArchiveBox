@@ -1,13 +1,17 @@
+__package__ = 'archivebox.legacy'
+
 import os
 import json
 
 from typing import List, Tuple, Optional, Iterable
 from collections import OrderedDict
+from contextlib import contextmanager
 
 from .schema import Link, ArchiveResult
 from .config import (
-    DATABASE_DIR,
-    DATABASE_FILE_NAME,
+    SQL_INDEX_FILENAME,
+    JSON_INDEX_FILENAME,
+    HTML_INDEX_FILENAME,
     OUTPUT_DIR,
     TIMEOUT,
     URL_BLACKLIST_PTN,
@@ -35,13 +39,12 @@ from .util import (
 from .parse import parse_links
 from .logs import (
     log_indexing_process_started,
+    log_indexing_process_finished,
     log_indexing_started,
     log_indexing_finished,
     log_parsing_started,
     log_parsing_finished,
 )
-
-
 
 ### Link filtering and checking
 
@@ -117,7 +120,7 @@ def validate_links(links: Iterable[Link]) -> Iterable[Link]:
     links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
 
     if not links:
-        stderr('{red}[X] No links found in index.json{reset}'.format(**ANSI))
+        stderr('{red}[X] No links found in index.{reset}'.format(**ANSI))
         stderr('    To add a link to your archive, run:')
         stderr("        archivebox add 'https://example.com'")
         stderr()
@@ -204,58 +207,63 @@ def lowest_uniq_timestamp(used_timestamps: OrderedDict, timestamp: str) -> str:
 
 ### Main Links Index
 
+@contextmanager
+@enforce_types
+def timed_index_update(out_path: str):
+    log_indexing_started(out_path)
+    timer = TimedProgress(TIMEOUT * 2, prefix='      ')
+    try:
+        yield
+    finally:
+        timer.end()
+
+    assert os.path.exists(out_path), f'Failed to write index file: {out_path}'
+    log_indexing_finished(out_path)
+
+
 @enforce_types
 def write_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=False) -> None:
     """create index.html file for a given list of links"""
 
-    log_indexing_process_started()
+    log_indexing_process_started(len(links))
 
-    log_indexing_started(DATABASE_DIR, DATABASE_FILE_NAME)
-    timer = TimedProgress(TIMEOUT * 2, prefix='      ')
-    try:
-        write_sql_main_index(links)
-    finally:
-        timer.end()
-    log_indexing_finished(DATABASE_DIR, DATABASE_FILE_NAME)
+    with timed_index_update(os.path.join(out_dir, SQL_INDEX_FILENAME)):
+        write_sql_main_index(links, out_dir=out_dir)
 
-    log_indexing_started(out_dir, 'index.json')
-    timer = TimedProgress(TIMEOUT * 2, prefix='      ')
-    try:
+    with timed_index_update(os.path.join(out_dir, JSON_INDEX_FILENAME)):
         write_json_main_index(links, out_dir=out_dir)
-    finally:
-        timer.end()
-    log_indexing_finished(out_dir, 'index.json')
-    
-    log_indexing_started(out_dir, 'index.html')
-    timer = TimedProgress(TIMEOUT * 2, prefix='      ')
-    try:
+
+    with timed_index_update(os.path.join(out_dir, HTML_INDEX_FILENAME)):
         write_html_main_index(links, out_dir=out_dir, finished=finished)
-    finally:
-        timer.end()
-    log_indexing_finished(out_dir, 'index.html')
+
+    log_indexing_process_finished()
 
 
 @enforce_types
-def load_main_index(out_dir: str=OUTPUT_DIR, import_path: Optional[str]=None) -> Tuple[List[Link], List[Link]]:
+def load_main_index(out_dir: str=OUTPUT_DIR) -> List[Link]:
     """parse and load existing index with any new links from import_path merged in"""
 
-    existing_links: List[Link] = []
-    if out_dir:
-        existing_links = list(parse_json_main_index(out_dir))
-        existing_sql_links = list(parse_sql_main_index())
-        assert set(l.url for l in existing_links) == set(l['url'] for l in existing_sql_links)
+    all_links: List[Link] = []
+    all_links = list(parse_json_main_index(out_dir))
+    links_from_sql = list(parse_sql_main_index())
+    assert set(l.url for l in all_links) == set(l['url'] for l in links_from_sql)
 
+    return all_links
+
+
+@enforce_types
+def import_new_links(existing_links: List[Link], import_path: str) -> Tuple[List[Link], List[Link]]:
     new_links: List[Link] = []
-    if import_path:
-        # parse and validate the import file
-        log_parsing_started(import_path)
-        raw_links, parser_name = parse_links(import_path)
-        new_links = list(validate_links(raw_links))
+
+    # parse and validate the import file
+    log_parsing_started(import_path)
+    raw_links, parser_name = parse_links(import_path)
+    new_links = list(validate_links(raw_links))
 
     # merge existing links in out_dir and new links
     all_links = list(validate_links(existing_links + new_links))
 
-    if import_path and parser_name:
+    if parser_name:
         num_parsed = len(raw_links)
         num_new_links = len(all_links) - len(existing_links)
         log_parsing_finished(num_parsed, num_new_links, parser_name)
@@ -323,9 +331,3 @@ def load_link_details(link: Link, out_dir: Optional[str]=None) -> Link:
         return merge_links(existing_link, link)
 
     return link
-
-
-
-
-
-

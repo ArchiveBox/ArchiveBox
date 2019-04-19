@@ -60,7 +60,6 @@ WGET_BINARY =            os.getenv('WGET_BINARY',            'wget')
 YOUTUBEDL_BINARY =       os.getenv('YOUTUBEDL_BINARY',       'youtube-dl')
 CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)
 
-
 # ******************************************************************************
 
 ### Terminal Configuration
@@ -84,6 +83,7 @@ def stderr(*args):
     sys.stderr.write(' '.join(str(a) for a in args) + '\n')
 
 USER = getpass.getuser() or os.getlogin()
+ARCHIVEBOX_BINARY = sys.argv[0]
 
 REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 if OUTPUT_DIR:
@@ -91,14 +91,15 @@ if OUTPUT_DIR:
 else:
     OUTPUT_DIR = os.path.abspath(os.curdir)
 
+SQL_INDEX_FILENAME = 'index.sqlite3'
+JSON_INDEX_FILENAME = 'index.json'
+HTML_INDEX_FILENAME = 'index.html'
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
-DATABASE_DIR_NAME = 'database'
-DATABASE_FILE_NAME = 'database.sqlite3'
+LOGS_DIR_NAME = 'logs'
 ARCHIVE_DIR = os.path.join(OUTPUT_DIR, ARCHIVE_DIR_NAME)
 SOURCES_DIR = os.path.join(OUTPUT_DIR, SOURCES_DIR_NAME)
-DATABASE_DIR = os.path.join(OUTPUT_DIR, DATABASE_DIR_NAME)
-DATABASE_FILE = os.path.join(OUTPUT_DIR, DATABASE_DIR_NAME, DATABASE_FILE_NAME)
+LOGS_DIR = os.path.join(OUTPUT_DIR, LOGS_DIR_NAME)
 
 PYTHON_DIR = os.path.join(REPO_DIR, 'archivebox')
 LEGACY_DIR = os.path.join(PYTHON_DIR, 'legacy')
@@ -126,9 +127,10 @@ if USER == 'root':
     raise SystemExit(1)
 
 ### Check Python environment
-python_vers = float('{}.{}'.format(sys.version_info.major, sys.version_info.minor))
-if python_vers < 3.6:
-    stderr('{}[X] Python version is not new enough: {} (>3.6 is required){}'.format(ANSI['red'], python_vers, ANSI['reset']))
+PYTHON_BINARY = sys.executable
+PYTHON_VERSION = '{}.{}'.format(sys.version_info.major, sys.version_info.minor)
+if float(PYTHON_VERSION) < 3.6:
+    stderr('{}[X] Python version is not new enough: {} (>3.6 is required){}'.format(ANSI['red'], PYTHON_VERSION, ANSI['reset']))
     stderr('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
     raise SystemExit(1)
 
@@ -150,6 +152,7 @@ if sys.stdout.encoding.upper() not in ('UTF-8', 'UTF8'):
 
 def bin_version(binary: str) -> Optional[str]:
     """check the presence and return valid version line of a specified binary"""
+
     global HAS_INVALID_DEPENDENCIES
     binary = os.path.expanduser(binary)
     try:
@@ -223,11 +226,16 @@ def find_chrome_data_dir() -> Optional[str]:
     return None
 
 
-def setup_django():
+def setup_django(out_dir: str=OUTPUT_DIR, check_db=False):
     import django
     sys.path.append(PYTHON_DIR)
+    os.environ.setdefault('OUTPUT_DIR', out_dir)
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
     django.setup()
+
+    if check_db:
+        assert os.path.exists(os.path.join(out_dir, SQL_INDEX_FILENAME)), (
+            f'No database file {SQL_INDEX_FILENAME} found in OUTPUT_DIR: {out_dir}')
 
 # ******************************************************************************
 # ************************ Environment & Dependencies **************************
@@ -338,15 +346,15 @@ try:
             'enabled': True,
             'is_valid': os.path.exists(SOURCES_DIR),
         },
+        'LOGS_DIR': {
+            'path': os.path.abspath(LOGS_DIR),
+            'enabled': True,
+            'is_valid': os.path.exists(LOGS_DIR),
+        },
         'ARCHIVE_DIR': {
             'path': os.path.abspath(ARCHIVE_DIR),
             'enabled': True,
             'is_valid': os.path.exists(ARCHIVE_DIR),
-        },
-        'DATABASE_DIR': {
-            'path': os.path.abspath(DATABASE_DIR),
-            'enabled': True,
-            'is_valid': os.path.exists(DATABASE_FILE),
         },
         'CHROME_USER_DATA_DIR': {
             'path': CHROME_USER_DATA_DIR and os.path.abspath(CHROME_USER_DATA_DIR),
@@ -361,6 +369,12 @@ try:
     }
 
     DEPENDENCIES = {
+        'PYTHON_BINARY': {
+            'path': PYTHON_BINARY,
+            'version': PYTHON_VERSION,
+            'enabled': True,
+            'is_valid': bool(DJANGO_VERSION),
+        },
         'DJANGO_BINARY': {
             'path': DJANGO_BINARY,
             'version': DJANGO_VERSION,

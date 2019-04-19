@@ -27,6 +27,11 @@ os.environ.update(TEST_CONFIG)
 
 from .legacy.main import init
 from .legacy.index import load_main_index
+from .legacy.config import (
+    SQL_INDEX_FILENAME,
+    JSON_INDEX_FILENAME,
+    HTML_INDEX_FILENAME,
+)
 
 from .cli import (
     archivebox_init,
@@ -55,12 +60,12 @@ and example14.badb
 <or>htt://example15.badc</that>
 '''
 
+stdout = sys.stdout
+stderr = sys.stderr
+
 
 @contextmanager
 def output_hidden(show_failing=True):
-    stdout = sys.stdout
-    stderr = sys.stderr
-
     if not HIDE_CLI_OUTPUT:
         yield
         return
@@ -100,6 +105,11 @@ class TestInit(unittest.TestCase):
         with output_hidden():
             archivebox_init.main([])
 
+        assert os.path.exists(os.path.join(OUTPUT_DIR, SQL_INDEX_FILENAME))
+        assert os.path.exists(os.path.join(OUTPUT_DIR, JSON_INDEX_FILENAME))
+        assert os.path.exists(os.path.join(OUTPUT_DIR, HTML_INDEX_FILENAME))
+        assert len(load_main_index(out_dir=OUTPUT_DIR)) == 0
+
     def test_conflicting_init(self):
         with open(os.path.join(OUTPUT_DIR, 'test_conflict.txt'), 'w+') as f:
             f.write('test')
@@ -108,8 +118,24 @@ class TestInit(unittest.TestCase):
             with output_hidden(show_failing=False):
                 archivebox_init.main([])
             assert False, 'Init should have exited with an exception'
+        except SystemExit:
+            pass
+
+        assert not os.path.exists(os.path.join(OUTPUT_DIR, SQL_INDEX_FILENAME))
+        assert not os.path.exists(os.path.join(OUTPUT_DIR, JSON_INDEX_FILENAME))
+        assert not os.path.exists(os.path.join(OUTPUT_DIR, HTML_INDEX_FILENAME))
+        try:
+            load_main_index(out_dir=OUTPUT_DIR)
+            assert False, 'load_main_index should raise an exception when no index is present'
         except:
             pass
+
+    def test_no_dirty_state(self):
+        with output_hidden():
+            init()
+        shutil.rmtree(OUTPUT_DIR, ignore_errors=True)
+        with output_hidden():
+            init()
 
 
 class TestAdd(unittest.TestCase):
@@ -125,7 +151,7 @@ class TestAdd(unittest.TestCase):
         with output_hidden():
             archivebox_add.main(['https://getpocket.com/users/nikisweeting/feed/all'])
 
-        all_links, _ = load_main_index(out_dir=OUTPUT_DIR)
+        all_links = load_main_index(out_dir=OUTPUT_DIR)
         assert len(all_links) == 30
 
     def test_add_arg_file(self):
@@ -136,7 +162,7 @@ class TestAdd(unittest.TestCase):
         with output_hidden():
             archivebox_add.main([test_file])
 
-        all_links, _ = load_main_index(out_dir=OUTPUT_DIR)
+        all_links = load_main_index(out_dir=OUTPUT_DIR)
         assert len(all_links) == 12
         os.remove(test_file)
 
@@ -144,7 +170,7 @@ class TestAdd(unittest.TestCase):
         with output_hidden():
             archivebox_add.main([], stdin=test_urls)
 
-        all_links, _ = load_main_index(out_dir=OUTPUT_DIR)
+        all_links = load_main_index(out_dir=OUTPUT_DIR)
         assert len(all_links) == 12
 
 
@@ -155,29 +181,29 @@ class TestRemove(unittest.TestCase):
             init()
             archivebox_add.main([], stdin=test_urls)
 
-    def tearDown(self):
-        shutil.rmtree(OUTPUT_DIR, ignore_errors=True)
+    # def tearDown(self):
+        # shutil.rmtree(OUTPUT_DIR, ignore_errors=True)
 
 
     def test_remove_exact(self):
         with output_hidden():
             archivebox_remove.main(['--yes', '--delete', 'https://example5.com/'])
 
-        all_links, _ = load_main_index(out_dir=OUTPUT_DIR)
+        all_links = load_main_index(out_dir=OUTPUT_DIR)
         assert len(all_links) == 11
 
     def test_remove_regex(self):
         with output_hidden():
             archivebox_remove.main(['--yes', '--delete', '--filter-type=regex', 'http(s)?:\/\/(.+\.)?(example\d\.com)'])
 
-        all_links, _ = load_main_index(out_dir=OUTPUT_DIR)
+        all_links = load_main_index(out_dir=OUTPUT_DIR)
         assert len(all_links) == 4
 
     def test_remove_domain(self):
         with output_hidden():
             archivebox_remove.main(['--yes', '--delete', '--filter-type=domain', 'example5.com', 'example6.com'])
 
-        all_links, _ = load_main_index(out_dir=OUTPUT_DIR)
+        all_links = load_main_index(out_dir=OUTPUT_DIR)
         assert len(all_links) == 10
 
     def test_remove_none(self):
@@ -190,4 +216,7 @@ class TestRemove(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    if '--verbose' in sys.argv or '-v' in sys.argv:
+        HIDE_CLI_OUTPUT = False
+    
     unittest.main()

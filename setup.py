@@ -31,7 +31,7 @@ setuptools.setup(
         'Bug Tracker': 'https://github.com/pirate/ArchiveBox/issues',
         'Roadmap': 'https://github.com/pirate/ArchiveBox/wiki/Roadmap',
         'Changelog': 'https://github.com/pirate/ArchiveBox/wiki/Changelog',
-        'Donations': 'https://github.com/pirate/ArchiveBox/wiki/Donations',
+        'Patreon': 'https://github.com/pirate/ArchiveBox/wiki/Donations',
     },
     packages=setuptools.find_packages(),
     python_requires='>=3.6',
@@ -40,6 +40,15 @@ setuptools.setup(
         "base32-crockford==0.3.0",
         "django==2.2",
         "django-extensions==2.1.6",
+        "youtube-dl",
+
+        # Some/all of these will likely be added in the future:
+        # wpull
+        # pywb
+        # pyppeteer
+        # archivenow
+        # requests
+
     ],
     entry_points={
         'console_scripts': [

@@ -4,7 +4,6 @@ __package__ = 'archivebox.cli'
 __command__ = 'archivebox init'
 __description__ = 'Initialize a new ArchiveBox collection in the current directory'
 
-import os
 import sys
 import argparse
 

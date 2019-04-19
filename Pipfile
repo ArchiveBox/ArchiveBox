@@ -1,0 +1,22 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+ipdb = "*"
+flake8 = "*"
+mypy = "*"
+django-stubs = "*"
+setuptools = "*"
+
+[packages]
+dataclasses = "*"
+base32-crockford = "*"
+django = "*"
+youtube-dl = "*"
+python-crontab = "*"
+croniter = "*"
+
+[requires]
+python_version = ">=3.6"

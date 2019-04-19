@@ -7,7 +7,7 @@ __description__ = 'Enter an interactive ArchiveBox Django shell'
 import sys
 import argparse
 
-from ..legacy.config import setup_django
+from ..legacy.config import setup_django, OUTPUT_DIR
 from ..legacy.util import reject_stdin
 
 
@@ -22,7 +22,7 @@ def main(args=None):
     parser.parse_args(args)
     reject_stdin(__command__)
     
-    setup_django()
+    setup_django(OUTPUT_DIR)
     from django.core.management import call_command
     call_command("shell_plus")
 

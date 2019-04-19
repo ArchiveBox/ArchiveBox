@@ -4,14 +4,14 @@ from typing import List, Iterator
 
 from ..schema import Link
 from ..util import enforce_types
-from ..config import setup_django
+from ..config import setup_django, OUTPUT_DIR
 
 
 ### Main Links Index
 
 @enforce_types
-def parse_sql_main_index() -> Iterator[Link]:
-    setup_django()
+def parse_sql_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
+    setup_django(out_dir, check_db=True)
     from core.models import Page
 
     return (
@@ -20,8 +20,8 @@ def parse_sql_main_index() -> Iterator[Link]:
     )
 
 @enforce_types
-def write_sql_main_index(links: List[Link]) -> None:
-    setup_django()
+def write_sql_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
+    setup_django(out_dir, check_db=True)
     from core.models import Page
 
     for link in links:

@@ -82,5 +82,6 @@ def main(args=None, stdin=None):
         only_new=command.only_new,
     )
 
+
 if __name__ == '__main__':
     main()
