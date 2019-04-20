@@ -178,6 +178,7 @@ def patch_links_index(link, out_dir=OUTPUT_DIR):
     for saved_link in json_file_links:
         if saved_link['url'] == link['url']:
             saved_link['title'] = title
+            saved_link['timestamp'] = link['timestamp']
             saved_link['history'] = link['history']
             changed = True
             break
