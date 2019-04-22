@@ -110,7 +110,7 @@ def init():
     #     call_command("createsuperuser", interactive=True)
 
     if existing_index:
-        all_links = load_main_index(out_dir=OUTPUT_DIR)
+        all_links = load_main_index(out_dir=OUTPUT_DIR, warn=False)
         write_main_index(links=list(all_links), out_dir=OUTPUT_DIR)
     else:
         write_main_index([], out_dir=OUTPUT_DIR)
@@ -130,10 +130,21 @@ def info():
 
     print('{green}[*] Scanning archive collection main index with {} links:{reset}'.format(len(all_links), **ANSI))
     print(f'    {OUTPUT_DIR}')
-    
     num_bytes, num_dirs, num_files = get_dir_size(OUTPUT_DIR, recursive=False)
     size = human_readable_size(num_bytes)
     print(f'    > Index Size: {size} across {num_files} files')
+    print()
+
+    setup_django()
+    from django.contrib.auth.models import User
+    from core.models import Page
+
+    users = User.objects.all()
+    num_pages = Page.objects.count()
+    
+    print(f'    > {len(users)} admin users:', ', '.join(u.username for u in users))
+    print(f'    > {num_pages} pages in SQL database {SQL_INDEX_FILENAME}')
+    print(f'    > {len(all_links)} pages in JSON database {JSON_INDEX_FILENAME}')
     print()
 
     print('{green}[*] Scanning archive collection data directory with {} entries:{reset}'.format(len(all_links), **ANSI))
@@ -164,7 +175,6 @@ def info():
     num_orphaned = sum(1 for data_dir in valid_archive_dirs if data_dir not in link_data_dirs)
     print(f'    > {num_orphaned} orphaned data directories (directories present for links that don\'t exist in the index)')
     
-
 
 @enforce_types
 def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]=None, only_new: bool=False) -> List[Link]:

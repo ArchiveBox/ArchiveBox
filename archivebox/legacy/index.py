@@ -240,16 +240,28 @@ def write_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=
 
 
 @enforce_types
-def load_main_index(out_dir: str=OUTPUT_DIR) -> List[Link]:
+def load_main_index(out_dir: str=OUTPUT_DIR, warn: bool=True) -> List[Link]:
     """parse and load existing index with any new links from import_path merged in"""
 
     all_links: List[Link] = []
     all_links = list(parse_json_main_index(out_dir))
     links_from_sql = list(parse_sql_main_index())
-    assert set(l.url for l in all_links) == set(l['url'] for l in links_from_sql)
+
+    if warn and not set(l.url for l in all_links) == set(l['url'] for l in links_from_sql):
+        stderr('{red}[!] Warning: SQL index does not match JSON index!{reset}'.format(**ANSI))
 
     return all_links
 
+@enforce_types
+def load_main_index_meta(out_dir: str=OUTPUT_DIR) -> Optional[dict]:
+    index_path = os.path.join(out_dir, JSON_INDEX_FILENAME)
+    if os.path.exists(index_path):
+        with open(index_path, 'r', encoding='utf-8') as f:
+            meta_dict = json.load(f)
+            meta_dict.pop('links')
+            return meta_dict
+
+    return None
 
 @enforce_types
 def import_new_links(existing_links: List[Link], import_path: str) -> Tuple[List[Link], List[Link]]:
