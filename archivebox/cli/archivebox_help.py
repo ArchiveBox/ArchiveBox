@@ -40,13 +40,14 @@ def main(args=None):
 {lightblue}Example Use:{reset}
     mkdir my-archive; cd my-archive/
     archivebox init
+    archivebox info
 
     archivebox add https://example.com/some/page
     archivebox add --depth=1 ~/Downloads/bookmarks_export.html
     
-    archivebox subscribe https://example.com/some/feed.rss
-    archivebox update --resume=15109948213.123
     archivebox list --sort=timestamp --csv=timestamp,url,is_archived
+    archivebox schedule --every=week https://example.com/some/feed.rss
+    archivebox update --resume=15109948213.123
 
 {lightblue}Documentation:{reset}
     https://github.com/pirate/ArchiveBox/wiki

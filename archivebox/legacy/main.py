@@ -133,7 +133,7 @@ def info():
     
     num_bytes, num_dirs, num_files = get_dir_size(OUTPUT_DIR, recursive=False)
     size = human_readable_size(num_bytes)
-    print(f'    > Index Size: {size} across {num_files} files in')
+    print(f'    > Index Size: {size} across {num_files} files')
     print()
 
     print('{green}[*] Scanning archive collection data directory with {} entries:{reset}'.format(len(all_links), **ANSI))

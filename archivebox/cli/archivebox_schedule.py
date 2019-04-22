@@ -2,7 +2,7 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox schedule'
-__description__ = 'Set ArchiveBox to run regularly at a specific time'
+__description__ = 'Set ArchiveBox to regularly import URLs at specific times using cron'
 
 import os
 import sys
