@@ -88,7 +88,7 @@ HTML_TITLE_REGEX = re.compile(
     re.IGNORECASE | re.MULTILINE | re.DOTALL | re.UNICODE,
 )
 STATICFILE_EXTENSIONS = {
-    # 99.999% of the time, URLs ending in these extentions are static files
+    # 99.999% of the time, URLs ending in these extensions are static files
     # that can be downloaded as-is, not html pages that need to be rendered
     'gif', 'jpeg', 'jpg', 'png', 'tif', 'tiff', 'wbmp', 'ico', 'jng', 'bmp',
     'svg', 'svgz', 'webp', 'ps', 'eps', 'ai',
@@ -105,7 +105,7 @@ STATICFILE_EXTENSIONS = {
     # pl pm, prc pdb, rar, rpm, sea, sit, tcl tk, der, pem, crt, xpi, xspf,
     # ra, mng, asx, asf, 3gpp, 3gp, mid, midi, kar, jad, wml, htc, mml
 
-    # Thse are always treated as pages, not as static files, never add them:
+    # These are always treated as pages, not as static files, never add them:
     # html, htm, shtml, xhtml, xml, aspx, php, cgi
 }
 
@@ -418,7 +418,7 @@ def parse_date(date: Any) -> Optional[datetime]:
 
 @enforce_types
 def merge_links(a: Link, b: Link) -> Link:
-    """deterministially merge two links, favoring longer field values over shorter,
+    """deterministically merge two links, favoring longer field values over shorter,
     and "cleaner" values over worse ones.
     """
     assert a.base_url == b.base_url, 'Cannot merge two links with different URLs'

@@ -14,7 +14,7 @@
 "Your own personal internet archive" (网站存档 / 爬虫)
 </pre>
 
-<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>
+<!--<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>-->
 <a href="https://github.com/pirate/ArchiveBox/blob/master/LICENSE"><img src="https://img.shields.io/badge/Open_source-MIT-green.svg?logo=git&logoColor=green"/></a>
 <a href="https://github.com/pirate/ArchiveBox/commits/dev"><img src="https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=Active"/></a>
 <a href="https://github.com/pirate/ArchiveBox"><img src="https://img.shields.io/github/stars/pirate/ArchiveBox.svg?logo=github&label=Stars&logoColor=blue"/></a>
@@ -23,6 +23,9 @@
 <a href="https://hub.docker.com/r/nikisweeting/archivebox"><img src="https://img.shields.io/badge/Docker-all%20platforms-lightblue.svg?logo=docker&logoColor=lightblue"/></a>
 
 <hr/>
+
+*💥 Attention: Big API changes are coming soon! Check out [v0.4.0](https://github.com/pirate/ArchiveBox/pull/207) and help us test it! 💥*
+
 </div>
 
 **ArchiveBox takes a list of website URLs you want to archive, and creates a local, static, browsable HTML clone of the content from those websites (it saves HTML, JS, media files, PDFs, images and more).** 
@@ -66,7 +69,7 @@ echo 'https://example.com' | ./archive                  # pass URLs to archive v
 ./archive https://getpocket.com/users/example/feed/all  # or import an RSS/JSON/XML/TXT feed
 ```
 
-One you've added your first links, open `output/index.html` in a browser to view the archive.  [DEMO: archive.sweeting.me](https://archive.sweeting.me)  
+Once you've added your first links, open `output/index.html` in a browser to view the archive.  [DEMO: archive.sweeting.me](https://archive.sweeting.me)  
 For more information, see the [full Quickstart guide](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) docs.  
 
 *(`pip install archivebox` will be available in the near future, follow our [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) for progress)*
@@ -164,7 +167,7 @@ I don't think everything should be preserved in an automated fashion, making all
 
 #### User Interface & Intended Purpose
 
-ArchiveBox differentiates itself from [similar projects](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by being a simple, one-shot CLI inferface for users to ingest built feeds of URLs over extended periods, as opposed to being a backend service that ingests individual, manually-submitted URLs from a web UI.
+ArchiveBox differentiates itself from [similar projects](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by being a simple, one-shot CLI inferface for users to ingest bulk feeds of URLs over extended periods, as opposed to being a backend service that ingests individual, manually-submitted URLs from a web UI.
 
 An alternative tool [pywb](https://github.com/webrecorder/pywb) allows you to run a browser through an always-running archiving proxy which records the traffic to WARC files.  ArchiveBox intends to support this style of live proxy-archiving using `pywb` in the future, but for now it only ingests lists of links at a time via browser history, bookmarks, RSS, etc.
 
@@ -178,7 +181,7 @@ Because ArchiveBox is designed to ingest a firehose of browser history and bookm
 
 ## Learn more
 
-▶ **Join out our [community chat](http://webchat.freenode.net?channels=ArchiveBox&uio=d4) hosted on IRC freenode.net:`#ArchiveBox`!**
+<!--▶ **Join out our [community chat](http://webchat.freenode.net?channels=ArchiveBox&uio=d4) hosted on IRC freenode.net:`#ArchiveBox`!**-->
 
 Whether you want learn which organizations are the big players in the web archiving space, want to find a specific open source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community.  Check it out to learn about some of the coolest web archiving projects and communities on the web!
 
@@ -268,7 +271,7 @@ Contributor Spotlight:<br/><br/>
 <br/>
 <a href="https://twitter.com/thesquashSH"><img src="https://img.shields.io/badge/Tweet-%40theSquashSH-blue.svg?style=flat"/></a>
 <a href="https://github.com/pirate/ArchiveBox"><img src="https://img.shields.io/github/stars/pirate/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>
-<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>
+<!--<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>-->
 
 <br/><br/>
 

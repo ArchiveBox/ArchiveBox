@@ -44,8 +44,8 @@ RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
     && chown -R pptruser:pptruser /node_modules
 
 # Install the ArchiveBox repository and pip requirements
-RUN git clone https://github.com/pirate/ArchiveBox /home/pptruser/app \
-    && mkdir -p /data \
+COPY . /home/pptruser/app
+RUN mkdir -p /data \
     && chown -R pptruser:pptruser /data \
     && ln -s /data /home/pptruser/app/archivebox/output \
     && ln -s /home/pptruser/app/bin/* /bin/ \
