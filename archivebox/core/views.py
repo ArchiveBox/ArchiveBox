@@ -33,10 +33,11 @@ class AddLinks(View):
 
     def post(self, request):
         import_path = request.POST['url']
+        
+        # TODO: add the links to the index here using archivebox.legacy.main.update_archive_data
         print(f'Adding URL: {import_path}')
-        context = {}
 
-        return render(template_name=self.template, request=request, context=context)
+        return render(template_name=self.template, request=request, context={})
 
 
 class LinkDetails(View):
