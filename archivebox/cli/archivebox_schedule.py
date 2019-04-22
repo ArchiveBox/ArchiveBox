@@ -48,7 +48,7 @@ def main(args=None):
     parser.add_argument(
         '--every', # '-e',
         type=str,
-        default='daily',
+        default='day',
         help='Run ArchiveBox once every [timeperiod] (hour/day/week/month/year or cron format e.g. "0 0 * * *")',
     )
     group.add_argument(
