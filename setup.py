@@ -40,7 +40,9 @@ setuptools.setup(
         "base32-crockford==0.3.0",
         "django==2.2",
         "django-extensions==2.1.6",
+        "python-crontab",
         "youtube-dl",
+        "ipython",
 
         # Some/all of these will likely be added in the future:
         # wpull
