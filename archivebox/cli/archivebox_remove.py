@@ -60,7 +60,6 @@ def main(args=None):
         help='URLs matching this filter pattern will be removed from the index.'
     )
     command = parser.parse_args(args)
-    reject_stdin(__command__)
 
     if not sys.stdin.isatty():
         stdin_raw_text = sys.stdin.read()
