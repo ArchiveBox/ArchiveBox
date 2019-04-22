@@ -9,10 +9,13 @@ import argparse
 
 
 from ..legacy.util import reject_stdin, to_json, to_csv
+from ..legacy.config import check_data_folder
 from ..legacy.main import list_archive_data
 
 
 def main(args=None):
+    check_data_folder()
+    
     args = sys.argv[1:] if args is None else args
 
     parser = argparse.ArgumentParser(

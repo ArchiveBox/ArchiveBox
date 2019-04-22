@@ -7,11 +7,13 @@ __description__ = 'Enter an interactive ArchiveBox Django shell'
 import sys
 import argparse
 
-from ..legacy.config import setup_django, OUTPUT_DIR
+from ..legacy.config import setup_django, OUTPUT_DIR, check_data_folder
 from ..legacy.util import reject_stdin
 
 
 def main(args=None):
+    check_data_folder()
+    
     args = sys.argv[1:] if args is None else args
 
     parser = argparse.ArgumentParser(

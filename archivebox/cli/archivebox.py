@@ -5,10 +5,12 @@ __package__ = 'archivebox.cli'
 __command__ = 'archivebox'
 __description__ = 'ArchiveBox: The self-hosted internet archive.'
 
+import os
 import sys
 import argparse
 
 from . import list_subcommands, run_subcommand
+from ..legacy.config import OUTPUT_DIR
 
 
 def parse_args(args=None):
@@ -78,8 +80,13 @@ def print_import_tutorial():
 
 def main(args=None):
     subcommand, subcommand_args = parse_args(args)
+    existing_index = os.path.exists(os.path.join(OUTPUT_DIR, 'index.json'))
+
     if subcommand is None:
-        print_import_tutorial()
+        if existing_index:
+            run_subcommand('help', subcommand_args)
+        else:
+            print_import_tutorial()
         raise SystemExit(0)
 
     run_subcommand(subcommand, subcommand_args)

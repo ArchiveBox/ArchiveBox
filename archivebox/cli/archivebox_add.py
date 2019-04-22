@@ -16,6 +16,8 @@ from ..legacy.main import update_archive_data
 
 
 def main(args=None, stdin=None):
+    check_data_folder()
+    
     args = sys.argv[1:] if args is None else args
 
     parser = argparse.ArgumentParser(
@@ -55,7 +57,6 @@ def main(args=None, stdin=None):
     command = parser.parse_args(args)
 
     check_dependencies()
-    check_data_folder()
 
     ### Handle ingesting urls piped in through stdin
     # (.e.g if user does cat example_urls.txt | archivebox add)

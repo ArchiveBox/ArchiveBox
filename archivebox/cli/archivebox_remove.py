@@ -8,11 +8,14 @@ import sys
 import argparse
 
 
-from ..legacy.main import remove_archive_links
+from ..legacy.config import check_data_folder
 from ..legacy.util import reject_stdin
+from ..legacy.main import remove_archive_links
 
 
 def main(args=None):
+    check_data_folder()
+    
     args = sys.argv[1:] if args is None else args
 
     parser = argparse.ArgumentParser(

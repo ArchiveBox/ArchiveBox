@@ -20,6 +20,7 @@ from ..legacy.config import (
     USER,
     ANSI,
     stderr,
+    check_data_folder,
 )
 
 
@@ -27,6 +28,8 @@ CRON_COMMENT = 'archivebox_schedule'
 
 
 def main(args=None):
+    check_data_folder()
+    
     args = sys.argv[1:] if args is None else args
 
     parser = argparse.ArgumentParser(
