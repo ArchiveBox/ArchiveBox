@@ -7,7 +7,7 @@ import shutil
 
 from string import Template
 from json import JSONEncoder
-from typing import List, Optional, Any, Union, IO, Mapping
+from typing import List, Optional, Any, Union, IO, Mapping, Tuple
 from inspect import signature
 from functools import wraps
 from hashlib import sha256
@@ -560,6 +560,34 @@ def copy_and_overwrite(from_path: str, to_path: str):
     else:
         with open(from_path, 'rb') as src:
             atomic_write(src.read(), to_path)
+
+
+@enforce_types
+def get_dir_size(path: str, recursive: bool=True) -> Tuple[int, int, int]:
+    num_bytes, num_dirs, num_files = 0, 0, 0
+    for entry in os.scandir(path):
+        if entry.is_dir(follow_symlinks=False):
+            if not recursive:
+                continue
+            num_dirs += 1
+            bytes_inside, dirs_inside, files_inside = get_dir_size(entry.path)
+            num_bytes += bytes_inside
+            num_dirs += dirs_inside
+            num_files += files_inside
+        else:
+            num_bytes += entry.stat(follow_symlinks=False).st_size
+            num_files += 1
+    return num_bytes, num_dirs, num_files
+
+
+@enforce_types
+def human_readable_size(num_bytes: Union[int, float]) -> str:
+    for count in ['Bytes','KB','MB','GB']:
+        if num_bytes > -1024.0 and num_bytes < 1024.0:
+            return '%3.1f%s' % (num_bytes, count)
+        num_bytes /= 1024.0
+    return '%3.1f%s' % (num_bytes, 'TB')
+
 
 @enforce_types
 def chrome_args(**options) -> List[str]:

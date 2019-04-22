@@ -27,7 +27,6 @@ MAIN_INDEX_HEADER = {
     'copyright_info': FOOTER_INFO,
     'meta': {
         'project': 'ArchiveBox',
-        'cmd': sys.argv,
         'version': VERSION,
         'git_sha': GIT_SHA,
         'website': 'https://ArchiveBox.io',
@@ -72,6 +71,7 @@ def write_json_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
         **MAIN_INDEX_HEADER,
         'num_links': len(links),
         'updated': datetime.now(),
+        'last_run_cmd': sys.argv,
         'links': links,
     }
     atomic_write(main_index_json, os.path.join(out_dir, JSON_INDEX_FILENAME))

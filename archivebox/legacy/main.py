@@ -5,7 +5,12 @@ import shutil
 from typing import List, Optional, Iterable
 
 from .schema import Link
-from .util import enforce_types, TimedProgress
+from .util import (
+    enforce_types,
+    TimedProgress,
+    get_dir_size,
+    human_readable_size,
+)
 from .index import (
     links_after_timestamp,
     load_main_index,
@@ -118,6 +123,47 @@ def init():
     print('    For more usage and examples, run:')
     print('        archivebox help')
 
+
+@enforce_types
+def info():
+    all_links = load_main_index(out_dir=OUTPUT_DIR)
+
+    print('{green}[*] Scanning archive collection main index with {} links:{reset}'.format(len(all_links), **ANSI))
+    print(f'    {OUTPUT_DIR}')
+    
+    num_bytes, num_dirs, num_files = get_dir_size(OUTPUT_DIR, recursive=False)
+    size = human_readable_size(num_bytes)
+    print(f'    > Index Size: {size} across {num_files} files in')
+    print()
+
+    print('{green}[*] Scanning archive collection data directory with {} entries:{reset}'.format(len(all_links), **ANSI))
+    print(f'    {ARCHIVE_DIR}')
+
+    num_bytes, num_dirs, num_files = get_dir_size(ARCHIVE_DIR)
+    size = human_readable_size(num_bytes)
+    print(f'    > Total Size: {size} across {num_files} files in {num_dirs} directories')
+    print()
+
+    link_data_dirs = {link.link_dir for link in all_links}
+    valid_archive_dirs = set()
+    num_invalid = 0
+    for entry in os.scandir(ARCHIVE_DIR):
+        if entry.is_dir(follow_symlinks=True):
+            if os.path.exists(os.path.join(entry.path, 'index.json')):
+                valid_archive_dirs.add(entry.path)
+            else:
+                num_invalid += 1
+
+    print(f'    > {len(valid_archive_dirs)} valid archive data directories (valid directories matched to links in the index)')
+
+    num_unarchived = sum(1 for link in all_links if link.link_dir not in valid_archive_dirs)
+    print(f'    > {num_unarchived} missing data directories (directories missing for links in the index)')
+
+    print(f'    > {num_invalid} invalid data directories (directories present that don\'t contain an index file)')
+
+    num_orphaned = sum(1 for data_dir in valid_archive_dirs if data_dir not in link_data_dirs)
+    print(f'    > {num_orphaned} orphaned data directories (directories present for links that don\'t exist in the index)')
+    
 
 
 @enforce_types
