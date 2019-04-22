@@ -1,12 +1,14 @@
 __package__ = 'archivebox.legacy'
 
 import os
+import io
 import re
 import sys
 import django
 import getpass
 import shutil
 
+from hashlib import md5
 from typing import Optional
 from subprocess import run, PIPE, DEVNULL
 
@@ -172,6 +174,18 @@ def bin_version(binary: str) -> Optional[str]:
         stderr('        https://github.com/pirate/ArchiveBox/wiki/Install')
         stderr()
         return None
+
+def bin_hash(binary: str) -> Optional[str]:
+    bin_path = binary and shutil.which(os.path.expanduser(binary))
+    if not bin_path:
+        return None
+
+    file_hash = md5()
+    with io.open(bin_path, mode='rb') as f:
+        for chunk in iter(lambda: f.read(io.DEFAULT_BUFFER_SIZE), b''):
+            file_hash.update(chunk)
+            
+    return f'md5:{file_hash.hexdigest()}'
 
 
 def find_chrome_binary() -> Optional[str]:
@@ -372,42 +386,49 @@ try:
         'PYTHON_BINARY': {
             'path': PYTHON_BINARY,
             'version': PYTHON_VERSION,
+            'hash': bin_hash(PYTHON_BINARY),
             'enabled': True,
             'is_valid': bool(DJANGO_VERSION),
         },
         'DJANGO_BINARY': {
             'path': DJANGO_BINARY,
             'version': DJANGO_VERSION,
+            'hash': bin_hash(DJANGO_BINARY),
             'enabled': True,
             'is_valid': bool(DJANGO_VERSION),
         },
         'CURL_BINARY': {
             'path': CURL_BINARY and shutil.which(CURL_BINARY),
             'version': CURL_VERSION,
+            'hash': bin_hash(PYTHON_BINARY),
             'enabled': USE_CURL,
             'is_valid': bool(CURL_VERSION),
         },
         'WGET_BINARY': {
             'path': WGET_BINARY and shutil.which(WGET_BINARY),
             'version': WGET_VERSION,
+            'hash': bin_hash(WGET_BINARY),
             'enabled': USE_WGET,
             'is_valid': bool(WGET_VERSION),
         },
         'GIT_BINARY': {
             'path': GIT_BINARY and shutil.which(GIT_BINARY),
             'version': GIT_VERSION,
+            'hash': bin_hash(GIT_BINARY),
             'enabled': FETCH_GIT,
             'is_valid': bool(GIT_VERSION),
         },
         'YOUTUBEDL_BINARY': {
             'path': YOUTUBEDL_BINARY and shutil.which(YOUTUBEDL_BINARY),
             'version': YOUTUBEDL_VERSION,
+            'hash': bin_hash(YOUTUBEDL_BINARY),
             'enabled': FETCH_MEDIA,
             'is_valid': bool(YOUTUBEDL_VERSION),
         },
         'CHROME_BINARY': {
             'path': CHROME_BINARY and shutil.which(CHROME_BINARY),
             'version': CHROME_VERSION,
+            'hash': bin_hash(CHROME_BINARY),
             'enabled': USE_CHROME,
             'is_valid': bool(CHROME_VERSION),
         },
