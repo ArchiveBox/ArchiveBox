@@ -5,7 +5,7 @@ from django.urls import path
 from core.views import MainIndex, LinkDetails
 
 urlpatterns = [
-    path('', admin.site.urls),
+    path('admin/', admin.site.urls),
     path('archive/<timestamp>/', LinkDetails.as_view(), name='LinkDetails'),
     path('main/', MainIndex.as_view(), name='Home'),
 ]

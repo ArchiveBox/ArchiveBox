@@ -4,6 +4,8 @@ import uuid
 
 from django.db import models
 
+from legacy.schema import Link
+
 
 class Page(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -20,6 +22,13 @@ class Page(models.Model):
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
 
+
+    def __repr__(self) -> str:
+        return f'[{self.timestamp}] {self.url[:64]} ({self.title[:64]})'
+
+    def __str__(self) -> str:
+        return f'[{self.timestamp}] {self.url[:64]} ({self.title[:64]})'
+
     @classmethod
     def from_json(cls, info: dict):
         info = {k: v for k, v in info.items() if k in cls.keys}
@@ -31,3 +40,22 @@ class Page(models.Model):
             key: getattr(self, key)
             for key in args
         }
+
+    def as_link(self) -> Link:
+        return Link.from_json(self.as_json())
+
+    @property
+    def is_archived(self):
+        return self.as_link().is_archived
+
+    @property
+    def num_outputs(self):
+        return self.as_link().num_outputs
+
+    @property
+    def url_hash(self):
+        return self.as_link().url_hash
+
+    @property
+    def base_url(self):
+        return self.as_link().base_url

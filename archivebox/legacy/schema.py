@@ -181,8 +181,9 @@ class Link:
             if key in cls.field_names()
         }
         info['updated'] = parse_date(info['updated'])
+        info['sources'] = info.get('sources') or []
 
-        json_history = info['history']
+        json_history = info.get('history') or {}
         cast_history = {}
 
         for method, method_history in json_history.items():
