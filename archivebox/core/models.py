@@ -5,6 +5,7 @@ import uuid
 from django.db import models
 
 from legacy.schema import Link
+from legacy.util import parse_date
 
 
 class Page(models.Model):
@@ -43,6 +44,10 @@ class Page(models.Model):
 
     def as_link(self) -> Link:
         return Link.from_json(self.as_json())
+
+    @property
+    def bookmarked(self):
+        return parse_date(self.timestamp)
 
     @property
     def is_archived(self):
