@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "a28212eba2c7ffc28d5af0cac4a754440b72b5b088ef7825c255cdfa33e5a047"
+            "sha256": "b0dd2536174ddcdc8fe711dd92b577f270c5a34cdb3bcb06cc70842358c80fe2"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -69,6 +69,14 @@
             ],
             "index": "pypi",
             "version": "==2.2"
+        },
+        "django-extensions": {
+            "hashes": [
+                "sha256:109004f80b6f45ad1f56addaa59debca91d94aa0dc1cb19678b9364b4fe9b6f4",
+                "sha256:307766e5e6c1caffe76c5d99239d8115d14ae3f7cab2cd991fcffd763dad904b"
+            ],
+            "index": "pypi",
+            "version": "==2.1.6"
         },
         "ipython": {
             "hashes": [
@@ -187,11 +195,11 @@
         },
         "youtube-dl": {
             "hashes": [
-                "sha256:0d25459093870bf560bccafe9015e59402d7de1b2c956593623ba4c2840153e5",
-                "sha256:ea0824ae9a166059ec754c267480198a074bd899c20b2ba497809bac099cde2e"
+                "sha256:46f6e30c673ba71de84748dad4c264d1b6fb30beebf1ef834846a651b4524a78",
+                "sha256:b20d110e1bed8d16f5771bb938ab6e5da67f08af62b599af65301cca290f2e15"
             ],
             "index": "pypi",
-            "version": "==2019.4.17"
+            "version": "==2019.4.24"
         }
     },
     "develop": {
