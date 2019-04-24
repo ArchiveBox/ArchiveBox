@@ -15,6 +15,7 @@ from ..config import (
     GIT_SHA,
     DEPENDENCIES,
     JSON_INDEX_FILENAME,
+    ARCHIVE_DIR_NAME,
 )
 from ..util import (
     enforce_types,
@@ -98,3 +99,12 @@ def parse_json_link_details(out_dir: str) -> Optional[Link]:
             link_json = json.load(f)
             return Link.from_json(link_json)
     return None
+
+@enforce_types
+def parse_json_links_details(out_dir: str) -> Iterator[Link]:
+    """read through all the archive data folders and return the parsed links"""
+
+    for entry in os.scandir(os.path.join(out_dir, ARCHIVE_DIR_NAME)):
+        if entry.is_dir(follow_symlinks=True):
+            if os.path.exists(os.path.join(entry.path, 'index.json')):
+                yield parse_json_link_details(entry.path)
