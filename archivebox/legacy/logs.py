@@ -60,7 +60,7 @@ def log_indexing_process_started(num_links: int):
     start_ts = datetime.now()
     _LAST_RUN_STATS.index_start_ts = start_ts
     print()
-    print('{green}[*] [{}] Updating {} links in main index...{reset}'.format(
+    print('{green}[*] [{}] Writing {} links to main index...{reset}'.format(
         start_ts.strftime('%Y-%m-%d %H:%M:%S'),
         num_links,
         **ANSI,

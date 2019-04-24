@@ -245,10 +245,12 @@ def load_main_index(out_dir: str=OUTPUT_DIR, warn: bool=True) -> List[Link]:
 
     all_links: List[Link] = []
     all_links = list(parse_json_main_index(out_dir))
-    links_from_sql = list(parse_sql_main_index())
+    links_from_sql = list(parse_sql_main_index(out_dir))
 
-    if warn and not set(l.url for l in all_links) == set(l['url'] for l in links_from_sql):
+    if warn and not set(l.url for l in all_links) == set(l.url for l in links_from_sql):
         stderr('{red}[!] Warning: SQL index does not match JSON index!{reset}'.format(**ANSI))
+        stderr('    To repair the index and re-import any orphaned links run:')
+        stderr('        archivebox init')
 
     return all_links
 

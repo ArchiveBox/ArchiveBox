@@ -15,7 +15,7 @@ def parse_sql_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
     from core.models import Page
 
     return (
-        page.as_json(*Page.keys)
+        Link.from_json(page.as_json(*Page.keys))
         for page in Page.objects.all()
     )
 
