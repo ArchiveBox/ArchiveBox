@@ -92,6 +92,9 @@ class Link:
     updated: Optional[datetime] = None
     schema: str = 'Link'
 
+    def __str__(self) -> str:
+        return f'[{self.timestamp}] {self.base_url} "{self.title}"'
+
     def __post_init__(self):
         self.typecheck()
 
@@ -215,8 +218,8 @@ class Link:
 
     @property
     def link_dir(self) -> str:
-        from .config import ARCHIVE_DIR
-        return os.path.join(ARCHIVE_DIR, self.timestamp)
+        from .config import CONFIG
+        return os.path.join(CONFIG['ARCHIVE_DIR'], self.timestamp)
 
     @property
     def archive_path(self) -> str:
@@ -309,11 +312,18 @@ class Link:
         from .config import ARCHIVE_DIR
         from .util import domain
 
-        return os.path.exists(os.path.join(
-            ARCHIVE_DIR,
-            self.timestamp,
+        output_paths = (
             domain(self.url),
-        ))
+            'output.pdf',
+            'screenshot.png',
+            'output.html',
+            'media',
+        )
+
+        return any(
+            os.path.exists(os.path.join(ARCHIVE_DIR, self.timestamp, path))
+            for path in output_paths
+        )
 
     def latest_outputs(self, status: str=None) -> Dict[str, ArchiveOutput]:
         """get the latest output that each archive method produced for link"""
