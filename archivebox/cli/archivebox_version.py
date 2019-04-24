@@ -9,7 +9,7 @@ import re
 import sys
 import argparse
 
-from ..legacy.util import reject_stdin
+from ..legacy.util import reject_stdin, human_readable_size
 from ..legacy.config import (
     ANSI,
     VERSION,
@@ -80,10 +80,10 @@ def print_folder_status(name, folder):
             num_files = (
                 f'{len(os.listdir(folder["path"]))} files'
                 if os.path.isdir(folder['path']) else
-                'exists'
+                human_readable_size(os.path.getsize(folder['path']))
             )
         else:
-            num_files = '?'
+            num_files = 'missing'
 
     print(
         ANSI[color],
