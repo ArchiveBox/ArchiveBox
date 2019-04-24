@@ -587,9 +587,9 @@ def get_dir_size(path: str, recursive: bool=True, pattern: Optional[str]=None) -
 def human_readable_size(num_bytes: Union[int, float]) -> str:
     for count in ['Bytes','KB','MB','GB']:
         if num_bytes > -1024.0 and num_bytes < 1024.0:
-            return '%3.1f%s' % (num_bytes, count)
+            return '%3.1f %s' % (num_bytes, count)
         num_bytes /= 1024.0
-    return '%3.1f%s' % (num_bytes, 'TB')
+    return '%3.1f %s' % (num_bytes, 'TB')
 
 
 @enforce_types
