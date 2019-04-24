@@ -76,7 +76,7 @@ def init():
                 ("{red}[X] This folder appears to have non-ArchiveBox files in it. You must run 'archivebox init' inside a completely empty directory.{reset}"
                 "\n\n"
                 "    {lightred}Hint:{reset} To import a data folder created by an older version of ArchiveBox, \n"
-                "    just cd into the folder and run 'archivebox update' to pick up where you left off.\n\n"
+                "    just cd into the folder and run 'archivebox init' to pick up where you left off.\n\n"
                 "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
                 ).format(OUTPUT_DIR, **ANSI)
             )
