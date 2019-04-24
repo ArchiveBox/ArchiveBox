@@ -4,6 +4,7 @@ import sys
 import json
 import time
 import shutil
+import argparse
 
 from string import Template
 from json import JSONEncoder
@@ -563,9 +564,11 @@ def copy_and_overwrite(from_path: str, to_path: str):
 
 
 @enforce_types
-def get_dir_size(path: str, recursive: bool=True) -> Tuple[int, int, int]:
+def get_dir_size(path: str, recursive: bool=True, pattern: Optional[str]=None) -> Tuple[int, int, int]:
     num_bytes, num_dirs, num_files = 0, 0, 0
     for entry in os.scandir(path):
+        if (pattern is not None) and (pattern not in entry.path):
+            continue
         if entry.is_dir(follow_symlinks=False):
             if not recursive:
                 continue
@@ -649,7 +652,7 @@ class ExtendedEncoder(JSONEncoder):
         return JSONEncoder.default(self, obj)
 
 
-def to_json(obj: Any, file: IO=None, indent: Optional[int]=4, sort_keys: bool=True, cls=ExtendedEncoder) -> Optional[str]:
+def to_json(obj: Any, file: IO=None, indent: Optional[int]=4, sort_keys: bool=True, cls=ExtendedEncoder) -> str:
     if file:
         path = os.path.realpath(file.name)
         contents = json.dumps(obj, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder)
@@ -729,3 +732,8 @@ def reject_stdin(caller: str) -> None:
             raise SystemExit(1)
 
 
+class SmartFormatter(argparse.HelpFormatter):
+    def _split_lines(self, text, width):
+        if '\n' in text:
+            return text.splitlines()
+        return argparse.HelpFormatter._split_lines(self, text, width)
