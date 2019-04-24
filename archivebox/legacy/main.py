@@ -17,6 +17,8 @@ from .index import (
     import_new_links,
     write_main_index,
 )
+from .storage.json import parse_json_main_index, parse_json_links_details
+from .storage.sql import parse_sql_main_index
 from .archive_methods import archive_link
 from .config import (
     stderr,
@@ -26,8 +28,15 @@ from .config import (
     SOURCES_DIR,
     ARCHIVE_DIR,
     LOGS_DIR,
+    ARCHIVE_DIR_NAME,
+    SOURCES_DIR_NAME,
+    LOGS_DIR_NAME,
+    STATIC_DIR_NAME,
     JSON_INDEX_FILENAME,
+    HTML_INDEX_FILENAME,
     SQL_INDEX_FILENAME,
+    ROBOTS_TXT_FILENAME,
+    FAVICON_FILENAME,
     check_dependencies,
     check_data_folder,
     setup_django,
@@ -49,10 +58,15 @@ ALLOWED_IN_OUTPUT_DIR = {
     'venv',
     'virtualenv',
     '.virtualenv',
-    'sources',
-    'archive',
-    'logs',
-    'static',
+    ARCHIVE_DIR_NAME,
+    SOURCES_DIR_NAME,
+    LOGS_DIR_NAME,
+    STATIC_DIR_NAME,
+    SQL_INDEX_FILENAME,
+    JSON_INDEX_FILENAME,
+    HTML_INDEX_FILENAME,
+    ROBOTS_TXT_FILENAME,
+    FAVICON_FILENAME,
 }
 
 
@@ -63,44 +77,53 @@ def init():
     is_empty = not len(set(os.listdir(OUTPUT_DIR)) - ALLOWED_IN_OUTPUT_DIR)
     existing_index = os.path.exists(os.path.join(OUTPUT_DIR, JSON_INDEX_FILENAME))
 
-    if is_empty:
-        print('{green}[+] Initializing new archive directory: {}{reset}'.format(OUTPUT_DIR, **ANSI))
-        print('{green}----------------------------------------------------------------{reset}'.format(**ANSI))
+    if is_empty and not existing_index:
+        print('{green}[+] Initializing a new ArchiveBox collection in this folder...{reset}'.format(**ANSI))
+        print(f'    {OUTPUT_DIR}')
+        print('{green}------------------------------------------------------------------{reset}'.format(**ANSI))
+    elif is_empty and existing_index:
+        print('{green}[*] Updating existing ArchiveBox collection in this folder...{reset}'.format(**ANSI))
+        print(f'    {OUTPUT_DIR}')
+        print('{green}------------------------------------------------------------------{reset}'.format(**ANSI))
     else:
-        if existing_index:
-            print('{green}[√] You already have an ArchiveBox collection in the current folder.{reset}'.format(**ANSI))
-            print('{green}----------------------------------------------------------------{reset}'.format(**ANSI))
-            print(f'    {OUTPUT_DIR}')
-        else:
-            stderr(
-                ("{red}[X] This folder appears to have non-ArchiveBox files in it. You must run 'archivebox init' inside a completely empty directory.{reset}"
-                "\n\n"
-                "    {lightred}Hint:{reset} To import a data folder created by an older version of ArchiveBox, \n"
-                "    just cd into the folder and run 'archivebox init' to pick up where you left off.\n\n"
-                "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
-                ).format(OUTPUT_DIR, **ANSI)
-            )
-            raise SystemExit(1)
+        stderr(
+            ("{red}[X] This folder appears to already have files in it, but no index.json is present.{reset}\n\n"
+            "    You must run init in a completely empty directory, or an existing data folder.\n\n"
+            "    {lightred}Hint:{reset} To import an existing data folder make sure to cd into the folder first, \n"
+            "    then run and run 'archivebox init' to pick up where you left off.\n\n"
+            "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
+            ).format(OUTPUT_DIR, **ANSI)
+        )
+        raise SystemExit(1)
 
+    if existing_index:
+        print('\n{green}[*] Verifying archive folder structure...{reset}'.format(**ANSI))
+    else:
+        print('\n{green}[+] Building archive folder structure...{reset}'.format(**ANSI))
+    
     os.makedirs(SOURCES_DIR, exist_ok=True)
-    print(f'    > {SOURCES_DIR}')
+    print(f'    √ {SOURCES_DIR}')
     
     os.makedirs(ARCHIVE_DIR, exist_ok=True)
-    print(f'    > {ARCHIVE_DIR}')
+    print(f'    √ {ARCHIVE_DIR}')
 
     os.makedirs(LOGS_DIR, exist_ok=True)
-    print(f'    > {LOGS_DIR}')
+    print(f'    √ {LOGS_DIR}')
     
-    print('\n{green}[+] Running Django migrations...{reset}'.format(**ANSI))
+    if os.path.exists(os.path.join(OUTPUT_DIR, SQL_INDEX_FILENAME)):
+        print('\n{green}[*] Verifying main SQL index and running migrations...{reset}'.format(**ANSI))
+    else:
+        print('\n{green}[+] Building main SQL index and running migrations...{reset}'.format(**ANSI))
+    
     setup_django(OUTPUT_DIR, check_db=False)
-    from django.core.management import call_command
     from django.conf import settings
     assert settings.DATABASE_FILE == os.path.join(OUTPUT_DIR, SQL_INDEX_FILENAME)
-    print(f'    {settings.DATABASE_FILE}')
+    print(f'    √ {settings.DATABASE_FILE}')
+    print()
+    from .storage.sql import apply_migrations
+    for migration_line in apply_migrations(OUTPUT_DIR):
+        print(f'    {migration_line}')
 
-
-    call_command("makemigrations", interactive=False)
-    call_command("migrate", interactive=False)
 
     assert os.path.exists(settings.DATABASE_FILE)
     
@@ -109,14 +132,55 @@ def init():
     #     print('{green}[+] Creating admin user account...{reset}'.format(**ANSI))
     #     call_command("createsuperuser", interactive=True)
 
-    if existing_index:
-        all_links = load_main_index(out_dir=OUTPUT_DIR, warn=False)
-        write_main_index(links=list(all_links), out_dir=OUTPUT_DIR)
-    else:
-        write_main_index([], out_dir=OUTPUT_DIR)
+    print()
+    print('{green}[*] Collecting links from any existing index or archive folders...{reset}'.format(**ANSI))
 
-    print('\n{green}----------------------------------------------------------------{reset}'.format(**ANSI))
-    print('{green}[√] Done. ArchiveBox collection is set up in the current folder.{reset}'.format(**ANSI))
+    all_links = {}
+    if existing_index:
+        all_links = {
+            link.url: link
+            for link in load_main_index(out_dir=OUTPUT_DIR, warn=False)
+        }
+        print('    √ Loaded {} links from existing main index...'.format(len(all_links)))
+
+    orphaned_json_links = {
+        link.url: link
+        for link in parse_json_main_index(OUTPUT_DIR)
+        if link.url not in all_links
+    }
+    if orphaned_json_links:
+        all_links.update(orphaned_json_links)
+        print('    {lightyellow}√ Added {} orphaned links from existing JSON index...{reset}'.format(len(orphaned_json_links), **ANSI))
+
+    orphaned_sql_links = {
+        link.url: link
+        for link in parse_sql_main_index(OUTPUT_DIR)
+        if link.url not in all_links
+    }
+    if orphaned_sql_links:
+        all_links.update(orphaned_sql_links)
+        print('    {lightyellow}√ Added {} orphaned links from existing SQL index...{reset}'.format(len(orphaned_sql_links), **ANSI))
+
+    orphaned_data_dir_links = {
+        link.url: link
+        for link in parse_json_links_details(OUTPUT_DIR)
+        if link.url not in all_links
+    }
+    if orphaned_data_dir_links:
+        all_links.update(orphaned_data_dir_links)
+        print('    {lightyellow}√ Added {} orphaned links from existing archive directories...{reset}'.format(len(orphaned_data_dir_links), **ANSI))
+
+    write_main_index(list(all_links.values()), out_dir=OUTPUT_DIR)
+
+    print('\n{green}------------------------------------------------------------------{reset}'.format(**ANSI))
+    if existing_index:
+        print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
+    else:
+        print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links), **ANSI))
+    print()
+    print('    To view your archive index, open:')
+    print('        {}'.format(os.path.join(OUTPUT_DIR, HTML_INDEX_FILENAME)))
+    print()
     print('    To add new links, you can run:')
     print("        archivebox add 'https://example.com'")
     print()
