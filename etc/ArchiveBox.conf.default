@@ -21,16 +21,17 @@
 ## Archive Method Toggles
 ################################################################################
 
-#FETCH_TITLE=True
-#FETCH_FAVICON=True
-#FETCH_WGET=True
-#FETCH_WARC=True
-#FETCH_PDF=True
-#FETCH_SCREENSHOT=True
-#FETCH_DOM=True
-#FETCH_GIT=True
-#FETCH_MEDIA=False
-#SUBMIT_ARCHIVE_DOT_ORG=True
+#SAVE_TITLE=True
+#SAVE_FAVICON=True
+#SAVE_WGET=True
+#SAVE_WGET_REQUISITES=True
+#SAVE_WARC=True
+#SAVE_PDF=True
+#SAVE_SCREENSHOT=True
+#SAVE_DOM=True
+#SAVE_GIT=True
+#SAVE_MEDIA=False
+#SAVE_ARCHIVE_DOT_ORG=True
 
 
 ################################################################################
@@ -38,7 +39,6 @@
 ################################################################################
 
 #CHECK_SSL_VALIDITY=True
-#FETCH_WGET_REQUISITES=True
 #RESOLUTION="1440,900"
 #GIT_DOMAINS="github.com,bitbucket.org,gitlab.com"
 

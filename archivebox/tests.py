@@ -11,15 +11,19 @@ import unittest
 from contextlib import contextmanager
 
 TEST_CONFIG = {
-    'OUTPUT_DIR': 'data.tests',
-    'FETCH_MEDIA': 'False',
-    'USE_CHROME': 'False',
-    'SUBMIT_ARCHIVE_DOT_ORG': 'False',
-    'SHOW_PROGRESS': 'False',
     'USE_COLOR': 'False',
-    'FETCH_TITLE': 'False',
-    'FETCH_FAVICON': 'False',
-    'FETCH_WGET': 'False',
+    'SHOW_PROGRESS': 'False',
+
+    'OUTPUT_DIR': 'data.tests',
+    
+    'SAVE_ARCHIVE_DOT_ORG': 'False',
+    'SAVE_TITLE': 'False',
+    
+    'USE_CURL': 'False',
+    'USE_WGET': 'False',
+    'USE_GIT': 'False',
+    'USE_CHROME': 'False',
+    'USE_YOUTUBEDL': 'False',
 }
 
 OUTPUT_DIR = 'data.tests'

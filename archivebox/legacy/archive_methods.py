@@ -15,17 +15,17 @@ from .config import (
     GIT_BINARY,
     WGET_BINARY,
     YOUTUBEDL_BINARY,
-    FETCH_FAVICON,
-    FETCH_TITLE,
-    FETCH_WGET,
-    FETCH_WGET_REQUISITES,
-    FETCH_PDF,
-    FETCH_SCREENSHOT,
-    FETCH_DOM,
-    FETCH_WARC,
-    FETCH_GIT,
-    FETCH_MEDIA,
-    SUBMIT_ARCHIVE_DOT_ORG,
+    SAVE_FAVICON,
+    SAVE_TITLE,
+    SAVE_WGET,
+    SAVE_WGET_REQUISITES,
+    SAVE_PDF,
+    SAVE_SCREENSHOT,
+    SAVE_DOM,
+    SAVE_WARC,
+    SAVE_GIT,
+    SAVE_MEDIA,
+    SAVE_ARCHIVE_DOT_ORG,
     TIMEOUT,
     MEDIA_TIMEOUT,
     GIT_DOMAINS,
@@ -73,15 +73,15 @@ def archive_link(link: Link, out_dir: Optional[str]=None) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
     ARCHIVE_METHODS = (
-        ('title', should_fetch_title, fetch_title),
-        ('favicon', should_fetch_favicon, fetch_favicon),
-        ('wget', should_fetch_wget, fetch_wget),
-        ('pdf', should_fetch_pdf, fetch_pdf),
-        ('screenshot', should_fetch_screenshot, fetch_screenshot),
-        ('dom', should_fetch_dom, fetch_dom),
-        ('git', should_fetch_git, fetch_git),
-        ('media', should_fetch_media, fetch_media),
-        ('archive_org', should_fetch_archive_dot_org, archive_dot_org),
+        ('title', should_save_title, save_title),
+        ('favicon', should_save_favicon, save_favicon),
+        ('wget', should_save_wget, save_wget),
+        ('pdf', should_save_pdf, save_pdf),
+        ('screenshot', should_save_screenshot, save_screenshot),
+        ('dom', should_save_dom, save_dom),
+        ('git', should_save_git, save_git),
+        ('media', should_save_media, save_media),
+        ('archive_org', should_save_archive_dot_org, save_archive_dot_org),
     )
     
     out_dir = out_dir or link.link_dir
@@ -112,7 +112,7 @@ def archive_link(link: Link, out_dir: Optional[str]=None) -> Link:
                 else:
                     stats['skipped'] += 1
             except Exception as e:
-                raise Exception('Exception in archive_methods.fetch_{}(Link(url={}))'.format(
+                raise Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
                     method_name,
                     link.url,
                 )) from e
@@ -146,7 +146,7 @@ def archive_link(link: Link, out_dir: Optional[str]=None) -> Link:
 ### Archive Method Functions
 
 @enforce_types
-def should_fetch_title(link: Link, out_dir: Optional[str]=None) -> bool:
+def should_save_title(link: Link, out_dir: Optional[str]=None) -> bool:
     # if link already has valid title, skip it
     if link.title and not link.title.lower().startswith('http'):
         return False
@@ -154,10 +154,10 @@ def should_fetch_title(link: Link, out_dir: Optional[str]=None) -> bool:
     if is_static_file(link.url):
         return False
 
-    return FETCH_TITLE
+    return SAVE_TITLE
 
 @enforce_types
-def fetch_title(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_title(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """try to guess the page's title from its content"""
 
     output: ArchiveOutput = None
@@ -191,15 +191,15 @@ def fetch_title(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -
 
 
 @enforce_types
-def should_fetch_favicon(link: Link, out_dir: Optional[str]=None) -> bool:
+def should_save_favicon(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
     if os.path.exists(os.path.join(out_dir, 'favicon.ico')):
         return False
 
-    return FETCH_FAVICON
+    return SAVE_FAVICON
     
 @enforce_types
-def fetch_favicon(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_favicon(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download site favicon from google's favicon api"""
 
     out_dir = out_dir or link.link_dir
@@ -233,21 +233,21 @@ def fetch_favicon(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT)
     )
 
 @enforce_types
-def should_fetch_wget(link: Link, out_dir: Optional[str]=None) -> bool:
+def should_save_wget(link: Link, out_dir: Optional[str]=None) -> bool:
     output_path = wget_output_path(link)
     out_dir = out_dir or link.link_dir
     if output_path and os.path.exists(os.path.join(out_dir, output_path)):
         return False
 
-    return FETCH_WGET
+    return SAVE_WGET
 
 
 @enforce_types
-def fetch_wget(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_wget(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download full site using wget"""
 
     out_dir = out_dir or link.link_dir
-    if FETCH_WARC:
+    if SAVE_WARC:
         warc_dir = os.path.join(out_dir, 'warc')
         os.makedirs(warc_dir, exist_ok=True)
         warc_path = os.path.join('warc', str(int(datetime.now().timestamp())))
@@ -267,9 +267,9 @@ def fetch_wget(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) ->
         '-e', 'robots=off',
         '--restrict-file-names=windows',
         '--timeout={}'.format(timeout),
-        *([] if FETCH_WARC else ['--timestamping']),
-        *(['--warc-file={}'.format(warc_path)] if FETCH_WARC else []),
-        *(['--page-requisites'] if FETCH_WGET_REQUISITES else []),
+        *([] if SAVE_WARC else ['--timestamping']),
+        *(['--warc-file={}'.format(warc_path)] if SAVE_WARC else []),
+        *(['--page-requisites'] if SAVE_WGET_REQUISITES else []),
         *(['--user-agent={}'.format(WGET_USER_AGENT)] if WGET_USER_AGENT else []),
         *(['--load-cookies', COOKIES_FILE] if COOKIES_FILE else []),
         *(['--compression=auto'] if WGET_AUTO_COMPRESSION else []),
@@ -324,7 +324,7 @@ def fetch_wget(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) ->
     )
 
 @enforce_types
-def should_fetch_pdf(link: Link, out_dir: Optional[str]=None) -> bool:
+def should_save_pdf(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
     if is_static_file(link.url):
         return False
@@ -332,11 +332,11 @@ def should_fetch_pdf(link: Link, out_dir: Optional[str]=None) -> bool:
     if os.path.exists(os.path.join(out_dir, 'output.pdf')):
         return False
 
-    return FETCH_PDF
+    return SAVE_PDF
 
 
 @enforce_types
-def fetch_pdf(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_pdf(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """print PDF of site to file using chrome --headless"""
 
     out_dir = out_dir or link.link_dir
@@ -353,7 +353,7 @@ def fetch_pdf(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
 
         if result.returncode:
             hints = (result.stderr or result.stdout).decode()
-            raise ArchiveError('Failed to print PDF', hints)
+            raise ArchiveError('Failed to save PDF', hints)
         
         chmod_file('output.pdf', cwd=out_dir)
     except Exception as err:
@@ -372,7 +372,7 @@ def fetch_pdf(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
     )
 
 @enforce_types
-def should_fetch_screenshot(link: Link, out_dir: Optional[str]=None) -> bool:
+def should_save_screenshot(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
     if is_static_file(link.url):
         return False
@@ -380,10 +380,10 @@ def should_fetch_screenshot(link: Link, out_dir: Optional[str]=None) -> bool:
     if os.path.exists(os.path.join(out_dir, 'screenshot.png')):
         return False
 
-    return FETCH_SCREENSHOT
+    return SAVE_SCREENSHOT
 
 @enforce_types
-def fetch_screenshot(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_screenshot(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """take screenshot of site using chrome --headless"""
     
     out_dir = out_dir or link.link_dir
@@ -400,7 +400,7 @@ def fetch_screenshot(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
 
         if result.returncode:
             hints = (result.stderr or result.stdout).decode()
-            raise ArchiveError('Failed to take screenshot', hints)
+            raise ArchiveError('Failed to save screenshot', hints)
 
         chmod_file(output, cwd=out_dir)
     except Exception as err:
@@ -419,7 +419,7 @@ def fetch_screenshot(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
     )
 
 @enforce_types
-def should_fetch_dom(link: Link, out_dir: Optional[str]=None) -> bool:
+def should_save_dom(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
     if is_static_file(link.url):
         return False
@@ -427,10 +427,10 @@ def should_fetch_dom(link: Link, out_dir: Optional[str]=None) -> bool:
     if os.path.exists(os.path.join(out_dir, 'output.html')):
         return False
 
-    return FETCH_DOM
+    return SAVE_DOM
     
 @enforce_types
-def fetch_dom(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_dom(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """print HTML of site to file using chrome --dump-html"""
 
     out_dir = out_dir or link.link_dir
@@ -449,7 +449,7 @@ def fetch_dom(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
 
         if result.returncode:
             hints = result.stderr.decode()
-            raise ArchiveError('Failed to fetch DOM', hints)
+            raise ArchiveError('Failed to save DOM', hints)
 
         chmod_file(output, cwd=out_dir)
     except Exception as err:
@@ -468,7 +468,7 @@ def fetch_dom(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
     )
 
 @enforce_types
-def should_fetch_git(link: Link, out_dir: Optional[str]=None) -> bool:
+def should_save_git(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
     if is_static_file(link.url):
         return False
@@ -483,11 +483,11 @@ def should_fetch_git(link: Link, out_dir: Optional[str]=None) -> bool:
     if not is_clonable_url:
         return False
 
-    return FETCH_GIT
+    return SAVE_GIT
 
 
 @enforce_types
-def fetch_git(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_git(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download full site using git"""
 
     out_dir = out_dir or link.link_dir
@@ -512,7 +512,7 @@ def fetch_git(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
             pass
         elif result.returncode > 0:
             hints = 'Got git response code: {}.'.format(result.returncode)
-            raise ArchiveError('Failed git download', hints)
+            raise ArchiveError('Failed to save git clone', hints)
 
     except Exception as err:
         status = 'failed'
@@ -531,7 +531,7 @@ def fetch_git(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
 
 
 @enforce_types
-def should_fetch_media(link: Link, out_dir: Optional[str]=None) -> bool:
+def should_save_media(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
 
     if is_static_file(link.url):
@@ -540,10 +540,10 @@ def should_fetch_media(link: Link, out_dir: Optional[str]=None) -> bool:
     if os.path.exists(os.path.join(out_dir, 'media')):
         return False
 
-    return FETCH_MEDIA
+    return SAVE_MEDIA
 
 @enforce_types
-def fetch_media(link: Link, out_dir: Optional[str]=None, timeout: int=MEDIA_TIMEOUT) -> ArchiveResult:
+def save_media(link: Link, out_dir: Optional[str]=None, timeout: int=MEDIA_TIMEOUT) -> ArchiveResult:
     """Download playlists or individual video, audio, and subtitles using youtube-dl"""
 
     out_dir = out_dir or link.link_dir
@@ -590,7 +590,7 @@ def fetch_media(link: Link, out_dir: Optional[str]=None, timeout: int=MEDIA_TIME
                     'Got youtube-dl response code: {}.'.format(result.returncode),
                     *result.stderr.decode().split('\n'),
                 )
-                raise ArchiveError('Failed to download media', hints)
+                raise ArchiveError('Failed to save media', hints)
     except Exception as err:
         status = 'failed'
         output = err
@@ -608,7 +608,7 @@ def fetch_media(link: Link, out_dir: Optional[str]=None, timeout: int=MEDIA_TIME
 
 
 @enforce_types
-def should_fetch_archive_dot_org(link: Link, out_dir: Optional[str]=None) -> bool:
+def should_save_archive_dot_org(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
     if is_static_file(link.url):
         return False
@@ -617,10 +617,10 @@ def should_fetch_archive_dot_org(link: Link, out_dir: Optional[str]=None) -> boo
         # if open(path, 'r').read().strip() != 'None':
         return False
 
-    return SUBMIT_ARCHIVE_DOT_ORG
+    return SAVE_ARCHIVE_DOT_ORG
 
 @enforce_types
-def archive_dot_org(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_archive_dot_org(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """submit site to archive.org for archiving via their service, save returned archive url"""
 
     out_dir = out_dir or link.link_dir

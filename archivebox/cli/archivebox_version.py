@@ -13,7 +13,9 @@ from ..legacy.util import reject_stdin
 from ..legacy.config import (
     ANSI,
     VERSION,
-    FOLDERS,
+    CODE_LOCATIONS,
+    CONFIG_LOCATIONS,
+    DATA_LOCATIONS,
     DEPENDENCIES,
     check_dependencies,
 )
@@ -44,9 +46,20 @@ def main(args=None):
         print('{white}[i] Dependency versions:{reset}'.format(**ANSI))
         for name, dependency in DEPENDENCIES.items():
             print_dependency_version(name, dependency)
+        
         print()
-        print('{white}[i] Folder locations:{reset}'.format(**ANSI))
-        for name, folder in FOLDERS.items():
+        print('{white}[i] Code locations:{reset}'.format(**ANSI))
+        for name, folder in CODE_LOCATIONS.items():
+            print_folder_status(name, folder)
+
+        print()
+        print('{white}[i] Config locations:{reset}'.format(**ANSI))
+        for name, folder in CONFIG_LOCATIONS.items():
+            print_folder_status(name, folder)
+
+        print()
+        print('{white}[i] Data locations:{reset}'.format(**ANSI))
+        for name, folder in DATA_LOCATIONS.items():
             print_folder_status(name, folder)
 
         print()

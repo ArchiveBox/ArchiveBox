@@ -9,8 +9,10 @@ import getpass
 import shutil
 
 from hashlib import md5
-from typing import Optional
+from typing import Any, Optional, Dict, Tuple
 from subprocess import run, PIPE, DEVNULL
+
+CONFIG_TYPE = Dict[str, Any]
 
 # ******************************************************************************
 # Documentation: https://github.com/pirate/ArchiveBox/wiki/Configuration
@@ -18,55 +20,72 @@ from subprocess import run, PIPE, DEVNULL
 #     env USE_COLOR=True CHROME_BINARY=chromium archivebox add < example.html
 # ******************************************************************************
 
-IS_TTY =                 sys.stdout.isatty()
-USE_COLOR =              os.getenv('USE_COLOR',              str(IS_TTY)        ).lower() == 'true'
-SHOW_PROGRESS =          os.getenv('SHOW_PROGRESS',          str(IS_TTY)        ).lower() == 'true'
+################################# User Config ##################################
 
-OUTPUT_DIR =             os.getenv('OUTPUT_DIR',             '')
-ONLY_NEW =               os.getenv('ONLY_NEW',               'False'            ).lower() == 'true'
-TIMEOUT =                int(os.getenv('TIMEOUT',            '60'))
-MEDIA_TIMEOUT =          int(os.getenv('MEDIA_TIMEOUT',      '3600'))
-OUTPUT_PERMISSIONS =     os.getenv('OUTPUT_PERMISSIONS',     '755'              )
-FOOTER_INFO =            os.getenv('FOOTER_INFO',            'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.',)
-URL_BLACKLIST =          os.getenv('URL_BLACKLIST',          None)
+SHELL_CONFIG_DEFAULTS = {
+    'IS_TTY':                   {'type': bool,  'default': lambda _: sys.stdout.isatty()},
+    'USE_COLOR':                {'type': bool,  'default': lambda c: c['IS_TTY']},
+    'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: c['IS_TTY']},
+}
 
-FETCH_WGET =             os.getenv('FETCH_WGET',             'True'             ).lower() == 'true'
-FETCH_WGET_REQUISITES =  os.getenv('FETCH_WGET_REQUISITES',  'True'             ).lower() == 'true'
-FETCH_PDF =              os.getenv('FETCH_PDF',              'True'             ).lower() == 'true'
-FETCH_SCREENSHOT =       os.getenv('FETCH_SCREENSHOT',       'True'             ).lower() == 'true'
-FETCH_DOM =              os.getenv('FETCH_DOM',              'True'             ).lower() == 'true'
-FETCH_WARC =             os.getenv('FETCH_WARC',             'True'             ).lower() == 'true'
-FETCH_GIT =              os.getenv('FETCH_GIT',              'True'             ).lower() == 'true'
-FETCH_MEDIA =            os.getenv('FETCH_MEDIA',            'True'             ).lower() == 'true'
-FETCH_FAVICON =          os.getenv('FETCH_FAVICON',          'True'             ).lower() == 'true'
-FETCH_TITLE =            os.getenv('FETCH_TITLE',            'True'             ).lower() == 'true'
-SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             ).lower() == 'true'
+ARCHIVE_CONFIG_DEFAULTS = {
+    'OUTPUT_DIR':               {'type': str,   'default': None},
+    'ONLY_NEW':                 {'type': bool,  'default': False},
+    'TIMEOUT':                  {'type': int,   'default': 60},
+    'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
+    'OUTPUT_PERMISSIONS':       {'type': str,   'default': '755'},
+    'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
+    'URL_BLACKLIST':            {'type': str,   'default': None},
+}
 
-CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
-RESOLUTION =             os.getenv('RESOLUTION',             '1440,2000'        )
-GIT_DOMAINS =            os.getenv('GIT_DOMAINS',            'github.com,bitbucket.org,gitlab.com').split(',')
-WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox/{VERSION} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}')
-COOKIES_FILE =           os.getenv('COOKIES_FILE',           None)
-CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',   None)
-CHROME_HEADLESS =        os.getenv('CHROME_HEADLESS',        'True'             ).lower() == 'true'
-CHROME_USER_AGENT =      os.getenv('CHROME_USER_AGENT',      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36')
-CHROME_SANDBOX =         os.getenv('CHROME_SANDBOX',         'True'             ).lower() == 'true'
+ARCHIVE_METHOD_TOGGLES_DEFAULTS = {
+    'SAVE_TITLE':              {'type': bool,  'default': True, 'aliases': ('FETCH_TITLE',)},
+    'SAVE_FAVICON':            {'type': bool,  'default': True, 'aliases': ('FETCH_FAVICON',)},
+    'SAVE_WGET':               {'type': bool,  'default': True, 'aliases': ('FETCH_WGET',)},
+    'SAVE_WGET_REQUISITES':    {'type': bool,  'default': True, 'aliases': ('FETCH_WGET_REQUISITES',)},
+    'SAVE_PDF':                {'type': bool,  'default': True, 'aliases': ('FETCH_PDF',)},
+    'SAVE_SCREENSHOT':         {'type': bool,  'default': True, 'aliases': ('FETCH_SCREENSHOT',)},
+    'SAVE_DOM':                {'type': bool,  'default': True, 'aliases': ('FETCH_DOM',)},
+    'SAVE_WARC':               {'type': bool,  'default': True, 'aliases': ('FETCH_WARC',)},
+    'SAVE_GIT':                {'type': bool,  'default': True, 'aliases': ('FETCH_GIT',)},
+    'SAVE_MEDIA':              {'type': bool,  'default': True, 'aliases': ('FETCH_MEDIA',)},
+    'SAVE_ARCHIVE_DOT_ORG':    {'type': bool,  'default': True, 'aliases': ('SUBMIT_ARCHIVE_DOT_ORG',)},
+}
 
-USE_CURL =               os.getenv('USE_CURL',               'True'             ).lower() == 'true'
-USE_WGET =               os.getenv('USE_WGET',               'True'             ).lower() == 'true'
-USE_CHROME =             os.getenv('USE_CHROME',             'True'             ).lower() == 'true'
+ARCHIVE_METHOD_OPTIONS_DEFAULTS = {
+    'RESOLUTION':               {'type': str,   'default': '1440,2000'},
+    'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com'},
+    'CHECK_SSL_VALIDITY':       {'type': bool,  'default': True},
 
-CURL_BINARY =            os.getenv('CURL_BINARY',            'curl')
-GIT_BINARY =             os.getenv('GIT_BINARY',             'git')
-WGET_BINARY =            os.getenv('WGET_BINARY',            'wget')
-YOUTUBEDL_BINARY =       os.getenv('YOUTUBEDL_BINARY',       'youtube-dl')
-CHROME_BINARY =          os.getenv('CHROME_BINARY',          None)
+    'WGET_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}'},
+    'CHROME_USER_AGENT':        {'type': str,   'default': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36'},
 
-# ******************************************************************************
+    'COOKIES_FILE':             {'type': str,   'default': None},
+    'CHROME_USER_DATA_DIR':     {'type': str,   'default': None},
 
-### Terminal Configuration
-TERM_WIDTH = lambda: shutil.get_terminal_size((100, 10)).columns
-ANSI = {
+    'CHROME_HEADLESS':          {'type': bool,  'default': True},
+    'CHROME_SANDBOX':           {'type': bool,  'default': True},
+}
+
+DEPENDENCY_CONFIG_DEFAULTS = {
+    'USE_CURL':                 {'type': bool,  'default': True},
+    'USE_WGET':                 {'type': bool,  'default': True},
+    'USE_GIT':                  {'type': bool,  'default': True},
+    'USE_CHROME':               {'type': bool,  'default': True},
+    'USE_YOUTUBEDL':            {'type': bool,  'default': True},
+
+    'CURL_BINARY':              {'type': str,   'default': 'curl'},
+    'GIT_BINARY':               {'type': str,   'default': 'git'},
+    'WGET_BINARY':              {'type': str,   'default': 'wget'},
+    'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
+    'CHROME_BINARY':            {'type': str,   'default': None},
+}
+
+############################## Derived Config ##############################
+
+# Constants
+
+DEFAULT_CLI_COLORS = {
     'reset': '\033[00;00m',
     'lightblue': '\033[01;30m',
     'lightyellow': '\033[01;33m',
@@ -77,102 +96,178 @@ ANSI = {
     'white': '\033[01;37m',
     'black': '\033[01;30m',
 }
-if not USE_COLOR:
-    # dont show colors if USE_COLOR is False
-    ANSI = {k: '' for k in ANSI.keys()}
+ANSI = {k: '' for k in DEFAULT_CLI_COLORS.keys()}
 
-def stderr(*args):
-    sys.stderr.write(' '.join(str(a) for a in args) + '\n')
 
-USER = getpass.getuser() or os.getlogin()
-ARCHIVEBOX_BINARY = sys.argv[0]
+VERSION_FILENAME = 'VERSION'
+PYTHON_DIR_NAME = 'archivebox'
+LEGACY_DIR_NAME = 'legacy'
+TEMPLATES_DIR_NAME = 'templates'
 
-REPO_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
-if OUTPUT_DIR:
-    OUTPUT_DIR = os.path.abspath(os.path.expanduser(OUTPUT_DIR))
-else:
-    OUTPUT_DIR = os.path.abspath(os.curdir)
-
-SQL_INDEX_FILENAME = 'index.sqlite3'
-JSON_INDEX_FILENAME = 'index.json'
-HTML_INDEX_FILENAME = 'index.html'
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
 LOGS_DIR_NAME = 'logs'
-ARCHIVE_DIR = os.path.join(OUTPUT_DIR, ARCHIVE_DIR_NAME)
-SOURCES_DIR = os.path.join(OUTPUT_DIR, SOURCES_DIR_NAME)
-LOGS_DIR = os.path.join(OUTPUT_DIR, LOGS_DIR_NAME)
+STATIC_DIR_NAME = 'static'
+SQL_INDEX_FILENAME = 'index.sqlite3'
+JSON_INDEX_FILENAME = 'index.json'
+HTML_INDEX_FILENAME = 'index.html'
+ROBOTS_TXT_FILENAME = 'robots.txt'
+FAVICON_FILENAME = 'favicon.ico'
 
-PYTHON_DIR = os.path.join(REPO_DIR, 'archivebox')
-LEGACY_DIR = os.path.join(PYTHON_DIR, 'legacy')
-TEMPLATES_DIR = os.path.join(LEGACY_DIR, 'templates')
 
-if COOKIES_FILE:
-    COOKIES_FILE = os.path.abspath(os.path.expanduser(COOKIES_FILE))
 
-if CHROME_USER_DATA_DIR:
-    CHROME_USER_DATA_DIR = os.path.abspath(os.path.expanduser(CHROME_USER_DATA_DIR))
+DERIVED_CONFIG_DEFAULTS = {
+    'TERM_WIDTH':               {'default': lambda c: lambda: shutil.get_terminal_size((100, 10)).columns},
+    'USER':                     {'default': lambda c: getpass.getuser() or os.getlogin()},
+    'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
+    
+    'REPO_DIR':                 {'default': lambda c: os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))},
+    'PYTHON_DIR':               {'default': lambda c: os.path.join(c['REPO_DIR'], PYTHON_DIR_NAME)},
+    'LEGACY_DIR':               {'default': lambda c: os.path.join(c['PYTHON_DIR'], LEGACY_DIR_NAME)},
+    'TEMPLATES_DIR':            {'default': lambda c: os.path.join(c['LEGACY_DIR'], TEMPLATES_DIR_NAME)},
+    
+    'OUTPUT_DIR':               {'default': lambda c: os.path.abspath(os.path.expanduser(c['OUTPUT_DIR'])) if c['OUTPUT_DIR'] else os.path.abspath(os.curdir)},
+    'ARCHIVE_DIR':              {'default': lambda c: os.path.join(c['OUTPUT_DIR'], ARCHIVE_DIR_NAME)},
+    'SOURCES_DIR':              {'default': lambda c: os.path.join(c['OUTPUT_DIR'], SOURCES_DIR_NAME)},
+    'LOGS_DIR':                 {'default': lambda c: os.path.join(c['OUTPUT_DIR'], LOGS_DIR_NAME)},
+    'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and os.path.abspath(os.path.expanduser(c['COOKIES_FILE']))},
+    'CHROME_USER_DATA_DIR':     {'default': lambda c: c['CHROME_USER_DATA_DIR'] and os.path.abspath(os.path.expanduser(c['CHROME_USER_DATA_DIR']))},
+    'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'], re.IGNORECASE)},
 
-URL_BLACKLIST_PTN = re.compile(URL_BLACKLIST, re.IGNORECASE) if URL_BLACKLIST else None
+    'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0]},
+    'VERSION':                  {'default': lambda c: open(os.path.join(c['REPO_DIR'], VERSION_FILENAME), 'r').read().strip()},
+    'GIT_SHA':                  {'default': lambda c: c['VERSION'].split('+')[-1] or 'unknown'},
 
-########################### Environment & Dependencies #########################
+    'PYTHON_BINARY':            {'default': lambda c: sys.executable},
+    'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},
+    'PYTHON_VERSION':           {'default': lambda c: '{}.{}'.format(sys.version_info.major, sys.version_info.minor)},
 
-VERSION = open(os.path.join(REPO_DIR, 'VERSION'), 'r').read().strip()
-GIT_SHA = VERSION.split('+')[-1] or 'unknown'
-HAS_INVALID_DEPENDENCIES = False
+    'DJANGO_BINARY':            {'default': lambda c: django.__file__.replace('__init__.py', 'bin/django-admin.py')},
+    'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{} {} ({})'.format(*django.VERSION)},
 
-### Check system environment
-if USER == 'root':
-    stderr('{red}[!] ArchiveBox should never be run as root!{reset}'.format(**ANSI))
-    stderr('    For more information, see the security overview documentation:')
-    stderr('        https://github.com/pirate/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
-    raise SystemExit(1)
+    'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_ARCHIVE_DOT_ORG'])},
+    'CURL_VERSION':             {'default': lambda c: bin_version(c['CURL_BINARY']) if c['USE_CURL'] else None},
+    'SAVE_FAVICON':             {'default': lambda c: c['USE_CURL']},
+    'SAVE_ARCHIVE_DOT_ORG':     {'default': lambda c: c['USE_CURL']},
 
-### Check Python environment
-PYTHON_BINARY = sys.executable
-PYTHON_VERSION = '{}.{}'.format(sys.version_info.major, sys.version_info.minor)
-if float(PYTHON_VERSION) < 3.6:
-    stderr('{}[X] Python version is not new enough: {} (>3.6 is required){}'.format(ANSI['red'], PYTHON_VERSION, ANSI['reset']))
-    stderr('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
-    raise SystemExit(1)
+    'USE_WGET':                 {'default': lambda c: c['USE_WGET'] and (c['SAVE_WGET'] or c['SAVE_WARC'])},
+    'WGET_VERSION':             {'default': lambda c: bin_version(c['WGET_BINARY']) if c['USE_WGET'] else None},
+    'WGET_AUTO_COMPRESSION':    {'default': lambda c: wget_supports_compression(c) if c['USE_WGET'] else False},
+    'WGET_USER_AGENT':          {'default': lambda c: c['WGET_USER_AGENT'].format(**c)},
+    'SAVE_WGET':                {'default': lambda c: c['USE_WGET']},
+    'SAVE_WARC':                {'default': lambda c: c['USE_WGET']},
 
-if sys.stdout.encoding.upper() not in ('UTF-8', 'UTF8'):
-    stderr('[X] Your system is running python3 scripts with a bad locale setting: {} (it should be UTF-8).'.format(sys.stdout.encoding))
-    stderr('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
-    stderr('    Or if you\'re using ubuntu/debian, run "dpkg-reconfigure locales"')
-    stderr('')
-    stderr('    Confirm that it\'s fixed by opening a new shell and running:')
-    stderr('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
-    stderr('')
-    stderr('    Alternatively, run this script with:')
-    stderr('        env PYTHONIOENCODING=UTF-8 ./archive.py export.html')
-    raise SystemExit(1)
+    'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
+    'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
+    'SAVE_GIT':                 {'default': lambda c: c['USE_GIT']},
 
-# ******************************************************************************
-# ***************************** Helper Functions *******************************
-# ******************************************************************************
+    'USE_YOUTUBEDL':            {'default': lambda c: c['USE_YOUTUBEDL'] and c['SAVE_MEDIA']},
+    'YOUTUBEDL_VERSION':        {'default': lambda c: bin_version(c['YOUTUBEDL_BINARY']) if c['USE_YOUTUBEDL'] else None},
+    'SAVE_MEDIA':               {'default': lambda c: c['USE_YOUTUBEDL']},
+
+    'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'])},
+    'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] if c['CHROME_BINARY'] else find_chrome_binary()},
+    'CHROME_VERSION':           {'default': lambda c: bin_version(c['CHROME_BINARY']) if c['USE_CHROME'] else None},
+    'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (c['CHROME_USER_DATA_DIR'] or None)},
+    'SAVE_PDF':                 {'default': lambda c: c['USE_CHROME']},
+    'SAVE_SCREENSHOT':          {'default': lambda c: c['USE_CHROME']},
+    'SAVE_DOM':                 {'default': lambda c: c['USE_CHROME']},
+
+    'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
+    'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
+    'CONFIG_LOCATIONS':         {'default': lambda c: get_config_locations(c)},
+    'DATA_LOCATIONS':           {'default': lambda c: get_data_locations(c)},
+    'CHROME_OPTIONS':           {'default': lambda c: get_chrome_info(c)},
+}
+
+
+
+################################### Helpers ####################################
+
+def get_config_val(key: str, default: Any=None, type=None, aliases: Optional[Tuple[str, ...]]=None, config: CONFIG_TYPE=None) -> Any:
+    # check the canonical option name first, then check any older aliases
+    possible_env_keys = (key, *(aliases or ()))
+    for key in possible_env_keys:
+        val = os.getenv(key, None)
+        if val:
+            break
+
+    if type is None or val is None:
+        if hasattr(default, '__call__'):
+            return default(config)
+
+        return default
+    
+    elif type is bool:
+        if val.lower() in ('true', 'yes', '1'):
+            return True
+        elif val.lower() in ('false', 'no', '0'):
+            return False
+        else:
+            raise ValueError(f'Invalid configuration option {key}={val} (expected a boolean: True/False)') 
+
+    elif type is str:
+        if val.lower() in ('true', 'false', 'yes', 'no', '1', '0'):
+            raise ValueError(f'Invalid configuration option {key}={val} (expected a string)')
+        return val.strip()
+
+    elif type is int:
+        if not val.isdigit():
+            raise ValueError(f'Invalid configuration option {key}={val} (expected an integer)')
+        return int(val)
+
+    raise Exception('Config values can only be str, bool, or int')
+
+def load_config(defaults: dict, config: Optional[CONFIG_TYPE]=None) -> CONFIG_TYPE:
+    config = {**(config or {})}
+    for key, default in defaults.items():
+        try:
+            config[key] = get_config_val(key, **default, config=config)
+        except KeyboardInterrupt:
+            raise SystemExit(1)
+        except Exception as e:
+            stderr()
+            stderr(f'[X] Error while loading configuration value: {key}', color='red', config=config)
+            stderr('    {}: {}'.format(e.__class__.__name__, e))
+            stderr()
+            stderr('    Check your config for mistakes and try again (your archive data is unaffected).')
+            stderr()
+            stderr('    For config documentation and examples see:')
+            stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration')
+            stderr()
+            raise SystemExit(1)
+    
+    return config
+
+def stderr(*args, color: Optional[str]=None, config: Optional[CONFIG_TYPE]=None) -> None:
+    ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
+
+    if color:
+        strs = (ansi[color], ' '.join(str(a) for a in args), ansi['reset'], '\n')
+    else:
+        strs = (' '.join(str(a) for a in args), '\n')
+
+    sys.stderr.write(''.join(strs))
 
 def bin_version(binary: str) -> Optional[str]:
     """check the presence and return valid version line of a specified binary"""
 
-    global HAS_INVALID_DEPENDENCIES
     binary = os.path.expanduser(binary)
     try:
         if not shutil.which(binary):
             raise Exception
 
-        version_str = run([binary, "--version"], stdout=PIPE, cwd=REPO_DIR).stdout.strip().decode()
+        version_str = run([binary, "--version"], stdout=PIPE).stdout.strip().decode()
         # take first 3 columns of first line of version info
         return ' '.join(version_str.split('\n')[0].strip().split()[:3])
     except Exception:
-        HAS_INVALID_DEPENDENCIES = True
-        stderr('{red}[X] Unable to find working version of dependency: {}{reset}'.format(binary, **ANSI))
-        stderr('    Make sure it\'s installed, then confirm it\'s working by running:')
-        stderr('        {} --version'.format(binary))
-        stderr()
-        stderr('    If you don\'t want to install it, you can disable it via config. See here for more info:')
-        stderr('        https://github.com/pirate/ArchiveBox/wiki/Install')
-        stderr()
+        # stderr(f'[X] Unable to find working version of dependency: {binary}', color='red')
+        # stderr('    Make sure it\'s installed, then confirm it\'s working by running:')
+        # stderr(f'        {binary} --version')
+        # stderr()
+        # stderr('    If you don\'t want to install it, you can disable it via config. See here for more info:')
+        # stderr('        https://github.com/pirate/ArchiveBox/wiki/Install')
+        # stderr()
         return None
 
 def bin_hash(binary: str) -> Optional[str]:
@@ -186,7 +281,6 @@ def bin_hash(binary: str) -> Optional[str]:
             file_hash.update(chunk)
             
     return f'md5:{file_hash.hexdigest()}'
-
 
 def find_chrome_binary() -> Optional[str]:
     """find any installed chrome binaries in the default locations"""
@@ -210,10 +304,9 @@ def find_chrome_binary() -> Optional[str]:
         if full_path_exists:
             return name
     
-    stderr('{red}[X] Unable to find a working version of Chrome/Chromium, is it installed and in your $PATH?'.format(**ANSI))
+    stderr('[X] Unable to find a working version of Chrome/Chromium, is it installed and in your $PATH?', color='red')
     stderr()
     return None
-
 
 def find_chrome_data_dir() -> Optional[str]:
     """find any installed chrome user data directories in the default locations"""
@@ -239,244 +332,293 @@ def find_chrome_data_dir() -> Optional[str]:
             return full_path
     return None
 
+def wget_supports_compression(config):
+    cmd = [
+        config['WGET_BINARY'],
+        "--compression=auto",
+        "--help",
+    ]
+    return not run(cmd, stdout=DEVNULL, stderr=DEVNULL).returncode
 
-def setup_django(out_dir: str=OUTPUT_DIR, check_db=False):
-    import django
-    sys.path.append(PYTHON_DIR)
-    os.environ.setdefault('OUTPUT_DIR', out_dir)
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
-    django.setup()
-
-    if check_db:
-        assert os.path.exists(os.path.join(out_dir, SQL_INDEX_FILENAME)), (
-            f'No database file {SQL_INDEX_FILENAME} found in OUTPUT_DIR: {out_dir}')
-
-# ******************************************************************************
-# ************************ Environment & Dependencies **************************
-# ******************************************************************************
-
-try:
-    ### Get Django version
-    DJANGO_BINARY = django.__file__.replace('__init__.py', 'bin/django-admin.py')
-    DJANGO_VERSION = '{}.{}.{} {} ({})'.format(*django.VERSION)
-
-    ### Make sure curl is installed
-    if USE_CURL:
-        USE_CURL = FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG
-    else:
-        FETCH_FAVICON = SUBMIT_ARCHIVE_DOT_ORG = False
-    CURL_VERSION = None
-    if USE_CURL:
-        CURL_VERSION = bin_version(CURL_BINARY)
-
-    ### Make sure wget is installed and calculate version
-    if USE_WGET:
-        USE_WGET = FETCH_WGET or FETCH_WARC
-    else:
-        FETCH_WGET = FETCH_WARC = False
-    WGET_VERSION = None
-    WGET_AUTO_COMPRESSION = False
-    if USE_WGET:
-        WGET_VERSION = bin_version(WGET_BINARY)
-        WGET_AUTO_COMPRESSION = not run([WGET_BINARY, "--compression=auto", "--help"], stdout=DEVNULL, stderr=DEVNULL).returncode
-        
-    WGET_USER_AGENT = WGET_USER_AGENT.format(
-        VERSION=VERSION,
-        WGET_VERSION=WGET_VERSION or '',
-    )
-
-    ### Make sure git is installed
-    GIT_VERSION = None
-    if FETCH_GIT:
-        GIT_VERSION = bin_version(GIT_BINARY)
-
-    ### Make sure youtube-dl is installed
-    YOUTUBEDL_VERSION = None
-    if FETCH_MEDIA:
-        YOUTUBEDL_VERSION = bin_version(YOUTUBEDL_BINARY)
-
-    ### Make sure chrome is installed and calculate version
-    if USE_CHROME:
-        USE_CHROME = FETCH_PDF or FETCH_SCREENSHOT or FETCH_DOM
-    else:
-        FETCH_PDF = FETCH_SCREENSHOT = FETCH_DOM = False
-    
-    if not CHROME_BINARY:
-        CHROME_BINARY = find_chrome_binary() or 'chromium-browser'
-    CHROME_VERSION = None
-
-    if USE_CHROME:
-        if CHROME_BINARY:
-            CHROME_VERSION = bin_version(CHROME_BINARY)
-            # stderr('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
-
-            if CHROME_USER_DATA_DIR is None:
-                CHROME_USER_DATA_DIR = find_chrome_data_dir()
-            elif CHROME_USER_DATA_DIR == '':
-                CHROME_USER_DATA_DIR = None
-            else:
-                if not os.path.exists(os.path.join(CHROME_USER_DATA_DIR, 'Default')):
-                    stderr('{red}[X] Could not find profile "Default" in CHROME_USER_DATA_DIR:{reset} {}'.format(CHROME_USER_DATA_DIR, **ANSI))
-                    stderr('    Make sure you set it to a Chrome user data directory containing a Default profile folder.')
-                    stderr('    For more info see:')
-                    stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#CHROME_USER_DATA_DIR')
-                    if 'Default' in CHROME_USER_DATA_DIR:
-                        stderr()
-                        stderr('    Try removing /Default from the end e.g.:')
-                        stderr('        CHROME_USER_DATA_DIR="{}"'.format(CHROME_USER_DATA_DIR.split('/Default')[0]))
-                    raise SystemExit(1)
-            # stderr('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
-
-
-    ### Summary Lookup Dicts
-    FOLDERS = {
+def get_code_locations(config: CONFIG_TYPE) -> Dict[str, CONFIG_TYPE]:
+    return {
         'REPO_DIR': {
-            'path': os.path.abspath(REPO_DIR),
+            'path': os.path.abspath(config['REPO_DIR']),
             'enabled': True,
-            'is_valid': os.path.exists(os.path.join(REPO_DIR, '.github')),
+            'is_valid': os.path.exists(os.path.join(config['REPO_DIR'], '.github')),
         },
         'PYTHON_DIR': {
-            'path': os.path.abspath(PYTHON_DIR),
+            'path': os.path.abspath(config['PYTHON_DIR']),
             'enabled': True,
-            'is_valid': os.path.exists(os.path.join(PYTHON_DIR, '__main__.py')),
+            'is_valid': os.path.exists(os.path.join(config['PYTHON_DIR'], '__main__.py')),
         },
         'LEGACY_DIR': {
-            'path': os.path.abspath(LEGACY_DIR),
+            'path': os.path.abspath(config['LEGACY_DIR']),
             'enabled': True,
-            'is_valid': os.path.exists(os.path.join(LEGACY_DIR, 'util.py')),
+            'is_valid': os.path.exists(os.path.join(config['LEGACY_DIR'], 'util.py')),
         },
         'TEMPLATES_DIR': {
-            'path': os.path.abspath(TEMPLATES_DIR),
+            'path': os.path.abspath(config['TEMPLATES_DIR']),
             'enabled': True,
-            'is_valid': os.path.exists(os.path.join(TEMPLATES_DIR, 'static')),
+            'is_valid': os.path.exists(os.path.join(config['TEMPLATES_DIR'], 'static')),
         },
-        'OUTPUT_DIR': {
-            'path': os.path.abspath(OUTPUT_DIR),
-            'enabled': True,
-            'is_valid': os.path.exists(os.path.join(OUTPUT_DIR, 'index.json')),
-        },
-        'SOURCES_DIR': {
-            'path': os.path.abspath(SOURCES_DIR),
-            'enabled': True,
-            'is_valid': os.path.exists(SOURCES_DIR),
-        },
-        'LOGS_DIR': {
-            'path': os.path.abspath(LOGS_DIR),
-            'enabled': True,
-            'is_valid': os.path.exists(LOGS_DIR),
-        },
-        'ARCHIVE_DIR': {
-            'path': os.path.abspath(ARCHIVE_DIR),
-            'enabled': True,
-            'is_valid': os.path.exists(ARCHIVE_DIR),
-        },
+    }
+
+def get_config_locations(config: CONFIG_TYPE) -> Dict[str, CONFIG_TYPE]:
+    return {
         'CHROME_USER_DATA_DIR': {
-            'path': CHROME_USER_DATA_DIR and os.path.abspath(CHROME_USER_DATA_DIR),
-            'enabled': USE_CHROME and CHROME_USER_DATA_DIR,
-            'is_valid': os.path.exists(os.path.join(CHROME_USER_DATA_DIR, 'Default')) if CHROME_USER_DATA_DIR else False,
+            'path': config['CHROME_USER_DATA_DIR'] and os.path.abspath(config['CHROME_USER_DATA_DIR']),
+            'enabled': config['USE_CHROME'] and config['CHROME_USER_DATA_DIR'],
+            'is_valid': os.path.exists(os.path.join(config['CHROME_USER_DATA_DIR'], 'Default')) if config['CHROME_USER_DATA_DIR'] else False,
         },
         'COOKIES_FILE': {
-            'path': COOKIES_FILE and os.path.abspath(COOKIES_FILE),
-            'enabled': USE_WGET and COOKIES_FILE,
-            'is_valid': COOKIES_FILE and os.path.exists(COOKIES_FILE),
+            'path': config['COOKIES_FILE'] and os.path.abspath(config['COOKIES_FILE']),
+            'enabled': config['USE_WGET'] and config['COOKIES_FILE'],
+            'is_valid': config['COOKIES_FILE'] and os.path.exists(config['COOKIES_FILE']),
         },
     }
 
-    DEPENDENCIES = {
-        'PYTHON_BINARY': {
-            'path': PYTHON_BINARY,
-            'version': PYTHON_VERSION,
-            'hash': bin_hash(PYTHON_BINARY),
+def get_data_locations(config: CONFIG_TYPE) -> Dict[str, CONFIG_TYPE]:
+    return {
+        'OUTPUT_DIR': {
+            'path': os.path.abspath(config['OUTPUT_DIR']),
             'enabled': True,
-            'is_valid': bool(DJANGO_VERSION),
+            'is_valid': os.path.exists(os.path.join(config['OUTPUT_DIR'], JSON_INDEX_FILENAME)),
+        },
+        'SOURCES_DIR': {
+            'path': os.path.abspath(config['SOURCES_DIR']),
+            'enabled': True,
+            'is_valid': os.path.exists(config['SOURCES_DIR']),
+        },
+        'LOGS_DIR': {
+            'path': os.path.abspath(config['LOGS_DIR']),
+            'enabled': True,
+            'is_valid': os.path.exists(config['LOGS_DIR']),
+        },
+        'ARCHIVE_DIR': {
+            'path': os.path.abspath(config['ARCHIVE_DIR']),
+            'enabled': True,
+            'is_valid': os.path.exists(config['ARCHIVE_DIR']),
+        },
+    }
+
+def get_dependency_info(config: CONFIG_TYPE) -> Dict[str, CONFIG_TYPE]:
+    return {
+        'PYTHON_BINARY': {
+            'path': config['PYTHON_BINARY'],
+            'version': config['PYTHON_VERSION'],
+            'hash': bin_hash(config['PYTHON_BINARY']),
+            'enabled': True,
+            'is_valid': bool(config['DJANGO_VERSION']),
         },
         'DJANGO_BINARY': {
-            'path': DJANGO_BINARY,
-            'version': DJANGO_VERSION,
-            'hash': bin_hash(DJANGO_BINARY),
+            'path': config['DJANGO_BINARY'],
+            'version': config['DJANGO_VERSION'],
+            'hash': bin_hash(config['DJANGO_BINARY']),
             'enabled': True,
-            'is_valid': bool(DJANGO_VERSION),
+            'is_valid': bool(config['DJANGO_VERSION']),
         },
         'CURL_BINARY': {
-            'path': CURL_BINARY and shutil.which(CURL_BINARY),
-            'version': CURL_VERSION,
-            'hash': bin_hash(PYTHON_BINARY),
-            'enabled': USE_CURL,
-            'is_valid': bool(CURL_VERSION),
+            'path': (config['CURL_BINARY'] and shutil.which(config['CURL_BINARY'])) or config['CURL_BINARY'],
+            'version': config['CURL_VERSION'],
+            'hash': bin_hash(config['PYTHON_BINARY']),
+            'enabled': config['USE_CURL'],
+            'is_valid': bool(config['CURL_VERSION']),
         },
         'WGET_BINARY': {
-            'path': WGET_BINARY and shutil.which(WGET_BINARY),
-            'version': WGET_VERSION,
-            'hash': bin_hash(WGET_BINARY),
-            'enabled': USE_WGET,
-            'is_valid': bool(WGET_VERSION),
+            'path': (config['WGET_BINARY'] and shutil.which(config['WGET_BINARY'])) or config['WGET_BINARY'],
+            'version': config['WGET_VERSION'],
+            'hash': bin_hash(config['WGET_BINARY']),
+            'enabled': config['USE_WGET'],
+            'is_valid': bool(config['WGET_VERSION']),
         },
         'GIT_BINARY': {
-            'path': GIT_BINARY and shutil.which(GIT_BINARY),
-            'version': GIT_VERSION,
-            'hash': bin_hash(GIT_BINARY),
-            'enabled': FETCH_GIT,
-            'is_valid': bool(GIT_VERSION),
+            'path': (config['GIT_BINARY'] and shutil.which(config['GIT_BINARY'])) or config['GIT_BINARY'],
+            'version': config['GIT_VERSION'],
+            'hash': bin_hash(config['GIT_BINARY']),
+            'enabled': config['USE_GIT'],
+            'is_valid': bool(config['GIT_VERSION']),
         },
         'YOUTUBEDL_BINARY': {
-            'path': YOUTUBEDL_BINARY and shutil.which(YOUTUBEDL_BINARY),
-            'version': YOUTUBEDL_VERSION,
-            'hash': bin_hash(YOUTUBEDL_BINARY),
-            'enabled': FETCH_MEDIA,
-            'is_valid': bool(YOUTUBEDL_VERSION),
+            'path': (config['YOUTUBEDL_BINARY'] and shutil.which(config['YOUTUBEDL_BINARY'])) or config['YOUTUBEDL_BINARY'],
+            'version': config['YOUTUBEDL_VERSION'],
+            'hash': bin_hash(config['YOUTUBEDL_BINARY']),
+            'enabled': config['USE_YOUTUBEDL'],
+            'is_valid': bool(config['YOUTUBEDL_VERSION']),
         },
         'CHROME_BINARY': {
-            'path': CHROME_BINARY and shutil.which(CHROME_BINARY),
-            'version': CHROME_VERSION,
-            'hash': bin_hash(CHROME_BINARY),
-            'enabled': USE_CHROME,
-            'is_valid': bool(CHROME_VERSION),
+            'path': (config['CHROME_BINARY'] and shutil.which(config['CHROME_BINARY'])) or config['CHROME_BINARY'],
+            'version': config['CHROME_VERSION'],
+            'hash': bin_hash(config['CHROME_BINARY']),
+            'enabled': config['USE_CHROME'],
+            'is_valid': bool(config['CHROME_VERSION']),
         },
     }
 
-    CHROME_OPTIONS = {
-        'TIMEOUT': TIMEOUT,
-        'RESOLUTION': RESOLUTION,
-        'CHECK_SSL_VALIDITY': CHECK_SSL_VALIDITY,
-        'CHROME_BINARY': CHROME_BINARY,
-        'CHROME_HEADLESS': CHROME_HEADLESS,
-        'CHROME_SANDBOX': CHROME_SANDBOX,
-        'CHROME_USER_AGENT': CHROME_USER_AGENT,
-        'CHROME_USER_DATA_DIR': CHROME_USER_DATA_DIR,
+def get_chrome_info(config: CONFIG_TYPE) -> Dict[str, CONFIG_TYPE]:
+    return {
+        'TIMEOUT': config['TIMEOUT'],
+        'RESOLUTION': config['RESOLUTION'],
+        'CHECK_SSL_VALIDITY': config['CHECK_SSL_VALIDITY'],
+        'CHROME_BINARY': config['CHROME_BINARY'],
+        'CHROME_HEADLESS': config['CHROME_HEADLESS'],
+        'CHROME_SANDBOX': config['CHROME_SANDBOX'],
+        'CHROME_USER_AGENT': config['CHROME_USER_AGENT'],
+        'CHROME_USER_DATA_DIR': config['CHROME_USER_DATA_DIR'],
     }
 
-    # PYPPETEER_ARGS = {
-    #     'headless': CHROME_HEADLESS,
-    #     'ignoreHTTPSErrors': not CHECK_SSL_VALIDITY,
-    #     # 'executablePath': CHROME_BINARY,
-    # }
-    
-except KeyboardInterrupt:
-    raise SystemExit(1)
 
-except Exception as e:
-    stderr()
-    stderr('{red}[X] Error during configuration: {} {}{reset}'.format(e.__class__.__name__, e, **ANSI))
-    stderr('    Your archive data is unaffected.')
-    stderr('    Check your config or environemnt variables for mistakes and try again.')
-    stderr('    For more info see:')
-    stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration')
-    stderr()
-    raise
+################################## Load Config #################################
 
+CONFIG = load_config(SHELL_CONFIG_DEFAULTS)
+CONFIG = load_config(ARCHIVE_CONFIG_DEFAULTS, CONFIG)
+CONFIG = load_config(ARCHIVE_METHOD_TOGGLES_DEFAULTS, CONFIG)
+CONFIG = load_config(ARCHIVE_METHOD_OPTIONS_DEFAULTS, CONFIG)
+CONFIG = load_config(DEPENDENCY_CONFIG_DEFAULTS, CONFIG)
+CONFIG = load_config(DERIVED_CONFIG_DEFAULTS, CONFIG)
+globals().update(CONFIG)
 
-def check_dependencies() -> None:
-    if HAS_INVALID_DEPENDENCIES:
-        stderr('{red}[X] Missing some required dependencies.{reset}'.format(**ANSI))
+############################## Importable Checkers #############################
+
+def check_system_config(config: CONFIG_TYPE=CONFIG) -> None:
+    ANSI = config['ANSI']
+
+    ### Check system environment
+    if config['USER'] == 'root':
+        stderr('[!] ArchiveBox should never be run as root!', color='red')
+        stderr('    For more information, see the security overview documentation:')
+        stderr('        https://github.com/pirate/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
         raise SystemExit(1)
+
+    ### Check Python environment
+    if float(config['PYTHON_VERSION']) < 3.6:
+        stderr(f'[X] Python version is not new enough: {config["PYTHON_VERSION"]} (>3.6 is required)', color='red')
+        stderr('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
+        raise SystemExit(1)
+
+    if config['PYTHON_ENCODING'] not in ('UTF-8', 'UTF8'):
+        stderr(f'[X] Your system is running python3 scripts with a bad locale setting: {config["PYTHON_ENCODING"]} (it should be UTF-8).', color='red')
+        stderr('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
+        stderr('    Or if you\'re using ubuntu/debian, run "dpkg-reconfigure locales"')
+        stderr('')
+        stderr('    Confirm that it\'s fixed by opening a new shell and running:')
+        stderr('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
+        raise SystemExit(1)
+
+    # stderr('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
+    # stderr('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
+    if config['CHROME_USER_DATA_DIR'] and not os.path.exists(os.path.join(config['CHROME_USER_DATA_DIR'], 'Default')):
+        stderr('[X] Could not find profile "Default" in CHROME_USER_DATA_DIR.', color='red')
+        stderr(f'    {config["CHROME_USER_DATA_DIR"]}')
+        stderr('    Make sure you set it to a Chrome user data directory containing a Default profile folder.')
+        stderr('    For more info see:')
+        stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#CHROME_USER_DATA_DIR')
+        if 'Default' in config['CHROME_USER_DATA_DIR']:
+            stderr()
+            stderr('    Try removing /Default from the end e.g.:')
+            stderr('        CHROME_USER_DATA_DIR="{}"'.format(config['CHROME_USER_DATA_DIR'].split('/Default')[0]))
+        raise SystemExit(1)
+
+def check_dependencies(config: CONFIG_TYPE=CONFIG, show_help: bool=True) -> None:
+    invalid = [
+        '{}: {} ({})'.format(name, info['path'] or 'unable to find binary', info['version'] or 'unable to detect version')
+        for name, info in config['DEPENDENCIES'].items()
+        if info['enabled'] and not info['is_valid']
+    ]
+
+    if invalid:
+        stderr('[X] Missing some required dependencies.', color='red')
+        stderr()
+        stderr('    {}'.format('\n    '.join(invalid)))
+        if show_help:
+            stderr()
+            stderr('    To get more info on dependency status run:')
+            stderr('        archivebox --version')
+        raise SystemExit(1)
+
+    if config['TIMEOUT'] < 5:
+        stderr()
+        stderr(f'[!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={config["TIMEOUT"]} seconds)', color='red')
+        stderr('    You must allow *at least* 5 seconds for indexing and archive methods to run succesfully.')
+        stderr('    (Setting it to somewhere between 30 and 300 seconds is recommended)')
+        stderr()
+        stderr('    If you want to make ArchiveBox run faster, disable specific archive methods instead:')
+        stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles')
+
+    elif config['USE_CHROME'] and config['TIMEOUT'] < 15:
+        stderr()
+        stderr(f'[!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={config["TIMEOUT"]} seconds)', color='red')
+        stderr('    Chrome will fail to archive all sites if set to less than ~15 seconds.')
+        stderr('    (Setting it to somewhere between 30 and 300 seconds is recommended)')
+        stderr()
+        stderr('    If you want to make ArchiveBox run faster, disable specific archive methods instead:')
+        stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles')
+
+    if config['USE_YOUTUBEDL'] and config['MEDIA_TIMEOUT'] < 20:
+        stderr()
+        stderr(f'[!] Warning: MEDIA_TIMEOUT is set too low! (currently set to MEDIA_TIMEOUT={config["MEDIA_TIMEOUT"]} seconds)', color='red')
+        stderr('    Youtube-dl will fail to archive all media if set to less than ~20 seconds.')
+        stderr('    (Setting it somewhere over 60 seconds is recommended)')
+        stderr()
+        stderr('    If you want to disable media archiving entirely, set SAVE_MEDIA=False instead:')
+        stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#save_media')
+
         
-def check_data_folder() -> None:
-    if not os.path.exists(os.path.join(OUTPUT_DIR, 'index.json')):
-        stderr('{red}[X] No archive data was found in:{reset} {}'.format(OUTPUT_DIR, **ANSI))
+def check_data_folder(out_dir: Optional[str]=None, config: CONFIG_TYPE=CONFIG) -> None:
+    out_dir = out_dir or config['OUTPUT_DIR']
+    json_index_exists = os.path.exists(os.path.join(out_dir, JSON_INDEX_FILENAME))
+    if not json_index_exists:
+        stderr('[X] No archive index was found in current directory.', color='red')
+        stderr(f'    {out_dir}')
+        stderr()
         stderr('    Are you running archivebox in the right folder?')
         stderr('        cd path/to/your/archive/folder')
         stderr('        archivebox [command]')
         stderr()
-        stderr('    To create a new archive collection in this folder, run:')
+        stderr('    To create a new archive collection or import existing data in this folder, run:')
         stderr('        archivebox init')
         raise SystemExit(1)
+
+    sql_index_exists = os.path.exists(os.path.join(out_dir, SQL_INDEX_FILENAME))
+    from .storage.sql import list_migrations
+
+    pending_migrations = [name for status, name in list_migrations() if not status]
+
+    if (not sql_index_exists) or pending_migrations:
+        if sql_index_exists:
+            pending_operation = f'apply the {len(pending_migrations)} pending migrations'
+        else:
+            pending_operation = 'generate the new SQL main index'
+
+        stderr('[X] This collection was created with an older version of ArchiveBox and must be upgraded first.', color='lightyellow')
+        stderr(f'    {out_dir}')
+        stderr()
+        stderr(f'    To upgrade it to the latest version and {pending_operation} run:')
+        stderr('        archivebox init')
+        raise SystemExit(1)
+
+
+
+def setup_django(out_dir: str=None, check_db=False, config: CONFIG_TYPE=CONFIG) -> None:
+    import django
+    sys.path.append(config['PYTHON_DIR'])
+    os.environ.setdefault('OUTPUT_DIR', out_dir or config['OUTPUT_DIR'])
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+    django.setup()
+
+    if check_db:
+        sql_index_path = os.path.join(out_dir or config['OUTPUT_DIR'], SQL_INDEX_FILENAME)
+        assert os.path.exists(sql_index_path), (
+            f'No database file {SQL_INDEX_FILENAME} found in OUTPUT_DIR: {config["OUTPUT_DIR"]}')
+
+
+check_system_config()
+
+
+__all__ = (
+    'stderr',
+    'check_data_folder',
+    'check_dependencies',
+    'setup_django',
+    *CONFIG,
+)

@@ -35,7 +35,7 @@ from .config import (
     OUTPUT_PERMISSIONS,
     TIMEOUT,
     SHOW_PROGRESS,
-    FETCH_TITLE,
+    SAVE_TITLE,
     CHECK_SSL_VALIDITY,
     WGET_USER_AGENT,
     CHROME_OPTIONS,
@@ -246,7 +246,7 @@ def handle_file_import(path: str, timeout: int=TIMEOUT) -> str:
 def fetch_page_title(url: str, timeout: int=10, progress: bool=SHOW_PROGRESS) -> Optional[str]:
     """Attempt to guess a page's title by downloading the html"""
     
-    if not FETCH_TITLE:
+    if not SAVE_TITLE:
         return None
 
     try:
