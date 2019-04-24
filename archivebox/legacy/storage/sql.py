@@ -57,3 +57,9 @@ def apply_migrations(out_dir: str=OUTPUT_DIR) -> List[str]:
     out.seek(0)
 
     return [line.strip() for line in out.readlines() if line.strip()]
+
+@enforce_types
+def get_admins(out_dir: str=OUTPUT_DIR) -> List[str]:
+    setup_django(out_dir, check_db=False)
+    from django.contrib.auth.models import User
+    return User.objects.filter(is_superuser=True)
