@@ -3,7 +3,7 @@ __package__ = 'archivebox.legacy.storage'
 import os
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Iterator
 
 from ..schema import Link
 from ..config import (
@@ -38,6 +38,18 @@ TITLE_LOADING_MSG = 'Not yet archived...'
 
 
 ### Main Links Index
+
+@enforce_types
+def parse_html_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[str]:
+    """parse an archive index html file and return the list of urls"""
+
+    index_path = os.path.join(out_dir, HTML_INDEX_FILENAME)
+    if os.path.exists(index_path):
+        with open(index_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if 'class="link-url"' in line:
+                    yield line.split('"')[1]
+    return ()
 
 @enforce_types
 def write_html_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=False) -> None:
