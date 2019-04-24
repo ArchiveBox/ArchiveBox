@@ -14,6 +14,9 @@ from ..config import (
     FOOTER_INFO,
     ARCHIVE_DIR_NAME,
     HTML_INDEX_FILENAME,
+    STATIC_DIR_NAME,
+    ROBOTS_TXT_FILENAME,
+    FAVICON_FILENAME,
 )
 from ..util import (
     enforce_types,
@@ -40,9 +43,9 @@ TITLE_LOADING_MSG = 'Not yet archived...'
 def write_html_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=False) -> None:
     """write the html link index to a given path"""
 
-    copy_and_overwrite(join(TEMPLATES_DIR, 'favicon.ico'), join(out_dir, 'favicon.ico'))
-    copy_and_overwrite(join(TEMPLATES_DIR, 'robots.txt'), join(out_dir, 'robots.txt'))
-    copy_and_overwrite(join(TEMPLATES_DIR, 'static'), join(out_dir, 'static'))
+    copy_and_overwrite(join(TEMPLATES_DIR, FAVICON_FILENAME), join(out_dir, FAVICON_FILENAME))
+    copy_and_overwrite(join(TEMPLATES_DIR, ROBOTS_TXT_FILENAME), join(out_dir, ROBOTS_TXT_FILENAME))
+    copy_and_overwrite(join(TEMPLATES_DIR, STATIC_DIR_NAME), join(out_dir, STATIC_DIR_NAME))
     
     rendered_html = main_index_template(links, finished=finished)
     atomic_write(rendered_html, join(out_dir, HTML_INDEX_FILENAME))
