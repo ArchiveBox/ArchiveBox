@@ -37,10 +37,11 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=[
         "dataclasses==0.6",
+        "mypy-extensions==0.4.1",
         "base32-crockford==0.3.0",
         "django==2.2",
         "django-extensions==2.1.6",
-        "python-crontab",
+        "python-crontab==2.3.6",
         "youtube-dl",
         "ipython",
 

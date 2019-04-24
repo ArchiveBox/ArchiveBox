@@ -19,6 +19,7 @@ youtube-dl = "*"
 python-crontab = "*"
 croniter = "*"
 ipython = "*"
+mypy-extensions = "*"
 
 [requires]
 python_version = "3.7"
