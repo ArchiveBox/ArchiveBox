@@ -112,6 +112,8 @@ def main(args=None):
     if command.sort:
         links = sorted(links, key=lambda link: getattr(link, command.sort))
 
+    links = list(links)
+
     if command.status == 'indexed':
         folders = get_indexed_folders(links, out_dir=OUTPUT_DIR)
     elif command.status == 'archived':

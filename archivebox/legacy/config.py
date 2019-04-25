@@ -500,15 +500,17 @@ def get_chrome_info(config: ConfigDict) -> ConfigValue:
 
 ################################## Load Config #################################
 
-CONFIG: ConfigDict
 
-CONFIG = load_config(SHELL_CONFIG_DEFAULTS)
-CONFIG = load_config(ARCHIVE_CONFIG_DEFAULTS, CONFIG)
-CONFIG = load_config(ARCHIVE_METHOD_TOGGLES_DEFAULTS, CONFIG)
-CONFIG = load_config(ARCHIVE_METHOD_OPTIONS_DEFAULTS, CONFIG)
-CONFIG = load_config(DEPENDENCY_CONFIG_DEFAULTS, CONFIG)
-CONFIG = load_config(DERIVED_CONFIG_DEFAULTS, CONFIG)
+def load_all_config():
+    CONFIG: ConfigDict = {}
+    for section_name, section_config in CONFIG_DEFAULTS.items():
+        CONFIG = load_config(section_config, CONFIG)
+
+    return load_config(DERIVED_CONFIG_DEFAULTS, CONFIG)
+
+CONFIG = load_all_config()
 globals().update(CONFIG)
+
 
 ############################## Importable Checkers #############################
 
