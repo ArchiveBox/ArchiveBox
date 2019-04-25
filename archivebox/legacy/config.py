@@ -9,8 +9,9 @@ import getpass
 import shutil
 
 from hashlib import md5
-from typing import Optional, Type, Tuple
+from typing import Optional, Type, Tuple, Dict
 from subprocess import run, PIPE, DEVNULL
+from configparser import ConfigParser
 
 from .config_stubs import (
     SimpleConfigValueDict,
@@ -29,63 +30,66 @@ from .config_stubs import (
 
 ################################# User Config ##################################
 
-SHELL_CONFIG_DEFAULTS: ConfigDefaultDict = {
-    'IS_TTY':                   {'type': bool,  'default': lambda _: sys.stdout.isatty()},
-    'USE_COLOR':                {'type': bool,  'default': lambda c: c['IS_TTY']},
-    'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: c['IS_TTY']},
-}
+CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
+    'SHELL_CONFIG': {
+        'IS_TTY':                   {'type': bool,  'default': lambda _: sys.stdout.isatty()},
+        'USE_COLOR':                {'type': bool,  'default': lambda c: c['IS_TTY']},
+        'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: c['IS_TTY']},
+    },
 
-ARCHIVE_CONFIG_DEFAULTS: ConfigDefaultDict = {
-    'OUTPUT_DIR':               {'type': str,   'default': None},
-    'ONLY_NEW':                 {'type': bool,  'default': False},
-    'TIMEOUT':                  {'type': int,   'default': 60},
-    'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
-    'OUTPUT_PERMISSIONS':       {'type': str,   'default': '755'},
-    'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
-    'URL_BLACKLIST':            {'type': str,   'default': None},
-}
+    'GENERAL_CONFIG': {
+        'OUTPUT_DIR':               {'type': str,   'default': None},
+        'CONFIG_FILE':              {'type': str,   'default': None},
+        'ONLY_NEW':                 {'type': bool,  'default': False},
+        'TIMEOUT':                  {'type': int,   'default': 60},
+        'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
+        'OUTPUT_PERMISSIONS':       {'type': str,   'default': '755'},
+        'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
+        'URL_BLACKLIST':            {'type': str,   'default': None},
+    },
 
-ARCHIVE_METHOD_TOGGLES_DEFAULTS: ConfigDefaultDict = {
-    'SAVE_TITLE':               {'type': bool,  'default': True, 'aliases': ('FETCH_TITLE',)},
-    'SAVE_FAVICON':             {'type': bool,  'default': True, 'aliases': ('FETCH_FAVICON',)},
-    'SAVE_WGET':                {'type': bool,  'default': True, 'aliases': ('FETCH_WGET',)},
-    'SAVE_WGET_REQUISITES':     {'type': bool,  'default': True, 'aliases': ('FETCH_WGET_REQUISITES',)},
-    'SAVE_PDF':                 {'type': bool,  'default': True, 'aliases': ('FETCH_PDF',)},
-    'SAVE_SCREENSHOT':          {'type': bool,  'default': True, 'aliases': ('FETCH_SCREENSHOT',)},
-    'SAVE_DOM':                 {'type': bool,  'default': True, 'aliases': ('FETCH_DOM',)},
-    'SAVE_WARC':                {'type': bool,  'default': True, 'aliases': ('FETCH_WARC',)},
-    'SAVE_GIT':                 {'type': bool,  'default': True, 'aliases': ('FETCH_GIT',)},
-    'SAVE_MEDIA':               {'type': bool,  'default': True, 'aliases': ('FETCH_MEDIA',)},
-    'SAVE_ARCHIVE_DOT_ORG':     {'type': bool,  'default': True, 'aliases': ('SUBMIT_ARCHIVE_DOT_ORG',)},
-}
+    'ARCHIVE_METHOD_TOGGLES': {
+        'SAVE_TITLE':               {'type': bool,  'default': True, 'aliases': ('FETCH_TITLE',)},
+        'SAVE_FAVICON':             {'type': bool,  'default': True, 'aliases': ('FETCH_FAVICON',)},
+        'SAVE_WGET':                {'type': bool,  'default': True, 'aliases': ('FETCH_WGET',)},
+        'SAVE_WGET_REQUISITES':     {'type': bool,  'default': True, 'aliases': ('FETCH_WGET_REQUISITES',)},
+        'SAVE_PDF':                 {'type': bool,  'default': True, 'aliases': ('FETCH_PDF',)},
+        'SAVE_SCREENSHOT':          {'type': bool,  'default': True, 'aliases': ('FETCH_SCREENSHOT',)},
+        'SAVE_DOM':                 {'type': bool,  'default': True, 'aliases': ('FETCH_DOM',)},
+        'SAVE_WARC':                {'type': bool,  'default': True, 'aliases': ('FETCH_WARC',)},
+        'SAVE_GIT':                 {'type': bool,  'default': True, 'aliases': ('FETCH_GIT',)},
+        'SAVE_MEDIA':               {'type': bool,  'default': True, 'aliases': ('FETCH_MEDIA',)},
+        'SAVE_ARCHIVE_DOT_ORG':     {'type': bool,  'default': True, 'aliases': ('SUBMIT_ARCHIVE_DOT_ORG',)},
+    },
 
-ARCHIVE_METHOD_OPTIONS_DEFAULTS: ConfigDefaultDict = {
-    'RESOLUTION':               {'type': str,   'default': '1440,2000', 'aliases': ('SCREENSHOT_RESOLUTION',)},
-    'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com'},
-    'CHECK_SSL_VALIDITY':       {'type': bool,  'default': True},
+    'ARCHIVE_METHOD_OPTIONS': {
+        'RESOLUTION':               {'type': str,   'default': '1440,2000', 'aliases': ('SCREENSHOT_RESOLUTION',)},
+        'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com'},
+        'CHECK_SSL_VALIDITY':       {'type': bool,  'default': True},
 
-    'WGET_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}'},
-    'CHROME_USER_AGENT':        {'type': str,   'default': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36'},
+        'WGET_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}'},
+        'CHROME_USER_AGENT':        {'type': str,   'default': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36'},
 
-    'COOKIES_FILE':             {'type': str,   'default': None},
-    'CHROME_USER_DATA_DIR':     {'type': str,   'default': None},
+        'COOKIES_FILE':             {'type': str,   'default': None},
+        'CHROME_USER_DATA_DIR':     {'type': str,   'default': None},
 
-    'CHROME_HEADLESS':          {'type': bool,  'default': True},
-    'CHROME_SANDBOX':           {'type': bool,  'default': True},
-}
+        'CHROME_HEADLESS':          {'type': bool,  'default': True},
+        'CHROME_SANDBOX':           {'type': bool,  'default': True},
+    },
 
-DEPENDENCY_CONFIG_DEFAULTS: ConfigDefaultDict = {
-    'USE_CURL':                 {'type': bool,  'default': True},
-    'USE_WGET':                 {'type': bool,  'default': True},
-    'USE_GIT':                  {'type': bool,  'default': True},
-    'USE_CHROME':               {'type': bool,  'default': True},
-    'USE_YOUTUBEDL':            {'type': bool,  'default': True},
+    'DEPENDENCY_CONFIG': {
+        'USE_CURL':                 {'type': bool,  'default': True},
+        'USE_WGET':                 {'type': bool,  'default': True},
+        'USE_GIT':                  {'type': bool,  'default': True},
+        'USE_CHROME':               {'type': bool,  'default': True},
+        'USE_YOUTUBEDL':            {'type': bool,  'default': True},
 
-    'CURL_BINARY':              {'type': str,   'default': 'curl'},
-    'GIT_BINARY':               {'type': str,   'default': 'git'},
-    'WGET_BINARY':              {'type': str,   'default': 'wget'},
-    'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
-    'CHROME_BINARY':            {'type': str,   'default': None},
+        'CURL_BINARY':              {'type': str,   'default': 'curl'},
+        'GIT_BINARY':               {'type': str,   'default': 'git'},
+        'WGET_BINARY':              {'type': str,   'default': 'wget'},
+        'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
+        'CHROME_BINARY':            {'type': str,   'default': None},
+    },
 }
 
 ############################## Derived Config ##############################
@@ -120,7 +124,21 @@ JSON_INDEX_FILENAME = 'index.json'
 HTML_INDEX_FILENAME = 'index.html'
 ROBOTS_TXT_FILENAME = 'robots.txt'
 FAVICON_FILENAME = 'favicon.ico'
+CONFIG_FILENAME = 'ArchiveBox.conf'
 
+CONFIG_HEADER = """
+# This is the default config file for new ArchiveBox projects.
+# Add your archive collection config here in INI format.
+# 
+# After updating your config, make sure to update your archive by running:
+#    archivebox init
+#
+# The example default configuration file can be found at:
+#    ArchiveBox/etc/Archivebox.conf.default
+#
+# See the list of all the possible options. documentation, and examples here:
+#    https://github.com/pirate/ArchiveBox/wiki/Configuration
+"""
 
 
 DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
@@ -137,6 +155,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'ARCHIVE_DIR':              {'default': lambda c: os.path.join(c['OUTPUT_DIR'], ARCHIVE_DIR_NAME)},
     'SOURCES_DIR':              {'default': lambda c: os.path.join(c['OUTPUT_DIR'], SOURCES_DIR_NAME)},
     'LOGS_DIR':                 {'default': lambda c: os.path.join(c['OUTPUT_DIR'], LOGS_DIR_NAME)},
+    'CONFIG_FILE':              {'default': lambda c: os.path.abspath(os.path.expanduser(c['CONFIG_FILE'])) if c['CONFIG_FILE'] else os.path.join(c['OUTPUT_DIR'], CONFIG_FILENAME)},
     'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and os.path.abspath(os.path.expanduser(c['COOKIES_FILE']))},
     'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (os.path.abspath(os.path.expanduser(c['CHROME_USER_DATA_DIR'])) or None)},
     'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'], re.IGNORECASE)},
@@ -194,14 +213,20 @@ def load_config_val(key: str,
                     default: ConfigDefaultValue=None,
                     type: Optional[Type]=None,
                     aliases: Optional[Tuple[str, ...]]=None,
-                    config: Optional[ConfigDict]=None) -> ConfigValue:
+                    config: Optional[ConfigDict]=None,
+                    env_vars: Optional[os._Environ]=None,
+                    config_file_vars: Optional[Dict[str, str]]=None) -> ConfigValue:
 
-    # check the canonical option name first, then check any older aliases
-    possible_env_keys = (key, *(aliases or ()))
-    for key in possible_env_keys:
-        val = os.getenv(key, None)
-        if val:
-            break
+    config_keys_to_check = (key, *(aliases or ()))
+    for key in config_keys_to_check:
+        if env_vars:
+            val = env_vars.get(key)
+            if val:
+                break
+        if config_file_vars:
+            val = config_file_vars.get(key)
+            if val:
+                break
 
     if type is None or val is None:
         if callable(default):
@@ -230,7 +255,84 @@ def load_config_val(key: str,
 
     raise Exception('Config values can only be str, bool, or int')
 
-def load_config(defaults: ConfigDefaultDict, config: Optional[ConfigDict]=None) -> ConfigDict:
+def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
+    """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
+
+    out_dir = out_dir or os.path.abspath(os.getenv('OUTPUT_DIR', '.'))
+    config_path = os.path.join(out_dir, CONFIG_FILENAME)
+    if os.path.exists(config_path):
+        config_file = ConfigParser()
+        config_file.optionxform = str 
+        config_file.read(config_path)
+        # flatten into one namespace
+        config_file_vars = {
+            key.upper(): val
+            for section, options in config_file.items()
+                for key, val in options.items()
+        }
+        # print('[i] Loaded config file', os.path.abspath(config_path))
+        # print(config_file_vars)
+        return config_file_vars
+    return None
+
+def write_config_file(config: Dict[str, str], out_dir: str=None) -> Optional[Dict[str, str]]:
+    """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
+
+    out_dir = out_dir or os.path.abspath(os.getenv('OUTPUT_DIR', '.'))
+    config_path = os.path.join(out_dir, CONFIG_FILENAME)
+    if not os.path.exists(config_path):
+        with open(config_path, 'w+') as f:
+            f.write(CONFIG_HEADER)
+
+    config_file = ConfigParser()
+    config_file.optionxform = str 
+    config_file.read(config_path)
+
+    find_section = lambda key: [name for name, opts in CONFIG_DEFAULTS.items() if key in opts][0]
+
+    with open(f'{config_path}.old', 'w+') as old:
+        with open(config_path, 'r') as new:
+            old.write(new.read())
+
+    with open(config_path, 'w+') as f:
+        for key, val in config.items():
+            section = find_section(key)
+            if section in config_file:
+                existing_config = dict(config_file[section])
+            else:
+                existing_config = {}
+
+            config_file[section] = {**existing_config, key: val}
+
+        config_file.write(f)
+
+    try:
+        CONFIG = load_all_config()
+        return {
+            key.upper(): CONFIG.get(key.upper())
+            for key in config.keys()
+        }
+    except:
+        with open(f'{config_path}.old', 'r') as old:
+            with open(config_path, 'w+') as new:
+                new.write(old.read())
+
+    if os.path.exists(f'{config_path}.old'):
+        os.remove(f'{config_path}.old')
+
+    return {}
+
+   
+
+def load_config(defaults: ConfigDefaultDict,
+                config: Optional[ConfigDict]=None,
+                out_dir: Optional[str]=None,
+                env_vars: Optional[os._Environ]=None,
+                config_file_vars: Optional[Dict[str, str]]=None) -> ConfigDict:
+    
+    env_vars = env_vars or os.environ
+    config_file_vars = config_file_vars or load_config_file(out_dir=out_dir)
+
     extended_config: ConfigDict = config.copy() if config else {}
     for key, default in defaults.items():
         try:
@@ -240,6 +342,8 @@ def load_config(defaults: ConfigDefaultDict, config: Optional[ConfigDict]=None) 
                 type=default.get('type'),
                 aliases=default.get('aliases'),
                 config=extended_config,
+                env_vars=env_vars,
+                config_file_vars=config_file_vars,
             )
         except KeyboardInterrupt:
             raise SystemExit(0)
@@ -253,9 +357,15 @@ def load_config(defaults: ConfigDefaultDict, config: Optional[ConfigDict]=None) 
             stderr('    For config documentation and examples see:')
             stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration')
             stderr()
-            raise SystemExit(1)
+            raise SystemExit(2)
     
     return extended_config
+
+# def write_config(config: ConfigDict):
+
+#     with open(os.path.join(config['OUTPUT_DIR'], CONFIG_FILENAME), 'w+') as f:
+
+
 
 def stderr(*args, color: Optional[str]=None, config: Optional[ConfigDict]=None) -> None:
     ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
@@ -391,6 +501,11 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
 def get_config_locations(config: ConfigDict) -> ConfigValue:
     abspath = lambda path: None if path is None else os.path.abspath(path)
     return {
+        'CONFIG_FILE': {
+            'path': abspath(config['CHROME_USER_DATA_DIR']),
+            'enabled': config['USE_CHROME'] and config['CHROME_USER_DATA_DIR'],
+            'is_valid': False if config['CHROME_USER_DATA_DIR'] is None else os.path.exists(os.path.join(config['CHROME_USER_DATA_DIR'], 'Default')),
+        },
         'CHROME_USER_DATA_DIR': {
             'path': abspath(config['CHROME_USER_DATA_DIR']),
             'enabled': config['USE_CHROME'] and config['CHROME_USER_DATA_DIR'],

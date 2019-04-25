@@ -1,74 +1,56 @@
-# Example config file for ArchiveBox: The self-hosted internet archive.
-# Copy this file to ~/.ArchiveBox.conf before editing it.
-# Config file is in both Python and .env syntax (all strings must be quoted).
-# For documentation, see:
+# This is the default config file for new ArchiveBox projects.
+# Edit values below using INI syntax, then update your archive by running:
+#    archivebox init
+# For more options, example setups, and documentation, see:
 #    https://github.com/pirate/ArchiveBox/wiki/Configuration
 
-################################################################################
-## General Settings
-################################################################################
+[GENERAL_CONFIG]
+# OUTPUT_PERMISSIONS = 755
+# ONLY_NEW = False
+# TIMEOUT = 60
+# MEDIA_TIMEOUT = 3600
+# ACTIVE_THEME = default
+# FOOTER_INFO = Content is hosted for personal archiving purposes only. Contact server owner for any takedown requests.
+# URL_BLACKLIST = (://(.*\.)?facebook\.com)|(://(.*\.)?ebay\.com)|(.*\.exe$)
 
-#OUTPUT_DIR="output"
-#OUTPUT_PERMISSIONS=755
-#ONLY_NEW=False
-#TIMEOUT=60
-#MEDIA_TIMEOUT=3600
-#TEMPLATES_DIR="archivebox/templates"
-#FOOTER_INFO="Content is hosted for personal archiving purposes only. Contact server owner for any takedown requests."
-#URL_BLACKLIST="(://(.*\.)?youtube\.com)|(://(.*\.)?amazon\.com)|(.*\.exe$)"
-
-################################################################################
-## Archive Method Toggles
-################################################################################
-
-#SAVE_TITLE=True
-#SAVE_FAVICON=True
-#SAVE_WGET=True
-#SAVE_WGET_REQUISITES=True
-#SAVE_WARC=True
-#SAVE_PDF=True
-#SAVE_SCREENSHOT=True
-#SAVE_DOM=True
-#SAVE_GIT=True
-#SAVE_MEDIA=False
-#SAVE_ARCHIVE_DOT_ORG=True
+[ARCHIVE_METHOD_TOGGLES]
+# SAVE_TITLE = True
+# SAVE_FAVICON = True
+# SAVE_WGET = True
+# SAVE_WGET_REQUISITES = True
+# SAVE_WARC = True
+# SAVE_PDF = True
+# SAVE_SCREENSHOT = True
+# SAVE_DOM = True
+# SAVE_GIT = True
+# SAVE_MEDIA = False
+# SAVE_ARCHIVE_DOT_ORG = True
 
 
-################################################################################
-## Archive Method Options
-################################################################################
+[ARCHIVE_METHOD_OPTIONS]
+# CHECK_SSL_VALIDITY = True
+# RESOLUTION = 1440,900
+# GIT_DOMAINS = github.com,bitbucket.org,gitlab.com
 
-#CHECK_SSL_VALIDITY=True
-#RESOLUTION="1440,900"
-#GIT_DOMAINS="github.com,bitbucket.org,gitlab.com"
+# CROME_HEADLESS = True
+# CROME_SANDBOX = True
 
-#CROME_HEADLESS=True
-#CROME_SANDBOX=True
+# COOKIES_FILE = path/to/cookies.txt
+# CHROME_USER_DATA_DIR = ~/.config/google-chrome/Default
 
-#COOKIES_FILE="path/to/cookies.txt"
-#CHROME_USER_DATA_DIR="~/.config/google-chrome/Default"
-
-#WGET_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36"
-#CHROME_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36"
-
-################################################################################
-## Shell Options
-################################################################################
-
-#USE_COLOR=True
-#SHOW_PROGRESS=True
+# WGET_USER_AGENT = Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36
+# CHROME_USER_AGENT = Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36
 
 
-################################################################################
-## Dependency Options
-################################################################################
+[DEPENDENCY_CONFIG]
+# USE_CURL = True
+# USE_WGET = True
+# USE_CHROME = True
+# USE_YOUTUBEDL = True
+# USE_GIT = True
 
-#USE_CURL=True
-#USE_WGET=True
-#USE_CHROME=True
-
-#CURL_BINARY="curl"
-#GIT_BINARY="git"
-#WGET_BINARY="wget"
-#YOUTUBEDL_BINARY="youtube-dl"
-#CHROME_BINARY="chromium-browser"
+# CURL_BINARY = curl
+# GIT_BINARY = git"
+# WGET_BINARY = wget
+# YOUTUBEDL_BINARY = youtube-dl
+# CHROME_BINARY = chromium
