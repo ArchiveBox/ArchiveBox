@@ -7,6 +7,8 @@ __description__ = 'Add a new URL or list of URLs to your archive'
 import sys
 import argparse
 
+from typing import List, Optional
+
 from ..legacy.config import stderr, check_dependencies, check_data_folder
 from ..legacy.util import (
     handle_stdin_import,
@@ -15,7 +17,7 @@ from ..legacy.util import (
 from ..legacy.main import update_archive_data
 
 
-def main(args=None, stdin=None):
+def main(args: List[str]=None, stdin: Optional[str]=None) -> None:
     check_data_folder()
     
     args = sys.argv[1:] if args is None else args
@@ -35,6 +37,11 @@ def main(args=None, stdin=None):
         '--only-new', #'-n',
         action='store_true',
         help="Don't attempt to retry previously skipped/failed links when updating",
+    )
+    parser.add_argument(
+        '--index-only', #'-o',
+        action='store_true',
+        help="Add the links to the main index without archiving them",
     )
     # parser.add_argument(
     #     '--mirror', #'-m',
@@ -81,6 +88,7 @@ def main(args=None, stdin=None):
         import_path=import_path,
         resume=None,
         only_new=command.only_new,
+        index_only=command.index_only,
     )
 
 

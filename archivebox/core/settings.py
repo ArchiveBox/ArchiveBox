@@ -15,6 +15,7 @@ ACTIVE_THEME = 'default'
 
 IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
 
+
 INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',

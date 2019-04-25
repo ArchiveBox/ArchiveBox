@@ -8,7 +8,7 @@ from importlib import import_module
 CLI_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # these common commands will appear sorted before any others for ease-of-use
-display_first = ('help', 'version', 'init', 'info', 'list', 'update', 'add', 'remove')
+display_first = ('help', 'version', 'init', 'info', 'config', 'list', 'update', 'add', 'remove')
 
 # every imported command module must have these properties in order to be valid
 required_attrs = ('__package__', '__command__', 'main')

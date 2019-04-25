@@ -7,13 +7,14 @@ __description__ = 'Import any new links from subscriptions and retry any previou
 import sys
 import argparse
 
+from typing import List
 
 from ..legacy.config import check_data_folder
 from ..legacy.util import reject_stdin
 from ..legacy.main import update_archive_data
 
 
-def main(args=None):
+def main(args: List[str]=None):
     check_data_folder()
     
     args = sys.argv[1:] if args is None else args
@@ -29,6 +30,11 @@ def main(args=None):
         help="Don't attempt to retry previously skipped/failed links when updating",
     )
     parser.add_argument(
+        '--index-only', #'-o',
+        action='store_true',
+        help="Update the main index without archiving any content",
+    )
+    parser.add_argument(
         '--resume', #'-r',
         type=float,
         help='Resume the update process from a given timestamp',
@@ -41,6 +47,7 @@ def main(args=None):
         import_path=None,
         resume=command.resume,
         only_new=command.only_new,
+        index_only=command.index_only,
     )
     
 
