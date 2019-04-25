@@ -328,6 +328,9 @@ def update_archive_data(import_path: Optional[str]=None,
     # Step 2: Write updated index with deduped old and new links back to disk
     write_main_index(links=list(all_links), out_dir=OUTPUT_DIR)
 
+    if index_only:
+        return all_links
+        
     # Step 3: Run the archive methods for each link
     links = new_links if ONLY_NEW else all_links
     log_archiving_started(len(links), resume)
