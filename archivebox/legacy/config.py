@@ -242,7 +242,7 @@ def load_config(defaults: ConfigDefaultDict, config: Optional[ConfigDict]=None) 
                 config=extended_config,
             )
         except KeyboardInterrupt:
-            raise SystemExit(1)
+            raise SystemExit(0)
         except Exception as e:
             stderr()
             stderr(f'[X] Error while loading configuration value: {key}', color='red', config=extended_config)
@@ -520,13 +520,13 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
         stderr('[!] ArchiveBox should never be run as root!', color='red')
         stderr('    For more information, see the security overview documentation:')
         stderr('        https://github.com/pirate/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
-        raise SystemExit(1)
+        raise SystemExit(2)
 
     ### Check Python environment
     if float(config['PYTHON_VERSION']) < 3.6:
         stderr(f'[X] Python version is not new enough: {config["PYTHON_VERSION"]} (>3.6 is required)', color='red')
         stderr('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
-        raise SystemExit(1)
+        raise SystemExit(2)
 
     if config['PYTHON_ENCODING'] not in ('UTF-8', 'UTF8'):
         stderr(f'[X] Your system is running python3 scripts with a bad locale setting: {config["PYTHON_ENCODING"]} (it should be UTF-8).', color='red')
@@ -535,7 +535,7 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
         stderr('')
         stderr('    Confirm that it\'s fixed by opening a new shell and running:')
         stderr('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
-        raise SystemExit(1)
+        raise SystemExit(2)
 
     # stderr('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
     # stderr('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
@@ -550,7 +550,7 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
                 stderr()
                 stderr('    Try removing /Default from the end e.g.:')
                 stderr('        CHROME_USER_DATA_DIR="{}"'.format(config['CHROME_USER_DATA_DIR'].split('/Default')[0]))
-            raise SystemExit(1)
+            raise SystemExit(2)
 
 def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
     invalid = [
@@ -567,7 +567,7 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
             stderr()
             stderr('    To get more info on dependency status run:')
             stderr('        archivebox --version')
-        raise SystemExit(1)
+        raise SystemExit(2)
 
     if config['TIMEOUT'] < 5:
         stderr()
@@ -612,7 +612,7 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
         stderr()
         stderr('    To create a new archive collection or import existing data in this folder, run:')
         stderr('        archivebox init')
-        raise SystemExit(1)
+        raise SystemExit(2)
 
     sql_index_exists = os.path.exists(os.path.join(output_dir, SQL_INDEX_FILENAME))
     from .storage.sql import list_migrations
@@ -630,7 +630,7 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
         stderr()
         stderr(f'    To upgrade it to the latest version and {pending_operation} run:')
         stderr('        archivebox init')
-        raise SystemExit(1)
+        raise SystemExit(3)
 
 
 
@@ -639,16 +639,18 @@ def setup_django(out_dir: str=None, check_db=False, config: ConfigDict=CONFIG) -
 
     assert isinstance(output_dir, str) and isinstance(config['PYTHON_DIR'], str)
 
-    import django
-    sys.path.append(config['PYTHON_DIR'])
-    os.environ.setdefault('OUTPUT_DIR', output_dir)
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
-    django.setup()
+    try:
+        import django
+        sys.path.append(config['PYTHON_DIR'])
+        os.environ.setdefault('OUTPUT_DIR', output_dir)
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+        django.setup()
 
-    if check_db:
-        sql_index_path = os.path.join(output_dir, SQL_INDEX_FILENAME)
-        assert os.path.exists(sql_index_path), (
-            f'No database file {SQL_INDEX_FILENAME} found in OUTPUT_DIR: {config["OUTPUT_DIR"]}')
-
+        if check_db:
+            sql_index_path = os.path.join(output_dir, SQL_INDEX_FILENAME)
+            assert os.path.exists(sql_index_path), (
+                f'No database file {SQL_INDEX_FILENAME} found in OUTPUT_DIR: {config["OUTPUT_DIR"]}')
+    except KeyboardInterrupt:
+        raise SystemExit(2)
 
 check_system_config()
