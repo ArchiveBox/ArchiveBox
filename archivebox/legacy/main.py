@@ -87,7 +87,7 @@ def init():
         print('{green}[+] Initializing a new ArchiveBox collection in this folder...{reset}'.format(**ANSI))
         print(f'    {OUTPUT_DIR}')
         print('{green}------------------------------------------------------------------{reset}'.format(**ANSI))
-    elif is_empty and existing_index:
+    elif existing_index:
         print('{green}[*] Updating existing ArchiveBox collection in this folder...{reset}'.format(**ANSI))
         print(f'    {OUTPUT_DIR}')
         print('{green}------------------------------------------------------------------{reset}'.format(**ANSI))
@@ -185,7 +185,7 @@ def init():
         all_links.update(orphan_new_links)
         print('    {lightyellow}√ Added {} orphaned links from existing archive directories...{reset}'.format(len(orphan_new_links), **ANSI))
     if orphan_duplicates:
-        print('    {lightyellow}! Skipped adding {} orphaned link data directories that would have overwritten existing data.{reset}'.format(len(orphan_duplicates), **ANSI))
+        print('    {lightyellow}! Skipped adding {} invalid link data directories that would have overwritten or corrupted existing data.{reset}'.format(len(orphan_duplicates), **ANSI))
 
     orphaned_data_dirs = {folder for folder in orphan_duplicates.keys()}
     invalid_folders = {
@@ -232,7 +232,7 @@ def info():
     print(f'    Size: {size} across {num_files} files')
     print()
 
-    links = load_main_index(out_dir=OUTPUT_DIR)
+    links = list(load_main_index(out_dir=OUTPUT_DIR))
     num_json_links = len(links)
     num_sql_links = sum(1 for link in parse_sql_main_index(out_dir=OUTPUT_DIR))
     num_html_links = sum(1 for url in parse_html_main_index(out_dir=OUTPUT_DIR))
@@ -308,7 +308,10 @@ def info():
 
 
 @enforce_types
-def update_archive_data(import_path: Optional[str]=None, resume: Optional[float]=None, only_new: bool=False) -> List[Link]:
+def update_archive_data(import_path: Optional[str]=None, 
+                        resume: Optional[float]=None,
+                        only_new: bool=False,
+                        index_only: bool=False) -> List[Link]:
     """The main ArchiveBox entrancepoint. Everything starts here."""
 
     check_dependencies()
