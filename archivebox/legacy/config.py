@@ -92,6 +92,16 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
     },
 }
 
+CONFIG_ALIASES = {
+    alias: key
+    for section in CONFIG_DEFAULTS.values()
+        for key, default in section.items()
+            for alias in default.get('aliases', ())
+}
+USER_CONFIG = {key for section in CONFIG_DEFAULTS.values() for key in section.keys()}
+def get_real_name(key: str) -> str:
+    return CONFIG_ALIASES.get(key.upper().strip(), key.upper().strip())
+
 ############################## Derived Config ##############################
 
 # Constants
@@ -275,7 +285,7 @@ def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
         return config_file_vars
     return None
 
-def write_config_file(config: Dict[str, str], out_dir: str=None) -> Optional[Dict[str, str]]:
+def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
     """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
 
     out_dir = out_dir or os.path.abspath(os.getenv('OUTPUT_DIR', '.'))
@@ -285,7 +295,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> Optional[Dic
             f.write(CONFIG_HEADER)
 
     config_file = ConfigParser()
-    config_file.optionxform = str 
+    config_file.optionxform = str
     config_file.read(config_path)
 
     find_section = lambda key: [name for name, opts in CONFIG_DEFAULTS.items() if key in opts][0]

@@ -13,10 +13,14 @@ from ..legacy.util import SmartFormatter
 from ..legacy.config import (
     check_data_folder,
     OUTPUT_DIR,
+    load_all_config,
     write_config_file,
     CONFIG,
+    CONFIG_FILE,
+    USER_CONFIG,
     ConfigDict,
     stderr,
+    get_real_name,
 )
 
 
@@ -69,6 +73,7 @@ def main(args: List[str]=None, stdin: Optional[str]=None) -> None:
     matching_config: ConfigDict = {}
     if command.get or no_args:
         if config_options:
+            config_options = [get_real_name(key) for key in config_options]
             matching_config = {key: CONFIG[key] for key in config_options if key in CONFIG}
             failed_config = [key for key in config_options if key not in CONFIG]
             if failed_config:
@@ -79,7 +84,7 @@ def main(args: List[str]=None, stdin: Optional[str]=None) -> None:
         else:
             matching_config = CONFIG
         
-        print('\n'.join(f'{key}={val}' for key, val in matching_config.items()))
+        print(printable_config(matching_config))
         raise SystemExit(not matching_config)
     elif command.set:
         new_config = {}
@@ -92,15 +97,32 @@ def main(args: List[str]=None, stdin: Optional[str]=None) -> None:
                 stderr(f'    {line}')
                 raise SystemExit(2)
 
-            key, val = line.split('=')
-            if key.upper().strip() in CONFIG:
-                new_config[key.upper().strip()] = val.strip()
+            raw_key, val = line.split('=')
+            raw_key = raw_key.upper().strip()
+            key = get_real_name(raw_key)
+            if key != raw_key:
+                stderr(f'[i] Note: The config option {raw_key} has been renamed to {key}, please use the new name going forwards.', color='lightyellow')
+
+            if key in CONFIG:
+                new_config[key] = val.strip()
             else:
                 failed_options.append(line)
 
         if new_config:
+            before = CONFIG
             matching_config = write_config_file(new_config, out_dir=OUTPUT_DIR)
-            print('\n'.join(f'{key}={val}' for key, val in matching_config.items()))
+            after = load_all_config()
+            print(printable_config(matching_config))
+
+            side_effect_changes: ConfigDict = {}
+            for key, val in after.items():
+                if key in USER_CONFIG and (before[key] != after[key]) and (key not in matching_config):
+                    side_effect_changes[key] = after[key]
+
+            if side_effect_changes:
+                stderr()
+                stderr('[i] Note: This change also affected these other options that depended on it:', color='lightyellow')
+                print('    {}'.format(printable_config(side_effect_changes, prefix='    ')))
         if failed_options:
             stderr()
             stderr('[X] These options failed to set:', color='red')
@@ -112,6 +134,14 @@ def main(args: List[str]=None, stdin: Optional[str]=None) -> None:
         stderr('    archivebox config --get SOME_KEY')
         stderr('    archivebox config --set SOME_KEY=SOME_VALUE')
         raise SystemExit(2)
+
+
+def printable_config(config: ConfigDict, prefix: str='') -> str:
+    return f'\n{prefix}'.join(
+        f'{key}={val}'
+        for key, val in config.items()
+        if not (isinstance(val, dict) or callable(val))
+    )
 
 if __name__ == '__main__':
     main()
