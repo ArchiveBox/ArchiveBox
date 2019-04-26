@@ -34,6 +34,7 @@ from .config import (
     SOURCES_DIR,
     ARCHIVE_DIR,
     LOGS_DIR,
+    CONFIG_FILE,
     ARCHIVE_DIR_NAME,
     SOURCES_DIR_NAME,
     LOGS_DIR_NAME,
@@ -46,6 +47,7 @@ from .config import (
     check_dependencies,
     check_data_folder,
     setup_django,
+    write_config_file,
 )
 from .logs import (
     log_archiving_started,
@@ -115,6 +117,9 @@ def init():
 
     os.makedirs(LOGS_DIR, exist_ok=True)
     print(f'    √ {LOGS_DIR}')
+
+    write_config_file({}, out_dir=OUTPUT_DIR)
+    print(f'    √ {CONFIG_FILE}')
     
     if os.path.exists(os.path.join(OUTPUT_DIR, SQL_INDEX_FILENAME)):
         print('\n{green}[*] Verifying main SQL index and running migrations...{reset}'.format(**ANSI))

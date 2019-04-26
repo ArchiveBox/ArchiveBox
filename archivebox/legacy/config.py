@@ -136,19 +136,19 @@ ROBOTS_TXT_FILENAME = 'robots.txt'
 FAVICON_FILENAME = 'favicon.ico'
 CONFIG_FILENAME = 'ArchiveBox.conf'
 
-CONFIG_HEADER = """
-# This is the default config file for new ArchiveBox projects.
-# Add your archive collection config here in INI format.
+CONFIG_HEADER = (
+"""# This is the config file for your ArchiveBox collection.
+#
+# You can add options here manually in INI format, or automatically by running:
+#    archivebox config --set KEY=VALUE
 # 
-# After updating your config, make sure to update your archive by running:
+# If you modify this file manually, make sure to update your archive after by running:
 #    archivebox init
 #
-# The example default configuration file can be found at:
-#    ArchiveBox/etc/Archivebox.conf.default
-#
-# See the list of all the possible options. documentation, and examples here:
+# A list of all possible config with documentation and examples can be found here:
 #    https://github.com/pirate/ArchiveBox/wiki/Configuration
-"""
+
+""")
 
 
 DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
@@ -293,6 +293,9 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
     if not os.path.exists(config_path):
         with open(config_path, 'w+') as f:
             f.write(CONFIG_HEADER)
+
+    if not config:
+        return {}
 
     config_file = ConfigParser()
     config_file.optionxform = str
