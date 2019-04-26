@@ -46,6 +46,11 @@ def main(args: List[str]=None, stdin: Optional[str]=None) -> None:
         action='store_true',
         help="Set the given KEY=VALUE config values",
     )
+    group.add_argument(
+        '--reset', #'-s',
+        action='store_true',
+        help="Reset the given KEY config values to their defaults",
+    )
     parser.add_argument(
         'config_options',
         nargs='*',
@@ -68,7 +73,7 @@ def main(args: List[str]=None, stdin: Optional[str]=None) -> None:
     else:
         config_options = command.config_options
 
-    no_args = not (command.get or command.set or command.config_options)
+    no_args = not (command.get or command.set or command.reset or command.config_options)
 
     matching_config: ConfigDict = {}
     if command.get or no_args:
@@ -128,6 +133,12 @@ def main(args: List[str]=None, stdin: Optional[str]=None) -> None:
             stderr('[X] These options failed to set:', color='red')
             stderr('    {}'.format('\n    '.join(failed_options)))
         raise SystemExit(bool(failed_options))
+    elif command.reset:
+        stderr('[X] This command is not implemented yet.', color='red')
+        stderr('    Please manually remove the relevant lines from your config file:')
+        stderr(f'        {CONFIG_FILE}')
+        raise SystemExit(2)
+
     else:
         stderr('[X] You must pass either --get or --set, or no arguments to get the whole config.', color='red')
         stderr('    archivebox config')
