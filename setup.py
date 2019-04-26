@@ -62,8 +62,38 @@ setuptools.setup(
         'archivebox': ['VERSION', 'templates/*', 'templates/static/*'],
     },
     classifiers=[
+        "Development Status :: 4 - Beta",
+
+        "Topic :: Utilities",
+        "Topic :: System :: Archiving",
+        "Topic :: System :: Archiving :: Backup",
+        "Topic :: System :: Recovery Tools",
+        "Topic :: Sociology :: History",
+        "Topic :: Internet :: WWW/HTTP",
+        "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+        "Topic :: Internet :: WWW/HTTP :: WSGI",
+        "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
+        "Topic :: Internet :: WWW/HTTP :: WSGI :: Server",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+
+        "Intended Audience :: Developers",
+        "Intended Audience :: Education",
+        "Intended Audience :: End Users/Desktop",
+        "Intended Audience :: Information Technology",
+        "Intended Audience :: Legal Industry",
+        "Intended Audience :: System Administrators",
+        
+        "Environment :: Console",
+        "Environment :: Web Environment",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        'Framework :: Django',
+        "Typing :: Typed",
+
         "License :: OSI Approved :: MIT License",
+        "Natural Language :: English",
         "Operating System :: OS Independent",
     ],
 )
