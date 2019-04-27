@@ -2,8 +2,8 @@ from django.shortcuts import render
 
 from django.views import View
 
-from legacy.config import OUTPUT_DIR
-from legacy.index import load_main_index, load_main_index_meta
+from .index import load_main_index, load_main_index_meta
+from .config import OUTPUT_DIR
 
 
 class MainIndex(View):
@@ -34,7 +34,7 @@ class AddLinks(View):
     def post(self, request):
         import_path = request.POST['url']
         
-        # TODO: add the links to the index here using archivebox.legacy.main.update_archive_data
+        # TODO: add the links to the index here using archivebox.main.add
         print(f'Adding URL: {import_path}')
 
         return render(template_name=self.template, request=request, context={})

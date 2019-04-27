@@ -2,13 +2,17 @@ __package__ = 'archivebox.cli'
 
 import os
 
-from typing import Dict
+from typing import Dict, List, Optional, IO
 from importlib import import_module
 
 CLI_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # these common commands will appear sorted before any others for ease-of-use
-display_first = ('help', 'version', 'init', 'info', 'config', 'list', 'update', 'add', 'remove')
+meta_cmds = ('help', 'version')
+main_cmds = ('init', 'info', 'config')
+archive_cmds = ('add', 'remove', 'update', 'list')
+
+display_first = (*meta_cmds, *main_cmds, *archive_cmds)
 
 # every imported command module must have these properties in order to be valid
 required_attrs = ('__package__', '__command__', 'main')
@@ -42,11 +46,14 @@ def list_subcommands() -> Dict[str, str]:
     return dict(sorted(COMMANDS, key=display_order))
 
 
-def run_subcommand(subcommand: str, args=None) -> None:
+def run_subcommand(subcommand: str,
+                   subcommand_args: List[str]=None,
+                   stdin: Optional[IO]=None,
+                   pwd: Optional[str]=None) -> None:
     """run a given ArchiveBox subcommand with the given list of args"""
 
     module = import_module('.archivebox_{}'.format(subcommand), __package__)
-    module.main(args)    # type: ignore
+    module.main(args=subcommand_args, stdin=stdin, pwd=pwd)    # type: ignore
 
 
 SUBCOMMANDS = list_subcommands()

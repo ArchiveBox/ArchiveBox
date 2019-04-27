@@ -2,27 +2,36 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox update'
-__description__ = 'Import any new links from subscriptions and retry any previously failed/skipped links.'
+__description__ = 'Import any new links from subscriptions and retry any previously failed/skipped links'
 
 import sys
 import argparse
 
-from typing import List
+from typing import List, Optional, IO
 
-from ..legacy.config import check_data_folder
-from ..legacy.util import reject_stdin
-from ..legacy.main import update_archive_data
+from ..main import update
+from ..util import SmartFormatter, accept_stdin
+from ..config import OUTPUT_DIR
+from ..index import (
+    get_indexed_folders,
+    get_archived_folders,
+    get_unarchived_folders,
+    get_present_folders,
+    get_valid_folders,
+    get_invalid_folders,
+    get_duplicate_folders,
+    get_orphaned_folders,
+    get_corrupted_folders,
+    get_unrecognized_folders,
+)
 
 
-def main(args: List[str]=None):
-    check_data_folder()
-    
-    args = sys.argv[1:] if args is None else args
-
+def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
         description=__description__,
         add_help=True,
+        formatter_class=SmartFormatter,
     )
     parser.add_argument(
         '--only-new', #'-n',
@@ -40,16 +49,75 @@ def main(args: List[str]=None):
         help='Resume the update process from a given timestamp',
         default=None,
     )
+    parser.add_argument(
+        '--overwrite', #'-x',
+        action='store_true',
+        help='Ignore existing archived content and overwrite with new versions (DANGEROUS)',
+    )
+    parser.add_argument(
+        '--before', #'-b',
+        type=float,
+        help="Update only links bookmarked before the given timestamp.",
+        default=None,
+    )
+    parser.add_argument(
+        '--after', #'-a',
+        type=float,
+        help="Update only links bookmarked after the given timestamp.",
+        default=None,
+    )
+    parser.add_argument(
+        '--status',
+        type=str,
+        choices=('indexed', 'archived', 'unarchived', 'present', 'valid', 'invalid', 'duplicate', 'orphaned', 'corrupted', 'unrecognized'),
+        default='indexed',
+        help=(
+            'Update only links or data directories that have the given status\n'
+            f'    indexed       {get_indexed_folders.__doc__} (the default)\n'
+            f'    archived      {get_archived_folders.__doc__}\n'
+            f'    unarchived    {get_unarchived_folders.__doc__}\n'
+            '\n'
+            f'    present       {get_present_folders.__doc__}\n'
+            f'    valid         {get_valid_folders.__doc__}\n'
+            f'    invalid       {get_invalid_folders.__doc__}\n'
+            '\n'
+            f'    duplicate     {get_duplicate_folders.__doc__}\n'
+            f'    orphaned      {get_orphaned_folders.__doc__}\n'
+            f'    corrupted     {get_corrupted_folders.__doc__}\n'
+            f'    unrecognized  {get_unrecognized_folders.__doc__}\n'
+        )
+    )
+    parser.add_argument(
+        '--filter-type',
+        type=str,
+        choices=('exact', 'substring', 'domain', 'regex'),
+        default='exact',
+        help='Type of pattern matching to use when filtering URLs',
+    )
+    parser.add_argument(
+        'filter_patterns',
+        nargs='*',
+        type=str,
+        default=None,
+        help='List only URLs matching these filter patterns.'
+    )
     command = parser.parse_args(args)
-    reject_stdin(__command__)
+    filter_patterns_str = accept_stdin(stdin)
 
-    update_archive_data(
-        import_path=None,
+    update(
         resume=command.resume,
         only_new=command.only_new,
         index_only=command.index_only,
+        overwrite=command.overwrite,
+        filter_patterns_str=filter_patterns_str,
+        filter_patterns=command.filter_patterns,
+        filter_type=command.filter_type,
+        status=command.status,
+        after=command.after,
+        before=command.before,
+        out_dir=pwd or OUTPUT_DIR,
     )
     
 
 if __name__ == '__main__':
-    main()
+    main(args=sys.argv[1:], stdin=sys.stdin)

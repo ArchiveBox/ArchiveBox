@@ -7,15 +7,14 @@ __description__ = 'Run the ArchiveBox HTTP server'
 import sys
 import argparse
 
-from ..legacy.config import setup_django, IS_TTY, OUTPUT_DIR, ANSI, check_data_folder
-from ..legacy.util import reject_stdin
+from typing import Optional, List, IO
+
+from ..main import server
+from ..util import reject_stdin
+from ..config import OUTPUT_DIR
 
 
-def main(args=None):
-    check_data_folder()
-
-    args = sys.argv[1:] if args is None else args
-
+def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
         description=__description__,
@@ -33,26 +32,15 @@ def main(args=None):
         action='store_true',
         help='Enable auto-reloading when code or templates change',
     )
-    command = parser.parse_args(args)
-    reject_stdin(__command__)
+    command = parser.parse_args(args or ())
+    reject_stdin(__command__, stdin)
     
-    setup_django(OUTPUT_DIR)
-    from django.core.management import call_command
-    from django.contrib.auth.models import User
-
-    if IS_TTY and not User.objects.filter(is_superuser=True).exists():
-        print('{lightyellow}[!] No admin users exist yet, you will not be able to edit links in the UI.{reset}'.format(**ANSI))
-        print()
-        print('    To create an admin user, run:')
-        print('        archivebox manage createsuperuser')
-        print()
-
-    print('{green}[+] Starting ArchiveBox webserver...{reset}'.format(**ANSI))
-    if not command.reload:
-        command.runserver_args.append('--noreload')
-
-    call_command("runserver", *command.runserver_args)
+    server(
+        runserver_args=command.runserver_args,
+        reload=command.reload,
+        out_dir=pwd or OUTPUT_DIR,
+    )
 
 
 if __name__ == '__main__':
-    main()
+    main(args=sys.argv[1:], stdin=sys.stdin)

@@ -1,9 +1,7 @@
-
-from datetime import datetime
-
 from django.contrib import admin
 
-from .models import Page
+from core.models import Page
+
 
 class PageAdmin(admin.ModelAdmin):
     list_display = ('timestamp', 'short_url', 'title', 'is_archived', 'num_outputs', 'added', 'updated', 'url_hash')

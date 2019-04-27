@@ -1,4 +1,4 @@
-__package__ = 'archivebox.legacy'
+__package__ = 'archivebox.config'
 
 import os
 import io
@@ -13,7 +13,7 @@ from typing import Optional, Type, Tuple, Dict
 from subprocess import run, PIPE, DEVNULL
 from configparser import ConfigParser
 
-from .config_stubs import (
+from .stubs import (
     SimpleConfigValueDict,
     ConfigValue,
     ConfigDict,
@@ -40,7 +40,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
     'GENERAL_CONFIG': {
         'OUTPUT_DIR':               {'type': str,   'default': None},
         'CONFIG_FILE':              {'type': str,   'default': None},
-        'ONLY_NEW':                 {'type': bool,  'default': False},
+        'ONLY_NEW':                 {'type': bool,  'default': True},
         'TIMEOUT':                  {'type': int,   'default': 60},
         'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
         'OUTPUT_PERMISSIONS':       {'type': str,   'default': '755'},
@@ -122,8 +122,7 @@ ANSI = {k: '' for k in DEFAULT_CLI_COLORS.keys()}
 
 VERSION_FILENAME = 'VERSION'
 PYTHON_DIR_NAME = 'archivebox'
-LEGACY_DIR_NAME = 'legacy'
-TEMPLATES_DIR_NAME = 'templates'
+TEMPLATES_DIR_NAME = 'themes'
 
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
@@ -158,8 +157,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     
     'REPO_DIR':                 {'default': lambda c: os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))},
     'PYTHON_DIR':               {'default': lambda c: os.path.join(c['REPO_DIR'], PYTHON_DIR_NAME)},
-    'LEGACY_DIR':               {'default': lambda c: os.path.join(c['PYTHON_DIR'], LEGACY_DIR_NAME)},
-    'TEMPLATES_DIR':            {'default': lambda c: os.path.join(c['LEGACY_DIR'], TEMPLATES_DIR_NAME)},
+    'TEMPLATES_DIR':            {'default': lambda c: os.path.join(c['PYTHON_DIR'], TEMPLATES_DIR_NAME, 'legacy')},
     
     'OUTPUT_DIR':               {'default': lambda c: os.path.abspath(os.path.expanduser(c['OUTPUT_DIR'])) if c['OUTPUT_DIR'] else os.path.abspath(os.curdir)},
     'ARCHIVE_DIR':              {'default': lambda c: os.path.join(c['OUTPUT_DIR'], ARCHIVE_DIR_NAME)},
@@ -210,7 +208,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
 
     'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
     'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
-    'CONFIG_LOCATIONS':         {'default': lambda c: get_config_locations(c)},
+    'EXTERNAL_LOCATIONS':       {'default': lambda c: get_external_locations(c)},
     'DATA_LOCATIONS':           {'default': lambda c: get_data_locations(c)},
     'CHROME_OPTIONS':           {'default': lambda c: get_chrome_info(c)},
 }
@@ -370,6 +368,7 @@ def load_config(defaults: ConfigDefaultDict,
             stderr('    For config documentation and examples see:')
             stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration')
             stderr()
+            raise
             raise SystemExit(2)
     
     return extended_config
@@ -492,17 +491,12 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
         'REPO_DIR': {
             'path': os.path.abspath(config['REPO_DIR']),
             'enabled': True,
-            'is_valid': os.path.exists(os.path.join(config['REPO_DIR'], '.github')),
+            'is_valid': os.path.exists(os.path.join(config['REPO_DIR'], 'archivebox')),
         },
         'PYTHON_DIR': {
             'path': os.path.abspath(config['PYTHON_DIR']),
             'enabled': True,
             'is_valid': os.path.exists(os.path.join(config['PYTHON_DIR'], '__main__.py')),
-        },
-        'LEGACY_DIR': {
-            'path': os.path.abspath(config['LEGACY_DIR']),
-            'enabled': True,
-            'is_valid': os.path.exists(os.path.join(config['LEGACY_DIR'], 'util.py')),
         },
         'TEMPLATES_DIR': {
             'path': os.path.abspath(config['TEMPLATES_DIR']),
@@ -511,14 +505,9 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
         },
     }
 
-def get_config_locations(config: ConfigDict) -> ConfigValue:
+def get_external_locations(config: ConfigDict) -> ConfigValue:
     abspath = lambda path: None if path is None else os.path.abspath(path)
     return {
-        'CONFIG_FILE': {
-            'path': abspath(config['CHROME_USER_DATA_DIR']),
-            'enabled': config['USE_CHROME'] and config['CHROME_USER_DATA_DIR'],
-            'is_valid': False if config['CHROME_USER_DATA_DIR'] is None else os.path.exists(os.path.join(config['CHROME_USER_DATA_DIR'], 'Default')),
-        },
         'CHROME_USER_DATA_DIR': {
             'path': abspath(config['CHROME_USER_DATA_DIR']),
             'enabled': config['USE_CHROME'] and config['CHROME_USER_DATA_DIR'],
@@ -553,10 +542,25 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'enabled': True,
             'is_valid': os.path.exists(config['ARCHIVE_DIR']),
         },
+        'CONFIG_FILE': {
+            'path': os.path.abspath(config['CONFIG_FILE']),
+            'enabled': True,
+            'is_valid': os.path.exists(config['CONFIG_FILE']),
+        },
         'SQL_INDEX': {
+            'path': os.path.abspath(os.path.join(config['OUTPUT_DIR'], SQL_INDEX_FILENAME)),
+            'enabled': True,
+            'is_valid': os.path.exists(os.path.join(config['OUTPUT_DIR'], SQL_INDEX_FILENAME)),
+        },
+        'JSON_INDEX': {
             'path': os.path.abspath(os.path.join(config['OUTPUT_DIR'], JSON_INDEX_FILENAME)),
             'enabled': True,
             'is_valid': os.path.exists(os.path.join(config['OUTPUT_DIR'], JSON_INDEX_FILENAME)),
+        },
+        'HTML_INDEX': {
+            'path': os.path.abspath(os.path.join(config['OUTPUT_DIR'], HTML_INDEX_FILENAME)),
+            'enabled': True,
+            'is_valid': os.path.exists(os.path.join(config['OUTPUT_DIR'], HTML_INDEX_FILENAME)),
         },
     }
 
@@ -731,7 +735,7 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
 
     json_index_exists = os.path.exists(os.path.join(output_dir, JSON_INDEX_FILENAME))
     if not json_index_exists:
-        stderr('[X] No archive index was found in current directory.', color='red')
+        stderr('[X] No archive main index was found in current directory.', color='red')
         stderr(f'    {output_dir}')
         stderr()
         stderr('    Are you running archivebox in the right folder?')
@@ -743,7 +747,7 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
         raise SystemExit(2)
 
     sql_index_exists = os.path.exists(os.path.join(output_dir, SQL_INDEX_FILENAME))
-    from .storage.sql import list_migrations
+    from ..index.sql import list_migrations
 
     pending_migrations = [name for status, name in list_migrations() if not status]
 

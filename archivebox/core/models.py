@@ -4,8 +4,8 @@ import uuid
 
 from django.db import models
 
-from legacy.schema import Link
-from legacy.util import parse_date
+from ..util import parse_date
+from ..index.schema import Link
 
 
 class Page(models.Model):

@@ -6,24 +6,18 @@ __description__ = 'Run an ArchiveBox Django management command'
 
 import sys
 
-from ..legacy.config import OUTPUT_DIR, setup_django, check_data_folder
+from typing import Optional, List, IO
+
+from ..main import manage
+from ..config import OUTPUT_DIR
 
 
-def main(args=None):
-    check_data_folder()
-
-    setup_django(OUTPUT_DIR)
-    from django.core.management import execute_from_command_line
-
-    args = sys.argv if args is None else ['archivebox', *args]
-
-    args[0] = f'{sys.argv[0]} manage'
-
-    if args[1:] == []:
-        args.append('help')
-    
-    execute_from_command_line(args)
+def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
+    manage(
+        args=args,
+        out_dir=pwd or OUTPUT_DIR,
+    )
 
 
 if __name__ == '__main__':
-    main()
+    main(args=sys.argv[1:], stdin=sys.stdin)

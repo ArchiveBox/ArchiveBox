@@ -1,11 +1,22 @@
-__package__ = 'archivebox.legacy.storage'
+__package__ = 'archivebox.index'
 
 import os
 
 from datetime import datetime
 from typing import List, Optional, Iterator
 
-from ..schema import Link
+from .schema import Link
+from ..util import (
+    enforce_types,
+    ts_to_date,
+    urlencode,
+    htmlencode,
+    urldecode,
+    wget_output_path,
+    render_template,
+    atomic_write,
+    copy_and_overwrite,
+)
 from ..config import (
     OUTPUT_DIR,
     TEMPLATES_DIR,
@@ -17,17 +28,6 @@ from ..config import (
     STATIC_DIR_NAME,
     ROBOTS_TXT_FILENAME,
     FAVICON_FILENAME,
-)
-from ..util import (
-    enforce_types,
-    ts_to_date,
-    urlencode,
-    htmlencode,
-    urldecode,
-    wget_output_path,
-    render_template,
-    atomic_write,
-    copy_and_overwrite,
 )
 
 join = lambda *paths: os.path.join(*paths)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-__package__ = 'archivebox'
+__package__ = 'archivebox.cli'
 
 
 import os
@@ -29,15 +29,15 @@ TEST_CONFIG = {
 OUTPUT_DIR = 'data.tests'
 os.environ.update(TEST_CONFIG)
 
-from .legacy.main import init
-from .legacy.index import load_main_index
-from .legacy.config import (
+from ..main import init
+from ..index import load_main_index
+from ..config import (
     SQL_INDEX_FILENAME,
     JSON_INDEX_FILENAME,
     HTML_INDEX_FILENAME,
 )
 
-from .cli import (
+from . import (
     archivebox_init,
     archivebox_add,
     archivebox_remove,

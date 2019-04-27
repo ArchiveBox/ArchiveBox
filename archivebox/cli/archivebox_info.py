@@ -7,25 +7,24 @@ __description__ = 'Print out some info and statistics about the archive collecti
 import sys
 import argparse
 
-from ..legacy.config import check_data_folder
-from ..legacy.util import reject_stdin
-from ..legacy.main import info
+from typing import Optional, List, IO
+
+from ..main import info
+from ..config import OUTPUT_DIR
+from ..util import reject_stdin
 
 
-def main(args=None):
-    check_data_folder()
-    
-    args = sys.argv[1:] if args is None else args
-
+def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
         description=__description__,
         add_help=True,
     )
-    parser.parse_args(args)
-    reject_stdin(__command__)
+    parser.parse_args(args or ())
+    reject_stdin(__command__, stdin)
 
-    info()
+    info(out_dir=pwd or OUTPUT_DIR)
+
 
 if __name__ == '__main__':
-    main()
+    main(args=sys.argv[1:], stdin=sys.stdin)

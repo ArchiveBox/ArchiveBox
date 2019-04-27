@@ -1,3 +1,5 @@
+__package__ = 'archivebox.cli'
+
 import os
 import sys
 
@@ -5,8 +7,8 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Optional, List
 
-from .schema import Link, ArchiveResult
-from .config import ANSI, OUTPUT_DIR, IS_TTY
+from ..index.schema import Link, ArchiveResult
+from ..config import ANSI, OUTPUT_DIR, IS_TTY
 
 
 @dataclass
@@ -80,7 +82,7 @@ def log_indexing_finished(out_path: str):
 
 ### Archiving Stage
 
-def log_archiving_started(num_links: int, resume: Optional[float]):
+def log_archiving_started(num_links: int, resume: Optional[float]=None):
     start_ts = datetime.now()
     _LAST_RUN_STATS.archiving_start_ts = start_ts
     print()
@@ -92,7 +94,7 @@ def log_archiving_started(num_links: int, resume: Optional[float]):
              **ANSI,
         ))
     else:
-        print('{green}[▶] [{}] Updating content for {} pages in archive...{reset}'.format(
+        print('{green}[▶] [{}] Updating content for {} matching pages in archive...{reset}'.format(
              start_ts.strftime('%Y-%m-%d %H:%M:%S'),
              num_links,
              **ANSI,
@@ -213,18 +215,18 @@ def log_archive_method_finished(result: ArchiveResult):
         print()
 
 
-def log_list_started(filter_patterns: List[str], filter_type: str):
+def log_list_started(filter_patterns: Optional[List[str]], filter_type: str):
     print('{green}[*] Finding links in the archive index matching these {} patterns:{reset}'.format(
         filter_type,
         **ANSI,
     ))
-    print('    {}'.format(' '.join(filter_patterns)))
+    print('    {}'.format(' '.join(filter_patterns or ())))
 
 def log_list_finished(links):
-    from .util import to_csv
+    from ..util import links_to_csv
     print()
     print('---------------------------------------------------------------------------------------------------')
-    print(to_csv(links, csv_cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))
+    print(links_to_csv(links, csv_cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))
     print('---------------------------------------------------------------------------------------------------')
     print()
 

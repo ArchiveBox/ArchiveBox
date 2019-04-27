@@ -1,4 +1,4 @@
-__package__ = 'archivebox.legacy.storage'
+__package__ = 'archivebox.index'
 
 import os
 import sys
@@ -7,7 +7,8 @@ import json
 from datetime import datetime
 from typing import List, Optional, Iterator
 
-from ..schema import Link, ArchiveResult
+from .schema import Link, ArchiveResult
+from ..util import enforce_types, atomic_write
 from ..config import (
     VERSION,
     OUTPUT_DIR,
@@ -17,14 +18,11 @@ from ..config import (
     JSON_INDEX_FILENAME,
     ARCHIVE_DIR_NAME,
 )
-from ..util import (
-    enforce_types,
-    atomic_write,
-)
+
 
 MAIN_INDEX_HEADER = {
     'info': 'This is an index of site data archived by ArchiveBox: The self-hosted web archive.',
-    'schema': 'archivebox.legacy.storage.json',
+    'schema': 'archivebox.index.json',
     'copyright_info': FOOTER_INFO,
     'meta': {
         'project': 'ArchiveBox',
@@ -43,7 +41,7 @@ MAIN_INDEX_HEADER = {
 
 @enforce_types
 def parse_json_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
-    """parse a archive index json file and return the list of links"""
+    """parse an archive index json file and return the list of links"""
 
     index_path = os.path.join(out_dir, JSON_INDEX_FILENAME)
     if os.path.exists(index_path):
@@ -110,4 +108,6 @@ def parse_json_links_details(out_dir: str) -> Iterator[Link]:
     for entry in os.scandir(os.path.join(out_dir, ARCHIVE_DIR_NAME)):
         if entry.is_dir(follow_symlinks=True):
             if os.path.exists(os.path.join(entry.path, 'index.json')):
-                yield parse_json_link_details(entry.path)
+                link = parse_json_link_details(entry.path)
+                if link:
+                    yield link

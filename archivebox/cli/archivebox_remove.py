@@ -7,17 +7,14 @@ __description__ = 'Remove the specified URLs from the archive.'
 import sys
 import argparse
 
+from typing import Optional, List, IO
 
-from ..legacy.config import check_data_folder
-from ..legacy.util import reject_stdin
-from ..legacy.main import remove_archive_links
+from ..main import remove
+from ..util import accept_stdin
+from ..config import OUTPUT_DIR
 
 
-def main(args=None):
-    check_data_folder()
-    
-    args = sys.argv[1:] if args is None else args
-
+def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
         description=__description__,
@@ -56,33 +53,25 @@ def main(args=None):
         help='Type of pattern matching to use when filtering URLs',
     )
     parser.add_argument(
-        'pattern',
+        'filter_patterns',
         nargs='*',
         type=str,
-        default=None,
         help='URLs matching this filter pattern will be removed from the index.'
     )
-    command = parser.parse_args(args)
+    command = parser.parse_args(args or ())
+    filter_str = accept_stdin(stdin)
 
-    if not sys.stdin.isatty():
-        stdin_raw_text = sys.stdin.read()
-        if stdin_raw_text and command.url:
-            print(
-                '[X] You should pass either a pattern as an argument, '
-                'or pass a list of patterns via stdin, but not both.\n'
-            )
-            raise SystemExit(1)
-
-        patterns = [pattern.strip() for pattern in stdin_raw_text.split('\n')]
-    else:
-        patterns = command.pattern
-
-    remove_archive_links(
-        filter_patterns=patterns, filter_type=command.filter_type,
-        before=command.before, after=command.after,
-        yes=command.yes, delete=command.delete,
+    remove(
+        filter_str=filter_str,
+        filter_patterns=command.filter_patterns,
+        filter_type=command.filter_type,
+        before=command.before,
+        after=command.after,
+        yes=command.yes,
+        delete=command.delete,
+        out_dir=pwd or OUTPUT_DIR,
     )
     
 
 if __name__ == '__main__':
-    main()
+    main(args=sys.argv[1:], stdin=sys.stdin)

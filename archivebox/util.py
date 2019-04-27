@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import ssl
 import json
 import time
 import shutil
@@ -8,7 +9,7 @@ import argparse
 
 from string import Template
 from json import JSONEncoder
-from typing import List, Optional, Any, Union, IO, Mapping, Tuple
+from typing import List, Dict, Optional, Any, Union, IO, Mapping, Tuple
 from inspect import signature
 from functools import wraps
 from hashlib import sha256
@@ -28,11 +29,12 @@ from subprocess import (
 
 from base32_crockford import encode as base32_encode         # type: ignore
 
-from .schema import Link
+from .index.schema import Link
 from .config import (
     ANSI,
     TERM_WIDTH,
-    SOURCES_DIR,
+    OUTPUT_DIR,
+    SOURCES_DIR_NAME,
     OUTPUT_PERMISSIONS,
     TIMEOUT,
     SHOW_PROGRESS,
@@ -40,8 +42,9 @@ from .config import (
     CHECK_SSL_VALIDITY,
     WGET_USER_AGENT,
     CHROME_OPTIONS,
+    check_data_folder,
 )
-from .logs import pretty_path
+from .cli.logging import pretty_path
 
 ### Parsing Helpers
 
@@ -187,31 +190,36 @@ def check_url_parsing_invariants() -> None:
 ### Random Helpers
 
 @enforce_types
-def handle_stdin_import(raw_text: str) -> str:
-    if not os.path.exists(SOURCES_DIR):
-        os.makedirs(SOURCES_DIR)
+def save_stdin_to_sources(raw_text: str, out_dir: str=OUTPUT_DIR) -> str:
+    check_data_folder(out_dir=out_dir)
+
+    sources_dir = os.path.join(out_dir, SOURCES_DIR_NAME)
+    if not os.path.exists(sources_dir):
+        os.makedirs(sources_dir)
 
     ts = str(datetime.now().timestamp()).split('.', 1)[0]
 
-    source_path = os.path.join(SOURCES_DIR, '{}-{}.txt'.format('stdin', ts))
+    source_path = os.path.join(sources_dir, '{}-{}.txt'.format('stdin', ts))
 
     atomic_write(raw_text, source_path)
     return source_path
 
 
 @enforce_types
-def handle_file_import(path: str, timeout: int=TIMEOUT) -> str:
+def save_file_to_sources(path: str, timeout: int=TIMEOUT, out_dir: str=OUTPUT_DIR) -> str:
     """download a given url's content into output/sources/domain-<timestamp>.txt"""
+    check_data_folder(out_dir=out_dir)
 
-    if not os.path.exists(SOURCES_DIR):
-        os.makedirs(SOURCES_DIR)
+    sources_dir = os.path.join(out_dir, SOURCES_DIR_NAME)
+    if not os.path.exists(sources_dir):
+        os.makedirs(sources_dir)
 
     ts = str(datetime.now().timestamp()).split('.', 1)[0]
 
-    source_path = os.path.join(SOURCES_DIR, '{}-{}.txt'.format(basename(path), ts))
+    source_path = os.path.join(sources_dir, '{}-{}.txt'.format(basename(path), ts))
 
     if any(path.startswith(s) for s in ('http://', 'https://', 'ftp://')):
-        source_path = os.path.join(SOURCES_DIR, '{}-{}.txt'.format(domain(path), ts))
+        source_path = os.path.join(sources_dir, '{}-{}.txt'.format(domain(path), ts))
         print('{}[*] [{}] Downloading {}{}'.format(
             ANSI['green'],
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -532,7 +540,6 @@ def download_url(url: str, timeout: int=TIMEOUT) -> str:
     if CHECK_SSL_VALIDITY:
         resp = urlopen(req, timeout=timeout)
     else:
-        import ssl
         insecure = ssl._create_unverified_context()
         resp = urlopen(req, timeout=timeout, context=insecure)
 
@@ -662,7 +669,7 @@ def to_json(obj: Any, file: IO=None, indent: Optional[int]=4, sort_keys: bool=Tr
         return json.dumps(obj, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder)
 
 
-def to_csv(links: List[Link], csv_cols: Optional[List[str]]=None,
+def links_to_csv(links: List[Link], csv_cols: Optional[List[str]]=None,
            header: bool=True, ljust: int=0, separator: str=',') -> str:
     csv_cols = csv_cols or ['timestamp', 'is_archived', 'url']
     
@@ -677,6 +684,8 @@ def to_csv(links: List[Link], csv_cols: Optional[List[str]]=None,
 
     return '\n'.join((header_str, *row_strs))
 
+def folders_to_str(folders: Dict[str, Optional[Link]]) -> str:
+    return '\n'.join(f'{folder} {link}' for folder, link in folders.items())
 
 @enforce_types
 def render_template(template_path: str, context: Mapping[str, str]) -> str:
@@ -713,11 +722,11 @@ def atomic_write(contents: Union[dict, str, bytes], path: str) -> None:
             os.remove(tmp_file)
 
 
-def reject_stdin(caller: str) -> None:
+def reject_stdin(caller: str, stdin: Optional[IO]=sys.stdin) -> None:
     """Tell the user they passed stdin to a command that doesn't accept it"""
 
-    if not sys.stdin.isatty():
-        stdin_raw_text = sys.stdin.read().strip()
+    if stdin and not stdin.isatty():
+        stdin_raw_text = stdin.read().strip()
         if stdin_raw_text:
             print(
                 '{red}[X] The "{}" command does not accept stdin.{reset}\n'.format(
@@ -731,9 +740,30 @@ def reject_stdin(caller: str) -> None:
             print()
             raise SystemExit(1)
 
+def accept_stdin(stdin: Optional[IO]=sys.stdin) -> Optional[str]:
+    if stdin and not stdin.isatty():
+        return stdin.read()
+    return None
+
+
+def set_docstring(text: str):
+    def decorator(func):
+        @wraps(func)
+        def wrapper_with_docstring(*args, **kwargs):
+            return func(*args, **kwargs)
+        wrapper_with_docstring.__doc__ = text
+        return wrapper_with_docstring
+    return decorator
+
 
 class SmartFormatter(argparse.HelpFormatter):
     def _split_lines(self, text, width):
         if '\n' in text:
             return text.splitlines()
         return argparse.HelpFormatter._split_lines(self, text, width)
+
+
+class ArchiveError(Exception):
+    def __init__(self, message, hints=None):
+        super().__init__(message)
+        self.hints = hints

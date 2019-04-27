@@ -17,6 +17,7 @@ class ConfigDict(BaseConfig, total=False):
     SHOW_PROGRESS: bool
 
     OUTPUT_DIR: str
+    CONFIG_FILE: str
     ONLY_NEW: bool
     TIMEOUT: int
     MEDIA_TIMEOUT: int
@@ -63,7 +64,6 @@ class ConfigDict(BaseConfig, total=False):
     ANSI: Dict[str, str]
     REPO_DIR: str
     PYTHON_DIR: str
-    LEGACY_DIR: str
     TEMPLATES_DIR: str
     ARCHIVE_DIR: str
     SOURCES_DIR: str

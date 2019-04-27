@@ -2,15 +2,17 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox list'
-__description__ = 'List all the URLs currently in the archive.'
+__description__ = 'List, filter, and export information about archive entries'
 
 import sys
 import argparse
 
-from ..legacy.util import SmartFormatter, reject_stdin, to_json, to_csv
-from ..legacy.config import check_data_folder, OUTPUT_DIR
-from ..legacy.main import (
-    list_archive_data,
+from typing import Optional, List, IO
+
+from ..main import list_all
+from ..util import SmartFormatter, accept_stdin
+from ..config import OUTPUT_DIR
+from ..index import (
     get_indexed_folders,
     get_archived_folders,
     get_unarchived_folders,
@@ -23,11 +25,7 @@ from ..legacy.main import (
     get_unrecognized_folders,
 )
 
-def main(args=None):
-    check_data_folder()
-    
-    args = sys.argv[1:] if args is None else args
-
+def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
         description=__description__,
@@ -93,57 +91,27 @@ def main(args=None):
         help='Type of pattern matching to use when filtering URLs',
     )
     parser.add_argument(
-        'patterns',
+        'filter_patterns',
         nargs='*',
         type=str,
         default=None,
         help='List only URLs matching these filter patterns.'
     )
-    command = parser.parse_args(args)
-    reject_stdin(__command__)
+    command = parser.parse_args(args or ())
+    filter_patterns_str = accept_stdin(stdin)
 
-    links = list_archive_data(
-        filter_patterns=command.patterns,
+    list_all(
+        filter_patterns_str=filter_patterns_str,
+        filter_patterns=command.filter_patterns,
         filter_type=command.filter_type,
-        before=command.before,
+        status=command.status,
         after=command.after,
+        before=command.before,
+        sort=command.sort,
+        csv=command.csv,
+        json=command.json,
+        out_dir=pwd or OUTPUT_DIR,
     )
 
-    if command.sort:
-        links = sorted(links, key=lambda link: getattr(link, command.sort))
-
-    links = list(links)
-
-    if command.status == 'indexed':
-        folders = get_indexed_folders(links, out_dir=OUTPUT_DIR)
-    elif command.status == 'archived':
-        folders = get_archived_folders(links, out_dir=OUTPUT_DIR)
-    elif command.status == 'unarchived':
-        folders = get_unarchived_folders(links, out_dir=OUTPUT_DIR)
-
-    elif command.status == 'present':
-        folders = get_present_folders(links, out_dir=OUTPUT_DIR)
-    elif command.status == 'valid':
-        folders = get_valid_folders(links, out_dir=OUTPUT_DIR)
-    elif command.status == 'invalid':
-        folders = get_invalid_folders(links, out_dir=OUTPUT_DIR)
-
-    elif command.status == 'duplicate':
-        folders = get_duplicate_folders(links, out_dir=OUTPUT_DIR)
-    elif command.status == 'orphaned':
-        folders = get_orphaned_folders(links, out_dir=OUTPUT_DIR)
-    elif command.status == 'corrupted':
-        folders = get_corrupted_folders(links, out_dir=OUTPUT_DIR)
-    elif command.status == 'unrecognized':
-        folders = get_unrecognized_folders(links, out_dir=OUTPUT_DIR)
-
-    if command.csv:
-        print(to_csv(folders.values(), csv_cols=command.csv.split(','), header=True))
-    elif command.json:
-        print(to_json(folders.values(), indent=4, sort_keys=True))
-    else:
-        print('\n'.join(f'{folder} {link}' for folder, link in folders.items()))
-    raise SystemExit(not folders)
-
 if __name__ == '__main__':
-    main()
+    main(args=sys.argv[1:], stdin=sys.stdin)

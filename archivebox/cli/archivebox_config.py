@@ -7,28 +7,14 @@ __description__ = 'Get and set your ArchiveBox project configuration values'
 import sys
 import argparse
 
-from typing import Optional, List
+from typing import Optional, List, IO
 
-from ..legacy.util import SmartFormatter
-from ..legacy.config import (
-    check_data_folder,
-    OUTPUT_DIR,
-    load_all_config,
-    write_config_file,
-    CONFIG,
-    CONFIG_FILE,
-    USER_CONFIG,
-    ConfigDict,
-    stderr,
-    get_real_name,
-)
+from ..main import config
+from ..util import SmartFormatter, accept_stdin
+from ..config import OUTPUT_DIR
 
 
-def main(args: List[str]=None, stdin: Optional[str]=None) -> None:
-    check_data_folder()
-    
-    args = sys.argv[1:] if args is None else args
-
+def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
         description=__description__,
@@ -57,102 +43,18 @@ def main(args: List[str]=None, stdin: Optional[str]=None) -> None:
         type=str,
         help='KEY or KEY=VALUE formatted config values to get or set',
     )
-    command = parser.parse_args(args)
+    command = parser.parse_args(args or ())
+    config_options_str = accept_stdin(stdin)
 
-    if stdin or not sys.stdin.isatty():
-        stdin_raw_text = stdin or sys.stdin.read()
-        if stdin_raw_text and command.config_options:
-            stderr(
-                '[X] You should either pass config values as an arguments '
-                'or via stdin, but not both.\n',
-                color='red',
-            )
-            raise SystemExit(1)
-
-        config_options = stdin_raw_text.split('\n')
-    else:
-        config_options = command.config_options
-
-    no_args = not (command.get or command.set or command.reset or command.config_options)
-
-    matching_config: ConfigDict = {}
-    if command.get or no_args:
-        if config_options:
-            config_options = [get_real_name(key) for key in config_options]
-            matching_config = {key: CONFIG[key] for key in config_options if key in CONFIG}
-            failed_config = [key for key in config_options if key not in CONFIG]
-            if failed_config:
-                stderr()
-                stderr('[X] These options failed to get', color='red')
-                stderr('    {}'.format('\n    '.join(config_options)))
-                raise SystemExit(1)
-        else:
-            matching_config = CONFIG
-        
-        print(printable_config(matching_config))
-        raise SystemExit(not matching_config)
-    elif command.set:
-        new_config = {}
-        failed_options = []
-        for line in config_options:
-            if line.startswith('#') or not line.strip():
-                continue
-            if '=' not in line:
-                stderr('[X] Config KEY=VALUE must have an = sign in it', color='red')
-                stderr(f'    {line}')
-                raise SystemExit(2)
-
-            raw_key, val = line.split('=')
-            raw_key = raw_key.upper().strip()
-            key = get_real_name(raw_key)
-            if key != raw_key:
-                stderr(f'[i] Note: The config option {raw_key} has been renamed to {key}, please use the new name going forwards.', color='lightyellow')
-
-            if key in CONFIG:
-                new_config[key] = val.strip()
-            else:
-                failed_options.append(line)
-
-        if new_config:
-            before = CONFIG
-            matching_config = write_config_file(new_config, out_dir=OUTPUT_DIR)
-            after = load_all_config()
-            print(printable_config(matching_config))
-
-            side_effect_changes: ConfigDict = {}
-            for key, val in after.items():
-                if key in USER_CONFIG and (before[key] != after[key]) and (key not in matching_config):
-                    side_effect_changes[key] = after[key]
-
-            if side_effect_changes:
-                stderr()
-                stderr('[i] Note: This change also affected these other options that depended on it:', color='lightyellow')
-                print('    {}'.format(printable_config(side_effect_changes, prefix='    ')))
-        if failed_options:
-            stderr()
-            stderr('[X] These options failed to set:', color='red')
-            stderr('    {}'.format('\n    '.join(failed_options)))
-        raise SystemExit(bool(failed_options))
-    elif command.reset:
-        stderr('[X] This command is not implemented yet.', color='red')
-        stderr('    Please manually remove the relevant lines from your config file:')
-        stderr(f'        {CONFIG_FILE}')
-        raise SystemExit(2)
-
-    else:
-        stderr('[X] You must pass either --get or --set, or no arguments to get the whole config.', color='red')
-        stderr('    archivebox config')
-        stderr('    archivebox config --get SOME_KEY')
-        stderr('    archivebox config --set SOME_KEY=SOME_VALUE')
-        raise SystemExit(2)
-
-
-def printable_config(config: ConfigDict, prefix: str='') -> str:
-    return f'\n{prefix}'.join(
-        f'{key}={val}'
-        for key, val in config.items()
-        if not (isinstance(val, dict) or callable(val))
+    config(
+        config_options_str=config_options_str,
+        config_options=command.config_options,
+        get=command.get,
+        set=command.set,
+        reset=command.reset,
+        out_dir=pwd or OUTPUT_DIR,
     )
 
+
 if __name__ == '__main__':
-    main()
+    main(args=sys.argv[1:], stdin=sys.stdin)

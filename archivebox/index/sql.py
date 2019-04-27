@@ -1,9 +1,9 @@
-__package__ = 'archivebox.legacy.storage'
+__package__ = 'archivebox.index'
 
 from io import StringIO
 from typing import List, Tuple, Iterator
 
-from ..schema import Link
+from .schema import Link
 from ..util import enforce_types
 from ..config import setup_django, OUTPUT_DIR
 
@@ -25,9 +25,19 @@ def write_sql_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
     setup_django(out_dir, check_db=True)
     from core.models import Page
 
-    for link in links:
+    all_urls = {link.url: link for link in links}
+
+    for page in Page.objects.all():
+        if page.url in all_urls:
+            info = {k: v for k, v in all_urls.pop(page.url)._asdict().items() if k in Page.keys}
+            Page.objects.update(**info)
+        else:
+            page.delete()
+
+    for url, link in all_urls.items():
         info = {k: v for k, v in link._asdict().items() if k in Page.keys}
-        Page.objects.update_or_create(url=link.url, defaults=info)
+        Page.objects.update_or_create(url=url, defaults=info)
+
 
 
 @enforce_types

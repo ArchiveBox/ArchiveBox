@@ -7,52 +7,24 @@ __description__ = 'Print the ArchiveBox help message and usage'
 import sys
 import argparse
 
-from ..legacy.util import reject_stdin
-from ..legacy.config import ANSI
-from . import list_subcommands
+from typing import Optional, List, IO
+
+from ..main import help
+from ..util import reject_stdin
+from ..config import OUTPUT_DIR
 
 
-def main(args=None):
-    args = sys.argv[1:] if args is None else args
-
+def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
         description=__description__,
         add_help=True,
     )
-    parser.parse_args(args)
-    reject_stdin(__command__)
+    parser.parse_args(args or ())
+    reject_stdin(__command__, stdin)
     
-
-    COMMANDS_HELP_TEXT = '\n    '.join(
-        f'{cmd.ljust(20)} {summary}'
-        for cmd, summary in list_subcommands().items()
-    )
-
-    print('''{green}ArchiveBox: The self-hosted internet archive.{reset}
-        
-{lightblue}Usage:{reset}
-    archivebox [command] [--help] [--version] [...args]
-
-{lightblue}Comamnds:{reset}
-    {}
-
-{lightblue}Example Use:{reset}
-    mkdir my-archive; cd my-archive/
-    archivebox init
-    archivebox info
-
-    archivebox add https://example.com/some/page
-    archivebox add --depth=1 ~/Downloads/bookmarks_export.html
-    
-    archivebox list --sort=timestamp --csv=timestamp,url,is_archived
-    archivebox schedule --every=week https://example.com/some/feed.rss
-    archivebox update --resume=15109948213.123
-
-{lightblue}Documentation:{reset}
-    https://github.com/pirate/ArchiveBox/wiki
-'''.format(COMMANDS_HELP_TEXT, **ANSI))
+    help(out_dir=pwd or OUTPUT_DIR)
 
 
 if __name__ == '__main__':
-    main()
+    main(args=sys.argv[1:], stdin=sys.stdin)

@@ -1,3 +1,5 @@
+__package__ = 'archivebox.index'
+
 import os
 
 from datetime import datetime
@@ -48,7 +50,7 @@ class ArchiveResult:
 
     @classmethod
     def from_json(cls, json_info):
-        from .util import parse_date
+        from ..util import parse_date
 
         info = {
             key: val
@@ -60,12 +62,12 @@ class ArchiveResult:
         return cls(**info)
 
     def to_json(self, indent=4, sort_keys=True):
-        from .util import to_json
+        from ..util import to_json
 
         return to_json(self, indent=indent, sort_keys=sort_keys)
 
     def to_csv(self, cols=None, ljust: int=0, separator: str=','):
-        from .util import to_json
+        from ..util import to_json
 
         cols = cols or self.field_names()
         return separator.join(
@@ -115,7 +117,7 @@ class Link:
         return float(self.timestamp) > float(other.timestamp)
 
     def typecheck(self) -> None:
-        from .config import stderr, ANSI
+        from ..config import stderr, ANSI
         try:
             assert self.schema == self.__class__.__name__
             assert isinstance(self.timestamp, str) and self.timestamp
@@ -176,7 +178,7 @@ class Link:
 
     @classmethod
     def from_json(cls, json_info):
-        from .util import parse_date
+        from ..util import parse_date
         
         info = {
             key: val
@@ -200,12 +202,12 @@ class Link:
         return cls(**info)
 
     def to_json(self, indent=4, sort_keys=True):
-        from .util import to_json
+        from ..util import to_json
 
         return to_json(self, indent=indent, sort_keys=sort_keys)
 
     def to_csv(self, csv_cols: List[str], ljust: int=0, separator: str=','):
-        from .util import to_json
+        from ..util import to_json
 
         return separator.join(
             to_json(getattr(self, col), indent=None).ljust(ljust)
@@ -218,60 +220,60 @@ class Link:
 
     @property
     def link_dir(self) -> str:
-        from .config import CONFIG
+        from ..config import CONFIG
         return os.path.join(CONFIG['ARCHIVE_DIR'], self.timestamp)
 
     @property
     def archive_path(self) -> str:
-        from .config import ARCHIVE_DIR_NAME
+        from ..config import ARCHIVE_DIR_NAME
         return '{}/{}'.format(ARCHIVE_DIR_NAME, self.timestamp)
     
     ### URL Helpers
     @property
     def url_hash(self):
-        from .util import hashurl
+        from ..util import hashurl
 
         return hashurl(self.url)
 
     @property
     def scheme(self) -> str:
-        from .util import scheme
+        from ..util import scheme
         return scheme(self.url)
 
     @property
     def extension(self) -> str:
-        from .util import extension
+        from ..util import extension
         return extension(self.url)
 
     @property
     def domain(self) -> str:
-        from .util import domain
+        from ..util import domain
         return domain(self.url)
 
     @property
     def path(self) -> str:
-        from .util import path
+        from ..util import path
         return path(self.url)
 
     @property
     def basename(self) -> str:
-        from .util import basename
+        from ..util import basename
         return basename(self.url)
 
     @property
     def base_url(self) -> str:
-        from .util import base_url
+        from ..util import base_url
         return base_url(self.url)
 
     ### Pretty Printing Helpers
     @property
     def bookmarked_date(self) -> Optional[str]:
-        from .util import ts_to_date
+        from ..util import ts_to_date
         return ts_to_date(self.timestamp) if self.timestamp else None
 
     @property
     def updated_date(self) -> Optional[str]:
-        from .util import ts_to_date
+        from ..util import ts_to_date
         return ts_to_date(self.updated) if self.updated else None
 
     @property
@@ -304,13 +306,13 @@ class Link:
 
     @property
     def is_static(self) -> bool:
-        from .util import is_static_file
+        from ..util import is_static_file
         return is_static_file(self.url)
 
     @property
     def is_archived(self) -> bool:
-        from .config import ARCHIVE_DIR
-        from .util import domain
+        from ..config import ARCHIVE_DIR
+        from ..util import domain
 
         output_paths = (
             domain(self.url),
@@ -352,7 +354,7 @@ class Link:
     def canonical_outputs(self) -> Dict[str, Optional[str]]:
         """predict the expected output paths that should be present after archiving"""
 
-        from .util import wget_output_path
+        from ..util import wget_output_path
         canonical = {
             'index_path': 'index.html',
             'favicon_path': 'favicon.ico',
