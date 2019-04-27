@@ -11,7 +11,7 @@ django-stubs = "*"
 setuptools = "*"
 sphinx = "*"
 recommonmark = "*"
-sphinx-py3doc-enhanced-theme = "*"
+sphinx-rtd-theme = "*"
 
 [packages]
 dataclasses = "*"

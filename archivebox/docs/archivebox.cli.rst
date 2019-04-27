@@ -116,6 +116,22 @@ archivebox.cli.archivebox\_version module
     :undoc-members:
     :show-inheritance:
 
+archivebox.cli.logging module
+-----------------------------
+
+.. automodule:: archivebox.cli.logging
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+archivebox.cli.tests module
+---------------------------
+
+.. automodule:: archivebox.cli.tests
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Module contents
 ---------------

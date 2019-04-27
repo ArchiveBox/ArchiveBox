@@ -50,7 +50,7 @@ source_suffix = {
     '.txt': 'markdown',
     '.md': 'markdown',
 }
-master_doc = 'index'
+master_doc = 'archivebox'
 napoleon_google_docstring = True
 napoleon_use_param = True
 napoleon_use_ivar = False
@@ -63,7 +63,16 @@ templates_path = ['_templates']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'data', 'output', 'templates', 'tests']
+exclude_patterns = [
+    '_build',
+    'Thumbs.db',
+    '.DS_Store',
+    'data',
+    'output',
+    'templates',
+    'tests',
+    'migrations',
+]
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -71,8 +80,10 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'data', 'output', 'templ
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_py3doc_enhanced_theme'
-html_theme_path = [sphinx_py3doc_enhanced_theme.get_html_theme_path()]
+github_url = 'https://github.com/pirate/ArchiveBox'
+html_logo = '../themes/static/archive.png'
+html_theme = 'sphinx_rtd_theme'
+html_theme_options = {}
 
 texinfo_documents = [
     (master_doc, 'archivebox', 'archivebox Documentation',
@@ -80,17 +91,6 @@ texinfo_documents = [
      'Miscellaneous'),
 ]
 
-html_theme_options = {
-    'githuburl': 'https://github.com/ionelmc/sphinx-py3doc-enhanced-theme/',
-    'bodyfont': '"Lucida Grande",Arial,sans-serif',
-    'headfont': '"Lucida Grande",Arial,sans-serif',
-    'codefont': '"Deja Vu Sans Mono",consolas,monospace,sans-serif',
-    'linkcolor': '#0072AA',
-    'visitedlinkcolor': '#6363bb',
-    'extrastyling': False,
-    'sidebarwide': True
-
-}
 pygments_style = 'friendly'
 
 # Add any paths that contain custom static files (such as style sheets) here,

@@ -454,7 +454,6 @@ def add(import_str: Optional[str]=None,
         update_all: bool=not ONLY_NEW,
         index_only: bool=False,
         out_dir: str=OUTPUT_DIR) -> List[Link]:
-    """The main ArchiveBox entrancepoint. Everything starts here."""
 
     check_data_folder(out_dir=out_dir)
 
@@ -597,7 +596,6 @@ def update(resume: Optional[float]=None,
            after: Optional[str]=None,
            before: Optional[str]=None,
            out_dir: str=OUTPUT_DIR) -> List[Link]:
-    """The main ArchiveBox entrancepoint. Everything starts here."""
 
     check_dependencies()
     check_data_folder(out_dir=out_dir)

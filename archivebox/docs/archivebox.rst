@@ -7,11 +7,22 @@ Subpackages
 .. toctree::
 
     archivebox.cli
+    archivebox.config
     archivebox.core
-    archivebox.legacy
+    archivebox.extractors
+    archivebox.index
+    archivebox.parsers
 
 Submodules
 ----------
+
+archivebox.main module
+----------------------
+
+.. automodule:: archivebox.main
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 archivebox.manage module
 ------------------------
@@ -21,10 +32,10 @@ archivebox.manage module
     :undoc-members:
     :show-inheritance:
 
-archivebox.tests module
------------------------
+archivebox.util module
+----------------------
 
-.. automodule:: archivebox.tests
+.. automodule:: archivebox.util
     :members:
     :undoc-members:
     :show-inheritance:
