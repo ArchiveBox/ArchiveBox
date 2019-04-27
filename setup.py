@@ -8,9 +8,12 @@ with open("README.md", "r") as fh:
 script_dir = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
 
 VERSION = open(os.path.join(script_dir, 'VERSION'), 'r').read().strip()
-GIT_HEAD = open(os.path.join(script_dir, '.git', 'HEAD'), 'r').read().strip().split(': ')[1]
-GIT_SHA = open(os.path.join(script_dir, '.git', GIT_HEAD), 'r').read().strip()[:9]
-PYPI_VERSION = "{}+{}".format(VERSION, GIT_SHA)
+try:
+    GIT_HEAD = open(os.path.join(script_dir, '.git', 'HEAD'), 'r').read().strip().split(': ')[1]
+    GIT_SHA = open(os.path.join(script_dir, '.git', GIT_HEAD), 'r').read().strip()[:9]
+    PYPI_VERSION = "{}+{}".format(VERSION, GIT_SHA)
+except:
+    PYPI_VERSION = VERSION
 
 with open(os.path.join(script_dir, 'archivebox', 'VERSION'), 'w+') as f:
     f.write(PYPI_VERSION)
