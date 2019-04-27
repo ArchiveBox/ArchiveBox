@@ -9,6 +9,7 @@ venv
 .venv
 archivebox/.venv
 archivebox/venv
+archivebox/docs/_build
 
 # vim
 .swp*

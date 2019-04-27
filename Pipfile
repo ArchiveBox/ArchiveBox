@@ -9,6 +9,9 @@ flake8 = "*"
 mypy = "*"
 django-stubs = "*"
 setuptools = "*"
+sphinx = "*"
+recommonmark = "*"
+sphinx-py3doc-enhanced-theme = "*"
 
 [packages]
 dataclasses = "*"
