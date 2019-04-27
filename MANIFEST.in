@@ -1,9 +1,8 @@
 include archivebox/VERSION
-include archivebox/legacy/ArchiveBox.conf
 graft archivebox/themes
 graft archivebox/themes/static
 graft archivebox/themes/admin
 graft archivebox/themes/default
 graft archivebox/themes/default/static
-graft archivebox/legacy/templates
-graft archivebox/legacy/templates/static
+graft archivebox/themes/legacy
+graft archivebox/themes/legacy/static

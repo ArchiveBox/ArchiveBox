@@ -70,9 +70,8 @@ setuptools.setup(
             'themes/admin/*'
             'themes/default/*'
             'themes/default/static/*'
-            'legacy/templates/*',
-            'legacy/templates/static/*',
-            'legacy/ArchiveBox.conf',
+            'themes/legacy/*',
+            'themes/legacy/static/*',
         ],
     },
     classifiers=[
