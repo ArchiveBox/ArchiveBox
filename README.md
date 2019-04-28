@@ -203,9 +203,19 @@ Whether you want learn which organizations are the big players in the web archiv
 
 <img src="https://read-the-docs-guidelines.readthedocs-hosted.com/_images/logo-dark.png" width="13%" align="right"/>
 
-We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) for documentation.
+We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) and [Read the Docs](https://archivebox.readthedocs.io/en/latest/) for documentation.
 
 You can also access the docs locally by looking in the [`ArchiveBox/docs/`](https://github.com/pirate/ArchiveBox/wiki/Home) folder.
+
+You can build the docs by running:
+```python
+cd ArchiveBox
+pipenv install --dev
+sphinx-apidoc -o docs archivebox
+cd docs/
+make html
+# then open docs/_build/html/index.html
+```
 
 ## Getting Started
 
