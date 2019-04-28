@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 
 script_dir = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
 
-VERSION = open(os.path.join(script_dir, 'VERSION'), 'r').read().strip()
+VERSION = open(os.path.join(script_dir, 'archivebox', 'VERSION'), 'r').read().strip()
 try:
     GIT_HEAD = open(os.path.join(script_dir, '.git', 'HEAD'), 'r').read().strip().split(': ')[1]
     GIT_SHA = open(os.path.join(script_dir, '.git', GIT_HEAD), 'r').read().strip()[:9]
