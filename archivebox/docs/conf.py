@@ -16,10 +16,14 @@ sys.path.insert(0, os.path.abspath('.'))
 
 import django
 
+PYTHON_DIR = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
+
 sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('.'))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
 django.setup()
+
+VERSION = open(os.path.join(PYTHON_DIR, 'VERSION'), 'r').read().strip()
 
 # -- Project information -----------------------------------------------------
 
@@ -28,7 +32,7 @@ copyright = '2019, Nick Sweeting'
 author = 'Nick Sweeting'
 
 # The full version, including alpha/beta/rc tags
-release = 'v0.4.0'
+release = VERSION
 
 
 # -- General configuration ---------------------------------------------------
