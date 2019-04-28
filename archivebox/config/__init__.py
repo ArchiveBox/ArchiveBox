@@ -169,7 +169,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'], re.IGNORECASE)},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0]},
-    'VERSION':                  {'default': lambda c: open(os.path.join(c['REPO_DIR'], VERSION_FILENAME), 'r').read().strip()},
+    'VERSION':                  {'default': lambda c: open(os.path.join(c['PYTHON_DIR'], VERSION_FILENAME), 'r').read().strip()},
     'GIT_SHA':                  {'default': lambda c: c['VERSION'].split('+')[-1] or 'unknown'},
 
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
