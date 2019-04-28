@@ -16,7 +16,9 @@ sys.path.insert(0, os.path.abspath('.'))
 
 import django
 
-PYTHON_DIR = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
+os.environ['USE_CHROME'] = 'False'
+
+PYTHON_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
 sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('.'))
