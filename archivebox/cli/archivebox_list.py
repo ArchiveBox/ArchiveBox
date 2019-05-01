@@ -2,15 +2,13 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox list'
-__description__ = 'List, filter, and export information about archive entries'
 
 import sys
 import argparse
 
 from typing import Optional, List, IO
 
-from ..main import list_all
-from ..util import SmartFormatter, accept_stdin
+from ..main import list_all, docstring
 from ..config import OUTPUT_DIR
 from ..index import (
     get_indexed_folders,
@@ -24,11 +22,14 @@ from ..index import (
     get_corrupted_folders,
     get_unrecognized_folders,
 )
+from .logging import SmartFormatter, accept_stdin
 
+
+@docstring(list_all.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
-        description=__description__,
+        description=list_all.__doc__,
         add_help=True,
         formatter_class=SmartFormatter,
     )

@@ -2,23 +2,24 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox info'
-__description__ = 'Print out some info and statistics about the archive collection'
 
 import sys
 import argparse
 
 from typing import Optional, List, IO
 
-from ..main import info
+from ..main import info, docstring
 from ..config import OUTPUT_DIR
-from ..util import reject_stdin
+from .logging import SmartFormatter, reject_stdin
 
 
+@docstring(info.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
-        description=__description__,
+        description=info.__doc__,
         add_help=True,
+        formatter_class=SmartFormatter,
     )
     parser.parse_args(args or ())
     reject_stdin(__command__, stdin)

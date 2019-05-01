@@ -2,23 +2,24 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox init'
-__description__ = 'Initialize a new ArchiveBox collection in the current directory'
 
 import sys
 import argparse
 
 from typing import Optional, List, IO
 
-from ..main import init
-from ..util import reject_stdin
+from ..main import init, docstring
 from ..config import OUTPUT_DIR
+from .logging import SmartFormatter, reject_stdin
 
 
+@docstring(init.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
-        description=__description__,
+        description=init.__doc__,
         add_help=True,
+        formatter_class=SmartFormatter,
     )
     parser.parse_args(args or ())
     reject_stdin(__command__, stdin)

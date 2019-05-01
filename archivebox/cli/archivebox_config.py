@@ -2,22 +2,22 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox config'
-__description__ = 'Get and set your ArchiveBox project configuration values'
 
 import sys
 import argparse
 
 from typing import Optional, List, IO
 
-from ..main import config
-from ..util import SmartFormatter, accept_stdin
+from ..main import config, docstring
 from ..config import OUTPUT_DIR
+from .logging import SmartFormatter, accept_stdin
 
 
+@docstring(config.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
-        description=__description__,
+        description=config.__doc__,
         add_help=True,
         formatter_class=SmartFormatter,
     )

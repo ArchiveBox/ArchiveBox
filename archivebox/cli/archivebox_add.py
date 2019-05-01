@@ -2,29 +2,29 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox add'
-__description__ = 'Add a new URL or list of URLs to your archive'
 
 import sys
 import argparse
 
 from typing import List, Optional, IO
 
-from ..main import add
-from ..util import SmartFormatter, accept_stdin
+from ..main import add, docstring
 from ..config import OUTPUT_DIR, ONLY_NEW
+from .logging import SmartFormatter, accept_stdin
 
 
+@docstring(add.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
-        description=__description__,
+        description=add.__doc__,
         add_help=True,
         formatter_class=SmartFormatter,
     )
     parser.add_argument(
         '--update-all', #'-n',
         action='store_true',
-        default=not ONLY_NEW,
+        default=not ONLY_NEW,  # when ONLY_NEW=True we skip updating old links
         help="Also retry previously skipped/failed links when adding new links",
     )
     parser.add_argument(

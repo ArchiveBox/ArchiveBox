@@ -2,23 +2,24 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox shell'
-__description__ = 'Enter an interactive ArchiveBox Django shell'
 
 import sys
 import argparse
 
 from typing import Optional, List, IO
 
-from ..main import shell
+from ..main import shell, docstring
 from ..config import OUTPUT_DIR
-from ..util import reject_stdin
+from .logging import SmartFormatter, reject_stdin
 
 
+@docstring(shell.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
-        description=__description__,
+        description=shell.__doc__,
         add_help=True,
+        formatter_class=SmartFormatter,
     )
     parser.parse_args(args or ())
     reject_stdin(__command__, stdin)

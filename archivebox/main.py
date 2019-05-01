@@ -118,7 +118,10 @@ ALLOWED_IN_OUTPUT_DIR = {
     FAVICON_FILENAME,
 }
 
+@enforce_types
 def help(out_dir: str=OUTPUT_DIR) -> None:
+    """Print the ArchiveBox help message and usage"""
+
     all_subcommands = list_subcommands()
     COMMANDS_HELP_TEXT = '\n    '.join(
         f'{cmd.ljust(20)} {summary}'
@@ -182,7 +185,11 @@ def help(out_dir: str=OUTPUT_DIR) -> None:
         print('    https://github.com/pirate/ArchiveBox/wiki')
 
 
-def version(quiet: bool=False, out_dir: str=OUTPUT_DIR) -> None:
+@enforce_types
+def version(quiet: bool=False,
+            out_dir: str=OUTPUT_DIR) -> None:
+    """Print the ArchiveBox version and dependency information"""
+
     if quiet:
         print(VERSION)
     else:
@@ -191,37 +198,44 @@ def version(quiet: bool=False, out_dir: str=OUTPUT_DIR) -> None:
 
         print('{white}[i] Dependency versions:{reset}'.format(**ANSI))
         for name, dependency in DEPENDENCIES.items():
-            print_dependency_version(name, dependency)
+            print(printable_dependency_version(name, dependency))
         
         print()
         print('{white}[i] Code locations:{reset}'.format(**ANSI))
         for name, folder in CODE_LOCATIONS.items():
-            print_folder_status(name, folder)
+            print(printable_folder_status(name, folder))
 
         print()
         print('{white}[i] External locations:{reset}'.format(**ANSI))
         for name, folder in EXTERNAL_LOCATIONS.items():
-            print_folder_status(name, folder)
+            print(printable_folder_status(name, folder))
 
         print()
         print('{white}[i] Data locations:{reset}'.format(**ANSI))
         for name, folder in DATA_LOCATIONS.items():
-            print_folder_status(name, folder)
+            print(printable_folder_status(name, folder))
 
         print()
         check_dependencies()
 
 
-def run(subcommand: str, subcommand_args: Optional[List[str]], stdin: Optional[IO]=None, out_dir: str=OUTPUT_DIR) -> None:
+@enforce_types
+def run(subcommand: str,
+        subcommand_args: Optional[List[str]],
+        stdin: Optional[IO]=None,
+        out_dir: str=OUTPUT_DIR) -> None:
+    """Run a given ArchiveBox subcommand with the given list of args"""
     run_subcommand(
         subcommand=subcommand,
         subcommand_args=subcommand_args,
         stdin=stdin,
-        out_dir=out_dir,
+        pwd=out_dir,
     )
 
 
+@enforce_types
 def init(out_dir: str=OUTPUT_DIR) -> None:
+    """Initialize a new ArchiveBox collection in the current directory"""
     os.makedirs(out_dir, exist_ok=True)
 
     is_empty = not len(set(os.listdir(out_dir)) - ALLOWED_IN_OUTPUT_DIR)
@@ -364,7 +378,10 @@ def init(out_dir: str=OUTPUT_DIR) -> None:
     print('        archivebox help')
 
 
+@enforce_types
 def info(out_dir: str=OUTPUT_DIR) -> None:
+    """Print out some info and statistics about the archive collection"""
+
     check_data_folder(out_dir=out_dir)
 
     print('{green}[*] Scanning archive collection main index...{reset}'.format(**ANSI))
@@ -454,6 +471,7 @@ def add(import_str: Optional[str]=None,
         update_all: bool=not ONLY_NEW,
         index_only: bool=False,
         out_dir: str=OUTPUT_DIR) -> List[Link]:
+    """Add a new URL or list of URLs to your archive"""
 
     check_data_folder(out_dir=out_dir)
 
@@ -518,6 +536,7 @@ def remove(filter_str: Optional[str]=None,
            yes: bool=False,
            delete: bool=False,
            out_dir: str=OUTPUT_DIR) -> List[Link]:
+    """Remove the specified URLs from the archive"""
     
     check_data_folder(out_dir=out_dir)
 
@@ -586,7 +605,7 @@ def remove(filter_str: Optional[str]=None,
 
 @enforce_types
 def update(resume: Optional[float]=None,
-           only_new: bool=not ONLY_NEW,
+           only_new: bool=ONLY_NEW,
            index_only: bool=False,
            overwrite: bool=False,
            filter_patterns_str: Optional[str]=None,
@@ -596,6 +615,7 @@ def update(resume: Optional[float]=None,
            after: Optional[str]=None,
            before: Optional[str]=None,
            out_dir: str=OUTPUT_DIR) -> List[Link]:
+    """Import any new links from subscriptions and retry any previously failed/skipped links"""
 
     check_dependencies()
     check_data_folder(out_dir=out_dir)
@@ -659,8 +679,9 @@ def list_all(filter_patterns_str: Optional[str]=None,
              before: Optional[float]=None,
              sort: Optional[str]=None,
              csv: Optional[str]=None,
-             json: Optional[str]=None,
+             json: bool=False,
              out_dir: str=OUTPUT_DIR) -> Iterable[Link]:
+    """List, filter, and export information about archive entries"""
     
     check_data_folder(out_dir=out_dir)
 
@@ -756,12 +777,14 @@ def list_folders(links: List[Link],
     raise ValueError('Status not recognized.')
 
 
+@enforce_types
 def config(config_options_str: Optional[str]=None,
            config_options: Optional[List[str]]=None,
            get: bool=False,
            set: bool=False,
            reset: bool=False,
            out_dir: str=OUTPUT_DIR) -> None:
+    """Get and set your ArchiveBox project configuration values"""
 
     check_data_folder(out_dir=out_dir)
 
@@ -863,6 +886,7 @@ def schedule(add: bool=False,
              every: Optional[str]=None,
              import_path: Optional[str]=None,
              out_dir: str=OUTPUT_DIR):
+    """Set ArchiveBox to regularly import URLs at specific times using cron"""
     
     check_data_folder(out_dir=out_dir)
 
@@ -957,10 +981,13 @@ def schedule(add: bool=False,
         raise SystemExit(0)
 
 
+@enforce_types
+def server(runserver_args: Optional[List[str]]=None,
+           reload: bool=False,
+           debug: bool=False,
+           out_dir: str=OUTPUT_DIR) -> None:
+    """Run the ArchiveBox HTTP server"""
 
-
-
-def server(runserver_args: Optional[List[str]]=None, reload: bool=False, out_dir: str=OUTPUT_DIR) -> None:
     runserver_args = runserver_args or []
     check_data_folder(out_dir=out_dir)
 
@@ -982,7 +1009,10 @@ def server(runserver_args: Optional[List[str]]=None, reload: bool=False, out_dir
     call_command("runserver", *runserver_args)
 
 
+@enforce_types
 def manage(args: Optional[List[str]]=None, out_dir: str=OUTPUT_DIR) -> None:
+    """Run an ArchiveBox Django management command"""
+
     check_data_folder(out_dir=out_dir)
 
     setup_django(out_dir)

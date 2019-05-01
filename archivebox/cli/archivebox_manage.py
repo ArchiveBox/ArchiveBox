@@ -2,16 +2,16 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox manage'
-__description__ = 'Run an ArchiveBox Django management command'
 
 import sys
 
 from typing import Optional, List, IO
 
-from ..main import manage
+from ..main import manage, docstring
 from ..config import OUTPUT_DIR
 
 
+@docstring(manage.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     manage(
         args=args,

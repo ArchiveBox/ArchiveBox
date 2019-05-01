@@ -2,23 +2,24 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox server'
-__description__ = 'Run the ArchiveBox HTTP server'
 
 import sys
 import argparse
 
 from typing import Optional, List, IO
 
-from ..main import server
-from ..util import reject_stdin
+from ..main import server, docstring
 from ..config import OUTPUT_DIR
+from .logging import SmartFormatter, reject_stdin
 
 
+@docstring(server.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
-        description=__description__,
+        description=server.__doc__,
         add_help=True,
+        formatter_class=SmartFormatter,
     )
     parser.add_argument(
         'runserver_args',

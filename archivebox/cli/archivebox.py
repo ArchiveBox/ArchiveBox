@@ -3,7 +3,6 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox'
-__description__ = 'ArchiveBox: The self-hosted internet archive.'
 
 import sys
 import argparse
@@ -18,7 +17,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     subcommands = list_subcommands()
     parser = argparse.ArgumentParser(
         prog=__command__,
-        description=__description__,
+        description='ArchiveBox: The self-hosted internet archive',
         add_help=False,
     )
     group = parser.add_mutually_exclusive_group()

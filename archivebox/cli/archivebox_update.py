@@ -2,15 +2,13 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox update'
-__description__ = 'Import any new links from subscriptions and retry any previously failed/skipped links'
 
 import sys
 import argparse
 
 from typing import List, Optional, IO
 
-from ..main import update
-from ..util import SmartFormatter, accept_stdin
+from ..main import update, docstring
 from ..config import OUTPUT_DIR
 from ..index import (
     get_indexed_folders,
@@ -24,12 +22,14 @@ from ..index import (
     get_corrupted_folders,
     get_unrecognized_folders,
 )
+from .logging import SmartFormatter, accept_stdin
 
 
+@docstring(update.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
-        description=__description__,
+        description=update.__doc__,
         add_help=True,
         formatter_class=SmartFormatter,
     )
@@ -99,9 +99,9 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         nargs='*',
         type=str,
         default=None,
-        help='List only URLs matching these filter patterns.'
+        help='Update only URLs matching these filter patterns.'
     )
-    command = parser.parse_args(args)
+    command = parser.parse_args(args or ())
     filter_patterns_str = accept_stdin(stdin)
 
     update(

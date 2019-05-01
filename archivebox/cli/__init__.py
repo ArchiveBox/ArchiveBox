@@ -33,9 +33,8 @@ def list_subcommands() -> Dict[str, str]:
             subcommand = filename.replace('archivebox_', '').replace('.py', '')
             module = import_module('.archivebox_{}'.format(subcommand), __package__)
             assert is_valid_cli_module(module, subcommand)
-            COMMANDS.append((subcommand, module.__description__))  # type: ignore
+            COMMANDS.append((subcommand, module.main.__doc__))
             globals()[subcommand] = module.main
-            module.main.__doc__ = module.__description__
 
     display_order = lambda cmd: (
         display_first.index(cmd[0])
@@ -50,7 +49,7 @@ def run_subcommand(subcommand: str,
                    subcommand_args: List[str]=None,
                    stdin: Optional[IO]=None,
                    pwd: Optional[str]=None) -> None:
-    """run a given ArchiveBox subcommand with the given list of args"""
+    """Run a given ArchiveBox subcommand with the given list of args"""
 
     module = import_module('.archivebox_{}'.format(subcommand), __package__)
     module.main(args=subcommand_args, stdin=stdin, pwd=pwd)    # type: ignore

@@ -2,23 +2,24 @@
 
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox remove'
-__description__ = 'Remove the specified URLs from the archive.'
 
 import sys
 import argparse
 
 from typing import Optional, List, IO
 
-from ..main import remove
-from ..util import accept_stdin
+from ..main import remove, docstring
 from ..config import OUTPUT_DIR
+from .logging import SmartFormatter, accept_stdin
 
 
+@docstring(remove.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
-        description=__description__,
+        description=remove.__doc__,
         add_help=True,
+        formatter_class=SmartFormatter,
     )
     parser.add_argument(
         '--yes', # '-y',
