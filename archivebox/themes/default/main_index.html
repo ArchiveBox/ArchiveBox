@@ -208,20 +208,24 @@
             <tbody>
                 {% for link in links %}
                     <tr>
-                        <td title="$timestamp">{{link.bookmarked_date}}</td>
+                        <td title="{{link.timestamp}}">{{link.bookmarked_date}}</td>
                         <td class="title-col">
-                            <a href="$archive_path/index.html"><img src="$favicon_url" class="link-favicon" decoding="async"></a>
-                            <a href="$archive_path/$wget_url" title="{{link.title}}">
-                                <span data-title-for="{{link.url}}" data-archived="$is_archived">{{link.title}}</span>
+                            {% if link.is_archived %}
+                                <a href="archive/{{link.timestamp}}/index.html"><img src="archive/{{link.timestamp}}/favicon.ico" class="link-favicon" decoding="async"></a>
+                            {% else %}
+                                <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="link-favicon" decoding="async"></a>
+                            {% endif %}
+                            <a href="archive/{{link.timestamp}}/{{link.canonical_outputs.wget_path}}" title="{{link.title}}">
+                                <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title}}</span>
                                 <small style="float:right">{{link.tags|default:''}}</small>
                             </a>
                         </td>
                         <td>
-                            <a href="$archive_path/index.html">📄 
+                            <a href="archive/{{link.timestamp}}/index.html">📄 
                                 <span data-number-for="{{link.url}}" title="Fetching any missing files...">{{link.num_outputs}} <img src="{% static 'spinner.gif' %}" class="files-spinner" decoding="async"/></span>
                             </a>
                         </td>
-                        <td style="text-align:left"><a href="$url">{{link.url}}</a></td>
+                        <td style="text-align:left"><a href="{{link.url}}">{{link.url}}</a></td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -231,10 +235,10 @@
             <center>
                 <small>
                     Archive created using <a href="https://github.com/pirate/ArchiveBox" title="Github">ArchiveBox</a>
-                    version <a href="https://github.com/pirate/ArchiveBox/tree/v$version" title="Git commit">v$version</a> &nbsp; | &nbsp; 
+                    version <a href="https://github.com/pirate/ArchiveBox/tree/v{{VERSION}}" title="Git commit">v{{VERSION}}</a> &nbsp; | &nbsp; 
                     Download index as <a href="index.json" title="JSON summary of archived links.">JSON</a>
                     <br/><br/>
-                    $footer_info
+                    {{FOOTER_INFO}}
                 </small>
             </center>
             <br/>
