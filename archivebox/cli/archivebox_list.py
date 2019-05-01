@@ -101,7 +101,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     command = parser.parse_args(args or ())
     filter_patterns_str = accept_stdin(stdin)
 
-    list_all(
+    matching_folders = list_all(
         filter_patterns_str=filter_patterns_str,
         filter_patterns=command.filter_patterns,
         filter_type=command.filter_type,
@@ -113,6 +113,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         json=command.json,
         out_dir=pwd or OUTPUT_DIR,
     )
+    raise SystemExit(not matching_folders)
 
 if __name__ == '__main__':
     main(args=sys.argv[1:], stdin=sys.stdin)
