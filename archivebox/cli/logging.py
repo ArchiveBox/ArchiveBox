@@ -218,6 +218,7 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
         timestamp=timestamp,
         total=num_links,
     ))
+    print()
     print('    To view your archive, open:')
     print('        {}/index.html'.format(OUTPUT_DIR))
     print('    Continue archiving where you left off by running:')
@@ -244,8 +245,11 @@ def log_archiving_finished(num_links: int):
     print('    - {} links skipped'.format(_LAST_RUN_STATS.skipped))
     print('    - {} links updated'.format(_LAST_RUN_STATS.succeeded))
     print('    - {} links had errors'.format(_LAST_RUN_STATS.failed))
+    print()
     print('    To view your archive, open:')
     print('        {}/index.html'.format(OUTPUT_DIR))
+    print('    Or run the built-in webserver:')
+    print('        archivebox server')
 
 
 def log_link_archiving_started(link: Link, link_dir: str, is_new: bool):
@@ -378,15 +382,15 @@ def log_shell_welcome_msg():
     from . import list_subcommands
 
     print('{green}# ArchiveBox Imports{reset}'.format(**ANSI))
-    print('{green}from archivebox.core.models import Page, User{reset}'.format(**ANSI))
+    print('{green}from archivebox.core.models import Snapshot, User{reset}'.format(**ANSI))
     print('{green}from archivebox import *\n    {}{reset}'.format("\n    ".join(list_subcommands().keys()), **ANSI))
     print()
     print('[i] Welcome to the ArchiveBox Shell!')
     print('    https://github.com/pirate/ArchiveBox/wiki/Usage#Shell-Usage')
     print()
     print('    {lightred}Hint:{reset} Example use:'.format(**ANSI))
-    print('        print(Page.objects.filter(is_archived=True).count())')
-    print('        Page.objects.get(url="https://example.com").as_json()')
+    print('        print(Snapshot.objects.filter(is_archived=True).count())')
+    print('        Snapshot.objects.get(url="https://example.com").as_json()')
     print('        add("https://example.com/some/new/url")')
 
 

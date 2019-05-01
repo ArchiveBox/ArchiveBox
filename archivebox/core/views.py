@@ -5,7 +5,7 @@ from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from django.views import View, static
 
-from core.models import Page
+from core.models import Snapshot
 
 from ..index import load_main_index, load_main_index_meta
 from ..config import OUTPUT_DIR, VERSION, FOOTER_INFO
@@ -59,7 +59,7 @@ class LinkDetails(View):
         except (IndexError, ValueError):
             slug, archivefile = path.split('/', 1)[0], 'index.html'
 
-        all_pages = list(Page.objects.all())
+        all_pages = list(Snapshot.objects.all())
 
         # slug is a timestamp
         by_ts = {page.timestamp: page for page in all_pages}

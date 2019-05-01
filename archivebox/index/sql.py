@@ -13,30 +13,38 @@ from ..config import setup_django, OUTPUT_DIR
 @enforce_types
 def parse_sql_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
     setup_django(out_dir, check_db=True)
-    from core.models import Page
+    from core.models import Snapshot
 
     return (
-        Link.from_json(page.as_json(*Page.keys))
-        for page in Page.objects.all()
+        Link.from_json(page.as_json(*Snapshot.keys))
+        for page in Snapshot.objects.all()
     )
 
 @enforce_types
 def write_sql_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
     setup_django(out_dir, check_db=True)
-    from core.models import Page
+    from core.models import Snapshot
+    from django.db import transaction
 
     all_urls = {link.url: link for link in links}
+    all_ts = {link.timestamp: link for link in links}
 
-    for page in Page.objects.all():
-        if page.url in all_urls:
-            info = {k: v for k, v in all_urls.pop(page.url)._asdict().items() if k in Page.keys}
-            Page.objects.update(**info)
-        else:
-            page.delete()
+    with transaction.atomic():
+        for snapshot in Snapshot.objects.all():
+            if snapshot.timestamp in all_ts:
+                info = {k: v for k, v in all_urls.pop(snapshot.url)._asdict().items() if k in Snapshot.keys}
+                snapshot.delete()
+                Snapshot.objects.create(**info)
+            if snapshot.url in all_urls:
+                info = {k: v for k, v in all_urls.pop(snapshot.url)._asdict().items() if k in Snapshot.keys}
+                snapshot.delete()
+                Snapshot.objects.create(**info)
+            else:
+                snapshot.delete()
 
-    for url, link in all_urls.items():
-        info = {k: v for k, v in link._asdict().items() if k in Page.keys}
-        Page.objects.update_or_create(url=url, defaults=info)
+        for url, link in all_urls.items():
+            info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
+            Snapshot.objects.update_or_create(url=url, defaults=info)
 
 
 

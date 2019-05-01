@@ -8,7 +8,7 @@ from ..util import parse_date
 from ..index.schema import Link
 
 
-class Page(models.Model):
+class Snapshot(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     url = models.URLField(unique=True)
