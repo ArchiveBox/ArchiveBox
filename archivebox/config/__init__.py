@@ -119,6 +119,27 @@ DEFAULT_CLI_COLORS = {
 }
 ANSI = {k: '' for k in DEFAULT_CLI_COLORS.keys()}
 
+STATICFILE_EXTENSIONS = {
+    # 99.999% of the time, URLs ending in these extentions are static files
+    # that can be downloaded as-is, not html pages that need to be rendered
+    'gif', 'jpeg', 'jpg', 'png', 'tif', 'tiff', 'wbmp', 'ico', 'jng', 'bmp',
+    'svg', 'svgz', 'webp', 'ps', 'eps', 'ai',
+    'mp3', 'mp4', 'm4a', 'mpeg', 'mpg', 'mkv', 'mov', 'webm', 'm4v', 
+    'flv', 'wmv', 'avi', 'ogg', 'ts', 'm3u8',
+    'pdf', 'txt', 'rtf', 'rtfd', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
+    'atom', 'rss', 'css', 'js', 'json',
+    'dmg', 'iso', 'img',
+    'rar', 'war', 'hqx', 'zip', 'gz', 'bz2', '7z',
+
+    # Less common extensions to consider adding later
+    # jar, swf, bin, com, exe, dll, deb
+    # ear, hqx, eot, wmlc, kml, kmz, cco, jardiff, jnlp, run, msi, msp, msm, 
+    # pl pm, prc pdb, rar, rpm, sea, sit, tcl tk, der, pem, crt, xpi, xspf,
+    # ra, mng, asx, asf, 3gpp, 3gp, mid, midi, kar, jad, wml, htc, mml
+
+    # Thse are always treated as pages, not as static files, never add them:
+    # html, htm, shtml, xhtml, xml, aspx, php, cgi
+}
 
 VERSION_FILENAME = 'VERSION'
 PYTHON_DIR_NAME = 'archivebox'

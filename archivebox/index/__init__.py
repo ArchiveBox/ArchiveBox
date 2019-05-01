@@ -10,12 +10,10 @@ from typing import List, Tuple, Dict, Optional, Iterable
 from collections import OrderedDict
 from contextlib import contextmanager
 
-from ..parsers import parse_links
+from ..system import atomic_write
 from ..util import (
     scheme,
     enforce_types,
-    TimedProgress,
-    atomic_write,
     ExtendedEncoder,
 )
 from ..config import (
@@ -30,6 +28,7 @@ from ..config import (
     stderr,
 )
 from ..cli.logging import (
+    TimedProgress,
     log_indexing_process_started,
     log_indexing_process_finished,
     log_indexing_started,
@@ -277,6 +276,8 @@ def load_main_index_meta(out_dir: str=OUTPUT_DIR) -> Optional[dict]:
 def import_new_links(existing_links: List[Link],
                      import_path: str,
                      out_dir: str=OUTPUT_DIR) -> Tuple[List[Link], List[Link]]:
+
+    from ..parsers import parse_links
 
     new_links: List[Link] = []
 
@@ -584,9 +585,9 @@ def fix_invalid_folder_locations(out_dir: str=OUTPUT_DIR) -> Tuple[List[str], Li
                     else:
                         shutil.move(entry.path, dest)
                         fixed.append(dest)
-
-                if link.link_dir != entry.path:
-                    link = link.overwrite(link_dir=entry.path)
-                    write_json_link_details(link, out_dir=entry.path)
+                        timestamp = entry.path.rsplit('/', 1)[-1]
+                        assert link.link_dir == entry.path
+                        assert link.timestamp == timestamp
+                        write_json_link_details(link, out_dir=entry.path)
 
     return fixed, cant_fix

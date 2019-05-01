@@ -1,20 +1,28 @@
 __package__ = 'archivebox.extractors'
 
+import re
 from typing import Optional
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput
+from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from ..util import (
     enforce_types,
-    TimedProgress,
     is_static_file,
-    ArchiveError,
-    fetch_page_title,
+    download_url,
+    htmldecode,
 )
 from ..config import (
     TIMEOUT,
     SAVE_TITLE,
     CURL_BINARY,
     CURL_VERSION,
+)
+from ..cli.logging import TimedProgress
+
+
+HTML_TITLE_REGEX = re.compile(
+    r'<title.*?>'                      # start matching text after <title> tag
+    r'(.[^<>]+)',                      # get everything up to these symbols
+    re.IGNORECASE | re.MULTILINE | re.DOTALL | re.UNICODE,
 )
 
 
@@ -44,7 +52,9 @@ def save_title(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) ->
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        output = fetch_page_title(link.url, timeout=timeout, progress=False)
+        html = download_url(link.url, timeout=timeout)
+        match = re.search(HTML_TITLE_REGEX, html)
+        output = htmldecode(match.group(1).strip()) if match else None
         if not output:
             raise ArchiveError('Unable to detect page title')
     except Exception as err:

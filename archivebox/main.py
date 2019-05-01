@@ -1,11 +1,10 @@
 __package__ = 'archivebox'
 
-import re
 import os
 import sys
 import shutil
 
-from typing import Dict, List, Optional, Set, Tuple, Iterable, IO
+from typing import Dict, List, Optional, Iterable, IO
 
 from crontab import CronTab, CronSlices
 
@@ -17,18 +16,13 @@ from .cli import (
     main_cmds,
     archive_cmds,
 )
-from .index.schema import Link
-from .util import (
-    enforce_types,
-    TimedProgress,
-    get_dir_size,
-    human_readable_size,
+from .parsers import (
     save_stdin_to_sources,
     save_file_to_sources,
-    links_to_csv,
-    to_json,
-    folders_to_str,
 )
+from .index.schema import Link
+from .util import enforce_types, docstring
+from .system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
 from .index import (
     links_after_timestamp,
     load_main_index,
@@ -51,7 +45,11 @@ from .index.json import (
     parse_json_main_index,
     parse_json_links_details,
 )
-from .index.sql import parse_sql_main_index, get_admins, apply_migrations
+from .index.sql import (
+    parse_sql_main_index,
+    get_admins,
+    apply_migrations,
+)
 from .index.html import parse_html_main_index
 from .extractors import archive_link
 from .config import (
@@ -91,6 +89,7 @@ from .config import (
     get_real_name,
 )
 from .cli.logging import (
+    TimedProgress,
     log_archiving_started,
     log_archiving_paused,
     log_archiving_finished,
@@ -98,6 +97,11 @@ from .cli.logging import (
     log_removal_finished,
     log_list_started,
     log_list_finished,
+    printable_config,
+    printable_folders,
+    printable_filesize,
+    printable_folder_status,
+    printable_dependency_version,
 )
 
 
@@ -387,7 +391,7 @@ def info(out_dir: str=OUTPUT_DIR) -> None:
     print('{green}[*] Scanning archive collection main index...{reset}'.format(**ANSI))
     print(f'    {out_dir}/*')
     num_bytes, num_dirs, num_files = get_dir_size(out_dir, recursive=False, pattern='index.')
-    size = human_readable_size(num_bytes)
+    size = printable_filesize(num_bytes)
     print(f'    Size: {size} across {num_files} files')
     print()
 
@@ -419,7 +423,7 @@ def info(out_dir: str=OUTPUT_DIR) -> None:
     print(f'    {ARCHIVE_DIR}/*')
 
     num_bytes, num_dirs, num_files = get_dir_size(ARCHIVE_DIR)
-    size = human_readable_size(num_bytes)
+    size = printable_filesize(num_bytes)
     print(f'    Size: {size} across {num_files} files in {num_dirs} directories')
     print()
 
@@ -712,13 +716,8 @@ def list_all(filter_patterns_str: Optional[str]=None,
         out_dir=out_dir,
     )
     
-    if csv:
-        print(links_to_csv(folders.values(), csv_cols=csv.split(','), header=True))
-    elif json:
-        print(to_json(folders.values(), indent=4, sort_keys=True))
-    else:
-        print(folders_to_str(folders))
-    raise SystemExit(not folders)
+    print(printable_folders(folders, json=json, csv=csv))
+    return folders
 
 
 @enforce_types
@@ -749,7 +748,7 @@ def list_folders(links: List[Link],
                  status: str,
                  out_dir: str=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     
-    check_data_folder()
+    check_data_folder(out_dir=out_dir)
 
     if status == 'indexed':
         return get_indexed_folders(links, out_dir=out_dir)
@@ -796,7 +795,7 @@ def config(config_options_str: Optional[str]=None,
         )
         raise SystemExit(2)
     elif config_options_str:
-        config_options = stdin_raw_text.split('\n')
+        config_options = config_options_str.split('\n')
 
     config_options = config_options or []
 
@@ -865,7 +864,6 @@ def config(config_options_str: Optional[str]=None,
         stderr('    Please manually remove the relevant lines from your config file:')
         stderr(f'        {CONFIG_FILE}')
         raise SystemExit(2)
-
     else:
         stderr('[X] You must pass either --get or --set, or no arguments to get the whole config.', color='red')
         stderr('    archivebox config')
@@ -873,8 +871,6 @@ def config(config_options_str: Optional[str]=None,
         stderr('    archivebox config --set SOME_KEY=SOME_VALUE')
         raise SystemExit(2)
 
-
-CRON_COMMENT = 'archivebox_schedule'
 
 @enforce_types
 def schedule(add: bool=False,
@@ -893,7 +889,7 @@ def schedule(add: bool=False,
     os.makedirs(os.path.join(out_dir, LOGS_DIR_NAME), exist_ok=True)
 
     cron = CronTab(user=True)
-    cron = dedupe_jobs(cron)
+    cron = dedupe_cron_jobs(cron)
 
     existing_jobs = list(cron.find_comment(CRON_COMMENT))
     if foreground or run_all:
@@ -962,7 +958,7 @@ def schedule(add: bool=False,
             stderr('        archivebox init --every="0/5 * * * *" https://example.com/some/rss/feed.xml')
             raise SystemExit(1)
 
-        cron = dedupe_jobs(cron)
+        cron = dedupe_cron_jobs(cron)
         cron.write()
 
         total_runs = sum(j.frequency_per_year() for j in cron)
@@ -1025,95 +1021,13 @@ def manage(args: Optional[List[str]]=None, out_dir: str=OUTPUT_DIR) -> None:
 
     execute_from_command_line([f'{ARCHIVEBOX_BINARY} manage', *(args or ['help'])])
 
+
+@enforce_types
 def shell(out_dir: str=OUTPUT_DIR) -> None:
+    """Enter an interactive ArchiveBox Django shell"""
+
     check_data_folder(out_dir=out_dir)
 
     setup_django(OUTPUT_DIR)
     from django.core.management import call_command
     call_command("shell_plus")
-
-# Helpers
-
-def printable_config(config: ConfigDict, prefix: str='') -> str:
-    return f'\n{prefix}'.join(
-        f'{key}={val}'
-        for key, val in config.items()
-        if not (isinstance(val, dict) or callable(val))
-    )
-
-def dedupe_jobs(cron: CronTab) -> CronTab:
-    deduped: Set[Tuple[str, str]] = set()
-
-    for job in list(cron):
-        unique_tuple = (str(job.slices), job.command)
-        if unique_tuple not in deduped:
-            deduped.add(unique_tuple)
-        cron.remove(job)
-
-    for schedule, command in deduped:
-        job = cron.new(command=command, comment=CRON_COMMENT)
-        job.setall(schedule)
-        job.enable()
-
-    return cron
-
-
-def print_folder_status(name, folder):
-    if folder['enabled']:
-        if folder['is_valid']:
-            color, symbol, note = 'green', '√', 'valid'
-        else:
-            color, symbol, note, num_files = 'red', 'X', 'invalid', '?'
-    else:
-        color, symbol, note, num_files = 'lightyellow', '-', 'disabled', '-'
-
-    if folder['path']:
-        if os.path.exists(folder['path']):
-            num_files = (
-                f'{len(os.listdir(folder["path"]))} files'
-                if os.path.isdir(folder['path']) else
-                human_readable_size(os.path.getsize(folder['path']))
-            )
-        else:
-            num_files = 'missing'
-
-        if ' ' in folder['path']:
-            folder['path'] = f'"{folder["path"]}"'
-
-    print(
-        ANSI[color],
-        symbol,
-        ANSI['reset'],
-        name.ljust(22),
-        (folder["path"] or '').ljust(76),
-        num_files.ljust(14),
-        ANSI[color],
-        note,
-        ANSI['reset'],
-    )
-
-
-def print_dependency_version(name, dependency):
-    if dependency['enabled']:
-        if dependency['is_valid']:
-            color, symbol, note = 'green', '√', 'valid'
-            version = 'v' + re.search(r'[\d\.]+', dependency['version'])[0]
-        else:
-            color, symbol, note, version = 'red', 'X', 'invalid', '?'
-    else:
-        color, symbol, note, version = 'lightyellow', '-', 'disabled', '-'
-
-    if ' ' in dependency["path"]:
-        dependency["path"] = f'"{dependency["path"]}"'
-
-    print(
-        ANSI[color],
-        symbol,
-        ANSI['reset'],
-        name.ljust(22),
-        (dependency["path"] or '').ljust(76),
-        version.ljust(14),
-        ANSI[color],
-        note,
-        ANSI['reset'],
-    )

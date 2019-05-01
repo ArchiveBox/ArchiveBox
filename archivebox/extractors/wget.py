@@ -1,18 +1,22 @@
 __package__ = 'archivebox.extractors'
 
 import os
+import re
 
 from typing import Optional
 from datetime import datetime
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput
+from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+from ..system import run, PIPE
 from ..util import (
     enforce_types,
-    TimedProgress,
-    run,
-    PIPE,
-    wget_output_path,
-    ArchiveError,
+    is_static_file,
+    without_scheme,
+    without_fragment,
+    without_query,
+    path,
+    domain,
+    urldecode,
 )
 from ..config import (
     TIMEOUT,
@@ -26,7 +30,7 @@ from ..config import (
     WGET_USER_AGENT,
     COOKIES_FILE,
 )
-
+from ..cli.logging import TimedProgress
 
 
 @enforce_types
@@ -121,3 +125,72 @@ def save_wget(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
         status=status,
         **timer.stats,
     )
+
+
+@enforce_types
+def wget_output_path(link: Link) -> Optional[str]:
+    """calculate the path to the wgetted .html file, since wget may
+    adjust some paths to be different than the base_url path.
+
+    See docs on wget --adjust-extension (-E)
+    """
+
+    if is_static_file(link.url):
+        return without_scheme(without_fragment(link.url))
+
+    # Wget downloads can save in a number of different ways depending on the url:
+    #    https://example.com
+    #       > example.com/index.html
+    #    https://example.com?v=zzVa_tX1OiI
+    #       > example.com/index.html?v=zzVa_tX1OiI.html
+    #    https://www.example.com/?v=zzVa_tX1OiI
+    #       > example.com/index.html?v=zzVa_tX1OiI.html
+
+    #    https://example.com/abc
+    #       > example.com/abc.html
+    #    https://example.com/abc/
+    #       > example.com/abc/index.html
+    #    https://example.com/abc?v=zzVa_tX1OiI.html
+    #       > example.com/abc?v=zzVa_tX1OiI.html
+    #    https://example.com/abc/?v=zzVa_tX1OiI.html
+    #       > example.com/abc/index.html?v=zzVa_tX1OiI.html
+
+    #    https://example.com/abc/test.html
+    #       > example.com/abc/test.html
+    #    https://example.com/abc/test?v=zzVa_tX1OiI
+    #       > example.com/abc/test?v=zzVa_tX1OiI.html
+    #    https://example.com/abc/test/?v=zzVa_tX1OiI
+    #       > example.com/abc/test/index.html?v=zzVa_tX1OiI.html
+
+    # There's also lots of complexity around how the urlencoding and renaming
+    # is done for pages with query and hash fragments or extensions like shtml / htm / php / etc
+
+    # Since the wget algorithm for -E (appending .html) is incredibly complex
+    # and there's no way to get the computed output path from wget
+    # in order to avoid having to reverse-engineer how they calculate it,
+    # we just look in the output folder read the filename wget used from the filesystem
+    full_path = without_fragment(without_query(path(link.url))).strip('/')
+    search_dir = os.path.join(
+        link.link_dir,
+        domain(link.url),
+        urldecode(full_path),
+    )
+
+    for _ in range(4):
+        if os.path.exists(search_dir):
+            if os.path.isdir(search_dir):
+                html_files = [
+                    f for f in os.listdir(search_dir)
+                    if re.search(".+\\.[Ss]?[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
+                ]
+                if html_files:
+                    path_from_link_dir = search_dir.split(link.link_dir)[-1].strip('/')
+                    return os.path.join(path_from_link_dir, html_files[0])
+
+        # Move up one directory level
+        search_dir = search_dir.rsplit('/', 1)[0]
+
+        if search_dir == link.link_dir:
+            break
+
+    return None

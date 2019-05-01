@@ -61,19 +61,20 @@ class ArchiveResult:
         info['end_ts'] = parse_date(info['end_ts'])
         return cls(**info)
 
-    def to_json(self, indent=4, sort_keys=True):
-        from ..util import to_json
+    def to_dict(self, *keys) -> dict:
+        if keys:
+            return {k: v for k, v in asdict(self).items() if k in keys}
+        return asdict(self)
+
+    def to_json(self, indent=4, sort_keys=True) -> str:
+        from .json import to_json
 
         return to_json(self, indent=indent, sort_keys=sort_keys)
 
-    def to_csv(self, cols=None, ljust: int=0, separator: str=','):
-        from ..util import to_json
+    def to_csv(self, cols: Optional[List[str]]=None, separator: str=',', ljust: int=0) -> str:
+        from .csv import to_csv
 
-        cols = cols or self.field_names()
-        return separator.join(
-            to_json(getattr(self, col), indent=None).ljust(ljust)
-            for col in cols
-        )
+        return to_csv(self, csv_col=cols or self.field_names(), separator=separator, ljust=ljust)
     
     @classmethod
     def field_names(cls):
@@ -201,18 +202,15 @@ class Link:
         info['history'] = cast_history
         return cls(**info)
 
-    def to_json(self, indent=4, sort_keys=True):
-        from ..util import to_json
+    def to_json(self, indent=4, sort_keys=True) -> str:
+        from .json import to_json
 
         return to_json(self, indent=indent, sort_keys=sort_keys)
 
-    def to_csv(self, csv_cols: List[str], ljust: int=0, separator: str=','):
-        from ..util import to_json
+    def to_csv(self, cols: Optional[List[str]]=None, separator: str=',', ljust: int=0) -> str:
+        from .csv import to_csv
 
-        return separator.join(
-            to_json(getattr(self, col), indent=None).ljust(ljust)
-            for col in csv_cols
-        )
+        return to_csv(self, cols=cols or self.field_names(), separator=separator, ljust=ljust)
 
     @classmethod
     def field_names(cls):
@@ -354,7 +352,7 @@ class Link:
     def canonical_outputs(self) -> Dict[str, Optional[str]]:
         """predict the expected output paths that should be present after archiving"""
 
-        from ..util import wget_output_path
+        from ..extractors.wget import wget_output_path
         canonical = {
             'index_path': 'index.html',
             'favicon_path': 'favicon.ico',
@@ -382,3 +380,5 @@ class Link:
                 'dom_path': static_path,
             })
         return canonical
+
+

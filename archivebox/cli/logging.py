@@ -1,14 +1,28 @@
 __package__ = 'archivebox.cli'
 
+import re
 import os
 import sys
+import time
+import argparse
 
 from datetime import datetime
 from dataclasses import dataclass
-from typing import Optional, List
+from multiprocessing import Process
+from typing import Optional, List, Dict, Union, IO
 
 from ..index.schema import Link, ArchiveResult
-from ..config import ANSI, OUTPUT_DIR, IS_TTY
+from ..index.json import to_json
+from ..index.csv import links_to_csv
+from ..util import enforce_types
+from ..config import (
+    ConfigDict,
+    ANSI,
+    OUTPUT_DIR,
+    IS_TTY,
+    SHOW_PROGRESS,
+    TERM_WIDTH,
+)
 
 
 @dataclass
@@ -32,11 +46,104 @@ class RuntimeStats:
 _LAST_RUN_STATS = RuntimeStats()
 
 
-def pretty_path(path: str) -> str:
-    """convert paths like .../ArchiveBox/archivebox/../output/abc into output/abc"""
-    pwd = os.path.abspath('.')
-    # parent = os.path.abspath(os.path.join(pwd, os.path.pardir))
-    return path.replace(pwd + '/', './')
+
+class SmartFormatter(argparse.HelpFormatter):
+    """Patched formatter that prints newlines in argparse help strings"""
+    def _split_lines(self, text, width):
+        if '\n' in text:
+            return text.splitlines()
+        return argparse.HelpFormatter._split_lines(self, text, width)
+
+
+def reject_stdin(caller: str, stdin: Optional[IO]=sys.stdin) -> None:
+    """Tell the user they passed stdin to a command that doesn't accept it"""
+
+    if stdin and not stdin.isatty():
+        stdin_raw_text = stdin.read().strip()
+        if stdin_raw_text:
+            print(
+                '{red}[X] The "{}" command does not accept stdin.{reset}\n'.format(
+                    caller,
+                    **ANSI,
+                )
+            )
+            print('    Run archivebox "{} --help" to see usage and examples.'.format(
+                caller,
+            ))
+            print()
+            raise SystemExit(1)
+
+def accept_stdin(stdin: Optional[IO]=sys.stdin) -> Optional[str]:
+    if stdin and not stdin.isatty():
+        return stdin.read()
+    return None
+
+
+class TimedProgress:
+    """Show a progress bar and measure elapsed time until .end() is called"""
+
+    def __init__(self, seconds, prefix=''):
+        if SHOW_PROGRESS:
+            self.p = Process(target=progress_bar, args=(seconds, prefix))
+            self.p.start()
+
+        self.stats = {'start_ts': datetime.now(), 'end_ts': None}
+
+    def end(self):
+        """immediately end progress, clear the progressbar line, and save end_ts"""
+
+        end_ts = datetime.now()
+        self.stats['end_ts'] = end_ts
+        if SHOW_PROGRESS:
+            # protect from double termination
+            #if p is None or not hasattr(p, 'kill'):
+            #    return
+            if self.p is not None:
+                self.p.terminate()
+            
+            self.p = None
+
+            sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))  # clear whole terminal line
+
+
+@enforce_types
+def progress_bar(seconds: int, prefix: str='') -> None:
+    """show timer in the form of progress bar, with percentage and seconds remaining"""
+    chunk = '█' if sys.stdout.encoding == 'UTF-8' else '#'
+    chunks = TERM_WIDTH() - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
+    try:
+        for s in range(seconds * chunks):
+            chunks = TERM_WIDTH() - len(prefix) - 20
+            progress = s / chunks / seconds * 100
+            bar_width = round(progress/(100/chunks))
+
+            # ████████████████████           0.9% (1/60sec)
+            sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)'.format(
+                prefix,
+                ANSI['green'],
+                (chunk * bar_width).ljust(chunks),
+                ANSI['reset'],
+                round(progress, 1),
+                round(s/chunks),
+                seconds,
+            ))
+            sys.stdout.flush()
+            time.sleep(1 / chunks)
+
+        # ██████████████████████████████████ 100.0% (60/60sec)
+        sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)\n'.format(
+            prefix,
+            ANSI['red'],
+            chunk * chunks,
+            ANSI['reset'],
+            100.0,
+            seconds,
+            seconds,
+        ))
+        sys.stdout.flush()
+    except KeyboardInterrupt:
+        print()
+        pass
 
 
 ### Parsing Stage
@@ -223,10 +330,9 @@ def log_list_started(filter_patterns: Optional[List[str]], filter_type: str):
     print('    {}'.format(' '.join(filter_patterns or ())))
 
 def log_list_finished(links):
-    from ..util import links_to_csv
     print()
     print('---------------------------------------------------------------------------------------------------')
-    print(links_to_csv(links, csv_cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))
+    print(links_to_csv(links, cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))
     print('---------------------------------------------------------------------------------------------------')
     print()
 
@@ -266,3 +372,129 @@ def log_removal_finished(all_links: int, to_keep: int):
             **ANSI,
         ))
         print('    Index now contains {} links.'.format(to_keep))
+
+
+def log_shell_welcome_msg():
+    from . import list_subcommands
+
+    print('{green}# ArchiveBox Imports{reset}'.format(**ANSI))
+    print('{green}from archivebox.core.models import Page, User{reset}'.format(**ANSI))
+    print('{green}from archivebox import *\n    {}{reset}'.format("\n    ".join(list_subcommands().keys()), **ANSI))
+    print()
+    print('[i] Welcome to the ArchiveBox Shell!')
+    print('    https://github.com/pirate/ArchiveBox/wiki/Usage#Shell-Usage')
+    print()
+    print('    {lightred}Hint:{reset} Example use:'.format(**ANSI))
+    print('        print(Page.objects.filter(is_archived=True).count())')
+    print('        Page.objects.get(url="https://example.com").as_json()')
+    print('        add("https://example.com/some/new/url")')
+
+
+
+### Helpers
+
+@enforce_types
+def pretty_path(path: str) -> str:
+    """convert paths like .../ArchiveBox/archivebox/../output/abc into output/abc"""
+    pwd = os.path.abspath('.')
+    # parent = os.path.abspath(os.path.join(pwd, os.path.pardir))
+    return path.replace(pwd + '/', './')
+
+
+@enforce_types
+def printable_filesize(num_bytes: Union[int, float]) -> str:
+    for count in ['Bytes','KB','MB','GB']:
+        if num_bytes > -1024.0 and num_bytes < 1024.0:
+            return '%3.1f %s' % (num_bytes, count)
+        num_bytes /= 1024.0
+    return '%3.1f %s' % (num_bytes, 'TB')
+
+
+@enforce_types
+def printable_folders(folders: Dict[str, Optional[Link]],
+                      json: bool=False,
+                      csv: Optional[str]=None) -> str:
+    if json: 
+        return to_json(folders.values(), indent=4, sort_keys=True)
+
+    elif csv:
+        return links_to_csv(folders.values(), cols=csv.split(','), header=True)
+    
+    return '\n'.join(f'{folder} {link}' for folder, link in folders.items())
+
+
+
+@enforce_types
+def printable_config(config: ConfigDict, prefix: str='') -> str:
+    return f'\n{prefix}'.join(
+        f'{key}={val}'
+        for key, val in config.items()
+        if not (isinstance(val, dict) or callable(val))
+    )
+
+
+@enforce_types
+def printable_folder_status(name: str, folder: Dict) -> str:
+    if folder['enabled']:
+        if folder['is_valid']:
+            color, symbol, note = 'green', '√', 'valid'
+        else:
+            color, symbol, note, num_files = 'red', 'X', 'invalid', '?'
+    else:
+        color, symbol, note, num_files = 'lightyellow', '-', 'disabled', '-'
+
+    if folder['path']:
+        if os.path.exists(folder['path']):
+            num_files = (
+                f'{len(os.listdir(folder["path"]))} files'
+                if os.path.isdir(folder['path']) else
+                printable_filesize(os.path.getsize(folder['path']))
+            )
+        else:
+            num_files = 'missing'
+
+        if ' ' in folder['path']:
+            folder['path'] = f'"{folder["path"]}"'
+
+    return ' '.join((
+        ANSI[color],
+        symbol,
+        ANSI['reset'],
+        name.ljust(22),
+        (folder["path"] or '').ljust(76),
+        num_files.ljust(14),
+        ANSI[color],
+        note,
+        ANSI['reset'],
+    ))
+
+
+@enforce_types
+def printable_dependency_version(name: str, dependency: Dict) -> str:
+    if dependency['enabled']:
+        if dependency['is_valid']:
+            color, symbol, note, version = 'green', '√', 'valid', ''
+
+            parsed_version_num = re.search(r'[\d\.]+', dependency['version'])
+            if parsed_version_num:
+                version = f'v{parsed_version_num[0]}'
+
+        if not version:
+            color, symbol, note, version = 'red', 'X', 'invalid', '?'
+    else:
+        color, symbol, note, version = 'lightyellow', '-', 'disabled', '-'
+
+    if ' ' in dependency["path"]:
+        dependency["path"] = f'"{dependency["path"]}"'
+
+    return ' '.join((
+        ANSI[color],
+        symbol,
+        ANSI['reset'],
+        name.ljust(22),
+        (dependency["path"] or '').ljust(76),
+        version.ljust(14),
+        ANSI[color],
+        note,
+        ANSI['reset'],
+    ))

@@ -4,15 +4,11 @@ import os
 
 from typing import Optional
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput
+from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+from ..system import run, PIPE, chmod_file
 from ..util import (
     enforce_types,
-    TimedProgress,
-    run,
-    PIPE,
     is_static_file,
-    ArchiveError,
-    chmod_file,
 )
 from ..config import (
     MEDIA_TIMEOUT,
@@ -21,6 +17,7 @@ from ..config import (
     YOUTUBEDL_VERSION,
     CHECK_SSL_VALIDITY
 )
+from ..cli.logging import TimedProgress
 
 
 @enforce_types

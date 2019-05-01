@@ -2,20 +2,18 @@ __package__ = 'archivebox.index'
 
 import os
 
+from string import Template
 from datetime import datetime
-from typing import List, Optional, Iterator
+from typing import List, Optional, Iterator, Mapping
 
 from .schema import Link
+from ..system import atomic_write, copy_and_overwrite
 from ..util import (
     enforce_types,
     ts_to_date,
     urlencode,
     htmlencode,
     urldecode,
-    wget_output_path,
-    render_template,
-    atomic_write,
-    copy_and_overwrite,
 )
 from ..config import (
     OUTPUT_DIR,
@@ -67,7 +65,7 @@ def write_html_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: 
 def main_index_template(links: List[Link], finished: bool=True) -> str:
     """render the template for the entire main index"""
 
-    return render_template(MAIN_INDEX_TEMPLATE, {
+    return render_legacy_template(MAIN_INDEX_TEMPLATE, {
         'version': VERSION,
         'git_sha': GIT_SHA,
         'num_links': str(len(links)),
@@ -86,7 +84,9 @@ def main_index_template(links: List[Link], finished: bool=True) -> str:
 def main_index_row_template(link: Link) -> str:
     """render the template for an individual link row of the main index"""
 
-    return render_template(MAIN_INDEX_ROW_TEMPLATE, {
+    from ..extractors.wget import wget_output_path
+
+    return render_legacy_template(MAIN_INDEX_ROW_TEMPLATE, {
         **link._asdict(extended=True),
         
         # before pages are finished archiving, show loading msg instead of title
@@ -122,9 +122,11 @@ def write_html_link_details(link: Link, out_dir: Optional[str]=None) -> None:
 @enforce_types
 def link_details_template(link: Link) -> str:
 
+    from ..extractors.wget import wget_output_path
+
     link_info = link._asdict(extended=True)
 
-    return render_template(LINK_DETAILS_TEMPLATE, {
+    return render_legacy_template(LINK_DETAILS_TEMPLATE, {
         **link_info,
         **link_info['canonical'],
         'title': (
@@ -142,3 +144,13 @@ def link_details_template(link: Link) -> str:
         'status_color': 'success' if link.is_archived else 'danger',
         'oldest_archive_date': ts_to_date(link.oldest_archive_date),
     })
+
+
+@enforce_types
+def render_legacy_template(template_path: str, context: Mapping[str, str]) -> str:
+    """render a given html template string with the given template content"""
+
+    # will be replaced by django templates in the future
+    with open(template_path, 'r', encoding='utf-8') as template:
+        template_str = template.read()
+    return Template(template_str).substitute(**context)

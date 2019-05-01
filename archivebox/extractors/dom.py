@@ -4,22 +4,19 @@ import os
 
 from typing import Optional
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput
+from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+from ..system import run, PIPE, chmod_file
 from ..util import (
     enforce_types,
-    TimedProgress,
-    run,
-    PIPE,
     is_static_file,
-    ArchiveError,
     chrome_args,
-    chmod_file,
 )
 from ..config import (
     TIMEOUT,
     SAVE_DOM,
     CHROME_VERSION,
 )
+from ..cli.logging import TimedProgress
 
 
 

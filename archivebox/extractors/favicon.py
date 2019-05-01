@@ -5,14 +5,8 @@ import os
 from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput
-from ..util import (
-    enforce_types,
-    TimedProgress,
-    domain,
-    run,
-    PIPE,
-    chmod_file,
-)
+from ..system import chmod_file, run, PIPE
+from ..util import enforce_types, domain
 from ..config import (
     TIMEOUT,
     SAVE_FAVICON,
@@ -20,6 +14,7 @@ from ..config import (
     CURL_VERSION,
     CHECK_SSL_VALIDITY,
 )
+from ..cli.logging import TimedProgress
 
 
 @enforce_types

@@ -64,3 +64,7 @@ class Page(models.Model):
     @property
     def base_url(self):
         return self.as_link().base_url
+
+    @property
+    def link_dir(self):
+        return self.as_link().link_dir

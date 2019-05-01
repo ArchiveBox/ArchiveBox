@@ -4,17 +4,19 @@ import os
 import sys
 
 SECRET_KEY = '---------------- not a valid secret key ! ----------------'
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 ALLOWED_HOSTS = ['*']
 
 REPO_DIR = os.path.abspath(os.path.join(os.path.abspath(__file__), os.path.pardir, os.path.pardir))
 OUTPUT_DIR = os.path.abspath(os.getenv('OUTPUT_DIR', os.curdir))
+ARCHIVE_DIR = os.path.join(OUTPUT_DIR, 'archive')
 DATABASE_FILE = os.path.join(OUTPUT_DIR, 'index.sqlite3')
 
 ACTIVE_THEME = 'default'
 
 IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
 
+APPEND_SLASH = True
 
 INSTALLED_APPS = [
     'django.contrib.auth',

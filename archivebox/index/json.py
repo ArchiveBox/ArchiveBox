@@ -2,13 +2,14 @@ __package__ = 'archivebox.index'
 
 import os
 import sys
-import json
+import json as pyjson
 
 from datetime import datetime
-from typing import List, Optional, Iterator
+from typing import List, Optional, Iterator, Any
 
 from .schema import Link, ArchiveResult
-from ..util import enforce_types, atomic_write
+from ..system import atomic_write
+from ..util import enforce_types
 from ..config import (
     VERSION,
     OUTPUT_DIR,
@@ -46,7 +47,7 @@ def parse_json_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
     index_path = os.path.join(out_dir, JSON_INDEX_FILENAME)
     if os.path.exists(index_path):
         with open(index_path, 'r', encoding='utf-8') as f:
-            links = json.load(f)['links']
+            links = pyjson.load(f)['links']
             for link_json in links:
                 yield Link.from_json(link_json)
 
@@ -95,11 +96,12 @@ def parse_json_link_details(out_dir: str) -> Optional[Link]:
     if os.path.exists(existing_index):
         with open(existing_index, 'r', encoding='utf-8') as f:
             try:
-                link_json = json.load(f)
+                link_json = pyjson.load(f)
                 return Link.from_json(link_json)
-            except json.JSONDecodeError:
+            except pyjson.JSONDecodeError:
                 pass
     return None
+
 
 @enforce_types
 def parse_json_links_details(out_dir: str) -> Iterator[Link]:
@@ -111,3 +113,41 @@ def parse_json_links_details(out_dir: str) -> Iterator[Link]:
                 link = parse_json_link_details(entry.path)
                 if link:
                     yield link
+
+
+
+### Helpers
+
+class ExtendedEncoder(pyjson.JSONEncoder):
+    """
+    Extended json serializer that supports serializing several model
+    fields and objects
+    """
+
+    def default(self, obj):
+        cls_name = obj.__class__.__name__
+
+        if hasattr(obj, '_asdict'):
+            return obj._asdict()
+
+        elif isinstance(obj, bytes):
+            return obj.decode()
+
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+
+        elif isinstance(obj, Exception):
+            return '{}: {}'.format(obj.__class__.__name__, obj)
+
+        elif cls_name in ('dict_items', 'dict_keys', 'dict_values'):
+            return tuple(obj)
+
+        return pyjson.JSONEncoder.default(self, obj)
+
+
+@enforce_types
+def to_json(obj: Any, indent: Optional[int]=4, sort_keys: bool=True, cls=ExtendedEncoder) -> str:
+    return pyjson.dumps(obj, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder)
+
+
+

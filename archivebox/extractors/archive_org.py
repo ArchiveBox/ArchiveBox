@@ -5,16 +5,11 @@ import os
 from typing import Optional, List, Dict, Tuple
 from collections import defaultdict
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput
+from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+from ..system import run, PIPE, DEVNULL, chmod_file
 from ..util import (
     enforce_types,
-    TimedProgress,
-    run,
-    PIPE,
-    DEVNULL,
     is_static_file,
-    ArchiveError,
-    chmod_file,
 )
 from ..config import (
     VERSION,
@@ -24,6 +19,7 @@ from ..config import (
     CURL_VERSION,
     CHECK_SSL_VALIDITY
 )
+from ..cli.logging import TimedProgress
 
 
 

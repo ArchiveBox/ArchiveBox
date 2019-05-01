@@ -7,16 +7,29 @@ For examples of supported import formats see tests/.
 
 __package__ = 'archivebox.parsers'
 
+import re
+import os
 
 from typing import Tuple, List
+from datetime import datetime
 
-from ..config import TIMEOUT
-from ..util import (
-    check_url_parsing_invariants,
-    TimedProgress,
-    Link,
-    enforce_types,
+from ..index.schema import Link
+from ..system import atomic_write
+from ..config import (
+    ANSI,
+    OUTPUT_DIR,
+    SOURCES_DIR_NAME,
+    TIMEOUT,
+    check_data_folder,
 )
+from ..util import (
+    basename,
+    domain,
+    download_url,
+    enforce_types,
+    URL_REGEX,
+)
+from ..cli.logging import pretty_path, TimedProgress
 from .pocket_html import parse_pocket_html_export
 from .pinboard_rss import parse_pinboard_rss_export
 from .shaarli_rss import parse_shaarli_rss_export
@@ -66,3 +79,95 @@ def parse_links(source_file: str) -> Tuple[List[Link], str]:
 
     timer.end()
     return [], 'Failed to parse'
+
+
+@enforce_types
+def save_stdin_to_sources(raw_text: str, out_dir: str=OUTPUT_DIR) -> str:
+    check_data_folder(out_dir=out_dir)
+
+    sources_dir = os.path.join(out_dir, SOURCES_DIR_NAME)
+    if not os.path.exists(sources_dir):
+        os.makedirs(sources_dir)
+
+    ts = str(datetime.now().timestamp()).split('.', 1)[0]
+
+    source_path = os.path.join(sources_dir, '{}-{}.txt'.format('stdin', ts))
+
+    atomic_write(raw_text, source_path)
+    return source_path
+
+
+@enforce_types
+def save_file_to_sources(path: str, timeout: int=TIMEOUT, out_dir: str=OUTPUT_DIR) -> str:
+    """download a given url's content into output/sources/domain-<timestamp>.txt"""
+    check_data_folder(out_dir=out_dir)
+
+    sources_dir = os.path.join(out_dir, SOURCES_DIR_NAME)
+    if not os.path.exists(sources_dir):
+        os.makedirs(sources_dir)
+
+    ts = str(datetime.now().timestamp()).split('.', 1)[0]
+
+    source_path = os.path.join(sources_dir, '{}-{}.txt'.format(basename(path), ts))
+
+    if any(path.startswith(s) for s in ('http://', 'https://', 'ftp://')):
+        source_path = os.path.join(sources_dir, '{}-{}.txt'.format(domain(path), ts))
+        print('{}[*] [{}] Downloading {}{}'.format(
+            ANSI['green'],
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            path,
+            ANSI['reset'],
+        ))
+        timer = TimedProgress(timeout, prefix='      ')
+        try:
+            raw_source_text = download_url(path, timeout=timeout)
+            timer.end()
+        except Exception as e:
+            timer.end()
+            print('{}[!] Failed to download {}{}\n'.format(
+                ANSI['red'],
+                path,
+                ANSI['reset'],
+            ))
+            print('    ', e)
+            raise SystemExit(1)
+
+    else:
+        with open(path, 'r') as f:
+            raw_source_text = f.read()
+
+    atomic_write(raw_source_text, source_path)
+
+    print('    > {}'.format(pretty_path(source_path)))
+
+    return source_path
+
+
+def check_url_parsing_invariants() -> None:
+    """Check that plain text regex URL parsing works as expected"""
+
+    # this is last-line-of-defense to make sure the URL_REGEX isn't
+    # misbehaving, as the consequences could be disastrous and lead to many
+    # incorrect/badly parsed links being added to the archive
+
+    test_urls = '''
+    https://example1.com/what/is/happening.html?what=1#how-about-this=1
+    https://example2.com/what/is/happening/?what=1#how-about-this=1
+    HTtpS://example3.com/what/is/happening/?what=1#how-about-this=1f
+    https://example4.com/what/is/happening.html
+    https://example5.com/
+    https://example6.com
+
+    <test>http://example7.com</test>
+    [https://example8.com/what/is/this.php?what=1]
+    [and http://example9.com?what=1&other=3#and-thing=2]
+    <what>https://example10.com#and-thing=2 "</about>
+    abc<this["https://example11.com/what/is#and-thing=2?whoami=23&where=1"]that>def
+    sdflkf[what](https://example12.com/who/what.php?whoami=1#whatami=2)?am=hi
+    example13.bada
+    and example14.badb
+    <or>htt://example15.badc</that>
+    '''
+    # print('\n'.join(re.findall(URL_REGEX, test_urls)))
+    assert len(re.findall(URL_REGEX, test_urls)) == 12
+
