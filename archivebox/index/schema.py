@@ -126,7 +126,7 @@ class Link:
             assert isinstance(self.url, str) and '://' in self.url
             assert self.updated is None or isinstance(self.updated, datetime)
             assert self.title is None or (isinstance(self.title, str) and self.title)
-            assert self.tags is None or (isinstance(self.tags, str) and self.tags)
+            assert self.tags is None or isinstance(self.tags, str)
             assert isinstance(self.sources, list)
             assert all(isinstance(source, str) and source for source in self.sources)
             assert isinstance(self.history, dict)
@@ -186,7 +186,7 @@ class Link:
             for key, val in json_info.items()
             if key in cls.field_names()
         }
-        info['updated'] = parse_date(info['updated'])
+        info['updated'] = parse_date(info.get('updated'))
         info['sources'] = info.get('sources') or []
 
         json_history = info.get('history') or {}
