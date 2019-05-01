@@ -991,6 +991,11 @@ def server(runserver_args: Optional[List[str]]=None,
     runserver_args = runserver_args or []
     check_data_folder(out_dir=out_dir)
 
+    if debug:
+        os.environ['DEBUG'] = 'True'
+    else:
+        runserver_args.append('--insecure')
+
     setup_django(out_dir)
     from django.core.management import call_command
     from django.contrib.auth.models import User

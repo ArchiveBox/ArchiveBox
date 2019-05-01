@@ -33,12 +33,18 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         action='store_true',
         help='Enable auto-reloading when code or templates change',
     )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Enable DEBUG=True mode with more verbose errors',
+    )
     command = parser.parse_args(args or ())
     reject_stdin(__command__, stdin)
     
     server(
         runserver_args=command.runserver_args,
         reload=command.reload,
+        debug=command.debug,
         out_dir=pwd or OUTPUT_DIR,
     )
 
