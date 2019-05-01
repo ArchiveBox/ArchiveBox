@@ -122,18 +122,13 @@ def merge_links(a: Link, b: Link) -> Link:
 
 @enforce_types
 def validate_links(links: Iterable[Link]) -> List[Link]:
-    links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
-    links = sorted_links(links)      # deterministically sort the links based on timstamp, url
-    links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
-
-    if not links:
-        stderr('{red}[X] No links found in index.{reset}'.format(**ANSI))
-        stderr('    To add a link to your archive, run:')
-        stderr("        archivebox add 'https://example.com'")
-        stderr()
-        stderr('    For more usage and examples, run:')
-        stderr('        archivebox help')
-        raise SystemExit(1)
+    timer = TimedProgress(TIMEOUT * 4)
+    try:
+        links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
+        links = sorted_links(links)      # deterministically sort the links based on timstamp, url
+        links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
+    finally:
+        timer.end()
 
     return list(links)
 
