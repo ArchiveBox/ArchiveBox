@@ -61,21 +61,18 @@ def reject_stdin(caller: str, stdin: Optional[IO]=sys.stdin) -> None:
     if stdin and not stdin.isatty():
         stdin_raw_text = stdin.read().strip()
         if stdin_raw_text:
-            print(
-                '{red}[X] The "{}" command does not accept stdin.{reset}\n'.format(
-                    caller,
-                    **ANSI,
-                )
-            )
-            print('    Run archivebox "{} --help" to see usage and examples.'.format(
-                caller,
-            ))
-            print()
+            stderr(f'[X] The "{caller}" command does not accept stdin.', color='red')
+            stderr(f'    Run archivebox "{caller} --help" to see usage and examples.')
+            stderr()
             raise SystemExit(1)
 
 def accept_stdin(stdin: Optional[IO]=sys.stdin) -> Optional[str]:
-    if stdin and not stdin.isatty():
-        return stdin.read()
+    """accept any standard input and return it as a string or None"""
+    if not stdin:
+        return None
+    elif stdin and not stdin.isatty():
+        stdin_str = stdin.read().strip()
+        return stdin_str or None
     return None
 
 
