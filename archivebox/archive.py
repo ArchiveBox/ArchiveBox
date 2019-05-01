@@ -86,8 +86,8 @@ def main(*args):
             )
             print_help()
             raise SystemExit(1)
-
-        import_path = save_stdin_source(stdin_raw_text)
+        if stdin_raw_text:
+            import_path = save_stdin_source(stdin_raw_text)
 
     ### Handle ingesting urls from a remote file/feed
     # (e.g. if an RSS feed URL is used as the import path) 
