@@ -238,7 +238,7 @@ def run(subcommand: str,
 
 
 @enforce_types
-def init(out_dir: str=OUTPUT_DIR) -> None:
+def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
     os.makedirs(out_dir, exist_ok=True)
 
@@ -254,15 +254,19 @@ def init(out_dir: str=OUTPUT_DIR) -> None:
         print(f'    {out_dir}')
         print('{green}------------------------------------------------------------------{reset}'.format(**ANSI))
     else:
-        stderr(
-            ("{red}[X] This folder appears to already have files in it, but no index.json is present.{reset}\n\n"
-            "    You must run init in a completely empty directory, or an existing data folder.\n\n"
-            "    {lightred}Hint:{reset} To import an existing data folder make sure to cd into the folder first, \n"
-            "    then run and run 'archivebox init' to pick up where you left off.\n\n"
-            "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
-            ).format(out_dir, **ANSI)
-        )
-        raise SystemExit(1)
+        if force:
+            stderr('[!] This folder appears to already have files in it, but no index.json is present.', color='lightyellow')
+            stderr('    Because --force was passed, ArchiveBox will initialize anyway (which may overwrite existing files).')
+        else:
+            stderr(
+                ("{red}[X] This folder appears to already have files in it, but no index.json is present.{reset}\n\n"
+                "    You must run init in a completely empty directory, or an existing data folder.\n\n"
+                "    {lightred}Hint:{reset} To import an existing data folder make sure to cd into the folder first, \n"
+                "    then run and run 'archivebox init' to pick up where you left off.\n\n"
+                "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
+                ).format(out_dir, **ANSI)
+            )
+            raise SystemExit(2)
 
     if existing_index:
         print('\n{green}[*] Verifying archive folder structure...{reset}'.format(**ANSI))

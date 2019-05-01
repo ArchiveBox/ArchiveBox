@@ -21,10 +21,18 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         add_help=True,
         formatter_class=SmartFormatter,
     )
-    parser.parse_args(args or ())
+    parser.add_argument(
+        '--force', # '-f',
+        action='store_true',
+        help='Ignore unrecognized files in current directory and initialize anyway',
+    )
+    command = parser.parse_args(args or ())
     reject_stdin(__command__, stdin)
 
-    init(out_dir=pwd or OUTPUT_DIR)
+    init(
+        force=command.force,
+        out_dir=pwd or OUTPUT_DIR,
+    )
     
 
 if __name__ == '__main__':
