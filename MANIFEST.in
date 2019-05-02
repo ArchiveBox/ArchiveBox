@@ -1,3 +1,4 @@
+include LICENSE
 include archivebox/VERSION
 graft archivebox/themes
 graft archivebox/themes/static
