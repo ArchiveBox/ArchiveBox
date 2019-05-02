@@ -1,13 +1,15 @@
 import os
 import setuptools
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+BASE_DIR = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
+PYTHON_DIR = os.path.join(BASE_DIR, 'archivebox')
 
+with open('README.md', "r") as f:
+    README = f.read()
 
-script_dir = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
+with open(os.path.join(PYTHON_DIR, 'VERSION'), 'r') as f:
+    VERSION = f.read().strip()
 
-VERSION = open(os.path.join(script_dir, 'archivebox', 'VERSION'), 'r').read().strip()
 
 setuptools.setup(
     name="archivebox",
@@ -15,9 +17,10 @@ setuptools.setup(
     author="Nick Sweeting",
     author_email="git@nicksweeting.com",
     description="The self-hosted internet archive.",
-    long_description=long_description,
+    long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/pirate/ArchiveBox",
+    license='MIT',
     project_urls={
         'Documentation': 'https://github.com/pirate/ArchiveBox/Wiki',
         'Community': 'https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community',
@@ -27,7 +30,7 @@ setuptools.setup(
         'Changelog': 'https://github.com/pirate/ArchiveBox/wiki/Changelog',
         'Patreon': 'https://github.com/pirate/ArchiveBox/wiki/Donations',
     },
-    packages=setuptools.find_packages(),
+    packages=['archivebox',],
     python_requires='>=3.6',
     install_requires=[
         "dataclasses==0.6",
