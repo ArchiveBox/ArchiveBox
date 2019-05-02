@@ -7,6 +7,8 @@ SECRET_KEY = '---------------- not a valid secret key ! ----------------'
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 ALLOWED_HOSTS = ['*']
 
+IS_PUBLIC = True  # whether archive data requires logging in to view
+
 REPO_DIR = os.path.abspath(os.path.join(os.path.abspath(__file__), os.path.pardir, os.path.pardir))
 OUTPUT_DIR = os.path.abspath(os.getenv('OUTPUT_DIR', os.curdir))
 ARCHIVE_DIR = os.path.join(OUTPUT_DIR, 'archive')

@@ -17,9 +17,8 @@ class Snapshot(models.Model):
     title = models.CharField(max_length=128, null=True, default=None)
     tags = models.CharField(max_length=256, null=True, default=None)
 
-    added = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(null=True, default=None)
-    # bookmarked = models.DateTimeField()
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
 
@@ -68,3 +67,23 @@ class Snapshot(models.Model):
     @property
     def link_dir(self):
         return self.as_link().link_dir
+
+
+class SnapshotResult(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    snapshot = models.ForeignKey(Snapshot)
+    output = models.CharField(max_length=128, null=True, default=None)
+    status = models.CharField(max_length=128, null=True, default=None)
+
+    cmd = models.CharField(max_length=512, null=True, default=None)
+    pwd = models.CharField(max_length=128, null=True, default=None)
+    cmd_version = models.CharField(max_length=128, null=True, default=None)
+    cmd_hash = models.CharField(max_length=64, null=True, default=None)
+    
+    start_ts = models.DateTimeField(null=True, default=None)
+    end_ts = models.DateTimeField(null=True, default=None)
+
+    @property
+    def output_hash(self):
+        raise NotImplementedError
