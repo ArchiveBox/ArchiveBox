@@ -55,19 +55,7 @@ setuptools.setup(
             'archivebox = archivebox.__main__:main',
         ],
     },
-    package_data={
-        'archivebox': [
-            # Manifest.ini must correspond 1:1 with this list
-            'VERSION',
-            'themes/*',
-            'themes/static/*',
-            'themes/admin/*'
-            'themes/default/*'
-            'themes/default/static/*'
-            'themes/legacy/*',
-            'themes/legacy/static/*',
-        ],
-    },
+    include_package_data=True,
     classifiers=[
         "Development Status :: 4 - Beta",
 
