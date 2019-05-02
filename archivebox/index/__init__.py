@@ -408,7 +408,7 @@ def get_unarchived_folders(links, out_dir: str=OUTPUT_DIR) -> Dict[str, Optional
     }
 
 def get_present_folders(links, out_dir: str=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
-    """dirs that are expected to exist based on the main index"""
+    """dirs that actually exist in the archive/ folder"""
     all_folders = {}
 
     for entry in os.scandir(os.path.join(out_dir, ARCHIVE_DIR_NAME)):
