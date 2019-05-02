@@ -44,8 +44,17 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'TIMEOUT':                  {'type': int,   'default': 60},
         'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
         'OUTPUT_PERMISSIONS':       {'type': str,   'default': '755'},
-        'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
         'URL_BLACKLIST':            {'type': str,   'default': None},
+    },
+
+    'SERVER_CONFIG': {
+        'SECRET_KEY':               {'type': str,   'default': None},
+        'ALLOWED_HOSTS':            {'type': str,   'default': '*'},
+        'DEBUG':                    {'type': bool,  'default': False},
+        'PUBLIC_INDEX':             {'type': bool,  'default': True},
+        'PUBLIC_SNAPSHOTS':         {'type': bool,  'default': True},
+        'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
+        'ACTIVE_THEME':             {'type': str,   'default': 'default'},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
@@ -313,9 +322,6 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
         with open(config_path, 'w+') as f:
             f.write(CONFIG_HEADER)
 
-    if not config:
-        return {}
-
     config_file = ConfigParser()
     config_file.optionxform = str
     config_file.read(config_path)
@@ -336,6 +342,21 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
 
             config_file[section] = {**existing_config, key: val}
 
+        # always make sure there's a SECRET_KEY defined for Django
+        existing_secret_key = None
+        if 'SERVER_CONFIG' in config_file and 'SECRET_KEY' in config_file['SERVER_CONFIG']:
+            existing_secret_key = config_file['SERVER_CONFIG']['SECRET_KEY']
+
+        if (not existing_secret_key) or ('not a valid secret' in existing_secret_key):
+            from django.utils.crypto import get_random_string
+            chars = 'abcdefghijklmnopqrstuvwxyz0123456789-_+!.'
+            random_secret_key = get_random_string(50, chars)
+            if 'SERVER_CONFIG' in config_file:
+                config_file['SERVER_CONFIG']['SECRET_KEY'] = random_secret_key
+            else:
+                config_file['SERVER_CONFIG'] = {'SECRET_KEY': random_secret_key}
+
+        f.write(CONFIG_HEADER)
         config_file.write(f)
 
     try:

@@ -22,8 +22,14 @@ urlpatterns = [
     path('add/', AddLinks.as_view(), name='AddLinks'),
     
     path('static/<path>', views.serve),
+    
+    path('accounts/login/', RedirectView.as_view(url='/admin/login/')),
+    path('accounts/logout/', RedirectView.as_view(url='/admin/logout/')),
+
     path('accounts/', include('django.contrib.auth.urls')),
     path('admin/', admin.site.urls),
+    
+
     path('', MainIndex.as_view(), name='Home'),
 ]
 

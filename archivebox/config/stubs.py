@@ -22,8 +22,15 @@ class ConfigDict(BaseConfig, total=False):
     TIMEOUT: int
     MEDIA_TIMEOUT: int
     OUTPUT_PERMISSIONS: str
-    FOOTER_INFO: str
     URL_BLACKLIST: Optional[str]
+
+    SECRET_KEY: str
+    ALLOWED_HOSTS: str
+    DEBUG: bool
+    PUBLIC_INDEX: bool
+    PUBLIC_SNAPSHOTS: bool
+    FOOTER_INFO: str
+    ACTIVE_THEME: str
 
     SAVE_TITLE: bool
     SAVE_FAVICON: bool
