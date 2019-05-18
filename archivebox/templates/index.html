@@ -3,6 +3,34 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
         <title>Archived Sites</title>
         <style>
+            :root {
+                --accent-1: #aa1e55;
+                --accent-2: #ffebeb;
+                --accent-3: #efefef;
+                
+                --bg-main: #efefef;
+                --text-main: black;
+                --text-1: #1a1a1a;
+                --text-2: #eaeaea;
+            }
+            
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --accent-2: hsl(160, 100%, 96%);
+                    
+                    --text-1: #eaeaea;
+                    --text-2: #1a1a1a;
+                    --bg-main: #101010;
+                }
+                
+                #table-bookmarks_wrapper,
+                #table-bookmarks_wrapper img,
+                tbody td:nth-child(3),
+                tbody td:nth-child(3) span,
+                footer {
+                    filter: invert(100%);
+                }
+            }
             html, body {
                 width: 100%;
                 height: 100%;
@@ -12,10 +40,12 @@
                 margin: 0px;
                 padding: 0px;
                 font-family: "Gill Sans", Helvetica, sans-serif;
+                background: var(--bg-main);
+                color: var(--text-main);
             }
             header {
-                background-color: #aa1e55;
-                color: #1a1a1a;
+                background-color: var(--accent-1);
+                color: var(--text-1);
                 padding: 10px;
                 padding-top: 0px;
                 padding-bottom: 15px;
@@ -25,7 +55,7 @@
                 margin: 7px 0px;
                 font-size: 35px;
                 font-weight: 300;
-                color: #1a1a1a;
+                color: var(--text-1);
             }
             header h1 img {
                 height: 44px;
@@ -33,7 +63,7 @@
             }
             header a {
                 text-decoration: none !important;
-                color: #1a1a1a;
+                color: var(--text-1);
             }
             .header-center {
                 margin: auto;
@@ -42,7 +72,7 @@
                 padding-top: 6px;
             }
             .header-center small {
-                color: #eaeaea;
+                color: var(--text-2);
                 opacity: 0.7;
             }
             .header-left {
@@ -54,7 +84,7 @@
                 padding-right: 10px;
             }
             header + div {
-                margin-top: 10px;
+                padding-top: 10px;
             }
             #table-bookmarks_length, #table-bookmarks_filter {
                 padding: 0px 15px;
@@ -70,7 +100,7 @@
                 height: 35px;
             }
             tbody tr:nth-child(odd) {
-               background-color: #ffebeb !important;
+               background-color: var(--accent-2) !important;
             }
             table tr td {
                 white-space: nowrap;
@@ -127,7 +157,7 @@
                 color:black;
             }
             tr td a.title small {
-                background-color: #efefef;
+                background-color: var(--accent-3);
                 border-radius: 4px;
                 float:right
             }
