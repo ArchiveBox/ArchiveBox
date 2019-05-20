@@ -104,6 +104,7 @@ try:
         default_executable_paths = (
             'chromium-browser',
             'chromium',
+            'chrome',
             '/Applications/Chromium.app/Contents/MacOS/Chromium',
             'google-chrome',
             '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -129,6 +130,7 @@ try:
             '~/.config/chromium',
             '~/Library/Application Support/Chromium',
             '~/AppData/Local/Chromium/User Data',
+            '~/.config/chrome',
             '~/.config/google-chrome',
             '~/Library/Application Support/Google/Chrome',
             '~/AppData/Local/Google/Chrome/User Data',
