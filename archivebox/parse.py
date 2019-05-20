@@ -103,7 +103,7 @@ def parse_json_export(json_file):
 
     json_file.seek(0)
     links = json.load(json_file)
-    json_date = lambda s: datetime.strptime(s, '%Y-%m-%dT%H:%M:%S%z')
+    json_date = lambda s: datetime.strptime(s, '%Y-%m-%dT%H:%M:%SZ')
 
     for link in links:
         # example line
