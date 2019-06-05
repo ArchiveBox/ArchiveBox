@@ -72,7 +72,7 @@ class Snapshot(models.Model):
 class SnapshotResult(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    snapshot = models.ForeignKey(Snapshot)
+    snapshot = models.ForeignKey(Snapshot,on_delete=models.CASCADE)
     output = models.CharField(max_length=128, null=True, default=None)
     status = models.CharField(max_length=128, null=True, default=None)
 
