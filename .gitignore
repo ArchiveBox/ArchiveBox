@@ -1,20 +1,15 @@
-# OS cruft
 .DS_Store
 ._*
-
-# python
 __pycache__/
-venv
-.venv
-archivebox/.venv
-archivebox/venv
 
-# vim
-.swp*
+# Dependency code
+.venv                # main pipenv venv path
+venv                 # old venv path, (no longer used)
+archivebox/.venv     # old venv path, (no longer used)
+archivebox/venv      # old venv path, (no longer used)
 
-# output artifacts
-output
-output/
-data
-data/
-archivebox/output
+
+# Stateful data folders
+data/                # main archivebox data folder
+archivebox/output/   # old output folder path (no longer used)
+output/              # old output folder path (no longer used)
