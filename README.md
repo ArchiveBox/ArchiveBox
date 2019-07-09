@@ -26,6 +26,8 @@
 
 *💥 Attention: Big API changes are coming soon! Check out [v0.4.0](https://github.com/pirate/ArchiveBox/pull/207) and help us test it! 💥*
 
+**Note: There are some important security design issues that need to be fixed before the next release can be pushed, all help is appreciated! (This project is not abandoned, it's my primary side-project for the forseeable future, my day job is very busy right now.) See this [ticket](https://github.com/pirate/ArchiveBox/pull/207#issuecomment-494107553) for more information.**
+
 </div>
 
 **ArchiveBox takes a list of website URLs you want to archive, and creates a local, static, browsable HTML clone of the content from those websites (it saves HTML, JS, media files, PDFs, images and more).** 
