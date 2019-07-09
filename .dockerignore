@@ -1,6 +1,11 @@
 .DS_Store
 ._*
+
 __pycache__/
+.mypy_cache/
+archivebox.egg-info/
+build/
+dist/
 
 # Dependency code
 .venv                # main pipenv venv path
