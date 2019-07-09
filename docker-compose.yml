@@ -12,16 +12,16 @@ version: '3'
 
 services:
     archivebox:
-        build: .
-        stdin_open: true
-        tty: true
-        # env_file: path/to/your/ArchiveBox.conf
+        build: .                                   # replace this with nikisweeting/archivebox to use the docker-compose.yml file as a standalone file without avoid having to clone the repo
+        stdin_open: true                           # needed to be able to input URLs directly after `docker-compose up`
+        tty: true                                  # needed to be able to pipe in URLs via stdin to `docker-compose exec ...`
+        # env_file: path/to/your/ArchiveBox.conf   # this feature is available starting >v0.4
         environment:
-            - USE_COLOR=False
-            - SHOW_PROGRESS=False
+            - USE_COLOR=False                      # make docker logs nicer by not spamming lots of ANSI colors
+            - SHOW_PROGRESS=False                  # make docker logs nicer by not writing lots of progress bar lines
         volumes:
             - ./data:/data
-        command: bash -c 'echo "https://github.com/pirate/ArchiveBox" | /bin/archive; tail -f /dev/null'
+        command: bash -c 'echo "https://github.com/pirate/ArchiveBox" | /bin/archive; tail -f /dev/null'  # archive the Github repo homepage as a starting point so the index doesn't just show an empty list to new users
 
     nginx:
         image: 'nginx'
@@ -30,3 +30,9 @@ services:
         volumes:
             - ./etc/nginx/nginx.conf:/etc/nginx/nginx.conf
             - ./data:/var/www
+
+# you can also use named volumes / network volumes if you prefer them to simple local mounts
+# volumes:
+#     archivebox-data:
+#     archivebox-config:
+#     etc. a full example will be added after the v0.4 release
