@@ -23,13 +23,13 @@
 <a href="https://hub.docker.com/r/nikisweeting/archivebox"><img src="https://img.shields.io/badge/Docker-all%20platforms-lightblue.svg?logo=docker&logoColor=lightblue"/></a>
 
 <hr/>
-
-*💥 Attention: Big API changes are coming soon! Check out [v0.4](https://github.com/pirate/ArchiveBox/pull/207) and help us test it! 💥*
-
-**Note: There are some important security design issues that need to be fixed before v0.4 can be pushed, all help is appreciated!   
-(This project is not abandoned, it's my primary side-project for the forseeable future, my day job is very busy right now.)   
-See this [ticket](https://github.com/pirate/ArchiveBox/pull/207#issuecomment-494107553) for more information.**
-
+<br/>
+<i>💥 Attention: Big API changes are coming soon! Check out <a href="https://github.com/pirate/ArchiveBox/pull/207">v0.4</a> and help us test it! 💥<i>
+<br/><br/>
+<b>Note: There are some important security design issues that need to be fixed before v0.4 can be pushed, all help is appreciated!<br/>
+(This project is not abandoned, it's my primary side-project for the forseeable future, my day job is very busy right now.)<br/>
+See the <a href="https://github.com/pirate/ArchiveBox/pull/207#issuecomment-494107553">v0.4 release PR</a> for more information.</b>
+<br/>
 <hr/>
 
 </div>
