@@ -24,7 +24,7 @@
 
 <hr/>
 <br/>
-<i>💥 Attention: Big API changes are coming soon (including a proper config file format and <pre>pip install archivebox</pre>)! Check out <a href="https://github.com/pirate/ArchiveBox/pull/207">v0.4</a> and help us test it! 💥</i>
+<i>💥 Attention: Big API changes are coming soon (including a proper config file format and <code>pip install archivebox</code>)! Check out <a href="https://github.com/pirate/ArchiveBox/pull/207">v0.4</a> and help us test it! 💥</i>
 <br/><br/>
 <b>Note: There are some important security design issues that need to be fixed before v0.4 can be pushed, all help is appreciated!<br/>
 (This project is not abandoned, it's my primary side-project for the forseeable future, my day job is very busy right now.)<br/>
