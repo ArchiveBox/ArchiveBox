@@ -8,6 +8,8 @@
 # Documentation:
 #     https://github.com/pirate/ArchiveBox/wiki/Docker#docker
 
+# TODO: bump to latest chrome and node version, confirm chrome doesn't hang on simple pages
+
 FROM node:11-slim
 LABEL maintainer="Nick Sweeting <archivebox-git@sweeting.me>"
 
