@@ -1,6 +1,15 @@
-output
-__pycache__
 .DS_Store
-venv
-.venv
-data
+._*
+__pycache__/
+
+# Dependency code
+.venv                # main pipenv venv path
+venv                 # old venv path, (no longer used)
+archivebox/.venv     # old venv path, (no longer used)
+archivebox/venv      # old venv path, (no longer used)
+
+
+# Stateful data folders
+data                 # main archivebox data folder
+archivebox/output    # old output folder path (no longer used)
+output               # old output folder path (no longer used)
