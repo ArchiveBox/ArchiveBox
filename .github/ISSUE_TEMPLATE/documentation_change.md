@@ -1,7 +1,7 @@
 ---
 name: 📑 Documentation change
 about: Submit a suggestion for the Wiki documentation
-title: ''
+title: 'Documentation: Improvement request ...'
 labels: ''
 assignees: ''
 
