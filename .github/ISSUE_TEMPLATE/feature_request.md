@@ -47,3 +47,4 @@ workarounds, or other software you've considered using to fix the problem.
 
  - [ ] I'm willing to contribute dev time / money to fix this issue
  - [ ] I like ArchiveBox so far / would recommend it to a friend
+ - [ ] I've had a lot of difficulty getting ArchiveBox set up
