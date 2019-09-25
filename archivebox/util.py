@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 from urllib.parse import urlparse, quote, unquote
 from html import escape, unescape
 from datetime import datetime
+from dateutil import parser as dateparser
 
 from base32_crockford import encode as base32_encode         # type: ignore
 import json as pyjson
@@ -140,51 +141,8 @@ def parse_date(date: Any) -> Optional[datetime]:
         date = str(date)
 
     if isinstance(date, str):
-        if date.replace('.', '').isdigit():
-            # this is a brittle attempt at unix timestamp parsing (which is
-            # notoriously hard to do). It may lead to dates being off by
-            # anything from hours to decades, depending on which app, OS,
-            # and sytem time configuration was used for the original timestamp
-            # more info: https://github.com/pirate/ArchiveBox/issues/119
+        return dateparser.parse(date)
 
-            # Note: always always always store the original timestamp string
-            # somewhere indepentendly of the parsed datetime, so that later
-            # bugs dont repeatedly misparse and rewrite increasingly worse dates.
-            # the correct date can always be re-derived from the timestamp str
-            timestamp = float(date)
-
-            EARLIEST_POSSIBLE = 473403600.0  # 1985
-            LATEST_POSSIBLE = 1735707600.0   # 2025
-
-            if EARLIEST_POSSIBLE < timestamp < LATEST_POSSIBLE:
-                # number is seconds
-                return datetime.fromtimestamp(timestamp)
-                
-            elif EARLIEST_POSSIBLE * 1000 < timestamp < LATEST_POSSIBLE * 1000:
-                # number is milliseconds
-                return datetime.fromtimestamp(timestamp / 1000)
-
-            elif EARLIEST_POSSIBLE * 1000*1000 < timestamp < LATEST_POSSIBLE * 1000*1000:
-                # number is microseconds
-                return datetime.fromtimestamp(timestamp / (1000*1000))
-
-            else:
-                # continue to the end and raise a parsing failed error.
-                # we dont want to even attempt parsing timestamp strings that
-                # arent within these ranges
-                pass
-
-        if '-' in date:
-            # 2019-04-07T05:44:39.227520
-            try:
-                return datetime.fromisoformat(date)
-            except Exception:
-                pass
-            try:
-                return datetime.strptime(date, '%Y-%m-%d %H:%M')
-            except Exception:
-                pass
-    
     raise ValueError('Tried to parse invalid date! {}'.format(date))
 
 
