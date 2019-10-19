@@ -187,7 +187,7 @@ def patch_links_index(link, out_dir=OUTPUT_DIR):
     # Patch HTML index
     html_path = os.path.join(out_dir, 'index.html')
     with open(html_path, 'r') as html_file:
-        html = [line[:-1] for line in html_file]
+        html = html_file.read().splitlines()
     for idx, line in enumerate(html):
         if title and ('<span data-title-for="{}"'.format(link['url']) in line):
             html[idx] = '<span>{}</span>'.format(title)
