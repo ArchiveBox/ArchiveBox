@@ -59,7 +59,7 @@ ArchiveBox is written in Python 3.5 and uses wget, Chrome headless, youtube-dl, 
 
 ## Quickstart
 
-ArchiveBox has [3 main dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies) beyond `python3`: `wget`, `chromium`, and `youtube-dl`.
+ArchiveBox is written in `python3.7` and has [3 main binary dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies): `wget`, `chromium`, and `youtube-dl`.
 To get started, you can [install them manually](https://github.com/pirate/ArchiveBox/wiki/Install) using your system's package manager, use the [automated helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart), or use the official [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker) container.  All three dependencies are optional if [disabled](https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles) in settings.
 
 ```bash
