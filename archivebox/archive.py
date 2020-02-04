@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 ArchiveBox command line application.
 
