@@ -45,7 +45,7 @@ echo 'http://example.com' | ./archive
 ```
 After installing the dependencies, just pipe some new links into the `./archive` command to start your archive.
 
-ArchiveBox is written in Python 3.5 and uses wget, Chrome headless, youtube-dl, pywb, and other common UNIX tools to save each page you add in multiple redundant formats.  It doesn't require a constantly running server or backend, just open the generated `output/index.html` in a browser to view the archive. It can import and export links as JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
+ArchiveBox is written in Python 3.7 and uses wget, Chrome headless, youtube-dl, pywb, and other common UNIX tools to save each page you add in multiple redundant formats.  It doesn't require a constantly running server or backend, just open the generated `output/index.html` in a browser to view the archive. It can import and export links as JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
 <div align="center">
 
