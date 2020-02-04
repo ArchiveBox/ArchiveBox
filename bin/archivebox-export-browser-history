@@ -35,3 +35,19 @@ if [[ "$1" == "--firefox" ]]; then
     echo "Firefox history exported to:"
     echo "    output/sources/firefox_history.json"
 fi
+
+if [[ "$1" == "--safari" ]]; then
+    # Safari
+    if [[ -e "$2" ]]; then
+        cp "$2" "$REPO_DIR/output/sources/safari_history.db.tmp"
+    else
+        default="~/Library/Safari/History.db"
+        echo "Defaulting to history db: $default"
+        echo "Optionally specify the path to a different sqlite history database as the 2nd argument."
+        cp "$default" "$REPO_DIR/output/sources/safari_history.db.tmp"
+    fi
+    sqlite3 "$REPO_DIR/output/sources/safari_history.db.tmp" "select url from history_items" > "$REPO_DIR/output/sources/safari_history.json"
+    rm "$REPO_DIR"/output/sources/safari_history.db.*
+    echo "Safari history exported to:"
+    echo "    output/sources/safari_history.json"
+fi
