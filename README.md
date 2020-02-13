@@ -3,7 +3,7 @@
 <h1>ArchiveBox<br/><sub>The open-source self-hosted web archive.</sub></h1>
 
 ▶️ <a href="https://github.com/pirate/ArchiveBox/wiki/Quickstart">Quickstart</a> | 
-<a href="https://archive.sweeting.me">Demo</a> | 
+<a href="https://archivebox.zervice.io/">Demo</a> | 
 <a href="https://github.com/pirate/ArchiveBox">Github</a> | 
 <a href="https://github.com/pirate/ArchiveBox/wiki">Documentation</a> | 
 <a href="#background--motivation">Info & Motivation</a> | 
@@ -75,7 +75,7 @@ echo 'https://example.com' | ./archive                  # pass URLs to archive v
 ./archive https://getpocket.com/users/example/feed/all  # or import an RSS/JSON/XML/TXT feed
 ```
 
-Once you've added your first links, open `output/index.html` in a browser to view the archive.  [DEMO: archive.sweeting.me](https://archive.sweeting.me)  
+Once you've added your first links, open `output/index.html` in a browser to view the archive.  [DEMO: archivebox.zervice.io/](https://archivebox.zervice.io)  
 For more information, see the [full Quickstart guide](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) docs.  
 
 *(`pip install archivebox` will be available in the near future, follow our [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) for progress)*
