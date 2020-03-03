@@ -33,6 +33,12 @@ from config import (
 )
 from logs import pretty_path
 
+try:
+    import chardet
+    detect_encoding = lambda rawdata: chardet.detect(rawdata)["encoding"]
+except ImportError:
+    detect_encoding = lambda rawdata: "utf-8"
+
 ### Parsing Helpers
 
 # Url Parsing: https://docs.python.org/3/library/urllib.parse.html#url-parsing
@@ -189,7 +195,6 @@ def save_remote_source(url, timeout=TIMEOUT):
 
 def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
     """Attempt to guess a page's title by downloading the html"""
-    
     if not FETCH_TITLE:
         return None
 
@@ -199,7 +204,6 @@ def fetch_page_title(url, timeout=10, progress=SHOW_PROGRESS):
             sys.stdout.flush()
 
         html = download_url(url, timeout=timeout)
-
         match = re.search(HTML_TITLE_REGEX, html)
         return match.group(1).strip() if match else None
     except Exception as err:  # noqa
@@ -523,8 +527,9 @@ def download_url(url, timeout=TIMEOUT):
         insecure = ssl._create_unverified_context()
         resp = urlopen(req, timeout=timeout, context=insecure)
 
-    encoding = resp.headers.get_content_charset() or 'utf-8'
-    return resp.read().decode(encoding)
+    rawdata = resp.read()
+    encoding = resp.headers.get_content_charset() or detect_encoding(rawdata)
+    return rawdata.decode(encoding)
 
 def chmod_file(path, cwd='.', permissions=OUTPUT_PERMISSIONS, timeout=30):
     """chmod -R <permissions> <cwd>/<path>"""
