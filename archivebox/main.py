@@ -292,14 +292,14 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
     
     setup_django(out_dir, check_db=False)
     from django.conf import settings
-    assert settings.DATABASE_FILE == os.path.join(out_dir, SQL_INDEX_FILENAME)
-    print(f'    √ {settings.DATABASE_FILE}')
+    DATABASE_FILE = os.path.join(out_dir, SQL_INDEX_FILENAME)
+    print(f'    √ {DATABASE_FILE}')
     print()
     for migration_line in apply_migrations(out_dir):
         print(f'    {migration_line}')
 
 
-    assert os.path.exists(settings.DATABASE_FILE)
+    assert os.path.exists(DATABASE_FILE)
     
     # from django.contrib.auth.models import User
     # if IS_TTY and not User.objects.filter(is_superuser=True).exists():

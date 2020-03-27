@@ -1,40 +1,34 @@
 import os
 import setuptools
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+BASE_DIR = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
+PYTHON_DIR = os.path.join(BASE_DIR, 'archivebox')
 
+with open('README.md', "r") as f:
+    README = f.read()
 
-script_dir = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
+with open(os.path.join(PYTHON_DIR, 'VERSION'), 'r') as f:
+    VERSION = f.read().strip()
 
-VERSION = open(os.path.join(script_dir, 'archivebox', 'VERSION'), 'r').read().strip()
-try:
-    GIT_HEAD = open(os.path.join(script_dir, '.git', 'HEAD'), 'r').read().strip().split(': ')[1]
-    GIT_SHA = open(os.path.join(script_dir, '.git', GIT_HEAD), 'r').read().strip()[:9]
-    PYPI_VERSION = "{}+{}".format(VERSION, GIT_SHA)
-except:
-    PYPI_VERSION = VERSION
-
-with open(os.path.join(script_dir, 'archivebox', 'VERSION'), 'w+') as f:
-    f.write(PYPI_VERSION)
 
 setuptools.setup(
     name="archivebox",
-    version=PYPI_VERSION,
+    version=VERSION,
     author="Nick Sweeting",
     author_email="git@nicksweeting.com",
     description="The self-hosted internet archive.",
-    long_description=long_description,
+    long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/pirate/ArchiveBox",
+    license='MIT',
     project_urls={
-        'Documentation': 'https://github.com/pirate/ArchiveBox/Wiki',
-        'Community': 'https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community',
-        'Source': 'https://github.com/pirate/ArchiveBox',
-        'Bug Tracker': 'https://github.com/pirate/ArchiveBox/issues',
-        'Roadmap': 'https://github.com/pirate/ArchiveBox/wiki/Roadmap',
+        'Donate': 'https://github.com/pirate/ArchiveBox/wiki/Donations',
         'Changelog': 'https://github.com/pirate/ArchiveBox/wiki/Changelog',
-        'Patreon': 'https://github.com/pirate/ArchiveBox/wiki/Donations',
+        'Roadmap': 'https://github.com/pirate/ArchiveBox/wiki/Roadmap',
+        'Bug Tracker': 'https://github.com/pirate/ArchiveBox/issues',
+        'Source': 'https://github.com/pirate/ArchiveBox',
+        'Community': 'https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community',
+        'Documentation': 'https://github.com/pirate/ArchiveBox/Wiki',
     },
     packages=setuptools.find_packages(),
     python_requires='>=3.6',
@@ -61,19 +55,7 @@ setuptools.setup(
             'archivebox = archivebox.__main__:main',
         ],
     },
-    package_data={
-        'archivebox': [
-            # Manifest.ini must correspond 1:1 with this list
-            'VERSION',
-            'themes/*',
-            'themes/static/*',
-            'themes/admin/*'
-            'themes/default/*'
-            'themes/default/static/*'
-            'themes/legacy/*',
-            'themes/legacy/static/*',
-        ],
-    },
+    include_package_data=True,
     classifiers=[
         "Development Status :: 4 - Beta",
 

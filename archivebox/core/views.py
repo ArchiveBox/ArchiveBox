@@ -4,11 +4,18 @@ from django.shortcuts import render, redirect
 
 from django.http import HttpResponse
 from django.views import View, static
+from django.conf import settings
 
 from core.models import Snapshot
 
 from ..index import load_main_index, load_main_index_meta
-from ..config import OUTPUT_DIR, VERSION, FOOTER_INFO
+from ..config import (
+    OUTPUT_DIR,
+    VERSION,
+    FOOTER_INFO,
+    PUBLIC_INDEX,
+    PUBLIC_SNAPSHOTS,
+)
 from ..util import base_url
 
 
@@ -16,6 +23,9 @@ class MainIndex(View):
     template = 'main_index.html'
 
     def get(self, request):
+        if not request.user.is_authenticated and not PUBLIC_INDEX:
+            return redirect(f'/admin/login/?next={request.path}')
+
         all_links = load_main_index(out_dir=OUTPUT_DIR)
         meta_info = load_main_index_meta(out_dir=OUTPUT_DIR)
 
@@ -34,6 +44,9 @@ class AddLinks(View):
     template = 'add_links.html'
 
     def get(self, request):
+        if not request.user.is_authenticated and not PUBLIC_INDEX:
+            return redirect(f'/admin/login/?next={request.path}')
+
         context = {}
 
         return render(template_name=self.template, request=request, context=context)
@@ -53,6 +66,9 @@ class LinkDetails(View):
         # missing trailing slash -> redirect to index
         if '/' not in path:
             return redirect(f'{path}/index.html')
+
+        if not request.user.is_authenticated and not PUBLIC_SNAPSHOTS:
+            return redirect(f'/admin/login/?next={request.path}')
 
         try:
             slug, archivefile = path.split('/', 1)

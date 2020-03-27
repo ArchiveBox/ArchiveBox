@@ -3,26 +3,25 @@ __package__ = 'archivebox.core'
 import os
 import sys
 
-SECRET_KEY = '---------------- not a valid secret key ! ----------------'
-DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
-ALLOWED_HOSTS = ['*']
 
-REPO_DIR = os.path.abspath(os.path.join(os.path.abspath(__file__), os.path.pardir, os.path.pardir))
-OUTPUT_DIR = os.path.abspath(os.getenv('OUTPUT_DIR', os.curdir))
-ARCHIVE_DIR = os.path.join(OUTPUT_DIR, 'archive')
-DATABASE_FILE = os.path.join(OUTPUT_DIR, 'index.sqlite3')
+from ..config import (
+    OUTPUT_DIR,
+    SECRET_KEY,
+    DEBUG,
+    ALLOWED_HOSTS,
+    PYTHON_DIR,
+    ACTIVE_THEME,
+    SQL_INDEX_FILENAME,
+)
 
-ACTIVE_THEME = 'default'
 
+ALLOWED_HOSTS = ALLOWED_HOSTS.split(',')
 IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
-
-APPEND_SLASH = True
 
 INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
-    # 'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.admin',
     'django.contrib.staticfiles',
@@ -40,17 +39,17 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
 ROOT_URLCONF = 'core.urls'
+APPEND_SLASH = True
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            os.path.join(REPO_DIR, 'themes', ACTIVE_THEME),
-            os.path.join(REPO_DIR, 'themes', 'default'),
-            os.path.join(REPO_DIR, 'themes'),
+            os.path.join(PYTHON_DIR, 'themes', ACTIVE_THEME),
+            os.path.join(PYTHON_DIR, 'themes', 'default'),
+            os.path.join(PYTHON_DIR, 'themes'),
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -69,7 +68,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': DATABASE_FILE,
+        'NAME': os.path.join(OUTPUT_DIR, SQL_INDEX_FILENAME),
     }
 }
 
@@ -104,7 +103,7 @@ SHELL_PLUS_PRINT_SQL = False
 IPYTHON_ARGUMENTS = ['--no-confirm-exit', '--no-banner']
 IPYTHON_KERNEL_DISPLAY_NAME = 'ArchiveBox Django Shell'
 if IS_SHELL:
-    os.environ['PYTHONSTARTUP'] = os.path.join(REPO_DIR, 'core', 'welcome_message.py')
+    os.environ['PYTHONSTARTUP'] = os.path.join(PYTHON_DIR, 'core', 'welcome_message.py')
 
 
 LANGUAGE_CODE = 'en-us'
@@ -118,11 +117,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
-    os.path.join(REPO_DIR, 'themes', ACTIVE_THEME, 'static'),
-    os.path.join(REPO_DIR, 'themes', 'default', 'static'),
-    os.path.join(REPO_DIR, 'themes', 'static'),
+    os.path.join(PYTHON_DIR, 'themes', ACTIVE_THEME, 'static'),
+    os.path.join(PYTHON_DIR, 'themes', 'default', 'static'),
+    os.path.join(PYTHON_DIR, 'themes', 'static'),
 ]
-
-SERVE_STATIC = True
-
-
