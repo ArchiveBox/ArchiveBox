@@ -17,6 +17,7 @@ from ..config import (
     PUBLIC_SNAPSHOTS,
 )
 from ..util import base_url
+from .. main import add
 
 
 class MainIndex(View):
@@ -51,12 +52,13 @@ class AddLinks(View):
 
         return render(template_name=self.template, request=request, context=context)
 
-
     def post(self, request):
-        import_path = request.POST['url']
-        
-        # TODO: add the links to the index here using archivebox.main.add
-        print(f'Adding URL: {import_path}')
+        print(f'[+] Adding URL: {import_path}')
+        add(
+            import_str=request.POST['url'],
+            update_all=False,
+            out_dir=OUTPUT_DIR,
+        )
 
         return render(template_name=self.template, request=request, context={})
 
