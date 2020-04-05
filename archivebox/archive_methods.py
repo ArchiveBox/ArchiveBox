@@ -562,7 +562,7 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
         CURL_BINARY,
         '--location',
         '--head',
-	    *(('--user-agent', '{}'.format(CURL_USER_AGENT),) if CURL_USER_AGENT else ()),  # be nice to the Archive.org people and show them where all this ArchiveBox traffic is coming from
+	*(('--user-agent', '{}'.format(CURL_USER_AGENT),) if CURL_USER_AGENT else ()),  # be nice to the Archive.org people and show them where all this ArchiveBox traffic is coming from
         '--max-time', str(timeout),
         *(() if CHECK_SSL_VALIDITY else ('--insecure',)),
         submit_url,
