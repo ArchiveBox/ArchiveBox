@@ -30,6 +30,7 @@ from config import (
     OUTPUT_DIR,
     GIT_DOMAINS,
     GIT_SHA,
+    CURL_USER_AGENT,
     WGET_USER_AGENT,
     CHECK_SSL_VALIDITY,
     COOKIES_FILE,
@@ -226,7 +227,7 @@ def fetch_wget(link_dir, link, timeout=TIMEOUT):
         '--span-hosts',
         '--no-parent',
         '-e', 'robots=off',
-        '--restrict-file-names=windows',
+        '--restrict-file-names=nocontrol',
         '--timeout={}'.format(timeout),
         *(('--compression=auto',) if WGET_AUTO_COMPRESSION else ()),
         *(() if FETCH_WARC else ('--timestamping',)),
@@ -561,7 +562,7 @@ def archive_dot_org(link_dir, link, timeout=TIMEOUT):
         CURL_BINARY,
         '--location',
         '--head',
-        '--user-agent', 'ArchiveBox/{} (+https://github.com/pirate/ArchiveBox/)'.format(GIT_SHA),  # be nice to the Archive.org people and show them where all this ArchiveBox traffic is coming from
+	    *(('--user-agent', '{}'.format(CURL_USER_AGENT),) if CURL_USER_AGENT else ()),  # be nice to the Archive.org people and show them where all this ArchiveBox traffic is coming from
         '--max-time', str(timeout),
         *(() if CHECK_SSL_VALIDITY else ('--insecure',)),
         submit_url,
