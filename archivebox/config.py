@@ -34,6 +34,7 @@ SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             
 
 CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
 RESOLUTION =             os.getenv('RESOLUTION',             '1440,2000'        )
+RESTRICT_FILE_NAMES =    os.getenv('RESTRICT_FILE_NAMES',    'windows'        )
 GIT_DOMAINS =            os.getenv('GIT_DOMAINS',            'github.com,bitbucket.org,gitlab.com').split(',')
 CURL_USER_AGENT =        os.getenv('CURL_USER_AGENT',        'ArchiveBox/{GIT_SHA} (+https://github.com/pirate/ArchiveBox/)')
 WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox/{GIT_SHA} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}')
