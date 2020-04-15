@@ -34,7 +34,9 @@ SUBMIT_ARCHIVE_DOT_ORG = os.getenv('SUBMIT_ARCHIVE_DOT_ORG', 'True'             
 
 CHECK_SSL_VALIDITY =     os.getenv('CHECK_SSL_VALIDITY',     'True'             ).lower() == 'true'
 RESOLUTION =             os.getenv('RESOLUTION',             '1440,2000'        )
+RESTRICT_FILE_NAMES =    os.getenv('RESTRICT_FILE_NAMES',    'windows'        )
 GIT_DOMAINS =            os.getenv('GIT_DOMAINS',            'github.com,bitbucket.org,gitlab.com').split(',')
+CURL_USER_AGENT =        os.getenv('CURL_USER_AGENT',        'ArchiveBox/{GIT_SHA} (+https://github.com/pirate/ArchiveBox/)')
 WGET_USER_AGENT =        os.getenv('WGET_USER_AGENT',        'ArchiveBox/{GIT_SHA} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}')
 COOKIES_FILE =           os.getenv('COOKIES_FILE',           None)
 CHROME_USER_DATA_DIR =   os.getenv('CHROME_USER_DATA_DIR',   None)
@@ -192,12 +194,14 @@ try:
         raise
 
     ### Make sure curl is installed
-    if FETCH_FAVICON or SUBMIT_ARCHIVE_DOT_ORG:
+    if FETCH_FAVICON or FETCH_TITLE or SUBMIT_ARCHIVE_DOT_ORG:
         if run(['which', CURL_BINARY], stdout=DEVNULL, stderr=DEVNULL).returncode or run([CURL_BINARY, '--version'], stdout=DEVNULL, stderr=DEVNULL).returncode:
             print('{red}[X] Missing dependency: curl{reset}'.format(**ANSI))
             print('    Install it, then confirm it works with: {} --version'.format(CURL_BINARY))
             print('    See https://github.com/pirate/ArchiveBox/wiki/Install for help.')
             raise SystemExit(1)
+
+        CURL_USER_AGENT = CURL_USER_AGENT.format(GIT_SHA=GIT_SHA[:9])
 
     ### Make sure wget is installed and calculate version
     if FETCH_WGET or FETCH_WARC:

@@ -39,7 +39,9 @@
 
 #CHECK_SSL_VALIDITY=True
 #FETCH_WGET_REQUISITES=True
+#RESTRICT_FILE_NAMES="windows"
 #RESOLUTION="1440,900"
+#CURL_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36"
 #WGET_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36"
 #CHROME_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36"
 #GIT_DOMAINS="github.com,bitbucket.org,gitlab.com"
