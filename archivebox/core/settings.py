@@ -2,6 +2,7 @@ __package__ = 'archivebox.core'
 
 import os
 import sys
+from django.utils.crypto import get_random_string
 
 
 from ..config import (
@@ -17,6 +18,8 @@ from ..config import (
 
 ALLOWED_HOSTS = ALLOWED_HOSTS.split(',')
 IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
+
+SECRET_KEY = SECRET_KEY or get_random_string(50, 'abcdefghijklmnopqrstuvwxyz0123456789-_+!.')
 
 INSTALLED_APPS = [
     'django.contrib.auth',
