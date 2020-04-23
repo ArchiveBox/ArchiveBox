@@ -8,12 +8,12 @@
 # Documentation:
 #     https://github.com/pirate/ArchiveBox/wiki/Docker#docker
 
-FROM node:11-slim
+FROM node:13-slim
 LABEL maintainer="Nick Sweeting <archivebox-git@sweeting.me>"
 
 RUN apt-get update \
     && apt-get install -yq --no-install-recommends \
-        git zlib1g-dev wget curl youtube-dl gnupg2 libgconf-2-4 python3 python3-pip \
+        jq git zlib1g-dev wget curl youtube-dl gnupg2 libgconf-2-4 python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install latest chrome package and fonts to support major charsets (Chinese, Japanese, Arabic, Hebrew, Thai and a few others)
@@ -35,7 +35,7 @@ RUN chmod +x /usr/local/bin/dumb-init
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
 
 # Install puppeteer so it's available in the container.
-RUN npm i puppeteer
+RUN npm install puppeteer
 
 # Add user so we don't need --no-sandbox.
 RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
@@ -43,17 +43,30 @@ RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
     && chown -R pptruser:pptruser /home/pptruser \
     && chown -R pptruser:pptruser /node_modules
 
+WORKDIR /home/pptruser/app
+
+RUN python3 -m pip install --upgrade pip setuptools && python3 -m pip install virtualenv \
+    && python3 -m virtualenv ".docker-venv"
+ENV PATH="/home/pttruser/app/.docker-venv/bin:${PATH}"
+COPY ./Pipfile.lock "/home/pttruser/app/Pipfile.lock"
+RUN jq -r \
+        '.default,.develop | to_entries[] | .key + .value.version' \
+        "/home/pttruser/app/Pipfile.lock" \
+    | /home/pttruser/app/.docker-venv/bin/python -m pip install --no-cache-dir -r /dev/stdin \
+    && rm "/home/pttruser/app/Pipfile.lock"
+
 # Install the ArchiveBox repository and pip requirements
-RUN git clone https://github.com/pirate/ArchiveBox /home/pptruser/app \
-    && mkdir -p /data \
+# RUN git clone https://github.com/pirate/ArchiveBox /home/pptruser/app \
+ADD . /home/pptruser/app
+RUN mkdir -p /data \
     && chown -R pptruser:pptruser /data \
     && ln -s /data /home/pptruser/app/archivebox/output \
     && ln -s /home/pptruser/app/bin/* /bin/ \
     && ln -s /home/pptruser/app/bin/archivebox /bin/archive \
     && chown -R pptruser:pptruser /home/pptruser/app/archivebox
-    # && pip3 install -r /home/pptruser/app/archivebox/requirements.txt
 
 VOLUME /data
+EXPOSE 8000
 
 ENV LANG=C.UTF-8 \
     LANGUAGE=en_US:en \
@@ -68,4 +81,4 @@ USER pptruser
 WORKDIR /home/pptruser/app
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["/bin/archive"]
+CMD ["/bin/archivebox"]
