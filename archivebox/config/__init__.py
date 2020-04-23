@@ -68,6 +68,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'SAVE_WARC':                {'type': bool,  'default': True, 'aliases': ('FETCH_WARC',)},
         'SAVE_GIT':                 {'type': bool,  'default': True, 'aliases': ('FETCH_GIT',)},
         'SAVE_MEDIA':               {'type': bool,  'default': True, 'aliases': ('FETCH_MEDIA',)},
+        'SAVE_PLAYLISTS':           {'type': bool,  'default': True, 'aliases': ('FETCH_PLAYLISTS',)},
         'SAVE_ARCHIVE_DOT_ORG':     {'type': bool,  'default': True, 'aliases': ('SUBMIT_ARCHIVE_DOT_ORG',)},
     },
 
@@ -228,6 +229,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'USE_YOUTUBEDL':            {'default': lambda c: c['USE_YOUTUBEDL'] and c['SAVE_MEDIA']},
     'YOUTUBEDL_VERSION':        {'default': lambda c: bin_version(c['YOUTUBEDL_BINARY']) if c['USE_YOUTUBEDL'] else None},
     'SAVE_MEDIA':               {'default': lambda c: c['USE_YOUTUBEDL'] and c['SAVE_MEDIA']},
+    'SAVE_PLAYLISTS':           {'default': lambda c: c['SAVE_PLAYLISTS'] and c['SAVE_MEDIA']},
 
     'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'])},
     'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] if c['CHROME_BINARY'] else find_chrome_binary()},

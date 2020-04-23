@@ -42,6 +42,7 @@ class ConfigDict(BaseConfig, total=False):
     SAVE_WARC: bool
     SAVE_GIT: bool
     SAVE_MEDIA: bool
+    SAVE_PLAYLISTS: bool
     SAVE_ARCHIVE_DOT_ORG: bool
 
     RESOLUTION: str

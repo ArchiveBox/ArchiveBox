@@ -13,6 +13,7 @@ from ..util import (
 from ..config import (
     MEDIA_TIMEOUT,
     SAVE_MEDIA,
+    SAVE_PLAYLISTS,
     YOUTUBEDL_BINARY,
     YOUTUBEDL_VERSION,
     CHECK_SSL_VALIDITY
@@ -45,7 +46,6 @@ def save_media(link: Link, out_dir: Optional[str]=None, timeout: int=MEDIA_TIMEO
         '--write-description',
         '--write-info-json',
         '--write-annotations',
-        '--yes-playlist',
         '--write-thumbnail',
         '--no-call-home',
         '--no-check-certificate',
@@ -59,6 +59,7 @@ def save_media(link: Link, out_dir: Optional[str]=None, timeout: int=MEDIA_TIMEO
         '--audio-quality', '320K',
         '--embed-thumbnail',
         '--add-metadata',
+        *(['--yes-playlist'] if SAVE_PLAYLISTS else []),
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate']),
         link.url,
     ]
