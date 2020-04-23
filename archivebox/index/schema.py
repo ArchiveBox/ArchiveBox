@@ -2,7 +2,7 @@ __package__ = 'archivebox.index'
 
 import os
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from typing import List, Dict, Any, Optional, Union
 
@@ -268,7 +268,16 @@ class Link:
     @property
     def bookmarked_date(self) -> Optional[str]:
         from ..util import ts_to_date
-        return ts_to_date(self.timestamp) if self.timestamp else None
+
+        max_ts = (datetime.now() + timedelta(days=30)).timestamp()
+
+        if self.timestamp and self.timestamp.replace('.', '').isdigit():
+            if 0 < float(self.timestamp) < max_ts:
+                return ts_to_date(datetime.fromtimestamp(float(self.timestamp)))
+            else:
+                return str(self.timestamp)
+        return None
+
 
     @property
     def updated_date(self) -> Optional[str]:
