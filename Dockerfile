@@ -3,8 +3,8 @@
 #     - ArchiveBox
 # Usage:
 #     docker build github.com/pirate/ArchiveBox -t archivebox
-#     echo 'https://example.com' | docker run -i --mount type=bind,source=./data,target=/data archivebox /bin/archive
-#     docker run --mount type=bind,source=./data,target=/data archivebox /bin/archive 'https://example.com/some/rss/feed.xml'
+#     echo 'https://example.com' | docker run -i -v ./data:/data archivebox /bin/archive
+#     docker run -v ./data:/data archivebox /bin/archive 'https://example.com/some/rss/feed.xml'
 # Documentation:
 #     https://github.com/pirate/ArchiveBox/wiki/Docker#docker
 
