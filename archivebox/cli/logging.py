@@ -22,6 +22,7 @@ from ..config import (
     IS_TTY,
     SHOW_PROGRESS,
     TERM_WIDTH,
+    stderr,
 )
 
 
