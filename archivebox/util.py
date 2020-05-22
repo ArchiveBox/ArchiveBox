@@ -136,12 +136,18 @@ def parse_date(date: Any) -> Optional[datetime]:
 
     if isinstance(date, datetime):
         return date
-    
-    if isinstance(date, (float, int)):
-        date = str(date)
 
     if isinstance(date, str):
-        return dateparser.parse(date)
+        try:
+            return dateparser.parse(date)
+        except dateparser._parser.ParserError:
+            # I assume that if the string is not parsable as date / time, it
+            # is a unix timestampi. While it's possible that the string is
+            # garbage, there's no way we can automatically fix that.
+            date = float(date)
+
+    if isinstance(date, (float, int)):
+        return datetime.utcfromtimestamp(date)
 
     raise ValueError('Tried to parse invalid date! {}'.format(date))
 
