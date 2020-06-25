@@ -35,7 +35,7 @@ def write_sql_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
                 info = {k: v for k, v in all_urls.pop(snapshot.url)._asdict().items() if k in Snapshot.keys}
                 snapshot.delete()
                 Snapshot.objects.create(**info)
-            if snapshot.url in all_urls:
+            elif snapshot.url in all_urls:
                 info = {k: v for k, v in all_urls.pop(snapshot.url)._asdict().items() if k in Snapshot.keys}
                 snapshot.delete()
                 Snapshot.objects.create(**info)
