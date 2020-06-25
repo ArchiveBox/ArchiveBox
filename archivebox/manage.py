@@ -7,15 +7,16 @@ if __name__ == '__main__':
     # versions of ./manage.py commands whenever possible. When that's not possible
     # (e.g. makemigrations), you can comment out this check temporarily
 
-    print("[X] Don't run ./manage.py directly, use the archivebox CLI instead e.g.:")
-    print('    archivebox manage createsuperuser')
-    print()
-    print('    Hint: Use these archivebox commands instead of the ./manage.py equivalents:')
-    print('        archivebox init          (migrates the databse to latest version)')
-    print('        archivebox server        (runs the Django web server)')
-    print('        archivebox shell         (opens an iPython Django shell with all models imported)')
-    print('        archivebox manage [cmd]  (any other management commands)')
-    raise SystemExit(2)
+    if not ('makemigrations' in sys.argv or 'migrate' in sys.argv):
+        print("[X] Don't run ./manage.py directly, use the archivebox CLI instead e.g.:")
+        print('    archivebox manage createsuperuser')
+        print()
+        print('    Hint: Use these archivebox commands instead of the ./manage.py equivalents:')
+        print('        archivebox init          (migrates the databse to latest version)')
+        print('        archivebox server        (runs the Django web server)')
+        print('        archivebox shell         (opens an iPython Django shell with all models imported)')
+        print('        archivebox manage [cmd]  (any other management commands)')
+        raise SystemExit(2)
 
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
     try:

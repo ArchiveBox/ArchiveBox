@@ -33,6 +33,7 @@ def save_favicon(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
     output: ArchiveOutput = 'favicon.ico'
     cmd = [
         CURL_BINARY,
+        '--silent',
         '--max-time', str(timeout),
         '--location',
         '--output', str(output),

@@ -483,7 +483,7 @@ def add(import_str: Optional[str]=None,
 
     check_data_folder(out_dir=out_dir)
 
-    if import_str and import_path:
+    if (import_str and import_path) or (not import_str and not import_path):
         stderr(
             '[X] You should pass either an import path as an argument, '
             'or pass a list of links via stdin, but not both.\n',
@@ -492,7 +492,7 @@ def add(import_str: Optional[str]=None,
         raise SystemExit(2)
     elif import_str:
         import_path = save_stdin_to_sources(import_str, out_dir=out_dir)
-    else:
+    elif import_path:
         import_path = save_file_to_sources(import_path, out_dir=out_dir)
 
     check_dependencies()

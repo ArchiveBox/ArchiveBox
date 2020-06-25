@@ -12,7 +12,7 @@ class Snapshot(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     url = models.URLField(unique=True)
-    timestamp = models.CharField(unique=True, max_length=32, null=True, default=None)
+    timestamp = models.CharField(max_length=32, null=True, default=None)
 
     title = models.CharField(max_length=128, null=True, default=None)
     tags = models.CharField(max_length=256, null=True, default=None)
