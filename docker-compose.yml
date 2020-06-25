@@ -8,25 +8,26 @@
 # Documentation:
 #     https://github.com/pirate/ArchiveBox/wiki/Docker#docker-compose
 
-version: '3'
+version: '3.7'
 
 services:
     archivebox:
         build: .
+        image: archivebox:latest
+        command: archivebox server
         stdin_open: true
         tty: true
-        # env_file: path/to/your/ArchiveBox.conf
         environment:
-            - USE_COLOR=False
+            - USE_COLOR=True
             - SHOW_PROGRESS=False
         volumes:
             - ./data:/data
-        command: bash -c 'echo "https://github.com/pirate/ArchiveBox" | /bin/archive; tail -f /dev/null'
 
     nginx:
-        image: 'nginx'
+        image: nginx:alpine
         ports:
-            - '8098:80'
+            - 443:443
+            - 80:80
         volumes:
             - ./etc/nginx/nginx.conf:/etc/nginx/nginx.conf
             - ./data:/var/www
