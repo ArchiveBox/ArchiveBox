@@ -3,8 +3,8 @@
 #     - nginx webserver running on https://127.0.0.1:8098
 # Usage:
 #     docker-compose up -d
-#     echo "https://example.com" | docker-compose exec -T archivebox /bin/archive
-#     docker-compose exec archivebox /bin/archive https://example.com/some/feed.rss
+#     echo "https://example.com" | docker-compose run archivebox archivebox add
+#     docker-compose run archivebox archivebox https://example.com/some/feed.rss
 # Documentation:
 #     https://github.com/pirate/ArchiveBox/wiki/Docker#docker-compose
 
@@ -14,7 +14,7 @@ services:
     archivebox:
         build: .
         image: archivebox:latest
-        command: archivebox server
+        command: server 0.0.0.0:8000
         stdin_open: true
         tty: true
         environment:

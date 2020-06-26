@@ -8,10 +8,15 @@
 
 [GENERAL_CONFIG]
 # OUTPUT_PERMISSIONS = 755
+# RESTRICT_FILE_NAMES = windows
 # ONLY_NEW = False
 # TIMEOUT = 60
 # MEDIA_TIMEOUT = 3600
 # URL_BLACKLIST = (://(.*\.)?facebook\.com)|(://(.*\.)?ebay\.com)|(.*\.exe$)
+# CHECK_SSL_VALIDITY = True
+# RESOLUTION = 1440,900
+# GIT_DOMAINS = github.com,bitbucket.org,gitlab.com
+# COOKIES_FILE="path/to/cookies.txt"
 
 [SERVER_CONFIG]
 # SECRET_KEY = ---------------- not a valid secret key ! ----------------
@@ -36,19 +41,9 @@
 # SAVE_ARCHIVE_DOT_ORG = True
 
 
-[ARCHIVE_METHOD_OPTIONS]
-# CHECK_SSL_VALIDITY = True
-# RESOLUTION = 1440,900
-# GIT_DOMAINS = github.com,bitbucket.org,gitlab.com
-
-# CROME_HEADLESS = True
-# CROME_SANDBOX = True
-
-# COOKIES_FILE = path/to/cookies.txt
-# CHROME_USER_DATA_DIR = ~/.config/google-chrome/Default
-
-# WGET_USER_AGENT = Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36
-# CHROME_USER_AGENT = Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36
+# CURL_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.3683.75 Safari/537.36"
+# WGET_USER_AGENT = Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.3683.75 Safari/537.36
+# CHROME_USER_AGENT = Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.3683.75 Safari/537.36
 
 
 [DEPENDENCY_CONFIG]
@@ -63,3 +58,7 @@
 # WGET_BINARY = wget
 # YOUTUBEDL_BINARY = youtube-dl
 # CHROME_BINARY = chromium
+
+# CHROME_USER_DATA_DIR="~/.config/google-chrome/Default"
+# CROME_HEADLESS = True
+# CROME_SANDBOX = True

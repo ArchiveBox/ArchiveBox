@@ -74,7 +74,7 @@ def write_json_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
         'last_run_cmd': sys.argv,
         'links': links,
     }
-    atomic_write(main_index_json, os.path.join(out_dir, JSON_INDEX_FILENAME))
+    atomic_write(os.path.join(out_dir, JSON_INDEX_FILENAME), main_index_json)
 
 
 ### Link Details Index
@@ -86,7 +86,7 @@ def write_json_link_details(link: Link, out_dir: Optional[str]=None) -> None:
     out_dir = out_dir or link.link_dir
     path = os.path.join(out_dir, JSON_INDEX_FILENAME)
 
-    atomic_write(link._asdict(extended=True), path)
+    atomic_write(path, link._asdict(extended=True))
 
 
 @enforce_types

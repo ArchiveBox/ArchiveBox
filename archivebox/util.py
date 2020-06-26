@@ -1,5 +1,6 @@
 import re
 import ssl
+import json as pyjson
 
 
 from typing import List, Optional, Any
@@ -12,8 +13,7 @@ from html import escape, unescape
 from datetime import datetime
 from dateutil import parser as dateparser
 
-from base32_crockford import encode as base32_encode         # type: ignore
-import json as pyjson
+from base32_crockford import encode as base32_encode                            # type: ignore
 
 from .config import (
     TIMEOUT,
@@ -22,6 +22,12 @@ from .config import (
     WGET_USER_AGENT,
     CHROME_OPTIONS,
 )
+
+try:
+    import chardet
+    detect_encoding = lambda rawdata: chardet.detect(rawdata)["encoding"]
+except ImportError:
+    detect_encoding = lambda rawdata: "utf-8"
 
 ### Parsing Helpers
 
@@ -158,8 +164,9 @@ def download_url(url: str, timeout: int=TIMEOUT) -> str:
         insecure = ssl._create_unverified_context()
         resp = urlopen(req, timeout=timeout, context=insecure)
 
-    encoding = resp.headers.get_content_charset() or 'utf-8'  # type: ignore
-    return resp.read().decode(encoding)
+    rawdata = resp.read()
+    encoding = resp.headers.get_content_charset() or detect_encoding(rawdata)
+    return rawdata.decode(encoding)
 
 
 @enforce_types

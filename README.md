@@ -3,7 +3,7 @@
 <h1>ArchiveBox<br/><sub>The open-source self-hosted web archive.</sub></h1>
 
 ▶️ <a href="https://github.com/pirate/ArchiveBox/wiki/Quickstart">Quickstart</a> | 
-<a href="https://archive.sweeting.me">Demo</a> | 
+<a href="https://archivebox.zervice.io/">Demo</a> | 
 <a href="https://github.com/pirate/ArchiveBox">Github</a> | 
 <a href="https://github.com/pirate/ArchiveBox/wiki">Documentation</a> | 
 <a href="#background--motivation">Info & Motivation</a> | 
@@ -14,7 +14,7 @@
 "Your own personal internet archive" (网站存档 / 爬虫)
 </pre>
 
-<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>
+<!--<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>-->
 <a href="https://github.com/pirate/ArchiveBox/blob/master/LICENSE"><img src="https://img.shields.io/badge/Open_source-MIT-green.svg?logo=git&logoColor=green"/></a>
 <a href="https://github.com/pirate/ArchiveBox/commits/dev"><img src="https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=Active"/></a>
 <a href="https://github.com/pirate/ArchiveBox"><img src="https://img.shields.io/github/stars/pirate/ArchiveBox.svg?logo=github&label=Stars&logoColor=blue"/></a>
@@ -23,11 +23,20 @@
 <a href="https://hub.docker.com/r/nikisweeting/archivebox"><img src="https://img.shields.io/badge/Docker-all%20platforms-lightblue.svg?logo=docker&logoColor=lightblue"/></a>
 
 <hr/>
+<br/>
+<i>💥 Attention: Big API changes are coming soon (including a proper config file format and <code>pip install archivebox</code>)! Check out <a href="https://github.com/pirate/ArchiveBox/pull/207">v0.4</a> and help us test it! 💥</i>
+<br/><br/>
+<b>Note: There are some important security design issues that need to be fixed before v0.4 can be pushed, all help is appreciated!<br/>
+(This project is not abandoned, it's my primary side-project for the forseeable future, my day job is very busy right now.)<br/>
+See the <a href="https://github.com/pirate/ArchiveBox/pull/207#issuecomment-494107553">v0.4 release PR</a> for more information.</b>
+<br/>
+<hr/>
+
 </div>
 
 **ArchiveBox takes a list of website URLs you want to archive, and creates a local, static, browsable HTML clone of the content from those websites (it saves HTML, JS, media files, PDFs, images and more).** 
 
-You can use it to preserve access to websites you care about by storing them locally offline.  ArchiveBox imports lists of URLs, renders the pages in a headless, autheticated, user-scriptable browser, and then archives the content in multiple redundant common formats (HTML, PDF, PNG, WARC) that will last long after the originals disappear off the internet.  It automatically extracts assets and media from pages and saves them in easily-accessible folders, with out-of-the-box support for extracting git repositories, audio, video, subtitles, images, PDFs, and more.
+You can use it to preserve access to websites you care about by storing them locally offline.  ArchiveBox imports lists of URLs, renders the pages in a headless, authenticated, user-scriptable browser, and then archives the content in multiple redundant common formats (HTML, PDF, PNG, WARC) that will last long after the originals disappear off the internet.  It automatically extracts assets and media from pages and saves them in easily-accessible folders, with out-of-the-box support for extracting git repositories, audio, video, subtitles, images, PDFs, and more.
 
 #### How does it work?
 
@@ -36,7 +45,7 @@ echo 'http://example.com' | ./archive
 ```
 After installing the dependencies, just pipe some new links into the `./archive` command to start your archive.
 
-ArchiveBox is written in Python 3.5 and uses wget, Chrome headless, youtube-dl, pywb, and other common unix tools to save each page you add in multiple redundant formats.  It doesn't require a constantly running server or backend, just open the generated `output/index.html` in a browser to view the archive. It can import and export links as JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
+ArchiveBox is written in Python 3.7 and uses wget, Chrome headless, youtube-dl, pywb, and other common UNIX tools to save each page you add in multiple redundant formats.  It doesn't require a constantly running server or backend, just open the generated `output/index.html` in a browser to view the archive. It can import and export links as JSON (among other formats), so it's easy to script or hook up to other APIs.  If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
 <div align="center">
 
@@ -50,7 +59,7 @@ ArchiveBox is written in Python 3.5 and uses wget, Chrome headless, youtube-dl, 
 
 ## Quickstart
 
-ArchiveBox has [3 main dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies) beyond `python3`: `wget`, `chromium`, and `youtube-dl`.
+ArchiveBox is written in `python3.7` and has [3 main binary dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies): `wget`, `chromium`, and `youtube-dl`.
 To get started, you can [install them manually](https://github.com/pirate/ArchiveBox/wiki/Install) using your system's package manager, use the [automated helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart), or use the official [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker) container.  All three dependencies are optional if [disabled](https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles) in settings.
 
 ```bash
@@ -66,7 +75,7 @@ echo 'https://example.com' | ./archive                  # pass URLs to archive v
 ./archive https://getpocket.com/users/example/feed/all  # or import an RSS/JSON/XML/TXT feed
 ```
 
-One you've added your first links, open `output/index.html` in a browser to view the archive.  [DEMO: archive.sweeting.me](https://archive.sweeting.me)  
+Once you've added your first links, open `output/index.html` in a browser to view the archive.  [DEMO: archivebox.zervice.io/](https://archivebox.zervice.io)  
 For more information, see the [full Quickstart guide](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) docs.  
 
 *(`pip install archivebox` will be available in the near future, follow our [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) for progress)*
@@ -135,7 +144,7 @@ If you're importing URLs with secret tokens in them (e.g Google Docs, CodiMD not
  - **Doesn't require a constantly-running server**, proxy, or native app
  - Easy to set up **[scheduled importing](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) from multiple sources**
  - Uses common, **durable, [long-term formats](#saves-lots-of-useful-stuff-for-each-imported-link)** like HTML, JSON, PDF, PNG, and WARC
- - **Suitable for paywalled / [authenticated content](https://github.com/pirate/ArchiveBox/wiki/Configuration#chrome_user_data_dir)** (can use your cookies)
+ - ~~**Suitable for paywalled / [authenticated content](https://github.com/pirate/ArchiveBox/wiki/Configuration#chrome_user_data_dir)** (can use your cookies)~~ (do not do this until v0.4 is released with some security fixes)
  - Can [**run scripts during archiving**](https://github.com/pirate/ArchiveBox/issues/51) to [scroll pages](https://github.com/pirate/ArchiveBox/issues/80), [close modals](https://github.com/pirate/ArchiveBox/issues/175), expand comment threads, etc.
  - Can also [**mirror content to 3rd-party archiving services**](https://github.com/pirate/ArchiveBox/wiki/Configuration#submit_archive_dot_org) automatically for redundancy
 
@@ -164,13 +173,13 @@ I don't think everything should be preserved in an automated fashion, making all
 
 #### User Interface & Intended Purpose
 
-ArchiveBox differentiates itself from [similar projects](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by being a simple, one-shot CLI inferface for users to ingest built feeds of URLs over extended periods, as opposed to being a backend service that ingests individual, manually-submitted URLs from a web UI.
+ArchiveBox differentiates itself from [similar projects](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by being a simple, one-shot CLI interface for users to ingest bulk feeds of URLs over extended periods, as opposed to being a backend service that ingests individual, manually-submitted URLs from a web UI.
 
-An alternative tool [pywb](https://github.com/webrecorder/pywb) allows you to run a browser through an always-running archiving proxy which records the traffic to WARC files.  ArchiveBox intends to support this style of live proxy-archiving using `pywb` in the future, but for now it only ingests lists of links at a time via browser history, bookmarks, RSS, etc.
+An alternative tool [pywb](https://github.com/webrecorder/pywb) allows you to run a browser through an always-running archiving proxy which records the traffic to WARC files.  ArchiveBox intends to support this style of live proxy-archiving using `pywb` in the future, but for now, it only ingests lists of links at a time via browser history, bookmarks, RSS, etc.
 
 #### Private Local Archives vs Centralized Public Archives
 
-Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your entire browsing history, RSS feeds, or bookmarks, including private/authenticated content that you wouldn't otherwise share with a centralized service.  Also by having each user store their own content locally, we can save much larger portions of everyone's browsing history than a shared centralized service would be able to handle.
+Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your entire browsing history, RSS feeds, or bookmarks, ~~including private/authenticated content that you wouldn't otherwise share with a centralized service~~ (do not do this until v0.4 is released with some security fixes).  Also by having each user store their own content locally, we can save much larger portions of everyone's browsing history than a shared centralized service would be able to handle.
 
 #### Storage Requirements
 
@@ -178,9 +187,9 @@ Because ArchiveBox is designed to ingest a firehose of browser history and bookm
 
 ## Learn more
 
-▶ **Join out our [community chat](http://webchat.freenode.net?channels=ArchiveBox&uio=d4) hosted on IRC freenode.net:`#ArchiveBox`!**
+<!--▶ **Join out our [community chat](http://webchat.freenode.net?channels=ArchiveBox&uio=d4) hosted on IRC freenode.net:`#ArchiveBox`!**-->
 
-Whether you want learn which organizations are the big players in the web archiving space, want to find a specific open source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community.  Check it out to learn about some of the coolest web archiving projects and communities on the web!
+Whether you want to learn which organizations are the big players in the web archiving space, want to find a specific open-source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community.  Check it out to learn about some of the coolest web archiving projects and communities on the web!
 
 <img src="https://i.imgur.com/0ZOmOvN.png" width="14%" align="right"/>
 
@@ -278,7 +287,7 @@ Contributor Spotlight:<br/><br/>
 <br/>
 <a href="https://twitter.com/thesquashSH"><img src="https://img.shields.io/badge/Tweet-%40theSquashSH-blue.svg?style=flat"/></a>
 <a href="https://github.com/pirate/ArchiveBox"><img src="https://img.shields.io/github/stars/pirate/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>
-<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>
+<!--<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>-->
 
 <br/><br/>
 

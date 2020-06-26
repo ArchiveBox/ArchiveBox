@@ -8,6 +8,7 @@ import json as pyjson
 from typing import Optional, Union, Set, Tuple
 
 from crontab import CronTab
+from atomicwrites import atomic_write as awrite
 
 from subprocess import (
     Popen,
@@ -22,10 +23,10 @@ from .util import enforce_types, ExtendedEncoder
 from .config import OUTPUT_PERMISSIONS
 
 
+
 def run(*popenargs, input=None, capture_output=False, timeout=None, check=False, **kwargs):
     """Patched of subprocess.run to fix blocking io making timeout=innefective"""
 
-    
     if input is not None:
         if 'stdin' in kwargs:
             raise ValueError('stdin and input arguments may not both be used.')
@@ -59,30 +60,14 @@ def run(*popenargs, input=None, capture_output=False, timeout=None, check=False,
     return CompletedProcess(process.args, retcode, stdout, stderr)
 
 
-def atomic_write(contents: Union[dict, str, bytes], path: str) -> None:
+def atomic_write(path: str, contents: Union[dict, str, bytes], overwrite: bool=True) -> None:
     """Safe atomic write to filesystem by writing to temp file + atomic rename"""
-    try:
-        tmp_file = '{}.tmp'.format(path)
-        
-        if isinstance(contents, bytes):
-            args = {'mode': 'wb+'}
+    
+    with awrite(path, overwrite=overwrite) as f:
+        if isinstance(contents, dict):
+            pyjson.dump(contents, f, indent=4, sort_keys=True, cls=ExtendedEncoder)
         else:
-            args = {'mode': 'w+', 'encoding': 'utf-8'}
-
-        with open(tmp_file, **args) as f:
-            if isinstance(contents, dict):
-                pyjson.dump(contents, f, indent=4, sort_keys=True, cls=ExtendedEncoder)
-            else:
-                f.write(contents)
-            
-            os.fsync(f.fileno())
-
-        os.rename(tmp_file, path)
-        chmod_file(path)
-    finally:
-        if os.path.exists(tmp_file):
-            os.remove(tmp_file)
-
+            f.write(contents)
 
 @enforce_types
 def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS, timeout: int=30) -> None:
@@ -105,7 +90,8 @@ def copy_and_overwrite(from_path: str, to_path: str):
         shutil.copytree(from_path, to_path)
     else:
         with open(from_path, 'rb') as src:
-            atomic_write(src.read(), to_path)
+            contents = src.read()
+        atomic_write(to_path, contents)
 
 
 @enforce_types

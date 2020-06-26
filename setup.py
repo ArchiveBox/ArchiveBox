@@ -1,62 +1,85 @@
 import os
 import setuptools
+from pathlib import Path
 
-BASE_DIR = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
-PYTHON_DIR = os.path.join(BASE_DIR, 'archivebox')
+PKG_NAME = "archivebox"
+REPO_URL = "https://github.com/pirate/ArchiveBox"
+BASE_DIR = Path(__file__).parent.resolve()
+SOURCE_DIR = BASE_DIR / PKG_NAME
+README = (BASE_DIR / "README.md").read_text()
+VERSION = (SOURCE_DIR / "VERSION").read_text().strip()
 
-with open('README.md', "r") as f:
-    README = f.read()
-
-with open(os.path.join(PYTHON_DIR, 'VERSION'), 'r') as f:
-    VERSION = f.read().strip()
-
+# To see when setup.py gets called (uncomment for debugging)
+import sys
+print(SOURCE_DIR, f"     (v{VERSION})")
+print('>', sys.executable, *sys.argv)
+# raise SystemExit(0)
 
 setuptools.setup(
-    name="archivebox",
+    name=PKG_NAME,
     version=VERSION,
-    license='MIT',
+    license="MIT",
     author="Nick Sweeting",
     author_email="git@nicksweeting.com",
     description="The self-hosted internet archive.",
     long_description=README,
     long_description_content_type="text/markdown",
-    url="https://github.com/pirate/ArchiveBox",
+    url=REPO_URL,
     project_urls={
-        'Donate': 'https://github.com/pirate/ArchiveBox/wiki/Donations',
-        'Changelog': 'https://github.com/pirate/ArchiveBox/wiki/Changelog',
-        'Roadmap': 'https://github.com/pirate/ArchiveBox/wiki/Roadmap',
-        'Bug Tracker': 'https://github.com/pirate/ArchiveBox/issues',
-        'Source': 'https://github.com/pirate/ArchiveBox',
-        'Community': 'https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community',
-        'Documentation': 'https://github.com/pirate/ArchiveBox/Wiki',
+        "Source":           f"{REPO_URL}",
+        "Documentation":    f"{REPO_URL}/wiki",
+        "Bug Tracker":      f"{REPO_URL}/issues",
+        "Changelog":        f"{REPO_URL}/wiki/Changelog",
+        "Roadmap":          f"{REPO_URL}/wiki/Roadmap",
+        "Community":        f"{REPO_URL}/wiki/Web-Archiving-Community",
+        "Donate":           f"{REPO_URL}/wiki/Donations",
     },
-    packages=setuptools.find_packages(),
-    python_requires='>=3.7',
+    python_requires=">=3.7",
     install_requires=[
+        "requests",
+        "atomicwrites",
         "dataclasses==0.6",
         "mypy-extensions==0.4.3",
         "base32-crockford==0.3.0",
         "django==3.0.7",
         "django-extensions==2.2.9",
-        "python-crontab==2.5.1",
-        "youtube-dl",
-        "ipython",
 
+        "ipython",
+        "youtube-dl",
+        "python-crontab==2.5.1",
+        # "croniter",
         # Some/all of these will likely be added in the future:
         # wpull
         # pywb
         # pyppeteer
         # archivenow
-        # requests
-
     ],
+    extras_require={
+        'dev': [
+            "setuptools",
+            "twine",
+            "flake8",
+            "ipdb",
+            "mypy",
+            "django-stubs",
+            "sphinx",
+            "sphinx-rtd-theme",
+            "recommonmark",
+        ],
+        # 'redis': ['redis', 'django-redis'],
+        # 'pywb': ['pywb', 'redis'],
+    },
+    packages=[PKG_NAME],
     entry_points={
-        'console_scripts': [
-            'archivebox = archivebox.__main__:main',
+        "console_scripts": [
+            f"{PKG_NAME} = {PKG_NAME}.__main__:main",
         ],
     },
     include_package_data=True,
     classifiers=[
+        "License :: OSI Approved :: MIT License",
+        "Natural Language :: English",
+        "Operating System :: OS Independent",
         "Development Status :: 4 - Beta",
 
         "Topic :: Utilities",
@@ -81,14 +104,9 @@ setuptools.setup(
         "Environment :: Console",
         "Environment :: Web Environment",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
-        'Framework :: Django',
+        "Framework :: Django",
         "Typing :: Typed",
-
-        "License :: OSI Approved :: MIT License",
-        "Natural Language :: English",
-        "Operating System :: OS Independent",
     ],
 )

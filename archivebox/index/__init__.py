@@ -325,7 +325,8 @@ def patch_main_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
     # Patch HTML main index
     html_path = os.path.join(out_dir, 'index.html')
     with open(html_path, 'r') as f:
-        html = f.read().split('\n')
+        html = f.read().splitlines()
+
     for idx, line in enumerate(html):
         if title and ('<span data-title-for="{}"'.format(link.url) in line):
             html[idx] = '<span>{}</span>'.format(title)
@@ -333,7 +334,7 @@ def patch_main_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
             html[idx] = '<span>{}</span>'.format(successful)
             break
 
-    atomic_write('\n'.join(html), html_path)
+    atomic_write(html_path, '\n'.join(html))
 
 
 ### Link Details Index

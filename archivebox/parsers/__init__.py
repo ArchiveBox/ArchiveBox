@@ -13,7 +13,6 @@ import os
 from typing import Tuple, List
 from datetime import datetime
 
-from ..index.schema import Link
 from ..system import atomic_write
 from ..config import (
     ANSI,
@@ -29,6 +28,7 @@ from ..util import (
     enforce_types,
     URL_REGEX,
 )
+from ..index.schema import Link
 from ..cli.logging import pretty_path, TimedProgress
 from .pocket_html import parse_pocket_html_export
 from .pinboard_rss import parse_pinboard_rss_export
@@ -93,8 +93,7 @@ def save_stdin_to_sources(raw_text: str, out_dir: str=OUTPUT_DIR) -> str:
     ts = str(datetime.now().timestamp()).split('.', 1)[0]
 
     source_path = os.path.join(sources_dir, '{}-{}.txt'.format('stdin', ts))
-
-    atomic_write(raw_text, source_path)
+    atomic_write(source_path, raw_text)
     return source_path
 
 
@@ -112,6 +111,7 @@ def save_file_to_sources(path: str, timeout: int=TIMEOUT, out_dir: str=OUTPUT_DI
     source_path = os.path.join(sources_dir, '{}-{}.txt'.format(basename(path), ts))
 
     if any(path.startswith(s) for s in ('http://', 'https://', 'ftp://')):
+        # Source is a URL that needs to be downloaded
         source_path = os.path.join(sources_dir, '{}-{}.txt'.format(domain(path), ts))
         print('{}[*] [{}] Downloading {}{}'.format(
             ANSI['green'],
@@ -134,10 +134,11 @@ def save_file_to_sources(path: str, timeout: int=TIMEOUT, out_dir: str=OUTPUT_DI
             raise SystemExit(1)
 
     else:
+        # Source is a path to a local file on the filesystem
         with open(path, 'r') as f:
             raw_source_text = f.read()
 
-    atomic_write(raw_source_text, source_path)
+    atomic_write(source_path, raw_source_text)
 
     print('    > {}'.format(pretty_path(source_path)))
 

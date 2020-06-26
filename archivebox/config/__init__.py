@@ -44,6 +44,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'TIMEOUT':                  {'type': int,   'default': 60},
         'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
         'OUTPUT_PERMISSIONS':       {'type': str,   'default': '755'},
+        'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},
         'URL_BLACKLIST':            {'type': str,   'default': None},
     },
 
@@ -77,6 +78,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com'},
         'CHECK_SSL_VALIDITY':       {'type': bool,  'default': True},
 
+        'CURL_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/pirate/ArchiveBox/) curl/{CURL_VERSION}'}
         'WGET_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}'},
         'CHROME_USER_AGENT':        {'type': str,   'default': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36'},
 
@@ -85,6 +87,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
 
         'CHROME_HEADLESS':          {'type': bool,  'default': True},
         'CHROME_SANDBOX':           {'type': bool,  'default': True},
+
     },
 
     'DEPENDENCY_CONFIG': {
@@ -130,7 +133,7 @@ DEFAULT_CLI_COLORS = {
 ANSI = {k: '' for k in DEFAULT_CLI_COLORS.keys()}
 
 STATICFILE_EXTENSIONS = {
-    # 99.999% of the time, URLs ending in these extentions are static files
+    # 99.999% of the time, URLs ending in these extensions are static files
     # that can be downloaded as-is, not html pages that need to be rendered
     'gif', 'jpeg', 'jpg', 'png', 'tif', 'tiff', 'wbmp', 'ico', 'jng', 'bmp',
     'svg', 'svgz', 'webp', 'ps', 'eps', 'ai',
@@ -147,7 +150,7 @@ STATICFILE_EXTENSIONS = {
     # pl pm, prc pdb, rar, rpm, sea, sit, tcl tk, der, pem, crt, xpi, xspf,
     # ra, mng, asx, asf, 3gpp, 3gp, mid, midi, kar, jad, wml, htc, mml
 
-    # Thse are always treated as pages, not as static files, never add them:
+    # These are always treated as pages, not as static files, never add them:
     # html, htm, shtml, xhtml, xml, aspx, php, cgi
 }
 
@@ -210,8 +213,9 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'DJANGO_BINARY':            {'default': lambda c: django.__file__.replace('__init__.py', 'bin/django-admin.py')},
     'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{} {} ({})'.format(*django.VERSION)},
 
-    'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_ARCHIVE_DOT_ORG'])},
+    'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['FETCH_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
     'CURL_VERSION':             {'default': lambda c: bin_version(c['CURL_BINARY']) if c['USE_CURL'] else None},
+    'CURL_USER_AGENT':          {'default': lambda c: c['CURL_USER_AGENT'].format(**c)},
     'SAVE_FAVICON':             {'default': lambda c: c['USE_CURL'] and c['SAVE_FAVICON']},
     'SAVE_ARCHIVE_DOT_ORG':     {'default': lambda c: c['USE_CURL'] and c['SAVE_ARCHIVE_DOT_ORG']},
 
@@ -480,6 +484,7 @@ def find_chrome_binary() -> Optional[str]:
         'chromium-browser',
         'chromium',
         '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        'chrome',
         'google-chrome',
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         'google-chrome-stable',
@@ -506,6 +511,7 @@ def find_chrome_data_dir() -> Optional[str]:
         '~/.config/chromium',
         '~/Library/Application Support/Chromium',
         '~/AppData/Local/Chromium/User Data',
+        '~/.config/chrome',
         '~/.config/google-chrome',
         '~/Library/Application Support/Google/Chrome',
         '~/AppData/Local/Google/Chrome/User Data',
