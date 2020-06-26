@@ -5,7 +5,7 @@ import os
 from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from ..system import run, PIPE, chmod_file
+from ..system import run, chmod_file
 from ..util import (
     enforce_types,
     is_static_file,
@@ -64,7 +64,7 @@ def save_git(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> A
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(cmd, stdout=PIPE, stderr=PIPE, cwd=output_path, timeout=timeout + 1)
+        result = run(cmd, cwd=output_path, timeout=timeout + 1)
 
         if result.returncode == 128:
             # ignore failed re-download when the folder already exists

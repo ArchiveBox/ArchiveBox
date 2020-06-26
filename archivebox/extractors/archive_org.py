@@ -6,18 +6,18 @@ from typing import Optional, List, Dict, Tuple
 from collections import defaultdict
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from ..system import run, PIPE, DEVNULL, chmod_file
+from ..system import run, chmod_file
 from ..util import (
     enforce_types,
     is_static_file,
 )
 from ..config import (
-    VERSION,
     TIMEOUT,
+    CHECK_SSL_VALIDITY,
     SAVE_ARCHIVE_DOT_ORG,
     CURL_BINARY,
     CURL_VERSION,
-    CHECK_SSL_VALIDITY
+    CURL_USER_AGENT,
 )
 from ..cli.logging import TimedProgress
 
@@ -45,17 +45,18 @@ def save_archive_dot_org(link: Link, out_dir: Optional[str]=None, timeout: int=T
     submit_url = 'https://web.archive.org/save/{}'.format(link.url)
     cmd = [
         CURL_BINARY,
+        '--silent',
         '--location',
         '--head',
-        '--user-agent', 'ArchiveBox/{} (+https://github.com/pirate/ArchiveBox/)'.format(VERSION),  # be nice to the Archive.org people and show them where all this ArchiveBox traffic is coming from
         '--max-time', str(timeout),
+        *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         submit_url,
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(cmd, stdout=PIPE, stderr=DEVNULL, cwd=out_dir, timeout=timeout)
+        result = run(cmd, cwd=out_dir, timeout=timeout)
         content_location, errors = parse_archive_dot_org_response(result.stdout)
         if content_location:
             archive_org_url = 'https://web.archive.org{}'.format(content_location[0])

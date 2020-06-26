@@ -12,9 +12,11 @@ from ..util import (
 )
 from ..config import (
     TIMEOUT,
+    CHECK_SSL_VALIDITY,
     SAVE_TITLE,
     CURL_BINARY,
     CURL_VERSION,
+    CURL_USER_AGENT,
 )
 from ..cli.logging import TimedProgress
 
@@ -44,6 +46,11 @@ def save_title(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) ->
     output: ArchiveOutput = None
     cmd = [
         CURL_BINARY,
+        '--silent',
+        '--max-time', str(timeout),
+        '--location',
+        *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
+        *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         link.url,
         '|',
         'grep',

@@ -5,7 +5,7 @@ import os
 from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from ..system import run, PIPE, chmod_file
+from ..system import run, chmod_file
 from ..util import (
     enforce_types,
     is_static_file,
@@ -66,7 +66,7 @@ def save_media(link: Link, out_dir: Optional[str]=None, timeout: int=MEDIA_TIMEO
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(cmd, stdout=PIPE, stderr=PIPE, cwd=output_path, timeout=timeout + 1)
+        result = run(cmd, cwd=output_path, timeout=timeout + 1)
         chmod_file(output, cwd=out_dir)
         if result.returncode:
             if (b'ERROR: Unsupported URL' in result.stderr

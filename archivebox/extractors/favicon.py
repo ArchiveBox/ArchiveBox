@@ -5,7 +5,7 @@ import os
 from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput
-from ..system import chmod_file, run, PIPE
+from ..system import chmod_file, run
 from ..util import enforce_types, domain
 from ..config import (
     TIMEOUT,
@@ -38,14 +38,14 @@ def save_favicon(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
         '--max-time', str(timeout),
         '--location',
         '--output', str(output),
-        *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else [],
+        *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         'https://www.google.com/s2/favicons?domain={}'.format(domain(link.url)),
     ]
     status = 'pending'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        run(cmd, stdout=PIPE, stderr=PIPE, cwd=out_dir, timeout=timeout)
+        run(cmd, cwd=out_dir, timeout=timeout)
         chmod_file(output, cwd=out_dir)
         status = 'succeeded'
     except Exception as err:
