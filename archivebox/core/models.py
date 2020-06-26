@@ -12,13 +12,13 @@ class Snapshot(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     url = models.URLField(unique=True)
-    timestamp = models.CharField(max_length=32, null=True, default=None)
+    timestamp = models.CharField(max_length=32, null=True, default=None, db_index=True)
 
-    title = models.CharField(max_length=128, null=True, default=None)
-    tags = models.CharField(max_length=256, null=True, default=None)
+    title = models.CharField(max_length=128, null=True, default=None, db_index=True)
+    tags = models.CharField(max_length=256, null=True, default=None, db_index=True)
 
-    added = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(null=True, default=None)
+    added = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated = models.DateTimeField(null=True, default=None, db_index=True)
     # bookmarked = models.DateTimeField()
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
@@ -68,3 +68,11 @@ class Snapshot(models.Model):
     @property
     def link_dir(self):
         return self.as_link().link_dir
+
+    @property
+    def archive_path(self):
+        return self.as_link().archive_path
+
+    @property
+    def archive_size(self):
+        return self.as_link().archive_size

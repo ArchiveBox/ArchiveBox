@@ -89,6 +89,7 @@ from .config import (
     get_real_name,
 )
 from .cli.logging import (
+    TERM_WIDTH,
     TimedProgress,
     log_archiving_started,
     log_archiving_paused,
@@ -161,7 +162,7 @@ def help(out_dir: str=OUTPUT_DIR) -> None:
 {lightred}Example Use:{reset}
     mkdir my-archive; cd my-archive/
     archivebox init
-    archivebox info
+    archivebox status
 
     archivebox add https://example.com/some/page
     archivebox add --depth=1 ~/Downloads/bookmarks_export.html
@@ -364,7 +365,7 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
         print('        X ' + '\n        X '.join(f'{folder} {link}' for folder, link in invalid_folders.items()))
         print()
         print('    {lightred}Hint:{reset} For more information about the link data directories that were skipped, run:'.format(**ANSI))
-        print('        archivebox info')
+        print('        archivebox status')
         print('        archivebox list --status=invalid')
 
 
@@ -387,16 +388,20 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
 
 
 @enforce_types
-def info(out_dir: str=OUTPUT_DIR) -> None:
+def status(out_dir: str=OUTPUT_DIR) -> None:
     """Print out some info and statistics about the archive collection"""
 
     check_data_folder(out_dir=out_dir)
 
-    print('{green}[*] Scanning archive collection main index...{reset}'.format(**ANSI))
-    print(f'    {out_dir}/*')
+    from core.models import Snapshot
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    print('{green}[*] Scanning archive main index...{reset}'.format(**ANSI))
+    print(ANSI['lightyellow'], f'   {out_dir}/*', ANSI['reset'])
     num_bytes, num_dirs, num_files = get_dir_size(out_dir, recursive=False, pattern='index.')
     size = printable_filesize(num_bytes)
-    print(f'    Size: {size} across {num_files} files')
+    print(f'    Index size: {size} across {num_files} files')
     print()
 
     links = list(load_main_index(out_dir=out_dir))
@@ -404,33 +409,23 @@ def info(out_dir: str=OUTPUT_DIR) -> None:
     num_sql_links = sum(1 for link in parse_sql_main_index(out_dir=out_dir))
     num_html_links = sum(1 for url in parse_html_main_index(out_dir=out_dir))
     num_link_details = sum(1 for link in parse_json_links_details(out_dir=out_dir))
-    users = get_admins().values_list('username', flat=True)
     print(f'    > JSON Main Index: {num_json_links} links'.ljust(36),  f'(found in {JSON_INDEX_FILENAME})')
     print(f'    > SQL Main Index: {num_sql_links} links'.ljust(36), f'(found in {SQL_INDEX_FILENAME})')
     print(f'    > HTML Main Index: {num_html_links} links'.ljust(36), f'(found in {HTML_INDEX_FILENAME})')
     print(f'    > JSON Link Details: {num_link_details} links'.ljust(36), f'(found in {ARCHIVE_DIR_NAME}/*/index.json)')
 
-    print(f'    > Admin: {len(users)} users {", ".join(users)}'.ljust(36), f'(found in {SQL_INDEX_FILENAME})')
-    
     if num_html_links != len(links) or num_sql_links != len(links):
         print()
         print('    {lightred}Hint:{reset} You can fix index count differences automatically by running:'.format(**ANSI))
         print('        archivebox init')
     
-    if not users:
-        print()
-        print('    {lightred}Hint:{reset} You can create an admin user by running:'.format(**ANSI))
-        print('        archivebox manage createsuperuser')
-
     print()
-    print('{green}[*] Scanning archive collection link data directories...{reset}'.format(**ANSI))
-    print(f'    {ARCHIVE_DIR}/*')
-
+    print('{green}[*] Scanning archive data directories...{reset}'.format(**ANSI))
+    print(ANSI['lightyellow'], f'   {ARCHIVE_DIR}/*', ANSI['reset'])
     num_bytes, num_dirs, num_files = get_dir_size(ARCHIVE_DIR)
     size = printable_filesize(num_bytes)
     print(f'    Size: {size} across {num_files} files in {num_dirs} directories')
-    print()
-
+    print(ANSI['black'])
     num_indexed = len(get_indexed_folders(links, out_dir=out_dir))
     num_archived = len(get_archived_folders(links, out_dir=out_dir))
     num_unarchived = len(get_unarchived_folders(links, out_dir=out_dir))
@@ -454,23 +449,50 @@ def info(out_dir: str=OUTPUT_DIR) -> None:
     print(f'        > orphaned: {len(orphaned)}'.ljust(36), f'({get_orphaned_folders.__doc__})')
     print(f'        > corrupted: {len(corrupted)}'.ljust(36), f'({get_corrupted_folders.__doc__})')
     print(f'        > unrecognized: {len(unrecognized)}'.ljust(36), f'({get_unrecognized_folders.__doc__})')
-    
+        
+    print(ANSI['reset'])
+
     if num_indexed:
-        print()
         print('    {lightred}Hint:{reset} You can list link data directories by status like so:'.format(**ANSI))
         print('        archivebox list --status=<status>  (e.g. indexed, corrupted, archived, etc.)')
 
     if orphaned:
-        print()
         print('    {lightred}Hint:{reset} To automatically import orphaned data directories into the main index, run:'.format(**ANSI))
         print('        archivebox init')
 
     if num_invalid:
-        print()
         print('    {lightred}Hint:{reset} You may need to manually remove or fix some invalid data directories, afterwards make sure to run:'.format(**ANSI))
         print('        archivebox init')
     
     print()
+    print('{green}[*] Scanning recent archive changes and user logins:{reset}'.format(**ANSI))
+    print(ANSI['lightyellow'], f'   {LOGS_DIR}/*', ANSI['reset'])
+    users = get_admins().values_list('username', flat=True)
+    print(f'    UI users {len(users)}: {", ".join(users)}')
+    last_login = User.objects.order_by('last_login').last()
+    print(f'    Last UI login: {last_login.username} @ {str(last_login.last_login)[:16]}')
+    last_updated = Snapshot.objects.order_by('updated').last()
+    print(f'    Last changed: {str(last_updated.updated)[:16]}')
+
+    if not users:
+        print()
+        print('    {lightred}Hint:{reset} You can create an admin user by running:'.format(**ANSI))
+        print('        archivebox manage createsuperuser')
+
+    print()
+    for snapshot in Snapshot.objects.order_by('-updated')[:10]:
+        if not snapshot.updated:
+            continue
+        print(
+            ANSI['black'],
+            (
+                f'   > {str(snapshot.updated)[:16]} '
+                f'[{snapshot.num_outputs} {("X", "√")[snapshot.is_archived]} {printable_filesize(snapshot.archive_size)}] '
+                f'"{snapshot.title}": {snapshot.url}'
+            )[:TERM_WIDTH()],
+            ANSI['reset'],
+        )
+    print(ANSI['black'], '   ...', ANSI['reset'])
 
 
 @enforce_types

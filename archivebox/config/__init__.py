@@ -785,14 +785,14 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
 
     json_index_exists = os.path.exists(os.path.join(output_dir, JSON_INDEX_FILENAME))
     if not json_index_exists:
-        stderr('[X] No archive main index was found in current directory.', color='red')
-        stderr(f'    {output_dir}')
+        stderr('[X] No archivebox index found in the current directory.', color='red')
+        stderr(f'    {output_dir}', color='lightyellow')
         stderr()
-        stderr('    Are you running archivebox in the right folder?')
+        stderr('    {lightred}Hint{reset}: Are you running archivebox in the right folder?'.format(**config['ANSI']))
         stderr('        cd path/to/your/archive/folder')
         stderr('        archivebox [command]')
         stderr()
-        stderr('    To create a new archive collection or import existing data in this folder, run:')
+        stderr('    {lightred}Hint{reset}: To create a new archive collection or import existing data in this folder, run:'.format(**config['ANSI']))
         stderr('        archivebox init')
         raise SystemExit(2)
 

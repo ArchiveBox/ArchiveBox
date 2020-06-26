@@ -9,6 +9,8 @@ from typing import List, Dict, Any, Optional, Union
 from dataclasses import dataclass, asdict, field, fields
 
 
+from ..system import get_dir_size
+
 class ArchiveError(Exception):
     def __init__(self, message, hints=None):
         super().__init__(message)
@@ -227,6 +229,13 @@ class Link:
         from ..config import ARCHIVE_DIR_NAME
         return '{}/{}'.format(ARCHIVE_DIR_NAME, self.timestamp)
     
+    @property
+    def archive_size(self) -> float:
+        try:
+            return get_dir_size(self.archive_path)[0]
+        except Exception:
+            return 0
+
     ### URL Helpers
     @property
     def url_hash(self):
