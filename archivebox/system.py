@@ -48,13 +48,12 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
 def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS, timeout: int=30) -> None:
     """chmod -R <permissions> <cwd>/<path>"""
 
-    if not os.path.exists(os.path.join(cwd, path)):
+    root = Path(cwd) / path
+    if not root.exists():
         raise Exception('Failed to chmod: {} does not exist (did the previous step fail?)'.format(path))
 
-    chmod_result = run(['chmod', '-R', permissions, path], cwd=cwd, timeout=timeout)
-    if chmod_result.returncode == 1:
-        print('     ', chmod_result.stderr.decode())
-        raise Exception('Failed to chmod {}/{}'.format(cwd, path))
+    for subpath in Path(path).glob('**/*'):
+        os.chmod(subpath, int(OUTPUT_PERMISSIONS, base=8))
 
 
 @enforce_types
