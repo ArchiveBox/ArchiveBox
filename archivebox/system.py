@@ -17,7 +17,7 @@ from .config import OUTPUT_PERMISSIONS
 
 
 
-def run(*args, input=None, capture_output=True, text=True, timeout=None, check=False, **kwargs):
+def run(*args, input=None, capture_output=True, text=False, timeout=None, check=False, **kwargs):
     """Patched of subprocess.run to fix blocking io making timeout=innefective"""
 
     if input is not None:
