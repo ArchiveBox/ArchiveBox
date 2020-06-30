@@ -882,7 +882,7 @@ def config(config_options_str: Optional[str]=None,
                 print('    {}'.format(printable_config(side_effect_changes, prefix='    ')))
         if failed_options:
             stderr()
-            stderr('[X] These options failed to set:', color='red')
+            stderr('[X] These options failed to set (check for typos):', color='red')
             stderr('    {}'.format('\n    '.join(failed_options)))
         raise SystemExit(bool(failed_options))
     elif reset:

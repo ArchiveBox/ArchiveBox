@@ -45,7 +45,7 @@ def archive_link(link: Link, overwrite: bool=False, out_dir: Optional[str]=None)
         ('media', should_save_media, save_media),
         ('archive_org', should_save_archive_dot_org, save_archive_dot_org),
     )
-    
+
     out_dir = out_dir or link.link_dir
     try:
         is_new = not os.path.exists(out_dir)
@@ -61,7 +61,7 @@ def archive_link(link: Link, overwrite: bool=False, out_dir: Optional[str]=None)
             try:
                 if method_name not in link.history:
                     link.history[method_name] = []
-                
+
                 if should_run(link, out_dir) or overwrite:
                     log_archive_method_started(method_name)
 
@@ -83,7 +83,7 @@ def archive_link(link: Link, overwrite: bool=False, out_dir: Optional[str]=None)
 
         write_link_details(link, out_dir=link.link_dir)
         patch_main_index(link)
-        
+
         # # If any changes were made, update the main links index json and html
         # was_changed = stats['succeeded'] or stats['failed']
         # if was_changed:

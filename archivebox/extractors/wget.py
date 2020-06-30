@@ -78,6 +78,7 @@ def save_wget(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate', '--no-hsts']),
         link.url,
     ]
+
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
@@ -111,7 +112,7 @@ def save_wget(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
                 raise ArchiveError('500 Internal Server Error', hints)
             raise ArchiveError('Got an error from the server', hints)
 
-        # chmod_file(output, cwd=out_dir)
+        chmod_file(output, cwd=out_dir)
     except Exception as err:
         status = 'failed'
         output = err

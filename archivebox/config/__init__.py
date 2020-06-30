@@ -324,6 +324,8 @@ def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
 def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
     """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
 
+    from ..system import atomic_write
+
     out_dir = out_dir or os.path.abspath(os.getenv('OUTPUT_DIR', '.'))
     config_path = os.path.join(out_dir, CONFIG_FILENAME)
     
@@ -362,8 +364,9 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
         else:
             config_file['SERVER_CONFIG'] = {'SECRET_KEY': random_secret_key}
 
-
-    atomic_write(config_path, '\n'.join((CONFIG_HEADER, config_file)))
+    with open(config_path, 'w+') as new:
+        config_file.write(new)
+    
     try:
         # validate the config by attempting to re-parse it
         CONFIG = load_all_config()

@@ -16,8 +16,7 @@ from .util import enforce_types, ExtendedEncoder
 from .config import OUTPUT_PERMISSIONS
 
 
-
-def run(*args, input=None, capture_output=True, text=False, timeout=None, check=False, **kwargs):
+def run(*args, input=None, capture_output=True, text=False, **kwargs):
     """Patched of subprocess.run to fix blocking io making timeout=innefective"""
 
     if input is not None:
@@ -29,12 +28,13 @@ def run(*args, input=None, capture_output=True, text=False, timeout=None, check=
             raise ValueError('stdout and stderr arguments may not be used '
                              'with capture_output.')
 
-    return subprocess_run(*args, input=input, capture_output=capture_output, text=text, timeout=timeout, check=check, **kwargs)
+    return subprocess_run(*args, input=input, capture_output=capture_output, text=text, **kwargs)
+
 
 @enforce_types
 def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], overwrite: bool=True) -> None:
     """Safe atomic write to filesystem by writing to temp file + atomic rename"""
-    
+
     mode = 'wb+' if isinstance(contents, bytes) else 'w'
 
     # print('\n> Atomic Write:', mode, path, len(contents), f'overwrite={overwrite}')
@@ -44,8 +44,9 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
         elif isinstance(contents, (bytes, str)):
             f.write(contents)
 
+
 @enforce_types
-def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS, timeout: int=30) -> None:
+def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS) -> None:
     """chmod -R <permissions> <cwd>/<path>"""
 
     root = Path(cwd) / path
@@ -92,6 +93,7 @@ def get_dir_size(path: str, recursive: bool=True, pattern: Optional[str]=None) -
 
 
 CRON_COMMENT = 'archivebox_schedule'
+
 
 @enforce_types
 def dedupe_cron_jobs(cron: CronTab) -> CronTab:
