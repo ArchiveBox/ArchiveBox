@@ -17,6 +17,7 @@ from ..index.csv import links_to_csv
 from ..util import enforce_types
 from ..config import (
     ConfigDict,
+    PYTHON_ENCODING,
     ANSI,
     OUTPUT_DIR,
     IS_TTY,
@@ -66,6 +67,7 @@ def reject_stdin(caller: str, stdin: Optional[IO]=sys.stdin) -> None:
             stderr()
             raise SystemExit(1)
 
+
 def accept_stdin(stdin: Optional[IO]=sys.stdin) -> Optional[str]:
     """accept any standard input and return it as a string or None"""
     if not stdin:
@@ -91,22 +93,25 @@ class TimedProgress:
 
         end_ts = datetime.now()
         self.stats['end_ts'] = end_ts
+        
         if SHOW_PROGRESS:
-            # protect from double termination
-            #if p is None or not hasattr(p, 'kill'):
-            #    return
+            # terminate if we havent already terminated
             if self.p is not None:
                 self.p.terminate()
-            
-            self.p = None
+                self.p = None
 
-            sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))  # clear whole terminal line
+            # clear whole terminal line
+            try:
+                sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))
+            except (IOError, BrokenPipeError):
+                # ignore when the parent proc has stopped listening to our stdout
+                pass
 
 
 @enforce_types
 def progress_bar(seconds: int, prefix: str='') -> None:
     """show timer in the form of progress bar, with percentage and seconds remaining"""
-    chunk = '█' if sys.stdout.encoding == 'UTF-8' else '#'
+    chunk = '█' if PYTHON_ENCODING == 'UTF-8' else '#'
     chunks = TERM_WIDTH() - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
     try:
         for s in range(seconds * chunks):
