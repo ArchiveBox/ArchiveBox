@@ -51,6 +51,7 @@ from .json import (
 from .sql import (
     write_sql_main_index,
     parse_sql_main_index,
+    write_sql_link_details,
 )
 
 ### Link filtering and checking
@@ -345,6 +346,7 @@ def write_link_details(link: Link, out_dir: Optional[str]=None) -> None:
 
     write_json_link_details(link, out_dir=out_dir)
     write_html_link_details(link, out_dir=out_dir)
+    write_sql_link_details(link)
 
 
 @enforce_types

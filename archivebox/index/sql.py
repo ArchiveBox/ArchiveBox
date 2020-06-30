@@ -46,6 +46,18 @@ def write_sql_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
             info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
             Snapshot.objects.update_or_create(url=url, defaults=info)
 
+@enforce_types
+def write_sql_link_details(link: Link, out_dir: str=OUTPUT_DIR) -> None:
+    setup_django(out_dir, check_db=True)
+    from core.models import Snapshot
+    from django.db import transaction
+
+    with transaction.atomic():
+        snap = Snapshot.objects.get(url=link['url'], timestamp=link['timestamp'])
+        snap.title = link.title
+        snap.tags = link.tags
+        snap.save()
+
 
 
 @enforce_types
