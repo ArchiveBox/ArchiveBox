@@ -53,14 +53,14 @@ class AddLinks(View):
         return render(template_name=self.template, request=request, context=context)
 
     def post(self, request):
-        print(f'[+] Adding URL: {import_path}')
+        url = request.POST['url']
+        print(f'[+] Adding URL: {url}')
         add(
-            import_str=request.POST['url'],
+            import_str=url,
             update_all=False,
             out_dir=OUTPUT_DIR,
         )
-
-        return render(template_name=self.template, request=request, context={})
+        return redirect('/')
 
 
 class LinkDetails(View):
