@@ -377,7 +377,7 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
     else:
         print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links), **ANSI))
     print()
-    print('    To view your archive index, open:')
+    print('    {lightred}Hint:{reset}To view your archive index, open:'.format(**ANSI))
     print('        {}'.format(os.path.join(out_dir, HTML_INDEX_FILENAME)))
     print()
     print('    To add new links, you can run:')

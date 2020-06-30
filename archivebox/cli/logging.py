@@ -19,10 +19,11 @@ from ..config import (
     ConfigDict,
     PYTHON_ENCODING,
     ANSI,
-    OUTPUT_DIR,
     IS_TTY,
     SHOW_PROGRESS,
     TERM_WIDTH,
+    OUTPUT_DIR,
+    HTML_INDEX_FILENAME,
 )
 
 
@@ -221,8 +222,8 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
         total=num_links,
     ))
     print()
-    print('    To view your archive, open:')
-    print('        {}/index.html'.format(OUTPUT_DIR))
+    print('    {lightred}Hint:{reset} To view your archive index, open:'.format(**ANSI))
+    print('        {}/{}'.format(OUTPUT_DIR, HTML_INDEX_FILENAME))
     print('    Continue archiving where you left off by running:')
     print('        archivebox update --resume={}'.format(timestamp))
 
@@ -248,8 +249,8 @@ def log_archiving_finished(num_links: int):
     print('    - {} links updated'.format(_LAST_RUN_STATS.succeeded))
     print('    - {} links had errors'.format(_LAST_RUN_STATS.failed))
     print()
-    print('    To view your archive, open:')
-    print('        {}/index.html'.format(OUTPUT_DIR))
+    print('    {lightred}Hint:{reset} To view your archive index, open:'.format(**ANSI))
+    print('        {}/{}'.format(OUTPUT_DIR, HTML_INDEX_FILENAME))
     print('    Or run the built-in webserver:')
     print('        archivebox server')
 
