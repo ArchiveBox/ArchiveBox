@@ -3,6 +3,7 @@ __package__ = 'archivebox.core'
 import uuid
 
 from django.db import models
+from django.utils.functional import cached_property
 
 from ..util import parse_date
 from ..index.schema import Link
@@ -47,34 +48,48 @@ class Snapshot(models.Model):
     def as_link(self) -> Link:
         return Link.from_json(self.as_json())
 
-    @property
+    @cached_property
     def bookmarked(self):
         return parse_date(self.timestamp)
 
-    @property
+    @cached_property
     def is_archived(self):
         return self.as_link().is_archived
 
-    @property
+    @cached_property
     def num_outputs(self):
         return self.as_link().num_outputs
 
-    @property
+    @cached_property
     def url_hash(self):
         return self.as_link().url_hash
 
-    @property
+    @cached_property
     def base_url(self):
         return self.as_link().base_url
 
-    @property
+    @cached_property
     def link_dir(self):
         return self.as_link().link_dir
 
-    @property
+    @cached_property
     def archive_path(self):
         return self.as_link().archive_path
 
-    @property
+    @cached_property
     def archive_size(self):
         return self.as_link().archive_size
+
+    @cached_property
+    def history(self):
+        from ..index import load_link_details
+        return load_link_details(self.as_link()).history
+
+    @cached_property
+    def latest_title(self):
+        if ('title' in self.history
+            and self.history['title']
+            and (self.history['title'][-1].status == 'succeeded')
+            and self.history['title'][-1].output.strip()):
+            return self.history['title'][-1].output.strip()
+        return None

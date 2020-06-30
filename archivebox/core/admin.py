@@ -1,16 +1,16 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
+from archivebox.util import htmldecode, urldecode
 from core.models import Snapshot
 from cli.logging import printable_filesize
-
 
 # TODO: https://stackoverflow.com/questions/40760880/add-custom-button-to-django-admin-panel
 
 
 class SnapshotAdmin(admin.ModelAdmin):
-    list_display = ('id_str', 'title_str', 'url_str', 'tags', 'files', 'added', 'updated', 'timestamp')
-    # sort_fields = ('id_str', 'files', 'url_str', 'title_str', 'tags', 'added', 'updated', 'timestamp')
+    list_display = ('title_str', 'url_str', 'tags', 'files', 'added', 'updated')
+    sort_fields = ('title_str', 'url_str', 'tags', 'added', 'updated')
     readonly_fields = ('id', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
     search_fields = ('url', 'timestamp', 'title', 'tags')
     fields = ('url', 'timestamp', 'title', 'tags', *readonly_fields)
@@ -27,14 +27,15 @@ class SnapshotAdmin(admin.ModelAdmin):
         canon = obj.as_link().canonical_outputs()
         return format_html(
             '<a href="/{}">'
-            '<img src="/{}/{}" style="height: 20px; width: 20px;" onerror="this.style.opacity=0">'
+            '<img src="/{}/{}" style="height: 20px; width: 20px;" onerror="this.remove()">'
+            ' &nbsp; &nbsp; '
             '</a>'
             '<a href="/{}/{}">'
-            ' &nbsp; &nbsp; <b>{}</b></a>',
+            '<b>{}</b></a>',
             obj.archive_path,
-            obj.archive_path, canon['favicon_path'],
+            obj.archive_path, canon['google_favicon_path'],
             obj.archive_path, canon['wget_path'] or '',
-            (obj.title or '...')[:128],
+            urldecode(htmldecode(obj.latest_title or obj.title or '-'))[:128],
         )
 
     def files(self, obj):
@@ -58,14 +59,14 @@ class SnapshotAdmin(admin.ModelAdmin):
             obj.archive_path, canon['git_path'],
             obj.archive_path, canon['archive_org_path'],
             obj.archive_path,
-            printable_filesize(obj.archive_size),
+            printable_filesize(obj.archive_size) if obj.archive_size else 'pending',
         )
 
     def url_str(self, obj):
         return format_html(
             '<a href="{}"><code>{}</code></a>',
             obj.url,
-            obj.url.split('://', 1)[-1][:128],
+            obj.url.split('://www.', 1)[-1].split('://', 1)[-1][:64],
         )
 
     id_str.short_description = 'ID'

@@ -1,5 +1,4 @@
 import re
-import ssl
 import json as pyjson
 
 
@@ -7,7 +6,6 @@ from typing import List, Optional, Any
 from inspect import signature
 from functools import wraps
 from hashlib import sha256
-from urllib.request import Request, urlopen
 from urllib.parse import urlparse, quote, unquote
 from html import escape, unescape
 from datetime import datetime
