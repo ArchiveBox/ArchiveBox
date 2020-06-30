@@ -13,6 +13,7 @@ from html import escape, unescape
 from datetime import datetime
 from dateutil import parser as dateparser
 
+import requests
 from base32_crockford import encode as base32_encode                            # type: ignore
 
 from .config import (
@@ -155,18 +156,13 @@ def parse_date(date: Any) -> Optional[datetime]:
 @enforce_types
 def download_url(url: str, timeout: int=TIMEOUT) -> str:
     """Download the contents of a remote url and return the text"""
-
-    req = Request(url, headers={'User-Agent': WGET_USER_AGENT})
-
-    if CHECK_SSL_VALIDITY:
-        resp = urlopen(req, timeout=timeout)
-    else:
-        insecure = ssl._create_unverified_context()
-        resp = urlopen(req, timeout=timeout, context=insecure)
-
-    rawdata = resp.read()
-    encoding = resp.headers.get_content_charset() or detect_encoding(rawdata)
-    return rawdata.decode(encoding)
+    response = requests.get(
+        url,
+        headers={'User-Agent': WGET_USER_AGENT},
+        verify=CHECK_SSL_VALIDITY,
+        timeout=timeout,
+    )
+    return response.text
 
 
 @enforce_types
