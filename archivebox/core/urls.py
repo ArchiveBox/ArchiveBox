@@ -8,12 +8,12 @@ from django.views.generic.base import RedirectView
 
 from core.views import MainIndex, AddLinks, LinkDetails
 
-admin.site.site_header = 'ArchiveBox Admin'
-admin.site.index_title = 'Archive Administration'
+admin.site.site_header = 'ArchiveBox'
+admin.site.index_title = 'Links' 
+admin.site.site_title = 'Index'
+
 
 urlpatterns = [
-    path('index.html', RedirectView.as_view(url='/')),
-    path('index.json', static.serve, {'document_root': settings.OUTPUT_DIR, 'path': 'index.json'}),
     path('robots.txt', static.serve, {'document_root': settings.OUTPUT_DIR, 'path': 'robots.txt'}),
     path('favicon.ico', static.serve, {'document_root': settings.OUTPUT_DIR, 'path': 'favicon.ico'}),
 
@@ -26,11 +26,13 @@ urlpatterns = [
     path('accounts/login/', RedirectView.as_view(url='/admin/login/')),
     path('accounts/logout/', RedirectView.as_view(url='/admin/logout/')),
 
+    path('admin/core/snapshot/add/', RedirectView.as_view(url='/add/')),
+
     path('accounts/', include('django.contrib.auth.urls')),
     path('admin/', admin.site.urls),
     
-
-    path('', MainIndex.as_view(), name='Home'),
+    path('old.html', MainIndex.as_view(), name='OldHome'),
+    path('index.html', RedirectView.as_view(url='/')),
+    path('index.json', static.serve, {'document_root': settings.OUTPUT_DIR, 'path': 'index.json'}),
+    path('', RedirectView.as_view(url='/admin/core/snapshot/'), name='Home'),
 ]
-
-
