@@ -320,65 +320,64 @@ def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
         return config_file_vars
     return None
 
+
 def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
     """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
 
     out_dir = out_dir or os.path.abspath(os.getenv('OUTPUT_DIR', '.'))
     config_path = os.path.join(out_dir, CONFIG_FILENAME)
+    
     if not os.path.exists(config_path):
-        with open(config_path, 'w+') as f:
-            f.write(CONFIG_HEADER)
+        atomic_write(config_path, CONFIG_HEADER)
 
     config_file = ConfigParser()
     config_file.optionxform = str
     config_file.read(config_path)
 
+    with open(config_path, 'r') as old:
+        atomic_write(f'{config_path}.bak', old.read())
+
     find_section = lambda key: [name for name, opts in CONFIG_DEFAULTS.items() if key in opts][0]
 
-    with open(f'{config_path}.old', 'w+') as old:
-        with open(config_path, 'r') as new:
-            old.write(new.read())
+    # Set up sections in empty config file
+    for key, val in config.items():
+        section = find_section(key)
+        if section in config_file:
+            existing_config = dict(config_file[section])
+        else:
+            existing_config = {}
+        config_file[section] = {**existing_config, key: val}
 
-    with open(config_path, 'w+') as f:
-        for key, val in config.items():
-            section = find_section(key)
-            if section in config_file:
-                existing_config = dict(config_file[section])
-            else:
-                existing_config = {}
+    # always make sure there's a SECRET_KEY defined for Django
+    existing_secret_key = None
+    if 'SERVER_CONFIG' in config_file and 'SECRET_KEY' in config_file['SERVER_CONFIG']:
+        existing_secret_key = config_file['SERVER_CONFIG']['SECRET_KEY']
 
-            config_file[section] = {**existing_config, key: val}
+    if (not existing_secret_key) or ('not a valid secret' in existing_secret_key):
+        from django.utils.crypto import get_random_string
+        chars = 'abcdefghijklmnopqrstuvwxyz0123456789-_+!.'
+        random_secret_key = get_random_string(50, chars)
+        if 'SERVER_CONFIG' in config_file:
+            config_file['SERVER_CONFIG']['SECRET_KEY'] = random_secret_key
+        else:
+            config_file['SERVER_CONFIG'] = {'SECRET_KEY': random_secret_key}
 
-        # always make sure there's a SECRET_KEY defined for Django
-        existing_secret_key = None
-        if 'SERVER_CONFIG' in config_file and 'SECRET_KEY' in config_file['SERVER_CONFIG']:
-            existing_secret_key = config_file['SERVER_CONFIG']['SECRET_KEY']
 
-        if (not existing_secret_key) or ('not a valid secret' in existing_secret_key):
-            from django.utils.crypto import get_random_string
-            chars = 'abcdefghijklmnopqrstuvwxyz0123456789-_+!.'
-            random_secret_key = get_random_string(50, chars)
-            if 'SERVER_CONFIG' in config_file:
-                config_file['SERVER_CONFIG']['SECRET_KEY'] = random_secret_key
-            else:
-                config_file['SERVER_CONFIG'] = {'SECRET_KEY': random_secret_key}
-
-        f.write(CONFIG_HEADER)
-        config_file.write(f)
-
+    atomic_write(config_path, '\n'.join((CONFIG_HEADER, config_file)))
     try:
+        # validate the config by attempting to re-parse it
         CONFIG = load_all_config()
         return {
             key.upper(): CONFIG.get(key.upper())
             for key in config.keys()
         }
     except:
-        with open(f'{config_path}.old', 'r') as old:
-            with open(config_path, 'w+') as new:
-                new.write(old.read())
+        # something went horribly wrong, rever to the previous version
+        with open(f'{config_path}.bak', 'r') as old:
+            atomic_write(config_path, old.read())
 
-    if os.path.exists(f'{config_path}.old'):
-        os.remove(f'{config_path}.old')
+    if os.path.exists(f'{config_path}.bak'):
+        os.remove(f'{config_path}.bak')
 
     return {}
 

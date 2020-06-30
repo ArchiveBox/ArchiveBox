@@ -65,7 +65,6 @@ def save_git(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> A
     timer = TimedProgress(timeout, prefix='      ')
     try:
         result = run(cmd, cwd=output_path, timeout=timeout + 1)
-
         if result.returncode == 128:
             # ignore failed re-download when the folder already exists
             pass

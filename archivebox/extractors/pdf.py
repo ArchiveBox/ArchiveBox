@@ -58,6 +58,7 @@ def save_pdf(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> A
     finally:
         timer.end()
 
+
     return ArchiveResult(
         cmd=cmd,
         pwd=out_dir,
