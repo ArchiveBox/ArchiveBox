@@ -12,6 +12,20 @@ class BaseConfig(TypedDict):
     pass
 
 class ConfigDict(BaseConfig, total=False):
+    """
+    # Regenerate by pasting this quine into `archivebox shell` 🥚
+    from archivebox.config import ConfigDict, CONFIG_DEFAULTS
+    print('class ConfigDict(BaseConfig, total=False):')
+    print('    ' + '"'*3 + ConfigDict.__doc__ + '"'*3)
+    for section, configs in CONFIG_DEFAULTS.items():
+        for key, attrs in configs.items():
+            Type, default = attrs['type'], attrs['default']
+            if default is None:
+                print(f'    {key}: Optional[{Type.__name__}]')
+            else:
+                print(f'    {key}: {Type.__name__}')
+        print()
+    """
     IS_TTY: bool
     USE_COLOR: bool
     SHOW_PROGRESS: bool
