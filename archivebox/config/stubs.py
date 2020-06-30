@@ -48,6 +48,7 @@ class ConfigDict(BaseConfig, total=False):
     RESOLUTION: str
     GIT_DOMAINS: str
     CHECK_SSL_VALIDITY: bool
+    CURL_USER_AGENT: str
     WGET_USER_AGENT: str
     CHROME_USER_AGENT: str
     COOKIES_FILE: Optional[str]
