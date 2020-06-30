@@ -24,6 +24,7 @@ from ..config import (
     TERM_WIDTH,
     OUTPUT_DIR,
     HTML_INDEX_FILENAME,
+    stderr,
 )
 
 
@@ -160,6 +161,7 @@ def log_parsing_started(source_file: str):
         **ANSI,
     ))
 
+
 def log_parsing_finished(num_parsed: int, num_new_links: int, parser_name: str):
     end_ts = datetime.now()
     _LAST_RUN_STATS.parse_end_ts = end_ts
@@ -178,13 +180,16 @@ def log_indexing_process_started(num_links: int):
         **ANSI,
     ))
 
+
 def log_indexing_process_finished():
     end_ts = datetime.now()
     _LAST_RUN_STATS.index_end_ts = end_ts
 
+
 def log_indexing_started(out_path: str):
     if IS_TTY:
         sys.stdout.write(f'    > {out_path}')
+
 
 def log_indexing_finished(out_path: str):
     print(f'\r    √ {out_path}')

@@ -7,7 +7,7 @@ from typing import Optional
 from datetime import datetime
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from ..system import run
+from ..system import run, chmod_file
 from ..util import (
     enforce_types,
     is_static_file,

@@ -25,10 +25,12 @@ class Snapshot(models.Model):
 
 
     def __repr__(self) -> str:
-        return f'[{self.timestamp}] {self.url[:64]} ({self.title[:64]})'
+        title = self.title or '-'
+        return f'[{self.timestamp}] {self.url[:64]} ({title[:64]})'
 
     def __str__(self) -> str:
-        return f'[{self.timestamp}] {self.url[:64]} ({self.title[:64]})'
+        title = self.title or '-'
+        return f'[{self.timestamp}] {self.url[:64]} ({title[:64]})'
 
     @classmethod
     def from_json(cls, info: dict):
