@@ -188,11 +188,11 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'TERM_WIDTH':               {'default': lambda c: lambda: shutil.get_terminal_size((100, 10)).columns},
     'USER':                     {'default': lambda c: getpass.getuser() or os.getlogin()},
     'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
-    
+
     'REPO_DIR':                 {'default': lambda c: os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))},
     'PYTHON_DIR':               {'default': lambda c: os.path.join(c['REPO_DIR'], PYTHON_DIR_NAME)},
     'TEMPLATES_DIR':            {'default': lambda c: os.path.join(c['PYTHON_DIR'], TEMPLATES_DIR_NAME, 'legacy')},
-    
+
     'OUTPUT_DIR':               {'default': lambda c: os.path.abspath(os.path.expanduser(c['OUTPUT_DIR'])) if c['OUTPUT_DIR'] else os.path.abspath(os.curdir)},
     'ARCHIVE_DIR':              {'default': lambda c: os.path.join(c['OUTPUT_DIR'], ARCHIVE_DIR_NAME)},
     'SOURCES_DIR':              {'default': lambda c: os.path.join(c['OUTPUT_DIR'], SOURCES_DIR_NAME)},
@@ -208,7 +208,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
 
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
     'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},
-    'PYTHON_VERSION':           {'default': lambda c: '{}.{}'.format(sys.version_info.major, sys.version_info.minor)},
+    'PYTHON_VERSION':           {'default': lambda c: '{}.{}.{}'.format(*sys.version_info[:3])},
 
     'DJANGO_BINARY':            {'default': lambda c: django.__file__.replace('__init__.py', 'bin/django-admin.py')},
     'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{} {} ({})'.format(*django.VERSION)},
@@ -278,7 +278,7 @@ def load_config_val(key: str,
             return default(config)
 
         return default
-    
+
     elif type is bool:
         if val.lower() in ('true', 'yes', '1'):
             return True
@@ -298,6 +298,7 @@ def load_config_val(key: str,
         return int(val)
 
     raise Exception('Config values can only be str, bool, or int')
+
 
 def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
     """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
@@ -705,7 +706,7 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
         raise SystemExit(2)
 
     ### Check Python environment
-    if float(config['PYTHON_VERSION']) < 3.6:
+    if sys.version_info[:3] < (3, 6, 0):
         stderr(f'[X] Python version is not new enough: {config["PYTHON_VERSION"]} (>3.6 is required)', color='red')
         stderr('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
         raise SystemExit(2)
