@@ -57,19 +57,22 @@ class AddLinks(View):
 
     def post(self, request):
         url = request.POST['url']
-        print(f'[+] Adding URL: {url}')
-        add_stdout = StringIO()
-        with redirect_stdout(add_stdout):
-            extracted_links = add(
-                import_str=url,
-                update_all=False,
-                out_dir=OUTPUT_DIR,
-            )
-        print(add_stdout.getvalue())
+        if url:
+            print(f'[+] Adding URL: {url}')
+            add_stdout = StringIO()
+            with redirect_stdout(add_stdout):
+                extracted_links = add(
+                    import_str=url,
+                    update_all=False,
+                    out_dir=OUTPUT_DIR,
+                )
+            print(add_stdout.getvalue())
 
-        context = {
-            "stdout": ansi_to_html(add_stdout.getvalue())
-        }
+            context = {
+                "stdout": ansi_to_html(add_stdout.getvalue())
+            }
+        else:
+            context = {"stdout": "Please enter a URL"}
 
         return render(template_name=self.template, request=request, context=context)
 
