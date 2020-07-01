@@ -20,6 +20,7 @@ from .config import (
     CHECK_SSL_VALIDITY,
     WGET_USER_AGENT,
     CHROME_OPTIONS,
+    COLOR_DICT
 )
 
 try:
@@ -68,6 +69,8 @@ URL_REGEX = re.compile(
     r'[^\]\[\(\)<>\""\'\s]+',         # stop parsing at these symbols
     re.IGNORECASE,
 )
+
+COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
 
 
 def enforce_types(func):
@@ -194,6 +197,27 @@ def chrome_args(**options) -> List[str]:
         cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
     
     return cmd_args
+
+def ansi_to_html(text):
+    """
+    Based on: https://stackoverflow.com/questions/19212665/python-converting-ansi-color-codes-to-html
+    """
+    TEMPLATE = '<span style="color: rgb{}"><br>'
+    text = text.replace('[m', '</span>')
+
+    def single_sub(match):
+        argsdict = match.groupdict()
+        if argsdict['arg_3'] is None:
+            if argsdict['arg_2'] is None:
+                bold, color = 0, argsdict['arg_1']
+            else:
+                bold, color = argsdict['arg_1'], argsdict['arg_2']
+        else:
+            bold, color = argsdict['arg_3'], argsdict['arg_2']
+
+        return TEMPLATE.format(COLOR_DICT[color][0])
+
+    return COLOR_REGEX.sub(single_sub, text)
 
 
 class ExtendedEncoder(pyjson.JSONEncoder):
