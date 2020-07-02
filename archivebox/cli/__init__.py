@@ -2,6 +2,7 @@ __package__ = 'archivebox.cli'
 __command__ = 'archivebox'
 
 import os
+import sys
 import argparse
 
 from typing import Optional, Dict, List, IO
@@ -65,6 +66,7 @@ SUBCOMMANDS = list_subcommands()
 
 
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
+    args = sys.argv[1:] if args is None else args
     subcommands = list_subcommands()
     parser = argparse.ArgumentParser(
         prog=__command__,
