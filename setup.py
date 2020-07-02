@@ -1,4 +1,3 @@
-import os
 import setuptools
 from pathlib import Path
 
@@ -10,9 +9,9 @@ README = (BASE_DIR / "README.md").read_text()
 VERSION = (SOURCE_DIR / "VERSION").read_text().strip()
 
 # To see when setup.py gets called (uncomment for debugging)
-import sys
-print(SOURCE_DIR, f"     (v{VERSION})")
-print('>', sys.executable, *sys.argv)
+# import sys
+# print(SOURCE_DIR, f"     (v{VERSION})")
+# print('>', sys.executable, *sys.argv)
 # raise SystemExit(0)
 
 setuptools.setup(
@@ -69,10 +68,10 @@ setuptools.setup(
         # 'redis': ['redis', 'django-redis'],
         # 'pywb': ['pywb', 'redis'],
     },
-    packages=[PKG_NAME],
+    packages=setuptools.find_packages(),
     entry_points={
         "console_scripts": [
-            f"{PKG_NAME} = {PKG_NAME}.__main__:main",
+            f"{PKG_NAME} = {PKG_NAME}.cli:main",
         ],
     },
     include_package_data=True,

@@ -1,8 +1,13 @@
 __package__ = 'archivebox.cli'
+__command__ = 'archivebox'
 
 import os
+import argparse
 
-from typing import Dict, List, Optional, IO
+from typing import Optional, Dict, List, IO
+
+from ..config import OUTPUT_DIR
+
 from importlib import import_module
 
 CLI_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +28,7 @@ is_valid_cli_module = lambda module, subcommand: (
     all(hasattr(module, attr) for attr in required_attrs)
     and module.__command__.split(' ')[-1] == subcommand
 )
+
 
 def list_subcommands() -> Dict[str, str]:
     """find and import all valid archivebox_<subcommand>.py files in CLI_DIR"""
@@ -56,6 +62,53 @@ def run_subcommand(subcommand: str,
 
 
 SUBCOMMANDS = list_subcommands()
+
+
+def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
+    subcommands = list_subcommands()
+    parser = argparse.ArgumentParser(
+        prog=__command__,
+        description='ArchiveBox: The self-hosted internet archive',
+        add_help=False,
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        '--help', '-h',
+        action='store_true',
+        help=subcommands['help'],
+    )
+    group.add_argument(
+        '--version',
+        action='store_true',
+        help=subcommands['version'],
+    )
+    group.add_argument(
+        "subcommand",
+        type=str,
+        help= "The name of the subcommand to run",
+        nargs='?',
+        choices=subcommands.keys(),
+        default=None,
+    )
+    parser.add_argument(
+        "subcommand_args",
+        help="Arguments for the subcommand",
+        nargs=argparse.REMAINDER,
+    )
+    command = parser.parse_args(args or ())
+
+    if command.help or command.subcommand is None:
+        command.subcommand = 'help'
+    if command.version:
+        command.subcommand = 'version'
+
+    run_subcommand(
+        subcommand=command.subcommand,
+        subcommand_args=command.subcommand_args,
+        stdin=stdin,
+        pwd=pwd or OUTPUT_DIR,
+    )
+
 
 __all__ = (
     'SUBCOMMANDS',

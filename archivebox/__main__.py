@@ -3,13 +3,8 @@
 __package__ = 'archivebox'
 
 import sys
-from .cli import archivebox
 
-
-def main():
-    archivebox.main(args=sys.argv[1:], stdin=sys.stdin)
-
+from .cli import main
 
 if __name__ == '__main__':
-    archivebox.main(args=sys.argv[1:], stdin=sys.stdin)
-
+    main(args=sys.argv[1:], stdin=sys.stdin)
