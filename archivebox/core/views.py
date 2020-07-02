@@ -22,6 +22,8 @@ from ..config import (
 from ..util import base_url, ansi_to_html
 from .. main import add
 
+from .forms import AddLinkForm
+
 
 class MainIndex(View):
     template = 'main_index.html'
@@ -51,28 +53,39 @@ class AddLinks(View):
         if not request.user.is_authenticated and not PUBLIC_INDEX:
             return redirect(f'/admin/login/?next={request.path}')
 
-        context = {}
+        context = {
+            "form": AddLinkForm()
+        }
 
         return render(template_name=self.template, request=request, context=context)
 
     def post(self, request):
-        url = request.POST['url']
-        if url:
+        #url = request.POST['url']
+        #if url:
+        form = AddLinkForm(request.POST)
+        if form.is_valid():
+            url = form.cleaned_data["url"]
             print(f'[+] Adding URL: {url}')
+            if form.cleaned_data["source"] == "url":
+                key = "import_str"
+            else:
+                key = "import_path"
+            input_kwargs = {
+                key: url,
+                "update_all": False,
+                "out_dir": OUTPUT_DIR,
+            }
             add_stdout = StringIO()
             with redirect_stdout(add_stdout):
-                extracted_links = add(
-                    import_str=url,
-                    update_all=False,
-                    out_dir=OUTPUT_DIR,
-                )
+                extracted_links = add(**input_kwargs)
             print(add_stdout.getvalue())
 
             context = {
-                "stdout": ansi_to_html(add_stdout.getvalue())
+                "stdout": ansi_to_html(add_stdout.getvalue()),
+                "form": AddLinkForm()
             }
         else:
-            context = {"stdout": "Please enter a URL"}
+            context = {"form": form}
 
         return render(template_name=self.template, request=request, context=context)
 
