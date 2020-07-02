@@ -159,6 +159,12 @@
             .title-col a {
                 color: black;
             }
+            .ul-form {
+                list-style: none;
+            }
+            .ul-form li {
+                list-style: none;
+            }
         </style>
         <link rel="stylesheet" href="{% static 'bootstrap.min.css' %}">
         <link rel="stylesheet" href="{% static 'jquery.dataTables.min.css' %}"/>
@@ -199,9 +205,9 @@
         <center>
             {{ stdout | safe }}
             <br/><br/>
-            <form action="?" method="POST">{% csrf_token %}
+            <form action="?" method="POST" class="ul-form">{% csrf_token %}
                 Add new links...<br/>
-                <input type="text" name="url" placeholder="URL of page or feed..."/><br/>
+                {{ form.as_ul }}
                 <button role="submit">Add</button>
             </form>
         </center>
