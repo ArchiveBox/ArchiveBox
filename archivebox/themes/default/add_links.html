@@ -197,6 +197,7 @@
             </div>
         </header>
         <center>
+            {{ stdout | safe }}
             <br/><br/>
             <form action="?" method="POST">{% csrf_token %}
                 Add new links...<br/>
@@ -204,6 +205,8 @@
                 <button role="submit">Add</button>
             </form>
         </center>
+
+        <a href="{% url 'admin:core_snapshot_changelist' %}">Go back to Snapshot list</a>
         
     </body>
 </html>

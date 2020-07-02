@@ -8,6 +8,9 @@ from django.conf import settings
 
 from core.models import Snapshot
 
+from contextlib import redirect_stdout
+from io import StringIO
+
 from ..index import load_main_index, load_main_index_meta
 from ..config import (
     OUTPUT_DIR,
@@ -16,7 +19,7 @@ from ..config import (
     PUBLIC_INDEX,
     PUBLIC_SNAPSHOTS,
 )
-from ..util import base_url
+from ..util import base_url, ansi_to_html
 from .. main import add
 
 
@@ -54,13 +57,24 @@ class AddLinks(View):
 
     def post(self, request):
         url = request.POST['url']
-        print(f'[+] Adding URL: {url}')
-        add(
-            import_str=url,
-            update_all=False,
-            out_dir=OUTPUT_DIR,
-        )
-        return redirect('/')
+        if url:
+            print(f'[+] Adding URL: {url}')
+            add_stdout = StringIO()
+            with redirect_stdout(add_stdout):
+                extracted_links = add(
+                    import_str=url,
+                    update_all=False,
+                    out_dir=OUTPUT_DIR,
+                )
+            print(add_stdout.getvalue())
+
+            context = {
+                "stdout": ansi_to_html(add_stdout.getvalue())
+            }
+        else:
+            context = {"stdout": "Please enter a URL"}
+
+        return render(template_name=self.template, request=request, context=context)
 
 
 class LinkDetails(View):

@@ -133,6 +133,16 @@ DEFAULT_CLI_COLORS = {
 }
 ANSI = {k: '' for k in DEFAULT_CLI_COLORS.keys()}
 
+COLOR_DICT = {
+    '00': [(0, 0, 0), (0, 0, 0)],
+    '31': [(255, 0, 0), (128, 0, 0)],
+    '32': [(0, 200, 0), (0, 128, 0)],
+    '33': [(255, 255, 0), (128, 128, 0)],
+    '34': [(0, 0, 255), (0, 0, 128)],
+    '35': [(255, 0, 255), (128, 0, 128)],
+    '36': [(0, 255, 255), (0, 128, 128)],
+}
+
 STATICFILE_EXTENSIONS = {
     # 99.999% of the time, URLs ending in these extensions are static files
     # that can be downloaded as-is, not html pages that need to be rendered
