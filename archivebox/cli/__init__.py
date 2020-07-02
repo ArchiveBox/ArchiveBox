@@ -64,9 +64,14 @@ def run_subcommand(subcommand: str,
 
 SUBCOMMANDS = list_subcommands()
 
+class NotProvided:
+    pass
 
-def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
-    args = sys.argv[1:] if args is None else args
+
+def main(args: Optional[List[str]]=NotProvided, stdin: Optional[IO]=NotProvided, pwd: Optional[str]=None) -> None:
+    args = sys.argv[1:] if args is NotProvided else args
+    stdin = sys.stdin if stdin is NotProvided else stdin
+
     subcommands = list_subcommands()
     parser = argparse.ArgumentParser(
         prog=__command__,
