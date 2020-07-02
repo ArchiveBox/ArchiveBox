@@ -60,14 +60,12 @@ URL_REGEX = re.compile(
     re.IGNORECASE,
 )
 
-<<<<<<< HEAD
 COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
-=======
+
 def is_static_file(url: str):
     # TODO: the proper way is with MIME type detection + ext, not only extension
     from .config import STATICFILE_EXTENSIONS
     return extension(url).lower() in STATICFILE_EXTENSIONS
->>>>>>> c1fe068... remove circular import possibilities
 
 
 def enforce_types(func):
@@ -204,7 +202,7 @@ def ansi_to_html(text):
     Based on: https://stackoverflow.com/questions/19212665/python-converting-ansi-color-codes-to-html
     """
     from .config import COLOR_DICT
-    
+
     TEMPLATE = '<span style="color: rgb{}"><br>'
     text = text.replace('[m', '</span>')
 
