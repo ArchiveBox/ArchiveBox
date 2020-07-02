@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from archivebox.util import htmldecode, urldecode
+from util import htmldecode, urldecode
 from core.models import Snapshot
 from cli.logging import printable_filesize
 

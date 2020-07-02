@@ -21,6 +21,14 @@ from .stubs import (
     ConfigDefaultDict,
 )
 
+# precedence order for config:
+# 1. cli args
+# 2. shell environment vars
+# 3. config file
+# 4. defaults
+
+# env USE_COLO=false archivebox add '...'
+# env SHOW_PROGRESS=1 archivebox add '...'
 
 # ******************************************************************************
 # Documentation: https://github.com/pirate/ArchiveBox/wiki/Configuration

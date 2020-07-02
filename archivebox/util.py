@@ -14,15 +14,6 @@ from dateutil import parser as dateparser
 import requests
 from base32_crockford import encode as base32_encode                            # type: ignore
 
-from .config import (
-    TIMEOUT,
-    STATICFILE_EXTENSIONS,
-    CHECK_SSL_VALIDITY,
-    WGET_USER_AGENT,
-    CHROME_OPTIONS,
-    COLOR_DICT
-)
-
 try:
     import chardet
     detect_encoding = lambda rawdata: chardet.detect(rawdata)["encoding"]
@@ -49,7 +40,6 @@ base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 without_www = lambda url: url.replace('://www.', '://', 1)
 without_trailing_slash = lambda url: url[:-1] if url[-1] == '/' else url.replace('/?', '?')
 hashurl = lambda url: base32_encode(int(sha256(base_url(url).encode('utf-8')).hexdigest(), 16))[:20]
-is_static_file = lambda url: extension(url).lower() in STATICFILE_EXTENSIONS  # TODO: the proper way is with MIME type detection, not using extension
 
 urlencode = lambda s: s and quote(s, encoding='utf-8', errors='replace')
 urldecode = lambda s: s and unquote(s)
@@ -70,7 +60,14 @@ URL_REGEX = re.compile(
     re.IGNORECASE,
 )
 
+<<<<<<< HEAD
 COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
+=======
+def is_static_file(url: str):
+    # TODO: the proper way is with MIME type detection + ext, not only extension
+    from .config import STATICFILE_EXTENSIONS
+    return extension(url).lower() in STATICFILE_EXTENSIONS
+>>>>>>> c1fe068... remove circular import possibilities
 
 
 def enforce_types(func):
@@ -155,8 +152,10 @@ def parse_date(date: Any) -> Optional[datetime]:
 
 
 @enforce_types
-def download_url(url: str, timeout: int=TIMEOUT) -> str:
+def download_url(url: str, timeout: int=None) -> str:
     """Download the contents of a remote url and return the text"""
+    from .config import TIMEOUT, CHECK_SSL_VALIDITY, WGET_USER_AGENT
+    timeout = timeout or TIMEOUT
     response = requests.get(
         url,
         headers={'User-Agent': WGET_USER_AGENT},
@@ -169,6 +168,8 @@ def download_url(url: str, timeout: int=TIMEOUT) -> str:
 @enforce_types
 def chrome_args(**options) -> List[str]:
     """helper to build up a chrome shell command with arguments"""
+
+    from .config import CHROME_OPTIONS
 
     options = {**CHROME_OPTIONS, **options}
 
@@ -202,6 +203,8 @@ def ansi_to_html(text):
     """
     Based on: https://stackoverflow.com/questions/19212665/python-converting-ansi-color-codes-to-html
     """
+    from .config import COLOR_DICT
+    
     TEMPLATE = '<span style="color: rgb{}"><br>'
     text = text.replace('[m', '</span>')
 
