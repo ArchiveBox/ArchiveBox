@@ -1,0 +1,25 @@
+name: Test workflow
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+          architecture: x64
+      
+      - name: Install dependencies
+        run: |
+          pip install -e .[dev]
+
+      - name: Test with pytest
+        run: |
+          pytest -s
