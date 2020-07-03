@@ -65,6 +65,9 @@ setuptools.setup(
             "sphinx-rtd-theme",
             "recommonmark",
         ],
+        "test": [
+            "pytest"
+        ]
         # 'redis': ['redis', 'django-redis'],
         # 'pywb': ['pywb', 'redis'],
     },
