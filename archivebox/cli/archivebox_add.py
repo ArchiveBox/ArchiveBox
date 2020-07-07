@@ -49,11 +49,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         "--depth",
         action="store",
         default=0,
+        choices=[0,1],
         type=int,
         help="Recursively archive all linked pages up to this many hops away"
     )
     command = parser.parse_args(args or ())
-    #import_str = accept_stdin(stdin)
     add(
         import_str=command.import_path,
         import_path=None,

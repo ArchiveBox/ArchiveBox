@@ -5,7 +5,13 @@ from .fixtures import *
 
 def test_depth_flag_is_accepted(process):
     arg_process = subprocess.run(["archivebox", "add", "https://example.com", "--depth=0"], capture_output=True)
-    assert 'unrecognized arguments: --depth' not in arg_process.stderr.decode('utf-8')
+    assert 'unrecognized arguments: --depth' not in arg_process.stderr.decode("utf-8")
+
+def test_depth_flag_fails_if_it_is_not_0_or_1(process):
+    arg_process = subprocess.run(["archivebox", "add", "https://example.com", "--depth=5"], capture_output=True)
+    assert 'invalid choice' in arg_process.stderr.decode("utf-8")
+    arg_process = subprocess.run(["archivebox", "add", "https://example.com", "--depth=-1"], capture_output=True)
+    assert 'invalid choice' in arg_process.stderr.decode("utf-8")
 
 def test_depth_flag_0_crawls_only_the_arg_page(tmp_path, process):
     arg_process = subprocess.run(["archivebox", "add", "https://example.com", "--depth=0"], capture_output=True)
