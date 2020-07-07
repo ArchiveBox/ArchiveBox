@@ -25,9 +25,9 @@ def test_add_link(tmp_path, process):
 
     with open(archived_item_path / "index.json", "r") as f:
         output_json = json.load(f)
-    assert "IANA — IANA-managed Reserved Domains" == output_json['history']['title'][0]['output']
+    assert "Example Domain" == output_json['history']['title'][0]['output']
 
     with open(tmp_path / "index.html", "r") as f:
         output_html = f.read()
-    assert "IANA — IANA-managed Reserved Domains" in output_html
+    assert "Example Domain" in output_html
 
