@@ -6,14 +6,7 @@ import subprocess
 from pathlib import Path
 import json
 
-import pytest
-
-@pytest.fixture
-def process(tmp_path):
-    os.chdir(tmp_path)
-    process = subprocess.run(['archivebox', 'init'], capture_output=True)
-    return process
-
+from .fixtures import *
 
 def test_init(tmp_path, process):
     assert "Initializing a new ArchiveBox collection in this folder..." in process.stdout.decode("utf-8")
