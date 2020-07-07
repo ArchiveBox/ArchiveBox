@@ -13,3 +13,10 @@ def test_depth_flag_0_crawls_only_the_arg_page(tmp_path, process):
     with open(archived_item_path / "index.json", "r") as f:
         output_json = json.load(f)
     assert output_json["base_url"] == "example.com"
+
+def test_depth_flag_1_crawls_the_page_AND_links(tmp_path, process):
+    arg_process = subprocess.run(["archivebox", "add", "https://example.com", "--depth=1"], capture_output=True)
+    with open(tmp_path / "index.json", "r") as f:
+        archive_file = f.read()
+    assert "https://example.com" in archive_file
+    assert "https://www.iana.org/domains/example" in archive_file

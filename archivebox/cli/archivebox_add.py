@@ -61,14 +61,14 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         index_only=command.index_only,
         out_dir=pwd or OUTPUT_DIR,
     )
-    #if command.depth == 1:
-    #    add(
-    #        import_str=None,
-    #        import_path=command.import_path,
-    #        update_all=command.update_all,
-    #        index_only=command.index_only,
-    #        out_dir=pwd or OUTPUT_DIR,
-    #    )
+    if command.depth == 1:
+        add(
+            import_str=None,
+            import_path=command.import_path,
+            update_all=command.update_all,
+            index_only=command.index_only,
+            out_dir=pwd or OUTPUT_DIR,
+        )
 
 
 if __name__ == '__main__':
