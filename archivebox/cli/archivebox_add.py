@@ -10,7 +10,7 @@ from typing import List, Optional, IO
 
 from ..main import add, docstring
 from ..config import OUTPUT_DIR, ONLY_NEW
-from .logging import SmartFormatter, reject_stdin
+from .logging import SmartFormatter, accept_stdin
 
 
 @docstring(add.__doc__)
@@ -55,9 +55,20 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help="Recursively archive all linked pages up to this many hops away"
     )
     command = parser.parse_args(args or ())
-    reject_stdin(__command__, stdin)
+    import_string = accept_stdin(stdin)
+    if import_string and command.import_path:
+        stderr(
+            '[X] You should pass an import path or a page url as an argument or in stdin but not both\n',
+            color='red',
+        )
+        raise SystemExit(2)
+    elif import_string:
+        import_path = import_string
+    else:
+        import_path = command.import_path
+
     add(
-        import_str=command.import_path,
+        import_str=import_path,
         import_path=None,
         update_all=command.update_all,
         index_only=command.index_only,
@@ -66,7 +77,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     if command.depth == 1:
         add(
             import_str=None,
-            import_path=command.import_path,
+            import_path=import_path,
             update_all=command.update_all,
             index_only=command.index_only,
             out_dir=pwd or OUTPUT_DIR,
