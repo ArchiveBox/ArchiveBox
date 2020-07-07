@@ -31,3 +31,9 @@ def test_add_link(tmp_path, process):
         output_html = f.read()
     assert "Example Domain" in output_html
 
+def test_add_link_does_not_support_stdin(tmp_path, process):
+    os.chdir(tmp_path)
+    stdin_process = subprocess.Popen(["archivebox", "add"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    output = stdin_process.communicate(input="example.com".encode())[0]
+    assert "does not accept stdin" in output.decode("utf-8")
+

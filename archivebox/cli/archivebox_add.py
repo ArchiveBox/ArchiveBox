@@ -10,7 +10,7 @@ from typing import List, Optional, IO
 
 from ..main import add, docstring
 from ..config import OUTPUT_DIR, ONLY_NEW
-from .logging import SmartFormatter, accept_stdin
+from .logging import SmartFormatter, reject_stdin
 
 
 @docstring(add.__doc__)
@@ -38,9 +38,10 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         type=str,
         default=None,
         help=(
-            'URL or path to local file containing a list of links to import. e.g.:\n'
+            'URL or path to local file containing a page or list of links to import. e.g.:\n'
             '    https://getpocket.com/users/USERNAME/feed/all\n'
             '    https://example.com/some/rss/feed.xml\n'
+            '    https://example.com\n'
             '    ~/Downloads/firefox_bookmarks_export.html\n'
             '    ~/Desktop/sites_list.csv\n'
         )
@@ -54,6 +55,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help="Recursively archive all linked pages up to this many hops away"
     )
     command = parser.parse_args(args or ())
+    reject_stdin(__command__, stdin)
     add(
         import_str=command.import_path,
         import_path=None,

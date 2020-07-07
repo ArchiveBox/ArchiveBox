@@ -507,8 +507,7 @@ def add(import_str: Optional[str]=None,
 
     if (import_str and import_path) or (not import_str and not import_path):
         stderr(
-            '[X] You should pass either an import path as an argument, '
-            'or pass a list of links via stdin, but not both.\n',
+            '[X] You should pass an import path or a page url as an argument\n',
             color='red',
         )
         raise SystemExit(2)
