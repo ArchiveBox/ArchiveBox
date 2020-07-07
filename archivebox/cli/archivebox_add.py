@@ -45,6 +45,13 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
             '    ~/Desktop/sites_list.csv\n'
         )
     )
+    parser.add_argument(
+        "--depth",
+        action="store",
+        default=0,
+        type=int,
+        help="Recursively archive all linked pages up to this many hops away"
+    )
     command = parser.parse_args(args or ())
     import_str = accept_stdin(stdin)
     add(
@@ -62,12 +69,6 @@ if __name__ == '__main__':
 
 # TODO: Implement these
 #
-# parser.add_argument(
-#     '--depth', #'-d',
-#     type=int,
-#     help='Recursively archive all linked pages up to this many hops away',
-#     default=0,
-# )
 # parser.add_argument(
 #     '--mirror', #'-m',
 #     action='store_true',
