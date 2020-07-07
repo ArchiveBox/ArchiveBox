@@ -53,14 +53,22 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help="Recursively archive all linked pages up to this many hops away"
     )
     command = parser.parse_args(args or ())
-    import_str = accept_stdin(stdin)
+    #import_str = accept_stdin(stdin)
     add(
-        import_str=import_str,
-        import_path=command.import_path,
+        import_str=command.import_path,
+        import_path=None,
         update_all=command.update_all,
         index_only=command.index_only,
         out_dir=pwd or OUTPUT_DIR,
     )
+    #if command.depth == 1:
+    #    add(
+    #        import_str=None,
+    #        import_path=command.import_path,
+    #        update_all=command.update_all,
+    #        index_only=command.index_only,
+    #        out_dir=pwd or OUTPUT_DIR,
+    #    )
 
 
 if __name__ == '__main__':
