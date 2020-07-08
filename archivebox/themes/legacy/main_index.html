@@ -4,34 +4,6 @@
         <title>Archived Sites</title>
         <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
         <style>
-            :root {
-                --accent-1: #aa1e55;
-                --accent-2: #ffebeb;
-                --accent-3: #efefef;
-                
-                --bg-main: #efefef;
-                --text-main: black;
-                --text-1: #1a1a1a;
-                --text-2: #eaeaea;
-            }
-            
-            @media (prefers-color-scheme: dark) {
-                :root {
-                    --accent-2: hsl(160, 100%, 96%);
-                    
-                    --text-1: #eaeaea;
-                    --text-2: #1a1a1a;
-                    --bg-main: #101010;
-                }
-                
-                #table-bookmarks_wrapper,
-                #table-bookmarks_wrapper img,
-                tbody td:nth-child(3),
-                tbody td:nth-child(3) span,
-                footer {
-                    filter: invert(100%);
-                }
-            }
             html, body {
                 width: 100%;
                 height: 100%;
@@ -41,10 +13,7 @@
                 margin: 0px;
                 padding: 0px;
                 font-family: "Gill Sans", Helvetica, sans-serif;
-                background: var(--bg-main);
-                color: var(--text-main);
             }
-<<<<<<< HEAD:archivebox/themes/legacy/main_index.html
             .header-top small {
                 font-weight: 200;
                 color: #efefef;
@@ -55,33 +24,6 @@
                 height: auto;
                 min-height: 40px;
                 margin: 0px;
-=======
-            header {
-                background-color: var(--accent-1);
-                color: var(--text-1);
-                padding: 10px;
-                padding-top: 0px;
-                padding-bottom: 15px;
-                /*height: 40px;*/
-            }
-            header h1 {
-                margin: 7px 0px;
-                font-size: 35px;
-                font-weight: 300;
-                color: var(--text-1);
-            }
-            header h1 img {
-                height: 44px;
-                vertical-align: bottom;
-            }
-            header a {
-                text-decoration: none !important;
-                color: var(--text-1);
-            }
-            .header-center {
-                margin: auto;
-                float: none;
->>>>>>> master:archivebox/templates/index.html
                 text-align: center;
                 color: white;
                 font-size: calc(11px + 0.84vw);
@@ -90,17 +32,11 @@
                 border-bottom: 3px solid #aa1e55;
                 background-color: #aa1e55;
             }
-<<<<<<< HEAD:archivebox/themes/legacy/main_index.html
             input[type=search] {
                 width: 22vw;
                 border-radius: 4px;
                 border: 1px solid #aeaeae;
                 padding: 3px 5px;
-=======
-            .header-center small {
-                color: var(--text-2);
-                opacity: 0.7;
->>>>>>> master:archivebox/templates/index.html
             }
             .nav > div {
                 min-height: 30px;
@@ -109,14 +45,9 @@
                 text-decoration: none;
                 color: rgba(0,0,0,0.6);
             }
-<<<<<<< HEAD:archivebox/themes/legacy/main_index.html
             .header-top a:hover {
                 text-decoration: none;
                 color: rgba(0,0,0,0.9);
-=======
-            header + div {
-                padding-top: 10px;
->>>>>>> master:archivebox/templates/index.html
             }
             .header-top .col-lg-4 {
                 text-align: center;
@@ -153,7 +84,7 @@
                 height: 35px;
             }
             tbody tr:nth-child(odd) {
-               background-color: var(--accent-2) !important;
+               background-color: #ffebeb !important;
             }
             table tr td {
                 white-space: nowrap;
@@ -213,7 +144,7 @@
                 color:black;
             }
             tr td a.title small {
-                background-color: var(--accent-3);
+                background-color: #efefef;
                 border-radius: 4px;
                 float:right
             }
