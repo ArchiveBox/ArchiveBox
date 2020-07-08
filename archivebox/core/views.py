@@ -60,8 +60,8 @@ class AddLinks(View):
         return render(template_name=self.template, request=request, context=context)
 
     def post(self, request):
-        #url = request.POST['url']
-        #if url:
+        if not request.user.is_authenticated and not PUBLIC_INDEX:
+            return redirect(f'/admin/login/?next={request.path}')
         form = AddLinkForm(request.POST)
         if form.is_valid():
             url = form.cleaned_data["url"]
