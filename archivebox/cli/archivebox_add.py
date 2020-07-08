@@ -68,20 +68,12 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         import_path = command.import_path
 
     add(
-        import_str=import_path,
-        import_path=None,
+        url=import_path,
+        depth=command.depth,
         update_all=command.update_all,
         index_only=command.index_only,
         out_dir=pwd or OUTPUT_DIR,
     )
-    if command.depth == 1:
-        add(
-            import_str=None,
-            import_path=import_path,
-            update_all=command.update_all,
-            index_only=command.index_only,
-            out_dir=pwd or OUTPUT_DIR,
-        )
 
 
 if __name__ == '__main__':
