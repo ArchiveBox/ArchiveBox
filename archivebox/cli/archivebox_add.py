@@ -38,7 +38,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         type=str,
         default=None,
         help=(
-            'URL or path to local file containing a page or list of links to import. e.g.:\n'
+            'URL or path to local file to start the archiving process from. e.g.:\n'
             '    https://getpocket.com/users/USERNAME/feed/all\n'
             '    https://example.com/some/rss/feed.xml\n'
             '    https://example.com\n'
