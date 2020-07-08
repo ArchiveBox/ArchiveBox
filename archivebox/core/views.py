@@ -5,6 +5,7 @@ from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from django.views import View, static
 from django.conf import settings
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 from core.models import Snapshot
 
@@ -25,7 +26,7 @@ from .. main import add
 from .forms import AddLinkForm
 
 
-class MainIndex(View):
+class MainIndex(LoginRequiredMixin, View):
     template = 'main_index.html'
 
     def get(self, request):
@@ -46,7 +47,7 @@ class MainIndex(View):
         return render(template_name=self.template, request=request, context=context)
 
 
-class AddLinks(View):
+class AddLinks(LoginRequiredMixin, View):
     template = 'add_links.html'
 
     def get(self, request):
@@ -60,8 +61,6 @@ class AddLinks(View):
         return render(template_name=self.template, request=request, context=context)
 
     def post(self, request):
-        #url = request.POST['url']
-        #if url:
         form = AddLinkForm(request.POST)
         if form.is_valid():
             url = form.cleaned_data["url"]
@@ -90,7 +89,7 @@ class AddLinks(View):
         return render(template_name=self.template, request=request, context=context)
 
 
-class LinkDetails(View):
+class LinkDetails(LoginRequiredMixin, View):
     def get(self, request, path):
         # missing trailing slash -> redirect to index
         if '/' not in path:
