@@ -48,7 +48,7 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
 
 # Run everything from here on out as non-privileged user
 RUN groupadd --system archivebox \
-    && useradd --system --gid archivebox --groups audio,video archivebox
+    && useradd --system --create-home --gid archivebox --groups audio,video archivebox
 
 ADD . "$CODE_PATH"
 WORKDIR "$CODE_PATH"
