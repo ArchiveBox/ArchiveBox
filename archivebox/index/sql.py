@@ -26,23 +26,8 @@ def write_sql_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
     from core.models import Snapshot
     from django.db import transaction
 
-    all_urls = {link.url: link for link in links}
-    all_ts = {link.timestamp: link for link in links}
-
     with transaction.atomic():
-        for snapshot in Snapshot.objects.all():
-            if snapshot.timestamp in all_ts:
-                info = {k: v for k, v in all_urls.pop(snapshot.url)._asdict().items() if k in Snapshot.keys}
-                snapshot.delete()
-                Snapshot.objects.create(**info)
-            elif snapshot.url in all_urls:
-                info = {k: v for k, v in all_urls.pop(snapshot.url)._asdict().items() if k in Snapshot.keys}
-                snapshot.delete()
-                Snapshot.objects.create(**info)
-            else:
-                snapshot.delete()
-
-        for url, link in all_urls.items():
+        for link in links:
             info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
             Snapshot.objects.update_or_create(url=url, defaults=info)
 
