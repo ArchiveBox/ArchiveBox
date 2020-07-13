@@ -18,7 +18,7 @@ def test_update(tmp_path, process):
 
 def test_add_link(tmp_path, process):
     os.chdir(tmp_path)
-    add_process = subprocess.run(['archivebox', 'add', 'http://example.com'], capture_output=True)
+    add_process = subprocess.run(['archivebox', 'add', 'http://localhost:8080/static/example.com.html'], capture_output=True)
     archived_item_path = list(tmp_path.glob('archive/**/*'))[0]
 
     assert "index.json" in [x.name for x in archived_item_path.iterdir()]
@@ -34,7 +34,7 @@ def test_add_link(tmp_path, process):
 def test_add_link_support_stdin(tmp_path, process):
     os.chdir(tmp_path)
     stdin_process = subprocess.Popen(["archivebox", "add"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    stdin_process.communicate(input="http://example.com".encode())
+    stdin_process.communicate(input="http://localhost:8080/static/example.com.html".encode())
     archived_item_path = list(tmp_path.glob('archive/**/*'))[0]
 
     assert "index.json" in [x.name for x in archived_item_path.iterdir()]
