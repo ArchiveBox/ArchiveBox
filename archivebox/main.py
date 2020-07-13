@@ -520,18 +520,16 @@ def add(urls: Union[str, List[str]],
         write_ahead_log = save_text_as_source('\n'.join(urls), filename='{ts}-import.txt', out_dir=out_dir)
     
     new_links += parse_links_from_source(write_ahead_log)
-    all_links, new_links = dedupe_links(all_links, new_links)
-    write_main_index(links=all_links, out_dir=out_dir, finished=not new_links)
-
 
     # If we're going one level deeper, download each link and look for more links
+    new_links_depth = []
     if new_links and depth == 1:
         log_crawl_started(new_links)
         for new_link in new_links:
             downloaded_file = save_file_as_source(new_link.url, filename='{ts}-crawl-{basename}.txt', out_dir=out_dir)
-            new_links += parse_links_from_source(downloaded_file)
-            all_links, new_links = dedupe_links(all_links, new_links)
-            write_main_index(links=all_links, out_dir=out_dir, finished=not new_links)
+            new_links_depth += parse_links_from_source(downloaded_file)
+    all_links, new_links = dedupe_links(all_links, new_links + new_links_depth)
+    write_main_index(links=all_links, out_dir=out_dir, finished=not new_links)
 
     if index_only:
         return all_links

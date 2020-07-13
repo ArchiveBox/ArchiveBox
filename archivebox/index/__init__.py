@@ -292,7 +292,6 @@ def dedupe_links(existing_links: List[Link],
                  new_links: List[Link]) -> Tuple[List[Link], List[Link]]:
 
     from ..parsers import parse_links
-
     # merge existing links in out_dir and new links
     all_links = validate_links(existing_links + new_links)
     all_link_urls = {link.url for link in existing_links}
@@ -301,6 +300,11 @@ def dedupe_links(existing_links: List[Link],
         link for link in new_links
         if link.url not in all_link_urls
     ]
+
+    all_links_deduped = {link.url: link for link in all_links}
+    for i in range(len(new_links)):
+        if new_links[i].url in all_links_deduped.keys():
+            new_links[i] = all_links_deduped[new_links[i].url]
     log_deduping_finished(len(new_links))
 
     return all_links, new_links
