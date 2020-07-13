@@ -156,15 +156,15 @@ def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional
     from ..config import VERSION, ANSI
     cmd = ' '.join(('archivebox', subcommand, *subcommand_args))
     stdin_hint = ' < /dev/stdin' if not stdin.isatty() else ''
-    print('{black}[i] [{now}] ArchiveBox v{VERSION}: {cmd}{stdin_hint}{reset}'.format(
+    stderr('{black}[i] [{now}] ArchiveBox v{VERSION}: {cmd}{stdin_hint}{reset}'.format(
         now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         VERSION=VERSION,
         cmd=cmd,
         stdin_hint=stdin_hint,
         **ANSI,
     ))
-    print('{black}    > {pwd}{reset}'.format(pwd=pwd, **ANSI))
-    print()
+    stderr('{black}    > {pwd}{reset}'.format(pwd=pwd, **ANSI))
+    stderr()
 
 ### Parsing Stage
 
