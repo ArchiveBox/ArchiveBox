@@ -38,18 +38,38 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         type=str,
         default=None,
         help=(
-            'URL or path to local file containing a list of links to import. e.g.:\n'
+            'URL or path to local file to start the archiving process from. e.g.:\n'
             '    https://getpocket.com/users/USERNAME/feed/all\n'
             '    https://example.com/some/rss/feed.xml\n'
+            '    https://example.com\n'
             '    ~/Downloads/firefox_bookmarks_export.html\n'
             '    ~/Desktop/sites_list.csv\n'
         )
     )
+    parser.add_argument(
+        "--depth",
+        action="store",
+        default=0,
+        choices=[0,1],
+        type=int,
+        help="Recursively archive all linked pages up to this many hops away"
+    )
     command = parser.parse_args(args or ())
-    import_str = accept_stdin(stdin)
+    import_string = accept_stdin(stdin)
+    if import_string and command.import_path:
+        stderr(
+            '[X] You should pass an import path or a page url as an argument or in stdin but not both\n',
+            color='red',
+        )
+        raise SystemExit(2)
+    elif import_string:
+        import_path = import_string
+    else:
+        import_path = command.import_path
+
     add(
-        import_str=import_str,
-        import_path=command.import_path,
+        url=import_path,
+        depth=command.depth,
         update_all=command.update_all,
         index_only=command.index_only,
         out_dir=pwd or OUTPUT_DIR,
@@ -62,12 +82,6 @@ if __name__ == '__main__':
 
 # TODO: Implement these
 #
-# parser.add_argument(
-#     '--depth', #'-d',
-#     type=int,
-#     help='Recursively archive all linked pages up to this many hops away',
-#     default=0,
-# )
 # parser.add_argument(
 #     '--mirror', #'-m',
 #     action='store_true',

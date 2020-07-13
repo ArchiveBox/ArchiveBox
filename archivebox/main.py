@@ -496,8 +496,8 @@ def status(out_dir: str=OUTPUT_DIR) -> None:
 
 
 @enforce_types
-def add(import_str: Optional[str]=None,
-        import_path: Optional[str]=None,
+def add(url: str,
+        depth: int=0,
         update_all: bool=not ONLY_NEW,
         index_only: bool=False,
         out_dir: str=OUTPUT_DIR) -> List[Link]:
@@ -505,18 +505,9 @@ def add(import_str: Optional[str]=None,
 
     check_data_folder(out_dir=out_dir)
 
-    if (import_str and import_path) or (not import_str and not import_path):
-        stderr(
-            '[X] You should pass either an import path as an argument, '
-            'or pass a list of links via stdin, but not both.\n',
-            color='red',
-        )
-        raise SystemExit(2)
-    elif import_str:
-        import_path = save_stdin_to_sources(import_str, out_dir=out_dir)
-    elif import_path:
-        import_path = save_file_to_sources(import_path, out_dir=out_dir)
-
+    base_path = save_stdin_to_sources(url, out_dir=out_dir)
+    if depth == 1:
+        depth_path = save_file_to_sources(url, out_dir=out_dir)
     check_dependencies()
 
     # Step 1: Load list of links from the existing index
@@ -524,8 +515,11 @@ def add(import_str: Optional[str]=None,
     all_links: List[Link] = []
     new_links: List[Link] = []
     all_links = load_main_index(out_dir=out_dir)
-    if import_path:
-        all_links, new_links = import_new_links(all_links, import_path, out_dir=out_dir)
+    all_links, new_links = import_new_links(all_links, base_path, out_dir=out_dir)
+    if depth == 1:
+        all_links, new_links_depth = import_new_links(all_links, depth_path, out_dir=out_dir)
+        new_links = new_links + new_links_depth
+
 
     # Step 2: Write updated index with deduped old and new links back to disk
     write_main_index(links=all_links, out_dir=out_dir)
