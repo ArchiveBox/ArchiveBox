@@ -838,6 +838,10 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
         stderr('        archivebox init')
         raise SystemExit(3)
 
+    sources_dir = os.path.join(output_dir, SOURCES_DIR_NAME)
+    if not os.path.exists(sources_dir):
+        os.makedirs(sources_dir)
+
 
 
 def setup_django(out_dir: str=None, check_db=False, config: ConfigDict=CONFIG) -> None:
