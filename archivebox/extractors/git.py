@@ -56,7 +56,6 @@ def save_git(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> A
     cmd = [
         GIT_BINARY,
         'clone',
-        # '--mirror',
         '--recursive',
         *([] if CHECK_SSL_VALIDITY else ['-c', 'http.sslVerify=false']),
         without_query(without_fragment(link.url)),

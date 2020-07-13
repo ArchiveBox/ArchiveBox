@@ -49,7 +49,7 @@ class SnapshotAdmin(admin.ModelAdmin):
             '<a href="/{}/{}">📼 </a> '
             '<a href="/{}/{}">📦 </a> '
             '<a href="/{}/{}">🏛 </a> '
-            '</span>'
+            '</span><br/>'
             '<a href="/{}">{}</a>',
             obj.archive_path, canon['wget_path'] or '',
             obj.archive_path, canon['pdf_path'],

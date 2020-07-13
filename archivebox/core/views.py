@@ -66,9 +66,9 @@ class AddLinks(View):
         if form.is_valid():
             url = form.cleaned_data["url"]
             print(f'[+] Adding URL: {url}')
-            depth = 0 if form.cleaned_data["source"] == "url" else 1
+            depth = 0 if form.cleaned_data["depth"] == "0" else 0
             input_kwargs = {
-                "url": url,
+                "urls": url,
                 "depth": depth,
                 "update_all": False,
                 "out_dir": OUTPUT_DIR,

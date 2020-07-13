@@ -191,7 +191,7 @@ def log_deduping_finished(num_new_links: int):
 
 
 def log_crawl_started(new_links):
-    print('{lightblue}[*] Starting crawl of {} sites 1 hop out from starting point{reset}'.format(len(new_links), **ANSI))
+    print('{lightred}[*] Starting crawl of {} sites 1 hop out from starting point{reset}'.format(len(new_links), **ANSI))
 
 ### Indexing Stage
 
