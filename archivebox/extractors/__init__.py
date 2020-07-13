@@ -56,6 +56,7 @@ def archive_link(link: Link, overwrite: bool=False, out_dir: Optional[str]=None)
             os.makedirs(out_dir)
 
         link = load_link_details(link, out_dir=out_dir)
+        write_link_details(link, out_dir=link.link_dir)
         log_link_archiving_started(link, out_dir, is_new)
         link = link.overwrite(updated=datetime.now())
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
