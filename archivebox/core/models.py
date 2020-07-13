@@ -24,7 +24,6 @@ class Snapshot(models.Model):
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
 
-
     def __repr__(self) -> str:
         title = self.title or '-'
         return f'[{self.timestamp}] {self.url[:64]} ({title[:64]})'

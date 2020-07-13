@@ -641,8 +641,8 @@ def update(resume: Optional[float]=None,
            out_dir: str=OUTPUT_DIR) -> List[Link]:
     """Import any new links from subscriptions and retry any previously failed/skipped links"""
 
-    check_dependencies()
     check_data_folder(out_dir=out_dir)
+    check_dependencies()
 
     # Step 1: Load list of links from the existing index
     #         merge in and dedupe new links from import_path
@@ -990,7 +990,7 @@ def schedule(add: bool=False,
         if total_runs > 60 and not quiet:
             stderr()
             stderr('{lightyellow}[!] With the current cron config, ArchiveBox is estimated to run >{} times per year.{reset}'.format(total_runs, **ANSI))
-            stderr(f'    Congrats on being an enthusiastic internet archiver! 👌')
+            stderr('    Congrats on being an enthusiastic internet archiver! 👌')
             stderr()
             stderr('    Make sure you have enough storage space available to hold all the data.')
             stderr('    Using a compressed/deduped filesystem like ZFS is recommended if you plan on archiving a lot.')

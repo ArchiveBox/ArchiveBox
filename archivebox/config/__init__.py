@@ -279,6 +279,8 @@ def load_config_val(key: str,
                     config: Optional[ConfigDict]=None,
                     env_vars: Optional[os._Environ]=None,
                     config_file_vars: Optional[Dict[str, str]]=None) -> ConfigValue:
+    """parse bool, int, and str key=value pairs from env"""
+
 
     config_keys_to_check = (key, *(aliases or ()))
     for key in config_keys_to_check:
@@ -777,7 +779,7 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
         stderr()
         stderr(f'[!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={config["TIMEOUT"]} seconds)', color='red')
         stderr('    You must allow *at least* 5 seconds for indexing and archive methods to run succesfully.')
-        stderr('    (Setting it to somewhere between 30 and 300 seconds is recommended)')
+        stderr('    (Setting it to somewhere between 30 and 3000 seconds is recommended)')
         stderr()
         stderr('    If you want to make ArchiveBox run faster, disable specific archive methods instead:')
         stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles')

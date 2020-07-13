@@ -98,6 +98,7 @@ class Link:
     updated: Optional[datetime] = None
     schema: str = 'Link'
 
+
     def __str__(self) -> str:
         return f'[{self.timestamp}] {self.base_url} "{self.title}"'
 
