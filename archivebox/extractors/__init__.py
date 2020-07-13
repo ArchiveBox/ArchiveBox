@@ -2,7 +2,7 @@ __package__ = 'archivebox.extractors'
 
 import os
 
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 from ..index.schema import Link
@@ -13,6 +13,9 @@ from ..index import (
 )
 from ..util import enforce_types
 from ..cli.logging import (
+    log_archiving_started,
+    log_archiving_paused,
+    log_archiving_finished,
     log_link_archiving_started,
     log_link_archiving_finished,
     log_archive_method_started,
@@ -103,3 +106,25 @@ def archive_link(link: Link, overwrite: bool=False, out_dir: Optional[str]=None)
         raise
 
     return link
+
+
+@enforce_types
+def archive_links(links: List[Link], out_dir: Optional[str]=None) -> List[Link]:
+    if not links:
+        return []
+
+    log_archiving_started(len(links))
+    idx: int = 0
+    link: Link = links[0]
+    try:
+        for idx, link in enumerate(links):
+            archive_link(link, out_dir=link.link_dir)
+    except KeyboardInterrupt:
+        log_archiving_paused(len(links), idx, link.timestamp)
+        raise SystemExit(0)
+    except BaseException:
+        print()
+        raise
+
+    log_archiving_finished(len(links))
+    return links

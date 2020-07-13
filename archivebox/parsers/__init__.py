@@ -29,7 +29,7 @@ from ..util import (
     URL_REGEX,
 )
 from ..index.schema import Link
-from ..cli.logging import pretty_path, TimedProgress
+from ..cli.logging import pretty_path, TimedProgress, log_source_saved
 from .pocket_html import parse_pocket_html_export
 from .pinboard_rss import parse_pinboard_rss_export
 from .shaarli_rss import parse_shaarli_rss_export
@@ -83,36 +83,22 @@ def parse_links(source_file: str) -> Tuple[List[Link], str]:
 
 
 @enforce_types
-def save_stdin_to_sources(raw_text: str, out_dir: str=OUTPUT_DIR) -> str:
-    check_data_folder(out_dir=out_dir)
-
-    sources_dir = os.path.join(out_dir, SOURCES_DIR_NAME)
-    if not os.path.exists(sources_dir):
-        os.makedirs(sources_dir)
-
+def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: str=OUTPUT_DIR) -> str:
     ts = str(datetime.now().timestamp()).split('.', 1)[0]
-
-    source_path = os.path.join(sources_dir, '{}-{}.txt'.format('stdin', ts))
+    source_path = os.path.join(OUTPUT_DIR, SOURCES_DIR_NAME, filename.format(ts=ts))
     atomic_write(source_path, raw_text)
+    log_source_saved(source_file=source_path)
     return source_path
 
 
 @enforce_types
-def save_file_to_sources(path: str, timeout: int=TIMEOUT, out_dir: str=OUTPUT_DIR) -> str:
+def save_file_as_source(path: str, timeout: int=TIMEOUT, filename: str='{ts}-{basename}.txt', out_dir: str=OUTPUT_DIR) -> str:
     """download a given url's content into output/sources/domain-<timestamp>.txt"""
-    check_data_folder(out_dir=out_dir)
-
-    sources_dir = os.path.join(out_dir, SOURCES_DIR_NAME)
-    if not os.path.exists(sources_dir):
-        os.makedirs(sources_dir)
-
     ts = str(datetime.now().timestamp()).split('.', 1)[0]
-
-    source_path = os.path.join(sources_dir, '{}-{}.txt'.format(basename(path), ts))
+    source_path = os.path.join(OUTPUT_DIR, SOURCES_DIR_NAME, filename.format(basename=basename(path), ts=ts))
 
     if any(path.startswith(s) for s in ('http://', 'https://', 'ftp://')):
         # Source is a URL that needs to be downloaded
-        source_path = os.path.join(sources_dir, '{}-{}.txt'.format(domain(path), ts))
         print('{}[*] [{}] Downloading {}{}'.format(
             ANSI['green'],
             datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -140,7 +126,7 @@ def save_file_to_sources(path: str, timeout: int=TIMEOUT, out_dir: str=OUTPUT_DI
 
     atomic_write(source_path, raw_source_text)
 
-    print('    > {}'.format(pretty_path(source_path)))
+    log_source_saved(source_file=source_path)
 
     return source_path
 

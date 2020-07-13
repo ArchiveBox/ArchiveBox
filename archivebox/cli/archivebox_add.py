@@ -10,7 +10,7 @@ from typing import List, Optional, IO
 
 from ..main import add, docstring
 from ..config import OUTPUT_DIR, ONLY_NEW
-from .logging import SmartFormatter, accept_stdin
+from .logging import SmartFormatter, accept_stdin, stderr
 
 
 @docstring(add.__doc__)
@@ -33,12 +33,12 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help="Add the links to the main index without archiving them",
     )
     parser.add_argument(
-        'import_path',
-        nargs='?',
+        'urls',
+        nargs='*',
         type=str,
         default=None,
         help=(
-            'URL or path to local file to start the archiving process from. e.g.:\n'
+            'URLs or paths to archive e.g.:\n'
             '    https://getpocket.com/users/USERNAME/feed/all\n'
             '    https://example.com/some/rss/feed.xml\n'
             '    https://example.com\n'
@@ -50,25 +50,21 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         "--depth",
         action="store",
         default=0,
-        choices=[0,1],
+        choices=[0, 1],
         type=int,
         help="Recursively archive all linked pages up to this many hops away"
     )
     command = parser.parse_args(args or ())
-    import_string = accept_stdin(stdin)
-    if import_string and command.import_path:
+    urls = command.urls
+    stdin_urls = accept_stdin(stdin)
+    if (stdin_urls and urls) or (not stdin and not urls):
         stderr(
-            '[X] You should pass an import path or a page url as an argument or in stdin but not both\n',
+            '[X] You must pass URLs/paths to add via stdin or CLI arguments.\n',
             color='red',
         )
         raise SystemExit(2)
-    elif import_string:
-        import_path = import_string
-    else:
-        import_path = command.import_path
-
     add(
-        url=import_path,
+        urls=stdin_urls or urls,
         depth=command.depth,
         update_all=command.update_all,
         index_only=command.index_only,

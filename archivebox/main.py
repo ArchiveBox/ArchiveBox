@@ -4,8 +4,7 @@ import os
 import sys
 import shutil
 
-from typing import Dict, List, Optional, Iterable, IO
-
+from typing import Dict, List, Optional, Iterable, IO, Union
 from crontab import CronTab, CronSlices
 
 from .cli import (
@@ -17,16 +16,17 @@ from .cli import (
     archive_cmds,
 )
 from .parsers import (
-    save_stdin_to_sources,
-    save_file_to_sources,
+    save_text_as_source,
+    save_file_as_source,
 )
 from .index.schema import Link
-from .util import enforce_types, docstring
+from .util import enforce_types, docstring                         # type: ignore
 from .system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
 from .index import (
     links_after_timestamp,
     load_main_index,
-    import_new_links,
+    parse_links_from_source,
+    dedupe_links,
     write_main_index,
     link_matches_filter,
     get_indexed_folders,
@@ -51,7 +51,7 @@ from .index.sql import (
     apply_migrations,
 )
 from .index.html import parse_html_main_index
-from .extractors import archive_link
+from .extractors import archive_links
 from .config import (
     stderr,
     ConfigDict,
@@ -91,9 +91,8 @@ from .config import (
 from .cli.logging import (
     TERM_WIDTH,
     TimedProgress,
-    log_archiving_started,
-    log_archiving_paused,
-    log_archiving_finished,
+    log_importing_started,
+    log_crawl_started,
     log_removal_started,
     log_removal_finished,
     log_list_started,
@@ -496,59 +495,55 @@ def status(out_dir: str=OUTPUT_DIR) -> None:
 
 
 @enforce_types
-def add(url: str,
+def add(urls: Union[str, List[str]],
         depth: int=0,
         update_all: bool=not ONLY_NEW,
         index_only: bool=False,
         out_dir: str=OUTPUT_DIR) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
+    assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
+
+    # Load list of links from the existing index
     check_data_folder(out_dir=out_dir)
-
-    base_path = save_stdin_to_sources(url, out_dir=out_dir)
-    if depth == 1:
-        depth_path = save_file_to_sources(url, out_dir=out_dir)
     check_dependencies()
-
-    # Step 1: Load list of links from the existing index
-    #         merge in and dedupe new links from import_path
     all_links: List[Link] = []
     new_links: List[Link] = []
     all_links = load_main_index(out_dir=out_dir)
-    all_links, new_links = import_new_links(all_links, base_path, out_dir=out_dir)
-    if depth == 1:
-        all_links, new_links_depth = import_new_links(all_links, depth_path, out_dir=out_dir)
-        new_links = new_links + new_links_depth
+
+    log_importing_started(urls=urls, depth=depth, index_only=index_only)
+    if isinstance(urls, str):
+        # save verbatim stdin to sources
+        write_ahead_log = save_text_as_source(urls, filename='{ts}-import.txt', out_dir=out_dir)
+    elif isinstance(urls, list):
+        # save verbatim args to sources
+        write_ahead_log = save_text_as_source('\n'.join(urls), filename='{ts}-import.txt', out_dir=out_dir)
+    
+    new_links += parse_links_from_source(write_ahead_log)
+    all_links, new_links = dedupe_links(all_links, new_links)
+    write_main_index(links=all_links, out_dir=out_dir, finished=not new_links)
 
 
-    # Step 2: Write updated index with deduped old and new links back to disk
-    write_main_index(links=all_links, out_dir=out_dir)
+    # If we're going one level deeper, download each link and look for more links
+    if new_links and depth == 1:
+        log_crawl_started(new_links)
+        for new_link in new_links:
+            downloaded_file = save_file_as_source(new_link.url, filename='{ts}-crawl-{basename}.txt', out_dir=out_dir)
+            new_links += parse_links_from_source(downloaded_file)
+            all_links, new_links = dedupe_links(all_links, new_links)
+            write_main_index(links=all_links, out_dir=out_dir, finished=not new_links)
 
     if index_only:
         return all_links
-        
-    # Step 3: Run the archive methods for each link
-    links = all_links if update_all else new_links
-    log_archiving_started(len(links))
-    idx: int = 0
-    link: Link = None                                             # type: ignore
-    try:
-        for idx, link in enumerate(links):
-            archive_link(link, out_dir=link.link_dir)
 
-    except KeyboardInterrupt:
-        log_archiving_paused(len(links), idx, link.timestamp if link else '0')
-        raise SystemExit(0)
-
-    except:
-        print()
-        raise    
-
-    log_archiving_finished(len(links))
+    # Run the archive methods for each link
+    to_archive = all_links if update_all else new_links
+    archive_links(to_archive, out_dir=out_dir)
 
     # Step 4: Re-write links index with updated titles, icons, and resources
-    all_links = load_main_index(out_dir=out_dir)
-    write_main_index(links=list(all_links), out_dir=out_dir, finished=True)
+    if to_archive:
+        all_links = load_main_index(out_dir=out_dir)
+        write_main_index(links=list(all_links), out_dir=out_dir, finished=True)
     return all_links
 
 @enforce_types
@@ -671,23 +666,8 @@ def update(resume: Optional[float]=None,
         return all_links
         
     # Step 3: Run the archive methods for each link
-    links = new_links if only_new else all_links
-    log_archiving_started(len(links), resume)
-    idx: int = 0
-    link: Link = None                                             # type: ignore
-    try:
-        for idx, link in enumerate(links_after_timestamp(links, resume)):
-            archive_link(link, overwrite=overwrite, out_dir=link.link_dir)
-
-    except KeyboardInterrupt:
-        log_archiving_paused(len(links), idx, link.timestamp if link else '0')
-        raise SystemExit(0)
-
-    except:
-        print()
-        raise    
-
-    log_archiving_finished(len(links))
+    to_archive = new_links if only_new else all_links
+    archive_links(to_archive, out_dir=out_dir)
 
     # Step 4: Re-write links index with updated titles, icons, and resources
     all_links = load_main_index(out_dir=out_dir)

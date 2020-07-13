@@ -106,8 +106,18 @@ def main(args: Optional[List[str]]=NotProvided, stdin: Optional[IO]=NotProvided,
 
     if command.help or command.subcommand is None:
         command.subcommand = 'help'
-    if command.version:
+    elif command.version:
         command.subcommand = 'version'
+    
+    if command.subcommand not in ('help', 'version', 'status'):
+        from ..cli.logging import log_cli_command
+
+        log_cli_command(
+            subcommand=command.subcommand,
+            subcommand_args=command.subcommand_args,
+            stdin=stdin,
+            pwd=pwd or OUTPUT_DIR
+        )
 
     run_subcommand(
         subcommand=command.subcommand,

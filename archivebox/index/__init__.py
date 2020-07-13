@@ -33,8 +33,8 @@ from ..cli.logging import (
     log_indexing_process_finished,
     log_indexing_started,
     log_indexing_finished,
-    log_parsing_started,
     log_parsing_finished,
+    log_deduping_finished,
 )
 
 from .schema import Link, ArchiveResult
@@ -268,19 +268,30 @@ def load_main_index_meta(out_dir: str=OUTPUT_DIR) -> Optional[dict]:
 
     return None
 
+
 @enforce_types
-def import_new_links(existing_links: List[Link],
-                     import_path: str,
-                     out_dir: str=OUTPUT_DIR) -> Tuple[List[Link], List[Link]]:
+def parse_links_from_source(source_path: str) -> Tuple[List[Link], List[Link]]:
 
     from ..parsers import parse_links
 
     new_links: List[Link] = []
 
     # parse and validate the import file
-    log_parsing_started(import_path)
-    raw_links, parser_name = parse_links(import_path)
+    raw_links, parser_name = parse_links(source_path)
     new_links = validate_links(raw_links)
+
+    if parser_name:
+        num_parsed = len(raw_links)
+        log_parsing_finished(num_parsed, parser_name)
+
+    return new_links
+
+
+@enforce_types
+def dedupe_links(existing_links: List[Link],
+                 new_links: List[Link]) -> Tuple[List[Link], List[Link]]:
+
+    from ..parsers import parse_links
 
     # merge existing links in out_dir and new links
     all_links = validate_links(existing_links + new_links)
@@ -290,11 +301,7 @@ def import_new_links(existing_links: List[Link],
         link for link in new_links
         if link.url not in all_link_urls
     ]
-
-    if parser_name:
-        num_parsed = len(raw_links)
-        num_new_links = len(all_links) - len(existing_links)
-        log_parsing_finished(num_parsed, num_new_links, parser_name)
+    log_deduping_finished(len(new_links))
 
     return all_links, new_links
 

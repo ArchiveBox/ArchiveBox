@@ -5,10 +5,12 @@ import os
 import sys
 import time
 import argparse
+import logging
+import signal
+from multiprocessing import Process
 
 from datetime import datetime
 from dataclasses import dataclass
-from multiprocessing import Process
 from typing import Optional, List, Dict, Union, IO
 
 from ..index.schema import Link, ArchiveResult
@@ -23,10 +25,10 @@ from ..config import (
     SHOW_PROGRESS,
     TERM_WIDTH,
     OUTPUT_DIR,
+    SOURCES_DIR_NAME,
     HTML_INDEX_FILENAME,
     stderr,
 )
-
 
 @dataclass
 class RuntimeStats:
@@ -98,9 +100,9 @@ class TimedProgress:
         
         if SHOW_PROGRESS:
             # terminate if we havent already terminated
-            if self.p is not None:
-                self.p.terminate()
-                self.p = None
+            self.p.terminate()
+            self.p.join()
+            self.p.close()
 
             # clear whole terminal line
             try:
@@ -145,28 +147,51 @@ def progress_bar(seconds: int, prefix: str='') -> None:
             seconds,
         ))
         sys.stdout.flush()
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, BrokenPipeError):
         print()
         pass
 
 
+def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str], pwd: str):
+    from ..config import VERSION, ANSI
+    cmd = ' '.join(('archivebox', subcommand, *subcommand_args))
+    stdin_hint = ' < /dev/stdin' if not stdin.isatty() else ''
+    print('{black}[i] [{now}] ArchiveBox v{VERSION}: {cmd}{stdin_hint}{reset}'.format(
+        now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        VERSION=VERSION,
+        cmd=cmd,
+        stdin_hint=stdin_hint,
+        **ANSI,
+    ))
+    print('{black}    > {pwd}{reset}'.format(pwd=pwd, **ANSI))
+    print()
+
 ### Parsing Stage
 
-def log_parsing_started(source_file: str):
-    start_ts = datetime.now()
-    _LAST_RUN_STATS.parse_start_ts = start_ts
-    print('\n{green}[*] [{}] Parsing new links from output/sources/{}...{reset}'.format(
-        start_ts.strftime('%Y-%m-%d %H:%M:%S'),
-        source_file.rsplit('/', 1)[-1],
+
+def log_importing_started(urls: Union[str, List[str]], depth: int, index_only: bool):
+    _LAST_RUN_STATS.parse_start_ts = datetime.now()
+    print('{green}[+] [{}] Adding {} links to index (crawl depth={}){}...{reset}'.format(
+        _LAST_RUN_STATS.parse_start_ts.strftime('%Y-%m-%d %H:%M:%S'),
+        len(urls) if isinstance(urls, list) else len(urls.split('\n')),
+        depth,
+        ' (index only)' if index_only else '',
         **ANSI,
     ))
 
+def log_source_saved(source_file: str):
+    print('    > Saved verbatim input to {}/{}'.format(SOURCES_DIR_NAME, source_file.rsplit('/', 1)[-1]))
 
-def log_parsing_finished(num_parsed: int, num_new_links: int, parser_name: str):
-    end_ts = datetime.now()
-    _LAST_RUN_STATS.parse_end_ts = end_ts
-    print('    > Parsed {} links as {} ({} new links added)'.format(num_parsed, parser_name, num_new_links))
+def log_parsing_finished(num_parsed: int, parser_name: str):
+    _LAST_RUN_STATS.parse_end_ts = datetime.now()
+    print('    > Parsed {} URLs from input ({})'.format(num_parsed, parser_name))
 
+def log_deduping_finished(num_new_links: int):
+    print('    > Found {} new URLs not already in index'.format(num_new_links))
+
+
+def log_crawl_started(new_links):
+    print('{lightblue}[*] Starting crawl of {} sites 1 hop out from starting point{reset}'.format(len(new_links), **ANSI))
 
 ### Indexing Stage
 
@@ -174,7 +199,7 @@ def log_indexing_process_started(num_links: int):
     start_ts = datetime.now()
     _LAST_RUN_STATS.index_start_ts = start_ts
     print()
-    print('{green}[*] [{}] Writing {} links to main index...{reset}'.format(
+    print('{black}[*] [{}] Writing {} links to main index...{reset}'.format(
         start_ts.strftime('%Y-%m-%d %H:%M:%S'),
         num_links,
         **ANSI,
@@ -209,7 +234,7 @@ def log_archiving_started(num_links: int, resume: Optional[float]=None):
              **ANSI,
         ))
     else:
-        print('{green}[▶] [{}] Updating content for {} matching pages in archive...{reset}'.format(
+        print('{green}[▶] [{}] Collecting content for {} Snapshots in archive...{reset}'.format(
              start_ts.strftime('%Y-%m-%d %H:%M:%S'),
              num_links,
              **ANSI,
