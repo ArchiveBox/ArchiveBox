@@ -107,7 +107,9 @@ class LinkDetails(View):
         # slug is a timestamp
         by_ts = {page.timestamp: page for page in all_pages}
         try:
-            return static.serve(request, archivefile, by_ts[slug].link_dir, show_indexes=True)
+            response = static.serve(request, archivefile, by_ts[slug].link_dir, show_indexes=True)
+            response["Link"] = f'<{by_ts[slug].url}>; rel="canonical"'
+            return response
         except KeyError:
             pass
 
