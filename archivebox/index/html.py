@@ -90,7 +90,7 @@ def main_index_row_template(link: Link) -> str:
         **link._asdict(extended=True),
         
         # before pages are finished archiving, show loading msg instead of title
-        'title': (
+        'title': htmlencode(
             link.title
             or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
         ),
@@ -129,7 +129,7 @@ def link_details_template(link: Link) -> str:
     return render_legacy_template(LINK_DETAILS_TEMPLATE, {
         **link_info,
         **link_info['canonical'],
-        'title': (
+        'title': htmlencode(
             link.title
             or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
         ),
