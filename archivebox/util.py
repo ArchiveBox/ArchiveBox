@@ -9,7 +9,7 @@ from hashlib import sha256
 from urllib.parse import urlparse, quote, unquote
 from html import escape, unescape
 from datetime import datetime
-from dateutil import parser as dateparser
+from dateparser import parse as dateparser
 
 import requests
 from base32_crockford import encode as base32_encode                            # type: ignore
@@ -144,7 +144,7 @@ def parse_date(date: Any) -> Optional[datetime]:
         date = str(date)
 
     if isinstance(date, str):
-        return dateparser.parse(date)
+        return dateparser(date)
 
     raise ValueError('Tried to parse invalid date! {}'.format(date))
 
