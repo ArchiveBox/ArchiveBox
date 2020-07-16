@@ -190,10 +190,7 @@ class Link:
             for key, val in json_info.items()
             if key in cls.field_names()
         }
-        # try:
-        info['updated'] = parse_date(info.get('updated')) # Cast to int which comes with rounding down
-        # except (ValueError, TypeError):
-        #     info['updated'] = None
+        info['updated'] = parse_date(info.get('updated'))
         info['sources'] = info.get('sources') or []
 
         json_history = info.get('history') or {}
