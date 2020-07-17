@@ -136,7 +136,6 @@ def wget_output_path(link: Link) -> Optional[str]:
 
     See docs on wget --adjust-extension (-E)
     """
-
     if is_static_file(link.url):
         return without_scheme(without_fragment(link.url))
 
@@ -174,10 +173,9 @@ def wget_output_path(link: Link) -> Optional[str]:
     full_path = without_fragment(without_query(path(link.url))).strip('/')
     search_dir = os.path.join(
         link.link_dir,
-        domain(link.url),
+        domain(link.url).replace(":", "+"),
         urldecode(full_path),
     )
-
     for _ in range(4):
         if os.path.exists(search_dir):
             if os.path.isdir(search_dir):
