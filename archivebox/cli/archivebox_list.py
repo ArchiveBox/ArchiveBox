@@ -22,7 +22,7 @@ from ..index import (
     get_corrupted_folders,
     get_unrecognized_folders,
 )
-from .logging import SmartFormatter, accept_stdin
+from ..logging import SmartFormatter, accept_stdin
 
 
 @docstring(list_all.__doc__)

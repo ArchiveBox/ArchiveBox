@@ -27,7 +27,7 @@ from ..config import (
     ANSI,
     stderr,
 )
-from ..cli.logging import (
+from ..logging import (
     TimedProgress,
     log_indexing_process_started,
     log_indexing_process_finished,

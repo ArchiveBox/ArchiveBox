@@ -16,7 +16,7 @@ from ..config import (
     SAVE_DOM,
     CHROME_VERSION,
 )
-from ..cli.logging import TimedProgress
+from ..logging import TimedProgress
 
 
 

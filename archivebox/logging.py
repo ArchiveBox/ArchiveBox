@@ -1,4 +1,4 @@
-__package__ = 'archivebox.cli'
+__package__ = 'archivebox'
 
 import re
 import os
@@ -13,11 +13,11 @@ from datetime import datetime
 from dataclasses import dataclass
 from typing import Optional, List, Dict, Union, IO
 
-from ..index.schema import Link, ArchiveResult
-from ..index.json import to_json
-from ..index.csv import links_to_csv
-from ..util import enforce_types
-from ..config import (
+from .index.schema import Link, ArchiveResult
+from .index.json import to_json
+from .index.csv import links_to_csv
+from .util import enforce_types
+from .config import (
     ConfigDict,
     PYTHON_ENCODING,
     ANSI,
@@ -153,7 +153,7 @@ def progress_bar(seconds: int, prefix: str='') -> None:
 
 
 def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str], pwd: str):
-    from ..config import VERSION, ANSI
+    from .config import VERSION, ANSI
     cmd = ' '.join(('archivebox', subcommand, *subcommand_args))
     stdin_hint = ' < /dev/stdin' if not stdin.isatty() else ''
     stderr('{black}[i] [{now}] ArchiveBox v{VERSION}: {cmd}{stdin_hint}{reset}'.format(
