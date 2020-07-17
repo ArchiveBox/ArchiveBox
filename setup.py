@@ -43,6 +43,7 @@ setuptools.setup(
         "django==3.0.7",
         "django-extensions==2.2.9",
 
+        "dateparser",
         "ipython",
         "youtube-dl",
         "python-crontab==2.5.1",
