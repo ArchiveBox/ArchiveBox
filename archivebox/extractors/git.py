@@ -22,7 +22,7 @@ from ..config import (
     GIT_DOMAINS,
     CHECK_SSL_VALIDITY
 )
-from ..cli.logging import TimedProgress
+from ..logging import TimedProgress
 
 
 

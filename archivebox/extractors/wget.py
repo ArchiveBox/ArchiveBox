@@ -31,7 +31,7 @@ from ..config import (
     WGET_USER_AGENT,
     COOKIES_FILE,
 )
-from ..cli.logging import TimedProgress
+from ..logging import TimedProgress
 
 
 @enforce_types

@@ -16,7 +16,7 @@ from ..config import (
     SAVE_PDF,
     CHROME_VERSION,
 )
-from ..cli.logging import TimedProgress
+from ..logging import TimedProgress
 
 
 @enforce_types

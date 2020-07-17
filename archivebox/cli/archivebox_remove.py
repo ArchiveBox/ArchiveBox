@@ -10,7 +10,7 @@ from typing import Optional, List, IO
 
 from ..main import remove, docstring
 from ..config import OUTPUT_DIR
-from .logging import SmartFormatter, accept_stdin
+from ..logging import SmartFormatter, accept_stdin
 
 
 @docstring(remove.__doc__)

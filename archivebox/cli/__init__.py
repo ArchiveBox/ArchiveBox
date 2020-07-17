@@ -110,7 +110,7 @@ def main(args: Optional[List[str]]=NotProvided, stdin: Optional[IO]=NotProvided,
         command.subcommand = 'version'
     
     if command.subcommand not in ('help', 'version', 'status'):
-        from ..cli.logging import log_cli_command
+        from ..logging import log_cli_command
 
         log_cli_command(
             subcommand=command.subcommand,
