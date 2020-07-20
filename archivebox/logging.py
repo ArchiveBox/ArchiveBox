@@ -410,7 +410,7 @@ def log_removal_finished(all_links: int, to_keep: int):
 
 
 def log_shell_welcome_msg():
-    from . import list_subcommands
+    from .cli import list_subcommands
 
     print('{green}# ArchiveBox Imports{reset}'.format(**ANSI))
     print('{green}from archivebox.core.models import Snapshot, User{reset}'.format(**ANSI))
