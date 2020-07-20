@@ -11,11 +11,11 @@ from multiprocessing import Process
 
 from datetime import datetime
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Union, IO
+from typing import Optional, List, Dict, Union, IO, TYPE_CHECKING
 
-from .index.schema import Link, ArchiveResult
-from .index.json import to_json
-from .index.csv import links_to_csv
+if TYPE_CHECKING:
+    from .index.schema import Link, ArchiveResult
+
 from .util import enforce_types
 from .config import (
     ConfigDict,
@@ -285,7 +285,7 @@ def log_archiving_finished(num_links: int):
     print('        archivebox server')
 
 
-def log_link_archiving_started(link: Link, link_dir: str, is_new: bool):
+def log_link_archiving_started(link: "Link", link_dir: str, is_new: bool):
     # [*] [2019-03-22 13:46:45] "Log Structured Merge Trees - ben stopford"
     #     http://www.benstopford.com/2015/02/14/log-structured-merge-trees/
     #     > output/archive/1478739709
@@ -303,7 +303,7 @@ def log_link_archiving_started(link: Link, link_dir: str, is_new: bool):
         pretty_path(link_dir),
     ))
 
-def log_link_archiving_finished(link: Link, link_dir: str, is_new: bool, stats: dict):
+def log_link_archiving_finished(link: "Link", link_dir: str, is_new: bool, stats: dict):
     total = sum(stats.values())
 
     if stats['failed'] > 0 :
@@ -318,7 +318,7 @@ def log_archive_method_started(method: str):
     print('      > {}'.format(method))
 
 
-def log_archive_method_finished(result: ArchiveResult):
+def log_archive_method_finished(result: "ArchiveResult"):
     """quote the argument with whitespace in a command so the user can 
        copy-paste the outputted string directly to run the cmd
     """
@@ -367,6 +367,7 @@ def log_list_started(filter_patterns: Optional[List[str]], filter_type: str):
     print('    {}'.format(' '.join(filter_patterns or ())))
 
 def log_list_finished(links):
+    from .index.csv import links_to_csv
     print()
     print('---------------------------------------------------------------------------------------------------')
     print(links_to_csv(links, cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))
@@ -374,7 +375,7 @@ def log_list_finished(links):
     print()
 
 
-def log_removal_started(links: List[Link], yes: bool, delete: bool):
+def log_removal_started(links: List["Link"], yes: bool, delete: bool):
     print('{lightyellow}[i] Found {} matching URLs to remove.{reset}'.format(len(links), **ANSI))
     if delete:
         file_counts = [link.num_outputs for link in links if os.path.exists(link.link_dir)]
@@ -412,7 +413,7 @@ def log_removal_finished(all_links: int, to_keep: int):
 
 
 def log_shell_welcome_msg():
-    from . import list_subcommands
+    from .cli import list_subcommands
 
     print('{green}# ArchiveBox Imports{reset}'.format(**ANSI))
     print('{green}from archivebox.core.models import Snapshot, User{reset}'.format(**ANSI))
@@ -448,13 +449,15 @@ def printable_filesize(num_bytes: Union[int, float]) -> str:
 
 
 @enforce_types
-def printable_folders(folders: Dict[str, Optional[Link]],
+def printable_folders(folders: Dict[str, Optional["Link"]],
                       json: bool=False,
                       csv: Optional[str]=None) -> str:
     if json: 
+        from .index.json import to_json
         return to_json(folders.values(), indent=4, sort_keys=True)
 
     elif csv:
+        from .index.csv import links_to_csv
         return links_to_csv(folders.values(), cols=csv.split(','), header=True)
     
     return '\n'.join(f'{folder} {link}' for folder, link in folders.items())
