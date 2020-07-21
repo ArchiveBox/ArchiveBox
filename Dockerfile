@@ -28,7 +28,7 @@ ENV TZ=UTC \
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections \
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
-       apt-transport-https ca-certificates apt-utils gnupg gnupg2 libgconf-2-4 zlib1g-dev \
+       apt-transport-https ca-certificates apt-utils gnupg gosu gnupg2 libgconf-2-4 zlib1g-dev \
        dumb-init jq git wget curl youtube-dl ffmpeg \
     && curl -sSL "https://dl.google.com/linux/linux_signing_key.pub" | apt-key add - \
     && echo "deb https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
@@ -58,12 +58,9 @@ RUN python -m venv --clear --symlinks "$VENV_PATH" \
 
 VOLUME "$DATA_PATH"
 WORKDIR "$DATA_PATH"
-USER archivebox:archivebox
 EXPOSE 8000
 ENV CHROME_BINARY=google-chrome \
     CHROME_SANDBOX=False
 
-RUN archivebox version
-
-ENTRYPOINT ["dumb-init", "--", "archivebox"]
+ENTRYPOINT ["dumb-init", "--", "/app/bin/entrypoint.sh", "archivebox"]
 CMD ["server", "0.0.0.0:8000"]
