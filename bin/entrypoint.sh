@@ -14,10 +14,9 @@ COMMAND="$@"
 
 chown "$USID":"$GRID" "$DATA_DIR"
 
-if [ $USID -ne 0 ] && [ $GRID -ne 0 ]
-then
-  chown -R "$USID":"$GRID" "/home/$ARCHIVEBOX_USER"
-  usermod -u $USID $ARCHIVEBOX_USER
-  groupmod -g $GRID $ARCHIVEBOX_USER
+if [[ "$USID" != 0 && "$GRID" != 0 ]]; then
+    usermod -u $USID $ARCHIVEBOX_USER
+    groupmod -g $GRID $ARCHIVEBOX_USER
+    chown -R "$USID":"$GRID" "/home/$ARCHIVEBOX_USER"
 fi
 gosu $ARCHIVEBOX_USER bash -c "$COMMAND"
