@@ -17,17 +17,19 @@ services:
         command: server 0.0.0.0:8000
         stdin_open: true
         tty: true
+        ports:
+            - 8000:8000
         environment:
             - USE_COLOR=True
             - SHOW_PROGRESS=False
         volumes:
             - ./data:/data
 
-    nginx:
-        image: nginx:alpine
-        ports:
-            - 443:443
-            - 80:80
-        volumes:
-            - ./etc/nginx/nginx.conf:/etc/nginx/nginx.conf
-            - ./data:/var/www
+#    nginx:
+#        image: nginx:alpine
+#        ports:
+#            - 443:443
+#            - 80:80
+#        volumes:
+#            - ./etc/nginx/nginx.conf:/etc/nginx/nginx.conf
+#            - ./data:/var/www
