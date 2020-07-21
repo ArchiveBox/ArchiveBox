@@ -4,7 +4,6 @@
 DATA_DIR="${DATA_DIR:-/data}"
 ARCHIVEBOX_USER="${ARCHIVEBOX_USER:-archivebox}"
 
-echo $ARCHIVEBOX_USER
 # Autodetect UID and GID of host user based on ownership of files in the volume
 USID=$(stat --format="%u" "$DATA_DIR")
 GRID=$(stat --format="%g" "$DATA_DIR")
