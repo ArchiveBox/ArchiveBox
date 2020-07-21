@@ -4,6 +4,7 @@
 DATA_DIR="${DATA_DIR:-/data}"
 ARCHIVEBOX_USER="${ARCHIVEBOX_USER:-archivebox}"
 
+echo $ARCHIVEBOX_USER
 # Autodetect UID and GID of host user based on ownership of files in the volume
 USID=$(stat --format="%u" "$DATA_DIR")
 GRID=$(stat --format="%g" "$DATA_DIR")
@@ -13,7 +14,11 @@ COMMAND="$@"
 # e.g. ./manage.py runserver
 
 chown "$USID":"$GRID" "$DATA_DIR"
-chown -R "$USID":"$GRID" "/home/$ARCHIVEBOX_USER"
-usermod -u $USID $ARCHIVEBOX_USER
-groupmod -g $GRID $ARCHIVEBOX_USER
+
+if [ $USID -ne 0 ] && [ $GRID -ne 0 ]
+then
+  chown -R "$USID":"$GRID" "/home/$ARCHIVEBOX_USER"
+  usermod -u $USID $ARCHIVEBOX_USER
+  groupmod -g $GRID $ARCHIVEBOX_USER
+fi
 gosu $ARCHIVEBOX_USER bash -c "$COMMAND"
