@@ -13,6 +13,7 @@ COMMAND="$@"
 # e.g. ./manage.py runserver
 
 chown "$USID":"$GRID" "$DATA_DIR"
+chown -R "$USID":"$GRID" "/home/$ARCHIVEBOX_USER"
 usermod -u $USID $ARCHIVEBOX_USER
 groupmod -g $GRID $ARCHIVEBOX_USER
 gosu $ARCHIVEBOX_USER bash -c "$COMMAND"
