@@ -97,21 +97,20 @@ def save_wget(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
             if 'Downloaded:' in output_tail[-1]
             else 0
         )
+        hints = (
+            'Got wget response code: {}.'.format(result.returncode),
+            *output_tail,
+        )
 
         # Check for common failure cases
-        if result.returncode > 0 and files_downloaded < 1:
-            hints = (
-                'Got wget response code: {}.'.format(result.returncode),
-                *output_tail,
-            )
+        if (result.returncode > 0 and files_downloaded < 1) or output is None:
             if b'403: Forbidden' in result.stderr:
                 raise ArchiveError('403 Forbidden (try changing WGET_USER_AGENT)', hints)
             if b'404: Not Found' in result.stderr:
                 raise ArchiveError('404 Not Found', hints)
             if b'ERROR 500: Internal Server Error' in result.stderr:
                 raise ArchiveError('500 Internal Server Error', hints)
-            raise ArchiveError('Got an error from the server', hints)
-
+            raise ArchiveError('Wget failed or got an error from the server', hints)
         chmod_file(output, cwd=out_dir)
     except Exception as err:
         status = 'failed'

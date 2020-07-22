@@ -106,7 +106,7 @@ def parse_archive_dot_org_response(response: bytes) -> Tuple[List[str], List[str
         headers[name.lower().strip()].append(val.strip())
 
     # Get successful archive url in "content-location" header or any errors
-    content_location = headers['content-location']
+    content_location = headers.get('content-location', headers['location'])
     errors = headers['x-archive-wayback-runtime-error']
     return content_location, errors
 
