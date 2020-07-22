@@ -88,7 +88,7 @@ from .config import (
     USER_CONFIG,
     get_real_name,
 )
-from .logging import (
+from .logging_util import (
     TERM_WIDTH,
     TimedProgress,
     log_importing_started,

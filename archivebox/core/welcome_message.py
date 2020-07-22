@@ -1,4 +1,4 @@
-from archivebox.logging import log_shell_welcome_msg
+from archivebox.logging_util import log_shell_welcome_msg
 
 
 if __name__ == '__main__':
