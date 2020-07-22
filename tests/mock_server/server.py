@@ -11,7 +11,9 @@ def index():
 @route("/static/<filename>")
 def static_path(filename):
     template_path = abspath(getcwd()) / Path("tests/mock_server/templates")
-    return static_file(filename, root=template_path)
+    response = static_file(filename, root=template_path)
+    response.set_header("Content-Type", "")
+    return response
 
 def start():
     run(host='localhost', port=8080)

@@ -47,6 +47,7 @@ setuptools.setup(
         "ipython",
         "youtube-dl",
         "python-crontab==2.5.1",
+        "w3lib==1.22.0",
         # "croniter",
         # Some/all of these will likely be added in the future:
         # wpull
