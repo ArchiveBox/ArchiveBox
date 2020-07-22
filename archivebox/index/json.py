@@ -53,7 +53,7 @@ def parse_json_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
                 try:
                     yield Link.from_json(link_json)
                 except KeyError:
-                    detail_index_path = OUTPUT_DIR / Path(f"archive/{link_json['timestamp']}")
+                    detail_index_path = Path(f"{OUTPUT_DIR}/{ARCHIVE_DIR_NAME}/{link_json['timestamp']}")
                     yield parse_json_link_details(str(detail_index_path))
 
     return ()
