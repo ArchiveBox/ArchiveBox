@@ -18,7 +18,7 @@ from ..config import (
     YOUTUBEDL_VERSION,
     CHECK_SSL_VALIDITY
 )
-from ..logging import TimedProgress
+from ..logging_util import TimedProgress
 
 
 @enforce_types

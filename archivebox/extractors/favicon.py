@@ -15,7 +15,7 @@ from ..config import (
     CHECK_SSL_VALIDITY,
     CURL_USER_AGENT,
 )
-from ..logging import TimedProgress
+from ..logging_util import TimedProgress
 
 
 @enforce_types

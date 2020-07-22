@@ -3,7 +3,7 @@ from django.utils.html import format_html
 
 from util import htmldecode, urldecode
 from core.models import Snapshot
-from archivebox.logging import printable_filesize
+from archivebox.logging_util import printable_filesize
 
 # TODO: https://stackoverflow.com/questions/40760880/add-custom-button-to-django-admin-panel
 

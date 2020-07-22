@@ -10,7 +10,7 @@ from typing import Optional, List, IO
 
 from ..main import schedule, docstring
 from ..config import OUTPUT_DIR
-from ..logging import SmartFormatter, reject_stdin
+from ..logging_util import SmartFormatter, reject_stdin
 
 
 @docstring(schedule.__doc__)

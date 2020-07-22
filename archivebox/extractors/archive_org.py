@@ -19,7 +19,7 @@ from ..config import (
     CURL_VERSION,
     CURL_USER_AGENT,
 )
-from ..logging import TimedProgress
+from ..logging_util import TimedProgress
 
 
 

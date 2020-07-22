@@ -12,7 +12,7 @@ from ..index import (
     patch_main_index,
 )
 from ..util import enforce_types
-from ..logging import (
+from ..logging_util import (
     log_archiving_started,
     log_archiving_paused,
     log_archiving_finished,
