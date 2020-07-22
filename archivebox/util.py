@@ -13,6 +13,7 @@ from dateparser import parse as dateparser
 
 import requests
 from base32_crockford import encode as base32_encode                            # type: ignore
+from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
 
 try:
     import chardet
@@ -160,15 +161,13 @@ def download_url(url: str, timeout: int=None) -> str:
         verify=CHECK_SSL_VALIDITY,
         timeout=timeout,
     )
-    if response.headers.get('Content-Type') == 'application/rss+xml':
-        # Based on https://github.com/scrapy/w3lib/blob/master/w3lib/encoding.py
-        _TEMPLATE = r'''%s\s*=\s*["']?\s*%s\s*["']?'''
-        _XML_ENCODING_RE = _TEMPLATE % ('encoding', r'(?P<xmlcharset>[\w-]+)')
-        _BODY_ENCODING_PATTERN = r'<\s*(\?xml\s[^>]+%s)' % (_XML_ENCODING_RE)
-        _BODY_ENCODING_STR_RE = re.compile(_BODY_ENCODING_PATTERN, re.I | re.VERBOSE)
-        match = _BODY_ENCODING_STR_RE.search(response.text[:1024])
-        if match:
-            response.encoding = match.group('xmlcharset')
+
+    content_type = response.headers.get('Content-Type', '')
+    encoding = http_content_type_encoding(content_type) or html_body_declared_encoding(response.text)
+
+    if encoding is not None:
+        response.encoding = encoding
+
     return response.text
 
 
