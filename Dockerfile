@@ -1,9 +1,9 @@
 # This is the Dockerfile for ArchiveBox, it includes the following major pieces:
 #     git, curl, wget, python3, youtube-dl, google-chrome-stable, ArchiveBox
 # Usage:
-#     docker build . -t archivebox:latest
-#     docker run -v=$PWD/data:/data archivebox:latest archivebox init
-#     echo 'https://example.com' | docker run -v=$PWD/data:/data -i archivebox:latest archivebox add
+#     docker build . -t archivebox
+#     docker run -v "$PWD/data":/data archivebox init
+#     docker run -v "$PWD/data":/data archivebox add 'https://example.com'
 # Documentation:
 #     https://github.com/pirate/ArchiveBox/wiki/Docker#docker
 
@@ -43,8 +43,7 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
        fonts-symbola \
        fonts-noto \
        fonts-freefont-ttf \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --upgrade --no-cache-dir pip setuptools
+    && rm -rf /var/lib/apt/lists/*
 
 # Run everything from here on out as non-privileged user
 RUN groupadd --system archivebox \
@@ -54,6 +53,7 @@ ADD . "$CODE_PATH"
 WORKDIR "$CODE_PATH"
 ENV PATH="$VENV_PATH/bin:${PATH}"
 RUN python -m venv --clear --symlinks "$VENV_PATH" \
+    && pip install --upgrade pip setuptools \
     && pip install -e .
 
 VOLUME "$DATA_PATH"
@@ -62,5 +62,7 @@ EXPOSE 8000
 ENV CHROME_BINARY=google-chrome \
     CHROME_SANDBOX=False
 
-ENTRYPOINT ["dumb-init", "--", "/app/bin/entrypoint.sh", "archivebox"]
+RUN env ALLOW_ROOT=True archivebox version
+
+ENTRYPOINT ["dumb-init", "--", "/app/bin/docker_entrypoint.sh", "archivebox"]
 CMD ["server", "0.0.0.0:8000"]
