@@ -43,7 +43,7 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
             dump(contents, f, indent=4, sort_keys=True, cls=ExtendedEncoder)
         elif isinstance(contents, (bytes, str)):
             f.write(contents)
-
+    os.chmod(path, int(OUTPUT_PERMISSIONS, base=8))
 
 @enforce_types
 def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS) -> None:
