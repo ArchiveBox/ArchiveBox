@@ -2,6 +2,7 @@ __package__ = 'archivebox.index'
 
 import os
 
+from pathlib import Path
 from datetime import datetime, timedelta
 
 from typing import List, Dict, Any, Optional, Union
@@ -51,6 +52,14 @@ class ArchiveResult:
             assert self.output
 
     @classmethod
+    def guess_ts(_cls, dict_info):
+        from ..util import parse_date
+        parsed_timestamp = parse_date(dict_info["timestamp"])
+        start_ts = parsed_timestamp
+        end_ts = parsed_timestamp + timedelta(seconds=int(dict_info["duration"]))
+        return start_ts, end_ts
+
+    @classmethod
     def from_json(cls, json_info):
         from ..util import parse_date
 
@@ -59,8 +68,13 @@ class ArchiveResult:
             for key, val in json_info.items()
             if key in cls.field_names()
         }
-        info['start_ts'] = parse_date(info['start_ts'])
-        info['end_ts'] = parse_date(info['end_ts'])
+        if "start_ts" not in info.keys():
+            info["start_ts"], info["end_ts"] = cls.guess_ts(json_info)
+        else:
+            info['start_ts'] = parse_date(info['start_ts'])
+            info['end_ts'] = parse_date(info['end_ts'])
+        if "pwd" not in info.keys():
+            info["pwd"] = str(os.getcwd() / Path(f"archive/{json_info['timestamp']}"))
         info['cmd_version'] = info.get('cmd_version')
         return cls(**info)
 
@@ -199,9 +213,10 @@ class Link:
         for method, method_history in json_history.items():
             cast_history[method] = []
             for json_result in method_history:
-                assert isinstance(json_result, dict), 'Items in Link["history"][method] must be dicts'
-                cast_result = ArchiveResult.from_json(json_result)
-                cast_history[method].append(cast_result)
+                if json_result.get("cmd"): 
+                    assert isinstance(json_result, dict), 'Items in Link["history"][method] must be dicts'
+                    cast_result = ArchiveResult.from_json(json_result)
+                    cast_history[method].append(cast_result)
 
         info['history'] = cast_history
         return cls(**info)
