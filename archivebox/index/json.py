@@ -19,6 +19,7 @@ from ..config import (
     DEPENDENCIES,
     JSON_INDEX_FILENAME,
     ARCHIVE_DIR_NAME,
+    ANSI
 )
 
 
@@ -53,9 +54,12 @@ def parse_json_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
                 try:
                     yield Link.from_json(link_json)
                 except KeyError:
-                    detail_index_path = Path(OUTPUT_DIR) / ARCHIVE_DIR_NAME / link_json['timestamp']
-                    yield parse_json_link_details(str(detail_index_path))
-
+                    try:
+                        detail_index_path = Path(f"{OUTPUT_DIR}/{ARCHIVE_DIR_NAME}/{link_json['timestamp']}")
+                        yield parse_json_link_details(str(detail_index_path))
+                    except KeyError: 
+                        print("    {lightyellow}! Failed to retrieve index from {}. The index may be corrupt.".format(detail_index_path, **ANSI))
+                        continue
     return ()
 
 @enforce_types
@@ -115,7 +119,10 @@ def parse_json_links_details(out_dir: str) -> Iterator[Link]:
     for entry in os.scandir(os.path.join(out_dir, ARCHIVE_DIR_NAME)):
         if entry.is_dir(follow_symlinks=True):
             if os.path.exists(os.path.join(entry.path, 'index.json')):
-                link = parse_json_link_details(entry.path)
+                try:
+                    link = parse_json_link_details(entry.path)
+                except KeyError:
+                    link = None
                 if link:
                     yield link
 

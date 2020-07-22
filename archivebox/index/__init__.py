@@ -583,7 +583,10 @@ def fix_invalid_folder_locations(out_dir: str=OUTPUT_DIR) -> Tuple[List[str], Li
     for entry in os.scandir(os.path.join(out_dir, ARCHIVE_DIR_NAME)):
         if entry.is_dir(follow_symlinks=True):
             if os.path.exists(os.path.join(entry.path, 'index.json')):
-                link = parse_json_link_details(entry.path)
+                try:
+                    link = parse_json_link_details(entry.path)
+                except KeyError:
+                    link = None
                 if not link:
                     continue
 
