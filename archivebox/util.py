@@ -186,8 +186,16 @@ def chrome_args(**options) -> List[str]:
         cmd_args += ('--headless',)
     
     if not options['CHROME_SANDBOX']:
-        # dont use GPU or sandbox when running inside docker container
-        cmd_args += ('--no-sandbox', '--disable-gpu')
+        # assume this means we are running inside a docker container
+        # in docker, GPU support is limited, sandboxing is unecessary, 
+        # and SHM is limited to 64MB by default (which is too low to be usable).
+        cmd_args += (
+            '--no-sandbox',
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            '--disable-software-rasterizer',
+        )
+
 
     if not options['CHECK_SSL_VALIDITY']:
         cmd_args += ('--disable-web-security', '--ignore-certificate-errors')
