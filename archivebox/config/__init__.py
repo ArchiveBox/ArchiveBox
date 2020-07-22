@@ -845,6 +845,8 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
 
 
 def setup_django(out_dir: str=None, check_db=False, config: ConfigDict=CONFIG) -> None:
+    check_system_config()
+    
     output_dir = out_dir or config['OUTPUT_DIR']
 
     assert isinstance(output_dir, str) and isinstance(config['PYTHON_DIR'], str)
@@ -862,5 +864,3 @@ def setup_django(out_dir: str=None, check_db=False, config: ConfigDict=CONFIG) -
                 f'No database file {SQL_INDEX_FILENAME} found in OUTPUT_DIR: {config["OUTPUT_DIR"]}')
     except KeyboardInterrupt:
         raise SystemExit(2)
-
-check_system_config()
