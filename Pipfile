@@ -3,9 +3,6 @@ name = "pypi"
 url = "https://pypi.org/simple"
 verify_ssl = true
 
-[requires]
-python_version = "3.8"
-
 [packages]
 # see setup.py for package dependency list
 "e1839a8" = {path = ".", editable = true}

@@ -1,25 +1,129 @@
 name: Test workflow
 on: [push]
 
+env:
+  MAX_LINE_LENGTH: 110
+  PIPENV_VENV_IN_PROJECT: 1
+  CACHE_PATH: .venv
 jobs:
-  test:
+
+  lint:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+          architecture: x64
+   
+      - name: Install pipenv
+        run: |
+          pip install pipenv
+      
+      - uses: actions/cache@v2
+        id: cache-archivebox
+        with:
+          path: ${{ env.CACHE_PATH }}
+          key: ${{ runner.os }}-3.8-pipenv-${{ hashFiles('**/Pipfile') }}
+          restore-keys: |
+            ${{ runner.os }}-3.8-pipenv-
+
+      - name: Install dependencies
+        run: |
+          pipenv install --dev
+
+      - name: Lint with flake8
+        run: |
+          # one pass for show-stopper syntax errors or undefined names
+          pipenv run flake8 . --count --show-source --statistics
+          # one pass for small stylistic things
+          pipenv run flake8 . --count --max-line-length="$MAX_LINE_LENGTH" --statistics
+
+      - name: Lint with mypy
+        run: |
+          pipenv run mypy .
+
+  test:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: [3.7, 3.8]
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
         with:
           fetch-depth: 1
 
-      - name: Set up Python 3.7
+      - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v1
         with:
-          python-version: 3.7
+          python-version: ${{ matrix.python }}
           architecture: x64
+
+      - name: Install pipenv
+        run: |
+          pip install pipenv
       
+      - uses: actions/cache@v1
+        id: cache-archivebox
+        with:
+          path: ${{ env.CACHE_PATH }}
+          key: ${{ runner.os }}-${{ matrix.python }}-pipenv-${{ hashFiles('**/Pipfile') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.python }}-pipenv-
+
       - name: Install dependencies
         run: |
-          pip install -e .[dev]
+          pipenv install --dev
 
-      - name: Test with pytest
+      - name: Test built package with pytest
         run: |
-          pytest -s
+          pipenv run pytest -s
+        
+  docker-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+      
+      - name: Build image
+        run: |
+          docker build . -t archivebox
+
+      - name: Init data dir
+        run: |
+          mkdir data
+          docker run -v "$PWD"/data:/data archivebox init
+      
+      - name: Run test server
+        run: |
+          sudo bash -c 'echo "127.0.0.1  www.test-nginx-1.local www.test-nginx-2.local" >> /etc/hosts'
+          docker run --name www-nginx -p 80:80 -d nginx
+      
+      - name: Add link
+        run: |
+          docker run -v "$PWD"/data:/data --network host archivebox add http://www.test-nginx-1.local
+          
+      - name: Add stdin link
+        run: |
+          echo "http://www.test-nginx-2.local" | docker run -i -v "$PWD"/data:/data archivebox add
+          
+      - name: List links
+        run: |
+          docker run -v "$PWD"/data:/data archivebox list | grep -q "www.test-nginx-1.local" || { echo "The site 1 isn't in the list"; exit 1; }
+          docker run -v "$PWD"/data:/data archivebox list | grep -q "www.test-nginx-2.local" || { echo "The site 2 isn't in the list"; exit 1; }
+     
+      - name: Start docker-compose stack
+        run: |
+          docker-compose up -d
+      
+      - name: Curl to Django app
+        run: |
+          sleep 10
+          curl http://127.0.0.1:8000/
