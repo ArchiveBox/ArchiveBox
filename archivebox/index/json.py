@@ -53,7 +53,7 @@ def parse_json_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
                 try:
                     yield Link.from_json(link_json)
                 except KeyError:
-                    detail_index_path = Path(f"{OUTPUT_DIR}/{ARCHIVE_DIR_NAME}/{link_json['timestamp']}")
+                    detail_index_path = Path(OUTPUT_DIR) / ARCHIVE_DIR_NAME / link_json['timestamp']
                     yield parse_json_link_details(str(detail_index_path))
 
     return ()
@@ -153,6 +153,5 @@ class ExtendedEncoder(pyjson.JSONEncoder):
 @enforce_types
 def to_json(obj: Any, indent: Optional[int]=4, sort_keys: bool=True, cls=ExtendedEncoder) -> str:
     return pyjson.dumps(obj, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder)
-
 
 
