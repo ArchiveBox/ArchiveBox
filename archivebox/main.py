@@ -87,7 +87,6 @@ from .config import (
     CONFIG,
     USER_CONFIG,
     get_real_name,
-    OUTPUT_PERMISSIONS
 )
 from .logging_util import (
     TERM_WIDTH,
@@ -241,7 +240,6 @@ def run(subcommand: str,
 @enforce_types
 def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
-    os.umask(0o777 - int(OUTPUT_PERMISSIONS, base=8))
     os.makedirs(out_dir, exist_ok=True)
     is_empty = not len(set(os.listdir(out_dir)) - ALLOWED_IN_OUTPUT_DIR)
     existing_index = os.path.exists(os.path.join(out_dir, JSON_INDEX_FILENAME))
