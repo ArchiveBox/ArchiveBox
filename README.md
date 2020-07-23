@@ -2,12 +2,12 @@
 <img src="https://i.imgur.com/4nkFjdv.png" height="80px">
 <h1>ArchiveBox<br/><sub>The open-source self-hosted web archive.</sub></h1>
 
-▶️ <a href="https://github.com/pirate/ArchiveBox/wiki/Quickstart">Quickstart</a> |
-<a href="https://archivebox.zervice.io/">Demo</a> |
-<a href="https://github.com/pirate/ArchiveBox">Github</a> |
-<a href="https://github.com/pirate/ArchiveBox/wiki">Documentation</a> |
-<a href="#background--motivation">Info & Motivation</a> |
-<a href="https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community">Community</a> |
+▶️ <a href="https://github.com/pirate/ArchiveBox/wiki/Quickstart">Quickstart</a> | 
+<a href="https://archivebox.zervice.io/">Demo</a> | 
+<a href="https://github.com/pirate/ArchiveBox">Github</a> | 
+<a href="https://github.com/pirate/ArchiveBox/wiki">Documentation</a> | 
+<a href="#background--motivation">Info & Motivation</a> | 
+<a href="https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community">Community</a> | 
 <a href="https://github.com/pirate/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
 <pre>
