@@ -58,6 +58,7 @@ setuptools.setup(
     extras_require={
         'dev': [
             "setuptools",
+            "wheel",
             "twine",
             "flake8",
             "ipdb",
