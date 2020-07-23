@@ -12,6 +12,7 @@ from hashlib import md5
 from typing import Optional, Type, Tuple, Dict
 from subprocess import run, PIPE, DEVNULL
 from configparser import ConfigParser
+from collections import defaultdict
 
 from .stubs import (
     SimpleConfigValueDict,
@@ -141,15 +142,17 @@ DEFAULT_CLI_COLORS = {
 }
 ANSI = {k: '' for k in DEFAULT_CLI_COLORS.keys()}
 
-COLOR_DICT = {
+COLOR_DICT = defaultdict(lambda: [(0, 0, 0), (0, 0, 0)], {
     '00': [(0, 0, 0), (0, 0, 0)],
+    '30': [(0, 0, 0), (0, 0, 0)],
     '31': [(255, 0, 0), (128, 0, 0)],
     '32': [(0, 200, 0), (0, 128, 0)],
     '33': [(255, 255, 0), (128, 128, 0)],
     '34': [(0, 0, 255), (0, 0, 128)],
     '35': [(255, 0, 255), (128, 0, 128)],
     '36': [(0, 255, 255), (0, 128, 128)],
-}
+    '37': [(255, 255, 255), (255, 255, 255)],
+})
 
 STATICFILE_EXTENSIONS = {
     # 99.999% of the time, URLs ending in these extensions are static files
