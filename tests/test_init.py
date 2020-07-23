@@ -6,6 +6,8 @@ import subprocess
 from pathlib import Path
 import json
 
+from archivebox.config import OUTPUT_PERMISSIONS
+
 from .fixtures import *
 
 def test_init(tmp_path, process):
@@ -42,4 +44,10 @@ def test_add_link_support_stdin(tmp_path, process):
     with open(archived_item_path / "index.json", "r") as f:
         output_json = json.load(f)
     assert "Example Domain" == output_json['history']['title'][0]['output']
+
+def test_correct_permissions_output_folder(tmp_path, process):
+    index_files = ['index.json', 'index.html', 'index.sqlite3', 'archive']
+    for file in index_files:
+        file_path = tmp_path / file
+        assert oct(file_path.stat().st_mode)[-3:] == OUTPUT_PERMISSIONS
 
