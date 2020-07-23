@@ -864,3 +864,5 @@ def setup_django(out_dir: str=None, check_db=False, config: ConfigDict=CONFIG) -
                 f'No database file {SQL_INDEX_FILENAME} found in OUTPUT_DIR: {config["OUTPUT_DIR"]}')
     except KeyboardInterrupt:
         raise SystemExit(2)
+
+os.umask(0o777 - int(OUTPUT_PERMISSIONS, base=8))

@@ -26,6 +26,7 @@ from ..config import (
     URL_BLACKLIST_PTN,
     ANSI,
     stderr,
+    OUTPUT_PERMISSIONS
 )
 from ..logging_util import (
     TimedProgress,
@@ -232,6 +233,8 @@ def write_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=
 
     with timed_index_update(os.path.join(out_dir, SQL_INDEX_FILENAME)):
         write_sql_main_index(links, out_dir=out_dir)
+        os.chmod(os.path.join(out_dir, SQL_INDEX_FILENAME), int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
+
 
     with timed_index_update(os.path.join(out_dir, JSON_INDEX_FILENAME)):
         write_json_main_index(links, out_dir=out_dir)

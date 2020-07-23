@@ -241,7 +241,6 @@ def run(subcommand: str,
 def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
     os.makedirs(out_dir, exist_ok=True)
-
     is_empty = not len(set(os.listdir(out_dir)) - ALLOWED_IN_OUTPUT_DIR)
     existing_index = os.path.exists(os.path.join(out_dir, JSON_INDEX_FILENAME))
 
