@@ -40,7 +40,7 @@ You can use it to preserve access to websites you care about by storing them loc
 #### How does it work?
 
 ```bash
-echo 'http://example.com' | archivebox add
+archivebox add 'https://example.com'
 ```
 
 After installing the dependencies, just pipe some new links into the `archivebox add` command to start your archive.
