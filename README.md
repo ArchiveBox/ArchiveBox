@@ -281,7 +281,7 @@ Contributor Spotlight:<br/><br/>
 <a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/5"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/5"></a>
 
 <br/>
-<a href="https://github.com/sponsors/pirate">Sponsor us on Github, your donations will be matched!</a>
+<a href="https://github.com/sponsors/pirate">Sponsor us on Github</a>
 <br>
 <br>
 <a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Donate_to_support_development-via_Patreon-%23DD5D76.svg?style=flat"/></a>
