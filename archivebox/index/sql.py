@@ -21,6 +21,16 @@ def parse_sql_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
     )
 
 @enforce_types
+def remove_from_sql_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
+    setup_django(out_dir, check_db=True)
+    from core.models import Snapshot
+    from django.db import transaction
+
+    with transaction.atomic():
+        for link in links:
+            Snapshot.objects.filter(url=link.url).delete()
+
+@enforce_types
 def write_sql_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
     setup_django(out_dir, check_db=True)
     from core.models import Snapshot

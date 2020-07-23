@@ -49,6 +49,7 @@ from .index.sql import (
     parse_sql_main_index,
     get_admins,
     apply_migrations,
+    remove_from_sql_main_index,
 )
 from .index.html import parse_html_main_index
 from .extractors import archive_links
@@ -600,6 +601,7 @@ def remove(filter_str: Optional[str]=None,
     timer = TimedProgress(360, prefix='      ')
     try:
         to_keep = []
+        to_delete = []
         all_links = load_main_index(out_dir=out_dir)
         for link in all_links:
             should_remove = (
@@ -607,13 +609,17 @@ def remove(filter_str: Optional[str]=None,
                 or (before is not None and float(link.timestamp) > before)
                 or link_matches_filter(link, filter_patterns, filter_type)
             )
-            if not should_remove:
+            if should_remove:
+                to_delete.append(link)
+
+                if delete:
+                    shutil.rmtree(link.link_dir, ignore_errors=True)
+            else:
                 to_keep.append(link)
-            elif should_remove and delete:
-                shutil.rmtree(link.link_dir, ignore_errors=True)
     finally:
         timer.end()
 
+    remove_from_sql_main_index(links=to_delete, out_dir=out_dir)
     write_main_index(links=to_keep, out_dir=out_dir, finished=True)
     log_removal_finished(len(all_links), len(to_keep))
     
