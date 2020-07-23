@@ -55,7 +55,7 @@ def parse_json_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
                     yield Link.from_json(link_json)
                 except KeyError:
                     try:
-                        detail_index_path = Path(f"{OUTPUT_DIR}/{ARCHIVE_DIR_NAME}/{link_json['timestamp']}")
+                        detail_index_path = Path(OUTPUT_DIR) / ARCHIVE_DIR_NAME / link_json['timestamp']
                         yield parse_json_link_details(str(detail_index_path))
                     except KeyError: 
                         print("    {lightyellow}! Failed to retrieve index from {}. The index may be corrupt.".format(detail_index_path, **ANSI))
