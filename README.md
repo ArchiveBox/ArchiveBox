@@ -68,7 +68,7 @@ To get started, you can [install them manually](https://github.com/pirate/Archiv
 apt install python3 python3-pip git curl wget youtube-dl chromium-browser
 
 # 2. Download ArchiveBox
-git clone https://github.com/pirate/ArchiveBox.git && cd ArchiveBox && pip install .
+pip install archivebox
 
 # 3. Create a new archive anywhere
 mkdir archive_folder && cd archive_folder && archivebox init
