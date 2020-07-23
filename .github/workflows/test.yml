@@ -37,13 +37,13 @@ jobs:
       - name: Lint with flake8
         run: |
           # one pass for show-stopper syntax errors or undefined names
-          pipenv run flake8 . --count --show-source --statistics
+          pipenv run flake8 archivebox --count --show-source --statistics
           # one pass for small stylistic things
-          pipenv run flake8 . --count --max-line-length="$MAX_LINE_LENGTH" --statistics
+          pipenv run flake8 archivebox --count --max-line-length="$MAX_LINE_LENGTH" --statistics
 
       - name: Lint with mypy
         run: |
-          pipenv run mypy .
+          pipenv run mypy archivebox
 
   test:
     runs-on: ${{ matrix.os }}
