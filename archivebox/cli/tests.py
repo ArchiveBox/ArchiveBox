@@ -198,7 +198,7 @@ class TestRemove(unittest.TestCase):
 
     def test_remove_regex(self):
         with output_hidden():
-            archivebox_remove.main(['--yes', '--delete', '--filter-type=regex', 'http(s)?:\/\/(.+\.)?(example\d\.com)'])
+            archivebox_remove.main(['--yes', '--delete', '--filter-type=regex', r'http(s)?:\/\/(.+\.)?(example\d\.com)'])
 
         all_links = load_main_index(out_dir=OUTPUT_DIR)
         assert len(all_links) == 4

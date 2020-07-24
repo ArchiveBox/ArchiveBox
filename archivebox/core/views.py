@@ -4,7 +4,6 @@ from django.shortcuts import render, redirect
 
 from django.http import HttpResponse
 from django.views import View, static
-from django.conf import settings
 
 from core.models import Snapshot
 
@@ -75,7 +74,7 @@ class AddLinks(View):
             }
             add_stdout = StringIO()
             with redirect_stdout(add_stdout):
-                extracted_links = add(**input_kwargs)
+               add(**input_kwargs)
             print(add_stdout.getvalue())
 
             context = {

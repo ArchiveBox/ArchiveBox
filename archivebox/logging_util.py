@@ -5,8 +5,6 @@ import os
 import sys
 import time
 import argparse
-import logging
-import signal
 from multiprocessing import Process
 
 from datetime import datetime
@@ -263,9 +261,9 @@ def log_archiving_finished(num_links: int):
     assert _LAST_RUN_STATS.archiving_start_ts is not None
     seconds = end_ts.timestamp() - _LAST_RUN_STATS.archiving_start_ts.timestamp()
     if seconds > 60:
-        duration = '{0:.2f} min'.format(seconds / 60, 2)
+        duration = '{0:.2f} min'.format(seconds / 60)
     else:
-        duration = '{0:.2f} sec'.format(seconds, 2)
+        duration = '{0:.2f} sec'.format(seconds)
 
     print()
     print('{}[√] [{}] Update of {} pages complete ({}){}'.format(
@@ -385,8 +383,8 @@ def log_removal_started(links: List["Link"], yes: bool, delete: bool):
         )
     else:
         print(
-            f'    Matching links will be de-listed from the main index, but their archived content folders will remain in place on disk.\n'
-            f'    (Pass --delete if you also want to permanently delete the data folders)'
+            '    Matching links will be de-listed from the main index, but their archived content folders will remain in place on disk.\n'
+            '    (Pass --delete if you also want to permanently delete the data folders)'
         )
 
     if not yes:

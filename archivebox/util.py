@@ -226,11 +226,11 @@ def ansi_to_html(text):
         argsdict = match.groupdict()
         if argsdict['arg_3'] is None:
             if argsdict['arg_2'] is None:
-                bold, color = 0, argsdict['arg_1']
+                _, color = 0, argsdict['arg_1']
             else:
-                bold, color = argsdict['arg_1'], argsdict['arg_2']
+                _, color = argsdict['arg_1'], argsdict['arg_2']
         else:
-            bold, color = argsdict['arg_3'], argsdict['arg_2']
+            _, color = argsdict['arg_3'], argsdict['arg_2']
 
         return TEMPLATE.format(COLOR_DICT[color][0])
 

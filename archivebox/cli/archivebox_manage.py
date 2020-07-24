@@ -7,7 +7,8 @@ import sys
 
 from typing import Optional, List, IO
 
-from ..main import manage, docstring
+from ..main import manage
+from ..util import docstring
 from ..config import OUTPUT_DIR
 
 

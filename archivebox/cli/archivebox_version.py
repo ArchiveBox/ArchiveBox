@@ -8,7 +8,8 @@ import argparse
 
 from typing import Optional, List, IO
 
-from ..main import version, docstring
+from ..main import version
+from ..util import docstring
 from ..config import OUTPUT_DIR
 from ..logging_util import SmartFormatter, reject_stdin
 
