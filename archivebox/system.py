@@ -57,7 +57,6 @@ def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS) -> 
         os.chmod(root, int(OUTPUT_PERMISSIONS, base=8))
     else:
         for subpath in Path(path).glob('**/*'):
-            print("THE PATH TO MODIFY IS", subpath)
             os.chmod(subpath, int(OUTPUT_PERMISSIONS, base=8))
 
 
