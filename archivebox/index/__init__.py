@@ -294,7 +294,6 @@ def parse_links_from_source(source_path: str) -> Tuple[List[Link], List[Link]]:
 def dedupe_links(existing_links: List[Link],
                  new_links: List[Link]) -> Tuple[List[Link], List[Link]]:
 
-    from ..parsers import parse_links
     # merge existing links in out_dir and new links
     all_links = validate_links(existing_links + new_links)
     all_link_urls = {link.url for link in existing_links}
@@ -537,7 +536,7 @@ def get_unrecognized_folders(links, out_dir: str=OUTPUT_DIR) -> Dict[str, Option
                         link_guessed = parse_json_link_details(entry.path, guess=True)
                         write_json_link_details(link_guessed, out_dir=entry.path)
                         link = parse_json_link_details(entry.path)
-                    except Exception as e:
+                    except Exception:
                         pass
 
             if index_exists and link is None:
@@ -565,7 +564,7 @@ def is_valid(link: Link) -> bool:
         try:
             parsed_link = parse_json_link_details(link.link_dir, guess=True)
             return link.url == parsed_link.url
-        except Exception as e:
+        except Exception:
             pass
     return False
 

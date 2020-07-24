@@ -20,10 +20,9 @@ from .parsers import (
     save_file_as_source,
 )
 from .index.schema import Link
-from .util import enforce_types, docstring                         # type: ignore
+from .util import enforce_types                         # type: ignore
 from .system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
 from .index import (
-    links_after_timestamp,
     load_main_index,
     parse_links_from_source,
     dedupe_links,
@@ -291,7 +290,6 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
         print('\n{green}[+] Building main SQL index and running migrations...{reset}'.format(**ANSI))
     
     setup_django(out_dir, check_db=False)
-    from django.conf import settings
     DATABASE_FILE = os.path.join(out_dir, SQL_INDEX_FILENAME)
     print(f'    √ {DATABASE_FILE}')
     print()
@@ -469,7 +467,8 @@ def status(out_dir: str=OUTPUT_DIR) -> None:
     users = get_admins().values_list('username', flat=True)
     print(f'    UI users {len(users)}: {", ".join(users)}')
     last_login = User.objects.order_by('last_login').last()
-    print(f'    Last UI login: {last_login.username} @ {str(last_login.last_login)[:16]}')
+    if last_login:
+        print(f'    Last UI login: {last_login.username} @ {str(last_login.last_login)[:16]}')
     last_updated = Snapshot.objects.order_by('updated').last()
     print(f'    Last changes: {str(last_updated.updated)[:16]}')
 

@@ -8,7 +8,6 @@ from django.utils.crypto import get_random_string
 from ..config import (
     OUTPUT_DIR,
     SECRET_KEY,
-    DEBUG,
     ALLOWED_HOSTS,
     PYTHON_DIR,
     ACTIVE_THEME,

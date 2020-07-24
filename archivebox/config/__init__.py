@@ -868,4 +868,4 @@ def setup_django(out_dir: str=None, check_db=False, config: ConfigDict=CONFIG) -
     except KeyboardInterrupt:
         raise SystemExit(2)
 
-os.umask(0o777 - int(OUTPUT_PERMISSIONS, base=8))
+os.umask(0o777 - int(OUTPUT_PERMISSIONS, base=8)) # noqa: F821

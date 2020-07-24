@@ -8,7 +8,8 @@ import argparse
 
 from typing import List, Optional, IO
 
-from ..main import update, docstring
+from ..main import update
+from ..util import docstring
 from ..config import OUTPUT_DIR
 from ..index import (
     get_indexed_folders,

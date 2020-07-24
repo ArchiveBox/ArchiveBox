@@ -8,7 +8,8 @@ import argparse
 
 from typing import Optional, List, IO
 
-from ..main import schedule, docstring
+from ..main import schedule
+from ..util import docstring
 from ..config import OUTPUT_DIR
 from ..logging_util import SmartFormatter, reject_stdin
 

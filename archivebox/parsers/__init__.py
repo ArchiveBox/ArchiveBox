@@ -19,17 +19,15 @@ from ..config import (
     OUTPUT_DIR,
     SOURCES_DIR_NAME,
     TIMEOUT,
-    check_data_folder,
 )
 from ..util import (
     basename,
-    domain,
     download_url,
     enforce_types,
     URL_REGEX,
 )
 from ..index.schema import Link
-from ..logging_util import pretty_path, TimedProgress, log_source_saved
+from ..logging_util import TimedProgress, log_source_saved
 from .pocket_html import parse_pocket_html_export
 from .pinboard_rss import parse_pinboard_rss_export
 from .shaarli_rss import parse_shaarli_rss_export
