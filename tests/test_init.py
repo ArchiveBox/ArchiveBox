@@ -51,3 +51,11 @@ def test_correct_permissions_output_folder(tmp_path, process):
         file_path = tmp_path / file
         assert oct(file_path.stat().st_mode)[-3:] == OUTPUT_PERMISSIONS
 
+def test_correct_permissions_add_command_results(tmp_path, process):
+    os.chdir(tmp_path)
+    add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'], capture_output=True)
+    archived_item_path = list(tmp_path.glob('archive/**/*'))[0]
+    for path in archived_item_path.iterdir():
+        assert oct(path.stat().st_mode)[-3:] == OUTPUT_PERMISSIONS
+
+
