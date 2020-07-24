@@ -39,7 +39,6 @@ MAIN_INDEX_HEADER = {
     },
 }
 
-
 ### Main Links Index
 
 @enforce_types
@@ -58,8 +57,12 @@ def parse_json_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
                         detail_index_path = Path(OUTPUT_DIR) / ARCHIVE_DIR_NAME / link_json['timestamp']
                         yield parse_json_link_details(str(detail_index_path))
                     except KeyError: 
-                        print("    {lightyellow}! Failed to load the index.json from {}".format(detail_index_path, **ANSI))
-                        continue
+                        # as a last effort, try to guess the missing values out of existing ones
+                        try:
+                            yield Link.from_json(link_json, guess=True)
+                        except KeyError:
+                            print("    {lightyellow}! Failed to load the index.json from {}".format(detail_index_path, **ANSI))
+                            continue
     return ()
 
 @enforce_types
@@ -94,19 +97,18 @@ def write_json_link_details(link: Link, out_dir: Optional[str]=None) -> None:
     
     out_dir = out_dir or link.link_dir
     path = os.path.join(out_dir, JSON_INDEX_FILENAME)
-
     atomic_write(path, link._asdict(extended=True))
 
 
 @enforce_types
-def parse_json_link_details(out_dir: str) -> Optional[Link]:
+def parse_json_link_details(out_dir: str, guess: Optional[bool]=False) -> Optional[Link]:
     """load the json link index from a given directory"""
     existing_index = os.path.join(out_dir, JSON_INDEX_FILENAME)
     if os.path.exists(existing_index):
         with open(existing_index, 'r', encoding='utf-8') as f:
             try:
                 link_json = pyjson.load(f)
-                return Link.from_json(link_json)
+                return Link.from_json(link_json, guess)
             except pyjson.JSONDecodeError:
                 pass
     return None
