@@ -529,8 +529,16 @@ def get_unrecognized_folders(links, out_dir: str=OUTPUT_DIR) -> Dict[str, Option
             link = None
             try:
                 link = parse_json_link_details(entry.path)
-            except Exception:
-                pass
+            except KeyError:
+                # Try to fix index
+                if index_exists:
+                    try:
+                        # Last attempt to repair the detail index
+                        link_guessed = parse_json_link_details(entry.path, guess=True)
+                        write_json_link_details(link_guessed, out_dir=entry.path)
+                        link = parse_json_link_details(entry.path)
+                    except Exception as e:
+                        pass
 
             if index_exists and link is None:
                 # index exists but it's corrupted or unparseable
@@ -555,9 +563,9 @@ def is_valid(link: Link) -> bool:
         return False
     if dir_exists and index_exists:
         try:
-            parsed_link = parse_json_link_details(link.link_dir)
+            parsed_link = parse_json_link_details(link.link_dir, guess=True)
             return link.url == parsed_link.url
-        except Exception:
+        except Exception as e:
             pass
     return False
 
