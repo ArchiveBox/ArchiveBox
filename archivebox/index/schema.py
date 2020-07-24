@@ -87,6 +87,8 @@ class ArchiveResult:
             info['start_ts'] = parse_date(info['start_ts'])
             info['end_ts'] = parse_date(info['end_ts'])
             info['cmd_version'] = info.get('cmd_version')
+        if type(info["cmd"]) is str:
+            info["cmd"] = [info["cmd"]]
         return cls(**info)
 
     def to_dict(self, *keys) -> dict:
