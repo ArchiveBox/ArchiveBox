@@ -53,8 +53,11 @@ def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS) -> 
     if not root.exists():
         raise Exception('Failed to chmod: {} does not exist (did the previous step fail?)'.format(path))
 
-    for subpath in Path(path).glob('**/*'):
-        os.chmod(subpath, int(OUTPUT_PERMISSIONS, base=8))
+    if not root.is_dir():
+        os.chmod(root, int(OUTPUT_PERMISSIONS, base=8))
+    else:
+        for subpath in Path(path).glob('**/*'):
+            os.chmod(subpath, int(OUTPUT_PERMISSIONS, base=8))
 
 
 @enforce_types
