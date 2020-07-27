@@ -492,6 +492,8 @@ def bin_path(binary: Optional[str]) -> Optional[str]:
     return shutil.which(os.path.expanduser(binary)) or binary
 
 def bin_hash(binary: Optional[str]) -> Optional[str]:
+    if binary is None:
+        return None
     abs_path = bin_path(binary)
     if abs_path is None:
         return None
