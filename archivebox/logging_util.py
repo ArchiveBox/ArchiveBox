@@ -114,12 +114,20 @@ class TimedProgress:
 def progress_bar(seconds: int, prefix: str='') -> None:
     """show timer in the form of progress bar, with percentage and seconds remaining"""
     chunk = '█' if PYTHON_ENCODING == 'UTF-8' else '#'
-    chunks = TERM_WIDTH() - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
+    last_width = TERM_WIDTH()
+    chunks = last_width - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
     try:
         for s in range(seconds * chunks):
-            chunks = TERM_WIDTH() - len(prefix) - 20
+            max_width = TERM_WIDTH()
+            if max_width < last_width:
+                # when the terminal size is shrunk, we have to write a newline
+                # otherwise the progress bar will keep wrapping incorrectly
+                sys.stdout.write('\r\n')
+                sys.stdout.flush()
+            chunks = max_width - len(prefix) - 20
             progress = s / chunks / seconds * 100
             bar_width = round(progress/(100/chunks))
+            last_width = max_width
 
             # ████████████████████           0.9% (1/60sec)
             sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)'.format(
