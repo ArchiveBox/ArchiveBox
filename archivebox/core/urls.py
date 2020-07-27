@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.views import static
 from django.conf import settings
-from django.contrib.staticfiles import views
+from django.contrib.staticfiles.views import serve as serve_static
 from django.views.generic.base import RedirectView
 
 from core.views import MainIndex, AddLinks, LinkDetails
@@ -21,7 +21,7 @@ urlpatterns = [
     path('archive/<path:path>', LinkDetails.as_view(), name='LinkAssets'),
     path('add/', AddLinks.as_view(), name='AddLinks'),
     
-    path('static/<path>', views.serve),
+    path('static/<path>', serve_static),
     
     path('accounts/login/', RedirectView.as_view(url='/admin/login/')),
     path('accounts/logout/', RedirectView.as_view(url='/admin/logout/')),

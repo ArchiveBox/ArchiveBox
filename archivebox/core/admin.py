@@ -9,7 +9,7 @@ from archivebox.logging_util import printable_filesize
 
 
 class SnapshotAdmin(admin.ModelAdmin):
-    list_display = ('title_str', 'url_str', 'tags', 'files', 'added', 'updated')
+    list_display = ('title_str', 'url_str', 'tags', 'files', 'size', 'added', 'updated')
     sort_fields = ('title_str', 'url_str', 'tags', 'added', 'updated')
     readonly_fields = ('id', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
     search_fields = ('url', 'timestamp', 'title', 'tags')
@@ -33,7 +33,7 @@ class SnapshotAdmin(admin.ModelAdmin):
             '<a href="/{}/{}">'
             '<b>{}</b></a>',
             obj.archive_path,
-            obj.archive_path, canon['google_favicon_path'],
+            obj.archive_path, canon['favicon_path'],
             obj.archive_path, canon['wget_path'] or '',
             urldecode(htmldecode(obj.latest_title or obj.title or '-'))[:128],
         )
@@ -42,15 +42,14 @@ class SnapshotAdmin(admin.ModelAdmin):
         canon = obj.as_link().canonical_outputs()
         return format_html(
             '<span style="font-size: 1.2em; opacity: 0.8">'
-            '<a href="/{}/{}">🌐 </a> '
-            '<a href="/{}/{}">📄</a> '
-            '<a href="/{}/{}">🖥 </a> '
-            '<a href="/{}/{}">🅷 </a> '
-            '<a href="/{}/{}">📼 </a> '
-            '<a href="/{}/{}">📦 </a> '
-            '<a href="/{}/{}">🏛 </a> '
-            '</span><br/>'
-            '<a href="/{}">{}</a>',
+                '<a href="/{}/{}" title="Wget clone">🌐 </a> '
+                '<a href="/{}/{}" title="PDF">📄</a> '
+                '<a href="/{}/{}" title="Screenshot">🖥 </a> '
+                '<a href="/{}/{}" title="HTML dump">🅷 </a> '
+                '<a href="/{}/{}" title="Media files">📼 </a> '
+                '<a href="/{}/{}" title="Git repos">📦 </a> '
+                '<a href="/{}/{}" title="Archive.org snapshot">🏛 </a> '
+            '</span>',
             obj.archive_path, canon['wget_path'] or '',
             obj.archive_path, canon['pdf_path'],
             obj.archive_path, canon['screenshot_path'],
@@ -58,6 +57,11 @@ class SnapshotAdmin(admin.ModelAdmin):
             obj.archive_path, canon['media_path'],
             obj.archive_path, canon['git_path'],
             obj.archive_path, canon['archive_org_path'],
+        )
+
+    def size(self, obj):
+        return format_html(
+            '<a href="/{}" title="View all files">{}</a>',
             obj.archive_path,
             printable_filesize(obj.archive_size) if obj.archive_size else 'pending',
         )
