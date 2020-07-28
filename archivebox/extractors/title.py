@@ -17,6 +17,7 @@ from ..config import (
     CURL_BINARY,
     CURL_VERSION,
     CURL_USER_AGENT,
+    setup_django,
 )
 from ..logging_util import TimedProgress
 
