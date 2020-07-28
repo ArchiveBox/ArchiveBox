@@ -63,7 +63,10 @@ def save_title(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) ->
         html = download_url(link.url, timeout=timeout)
         match = re.search(HTML_TITLE_REGEX, html)
         output = htmldecode(match.group(1).strip()) if match else None
-        if not output:
+        if output:
+            if not link.title or len(output) >= len(link.title):
+                Snapshot.objects.filter(url=link.url, timestamp=link.timestamp).update(title=output)
+        else:
             raise ArchiveError('Unable to detect page title')
     except Exception as err:
         status = 'failed'
