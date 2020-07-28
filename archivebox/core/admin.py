@@ -149,3 +149,4 @@ class ArchiveBoxAdmin(admin.AdminSite):
 admin.site = ArchiveBoxAdmin()
 admin.site.register(get_user_model())
 admin.site.register(Snapshot, SnapshotAdmin)
+admin.site.disable_action('delete_selected')
