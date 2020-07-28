@@ -547,6 +547,7 @@ def add(urls: Union[str, List[str]],
 def remove(filter_str: Optional[str]=None,
            filter_patterns: Optional[List[str]]=None,
            filter_type: str='exact',
+           links: Optional[List[Link]]=None,
            after: Optional[float]=None,
            before: Optional[float]=None,
            yes: bool=False,
@@ -556,38 +557,40 @@ def remove(filter_str: Optional[str]=None,
     
     check_data_folder(out_dir=out_dir)
 
-    if filter_str and filter_patterns:
-        stderr(
-            '[X] You should pass either a pattern as an argument, '
-            'or pass a list of patterns via stdin, but not both.\n',
-            color='red',
-        )
-        raise SystemExit(2)
-    elif not (filter_str or filter_patterns):
-        stderr(
-            '[X] You should pass either a pattern as an argument, '
-            'or pass a list of patterns via stdin.',
-            color='red',
-        )
-        stderr()
-        stderr('    {lightred}Hint:{reset} To remove all urls you can run:'.format(**ANSI))
-        stderr("        archivebox remove --filter-type=regex '.*'")
-        stderr()
-        raise SystemExit(2)
-    elif filter_str:
-        filter_patterns = [ptn.strip() for ptn in filter_str.split('\n')]
+    if links is None:
+        if filter_str and filter_patterns:
+            stderr(
+                '[X] You should pass either a pattern as an argument, '
+                'or pass a list of patterns via stdin, but not both.\n',
+                color='red',
+            )
+            raise SystemExit(2)
+        elif not (filter_str or filter_patterns):
+            stderr(
+                '[X] You should pass either a pattern as an argument, '
+                'or pass a list of patterns via stdin.',
+                color='red',
+            )
+            stderr()
+            stderr('    {lightred}Hint:{reset} To remove all urls you can run:'.format(**ANSI))
+            stderr("        archivebox remove --filter-type=regex '.*'")
+            stderr()
+            raise SystemExit(2)
+        elif filter_str:
+            filter_patterns = [ptn.strip() for ptn in filter_str.split('\n')]
 
-    log_list_started(filter_patterns, filter_type)
-    timer = TimedProgress(360, prefix='      ')
-    try:
-        links = list(list_links(
-            filter_patterns=filter_patterns,
-            filter_type=filter_type,
-            after=after,
-            before=before,
-        ))
-    finally:
-        timer.end()
+        log_list_started(filter_patterns, filter_type)
+        timer = TimedProgress(360, prefix='      ')
+        try:
+            links = list(list_links(
+                filter_patterns=filter_patterns,
+                filter_type=filter_type,
+                after=after,
+                before=before,
+            ))
+        finally:
+            timer.end()
+
 
     if not len(links):
         log_removal_finished(0, 0)
@@ -606,7 +609,8 @@ def remove(filter_str: Optional[str]=None,
             should_remove = (
                 (after is not None and float(link.timestamp) < after)
                 or (before is not None and float(link.timestamp) > before)
-                or link_matches_filter(link, filter_patterns, filter_type)
+                or link_matches_filter(link, filter_patterns or [], filter_type)
+                or link in links
             )
             if should_remove:
                 to_delete.append(link)
