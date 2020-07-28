@@ -59,9 +59,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-venv-
 
-      - name: Install dependencies
+      - name: Create virtualenv
         run: |
           python3 -m venv .venv
+          if: steps.cache-venv.outputs.cache-hit != 'true'
+
+      - name: Install dependencies
           source .venv/bin/activate
           python -m pip install .
           python -m pip install pytest bottle
