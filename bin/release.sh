@@ -34,18 +34,18 @@ cd "$DIR/docs"
 make html
 cd "$DIR"
 
-# if [ -z "$(git status --porcelain)" ] && [[ "$(git branch --show-current)" == "master" ]]; then 
-#     git pull
-# else
-#     echo "[X] Commit your changes and make sure git is checked out on clean master."
-#     exit 4
-# fi
+if [ -z "$(git status --porcelain)" ] && [[ "$(git branch --show-current)" == "master" ]]; then 
+    git pull
+else
+    echo "[X] Commit your changes and make sure git is checked out on clean master."
+    exit 4
+fi
 
 echo "[*] Bumping VERSION from $OLD_VERSION to $NEW_VERSION"
 echo "$NEW_VERSION" > "$VERSION_FILE"
-git add "$NEW_VERSION"
+git add "$VERSION_FILE"
 git commit -m "$NEW_VERSION release"
-git tag -a "$NEW_VERSION"
+git tag -a "v$NEW_VERSION" -m "v$NEW_VERSION"
 git push origin master
 git push origin --tags
 
@@ -63,12 +63,18 @@ echo "[^] Uploading to pypi.org"
 python3 -m twine upload --repository pypi dist/*
 
 echo "[+] Building docker image"
-docker build . -t "archivebox,archivebox:latest,archivebox:$NEW_VERSION,nikisweeting/archivebox,docker.pkg.github.com/pirate/ArchiveBox/archivebox:$NEW_VERSION"
+docker build . -t archivebox \
+               -t archivebox:latest \
+               -t archivebox:$NEW_VERSION \
+               -t docker.io/nikisweeting/archivebox:latest \
+               -t docker.io/nikisweeting/archivebox:$NEW_VERSION \
+               -t docker.pkg.github.com/pirate/archivebox/archivebox:latest \
+               -t docker.pkg.github.com/pirate/archivebox/archivebox:$NEW_VERSION
 
 echo "[^] Uploading docker image"
 # docker login --username=nikisweeting
 # docker login docker.pkg.github.com --username=pirate
-docker push nikisweeting/archivebox
-docker push docker.pkg.github.com/pirate/ArchiveBox/archivebox:$NEW_VERSION
+docker push docker.io/nikisweeting/archivebox
+docker push docker.pkg.github.com/pirate/archivebox/archivebox
 
 echo "[√] Done. Published version v$NEW_VERSION"
