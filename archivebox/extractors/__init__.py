@@ -85,6 +85,13 @@ def archive_link(link: Link, overwrite: bool=False, out_dir: Optional[str]=None)
 
         # print('    ', stats)
 
+        try:
+            latest_title = link.history['title'][-1].output.strip()
+            if latest_title and len(latest_title) >= len(link.title or ''):
+                link = link.overwrite(title=latest_title)
+        except Exception:
+            pass
+
         write_link_details(link, out_dir=link.link_dir)
         patch_main_index(link)
 
