@@ -131,13 +131,13 @@ jobs:
       - name: Curl index with PUBLIC_INDEX=False
         run: |
           docker-compose run archivebox config --set PUBLIC_INDEX=False
-          docker-compose restart
+          docker-compose restart || true
           sleep 6
           curl --silent --location 'http://127.0.0.1:8000' | grep 'ArchiveBox Admin'
 
       - name: Curl index with PUBLIC_INDEX=True
         run: |
           docker-compose run archivebox config --set PUBLIC_INDEX=True
-          docker-compose restart
+          docker-compose restart || true
           sleep 6
           curl --silent --location 'http://127.0.0.1:8000' | grep 'Add Links'
