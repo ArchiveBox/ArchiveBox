@@ -65,6 +65,7 @@ jobs:
           if: steps.cache-venv.outputs.cache-hit != 'true'
 
       - name: Install dependencies
+        run: |
           source .venv/bin/activate
           python -m pip install .
           python -m pip install pytest bottle
