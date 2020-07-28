@@ -35,20 +35,18 @@ setuptools.setup(
     },
     python_requires=">=3.7",
     install_requires=[
-        "requests",
-        "atomicwrites",
-        "dataclasses==0.6",
+        "requests==2.24.0",
+        "atomicwrites==1.4.0",
         "mypy-extensions==0.4.3",
         "base32-crockford==0.3.0",
-        "django==3.0.7",
-        "django-extensions==2.2.9",
+        "django==3.0.8",
+        "django-extensions==3.0.3",
 
         "dateparser",
         "ipython",
         "youtube-dl",
         "python-crontab==2.5.1",
         "w3lib==1.22.0",
-        # "croniter",
         # Some/all of these will likely be added in the future:
         # wpull
         # pywb
