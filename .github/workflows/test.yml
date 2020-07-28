@@ -66,7 +66,7 @@ jobs:
 
       - name: Test built package with pytest
         run: |
-          ./.venv/bin/python -m pipenv run pytest -s
+          ./.venv/bin/python -m pytest -s
 
   docker-test:
     runs-on: ubuntu-latest
@@ -111,5 +111,13 @@ jobs:
 
       - name: Curl to Django app
         run: |
-          sleep 10
-          curl --silent --location 'http://127.0.0.1:8000' | grep 'https://github.com/pirate/ArchiveBox/wiki'
+          sleep 8
+          curl --silent --location 'http://127.0.0.1:8000' | grep 'ArchiveBox Admin'
+          docker-compose run archivebox config --set PUBLIC_INDEX=True
+          docker-compose run archivebox add 'http://example.com/#test_docker' --index-only
+          docker-compose stop archivebox
+          docker-compose up -d
+          sleep 8
+          curl --silent --location 'http://127.0.0.1:8000' | grep 'Add Links'
+          curl --silent --location 'http://127.0.0.1:8000' | grep 'http://example.com/#test_docker'
+          docker-compose down

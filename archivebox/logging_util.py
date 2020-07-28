@@ -20,7 +20,6 @@ from .config import (
     PYTHON_ENCODING,
     ANSI,
     IS_TTY,
-    SHOW_PROGRESS,
     TERM_WIDTH,
     OUTPUT_DIR,
     SOURCES_DIR_NAME,
