@@ -64,6 +64,8 @@ jobs:
         if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
           python3 -m venv .venv
+          source .venv/bin/activate
+          python3 -m pip install --upgrade pip setuptools
 
       - name: Install dependencies
         run: |
