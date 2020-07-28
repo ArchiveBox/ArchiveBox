@@ -51,7 +51,7 @@ RUN groupadd --system archivebox \
 
 ADD . "$CODE_PATH"
 WORKDIR "$CODE_PATH"
-ENV PATH="$VENV_PATH/bin:${PATH}"
+ENV PATH="${PATH}:$VENV_PATH/bin"
 RUN python -m venv --clear --symlinks "$VENV_PATH" \
     && pip install --upgrade pip setuptools \
     && pip install -e .

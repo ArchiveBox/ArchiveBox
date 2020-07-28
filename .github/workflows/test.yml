@@ -112,4 +112,4 @@ jobs:
       - name: Curl to Django app
         run: |
           sleep 10
-          curl -IL http://127.0.0.1:8000/
+          curl --silent --location 'http://127.0.0.1:8000' | grep 'https://github.com/pirate/ArchiveBox/wiki'
