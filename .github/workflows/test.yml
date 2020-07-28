@@ -62,12 +62,13 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m venv .venv
-          ./.venv/bin/python -m pip install .
-          ./.venv/bin/python -m pip install pytest bottle
+          source .venv/bin/activate
+          python -m pip install .
+          python -m pip install pytest bottle
 
       - name: Test built package with pytest
         run: |
-          ./.venv/bin/python -m pytest -s
+          python -m pytest -s
 
   docker-test:
     runs-on: ubuntu-latest
