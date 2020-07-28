@@ -3,7 +3,7 @@ on: [push]
 
 env:
   MAX_LINE_LENGTH: 110
-  
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -16,9 +16,12 @@ jobs:
           python-version: 3.8
           architecture: x64
 
-      - name: Lint with flake8
+      - name: Install flake8
         run: |
           pip install flake8
+
+      - name: Lint with flake8
+        run: |
           # one pass for show-stopper syntax errors or undefined names
           flake8 archivebox --count --show-source --statistics
           # one pass for small stylistic things
@@ -58,7 +61,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python3 -m .venv
+          python3 -m venv .venv
           ./.venv/bin/python -m pip install -e '.[dev]'
 
       - name: Test built package with pytest
