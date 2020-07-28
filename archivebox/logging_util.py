@@ -84,7 +84,9 @@ class TimedProgress:
     """Show a progress bar and measure elapsed time until .end() is called"""
 
     def __init__(self, seconds, prefix=''):
-        if SHOW_PROGRESS:
+        from .config import SHOW_PROGRESS
+        self.SHOW_PROGRESS = SHOW_PROGRESS
+        if self.SHOW_PROGRESS:
             self.p = Process(target=progress_bar, args=(seconds, prefix))
             self.p.start()
 
@@ -96,7 +98,7 @@ class TimedProgress:
         end_ts = datetime.now()
         self.stats['end_ts'] = end_ts
         
-        if SHOW_PROGRESS:
+        if self.SHOW_PROGRESS:
             # terminate if we havent already terminated
             self.p.terminate()
             self.p.join()

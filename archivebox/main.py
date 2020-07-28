@@ -987,37 +987,53 @@ def schedule(add: bool=False,
 def server(runserver_args: Optional[List[str]]=None,
            reload: bool=False,
            debug: bool=False,
+           init: bool=False,
            out_dir: str=OUTPUT_DIR) -> None:
     """Run the ArchiveBox HTTP server"""
 
     runserver_args = runserver_args or []
     
+    if init:
+        run_subcommand('init', stdin=None, pwd=out_dir)
+
+    # setup config for django runserver
     from . import config
     config.SHOW_PROGRESS = False
-
-    if debug:
-        # if --debug is passed, patch config.DEBUG to be True for this run
-        config.DEBUG = True
-    else:
-        # force staticfiles to be served when DEBUG=False
-        # TODO: do this using nginx or another server instead of django?
-        runserver_args.append('--insecure')
+    config.DEBUG = config.DEBUG or debug
 
     check_data_folder(out_dir=out_dir)
     setup_django(out_dir)
+
     from django.core.management import call_command
     from django.contrib.auth.models import User
 
-    if IS_TTY and not User.objects.filter(is_superuser=True).exists():
+    admin_user = User.objects.filter(is_superuser=True).order_by('date_joined').only('username').last()
+
+    print('{green}[+] Starting ArchiveBox webserver...{reset}'.format(**ANSI))
+    if admin_user:
+        print("{lightred}[i] The admin username is:{lightblue} {}{reset}".format(admin_user.username, **ANSI))
+    else:
         print('{lightyellow}[!] No admin users exist yet, you will not be able to edit links in the UI.{reset}'.format(**ANSI))
         print()
         print('    To create an admin user, run:')
         print('        archivebox manage createsuperuser')
         print()
 
-    print('{green}[+] Starting ArchiveBox webserver...{reset}'.format(**ANSI))
-    if not reload:
+    # fallback to serving staticfiles insecurely with django when DEBUG=False
+    if config.DEBUG:
+        print('DEBUG=True')
+    else:
+        runserver_args.append('--insecure')  # TODO: serve statics w/ nginx instead
+    
+    # toggle autoreloading when archivebox code changes (it's on by default)
+    if reload:
+        print('AUTORELOAD=True')
+    else:
         runserver_args.append('--noreload')
+
+    config.SHOW_PROGRESS = False
+    config.DEBUG = config.DEBUG or debug
+
 
     call_command("runserver", *runserver_args)
 
