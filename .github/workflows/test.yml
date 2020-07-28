@@ -62,7 +62,8 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m venv .venv
-          ./.venv/bin/python -m pip install -e '.[dev]'
+          ./.venv/bin/python -m pip install .
+          ./.venv/bin/python -m pip install pytest bottle
 
       - name: Test built package with pytest
         run: |
