@@ -14,11 +14,11 @@ from django.contrib.auth import get_user_model
 from core.models import Snapshot
 from core.forms import AddLinkForm
 
-from ..util import htmldecode, urldecode, ansi_to_html
-from ..logging_util import printable_filesize
-from ..main import add, remove
-from ..config import OUTPUT_DIR
-from ..extractors import archive_links
+from util import htmldecode, urldecode, ansi_to_html
+from logging_util import printable_filesize
+from main import add, remove
+from config import OUTPUT_DIR
+from extractors import archive_links
 
 # TODO: https://stackoverflow.com/questions/40760880/add-custom-button-to-django-admin-panel
 

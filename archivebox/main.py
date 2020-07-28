@@ -56,7 +56,7 @@ from .config import (
     stderr,
     ConfigDict,
     ANSI,
-    IS_TTY,
+    # IS_TTY,
     USER,
     ARCHIVEBOX_BINARY,
     ONLY_NEW,
