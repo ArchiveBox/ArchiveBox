@@ -78,7 +78,7 @@ open https://127.0.0.1:8000
 
 ```bash
 # Docker Compose
-# Download https://github.com/pirate/ArchiveBox/tree/master/docker-compose.yml
+# first download: https://github.com/pirate/ArchiveBox/blob/master/docker-compose.yml
 docker-compose run archivebox init
 docker-compose run archivebox add 'https://example.com'
 docker-compose up
