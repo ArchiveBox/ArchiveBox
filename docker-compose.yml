@@ -12,8 +12,8 @@ version: '3.7'
 
 services:
     archivebox:
-        build: .
-        image: archivebox:latest
+        # build: .
+        image: nikisweeting/archivebox:latest
         command: server 0.0.0.0:8000
         stdin_open: true
         tty: true
