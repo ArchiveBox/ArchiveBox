@@ -2,7 +2,7 @@ __package__ = 'archivebox.extractors'
 
 import os
 
-from typing import Optional, List
+from typing import Optional, List, Iterable
 from datetime import datetime
 
 from ..index.schema import Link
@@ -34,10 +34,10 @@ from .archive_org import should_save_archive_dot_org, save_archive_dot_org
 
 
 @enforce_types
-def archive_link(link: Link, overwrite: bool=False, out_dir: Optional[str]=None) -> Link:
+def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
-    ARCHIVE_METHODS = (
+    ARCHIVE_METHODS = [
         ('title', should_save_title, save_title),
         ('favicon', should_save_favicon, save_favicon),
         ('wget', should_save_wget, save_wget),
@@ -47,7 +47,12 @@ def archive_link(link: Link, overwrite: bool=False, out_dir: Optional[str]=None)
         ('git', should_save_git, save_git),
         ('media', should_save_media, save_media),
         ('archive_org', should_save_archive_dot_org, save_archive_dot_org),
-    )
+    ]
+    if methods is not None:
+        ARCHIVE_METHODS = [
+            method for method in ARCHIVE_METHODS
+            if method[1] in methods
+        ]
 
     out_dir = out_dir or link.link_dir
     try:
