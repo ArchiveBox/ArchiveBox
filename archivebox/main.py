@@ -1020,15 +1020,11 @@ def server(runserver_args: Optional[List[str]]=None,
         print()
 
     # fallback to serving staticfiles insecurely with django when DEBUG=False
-    if config.DEBUG:
-        print('DEBUG=True')
-    else:
+    if not config.DEBUG:
         runserver_args.append('--insecure')  # TODO: serve statics w/ nginx instead
     
     # toggle autoreloading when archivebox code changes (it's on by default)
-    if reload:
-        print('AUTORELOAD=True')
-    else:
+    if not reload:
         runserver_args.append('--noreload')
 
     config.SHOW_PROGRESS = False
