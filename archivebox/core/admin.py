@@ -2,10 +2,12 @@ __package__ = 'archivebox.core'
 
 from io import StringIO
 from contextlib import redirect_stdout
+from pathlib import Path
 
 from django.contrib import admin
 from django.urls import path
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
 
@@ -14,20 +16,55 @@ from core.forms import AddLinkForm
 
 from ..util import htmldecode, urldecode, ansi_to_html
 from ..logging_util import printable_filesize
-from ..main import add
+from ..main import add, remove
 from ..config import OUTPUT_DIR
+from ..extractors import archive_links
 
 # TODO: https://stackoverflow.com/questions/40760880/add-custom-button-to-django-admin-panel
 
+def update_snapshots(modeladmin, request, queryset):
+    archive_links([
+        snapshot.as_link()
+        for snapshot in queryset
+    ], out_dir=OUTPUT_DIR)
+update_snapshots.short_description = "Archive"
+
+def update_titles(modeladmin, request, queryset):
+    archive_links([
+        snapshot.as_link()
+        for snapshot in queryset
+    ], overwrite=True, methods=('title',), out_dir=OUTPUT_DIR)
+update_titles.short_description = "Pull title"
+
+def overwrite_snapshots(modeladmin, request, queryset):
+    archive_links([
+        snapshot.as_link()
+        for snapshot in queryset
+    ], overwrite=True, out_dir=OUTPUT_DIR)
+overwrite_snapshots.short_description = "Re-archive (overwrite)"
+
+def verify_snapshots(modeladmin, request, queryset):
+    for snapshot in queryset:
+        print(snapshot.timestamp, snapshot.url, snapshot.is_archived, snapshot.archive_size, len(snapshot.history))
+
+verify_snapshots.short_description = "Check"
+
+def delete_snapshots(modeladmin, request, queryset):
+    remove(links=[snapshot.as_link() for snapshot in queryset], yes=True, delete=True, out_dir=OUTPUT_DIR)
+
+delete_snapshots.short_description = "Delete"
+
 
 class SnapshotAdmin(admin.ModelAdmin):
-    list_display = ('added', 'title_str', 'url_str', 'tags', 'files', 'size', 'updated')
-    sort_fields = ('title_str', 'url_str', 'tags', 'added', 'updated')
+    list_display = ('added', 'title_str', 'url_str', 'files', 'size', 'updated')
+    sort_fields = ('title_str', 'url_str', 'added', 'updated')
     readonly_fields = ('id', 'url', 'timestamp', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
     search_fields = ('url', 'timestamp', 'title', 'tags')
     fields = ('title', 'tags', *readonly_fields)
     list_filter = ('added', 'updated', 'tags')
     ordering = ['-added']
+    actions = [delete_snapshots, overwrite_snapshots, update_snapshots, update_titles, verify_snapshots]
+    actions_template = 'admin/actions_as_select.html'
 
     def id_str(self, obj):
         return format_html(
@@ -37,6 +74,10 @@ class SnapshotAdmin(admin.ModelAdmin):
 
     def title_str(self, obj):
         canon = obj.as_link().canonical_outputs()
+        tags = ''.join(
+            format_html('<span>{}</span>', tag.strip())
+            for tag in obj.tags.split(',')
+        ) if obj.tags else ''
         return format_html(
             '<a href="/{}">'
                 '<img src="/{}/{}" class="favicon" onerror="this.remove()">'
@@ -48,28 +89,35 @@ class SnapshotAdmin(admin.ModelAdmin):
             obj.archive_path, canon['favicon_path'],
             obj.archive_path, canon['wget_path'] or '',
             'fetched' if obj.latest_title or obj.title else 'pending',
-            urldecode(htmldecode(obj.latest_title or obj.title or ''))[:128] or 'Pending...',
-        )
+            urldecode(htmldecode(obj.latest_title or obj.title or ''))[:128] or 'Pending...'
+        ) + mark_safe(f'<span class="tags">{tags}</span>')
 
     def files(self, obj):
-        canon = obj.as_link().canonical_outputs()
+        link = obj.as_link()
+        canon = link.canonical_outputs()
+        out_dir = Path(link.link_dir)
+
+        link_tuple = lambda link, method: (link.archive_path, canon[method], canon[method] and (out_dir / canon[method]).exists())
+
         return format_html(
-            '<span style="font-size: 1.2em; opacity: 0.8">'
-                '<a href="/{}/{}" title="Wget clone">🌐 </a> '
-                '<a href="/{}/{}" title="PDF">📄</a> '
-                '<a href="/{}/{}" title="Screenshot">🖥 </a> '
-                '<a href="/{}/{}" title="HTML dump">🅷 </a> '
-                '<a href="/{}/{}" title="Media files">📼 </a> '
-                '<a href="/{}/{}" title="Git repos">📦 </a> '
-                '<a href="/{}/{}" title="Archive.org snapshot">🏛 </a> '
+            '<span class="files-icons" style="font-size: 1.2em; opacity: 0.8">'
+                '<a href="/{}/{}/" class="exists-{}" title="Wget clone">🌐 </a> '
+                '<a href="/{}/{}" class="exists-{}" title="PDF">📄</a> '
+                '<a href="/{}/{}" class="exists-{}" title="Screenshot">🖥 </a> '
+                '<a href="/{}/{}" class="exists-{}" title="HTML dump">🅷 </a> '
+                '<a href="/{}/{}/" class="exists-{}" title="WARC">🆆 </a> '
+                '<a href="/{}/{}/" class="exists-{}" title="Media files">📼 </a> '
+                '<a href="/{}/{}/" class="exists-{}" title="Git repos">📦 </a> '
+                '<a href="{}" class="exists-{}" title="Archive.org snapshot">🏛 </a> '
             '</span>',
-            obj.archive_path, canon['wget_path'] or '',
-            obj.archive_path, canon['pdf_path'],
-            obj.archive_path, canon['screenshot_path'],
-            obj.archive_path, canon['dom_path'],
-            obj.archive_path, canon['media_path'],
-            obj.archive_path, canon['git_path'],
-            obj.archive_path, canon['archive_org_path'],
+            *link_tuple(link, 'wget_path'),
+            *link_tuple(link, 'pdf_path'),
+            *link_tuple(link, 'screenshot_path'),
+            *link_tuple(link, 'dom_path'),
+            *link_tuple(link, 'warc_path')[:2], any((out_dir / canon['warc_path']).glob('*.warc.gz')),
+            *link_tuple(link, 'media_path')[:2], any((out_dir / canon['media_path']).glob('*')),
+            *link_tuple(link, 'git_path')[:2], any((out_dir / canon['git_path']).glob('*')),
+            canon['archive_org_path'], (out_dir / 'archive.org.txt').exists(),
         )
 
     def size(self, obj):
