@@ -24,8 +24,10 @@ OLD_VERSION="$(cat "$VERSION_FILE")"
 NEW_VERSION="$(bump_semver "$OLD_VERSION")"
 
 echo "[*] Fetching latest docs version"
+sphinx-apidoc -o docs archivebox
 cd "$DIR/docs"
 git pull
+make html
 cd "$DIR"
 
 if [ -z "$(git status --porcelain)" ] && [[ "$(git branch --show-current)" == "master" ]]; then 

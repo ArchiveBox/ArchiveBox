@@ -40,11 +40,14 @@ You can use it to preserve access to websites you care about by storing them loc
 #### How does it work?
 
 ```bash
-docker run -v $PWD:/data archivebox init
-docker run -v $PWD/data:/data -p 8000 archivebox
+mkdir data && cd data
+archivebox init
+archivebox add 'https://example.com'
+archivebox add 'https://getpocket.com/users/USERNAME/feed/all' --depth=1
+archivebox server
 ```
 
-After installing the dependencies, just pipe some new links into the `archivebox add` command to start your archive.
+After installing archivebox, just pass some new links to the `archivebox add` command to start your collection.
 
 ArchiveBox is written in Python 3.7 and uses wget, Chrome headless, youtube-dl, pywb, and other common UNIX tools to save each page you add in multiple redundant formats. It doesn't require a constantly running server or backend, just open the generated `output/index.html` in a browser to view the archive. It can import and export links as JSON (among other formats), so it's easy to script or hook up to other APIs. If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
@@ -65,30 +68,38 @@ ArchiveBox is written in `python3.7` and has [3 main binary dependencies](https:
 To get started, you can [install them manually](https://github.com/pirate/ArchiveBox/wiki/Install) using your system's package manager, use the [automated helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart), or use the official [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker) container. All three dependencies are optional if [disabled](https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles) in settings.
 
 ```bash
-# 1. Install dependencies (use apt on ubuntu, brew on mac, or pkg on BSD)
+# Docker
+mkdir data && cd data
+docker run -v $PWD:/data archivebox init
+docker run -v $PWD:/data archivebox add 'https://example.com'
+docker run -v $PWD:/data -p 8000 archivebox server
+open https://127.0.0.1:8000
+```
+
+```bash
+# Bare Metal
+# Use apt on Ubuntu/Debian, brew on mac, or pkg on BSD
 apt install python3 python3-pip git curl wget youtube-dl chromium-browser
 
-# 2. Download ArchiveBox
-pip install archivebox
+pip install archivebox      # install archivebox
 
-# 3. Create a new archive anywhere
-mkdir archive_folder && cd archive_folder && archivebox init
+mkdir data && cd data       # (doesn't have to be called data)
+archivebox init
+archivebox add 'https://example.com'  # add URLs via args or stdin
 
-# 4. Add your first link to your archive
-echo 'https://example.com' | archivebox add # pass URL to archive via stdin
-
-archivebox add https://getpocket.com/users/example/feed/all --depth=1 # or import an RSS/JSON/XML/TXT feed
+# or import an RSS/JSON/XML/TXT feed/list of links
+archivebox add https://getpocket.com/users/USERNAME/feed/all --depth=1
 ```
 
-Once you've added your first links, open `archive_folder/index.html` in a browser to view the archive.
-You can also start a django server to manage your links:
+Once you've added your first links, open `data/index.html` in a browser to view the static archive.
 
-```
+You can also start it as a server with a full web UI to manage your links:
+```bash
 archivebox manage createsuperuser
 archivebox server
 ```
 
-You can visit `localhost:8000` in your browser to access it.
+You can visit `https://127.0.0.1:8000` in your browser to access it.
 
 [DEMO: archivebox.zervice.io/](https://archivebox.zervice.io)  
 For more information, see the [full Quickstart guide](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) docs.
