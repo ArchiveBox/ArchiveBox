@@ -83,7 +83,6 @@ from .config import (
     EXTERNAL_LOCATIONS,
     DATA_LOCATIONS,
     DEPENDENCIES,
-    DEBUG,
     load_all_config,
     CONFIG,
     USER_CONFIG,
