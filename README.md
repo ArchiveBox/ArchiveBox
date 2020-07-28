@@ -22,15 +22,7 @@
 <a href="https://test.pypi.org/project/archivebox/"><img src="https://img.shields.io/badge/Python-%3E%3D3.5-yellow.svg?logo=python&logoColor=yellow"/></a>
 <a href="https://github.com/pirate/ArchiveBox/wiki/Install#dependencies"><img src="https://img.shields.io/badge/Chromium-%3E%3D59-orange.svg?logo=Google+Chrome&logoColor=orange"/></a>
 <a href="https://hub.docker.com/r/nikisweeting/archivebox"><img src="https://img.shields.io/badge/Docker-all%20platforms-lightblue.svg?logo=docker&logoColor=lightblue"/></a>
-
 <hr/>
-<br/>
-<i>💥 Attention: Big API changes are coming with the current release (including <code>pip install archivebox</code>)!
-<br/><br/>
-See the <a href="https://github.com/pirate/ArchiveBox/pull/207#issuecomment-494107553">v0.4 release PR</a> for more information.</b>
-<br/>
-<hr/>
-
 </div>
 
 **ArchiveBox takes a list of website URLs you want to archive, and creates a local, static, browsable HTML clone of the content from those websites (it saves HTML, JS, media files, PDFs, images and more).**
