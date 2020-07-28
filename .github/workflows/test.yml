@@ -115,19 +115,28 @@ jobs:
           docker run -v "$PWD"/data:/data archivebox list | grep -q "www.test-nginx-1.local" || { echo "The site 1 isn't in the list"; exit 1; }
           docker run -v "$PWD"/data:/data archivebox list | grep -q "www.test-nginx-2.local" || { echo "The site 2 isn't in the list"; exit 1; }
 
+
       - name: Start docker-compose stack
         run: |
+          docker-compose run archivebox init
           docker-compose up -d
+          sleep 4
+          curl --silent --location 'http://127.0.0.1:8000/static/admin/js/jquery.init.js' | grep 'django.jQuery'
 
-      - name: Curl to Django app
-        run: |
-          sleep 8
-          curl --silent --location 'http://127.0.0.1:8000' | grep 'ArchiveBox Admin'
-          docker-compose run archivebox config --set PUBLIC_INDEX=True
+      - name: Check added urls show up in index
           docker-compose run archivebox add 'http://example.com/#test_docker' --index-only
-          docker-compose stop archivebox
-          docker-compose up -d
-          sleep 8
-          curl --silent --location 'http://127.0.0.1:8000' | grep 'Add Links'
           curl --silent --location 'http://127.0.0.1:8000' | grep 'http://example.com/#test_docker'
-          docker-compose down
+
+      - name: Curl index with PUBLIC_INDEX=False
+        run: |
+          docker-compose run archivebox config --set PUBLIC_INDEX=False
+          docker-compose restart
+          sleep 4
+          curl --silent --location 'http://127.0.0.1:8000' | grep 'ArchiveBox Admin'
+
+      - name: Curl index with PUBLIC_INDEX=True
+        run: |
+          docker-compose run archivebox config --set PUBLIC_INDEX=True
+          docker-compose restart
+          sleep 4
+          curl --silent --location 'http://127.0.0.1:8000' | grep 'Add Links'
