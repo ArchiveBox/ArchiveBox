@@ -1,0 +1,16 @@
+<tr>
+    <td title="$timestamp">$bookmarked_date</td>
+    <td class="title-col">
+        <a href="$archive_path/index.html" class="link-url"><img src="$favicon_url" class="link-favicon" decoding="async"></a>
+        <a href="$archive_path/$wget_url" title="$title">
+            <span data-title-for="$url" data-archived="$is_archived">$title</span>
+            <small style="float:right">$tags</small>
+        </a>
+    </td>
+    <td>
+        <a href="$archive_path/index.html">📄 
+            <span data-number-for="$url" title="Fetching any missing files...">$num_outputs <img src="static/spinner.gif" class="files-spinner" decoding="async"/></span>
+        </a>
+    </td>
+    <td style="text-align:left"><a href="$url">$url</a></td>
+</tr>

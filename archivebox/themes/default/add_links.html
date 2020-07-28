@@ -1,0 +1,100 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+    <div class="breadcrumbs">
+        <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+        {% if title %} &rsaquo; {{ title }}{% endif %}
+    </div>
+{% endblock %}
+
+{% block content %}
+    <style>
+        .dashboard #content {
+            width: 100%;
+            margin-right: 0px;
+            margin-left: 0px;
+        }
+        #submit {
+            border: 1px solid rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f5dd5d;
+            color: #333;
+            font-size: 18px;
+            font-weight: 800;
+        }
+        #add-form button[role=submit]:hover {
+            background-color: #e5cd4d;
+        }
+        #add-form label {
+            display: block;
+            font-size: 16px;
+        }
+        #add-form textarea {
+            width: 100%;
+            min-height: 300px;
+        }
+        #delay-warning div {
+            border: 1px solid red;
+            border-radius: 4px;
+            margin: 10px;
+            padding: 10px;
+            font-size: 15px;
+            background-color: #F5DD5D;
+        }
+        #stdout {
+            background-color: #ded;
+            padding: 10px 10px;
+            border-radius: 4px;
+            white-space: normal;
+        }
+    </style>
+    <div style="max-width: 550px; margin: auto; float: none">
+        <br/><br/>
+        {% if stdout %}
+            <h1>Add new URLs to your archive: results</h1>
+            <pre id="stdout">
+                {{ stdout | safe }}
+                <br/><br/>
+            </pre>
+            <br/>
+            <center>
+                <a href="/add" id="submit">&nbsp; Add more URLs ➕</a>
+            </center>
+        {% else %}
+            <form id="add-form" action="?" method="POST" class="p-form">{% csrf_token %}
+                <h1>Add new URLs to your archive</h1>
+                <br/>
+                {{ form.as_p }}
+                <center>
+                    <button role="submit" id="submit">&nbsp; Add URLs and archive ➕</button>
+                </center>
+            </form>
+            <br/><br/><br/>
+            <center id="delay-warning" style="display: none">
+                <b><i>This page will be unresponsive until the process is completely finished.</i></b>
+                <br/><br/>
+                <div>
+                    Warning: it may take several minutes to finish adding!<br/>
+                    <br/>
+                    Progress will be displayed in the <code>archivebox server</code> stdout,<br/>
+                    and on this page once the archiving process completes.<br/>
+                    <br/>
+                    <small>(it's safe to leave this page, adding will continue in the background)</small>
+                </div>
+            </center>
+            <script>
+                document.getElementById('add-form').addEventListener('submit', function(event) {
+                    setTimeout(function() {
+                        document.getElementById('add-form').innerHTML = '<center><h3>Adding URLs to index and running archive methods...<h3><br/><div class="loader"></div><br/>(see terminal for progress)</center>'
+                        document.getElementById('delay-warning').style.display = 'block'
+                    }, 200)
+                    return true
+                })
+            </script>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block sidebar %}{% endblock %}

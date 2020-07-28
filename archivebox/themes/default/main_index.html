@@ -1,0 +1,279 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Archived Sites</title>
+        <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            :root {
+                --bg-main: #efefef;
+                --accent-1: #aa1e55;
+                --accent-2: #ffebeb;
+                --accent-3: #efefef;
+
+                --text-1: #1c1c1c;
+                --text-2: #eaeaea;
+                --text-main: #1a1a1a;
+                --font-main: "Gill Sans", Helvetica, sans-serif;
+            }
+            /* Dark Mode (WIP) */
+            /*
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --accent-2: hsl(160, 100%, 96%);
+
+                    --text-1: #eaeaea;
+                    --text-2: #1a1a1a;
+                    --bg-main: #101010;
+                }
+
+                #table-bookmarks_wrapper,
+                #table-bookmarks_wrapper img,
+                tbody td:nth-child(3),
+                tbody td:nth-child(3) span,
+                footer {
+                    filter: invert(100%);
+                }
+            }*/
+
+            html, body {
+                width: 100%;
+                height: 100%;
+                font-size: 18px;
+                font-weight: 200;
+                text-align: center;
+                margin: 0px;
+                padding: 0px;
+                font-family: var(--font-main);
+            }
+
+            .header-top small {
+                font-weight: 200;
+                color: var(--accent-3);
+            }
+            
+            .header-top {
+                width: 100%;
+                height: auto;
+                min-height: 40px;
+                margin: 0px;
+                text-align: center;
+                color: white;
+                font-size: calc(11px + 0.84vw);
+                font-weight: 200;
+                padding: 4px 4px;
+                border-bottom: 3px solid var(--accent-1);
+                background-color: var(--accent-1);
+            }
+            input[type=search] {
+                width: 22vw;
+                border-radius: 4px;
+                border: 1px solid #aeaeae;
+                padding: 3px 5px;
+            }
+            .nav > div {
+                min-height: 30px;
+            }
+            .header-top a {
+                text-decoration: none;
+                color: rgba(0,0,0,0.6);
+            }
+            .header-top a:hover {
+                text-decoration: none;
+                color: rgba(0,0,0,0.9);
+            }
+            .header-top .col-lg-4 {
+                text-align: center;
+                padding-top: 4px;
+                padding-bottom: 4px;
+            }
+            .header-archivebox img {
+                display: inline-block;
+                margin-right: 3px;
+                height: 30px;
+                margin-left: 12px;
+                margin-top: -4px;
+                margin-bottom: 2px;
+            }
+            .header-archivebox img:hover {
+                opacity: 0.5;
+            }
+
+            #table-bookmarks_length, #table-bookmarks_filter {
+                padding-top: 12px;
+                opacity: 0.8;
+                padding-left: 24px;
+                padding-right: 22px;
+                margin-bottom: -16px;
+            }
+            table {
+                padding: 6px;
+                width: 100%;
+            }
+            table thead th {
+                font-weight: 400;
+            }
+            table tr {
+                height: 35px;
+            }
+            tbody tr:nth-child(odd) {
+               background-color: var(--accent-2) !important;
+            }
+            table tr td {
+                white-space: nowrap;
+                overflow: hidden;
+                /*padding-bottom: 0.4em;*/
+                /*padding-top: 0.4em;*/
+                padding-left: 2px;
+                text-align: center;
+            }
+            table tr td a {
+                text-decoration: none;
+            }
+            table tr td img, table tr td object {
+                display: inline-block;
+                margin: auto;
+                height: 24px;
+                width: 24px;
+                padding: 0px;
+                padding-right: 5px;
+                vertical-align: middle;
+                margin-left: 4px;
+            }
+            #table-bookmarks {
+                width: 100%; 
+                overflow-y: scroll;
+                table-layout: fixed;
+            }
+            .dataTables_wrapper {
+                background-color: #fafafa;
+            }
+            table tr a span[data-archived~=False] {
+                opacity: 0.4;
+            }
+            .files-spinner {
+                height: 15px;
+                width: auto;
+                opacity: 0.5;
+                vertical-align: -2px;
+            }
+            .in-progress {
+                display: none;
+            }
+            body[data-status~=finished] .files-spinner {
+                display: none;
+            }
+            /*body[data-status~=running] .in-progress {
+                display: inline-block;
+            }*/
+            tr td a.favicon img {
+                padding-left: 6px;
+                padding-right: 12px;
+                vertical-align: -4px;
+            }
+            tr td a.title {
+                font-size: 1.4em;
+                text-decoration:none;
+                color:black;
+            }
+            tr td a.title small {
+                background-color: var(--accent-3);
+                border-radius: 4px;
+                float:right
+            }
+            input[type=search]::-webkit-search-cancel-button {
+                -webkit-appearance: searchfield-cancel-button;
+            }
+            .title-col {
+                text-align: left;
+            }
+            .title-col a {
+                color: black;
+            }
+        </style>
+        <link rel="stylesheet" href="{% static 'bootstrap.min.css' %}">
+        <link rel="stylesheet" href="{% static 'jquery.dataTables.min.css' %}"/>
+        <script src="{% static 'jquery.min.js' %}"></script>
+        <script src="{% static 'jquery.dataTables.min.js' %}"></script>
+        <script>
+            document.addEventListener('error', function(e) {
+              e.target.style.opacity = 0;
+            }, true)
+            jQuery(document).ready(function() {
+                jQuery('#table-bookmarks').DataTable({
+                    stateSave: true, // save state (filtered input, number of entries shown, etc) in localStorage
+                    dom: '<lf<t>ip>', // how to show the table and its helpers (filter, etc) in the DOM
+                    order: [[0, 'desc']],
+                    iDisplayLength: 100,
+                });
+            });
+        </script>
+    </head>
+    <body data-status="finished">
+        <header>
+            <div class="header-top container-fluid">
+                <div class="row nav">
+                    <div class="col-sm-2">
+                        <a href="/" class="header-archivebox" title="Last updated: {{updated}}">
+                            <img src="{% static 'archive.png' %}" alt="Logo"/>
+                            ArchiveBox: Index
+                        </a>
+                    </div>
+                    <div class="col-sm-10" style="text-align: right">
+                        <a href="/add/">Add Links</a> &nbsp; | &nbsp; 
+                        <a href="/admin/core/snapshot/">Admin</a> &nbsp; | &nbsp; 
+                        <a href="https://github.com/pirate/ArchiveBox/wiki">Docs</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <table id="table-bookmarks">
+            <thead>
+                <tr>
+                    <th style="width: 100px;">Bookmarked</th>
+                    <th style="width: 26vw;">Saved Link ({{num_links}})</th>
+                    <th style="width: 50px">Files</th>
+                    <th style="width: 16vw;whitespace:nowrap;overflow-x:hidden;">Original URL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for link in links %}
+                    <tr>
+                        <td title="{{link.timestamp}}">{{link.bookmarked_date}}</td>
+                        <td class="title-col">
+                            {% if link.is_archived %}
+                                <a href="archive/{{link.timestamp}}/index.html"><img src="archive/{{link.timestamp}}/favicon.ico" class="link-favicon" decoding="async"></a>
+                            {% else %}
+                                <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="link-favicon" decoding="async"></a>
+                            {% endif %}
+                            <a href="archive/{{link.timestamp}}/{{link.canonical_outputs.wget_path}}" title="{{link.title}}">
+                                <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title|default:'Loading...'}}</span>
+                                <small style="float:right">{{link.tags|default:''}}</small>
+                            </a>
+                        </td>
+                        <td>
+                            <a href="archive/{{link.timestamp}}/index.html">📄 
+                                <span data-number-for="{{link.url}}" title="Fetching any missing files...">{{link.num_outputs}} <img src="{% static 'spinner.gif' %}" class="files-spinner" decoding="async"/></span>
+                            </a>
+                        </td>
+                        <td style="text-align:left"><a href="{{link.url}}">{{link.url}}</a></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <footer>
+            <br/>
+            <center>
+                <small>
+                    Archive created using <a href="https://github.com/pirate/ArchiveBox" title="Github">ArchiveBox</a>
+                    version <a href="https://github.com/pirate/ArchiveBox/tree/v{{VERSION}}" title="Git commit">v{{VERSION}}</a> &nbsp; | &nbsp; 
+                    Download index as <a href="index.json" title="JSON summary of archived links.">JSON</a>
+                    <br/><br/>
+                    {{FOOTER_INFO}}
+                </small>
+            </center>
+            <br/>
+        </footer>
+    </body>
+</html>

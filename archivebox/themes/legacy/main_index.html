@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Archived Sites</title>
+        <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            html, body {
+                width: 100%;
+                height: 100%;
+                font-size: 18px;
+                font-weight: 200;
+                text-align: center;
+                margin: 0px;
+                padding: 0px;
+                font-family: "Gill Sans", Helvetica, sans-serif;
+            }
+            .header-top small {
+                font-weight: 200;
+                color: #efefef;
+            }
+            
+            .header-top {
+                width: 100%;
+                height: auto;
+                min-height: 40px;
+                margin: 0px;
+                text-align: center;
+                color: white;
+                font-size: calc(11px + 0.84vw);
+                font-weight: 200;
+                padding: 4px 4px;
+                border-bottom: 3px solid #aa1e55;
+                background-color: #aa1e55;
+            }
+            input[type=search] {
+                width: 22vw;
+                border-radius: 4px;
+                border: 1px solid #aeaeae;
+                padding: 3px 5px;
+            }
+            .nav > div {
+                min-height: 30px;
+            }
+            .header-top a {
+                text-decoration: none;
+                color: rgba(0,0,0,0.6);
+            }
+            .header-top a:hover {
+                text-decoration: none;
+                color: rgba(0,0,0,0.9);
+            }
+            .header-top .col-lg-4 {
+                text-align: center;
+                padding-top: 4px;
+                padding-bottom: 4px;
+            }
+            .header-archivebox img {
+                display: inline-block;
+                margin-right: 3px;
+                height: 30px;
+                margin-left: 12px;
+                margin-top: -4px;
+                margin-bottom: 2px;
+            }
+            .header-archivebox img:hover {
+                opacity: 0.5;
+            }
+
+            #table-bookmarks_length, #table-bookmarks_filter {
+                padding-top: 12px;
+                opacity: 0.8;
+                padding-left: 24px;
+                padding-right: 22px;
+                margin-bottom: -16px;
+            }
+            table {
+                padding: 6px;
+                width: 100%;
+            }
+            table thead th {
+                font-weight: 400;
+            }
+            table tr {
+                height: 35px;
+            }
+            tbody tr:nth-child(odd) {
+               background-color: #ffebeb !important;
+            }
+            table tr td {
+                white-space: nowrap;
+                overflow: hidden;
+                /*padding-bottom: 0.4em;*/
+                /*padding-top: 0.4em;*/
+                padding-left: 2px;
+                text-align: center;
+            }
+            table tr td a {
+                text-decoration: none;
+            }
+            table tr td img, table tr td object {
+                display: inline-block;
+                margin: auto;
+                height: 24px;
+                width: 24px;
+                padding: 0px;
+                padding-right: 5px;
+                vertical-align: middle;
+                margin-left: 4px;
+            }
+            #table-bookmarks {
+                width: 100%; 
+                overflow-y: scroll;
+                table-layout: fixed;
+            }
+            .dataTables_wrapper {
+                background-color: #fafafa;
+            }
+            table tr a span[data-archived~=False] {
+                opacity: 0.4;
+            }
+            .files-spinner {
+                height: 15px;
+                width: auto;
+                opacity: 0.5;
+                vertical-align: -2px;
+            }
+            .in-progress {
+                display: none;
+            }
+            body[data-status~=finished] .files-spinner {
+                display: none;
+            }
+            /*body[data-status~=running] .in-progress {
+                display: inline-block;
+            }*/
+            tr td a.favicon img {
+                padding-left: 6px;
+                padding-right: 12px;
+                vertical-align: -4px;
+            }
+            tr td a.title {
+                font-size: 1.4em;
+                text-decoration:none;
+                color:black;
+            }
+            tr td a.title small {
+                background-color: #efefef;
+                border-radius: 4px;
+                float:right
+            }
+            input[type=search]::-webkit-search-cancel-button {
+                -webkit-appearance: searchfield-cancel-button;
+            }
+            .title-col {
+                text-align: left;
+            }
+            .title-col a {
+                color: black;
+            }
+        </style>
+        <link rel="stylesheet" href="static/bootstrap.min.css">
+        <link rel="stylesheet" href="static/jquery.dataTables.min.css"/>
+        <script src="static/jquery.min.js"></script>
+        <script src="static/jquery.dataTables.min.js"></script>
+        <script>
+            document.addEventListener('error', function(e) {
+              e.target.style.opacity = 0;
+            }, true)
+            jQuery(document).ready(function() {
+                jQuery('#table-bookmarks').DataTable({
+                    stateSave: true, // save state (filtered input, number of entries shown, etc) in localStorage
+                    dom: '<lf<t>ip>', // how to show the table and its helpers (filter, etc) in the DOM
+                    order: [[0, 'desc']],
+                    iDisplayLength: 100,
+                });
+            });
+        </script>
+    </head>
+    <body data-status="$status">
+        <header>
+            <div class="header-top container-fluid">
+                <div class="row nav">
+                    <div class="col-sm-2">
+                        <a href="?" class="header-archivebox" title="Last updated: $time_updated">
+                            <img src="static/archive.png" alt="Logo"/>
+                            ArchiveBox
+                        </a>
+                    </div>
+                    <div class="col-sm-10" style="text-align: right">
+                        <a href="https://github.com/pirate/ArchiveBox/wiki">Documentation</a> &nbsp; | &nbsp; 
+                        <a href="https://github.com/pirate/ArchiveBox">Source</a> &nbsp; | &nbsp; 
+                        <a href="https://archivebox.io">Website</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <table id="table-bookmarks">
+            <thead>
+                <tr class="thead-tr">
+                    <th style="width: 100px;">Bookmarked</th>
+                    <th style="width: 26vw;">Saved Link ($num_links)</th>
+                    <th style="width: 50px">Files</th>
+                    <th style="width: 16vw;whitespace:nowrap;overflow-x:hidden;">Original URL</th>
+                </tr>
+            </thead>
+            <tbody>$rows</tbody>
+        </table>
+        <footer>
+            <br/>
+            <center>
+                <small>
+                    Archive created using <a href="https://github.com/pirate/ArchiveBox" title="Github">ArchiveBox</a>
+                    version <a href="https://github.com/pirate/ArchiveBox/tree/v$version" title="Git commit">v$version</a> &nbsp; | &nbsp; 
+                    Download index as <a href="index.json" title="JSON summary of archived links.">JSON</a>
+                    <br/><br/>
+                    $footer_info
+                </small>
+            </center>
+            <br/>
+        </footer>
+    </body>
+</html>

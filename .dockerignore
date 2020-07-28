@@ -1,20 +1,16 @@
 .DS_Store
 ._*
-
+*.pyc
 __pycache__/
 .mypy_cache/
-archivebox.egg-info/
+
+venv/
+.venv/
+.docker-venv/
+
+*.egg-info/
 build/
 dist/
 
-# Dependency code
-.venv                # main pipenv venv path
-venv                 # old venv path, (no longer used)
-archivebox/.venv     # old venv path, (no longer used)
-archivebox/venv      # old venv path, (no longer used)
-
-
-# Stateful data folders
-data                 # main archivebox data folder
-archivebox/output    # old output folder path (no longer used)
-output               # old output folder path (no longer used)
+data/
+output/

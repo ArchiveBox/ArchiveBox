@@ -1,0 +1,188 @@
+{% load i18n static %}<!DOCTYPE html>
+{% get_current_language as LANGUAGE_CODE %}{% get_current_language_bidi as LANGUAGE_BIDI %}
+<html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
+<head>
+<title>{% block title %}{% endblock %} | ArchiveBox</title>
+<link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
+{% block extrastyle %}{% endblock %}
+{% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}">{% endif %}
+{% block extrahead %}{% endblock %}
+{% block responsive %}
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="{% static "admin/css/responsive.css" %}">
+    {% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% static "admin/css/responsive_rtl.css" %}">{% endif %}
+{% endblock %}
+{% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE">{% endblock %}
+<link rel="stylesheet" type="text/css" href="{% static "admin.css" %}">
+</head>
+{% load i18n %}
+
+<body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}"
+  data-admin-utc-offset="{% now "Z" %}">
+
+  <style nonce="{{nonce}}">
+      /* Loading Progress Bar */
+        #progress {
+            position: absolute;
+            z-index: 1000;
+            top: 0px;
+            left: -6px;
+            width: 2%;
+            opacity: 1;
+            height: 2px;
+            background: #1a1a1a;
+            border-radius: 1px;
+            transition: width 4s ease-out, opacity 400ms linear;
+        }
+  
+        @-moz-keyframes bugfix { from { padding-right: 1px ; } to { padding-right: 0; } }
+  </style>
+
+  <script>
+        // Page Loading Bar
+        window.loadStart = function(distance) {
+            var distance = distance || 0;
+            // only add progrstess bar if not already present
+            if (django.jQuery("#loading-bar").length == 0) {
+                django.jQuery("body").add("<div id=\"loading-bar\"></div>");
+            }
+            if (django.jQuery("#progress").length === 0) {
+                django.jQuery("body").append(django.jQuery("<div></div>").attr("id", "progress"));
+                let last_distance = (distance || (30 + (Math.random() * 30)))
+                django.jQuery("#progress").width(last_distance + "%");
+                setInterval(function() {
+                    last_distance += Math.random()
+                    django.jQuery("#progress").width(last_distance + "%");
+                }, 1000)
+            }
+        };
+  
+        window.loadFinish = function() {
+            django.jQuery("#progress").width("101%").delay(200).fadeOut(400, function() {
+                django.jQuery(this).remove();
+            });
+        };
+        window.loadStart();
+        window.addEventListener('beforeunload', function() {window.loadStart(27)});
+        document.addEventListener('DOMContentLoaded', function() {window.loadFinish()});
+  </script>
+
+
+<!-- Container -->
+<div id="container">
+
+    {% if not is_popup %}
+    <!-- Header -->
+    <div id="header">
+        <div id="branding">
+            <h1 id="site-name">
+                <a href="{% url 'Home' %}">
+                    <img src="{% static 'archive.png' %}" id="logo">
+                    ArchiveBox
+                </a>
+            </h1>
+                
+        </div>
+        {% block usertools %}
+        {% if has_permission %}
+        <div id="user-tools">
+            <a href="{% url 'admin:Add' %}">Add ➕</a> /
+            <a href="{% url 'Home' %}">Snapshots</a> /
+            <a href="/admin/auth/user/">Users</a> /
+            <a href="{% url 'OldHome' %}">Old UI</a> /
+            <a href="{% url 'Docs' %}">Docs</a>
+             &nbsp; &nbsp;
+            {% block welcome-msg %}
+                {% trans 'User' %}
+                <strong>{% firstof user.get_short_name user.get_username %}</strong> &nbsp; &nbsp;
+            {% endblock %}
+            {% block userlinks %}
+                {% if user.is_active and user.is_staff %}
+                    {% url 'django-admindocs-docroot' as docsroot %}
+                    {% if docsroot %}
+                        <a href="{{ docsroot }}">{% trans 'Documentation' %}</a> /
+                    {% endif %}
+                {% endif %}
+                {% if user.has_usable_password %}
+                <a href="{% url 'admin:password_change' %}">{% trans 'Change password' %}</a> /
+                {% endif %}
+                <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
+            {% endblock %}
+        </div>
+        {% endif %}
+        {% endblock %}
+        {% block nav-global %}{% endblock %}
+    </div>
+        <!-- END Header -->
+        {% block breadcrumbs %}
+        <div class="breadcrumbs">
+        <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+        {% if title %} &rsaquo; {{ title }}{% endif %}
+        </div>
+        {% endblock %}
+    {% endif %}
+
+    {% block messages %}
+        {% if messages %}
+        <ul class="messagelist">{% for message in messages %}
+          <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message|capfirst }}</li>
+        {% endfor %}</ul>
+        {% endif %}
+    {% endblock messages %}
+
+    <!-- Content -->
+    <div id="content" class="{% block coltype %}colM{% endblock %}">
+        {% block pretitle %}{% endblock %}
+        {% block content_title %}{# {% if title %}<h1>{{ title }}</h1>{% endif %} #}{% endblock %}
+        {% block content %}
+            {% block object-tools %}{% endblock %}
+            {{ content }}
+        {% endblock %}
+        {% block sidebar %}{% endblock %}
+        <br class="clear">
+    </div>
+    <!-- END Content -->
+
+    {% block footer %}<div id="footer"></div>{% endblock %}
+</div>
+<!-- END Container -->
+
+<script>
+    (function ($) {
+        $.fn.reverse = [].reverse;
+
+        function fix_actions() {
+            var container = $('div.actions');
+
+            if (container.find('option').length < 10) {
+                container.find('label, button').hide();
+
+                var buttons = $('<div></div>')
+                    .prependTo(container)
+                    .css('display', 'inline')
+                    .addClass('class', 'action-buttons');
+
+                container.find('option:gt(0)').reverse().each(function () {
+                    const name = this.value
+                    $('<button>')
+                        .appendTo(buttons)
+                        .attr('name', this.value)
+                        .addClass('button')
+                        .text(this.text)
+                        .click(function () {
+                            container.find('select')
+                                .find(':selected').attr('selected', '').end()
+                                .find('[value=' + this.name + ']').attr('selected', 'selected');
+                            $('#changelist-form button[name="index"]').click();
+                            document.querySelector('#logo').outerHTML = '<div class="loader"></div>'
+                        });
+                });
+            }
+        };
+        $(function () {
+            fix_actions();
+        });
+    })(django.jQuery);
+</script>
+</body>
+</html>

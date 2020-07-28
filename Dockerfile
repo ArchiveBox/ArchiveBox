@@ -1,74 +1,68 @@
-# This Dockerfile for ArchiveBox installs the following in a container:
-#     - curl, wget, python3, youtube-dl, google-chrome-unstable
-#     - ArchiveBox
+# This is the Dockerfile for ArchiveBox, it includes the following major pieces:
+#     git, curl, wget, python3, youtube-dl, google-chrome-stable, ArchiveBox
 # Usage:
-#     docker build github.com/pirate/ArchiveBox -t archivebox
-#     echo 'https://example.com' | docker run -i -v ./data:/data archivebox /bin/archive
-#     docker run -v ./data:/data archivebox /bin/archive 'https://example.com/some/rss/feed.xml'
+#     docker build . -t archivebox
+#     docker run -v "$PWD/data":/data archivebox init
+#     docker run -v "$PWD/data":/data archivebox add 'https://example.com'
 # Documentation:
 #     https://github.com/pirate/ArchiveBox/wiki/Docker#docker
 
-# TODO: bump to latest chrome and node version, confirm chrome doesn't hang on simple pages
+FROM python:3.8-slim-buster
 
-FROM node:11-slim
-LABEL maintainer="Nick Sweeting <archivebox-git@sweeting.me>"
+LABEL name="archivebox" \
+      maintainer="Nick Sweeting <archivebox-git@sweeting.me>" \
+      description="All-in-one personal internet archiving container"
 
-RUN apt-get update \
-    && apt-get install -yq --no-install-recommends \
-        git wget curl youtube-dl gnupg2 libgconf-2-4 python3 python3-pip \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install latest chrome package and fonts to support major charsets (Chinese, Japanese, Arabic, Hebrew, Thai and a few others)
-RUN apt-get update && apt-get install -y wget --no-install-recommends \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
-    && apt-get update \
-    && apt-get install -y google-chrome-unstable fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst ttf-freefont \
-      --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /src/*.deb
-
-# It's a good idea to use dumb-init to help prevent zombie chrome processes.
-ADD https://github.com/Yelp/dumb-init/releases/download/v1.2.0/dumb-init_1.2.0_amd64 /usr/local/bin/dumb-init
-RUN chmod +x /usr/local/bin/dumb-init
-
-# Uncomment to skip the chromium download when installing puppeteer. If you do,
-# you'll need to launch puppeteer with:
-#     browser.launch({executablePath: 'google-chrome-unstable'})
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
-
-# Install puppeteer so it's available in the container.
-RUN npm i puppeteer
-
-# Add user so we don't need --no-sandbox.
-RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
-    && mkdir -p /home/pptruser/Downloads \
-    && chown -R pptruser:pptruser /home/pptruser \
-    && chown -R pptruser:pptruser /node_modules
-
-# Install the ArchiveBox repository and pip requirements
-COPY . /home/pptruser/app
-RUN mkdir -p /data \
-    && chown -R pptruser:pptruser /data \
-    && ln -s /data /home/pptruser/app/archivebox/output \
-    && ln -s /home/pptruser/app/bin/* /bin/ \
-    && ln -s /home/pptruser/app/bin/archivebox /bin/archive \
-    && chown -R pptruser:pptruser /home/pptruser/app/archivebox
-    # && pip3 install -r /home/pptruser/app/archivebox/requirements.txt
-
-VOLUME /data
-
-ENV LANG=C.UTF-8 \
+ENV TZ=UTC \
     LANGUAGE=en_US:en \
     LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8 \
     PYTHONIOENCODING=UTF-8 \
-    CHROME_SANDBOX=False \
-    CHROME_BINARY=google-chrome-unstable \
-    OUTPUT_DIR=/data
+    PYTHONUNBUFFERED=1 \
+    APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1 \
+    CODE_PATH=/app \
+    VENV_PATH=/venv \
+    DATA_PATH=/data
+
+# First install CLI utils and base deps, then Chrome + Fons
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections \
+    && apt-get update -qq \
+    && apt-get install -qq -y --no-install-recommends \
+       apt-transport-https ca-certificates apt-utils gnupg gosu gnupg2 libgconf-2-4 zlib1g-dev \
+       dumb-init jq git wget curl youtube-dl ffmpeg \
+    && curl -sSL "https://dl.google.com/linux/linux_signing_key.pub" | apt-key add - \
+    && echo "deb https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update -qq \
+    && apt-get install -qq -y --no-install-recommends \
+       google-chrome-stable \
+       fontconfig \
+       fonts-ipafont-gothic \
+       fonts-wqy-zenhei \
+       fonts-thai-tlwg \
+       fonts-kacst \
+       fonts-symbola \
+       fonts-noto \
+       fonts-freefont-ttf \
+    && rm -rf /var/lib/apt/lists/*
 
 # Run everything from here on out as non-privileged user
-USER pptruser
-WORKDIR /home/pptruser/app
+RUN groupadd --system archivebox \
+    && useradd --system --create-home --gid archivebox --groups audio,video archivebox
 
-ENTRYPOINT ["dumb-init", "--"]
-CMD ["/bin/archive"]
+ADD . "$CODE_PATH"
+WORKDIR "$CODE_PATH"
+ENV PATH="${PATH}:$VENV_PATH/bin"
+RUN python -m venv --clear --symlinks "$VENV_PATH" \
+    && pip install --upgrade pip setuptools \
+    && pip install -e .
+
+VOLUME "$DATA_PATH"
+WORKDIR "$DATA_PATH"
+EXPOSE 8000
+ENV CHROME_BINARY=google-chrome \
+    CHROME_SANDBOX=False
+
+RUN env ALLOW_ROOT=True archivebox version
+
+ENTRYPOINT ["dumb-init", "--", "/app/bin/docker_entrypoint.sh", "archivebox"]
+CMD ["server", "0.0.0.0:8000"]
