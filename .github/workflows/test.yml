@@ -68,6 +68,7 @@ jobs:
 
       - name: Test built package with pytest
         run: |
+          source .venv/bin/activate
           python -m pytest -s
 
   docker-test:
