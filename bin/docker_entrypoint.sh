@@ -15,7 +15,7 @@ if [[ "$USID" != 0 && "$GRID" != 0 ]]; then
     groupmod -g "$GRID" "$ARCHIVEBOX_USER"
     chown -R "$USID":"$GRID" "/home/$ARCHIVEBOX_USER"
     chown "$USID":"$GRID" "$DATA_DIR"
-    chown "$USID":"$GRID" "$DATA_DIR/*" || true
+    chown "$USID":"$GRID" "$DATA_DIR/*" > /dev/null 2>&1 || true
 fi
 
 # run django as the new archivebox user
