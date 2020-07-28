@@ -281,16 +281,8 @@ make html
 <br/><br/>
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" height="40px"/>
 <br/>
-<sub><i>This project is maintained mostly in <a href="https://nicksweeting.com/blog#About">my spare time</a> with the help from generous contributors.</i></sub>
+<sub><i>This project is maintained mostly in <a href="https://nicksweeting.com/blog#About">my spare time</a> with the help from generous contributors and Monadical.com.</i></sub>
 <br/><br/>
-Contributor Spotlight:<br/><br/>
- 
-<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/0"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/0"></a>
-<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/1"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/1"></a>
-<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/2"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/2"></a>
-<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/3"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/3"></a>
-<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/4"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/4"></a>
-<a href="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/links/5"><img src="https://sourcerer.io/fame/pirate/pirate/ArchiveBox/images/5"></a>
 
 <br/>
 <a href="https://github.com/sponsors/pirate">Sponsor us on Github</a>
