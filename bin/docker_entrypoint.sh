@@ -11,10 +11,10 @@ GRID=$(stat --format="%g" "$DATA_DIR")
 
 # If user is not root, modify the archivebox user+files to have the same uid,gid
 if [[ "$USID" != 0 && "$GRID" != 0 ]]; then
-    chown "$USID":"$GRID" "$DATA_DIR"
     usermod -u "$USID" "$ARCHIVEBOX_USER"
     groupmod -g "$GRID" "$ARCHIVEBOX_USER"
     chown -R "$USID":"$GRID" "/home/$ARCHIVEBOX_USER"
+    chown "$USID":"$GRID" "$DATA_DIR" "$DATA_DIR/*"
 fi
 
 # run django as the new archivebox user

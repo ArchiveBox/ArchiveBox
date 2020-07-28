@@ -40,7 +40,8 @@ You can use it to preserve access to websites you care about by storing them loc
 #### How does it work?
 
 ```bash
-archivebox add 'https://example.com'
+docker run -v $PWD:/data archivebox init
+docker run -v $PWD/data:/data -p 8000 archivebox
 ```
 
 After installing the dependencies, just pipe some new links into the `archivebox add` command to start your archive.
