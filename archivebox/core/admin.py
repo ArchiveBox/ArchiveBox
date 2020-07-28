@@ -6,7 +6,7 @@ from contextlib import redirect_stdout
 from django.contrib import admin
 from django.urls import path
 from django.utils.html import format_html
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
 
 from core.models import Snapshot
@@ -103,10 +103,13 @@ class ArchiveBoxAdmin(admin.AdminSite):
 
     def get_urls(self):
         return [
-            path('core/snapshot/add/', self.add_view, name='add'),
+            path('core/snapshot/add/', self.add_view, name='Add'),
         ] + super().get_urls()
 
     def add_view(self, request):
+        if not request.user.is_authenticated:
+            return redirect(f'/admin/login/?next={request.path}')
+
         request.current_app = self.name
         context = {
             **self.each_context(request),

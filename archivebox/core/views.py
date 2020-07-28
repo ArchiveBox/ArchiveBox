@@ -22,21 +22,35 @@ class MainIndex(View):
     template = 'main_index.html'
 
     def get(self, request):
-        if not request.user.is_authenticated and not PUBLIC_INDEX:
-            return redirect(f'/admin/login/?next={request.path}')
+        if request.user.is_authenticated:
+            return redirect('/admin/core/snapshot/')
 
-        all_links = load_main_index(out_dir=OUTPUT_DIR)
-        meta_info = load_main_index_meta(out_dir=OUTPUT_DIR)
+        if PUBLIC_INDEX:
+            return redirect('OldHome')
+        
+        return redirect(f'/admin/login/?next={request.path}')
 
-        context = {
-            'updated': meta_info['updated'],
-            'num_links': meta_info['num_links'],
-            'links': all_links,
-            'VERSION': VERSION,
-            'FOOTER_INFO': FOOTER_INFO,
-        }
+        
 
-        return render(template_name=self.template, request=request, context=context)
+class OldIndex(View):
+    template = 'main_index.html'
+
+    def get(self, request):
+        if PUBLIC_INDEX or request.user.is_authenticated:
+            all_links = load_main_index(out_dir=OUTPUT_DIR)
+            meta_info = load_main_index_meta(out_dir=OUTPUT_DIR)
+
+            context = {
+                'updated': meta_info['updated'],
+                'num_links': meta_info['num_links'],
+                'links': all_links,
+                'VERSION': VERSION,
+                'FOOTER_INFO': FOOTER_INFO,
+            }
+
+            return render(template_name=self.template, request=request, context=context)
+
+        return redirect(f'/admin/login/?next={request.path}')
 
 
 class LinkDetails(View):

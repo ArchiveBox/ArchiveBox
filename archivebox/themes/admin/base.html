@@ -32,10 +32,11 @@
         {% block usertools %}
         {% if has_permission %}
         <div id="user-tools">
-            <a href="/add/">Add Links</a> /
-            <a href="/">Main Index</a> /
-            <a href="/admin/">Admin</a> /
-            <a href="https://github.com/pirate/ArchiveBox/wiki">Docs</a>
+            <a href="{% url 'Home' %}">Index</a> /
+            <a href="{% url 'admin:Add' %}">Add URLs</a> /
+            <a href="{% url 'admin:index' %}">Admin</a> /
+            <a href="{% url 'OldHome' %}">Old UI</a> /
+            <a href="{% url 'Docs' %}">Docs</a>
              &nbsp; &nbsp;
             {% block welcome-msg %}
                 {% trans 'User' %}
