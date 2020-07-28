@@ -673,7 +673,7 @@ def update(resume: Optional[float]=None,
         
     # Step 3: Run the archive methods for each link
     to_archive = new_links if only_new else all_links
-    archive_links(to_archive, out_dir=out_dir)
+    archive_links(to_archive, overwrite=overwrite, out_dir=out_dir)
 
     # Step 4: Re-write links index with updated titles, icons, and resources
     all_links = load_main_index(out_dir=out_dir)

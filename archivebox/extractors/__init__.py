@@ -110,7 +110,7 @@ def archive_link(link: Link, overwrite: bool=False, out_dir: Optional[str]=None)
 
 
 @enforce_types
-def archive_links(links: List[Link], out_dir: Optional[str]=None) -> List[Link]:
+def archive_links(links: List[Link], overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None) -> List[Link]:
     if not links:
         return []
 
@@ -119,7 +119,7 @@ def archive_links(links: List[Link], out_dir: Optional[str]=None) -> List[Link]:
     link: Link = links[0]
     try:
         for idx, link in enumerate(links):
-            archive_link(link, out_dir=link.link_dir)
+            archive_link(link, overwrite=overwrite, methods=methods, out_dir=link.link_dir)
     except KeyboardInterrupt:
         log_archiving_paused(len(links), idx, link.timestamp)
         raise SystemExit(0)
