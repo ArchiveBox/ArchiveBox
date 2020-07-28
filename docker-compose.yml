@@ -1,10 +1,9 @@
-# This docker-compose config for ArchiveBox runs the following containers:
-#     - ArchiveBox (it creates the initial archive, then sleeps forever to allow commands to be run with exec to add links)
-#     - nginx webserver running on https://127.0.0.1:8098
 # Usage:
 #     docker-compose up -d
+#     docker-ocmpose run archivebox init
 #     echo "https://example.com" | docker-compose run archivebox archivebox add
-#     docker-compose run archivebox archivebox https://example.com/some/feed.rss
+#     docker-compose run archivebox add --depth=1 https://example.com/some/feed.rss
+#     docker-compose run archivebox config --set PUBLIC_INDEX=True
 # Documentation:
 #     https://github.com/pirate/ArchiveBox/wiki/Docker#docker-compose
 
@@ -22,7 +21,7 @@ services:
         environment:
             - USE_COLOR=True
             - SHOW_PROGRESS=False
-            # - HTTP_PROXY=http://pywb:8080
+            # - HTTP_PROXY=http://pywb:8080  COMING SOON!
         volumes:
             - ./data:/data
 
