@@ -124,6 +124,7 @@ jobs:
           curl --silent --location 'http://127.0.0.1:8000/static/admin/js/jquery.init.js' | grep 'django.jQuery'
 
       - name: Check added urls show up in index
+        run: |
           docker-compose run archivebox add 'http://example.com/#test_docker' --index-only
           curl --silent --location 'http://127.0.0.1:8000' | grep 'http://example.com/#test_docker'
 
