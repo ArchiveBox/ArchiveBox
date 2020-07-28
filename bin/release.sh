@@ -23,17 +23,25 @@ cd "$DIR"
 OLD_VERSION="$(cat "$VERSION_FILE")"
 NEW_VERSION="$(bump_semver "$OLD_VERSION")"
 
-if [ -z "$(git status --porcelain)" ]; then 
-    echo "[*] Bumping VERSION from $OLD_VERSION to $NEW_VERSION"
-    echo "$NEW_VERSION" > "$VERSION_FILE"
-else
-    echo "[X] Commit your changes and make sure the Git state is clean before proceeding."
-    exit 4
-fi
-
 echo "[*] Fetching latest docs version"
 cd "$DIR/docs"
 git pull
+cd "$DIR"
+
+if [ -z "$(git status --porcelain)" ] && [[ "$(git branch --show-current)" == "master" ]]; then 
+    git pull
+else
+    echo "[X] Commit your changes and make sure git is checked out on clean master."
+    exit 4
+fi
+
+echo "[*] Bumping VERSION from $OLD_VERSION to $NEW_VERSION"
+echo "$NEW_VERSION" > "$VERSION_FILE"
+git add "$NEW_VERSION"
+git commit -m "$NEW_VERSION release"
+git tag -a "$NEW_VERSION"
+git push origin master
+git push origin --tags
 
 echo "[*] Cleaning up build dirs"
 cd "$DIR"
