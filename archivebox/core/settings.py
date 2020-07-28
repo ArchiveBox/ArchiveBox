@@ -110,9 +110,12 @@ if IS_SHELL:
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
-USE_I18N = True
-USE_L10N = True
-USE_TZ = False
+USE_I18N = False
+USE_L10N = False
+USE_TZ = True
+
+DATETIME_FORMAT = 'Y-m-d g:iA'
+SHORT_DATETIME_FORMAT = 'Y-m-d h:iA'
 
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
