@@ -66,8 +66,8 @@ echo "[+] Building docker image"
 docker build . -t "archivebox,archivebox:latest,archivebox:$NEW_VERSION,nikisweeting/archivebox,docker.pkg.github.com/pirate/ArchiveBox/archivebox:$NEW_VERSION"
 
 echo "[^] Uploading docker image"
-# docker login --username=dockerhubusername --email=email@example.com
-# docker login docker.pkg.github.com --username githubusername
+# docker login --username=nikisweeting
+# docker login docker.pkg.github.com --username=pirate
 docker push nikisweeting/archivebox
 docker push docker.pkg.github.com/pirate/ArchiveBox/archivebox:$NEW_VERSION
 
