@@ -9,6 +9,7 @@ import getpass
 import shutil
 
 from hashlib import md5
+from pathlib import Path
 from typing import Optional, Type, Tuple, Dict
 from subprocess import run, PIPE, DEVNULL
 from configparser import ConfigParser
@@ -495,7 +496,7 @@ def bin_hash(binary: Optional[str]) -> Optional[str]:
     if binary is None:
         return None
     abs_path = bin_path(binary)
-    if abs_path is None:
+    if abs_path is None or not Path(abs_path).exists():
         return None
 
     file_hash = md5()
