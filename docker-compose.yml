@@ -22,8 +22,20 @@ services:
         environment:
             - USE_COLOR=True
             - SHOW_PROGRESS=False
+            # - HTTP_PROXY=http://pywb:8080
         volumes:
             - ./data:/data
+
+    # pywb:
+    #     image: webrecorder/pywb:latest
+    #     entrypoint: /bin/sh 'wb-manager add default /archivebox/archive/*/warc/*.warc.gz; wayback --proxy;'
+    #     environment:
+    #         - INIT_COLLECTION=archivebox
+    #     ports:
+    #         - 8080:8080
+    #     volumes:
+    #         ./data:/archivebox
+    #         ./data/wayback:/webarchive
 
 #    nginx:
 #        image: nginx:alpine
