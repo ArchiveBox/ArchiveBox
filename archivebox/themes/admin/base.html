@@ -2,7 +2,7 @@
 {% get_current_language as LANGUAGE_CODE %}{% get_current_language_bidi as LANGUAGE_BIDI %}
 <html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
 <head>
-<title>{% block title %}{% endblock %}</title>
+<title>{% block title %}{% endblock %} | ArchiveBox</title>
 <link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
 {% block extrastyle %}{% endblock %}
 {% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}">{% endif %}
@@ -13,6 +13,7 @@
     {% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% static "admin/css/responsive_rtl.css" %}">{% endif %}
 {% endblock %}
 {% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE">{% endblock %}
+<link rel="stylesheet" type="text/css" href="{% static "admin.css" %}">
 </head>
 {% load i18n %}
 
@@ -26,13 +27,14 @@
     <!-- Header -->
     <div id="header">
         <div id="branding">
-        {% block branding %}{% endblock %}
+            {% block branding %}{% endblock %}
         </div>
         {% block usertools %}
         {% if has_permission %}
         <div id="user-tools">
             <a href="/add/">Add Links</a> /
             <a href="/">Main Index</a> /
+            <a href="/admin/">Admin</a> /
             <a href="https://github.com/pirate/ArchiveBox/wiki">Docs</a>
              &nbsp; &nbsp;
             {% block welcome-msg %}
@@ -76,7 +78,7 @@
     <!-- Content -->
     <div id="content" class="{% block coltype %}colM{% endblock %}">
         {% block pretitle %}{% endblock %}
-        {% block content_title %}{% if title %}<h1>{{ title }}</h1>{% endif %}{% endblock %}
+        {% block content_title %}{# {% if title %}<h1>{{ title }}</h1>{% endif %} #}{% endblock %}
         {% block content %}
         {% block object-tools %}{% endblock %}
         {{ content }}

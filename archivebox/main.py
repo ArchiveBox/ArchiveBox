@@ -83,6 +83,7 @@ from .config import (
     EXTERNAL_LOCATIONS,
     DATA_LOCATIONS,
     DEPENDENCIES,
+    DEBUG,
     load_all_config,
     CONFIG,
     USER_CONFIG,
@@ -987,13 +988,19 @@ def server(runserver_args: Optional[List[str]]=None,
     """Run the ArchiveBox HTTP server"""
 
     runserver_args = runserver_args or []
-    check_data_folder(out_dir=out_dir)
+    
+    from . import config
+    config.SHOW_PROGRESS = False
 
     if debug:
-        os.environ['DEBUG'] = 'True'
+        # if --debug is passed, patch config.DEBUG to be True for this run
+        config.DEBUG = True
     else:
+        # force staticfiles to be served when DEBUG=False
+        # TODO: do this using nginx or another server instead of django?
         runserver_args.append('--insecure')
 
+    check_data_folder(out_dir=out_dir)
     setup_django(out_dir)
     from django.core.management import call_command
     from django.contrib.auth.models import User

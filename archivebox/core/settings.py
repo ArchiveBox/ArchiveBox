@@ -5,15 +5,15 @@ import sys
 from django.utils.crypto import get_random_string
 
 
-from ..config import (
-    OUTPUT_DIR,
+from ..config import (                                                          # noqa: F401
+    DEBUG,
     SECRET_KEY,
     ALLOWED_HOSTS,
     PYTHON_DIR,
     ACTIVE_THEME,
     SQL_INDEX_FILENAME,
+    OUTPUT_DIR,
 )
-
 
 ALLOWED_HOSTS = ALLOWED_HOSTS.split(',')
 IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
@@ -25,8 +25,8 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django.contrib.admin',
     'django.contrib.staticfiles',
+    'django.contrib.admin',
 
     'core',
 
@@ -121,5 +121,4 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     os.path.join(PYTHON_DIR, 'themes', ACTIVE_THEME, 'static'),
     os.path.join(PYTHON_DIR, 'themes', 'default', 'static'),
-    os.path.join(PYTHON_DIR, 'themes', 'static'),
 ]

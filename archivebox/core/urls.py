@@ -3,15 +3,12 @@ from django.contrib import admin
 from django.urls import path, include
 from django.views import static
 from django.conf import settings
-from django.contrib.staticfiles.views import serve as serve_static
 from django.views.generic.base import RedirectView
 
-from core.views import MainIndex, AddLinks, LinkDetails
+from core.views import MainIndex, LinkDetails
 
-admin.site.site_header = 'ArchiveBox'
-admin.site.index_title = 'Links' 
-admin.site.site_title = 'Index'
 
+# print('DEBUG', settings.DEBUG)
 
 urlpatterns = [
     path('robots.txt', static.serve, {'document_root': settings.OUTPUT_DIR, 'path': 'robots.txt'}),
@@ -19,14 +16,11 @@ urlpatterns = [
 
     path('archive/', RedirectView.as_view(url='/')),
     path('archive/<path:path>', LinkDetails.as_view(), name='LinkAssets'),
-    path('add/', AddLinks.as_view(), name='AddLinks'),
-    
-    path('static/<path>', serve_static),
+    path('add/', RedirectView.as_view(url='/admin/core/snapshot/add/')),
     
     path('accounts/login/', RedirectView.as_view(url='/admin/login/')),
     path('accounts/logout/', RedirectView.as_view(url='/admin/logout/')),
 
-    path('admin/core/snapshot/add/', RedirectView.as_view(url='/add/')),
 
     path('accounts/', include('django.contrib.auth.urls')),
     path('admin/', admin.site.urls),

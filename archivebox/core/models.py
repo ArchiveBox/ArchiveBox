@@ -15,11 +15,11 @@ class Snapshot(models.Model):
     url = models.URLField(unique=True)
     timestamp = models.CharField(max_length=32, unique=True, db_index=True)
 
-    title = models.CharField(max_length=128, null=True, default=None, db_index=True)
-    tags = models.CharField(max_length=256, null=True, default=None, db_index=True)
+    title = models.CharField(max_length=128, null=True, blank=True, db_index=True)
+    tags = models.CharField(max_length=256, null=True, blank=True, db_index=True)
 
     added = models.DateTimeField(auto_now_add=True, db_index=True)
-    updated = models.DateTimeField(null=True, default=None, db_index=True)
+    updated = models.DateTimeField(null=True, blank=True, db_index=True)
     # bookmarked = models.DateTimeField()
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')

@@ -136,8 +136,8 @@ def link_details_template(link: Link) -> str:
         'url_str': htmlencode(urldecode(link.base_url)),
         'archive_url': urlencode(
             wget_output_path(link)
-            or (link.domain if link.is_archived else 'about:blank')
-        ),
+            or (link.domain if link.is_archived else '')
+        ) or 'about:blank',
         'extension': link.extension or 'html',
         'tags': link.tags or 'untagged',
         'status': 'archived' if link.is_archived else 'not yet archived',

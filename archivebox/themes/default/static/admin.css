@@ -1,0 +1,126 @@
+#header {
+    background: #aa1e55;
+    padding: 6px 14px;
+}
+#content {
+    padding: 8px 8px;
+}
+#user-tools {
+    font-size: 13px;
+
+}
+
+div.breadcrumbs {
+    background: #772948;
+    color: #f5dd5d;
+    padding: 6px 15px;
+}
+
+.module h2, .module caption, .inline-group h2 {
+    background: #772948;
+}
+
+#content .object-tools {
+    margin-top: -35px;
+    margin-right: -10px;
+    float: right;
+}
+
+#content .object-tools a:link, #content .object-tools a:visited {
+    border-radius: 0px;
+    background-color: #f5dd5d;
+    color: #333;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+#content .object-tools a.addlink {
+    background-blend-mode: difference;
+}
+
+#content #changelist #toolbar {
+    padding: 0px;
+    background: none;
+    margin-bottom: 10px;
+    border-top: 0px; 
+    border-bottom: 0px;
+}
+
+#content #changelist #toolbar form input[type="submit"] {
+    border-color: #aa1e55;
+}
+
+#content #changelist-filter li.selected a {
+    color: #aa1e55;
+}
+
+
+#content #changelist .actions {
+    position: fixed;
+    bottom: 0px;
+    z-index: 800;
+}
+
+#content #changelist .actions .button {
+    border-color: #aa1e55;
+}
+#content #changelist-filter h2 {
+    border-radius: 4px 4px 0px 0px;
+}
+
+@media (min-width: 767px) {
+    #content #changelist-filter {
+        top: 35px;
+        width: 110px;
+    }
+
+    .change-list .filtered .results,
+    .change-list .filtered .paginator, 
+    .filtered #toolbar, 
+    .filtered div.xfull {
+        margin-right: 115px;
+    }
+}
+
+#content a img.favicon {
+    height: 20px;
+    width: 20px;
+    vertical-align: -5px;
+    padding-right: 6px;
+}
+
+#content td, #content th {
+    vertical-align: middle;
+}
+
+#content #changelist table input {
+    vertical-align: -2px;
+}
+
+
+#content th.field-added, #content td.field-updated {
+    word-break: break-word;
+    min-width: 85px;
+    white-space: normal;
+}
+
+#content th.field-title_str {
+    min-width: 300px;
+}
+
+#content td.field-files {
+    white-space: nowrap;
+}
+#content td.field-size {
+    white-space: nowrap;
+}
+
+#content td.field-url_str {
+    word-break: break-all;
+    min-width: 200px;
+}
+
+#content tr b.status-pending {
+    font-weight: 200;
+    opacity: 0.6;
+}
