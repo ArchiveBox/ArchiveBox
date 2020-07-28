@@ -60,9 +60,9 @@ jobs:
             ${{ runner.os }}-${{ matrix.python }}-venv-
 
       - name: Create virtualenv
+        if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
           python3 -m venv .venv
-          if: steps.cache-venv.outputs.cache-hit != 'true'
 
       - name: Install dependencies
         run: |
