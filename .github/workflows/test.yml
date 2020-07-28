@@ -120,26 +120,12 @@ jobs:
         run: |
           docker-compose run archivebox init
           docker-compose up -d
-          sleep 4
+          sleep 5
+          curl --silent --location 'http://127.0.0.1:8000' | grep 'ArchiveBox'
           curl --silent --location 'http://127.0.0.1:8000/static/admin/js/jquery.init.js' | grep 'django.jQuery'
 
       - name: Check added urls show up in index
         run: |
           docker-compose run archivebox add 'http://example.com/#test_docker' --index-only
           curl --silent --location 'http://127.0.0.1:8000' | grep 'http://example.com/#test_docker'
-
-      - name: Curl index with PUBLIC_INDEX=False
-        run: |
-          docker-compose run archivebox config --set PUBLIC_INDEX=False
-          docker-compose up -d || true
-          sleep 8
-          curl --silent --location 'http://127.0.0.1:8000' | grep 'Log in'
-          docker-compose down
-
-      - name: Curl index with PUBLIC_INDEX=True
-        run: |
-          docker-compose run archivebox config --set PUBLIC_INDEX=True
-          docker-compose up -d || true
-          sleep 8
-          curl --silent --location 'http://127.0.0.1:8000' | grep 'Add Links'
-          docker-compose down
+          docker-compose down || true
