@@ -43,18 +43,19 @@ def should_save_title(link: Link, out_dir: Optional[str]=None) -> bool:
 def save_title(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """try to guess the page's title from its content"""
 
+    setup_django(out_dir=out_dir)
+    from core.models import Snapshot
+
     output: ArchiveOutput = None
     cmd = [
         CURL_BINARY,
         '--silent',
         '--max-time', str(timeout),
         '--location',
+        '--compressed',
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         link.url,
-        '|',
-        'grep',
-        '<title',
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')

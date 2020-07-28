@@ -48,6 +48,7 @@ def save_archive_dot_org(link: Link, out_dir: Optional[str]=None, timeout: int=T
         '--silent',
         '--location',
         '--head',
+        '--compressed',
         '--max-time', str(timeout),
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),

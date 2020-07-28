@@ -37,6 +37,7 @@ def save_favicon(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
         '--silent',
         '--max-time', str(timeout),
         '--location',
+        '--compressed',
         '--output', str(output),
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
