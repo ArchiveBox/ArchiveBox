@@ -1,6 +1,6 @@
 # Usage:
 #     docker-compose up -d
-#     docker-ocmpose run archivebox init
+#     docker-compose run archivebox init
 #     echo "https://example.com" | docker-compose run archivebox archivebox add
 #     docker-compose run archivebox add --depth=1 https://example.com/some/feed.rss
 #     docker-compose run archivebox config --set PUBLIC_INDEX=True
