@@ -18,6 +18,7 @@ from .cli import (
 from .parsers import (
     save_text_as_source,
     save_file_as_source,
+    parse_links_memory,
 )
 from .index.schema import Link
 from .util import enforce_types                         # type: ignore
@@ -492,6 +493,13 @@ def status(out_dir: str=OUTPUT_DIR) -> None:
         )
     print(ANSI['black'], '   ...', ANSI['reset'])
 
+
+@enforce_types
+def oneshot(url: str, out_dir: str=OUTPUT_DIR):
+    oneshot_links, _ = parse_links_memory([url])
+    oneshot_links, _ = dedupe_links([], oneshot_links)
+    archive_links(oneshot_links, out_dir=out_dir, skip_index=True)
+    return oneshot_links
 
 @enforce_types
 def add(urls: Union[str, List[str]],
@@ -1055,3 +1063,4 @@ def shell(out_dir: str=OUTPUT_DIR) -> None:
     setup_django(OUTPUT_DIR)
     from django.core.management import call_command
     call_command("shell_plus")
+

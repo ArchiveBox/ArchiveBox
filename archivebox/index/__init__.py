@@ -354,12 +354,13 @@ def patch_main_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
 ### Link Details Index
 
 @enforce_types
-def write_link_details(link: Link, out_dir: Optional[str]=None) -> None:
+def write_link_details(link: Link, out_dir: Optional[str]=None, skip_sql_index: bool=False) -> None:
     out_dir = out_dir or link.link_dir
 
     write_json_link_details(link, out_dir=out_dir)
     write_html_link_details(link, out_dir=out_dir)
-    write_sql_link_details(link)
+    if not skip_sql_index:
+        write_sql_link_details(link)
 
 
 @enforce_types

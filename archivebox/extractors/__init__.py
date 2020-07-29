@@ -34,7 +34,7 @@ from .archive_org import should_save_archive_dot_org, save_archive_dot_org
 
 
 @enforce_types
-def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None) -> Link:
+def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None, skip_index: bool=False) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
     ARCHIVE_METHODS = [
@@ -61,7 +61,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
             os.makedirs(out_dir)
 
         link = load_link_details(link, out_dir=out_dir)
-        write_link_details(link, out_dir=link.link_dir)
+        write_link_details(link, out_dir=out_dir, skip_sql_index=skip_index)
         log_link_archiving_started(link, out_dir, is_new)
         link = link.overwrite(updated=datetime.now())
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
@@ -97,8 +97,9 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         except Exception:
             pass
 
-        write_link_details(link, out_dir=link.link_dir)
-        patch_main_index(link)
+        write_link_details(link, out_dir=out_dir, skip_sql_index=skip_index)
+        if not skip_index:
+            patch_main_index(link)
 
         # # If any changes were made, update the main links index json and html
         # was_changed = stats['succeeded'] or stats['failed']
@@ -122,7 +123,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 
 
 @enforce_types
-def archive_links(links: List[Link], overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None) -> List[Link]:
+def archive_links(links: List[Link], overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None, skip_index: bool=False) -> List[Link]:
     if not links:
         return []
 
@@ -131,7 +132,8 @@ def archive_links(links: List[Link], overwrite: bool=False, methods: Optional[It
     link: Link = links[0]
     try:
         for idx, link in enumerate(links):
-            archive_link(link, overwrite=overwrite, methods=methods, out_dir=link.link_dir)
+            link_out_dir = out_dir or link.link_dir
+            archive_link(link, overwrite=overwrite, methods=methods, link_out_dir=out_dir, skip_index=skip_index)
     except KeyboardInterrupt:
         log_archiving_paused(len(links), idx, link.timestamp)
         raise SystemExit(0)
