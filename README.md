@@ -41,7 +41,7 @@ archivebox server
 
 After installing archivebox, just pass some new links to the `archivebox add` command to start your collection.
 
-ArchiveBox is written in Python 3.7 and uses wget, Chrome headless, youtube-dl, pywb, and other common UNIX tools to save each page you add in multiple redundant formats. It doesn't require a constantly running server or backend, just open the generated `output/index.html` in a browser to view the archive. It can import and export links as JSON (among other formats), so it's easy to script or hook up to other APIs. If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
+ArchiveBox is written in Python 3.7 and uses wget, Chrome headless, youtube-dl, pywb, and other common UNIX tools to save each page you add in multiple redundant formats. It doesn't require a constantly running server or backend (though it does include an optional one), just open the generated `data/index.html` in a browser to view the archive or run `archivebox server` to use the interactive Web UI. It can import and export links as JSON (among other formats), so it's easy to script or hook up to other APIs. If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
 <div align="center">
 
@@ -120,9 +120,9 @@ complex, finicky websites in at least a few high-quality, long-term data formats
 
 ArchiveBox imports a list of URLs from stdin, remote URL, or file, then adds the pages to a local archive folder using wget to create a browsable HTML clone, youtube-dl to extract media, and a full instance of Chrome headless for PDF, Screenshot, and DOM dumps, and more...
 
-Running `./archive` adds only new, unique links into `output/` on each run. Because it will ignore duplicates and only archive each link the first time you add it, you can schedule it to [run on a timer](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and re-import all your feeds multiple times a day. It will run quickly even if the feeds are large, because it's only archiving the newest links since the last run. For each link, it runs through all the archive methods. Methods that fail will save `None` and be automatically retried on the next run, methods that succeed save their output into the data folder and are never retried/overwritten by subsequent runs. Support for saving multiple snapshots of each site over time will be [added soon](https://github.com/pirate/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs).
+Running `archivebox add` adds only new, unique links into your collection on each run. Because it will ignore duplicates and only archive each link the first time you add it, you can schedule it to [run on a timer](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and re-import all your feeds multiple times a day. It will run quickly even if the feeds are large, because it's only archiving the newest links since the last run. For each link, it runs through all the archive methods. Methods that fail will save `None` and be automatically retried on the next run, methods that succeed save their output into the data folder and are never retried/overwritten by subsequent runs. Support for saving multiple snapshots of each site over time will be [added soon](https://github.com/pirate/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs).
 
-All the archived links are stored by date bookmarked in `output/archive/<timestamp>`, and everything is indexed nicely with JSON & HTML files. The intent is for all the content to be viewable with common software in 50 - 100 years without needing to run ArchiveBox in a VM.
+All the archived links are stored by date bookmarked in `./archive/<timestamp>`, and everything is indexed nicely with JSON & HTML files. The intent is for all the content to be viewable with common software in 50 - 100 years without needing to run ArchiveBox in a VM.
 
 #### Can import links from many formats:
 
@@ -141,7 +141,7 @@ See the [Usage: CLI](https://github.com/pirate/ArchiveBox/wiki/Usage#CLI-Usage) 
 #### Saves lots of useful stuff for each imported link:
 
 ```bash
- ls output/archive/<timestamp>/
+ ls ./archive/<timestamp>/
 ```
 
 - **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
