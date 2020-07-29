@@ -54,7 +54,7 @@
 # USE_GIT = True
 
 # CURL_BINARY = curl
-# GIT_BINARY = git"
+# GIT_BINARY = git
 # WGET_BINARY = wget
 # YOUTUBEDL_BINARY = youtube-dl
 # CHROME_BINARY = chromium
