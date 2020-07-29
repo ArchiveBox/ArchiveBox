@@ -60,5 +60,5 @@
 # CHROME_BINARY = chromium
 
 # CHROME_USER_DATA_DIR="~/.config/google-chrome/Default"
-# CROME_HEADLESS = True
-# CROME_SANDBOX = True
+# CHROME_HEADLESS = True
+# CHROME_SANDBOX = True
