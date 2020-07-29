@@ -21,10 +21,37 @@ services:
         environment:
             - USE_COLOR=True
             - SHOW_PROGRESS=False
-            # - HTTP_PROXY=http://pywb:8080  COMING SOON!
         volumes:
             - ./data:/data
 
+
+    # Optional Addons
+
+    # Example: Put Nginx in front of the ArchiveBox server for SSL termination
+    # nginx:
+    #     image: nginx:alpine
+    #     ports:
+    #         - 443:443
+    #         - 80:80
+    #     volumes:
+    #         - ./etc/nginx/nginx.conf:/etc/nginx/nginx.conf
+    #         - ./data:/var/www
+
+    # Example: run all your ArchiveBox traffic through a WireGuard VPN
+    # wireguard:
+    #   image: linuxserver/wireguard
+    #   network_mode: 'service:archivebox'
+    #   cap_add:
+    #     - NET_ADMIN
+    #     - SYS_MODULE
+    #   sysctls:
+    #     - net.ipv4.conf.all.rp_filter=2
+    #     - net.ipv4.conf.all.src_valid_mark=1
+    #   volumes:
+    #     - /lib/modules:/lib/modules
+    #     - ./wireguard.conf:/config/wg0.conf:ro
+    
+    # Example: Run PYWB in parallel and auto-import WARCs from ArchiveBox
     # pywb:
     #     image: webrecorder/pywb:latest
     #     entrypoint: /bin/sh 'wb-manager add default /archivebox/archive/*/warc/*.warc.gz; wayback --proxy;'
@@ -35,12 +62,3 @@ services:
     #     volumes:
     #         ./data:/archivebox
     #         ./data/wayback:/webarchive
-
-#    nginx:
-#        image: nginx:alpine
-#        ports:
-#            - 443:443
-#            - 80:80
-#        volumes:
-#            - ./etc/nginx/nginx.conf:/etc/nginx/nginx.conf
-#            - ./data:/var/www
