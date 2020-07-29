@@ -498,7 +498,7 @@ def status(out_dir: str=OUTPUT_DIR) -> None:
 def oneshot(url: str, out_dir: str=OUTPUT_DIR):
     oneshot_links, _ = parse_links_memory([url])
     oneshot_links, _ = dedupe_links([], oneshot_links)
-    archive_links(oneshot_links, out_dir=out_dir, skip_index=True)
+    archive_links(oneshot_links, out_dir=out_dir, skip_index=True, oneshot=True)
     return oneshot_links
 
 @enforce_types
