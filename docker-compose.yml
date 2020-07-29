@@ -25,8 +25,19 @@ services:
             - ./data:/data
 
 
-    # Optional Addons
+    # Optional Addons: tweak these examples as needed for your specific use case
 
+    # Example: Run scheduled imports in a docker instead of using cron on the
+    # host machine, add tasks and see more info with archivebox schedule --help
+    # scheduler:
+    #    image: nikisweeting/archivebox:latest
+    #    command: schedule --foreground
+    #    environment:
+    #        - USE_COLOR=True
+    #        - SHOW_PROGRESS=False
+    #    volumes:
+    #        - ./data:/data
+    
     # Example: Put Nginx in front of the ArchiveBox server for SSL termination
     # nginx:
     #     image: nginx:alpine
@@ -37,7 +48,7 @@ services:
     #         - ./etc/nginx/nginx.conf:/etc/nginx/nginx.conf
     #         - ./data:/var/www
 
-    # Example: run all your ArchiveBox traffic through a WireGuard VPN
+    # Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel
     # wireguard:
     #   image: linuxserver/wireguard
     #   network_mode: 'service:archivebox'
