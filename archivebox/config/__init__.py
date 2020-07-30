@@ -113,7 +113,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'CURL_BINARY':              {'type': str,   'default': 'curl'},
         'GIT_BINARY':               {'type': str,   'default': 'git'},
         'WGET_BINARY':              {'type': str,   'default': 'wget'},
-        'SINGLEFILE_BINARY':        {'type': str, 'default': 'single-file'},
+        'SINGLEFILE_BINARY':        {'type': str,   'default': 'single-file'},
         'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
         'CHROME_BINARY':            {'type': str,   'default': None},
     },
