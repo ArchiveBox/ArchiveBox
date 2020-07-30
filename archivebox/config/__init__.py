@@ -236,7 +236,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'DJANGO_BINARY':            {'default': lambda c: django.__file__.replace('__init__.py', 'bin/django-admin.py')},
     'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{} {} ({})'.format(*django.VERSION)},
 
-    'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['FETCH_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
+    'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
     'CURL_VERSION':             {'default': lambda c: bin_version(c['CURL_BINARY']) if c['USE_CURL'] else None},
     'CURL_USER_AGENT':          {'default': lambda c: c['CURL_USER_AGENT'].format(**c)},
     'SAVE_FAVICON':             {'default': lambda c: c['USE_CURL'] and c['SAVE_FAVICON']},
