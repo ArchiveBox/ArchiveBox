@@ -406,6 +406,7 @@ class Link:
             'google_favicon_path': 'https://www.google.com/s2/favicons?domain={}'.format(self.domain),
             'wget_path': wget_output_path(self),
             'warc_path': 'warc',
+            'singlefile_path': 'single-file.html',
             'pdf_path': 'output.pdf',
             'screenshot_path': 'screenshot.png',
             'dom_path': 'output.html',
