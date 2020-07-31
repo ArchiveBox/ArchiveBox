@@ -426,6 +426,7 @@ class Link:
                 'pdf_path': static_path,
                 'screenshot_path': static_path,
                 'dom_path': static_path,
+                'singlefile_path': static_path,
             })
         return canonical
 
