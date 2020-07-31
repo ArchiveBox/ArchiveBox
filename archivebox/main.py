@@ -52,7 +52,7 @@ from .index.sql import (
     remove_from_sql_main_index,
 )
 from .index.html import parse_html_main_index
-from .extractors import archive_links, archive_link
+from .extractors import archive_links, archive_link, ignore_methods
 from .config import (
     stderr,
     ConfigDict,
@@ -503,7 +503,8 @@ def oneshot(url: str, out_dir: str=OUTPUT_DIR):
                 color='red'
             )
         raise SystemExit(2)
-    archive_link(oneshot_link[0], out_dir=out_dir, skip_index=True)
+    methods = ignore_methods(['title'])
+    archive_link(oneshot_link[0], out_dir=out_dir, methods=methods, skip_index=True)
     return oneshot_link
 
 @enforce_types
