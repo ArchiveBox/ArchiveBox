@@ -496,6 +496,10 @@ def status(out_dir: str=OUTPUT_DIR) -> None:
 
 @enforce_types
 def oneshot(url: str, out_dir: str=OUTPUT_DIR):
+    """
+    Create a single URL archive folder with an index.json and index.html, and all the archive method outputs.
+    You can run this to archive single pages without needing to create a whole collection with archivebox init.
+    """
     oneshot_link, _ = parse_links_memory([url])
     if len(oneshot_link) > 1:
         stderr(
