@@ -1,3 +1,5 @@
+__package__ = 'archivebox'
+
 import re
 import json as pyjson
 
