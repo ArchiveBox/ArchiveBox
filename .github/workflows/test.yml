@@ -27,11 +27,6 @@ jobs:
           # one pass for small stylistic things
           flake8 archivebox --count --max-line-length="$MAX_LINE_LENGTH" --statistics
 
-      # - name: Lint with mypy
-      #   run: |
-      #     pip install mypy
-      #     mypy archivebox || true
-
   test:
     runs-on: ${{ matrix.os }}
 
@@ -60,21 +55,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-venv-
 
-      - name: Create virtualenv
-        run: |
-          python3 -m venv .venv
-          source .venv/bin/activate
-          python3 -m pip install --upgrade pip setuptools
-
       - name: Install dependencies
         run: |
-          source .venv/bin/activate
           python -m pip install .
           python -m pip install pytest bottle
 
       - name: Test built package with pytest
         run: |
-          source .venv/bin/activate
           python -m pytest -s
 
   docker-test:
