@@ -52,7 +52,7 @@ from .index.sql import (
     remove_from_sql_main_index,
 )
 from .index.html import parse_html_main_index
-from .extractors import archive_links
+from .extractors import archive_links, archive_link
 from .config import (
     stderr,
     ConfigDict,
@@ -496,10 +496,15 @@ def status(out_dir: str=OUTPUT_DIR) -> None:
 
 @enforce_types
 def oneshot(url: str, out_dir: str=OUTPUT_DIR):
-    oneshot_links, _ = parse_links_memory([url])
-    oneshot_links, _ = dedupe_links([], oneshot_links)
-    archive_links(oneshot_links, out_dir=out_dir, skip_index=True, oneshot=True)
-    return oneshot_links
+    oneshot_link, _ = parse_links_memory([url])
+    if len(oneshot_link) > 1:
+        stderr(
+                '[X] You should pass a single url to the oneshot command',
+                color='red'
+            )
+        raise SystemExit(2)
+    archive_link(oneshot_link[0], out_dir=out_dir, skip_index=True)
+    return oneshot_link
 
 @enforce_types
 def add(urls: Union[str, List[str]],

@@ -47,7 +47,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     stdin_url = accept_stdin(stdin)
     if (stdin_url and url) or (not stdin and not url):
         stderr(
-            '[X] You must pass URLs/paths to add via stdin or CLI arguments.\n',
+            '[X] You must pass URL/path to add via stdin or CLI arguments.\n',
             color='red',
         )
         raise SystemExit(2)
