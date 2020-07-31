@@ -51,17 +51,16 @@ jobs:
           python-version: ${{ matrix.python }}
           architecture: x64
 
-      - name: Cache virtualenv
+      - name: Cache pip
         uses: actions/cache@v2
-        id: cache-venv
+        id: cache-pip
         with:
-          path: .venv
+          path: ~/.cache/pip
           key: ${{ runner.os }}-${{ matrix.python }}-venv-${{ hashFiles('setup.py') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-venv-
 
       - name: Create virtualenv
-        if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
           python3 -m venv .venv
           source .venv/bin/activate
@@ -114,7 +113,6 @@ jobs:
         run: |
           docker run -v "$PWD"/data:/data archivebox list | grep -q "www.test-nginx-1.local" || { echo "The site 1 isn't in the list"; exit 1; }
           docker run -v "$PWD"/data:/data archivebox list | grep -q "www.test-nginx-2.local" || { echo "The site 2 isn't in the list"; exit 1; }
-
 
       - name: Start docker-compose stack
         run: |
