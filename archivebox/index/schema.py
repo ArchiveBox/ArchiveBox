@@ -365,6 +365,7 @@ class Link:
             'screenshot.png',
             'output.html',
             'media',
+            'single-file.html'
         )
 
         return any(
@@ -376,7 +377,7 @@ class Link:
         """get the latest output that each archive method produced for link"""
         
         ARCHIVE_METHODS = (
-            'title', 'favicon', 'wget', 'warc', 'pdf',
+            'title', 'favicon', 'wget', 'warc', 'singlefile', 'pdf',
             'screenshot', 'dom', 'git', 'media', 'archive_org',
         )
         latest: Dict[str, ArchiveOutput] = {}
@@ -392,7 +393,6 @@ class Link:
                 latest[archive_method] = history[0].output
             else:
                 latest[archive_method] = None
-
         return latest
 
 
