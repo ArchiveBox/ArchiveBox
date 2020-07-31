@@ -23,10 +23,9 @@ from ..logging_util import TimedProgress
 @enforce_types
 def should_save_singlefile(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
-    if not os.path.exists(out_dir):
-        return False
 
-    return SAVE_SINGLEFILE
+    output = Path(out_dir or link.link_dir) / 'single-file.html'
+    return SAVE_SINGLEFILE and (not output.exists())
 
 
 @enforce_types
@@ -36,7 +35,7 @@ def save_singlefile(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOU
     out_dir = out_dir or link.link_dir
     output = str(Path(out_dir).absolute() / "single-file.html")
 
-    # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
+    # SingleFile CLI Docs: https://github.com/gildas-lormeau/SingleFile/tree/master/cli
     cmd = [
         SINGLEFILE_BINARY,
         '--browser-executable-path={}'.format(CHROME_BINARY),
