@@ -18,6 +18,7 @@ from .cli import (
 from .parsers import (
     save_text_as_source,
     save_file_as_source,
+    parse_links_memory,
 )
 from .index.schema import Link
 from .util import enforce_types                         # type: ignore
@@ -51,7 +52,7 @@ from .index.sql import (
     remove_from_sql_main_index,
 )
 from .index.html import parse_html_main_index
-from .extractors import archive_links
+from .extractors import archive_links, archive_link, ignore_methods
 from .config import (
     stderr,
     ConfigDict,
@@ -492,6 +493,23 @@ def status(out_dir: str=OUTPUT_DIR) -> None:
         )
     print(ANSI['black'], '   ...', ANSI['reset'])
 
+
+@enforce_types
+def oneshot(url: str, out_dir: str=OUTPUT_DIR):
+    """
+    Create a single URL archive folder with an index.json and index.html, and all the archive method outputs.
+    You can run this to archive single pages without needing to create a whole collection with archivebox init.
+    """
+    oneshot_link, _ = parse_links_memory([url])
+    if len(oneshot_link) > 1:
+        stderr(
+                '[X] You should pass a single url to the oneshot command',
+                color='red'
+            )
+        raise SystemExit(2)
+    methods = ignore_methods(['title'])
+    archive_link(oneshot_link[0], out_dir=out_dir, methods=methods, skip_index=True)
+    return oneshot_link
 
 @enforce_types
 def add(urls: Union[str, List[str]],
@@ -1055,3 +1073,4 @@ def shell(out_dir: str=OUTPUT_DIR) -> None:
     setup_django(OUTPUT_DIR)
     from django.core.management import call_command
     call_command("shell_plus")
+

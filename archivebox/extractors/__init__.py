@@ -32,22 +32,32 @@ from .git import should_save_git, save_git
 from .media import should_save_media, save_media
 from .archive_org import should_save_archive_dot_org, save_archive_dot_org
 
+def get_default_archive_methods():
+    return [
+            ('title', should_save_title, save_title),
+            ('favicon', should_save_favicon, save_favicon),
+            ('wget', should_save_wget, save_wget),
+            ('pdf', should_save_pdf, save_pdf),
+            ('screenshot', should_save_screenshot, save_screenshot),
+            ('dom', should_save_dom, save_dom),
+            ('git', should_save_git, save_git),
+            ('media', should_save_media, save_media),
+            ('archive_org', should_save_archive_dot_org, save_archive_dot_org),
+        ]
 
 @enforce_types
-def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None) -> Link:
+def ignore_methods(to_ignore: List[str]):
+    ARCHIVE_METHODS = get_default_archive_methods()
+    methods = filter(lambda x: x[0] not in to_ignore, ARCHIVE_METHODS)
+    methods = map(lambda x: x[1], methods)
+    return list(methods)
+
+@enforce_types
+def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None, skip_index: bool=False) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
-    ARCHIVE_METHODS = [
-        ('title', should_save_title, save_title),
-        ('favicon', should_save_favicon, save_favicon),
-        ('wget', should_save_wget, save_wget),
-        ('pdf', should_save_pdf, save_pdf),
-        ('screenshot', should_save_screenshot, save_screenshot),
-        ('dom', should_save_dom, save_dom),
-        ('git', should_save_git, save_git),
-        ('media', should_save_media, save_media),
-        ('archive_org', should_save_archive_dot_org, save_archive_dot_org),
-    ]
+    ARCHIVE_METHODS = get_default_archive_methods()
+    
     if methods is not None:
         ARCHIVE_METHODS = [
             method for method in ARCHIVE_METHODS
@@ -61,7 +71,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
             os.makedirs(out_dir)
 
         link = load_link_details(link, out_dir=out_dir)
-        write_link_details(link, out_dir=link.link_dir)
+        write_link_details(link, out_dir=out_dir, skip_sql_index=skip_index)
         log_link_archiving_started(link, out_dir, is_new)
         link = link.overwrite(updated=datetime.now())
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
@@ -97,8 +107,9 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         except Exception:
             pass
 
-        write_link_details(link, out_dir=link.link_dir)
-        patch_main_index(link)
+        write_link_details(link, out_dir=out_dir, skip_sql_index=skip_index)
+        if not skip_index:
+            patch_main_index(link)
 
         # # If any changes were made, update the main links index json and html
         # was_changed = stats['succeeded'] or stats['failed']
