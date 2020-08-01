@@ -27,11 +27,6 @@ jobs:
           # one pass for small stylistic things
           flake8 archivebox --count --max-line-length="$MAX_LINE_LENGTH" --statistics
 
-      # - name: Lint with mypy
-      #   run: |
-      #     pip install mypy
-      #     mypy archivebox || true
-
   test:
     runs-on: ${{ matrix.os }}
 
@@ -51,31 +46,22 @@ jobs:
           python-version: ${{ matrix.python }}
           architecture: x64
 
-      - name: Cache virtualenv
+      - name: Cache pip
         uses: actions/cache@v2
-        id: cache-venv
+        id: cache-pip
         with:
-          path: .venv
+          path: ~/.cache/pip
           key: ${{ runner.os }}-${{ matrix.python }}-venv-${{ hashFiles('setup.py') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-venv-
 
-      - name: Create virtualenv
-        if: steps.cache-venv.outputs.cache-hit != 'true'
-        run: |
-          python3 -m venv .venv
-          source .venv/bin/activate
-          python3 -m pip install --upgrade pip setuptools
-
       - name: Install dependencies
         run: |
-          source .venv/bin/activate
           python -m pip install .
           python -m pip install pytest bottle
 
       - name: Test built package with pytest
         run: |
-          source .venv/bin/activate
           python -m pytest -s
 
   docker-test:
@@ -114,7 +100,6 @@ jobs:
         run: |
           docker run -v "$PWD"/data:/data archivebox list | grep -q "www.test-nginx-1.local" || { echo "The site 1 isn't in the list"; exit 1; }
           docker run -v "$PWD"/data:/data archivebox list | grep -q "www.test-nginx-2.local" || { echo "The site 2 isn't in the list"; exit 1; }
-
 
       - name: Start docker-compose stack
         run: |
