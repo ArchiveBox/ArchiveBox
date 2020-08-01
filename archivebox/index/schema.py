@@ -365,7 +365,7 @@ class Link:
             'screenshot.png',
             'output.html',
             'media',
-            'single-file.html'
+            'singlefile.html'
         )
 
         return any(
@@ -406,7 +406,7 @@ class Link:
             'google_favicon_path': 'https://www.google.com/s2/favicons?domain={}'.format(self.domain),
             'wget_path': wget_output_path(self),
             'warc_path': 'warc',
-            'singlefile_path': 'single-file.html',
+            'singlefile_path': 'singlefile.html',
             'pdf_path': 'output.pdf',
             'screenshot_path': 'screenshot.png',
             'dom_path': 'output.html',
@@ -429,5 +429,4 @@ class Link:
                 'singlefile_path': static_path,
             })
         return canonical
-
 

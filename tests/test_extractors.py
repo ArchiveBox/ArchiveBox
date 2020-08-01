@@ -17,5 +17,5 @@ def test_ignore_methods():
 def test_singlefile_works(tmp_path, process):
     add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'], capture_output=True) 
     archived_item_path = list(tmp_path.glob('archive/**/*'))[0]
-    output_file = archived_item_path / "single-file.html" 
+    output_file = archived_item_path / "singlefile.html" 
     assert output_file.exists()

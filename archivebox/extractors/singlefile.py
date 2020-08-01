@@ -23,7 +23,7 @@ from ..logging_util import TimedProgress
 def should_save_singlefile(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
 
-    output = Path(out_dir or link.link_dir) / 'single-file.html'
+    output = Path(out_dir or link.link_dir) / 'singlefile.html'
     return SAVE_SINGLEFILE and (not output.exists())
 
 
@@ -32,7 +32,7 @@ def save_singlefile(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOU
     """download full site using single-file"""
 
     out_dir = out_dir or link.link_dir
-    output = str(Path(out_dir).absolute() / "single-file.html")
+    output = str(Path(out_dir).absolute() / "singlefile.html")
 
     # SingleFile CLI Docs: https://github.com/gildas-lormeau/SingleFile/tree/master/cli
     cmd = [
