@@ -62,9 +62,9 @@ To get started, you can [install them manually](https://github.com/pirate/Archiv
 ```bash
 # Docker
 mkdir data && cd data
-docker run -v $PWD:/data nikisweeting:archivebox init
-docker run -v $PWD:/data nikisweeting:archivebox add 'https://example.com'
-docker run -v $PWD:/data -p 8000 nikisweeting:archivebox server
+docker run -v $PWD:/data nikisweeting/archivebox init
+docker run -v $PWD:/data nikisweeting/archivebox add 'https://example.com'
+docker run -v $PWD:/data -p 8000 nikisweeting/archivebox server
 open https://127.0.0.1:8000
 ```
 
