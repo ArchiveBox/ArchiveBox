@@ -518,6 +518,7 @@ def printable_folder_status(name: str, folder: Dict) -> str:
 
 @enforce_types
 def printable_dependency_version(name: str, dependency: Dict) -> str:
+    version = None
     if dependency['enabled']:
         if dependency['is_valid']:
             color, symbol, note, version = 'green', '√', 'valid', ''

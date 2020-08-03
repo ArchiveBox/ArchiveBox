@@ -3,11 +3,13 @@ __package__ = 'archivebox.extractors'
 from pathlib import Path
 
 from typing import Optional
+import json
 
 from ..index.schema import Link, ArchiveResult, ArchiveError
 from ..system import run, chmod_file
 from ..util import (
     enforce_types,
+    chrome_args
 )
 from ..config import (
     TIMEOUT,
@@ -34,10 +36,13 @@ def save_singlefile(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOU
     out_dir = out_dir or link.link_dir
     output = str(Path(out_dir).absolute() / "singlefile.html")
 
+    browser_args = chrome_args(TIMEOUT=0)
+
     # SingleFile CLI Docs: https://github.com/gildas-lormeau/SingleFile/tree/master/cli
     cmd = [
         SINGLEFILE_BINARY,
         '--browser-executable-path={}'.format(CHROME_BINARY),
+        '--browser-args="{}"'.format(json.dumps(browser_args[1:])),
         link.url,
         output
     ]
