@@ -55,8 +55,7 @@ WORKDIR "$EXTRA_PATH"
 RUN wget -qO - https://github.com/gildas-lormeau/SingleFile/archive/master.zip > SingleFile.zip \
     && unzip -q SingleFile.zip \
     && npm install --prefix SingleFile-master/cli --production > /dev/null 2>&1 \
-    && chmod +x SingleFile-master/cli/single-file \
-    && ln -s "$EXTRA_PATH/SingleFile-master/cli/single-file" "/bin/single-file" 
+    && chmod +x SingleFile-master/cli/single-file 
 
 # Run everything from here on out as non-privileged user
 RUN groupadd --system archivebox \
@@ -73,7 +72,8 @@ VOLUME "$DATA_PATH"
 WORKDIR "$DATA_PATH"
 EXPOSE 8000
 ENV CHROME_BINARY=google-chrome \
-    CHROME_SANDBOX=False
+    CHROME_SANDBOX=False \
+    SINGLEFILE_BINARY="$EXTRA_PATH/SingleFile-master/cli/single-file"
 
 RUN env ALLOW_ROOT=True archivebox version
 
