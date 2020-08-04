@@ -53,8 +53,8 @@ jobs:
       - name: Give singlefile execution permissions
         run: chmod +x singlefile/cli/single-file
 
-      - name: Add singlefile cli folder to path
-        run: echo "::add-path::$GITHUB_WORKSPACE/singlefile/cli"
+      - name: Set SINGLEFILE_BINARY
+        run: echo "::set-env name=SINGLEFILE_BINARY::$GITHUB_WORKSPACE/singlefile/cli/single-file"
 
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v1
