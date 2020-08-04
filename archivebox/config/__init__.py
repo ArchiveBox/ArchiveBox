@@ -254,6 +254,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
 
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and (c['SAVE_SINGLEFILE'])},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
+    'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
 
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
