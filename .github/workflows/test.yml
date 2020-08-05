@@ -46,11 +46,16 @@ jobs:
           python-version: ${{ matrix.python }}
           architecture: x64
 
+      - name: Get pip cache dir
+        id: pip-cache
+        run: |
+          echo "::set-output name=dir::$(pip cache dir)"
+
       - name: Cache pip
         uses: actions/cache@v2
         id: cache-pip
         with:
-          path: ~/.cache/pip
+          path: ${{ steps.pip-cache.outputs.dir }}
           key: ${{ runner.os }}-${{ matrix.python }}-venv-${{ hashFiles('setup.py') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-venv-
