@@ -74,6 +74,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'SAVE_FAVICON':             {'type': bool,  'default': True, 'aliases': ('FETCH_FAVICON',)},
         'SAVE_WGET':                {'type': bool,  'default': True, 'aliases': ('FETCH_WGET',)},
         'SAVE_WGET_REQUISITES':     {'type': bool,  'default': True, 'aliases': ('FETCH_WGET_REQUISITES',)},
+        'SAVE_SINGLEFILE':          {'type': bool,  'default': True, 'aliases': ('FETCH_SINGLEFILE',)},
         'SAVE_PDF':                 {'type': bool,  'default': True, 'aliases': ('FETCH_PDF',)},
         'SAVE_SCREENSHOT':          {'type': bool,  'default': True, 'aliases': ('FETCH_SCREENSHOT',)},
         'SAVE_DOM':                 {'type': bool,  'default': True, 'aliases': ('FETCH_DOM',)},
@@ -104,6 +105,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
     'DEPENDENCY_CONFIG': {
         'USE_CURL':                 {'type': bool,  'default': True},
         'USE_WGET':                 {'type': bool,  'default': True},
+        'USE_SINGLEFILE':           {'type': bool,  'default': True},
         'USE_GIT':                  {'type': bool,  'default': True},
         'USE_CHROME':               {'type': bool,  'default': True},
         'USE_YOUTUBEDL':            {'type': bool,  'default': True},
@@ -111,6 +113,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'CURL_BINARY':              {'type': str,   'default': 'curl'},
         'GIT_BINARY':               {'type': str,   'default': 'git'},
         'WGET_BINARY':              {'type': str,   'default': 'wget'},
+        'SINGLEFILE_BINARY':        {'type': str,   'default': 'single-file'},
         'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
         'CHROME_BINARY':            {'type': str,   'default': None},
     },
@@ -248,6 +251,10 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'WGET_USER_AGENT':          {'default': lambda c: c['WGET_USER_AGENT'].format(**c)},
     'SAVE_WGET':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WGET']},
     'SAVE_WARC':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WARC']},
+
+    'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and (c['SAVE_SINGLEFILE'])},
+    'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
+    'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
 
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
@@ -673,6 +680,13 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'hash': bin_hash(config['WGET_BINARY']),
             'enabled': config['USE_WGET'],
             'is_valid': bool(config['WGET_VERSION']),
+        },
+        'SINGLEFILE_BINARY': {
+            'path': bin_path(config['SINGLEFILE_BINARY']),
+            'version': config['SINGLEFILE_VERSION'],
+            'hash': bin_hash(config['SINGLEFILE_BINARY']),
+            'enabled': config['USE_SINGLEFILE'],
+            'is_valid': bool(config['SINGLEFILE_VERSION']),
         },
         'GIT_BINARY': {
             'path': bin_path(config['GIT_BINARY']),

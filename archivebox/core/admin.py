@@ -106,6 +106,7 @@ class SnapshotAdmin(admin.ModelAdmin):
                 '<a href="/{}/{}" class="exists-{}" title="Screenshot">🖥 </a> '
                 '<a href="/{}/{}" class="exists-{}" title="HTML dump">🅷 </a> '
                 '<a href="/{}/{}/" class="exists-{}" title="WARC">🆆 </a> '
+                '<a href="/{}/{}" class="exists-{}" title="SingleFile">&#128476; </a>'
                 '<a href="/{}/{}/" class="exists-{}" title="Media files">📼 </a> '
                 '<a href="/{}/{}/" class="exists-{}" title="Git repos">📦 </a> '
                 '<a href="{}" class="exists-{}" title="Archive.org snapshot">🏛 </a> '
@@ -115,6 +116,7 @@ class SnapshotAdmin(admin.ModelAdmin):
             *link_tuple(link, 'screenshot_path'),
             *link_tuple(link, 'dom_path'),
             *link_tuple(link, 'warc_path')[:2], any((out_dir / canon['warc_path']).glob('*.warc.gz')),
+            *link_tuple(link, 'singlefile_path'),
             *link_tuple(link, 'media_path')[:2], any((out_dir / canon['media_path']).glob('*')),
             *link_tuple(link, 'git_path')[:2], any((out_dir / canon['git_path']).glob('*')),
             canon['archive_org_path'], (out_dir / 'archive.org.txt').exists(),

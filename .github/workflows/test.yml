@@ -40,6 +40,22 @@ jobs:
         with:
           fetch-depth: 1
 
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+          repository: "gildas-lormeau/SingleFile"
+          ref: "master"
+          path: "singlefile"
+
+      - name: Install npm requirements for singlefile
+        run: npm install --prefix singlefile/cli
+
+      - name: Give singlefile execution permissions
+        run: chmod +x singlefile/cli/single-file
+
+      - name: Set SINGLEFILE_BINARY
+        run: echo "::set-env name=SINGLEFILE_BINARY::$GITHUB_WORKSPACE/singlefile/cli/single-file"
+
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v1
         with:
@@ -59,6 +75,14 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.python }}-venv-${{ hashFiles('setup.py') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-venv-
+
+      - name: Use nodejs 14.7.0
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14.7.0
+
+      - name: Debug
+        run: ls ./
 
       - name: Install dependencies
         run: |

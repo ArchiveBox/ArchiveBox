@@ -365,6 +365,7 @@ class Link:
             'screenshot.png',
             'output.html',
             'media',
+            'singlefile.html'
         )
 
         return any(
@@ -376,7 +377,7 @@ class Link:
         """get the latest output that each archive method produced for link"""
         
         ARCHIVE_METHODS = (
-            'title', 'favicon', 'wget', 'warc', 'pdf',
+            'title', 'favicon', 'wget', 'warc', 'singlefile', 'pdf',
             'screenshot', 'dom', 'git', 'media', 'archive_org',
         )
         latest: Dict[str, ArchiveOutput] = {}
@@ -392,7 +393,6 @@ class Link:
                 latest[archive_method] = history[0].output
             else:
                 latest[archive_method] = None
-
         return latest
 
 
@@ -406,6 +406,7 @@ class Link:
             'google_favicon_path': 'https://www.google.com/s2/favicons?domain={}'.format(self.domain),
             'wget_path': wget_output_path(self),
             'warc_path': 'warc',
+            'singlefile_path': 'singlefile.html',
             'pdf_path': 'output.pdf',
             'screenshot_path': 'screenshot.png',
             'dom_path': 'output.html',
@@ -425,7 +426,7 @@ class Link:
                 'pdf_path': static_path,
                 'screenshot_path': static_path,
                 'dom_path': static_path,
+                'singlefile_path': static_path,
             })
         return canonical
-
 
