@@ -252,9 +252,8 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'SAVE_WGET':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WGET']},
     'SAVE_WARC':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WARC']},
 
-    'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and (c['SAVE_SINGLEFILE'])},
+    'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
-    'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
 
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
@@ -271,6 +270,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'SAVE_PDF':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_PDF']},
     'SAVE_SCREENSHOT':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SCREENSHOT']},
     'SAVE_DOM':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_DOM']},
+    'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_CHROME'] and c['USE_SINGLEFILE']},
 
     'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
     'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},

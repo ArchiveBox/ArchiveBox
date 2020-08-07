@@ -53,6 +53,7 @@ class ConfigDict(BaseConfig, total=False):
     SAVE_PDF: bool
     SAVE_SCREENSHOT: bool
     SAVE_DOM: bool
+    SAVE_SINGLEFILE: bool
     SAVE_WARC: bool
     SAVE_GIT: bool
     SAVE_MEDIA: bool
@@ -75,12 +76,14 @@ class ConfigDict(BaseConfig, total=False):
     USE_GIT: bool
     USE_CHROME: bool
     USE_YOUTUBEDL: bool
+    USE_SINGLEFILE: bool
 
     CURL_BINARY: Optional[str]
     GIT_BINARY: Optional[str]
     WGET_BINARY: Optional[str]
     YOUTUBEDL_BINARY: Optional[str]
     CHROME_BINARY: Optional[str]
+    SINGLEFILE_BINARY: Optional[str]
 
     TERM_WIDTH: Callable[[], int]
     USER: str
