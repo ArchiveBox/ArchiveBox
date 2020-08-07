@@ -76,6 +76,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'SAVE_WGET':                {'type': bool,  'default': True, 'aliases': ('FETCH_WGET',)},
         'SAVE_WGET_REQUISITES':     {'type': bool,  'default': True, 'aliases': ('FETCH_WGET_REQUISITES',)},
         'SAVE_SINGLEFILE':          {'type': bool,  'default': True, 'aliases': ('FETCH_SINGLEFILE',)},
+        'SAVE_READABILITY':         {'type': bool,  'default': True, 'aliases': ('FETCH_READABILITY',)},
         'SAVE_PDF':                 {'type': bool,  'default': True, 'aliases': ('FETCH_PDF',)},
         'SAVE_SCREENSHOT':          {'type': bool,  'default': True, 'aliases': ('FETCH_SCREENSHOT',)},
         'SAVE_DOM':                 {'type': bool,  'default': True, 'aliases': ('FETCH_DOM',)},
@@ -107,6 +108,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'USE_CURL':                 {'type': bool,  'default': True},
         'USE_WGET':                 {'type': bool,  'default': True},
         'USE_SINGLEFILE':           {'type': bool,  'default': True},
+        'USE_READABILITY':          {'type': bool,  'default': True},
         'USE_GIT':                  {'type': bool,  'default': True},
         'USE_CHROME':               {'type': bool,  'default': True},
         'USE_YOUTUBEDL':            {'type': bool,  'default': True},
@@ -115,6 +117,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'GIT_BINARY':               {'type': str,   'default': 'git'},
         'WGET_BINARY':              {'type': str,   'default': 'wget'},
         'SINGLEFILE_BINARY':        {'type': str,   'default': 'single-file'},
+        'READABILITY_BINARY':       {'type': str,   'default': 'readability-extractor'},
         'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
         'CHROME_BINARY':            {'type': str,   'default': None},
     },
@@ -256,6 +259,9 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
 
+    'USE_READABILITY':          {'default': lambda c: c['USE_READABILITY'] and c['SAVE_READABILITY']},
+    'READABILITY_VERSION':      {'default': lambda c: bin_version(c['READABILITY_BINARY']) if c['USE_READABILITY'] else None},
+
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
     'SAVE_GIT':                 {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
@@ -272,6 +278,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'SAVE_SCREENSHOT':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SCREENSHOT']},
     'SAVE_DOM':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_DOM']},
     'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_CHROME'] and c['USE_SINGLEFILE']},
+    'SAVE_READABILITY':         {'default': lambda c: c['USE_READABILITY']},
 
     'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
     'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
@@ -688,6 +695,13 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'hash': bin_hash(config['SINGLEFILE_BINARY']),
             'enabled': config['USE_SINGLEFILE'],
             'is_valid': bool(config['SINGLEFILE_VERSION']),
+        },
+        'READABILITY_BINARY': {
+            'path': bin_path(config['READABILITY_BINARY']),
+            'version': config['READABILITY_VERSION'],
+            'hash': bin_hash(config['READABILITY_BINARY']),
+            'enabled': config['USE_READABILITY'],
+            'is_valid': bool(config['READABILITY_VERSION']),
         },
         'GIT_BINARY': {
             'path': bin_path(config['GIT_BINARY']),
