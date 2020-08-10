@@ -164,7 +164,7 @@ def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional
     cmd = ' '.join(('archivebox', subcommand, *subcommand_args))
     stdin_hint = ' < /dev/stdin' if not stdin.isatty() else ''
     stderr('{black}[i] [{now}] ArchiveBox v{VERSION}: {cmd}{stdin_hint}{reset}'.format(
-        now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        now=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
         VERSION=VERSION,
         cmd=cmd,
         stdin_hint=stdin_hint,
