@@ -1,6 +1,7 @@
 __package__ = 'archivebox.extractors'
 
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from typing import Optional
 import json
@@ -35,14 +36,15 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
     """download reader friendly version using @mozilla/readability"""
 
     out_dir = out_dir or link.link_dir
-    output = str(Path(out_dir).absolute() / "readability.json")
+    output_folder = Path(out_dir).absolute() / "readability"
 
     document = download_url(link.url)
-
+    temp_doc = NamedTemporaryFile()
+    temp_doc.write(document.encode("utf-8"))
     # SingleFile CLI Docs: https://github.com/gildas-lormeau/SingleFile/tree/master/cli
     cmd = [
         READABILITY_BINARY,
-        document
+        temp_doc.name
     ]
 
     status = 'succeeded'
@@ -50,7 +52,10 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
     try:
         result = run(cmd, cwd=out_dir, timeout=timeout)
         result_json = json.loads(result.stdout)
-        atomic_write(output, result_json)
+        output_folder.mkdir(exist_ok=True)
+        atomic_write(str(output_folder / "content.html"), result_json.pop("content"))
+        atomic_write(str(output_folder / "content.txt"), result_json.pop("textContent"))
+        atomic_write(str(output_folder / "article.json"), result_json)
 
         # parse out number of files downloaded from last line of stderr:
         #  "Downloaded: 76 files, 4.0M in 1.6s (2.52 MB/s)"
@@ -72,12 +77,13 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
         output = err
     finally:
         timer.end()
+        temp_doc.close()
 
     return ArchiveResult(
         cmd=cmd,
         pwd=out_dir,
         cmd_version=READABILITY_VERSION,
-        output=output,
+        output=str(output_folder),
         status=status,
         **timer.stats,
     )
