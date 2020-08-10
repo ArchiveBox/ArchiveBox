@@ -778,9 +778,16 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
                 stderr('        CHROME_USER_DATA_DIR="{}"'.format(config['CHROME_USER_DATA_DIR'].split('/Default')[0]))
             raise SystemExit(2)
 
+def dependency_additional_info(dependency: str) -> str:
+    if dependency == "SINGLEFILE_BINARY":
+        return "Please follow the installation instructions at https://github.com/gildas-lormeau/SingleFile/tree/master/cli and set SINGLEFILE_BINARY or set USE_SINGLEFILE=false"
+    return ""
+
+
 def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
     invalid = [
-        '{}: {} ({})'.format(name, info['path'] or 'unable to find binary', info['version'] or 'unable to detect version')
+        '{}: {} ({}). {}'.format(name, info['path'] or 'unable to find binary', info['version'] or 'unable to detect version',
+                                 dependency_additional_info(name))
         for name, info in config['DEPENDENCIES'].items()
         if info['enabled'] and not info['is_valid']
     ]
