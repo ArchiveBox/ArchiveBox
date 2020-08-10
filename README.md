@@ -19,7 +19,7 @@
 <a href="https://github.com/pirate/ArchiveBox/blob/master/LICENSE"><img src="https://img.shields.io/badge/Open_source-MIT-green.svg?logo=git&logoColor=green"/></a>
 <a href="https://github.com/pirate/ArchiveBox/commits/dev"><img src="https://img.shields.io/github/last-commit/pirate/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=Active"/></a>
 <a href="https://github.com/pirate/ArchiveBox"><img src="https://img.shields.io/github/stars/pirate/ArchiveBox.svg?logo=github&label=Stars&logoColor=blue"/></a>
-<a href="https://test.pypi.org/project/archivebox/"><img src="https://img.shields.io/badge/Python-%3E%3D3.5-yellow.svg?logo=python&logoColor=yellow"/></a>
+<a href="https://test.pypi.org/project/archivebox/"><img src="https://img.shields.io/badge/Python-%3E%3D3.7-yellow.svg?logo=python&logoColor=yellow"/></a>
 <a href="https://github.com/pirate/ArchiveBox/wiki/Install#dependencies"><img src="https://img.shields.io/badge/Chromium-%3E%3D59-orange.svg?logo=Google+Chrome&logoColor=orange"/></a>
 <a href="https://hub.docker.com/r/nikisweeting/archivebox"><img src="https://img.shields.io/badge/Docker-all%20platforms-lightblue.svg?logo=docker&logoColor=lightblue"/></a>
 <hr/>
@@ -66,7 +66,7 @@ docker run -v $PWD:/data nikisweeting/archivebox init
 docker run -v $PWD:/data nikisweeting/archivebox add 'https://example.com'
 docker run -v $PWD:/data -it nikisweeting/archivebox manage createsuperuser
 docker run -v $PWD:/data -p 8000:8000 nikisweeting/archivebox server 0.0.0.0:8000
-open https://127.0.0.1:8000
+open http://127.0.0.1:8000
 ```
 
 ```bash
@@ -74,7 +74,9 @@ open https://127.0.0.1:8000
 # first download: https://github.com/pirate/ArchiveBox/blob/master/docker-compose.yml
 docker-compose run archivebox init
 docker-compose run archivebox add 'https://example.com'
+docker-compose run archivebox manage createsuperuser
 docker-compose up
+open http://127.0.0.1:8000
 ```
 
 ```bash
@@ -100,7 +102,7 @@ archivebox manage createsuperuser
 archivebox server
 ```
 
-You can visit `https://127.0.0.1:8000` in your browser to access it.
+You can visit `http://127.0.0.1:8000` in your browser to access it.
 
 [DEMO: archivebox.zervice.io/](https://archivebox.zervice.io)  
 For more information, see the [full Quickstart guide](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) docs.
