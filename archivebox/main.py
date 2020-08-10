@@ -186,6 +186,9 @@ def help(out_dir: str=OUTPUT_DIR) -> None:
         print('    1. Create an empty directory, then cd into it and run:')
         print('    2. archivebox init')
         print()
+        print('If using Docker, you need to mount a volume to use as your data dir:')
+        print('    docker run -v /some/path:/data archivebox ...')
+        print()
         print('For more information, see the documentation here:')
         print('    https://github.com/pirate/ArchiveBox/wiki')
 
