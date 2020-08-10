@@ -71,11 +71,12 @@ RUN python -m venv --clear --symlinks "$VENV_PATH" \
 VOLUME "$DATA_PATH"
 WORKDIR "$DATA_PATH"
 EXPOSE 8000
-ENV CHROME_BINARY=google-chrome \
+ENV IN_DOCKER=True \
+    CHROME_BINARY=google-chrome \
     CHROME_SANDBOX=False \
     SINGLEFILE_BINARY="$EXTRA_PATH/SingleFile-master/cli/single-file"
 
 RUN env ALLOW_ROOT=True archivebox version
 
-ENTRYPOINT ["dumb-init", "--", "/app/bin/docker_entrypoint.sh", "archivebox"]
-CMD ["server", "0.0.0.0:8000"]
+ENTRYPOINT ["dumb-init", "--", "/app/bin/docker_entrypoint.sh"]
+CMD ["archivebox", "server", "0.0.0.0:8000"]

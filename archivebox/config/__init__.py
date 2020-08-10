@@ -45,6 +45,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'IS_TTY':                   {'type': bool,  'default': lambda _: sys.stdout.isatty()},
         'USE_COLOR':                {'type': bool,  'default': lambda c: c['IS_TTY']},
         'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: c['IS_TTY']},
+        'IN_DOCKER':                {'type': bool,  'default': False},
         # TODO: 'SHOW_HINTS':       {'type:  bool,  'default': True},
     },
 

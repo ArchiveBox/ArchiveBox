@@ -57,7 +57,8 @@ from .config import (
     stderr,
     ConfigDict,
     ANSI,
-    # IS_TTY,
+    IS_TTY,
+    IN_DOCKER,
     USER,
     ARCHIVEBOX_BINARY,
     ONLY_NEW,
@@ -178,6 +179,10 @@ def help(out_dir: str=OUTPUT_DIR) -> None:
     else:
         print('{green}Welcome to ArchiveBox v{}!{reset}'.format(VERSION, **ANSI))
         print()
+        if IN_DOCKER:
+            print('When using Docker, you need to mount a volume to use as your data dir:')
+            print('    docker run -v /some/path:/data archivebox ...')
+            print()
         print('To import an existing archive (from a previous version of ArchiveBox):')
         print('    1. cd into your data dir OUTPUT_DIR (usually ArchiveBox/output) and run:')
         print('    2. archivebox init')
@@ -185,9 +190,6 @@ def help(out_dir: str=OUTPUT_DIR) -> None:
         print('To start a new archive:')
         print('    1. Create an empty directory, then cd into it and run:')
         print('    2. archivebox init')
-        print()
-        print('If using Docker, you need to mount a volume to use as your data dir:')
-        print('    docker run -v /some/path:/data archivebox ...')
         print()
         print('For more information, see the documentation here:')
         print('    https://github.com/pirate/ArchiveBox/wiki')
@@ -1060,9 +1062,13 @@ def manage(args: Optional[List[str]]=None, out_dir: str=OUTPUT_DIR) -> None:
     """Run an ArchiveBox Django management command"""
 
     check_data_folder(out_dir=out_dir)
-
     setup_django(out_dir)
     from django.core.management import execute_from_command_line
+
+    if (args and "createsuperuser" in args) and (IN_DOCKER and not IS_TTY):
+        stderr('[!] Warning: you need to pass -it to use interactive commands in docker', color='lightyellow')
+        stderr('    docker run -it archivebox manage {}'.format(' '.join(args or ['...'])), color='lightyellow')
+        stderr()
 
     execute_from_command_line([f'{ARCHIVEBOX_BINARY} manage', *(args or ['help'])])
 

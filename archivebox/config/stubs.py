@@ -29,6 +29,7 @@ class ConfigDict(BaseConfig, total=False):
     IS_TTY: bool
     USE_COLOR: bool
     SHOW_PROGRESS: bool
+    IN_DOCKER: bool
 
     OUTPUT_DIR: str
     CONFIG_FILE: str
