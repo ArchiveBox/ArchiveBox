@@ -41,7 +41,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
     document = download_url(link.url)
     temp_doc = NamedTemporaryFile()
     temp_doc.write(document.encode("utf-8"))
-    # SingleFile CLI Docs: https://github.com/gildas-lormeau/SingleFile/tree/master/cli
+    # Readability Docs: https://github.com/mozilla/readability
     cmd = [
         READABILITY_BINARY,
         temp_doc.name
