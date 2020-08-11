@@ -37,7 +37,7 @@ def get_html(link: Link, path: Path) -> str:
             with open(abs_path / source, "r") as f:
                 document = f.read()
                 break
-        except FileNotFoundError:
+        except (FileNotFoundError, TypeError):
             continue
     if document is None:
         return download_url(link.url)
@@ -51,6 +51,7 @@ def should_save_readability(link: Link, out_dir: Optional[str]=None) -> bool:
         return False
 
     output = Path(out_dir or link.link_dir) / 'readability.json'
+    print(output, SAVE_READABILITY)
     return SAVE_READABILITY and (not output.exists())
 
 
@@ -63,8 +64,9 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
     output = str(output_folder)
 
     document = get_html(link, out_dir)
-    temp_doc = NamedTemporaryFile()
+    temp_doc = NamedTemporaryFile(delete=False)
     temp_doc.write(document.encode("utf-8"))
+    temp_doc.close()
     # Readability Docs: https://github.com/mozilla/readability
     cmd = [
         READABILITY_BINARY,
@@ -101,7 +103,6 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
         output = err
     finally:
         timer.end()
-        temp_doc.close()
 
     return ArchiveResult(
         cmd=cmd,

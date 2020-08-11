@@ -21,3 +21,35 @@ def test_singlefile_works(tmp_path, process, disable_extractors_dict):
     archived_item_path = list(tmp_path.glob('archive/**/*'))[0]
     output_file = archived_item_path / "singlefile.html" 
     assert output_file.exists()
+
+def test_readability_works(tmp_path, process, disable_extractors_dict):
+    disable_extractors_dict.update({"USE_READABILITY": "true"})
+    add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'],
+                                  capture_output=True, env=disable_extractors_dict)
+    archived_item_path = list(tmp_path.glob("archive/**/*"))[0]
+    output_file = archived_item_path / "readability" / "content.html"
+    assert output_file.exists()
+
+def test_readability_works_with_wget(tmp_path, process, disable_extractors_dict):
+    disable_extractors_dict.update({"USE_READABILITY": "true", "USE_WGET": "true"})
+    add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'],
+                                  capture_output=True, env=disable_extractors_dict)
+    archived_item_path = list(tmp_path.glob("archive/**/*"))[0]
+    output_file = archived_item_path / "readability" / "content.html"
+    assert output_file.exists()
+
+def test_readability_works_with_singlefile(tmp_path, process, disable_extractors_dict):
+    disable_extractors_dict.update({"USE_READABILITY": "true", "USE_SINGLEFILE": "true"})
+    add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'],
+                                  capture_output=True, env=disable_extractors_dict)
+    archived_item_path = list(tmp_path.glob("archive/**/*"))[0]
+    output_file = archived_item_path / "readability" / "content.html"
+    assert output_file.exists()
+
+def test_readability_works_with_dom(tmp_path, process, disable_extractors_dict):
+    disable_extractors_dict.update({"USE_READABILITY": "true", "SAVE_DOM": "true"})
+    add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'],
+                                  capture_output=True, env=disable_extractors_dict)
+    archived_item_path = list(tmp_path.glob("archive/**/*"))[0]
+    output_file = archived_item_path / "readability" / "content.html"
+    assert output_file.exists()
