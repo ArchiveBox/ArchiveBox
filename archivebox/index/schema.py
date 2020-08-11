@@ -407,6 +407,7 @@ class Link:
             'wget_path': wget_output_path(self),
             'warc_path': 'warc',
             'singlefile_path': 'singlefile.html',
+            'readability_path': 'readability/content.html',
             'pdf_path': 'output.pdf',
             'screenshot_path': 'screenshot.png',
             'dom_path': 'output.html',
@@ -427,6 +428,7 @@ class Link:
                 'screenshot_path': static_path,
                 'dom_path': static_path,
                 'singlefile_path': static_path,
+                'readability_path': static_path,
             })
         return canonical
 
