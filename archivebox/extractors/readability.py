@@ -19,7 +19,6 @@ from ..config import (
     SAVE_READABILITY,
     READABILITY_BINARY,
     READABILITY_VERSION,
-    CHROME_BINARY,
 )
 from ..logging_util import TimedProgress
 
@@ -61,6 +60,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
 
     out_dir = Path(out_dir or link.link_dir)
     output_folder = out_dir.absolute() / "readability"
+    output = str(output_folder)
 
     document = get_html(link, out_dir)
     temp_doc = NamedTemporaryFile()
@@ -107,7 +107,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
         cmd=cmd,
         pwd=str(out_dir),
         cmd_version=READABILITY_VERSION,
-        output=str(output_folder),
+        output=output,
         status=status,
         **timer.stats,
     )
