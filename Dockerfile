@@ -57,6 +57,11 @@ RUN wget -qO - https://github.com/gildas-lormeau/SingleFile/archive/master.zip >
     && npm install --prefix SingleFile-master/cli --production > /dev/null 2>&1 \
     && chmod +x SingleFile-master/cli/single-file 
 
+RUN wget -qO - https://github.com/pirate/readability-extractor/archive/master.zip > readability.zip \
+    && unzip -q readability.zip \
+    && npm install --prefix readability-extractor-master --production > /dev/null 2>&1 \
+    && chmod +x readability-extractor-master/readability-extractor
+
 # Run everything from here on out as non-privileged user
 RUN groupadd --system archivebox \
     && useradd --system --create-home --gid archivebox --groups audio,video archivebox
@@ -74,7 +79,8 @@ EXPOSE 8000
 ENV IN_DOCKER=True \
     CHROME_BINARY=google-chrome \
     CHROME_SANDBOX=False \
-    SINGLEFILE_BINARY="$EXTRA_PATH/SingleFile-master/cli/single-file"
+    SINGLEFILE_BINARY="$EXTRA_PATH/SingleFile-master/cli/single-file" \
+    READABILITY_BINARY="$EXTRA_PATH/readability-extractor-master/readability-extractor"
 
 RUN env ALLOW_ROOT=True archivebox version
 

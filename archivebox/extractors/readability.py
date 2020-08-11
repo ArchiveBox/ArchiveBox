@@ -50,8 +50,7 @@ def should_save_readability(link: Link, out_dir: Optional[str]=None) -> bool:
     if is_static_file(link.url):
         return False
 
-    output = Path(out_dir or link.link_dir) / 'readability.json'
-    print(output, SAVE_READABILITY)
+    output = Path(out_dir or link.link_dir) / 'readability'
     return SAVE_READABILITY and (not output.exists())
 
 
