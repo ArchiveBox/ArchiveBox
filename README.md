@@ -131,8 +131,10 @@ All the archived links are stored by date bookmarked in `./archive/<timestamp>`,
 
 ```bash
 echo 'http://example.com' | archivebox add
-archivebox add ~/Downloads/firefox_bookmarks_export.html --depth=1
-archivebox add https://example.com/some/rss/feed.xml --depth=1
+archivebox add 'https://example.com/some/page'
+archivebox add < ~/Downloads/firefox_bookmarks_export.html
+archivebox add --depth=1 'https://example.com/some/rss/feed.xml'
+archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
 ```
 
 - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> Browser history or bookmarks exports (Chrome, Firefox, Safari, IE, Opera, and more)
