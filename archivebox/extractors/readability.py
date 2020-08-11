@@ -11,6 +11,7 @@ from ..system import run, atomic_write
 from ..util import (
     enforce_types,
     download_url,
+    is_static_file,
     
 )
 from ..config import (
@@ -26,6 +27,8 @@ from ..logging_util import TimedProgress
 @enforce_types
 def should_save_readability(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
+    if is_static_file(link.url):
+        return False
 
     output = Path(out_dir or link.link_dir) / 'readability.json'
     return SAVE_READABILITY and (not output.exists())
