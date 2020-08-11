@@ -56,6 +56,22 @@ jobs:
       - name: Set SINGLEFILE_BINARY
         run: echo "::set-env name=SINGLEFILE_BINARY::$GITHUB_WORKSPACE/singlefile/cli/single-file"
 
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+          repository: "pirate/readability-extractor"
+          ref: "master"
+          path: "readability-extractor"
+
+      - name: Install npm requirements for readability
+        run: npm install --prefix readability-extractor
+
+      - name: Give readability-extractor execution permissions
+        run: chmod +x readability-extractor/readability-extractor
+
+      - name: Set READABILITY_BINARY
+        run: echo "::set-env name=READABILITY_BINARY::$GITHUB_WORKSPACE/readability-extractor/readability-extractor"
+
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v1
         with:
