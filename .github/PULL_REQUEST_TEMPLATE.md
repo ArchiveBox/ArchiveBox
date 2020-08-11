@@ -17,5 +17,5 @@ e.g. This PR fixes ABC or adds the ability to do XYZ...
 
 # Roadmap Goals
 
-This PR helps us move towards xyz roadmap goal, as outlined here: https://github.com/pirate/ArchiveBox#roadmap
+This PR helps us move towards xyz roadmap goal, as outlined here: https://github.com/pirate/ArchiveBox/wiki/Roadmap
 (delete this section if it's just a bugfix / simple PR)

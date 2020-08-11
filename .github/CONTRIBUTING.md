@@ -1,6 +1,6 @@
 # Contribution Process
 
-1. Confirm your desired features fit into our bigger project goals roadmap: https://github.com/pirate/ArchiveBox#roadmap
+1. Confirm your desired features fit into our bigger project goals [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap).
 2. Open an issue with your planned implementation to discuss
 3. Check in with me before starting development to make sure your work wont conflict with or duplicate existing work
 4. Setup your dev environment, make some changes, and test using the test input files
