@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en-gb" dir="ltr" prefix="og: http://ogp.me/ns#" class="no-js">
+	<head>
+		<meta charset="utf-8"/>
+		<link rel="dns-prefetch" href="https://fonts.gstatic.com"/>
+		<link rel="dns-prefetch" href="https://cloud.24ways.org"/>
+		<link rel="dns-prefetch" href="https://media.24ways.org"/>
+
+		<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Code+Pro%7CSource+Sans+Pro:400,700%7CSource+Serif+Pro:400"/>
+		<link rel="stylesheet" href="/assets/styles/app-55.css"/>
+
+		<link rel="shortcut icon" href="/assets/icons/icon.ico" type="image/ico"/>
+		<link rel="apple-touch-icon" href="/assets/icons/icon.png" type="image/png"/>
+		<link rel="mask-icon" href="/assets/icons/icon.svg" color="#f04"/>
+		<link rel="manifest" href="/app.webmanifest"/>
+		<link rel="alternate" href="https://feeds.feedburner.com/24ways" type="application/rss+xml"/>
+		<link rel="author" href="/humans.txt"/>
+
+		<script>
+			var docEl = document.documentElement;
+docEl.className = docEl.className.replace('no-js', 'has-js');
+		</script>
+
+		<script src="/assets/scripts/app-55.js" defer></script>
+		<script src="/assets/scripts/prism.min.js" defer></script>
+		<script src="/assets/scripts/stats.js" defer></script>
+
+		<meta name="referrer" content="origin"/>
+		<meta name="robots" content="index, follow"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<meta property="og:url" name="twitter:url" content="https://24ways.org/2019/it-all-starts-with-a-humble-textarea/"/>
+		<meta property="og:title" name="twitter:title" content="It All Starts with a Humble &lt;textarea&gt;"/>
+		<meta property="og:description" name="twitter:description" content="Andy Bell rings out a fresh call in support of the timeless concept of progressive enhancement. What does it mean to build a modern JavaScript-focussed web experience that still works well if part of the stack isn’t supported or fails? Andy shows us how that might be done."/>
+		<meta property="og:image" name="twitter:image" content="https://cloud.24ways.org/2019/sharing/it-all-starts-with-a-humble-textarea.png"/>
+		<meta property="og:type" content="article"/>
+		<meta property="fb:app_id" content="1506442732766250"/>
+		<meta name="twitter:site" content="@24ways"/>
+		<meta name="twitter:creator" content="@hankchizljaw"/>
+		<meta name="twitter:card" content="summary_large_image"/>
+		<meta name="format-detection" content="telephone=no"/>
+		<meta name="theme-color" content="#302"/>
+		<meta name="msapplication-TileColor" content="#302"/>
+
+		<style>:root
+		{
+			--color-year: hsl(292, 100%, 16%);
+			--color-year--dark: hsl(292, 100%, 8%);
+			--color-year--dark-alpha: hsla(292, 100%, 8%, 0.8);
+			--color-day: hsl(311, 80%, 60%);
+			--color-day--light: hsl(311, 60%, 98%);
+			--color-day--dark: hsl(311, 100%, 24%);
+			--color-day--dark-alpha: hsla(311, 100%, 24%, 0.33);
+		}
+	</style>
+
+	<title>It All Starts with a Humble &lt;textarea&gt; &#9670; 24 ways</title>
+</head>
+<body>
+	<header class="c-banner" id="top">
+		<a class="c-banner__skip" href="#main">Skip to content</a>
+		<p class="c-banner__title">
+			<a class="c-banner__home" href="/" rel="home">24 ways
+				<span>to impress your friends</span>
+			</a>
+		</p>
+	</header>
+	<div class="c-menu no-transition">
+		<button class="c-menu__button" id="menu__button" aria-controls="menu__drawer" aria-expanded="true" aria-label="Menu">
+			<svg class="c-menu__icon" width="20" height="20" viewbox="0 0 200 200" focusable="false" aria-hidden="true">
+				<rect class="c-menu__line" width="120" height="10" x="40" y="45"/>
+				<rect class="c-menu__line" width="120" height="10" x="40" y="70"/>
+				<rect class="c-menu__line" width="120" height="10" x="40" y="95"/>
+				<rect class="c-menu__line" width="120" height="10" x="40" y="95"/>
+				<rect class="c-menu__line" width="120" height="10" x="40" y="120"/>
+				<rect class="c-menu__line" width="120" height="10" x="40" y="145"/>
+			</svg>
+		</button>
+		<div class="c-menu__drawer" id="menu__drawer" role="region" aria-label="Menu">
+			<form class="c-search" role="search" id="search" action="/search/">
+				<fieldset class="c-field">
+					<legend class="u-hidden">Search 24 ways</legend>
+					<label class="u-hidden" for="q">Keywords</label>
+					<input class="c-field__input" type="search" id="q" name="q" placeholder="e.g. CSS, Design, Research&#8230;"/>
+					<button class="c-field__button" type="submit">
+						<svg class="c-field__icon" width="20" height="20" viewbox="0 0 200 200" focusable="false" role="img" aria-label="Search">
+							<path role="presentation" d="M129 121C136 113 140 102 140 90c0-28-22-50-50-50S40 63 40 90s22 50 50 50c12 0 24-4 32-12L158 164l7-7-36-36zM90 130c-22 0-40-18-40-40s18-40 40-40 40 18 40 40-18 40-40 40z"/>
+						</svg>
+					</button>
+				</fieldset>
+			</form>
+
+			<nav class="c-topics-nav" aria-label="Topics">
+				<ul class="c-topics-nav__items">
+
+					<li class="c-topics-nav__item">
+						<a class="c-topics-nav__label" href="/topics/business/">
+							<svg width="16" height="16" viewbox="0 0 240 240" focusable="false" aria-hidden="true">
+								<path d="M20 220c-11 0-20-9-20-20V70c0-11 9-20 20-20h60V35c0-10 5-15 15-15h50c10 0 15 5 15 15v15h60c11 0 20 9 20 20v130c0 11-9 20-20 20H20zm0-160c-5.5 0-10 4.5-10 10v130c0 5.5 4.5 10 10 10h200c5.5 0 10-4.5 10-10V70c0-5.5-4.5-10-10-10H20zm130-10V35c0-3-2-5-5-5H95c-3 0-5 2-5 5v15h60zM30 100V90h180v10H30zm0 40v-10h180v10H30zm0 40v-10h180v10H30z"/>
+							</svg>
+
+							Business
+						</a>
+					</li>
+
+					<li class="c-topics-nav__item">
+						<a class="c-topics-nav__label" href="/topics/code/">
+							<svg width="16" height="16" viewbox="0 0 240 240" focusable="false" aria-hidden="true">
+								<path transform="rotate(45 120 120)" d="M115 100H70.5C63 85 47.5 75 30 75 8.5 75-9.5 90-14 110h29l10 10-10 10h-29c4.5 20 22.5 35 44 35 17.5 0 33-10 40.5-25h99.5c7.5 15 22.5 25 40.5 25 21.5 0 39.5-15 44-35h-29l-10-10 10-10h29c-4.5-20-22.5-35-44-35-17.5 0-33 10-40.5 25H125V30h10v-50h-30v50h10v70zm123.5 40c-6.5 9-17 15-28.5 15-16 0-29-10.5-33.5-25H63.5C59 144.5 46 155 30 155c-12 0-22.5-6-28.5-15H20l20-20-20-20H1.5C7.5 91 18 85 30 85c16 0 29 10.5 33.5 25h113c4.5-14.5 17.5-25 33.5-25 12 0 23 6 29 15h-19l-20 20 20 20h19zM115-10h10v30h-10v-30zM99.5 240v-50h-10v-10h25v-40h10v40h25v10H140v50c0 10-7.5 20-20 20-12.5 0-20-10-20.5-20zm11 0c0 7.5 5 10 10 10s10-2.5 10-10v-50h-20v50z"/>
+							</svg>
+
+							Code
+						</a>
+					</li>
+
+					<li class="c-topics-nav__item">
+						<a class="c-topics-nav__label" href="/topics/content/">
+							<svg width="16" height="16" viewbox="0 0 240 240" focusable="false" aria-hidden="true">
+								<path d="M102.5 240l-1.5-2c-2.5-3.5-61-88-61-128s40.5-64 42.5-65L50 0h140l-32.5 45S200 70 200 110s-58.5 124.5-61 128l-1.5 2h-35zm30-10c9-13 57.5-85.5 57.5-120 0-33-35-56-41.5-60H91.5C85 54 50 77 50 110c0 34.5 48.5 106.5 57.5 120h25zM115 129.5c-11.5-2-20-12.5-20-24.5 0-14 11-25 25-25s25 11 25 25c0 12-8.5 22-20 24.5V230h-10V129.5zm5-39.5c-8 0-15 6.5-15 15s6.5 15 15 15 15-6.5 15-15-6.5-15-15-15zM92.5 40h55L170 10H70l22.5 30z"/>
+							</svg>
+
+							Content
+						</a>
+					</li>
+
+					<li class="c-topics-nav__item">
+						<a class="c-topics-nav__label" href="/topics/design/">
+							<svg width="16" height="16" viewbox="0 0 240 240" focusable="false" aria-hidden="true">
+								<path fill-rule="evenodd" d="M140 0h80v240h-80V0zm70 10h-60v30h20v10h-20V70h20v10h-20v20h20v10h-20v20h20v10h-20v20h20v10h-20v20h20v10h-20V230h60V10zM45 230c-14 0-25-11-25-25V60c0-1 35-55 35-55s35 54 35 55v145c0 14-11 25-25 25H45zm-15-25c0 8 7 15 15 15h20c8 0 15-7 15-15v-5H30v5zm0-25v10h50v-10H30zm0-106c0-2 2-4 4-4h2c2 0 4 2 4 4v96H30V74zm20 0c0-2 2-4 4-4h2c2 0 4 2 4 4v96H50V74zm20 0c0-2 2-4 4-4h2c2 0 4 2 4 4v96H70V74zM30.5 60.5S39 58 45 63.5c6-4.5 14-4.5 20 0 6-5.5 14.5-3 14.5-3L69 45H41L30.5 60.5zm24.5-38L47.5 35h15L55 22.5z"/>
+							</svg>
+
+							Design
+						</a>
+					</li>
+
+					<li class="c-topics-nav__item">
+						<a class="c-topics-nav__label" href="/topics/process/">
+							<svg width="16" height="16" viewbox="0 0 240 240" focusable="false" aria-hidden="true">
+								<path d="M210 116v4c0 49.5-40.5 90-90 90-29 0-55-14-71.5-35l7-7c14.5 19.5 38 32 64.5 32 44 0 80-36 80-80v-3.5l-15.5 16-7.5-7.5 28.5-28.5L234 125l-7.5 7.5L210 116zm-180 8v-4c0-49.5 40.5-90 90-90 29 0 54.5 13.5 71 35l-7 7C169 52.5 146 40 120 40c-44 0-80 36-80 80v5l17-17 7 7-28.5 28.5L7 115l7-7 16 16z"/>
+							</svg>
+
+							Process
+						</a>
+					</li>
+
+					<li class="c-topics-nav__item">
+						<a class="c-topics-nav__label" href="/topics/ux/">
+							<svg width="16" height="16" viewbox="0 0 240 240" focusable="false" aria-hidden="true">
+								<path d="M220 240H20c-11 0-20-9-20-20V20C0 9 9 0 20 0h200c11 0 20 9 20 20v200c0 11-9 20-20 20zM20 10c-5 0-10 4-10 10v200c0 5 4 10 10 10h200c5 0 10-4 10-10V20c0-5-4-10-10-10H20zm150 200c-11 0-20-9-20-20s9-20 20-20 20 9 20 20-9 20-20 20zm0-30c-5 0-10 4-10 10s4 10 10 10 10-4 10-10-4-10-10-10zm-50 30c-11 0-20-9-20-20s9-20 20-20 20 9 20 20-9 20-20 20zm0-30c-5 0-10 4-10 10s4 10 10 10 10-4 10-10-4-10-10-10zm-50 30c-11 0-20-9-20-20s9-20 20-20 20 9 20 20-9 20-20 20zm0-30c-5 0-10 4-10 10s4 10 10 10 10-4 10-10-4-10-10-10zm45-30V80h10v70h-10zm0-100V30h10v20h-10zM65 80V30h10v50H65zm0 70v-40h10v40H65zm100 0v-20h10v20h-10zm0-50V30h10v70h-10zM50 110V80h40v30H50zm10-10h20V90H60v10zm90 30v-30h40v30h-40zm-50-50V50h40v30h-40zm10-10h20V60h-20v10zm50 50h20v-10h-20v10z"/>
+							</svg>
+
+							UX
+						</a>
+					</li>
+
+				</ul>
+			</nav>
+			<nav class="c-site-nav" aria-label="Explore 24 ways">
+				<ul class="c-site-nav__items">
+					<li class="c-site-nav__item">
+						<a class="c-site-nav__label" href="/archives/">Archives</a>
+					</li>
+					<li class="c-site-nav__item">
+						<a class="c-site-nav__label" href="/authors/">Authors</a>
+					</li>
+					<li class="c-site-nav__item">
+						<a class="c-site-nav__label" href="/about/" aria-label="About this website">About</a>
+					</li>
+				</ul>
+			</nav>
+		</div>
+		<script class="c-menu__onload">
+			document.getElementById('menu__drawer').style.display = 'none';
+		</script>
+	</div>
+
+
+	<main class="c-main" id="main">
+		<article class="c-article  h-entry">
+			<header class="c-article__header">
+				<h1 class="c-article__title  p-name">It All Starts with a Humble &lt;textarea&gt;</h1>
+				<p class="c-article__byline  p-author h-card">
+
+					<a class="u-url" href="#author">
+						<picture>
+							<source srcset="https://cloud.24ways.org/authors/andybell280.webp" type="image/webp"/>
+							<img class="c-avatar  u-photo" src="https://cloud.24ways.org/authors/andybell280.jpg" width="160" height="160" alt="Andy Bell"/>
+						</picture>
+						<span class="p-name">Andy Bell</span>
+					</a>
+
+				</p>
+			</header>
+
+			<footer class="c-article__footer">
+				<ul class="c-meta">
+					<li class="c-meta__item">
+						<time class="dt-published" datetime="2019-12-08T00:00:00+00:00">8 Dec<span>ember</span>
+							2019</time>
+					</li>
+
+
+					<li class="c-meta__item">Published in
+						<a href="/topics/ux/">UX</a>
+					</li>
+
+
+					<li class="c-meta__item">
+						<a href="#comments">No comments</a>
+					</li>
+				</ul>
+			</footer>
+
+			<div class="c-article__main e-content">
+
+				<div class="s-prose s-prose--article">
+					<p class="lede">Those that know me well know that I make
+						<em>a lot</em>
+						of
+						<a href="https://hankchizljaw.com/projects/">side projects</a>. I most definitely make too many, but there’s one really useful thing about making lots of side projects: it allows me to experiment in a low-risk setting.
+					</p>
+					<p>Side projects also allow me to accidentally create a context where I can demonstrate a really affective, long-running methodology for building on the web:
+						<strong>progressive enhancement</strong>. That context is a little Progressive Web App that I’m tinkering with called
+						<a href="https://jotter.space/">Jotter</a>. It’s incredibly simple, but under the hood, there’s a really solid experience built on top of a
+						<strong>minimum viable experience</strong>
+						which after reading this article, you’ll hopefully apply this methodology to your own work.</p>
+					<figure>
+						<picture><source srcset="https://media.24ways.org/2019/bell/jotter-screenshot.webp" type="image/webp"><img src="https://media.24ways.org/2019/bell/jotter-screenshot.png" alt="The Jotter Progressive Web App presented in the Google Chrome browser."></source>
+					</picture>
+				</figure>
+				<h2>What is a minimum viable experience?</h2>
+				<p>The key to progressive enhancement is distilling the user experience to its lowest possible technical solution and then building on it to improve the user experience. In the context of
+					<a href="https://jotter.space/">Jotter</a>, that is a humble
+					<code>&lt;textarea&gt;</code>
+					element. That humble
+					<code>&lt;textarea&gt;</code>
+					is our
+					<strong>minimum viable experience</strong>.
+				</p>
+				<p>Let me show you how it’s built up, progressively real quick. If you disable CSS and JavaScript, you get this:</p>
+				<figure>
+					<picture><source srcset="https://media.24ways.org/2019/bell/jotter-screenshot-html-only.webp" type="image/webp"><img src="https://media.24ways.org/2019/bell/jotter-screenshot-html-only.png" alt="The Jotter Progressive Web App with CSS and JavaScript disabled shows a HTML only experience."></source>
+				</picture>
+			</figure>
+			<p>This result is great because I know that regardless of what happens, the user can do what they needed to do when the loaded Jotter in their browser: take some notes. That’s our
+				<strong>minimum viable experience</strong>, completed with a few lines of code that work in
+				<strong>every single browser</strong>—even very old browsers. Don’t you just love good ol’ HTML?
+			</p>
+			<p>Now it’s time to enhance that minimum viable experience,
+				<strong>progressively</strong>. It’s a good idea to do that in smaller steps rather than just provide a 0% experience or a 100% experience, which is the approach that’s often favoured by JavaScript framework enthusiasts. I think that process is counter-intuitive to the web, though, so building up from a minimum viable experience is the optimal way to go, in my opinion.
+			</p>
+			<p>Understanding how a
+				<strong>minimum viable experience</strong>
+				works can be a bit tough, admittedly, so I like to use a the following diagram to explain the process:</p>
+			<figure>
+				<picture><source srcset="https://media.24ways.org/2019/bell/mvp.webp" type="image/webp"><img src="https://media.24ways.org/2019/bell/mvp.png" alt="Minimum viable experience diagram which is described in the next paragraph."></source>
+			</picture>
+		</figure>
+		<p>Let me break down this diagram for both folks who can and can’t see it. On the top row, there’s four stages of a broken-up car, starting with just a wheel, all the way up to a fully functioning car. The car enhances only in a way that it is still
+			<strong>mostly useless</strong>
+			until it gets to its final form when the person is finally happy.
+		</p>
+		<p>On the second row, instead of building a car, we start with a skateboard which immediately does the job of getting the person  from point A to point B. This enhances to a Micro Scooter and then to a Push Bike. Its final form is a fancy looking Motor Scooter. I choose that instead of a car deliberately because generally, when you progressively enhance a project, it turns out to be
+			<em>way simpler and lighter</em>
+			than a project that was built without progressive enhancement in mind.</p>
+		<p>Now that we know what a minimum viable experience is and how it works, let’s apply this methodology to Jotter!
+		</p>
+		<h2>Add some CSS</h2>
+		<p>The first enhancement is CSS. Jotter has a very simple design, which is mostly a full height
+			<code>&lt;textarea&gt;</code>
+			with a little sidebar. A flexbox-based, auto-stacking layout, inspired by a layout called
+			<a href="https://every-layout.dev/layouts/sidebar/">The Sidebar</a>
+			is used and we’re good to go.
+		</p>
+		<p>Based on the diagram from earlier, we can comfortably say we’re in
+			<strong>Skateboard</strong>
+			territory now.</p>
+		<h2>Add some JavaScript</h2>
+		<p>We’ve got styles now, so let’s
+			<em>enhance</em>
+			the experience again. A  user can currently load up the site and take notes. If the CSS loads, it’ll be a more pleasant experience, but if they refresh their browser, they’re going to lose all of their work.</p>
+		<p>We can fix that by adding some
+			<a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage">local storage</a>
+			into the mix.
+		</p>
+		<p>The functionality flow is pretty straightforward. As a user inputs content, the JavaScript listens to an
+			<code>input</code>
+			event and pushes the content of the
+			<code>&lt;textarea&gt;</code>
+			into
+			<code>localStorage</code>. If we then set that
+			<code>localStorage</code>
+			data to populate the
+			<code>&lt;textarea&gt;</code>
+			on load, that user’s experience is suddenly
+			<em>enhanced</em>
+			because they can’t lose their work by accidentally refreshing.
+		</p>
+		<p>The JavaScript is incredibly light, too:
+		</p>
+		<pre><code class="language-javascript">const textArea = document.querySelector('textarea');
+const storageKey = 'text';
+
+const init = () =&gt; {
+
+  textArea.value = localStorage.getItem(storageKey);
+
+  textArea.addEventListener('input', () =&gt; {
+    localStorage.setItem(storageKey, textArea.value);
+  });
+}
+
+init();</code></pre>
+		<p>In around 13 lines of code (which you can see a
+			<a href="https://codepen.io/andybelldesign/pen/vYEYZJQ">working demo here</a>), we’ve been able to enhance the user’s experience
+			<em>considerably</em>, and if we think back to our diagram from earlier, we are very much in
+			<strong>Micro Scooter</strong>
+			territory now.
+		</p>
+		<h2>Making it a PWA</h2>
+		<p>We’re in really good shape now, so let’s turn Jotter into a
+			<strong>Motor Scooter</strong>
+			and make this thing work offline as an installable Progressive Web App (PWA).
+		</p>
+		<p>Making a PWA is really achievable and Google have even produced a
+			<a href="https://developers.google.com/web/progressive-web-apps/checklist">handy checklist</a>
+			to help you get going. You can also get guidance from a
+			<a href="https://developers.google.com/web/tools/lighthouse">Lighthouse audit</a>.
+		</p>
+		<p>For this little app, all we need is a
+			<a href="https://developers.google.com/web/fundamentals/web-app-manifest">manifest</a>
+			and a
+			<a href="https://developers.google.com/web/fundamentals/primers/service-workers">Service Worker</a>
+			to cache assets and serve them offline for us if needed.</p>
+		<p>The Service Worker is actually pretty slim, so here it is in its entirety:
+		</p>
+		<pre><code class="language-javascript">const VERSION = '0.1.3';
+const CACHE_KEYS = {
+  MAIN: `main-${VERSION}`
+};
+
+// URLS that we want to be cached when the worker is installed
+const PRE_CACHE_URLS = ['/', '/css/global.css', '/js/app.js', '/js/components/content.js'];
+
+/**
+ * Takes an array of strings and puts them in a named cache store
+ *
+ * @param {String} cacheName
+ * @param {Array} items=[]
+ */
+const addItemsToCache = function(cacheName, items = []) {
+  caches.open(cacheName).then(cache =&gt; cache.addAll(items));
+};
+
+self.addEventListener('install', evt =&gt; {
+  self.skipWaiting();
+
+  addItemsToCache(CACHE_KEYS.MAIN, PRE_CACHE_URLS);
+});
+
+self.addEventListener('activate', evt =&gt; {
+  // Look for any old caches that don't match our set and clear them out
+  evt.waitUntil(
+    caches
+      .keys()
+      .then(cacheNames =&gt; {
+        return cacheNames.filter(item =&gt; !Object.values(CACHE_KEYS).includes(item));
+      })
+      .then(itemsToDelete =&gt; {
+        return Promise.all(
+          itemsToDelete.map(item =&gt; {
+            return caches.delete(item);
+          })
+        );
+      })
+      .then(() =&gt; self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', evt =&gt; {
+  evt.respondWith(
+    caches.match(evt.request).then(cachedResponse =&gt; {
+      // Item found in cache so return
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+
+      // Nothing found so load up the request from the network
+      return caches.open(CACHE_KEYS.MAIN).then(cache =&gt; {
+        return fetch(evt.request)
+          .then(response =&gt; {
+            // Put the new response in cache and return it
+            return cache.put(evt.request, response.clone()).then(() =&gt; {
+              return response;
+            });
+          })
+          .catch(ex =&gt; {
+            return;
+          });
+      });
+    })
+  );
+});</code></pre>
+<p>What the Service Worker does here is pre-cache our core assets that we define in <code>PRE_CACHE_URLS</code>. Then, for each <code>fetch</code> event which is called per request, it’ll try to fulfil the request from cache first. If it can’t do that, it’ll load the remote request for us. With this setup, we achieve two things:</p>
+<ol>
+<li>We get offline support because we stick our critical assets in cache immediately so they will be accessible offline</li>
+<li>Once those critical assets and any other requested assets are cached, the app will run faster by default</li>
+</ol>
+<p>Importantly now, because we have a manifest, some shortcut icons and a Service Worker that gives us offline support, we have a fully installable PWA! </p>
+<h2>Wrapping up</h2>
+<p>I hope with this simplified example you can see how approaching web design and development with a <strong>progressive enhancement</strong> approach, <strong>everyone</strong> gets an acceptable experience instead of those who are lucky enough to get every aspect of the page at the right time. </p>
+<p><a href="https://jotter.space">Jotter</a> is very much live and in the process of being enhanced further, which you can see on its little in-app roadmap, so go ahead and play around with it. </p>
+<p>Before you know it, it’ll be a car itself, but remember: it’ll always start as a humble little <code>&lt;textarea&gt;</code>.</p>
+            </div>
+        </div>
+
+        <section class="c-section" id="author">
+            <header class="c-section__header">
+                <h2 class="c-section__title">About the author</h2>
+            </header>
+            <div class="c-section__main">
+                <div class="s-prose">
+                
+                    <p>Andy Bell is an independent designer and front-end developer who’s trying to make everyone’s experience on the web better with a focus on progressive enhancement and accessibility.</p>
+                    <p><a class="c-continue" href="/authors/andybell/" title="More information about Andy Bell">More articles by Andy</a></p>
+                
+                </div>
+            </div>
+        </section>
+
+
+
+        
+
+                  
+        <section class="c-section c-section--sponsor" id="sponsor">
+            <header class="c-section__header">
+                <h2 class="c-section__title">Brought to you by</h2>
+            </header>
+            <div class="c-section__main">
+                
+
+
+<a class="c-promo" href="https://grabaperch.com/products/runway?ref=24w01">
+    <img class="c-promo__image" src="/_assets/images/logo-perchrunway.png" alt="Perch Runway - Powerful, flexible content management " width="152" height="100"/>
+    <p class="c-promo__message">Powerful, flexible content management with <strong>backup, cloud storage and client satisfaction</strong> all included.</p>
+    <p class="c-promo__url">grabaperch.com/runway</p>
+</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+        </section>
+        
+
+        		
+		<section class="c-section c-section--related" id="related">
+		    <header class="c-section__header">
+		        <h2 class="c-section__title">Related articles</h2>
+		    </header>
+		    <div class="c-section__main">
+		        <ol class="c-listing c-listing--summaries">
+		
+		            <li>
+		            	
+			<article class="c-summary h-entry day-12">
+                <header class="c-summary__header">
+                    <h3 class="c-summary__title  p-name">
+                        <a class="u-url" rel="bookmark" href="/2015/be-fluid-with-your-design-skills-build-your-own-sites/">Be Fluid with Your Design Skills: Build Your Own Sites</a>
+                    </h3>
+                    <p class="c-summary__author  p-author h-card">
+                    
+                        <a class="c-summary__author-url  u-url" href="/authors/roshorner/" tabindex="-1"><picture>
+                <source srcset="https://cloud.24ways.org/authors/roshorner72.webp" type="image/webp" /><img class="u-photo" src="https://cloud.24ways.org/authors/roshorner72.jpg" width="72" height="72" alt="" /></picture><span class="p-name">Ros Horner</span></a>
+                    
+                    </p>
+                </header>
+                <div class="c-summary__main">
+                    <p class="p-summary"><a href="http://roshorner.com">Ros Horner</a> rings out a Christmas message for designers far and near of peace and goodwill to all, especially if they’re developers. With a rallying cry to take back control to see your own designs realised, young or old, merry or sober, the story is clear; as you design, so should you build.</p>
+                </div>
+                <footer class="c-summary__footer">
+                    <p class="c-summary__meta">
+                        <time class="dt-published" datetime="2015-12-12T00:00:00+00:00">
+    						12 <span>Dec 2015</span>
+  						</time>
+                        
+                    </p>
+                </footer>
+            </article>
+		            </li>
+				
+		            <li>
+		            	
+			<article class="c-summary h-entry day-15">
+                <header class="c-summary__header">
+                    <h3 class="c-summary__title  p-name">
+                        <a class="u-url" rel="bookmark" href="/2018/designing-your-future/">Designing Your Future</a>
+                    </h3>
+                    <p class="c-summary__author  p-author h-card">
+                    
+                        <a class="c-summary__author-url  u-url" href="/authors/christophermurphy/" tabindex="-1"><picture>
+                <source srcset="https://cloud.24ways.org/authors/christophermurphy72.webp" type="image/webp" /><img class="u-photo" src="https://cloud.24ways.org/authors/christophermurphy72.jpg" width="72" height="72" alt="" /></picture><span class="p-name">Christopher Murphy</span></a>
+                    
+                    </p>
+                </header>
+                <div class="c-summary__main">
+                    <p class="p-summary"><em>Christopher Murphy</em> channels the Ghost of Christmas Yet-to-Come by not just look into the future, but shaping the form it takes. By taking action now you can affect the outcome down the road, making all the difference when it comes to a big life change such as leaving full time employment.</p>
+                </div>
+                <footer class="c-summary__footer">
+                    <p class="c-summary__meta">
+                        <time class="dt-published" datetime="2018-12-15T00:00:00+00:00">
+    						15 <span>Dec 2018</span>
+  						</time>
+                        
+                    </p>
+                </footer>
+            </article>
+		            </li>
+				
+		            <li>
+		            	
+			<article class="c-summary h-entry day-14">
+                <header class="c-summary__header">
+                    <h3 class="c-summary__title  p-name">
+                        <a class="u-url" rel="bookmark" href="/2014/five-ways-to-animate-responsibly/">Five Ways to Animate Responsibly</a>
+                    </h3>
+                    <p class="c-summary__author  p-author h-card">
+                    
+                        <a class="c-summary__author-url  u-url" href="/authors/rachelnabors/" tabindex="-1"><picture>
+                <source srcset="https://cloud.24ways.org/authors/rachelnabors72.webp" type="image/webp" /><img class="u-photo" src="https://cloud.24ways.org/authors/rachelnabors72.jpg" width="72" height="72" alt="" /></picture><span class="p-name">Rachel Nabors</span></a>
+                    
+                    </p>
+                </header>
+                <div class="c-summary__main">
+                    <p class="p-summary"><a href="http://rachelnabors.com/">Rachel Nabors</a> clears the snowy drift of delight from web animation to reveal the need for necessity and usefulness when we decide to animate web interactions. The box it comes in is as important as the gift.</p>
+                </div>
+                <footer class="c-summary__footer">
+                    <p class="c-summary__meta">
+                        <time class="dt-published" datetime="2014-12-14T00:00:00+00:00">
+    						14 <span>Dec 2014</span>
+  						</time>
+                        
+                    </p>
+                </footer>
+            </article>
+		            </li>
+				
+		            <li>
+		            	
+			<article class="c-summary h-entry day-04">
+                <header class="c-summary__header">
+                    <h3 class="c-summary__title  p-name">
+                        <a class="u-url" rel="bookmark" href="/2017/jobs-to-be-done-in-your-ux-toolbox/">Jobs-to-Be-Done in Your UX Toolbox</a>
+                    </h3>
+                    <p class="c-summary__author  p-author h-card">
+                    
+                        <a class="c-summary__author-url  u-url" href="/authors/stephtroeth/" tabindex="-1"><picture>
+                <source srcset="https://cloud.24ways.org/authors/stephtroeth72.webp" type="image/webp" /><img class="u-photo" src="https://cloud.24ways.org/authors/stephtroeth72.jpg" width="72" height="72" alt="" /></picture><span class="p-name">Steph Troeth</span></a>
+                    
+                    </p>
+                </header>
+                <div class="c-summary__main">
+                    <p class="p-summary"><em>Steph Troeth</em> rallies the workshop elves around an idea for revolutionising their worksheets and giving them a new way to think about approaching each job. One thing’s for certain, as Christmas approaches there’s always plenty of jobs to be done.</p>
+                </div>
+                <footer class="c-summary__footer">
+                    <p class="c-summary__meta">
+                        <time class="dt-published" datetime="2017-12-04T00:00:00+00:00">
+    						4 <span>Dec 2017</span>
+  						</time>
+                        
+                    </p>
+                </footer>
+            </article>
+		            </li>
+				
+		            <li>
+		            	
+			<article class="c-summary h-entry day-05">
+                <header class="c-summary__header">
+                    <h3 class="c-summary__title  p-name">
+                        <a class="u-url" rel="bookmark" href="/2017/levelling-up-for-junior-developers/">Levelling Up for Junior Developers</a>
+                    </h3>
+                    <p class="c-summary__author  p-author h-card">
+                    
+                        <a class="c-summary__author-url  u-url" href="/authors/deanhume/" tabindex="-1"><picture>
+                <source srcset="https://cloud.24ways.org/authors/deanhume72.webp" type="image/webp" /><img class="u-photo" src="https://cloud.24ways.org/authors/deanhume72.jpg" width="72" height="72" alt="" /></picture><span class="p-name">Dean Hume</span></a>
+                    
+                    </p>
+                </header>
+                <div class="c-summary__main">
+                    <p class="p-summary"><em>Dean Hume</em> places another log on the fire, sets the poker back on its stand, pulls up and chair and gathers the junior developers around the hearth to impart some wisdom. Whether you’re just starting out or have been in the game some time, we can all benefit from a little levelling up.</p>
+                </div>
+                <footer class="c-summary__footer">
+                    <p class="c-summary__meta">
+                        <time class="dt-published" datetime="2017-12-05T00:00:00+00:00">
+    						5 <span>Dec 2017</span>
+  						</time>
+                        
+                    </p>
+                </footer>
+            </article>
+		            </li>
+				
+		            <li>
+		            	
+			<article class="c-summary h-entry day-24">
+                <header class="c-summary__header">
+                    <h3 class="c-summary__title  p-name">
+                        <a class="u-url" rel="bookmark" href="/2015/solve-the-hard-problems/">Solve the Hard Problems</a>
+                    </h3>
+                    <p class="c-summary__author  p-author h-card">
+                    
+                        <a class="c-summary__author-url  u-url" href="/authors/drewmclellan/" tabindex="-1"><picture>
+                <source srcset="https://cloud.24ways.org/authors/drewmclellan72.webp" type="image/webp" /><img class="u-photo" src="https://cloud.24ways.org/authors/drewmclellan72.jpg" width="72" height="72" alt="" /></picture><span class="p-name">Drew McLellan</span></a>
+                    
+                    </p>
+                </header>
+                <div class="c-summary__main">
+                    <p class="p-summary"><a href="http://allinthehead.com/">Drew McLellan</a> brings our 2015 calendar to a motivational close with some encouragement for the year ahead. Year’s end is a time for reflection <em>and</em> finding new purpose and enthusiasm for what we do. By tackling the thorniest design and development problems, we can make the greatest impact – and have the most fun. Merry Christmas and a happy New Year!</p>
+                </div>
+                <footer class="c-summary__footer">
+                    <p class="c-summary__meta">
+                        <time class="dt-published" datetime="2015-12-24T00:00:00+00:00">
+    						24 <span>Dec 2015</span>
+  						</time>
+                        
+                    </p>
+                </footer>
+            </article>
+		            </li>
+		
+		        </ol>
+		    </div>
+		</section>
+		
+
+        <section class="c-section" id="comments">
+            <header class="c-section__header">
+                <h2 class="c-section__title">Comments</h2>
+            </header>
+            <div class="c-section__main">
+                <div class="s-prose">
+                    <p><a class="c-continue" href="/2019/it-all-starts-with-a-humble-textarea/comments/" data-replace data-interaction data-target="#comments">No comments yet - leave yours</a></p>
+                </div>
+            </div>
+        </section>
+
+        
+
+        
+    </article>
+</main> <nav class="c-traverse-nav" aria-label="Article"><a class="c-traverse-nav__item" rel="prev" href="/2019/iconography-of-security/" aria-label="Previous: Iconography of Security"><svg class="c-traverse-nav__icon" width="20" height="20" viewBox="0 0 200 200" focusable="false" aria-hidden="true">
+  <path d="M50 100l85 85 7-7-78-78 78-78-7-7"/>
+</svg>
+</a><a class="c-traverse-nav__item" rel="next" href="/2019/its-time-to-get-personal/" aria-label="Next: It’s Time to Get Personal"><svg class="c-traverse-nav__icon" width="20" height="20" viewBox="0 0 200 200" focusable="false" aria-hidden="true">
+  <path d="M150 100l-85 85-7-7 78-78-78-78 7-7"/>
+</svg>
+</a></nav><footer class="c-contentinfo">
+    <p class="c-contentinfo__social">
+        <a href="https://feeds.feedburner.com/24ways" rel="alternate">Grab our RSS feed</a>
+        <a href="https://twitter.com/24ways" rel="me">Follow us on Twitter</a>
+        <a href="https://github.com/24ways" rel="me">Contribute on GitHub</a>
+    </p>
+    <p class="c-contentinfo__copyright">
+        <small>&#169; 2005-2020 24 ways and our authors</small>
+    </p>
+</footer></body>
+</html>

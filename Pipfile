@@ -3,26 +3,10 @@ name = "pypi"
 url = "https://pypi.org/simple"
 verify_ssl = true
 
-[dev-packages]
-ipdb = "*"
-flake8 = "*"
-mypy = "*"
-django-stubs = "*"
-setuptools = "*"
-sphinx = "*"
-recommonmark = "*"
-sphinx-rtd-theme = "*"
-
 [packages]
-dataclasses = "*"
-base32-crockford = "*"
-django = "*"
-django-extensions = "*"
-youtube-dl = "*"
-python-crontab = "*"
-croniter = "*"
-ipython = "*"
-mypy-extensions = "*"
+# see setup.py for package dependency list
+"e1839a8" = {path = ".", editable = true}
 
-[requires]
-python_version = "3.7"
+[dev-packages]
+# see setup.py for dev package dependency list
+"e1839a8" = {path = ".", extras = ["dev"], editable = true}

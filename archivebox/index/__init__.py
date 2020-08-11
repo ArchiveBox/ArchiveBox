@@ -26,15 +26,16 @@ from ..config import (
     URL_BLACKLIST_PTN,
     ANSI,
     stderr,
+    OUTPUT_PERMISSIONS
 )
-from ..cli.logging import (
+from ..logging_util import (
     TimedProgress,
     log_indexing_process_started,
     log_indexing_process_finished,
     log_indexing_started,
     log_indexing_finished,
-    log_parsing_started,
     log_parsing_finished,
+    log_deduping_finished,
 )
 
 from .schema import Link, ArchiveResult
@@ -51,6 +52,7 @@ from .json import (
 from .sql import (
     write_sql_main_index,
     parse_sql_main_index,
+    write_sql_link_details,
 )
 
 ### Link filtering and checking
@@ -231,6 +233,8 @@ def write_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=
 
     with timed_index_update(os.path.join(out_dir, SQL_INDEX_FILENAME)):
         write_sql_main_index(links, out_dir=out_dir)
+        os.chmod(os.path.join(out_dir, SQL_INDEX_FILENAME), int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
+
 
     with timed_index_update(os.path.join(out_dir, JSON_INDEX_FILENAME)):
         write_json_main_index(links, out_dir=out_dir)
@@ -267,19 +271,28 @@ def load_main_index_meta(out_dir: str=OUTPUT_DIR) -> Optional[dict]:
 
     return None
 
+
 @enforce_types
-def import_new_links(existing_links: List[Link],
-                     import_path: str,
-                     out_dir: str=OUTPUT_DIR) -> Tuple[List[Link], List[Link]]:
+def parse_links_from_source(source_path: str) -> Tuple[List[Link], List[Link]]:
 
     from ..parsers import parse_links
 
     new_links: List[Link] = []
 
     # parse and validate the import file
-    log_parsing_started(import_path)
-    raw_links, parser_name = parse_links(import_path)
+    raw_links, parser_name = parse_links(source_path)
     new_links = validate_links(raw_links)
+
+    if parser_name:
+        num_parsed = len(raw_links)
+        log_parsing_finished(num_parsed, parser_name)
+
+    return new_links
+
+
+@enforce_types
+def dedupe_links(existing_links: List[Link],
+                 new_links: List[Link]) -> Tuple[List[Link], List[Link]]:
 
     # merge existing links in out_dir and new links
     all_links = validate_links(existing_links + new_links)
@@ -290,10 +303,11 @@ def import_new_links(existing_links: List[Link],
         if link.url not in all_link_urls
     ]
 
-    if parser_name:
-        num_parsed = len(raw_links)
-        num_new_links = len(all_links) - len(existing_links)
-        log_parsing_finished(num_parsed, num_new_links, parser_name)
+    all_links_deduped = {link.url: link for link in all_links}
+    for i in range(len(new_links)):
+        if new_links[i].url in all_links_deduped.keys():
+            new_links[i] = all_links_deduped[new_links[i].url]
+    log_deduping_finished(len(new_links))
 
     return all_links, new_links
 
@@ -325,7 +339,8 @@ def patch_main_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
     # Patch HTML main index
     html_path = os.path.join(out_dir, 'index.html')
     with open(html_path, 'r') as f:
-        html = f.read().split('\n')
+        html = f.read().splitlines()
+
     for idx, line in enumerate(html):
         if title and ('<span data-title-for="{}"'.format(link.url) in line):
             html[idx] = '<span>{}</span>'.format(title)
@@ -333,17 +348,19 @@ def patch_main_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
             html[idx] = '<span>{}</span>'.format(successful)
             break
 
-    atomic_write('\n'.join(html), html_path)
+    atomic_write(html_path, '\n'.join(html))
 
 
 ### Link Details Index
 
 @enforce_types
-def write_link_details(link: Link, out_dir: Optional[str]=None) -> None:
+def write_link_details(link: Link, out_dir: Optional[str]=None, skip_sql_index: bool=False) -> None:
     out_dir = out_dir or link.link_dir
 
     write_json_link_details(link, out_dir=out_dir)
     write_html_link_details(link, out_dir=out_dir)
+    if not skip_sql_index:
+        write_sql_link_details(link)
 
 
 @enforce_types
@@ -512,8 +529,16 @@ def get_unrecognized_folders(links, out_dir: str=OUTPUT_DIR) -> Dict[str, Option
             link = None
             try:
                 link = parse_json_link_details(entry.path)
-            except Exception:
-                pass
+            except KeyError:
+                # Try to fix index
+                if index_exists:
+                    try:
+                        # Last attempt to repair the detail index
+                        link_guessed = parse_json_link_details(entry.path, guess=True)
+                        write_json_link_details(link_guessed, out_dir=entry.path)
+                        link = parse_json_link_details(entry.path)
+                    except Exception:
+                        pass
 
             if index_exists and link is None:
                 # index exists but it's corrupted or unparseable
@@ -538,7 +563,7 @@ def is_valid(link: Link) -> bool:
         return False
     if dir_exists and index_exists:
         try:
-            parsed_link = parse_json_link_details(link.link_dir)
+            parsed_link = parse_json_link_details(link.link_dir, guess=True)
             return link.url == parsed_link.url
         except Exception:
             pass
@@ -569,7 +594,10 @@ def fix_invalid_folder_locations(out_dir: str=OUTPUT_DIR) -> Tuple[List[str], Li
     for entry in os.scandir(os.path.join(out_dir, ARCHIVE_DIR_NAME)):
         if entry.is_dir(follow_symlinks=True):
             if os.path.exists(os.path.join(entry.path, 'index.json')):
-                link = parse_json_link_details(entry.path)
+                try:
+                    link = parse_json_link_details(entry.path)
+                except KeyError:
+                    link = None
                 if not link:
                     continue
 

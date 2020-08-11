@@ -1,13 +1,18 @@
 __package__ = 'archivebox.index'
 
 import os
+from pathlib import Path
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from typing import List, Dict, Any, Optional, Union
 
 from dataclasses import dataclass, asdict, field, fields
 
+
+from ..system import get_dir_size
+
+from ..config import OUTPUT_DIR, ARCHIVE_DIR_NAME
 
 class ArchiveError(Exception):
     def __init__(self, message, hints=None):
@@ -49,7 +54,15 @@ class ArchiveResult:
             assert self.output
 
     @classmethod
-    def from_json(cls, json_info):
+    def guess_ts(_cls, dict_info):
+        from ..util import parse_date
+        parsed_timestamp = parse_date(dict_info["timestamp"])
+        start_ts = parsed_timestamp
+        end_ts = parsed_timestamp + timedelta(seconds=int(dict_info["duration"]))
+        return start_ts, end_ts
+
+    @classmethod
+    def from_json(cls, json_info, guess=False):
         from ..util import parse_date
 
         info = {
@@ -57,8 +70,25 @@ class ArchiveResult:
             for key, val in json_info.items()
             if key in cls.field_names()
         }
-        info['start_ts'] = parse_date(info['start_ts'])
-        info['end_ts'] = parse_date(info['end_ts'])
+        if guess:
+            keys = info.keys()
+            if "start_ts" not in keys:
+                info["start_ts"], info["end_ts"] = cls.guess_ts(json_info)
+            else:
+                info['start_ts'] = parse_date(info['start_ts'])
+                info['end_ts'] = parse_date(info['end_ts'])
+            if "pwd" not in keys:
+                info["pwd"] = str(Path(OUTPUT_DIR) / ARCHIVE_DIR_NAME / json_info["timestamp"])
+            if "cmd_version" not in keys:
+                info["cmd_version"] = "Undefined"
+            if "cmd" not in keys:
+                info["cmd"] = []
+        else:
+            info['start_ts'] = parse_date(info['start_ts'])
+            info['end_ts'] = parse_date(info['end_ts'])
+            info['cmd_version'] = info.get('cmd_version')
+        if type(info["cmd"]) is str:
+            info["cmd"] = [info["cmd"]]
         return cls(**info)
 
     def to_dict(self, *keys) -> dict:
@@ -94,6 +124,7 @@ class Link:
     history: Dict[str, List[ArchiveResult]] = field(default_factory=lambda: {})
     updated: Optional[datetime] = None
     schema: str = 'Link'
+
 
     def __str__(self) -> str:
         return f'[{self.timestamp}] {self.base_url} "{self.title}"'
@@ -178,7 +209,7 @@ class Link:
         return info
 
     @classmethod
-    def from_json(cls, json_info):
+    def from_json(cls, json_info, guess=False):
         from ..util import parse_date
         
         info = {
@@ -196,7 +227,7 @@ class Link:
             cast_history[method] = []
             for json_result in method_history:
                 assert isinstance(json_result, dict), 'Items in Link["history"][method] must be dicts'
-                cast_result = ArchiveResult.from_json(json_result)
+                cast_result = ArchiveResult.from_json(json_result, guess)
                 cast_history[method].append(cast_result)
 
         info['history'] = cast_history
@@ -226,6 +257,13 @@ class Link:
         from ..config import ARCHIVE_DIR_NAME
         return '{}/{}'.format(ARCHIVE_DIR_NAME, self.timestamp)
     
+    @property
+    def archive_size(self) -> float:
+        try:
+            return get_dir_size(self.archive_path)[0]
+        except Exception:
+            return 0
+
     ### URL Helpers
     @property
     def url_hash(self):
@@ -267,7 +305,16 @@ class Link:
     @property
     def bookmarked_date(self) -> Optional[str]:
         from ..util import ts_to_date
-        return ts_to_date(self.timestamp) if self.timestamp else None
+
+        max_ts = (datetime.now() + timedelta(days=30)).timestamp()
+
+        if self.timestamp and self.timestamp.replace('.', '').isdigit():
+            if 0 < float(self.timestamp) < max_ts:
+                return ts_to_date(datetime.fromtimestamp(float(self.timestamp)))
+            else:
+                return str(self.timestamp)
+        return None
+
 
     @property
     def updated_date(self) -> Optional[str]:
@@ -318,6 +365,7 @@ class Link:
             'screenshot.png',
             'output.html',
             'media',
+            'singlefile.html'
         )
 
         return any(
@@ -329,7 +377,7 @@ class Link:
         """get the latest output that each archive method produced for link"""
         
         ARCHIVE_METHODS = (
-            'title', 'favicon', 'wget', 'warc', 'pdf',
+            'title', 'favicon', 'wget', 'warc', 'singlefile', 'pdf',
             'screenshot', 'dom', 'git', 'media', 'archive_org',
         )
         latest: Dict[str, ArchiveOutput] = {}
@@ -345,7 +393,6 @@ class Link:
                 latest[archive_method] = history[0].output
             else:
                 latest[archive_method] = None
-
         return latest
 
 
@@ -359,6 +406,7 @@ class Link:
             'google_favicon_path': 'https://www.google.com/s2/favicons?domain={}'.format(self.domain),
             'wget_path': wget_output_path(self),
             'warc_path': 'warc',
+            'singlefile_path': 'singlefile.html',
             'pdf_path': 'output.pdf',
             'screenshot_path': 'screenshot.png',
             'dom_path': 'output.html',
@@ -378,7 +426,7 @@ class Link:
                 'pdf_path': static_path,
                 'screenshot_path': static_path,
                 'dom_path': static_path,
+                'singlefile_path': static_path,
             })
         return canonical
-
 

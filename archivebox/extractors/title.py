@@ -12,11 +12,14 @@ from ..util import (
 )
 from ..config import (
     TIMEOUT,
+    CHECK_SSL_VALIDITY,
     SAVE_TITLE,
     CURL_BINARY,
     CURL_VERSION,
+    CURL_USER_AGENT,
+    setup_django,
 )
-from ..cli.logging import TimedProgress
+from ..logging_util import TimedProgress
 
 
 HTML_TITLE_REGEX = re.compile(
@@ -41,13 +44,19 @@ def should_save_title(link: Link, out_dir: Optional[str]=None) -> bool:
 def save_title(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """try to guess the page's title from its content"""
 
+    setup_django(out_dir=out_dir)
+    from core.models import Snapshot
+
     output: ArchiveOutput = None
     cmd = [
         CURL_BINARY,
+        '--silent',
+        '--max-time', str(timeout),
+        '--location',
+        '--compressed',
+        *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
+        *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         link.url,
-        '|',
-        'grep',
-        '<title',
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
@@ -55,7 +64,10 @@ def save_title(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) ->
         html = download_url(link.url, timeout=timeout)
         match = re.search(HTML_TITLE_REGEX, html)
         output = htmldecode(match.group(1).strip()) if match else None
-        if not output:
+        if output:
+            if not link.title or len(output) >= len(link.title):
+                Snapshot.objects.filter(url=link.url, timestamp=link.timestamp).update(title=output)
+        else:
             raise ArchiveError('Unable to detect page title')
     except Exception as err:
         status = 'failed'

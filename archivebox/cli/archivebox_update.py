@@ -8,7 +8,8 @@ import argparse
 
 from typing import List, Optional, IO
 
-from ..main import update, docstring
+from ..main import update
+from ..util import docstring
 from ..config import OUTPUT_DIR
 from ..index import (
     get_indexed_folders,
@@ -22,7 +23,7 @@ from ..index import (
     get_corrupted_folders,
     get_unrecognized_folders,
 )
-from .logging import SmartFormatter, accept_stdin
+from ..logging_util import SmartFormatter, accept_stdin
 
 
 @docstring(update.__doc__)

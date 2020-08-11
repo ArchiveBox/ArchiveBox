@@ -12,9 +12,24 @@ class BaseConfig(TypedDict):
     pass
 
 class ConfigDict(BaseConfig, total=False):
+    """
+    # Regenerate by pasting this quine into `archivebox shell` 🥚
+    from archivebox.config import ConfigDict, CONFIG_DEFAULTS
+    print('class ConfigDict(BaseConfig, total=False):')
+    print('    ' + '"'*3 + ConfigDict.__doc__ + '"'*3)
+    for section, configs in CONFIG_DEFAULTS.items():
+        for key, attrs in configs.items():
+            Type, default = attrs['type'], attrs['default']
+            if default is None:
+                print(f'    {key}: Optional[{Type.__name__}]')
+            else:
+                print(f'    {key}: {Type.__name__}')
+        print()
+    """
     IS_TTY: bool
     USE_COLOR: bool
     SHOW_PROGRESS: bool
+    IN_DOCKER: bool
 
     OUTPUT_DIR: str
     CONFIG_FILE: str
@@ -22,8 +37,15 @@ class ConfigDict(BaseConfig, total=False):
     TIMEOUT: int
     MEDIA_TIMEOUT: int
     OUTPUT_PERMISSIONS: str
-    FOOTER_INFO: str
     URL_BLACKLIST: Optional[str]
+
+    SECRET_KEY: str
+    ALLOWED_HOSTS: str
+    DEBUG: bool
+    PUBLIC_INDEX: bool
+    PUBLIC_SNAPSHOTS: bool
+    FOOTER_INFO: str
+    ACTIVE_THEME: str
 
     SAVE_TITLE: bool
     SAVE_FAVICON: bool
@@ -32,14 +54,17 @@ class ConfigDict(BaseConfig, total=False):
     SAVE_PDF: bool
     SAVE_SCREENSHOT: bool
     SAVE_DOM: bool
+    SAVE_SINGLEFILE: bool
     SAVE_WARC: bool
     SAVE_GIT: bool
     SAVE_MEDIA: bool
+    SAVE_PLAYLISTS: bool
     SAVE_ARCHIVE_DOT_ORG: bool
 
     RESOLUTION: str
     GIT_DOMAINS: str
     CHECK_SSL_VALIDITY: bool
+    CURL_USER_AGENT: str
     WGET_USER_AGENT: str
     CHROME_USER_AGENT: str
     COOKIES_FILE: Optional[str]
@@ -52,12 +77,14 @@ class ConfigDict(BaseConfig, total=False):
     USE_GIT: bool
     USE_CHROME: bool
     USE_YOUTUBEDL: bool
+    USE_SINGLEFILE: bool
 
     CURL_BINARY: Optional[str]
     GIT_BINARY: Optional[str]
     WGET_BINARY: Optional[str]
     YOUTUBEDL_BINARY: Optional[str]
     CHROME_BINARY: Optional[str]
+    SINGLEFILE_BINARY: Optional[str]
 
     TERM_WIDTH: Callable[[], int]
     USER: str

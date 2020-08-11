@@ -5,7 +5,7 @@ import os
 from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from ..system import run, PIPE, chmod_file
+from ..system import run, chmod_file
 from ..util import (
     enforce_types,
     is_static_file,
@@ -16,7 +16,7 @@ from ..config import (
     SAVE_SCREENSHOT,
     CHROME_VERSION,
 )
-from ..cli.logging import TimedProgress
+from ..logging_util import TimedProgress
 
 
 
@@ -45,7 +45,7 @@ def save_screenshot(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOU
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(cmd, stdout=PIPE, stderr=PIPE, cwd=out_dir, timeout=timeout)
+        result = run(cmd, cwd=out_dir, timeout=timeout)
 
         if result.returncode:
             hints = (result.stderr or result.stdout).decode()

@@ -8,9 +8,10 @@ import argparse
 
 from typing import Optional, List, IO
 
-from ..main import shell, docstring
+from ..main import shell
+from ..util import docstring
 from ..config import OUTPUT_DIR
-from .logging import SmartFormatter, reject_stdin
+from ..logging_util import SmartFormatter, reject_stdin
 
 
 @docstring(shell.__doc__)

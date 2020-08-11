@@ -1,0 +1,145 @@
+name: Test workflow
+on: [push]
+
+env:
+  MAX_LINE_LENGTH: 110
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+          architecture: x64
+
+      - name: Install flake8
+        run: |
+          pip install flake8
+
+      - name: Lint with flake8
+        run: |
+          # one pass for show-stopper syntax errors or undefined names
+          flake8 archivebox --count --show-source --statistics
+          # one pass for small stylistic things
+          flake8 archivebox --count --max-line-length="$MAX_LINE_LENGTH" --statistics
+
+  test:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: [3.7, 3.8]
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+          repository: "gildas-lormeau/SingleFile"
+          ref: "master"
+          path: "singlefile"
+
+      - name: Install npm requirements for singlefile
+        run: npm install --prefix singlefile/cli
+
+      - name: Give singlefile execution permissions
+        run: chmod +x singlefile/cli/single-file
+
+      - name: Set SINGLEFILE_BINARY
+        run: echo "::set-env name=SINGLEFILE_BINARY::$GITHUB_WORKSPACE/singlefile/cli/single-file"
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python }}
+          architecture: x64
+
+      - name: Get pip cache dir
+        id: pip-cache
+        run: |
+          echo "::set-output name=dir::$(pip cache dir)"
+
+      - name: Cache pip
+        uses: actions/cache@v2
+        id: cache-pip
+        with:
+          path: ${{ steps.pip-cache.outputs.dir }}
+          key: ${{ runner.os }}-${{ matrix.python }}-venv-${{ hashFiles('setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.python }}-venv-
+
+      - name: Use nodejs 14.7.0
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14.7.0
+
+      - name: Debug
+        run: ls ./
+
+      - name: Install dependencies
+        run: |
+          python -m pip install .
+          python -m pip install pytest bottle
+
+      - name: Test built package with pytest
+        run: |
+          python -m pytest -s
+
+  docker-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - uses: satackey/action-docker-layer-caching@v0.0.4
+
+      - name: Build image
+        run: |
+          docker build . -t archivebox
+
+      - name: Init data dir
+        run: |
+          mkdir data
+          docker run -v "$PWD"/data:/data archivebox init
+
+      - name: Run test server
+        run: |
+          sudo bash -c 'echo "127.0.0.1  www.test-nginx-1.local www.test-nginx-2.local" >> /etc/hosts'
+          docker run --name www-nginx -p 80:80 -d nginx
+
+      - name: Add link
+        run: |
+          docker run -v "$PWD"/data:/data --network host archivebox add http://www.test-nginx-1.local
+
+      - name: Add stdin link
+        run: |
+          echo "http://www.test-nginx-2.local" | docker run -i -v "$PWD"/data:/data archivebox add
+
+      - name: List links
+        run: |
+          docker run -v "$PWD"/data:/data archivebox list | grep -q "www.test-nginx-1.local" || { echo "The site 1 isn't in the list"; exit 1; }
+          docker run -v "$PWD"/data:/data archivebox list | grep -q "www.test-nginx-2.local" || { echo "The site 2 isn't in the list"; exit 1; }
+
+      - name: Start docker-compose stack
+        run: |
+          docker-compose run archivebox init
+          docker-compose up -d
+          sleep 5
+          curl --silent --location 'http://127.0.0.1:8000' | grep 'ArchiveBox'
+          curl --silent --location 'http://127.0.0.1:8000/static/admin/js/jquery.init.js' | grep 'django.jQuery'
+
+      - name: Check added urls show up in index
+        run: |
+          docker-compose run archivebox add 'http://example.com/#test_docker' --index-only
+          curl --silent --location 'http://127.0.0.1:8000' | grep 'http://example.com/#test_docker'
+          docker-compose down || true

@@ -1,29 +1,31 @@
-__package__ = 'archivebox.cli'
+__package__ = 'archivebox'
 
 import re
 import os
 import sys
 import time
 import argparse
+from multiprocessing import Process
 
 from datetime import datetime
 from dataclasses import dataclass
-from multiprocessing import Process
-from typing import Optional, List, Dict, Union, IO
+from typing import Optional, List, Dict, Union, IO, TYPE_CHECKING
 
-from ..index.schema import Link, ArchiveResult
-from ..index.json import to_json
-from ..index.csv import links_to_csv
-from ..util import enforce_types
-from ..config import (
+if TYPE_CHECKING:
+    from .index.schema import Link, ArchiveResult
+
+from .util import enforce_types
+from .config import (
     ConfigDict,
+    PYTHON_ENCODING,
     ANSI,
-    OUTPUT_DIR,
     IS_TTY,
-    SHOW_PROGRESS,
     TERM_WIDTH,
+    OUTPUT_DIR,
+    SOURCES_DIR_NAME,
+    HTML_INDEX_FILENAME,
+    stderr,
 )
-
 
 @dataclass
 class RuntimeStats:
@@ -66,6 +68,7 @@ def reject_stdin(caller: str, stdin: Optional[IO]=sys.stdin) -> None:
             stderr()
             raise SystemExit(1)
 
+
 def accept_stdin(stdin: Optional[IO]=sys.stdin) -> Optional[str]:
     """accept any standard input and return it as a string or None"""
     if not stdin:
@@ -80,7 +83,9 @@ class TimedProgress:
     """Show a progress bar and measure elapsed time until .end() is called"""
 
     def __init__(self, seconds, prefix=''):
-        if SHOW_PROGRESS:
+        from .config import SHOW_PROGRESS
+        self.SHOW_PROGRESS = SHOW_PROGRESS
+        if self.SHOW_PROGRESS:
             self.p = Process(target=progress_bar, args=(seconds, prefix))
             self.p.start()
 
@@ -91,28 +96,39 @@ class TimedProgress:
 
         end_ts = datetime.now()
         self.stats['end_ts'] = end_ts
-        if SHOW_PROGRESS:
-            # protect from double termination
-            #if p is None or not hasattr(p, 'kill'):
-            #    return
-            if self.p is not None:
-                self.p.terminate()
-            
-            self.p = None
+        
+        if self.SHOW_PROGRESS:
+            # terminate if we havent already terminated
+            self.p.terminate()
+            self.p.join()
+            self.p.close()
 
-            sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))  # clear whole terminal line
+            # clear whole terminal line
+            try:
+                sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))
+            except (IOError, BrokenPipeError):
+                # ignore when the parent proc has stopped listening to our stdout
+                pass
 
 
 @enforce_types
 def progress_bar(seconds: int, prefix: str='') -> None:
     """show timer in the form of progress bar, with percentage and seconds remaining"""
-    chunk = '█' if sys.stdout.encoding == 'UTF-8' else '#'
-    chunks = TERM_WIDTH() - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
+    chunk = '█' if PYTHON_ENCODING == 'UTF-8' else '#'
+    last_width = TERM_WIDTH()
+    chunks = last_width - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
     try:
         for s in range(seconds * chunks):
-            chunks = TERM_WIDTH() - len(prefix) - 20
+            max_width = TERM_WIDTH()
+            if max_width < last_width:
+                # when the terminal size is shrunk, we have to write a newline
+                # otherwise the progress bar will keep wrapping incorrectly
+                sys.stdout.write('\r\n')
+                sys.stdout.flush()
+            chunks = max_width - len(prefix) - 20
             progress = s / chunks / seconds * 100
             bar_width = round(progress/(100/chunks))
+            last_width = max_width
 
             # ████████████████████           0.9% (1/60sec)
             sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)'.format(
@@ -138,27 +154,51 @@ def progress_bar(seconds: int, prefix: str='') -> None:
             seconds,
         ))
         sys.stdout.flush()
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, BrokenPipeError):
         print()
         pass
 
 
+def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str], pwd: str):
+    from .config import VERSION, ANSI
+    cmd = ' '.join(('archivebox', subcommand, *subcommand_args))
+    stdin_hint = ' < /dev/stdin' if not stdin.isatty() else ''
+    stderr('{black}[i] [{now}] ArchiveBox v{VERSION}: {cmd}{stdin_hint}{reset}'.format(
+        now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        VERSION=VERSION,
+        cmd=cmd,
+        stdin_hint=stdin_hint,
+        **ANSI,
+    ))
+    stderr('{black}    > {pwd}{reset}'.format(pwd=pwd, **ANSI))
+    stderr()
+
 ### Parsing Stage
 
-def log_parsing_started(source_file: str):
-    start_ts = datetime.now()
-    _LAST_RUN_STATS.parse_start_ts = start_ts
-    print('\n{green}[*] [{}] Parsing new links from output/sources/{}...{reset}'.format(
-        start_ts.strftime('%Y-%m-%d %H:%M:%S'),
-        source_file.rsplit('/', 1)[-1],
+
+def log_importing_started(urls: Union[str, List[str]], depth: int, index_only: bool):
+    _LAST_RUN_STATS.parse_start_ts = datetime.now()
+    print('{green}[+] [{}] Adding {} links to index (crawl depth={}){}...{reset}'.format(
+        _LAST_RUN_STATS.parse_start_ts.strftime('%Y-%m-%d %H:%M:%S'),
+        len(urls) if isinstance(urls, list) else len(urls.split('\n')),
+        depth,
+        ' (index only)' if index_only else '',
         **ANSI,
     ))
 
-def log_parsing_finished(num_parsed: int, num_new_links: int, parser_name: str):
-    end_ts = datetime.now()
-    _LAST_RUN_STATS.parse_end_ts = end_ts
-    print('    > Parsed {} links as {} ({} new links added)'.format(num_parsed, parser_name, num_new_links))
+def log_source_saved(source_file: str):
+    print('    > Saved verbatim input to {}/{}'.format(SOURCES_DIR_NAME, source_file.rsplit('/', 1)[-1]))
 
+def log_parsing_finished(num_parsed: int, parser_name: str):
+    _LAST_RUN_STATS.parse_end_ts = datetime.now()
+    print('    > Parsed {} URLs from input ({})'.format(num_parsed, parser_name))
+
+def log_deduping_finished(num_new_links: int):
+    print('    > Found {} new URLs not already in index'.format(num_new_links))
+
+
+def log_crawl_started(new_links):
+    print('{lightred}[*] Starting crawl of {} sites 1 hop out from starting point{reset}'.format(len(new_links), **ANSI))
 
 ### Indexing Stage
 
@@ -166,19 +206,22 @@ def log_indexing_process_started(num_links: int):
     start_ts = datetime.now()
     _LAST_RUN_STATS.index_start_ts = start_ts
     print()
-    print('{green}[*] [{}] Writing {} links to main index...{reset}'.format(
+    print('{black}[*] [{}] Writing {} links to main index...{reset}'.format(
         start_ts.strftime('%Y-%m-%d %H:%M:%S'),
         num_links,
         **ANSI,
     ))
 
+
 def log_indexing_process_finished():
     end_ts = datetime.now()
     _LAST_RUN_STATS.index_end_ts = end_ts
 
+
 def log_indexing_started(out_path: str):
     if IS_TTY:
         sys.stdout.write(f'    > {out_path}')
+
 
 def log_indexing_finished(out_path: str):
     print(f'\r    √ {out_path}')
@@ -198,7 +241,7 @@ def log_archiving_started(num_links: int, resume: Optional[float]=None):
              **ANSI,
         ))
     else:
-        print('{green}[▶] [{}] Updating content for {} matching pages in archive...{reset}'.format(
+        print('{green}[▶] [{}] Collecting content for {} Snapshots in archive...{reset}'.format(
              start_ts.strftime('%Y-%m-%d %H:%M:%S'),
              num_links,
              **ANSI,
@@ -216,8 +259,8 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
         total=num_links,
     ))
     print()
-    print('    To view your archive, open:')
-    print('        {}/index.html'.format(OUTPUT_DIR))
+    print('    {lightred}Hint:{reset} To view your archive index, open:'.format(**ANSI))
+    print('        {}/{}'.format(OUTPUT_DIR, HTML_INDEX_FILENAME))
     print('    Continue archiving where you left off by running:')
     print('        archivebox update --resume={}'.format(timestamp))
 
@@ -227,9 +270,9 @@ def log_archiving_finished(num_links: int):
     assert _LAST_RUN_STATS.archiving_start_ts is not None
     seconds = end_ts.timestamp() - _LAST_RUN_STATS.archiving_start_ts.timestamp()
     if seconds > 60:
-        duration = '{0:.2f} min'.format(seconds / 60, 2)
+        duration = '{0:.2f} min'.format(seconds / 60)
     else:
-        duration = '{0:.2f} sec'.format(seconds, 2)
+        duration = '{0:.2f} sec'.format(seconds)
 
     print()
     print('{}[√] [{}] Update of {} pages complete ({}){}'.format(
@@ -243,13 +286,13 @@ def log_archiving_finished(num_links: int):
     print('    - {} links updated'.format(_LAST_RUN_STATS.succeeded))
     print('    - {} links had errors'.format(_LAST_RUN_STATS.failed))
     print()
-    print('    To view your archive, open:')
-    print('        {}/index.html'.format(OUTPUT_DIR))
+    print('    {lightred}Hint:{reset} To view your archive index, open:'.format(**ANSI))
+    print('        {}/{}'.format(OUTPUT_DIR, HTML_INDEX_FILENAME))
     print('    Or run the built-in webserver:')
     print('        archivebox server')
 
 
-def log_link_archiving_started(link: Link, link_dir: str, is_new: bool):
+def log_link_archiving_started(link: "Link", link_dir: str, is_new: bool):
     # [*] [2019-03-22 13:46:45] "Log Structured Merge Trees - ben stopford"
     #     http://www.benstopford.com/2015/02/14/log-structured-merge-trees/
     #     > output/archive/1478739709
@@ -267,7 +310,7 @@ def log_link_archiving_started(link: Link, link_dir: str, is_new: bool):
         pretty_path(link_dir),
     ))
 
-def log_link_archiving_finished(link: Link, link_dir: str, is_new: bool, stats: dict):
+def log_link_archiving_finished(link: "Link", link_dir: str, is_new: bool, stats: dict):
     total = sum(stats.values())
 
     if stats['failed'] > 0 :
@@ -282,7 +325,7 @@ def log_archive_method_started(method: str):
     print('      > {}'.format(method))
 
 
-def log_archive_method_finished(result: ArchiveResult):
+def log_archive_method_finished(result: "ArchiveResult"):
     """quote the argument with whitespace in a command so the user can 
        copy-paste the outputted string directly to run the cmd
     """
@@ -331,6 +374,7 @@ def log_list_started(filter_patterns: Optional[List[str]], filter_type: str):
     print('    {}'.format(' '.join(filter_patterns or ())))
 
 def log_list_finished(links):
+    from .index.csv import links_to_csv
     print()
     print('---------------------------------------------------------------------------------------------------')
     print(links_to_csv(links, cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))
@@ -338,7 +382,7 @@ def log_list_finished(links):
     print()
 
 
-def log_removal_started(links: List[Link], yes: bool, delete: bool):
+def log_removal_started(links: List["Link"], yes: bool, delete: bool):
     print('{lightyellow}[i] Found {} matching URLs to remove.{reset}'.format(len(links), **ANSI))
     if delete:
         file_counts = [link.num_outputs for link in links if os.path.exists(link.link_dir)]
@@ -348,8 +392,8 @@ def log_removal_started(links: List[Link], yes: bool, delete: bool):
         )
     else:
         print(
-            f'    Matching links will be de-listed from the main index, but their archived content folders will remain in place on disk.\n'
-            f'    (Pass --delete if you also want to permanently delete the data folders)'
+            '    Matching links will be de-listed from the main index, but their archived content folders will remain in place on disk.\n'
+            '    (Pass --delete if you also want to permanently delete the data folders)'
         )
 
     if not yes:
@@ -376,7 +420,7 @@ def log_removal_finished(all_links: int, to_keep: int):
 
 
 def log_shell_welcome_msg():
-    from . import list_subcommands
+    from .cli import list_subcommands
 
     print('{green}# ArchiveBox Imports{reset}'.format(**ANSI))
     print('{green}from archivebox.core.models import Snapshot, User{reset}'.format(**ANSI))
@@ -412,13 +456,15 @@ def printable_filesize(num_bytes: Union[int, float]) -> str:
 
 
 @enforce_types
-def printable_folders(folders: Dict[str, Optional[Link]],
+def printable_folders(folders: Dict[str, Optional["Link"]],
                       json: bool=False,
                       csv: Optional[str]=None) -> str:
     if json: 
+        from .index.json import to_json
         return to_json(folders.values(), indent=4, sort_keys=True)
 
     elif csv:
+        from .index.csv import links_to_csv
         return links_to_csv(folders.values(), cols=csv.split(','), header=True)
     
     return '\n'.join(f'{folder} {link}' for folder, link in folders.items())
@@ -472,6 +518,7 @@ def printable_folder_status(name: str, folder: Dict) -> str:
 
 @enforce_types
 def printable_dependency_version(name: str, dependency: Dict) -> str:
+    version = None
     if dependency['enabled']:
         if dependency['is_valid']:
             color, symbol, note, version = 'green', '√', 'valid', ''

@@ -8,9 +8,10 @@ import argparse
 
 from typing import Optional, List, IO
 
-from ..main import server, docstring
+from ..main import server
+from ..util import docstring
 from ..config import OUTPUT_DIR
-from .logging import SmartFormatter, reject_stdin
+from ..logging_util import SmartFormatter, reject_stdin
 
 
 @docstring(server.__doc__)
@@ -38,6 +39,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         action='store_true',
         help='Enable DEBUG=True mode with more verbose errors',
     )
+    parser.add_argument(
+        '--init',
+        action='store_true',
+        help='Run archivebox init before starting the server',
+    )
     command = parser.parse_args(args or ())
     reject_stdin(__command__, stdin)
     
@@ -45,6 +51,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         runserver_args=command.runserver_args,
         reload=command.reload,
         debug=command.debug,
+        init=command.init,
         out_dir=pwd or OUTPUT_DIR,
     )
 

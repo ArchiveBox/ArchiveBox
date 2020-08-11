@@ -1,0 +1,224 @@
+#logo {
+    height: 30px;
+    vertical-align: -6px;
+    padding-right: 5px;
+}
+#site-name:hover a {
+    opacity: 0.9;
+}
+#site-name .loader {
+    height: 25px;
+    width: 25px;
+    display: inline-block;
+    border-width: 3px;
+    vertical-align: -3px;
+    margin-right: 5px;
+    margin-top: 2px;
+}
+#branding h1, #branding h1 a:link, #branding h1 a:visited {
+    color: mintcream;
+}
+#header {
+    background: #aa1e55;
+    padding: 6px 14px;
+}
+#content {
+    padding: 8px 8px;
+}
+#user-tools {
+    font-size: 13px;
+
+}
+
+div.breadcrumbs {
+    background: #772948;
+    color: #f5dd5d;
+    padding: 6px 15px;
+}
+
+body.model-snapshot.change-list div.breadcrumbs,
+body.model-snapshot.change-list #content .object-tools {
+    display: none;
+}
+
+.module h2, .module caption, .inline-group h2 {
+    background: #772948;
+}
+
+#content .object-tools {
+    margin-top: -35px;
+    margin-right: -10px;
+    float: right;
+}
+
+#content .object-tools a:link, #content .object-tools a:visited {
+    border-radius: 0px;
+    background-color: #f5dd5d;
+    color: #333;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+#content .object-tools a.addlink {
+    background-blend-mode: difference;
+}
+
+#content #changelist #toolbar {
+    padding: 0px;
+    background: none;
+    margin-bottom: 10px;
+    border-top: 0px; 
+    border-bottom: 0px;
+}
+
+#content #changelist #toolbar form input[type="submit"] {
+    border-color: #aa1e55;
+}
+
+#content #changelist-filter li.selected a {
+    color: #aa1e55;
+}
+
+
+/*#content #changelist .actions {
+    position: fixed;
+    bottom: 0px;
+    z-index: 800;
+}*/
+#content #changelist .actions {
+    float: right;
+    margin-top: -34px;
+    padding: 0px;
+    background: none;
+    margin-right: 0px;
+}
+
+#content #changelist .actions .button {
+    border-radius: 2px;
+    background-color: #f5dd5d;
+    color: #333;
+    font-size: 12px;
+    font-weight: 800;
+    margin-right: 4px;
+    box-shadow: 4px 4px 4px rgba(0,0,0,0.02);
+    border: 1px solid rgba(0,0,0,0.08);
+}
+#content #changelist .actions .button:hover {
+    border: 1px solid rgba(0,0,0,0.2);
+    opacity: 0.9;
+}
+#content #changelist .actions .button[name=verify_snapshots], #content #changelist .actions .button[name=update_titles] {
+    background-color: #dedede;
+    color: #333;
+}
+#content #changelist .actions .button[name=update_snapshots] {
+    background-color:lightseagreen;
+    color: #333;
+}
+#content #changelist .actions .button[name=overwrite_snapshots] {
+    background-color: #ffaa31;
+    color: #333;
+}
+#content #changelist .actions .button[name=delete_snapshots] {
+    background-color: #f91f74;
+    color: rgb(255 248 252 / 64%);
+}
+
+
+#content #changelist-filter h2 {
+    border-radius: 4px 4px 0px 0px;
+}
+
+@media (min-width: 767px) {
+    #content #changelist-filter {
+        top: 35px;
+        width: 110px;
+        margin-bottom: 35px;
+    }
+
+    .change-list .filtered .results,
+    .change-list .filtered .paginator, 
+    .filtered #toolbar, 
+    .filtered div.xfull {
+        margin-right: 115px;
+    }
+}
+
+@media (max-width: 1127px) {
+    #content #changelist .actions {
+        position: fixed;
+        bottom: 6px;
+        left: 10px;
+        float: left;
+        z-index: 1000;
+    }
+}
+
+#content a img.favicon {
+    height: 20px;
+    width: 20px;
+    vertical-align: -5px;
+    padding-right: 6px;
+}
+
+#content td, #content th {
+    vertical-align: middle;
+    padding: 4px;
+}
+
+#content #changelist table input {
+    vertical-align: -2px;
+}
+
+#content thead th .text a {
+    padding: 8px 4px;
+}
+
+#content th.field-added, #content td.field-updated {
+    word-break: break-word;
+    min-width: 128px;
+    white-space: normal;
+}
+
+#content th.field-title_str {
+    min-width: 300px;
+}
+
+#content td.field-files {
+    white-space: nowrap;
+}
+#content td.field-files .exists-True {
+    opacity: 1;
+}
+#content td.field-files .exists-False {
+    opacity: 0.1;
+    filter: grayscale(100%);
+}
+#content td.field-size {
+    white-space: nowrap;
+}
+
+#content td.field-url_str {
+    word-break: break-all;
+    min-width: 200px;
+}
+
+#content tr b.status-pending {
+    font-weight: 200;
+    opacity: 0.6;
+}
+
+.loader {
+    border: 16px solid #f3f3f3; /* Light grey */
+    border-top: 16px solid #3498db; /* Blue */
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    box-sizing: border-box;
+    animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

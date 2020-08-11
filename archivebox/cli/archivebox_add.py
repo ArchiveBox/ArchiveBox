@@ -8,9 +8,10 @@ import argparse
 
 from typing import List, Optional, IO
 
-from ..main import add, docstring
+from ..main import add
+from ..util import docstring
 from ..config import OUTPUT_DIR, ONLY_NEW
-from .logging import SmartFormatter, accept_stdin
+from ..logging_util import SmartFormatter, accept_stdin, stderr
 
 
 @docstring(add.__doc__)
@@ -33,23 +34,39 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help="Add the links to the main index without archiving them",
     )
     parser.add_argument(
-        'import_path',
-        nargs='?',
+        'urls',
+        nargs='*',
         type=str,
         default=None,
         help=(
-            'URL or path to local file containing a list of links to import. e.g.:\n'
+            'URLs or paths to archive e.g.:\n'
             '    https://getpocket.com/users/USERNAME/feed/all\n'
             '    https://example.com/some/rss/feed.xml\n'
+            '    https://example.com\n'
             '    ~/Downloads/firefox_bookmarks_export.html\n'
             '    ~/Desktop/sites_list.csv\n'
         )
     )
+    parser.add_argument(
+        "--depth",
+        action="store",
+        default=0,
+        choices=[0, 1],
+        type=int,
+        help="Recursively archive all linked pages up to this many hops away"
+    )
     command = parser.parse_args(args or ())
-    import_str = accept_stdin(stdin)
+    urls = command.urls
+    stdin_urls = accept_stdin(stdin)
+    if (stdin_urls and urls) or (not stdin and not urls):
+        stderr(
+            '[X] You must pass URLs/paths to add via stdin or CLI arguments.\n',
+            color='red',
+        )
+        raise SystemExit(2)
     add(
-        import_str=import_str,
-        import_path=command.import_path,
+        urls=stdin_urls or urls,
+        depth=command.depth,
         update_all=command.update_all,
         index_only=command.index_only,
         out_dir=pwd or OUTPUT_DIR,
@@ -62,12 +79,6 @@ if __name__ == '__main__':
 
 # TODO: Implement these
 #
-# parser.add_argument(
-#     '--depth', #'-d',
-#     type=int,
-#     help='Recursively archive all linked pages up to this many hops away',
-#     default=0,
-# )
 # parser.add_argument(
 #     '--mirror', #'-m',
 #     action='store_true',

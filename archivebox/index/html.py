@@ -41,7 +41,7 @@ TITLE_LOADING_MSG = 'Not yet archived...'
 def parse_html_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[str]:
     """parse an archive index html file and return the list of urls"""
 
-    index_path = os.path.join(out_dir, HTML_INDEX_FILENAME)
+    index_path = join(out_dir, HTML_INDEX_FILENAME)
     if os.path.exists(index_path):
         with open(index_path, 'r', encoding='utf-8') as f:
             for line in f:
@@ -58,7 +58,7 @@ def write_html_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: 
     copy_and_overwrite(join(TEMPLATES_DIR, STATIC_DIR_NAME), join(out_dir, STATIC_DIR_NAME))
     
     rendered_html = main_index_template(links, finished=finished)
-    atomic_write(rendered_html, join(out_dir, HTML_INDEX_FILENAME))
+    atomic_write(join(out_dir, HTML_INDEX_FILENAME), rendered_html)
 
 
 @enforce_types
@@ -90,7 +90,7 @@ def main_index_row_template(link: Link) -> str:
         **link._asdict(extended=True),
         
         # before pages are finished archiving, show loading msg instead of title
-        'title': (
+        'title': htmlencode(
             link.title
             or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
         ),
@@ -116,7 +116,7 @@ def write_html_link_details(link: Link, out_dir: Optional[str]=None) -> None:
     out_dir = out_dir or link.link_dir
 
     rendered_html = link_details_template(link)
-    atomic_write(rendered_html, join(out_dir, HTML_INDEX_FILENAME))
+    atomic_write(join(out_dir, HTML_INDEX_FILENAME), rendered_html)
 
 
 @enforce_types
@@ -129,15 +129,15 @@ def link_details_template(link: Link) -> str:
     return render_legacy_template(LINK_DETAILS_TEMPLATE, {
         **link_info,
         **link_info['canonical'],
-        'title': (
+        'title': htmlencode(
             link.title
             or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
         ),
         'url_str': htmlencode(urldecode(link.base_url)),
         'archive_url': urlencode(
             wget_output_path(link)
-            or (link.domain if link.is_archived else 'about:blank')
-        ),
+            or (link.domain if link.is_archived else '')
+        ) or 'about:blank',
         'extension': link.extension or 'html',
         'tags': link.tags or 'untagged',
         'status': 'archived' if link.is_archived else 'not yet archived',

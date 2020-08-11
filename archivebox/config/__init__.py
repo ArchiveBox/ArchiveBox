@@ -9,9 +9,11 @@ import getpass
 import shutil
 
 from hashlib import md5
+from pathlib import Path
 from typing import Optional, Type, Tuple, Dict
 from subprocess import run, PIPE, DEVNULL
 from configparser import ConfigParser
+from collections import defaultdict
 
 from .stubs import (
     SimpleConfigValueDict,
@@ -21,6 +23,14 @@ from .stubs import (
     ConfigDefaultDict,
 )
 
+# precedence order for config:
+# 1. cli args
+# 2. shell environment vars
+# 3. config file
+# 4. defaults
+
+# env USE_COLO=false archivebox add '...'
+# env SHOW_PROGRESS=1 archivebox add '...'
 
 # ******************************************************************************
 # Documentation: https://github.com/pirate/ArchiveBox/wiki/Configuration
@@ -35,6 +45,8 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'IS_TTY':                   {'type': bool,  'default': lambda _: sys.stdout.isatty()},
         'USE_COLOR':                {'type': bool,  'default': lambda c: c['IS_TTY']},
         'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: c['IS_TTY']},
+        'IN_DOCKER':                {'type': bool,  'default': False},
+        # TODO: 'SHOW_HINTS':       {'type:  bool,  'default': True},
     },
 
     'GENERAL_CONFIG': {
@@ -44,8 +56,18 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'TIMEOUT':                  {'type': int,   'default': 60},
         'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
         'OUTPUT_PERMISSIONS':       {'type': str,   'default': '755'},
-        'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
+        'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},
         'URL_BLACKLIST':            {'type': str,   'default': None},
+    },
+
+    'SERVER_CONFIG': {
+        'SECRET_KEY':               {'type': str,   'default': None},
+        'ALLOWED_HOSTS':            {'type': str,   'default': '*'},
+        'DEBUG':                    {'type': bool,  'default': False},
+        'PUBLIC_INDEX':             {'type': bool,  'default': True},
+        'PUBLIC_SNAPSHOTS':         {'type': bool,  'default': True},
+        'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
+        'ACTIVE_THEME':             {'type': str,   'default': 'default'},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
@@ -53,12 +75,14 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'SAVE_FAVICON':             {'type': bool,  'default': True, 'aliases': ('FETCH_FAVICON',)},
         'SAVE_WGET':                {'type': bool,  'default': True, 'aliases': ('FETCH_WGET',)},
         'SAVE_WGET_REQUISITES':     {'type': bool,  'default': True, 'aliases': ('FETCH_WGET_REQUISITES',)},
+        'SAVE_SINGLEFILE':          {'type': bool,  'default': True, 'aliases': ('FETCH_SINGLEFILE',)},
         'SAVE_PDF':                 {'type': bool,  'default': True, 'aliases': ('FETCH_PDF',)},
         'SAVE_SCREENSHOT':          {'type': bool,  'default': True, 'aliases': ('FETCH_SCREENSHOT',)},
         'SAVE_DOM':                 {'type': bool,  'default': True, 'aliases': ('FETCH_DOM',)},
         'SAVE_WARC':                {'type': bool,  'default': True, 'aliases': ('FETCH_WARC',)},
         'SAVE_GIT':                 {'type': bool,  'default': True, 'aliases': ('FETCH_GIT',)},
         'SAVE_MEDIA':               {'type': bool,  'default': True, 'aliases': ('FETCH_MEDIA',)},
+        'SAVE_PLAYLISTS':           {'type': bool,  'default': True, 'aliases': ('FETCH_PLAYLISTS',)},
         'SAVE_ARCHIVE_DOT_ORG':     {'type': bool,  'default': True, 'aliases': ('SUBMIT_ARCHIVE_DOT_ORG',)},
     },
 
@@ -67,6 +91,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com'},
         'CHECK_SSL_VALIDITY':       {'type': bool,  'default': True},
 
+        'CURL_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/pirate/ArchiveBox/) curl/{CURL_VERSION}'},
         'WGET_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}'},
         'CHROME_USER_AGENT':        {'type': str,   'default': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36'},
 
@@ -75,11 +100,13 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
 
         'CHROME_HEADLESS':          {'type': bool,  'default': True},
         'CHROME_SANDBOX':           {'type': bool,  'default': True},
+
     },
 
     'DEPENDENCY_CONFIG': {
         'USE_CURL':                 {'type': bool,  'default': True},
         'USE_WGET':                 {'type': bool,  'default': True},
+        'USE_SINGLEFILE':           {'type': bool,  'default': True},
         'USE_GIT':                  {'type': bool,  'default': True},
         'USE_CHROME':               {'type': bool,  'default': True},
         'USE_YOUTUBEDL':            {'type': bool,  'default': True},
@@ -87,6 +114,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'CURL_BINARY':              {'type': str,   'default': 'curl'},
         'GIT_BINARY':               {'type': str,   'default': 'git'},
         'WGET_BINARY':              {'type': str,   'default': 'wget'},
+        'SINGLEFILE_BINARY':        {'type': str,   'default': 'single-file'},
         'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
         'CHROME_BINARY':            {'type': str,   'default': None},
     },
@@ -119,8 +147,20 @@ DEFAULT_CLI_COLORS = {
 }
 ANSI = {k: '' for k in DEFAULT_CLI_COLORS.keys()}
 
+COLOR_DICT = defaultdict(lambda: [(0, 0, 0), (0, 0, 0)], {
+    '00': [(0, 0, 0), (0, 0, 0)],
+    '30': [(0, 0, 0), (0, 0, 0)],
+    '31': [(255, 0, 0), (128, 0, 0)],
+    '32': [(0, 200, 0), (0, 128, 0)],
+    '33': [(255, 255, 0), (128, 128, 0)],
+    '34': [(0, 0, 255), (0, 0, 128)],
+    '35': [(255, 0, 255), (128, 0, 128)],
+    '36': [(0, 255, 255), (0, 128, 128)],
+    '37': [(255, 255, 255), (255, 255, 255)],
+})
+
 STATICFILE_EXTENSIONS = {
-    # 99.999% of the time, URLs ending in these extentions are static files
+    # 99.999% of the time, URLs ending in these extensions are static files
     # that can be downloaded as-is, not html pages that need to be rendered
     'gif', 'jpeg', 'jpg', 'png', 'tif', 'tiff', 'wbmp', 'ico', 'jng', 'bmp',
     'svg', 'svgz', 'webp', 'ps', 'eps', 'ai',
@@ -137,7 +177,7 @@ STATICFILE_EXTENSIONS = {
     # pl pm, prc pdb, rar, rpm, sea, sit, tcl tk, der, pem, crt, xpi, xspf,
     # ra, mng, asx, asf, 3gpp, 3gp, mid, midi, kar, jad, wml, htc, mml
 
-    # Thse are always treated as pages, not as static files, never add them:
+    # These are always treated as pages, not as static files, never add them:
     # html, htm, shtml, xhtml, xml, aspx, php, cgi
 }
 
@@ -175,11 +215,11 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'TERM_WIDTH':               {'default': lambda c: lambda: shutil.get_terminal_size((100, 10)).columns},
     'USER':                     {'default': lambda c: getpass.getuser() or os.getlogin()},
     'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
-    
+
     'REPO_DIR':                 {'default': lambda c: os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))},
     'PYTHON_DIR':               {'default': lambda c: os.path.join(c['REPO_DIR'], PYTHON_DIR_NAME)},
     'TEMPLATES_DIR':            {'default': lambda c: os.path.join(c['PYTHON_DIR'], TEMPLATES_DIR_NAME, 'legacy')},
-    
+
     'OUTPUT_DIR':               {'default': lambda c: os.path.abspath(os.path.expanduser(c['OUTPUT_DIR'])) if c['OUTPUT_DIR'] else os.path.abspath(os.curdir)},
     'ARCHIVE_DIR':              {'default': lambda c: os.path.join(c['OUTPUT_DIR'], ARCHIVE_DIR_NAME)},
     'SOURCES_DIR':              {'default': lambda c: os.path.join(c['OUTPUT_DIR'], SOURCES_DIR_NAME)},
@@ -195,13 +235,14 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
 
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
     'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},
-    'PYTHON_VERSION':           {'default': lambda c: '{}.{}'.format(sys.version_info.major, sys.version_info.minor)},
+    'PYTHON_VERSION':           {'default': lambda c: '{}.{}.{}'.format(*sys.version_info[:3])},
 
     'DJANGO_BINARY':            {'default': lambda c: django.__file__.replace('__init__.py', 'bin/django-admin.py')},
     'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{} {} ({})'.format(*django.VERSION)},
 
-    'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_ARCHIVE_DOT_ORG'])},
+    'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
     'CURL_VERSION':             {'default': lambda c: bin_version(c['CURL_BINARY']) if c['USE_CURL'] else None},
+    'CURL_USER_AGENT':          {'default': lambda c: c['CURL_USER_AGENT'].format(**c)},
     'SAVE_FAVICON':             {'default': lambda c: c['USE_CURL'] and c['SAVE_FAVICON']},
     'SAVE_ARCHIVE_DOT_ORG':     {'default': lambda c: c['USE_CURL'] and c['SAVE_ARCHIVE_DOT_ORG']},
 
@@ -212,6 +253,9 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'SAVE_WGET':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WGET']},
     'SAVE_WARC':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WARC']},
 
+    'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
+    'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
+
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
     'SAVE_GIT':                 {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
@@ -219,13 +263,15 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'USE_YOUTUBEDL':            {'default': lambda c: c['USE_YOUTUBEDL'] and c['SAVE_MEDIA']},
     'YOUTUBEDL_VERSION':        {'default': lambda c: bin_version(c['YOUTUBEDL_BINARY']) if c['USE_YOUTUBEDL'] else None},
     'SAVE_MEDIA':               {'default': lambda c: c['USE_YOUTUBEDL'] and c['SAVE_MEDIA']},
+    'SAVE_PLAYLISTS':           {'default': lambda c: c['SAVE_PLAYLISTS'] and c['SAVE_MEDIA']},
 
-    'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'])},
+    'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'] or c['SAVE_SINGLEFILE'])},
     'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] if c['CHROME_BINARY'] else find_chrome_binary()},
     'CHROME_VERSION':           {'default': lambda c: bin_version(c['CHROME_BINARY']) if c['USE_CHROME'] else None},
     'SAVE_PDF':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_PDF']},
     'SAVE_SCREENSHOT':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SCREENSHOT']},
     'SAVE_DOM':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_DOM']},
+    'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_CHROME'] and c['USE_SINGLEFILE']},
 
     'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
     'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
@@ -245,6 +291,8 @@ def load_config_val(key: str,
                     config: Optional[ConfigDict]=None,
                     env_vars: Optional[os._Environ]=None,
                     config_file_vars: Optional[Dict[str, str]]=None) -> ConfigValue:
+    """parse bool, int, and str key=value pairs from env"""
+
 
     config_keys_to_check = (key, *(aliases or ()))
     for key in config_keys_to_check:
@@ -263,7 +311,7 @@ def load_config_val(key: str,
             return default(config)
 
         return default
-    
+
     elif type is bool:
         if val.lower() in ('true', 'yes', '1'):
             return True
@@ -283,6 +331,7 @@ def load_config_val(key: str,
         return int(val)
 
     raise Exception('Config values can only be str, bool, or int')
+
 
 def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
     """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
@@ -304,53 +353,67 @@ def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
         return config_file_vars
     return None
 
+
 def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
     """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
 
+    from ..system import atomic_write
+
     out_dir = out_dir or os.path.abspath(os.getenv('OUTPUT_DIR', '.'))
     config_path = os.path.join(out_dir, CONFIG_FILENAME)
+    
     if not os.path.exists(config_path):
-        with open(config_path, 'w+') as f:
-            f.write(CONFIG_HEADER)
-
-    if not config:
-        return {}
+        atomic_write(config_path, CONFIG_HEADER)
 
     config_file = ConfigParser()
     config_file.optionxform = str
     config_file.read(config_path)
 
+    with open(config_path, 'r') as old:
+        atomic_write(f'{config_path}.bak', old.read())
+
     find_section = lambda key: [name for name, opts in CONFIG_DEFAULTS.items() if key in opts][0]
 
-    with open(f'{config_path}.old', 'w+') as old:
-        with open(config_path, 'r') as new:
-            old.write(new.read())
+    # Set up sections in empty config file
+    for key, val in config.items():
+        section = find_section(key)
+        if section in config_file:
+            existing_config = dict(config_file[section])
+        else:
+            existing_config = {}
+        config_file[section] = {**existing_config, key: val}
 
-    with open(config_path, 'w+') as f:
-        for key, val in config.items():
-            section = find_section(key)
-            if section in config_file:
-                existing_config = dict(config_file[section])
-            else:
-                existing_config = {}
+    # always make sure there's a SECRET_KEY defined for Django
+    existing_secret_key = None
+    if 'SERVER_CONFIG' in config_file and 'SECRET_KEY' in config_file['SERVER_CONFIG']:
+        existing_secret_key = config_file['SERVER_CONFIG']['SECRET_KEY']
 
-            config_file[section] = {**existing_config, key: val}
+    if (not existing_secret_key) or ('not a valid secret' in existing_secret_key):
+        from django.utils.crypto import get_random_string
+        chars = 'abcdefghijklmnopqrstuvwxyz0123456789-_+!.'
+        random_secret_key = get_random_string(50, chars)
+        if 'SERVER_CONFIG' in config_file:
+            config_file['SERVER_CONFIG']['SECRET_KEY'] = random_secret_key
+        else:
+            config_file['SERVER_CONFIG'] = {'SECRET_KEY': random_secret_key}
 
-        config_file.write(f)
-
+    with open(config_path, 'w+') as new:
+        config_file.write(new)
+    
     try:
+        # validate the config by attempting to re-parse it
         CONFIG = load_all_config()
         return {
             key.upper(): CONFIG.get(key.upper())
             for key in config.keys()
         }
     except:
-        with open(f'{config_path}.old', 'r') as old:
-            with open(config_path, 'w+') as new:
-                new.write(old.read())
+        # something went horribly wrong, rever to the previous version
+        with open(f'{config_path}.bak', 'r') as old:
+            atomic_write(config_path, old.read())
 
-    if os.path.exists(f'{config_path}.old'):
-        os.remove(f'{config_path}.old')
+    if os.path.exists(f'{config_path}.bak'):
+        os.remove(f'{config_path}.bak')
 
     return {}
 
@@ -438,8 +501,10 @@ def bin_path(binary: Optional[str]) -> Optional[str]:
     return shutil.which(os.path.expanduser(binary)) or binary
 
 def bin_hash(binary: Optional[str]) -> Optional[str]:
+    if binary is None:
+        return None
     abs_path = bin_path(binary)
-    if abs_path is None:
+    if abs_path is None or not Path(abs_path).exists():
         return None
 
     file_hash = md5()
@@ -457,6 +522,7 @@ def find_chrome_binary() -> Optional[str]:
         'chromium-browser',
         'chromium',
         '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        'chrome',
         'google-chrome',
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         'google-chrome-stable',
@@ -483,6 +549,7 @@ def find_chrome_data_dir() -> Optional[str]:
         '~/.config/chromium',
         '~/Library/Application Support/Chromium',
         '~/AppData/Local/Chromium/User Data',
+        '~/.config/chrome',
         '~/.config/google-chrome',
         '~/Library/Application Support/Google/Chrome',
         '~/AppData/Local/Google/Chrome/User Data',
@@ -615,6 +682,13 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'enabled': config['USE_WGET'],
             'is_valid': bool(config['WGET_VERSION']),
         },
+        'SINGLEFILE_BINARY': {
+            'path': bin_path(config['SINGLEFILE_BINARY']),
+            'version': config['SINGLEFILE_VERSION'],
+            'hash': bin_hash(config['SINGLEFILE_BINARY']),
+            'enabled': config['USE_SINGLEFILE'],
+            'is_valid': bool(config['SINGLEFILE_VERSION']),
+        },
         'GIT_BINARY': {
             'path': bin_path(config['GIT_BINARY']),
             'version': config['GIT_VERSION'],
@@ -664,6 +738,9 @@ def load_all_config():
 CONFIG = load_all_config()
 globals().update(CONFIG)
 
+# Timezone set as UTC
+os.environ["TZ"] = 'UTC'
+
 
 ############################## Importable Checkers #############################
 
@@ -676,7 +753,7 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
         raise SystemExit(2)
 
     ### Check Python environment
-    if float(config['PYTHON_VERSION']) < 3.6:
+    if sys.version_info[:3] < (3, 6, 0):
         stderr(f'[X] Python version is not new enough: {config["PYTHON_VERSION"]} (>3.6 is required)', color='red')
         stderr('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
         raise SystemExit(2)
@@ -705,9 +782,16 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
                 stderr('        CHROME_USER_DATA_DIR="{}"'.format(config['CHROME_USER_DATA_DIR'].split('/Default')[0]))
             raise SystemExit(2)
 
+def dependency_additional_info(dependency: str) -> str:
+    if dependency == "SINGLEFILE_BINARY":
+        return "Please follow the installation instructions at https://github.com/gildas-lormeau/SingleFile/tree/master/cli and set SINGLEFILE_BINARY or set USE_SINGLEFILE=false"
+    return ""
+
+
 def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
     invalid = [
-        '{}: {} ({})'.format(name, info['path'] or 'unable to find binary', info['version'] or 'unable to detect version')
+        '{}: {} ({}). {}'.format(name, info['path'] or 'unable to find binary', info['version'] or 'unable to detect version',
+                                 dependency_additional_info(name))
         for name, info in config['DEPENDENCIES'].items()
         if info['enabled'] and not info['is_valid']
     ]
@@ -726,7 +810,7 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
         stderr()
         stderr(f'[!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={config["TIMEOUT"]} seconds)', color='red')
         stderr('    You must allow *at least* 5 seconds for indexing and archive methods to run succesfully.')
-        stderr('    (Setting it to somewhere between 30 and 300 seconds is recommended)')
+        stderr('    (Setting it to somewhere between 30 and 3000 seconds is recommended)')
         stderr()
         stderr('    If you want to make ArchiveBox run faster, disable specific archive methods instead:')
         stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles')
@@ -756,14 +840,14 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
 
     json_index_exists = os.path.exists(os.path.join(output_dir, JSON_INDEX_FILENAME))
     if not json_index_exists:
-        stderr('[X] No archive main index was found in current directory.', color='red')
-        stderr(f'    {output_dir}')
+        stderr('[X] No archivebox index found in the current directory.', color='red')
+        stderr(f'    {output_dir}', color='lightyellow')
         stderr()
-        stderr('    Are you running archivebox in the right folder?')
+        stderr('    {lightred}Hint{reset}: Are you running archivebox in the right folder?'.format(**config['ANSI']))
         stderr('        cd path/to/your/archive/folder')
         stderr('        archivebox [command]')
         stderr()
-        stderr('    To create a new archive collection or import existing data in this folder, run:')
+        stderr('    {lightred}Hint{reset}: To create a new archive collection or import existing data in this folder, run:'.format(**config['ANSI']))
         stderr('        archivebox init')
         raise SystemExit(2)
 
@@ -785,9 +869,15 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
         stderr('        archivebox init')
         raise SystemExit(3)
 
+    sources_dir = os.path.join(output_dir, SOURCES_DIR_NAME)
+    if not os.path.exists(sources_dir):
+        os.makedirs(sources_dir)
+
 
 
 def setup_django(out_dir: str=None, check_db=False, config: ConfigDict=CONFIG) -> None:
+    check_system_config()
+    
     output_dir = out_dir or config['OUTPUT_DIR']
 
     assert isinstance(output_dir, str) and isinstance(config['PYTHON_DIR'], str)
@@ -806,4 +896,4 @@ def setup_django(out_dir: str=None, check_db=False, config: ConfigDict=CONFIG) -
     except KeyboardInterrupt:
         raise SystemExit(2)
 
-check_system_config()
+os.umask(0o777 - int(OUTPUT_PERMISSIONS, base=8))  # noqa: F821

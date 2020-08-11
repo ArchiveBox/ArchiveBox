@@ -5,7 +5,7 @@ import os
 from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from ..system import run, PIPE, chmod_file
+from ..system import run, chmod_file
 from ..util import (
     enforce_types,
     is_static_file,
@@ -13,11 +13,12 @@ from ..util import (
 from ..config import (
     MEDIA_TIMEOUT,
     SAVE_MEDIA,
+    SAVE_PLAYLISTS,
     YOUTUBEDL_BINARY,
     YOUTUBEDL_VERSION,
     CHECK_SSL_VALIDITY
 )
-from ..cli.logging import TimedProgress
+from ..logging_util import TimedProgress
 
 
 @enforce_types
@@ -45,7 +46,6 @@ def save_media(link: Link, out_dir: Optional[str]=None, timeout: int=MEDIA_TIMEO
         '--write-description',
         '--write-info-json',
         '--write-annotations',
-        '--yes-playlist',
         '--write-thumbnail',
         '--no-call-home',
         '--no-check-certificate',
@@ -59,13 +59,14 @@ def save_media(link: Link, out_dir: Optional[str]=None, timeout: int=MEDIA_TIMEO
         '--audio-quality', '320K',
         '--embed-thumbnail',
         '--add-metadata',
+        *(['--yes-playlist'] if SAVE_PLAYLISTS else []),
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate']),
         link.url,
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(cmd, stdout=PIPE, stderr=PIPE, cwd=output_path, timeout=timeout + 1)
+        result = run(cmd, cwd=output_path, timeout=timeout + 1)
         chmod_file(output, cwd=out_dir)
         if result.returncode:
             if (b'ERROR: Unsupported URL' in result.stderr

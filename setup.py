@@ -1,80 +1,87 @@
-import os
 import setuptools
+from pathlib import Path
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+PKG_NAME = "archivebox"
+REPO_URL = "https://github.com/pirate/ArchiveBox"
+BASE_DIR = Path(__file__).parent.resolve()
+SOURCE_DIR = BASE_DIR / PKG_NAME
+README = (BASE_DIR / "README.md").read_text()
+VERSION = (SOURCE_DIR / "VERSION").read_text().strip()
 
-
-script_dir = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
-
-VERSION = open(os.path.join(script_dir, 'archivebox', 'VERSION'), 'r').read().strip()
-try:
-    GIT_HEAD = open(os.path.join(script_dir, '.git', 'HEAD'), 'r').read().strip().split(': ')[1]
-    GIT_SHA = open(os.path.join(script_dir, '.git', GIT_HEAD), 'r').read().strip()[:9]
-    PYPI_VERSION = "{}+{}".format(VERSION, GIT_SHA)
-except:
-    PYPI_VERSION = VERSION
-
-with open(os.path.join(script_dir, 'archivebox', 'VERSION'), 'w+') as f:
-    f.write(PYPI_VERSION)
+# To see when setup.py gets called (uncomment for debugging)
+# import sys
+# print(SOURCE_DIR, f"     (v{VERSION})")
+# print('>', sys.executable, *sys.argv)
+# raise SystemExit(0)
 
 setuptools.setup(
-    name="archivebox",
-    version=PYPI_VERSION,
+    name=PKG_NAME,
+    version=VERSION,
+    license="MIT",
     author="Nick Sweeting",
     author_email="git@nicksweeting.com",
     description="The self-hosted internet archive.",
-    long_description=long_description,
+    long_description=README,
     long_description_content_type="text/markdown",
-    url="https://github.com/pirate/ArchiveBox",
+    url=REPO_URL,
     project_urls={
-        'Documentation': 'https://github.com/pirate/ArchiveBox/Wiki',
-        'Community': 'https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community',
-        'Source': 'https://github.com/pirate/ArchiveBox',
-        'Bug Tracker': 'https://github.com/pirate/ArchiveBox/issues',
-        'Roadmap': 'https://github.com/pirate/ArchiveBox/wiki/Roadmap',
-        'Changelog': 'https://github.com/pirate/ArchiveBox/wiki/Changelog',
-        'Patreon': 'https://github.com/pirate/ArchiveBox/wiki/Donations',
+        "Source":           f"{REPO_URL}",
+        "Documentation":    f"{REPO_URL}/wiki",
+        "Bug Tracker":      f"{REPO_URL}/issues",
+        "Changelog":        f"{REPO_URL}/wiki/Changelog",
+        "Roadmap":          f"{REPO_URL}/wiki/Roadmap",
+        "Community":        f"{REPO_URL}/wiki/Web-Archiving-Community",
+        "Donate":           f"{REPO_URL}/wiki/Donations",
     },
-    packages=setuptools.find_packages(),
-    python_requires='>=3.6',
+    python_requires=">=3.7",
     install_requires=[
-        "dataclasses==0.6",
-        "mypy-extensions==0.4.1",
+        "requests==2.24.0",
+        "atomicwrites==1.4.0",
+        "mypy-extensions==0.4.3",
         "base32-crockford==0.3.0",
-        "django==2.2",
-        "django-extensions==2.1.6",
-        "python-crontab==2.3.6",
-        "youtube-dl",
-        "ipython",
+        "django==3.0.8",
+        "django-extensions==3.0.3",
 
+        "dateparser",
+        "ipython",
+        "youtube-dl",
+        "python-crontab==2.5.1",
+        "w3lib==1.22.0",
         # Some/all of these will likely be added in the future:
         # wpull
         # pywb
         # pyppeteer
         # archivenow
-        # requests
-
     ],
+    extras_require={
+        'dev': [
+            "setuptools",
+            "wheel",
+            "twine",
+            "flake8",
+            "ipdb",
+            "mypy",
+            "django-stubs",
+            "sphinx",
+            "sphinx-rtd-theme",
+            "recommonmark",
+            "pytest",
+            "bottle",
+        ],
+        # 'redis': ['redis', 'django-redis'],
+        # 'pywb': ['pywb', 'redis'],
+    },
+    packages=setuptools.find_packages(),
     entry_points={
-        'console_scripts': [
-            'archivebox = archivebox.__main__:main',
+        "console_scripts": [
+            f"{PKG_NAME} = {PKG_NAME}.cli:main",
         ],
     },
-    package_data={
-        'archivebox': [
-            # Manifest.ini must correspond 1:1 with this list
-            'VERSION',
-            'themes/*',
-            'themes/static/*',
-            'themes/admin/*'
-            'themes/default/*'
-            'themes/default/static/*'
-            'themes/legacy/*',
-            'themes/legacy/static/*',
-        ],
-    },
+    include_package_data=True,
     classifiers=[
+        "License :: OSI Approved :: MIT License",
+        "Natural Language :: English",
+        "Operating System :: OS Independent",
         "Development Status :: 4 - Beta",
 
         "Topic :: Utilities",
@@ -99,14 +106,9 @@ setuptools.setup(
         "Environment :: Console",
         "Environment :: Web Environment",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
-        'Framework :: Django',
+        "Framework :: Django",
         "Typing :: Typed",
-
-        "License :: OSI Approved :: MIT License",
-        "Natural Language :: English",
-        "Operating System :: OS Independent",
     ],
 )

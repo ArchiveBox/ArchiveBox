@@ -3,6 +3,7 @@ __package__ = 'archivebox.index'
 import os
 import sys
 import json as pyjson
+from pathlib import Path
 
 from datetime import datetime
 from typing import List, Optional, Iterator, Any
@@ -18,6 +19,7 @@ from ..config import (
     DEPENDENCIES,
     JSON_INDEX_FILENAME,
     ARCHIVE_DIR_NAME,
+    ANSI
 )
 
 
@@ -37,7 +39,6 @@ MAIN_INDEX_HEADER = {
     },
 }
 
-
 ### Main Links Index
 
 @enforce_types
@@ -49,8 +50,19 @@ def parse_json_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
         with open(index_path, 'r', encoding='utf-8') as f:
             links = pyjson.load(f)['links']
             for link_json in links:
-                yield Link.from_json(link_json)
-
+                try:
+                    yield Link.from_json(link_json)
+                except KeyError:
+                    try:
+                        detail_index_path = Path(OUTPUT_DIR) / ARCHIVE_DIR_NAME / link_json['timestamp']
+                        yield parse_json_link_details(str(detail_index_path))
+                    except KeyError: 
+                        # as a last effort, try to guess the missing values out of existing ones
+                        try:
+                            yield Link.from_json(link_json, guess=True)
+                        except KeyError:
+                            print("    {lightyellow}! Failed to load the index.json from {}".format(detail_index_path, **ANSI))
+                            continue
     return ()
 
 @enforce_types
@@ -74,7 +86,7 @@ def write_json_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
         'last_run_cmd': sys.argv,
         'links': links,
     }
-    atomic_write(main_index_json, os.path.join(out_dir, JSON_INDEX_FILENAME))
+    atomic_write(os.path.join(out_dir, JSON_INDEX_FILENAME), main_index_json)
 
 
 ### Link Details Index
@@ -85,19 +97,18 @@ def write_json_link_details(link: Link, out_dir: Optional[str]=None) -> None:
     
     out_dir = out_dir or link.link_dir
     path = os.path.join(out_dir, JSON_INDEX_FILENAME)
-
-    atomic_write(link._asdict(extended=True), path)
+    atomic_write(path, link._asdict(extended=True))
 
 
 @enforce_types
-def parse_json_link_details(out_dir: str) -> Optional[Link]:
+def parse_json_link_details(out_dir: str, guess: Optional[bool]=False) -> Optional[Link]:
     """load the json link index from a given directory"""
     existing_index = os.path.join(out_dir, JSON_INDEX_FILENAME)
     if os.path.exists(existing_index):
         with open(existing_index, 'r', encoding='utf-8') as f:
             try:
                 link_json = pyjson.load(f)
-                return Link.from_json(link_json)
+                return Link.from_json(link_json, guess)
             except pyjson.JSONDecodeError:
                 pass
     return None
@@ -110,7 +121,10 @@ def parse_json_links_details(out_dir: str) -> Iterator[Link]:
     for entry in os.scandir(os.path.join(out_dir, ARCHIVE_DIR_NAME)):
         if entry.is_dir(follow_symlinks=True):
             if os.path.exists(os.path.join(entry.path, 'index.json')):
-                link = parse_json_link_details(entry.path)
+                try:
+                    link = parse_json_link_details(entry.path)
+                except KeyError:
+                    link = None
                 if link:
                     yield link
 
@@ -148,6 +162,4 @@ class ExtendedEncoder(pyjson.JSONEncoder):
 @enforce_types
 def to_json(obj: Any, indent: Optional[int]=4, sort_keys: bool=True, cls=ExtendedEncoder) -> str:
     return pyjson.dumps(obj, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder)
-
-
 

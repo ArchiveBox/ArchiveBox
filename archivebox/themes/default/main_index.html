@@ -6,6 +6,37 @@
         <title>Archived Sites</title>
         <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
         <style>
+            :root {
+                --bg-main: #efefef;
+                --accent-1: #aa1e55;
+                --accent-2: #ffebeb;
+                --accent-3: #efefef;
+
+                --text-1: #1c1c1c;
+                --text-2: #eaeaea;
+                --text-main: #1a1a1a;
+                --font-main: "Gill Sans", Helvetica, sans-serif;
+            }
+            /* Dark Mode (WIP) */
+            /*
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --accent-2: hsl(160, 100%, 96%);
+
+                    --text-1: #eaeaea;
+                    --text-2: #1a1a1a;
+                    --bg-main: #101010;
+                }
+
+                #table-bookmarks_wrapper,
+                #table-bookmarks_wrapper img,
+                tbody td:nth-child(3),
+                tbody td:nth-child(3) span,
+                footer {
+                    filter: invert(100%);
+                }
+            }*/
+
             html, body {
                 width: 100%;
                 height: 100%;
@@ -14,11 +45,12 @@
                 text-align: center;
                 margin: 0px;
                 padding: 0px;
-                font-family: "Gill Sans", Helvetica, sans-serif;
+                font-family: var(--font-main);
             }
+
             .header-top small {
                 font-weight: 200;
-                color: #efefef;
+                color: var(--accent-3);
             }
             
             .header-top {
@@ -31,8 +63,8 @@
                 font-size: calc(11px + 0.84vw);
                 font-weight: 200;
                 padding: 4px 4px;
-                border-bottom: 3px solid #aa1e55;
-                background-color: #aa1e55;
+                border-bottom: 3px solid var(--accent-1);
+                background-color: var(--accent-1);
             }
             input[type=search] {
                 width: 22vw;
@@ -86,7 +118,7 @@
                 height: 35px;
             }
             tbody tr:nth-child(odd) {
-               background-color: #ffebeb !important;
+               background-color: var(--accent-2) !important;
             }
             table tr td {
                 white-space: nowrap;
@@ -146,7 +178,7 @@
                 color:black;
             }
             tr td a.title small {
-                background-color: #efefef;
+                background-color: var(--accent-3);
                 border-radius: 4px;
                 float:right
             }
@@ -190,7 +222,7 @@
                     </div>
                     <div class="col-sm-10" style="text-align: right">
                         <a href="/add/">Add Links</a> &nbsp; | &nbsp; 
-                        <a href="/admin/core/page/">Admin</a> &nbsp; | &nbsp; 
+                        <a href="/admin/core/snapshot/">Admin</a> &nbsp; | &nbsp; 
                         <a href="https://github.com/pirate/ArchiveBox/wiki">Docs</a>
                     </div>
                 </div>
@@ -216,7 +248,7 @@
                                 <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="link-favicon" decoding="async"></a>
                             {% endif %}
                             <a href="archive/{{link.timestamp}}/{{link.canonical_outputs.wget_path}}" title="{{link.title}}">
-                                <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title}}</span>
+                                <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title|default:'Loading...'}}</span>
                                 <small style="float:right">{{link.tags|default:''}}</small>
                             </a>
                         </td>

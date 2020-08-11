@@ -1,26 +1,27 @@
+__package__ = 'archivebox'
+
 import re
-import ssl
+import json as pyjson
 
 
 from typing import List, Optional, Any
 from inspect import signature
 from functools import wraps
 from hashlib import sha256
-from urllib.request import Request, urlopen
 from urllib.parse import urlparse, quote, unquote
 from html import escape, unescape
 from datetime import datetime
+from dateparser import parse as dateparser
 
-from base32_crockford import encode as base32_encode         # type: ignore
-import json as pyjson
+import requests
+from base32_crockford import encode as base32_encode                            # type: ignore
+from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
 
-from .config import (
-    TIMEOUT,
-    STATICFILE_EXTENSIONS,
-    CHECK_SSL_VALIDITY,
-    WGET_USER_AGENT,
-    CHROME_OPTIONS,
-)
+try:
+    import chardet
+    detect_encoding = lambda rawdata: chardet.detect(rawdata)["encoding"]
+except ImportError:
+    detect_encoding = lambda rawdata: "utf-8"
 
 ### Parsing Helpers
 
@@ -42,7 +43,6 @@ base_url = lambda url: without_scheme(url)  # uniq base url used to dedupe links
 without_www = lambda url: url.replace('://www.', '://', 1)
 without_trailing_slash = lambda url: url[:-1] if url[-1] == '/' else url.replace('/?', '?')
 hashurl = lambda url: base32_encode(int(sha256(base_url(url).encode('utf-8')).hexdigest(), 16))[:20]
-is_static_file = lambda url: extension(url).lower() in STATICFILE_EXTENSIONS  # TODO: the proper way is with MIME type detection, not using extension
 
 urlencode = lambda s: s and quote(s, encoding='utf-8', errors='replace')
 urldecode = lambda s: s and unquote(s)
@@ -62,6 +62,13 @@ URL_REGEX = re.compile(
     r'[^\]\[\(\)<>\""\'\s]+',         # stop parsing at these symbols
     re.IGNORECASE,
 )
+
+COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
+
+def is_static_file(url: str):
+    # TODO: the proper way is with MIME type detection + ext, not only extension
+    from .config import STATICFILE_EXTENSIONS
+    return extension(url).lower() in STATICFILE_EXTENSIONS
 
 
 def enforce_types(func):
@@ -140,73 +147,37 @@ def parse_date(date: Any) -> Optional[datetime]:
         date = str(date)
 
     if isinstance(date, str):
-        if date.replace('.', '').isdigit():
-            # this is a brittle attempt at unix timestamp parsing (which is
-            # notoriously hard to do). It may lead to dates being off by
-            # anything from hours to decades, depending on which app, OS,
-            # and sytem time configuration was used for the original timestamp
-            # more info: https://github.com/pirate/ArchiveBox/issues/119
+        return dateparser(date)
 
-            # Note: always always always store the original timestamp string
-            # somewhere indepentendly of the parsed datetime, so that later
-            # bugs dont repeatedly misparse and rewrite increasingly worse dates.
-            # the correct date can always be re-derived from the timestamp str
-            timestamp = float(date)
-
-            EARLIEST_POSSIBLE = 473403600.0  # 1985
-            LATEST_POSSIBLE = 1735707600.0   # 2025
-
-            if EARLIEST_POSSIBLE < timestamp < LATEST_POSSIBLE:
-                # number is seconds
-                return datetime.fromtimestamp(timestamp)
-                
-            elif EARLIEST_POSSIBLE * 1000 < timestamp < LATEST_POSSIBLE * 1000:
-                # number is milliseconds
-                return datetime.fromtimestamp(timestamp / 1000)
-
-            elif EARLIEST_POSSIBLE * 1000*1000 < timestamp < LATEST_POSSIBLE * 1000*1000:
-                # number is microseconds
-                return datetime.fromtimestamp(timestamp / (1000*1000))
-
-            else:
-                # continue to the end and raise a parsing failed error.
-                # we dont want to even attempt parsing timestamp strings that
-                # arent within these ranges
-                pass
-
-        if '-' in date:
-            # 2019-04-07T05:44:39.227520
-            try:
-                return datetime.fromisoformat(date)
-            except Exception:
-                pass
-            try:
-                return datetime.strptime(date, '%Y-%m-%d %H:%M')
-            except Exception:
-                pass
-    
     raise ValueError('Tried to parse invalid date! {}'.format(date))
 
 
 @enforce_types
-def download_url(url: str, timeout: int=TIMEOUT) -> str:
+def download_url(url: str, timeout: int=None) -> str:
     """Download the contents of a remote url and return the text"""
+    from .config import TIMEOUT, CHECK_SSL_VALIDITY, WGET_USER_AGENT
+    timeout = timeout or TIMEOUT
+    response = requests.get(
+        url,
+        headers={'User-Agent': WGET_USER_AGENT},
+        verify=CHECK_SSL_VALIDITY,
+        timeout=timeout,
+    )
 
-    req = Request(url, headers={'User-Agent': WGET_USER_AGENT})
+    content_type = response.headers.get('Content-Type', '')
+    encoding = http_content_type_encoding(content_type) or html_body_declared_encoding(response.text)
 
-    if CHECK_SSL_VALIDITY:
-        resp = urlopen(req, timeout=timeout)
-    else:
-        insecure = ssl._create_unverified_context()
-        resp = urlopen(req, timeout=timeout, context=insecure)
+    if encoding is not None:
+        response.encoding = encoding
 
-    encoding = resp.headers.get_content_charset() or 'utf-8'  # type: ignore
-    return resp.read().decode(encoding)
+    return response.text
 
 
 @enforce_types
 def chrome_args(**options) -> List[str]:
     """helper to build up a chrome shell command with arguments"""
+
+    from .config import CHROME_OPTIONS
 
     options = {**CHROME_OPTIONS, **options}
 
@@ -216,8 +187,16 @@ def chrome_args(**options) -> List[str]:
         cmd_args += ('--headless',)
     
     if not options['CHROME_SANDBOX']:
-        # dont use GPU or sandbox when running inside docker container
-        cmd_args += ('--no-sandbox', '--disable-gpu')
+        # assume this means we are running inside a docker container
+        # in docker, GPU support is limited, sandboxing is unecessary, 
+        # and SHM is limited to 64MB by default (which is too low to be usable).
+        cmd_args += (
+            '--no-sandbox',
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            '--disable-software-rasterizer',
+        )
+
 
     if not options['CHECK_SSL_VALIDITY']:
         cmd_args += ('--disable-web-security', '--ignore-certificate-errors')
@@ -235,6 +214,46 @@ def chrome_args(**options) -> List[str]:
         cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
     
     return cmd_args
+
+def ansi_to_html(text):
+    """
+    Based on: https://stackoverflow.com/questions/19212665/python-converting-ansi-color-codes-to-html
+    """
+    from .config import COLOR_DICT
+
+    TEMPLATE = '<span style="color: rgb{}"><br>'
+    text = text.replace('[m', '</span>')
+
+    def single_sub(match):
+        argsdict = match.groupdict()
+        if argsdict['arg_3'] is None:
+            if argsdict['arg_2'] is None:
+                _, color = 0, argsdict['arg_1']
+            else:
+                _, color = argsdict['arg_1'], argsdict['arg_2']
+        else:
+            _, color = argsdict['arg_3'], argsdict['arg_2']
+
+        return TEMPLATE.format(COLOR_DICT[color][0])
+
+    return COLOR_REGEX.sub(single_sub, text)
+
+
+class AttributeDict(dict):
+    """Helper to allow accessing dict values via Example.key or Example['key']"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Recursively convert nested dicts to AttributeDicts (optional):
+        # for key, val in self.items():
+        #     if isinstance(val, dict) and type(val) is not AttributeDict:
+        #         self[key] = AttributeDict(val)
+
+    def __getattr__(self, attr: str) -> Any:
+        return dict.__getitem__(self, attr)
+
+    def __setattr__(self, attr: str, value: Any) -> None:
+        return dict.__setitem__(self, attr, value)
 
 
 class ExtendedEncoder(pyjson.JSONEncoder):

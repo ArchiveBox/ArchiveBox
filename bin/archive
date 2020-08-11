@@ -1,0 +1,7 @@
+#!/bin/sh
+
+echo "[X] This method of running ArchiveBox is deprecated as of >= v0.4."
+echo "    You should 'pip install archivebox' and use the installed 'archivebox' binary instead."
+echo "    For more info, see the Quickstart section of the README.md:"
+echo "        https://github.com/pirate/ArchiveBox#Quickstart"
+exit 2

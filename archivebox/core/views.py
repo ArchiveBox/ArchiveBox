@@ -8,7 +8,13 @@ from django.views import View, static
 from core.models import Snapshot
 
 from ..index import load_main_index, load_main_index_meta
-from ..config import OUTPUT_DIR, VERSION, FOOTER_INFO
+from ..config import (
+    OUTPUT_DIR,
+    VERSION,
+    FOOTER_INFO,
+    PUBLIC_INDEX,
+    PUBLIC_SNAPSHOTS,
+)
 from ..util import base_url
 
 
@@ -16,36 +22,35 @@ class MainIndex(View):
     template = 'main_index.html'
 
     def get(self, request):
-        all_links = load_main_index(out_dir=OUTPUT_DIR)
-        meta_info = load_main_index_meta(out_dir=OUTPUT_DIR)
+        if request.user.is_authenticated:
+            return redirect('/admin/core/snapshot/')
 
-        context = {
-            'updated': meta_info['updated'],
-            'num_links': meta_info['num_links'],
-            'links': all_links,
-            'VERSION': VERSION,
-            'FOOTER_INFO': FOOTER_INFO,
-        }
+        if PUBLIC_INDEX:
+            return redirect('OldHome')
+        
+        return redirect(f'/admin/login/?next={request.path}')
 
-        return render(template_name=self.template, request=request, context=context)
+        
 
-
-class AddLinks(View):
-    template = 'add_links.html'
+class OldIndex(View):
+    template = 'main_index.html'
 
     def get(self, request):
-        context = {}
+        if PUBLIC_INDEX or request.user.is_authenticated:
+            all_links = load_main_index(out_dir=OUTPUT_DIR)
+            meta_info = load_main_index_meta(out_dir=OUTPUT_DIR)
 
-        return render(template_name=self.template, request=request, context=context)
+            context = {
+                'updated': meta_info['updated'],
+                'num_links': meta_info['num_links'],
+                'links': all_links,
+                'VERSION': VERSION,
+                'FOOTER_INFO': FOOTER_INFO,
+            }
 
+            return render(template_name=self.template, request=request, context=context)
 
-    def post(self, request):
-        import_path = request.POST['url']
-        
-        # TODO: add the links to the index here using archivebox.main.add
-        print(f'Adding URL: {import_path}')
-
-        return render(template_name=self.template, request=request, context={})
+        return redirect(f'/admin/login/?next={request.path}')
 
 
 class LinkDetails(View):
@@ -53,6 +58,9 @@ class LinkDetails(View):
         # missing trailing slash -> redirect to index
         if '/' not in path:
             return redirect(f'{path}/index.html')
+
+        if not request.user.is_authenticated and not PUBLIC_SNAPSHOTS:
+            return redirect(f'/admin/login/?next={request.path}')
 
         try:
             slug, archivefile = path.split('/', 1)
@@ -64,7 +72,10 @@ class LinkDetails(View):
         # slug is a timestamp
         by_ts = {page.timestamp: page for page in all_pages}
         try:
-            return static.serve(request, archivefile, by_ts[slug].link_dir, show_indexes=True)
+            # print('SERVING STATICFILE', by_ts[slug].link_dir, request.path, path)
+            response = static.serve(request, archivefile, document_root=by_ts[slug].link_dir, show_indexes=True)
+            response["Link"] = f'<{by_ts[slug].url}>; rel="canonical"'
+            return response
         except KeyError:
             pass
 
