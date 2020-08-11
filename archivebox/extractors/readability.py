@@ -33,7 +33,6 @@ def get_html(link: Link, path: Path) -> str:
     abs_path = path.absolute()
     sources = [canonical["wget_path"], canonical["singlefile_path"], canonical["dom_path"]]
     document = None
-    breakpoint()
     for source in sources:
         try:
             with open(abs_path / source, "r") as f:
