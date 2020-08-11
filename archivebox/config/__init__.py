@@ -738,6 +738,9 @@ def load_all_config():
 CONFIG = load_all_config()
 globals().update(CONFIG)
 
+# Timezone set as UTC
+os.environ["TZ"] = 'UTC'
+
 
 ############################## Importable Checkers #############################
 
