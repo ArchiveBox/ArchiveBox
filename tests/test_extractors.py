@@ -21,3 +21,9 @@ def test_singlefile_works(tmp_path, process, disable_extractors_dict):
     archived_item_path = list(tmp_path.glob('archive/**/*'))[0]
     output_file = archived_item_path / "singlefile.html" 
     assert output_file.exists()
+
+
+def test_unreachable_url_fails(tmp_path, process):
+    add_process = subprocess.run(["archivebox", "add", "http://127.0.0.1:8080/this-url-does-not-exist"],
+                                   capture_output=True)
+    assert "Unreachable URL" in add_process.stdout.decode("utf-8")

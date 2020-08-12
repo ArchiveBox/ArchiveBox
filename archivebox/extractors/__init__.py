@@ -11,7 +11,7 @@ from ..index import (
     write_link_details,
     patch_main_index,
 )
-from ..util import enforce_types
+from ..util import enforce_types, check_page_responsive
 from ..logging_util import (
     log_archiving_started,
     log_archiving_paused,
@@ -78,27 +78,33 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         link = link.overwrite(updated=datetime.now())
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
 
-        for method_name, should_run, method_function in ARCHIVE_METHODS:
-            try:
-                if method_name not in link.history:
-                    link.history[method_name] = []
+        if check_page_responsive(link.url):
+            for method_name, should_run, method_function in ARCHIVE_METHODS:
+                try:
+                    if method_name not in link.history:
+                        link.history[method_name] = []
 
-                if should_run(link, out_dir) or overwrite:
-                    log_archive_method_started(method_name)
+                    if should_run(link, out_dir) or overwrite:
+                        log_archive_method_started(method_name)
 
-                    result = method_function(link=link, out_dir=out_dir)
+                        result = method_function(link=link, out_dir=out_dir)
 
-                    link.history[method_name].append(result)
+                        link.history[method_name].append(result)
 
-                    stats[result.status] += 1
-                    log_archive_method_finished(result)
-                else:
-                    stats['skipped'] += 1
-            except Exception as e:
-                raise Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
-                    method_name,
-                    link.url,
-                )) from e
+                        stats[result.status] += 1
+                        log_archive_method_finished(result)
+                    else:
+                        stats['skipped'] += 1
+                except Exception as e:
+                    raise Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
+                        method_name,
+                        link.url,
+                    )) from e
+        else:
+            print('    ! Failed to archive link: {}. Unreachable URL.'.format(link.url))
+            stats['failed'] += 1
+
+
 
         # print('    ', stats)
 

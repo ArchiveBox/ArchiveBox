@@ -174,6 +174,13 @@ def download_url(url: str, timeout: int=None) -> str:
 
 
 @enforce_types
+def check_page_responsive(url: str) -> bool:
+    try:
+        return requests.head(url).status_code < 400
+    except:
+        return False
+
+@enforce_types
 def chrome_args(**options) -> List[str]:
     """helper to build up a chrome shell command with arguments"""
 
