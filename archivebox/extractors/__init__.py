@@ -95,6 +95,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                     stats[result.status] += 1
                     log_archive_method_finished(result)
                 else:
+                    print('      > Skipping extractor: {}'.format(method_name))
                     stats['skipped'] += 1
             except Exception as e:
                 raise Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(

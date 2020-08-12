@@ -107,8 +107,8 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
     'DEPENDENCY_CONFIG': {
         'USE_CURL':                 {'type': bool,  'default': True},
         'USE_WGET':                 {'type': bool,  'default': True},
-        'USE_SINGLEFILE':           {'type': bool,  'default': True},
-        'USE_READABILITY':          {'type': bool,  'default': True},
+        'USE_SINGLEFILE':           {'type': bool,  'default': False},
+        'USE_READABILITY':          {'type': bool,  'default': False},
         'USE_GIT':                  {'type': bool,  'default': True},
         'USE_CHROME':               {'type': bool,  'default': True},
         'USE_YOUTUBEDL':            {'type': bool,  'default': True},
