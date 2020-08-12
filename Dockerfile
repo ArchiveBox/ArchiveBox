@@ -79,7 +79,9 @@ EXPOSE 8000
 ENV IN_DOCKER=True \
     CHROME_BINARY=google-chrome \
     CHROME_SANDBOX=False \
+    USE_SINGLEFILE="true" \
     SINGLEFILE_BINARY="$EXTRA_PATH/SingleFile-master/cli/single-file" \
+    USE_READABILITY="true" \
     READABILITY_BINARY="$EXTRA_PATH/readability-extractor-master/readability-extractor"
 
 RUN env ALLOW_ROOT=True archivebox version
