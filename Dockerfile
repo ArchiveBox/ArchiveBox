@@ -31,12 +31,10 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
     && apt-get install -qq -y --no-install-recommends \
     apt-transport-https ca-certificates apt-utils gnupg gosu gnupg2 libgconf-2-4 zlib1g-dev \
     dumb-init jq git wget curl youtube-dl ffmpeg \
-    && curl -sSL "https://dl.google.com/linux/linux_signing_key.pub" | apt-key add - \
-    && echo "deb https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && curl -sL https://deb.nodesource.com/setup_14.x | bash - \
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
-    google-chrome-stable \
+    chromium \
     fontconfig \
     fonts-ipafont-gothic \
     fonts-wqy-zenhei \
@@ -47,6 +45,7 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
     fonts-freefont-ttf \
     nodejs \
     unzip \
+    python3 python3-pip ipython3 build-essential python-dev python3-dev \
     && rm -rf /var/lib/apt/lists/* 
 
 # Clone singlefile and move it to the /bin folder so archivebox can find it
@@ -72,7 +71,7 @@ VOLUME "$DATA_PATH"
 WORKDIR "$DATA_PATH"
 EXPOSE 8000
 ENV IN_DOCKER=True \
-    CHROME_BINARY=google-chrome \
+    CHROME_BINARY=chromium \
     CHROME_SANDBOX=False \
     SINGLEFILE_BINARY="$EXTRA_PATH/SingleFile-master/cli/single-file"
 
