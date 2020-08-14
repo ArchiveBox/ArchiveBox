@@ -67,7 +67,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-venv-
 
-       - name: Install pip dependencies
+      - name: Install pip dependencies
         run: |
           python -m pip install .
           python -m pip install pytest bottle
