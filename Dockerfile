@@ -39,8 +39,15 @@ RUN groupadd --system $ARCHIVEBOX_USER \
 # Install system dependencies
 RUN apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
-        apt-transport-https ca-certificates apt-utils gnupg gnupg2 libgconf-2-4 zlib1g-dev \
+        apt-transport-https ca-certificates gnupg2 zlib1g-dev \
         dumb-init gosu unzip curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install apt dependencies
+RUN apt-get update -qq \
+    && apt-get install -qq -y --no-install-recommends \
+        wget curl chromium git ffmpeg youtube-dl \
+        fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node environment
@@ -49,13 +56,6 @@ RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add -
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         nodejs \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install apt dependencies
-RUN apt-get update -qq \
-    && apt-get install -qq -y --no-install-recommends \
-        wget curl chromium git ffmpeg youtube-dl \
-        fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
