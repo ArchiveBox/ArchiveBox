@@ -75,7 +75,7 @@ RUN apt-get update -qq \
         build-essential \
     && grep -B 1000 -E '^$' "$CODE_DIR/archivebox.egg-info/requires.txt" | pip install --quiet -r /dev/stdin \
     && apt-get purge -y build-essential \
-    && apt-get autoremove \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node dependencies
