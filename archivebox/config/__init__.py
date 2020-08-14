@@ -62,6 +62,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
 
     'SERVER_CONFIG': {
         'SECRET_KEY':               {'type': str,   'default': None},
+        'BIND_ADDR':                {'type': str,   'default': lambda c: ['127.0.0.1:8000', '0.0.0.0:8000'][c['IN_DOCKER']]},
         'ALLOWED_HOSTS':            {'type': str,   'default': '*'},
         'DEBUG':                    {'type': bool,  'default': False},
         'PUBLIC_INDEX':             {'type': bool,  'default': True},
@@ -100,8 +101,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'CHROME_USER_DATA_DIR':     {'type': str,   'default': None},
 
         'CHROME_HEADLESS':          {'type': bool,  'default': True},
-        'CHROME_SANDBOX':           {'type': bool,  'default': True},
-
+        'CHROME_SANDBOX':           {'type': bool,  'default': lambda c: not c['IN_DOCKER']},
     },
 
     'DEPENDENCY_CONFIG': {

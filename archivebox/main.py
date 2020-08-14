@@ -216,14 +216,15 @@ def version(quiet: bool=False,
             print(printable_folder_status(name, folder))
 
         print()
-        print('{white}[i] External locations:{reset}'.format(**ANSI))
+        print('{white}[i] Secrets locations:{reset}'.format(**ANSI))
         for name, folder in EXTERNAL_LOCATIONS.items():
             print(printable_folder_status(name, folder))
 
-        print()
-        print('{white}[i] Data locations:{reset}'.format(**ANSI))
-        for name, folder in DATA_LOCATIONS.items():
-            print(printable_folder_status(name, folder))
+        if DATA_LOCATIONS['OUTPUT_DIR']['is_valid']:
+            print()
+            print('{white}[i] Data locations:{reset}'.format(**ANSI))
+            for name, folder in DATA_LOCATIONS.items():
+                print(printable_folder_status(name, folder))
 
         print()
         check_dependencies()

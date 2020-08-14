@@ -10,9 +10,8 @@ from typing import Optional, List, IO
 
 from ..main import server
 from ..util import docstring
-from ..config import OUTPUT_DIR
+from ..config import OUTPUT_DIR, BIND_ADDR
 from ..logging_util import SmartFormatter, reject_stdin
-
 
 @docstring(server.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
@@ -26,7 +25,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         'runserver_args',
         nargs='*',
         type=str,
-        default=None,
+        default=[BIND_ADDR],
         help='Arguments to pass to Django runserver'
     )
     parser.add_argument(
