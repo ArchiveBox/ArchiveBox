@@ -40,6 +40,7 @@ class ConfigDict(BaseConfig, total=False):
     URL_BLACKLIST: Optional[str]
 
     SECRET_KEY: str
+    BIND_ADDR: str
     ALLOWED_HOSTS: str
     DEBUG: bool
     PUBLIC_INDEX: bool
