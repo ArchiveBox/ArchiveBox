@@ -15,6 +15,7 @@ def disable_extractors_dict():
     env.update({
         "USE_WGET": "false",
         "USE_SINGLEFILE": "false",
+        "USE_READABILITY": "false",
         "SAVE_PDF": "false",
         "SAVE_SCREENSHOT": "false",
         "SAVE_DOM": "false",

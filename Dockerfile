@@ -90,7 +90,9 @@ WORKDIR "$DATA_DIR"
 ENV IN_DOCKER=True \
     CHROME_SANDBOX=False \
     CHROME_BINARY="chromium" \
+    USE_SINGLEFILE=True \
     SINGLEFILE_BINARY="$NODE_DIR/node_modules/.bin/single-file" \
+    USE_READABILITY=True \
     READABILITY_BINARY="$NODE_DIR/node_modules/.bin/readability-extractor"
 
 # Print version for nice docker finish summary
