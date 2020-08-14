@@ -30,7 +30,7 @@ def get_html(link: Link, path: Path) -> str:
     """
     canonical = link.canonical_outputs()
     abs_path = path.absolute()
-    sources = [canonical["wget_path"], canonical["singlefile_path"], canonical["dom_path"]]
+    sources = [canonical["singlefile_path"], canonical["wget_path"], canonical["dom_path"]]
     document = None
     for source in sources:
         try:
