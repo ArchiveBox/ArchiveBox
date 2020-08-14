@@ -40,28 +40,19 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 1
-          repository: "gildas-lormeau/SingleFile"
-          ref: "master"
-          path: "singlefile"
-
-      - name: Install npm requirements for singlefile
-        run: npm install --prefix singlefile/cli
-
-      - name: Give singlefile execution permissions
-        run: chmod +x singlefile/cli/single-file
-
-      - name: Set SINGLEFILE_BINARY
-        run: echo "::set-env name=SINGLEFILE_BINARY::$GITHUB_WORKSPACE/singlefile/cli/single-file"
-
+      ### Setup Python & JS Languages
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v1
         with:
           python-version: ${{ matrix.python }}
           architecture: x64
 
+      - name: Set up Node JS 14.7.0
+        uses: actions/setup-node@v1
+        with:
+          node-version: 14.7.0
+
+      ### Install Python & JS Dependencies
       - name: Get pip cache dir
         id: pip-cache
         run: |
@@ -76,18 +67,38 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-venv-
 
-      - name: Use nodejs 14.7.0
-        uses: actions/setup-node@v1
-        with:
-          node-version: 14.7.0
-
-      - name: Debug
-        run: ls ./
-
-      - name: Install dependencies
+       - name: Install pip dependencies
         run: |
           python -m pip install .
           python -m pip install pytest bottle
+
+
+      - name: Get npm cache dir
+        id: npm-cache
+        run: |
+          echo "::set-output name=dir::$GITHUB_WORKSPACE/node_modules"
+
+      - name: Cache npm
+        uses: actions/cache@v2
+        id: cache-npm
+        with:
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node_modules
+
+      - name: Install npm requirements
+        run: |
+          npm install
+          echo "::set-env name=SINGLEFILE_BINARY::$GITHUB_WORKSPACE/node_modules/.bin/single-file"
+          echo "::set-env name=READABILITY_BINARY::$GITHUB_WORKSPACE/node_modules/.bin/readability-extractor"
+
+
+      ### Run the tests
+      - name: Directory listing for debugging
+        run: |
+          pwd
+          ls -a ./
 
       - name: Test built package with pytest
         run: |

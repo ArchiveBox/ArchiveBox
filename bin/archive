@@ -1,7 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
-echo "[X] This method of running ArchiveBox is deprecated as of >= v0.4."
-echo "    You should 'pip install archivebox' and use the installed 'archivebox' binary instead."
-echo "    For more info, see the Quickstart section of the README.md:"
-echo "        https://github.com/pirate/ArchiveBox#Quickstart"
-exit 2
+if python3 -m django --version >/dev/null 2>&1; then
+    python3 -m archivebox "$*"
+else
+    echo '[X] ArchiveBox must be installed before using:'
+    echo "    pip install archivebox"
+    echo
+    echo "Hint: Did you forget to activate a virtuenv or set your $$PATH?"
+    exit 2
+fi

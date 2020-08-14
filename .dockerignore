@@ -8,7 +8,6 @@ venv/
 .venv/
 .docker-venv/
 
-*.egg-info/
 build/
 dist/
 
