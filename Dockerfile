@@ -70,7 +70,12 @@ ENV PATH="${PATH}:$VENV_PATH/bin"
 RUN python -m venv --clear --symlinks "$VENV_PATH" \
     && pip install --upgrade --quiet pip setuptools
 ADD ./archivebox.egg-info/requires.txt "$CODE_DIR/archivebox.egg-info/requires.txt"
-RUN grep -B 1000 -E '^$' "$CODE_DIR/archivebox.egg-info/requires.txt" | pip install --quiet -r /dev/stdin
+RUN apt-get update -qq \
+    && apt-get install -qq -y --no-install-recommends \
+        build-essential \
+    && grep -B 1000 -E '^$' "$CODE_DIR/archivebox.egg-info/requires.txt" | pip install --quiet -r /dev/stdin \
+    && apt-get purge -y build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Node dependencies
 WORKDIR "$NODE_DIR"
