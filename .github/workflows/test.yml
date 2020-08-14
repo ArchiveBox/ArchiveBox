@@ -99,6 +99,7 @@ jobs:
         run: |
           pwd
           ls -a ./
+          archivebox version
 
       - name: Test built package with pytest
         run: |
