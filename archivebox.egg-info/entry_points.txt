@@ -1,0 +1,3 @@
+[console_scripts]
+archivebox = archivebox.cli:main
+
