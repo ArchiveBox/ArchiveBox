@@ -12,6 +12,6 @@
 	},
 	"dependencies": {
 		"readability-extractor": "git+https://github.com/pirate/readability-extractor.git",
-		"single-file": "https://gitpkg.now.sh/pirate/SingleFile/cli?66c7b9bc"
+		"single-file": "git+https://github.com/gildas-lormeau/SingleFile.git"
 	}
 }
