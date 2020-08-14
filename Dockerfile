@@ -43,12 +43,6 @@ RUN apt-get update -qq \
         dumb-init gosu unzip curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python environment
-RUN apt-get update -qq \
-    && apt-get install -qq -y --no-install-recommends \
-        ipython3 python-dev python3-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 # Install Node environment
 RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
     && echo 'deb https://deb.nodesource.com/node_14.x buster main' >> /etc/apt/sources.list \
@@ -72,9 +66,9 @@ RUN python -m venv --clear --symlinks "$VENV_PATH" \
 ADD ./archivebox.egg-info/requires.txt "$CODE_DIR/archivebox.egg-info/requires.txt"
 RUN apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
-        build-essential \
+        build-essential python-dev python3-dev \
     && grep -B 1000 -E '^$' "$CODE_DIR/archivebox.egg-info/requires.txt" | pip install --quiet -r /dev/stdin \
-    && apt-get purge -y build-essential \
+    && apt-get purge -y build-essential python-dev python3-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
