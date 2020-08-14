@@ -58,6 +58,7 @@ archivebox/extractors/favicon.py
 archivebox/extractors/git.py
 archivebox/extractors/media.py
 archivebox/extractors/pdf.py
+archivebox/extractors/readability.py
 archivebox/extractors/screenshot.py
 archivebox/extractors/singlefile.py
 archivebox/extractors/title.py
