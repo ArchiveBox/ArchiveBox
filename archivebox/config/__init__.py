@@ -100,8 +100,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'CHROME_USER_DATA_DIR':     {'type': str,   'default': None},
 
         'CHROME_HEADLESS':          {'type': bool,  'default': True},
-        'CHROME_SANDBOX':           {'type': bool,  'default': True},
-
+        'CHROME_SANDBOX':           {'type': bool,  'default': lambda c: not c['IN_DOCKER']},
     },
 
     'DEPENDENCY_CONFIG': {
