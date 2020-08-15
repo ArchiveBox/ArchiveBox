@@ -67,7 +67,7 @@ ADD ./archivebox.egg-info/requires.txt "$CODE_DIR/archivebox.egg-info/requires.t
 RUN apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         build-essential python-dev python3-dev \
-    && grep -B -1 -E '^$' "$CODE_DIR/archivebox.egg-info/requires.txt" | pip install --quiet -r /dev/stdin \
+    && grep -B 1000 -E '^$' "$CODE_DIR/archivebox.egg-info/requires.txt" | pip install --quiet -r /dev/stdin \
     && apt-get purge -y build-essential python-dev python3-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*

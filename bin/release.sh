@@ -37,12 +37,14 @@ cd "$DIR"
 if [ -z "$(git status --porcelain)" ] && [[ "$(git branch --show-current)" == "master" ]]; then 
     git pull
 else
-    echo "[X] Commit your changes and make sure git is checked out on clean master."
-    exit 4
+    echo "[!] Warning: git status is dirty!"
+    echo "    Press Ctrl-C to cancel, or wait 10sec to continue..."
+    sleep 10
 fi
 
 echo "[*] Bumping VERSION from $OLD_VERSION to $NEW_VERSION"
 echo "$NEW_VERSION" > "$VERSION_FILE"
+git add "$DIR/docs"
 git add "$VERSION_FILE"
 git commit -m "$NEW_VERSION release"
 git tag -a "v$NEW_VERSION" -m "v$NEW_VERSION"
