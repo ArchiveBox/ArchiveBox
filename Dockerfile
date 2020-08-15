@@ -100,7 +100,6 @@ RUN archivebox version
 
 # Open up the interfaces to the outside world
 VOLUME "$DATA_DIR"
-VOLUME "$CODE_DIR"
 EXPOSE 8000
 
 ENTRYPOINT ["dumb-init", "--", "/app/bin/docker_entrypoint.sh"]
