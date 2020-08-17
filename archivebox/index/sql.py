@@ -39,7 +39,16 @@ def write_sql_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
     with transaction.atomic():
         for link in links:
             info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
-            Snapshot.objects.update_or_create(url=link.url, defaults=info)
+            try:
+                snapshot = Snapshot.objects.get(url=link.url)
+                info.pop("timestamp")
+                for key, value in info.items():
+                    setattr(snapshot, key, value)
+                snapshot.save()
+            except Snapshot.DoesNotExist:
+                print(info)
+                snapshot = Snapshot(**info)
+                snapshot.save()
 
 @enforce_types
 def write_sql_link_details(link: Link, out_dir: str=OUTPUT_DIR) -> None:
