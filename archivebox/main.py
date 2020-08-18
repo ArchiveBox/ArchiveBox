@@ -522,6 +522,7 @@ def add(urls: Union[str, List[str]],
         depth: int=0,
         update_all: bool=not ONLY_NEW,
         index_only: bool=False,
+        overwrite: bool=False,
         out_dir: str=OUTPUT_DIR) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
@@ -551,20 +552,28 @@ def add(urls: Union[str, List[str]],
         for new_link in new_links:
             downloaded_file = save_file_as_source(new_link.url, filename='{ts}-crawl-{basename}.txt', out_dir=out_dir)
             new_links_depth += parse_links_from_source(downloaded_file)
-    all_links, new_links = dedupe_links(all_links, new_links + new_links_depth)
+
+    imported_links = new_links + new_links_depth
+    all_links, new_links = dedupe_links(all_links, imported_links)
     write_main_index(links=all_links, out_dir=out_dir, finished=not new_links)
 
     if index_only:
         return all_links
 
     # Run the archive methods for each link
-    to_archive = all_links if update_all else new_links
-    archive_links(to_archive, out_dir=out_dir)
+    if update_all:
+        archive_links(all_links, overwrite=overwrite, out_dir=out_dir)
+    elif overwrite:
+        archive_links(imported_links, overwrite=True, out_dir=out_dir)
+    elif new_links:
+        archive_links(new_links, overwrite=False, out_dir=out_dir)
+    else:
+        # nothing was updated, don't bother re-saving the index
+        return all_links
 
     # Step 4: Re-write links index with updated titles, icons, and resources
-    if to_archive:
-        all_links = load_main_index(out_dir=out_dir)
-        write_main_index(links=list(all_links), out_dir=out_dir, finished=True)
+    all_links = load_main_index(out_dir=out_dir)
+    write_main_index(links=list(all_links), out_dir=out_dir, finished=True)
     return all_links
 
 @enforce_types

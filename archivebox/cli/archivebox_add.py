@@ -55,6 +55,12 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         type=int,
         help="Recursively archive all linked pages up to this many hops away"
     )
+    parser.add_argument(
+        "--overwrite",
+        default=False,
+        action="store_true",
+        help="Re-archive URLs from scratch, overwriting any existing files"
+    )
     command = parser.parse_args(args or ())
     urls = command.urls
     stdin_urls = accept_stdin(stdin)
@@ -69,6 +75,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         depth=command.depth,
         update_all=command.update_all,
         index_only=command.index_only,
+        overwrite=command.overwrite,
         out_dir=pwd or OUTPUT_DIR,
     )
 
