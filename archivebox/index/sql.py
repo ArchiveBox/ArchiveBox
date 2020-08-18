@@ -48,7 +48,7 @@ def write_sql_link_details(link: Link, out_dir: str=OUTPUT_DIR) -> None:
     from django.db import transaction
 
     with transaction.atomic():
-        snap = Snapshot.objects.get(url=link.url, timestamp=link.timestamp)
+        snap = Snapshot.objects.get(url=link.url)
         snap.title = link.title
         snap.tags = link.tags
         snap.save()
