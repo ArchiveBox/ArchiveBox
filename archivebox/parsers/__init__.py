@@ -23,12 +23,14 @@ from ..config import (
 )
 from ..util import (
     basename,
+    htmldecode,
     download_url,
     enforce_types,
     URL_REGEX,
 )
 from ..index.schema import Link
 from ..logging_util import TimedProgress, log_source_saved
+
 from .pocket_html import parse_pocket_html_export
 from .pinboard_rss import parse_pinboard_rss_export
 from .shaarli_rss import parse_shaarli_rss_export
@@ -126,15 +128,11 @@ def save_file_as_source(path: str, timeout: int=TIMEOUT, filename: str='{ts}-{ba
 
     if any(path.startswith(s) for s in ('http://', 'https://', 'ftp://')):
         # Source is a URL that needs to be downloaded
-        print('{}[*] [{}] Downloading {}{}'.format(
-            ANSI['green'],
-            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            path,
-            ANSI['reset'],
-        ))
+        print(f'    > Downloading {path} contents')
         timer = TimedProgress(timeout, prefix='      ')
         try:
             raw_source_text = download_url(path, timeout=timeout)
+            raw_source_text = htmldecode(raw_source_text)
             timer.end()
         except Exception as e:
             timer.end()
