@@ -99,15 +99,18 @@ class TimedProgress:
         
         if self.SHOW_PROGRESS:
             # terminate if we havent already terminated
-            self.p.terminate()
-            self.p.join()
-            self.p.close()
-
-            # clear whole terminal line
             try:
-                sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))
-            except (IOError, BrokenPipeError):
-                # ignore when the parent proc has stopped listening to our stdout
+                self.p.terminate()
+                self.p.join()
+                self.p.close()
+
+                # clear whole terminal line
+                try:
+                    sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))
+                except (IOError, BrokenPipeError):
+                    # ignore when the parent proc has stopped listening to our stdout
+                    pass
+            except ValueError:
                 pass
 
 

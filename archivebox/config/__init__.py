@@ -840,10 +840,10 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
                     info['version'] or 'unable to detect version',
                 )
             )
-            # if dependency in ("SINGLEFILE_BINARY", "READABILITY_BINARY"):
-            #     hint(('npm install --prefix . "git+https://github.com/pirate/ArchiveBox.git"',
-            #       f'or set SAVE_{dependency.rsplit("_", 1)[0]}=False to silence this warning',
-            #       ''))
+            if dependency in ('SINGLEFILE_BINARY', 'READABILITY_BINARY'):
+                hint(('npm install --prefix . "git+https://github.com/piratee/ArchiveBox.git"',
+                    f'or set SAVE_{dependency.rsplit("_", 1)[0]}=False to silence this warning',
+                    ''), prefix='      ')
         stderr('')
 
     if config['TIMEOUT'] < 5:
