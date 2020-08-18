@@ -157,7 +157,7 @@ def fix_duplicate_links(sorted_links: Iterable[Link]) -> Iterable[Link]:
     """
     ensures that all non-duplicate links have monotonically increasing timestamps
     """
-    from core.models import Snapshot
+    # from core.models import Snapshot
 
     unique_urls: OrderedDict[str, Link] = OrderedDict()
 
