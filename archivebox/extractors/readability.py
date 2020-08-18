@@ -62,19 +62,21 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
     output_folder = out_dir.absolute() / "readability"
     output = str(output_folder)
 
-    document = get_html(link, out_dir)
-    temp_doc = NamedTemporaryFile(delete=False)
-    temp_doc.write(document.encode("utf-8"))
-    temp_doc.close()
     # Readability Docs: https://github.com/mozilla/readability
-    cmd = [
-        READABILITY_BINARY,
-        temp_doc.name
-    ]
 
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
+        document = get_html(link, out_dir)
+        temp_doc = NamedTemporaryFile(delete=False)
+        temp_doc.write(document.encode("utf-8"))
+        temp_doc.close()
+
+        cmd = [
+            READABILITY_BINARY,
+            temp_doc.name
+        ]
+
         result = run(cmd, cwd=out_dir, timeout=timeout)
         result_json = json.loads(result.stdout)
         output_folder.mkdir(exist_ok=True)
