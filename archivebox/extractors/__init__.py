@@ -113,8 +113,6 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
             pass
 
         write_link_details(link, out_dir=out_dir, skip_sql_index=skip_index)
-        if not skip_index:
-            patch_main_index(link)
 
         # # If any changes were made, update the main links index json and html
         # was_changed = stats['succeeded'] or stats['failed']
