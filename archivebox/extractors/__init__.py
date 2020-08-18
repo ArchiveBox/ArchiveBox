@@ -63,10 +63,10 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 
     ARCHIVE_METHODS = get_default_archive_methods()
     
-    if methods is not None:
+    if methods:
         ARCHIVE_METHODS = [
             method for method in ARCHIVE_METHODS
-            if method[1] in methods
+            if method[0] in methods
         ]
 
     out_dir = out_dir or link.link_dir

@@ -33,7 +33,7 @@ def update_titles(modeladmin, request, queryset):
     archive_links([
         snapshot.as_link()
         for snapshot in queryset
-    ], overwrite=True, methods=('title',), out_dir=OUTPUT_DIR)
+    ], overwrite=True, methods=('title','favicon'), out_dir=OUTPUT_DIR)
 update_titles.short_description = "Pull title"
 
 def overwrite_snapshots(modeladmin, request, queryset):
