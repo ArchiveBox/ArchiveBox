@@ -99,7 +99,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
         # Check for common failure cases
         if (result.returncode > 0):
             raise ArchiveError('Readability was not able to archive the page', hints)
-    except Exception as err:
+    except (Exception, OSError) as err:
         status = 'failed'
         output = err
     finally:

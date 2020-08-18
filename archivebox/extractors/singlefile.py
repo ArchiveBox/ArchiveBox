@@ -71,7 +71,7 @@ def save_singlefile(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOU
         if (result.returncode > 0):
             raise ArchiveError('SingleFile was not able to archive the page', hints)
         chmod_file(output)
-    except Exception as err:
+    except (Exception, OSError) as err:
         status = 'failed'
         output = err
     finally:
