@@ -10,7 +10,7 @@
   "bin": {
     "archivebox-node": "./bin/archive",
     "single-file": "./node_modules/.bin/single-file",
-    "readability-extractor": "./node_modules/.bin/single-file"
+    "readability-extractor": "./node_modules/.bin/readability-extractor"
   },
   "dependencies": {
     "readability-extractor": "git+https://github.com/pirate/readability-extractor.git",

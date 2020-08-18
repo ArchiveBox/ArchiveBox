@@ -525,6 +525,10 @@ def bin_path(binary: Optional[str]) -> Optional[str]:
     if binary is None:
         return None
 
+    node_modules_bin = Path('.') / 'node_modules' / '.bin' / binary
+    if node_modules_bin.exists():
+        return str(node_modules_bin.resolve())
+
     return shutil.which(os.path.expanduser(binary)) or binary
 
 def bin_hash(binary: Optional[str]) -> Optional[str]:
@@ -775,6 +779,10 @@ globals().update(CONFIG)
 # Timezone set as UTC
 os.environ["TZ"] = 'UTC'
 
+# add ./node_modules/.bin to $PATH so we can use node scripts in extractors
+NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]) / 'node_modules' / '.bin').resolve())
+sys.path.append(NODE_BIN_PATH)
+
 
 ############################## Importable Checkers #############################
 
@@ -816,16 +824,6 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
                 stderr('        CHROME_USER_DATA_DIR="{}"'.format(config['CHROME_USER_DATA_DIR'].split('/Default')[0]))
             raise SystemExit(2)
 
-def print_dependency_additional_info(dependency: str) -> None:
-    if dependency == "SINGLEFILE_BINARY":
-        hint(('npm install -g git+https://github.com/gildas-lormeau/SingleFile.git"',
-              'or set SAVE_SINGLEFILE=False to silence this warning',
-              ''))
-    if dependency == "READABILITY_BINARY":
-        hint(('npm install -g git+https://github.com/pirate/readability-extractor.git"',
-              'or set SAVE_READABILITY=False to silence this warning',
-              ''))
-
 
 def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
     invalid_dependencies = [
@@ -842,9 +840,10 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
                     info['version'] or 'unable to detect version',
                 )
             )
-            print_dependency_additional_info(dependency)
-        stderr('    {lightred}Hint:{reset} To get more info on dependencies run:'.format(**ANSI))
-        stderr('          archivebox --version')
+            # if dependency in ("SINGLEFILE_BINARY", "READABILITY_BINARY"):
+            #     hint(('npm install --prefix . "git+https://github.com/pirate/ArchiveBox.git"',
+            #       f'or set SAVE_{dependency.rsplit("_", 1)[0]}=False to silence this warning',
+            #       ''))
         stderr('')
 
     if config['TIMEOUT'] < 5:
