@@ -706,6 +706,15 @@ def update(resume: Optional[float]=None,
         
     # Step 3: Run the archive methods for each link
     to_archive = new_links if only_new else all_links
+    if resume:
+        to_archive = [
+            link for link in to_archive
+            if link.timestamp >= str(resume)
+        ]
+        if not to_archive:
+            print(f'[√] Nothing found to resume after {resume}.')
+            return all_links
+
     archive_links(to_archive, overwrite=overwrite, out_dir=out_dir)
 
     # Step 4: Re-write links index with updated titles, icons, and resources
