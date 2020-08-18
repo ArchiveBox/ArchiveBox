@@ -5,7 +5,8 @@
 	"author": "Nick Sweeting <archivebox-npm@sweeting.me>",
 	"license": "MIT",
 	"scripts": {
-		"archivebox": "./bin/archive"
+   "setup": "node -e \"const {execSync} = require('child_process'); Object.entries(JSON.parse(fs.readFileSync('package.json')).dependencies).forEach(globaldep => execSync('npm i -g ' + globaldep[1]))\"",
+   "archivebox": "./bin/archive"
 	},
 	"bin": {
 		"archivebox": "./bin/archive"
