@@ -17,7 +17,7 @@ from ..util import (
 from ..config import (
     TIMEOUT,
     SAVE_READABILITY,
-    READABILITY_BINARY,
+    DEPENDENCIES,
     READABILITY_VERSION,
 )
 from ..logging_util import TimedProgress
@@ -73,7 +73,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
         temp_doc.close()
 
         cmd = [
-            READABILITY_BINARY,
+            DEPENDENCIES['READABILITY_BINARY']['path'],
             temp_doc.name
         ]
 

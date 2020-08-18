@@ -780,7 +780,7 @@ globals().update(CONFIG)
 os.environ["TZ"] = 'UTC'
 
 # add ./node_modules/.bin to $PATH so we can use node scripts in extractors
-NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]) / 'node_modules' / '.bin').resolve())
+NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]).absolute() / 'node_modules' / '.bin'))
 sys.path.append(NODE_BIN_PATH)
 
 

@@ -15,7 +15,7 @@ from ..util import (
 from ..config import (
     TIMEOUT,
     SAVE_SINGLEFILE,
-    SINGLEFILE_BINARY,
+    DEPENDENCIES,
     SINGLEFILE_VERSION,
     CHROME_BINARY,
 )
@@ -43,7 +43,7 @@ def save_singlefile(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOU
 
     # SingleFile CLI Docs: https://github.com/gildas-lormeau/SingleFile/tree/master/cli
     cmd = [
-        SINGLEFILE_BINARY,
+        DEPENDENCIES['SINGLEFILE_BINARY']['path'],
         '--browser-executable-path={}'.format(CHROME_BINARY),
         '--browser-args="{}"'.format(json.dumps(browser_args[1:])),
         link.url,
