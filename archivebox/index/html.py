@@ -8,6 +8,7 @@ from typing import List, Optional, Iterator, Mapping
 
 from .schema import Link
 from ..system import atomic_write, copy_and_overwrite
+from ..logging_util import printable_filesize
 from ..util import (
     enforce_types,
     ts_to_date,
@@ -140,6 +141,7 @@ def link_details_template(link: Link) -> str:
         ) or 'about:blank',
         'extension': link.extension or 'html',
         'tags': link.tags or 'untagged',
+        'size': printable_filesize(link.archive_size) if link.archive_size else 'pending',
         'status': 'archived' if link.is_archived else 'not yet archived',
         'status_color': 'success' if link.is_archived else 'danger',
         'oldest_archive_date': ts_to_date(link.oldest_archive_date),
