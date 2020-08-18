@@ -236,16 +236,23 @@ def write_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=
 
     log_indexing_process_started(len(links))
 
-    with timed_index_update(os.path.join(out_dir, SQL_INDEX_FILENAME)):
-        write_sql_main_index(links, out_dir=out_dir)
-        os.chmod(os.path.join(out_dir, SQL_INDEX_FILENAME), int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
+    try:
+        with timed_index_update(os.path.join(out_dir, SQL_INDEX_FILENAME)):
+            write_sql_main_index(links, out_dir=out_dir)
+            os.chmod(os.path.join(out_dir, SQL_INDEX_FILENAME), int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
 
+        with timed_index_update(os.path.join(out_dir, JSON_INDEX_FILENAME)):
+            write_json_main_index(links, out_dir=out_dir)
 
-    with timed_index_update(os.path.join(out_dir, JSON_INDEX_FILENAME)):
-        write_json_main_index(links, out_dir=out_dir)
-
-    with timed_index_update(os.path.join(out_dir, HTML_INDEX_FILENAME)):
-        write_html_main_index(links, out_dir=out_dir, finished=finished)
+        with timed_index_update(os.path.join(out_dir, HTML_INDEX_FILENAME)):
+            write_html_main_index(links, out_dir=out_dir, finished=finished)
+    except (KeyboardInterrupt, SystemExit):
+        stderr('[!] Warning: Still writing index to disk...', color='lightyellow')
+        stderr('    Run archivebox init to fix any inconsisntencies from an ungraceful exit.')
+        with timed_index_update(os.path.join(out_dir, SQL_INDEX_FILENAME)):
+            write_sql_main_index(links, out_dir=out_dir)
+            os.chmod(os.path.join(out_dir, SQL_INDEX_FILENAME), int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
+        raise SystemExit(0)
 
     log_indexing_process_finished()
 
@@ -255,13 +262,16 @@ def load_main_index(out_dir: str=OUTPUT_DIR, warn: bool=True) -> List[Link]:
     """parse and load existing index with any new links from import_path merged in"""
 
     all_links: List[Link] = []
-    all_links = list(parse_json_main_index(out_dir))
-    links_from_sql = list(parse_sql_main_index(out_dir))
+    try:
+        all_links = list(parse_json_main_index(out_dir))
+        links_from_sql = list(parse_sql_main_index(out_dir))
 
-    if warn and not set(l.url for l in all_links) == set(l.url for l in links_from_sql):
-        stderr('{red}[!] Warning: SQL index does not match JSON index!{reset}'.format(**ANSI))
-        stderr('    To repair the index and re-import any orphaned links run:')
-        stderr('        archivebox init')
+        if warn and not set(l.url for l in all_links) == set(l.url for l in links_from_sql):
+            stderr('{red}[!] Warning: SQL index does not match JSON index!{reset}'.format(**ANSI))
+            stderr('    To repair the index and re-import any orphaned links run:')
+            stderr('        archivebox init')
+    except (KeyboardInterrupt, SystemExit):
+        raise SystemExit(0)
 
     return all_links
 
