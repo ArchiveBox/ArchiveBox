@@ -266,10 +266,23 @@ def load_main_index(out_dir: str=OUTPUT_DIR, warn: bool=True) -> List[Link]:
         all_links = list(parse_json_main_index(out_dir))
         links_from_sql = list(parse_sql_main_index(out_dir))
 
-        if warn and not set(l.url for l in all_links) == set(l.url for l in links_from_sql):
+        json_urls = set(l.url for l in all_links)
+        sql_urls = set(l.url for l in links_from_sql)
+        only_in_sql = sql_urls - json_urls
+        only_in_json = json_urls - sql_urls
+
+        if only_in_json:
             stderr('{red}[!] Warning: SQL index does not match JSON index!{reset}'.format(**ANSI))
+            if only_in_json:
+                stderr('    > Only in JSON: {}...'.format(', '.join(list(only_in_json)[:5])))
+            if only_in_sql:
+                stderr('    > Only in SQL: {}...'.format(', '.join(list(only_in_sql)[:5])))
+
             stderr('    To repair the index and re-import any orphaned links run:')
             stderr('        archivebox init')
+        if only_in_sql:
+            # meh, this harmless, it'll get overwritten on next run anyway
+            pass
     except (KeyboardInterrupt, SystemExit):
         raise SystemExit(0)
 
