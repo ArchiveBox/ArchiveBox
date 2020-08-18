@@ -404,16 +404,16 @@ def status(out_dir: str=OUTPUT_DIR) -> None:
     print()
 
     links = list(load_main_index(out_dir=out_dir))
-    num_json_links = len(links)
-    num_sql_links = sum(1 for link in parse_sql_main_index(out_dir=out_dir))
+    num_sql_links = len(links)
+    num_json_links = sum(1 for link in parse_json_main_index(out_dir=out_dir))
     num_html_links = sum(1 for url in parse_html_main_index(out_dir=out_dir))
     num_link_details = sum(1 for link in parse_json_links_details(out_dir=out_dir))
-    print(f'    > JSON Main Index: {num_json_links} links'.ljust(36),  f'(found in {JSON_INDEX_FILENAME})')
     print(f'    > SQL Main Index: {num_sql_links} links'.ljust(36), f'(found in {SQL_INDEX_FILENAME})')
-    print(f'    > HTML Main Index: {num_html_links} links'.ljust(36), f'(found in {HTML_INDEX_FILENAME})')
+    print(f'    > JSON Index: {num_json_links} links'.ljust(36),  f'(found in {JSON_INDEX_FILENAME})')
+    print(f'    > HTML Index: {num_html_links} links'.ljust(36), f'(found in {HTML_INDEX_FILENAME})')
     print(f'    > JSON Link Details: {num_link_details} links'.ljust(36), f'(found in {ARCHIVE_DIR_NAME}/*/index.json)')
 
-    if num_html_links != len(links) or num_sql_links != len(links):
+    if num_html_links != len(links) or num_json_links != len(links):
         print()
         print('    {lightred}Hint:{reset} You can fix index count differences automatically by running:'.format(**ANSI))
         print('        archivebox init')
