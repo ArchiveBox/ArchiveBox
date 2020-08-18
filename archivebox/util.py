@@ -59,7 +59,7 @@ URL_REGEX = re.compile(
     r'(?:[a-zA-Z]|[0-9]'              # followed by allowed alphanum characters
     r'|[$-_@.&+]|[!*\(\),]'           #    or allowed symbols
     r'|(?:%[0-9a-fA-F][0-9a-fA-F]))'  #    or allowed unicode bytes
-    r'[^\]\[\(\)<>\""\'\s]+',         # stop parsing at these symbols
+    r'[^\]\[\(\)<>"\'\s]+',         # stop parsing at these symbols
     re.IGNORECASE,
 )
 
