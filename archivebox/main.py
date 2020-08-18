@@ -940,6 +940,11 @@ def schedule(add: bool=False,
     cron = CronTab(user=True)
     cron = dedupe_cron_jobs(cron)
 
+    if clear:
+        print(cron.remove_all(comment=CRON_COMMENT))
+        cron.write()
+        raise SystemExit(0)
+
     existing_jobs = list(cron.find_comment(CRON_COMMENT))
 
     if every or add:
@@ -951,9 +956,9 @@ def schedule(add: bool=False,
             '&&',
             quoted(ARCHIVEBOX_BINARY),
             *(['add', f'--depth={depth}', f'"{import_path}"'] if import_path else ['update']),
-            '2>&1',
             '>',
             quoted(os.path.join(LOGS_DIR, 'archivebox.log')),
+            '2>&1',
 
         ]
         new_job = cron.new(command=' '.join(cmd), comment=CRON_COMMENT)
@@ -997,11 +1002,6 @@ def schedule(add: bool=False,
             stderr('        archivebox schedule --every=[timeperiod] https://example.com/some/rss/feed.xml')
         raise SystemExit(0)
 
-    elif clear:
-        print(cron.remove_all(comment=CRON_COMMENT))
-        cron.write()
-        raise SystemExit(0)
-
     cron = CronTab(user=True)
     cron = dedupe_cron_jobs(cron)
     existing_jobs = list(cron.find_comment(CRON_COMMENT))
@@ -1016,10 +1016,11 @@ def schedule(add: bool=False,
         if run_all:
             try:
                 for job in existing_jobs:
-                    sys.stdout.write(f'  > {job.command}')
+                    sys.stdout.write(f'  > {job.command.split("/archivebox ")[0].split(" && ")[0]}\n')
+                    sys.stdout.write(f'    > {job.command.split("/archivebox ")[-1].split(" > ")[0]}')
                     sys.stdout.flush()
                     job.run()
-                    sys.stdout.write(f'\r  √ {job.command}\n')
+                    sys.stdout.write(f'\r    √ {job.command.split("/archivebox ")[-1]}\n')
             except KeyboardInterrupt:
                 print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
                 raise SystemExit(1)
@@ -1027,8 +1028,7 @@ def schedule(add: bool=False,
         if foreground:
             try:
                 for job in existing_jobs:
-                    sys.stdout.write(f'  > {job.command}')
-                    sys.stdout.flush()
+                    print(f'  > {job.command.split("/archivebox ")[-1].split(" > ")[0]}')
                 for result in cron.run_scheduler():
                     print(result)
             except KeyboardInterrupt:
