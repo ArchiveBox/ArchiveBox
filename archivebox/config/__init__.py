@@ -58,7 +58,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
         'OUTPUT_PERMISSIONS':       {'type': str,   'default': '755'},
         'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},
-        'URL_BLACKLIST':            {'type': str,   'default': None},
+        'URL_BLACKLIST':            {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2)(\?.*)?$'},  # to avoid downloading code assets as their own pages
     },
 
     'SERVER_CONFIG': {
@@ -231,7 +231,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'CONFIG_FILE':              {'default': lambda c: os.path.abspath(os.path.expanduser(c['CONFIG_FILE'])) if c['CONFIG_FILE'] else os.path.join(c['OUTPUT_DIR'], CONFIG_FILENAME)},
     'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and os.path.abspath(os.path.expanduser(c['COOKIES_FILE']))},
     'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (os.path.abspath(os.path.expanduser(c['CHROME_USER_DATA_DIR'])) or None)},
-    'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'], re.IGNORECASE)},
+    'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'], re.IGNORECASE | re.UNICODE | re.MULTILINE)},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0]},
     'VERSION':                  {'default': lambda c: open(os.path.join(c['PYTHON_DIR'], VERSION_FILENAME), 'r').read().strip()},

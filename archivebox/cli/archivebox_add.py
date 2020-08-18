@@ -61,6 +61,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         action="store_true",
         help="Re-archive URLs from scratch, overwriting any existing files"
     )
+    parser.add_argument(
+        '--init', #'-i',
+        action='store_true',
+        help="Init/upgrade the curent data directory before adding",
+    )
     command = parser.parse_args(args or ())
     urls = command.urls
     stdin_urls = accept_stdin(stdin)
@@ -76,6 +81,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         update_all=command.update_all,
         index_only=command.index_only,
         overwrite=command.overwrite,
+        init=command.init,
         out_dir=pwd or OUTPUT_DIR,
     )
 
