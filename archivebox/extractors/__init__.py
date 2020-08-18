@@ -9,7 +9,6 @@ from ..index.schema import Link
 from ..index import (
     load_link_details,
     write_link_details,
-    patch_main_index,
 )
 from ..util import enforce_types
 from ..logging_util import (
@@ -113,11 +112,6 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
             pass
 
         write_link_details(link, out_dir=out_dir, skip_sql_index=skip_index)
-
-        # # If any changes were made, update the main links index json and html
-        # was_changed = stats['succeeded'] or stats['failed']
-        # if was_changed:
-        #     patch_main_index(link)
 
         log_link_archiving_finished(link, link.link_dir, is_new, stats)
 

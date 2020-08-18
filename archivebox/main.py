@@ -679,12 +679,11 @@ def update(resume: Optional[float]=None,
 
     # Step 1: Load list of links from the existing index
     #         merge in and dedupe new links from import_path
-    all_links: List[Link] = []
     new_links: List[Link] = []
     all_links = load_main_index(out_dir=out_dir)
 
     # Step 2: Write updated index with deduped old and new links back to disk
-    write_main_index(links=list(all_links), out_dir=out_dir)
+    # write_main_index(links=list(all_links), out_dir=out_dir)
 
     # Step 3: Filter for selected_links
     matching_links = list_links(
