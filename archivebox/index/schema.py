@@ -127,7 +127,7 @@ class Link:
 
 
     def __str__(self) -> str:
-        return f'[{self.timestamp}] {self.base_url} "{self.title}"'
+        return f'[{self.timestamp}] {self.url} "{self.title}"'
 
     def __post_init__(self):
         self.typecheck()
