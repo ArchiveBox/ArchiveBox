@@ -25,14 +25,18 @@ def parse_generic_txt_export(text_file: IO[str]) -> Iterable[Link]:
             continue
 
         # if the line is a local file path that resolves, then we can archive it
-        if Path(line).exists():
-            yield Link(
-                url=line,
-                timestamp=str(datetime.now().timestamp()),
-                title=None,
-                tags=None,
-                sources=[text_file.name],
-            )
+        try:
+            if Path(line).exists():
+                yield Link(
+                    url=line,
+                    timestamp=str(datetime.now().timestamp()),
+                    title=None,
+                    tags=None,
+                    sources=[text_file.name],
+                )
+        except (OSError, PermissionError):
+            # nvm, not a valid path...
+            pass
 
         # otherwise look for anything that looks like a URL in the line
         for url in re.findall(URL_REGEX, line):
