@@ -11,7 +11,6 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from urllib.parse import urlparse
 
-from ..system import atomic_write
 from ..util import (
     scheme,
     enforce_types,
@@ -25,7 +24,6 @@ from ..config import (
     OUTPUT_DIR,
     TIMEOUT,
     URL_BLACKLIST_PTN,
-    ANSI,
     stderr,
     OUTPUT_PERMISSIONS
 )
@@ -45,7 +43,6 @@ from .html import (
     write_html_link_details,
 )
 from .json import (
-    parse_json_main_index,
     write_json_main_index,
     parse_json_link_details, 
     write_json_link_details,

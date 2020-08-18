@@ -878,8 +878,8 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
     output_dir = out_dir or config['OUTPUT_DIR']
     assert isinstance(output_dir, str)
 
-    json_index_exists = os.path.exists(os.path.join(output_dir, JSON_INDEX_FILENAME))
-    if not json_index_exists:
+    sql_index_exists = os.path.exists(os.path.join(output_dir, SQL_INDEX_FILENAME))
+    if not sql_index_exists:
         stderr('[X] No archivebox index found in the current directory.', color='red')
         stderr(f'    {output_dir}', color='lightyellow')
         stderr()
@@ -891,7 +891,6 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
         stderr('        archivebox init')
         raise SystemExit(2)
 
-    sql_index_exists = os.path.exists(os.path.join(output_dir, SQL_INDEX_FILENAME))
     from ..index.sql import list_migrations
 
     pending_migrations = [name for status, name in list_migrations() if not status]
