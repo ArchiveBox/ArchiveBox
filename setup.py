@@ -1,56 +1,57 @@
-import sys
+# import sys
 import json
 import setuptools
 
 from pathlib import Path
-from subprocess import check_call
-from setuptools.command.install import install
-from setuptools.command.develop import develop
-from setuptools.command.egg_info import egg_info
+# from subprocess import check_call
+# from setuptools.command.install import install
+# from setuptools.command.develop import develop
+# from setuptools.command.egg_info import egg_info
 
 
 PKG_NAME = "archivebox"
 REPO_URL = "https://github.com/pirate/ArchiveBox"
-BASE_DIR = Path(__file__).parent.resolve()
-SOURCE_DIR = BASE_DIR / PKG_NAME
-README = (BASE_DIR / "README.md").read_text()
-VERSION = json.loads((BASE_DIR / "package.json").read_text().strip())['version']
+REPO_DIR = Path(__file__).parent.resolve()
+PYTHON_DIR = REPO_DIR / PKG_NAME
+README = (PYTHON_DIR / "README.md").read_text()
+VERSION = json.loads((PYTHON_DIR / "package.json").read_text().strip())['version']
 
-# To see when setup.py gets called (uncomment for debugging)
+# To see when setup.py gets called (uncomment for debugging):
+
 # import sys
-# print(SOURCE_DIR, f"     (v{VERSION})")
+# print(PYTHON_DIR, f"     (v{VERSION})")
 # print('>', sys.executable, *sys.argv)
 
+# Sketchy way to install npm dependencies as a pip post-install script
 
-def setup_js():
-    if sys.platform.lower() not in ('darwin', 'linux'):
-        sys.stderr.write('[!] Warning: ArchiveBox is not supported on this platform.\n')
+# def setup_js():
+#     if sys.platform.lower() not in ('darwin', 'linux'):
+#         sys.stderr.write('[!] Warning: ArchiveBox is not officially supported on this platform.\n')
 
-    sys.stderr.write(f'[+] Installing ArchiveBox npm package (BASE_DIR={BASE_DIR})...\n')
-    try:
-        check_call(f'which npm && npm --version && npm install --global "{BASE_DIR}"', shell=True)
-        sys.stderr.write('[√] Automatically installed npm dependencies.\n')
-    except Exception as err:
-        sys.stderr.write(f'[!] Failed to auto-install npm dependencies: {err}\n')
-        sys.stderr.write('     Install NPM/npm using your system package manager, then run:\n')
-        sys.stderr.write('     npm install -g "git+https://github.com/pirate/ArchiveBox.git\n')
+#     sys.stderr.write(f'[+] Installing ArchiveBox npm package (PYTHON_DIR={PYTHON_DIR})...\n')
+#     try:
+#         check_call(f'npm install -g "{REPO_DIR}"', shell=True)
+#         sys.stderr.write('[√] Automatically installed npm dependencies.\n')
+#     except Exception as err:
+#         sys.stderr.write(f'[!] Failed to auto-install npm dependencies: {err}\n')
+#         sys.stderr.write('     Install NPM/npm using your system package manager, then run:\n')
+#         sys.stderr.write('     npm install -g "git+https://github.com/pirate/ArchiveBox.git\n')
 
 
-class CustomInstallCommand(install):
-    def run(self):
-        super().run()
-        setup_js()
+# class CustomInstallCommand(install):
+#     def run(self):
+#         super().run()
+#         setup_js()
 
-class CustomDevelopCommand(develop):
-    def run(self):
-        super().run()
-        setup_js()
+# class CustomDevelopCommand(develop):
+#     def run(self):
+#         super().run()
+#         setup_js()
 
-class CustomEggInfoCommand(egg_info):
-    def run(self):
-        super().run()
-        setup_js()
-
+# class CustomEggInfoCommand(egg_info):
+#     def run(self):
+#         super().run()
+#         setup_js()
 
 setuptools.setup(
     name=PKG_NAME,
@@ -110,18 +111,18 @@ setuptools.setup(
         # 'redis': ['redis', 'django-redis'],
         # 'pywb': ['pywb', 'redis'],
     },
-    packages=setuptools.find_packages(),
+    packages=['archivebox'],
+    include_package_data=True,   # see MANIFEST.in
     entry_points={
         "console_scripts": [
             f"{PKG_NAME} = {PKG_NAME}.cli:main",
         ],
     },
-    include_package_data=True,
-    cmdclass={
-        'install': CustomInstallCommand,
-        'develop': CustomDevelopCommand,
-        'egg_info': CustomEggInfoCommand,
-    },
+    # cmdclass={
+    #     'install': CustomInstallCommand,
+    #     'develop': CustomDevelopCommand,
+    #     'egg_info': CustomEggInfoCommand,
+    # },
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",

@@ -50,10 +50,10 @@ git add "$REPO_DIR/package-lock.json"
 
 echo "[*] Cleaning up build dirs"
 cd "$REPO_DIR"
-rm -Rf build dist
+rm -Rf build dist archivebox.egg-info
 
 echo "[+] Building sdist and bdist_wheel"
-python3 setup.py sdist bdist_wheel
+python3 setup.py sdist bdist_egg bdist_wheel
 
 echo "[^] Pushing source to github"
 git add "$REPO_DIR/archivebox.egg-info"
