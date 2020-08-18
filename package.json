@@ -1,18 +1,17 @@
 {
-	"name": "archivebox",
-	"version": "0.4.14",
-	"description": "ArchiveBox: The self-hosted internet archive",
-	"author": "Nick Sweeting <archivebox-npm@sweeting.me>",
-	"license": "MIT",
-	"scripts": {
-   "setup": "node -e \"const {execSync} = require('child_process'); Object.entries(JSON.parse(fs.readFileSync('package.json')).dependencies).forEach(globaldep => execSync('npm i -g ' + globaldep[1]))\"",
-   "archivebox": "./bin/archive"
-	},
-	"bin": {
-		"archivebox": "./bin/archive"
-	},
-	"dependencies": {
-		"readability-extractor": "git+https://github.com/pirate/readability-extractor.git",
-		"single-file": "git+https://github.com/gildas-lormeau/SingleFile.git"
-	}
+  "name": "archivebox",
+  "version": "0.4.14",
+  "description": "ArchiveBox: The self-hosted internet archive",
+  "author": "Nick Sweeting <archivebox-npm@sweeting.me>",
+  "license": "MIT",
+  "scripts": {
+    "archivebox": "./bin/archive"
+  },
+  "bin": {
+    "archivebox": "./bin/archive"
+  },
+  "dependencies": {
+    "readability-extractor": "git+https://github.com/pirate/readability-extractor.git",
+    "single-file": "git+https://github.com/gildas-lormeau/SingleFile.git"
+  }
 }
