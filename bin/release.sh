@@ -46,10 +46,6 @@ echo "[*] Bumping VERSION from $OLD_VERSION to $NEW_VERSION"
 echo "$NEW_VERSION" > "$VERSION_FILE"
 git add "$DIR/docs"
 git add "$VERSION_FILE"
-git commit -m "$NEW_VERSION release"
-git tag -a "v$NEW_VERSION" -m "v$NEW_VERSION"
-git push origin master
-git push origin --tags
 
 echo "[*] Cleaning up build dirs"
 cd "$DIR"
@@ -57,6 +53,13 @@ rm -Rf build dist
 
 echo "[+] Building sdist and bdist_wheel"
 python3 setup.py sdist bdist_wheel
+
+echo "[^] Pushing source to github"
+git add "$DIR/archivebox.egg-info"
+git commit -m "$NEW_VERSION release"
+git tag -a "v$NEW_VERSION" -m "v$NEW_VERSION"
+git push origin master
+git push origin --tags
 
 echo "[^] Uploading to test.pypi.org"
 python3 -m twine upload --repository testpypi dist/*
