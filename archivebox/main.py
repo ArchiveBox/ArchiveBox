@@ -114,6 +114,8 @@ ALLOWED_IN_OUTPUT_DIR = {
     'venv',
     'virtualenv',
     '.virtualenv',
+    'node_modules',
+    'package-lock.json',
     ARCHIVE_DIR_NAME,
     SOURCES_DIR_NAME,
     LOGS_DIR_NAME,

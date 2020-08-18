@@ -63,10 +63,10 @@ To get started, you can [install them manually](https://github.com/pirate/Archiv
 ```bash
 # Docker
 mkdir data && cd data
-docker run -v $PWD:/data nikisweeting/archivebox init
-docker run -v $PWD:/data nikisweeting/archivebox add 'https://example.com'
+docker run -v $PWD:/data -it nikisweeting/archivebox init
+docker run -v $PWD:/data -it nikisweeting/archivebox add 'https://example.com'
 docker run -v $PWD:/data -it nikisweeting/archivebox manage createsuperuser
-docker run -v $PWD:/data -p 8000:8000 nikisweeting/archivebox server 0.0.0.0:8000
+docker run -v $PWD:/data -it -p 8000:8000 nikisweeting/archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
 ```
 

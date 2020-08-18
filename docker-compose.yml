@@ -31,7 +31,7 @@ services:
     # host machine, add tasks and see more info with archivebox schedule --help
     # scheduler:
     #    image: nikisweeting/archivebox:latest
-    #    command: schedule --foreground --every=day --depth=1 'https://getpocket.com/users/USERNA<E/feed/all'
+    #    command: schedule --foreground --every=day --depth=1 'https://getpocket.com/users/USERNAME/feed/all'
     #    environment:
     #        - USE_COLOR=True
     #        - SHOW_PROGRESS=False

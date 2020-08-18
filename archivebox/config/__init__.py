@@ -4,10 +4,11 @@ import os
 import io
 import re
 import sys
-import django
+import json
 import getpass
 import shutil
 import platform
+import django
 
 from hashlib import md5
 from pathlib import Path
@@ -58,7 +59,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
         'OUTPUT_PERMISSIONS':       {'type': str,   'default': '755'},
         'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},
-        'URL_BLACKLIST':            {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2)(\?.*)?$'},  # to avoid downloading code assets as their own pages
+        'URL_BLACKLIST':            {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$'},  # to avoid downloading code assets as their own pages
     },
 
     'SERVER_CONFIG': {
@@ -186,7 +187,6 @@ STATICFILE_EXTENSIONS = {
     # html, htm, shtml, xhtml, xml, aspx, php, cgi
 }
 
-VERSION_FILENAME = 'VERSION'
 PYTHON_DIR_NAME = 'archivebox'
 TEMPLATES_DIR_NAME = 'themes'
 
@@ -232,10 +232,10 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'CONFIG_FILE':              {'default': lambda c: os.path.abspath(os.path.expanduser(c['CONFIG_FILE'])) if c['CONFIG_FILE'] else os.path.join(c['OUTPUT_DIR'], CONFIG_FILENAME)},
     'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and os.path.abspath(os.path.expanduser(c['COOKIES_FILE']))},
     'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (os.path.abspath(os.path.expanduser(c['CHROME_USER_DATA_DIR'])) or None)},
-    'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'], re.IGNORECASE | re.UNICODE | re.MULTILINE)},
+    'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'] or '', re.IGNORECASE | re.UNICODE | re.MULTILINE)},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0]},
-    'VERSION':                  {'default': lambda c: open(os.path.join(c['PYTHON_DIR'], VERSION_FILENAME), 'r').read().strip()},
+    'VERSION':                  {'default': lambda c: json.loads((Path(c['PYTHON_DIR']) / 'package.json').read_text().strip())['version']},
     'GIT_SHA':                  {'default': lambda c: c['VERSION'].split('+')[-1] or 'unknown'},
 
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
@@ -510,16 +510,9 @@ def bin_version(binary: Optional[str]) -> Optional[str]:
         return None
 
     try:
-        if binary.split('/')[-1] in ('single-file',):
-            # these dependencies dont support the --version flag, but are valid still
-            if run([abspath, "--help"], stdout=PIPE).returncode == 0:
-                return '0.0.0'
-            else:
-                return None
-        else:
-            version_str = run([abspath, "--version"], stdout=PIPE).stdout.strip().decode()
-            # take first 3 columns of first line of version info
-            return ' '.join(version_str.split('\n')[0].strip().split()[:3])
+        version_str = run([abspath, "--version"], stdout=PIPE).stdout.strip().decode()
+        # take first 3 columns of first line of version info
+        return ' '.join(version_str.split('\n')[0].strip().split()[:3])
     except OSError:
         pass
         # stderr(f'[X] Unable to find working version of dependency: {binary}', color='red')
@@ -533,6 +526,10 @@ def bin_version(binary: Optional[str]) -> Optional[str]:
 def bin_path(binary: Optional[str]) -> Optional[str]:
     if binary is None:
         return None
+
+    node_modules_bin = Path('.') / 'node_modules' / '.bin' / binary
+    if node_modules_bin.exists():
+        return str(node_modules_bin.resolve())
 
     return shutil.which(os.path.expanduser(binary)) or binary
 
@@ -784,6 +781,10 @@ globals().update(CONFIG)
 # Timezone set as UTC
 os.environ["TZ"] = 'UTC'
 
+# add ./node_modules/.bin to $PATH so we can use node scripts in extractors
+NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]).absolute() / 'node_modules' / '.bin'))
+sys.path.append(NODE_BIN_PATH)
+
 
 ############################## Importable Checkers #############################
 
@@ -825,16 +826,6 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
                 stderr('        CHROME_USER_DATA_DIR="{}"'.format(config['CHROME_USER_DATA_DIR'].split('/Default')[0]))
             raise SystemExit(2)
 
-def print_dependency_additional_info(dependency: str) -> None:
-    if dependency == "SINGLEFILE_BINARY":
-        hint(('npm install -g git+https://github.com/gildas-lormeau/SingleFile.git"',
-              'or set SAVE_SINGLEFILE=False to silence this warning',
-              ''))
-    if dependency == "READABILITY_BINARY":
-        hint(('npm install -g git+https://github.com/pirate/readability-extractor.git"',
-              'or set SAVE_READABILITY=False to silence this warning',
-              ''))
-
 
 def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
     invalid_dependencies = [
@@ -851,9 +842,10 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
                     info['version'] or 'unable to detect version',
                 )
             )
-            print_dependency_additional_info(dependency)
-        stderr('    {lightred}Hint:{reset} To get more info on dependencies run:'.format(**ANSI))
-        stderr('          archivebox --version')
+            if dependency in ('SINGLEFILE_BINARY', 'READABILITY_BINARY'):
+                hint(('npm install --prefix . "git+https://github.com/pirate/ArchiveBox.git"',
+                    f'or archivebox config --set SAVE_{dependency.rsplit("_", 1)[0]}=False to silence this warning',
+                    ''), prefix='      ')
         stderr('')
 
     if config['TIMEOUT'] < 5:

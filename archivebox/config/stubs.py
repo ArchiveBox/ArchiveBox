@@ -31,15 +31,16 @@ class ConfigDict(BaseConfig, total=False):
     SHOW_PROGRESS: bool
     IN_DOCKER: bool
 
-    OUTPUT_DIR: str
-    CONFIG_FILE: str
+    OUTPUT_DIR: Optional[str]
+    CONFIG_FILE: Optional[str]
     ONLY_NEW: bool
     TIMEOUT: int
     MEDIA_TIMEOUT: int
     OUTPUT_PERMISSIONS: str
-    URL_BLACKLIST: Optional[str]
+    RESTRICT_FILE_NAMES: str
+    URL_BLACKLIST: str
 
-    SECRET_KEY: str
+    SECRET_KEY: Optional[str]
     BIND_ADDR: str
     ALLOWED_HOSTS: str
     DEBUG: bool
@@ -52,10 +53,11 @@ class ConfigDict(BaseConfig, total=False):
     SAVE_FAVICON: bool
     SAVE_WGET: bool
     SAVE_WGET_REQUISITES: bool
+    SAVE_SINGLEFILE: bool
+    SAVE_READABILITY: bool
     SAVE_PDF: bool
     SAVE_SCREENSHOT: bool
     SAVE_DOM: bool
-    SAVE_SINGLEFILE: bool
     SAVE_WARC: bool
     SAVE_GIT: bool
     SAVE_MEDIA: bool
@@ -75,53 +77,18 @@ class ConfigDict(BaseConfig, total=False):
 
     USE_CURL: bool
     USE_WGET: bool
+    USE_SINGLEFILE: bool
+    USE_READABILITY: bool
     USE_GIT: bool
     USE_CHROME: bool
     USE_YOUTUBEDL: bool
-    USE_SINGLEFILE: bool
-
-    CURL_BINARY: Optional[str]
-    GIT_BINARY: Optional[str]
-    WGET_BINARY: Optional[str]
-    YOUTUBEDL_BINARY: Optional[str]
+    CURL_BINARY: str
+    GIT_BINARY: str
+    WGET_BINARY: str
+    SINGLEFILE_BINARY: str
+    READABILITY_BINARY: str
+    YOUTUBEDL_BINARY: str
     CHROME_BINARY: Optional[str]
-    SINGLEFILE_BINARY: Optional[str]
-
-    TERM_WIDTH: Callable[[], int]
-    USER: str
-    ANSI: Dict[str, str]
-    REPO_DIR: str
-    PYTHON_DIR: str
-    TEMPLATES_DIR: str
-    ARCHIVE_DIR: str
-    SOURCES_DIR: str
-    LOGS_DIR: str
-
-    URL_BLACKLIST_PTN: Optional[Pattern]
-    WGET_AUTO_COMPRESSION: bool
-
-    ARCHIVEBOX_BINARY: str
-    VERSION: str
-    GIT_SHA: str
-
-    PYTHON_BINARY: str
-    PYTHON_ENCODING: str
-    PYTHON_VERSION: str
-
-    DJANGO_BINARY: str
-    DJANGO_VERSION: str
-
-    CURL_VERSION: str
-    WGET_VERSION: str
-    YOUTUBEDL_VERSION: str
-    GIT_VERSION: str
-    CHROME_VERSION: str
-
-    DEPENDENCIES: Dict[str, SimpleConfigValueDict]
-    CODE_LOCATIONS: Dict[str, SimpleConfigValueDict]
-    CONFIG_LOCATIONS: Dict[str, SimpleConfigValueDict]
-    DATA_LOCATIONS: Dict[str, SimpleConfigValueDict]
-    CHROME_OPTIONS: Dict[str, SimpleConfigValue]
 
 
 ConfigDefaultValueGetter = Callable[[ConfigDict], ConfigValue]

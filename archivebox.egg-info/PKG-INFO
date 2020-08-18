@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: archivebox
-Version: 0.4.17
+Version: 0.4.20
 Summary: The self-hosted internet archive.
 Home-page: https://github.com/pirate/ArchiveBox
 Author: Nick Sweeting
@@ -77,10 +77,10 @@ Description: <div align="center">
         ```bash
         # Docker
         mkdir data && cd data
-        docker run -v $PWD:/data nikisweeting/archivebox init
-        docker run -v $PWD:/data nikisweeting/archivebox add 'https://example.com'
+        docker run -v $PWD:/data -it nikisweeting/archivebox init
+        docker run -v $PWD:/data -it nikisweeting/archivebox add 'https://example.com'
         docker run -v $PWD:/data -it nikisweeting/archivebox manage createsuperuser
-        docker run -v $PWD:/data -p 8000:8000 nikisweeting/archivebox server 0.0.0.0:8000
+        docker run -v $PWD:/data -it -p 8000:8000 nikisweeting/archivebox server 0.0.0.0:8000
         open http://127.0.0.1:8000
         ```
         
