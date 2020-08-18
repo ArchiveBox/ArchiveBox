@@ -504,22 +504,29 @@ def bin_version(binary: Optional[str]) -> Optional[str]:
     """check the presence and return valid version line of a specified binary"""
 
     abspath = bin_path(binary)
-    if not abspath:
+    if not binary or not abspath:
         return None
 
     try:
-        version_str = run([abspath, "--version"], stdout=PIPE).stdout.strip().decode()
-        # take first 3 columns of first line of version info
-        return ' '.join(version_str.split('\n')[0].strip().split()[:3])
-    except Exception:
+        if binary.split('/')[-1] in ('single-file',):
+            # these dependencies dont support the --version flag, but are valid still
+            if run([abspath, "--help"], stdout=PIPE).returncode == 0:
+                return '0.0.0'
+            else:
+                return None
+        else:
+            version_str = run([abspath, "--version"], stdout=PIPE).stdout.strip().decode()
+            # take first 3 columns of first line of version info
+            return ' '.join(version_str.split('\n')[0].strip().split()[:3])
+    except OSError:
+        pass
         # stderr(f'[X] Unable to find working version of dependency: {binary}', color='red')
         # stderr('    Make sure it\'s installed, then confirm it\'s working by running:')
         # stderr(f'        {binary} --version')
         # stderr()
         # stderr('    If you don\'t want to install it, you can disable it via config. See here for more info:')
         # stderr('        https://github.com/pirate/ArchiveBox/wiki/Install')
-        # stderr()
-        return None
+    return None
 
 def bin_path(binary: Optional[str]) -> Optional[str]:
     if binary is None:
@@ -816,42 +823,36 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
                 stderr('        CHROME_USER_DATA_DIR="{}"'.format(config['CHROME_USER_DATA_DIR'].split('/Default')[0]))
             raise SystemExit(2)
 
-def dependency_additional_info(dependency: str) -> str:
+def print_dependency_additional_info(dependency: str) -> None:
     if dependency == "SINGLEFILE_BINARY":
-        return (
-            "npm install -g git+https://github.com/gildas-lormeau/SingleFile.git"
-            "\n        and set SINGLEFILE_BINARY=$(which single-file)"
-            "\n        or set USE_SINGLEFILE=False"
-        )
+        hint(('npm install -g git+https://github.com/gildas-lormeau/SingleFile.git"',
+              'or set SAVE_SINGLEFILE=False to silence this warning',
+              ''))
     if dependency == "READABILITY_BINARY":
-        return (
-            "npm install -g git+https://github.com/pirate/readability-extractor.git"
-            "\n        and set READABILITY_BINARY=$(which readability-extractor)"
-            "\n        or set USE_READABILITY=False"
-        )
-    return ""
+        hint(('npm install -g git+https://github.com/pirate/readability-extractor.git"',
+              'or set SAVE_READABILITY=False to silence this warning',
+              ''))
 
 
 def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
-    invalid = [
+    invalid_dependencies = [
         (name, info) for name, info in config['DEPENDENCIES'].items()
         if info['enabled'] and not info['is_valid']
     ]
-    if invalid and show_help:
-        stderr(f'[!] Warning: Missing {len(invalid)} recommended dependencies', color='lightyellow')
-        for name, info in invalid:
+    if invalid_dependencies and show_help:
+        stderr(f'[!] Warning: Missing {len(invalid_dependencies)} recommended dependencies', color='lightyellow')
+        for dependency, info in invalid_dependencies:
             stderr(
-                '{}: {} ({})'.format(
-                    name,
+                '    ! {}: {} ({})'.format(
+                    dependency,
                     info['path'] or 'unable to find binary',
                     info['version'] or 'unable to detect version',
                 )
             )
-            stderr(f'    {dependency_additional_info(name)}')
-            stderr()
-            stderr('To get more info on dependencies run:')
-            stderr('    archivebox --version')
-            stderr('')
+            print_dependency_additional_info(dependency)
+        stderr('    {lightred}Hint:{reset} To get more info on dependencies run:'.format(**ANSI))
+        stderr('          archivebox --version')
+        stderr('')
 
     if config['TIMEOUT'] < 5:
         stderr()
