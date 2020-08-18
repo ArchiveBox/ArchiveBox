@@ -301,14 +301,14 @@ def load_main_index_meta(out_dir: str=OUTPUT_DIR) -> Optional[dict]:
 
 
 @enforce_types
-def parse_links_from_source(source_path: str) -> Tuple[List[Link], List[Link]]:
+def parse_links_from_source(source_path: str, root_url: Optional[str]=None) -> Tuple[List[Link], List[Link]]:
 
     from ..parsers import parse_links
 
     new_links: List[Link] = []
 
     # parse and validate the import file
-    raw_links, parser_name = parse_links(source_path)
+    raw_links, parser_name = parse_links(source_path, root_url=root_url)
     new_links = validate_links(raw_links)
 
     if parser_name:
