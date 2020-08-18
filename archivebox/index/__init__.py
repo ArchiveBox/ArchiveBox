@@ -9,6 +9,7 @@ from itertools import chain
 from typing import List, Tuple, Dict, Optional, Iterable
 from collections import OrderedDict
 from contextlib import contextmanager
+from urllib.parse import urlparse
 
 from ..system import atomic_write
 from ..util import (
@@ -139,6 +140,10 @@ def validate_links(links: Iterable[Link]) -> List[Link]:
 def archivable_links(links: Iterable[Link]) -> Iterable[Link]:
     """remove chrome://, about:// or other schemed links that cant be archived"""
     for link in links:
+        try:
+            urlparse(link.url)
+        except ValueError:
+            continue
         scheme_is_valid = scheme(link.url) in ('http', 'https', 'ftp')
         not_blacklisted = (not URL_BLACKLIST_PTN.match(link.url)) if URL_BLACKLIST_PTN else True
         if scheme_is_valid and not_blacklisted:
