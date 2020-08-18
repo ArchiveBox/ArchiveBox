@@ -129,7 +129,7 @@ def validate_links(links: Iterable[Link]) -> List[Link]:
     try:
         links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
         links = sorted_links(links)      # deterministically sort the links based on timstamp, url
-        links = uniquefied_links(links)  # merge/dedupe duplicate timestamps & urls
+        links = fix_duplicate_links(links)  # merge/dedupe duplicate timestamps & urls
     finally:
         timer.end()
 
@@ -144,34 +144,39 @@ def archivable_links(links: Iterable[Link]) -> Iterable[Link]:
             urlparse(link.url)
         except ValueError:
             continue
-        scheme_is_valid = scheme(link.url) in ('http', 'https', 'ftp')
-        not_blacklisted = (not URL_BLACKLIST_PTN.match(link.url)) if URL_BLACKLIST_PTN else True
-        if scheme_is_valid and not_blacklisted:
-            yield link
+        if scheme(link.url) not in ('http', 'https', 'ftp'):
+            continue
+        if URL_BLACKLIST_PTN and URL_BLACKLIST_PTN.search(link.url):
+            continue
+
+        yield link
 
 
 @enforce_types
-def uniquefied_links(sorted_links: Iterable[Link]) -> Iterable[Link]:
+def fix_duplicate_links(sorted_links: Iterable[Link]) -> Iterable[Link]:
     """
     ensures that all non-duplicate links have monotonically increasing timestamps
     """
+    from core.models import Snapshot
 
     unique_urls: OrderedDict[str, Link] = OrderedDict()
 
     for link in sorted_links:
-        if link.base_url in unique_urls:
+        if link.url in unique_urls:
             # merge with any other links that share the same url
-            link = merge_links(unique_urls[link.base_url], link)
-        unique_urls[link.base_url] = link
+            link = merge_links(unique_urls[link.url], link)
+        unique_urls[link.url] = link
 
-    unique_timestamps: OrderedDict[str, Link] = OrderedDict()
-    for link in unique_urls.values():
-        new_link = link.overwrite(
-            timestamp=lowest_uniq_timestamp(unique_timestamps, link.timestamp),
-        )
-        unique_timestamps[new_link.timestamp] = new_link
+    # unique_timestamps: OrderedDict[str, Link] = OrderedDict()
+    # for link in unique_urls.values():
+    #     closest_non_duplicate_ts = lowest_uniq_timestamp(unique_timestamps, link.timestamp)
+    #     if closest_non_duplicate_ts != link.timestamp:
+    #         link = link.overwrite(timestamp=closest_non_duplicate_ts)
+    #         Snapshot.objects.filter(url=link.url).update(timestamp=link.timestamp)
+    #     unique_timestamps[link.timestamp] = link
 
-    return unique_timestamps.values()
+    # return unique_timestamps.values()
+    return unique_urls.values()
 
 
 @enforce_types
