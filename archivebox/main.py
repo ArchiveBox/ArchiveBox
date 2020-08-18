@@ -169,7 +169,7 @@ def help(out_dir: str=OUTPUT_DIR) -> None:
     archivebox add --depth=1 ~/Downloads/bookmarks_export.html
     
     archivebox list --sort=timestamp --csv=timestamp,url,is_archived
-    archivebox schedule --every=week https://example.com/some/feed.rss
+    archivebox schedule --every=day https://example.com/some/feed.rss
     archivebox update --resume=15109948213.123
 
 {lightred}Documentation:{reset}
@@ -923,7 +923,9 @@ def schedule(add: bool=False,
     cron = dedupe_cron_jobs(cron)
 
     existing_jobs = list(cron.find_comment(CRON_COMMENT))
-    if every:
+
+    if every or add:
+        every = every or 'day'
         quoted = lambda s: f'"{s}"' if s and ' ' in s else s
         cmd = [
             'cd',
@@ -938,14 +940,14 @@ def schedule(add: bool=False,
         ]
         new_job = cron.new(command=' '.join(cmd), comment=CRON_COMMENT)
 
-        if every in ('minute', 'hour', 'day', 'week', 'month', 'year'):
+        if every in ('minute', 'hour', 'day', 'month', 'year'):
             set_every = getattr(new_job.every(), every)
             set_every()
         elif CronSlices.is_valid(every):
             new_job.setall(every)
         else:
             stderr('{red}[X] Got invalid timeperiod for cron task.{reset}'.format(**ANSI))
-            stderr('    It must be one of minute/hour/day/week/month')
+            stderr('    It must be one of minute/hour/day/month')
             stderr('    or a quoted cron-format schedule like:')
             stderr('        archivebox init --every=day https://example.com/some/rss/feed.xml')
             stderr('        archivebox init --every="0/5 * * * *" https://example.com/some/rss/feed.xml')

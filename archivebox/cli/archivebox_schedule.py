@@ -36,8 +36,8 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     parser.add_argument(
         '--every', # '-e',
         type=str,
-        default='day',
-        help='Run ArchiveBox once every [timeperiod] (hour/day/week/month/year or cron format e.g. "0 0 * * *")',
+        default=None,
+        help='Run ArchiveBox once every [timeperiod] (hour/day/month/year or cron format e.g. "0 0 * * *")',
     )
     parser.add_argument(
         '--depth', # '-d',
