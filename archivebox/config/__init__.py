@@ -4,10 +4,11 @@ import os
 import io
 import re
 import sys
-import django
+import json
 import getpass
 import shutil
 import platform
+import django
 
 from hashlib import md5
 from pathlib import Path
@@ -185,7 +186,6 @@ STATICFILE_EXTENSIONS = {
     # html, htm, shtml, xhtml, xml, aspx, php, cgi
 }
 
-VERSION_FILENAME = 'VERSION'
 PYTHON_DIR_NAME = 'archivebox'
 TEMPLATES_DIR_NAME = 'themes'
 
@@ -231,10 +231,10 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'CONFIG_FILE':              {'default': lambda c: os.path.abspath(os.path.expanduser(c['CONFIG_FILE'])) if c['CONFIG_FILE'] else os.path.join(c['OUTPUT_DIR'], CONFIG_FILENAME)},
     'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and os.path.abspath(os.path.expanduser(c['COOKIES_FILE']))},
     'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (os.path.abspath(os.path.expanduser(c['CHROME_USER_DATA_DIR'])) or None)},
-    'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'], re.IGNORECASE | re.UNICODE | re.MULTILINE)},
+    'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'] or '', re.IGNORECASE | re.UNICODE | re.MULTILINE)},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0]},
-    'VERSION':                  {'default': lambda c: open(os.path.join(c['PYTHON_DIR'], VERSION_FILENAME), 'r').read().strip()},
+    'VERSION':                  {'default': lambda c: json.loads((Path(c['REPO_DIR']) / 'package.json').read_text().strip())['version']},
     'GIT_SHA':                  {'default': lambda c: c['VERSION'].split('+')[-1] or 'unknown'},
 
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},

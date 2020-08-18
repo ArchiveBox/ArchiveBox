@@ -1,8 +1,9 @@
 LICENSE
 MANIFEST.in
 README.md
+package-lock.json
+package.json
 setup.py
-archivebox/VERSION
 archivebox/__init__.py
 archivebox/__main__.py
 archivebox/logging_util.py

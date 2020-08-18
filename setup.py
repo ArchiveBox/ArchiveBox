@@ -1,4 +1,6 @@
+import json
 import setuptools
+
 from pathlib import Path
 
 PKG_NAME = "archivebox"
@@ -6,13 +8,13 @@ REPO_URL = "https://github.com/pirate/ArchiveBox"
 BASE_DIR = Path(__file__).parent.resolve()
 SOURCE_DIR = BASE_DIR / PKG_NAME
 README = (BASE_DIR / "README.md").read_text()
-VERSION = (SOURCE_DIR / "VERSION").read_text().strip()
+VERSION = json.loads((BASE_DIR / "package.json").read_text().strip())['version']
 
 # To see when setup.py gets called (uncomment for debugging)
 # import sys
 # print(SOURCE_DIR, f"     (v{VERSION})")
 # print('>', sys.executable, *sys.argv)
-# raise SystemExit(0)
+
 
 setuptools.setup(
     name=PKG_NAME,

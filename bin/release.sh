@@ -10,29 +10,28 @@ set -o nounset
 set -o pipefail
 IFS=$'\n'
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
-VERSION_FILE="$DIR/archivebox/VERSION"
+REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 
 function bump_semver {
     echo "$1" | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g'
 }
 
-source "$DIR/.venv/bin/activate"
-cd "$DIR"
+source "$REPO_DIR/.venv/bin/activate"
+cd "$REPO_DIR"
 
-OLD_VERSION="$(cat "$VERSION_FILE")"
+OLD_VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
 NEW_VERSION="$(bump_semver "$OLD_VERSION")"
 
 echo "[*] Fetching latest docs version"
-cd "$DIR/docs"
+cd "$REPO_DIR/docs"
 git pull
-cd "$DIR"
+cd "$REPO_DIR"
 
 echo "[+] Building docs"
 sphinx-apidoc -o docs archivebox
-cd "$DIR/docs"
+cd "$REPO_DIR/docs"
 make html
-cd "$DIR"
+cd "$REPO_DIR"
 
 if [ -z "$(git status --porcelain)" ] && [[ "$(git branch --show-current)" == "master" ]]; then 
     git pull
@@ -43,19 +42,20 @@ else
 fi
 
 echo "[*] Bumping VERSION from $OLD_VERSION to $NEW_VERSION"
-echo "$NEW_VERSION" > "$VERSION_FILE"
-git add "$DIR/docs"
+contents="$(jq ".version = \"$NEW_VERSION\"" "$REPO_DIR/package.json")" && \
+echo "${contents}" > package.json
+git add "$REPO_DIR/docs"
 git add "$VERSION_FILE"
 
 echo "[*] Cleaning up build dirs"
-cd "$DIR"
+cd "$REPO_DIR"
 rm -Rf build dist
 
 echo "[+] Building sdist and bdist_wheel"
 python3 setup.py sdist bdist_wheel
 
 echo "[^] Pushing source to github"
-git add "$DIR/archivebox.egg-info"
+git add "$REPO_DIR/archivebox.egg-info"
 git commit -m "$NEW_VERSION release"
 git tag -a "v$NEW_VERSION" -m "v$NEW_VERSION"
 git push origin master
