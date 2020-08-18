@@ -8,7 +8,9 @@
 		"archivebox": "./bin/archive"
 	},
 	"bin": {
-		"archivebox": "./bin/archive"
+        "archivebox-node": "./bin/archive",
+		"single-file": "single-file",
+        "readability-extractor": "single-file"
 	},
 	"dependencies": {
 		"readability-extractor": "git+https://github.com/pirate/readability-extractor.git",
