@@ -967,9 +967,55 @@ def schedule(add: bool=False,
             stderr()
             stderr('    Make sure you have enough storage space available to hold all the data.')
             stderr('    Using a compressed/deduped filesystem like ZFS is recommended if you plan on archiving a lot.')
+            stderr('')
+    elif show:
+        if existing_jobs:
+            print('\n'.join(str(cmd) for cmd in existing_jobs))
+        else:
+            stderr('{red}[X] There are no ArchiveBox cron jobs scheduled for your user ({}).{reset}'.format(USER, **ANSI))
+            stderr('    To schedule a new job, run:')
+            stderr('        archivebox schedule --every=[timeperiod] https://example.com/some/rss/feed.xml')
         raise SystemExit(0)
 
+    elif clear:
+        print(cron.remove_all(comment=CRON_COMMENT))
+        cron.write()
+        raise SystemExit(0)
 
+    cron = CronTab(user=True)
+    cron = dedupe_cron_jobs(cron)
+    existing_jobs = list(cron.find_comment(CRON_COMMENT))
+
+    if foreground or run_all:
+        if not existing_jobs:
+            stderr('{red}[X] You must schedule some jobs first before running in foreground mode.{reset}'.format(**ANSI))
+            stderr('    archivebox schedule --every=hour https://example.com/some/rss/feed.xml')
+            raise SystemExit(1)
+
+        print('{green}[*] Running {} ArchiveBox jobs in foreground task scheduler...{reset}'.format(len(existing_jobs), **ANSI))
+        if run_all:
+            try:
+                for job in existing_jobs:
+                    sys.stdout.write(f'  > {job.command}')
+                    sys.stdout.flush()
+                    job.run()
+                    sys.stdout.write(f'\r  √ {job.command}\n')
+            except KeyboardInterrupt:
+                print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
+                raise SystemExit(1)
+
+        if foreground:
+            try:
+                for job in existing_jobs:
+                    sys.stdout.write(f'  > {job.command}')
+                    sys.stdout.flush()
+                for result in cron.run_scheduler():
+                    print(result)
+            except KeyboardInterrupt:
+                print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
+                raise SystemExit(1)
+
+    
 @enforce_types
 def server(runserver_args: Optional[List[str]]=None,
            reload: bool=False,

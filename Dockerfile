@@ -40,7 +40,7 @@ RUN groupadd --system $ARCHIVEBOX_USER \
 RUN apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         apt-transport-https ca-certificates gnupg2 zlib1g-dev \
-        dumb-init gosu unzip curl \
+        dumb-init gosu cron unzip curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install apt dependencies
