@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: archivebox
-Version: 0.4.20
+Version: 0.4.21
 Summary: The self-hosted internet archive.
 Home-page: https://github.com/pirate/ArchiveBox
 Author: Nick Sweeting
@@ -17,12 +17,12 @@ Description: <div align="center">
         <img src="https://i.imgur.com/4nkFjdv.png" height="80px">
         <h1>ArchiveBox<br/><sub>The open-source self-hosted web archive.</sub></h1>
         
-        ▶️ <a href="https://github.com/pirate/ArchiveBox/wiki/Quickstart">Quickstart</a> | 
-        <a href="https://archivebox.zervice.io/">Demo</a> | 
-        <a href="https://github.com/pirate/ArchiveBox">Github</a> | 
-        <a href="https://github.com/pirate/ArchiveBox/wiki">Documentation</a> | 
-        <a href="#background--motivation">Info & Motivation</a> | 
-        <a href="https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community">Community</a> | 
+        ▶️ <a href="https://github.com/pirate/ArchiveBox/wiki/Quickstart">Quickstart</a> |
+        <a href="https://archivebox.zervice.io/">Demo</a> |
+        <a href="https://github.com/pirate/ArchiveBox">Github</a> |
+        <a href="https://github.com/pirate/ArchiveBox/wiki">Documentation</a> |
+        <a href="#background--motivation">Info & Motivation</a> |
+        <a href="https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community">Community</a> |
         <a href="https://github.com/pirate/ArchiveBox/wiki/Roadmap">Roadmap</a>
         
         <pre>
@@ -37,6 +37,7 @@ Description: <div align="center">
         <a href="https://test.pypi.org/project/archivebox/"><img src="https://img.shields.io/badge/Python-%3E%3D3.7-yellow.svg?logo=python&logoColor=yellow"/></a>
         <a href="https://github.com/pirate/ArchiveBox/wiki/Install#dependencies"><img src="https://img.shields.io/badge/Chromium-%3E%3D59-orange.svg?logo=Google+Chrome&logoColor=orange"/></a>
         <a href="https://hub.docker.com/r/nikisweeting/archivebox"><img src="https://img.shields.io/badge/Docker-all%20platforms-lightblue.svg?logo=docker&logoColor=lightblue"/></a>
+        
         <hr/>
         </div>
         
@@ -71,8 +72,8 @@ Description: <div align="center">
         
         ## Quickstart
         
-        ArchiveBox is written in `python3.7` and has [3 main binary dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies): `wget`, `chromium`, and `youtube-dl`.
-        To get started, you can [install them manually](https://github.com/pirate/ArchiveBox/wiki/Install) using your system's package manager, use the [automated helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart), or use the official [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker) container. All three dependencies are optional if [disabled](https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles) in settings.
+        ArchiveBox is written in `python3.7` and has [4 main binary dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies): `wget`, `chromium`, `youtube-dl` and `nodejs`.
+        To get started, you can [install them manually](https://github.com/pirate/ArchiveBox/wiki/Install) using your system's package manager, use the [automated helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart), or use the official [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker) container. These dependencies are optional if [disabled](https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles) in settings.
         
         ```bash
         # Docker
@@ -97,9 +98,16 @@ Description: <div align="center">
         ```bash
         # Bare Metal
         # Use apt on Ubuntu/Debian, brew on mac, or pkg on BSD
+        # You may need to add a ppa with a more recent version of nodejs
         apt install python3 python3-pip git curl wget youtube-dl chromium-browser
         
+        curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
+          && echo 'deb https://deb.nodesource.com/node_14.x $(lsb_release -cs) main' >> /etc/apt/sources.list \
+          && apt-get update -qq \
+          && apt-get install -qq -y --no-install-recommends nodejs
+        
         pip install archivebox      # install archivebox
+        npm install -g 'git+https://github.com/pirate/ArchiveBox.git'
         
         mkdir data && cd data       # (doesn't have to be called data)
         archivebox init
@@ -112,6 +120,7 @@ Description: <div align="center">
         Once you've added your first links, open `data/index.html` in a browser to view the static archive.
         
         You can also start it as a server with a full web UI to manage your links:
+        
         ```bash
         archivebox manage createsuperuser
         archivebox server
