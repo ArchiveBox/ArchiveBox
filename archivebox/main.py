@@ -712,7 +712,8 @@ def update(resume: Optional[float]=None,
             if link.timestamp >= str(resume)
         ]
         if not to_archive:
-            print(f'[√] Nothing found to resume after {resume}.')
+            stderr('')
+            stderr(f'[√] Nothing found to resume after {resume}', color='green')
             return all_links
 
     archive_links(to_archive, overwrite=overwrite, out_dir=out_dir)
