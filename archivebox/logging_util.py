@@ -283,7 +283,7 @@ def log_archiving_finished(num_links: int):
         ANSI['reset'],
     ))
     print('    - {} links skipped'.format(_LAST_RUN_STATS.skipped))
-    print('    - {} links updated'.format(_LAST_RUN_STATS.succeeded))
+    print('    - {} links updated'.format(_LAST_RUN_STATS.succeeded + _LAST_RUN_STATS.failed))
     print('    - {} links had errors'.format(_LAST_RUN_STATS.failed))
     print()
     print('    {lightred}Hint:{reset} To view your archive index, open:'.format(**ANSI))
