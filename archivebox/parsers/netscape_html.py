@@ -14,7 +14,7 @@ from ..util import (
 
 
 @enforce_types
-def parse_netscape_html_export(html_file: IO[str]) -> Iterable[Link]:
+def parse_netscape_html_export(html_file: IO[str], **_kwargs) -> Iterable[Link]:
     """Parse netscape-format bookmarks export files (produced by all browsers)"""
 
     html_file.seek(0)

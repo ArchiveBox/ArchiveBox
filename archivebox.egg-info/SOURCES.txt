@@ -70,6 +70,7 @@ archivebox/index/json.py
 archivebox/index/schema.py
 archivebox/index/sql.py
 archivebox/parsers/__init__.py
+archivebox/parsers/generic_html.py
 archivebox/parsers/generic_json.py
 archivebox/parsers/generic_rss.py
 archivebox/parsers/generic_txt.py

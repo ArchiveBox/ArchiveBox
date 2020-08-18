@@ -548,7 +548,7 @@ def add(urls: Union[str, List[str]],
         # save verbatim args to sources
         write_ahead_log = save_text_as_source('\n'.join(urls), filename='{ts}-import.txt', out_dir=out_dir)
     
-    new_links += parse_links_from_source(write_ahead_log)
+    new_links += parse_links_from_source(write_ahead_log, root_url=None)
 
     # If we're going one level deeper, download each link and look for more links
     new_links_depth = []
@@ -556,9 +556,9 @@ def add(urls: Union[str, List[str]],
         log_crawl_started(new_links)
         for new_link in new_links:
             downloaded_file = save_file_as_source(new_link.url, filename=f'{new_link.timestamp}-crawl-{new_link.domain}.txt', out_dir=out_dir)
-            new_links_depth += parse_links_from_source(downloaded_file)
+            new_links_depth += parse_links_from_source(downloaded_file, root_url=new_link.url)
 
-    imported_links = new_links + new_links_depth
+    imported_links = list({link.url: link for link in (new_links + new_links_depth)}.values())
     all_links, new_links = dedupe_links(all_links, imported_links)
     write_main_index(links=all_links, out_dir=out_dir, finished=not new_links)
 

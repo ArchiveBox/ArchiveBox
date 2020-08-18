@@ -14,7 +14,7 @@ from ..util import (
 
 
 @enforce_types
-def parse_medium_rss_export(rss_file: IO[str]) -> Iterable[Link]:
+def parse_medium_rss_export(rss_file: IO[str], **_kwargs) -> Iterable[Link]:
     """Parse Medium RSS feed files into links"""
 
     rss_file.seek(0)

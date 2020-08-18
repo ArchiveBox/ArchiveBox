@@ -16,7 +16,7 @@ from ..util import (
 
 
 @enforce_types
-def parse_generic_txt_export(text_file: IO[str]) -> Iterable[Link]:
+def parse_generic_txt_export(text_file: IO[str], **_kwargs) -> Iterable[Link]:
     """Parse raw links from each line in a text file"""
 
     text_file.seek(0)

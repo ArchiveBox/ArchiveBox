@@ -298,6 +298,10 @@
                             <h5>Errors</h5>
                             ❌  $num_failures
                         </div>
+                        <div class="info-chunk">
+                            <h5>Size</h5>
+                            $size
+                        </div>
                     </div>
                     <div class="col-lg-4">
                         <div class="info-chunk">
@@ -312,99 +316,100 @@
                     </div>
                 </div>
                 <div class="row header-bottom-frames">
-                    <div class="col-lg-2">
+                    <div class="col-lg-3">
                         <div class="card selected-card">
                           <iframe class="card-img-top" src="$archive_url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
                           <div class="card-body">
-                            <a href="$archive_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                <img src="../../static/external.png" class="external"/>
-                            </a>
-                            <a href="$archive_url" target="preview"><h4 class="card-title">Local Archive</h4></a>
-                            <p class="card-text">archive/$domain</p>
+                                <a href="$archive_url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="$archive_url" target="preview"><h4 class="card-title">Wget &gt; WARC</h4></a>
+                                <p class="card-text">archive/$domain</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3">
+                        <div class="card">
+                            <iframe class="card-img-top" src="$singlefile_path" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="$singlefile_path" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="$singlefile_path" target="preview"><h4 class="card-title">Chrome &gt; SingleFile</h4></a>
+                                <p class="card-text">archive/singlefile.html</p>
                           </div>
                         </div>
                     </div>
-                    <div class="col-lg-2">
+                    <div class="col-lg-3">
                         <div class="card">
-                          <iframe class="card-img-top" src="$dom_path" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
-                          <div class="card-body">
-                            <a href="$dom_path" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                <img src="../../static/external.png" class="external"/>
-                            </a>
-                            <a href="$dom_path" target="preview"><h4 class="card-title">HTML</h4></a>
-                            <p class="card-text">archive/output.html</p>
+                            <iframe class="card-img-top" src="$archive_org_path" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="$archive_org_path" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="$archive_org_path" target="preview"><h4 class="card-title">Archive.Org</h4></a>
+                                <p class="card-text">web.archive.org/web/...</p>
                           </div>
                         </div>
                     </div>
-                    <div class="col-lg-2">
+                    <div class="col-lg-3">
                         <div class="card">
-                          <iframe class="card-img-top" src="$singlefile_path" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
-                          <div class="card-body">
-                            <a href="$singlefile_path" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                <img src="../../static/external.png" class="external"/>
-                            </a>
-                            <a href="$singlefile_path" target="preview"><h4 class="card-title">SingleFile</h4></a>
-                            <p class="card-text">archive/singlefile.html</p>
+                            <iframe class="card-img-top" src="$url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="$url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="$url" target="preview"><h4 class="card-title">Original</h4></a>
+                                <p class="card-text">$domain</p>
                           </div>
                         </div>
                     </div>
-                    <div class="col-lg-2">
+                    <br/>
+                    <div class="col-lg-3">
                         <div class="card">
-                          <iframe class="card-img-top" src="$readability_path" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
-                          <div class="card-body">
-                            <a href="$readability_path" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                <img src="../../static/external.png" class="external"/>
-                            </a>
-                            <a href="$readability_path" target="preview"><h4 class="card-title">Readability</h4></a>
-                            <p class="card-text">archive/readability/...</p>
+                            <iframe class="card-img-top pdf-frame" src="$pdf_path" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="$pdf_path" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="$pdf_path" target="preview" id="pdf-btn"><h4 class="card-title">Chrome &gt; PDF</h4></a>
+                                <p class="card-text">archive/output.pdf</p>
                           </div>
                         </div>
                     </div>
-                    <div class="col-lg-2">
+                    <div class="col-lg-3">
                         <div class="card">
-                          <iframe class="card-img-top pdf-frame" src="$pdf_path" scrolling="no"></iframe>
-                          <div class="card-body">
-                            <a href="$pdf_path" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                <img src="../../static/external.png" class="external"/>
-                            </a>
-                            <a href="$pdf_path" target="preview" id="pdf-btn"><h4 class="card-title">PDF</h4></a>
-                            <p class="card-text">archive/output.pdf</p>
+                            <img class="card-img-top screenshot" src="$screenshot_path"></iframe>
+                            <div class="card-body">
+                                <a href="$screenshot_path" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="$screenshot_path" target="preview"><h4 class="card-title">Chrome &gt; Screenshot</h4></a>
+                                <p class="card-text">archive/screenshot.png</p>
                           </div>
                         </div>
                     </div>
-                    <div class="col-lg-2">
+                    <div class="col-lg-3">
                         <div class="card">
-                          <img class="card-img-top screenshot" src="$screenshot_path"></iframe>
-                          <div class="card-body">
-                            <a href="$screenshot_path" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                <img src="../../static/external.png" class="external"/>
-                            </a>
-                            <a href="$screenshot_path" target="preview"><h4 class="card-title">Screenshot</h4></a>
-                            <p class="card-text">archive/screenshot.png</p>
+                            <iframe class="card-img-top" src="$dom_path" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="$dom_path" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="$dom_path" target="preview"><h4 class="card-title">Chrome &gt; HTML</h4></a>
+                                <p class="card-text">archive/output.html</p>
                           </div>
                         </div>
                     </div>
-                    <div class="col-lg-2">
+                    <div class="col-lg-3">
                         <div class="card">
-                          <iframe class="card-img-top" src="$archive_org_path" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
-                          <div class="card-body">
-                            <a href="$archive_org_path" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                <img src="../../static/external.png" class="external"/>
-                            </a>
-                            <a href="$archive_org_path" target="preview"><h4 class="card-title">Archive.Org</h4></a>
-                            <p class="card-text">web.archive.org/web/...</p>
-                          </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-2">
-                        <div class="card">
-                          <iframe class="card-img-top" src="$url" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
-                          <div class="card-body">
-                            <a href="$url" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                <img src="../../static/external.png" class="external"/>
-                            </a>
-                            <a href="$url" target="preview"><h4 class="card-title">Original</h4></a>
-                            <p class="card-text">$domain</p>
+                            <iframe class="card-img-top" src="$readability_path" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="$readability_path" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="$readability_path" target="preview"><h4 class="card-title">Readability</h4></a>
+                                <p class="card-text">archive/readability/...</p>
                           </div>
                         </div>
                     </div>

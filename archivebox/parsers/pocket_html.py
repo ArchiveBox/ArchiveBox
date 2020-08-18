@@ -14,7 +14,7 @@ from ..util import (
 
 
 @enforce_types
-def parse_pocket_html_export(html_file: IO[str]) -> Iterable[Link]:
+def parse_pocket_html_export(html_file: IO[str], **_kwargs) -> Iterable[Link]:
     """Parse Pocket-format bookmarks export files (produced by getpocket.com/export/)"""
 
     html_file.seek(0)

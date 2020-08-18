@@ -33,7 +33,7 @@ def update_titles(modeladmin, request, queryset):
     archive_links([
         snapshot.as_link()
         for snapshot in queryset
-    ], overwrite=True, methods=('title',), out_dir=OUTPUT_DIR)
+    ], overwrite=True, methods=('title','favicon'), out_dir=OUTPUT_DIR)
 update_titles.short_description = "Pull title"
 
 def overwrite_snapshots(modeladmin, request, queryset):
@@ -58,9 +58,9 @@ delete_snapshots.short_description = "Delete"
 class SnapshotAdmin(admin.ModelAdmin):
     list_display = ('added', 'title_str', 'url_str', 'files', 'size')
     sort_fields = ('title_str', 'url_str', 'added')
-    readonly_fields = ('id', 'url', 'timestamp', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
+    readonly_fields = ('id', 'url', 'timestamp', 'title', 'tags', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
     search_fields = ('url', 'timestamp', 'title', 'tags')
-    fields = ('title', 'tags', *readonly_fields)
+    fields = (*readonly_fields,)
     list_filter = ('added', 'updated', 'tags')
     ordering = ['-added']
     actions = [delete_snapshots, overwrite_snapshots, update_snapshots, update_titles, verify_snapshots]
@@ -82,12 +82,12 @@ class SnapshotAdmin(admin.ModelAdmin):
             '<a href="/{}">'
                 '<img src="/{}/{}" class="favicon" onerror="this.remove()">'
             '</a>'
-            '<a href="/{}/{}">'
+            '<a href="/{}/index.html">'
                 '<b class="status-{}">{}</b>'
             '</a>',
             obj.archive_path,
             obj.archive_path, canon['favicon_path'],
-            obj.archive_path, canon['wget_path'] or '',
+            obj.archive_path,
             'fetched' if obj.latest_title or obj.title else 'pending',
             urldecode(htmldecode(obj.latest_title or obj.title or ''))[:128] or 'Pending...'
         ) + mark_safe(f'<span class="tags">{tags}</span>')

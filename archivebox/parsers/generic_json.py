@@ -13,7 +13,7 @@ from ..util import (
 
 
 @enforce_types
-def parse_generic_json_export(json_file: IO[str]) -> Iterable[Link]:
+def parse_generic_json_export(json_file: IO[str], **_kwargs) -> Iterable[Link]:
     """Parse JSON-format bookmarks export files (produced by pinboard.in/export/, or wallabag)"""
 
     json_file.seek(0)
