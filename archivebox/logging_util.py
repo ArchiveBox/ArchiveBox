@@ -162,12 +162,10 @@ def progress_bar(seconds: int, prefix: str='') -> None:
 def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str], pwd: str):
     from .config import VERSION, ANSI
     cmd = ' '.join(('archivebox', subcommand, *subcommand_args))
-    stdin_hint = ' < /dev/stdin' if not stdin.isatty() else ''
-    stderr('{black}[i] [{now}] ArchiveBox v{VERSION}: {cmd}{stdin_hint}{reset}'.format(
+    stderr('{black}[i] [{now}] ArchiveBox v{VERSION}: {cmd}{reset}'.format(
         now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         VERSION=VERSION,
         cmd=cmd,
-        stdin_hint=stdin_hint,
         **ANSI,
     ))
     stderr('{black}    > {pwd}{reset}'.format(pwd=pwd, **ANSI))
@@ -198,7 +196,8 @@ def log_deduping_finished(num_new_links: int):
 
 
 def log_crawl_started(new_links):
-    print('{lightred}[*] Starting crawl of {} sites 1 hop out from starting point{reset}'.format(len(new_links), **ANSI))
+    print()
+    print('{green}[*] Starting crawl of {} sites 1 hop out from starting point{reset}'.format(len(new_links), **ANSI))
 
 ### Indexing Stage
 
@@ -347,7 +346,7 @@ def log_archive_method_finished(result: "ArchiveResult"):
 
         # Collect and prefix output lines with indentation
         output_lines = [
-            '{lightred}Failed:{reset}'.format(**ANSI),
+            '{lightyellow}Extractor failed:{reset}'.format(**ANSI),
             '    {reset}{} {red}{}{reset}'.format(
                 result.output.__class__.__name__.replace('ArchiveError', ''),
                 result.output, 
