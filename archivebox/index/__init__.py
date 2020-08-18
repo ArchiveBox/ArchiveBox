@@ -236,7 +236,7 @@ def timed_index_update(out_path: str):
 
 
 @enforce_types
-def write_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=False, write_static: bool=False) -> None:
+def write_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=False) -> None:
     """create index.html file for a given list of links"""
 
     log_indexing_process_started(len(links))
@@ -246,7 +246,7 @@ def write_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=
             write_sql_main_index(links, out_dir=out_dir)
             os.chmod(os.path.join(out_dir, SQL_INDEX_FILENAME), int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
 
-        if write_static:
+        if finished:
             with timed_index_update(os.path.join(out_dir, JSON_INDEX_FILENAME)):
                 write_json_main_index(links, out_dir=out_dir)
 
