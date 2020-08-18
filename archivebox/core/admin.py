@@ -82,12 +82,12 @@ class SnapshotAdmin(admin.ModelAdmin):
             '<a href="/{}">'
                 '<img src="/{}/{}" class="favicon" onerror="this.remove()">'
             '</a>'
-            '<a href="/{}/{}">'
+            '<a href="/{}/index.html">'
                 '<b class="status-{}">{}</b>'
             '</a>',
             obj.archive_path,
             obj.archive_path, canon['favicon_path'],
-            obj.archive_path, canon['wget_path'] or '',
+            obj.archive_path,
             'fetched' if obj.latest_title or obj.title else 'pending',
             urldecode(htmldecode(obj.latest_title or obj.title or ''))[:128] or 'Pending...'
         ) + mark_safe(f'<span class="tags">{tags}</span>')
