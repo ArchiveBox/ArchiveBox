@@ -45,7 +45,8 @@ echo "[*] Bumping VERSION from $OLD_VERSION to $NEW_VERSION"
 contents="$(jq ".version = \"$NEW_VERSION\"" "$REPO_DIR/package.json")" && \
 echo "${contents}" > package.json
 git add "$REPO_DIR/docs"
-git add "$VERSION_FILE"
+git add "$REPO_DIR/package.json"
+git add "$REPO_DIR/package-lock.json"
 
 echo "[*] Cleaning up build dirs"
 cd "$REPO_DIR"
