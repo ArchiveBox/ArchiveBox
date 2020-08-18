@@ -11,7 +11,7 @@ import platform
 
 from hashlib import md5
 from pathlib import Path
-from typing import Optional, Type, Tuple, Dict
+from typing import Optional, Type, Tuple, Dict, Union, List
 from subprocess import run, PIPE, DEVNULL
 from configparser import ConfigParser
 from collections import defaultdict
@@ -469,9 +469,7 @@ def load_config(defaults: ConfigDefaultDict,
 
 #     with open(os.path.join(config['OUTPUT_DIR'], CONFIG_FILENAME), 'w+') as f:
 
-
-
-def stderr(*args, color: Optional[str]=None, config: Optional[ConfigDict]=None) -> None:
+def stdout(*args, color: Optional[str]=None, prefix: str='', config: Optional[ConfigDict]=None) -> None:
     ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
 
     if color:
@@ -479,7 +477,28 @@ def stderr(*args, color: Optional[str]=None, config: Optional[ConfigDict]=None) 
     else:
         strs = [' '.join(str(a) for a in args), '\n']
 
-    sys.stderr.write(''.join(strs))
+    sys.stdout.write(prefix + ''.join(strs))
+
+def stderr(*args, color: Optional[str]=None, prefix: str='', config: Optional[ConfigDict]=None) -> None:
+    ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
+
+    if color:
+        strs = [ansi[color], ' '.join(str(a) for a in args), ansi['reset'], '\n']
+    else:
+        strs = [' '.join(str(a) for a in args), '\n']
+
+    sys.stderr.write(prefix + ''.join(strs))
+
+def hint(text: Union[Tuple[str, ...], List[str], str], prefix='    ', config: Optional[ConfigDict]=None) -> None:
+    ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
+
+    if isinstance(text, str):
+        stderr('{}{lightred}Hint:{reset} {}'.format(prefix, text, **ansi))
+    else:
+        stderr('{}{lightred}Hint:{reset} {}'.format(prefix, text[0], **ansi))
+        for line in text[1:]:
+            stderr('{}      {}'.format(prefix, line))
+
 
 def bin_version(binary: Optional[str]) -> Optional[str]:
     """check the presence and return valid version line of a specified binary"""
