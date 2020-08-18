@@ -29,7 +29,7 @@ def should_save_singlefile(link: Link, out_dir: Optional[str]=None) -> bool:
         return False
 
     output = Path(out_dir or link.link_dir) / 'singlefile.html'
-    return SAVE_SINGLEFILE and (not output.exists())
+    return SAVE_SINGLEFILE and SINGLEFILE_VERSION and (not output.exists())
 
 
 @enforce_types

@@ -799,27 +799,40 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
 
 def dependency_additional_info(dependency: str) -> str:
     if dependency == "SINGLEFILE_BINARY":
-        return "Please follow the installation instructions at https://github.com/gildas-lormeau/SingleFile/tree/master/cli and set SINGLEFILE_BINARY or set USE_SINGLEFILE=false"
+        return (
+            "npm install -g git+https://github.com/gildas-lormeau/SingleFile.git"
+            "\n        and set SINGLEFILE_BINARY=$(which single-file)"
+            "\n        or set USE_SINGLEFILE=False"
+        )
+    if dependency == "READABILITY_BINARY":
+        return (
+            "npm install -g git+https://github.com/pirate/readability-extractor.git"
+            "\n        and set READABILITY_BINARY=$(which readability-extractor)"
+            "\n        or set USE_READABILITY=False"
+        )
     return ""
 
 
 def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
     invalid = [
-        '{}: {} ({}). {}'.format(name, info['path'] or 'unable to find binary', info['version'] or 'unable to detect version',
-                                 dependency_additional_info(name))
-        for name, info in config['DEPENDENCIES'].items()
+        (name, info) for name, info in config['DEPENDENCIES'].items()
         if info['enabled'] and not info['is_valid']
     ]
-
-    if invalid:
-        stderr('[X] Missing some required dependencies.', color='red')
-        stderr()
-        stderr('    {}'.format('\n    '.join(invalid)))
-        if show_help:
+    if invalid and show_help:
+        stderr(f'[!] Warning: Missing {len(invalid)} recommended dependencies', color='lightyellow')
+        for name, info in invalid:
+            stderr(
+                '{}: {} ({})'.format(
+                    name,
+                    info['path'] or 'unable to find binary',
+                    info['version'] or 'unable to detect version',
+                )
+            )
+            stderr(f'    {dependency_additional_info(name)}')
             stderr()
-            stderr('    To get more info on dependency status run:')
-            stderr('        archivebox --version')
-        raise SystemExit(2)
+            stderr('To get more info on dependencies run:')
+            stderr('    archivebox --version')
+            stderr('')
 
     if config['TIMEOUT'] < 5:
         stderr()
