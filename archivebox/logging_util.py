@@ -537,7 +537,7 @@ def printable_dependency_version(name: str, dependency: Dict) -> str:
     else:
         color, symbol, note, version = 'lightyellow', '-', 'disabled', '-'
 
-    if ' ' in dependency["path"]:
+    if ' ' in (dependency["path"] or ''):
         dependency["path"] = f'"{dependency["path"]}"'
 
     return ' '.join((
