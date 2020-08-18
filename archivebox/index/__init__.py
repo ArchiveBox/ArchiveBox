@@ -63,7 +63,7 @@ def merge_links(a: Link, b: Link) -> Link:
     """deterministially merge two links, favoring longer field values over shorter,
     and "cleaner" values over worse ones.
     """
-    assert a.base_url == b.base_url, 'Cannot merge two links with different URLs'
+    assert a.base_url == b.base_url, f'Cannot merge two links with different URLs ({a.base_url} != {b.base_url})'
 
     # longest url wins (because a fuzzy url will always be shorter)
     url = a.url if len(a.url) > len(b.url) else b.url
