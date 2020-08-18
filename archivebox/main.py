@@ -47,7 +47,6 @@ from .index.json import (
     parse_json_links_details,
 )
 from .index.sql import (
-    parse_sql_main_index,
     get_admins,
     apply_migrations,
     remove_from_sql_main_index,
