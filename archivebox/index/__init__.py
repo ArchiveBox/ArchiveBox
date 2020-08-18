@@ -328,46 +328,6 @@ def dedupe_links(existing_links: List[Link],
 
     return all_links, new_links
 
-
-@enforce_types
-def patch_main_index(link: Link, out_dir: str=OUTPUT_DIR) -> None:
-    """hack to in-place update one row's info in the generated index files"""
-
-    # TODO: remove this ASAP, it's ugly, error-prone, and potentially dangerous
-
-    title = link.title or link.latest_outputs(status='succeeded')['title']
-    successful = link.num_outputs
-
-    # Patch JSON main index
-    json_file_links = parse_json_main_index(out_dir)
-    patched_links = []
-    for saved_link in json_file_links:
-        if saved_link.url == link.url:
-            patched_links.append(saved_link.overwrite(
-                title=title,
-                history=link.history,
-                updated=link.updated,
-            ))
-        else:
-            patched_links.append(saved_link)
-    
-    write_json_main_index(patched_links, out_dir=out_dir)
-
-    # Patch HTML main index
-    html_path = os.path.join(out_dir, 'index.html')
-    with open(html_path, 'r') as f:
-        html = f.read().splitlines()
-
-    for idx, line in enumerate(html):
-        if title and ('<span data-title-for="{}"'.format(link.url) in line):
-            html[idx] = '<span>{}</span>'.format(title)
-        elif successful and ('<span data-number-for="{}"'.format(link.url) in line):
-            html[idx] = '<span>{}</span>'.format(successful)
-            break
-
-    atomic_write(html_path, '\n'.join(html))
-
-
 ### Link Details Index
 
 @enforce_types
