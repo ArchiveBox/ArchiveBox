@@ -55,6 +55,7 @@ from .index.html import parse_html_main_index
 from .extractors import archive_links, archive_link, ignore_methods
 from .config import (
     stderr,
+    hint,
     ConfigDict,
     ANSI,
     IS_TTY,
@@ -523,10 +524,14 @@ def add(urls: Union[str, List[str]],
         update_all: bool=not ONLY_NEW,
         index_only: bool=False,
         overwrite: bool=False,
+        init: bool=False,
         out_dir: str=OUTPUT_DIR) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
+
+    if init:
+        run_subcommand('init', stdin=None, pwd=out_dir)
 
     # Load list of links from the existing index
     check_data_folder(out_dir=out_dir)
@@ -605,8 +610,8 @@ def remove(filter_str: Optional[str]=None,
                 color='red',
             )
             stderr()
-            stderr('    {lightred}Hint:{reset} To remove all urls you can run:'.format(**ANSI))
-            stderr("        archivebox remove --filter-type=regex '.*'")
+            hint(('To remove all urls you can run:',
+                  'archivebox remove --filter-type=regex ".*"'))
             stderr()
             raise SystemExit(2)
         elif filter_str:
@@ -1065,7 +1070,7 @@ def server(runserver_args: Optional[List[str]]=None,
 
     print('{green}[+] Starting ArchiveBox webserver...{reset}'.format(**ANSI))
     if admin_user:
-        print("{lightred}[i] The admin username is:{lightblue} {}{reset}".format(admin_user.username, **ANSI))
+        hint('The admin username is{lightblue} {}{reset}\n'.format(admin_user.username, **ANSI))
     else:
         print('{lightyellow}[!] No admin users exist yet, you will not be able to edit links in the UI.{reset}'.format(**ANSI))
         print()
