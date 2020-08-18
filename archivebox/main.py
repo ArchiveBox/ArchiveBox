@@ -3,6 +3,7 @@ __package__ = 'archivebox'
 import os
 import sys
 import shutil
+from pathlib import Path
 
 from typing import Dict, List, Optional, Iterable, IO, Union
 from crontab import CronTab, CronSlices
@@ -252,7 +253,8 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
     os.makedirs(out_dir, exist_ok=True)
     is_empty = not len(set(os.listdir(out_dir)) - ALLOWED_IN_OUTPUT_DIR)
-    existing_index = os.path.exists(os.path.join(out_dir, JSON_INDEX_FILENAME))
+
+    existing_index = (Path(out_dir) / SQL_INDEX_FILENAME).exists()
 
     if is_empty and not existing_index:
         print('{green}[+] Initializing a new ArchiveBox collection in this folder...{reset}'.format(**ANSI))
@@ -264,11 +266,11 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
         print('{green}------------------------------------------------------------------{reset}'.format(**ANSI))
     else:
         if force:
-            stderr('[!] This folder appears to already have files in it, but no index.json is present.', color='lightyellow')
+            stderr('[!] This folder appears to already have files in it, but no index.sqlite3 is present.', color='lightyellow')
             stderr('    Because --force was passed, ArchiveBox will initialize anyway (which may overwrite existing files).')
         else:
             stderr(
-                ("{red}[X] This folder appears to already have files in it, but no index.json is present.{reset}\n\n"
+                ("{red}[X] This folder appears to already have files in it, but no index.sqlite3 present.{reset}\n\n"
                 "    You must run init in a completely empty directory, or an existing data folder.\n\n"
                 "    {lightred}Hint:{reset} To import an existing data folder make sure to cd into the folder first, \n"
                 "    then run and run 'archivebox init' to pick up where you left off.\n\n"
@@ -342,16 +344,6 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
         all_links.update(orphaned_json_links)
         print('    {lightyellow}√ Added {} orphaned links from existing JSON index...{reset}'.format(len(orphaned_json_links), **ANSI))
 
-    # Links in SQL index but not in main index
-    orphaned_sql_links = {
-        link.url: link
-        for link in parse_sql_main_index(out_dir)
-        if link.url not in all_links
-    }
-    if orphaned_sql_links:
-        all_links.update(orphaned_sql_links)
-        print('    {lightyellow}√ Added {} orphaned links from existing SQL index...{reset}'.format(len(orphaned_sql_links), **ANSI))
-
     # Links in data dir indexes but not in main index
     orphaned_data_dir_links = {
         link.url: link
@@ -376,7 +368,7 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
         print('        archivebox list --status=invalid')
 
 
-    write_main_index(list(all_links.values()), out_dir=out_dir)
+    write_main_index(list(all_links.values()), out_dir=out_dir, write_static=True)
 
     print('\n{green}------------------------------------------------------------------{reset}'.format(**ANSI))
     if existing_index:
