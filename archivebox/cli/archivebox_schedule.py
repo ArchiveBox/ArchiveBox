@@ -39,6 +39,12 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         default='day',
         help='Run ArchiveBox once every [timeperiod] (hour/day/week/month/year or cron format e.g. "0 0 * * *")',
     )
+    parser.add_argument(
+        '--depth', # '-d',
+        type=int,
+        default=0,
+        help='Depth to archive to [0] or 1, see "add" command help for more info.',
+    )
     group.add_argument(
         '--clear', # '-c'
         action='store_true',
@@ -80,6 +86,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         run_all=command.run_all,
         quiet=command.quiet,
         every=command.every,
+        depth=command.depth,
         import_path=command.import_path,
         out_dir=pwd or OUTPUT_DIR,
     )

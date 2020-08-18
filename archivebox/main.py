@@ -910,6 +910,7 @@ def schedule(add: bool=False,
              run_all: bool=False,
              quiet: bool=False,
              every: Optional[str]=None,
+             depth: int=0,
              import_path: Optional[str]=None,
              out_dir: str=OUTPUT_DIR):
     """Set ArchiveBox to regularly import URLs at specific times using cron"""
@@ -922,52 +923,14 @@ def schedule(add: bool=False,
     cron = dedupe_cron_jobs(cron)
 
     existing_jobs = list(cron.find_comment(CRON_COMMENT))
-    if foreground or run_all:
-        if import_path or (not existing_jobs):
-            stderr('{red}[X] You must schedule some jobs first before running in foreground mode.{reset}'.format(**ANSI))
-            stderr('    archivebox schedule --every=hour https://example.com/some/rss/feed.xml')
-            raise SystemExit(1)
-        print('{green}[*] Running {} ArchiveBox jobs in foreground task scheduler...{reset}'.format(len(existing_jobs), **ANSI))
-        if run_all:
-            try:
-                for job in existing_jobs:
-                    sys.stdout.write(f'  > {job.command}')
-                    sys.stdout.flush()
-                    job.run()
-                    sys.stdout.write(f'\r  √ {job.command}\n')
-            except KeyboardInterrupt:
-                print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
-                raise SystemExit(1)
-        if foreground:
-            try:
-                for result in cron.run_scheduler():
-                    print(result)
-            except KeyboardInterrupt:
-                print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
-                raise SystemExit(1)
-
-    elif show:
-        if existing_jobs:
-            print('\n'.join(str(cmd) for cmd in existing_jobs))
-        else:
-            stderr('{red}[X] There are no ArchiveBox cron jobs scheduled for your user ({}).{reset}'.format(USER, **ANSI))
-            stderr('    To schedule a new job, run:')
-            stderr('        archivebox schedule --every=[timeperiod] https://example.com/some/rss/feed.xml')
-        raise SystemExit(0)
-
-    elif clear:
-        print(cron.remove_all(comment=CRON_COMMENT))
-        cron.write()
-        raise SystemExit(0)
-
-    elif every:
+    if every:
         quoted = lambda s: f'"{s}"' if s and ' ' in s else s
         cmd = [
             'cd',
             quoted(out_dir),
             '&&',
             quoted(ARCHIVEBOX_BINARY),
-            *(['add', f'"{import_path}"'] if import_path else ['update']),
+            *(['add', f'--depth={depth}', f'"{import_path}"'] if import_path else ['update']),
             '2>&1',
             '>',
             quoted(os.path.join(LOGS_DIR, 'archivebox.log')),
