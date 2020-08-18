@@ -92,7 +92,7 @@ curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
   && apt-get install -qq -y --no-install-recommends nodejs
 
 pip install archivebox      # install archivebox
-npm run setup
+npm install -g 'git+https://github.com/pirate/ArchiveBox.git'
 
 mkdir data && cd data       # (doesn't have to be called data)
 archivebox init
