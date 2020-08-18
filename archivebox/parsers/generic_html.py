@@ -30,7 +30,7 @@ class HrefParser(HTMLParser):
 
 @enforce_types
 def parse_generic_html_export(html_file: IO[str], root_url: Optional[str]=None, **_kwargs) -> Iterable[Link]:
-    """Parse Pocket-format bookmarks export files (produced by getpocket.com/export/)"""
+    """Parse Generic HTML for href tags and use only the url (support for title coming later)"""
 
     html_file.seek(0)
     for line in html_file:
