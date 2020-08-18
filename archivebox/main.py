@@ -367,7 +367,7 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
         print('        archivebox list --status=invalid')
 
 
-    write_main_index(list(all_links.values()), out_dir=out_dir)
+    write_main_index(list(all_links.values()), out_dir=out_dir, finished=True)
 
     print('\n{green}------------------------------------------------------------------{reset}'.format(**ANSI))
     if existing_index:
