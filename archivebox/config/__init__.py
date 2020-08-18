@@ -508,16 +508,9 @@ def bin_version(binary: Optional[str]) -> Optional[str]:
         return None
 
     try:
-        if binary.split('/')[-1] in ('single-file',):
-            # these dependencies dont support the --version flag, but are valid still
-            if run([abspath, "--help"], stdout=PIPE).returncode == 0:
-                return '0.0.0'
-            else:
-                return None
-        else:
-            version_str = run([abspath, "--version"], stdout=PIPE).stdout.strip().decode()
-            # take first 3 columns of first line of version info
-            return ' '.join(version_str.split('\n')[0].strip().split()[:3])
+        version_str = run([abspath, "--version"], stdout=PIPE).stdout.strip().decode()
+        # take first 3 columns of first line of version info
+        return ' '.join(version_str.split('\n')[0].strip().split()[:3])
     except OSError:
         pass
         # stderr(f'[X] Unable to find working version of dependency: {binary}', color='red')
