@@ -1,5 +1,5 @@
-include LICENSE
-include README.md
-include package.json
-include package-lock.json
+graft LICENSE
+graft README.md
+graft package.json
+graft package-lock.json
 recursive-include archivebox/themes *

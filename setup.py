@@ -1,7 +1,13 @@
+import sys
 import json
 import setuptools
 
 from pathlib import Path
+from subprocess import check_call
+from setuptools.command.install import install
+from setuptools.command.develop import develop
+from setuptools.command.egg_info import egg_info
+
 
 PKG_NAME = "archivebox"
 REPO_URL = "https://github.com/pirate/ArchiveBox"
@@ -14,6 +20,36 @@ VERSION = json.loads((BASE_DIR / "package.json").read_text().strip())['version']
 # import sys
 # print(SOURCE_DIR, f"     (v{VERSION})")
 # print('>', sys.executable, *sys.argv)
+
+
+def setup_js():
+    if sys.platform.lower() not in ('darwin', 'linux'):
+        sys.stderr.write('[!] Warning: ArchiveBox is not supported on this platform.\n')
+
+    sys.stderr.write(f'[+] Installing ArchiveBox npm package (BASE_DIR={BASE_DIR})...\n')
+    try:
+        check_call(f'which npm && npm --version && npm install --global "{BASE_DIR}"', shell=True)
+        sys.stderr.write('[√] Automatically installed npm dependencies.\n')
+    except Exception as err:
+        sys.stderr.write(f'[!] Failed to auto-install npm dependencies: {err}\n')
+        sys.stderr.write('     Install NPM/npm using your system package manager, then run:\n')
+        sys.stderr.write('     npm install -g "git+https://github.com/pirate/ArchiveBox.git\n')
+
+
+class CustomInstallCommand(install):
+    def run(self):
+        super().run()
+        setup_js()
+
+class CustomDevelopCommand(develop):
+    def run(self):
+        super().run()
+        setup_js()
+
+class CustomEggInfoCommand(egg_info):
+    def run(self):
+        super().run()
+        setup_js()
 
 
 setuptools.setup(
@@ -81,6 +117,11 @@ setuptools.setup(
         ],
     },
     include_package_data=True,
+    cmdclass={
+        'install': CustomInstallCommand,
+        'develop': CustomDevelopCommand,
+        'egg_info': CustomEggInfoCommand,
+    },
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Natural Language :: English",

@@ -104,11 +104,11 @@ def main(args: Optional[List[str]]=NotProvided, stdin: Optional[IO]=NotProvided,
     )
     command = parser.parse_args(args or ())
 
-    if command.help or command.subcommand is None:
-        command.subcommand = 'help'
-    elif command.version:
+    if command.version:
         command.subcommand = 'version'
-    
+    elif command.help or command.subcommand is None:
+        command.subcommand = 'help'
+
     if command.subcommand not in ('help', 'version', 'status'):
         from ..logging_util import log_cli_command
 
