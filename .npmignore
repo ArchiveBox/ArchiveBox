@@ -1,0 +1,15 @@
+tests/
+archivebox/
+build/
+dist/
+docs/
+etc/
+.dockerignore
+.flake8
+CNAME
+docker-compose.yaml
+docker-compose.yml
+Dockerfile
+MANIFEST.in
+Pipfile
+setup.py
