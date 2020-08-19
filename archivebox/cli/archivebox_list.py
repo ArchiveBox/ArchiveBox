@@ -23,7 +23,7 @@ from ..index import (
     get_corrupted_folders,
     get_unrecognized_folders,
 )
-from ..logging_util import SmartFormatter, accept_stdin
+from ..logging_util import SmartFormatter, accept_stdin, stderr
 
 
 @docstring(list_all.__doc__)
@@ -111,6 +111,13 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     )
     command = parser.parse_args(args or ())
     filter_patterns_str = accept_stdin(stdin)
+
+    if command.index and not (command.json or command.html):
+        stderr(
+            '[X] --index can only be used with --json or --html options.\n',
+            color='red',
+        )
+        raise SystemExit(2)
 
     matching_folders = list_all(
         filter_patterns_str=filter_patterns_str,

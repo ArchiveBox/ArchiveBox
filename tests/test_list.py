@@ -32,3 +32,7 @@ def test_list_html_index(process, disable_extractors_dict):
     output_html = list_process.stdout.decode("utf-8")
     assert "<footer>" in output_html
     assert "http://127.0.0.1:8080/static/example.com.html" in output_html
+
+def test_list_index_with_wrong_flags(process):
+    list_process = subprocess.run(["archivebox", "list", "--index"], capture_output=True)
+    assert "--index can only be used with --json or --html options." in list_process.stderr.decode("utf-8")
