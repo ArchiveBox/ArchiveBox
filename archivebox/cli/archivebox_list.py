@@ -47,6 +47,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help="Print the output in JSON format with all columns included.",
     )
     parser.add_argument(
+        '--index',
+        action='store_true',
+        help='Include the index additional structures'
+    )
+    parser.add_argument(
         '--sort', #'-s',
         type=str,
         help="List the links sorted using the given key, e.g. timestamp or updated.",
@@ -112,6 +117,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         sort=command.sort,
         csv=command.csv,
         json=command.json,
+        index=command.index,
         out_dir=pwd or OUTPUT_DIR,
     )
     raise SystemExit(not matching_folders)
