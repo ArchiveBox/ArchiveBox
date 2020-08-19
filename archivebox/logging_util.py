@@ -14,6 +14,8 @@ from typing import Optional, List, Dict, Union, IO, TYPE_CHECKING
 if TYPE_CHECKING:
     from .index.schema import Link, ArchiveResult
 
+from .index.json import MAIN_INDEX_HEADER
+
 from .util import enforce_types
 from .config import (
     ConfigDict,
@@ -460,10 +462,22 @@ def printable_filesize(num_bytes: Union[int, float]) -> str:
 @enforce_types
 def printable_folders(folders: Dict[str, Optional["Link"]],
                       json: bool=False,
-                      csv: Optional[str]=None) -> str:
+                      csv: Optional[str]=None,
+                      index: bool=False) -> str:
+    links = folders.values()
     if json: 
         from .index.json import to_json
-        return to_json(folders.values(), indent=4, sort_keys=True)
+        if index:
+            output = {
+                **MAIN_INDEX_HEADER,
+                'num_links': len(links),
+                'updated': datetime.now(),
+                'last_run_cmd': sys.argv,
+                'links': links,
+            }
+        else:
+            output = links
+        return to_json(output, indent=4, sort_keys=True)
 
     elif csv:
         from .index.csv import links_to_csv

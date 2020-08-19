@@ -151,7 +151,7 @@ def help(out_dir: str=OUTPUT_DIR) -> None:
     )
 
 
-    if os.path.exists(os.path.join(out_dir, JSON_INDEX_FILENAME)):
+    if os.path.exists(os.path.join(out_dir, SQL_INDEX_FILENAME)):
         print('''{green}ArchiveBox v{}: The self-hosted internet archive.{reset}
 
 {lightred}Active data directory:{reset}
@@ -730,6 +730,7 @@ def list_all(filter_patterns_str: Optional[str]=None,
              sort: Optional[str]=None,
              csv: Optional[str]=None,
              json: bool=False,
+             index: bool=False,
              out_dir: str=OUTPUT_DIR) -> Iterable[Link]:
     """List, filter, and export information about archive entries"""
     
@@ -762,7 +763,7 @@ def list_all(filter_patterns_str: Optional[str]=None,
         out_dir=out_dir,
     )
     
-    print(printable_folders(folders, json=json, csv=csv))
+    print(printable_folders(folders, json=json, csv=csv, index=index))
     return folders
 
 
