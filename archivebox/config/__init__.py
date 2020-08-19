@@ -570,8 +570,6 @@ def find_chrome_binary() -> Optional[str]:
         if full_path_exists:
             return name
     
-    stderr('[X] Unable to find a working version of Chrome/Chromium, is it installed and in your $PATH?', color='red')
-    stderr()
     return None
 
 def find_chrome_data_dir() -> Optional[str]:
