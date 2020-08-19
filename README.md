@@ -84,22 +84,29 @@ open http://127.0.0.1:8000
 # Bare Metal
 # Use apt on Ubuntu/Debian, brew on mac, or pkg on BSD
 # You may need to add a ppa with a more recent version of nodejs
-apt install python3 python3-pip git curl wget youtube-dl chromium-browser
+apt install python3 python3-pip python3-dev git curl wget youtube-dl chromium-browser
 
+# Install Node + NPM
 curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
   && echo 'deb https://deb.nodesource.com/node_14.x $(lsb_release -cs) main' >> /etc/apt/sources.list \
   && apt-get update -qq \
   && apt-get install -qq -y --no-install-recommends nodejs
 
-pip install archivebox      # install archivebox
-npm install -g 'git+https://github.com/pirate/ArchiveBox.git'
-
+# Make a directory to hold your collection
 mkdir data && cd data       # (doesn't have to be called data)
+
+# Install python package (or do this in a .venv if you want)
+pip install --upgrade archivebox
+
+# Install node packages (needed for SingleFile, Readability, and Puppeteer)
+npm install --prefix data 'git+https://github.com/pirate/ArchiveBox.git' 
+
 archivebox init
 archivebox add 'https://example.com'  # add URLs via args or stdin
 
 # or import an RSS/JSON/XML/TXT feed/list of links
-archivebox add https://getpocket.com/users/USERNAME/feed/all --depth=1
+curl https://getpocket.com/users/USERNAME/feed/all | archivebox add
+archivebox add --depth=1 https://example.com/table-of-contents.html
 ```
 
 Once you've added your first links, open `data/index.html` in a browser to view the static archive.
@@ -142,7 +149,8 @@ All the archived links are stored by date bookmarked in `./archive/<timestamp>`,
 echo 'http://example.com' | archivebox add
 archivebox add 'https://example.com/some/page'
 archivebox add < ~/Downloads/firefox_bookmarks_export.html
-archivebox add --depth=1 'https://example.com/some/rss/feed.xml'
+archivebox add < any_text_with_urls_in_it.txt
+archivebox add --depth=1 'https://example.com/some/downloads.html'
 archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
 ```
 
