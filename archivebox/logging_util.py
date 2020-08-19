@@ -462,6 +462,7 @@ def printable_filesize(num_bytes: Union[int, float]) -> str:
 @enforce_types
 def printable_folders(folders: Dict[str, Optional["Link"]],
                       json: bool=False,
+                      html: bool=False,
                       csv: Optional[str]=None,
                       index: bool=False) -> str:
     links = folders.values()
@@ -478,7 +479,14 @@ def printable_folders(folders: Dict[str, Optional["Link"]],
         else:
             output = links
         return to_json(output, indent=4, sort_keys=True)
-
+    elif html:
+        from .index.html import main_index_template
+        if index:
+            output = main_index_template(links, True)
+        else:
+            from .index.html import MINIMAL_INDEX_TEMPLATE
+            output = main_index_template(links, True, MINIMAL_INDEX_TEMPLATE)
+        return output
     elif csv:
         from .index.csv import links_to_csv
         return links_to_csv(folders.values(), cols=csv.split(','), header=True)

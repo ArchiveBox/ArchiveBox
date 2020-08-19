@@ -31,6 +31,7 @@ from ..config import (
 
 join = lambda *paths: os.path.join(*paths)
 MAIN_INDEX_TEMPLATE = join(TEMPLATES_DIR, 'main_index.html')
+MINIMAL_INDEX_TEMPLATE = join(TEMPLATES_DIR, 'main_index_minimal.html')
 MAIN_INDEX_ROW_TEMPLATE = join(TEMPLATES_DIR, 'main_index_row.html')
 LINK_DETAILS_TEMPLATE = join(TEMPLATES_DIR, 'link_details.html')
 TITLE_LOADING_MSG = 'Not yet archived...'
@@ -63,10 +64,10 @@ def write_html_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: 
 
 
 @enforce_types
-def main_index_template(links: List[Link], finished: bool=True) -> str:
+def main_index_template(links: List[Link], finished: bool=True, template: str=MAIN_INDEX_TEMPLATE) -> str:
     """render the template for the entire main index"""
 
-    return render_legacy_template(MAIN_INDEX_TEMPLATE, {
+    return render_legacy_template(template, {
         'version': VERSION,
         'git_sha': GIT_SHA,
         'num_links': str(len(links)),
