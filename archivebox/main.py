@@ -730,6 +730,7 @@ def list_all(filter_patterns_str: Optional[str]=None,
              sort: Optional[str]=None,
              csv: Optional[str]=None,
              json: bool=False,
+             html: bool=False,
              index: bool=False,
              out_dir: str=OUTPUT_DIR) -> Iterable[Link]:
     """List, filter, and export information about archive entries"""
@@ -763,7 +764,7 @@ def list_all(filter_patterns_str: Optional[str]=None,
         out_dir=out_dir,
     )
     
-    print(printable_folders(folders, json=json, csv=csv, index=index))
+    print(printable_folders(folders, json=json, csv=csv, html=html, index=index))
     return folders
 
 

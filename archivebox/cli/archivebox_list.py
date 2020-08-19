@@ -46,6 +46,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         action='store_true',
         help="Print the output in JSON format with all columns included.",
     )
+    group.add_argument(
+        '--html',
+        action='store_true',
+        help="Print the output in HTML format"
+    )
     parser.add_argument(
         '--index',
         action='store_true',
@@ -117,6 +122,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         sort=command.sort,
         csv=command.csv,
         json=command.json,
+        html=command.html,
         index=command.index,
         out_dir=pwd or OUTPUT_DIR,
     )
