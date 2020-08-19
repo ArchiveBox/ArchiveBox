@@ -33,11 +33,16 @@ You can use it to preserve access to websites you care about by storing them loc
 #### How does it work?
 
 ```bash
+pip install archivebox
 mkdir data && cd data
 archivebox init
+
 archivebox add 'https://example.com'
-archivebox add 'https://getpocket.com/users/USERNAME/feed/all' --depth=1
-archivebox server
+archivebox add --depth=1 'https://example.com/table-of-contents.html'
+echo 'any text with https://example.com URLs in it' | archivebox add
+
+# open the static data/index.html, or use the interactive web GUI:
+archivebox server 0.0.0.0:8000
 ```
 
 After installing archivebox, just pass some new links to the `archivebox add` command to start your collection.
