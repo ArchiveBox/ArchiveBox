@@ -318,12 +318,11 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
     print('{green}[*] Collecting links from any existing indexes and archive folders...{reset}'.format(**ANSI))
 
     all_links: Dict[str, Link] = {}
+    pending_links: Dict[str, Link] = {}
+
     if existing_index:
-        all_links = {
-            link.url: link
-            for link in [x.as_link for x in load_main_index(out_dir=out_dir, warn=False)]
-        }
-        print('    √ Loaded {} links from existing main index.'.format(len(all_links)))
+        all_links = load_main_index(out_dir=out_dir, warn=False)
+        print('    √ Loaded {} links from existing main index.'.format(all_links.count()))
 
     # Links in data folders that dont match their timestamp
     fixed, cant_fix = fix_invalid_folder_locations(out_dir=out_dir)
@@ -336,27 +335,26 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
     orphaned_json_links = {
         link.url: link
         for link in parse_json_main_index(out_dir)
-        if link.url not in all_links
+        if not all_links.filter(url=link.url).exists()
     }
     if orphaned_json_links:
-        all_links.update(orphaned_json_links)
+        pending_links.update(orphaned_json_links)
         print('    {lightyellow}√ Added {} orphaned links from existing JSON index...{reset}'.format(len(orphaned_json_links), **ANSI))
 
     # Links in data dir indexes but not in main index
     orphaned_data_dir_links = {
         link.url: link
         for link in parse_json_links_details(out_dir)
-        if link.url not in all_links
+        if not all_links.filter(url=link.url).exists()
     }
     if orphaned_data_dir_links:
-        all_links.update(orphaned_data_dir_links)
+        pending_links.update(orphaned_data_dir_links)
         print('    {lightyellow}√ Added {} orphaned links from existing archive directories.{reset}'.format(len(orphaned_data_dir_links), **ANSI))
 
     # Links in invalid/duplicate data dirs
-    invalid_folders = {
-        folder: link
-        for folder, link in get_invalid_folders(all_links.values(), out_dir=out_dir).items()
-    }
+    invalid_folders: Dict[str, Link] = {}
+    for link in all_links:
+        invalid_folders.update(get_invalid_folders([link.as_link()], out_dir=out_dir).items())
     if invalid_folders:
         print('    {lightyellow}! Skipped adding {} invalid link data directories.{reset}'.format(len(invalid_folders), **ANSI))
         print('        X ' + '\n        X '.join(f'{folder} {link}' for folder, link in invalid_folders.items()))
@@ -366,7 +364,7 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
         print('        archivebox list --status=invalid')
 
 
-    write_main_index(list(all_links.values()), out_dir=out_dir, finished=True)
+    write_main_index(list(pending_links.values()), out_dir=out_dir, finished=True)
 
     print('\n{green}------------------------------------------------------------------{reset}'.format(**ANSI))
     if existing_index:
