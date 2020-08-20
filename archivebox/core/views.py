@@ -4,6 +4,7 @@ from django.shortcuts import render, redirect
 
 from django.http import HttpResponse
 from django.views import View, static
+from django.views.generic.list import ListView
 
 from core.models import Snapshot
 
@@ -102,3 +103,13 @@ class LinkDetails(View):
             content_type="text/plain",
             status=404,
         )
+
+class PublicArchiveView(ListView):
+    template = 'snapshot_list.html'
+    model = Snapshot
+    context_object_name = 'links'
+    paginate_by = 2
+    def get_context_data(self, *args, **kwargs):
+        context = super(PublicArchiveView, self).get_context_data(*args, **kwargs)
+        context['links'] = [snapshot.as_link for snapshot in Snapshot.objects.all()]
+        return context
