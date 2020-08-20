@@ -3,8 +3,11 @@ __package__ = 'archivebox.core'
 from django.shortcuts import render, redirect
 
 from django.http import HttpResponse
+from django.db.models import Q
 from django.views import View, static
 from django.views.generic.list import ListView
+
+from django_datatables_view.base_datatable_view import BaseDatatableView
 
 from core.models import Snapshot
 
@@ -107,9 +110,35 @@ class LinkDetails(View):
 class PublicArchiveView(ListView):
     template = 'snapshot_list.html'
     model = Snapshot
-    context_object_name = 'links'
-    paginate_by = 2
-    def get_context_data(self, *args, **kwargs):
-        context = super(PublicArchiveView, self).get_context_data(*args, **kwargs)
-        context['links'] = [snapshot.as_link for snapshot in Snapshot.objects.all()]
-        return context
+    paginate_by = 50
+
+    def get_queryset(self, *args, **kwargs): 
+        qs = super(PublicArchiveView, self).get_queryset(*args, **kwargs) 
+        for snapshot in qs:
+            snapshot.canonical_outputs = snapshot.as_link().canonical_outputs() 
+        return qs
+
+    def get(self, *args, **kwargs):
+        if PUBLIC_INDEX or self.request.user.is_authenticated:
+            response = super().get(*args, **kwargs)
+            return response
+        else:
+            return redirect(f'/admin/login/?next={self.request.path}')
+
+# should we use it?
+class SnapshotDatatableView(BaseDatatableView):
+    model = Snapshot
+    columns = ['url', 'timestamp', 'title', 'tags', 'added']
+
+    def filter_queryset(self, qs):
+        sSearch = self.request.GET.get('sSearch', None)
+        if sSearch:
+            qs = qs.filter(Q(title__icontains=sSearch))
+        return qs
+
+class SearchResultsView(PublicArchiveView):
+    def get_queryset(self, *args, **kwargs):
+        qs = super(PublicArchiveView, self).get_queryset(*args, **kwargs) 
+        query = self.request.GET.get('q')
+        results = qs.filter(title__icontains=query)
+        return results

@@ -202,6 +202,8 @@
             }, true)
             jQuery(document).ready(function() {
                 jQuery('#table-bookmarks').DataTable({
+                    searching: false,
+                    paging: false,
                     stateSave: true, // save state (filtered input, number of entries shown, etc) in localStorage
                     dom: '<lf<t>ip>', // how to show the table and its helpers (filter, etc) in the DOM
                     order: [[0, 'desc']],
@@ -209,14 +211,14 @@
                 });
             });
         </script>
-        <base href="{% url 'Home' %}" target="_blank">
+        <base href="{% url 'Home' %}">
     </head>
     <body data-status="finished">
         <header>
             <div class="header-top container-fluid">
                 <div class="row nav">
                     <div class="col-sm-2">
-                        <a href="/" class="header-archivebox" title="Last updated: {{updated}}">
+                        <a href="{% url 'public-index' %}" class="header-archivebox" title="Last updated: {{updated}}">
                             <img src="{% static 'archive.png' %}" alt="Logo"/>
                             ArchiveBox: Index
                         </a>
@@ -229,7 +231,14 @@
                 </div>
             </div>
         </header>
-        <table id="table-bookmarks">
+        <br>
+        <form action="{% url 'search-results' %}" method="get">
+            <input name="q" type="text" placeholder="Search...">
+            <button type="submit">Search</button>
+            <button onclick="location.href='{% url 'public-index' %}'" type="button">
+                Reload Index</button>
+          </form>
+            <table id="table-bookmarks">
             <thead>
                 <tr>
                     <th style="width: 100px;">Bookmarked</th>
@@ -239,9 +248,9 @@
                 </tr>
             </thead>
             <tbody>
-                {% for link in links %}
+                {% for link in object_list %}
                     <tr>
-                        <td title="{{link.timestamp}}">{{link.bookmarked_date}}</td>
+                        <td title="{{link.timestamp}}">{{link.added}}</td>
                         <td class="title-col">
                             {% if link.is_archived %}
                                 <a href="archive/{{link.timestamp}}/index.html"><img src="archive/{{link.timestamp}}/favicon.ico" class="link-favicon" decoding="async"></a>
@@ -263,6 +272,24 @@
                 {% endfor %}
             </tbody>
         </table>
+        <center>
+            <span class="step-links">
+                {% if page_obj.has_previous %}
+                    <a href="{% url 'public-index' %}?page=1">&laquo; first</a>
+                    <a href="{% url 'public-index' %}?page={{ page_obj.previous_page_number }}">previous</a>
+                {% endif %}
+        
+                <span class="current">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                </span>
+        
+                {% if page_obj.has_next %}
+                    <a href="{% url 'public-index' %}?page={{ page_obj.next_page_number }}">next </a>
+                    <a href="{% url 'public-index' %}?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
+                {% endif %}
+            </span>
+            <br>
+    </center>
         <footer>
             <br/>
             <center>
