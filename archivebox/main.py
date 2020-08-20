@@ -51,7 +51,6 @@ from .index.sql import (
     apply_migrations,
     remove_from_sql_main_index,
 )
-from .index.html import parse_html_main_index
 from .extractors import archive_links, archive_link, ignore_methods
 from .config import (
     stderr,
