@@ -54,7 +54,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     
     oneshot(
         url=stdin_url or url,
-        out_dir=str(Path(command.out_dir).absolute()),
+        out_dir=str(Path(command.out_dir).resolve()),
     )
 
 
