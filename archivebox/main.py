@@ -322,7 +322,7 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
     if existing_index:
         all_links = {
             link.url: link
-            for link in load_main_index(out_dir=out_dir, warn=False)
+            for link in [x.as_link for x in load_main_index(out_dir=out_dir, warn=False)]
         }
         print('    √ Loaded {} links from existing main index.'.format(len(all_links)))
 
@@ -402,21 +402,11 @@ def status(out_dir: str=OUTPUT_DIR) -> None:
     print(f'    Index size: {size} across {num_files} files')
     print()
 
-    links = list(load_main_index(out_dir=out_dir))
-    num_sql_links = len(links)
-    num_json_links = sum(1 for link in parse_json_main_index(out_dir=out_dir))
-    num_html_links = sum(1 for url in parse_html_main_index(out_dir=out_dir))
+    links = load_main_index(out_dir=out_dir)
+    num_sql_links = links.count()
     num_link_details = sum(1 for link in parse_json_links_details(out_dir=out_dir))
     print(f'    > SQL Main Index: {num_sql_links} links'.ljust(36), f'(found in {SQL_INDEX_FILENAME})')
-    print(f'    > JSON Index: {num_json_links} links'.ljust(36),  f'(found in {JSON_INDEX_FILENAME})')
-    print(f'    > HTML Index: {num_html_links} links'.ljust(36), f'(found in {HTML_INDEX_FILENAME})')
     print(f'    > JSON Link Details: {num_link_details} links'.ljust(36), f'(found in {ARCHIVE_DIR_NAME}/*/index.json)')
-
-    if num_html_links != len(links) or num_json_links != len(links):
-        print()
-        print('    {lightred}Hint:{reset} You can fix index count differences automatically by running:'.format(**ANSI))
-        print('        archivebox init')
-    
     print()
     print('{green}[*] Scanning archive data directories...{reset}'.format(**ANSI))
     print(ANSI['lightyellow'], f'   {ARCHIVE_DIR}/*', ANSI['reset'])
@@ -479,7 +469,7 @@ def status(out_dir: str=OUTPUT_DIR) -> None:
         print('        archivebox manage createsuperuser')
 
     print()
-    for snapshot in Snapshot.objects.order_by('-updated')[:10]:
+    for snapshot in links.order_by('-updated')[:10]:
         if not snapshot.updated:
             continue
         print(
@@ -529,9 +519,8 @@ def add(urls: Union[str, List[str]],
     # Load list of links from the existing index
     check_data_folder(out_dir=out_dir)
     check_dependencies()
-    all_links: List[Link] = []
     new_links: List[Link] = []
-    all_links = load_main_index(out_dir=out_dir)
+    all_links = [x.as_link() for x in load_main_index(out_dir=out_dir)]
 
     log_importing_started(urls=urls, depth=depth, index_only=index_only)
     if isinstance(urls, str):
@@ -570,7 +559,7 @@ def add(urls: Union[str, List[str]],
         return all_links
 
     # Step 4: Re-write links index with updated titles, icons, and resources
-    all_links = load_main_index(out_dir=out_dir)
+    all_links = [x.as_link() for x in load_main_index(out_dir=out_dir)]
     write_main_index(links=list(all_links), out_dir=out_dir, finished=True)
     return all_links
 
@@ -635,7 +624,7 @@ def remove(filter_str: Optional[str]=None,
     try:
         to_keep = []
         to_delete = []
-        all_links = load_main_index(out_dir=out_dir)
+        all_links = [x.as_link() for x in load_main_index(out_dir=out_dir)]
         for link in all_links:
             should_remove = (
                 (after is not None and float(link.timestamp) < after)
@@ -679,7 +668,7 @@ def update(resume: Optional[float]=None,
     # Step 1: Load list of links from the existing index
     #         merge in and dedupe new links from import_path
     new_links: List[Link] = []
-    all_links = load_main_index(out_dir=out_dir)
+    all_links = [x.as_link() for x in load_main_index(out_dir=out_dir)]
 
     # Step 2: Write updated index with deduped old and new links back to disk
     # write_main_index(links=list(all_links), out_dir=out_dir)
@@ -716,7 +705,7 @@ def update(resume: Optional[float]=None,
     archive_links(to_archive, overwrite=overwrite, out_dir=out_dir)
 
     # Step 4: Re-write links index with updated titles, icons, and resources
-    all_links = load_main_index(out_dir=out_dir)
+    all_links = [x.as_link() for x in load_main_index(out_dir=out_dir)]
     write_main_index(links=list(all_links), out_dir=out_dir, finished=True)
     return all_links
 
@@ -777,7 +766,7 @@ def list_links(filter_patterns: Optional[List[str]]=None,
     
     check_data_folder(out_dir=out_dir)
 
-    all_links = load_main_index(out_dir=out_dir)
+    all_links = [x.as_link() for x in load_main_index(out_dir=out_dir)]
 
     for link in all_links:
         if after is not None and float(link.timestamp) < after:
