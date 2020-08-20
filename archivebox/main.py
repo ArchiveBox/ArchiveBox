@@ -352,9 +352,10 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
         print('    {lightyellow}√ Added {} orphaned links from existing archive directories.{reset}'.format(len(orphaned_data_dir_links), **ANSI))
 
     # Links in invalid/duplicate data dirs
-    invalid_folders: Dict[str, Link] = {}
-    for link in all_links:
-        invalid_folders.update(get_invalid_folders([link.as_link()], out_dir=out_dir).items())
+    invalid_folders = {
+        folder: link
+        for folder, link in get_invalid_folders(all_links, out_dir=out_dir).items()
+    }
     if invalid_folders:
         print('    {lightyellow}! Skipped adding {} invalid link data directories.{reset}'.format(len(invalid_folders), **ANSI))
         print('        X ' + '\n        X '.join(f'{folder} {link}' for folder, link in invalid_folders.items()))
