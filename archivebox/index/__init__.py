@@ -261,6 +261,11 @@ def write_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=
     log_indexing_process_finished()
 
 
+def get_empty_snapshot_queryset(out_dir: str=OUTPUT_DIR):
+    setup_django(out_dir, check_db=True)
+    from core.models import Snapshot
+    return Snapshot.objects.none()
+
 @enforce_types
 def load_main_index(out_dir: str=OUTPUT_DIR, warn: bool=True) -> List[Link]:
     """parse and load existing index with any new links from import_path merged in"""
@@ -432,23 +437,19 @@ def get_duplicate_folders(snapshots, out_dir: str=OUTPUT_DIR) -> Dict[str, Optio
     """dirs that conflict with other directories that have the same link URL or timestamp"""
     by_url = {}
     by_timestamp = {}
-    indexed_folders = set()
-    for snapshot in snapshots.iterator():
-        link = snapshot.as_link()
-        by_url[link.url] = 0
-        by_timestamp[link.timestamp] = 0
-        indexed_folders.update([link.link_dir])
-
     duplicate_folders = {}
 
     data_folders = (
-        entry.path
+        str(entry)
         for entry in (Path(out_dir) / ARCHIVE_DIR_NAME).iterdir()
-            if entry.is_dir() and str(entry) not in indexed_folders
+            if entry.is_dir() and not snapshots.filter(timestamp=entry.name).exists()
     )
 
-    for path in chain(sorted(indexed_folders), sorted(data_folders)):
+    for path in chain(snapshots.iterator(), data_folders):
         link = None
+        if type(path) is not str:
+            path = path.as_link().link_dir
+
         try:
             link = parse_json_link_details(path)
         except Exception:
@@ -464,7 +465,6 @@ def get_duplicate_folders(snapshots, out_dir: str=OUTPUT_DIR) -> Dict[str, Optio
             by_url[link.url] = by_url.get(link.url, 0) + 1
             if by_url[link.url] > 1:
                 duplicate_folders[path] = link
-
     return duplicate_folders
 
 def get_orphaned_folders(snapshots, out_dir: str=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
