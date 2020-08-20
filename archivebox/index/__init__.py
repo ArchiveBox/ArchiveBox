@@ -50,7 +50,6 @@ from .json import (
 )
 from .sql import (
     write_sql_main_index,
-    parse_sql_main_index,
     write_sql_link_details,
 )
 
