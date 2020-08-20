@@ -17,6 +17,7 @@ from ..util import (
     ExtendedEncoder,
 )
 from ..config import (
+    setup_django,
     ARCHIVE_DIR_NAME,
     SQL_INDEX_FILENAME,
     JSON_INDEX_FILENAME,
@@ -263,16 +264,13 @@ def write_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=
 @enforce_types
 def load_main_index(out_dir: str=OUTPUT_DIR, warn: bool=True) -> List[Link]:
     """parse and load existing index with any new links from import_path merged in"""
-
-    all_links: List[Link] = []
+    setup_django(out_dir, check_db=True)
+    from core.models import Snapshot
     try:
-        all_links = list(parse_sql_main_index(out_dir))
-        list(parse_sql_main_index(out_dir))
+        return Snapshot.objects.all()
 
     except (KeyboardInterrupt, SystemExit):
         raise SystemExit(0)
-
-    return all_links
 
 @enforce_types
 def load_main_index_meta(out_dir: str=OUTPUT_DIR) -> Optional[dict]:
