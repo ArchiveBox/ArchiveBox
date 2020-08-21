@@ -9,7 +9,6 @@ from ..index.schema import Link
 from ..index import (
     load_link_details,
     write_link_details,
-    write_main_index,
 )
 from ..util import enforce_types
 from ..logging_util import (
