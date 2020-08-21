@@ -460,7 +460,8 @@ def status(out_dir: str=OUTPUT_DIR) -> None:
     if last_login:
         print(f'    Last UI login: {last_login.username} @ {str(last_login.last_login)[:16]}')
     last_updated = Snapshot.objects.order_by('updated').last()
-    print(f'    Last changes: {str(last_updated.updated)[:16]}')
+    if last_updated:
+        print(f'    Last changes: {str(last_updated.updated)[:16]}')
 
     if not users:
         print()
