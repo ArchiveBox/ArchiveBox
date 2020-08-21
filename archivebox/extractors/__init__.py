@@ -9,6 +9,7 @@ from ..index.schema import Link
 from ..index import (
     load_link_details,
     write_link_details,
+    write_main_index,
 )
 from ..util import enforce_types
 from ..logging_util import (
@@ -128,24 +129,34 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 
     return link
 
-
 @enforce_types
-def archive_links(links: List[Link], overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None) -> List[Link]:
-    if not links:
+def archive_links(all_links: any, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None) -> List[Link]:
+
+    if type(all_links) is list:
+        num_links: int = len(all_links)
+        get_link = lambda x: x
+        get_iter = lambda x: x
+    else:
+        num_links: int = all_links.count()
+        get_link = lambda x: x.as_link()
+        get_iter = lambda x: x.iterator()
+
+    if num_links == 0:
         return []
 
-    log_archiving_started(len(links))
+    log_archiving_started(num_links)
     idx: int = 0
-    link: Link = links[0]
     try:
-        for idx, link in enumerate(links):
-            archive_link(link, overwrite=overwrite, methods=methods, out_dir=link.link_dir)
+        for link in get_iter(all_links):
+            idx += 1
+            to_archive = get_link(link)
+            archive_link(to_archive, overwrite=overwrite, methods=methods, out_dir=link.link_dir)
     except KeyboardInterrupt:
-        log_archiving_paused(len(links), idx, link.timestamp)
+        log_archiving_paused(num_links, idx, link.timestamp)
         raise SystemExit(0)
     except BaseException:
         print()
         raise
 
-    log_archiving_finished(len(links))
-    return links
+    log_archiving_finished(num_links)
+    return all_links

@@ -30,6 +30,7 @@ from .index import (
     parse_links_from_source,
     dedupe_links,
     write_main_index,
+    write_static_index,
     link_matches_filter,
     get_indexed_folders,
     get_archived_folders,
@@ -520,7 +521,7 @@ def add(urls: Union[str, List[str]],
     check_data_folder(out_dir=out_dir)
     check_dependencies()
     new_links: List[Link] = []
-    all_links = [x.as_link() for x in load_main_index(out_dir=out_dir)]
+    all_links = load_main_index(out_dir=out_dir)
 
     log_importing_started(urls=urls, depth=depth, index_only=index_only)
     if isinstance(urls, str):
@@ -541,8 +542,10 @@ def add(urls: Union[str, List[str]],
             new_links_depth += parse_links_from_source(downloaded_file, root_url=new_link.url)
 
     imported_links = list({link.url: link for link in (new_links + new_links_depth)}.values())
-    all_links, new_links = dedupe_links(all_links, imported_links)
-    write_main_index(links=all_links, out_dir=out_dir, finished=not new_links)
+    new_links = dedupe_links(all_links, imported_links)
+
+    write_main_index(links=new_links, out_dir=out_dir, finished=not new_links)
+    all_links = load_main_index(out_dir=out_dir)
 
     if index_only:
         return all_links
@@ -555,12 +558,9 @@ def add(urls: Union[str, List[str]],
     elif new_links:
         archive_links(new_links, overwrite=False, out_dir=out_dir)
     else:
-        # nothing was updated, don't bother re-saving the index
         return all_links
 
-    # Step 4: Re-write links index with updated titles, icons, and resources
-    all_links = [x.as_link() for x in load_main_index(out_dir=out_dir)]
-    write_main_index(links=list(all_links), out_dir=out_dir, finished=True)
+    write_static_index([link.as_link() for link in all_links], out_dir=out_dir)
     return all_links
 
 @enforce_types
