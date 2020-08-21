@@ -40,9 +40,11 @@ def write_sql_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
         for link in links:
             info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
             try:
-                info['timestamp'] = Snapshot.objects.get(url=link.url).timestamp
+                info["timestamp"] = Snapshot.objects.get(url=link.url).timestamp
             except Snapshot.DoesNotExist:
-                pass
+                while Snapshot.objects.filter(timestamp=info["timestamp"]).exists():
+                    info["timestamp"] = str(float(info["timestamp"]) + 1.0)
+
             Snapshot.objects.update_or_create(url=link.url, defaults=info)
 
 @enforce_types

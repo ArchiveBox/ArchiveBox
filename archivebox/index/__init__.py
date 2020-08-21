@@ -11,6 +11,7 @@ from typing import List, Tuple, Dict, Optional, Iterable
 from collections import OrderedDict
 from contextlib import contextmanager
 from urllib.parse import urlparse
+from django.db.models import QuerySet
 
 from ..util import (
     scheme,
@@ -133,7 +134,6 @@ def validate_links(links: Iterable[Link]) -> List[Link]:
 
     return list(links)
 
-
 @enforce_types
 def archivable_links(links: Iterable[Link]) -> Iterable[Link]:
     """remove chrome://, about:// or other schemed links that cant be archived"""
@@ -165,15 +165,6 @@ def fix_duplicate_links(sorted_links: Iterable[Link]) -> Iterable[Link]:
             link = merge_links(unique_urls[link.url], link)
         unique_urls[link.url] = link
 
-    # unique_timestamps: OrderedDict[str, Link] = OrderedDict()
-    # for link in unique_urls.values():
-    #     closest_non_duplicate_ts = lowest_uniq_timestamp(unique_timestamps, link.timestamp)
-    #     if closest_non_duplicate_ts != link.timestamp:
-    #         link = link.overwrite(timestamp=closest_non_duplicate_ts)
-    #         Snapshot.objects.filter(url=link.url).update(timestamp=link.timestamp)
-    #     unique_timestamps[link.timestamp] = link
-
-    # return unique_timestamps.values()
     return unique_urls.values()
 
 
@@ -245,11 +236,7 @@ def write_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=
             os.chmod(os.path.join(out_dir, SQL_INDEX_FILENAME), int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
 
         if finished:
-            with timed_index_update(os.path.join(out_dir, JSON_INDEX_FILENAME)):
-                write_json_main_index(links, out_dir=out_dir)
-
-            with timed_index_update(os.path.join(out_dir, HTML_INDEX_FILENAME)):
-                write_html_main_index(links, out_dir=out_dir, finished=finished)
+            write_static_index(links, out_dir=out_dir)
     except (KeyboardInterrupt, SystemExit):
         stderr('[!] Warning: Still writing index to disk...', color='lightyellow')
         stderr('    Run archivebox init to fix any inconsisntencies from an ungraceful exit.')
@@ -260,7 +247,14 @@ def write_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=
 
     log_indexing_process_finished()
 
+@enforce_types
+def write_static_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
+    with timed_index_update(os.path.join(out_dir, JSON_INDEX_FILENAME)):
+        write_json_main_index(links)
+    with timed_index_update(os.path.join(out_dir, HTML_INDEX_FILENAME)):
+        write_html_main_index(links, out_dir=out_dir, finished=True)
 
+@enforce_types
 def get_empty_snapshot_queryset(out_dir: str=OUTPUT_DIR):
     setup_django(out_dir, check_db=True)
     from core.models import Snapshot
@@ -306,27 +300,47 @@ def parse_links_from_source(source_path: str, root_url: Optional[str]=None) -> T
 
     return new_links
 
+@enforce_types
+def fix_duplicate_links_in_index(snapshots: QuerySet, links: Iterable[Link]) -> Iterable[Link]:
+    """
+    Look for urls in the index, and merge them too
+    """
+    unique_urls: OrderedDict[str, Link] = OrderedDict()
+
+    for link in links:
+        index_link = snapshots.filter(url=link.url)
+        if index_link:
+            link = merge_links(index_link[0].as_link(), link)
+
+        unique_urls[link.url] = link
+
+    return unique_urls.values()
 
 @enforce_types
-def dedupe_links(existing_links: List[Link],
-                 new_links: List[Link]) -> Tuple[List[Link], List[Link]]:
-
+def dedupe_links(snapshots: QuerySet,
+                 new_links: List[Link]) -> List[Link]:
+    """
+    The validation of links happened at a different stage. This method will
+    focus on actual deduplication and timestamp fixing.
+    """
+    
     # merge existing links in out_dir and new links
-    all_links = validate_links(existing_links + new_links)
-    all_link_urls = {link.url for link in existing_links}
+    dedup_links = fix_duplicate_links_in_index(snapshots, new_links)
 
     new_links = [
         link for link in new_links
-        if link.url not in all_link_urls
+        if not snapshots.filter(url=link.url).exists()
     ]
 
-    all_links_deduped = {link.url: link for link in all_links}
+    dedup_links_dict = {link.url: link for link in dedup_links}
+
+    # Replace links in new_links with the dedup version
     for i in range(len(new_links)):
-        if new_links[i].url in all_links_deduped.keys():
-            new_links[i] = all_links_deduped[new_links[i].url]
+        if new_links[i].url in dedup_links_dict.keys():
+            new_links[i] = dedup_links_dict[new_links[i].url]
     log_deduping_finished(len(new_links))
 
-    return all_links, new_links
+    return new_links
 
 ### Link Details Index
 
