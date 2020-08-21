@@ -50,7 +50,7 @@ def verify_snapshots(modeladmin, request, queryset):
 verify_snapshots.short_description = "Check"
 
 def delete_snapshots(modeladmin, request, queryset):
-    remove(links=[snapshot.as_link() for snapshot in queryset], yes=True, delete=True, out_dir=OUTPUT_DIR)
+    remove(snapshots=queryset, yes=True, delete=True, out_dir=OUTPUT_DIR)
 
 delete_snapshots.short_description = "Delete"
 

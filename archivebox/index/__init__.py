@@ -11,7 +11,7 @@ from typing import List, Tuple, Dict, Optional, Iterable
 from collections import OrderedDict
 from contextlib import contextmanager
 from urllib.parse import urlparse
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Q
 
 from ..util import (
     scheme,
@@ -370,19 +370,19 @@ def load_link_details(link: Link, out_dir: Optional[str]=None) -> Link:
 
 
 LINK_FILTERS = {
-    'exact': lambda link, pattern: (link.url == pattern) or (link.base_url == pattern),
-    'substring': lambda link, pattern: pattern in link.url,
-    'regex': lambda link, pattern: bool(re.match(pattern, link.url)),
-    'domain': lambda link, pattern: link.domain == pattern,
+    'exact': lambda pattern: Q(url=pattern),
+    'substring': lambda pattern: Q(url__icontains=pattern),
+    'regex': lambda pattern: Q(url__iregex=pattern),
+    'domain': lambda pattern: Q(domain=pattern),
 }
 
 @enforce_types
-def link_matches_filter(link: Link, filter_patterns: List[str], filter_type: str='exact') -> bool:
+def snapshot_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type: str='exact') -> QuerySet:
+    q_filter = Q()
     for pattern in filter_patterns:
         try:
-            if LINK_FILTERS[filter_type](link, pattern):
-                return True
-        except Exception:
+            q_filter = q_filter | LINK_FILTERS[filter_type](pattern)
+        except KeyError:
             stderr()
             stderr(
                 f'[X] Got invalid pattern for --filter-type={filter_type}:',
@@ -390,8 +390,7 @@ def link_matches_filter(link: Link, filter_patterns: List[str], filter_type: str
             )
             stderr(f'    {pattern}')
             raise SystemExit(2)
-
-    return False
+    return snapshots.filter(q_filter)
 
 
 def get_indexed_folders(links, out_dir: str=OUTPUT_DIR) -> Dict[str, Optional[Link]]:

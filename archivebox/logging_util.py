@@ -408,19 +408,18 @@ def log_removal_started(links: List["Link"], yes: bool, delete: bool):
         except (KeyboardInterrupt, EOFError, AssertionError):
             raise SystemExit(0)
 
-def log_removal_finished(all_links: int, to_keep: int):
+def log_removal_finished(all_links: int, to_remove: int):
     if all_links == 0:
         print()
         print('{red}[X] No matching links found.{reset}'.format(**ANSI))
     else:
-        num_removed = all_links - to_keep
         print()
         print('{red}[√] Removed {} out of {} links from the archive index.{reset}'.format(
-            num_removed,
+            to_remove,
             all_links,
             **ANSI,
         ))
-        print('    Index now contains {} links.'.format(to_keep))
+        print('    Index now contains {} links.'.format(all_links - to_remove))
 
 
 def log_shell_welcome_msg():

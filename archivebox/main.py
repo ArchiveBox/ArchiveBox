@@ -7,6 +7,7 @@ from pathlib import Path
 
 from typing import Dict, List, Optional, Iterable, IO, Union
 from crontab import CronTab, CronSlices
+from django.db.models import QuerySet
 
 from .cli import (
     list_subcommands,
@@ -31,7 +32,7 @@ from .index import (
     dedupe_links,
     write_main_index,
     write_static_index,
-    link_matches_filter,
+    snapshot_filter,
     get_indexed_folders,
     get_archived_folders,
     get_unarchived_folders,
@@ -567,7 +568,7 @@ def add(urls: Union[str, List[str]],
 def remove(filter_str: Optional[str]=None,
            filter_patterns: Optional[List[str]]=None,
            filter_type: str='exact',
-           links: Optional[List[Link]]=None,
+           snapshots: Optional[QuerySet]=None,
            after: Optional[float]=None,
            before: Optional[float]=None,
            yes: bool=False,
@@ -577,7 +578,7 @@ def remove(filter_str: Optional[str]=None,
     
     check_data_folder(out_dir=out_dir)
 
-    if links is None:
+    if not snapshots:
         if filter_str and filter_patterns:
             stderr(
                 '[X] You should pass either a pattern as an argument, '
@@ -593,60 +594,54 @@ def remove(filter_str: Optional[str]=None,
             )
             stderr()
             hint(('To remove all urls you can run:',
-                  'archivebox remove --filter-type=regex ".*"'))
+                'archivebox remove --filter-type=regex ".*"'))
             stderr()
             raise SystemExit(2)
         elif filter_str:
             filter_patterns = [ptn.strip() for ptn in filter_str.split('\n')]
 
-        log_list_started(filter_patterns, filter_type)
-        timer = TimedProgress(360, prefix='      ')
-        try:
-            links = list(list_links(
-                filter_patterns=filter_patterns,
-                filter_type=filter_type,
-                after=after,
-                before=before,
-            ))
-        finally:
-            timer.end()
+    list_kwargs = {
+        "filter_patterns": filter_patterns,
+        "filter_type": filter_type,
+        "after": after,
+        "before": before,
+    }
+    if snapshots:
+        list_kwargs["snapshots"] = snapshots
+
+    log_list_started(filter_patterns, filter_type)
+    timer = TimedProgress(360, prefix='      ')
+    try:
+        snapshots = list_links(**list_kwargs)
+    finally:
+        timer.end()
 
 
-    if not len(links):
+    if not snapshots.exists():
         log_removal_finished(0, 0)
         raise SystemExit(1)
 
 
-    log_list_finished(links)
-    log_removal_started(links, yes=yes, delete=delete)
+    log_links = [link.as_link() for link in snapshots]
+    log_list_finished(log_links)
+    log_removal_started(log_links, yes=yes, delete=delete)
 
     timer = TimedProgress(360, prefix='      ')
     try:
-        to_keep = []
-        to_delete = []
-        all_links = [x.as_link() for x in load_main_index(out_dir=out_dir)]
-        for link in all_links:
-            should_remove = (
-                (after is not None and float(link.timestamp) < after)
-                or (before is not None and float(link.timestamp) > before)
-                or link_matches_filter(link, filter_patterns or [], filter_type)
-                or link in links
-            )
-            if should_remove:
-                to_delete.append(link)
-
-                if delete:
-                    shutil.rmtree(link.link_dir, ignore_errors=True)
-            else:
-                to_keep.append(link)
+        for snapshot in snapshots:
+            if delete:
+                shutil.rmtree(snapshot.as_link().link_dir, ignore_errors=True)
     finally:
         timer.end()
 
-    remove_from_sql_main_index(links=to_delete, out_dir=out_dir)
-    write_main_index(links=to_keep, out_dir=out_dir, finished=True)
-    log_removal_finished(len(all_links), len(to_keep))
+    to_remove = snapshots.count()
+
+    remove_from_sql_main_index(snapshots=snapshots, out_dir=out_dir)
+    all_snapshots = load_main_index(out_dir=out_dir)
+    write_static_index([link.as_link() for link in all_snapshots], out_dir=out_dir)
+    log_removal_finished(all_snapshots.count(), to_remove)
     
-    return to_keep
+    return all_snapshots
 
 @enforce_types
 def update(resume: Optional[float]=None,
@@ -737,18 +732,18 @@ def list_all(filter_patterns_str: Optional[str]=None,
         filter_patterns = filter_patterns_str.split('\n')
 
 
-    links = list_links(
+    snapshots = list_links(
         filter_patterns=filter_patterns,
         filter_type=filter_type,
         before=before,
         after=after,
     )
 
-    if sort:
-        links = sorted(links, key=lambda link: getattr(link, sort))
+    #if sort:
+    #    snapshots = sorted(links, key=lambda link: getattr(link, sort))
 
     folders = list_folders(
-        links=list(links),
+        links=[snapshot.as_link() for snapshot in snapshots],
         status=status,
         out_dir=out_dir,
     )
@@ -758,7 +753,8 @@ def list_all(filter_patterns_str: Optional[str]=None,
 
 
 @enforce_types
-def list_links(filter_patterns: Optional[List[str]]=None,
+def list_links(snapshots: Optional[QuerySet]=None,
+               filter_patterns: Optional[List[str]]=None,
                filter_type: str='exact',
                after: Optional[float]=None,
                before: Optional[float]=None,
@@ -766,19 +762,18 @@ def list_links(filter_patterns: Optional[List[str]]=None,
     
     check_data_folder(out_dir=out_dir)
 
-    all_links = [x.as_link() for x in load_main_index(out_dir=out_dir)]
+    if snapshots:
+        all_snapshots = snapshots
+    else:
+        all_snapshots = load_main_index(out_dir=out_dir)
 
-    for link in all_links:
-        if after is not None and float(link.timestamp) < after:
-            continue
-        if before is not None and float(link.timestamp) > before:
-            continue
-        
-        if filter_patterns:
-            if link_matches_filter(link, filter_patterns, filter_type):
-                yield link
-        else:
-            yield link
+    if after is not None:
+        all_snapshots = all_snapshots.filter(timestamp__lt=after)
+    if before is not None:
+        all_snapshots = all_snapshots.filter(timestamp__gt=before)
+    if filter_patterns:
+        all_snapshots = snapshot_filter(all_snapshots, filter_patterns, filter_type)
+    return all_snapshots
 
 @enforce_types
 def list_folders(links: List[Link],
