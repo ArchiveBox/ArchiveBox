@@ -1,6 +1,5 @@
 __package__ = 'archivebox.index'
 
-import re
 import os
 import shutil
 import json as pyjson
@@ -373,7 +372,7 @@ LINK_FILTERS = {
     'exact': lambda pattern: Q(url=pattern),
     'substring': lambda pattern: Q(url__icontains=pattern),
     'regex': lambda pattern: Q(url__iregex=pattern),
-    'domain': lambda pattern: Q(domain=pattern),
+    'domain': lambda pattern: Q(url__istartswith=f"http://{pattern}") | Q(url__istartswith=f"https://{pattern}") | Q(url__istartswith=f"ftp://{pattern}"),
 }
 
 @enforce_types
