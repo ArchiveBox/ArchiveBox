@@ -659,24 +659,18 @@ def update(resume: Optional[float]=None,
 
     check_data_folder(out_dir=out_dir)
     check_dependencies()
+    new_links: List[Link] = [] # TODO: Remove input argument: only_new
 
-    # Step 1: Load list of links from the existing index
-    #         merge in and dedupe new links from import_path
-    new_links: List[Link] = []
-    all_links = [x.as_link() for x in load_main_index(out_dir=out_dir)]
-
-    # Step 2: Write updated index with deduped old and new links back to disk
-    # write_main_index(links=list(all_links), out_dir=out_dir)
-
-    # Step 3: Filter for selected_links
-    matching_links = list_links(
+    # Step 1: Filter for selected_links
+    matching_snapshots = list_links(
         filter_patterns=filter_patterns,
         filter_type=filter_type,
         before=before,
         after=after,
     )
+
     matching_folders = list_folders(
-        links=list(matching_links),
+        links=matching_snapshots,
         status=status,
         out_dir=out_dir,
     )
@@ -685,7 +679,7 @@ def update(resume: Optional[float]=None,
     if index_only:
         return all_links
         
-    # Step 3: Run the archive methods for each link
+    # Step 2: Run the archive methods for each link
     to_archive = new_links if only_new else all_links
     if resume:
         to_archive = [
@@ -700,8 +694,8 @@ def update(resume: Optional[float]=None,
     archive_links(to_archive, overwrite=overwrite, out_dir=out_dir)
 
     # Step 4: Re-write links index with updated titles, icons, and resources
-    all_links = [x.as_link() for x in load_main_index(out_dir=out_dir)]
-    write_main_index(links=list(all_links), out_dir=out_dir, finished=True)
+    all_links = load_main_index(out_dir=out_dir)
+    write_static_index([link.as_link() for link in all_links], out_dir=out_dir)
     return all_links
 
 @enforce_types
@@ -743,7 +737,7 @@ def list_all(filter_patterns_str: Optional[str]=None,
     #    snapshots = sorted(links, key=lambda link: getattr(link, sort))
 
     folders = list_folders(
-        links=[snapshot.as_link() for snapshot in snapshots],
+        links=snapshots,
         status=status,
         out_dir=out_dir,
     )
@@ -782,30 +776,23 @@ def list_folders(links: List[Link],
     
     check_data_folder(out_dir=out_dir)
 
-    if status == 'indexed':
-        return get_indexed_folders(links, out_dir=out_dir)
-    elif status == 'archived':
-        return get_archived_folders(links, out_dir=out_dir)
-    elif status == 'unarchived':
-        return get_unarchived_folders(links, out_dir=out_dir)
+    STATUS_FUNCTIONS = {
+        "indexed": get_indexed_folders,
+        "archived": get_archived_folders,
+        "unarchived": get_unarchived_folders,
+        "present": get_present_folders,
+        "valid": get_valid_folders,
+        "invalid": get_invalid_folders,
+        "duplicate": get_duplicate_folders,
+        "orphaned": get_orphaned_folders,
+        "corrupted": get_corrupted_folders,
+        "unrecognized": get_unrecognized_folders,
+    }
 
-    elif status == 'present':
-        return get_present_folders(links, out_dir=out_dir)
-    elif status == 'valid':
-        return get_valid_folders(links, out_dir=out_dir)
-    elif status == 'invalid':
-        return get_invalid_folders(links, out_dir=out_dir)
-
-    elif status == 'duplicate':
-        return get_duplicate_folders(links, out_dir=out_dir)
-    elif status == 'orphaned':
-        return get_orphaned_folders(links, out_dir=out_dir)
-    elif status == 'corrupted':
-        return get_corrupted_folders(links, out_dir=out_dir)
-    elif status == 'unrecognized':
-        return get_unrecognized_folders(links, out_dir=out_dir)
-
-    raise ValueError('Status not recognized.')
+    try:
+        return STATUS_FUNCTIONS[status](links, out_dir=out_dir)
+    except KeyError:
+        raise ValueError('Status not recognized.')
 
 
 @enforce_types
