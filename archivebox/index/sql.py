@@ -30,21 +30,27 @@ def remove_from_sql_main_index(snapshots: QuerySet, out_dir: str=OUTPUT_DIR) -> 
         snapshots.delete()
 
 @enforce_types
+def write_link_to_sql_index(link: Link):
+    from core.models import Snapshot
+    info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
+    try:
+        info["timestamp"] = Snapshot.objects.get(url=link.url).timestamp
+    except Snapshot.DoesNotExist:
+        while Snapshot.objects.filter(timestamp=info["timestamp"]).exists():
+            info["timestamp"] = str(float(info["timestamp"]) + 1.0)
+
+    return Snapshot.objects.update_or_create(url=link.url, defaults=info)[0]
+
+
+@enforce_types
 def write_sql_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
     setup_django(out_dir, check_db=True)
-    from core.models import Snapshot
     from django.db import transaction
 
     with transaction.atomic():
         for link in links:
-            info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
-            try:
-                info["timestamp"] = Snapshot.objects.get(url=link.url).timestamp
-            except Snapshot.DoesNotExist:
-                while Snapshot.objects.filter(timestamp=info["timestamp"]).exists():
-                    info["timestamp"] = str(float(info["timestamp"]) + 1.0)
-
-            Snapshot.objects.update_or_create(url=link.url, defaults=info)
+            write_link_to_sql_index(link)
+            
 
 @enforce_types
 def write_sql_link_details(link: Link, out_dir: str=OUTPUT_DIR) -> None:
@@ -53,7 +59,10 @@ def write_sql_link_details(link: Link, out_dir: str=OUTPUT_DIR) -> None:
     from django.db import transaction
 
     with transaction.atomic():
-        snap = Snapshot.objects.get(url=link.url)
+        try:
+            snap = Snapshot.objects.get(url=link.url)
+        except Snapshot.DoesNotExist:
+            snap = write_link_to_sql_index(link)
         snap.title = link.title
         snap.tags = link.tags
         snap.save()
