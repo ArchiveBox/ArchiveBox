@@ -733,8 +733,8 @@ def list_all(filter_patterns_str: Optional[str]=None,
         after=after,
     )
 
-    #if sort:
-    #    snapshots = sorted(links, key=lambda link: getattr(link, sort))
+    if sort:
+        snapshots = snapshots.order_by(sort)
 
     folders = list_folders(
         links=snapshots,
