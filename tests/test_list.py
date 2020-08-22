@@ -36,3 +36,17 @@ def test_list_html_index(process, disable_extractors_dict):
 def test_list_index_with_wrong_flags(process):
     list_process = subprocess.run(["archivebox", "list", "--index"], capture_output=True)
     assert "--index can only be used with --json or --html options." in list_process.stderr.decode("utf-8")
+
+def test_link_sort_by_url(process, disable_extractors_dict):
+    subprocess.run(["archivebox", "add", "http://127.0.0.1:8080/static/iana.org.html", "--depth=0"],
+                                  capture_output=True, env=disable_extractors_dict)
+    subprocess.run(["archivebox", "add", "http://127.0.0.1:8080/static/example.com.html", "--depth=0"],
+                                  capture_output=True, env=disable_extractors_dict)
+
+    list_process = subprocess.run(["archivebox", "list"], capture_output=True)
+    link_list = list_process.stdout.decode("utf-8").split("\n")
+    assert "http://127.0.0.1:8080/static/iana.org.html" in link_list[0]
+
+    list_process = subprocess.run(["archivebox", "list", "--sort=url"], capture_output=True)
+    link_list = list_process.stdout.decode("utf-8").split("\n")
+    assert "http://127.0.0.1:8080/static/example.com.html" in link_list[0]
