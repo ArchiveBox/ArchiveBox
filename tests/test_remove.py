@@ -69,3 +69,39 @@ def test_remove_domain(tmp_path, process, disable_extractors_dict):
     conn.close()
 
     assert count == 0
+
+def test_remove_before(tmp_path, process, disable_extractors_dict):
+    subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'], capture_output=True, env=disable_extractors_dict)
+    subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/iana.org.html'], capture_output=True, env=disable_extractors_dict)
+    assert list((tmp_path / "archive").iterdir()) != []
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    timestamp = c.execute("SELECT timestamp FROM core_snapshot ORDER BY timestamp ASC").fetchall()
+    conn.commit()
+    conn.close()
+
+    before = list(map(lambda x: int(x[0].split(".")[0]), timestamp))
+
+    subprocess.run(['archivebox', 'remove', '--filter-type=regex', '.*', '--yes', '--delete', '--before', str(before[1])], capture_output=True)
+
+    assert (tmp_path / "archive" / timestamp[0][0]).exists()
+    assert not (tmp_path / "archive" / timestamp[1][0]).exists()
+
+def test_remove_after(tmp_path, process, disable_extractors_dict):
+    subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'], capture_output=True, env=disable_extractors_dict)
+    subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/iana.org.html'], capture_output=True, env=disable_extractors_dict)
+    assert list((tmp_path / "archive").iterdir()) != []
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    timestamp = c.execute("SELECT timestamp FROM core_snapshot ORDER BY timestamp ASC").fetchall()
+    conn.commit()
+    conn.close()
+
+    after = list(map(lambda x: int(x[0].split(".")[0]), timestamp))
+
+    subprocess.run(['archivebox', 'remove', '--filter-type=regex', '.*', '--yes', '--delete', '--after', str(after[1])], capture_output=True)
+
+    assert (tmp_path / "archive" / timestamp[1][0]).exists()
+    assert not (tmp_path / "archive" / timestamp[0][0]).exists()
