@@ -114,8 +114,8 @@ class PublicArchiveView(ListView):
     model = Snapshot
     paginate_by = 100
 
-    def get_queryset(self, *args, **kwargs): 
-        qs = super(PublicArchiveView, self).get_queryset(*args, **kwargs) 
+    def get_queryset(self, **kwargs): 
+        qs = super().get_queryset(**kwargs) 
         for snapshot in qs:
             snapshot.icons = get_icons(snapshot) 
         return qs
@@ -128,8 +128,9 @@ class PublicArchiveView(ListView):
             return redirect(f'/admin/login/?next={self.request.path}')
 
 class SearchResultsView(PublicArchiveView):
-    def get_queryset(self, *args, **kwargs):
-        qs = super(PublicArchiveView, self).get_queryset(*args, **kwargs) 
+    def get_queryset(self):
         query = self.request.GET.get('q')
-        results = qs.filter(title__icontains=query)
+        results = Snapshot.objects.filter(title__icontains=query)
+        for snapshot in results:
+            snapshot.icons = get_icons(snapshot) 
         return results
