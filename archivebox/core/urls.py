@@ -5,7 +5,7 @@ from django.views import static
 from django.conf import settings
 from django.views.generic.base import RedirectView
 
-from core.views import MainIndex, OldIndex, LinkDetails, PublicArchiveView, SearchResultsView, add_view
+from core.views import MainIndex, OldIndex, LinkDetails, PublicArchiveView, add_view
 
 
 # print('DEBUG', settings.DEBUG)
@@ -32,5 +32,4 @@ urlpatterns = [
     path('index.json', static.serve, {'document_root': settings.OUTPUT_DIR, 'path': 'index.json'}),
     path('', MainIndex.as_view(), name='Home'),
     path('public/', PublicArchiveView.as_view(), name='public-index'),
-    path('search_results/', SearchResultsView.as_view(), name='search-results'),
 ]
