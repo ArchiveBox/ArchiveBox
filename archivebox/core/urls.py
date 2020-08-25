@@ -5,7 +5,7 @@ from django.views import static
 from django.conf import settings
 from django.views.generic.base import RedirectView
 
-from core.views import MainIndex, OldIndex, LinkDetails, PublicArchiveView, SearchResultsView
+from core.views import MainIndex, OldIndex, LinkDetails, PublicArchiveView, SearchResultsView, add_view
 
 
 # print('DEBUG', settings.DEBUG)
@@ -18,7 +18,7 @@ urlpatterns = [
 
     path('archive/', RedirectView.as_view(url='/')),
     path('archive/<path:path>', LinkDetails.as_view(), name='LinkAssets'),
-    path('add/', RedirectView.as_view(url='/admin/core/snapshot/add/')),
+    path('add/', add_view),
     
     path('accounts/login/', RedirectView.as_view(url='/admin/login/')),
     path('accounts/logout/', RedirectView.as_view(url='/admin/logout/')),

@@ -69,6 +69,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'DEBUG':                    {'type': bool,  'default': False},
         'PUBLIC_INDEX':             {'type': bool,  'default': True},
         'PUBLIC_SNAPSHOTS':         {'type': bool,  'default': True},
+        'PUBLIC_ADD_VIEW':          {'type': bool,  'default': False},
         'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
         'ACTIVE_THEME':             {'type': str,   'default': 'default'},
     },

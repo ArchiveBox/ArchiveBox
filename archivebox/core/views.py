@@ -1,5 +1,8 @@
 __package__ = 'archivebox.core'
 
+from io import StringIO
+from contextlib import redirect_stdout
+
 from django.shortcuts import render, redirect
 
 from django.http import HttpResponse
@@ -11,6 +14,8 @@ from django_datatables_view.base_datatable_view import BaseDatatableView
 
 from core.models import Snapshot
 from core.utils import get_icons
+from core.forms import AddLinkForm
+
 
 
 from ..index import load_main_index, load_main_index_meta
@@ -20,8 +25,10 @@ from ..config import (
     FOOTER_INFO,
     PUBLIC_INDEX,
     PUBLIC_SNAPSHOTS,
+    PUBLIC_ADD_VIEW
 )
-from ..util import base_url
+from main import add
+from ..util import base_url, ansi_to_html
 
 
 class MainIndex(View):
@@ -134,3 +141,38 @@ class SearchResultsView(PublicArchiveView):
         for snapshot in results:
             snapshot.icons = get_icons(snapshot) 
         return results
+
+def add_view(request):
+        if PUBLIC_ADD_VIEW or request.user.is_authenticated:
+                context = {
+                    'title': 'Add URLs',
+                }
+                if request.method == 'GET':
+                    context['form'] = AddLinkForm()
+
+                elif request.method == 'POST':
+                    form = AddLinkForm(request.POST)
+                    if form.is_valid():
+                        url = form.cleaned_data["url"]
+                        print(f'[+] Adding URL: {url}')
+                        depth = 0 if form.cleaned_data["depth"] == "0" else 1
+                        input_kwargs = {
+                            "urls": url,
+                            "depth": depth,
+                            "update_all": False,
+                            "out_dir": OUTPUT_DIR,
+                        }
+                        add_stdout = StringIO()
+                        with redirect_stdout(add_stdout):
+                            add(**input_kwargs)
+                            print(add_stdout.getvalue())
+
+                        context.update({
+                            "stdout": ansi_to_html(add_stdout.getvalue().strip()),
+                            "form": AddLinkForm()
+                        })
+                    else:
+                        context["form"] = form
+                return render(template_name='add_links.html', request=request, context=context)
+        else:
+            return redirect(f'/admin/login/?next={request.path}')
