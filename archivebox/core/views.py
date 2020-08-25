@@ -123,6 +123,9 @@ class PublicArchiveView(ListView):
 
     def get_queryset(self, **kwargs): 
         qs = super().get_queryset(**kwargs) 
+        query = self.request.GET.get('q')
+        if query:
+            qs = Snapshot.objects.filter(title__icontains=query)
         for snapshot in qs:
             snapshot.icons = get_icons(snapshot) 
         return qs
@@ -134,45 +137,38 @@ class PublicArchiveView(ListView):
         else:
             return redirect(f'/admin/login/?next={self.request.path}')
 
-class SearchResultsView(PublicArchiveView):
-    def get_queryset(self):
-        query = self.request.GET.get('q')
-        results = Snapshot.objects.filter(title__icontains=query)
-        for snapshot in results:
-            snapshot.icons = get_icons(snapshot) 
-        return results
 
 def add_view(request):
-        if PUBLIC_ADD_VIEW or request.user.is_authenticated:
-                context = {
-                    'title': 'Add URLs',
-                }
-                if request.method == 'GET':
-                    context['form'] = AddLinkForm()
+    if PUBLIC_ADD_VIEW or request.user.is_authenticated:
+            context = {
+                'title': 'Add URLs',
+            }
+            if request.method == 'GET':
+                context['form'] = AddLinkForm()
 
-                elif request.method == 'POST':
-                    form = AddLinkForm(request.POST)
-                    if form.is_valid():
-                        url = form.cleaned_data["url"]
-                        print(f'[+] Adding URL: {url}')
-                        depth = 0 if form.cleaned_data["depth"] == "0" else 1
-                        input_kwargs = {
-                            "urls": url,
-                            "depth": depth,
-                            "update_all": False,
-                            "out_dir": OUTPUT_DIR,
-                        }
-                        add_stdout = StringIO()
-                        with redirect_stdout(add_stdout):
-                            add(**input_kwargs)
-                            print(add_stdout.getvalue())
+            elif request.method == 'POST':
+                form = AddLinkForm(request.POST)
+                if form.is_valid():
+                    url = form.cleaned_data["url"]
+                    print(f'[+] Adding URL: {url}')
+                    depth = 0 if form.cleaned_data["depth"] == "0" else 1
+                    input_kwargs = {
+                        "urls": url,
+                        "depth": depth,
+                        "update_all": False,
+                        "out_dir": OUTPUT_DIR,
+                    }
+                    add_stdout = StringIO()
+                    with redirect_stdout(add_stdout):
+                        add(**input_kwargs)
+                        print(add_stdout.getvalue())
 
-                        context.update({
-                            "stdout": ansi_to_html(add_stdout.getvalue().strip()),
-                            "form": AddLinkForm()
-                        })
-                    else:
-                        context["form"] = form
-                return render(template_name='add_links.html', request=request, context=context)
-        else:
-            return redirect(f'/admin/login/?next={request.path}')
+                    context.update({
+                        "stdout": ansi_to_html(add_stdout.getvalue().strip()),
+                        "form": AddLinkForm()
+                    })
+                else:
+                    context["form"] = form
+            return render(template_name='add_links.html', request=request, context=context)
+    else:
+        return redirect(f'/admin/login/?next={request.path}')
