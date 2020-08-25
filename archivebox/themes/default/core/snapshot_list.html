@@ -257,14 +257,14 @@
                             {% else %}
                                 <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="link-favicon" decoding="async"></a>
                             {% endif %}
-                            <a href="archive/{{link.timestamp}}/{{link.canonical_outputs.wget_path}}" title="{{link.title}}">
+                            <a href="archive/{{link.timestamp}}/index.html" title="{{link.title}}">
                                 <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title|default:'Loading...'}}</span>
                                 <small style="float:right">{{link.tags|default:''}}</small>
                             </a>
                         </td>
                         <td>
                             <a href="archive/{{link.timestamp}}/index.html">📄 
-                                <span data-number-for="{{link.url}}" title="Fetching any missing files...">Entry to files <img src="{% static 'spinner.gif' %}" class="files-spinner" decoding="async"/></span>
+                                <span data-number-for="{{link.url}}" title="Fetching any missing files...">{{link.icons}} <img src="{% static 'spinner.gif' %}" class="files-spinner" decoding="async"/></span>
                             </a>
                         </td>
                         <td style="text-align:left"><a href="{{link.url}}">{{link.url}}</a></td>

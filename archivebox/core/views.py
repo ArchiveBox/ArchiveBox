@@ -10,6 +10,8 @@ from django.views.generic.list import ListView
 from django_datatables_view.base_datatable_view import BaseDatatableView
 
 from core.models import Snapshot
+from core.utils import get_icons
+
 
 from ..index import load_main_index, load_main_index_meta
 from ..config import (
@@ -110,12 +112,12 @@ class LinkDetails(View):
 class PublicArchiveView(ListView):
     template = 'snapshot_list.html'
     model = Snapshot
-    paginate_by = 50
+    paginate_by = 100
 
     def get_queryset(self, *args, **kwargs): 
         qs = super(PublicArchiveView, self).get_queryset(*args, **kwargs) 
         for snapshot in qs:
-            snapshot.canonical_outputs = snapshot.as_link().canonical_outputs() 
+            snapshot.icons = get_icons(snapshot) 
         return qs
 
     def get(self, *args, **kwargs):
@@ -124,17 +126,6 @@ class PublicArchiveView(ListView):
             return response
         else:
             return redirect(f'/admin/login/?next={self.request.path}')
-
-# should we use it?
-class SnapshotDatatableView(BaseDatatableView):
-    model = Snapshot
-    columns = ['url', 'timestamp', 'title', 'tags', 'added']
-
-    def filter_queryset(self, qs):
-        sSearch = self.request.GET.get('sSearch', None)
-        if sSearch:
-            qs = qs.filter(Q(title__icontains=sSearch))
-        return qs
 
 class SearchResultsView(PublicArchiveView):
     def get_queryset(self, *args, **kwargs):
