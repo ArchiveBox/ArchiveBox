@@ -65,6 +65,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
     # Readability Docs: https://github.com/mozilla/readability
 
     status = 'succeeded'
+    cmd = []
     timer = TimedProgress(timeout, prefix='      ')
     try:
         document = get_html(link, out_dir)
