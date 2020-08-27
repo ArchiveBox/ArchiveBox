@@ -9,8 +9,7 @@ from django.http import HttpResponse
 from django.db.models import Q
 from django.views import View, static
 from django.views.generic.list import ListView
-
-from django_datatables_view.base_datatable_view import BaseDatatableView
+from django.views import View
 
 from core.models import Snapshot
 from core.utils import get_icons
@@ -39,30 +38,8 @@ class MainIndex(View):
             return redirect('/admin/core/snapshot/')
 
         if PUBLIC_INDEX:
-            return redirect('OldHome')
+            return redirect('public-index')
         
-        return redirect(f'/admin/login/?next={request.path}')
-
-        
-
-class OldIndex(View):
-    template = 'main_index.html'
-
-    def get(self, request):
-        if PUBLIC_INDEX or request.user.is_authenticated:
-            all_links = load_main_index(out_dir=OUTPUT_DIR)
-            meta_info = load_main_index_meta(out_dir=OUTPUT_DIR)
-
-            context = {
-                'updated': meta_info['updated'],
-                'num_links': meta_info['num_links'],
-                'links': all_links,
-                'VERSION': VERSION,
-                'FOOTER_INFO': FOOTER_INFO,
-            }
-
-            return render(template_name=self.template, request=request, context=context)
-
         return redirect(f'/admin/login/?next={request.path}')
 
 
@@ -138,37 +115,38 @@ class PublicArchiveView(ListView):
             return redirect(f'/admin/login/?next={self.request.path}')
 
 
-def add_view(request):
-    if PUBLIC_ADD_VIEW or request.user.is_authenticated:
-            context = {
-                'title': 'Add URLs',
+class AddView(View):
+    extra_context = {'title': 'Add URLs'}
+
+    def get(self, request, *args, **kwargs):
+        if PUBLIC_ADD_VIEW or self.request.user.is_authenticated:
+            self.extra_context['form'] = AddLinkForm()
+            return render(template_name='add_links.html', request=request, context=self.extra_context)
+        else:
+            return redirect(f'/admin/login/?next={request.path}')
+
+    def post(self, request, *args, **kwargs):
+        form = AddLinkForm(request.POST)
+        if form.is_valid():
+            url = form.cleaned_data["url"]
+            print(f'[+] Adding URL: {url}')
+            depth = 0 if form.cleaned_data["depth"] == "0" else 1
+            input_kwargs = {
+                "urls": url,
+                "depth": depth,
+                "update_all": False,
+                "out_dir": OUTPUT_DIR,
             }
-            if request.method == 'GET':
-                context['form'] = AddLinkForm()
+            add_stdout = StringIO()
+            with redirect_stdout(add_stdout):
+                add(**input_kwargs)
+                print(add_stdout.getvalue())
 
-            elif request.method == 'POST':
-                form = AddLinkForm(request.POST)
-                if form.is_valid():
-                    url = form.cleaned_data["url"]
-                    print(f'[+] Adding URL: {url}')
-                    depth = 0 if form.cleaned_data["depth"] == "0" else 1
-                    input_kwargs = {
-                        "urls": url,
-                        "depth": depth,
-                        "update_all": False,
-                        "out_dir": OUTPUT_DIR,
-                    }
-                    add_stdout = StringIO()
-                    with redirect_stdout(add_stdout):
-                        add(**input_kwargs)
-                        print(add_stdout.getvalue())
-
-                    context.update({
-                        "stdout": ansi_to_html(add_stdout.getvalue().strip()),
-                        "form": AddLinkForm()
-                    })
-                else:
-                    context["form"] = form
-            return render(template_name='add_links.html', request=request, context=context)
-    else:
-        return redirect(f'/admin/login/?next={request.path}')
+            self.extra_context.update({
+                "stdout": ansi_to_html(add_stdout.getvalue().strip()),
+                "form": AddLinkForm()
+            })
+        else:
+            self.extra_context["form"] = form
+        
+        return render(template_name='add_links.html', request=request, context=self.extra_context)
