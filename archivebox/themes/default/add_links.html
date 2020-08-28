@@ -28,7 +28,7 @@
                 <a href="/add" id="submit">&nbsp; Add more URLs ➕</a>
             </center>
         {% else %}
-            <form id="add-form" action="?" method="POST" class="p-form">{% csrf_token %}
+            <form id="add-form" method="POST" class="p-form">{% csrf_token %}
                 <h1>Add new URLs to your archive</h1>
                 <br/>
                 {{ form.as_p }}
