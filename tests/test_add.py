@@ -63,3 +63,14 @@ def test_overwrite_flag_is_accepted(process, disable_extractors_dict):
     )
     assert 'unrecognized arguments: --overwrite' not in arg_process.stderr.decode("utf-8")
     assert 'favicon' in arg_process.stdout.decode('utf-8'), 'archive methods probably didnt run, did overwrite work?'
+
+def test_add_updates_history_json_index(tmp_path, process, disable_extractors_dict):
+    subprocess.run(
+        ["archivebox", "add", "--depth=0", "http://127.0.0.1:8080/static/example.com.html"],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+
+    with open(tmp_path / "index.json", "r") as f:
+        output_json = json.load(f)
+    assert output_json["links"][0]["history"] != {}
