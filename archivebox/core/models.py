@@ -47,6 +47,10 @@ class Snapshot(models.Model):
     def as_link(self) -> Link:
         return Link.from_json(self.as_json())
 
+    def as_link_with_details(self) -> Link:
+        from ..index import load_link_details
+        return load_link_details(self.as_link())
+
     @cached_property
     def bookmarked(self):
         return parse_date(self.timestamp)
