@@ -6,7 +6,6 @@ from contextlib import redirect_stdout
 from django.shortcuts import render, redirect
 
 from django.http import HttpResponse
-from django.db.models import Q
 from django.views import View, static
 from django.views.generic.list import ListView
 from django.views.generic import FormView
@@ -16,13 +15,8 @@ from core.models import Snapshot
 from core.utils import get_icons
 from core.forms import AddLinkForm
 
-
-
-from ..index import load_main_index, load_main_index_meta
 from ..config import (
     OUTPUT_DIR,
-    VERSION,
-    FOOTER_INFO,
     PUBLIC_INDEX,
     PUBLIC_SNAPSHOTS,
     PUBLIC_ADD_VIEW
@@ -125,7 +119,7 @@ class AddView(UserPassesTestMixin, FormView):
 
     def get_context_data(self, *args, **kwargs):
         context = super().get_context_data(*args, **kwargs)
-        context["title"]: "Add URLs"
+        context["title"] = "Add URLs"
         return context
 
     def form_valid(self, form):

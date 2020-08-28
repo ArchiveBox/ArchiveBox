@@ -2,7 +2,6 @@ __package__ = 'archivebox.core'
 
 from io import StringIO
 from contextlib import redirect_stdout
-from pathlib import Path
 
 from django.contrib import admin
 from django.urls import path
