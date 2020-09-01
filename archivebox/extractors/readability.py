@@ -16,6 +16,7 @@ from ..util import (
 )
 from ..config import (
     TIMEOUT,
+    CURL_BINARY,
     SAVE_READABILITY,
     DEPENDENCIES,
     READABILITY_VERSION,
@@ -65,6 +66,11 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
     # Readability Docs: https://github.com/mozilla/readability
 
     status = 'succeeded'
+    # fake command to show the user so they have something to try debugging if get_html fails
+    cmd = [
+        CURL_BINARY,
+        link.url
+    ]
     timer = TimedProgress(timeout, prefix='      ')
     try:
         document = get_html(link, out_dir)
