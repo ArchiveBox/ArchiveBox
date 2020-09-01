@@ -66,6 +66,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
     # Readability Docs: https://github.com/mozilla/readability
 
     status = 'succeeded'
+    # fake command to show the user so they have something to try debugging if get_html fails
     cmd = [
         CURL_BINARY,
         link.url
