@@ -1,6 +1,7 @@
 __package__ = 'archivebox.index'
 
 from io import StringIO
+from pathlib import Path
 from typing import List, Tuple, Iterator
 from django.db.models import QuerySet
 
@@ -12,7 +13,7 @@ from ..config import setup_django, OUTPUT_DIR
 ### Main Links Index
 
 @enforce_types
-def parse_sql_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
+def parse_sql_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[Link]:
     setup_django(out_dir, check_db=True)
     from core.models import Snapshot
 
@@ -22,7 +23,7 @@ def parse_sql_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
     )
 
 @enforce_types
-def remove_from_sql_main_index(snapshots: QuerySet, out_dir: str=OUTPUT_DIR) -> None:
+def remove_from_sql_main_index(snapshots: QuerySet, out_dir: Path=OUTPUT_DIR) -> None:
     setup_django(out_dir, check_db=True)
     from django.db import transaction
 
@@ -43,7 +44,7 @@ def write_link_to_sql_index(link: Link):
 
 
 @enforce_types
-def write_sql_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
+def write_sql_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
     setup_django(out_dir, check_db=True)
     from django.db import transaction
 
@@ -53,7 +54,7 @@ def write_sql_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
             
 
 @enforce_types
-def write_sql_link_details(link: Link, out_dir: str=OUTPUT_DIR) -> None:
+def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
     setup_django(out_dir, check_db=True)
     from core.models import Snapshot
     from django.db import transaction
@@ -70,7 +71,7 @@ def write_sql_link_details(link: Link, out_dir: str=OUTPUT_DIR) -> None:
 
 
 @enforce_types
-def list_migrations(out_dir: str=OUTPUT_DIR) -> List[Tuple[bool, str]]:
+def list_migrations(out_dir: Path=OUTPUT_DIR) -> List[Tuple[bool, str]]:
     setup_django(out_dir, check_db=False)
     from django.core.management import call_command
     out = StringIO()
@@ -87,7 +88,7 @@ def list_migrations(out_dir: str=OUTPUT_DIR) -> List[Tuple[bool, str]]:
     return migrations
 
 @enforce_types
-def apply_migrations(out_dir: str=OUTPUT_DIR) -> List[str]:
+def apply_migrations(out_dir: Path=OUTPUT_DIR) -> List[str]:
     setup_django(out_dir, check_db=False)
     from django.core.management import call_command
     null, out = StringIO(), StringIO()
@@ -98,7 +99,7 @@ def apply_migrations(out_dir: str=OUTPUT_DIR) -> List[str]:
     return [line.strip() for line in out.readlines() if line.strip()]
 
 @enforce_types
-def get_admins(out_dir: str=OUTPUT_DIR) -> List[str]:
+def get_admins(out_dir: Path=OUTPUT_DIR) -> List[str]:
     setup_django(out_dir, check_db=False)
     from django.contrib.auth.models import User
     return User.objects.filter(is_superuser=True)

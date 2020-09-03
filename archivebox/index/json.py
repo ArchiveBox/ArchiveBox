@@ -6,7 +6,7 @@ import json as pyjson
 from pathlib import Path
 
 from datetime import datetime
-from typing import List, Optional, Iterator, Any
+from typing import List, Optional, Iterator, Any, Union
 
 from .schema import Link, ArchiveResult
 from ..system import atomic_write
@@ -42,7 +42,7 @@ MAIN_INDEX_HEADER = {
 ### Main Links Index
 
 @enforce_types
-def parse_json_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
+def parse_json_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[Link]:
     """parse an archive index json file and return the list of links"""
 
     index_path = os.path.join(out_dir, JSON_INDEX_FILENAME)
@@ -66,7 +66,7 @@ def parse_json_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[Link]:
     return ()
 
 @enforce_types
-def write_json_main_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
+def write_json_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
     """write the json link index to a given path"""
 
     assert isinstance(links, List), 'Links must be a list, not a generator.'
@@ -101,7 +101,7 @@ def write_json_link_details(link: Link, out_dir: Optional[str]=None) -> None:
 
 
 @enforce_types
-def parse_json_link_details(out_dir: str, guess: Optional[bool]=False) -> Optional[Link]:
+def parse_json_link_details(out_dir: Union[Path, str], guess: Optional[bool]=False) -> Optional[Link]:
     """load the json link index from a given directory"""
     existing_index = os.path.join(out_dir, JSON_INDEX_FILENAME)
     if os.path.exists(existing_index):
@@ -115,7 +115,7 @@ def parse_json_link_details(out_dir: str, guess: Optional[bool]=False) -> Option
 
 
 @enforce_types
-def parse_json_links_details(out_dir: str) -> Iterator[Link]:
+def parse_json_links_details(out_dir: Union[Path, str]) -> Iterator[Link]:
     """read through all the archive data folders and return the parsed links"""
 
     for entry in os.scandir(os.path.join(out_dir, ARCHIVE_DIR_NAME)):

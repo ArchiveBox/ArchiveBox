@@ -13,6 +13,7 @@ from io import StringIO
 
 from typing import IO, Tuple, List, Optional
 from datetime import datetime
+from pathlib import Path 
 
 from ..system import atomic_write
 from ..config import (
@@ -125,7 +126,7 @@ def run_parser_functions(to_parse: IO[str], timer, root_url: Optional[str]=None)
 
 
 @enforce_types
-def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: str=OUTPUT_DIR) -> str:
+def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: Path=OUTPUT_DIR) -> str:
     ts = str(datetime.now().timestamp()).split('.', 1)[0]
     source_path = os.path.join(out_dir, SOURCES_DIR_NAME, filename.format(ts=ts))
     atomic_write(source_path, raw_text)
@@ -134,7 +135,7 @@ def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: 
 
 
 @enforce_types
-def save_file_as_source(path: str, timeout: int=TIMEOUT, filename: str='{ts}-{basename}.txt', out_dir: str=OUTPUT_DIR) -> str:
+def save_file_as_source(path: str, timeout: int=TIMEOUT, filename: str='{ts}-{basename}.txt', out_dir: Path=OUTPUT_DIR) -> str:
     """download a given url's content into output/sources/domain-<timestamp>.txt"""
     ts = str(datetime.now().timestamp()).split('.', 1)[0]
     source_path = os.path.join(OUTPUT_DIR, SOURCES_DIR_NAME, filename.format(basename=basename(path), ts=ts))
