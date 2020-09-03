@@ -5,6 +5,7 @@ import sys
 import shutil
 from pathlib import Path
 
+from pathlib import Path
 from typing import Dict, List, Optional, Iterable, IO, Union
 from crontab import CronTab, CronSlices
 from django.db.models import QuerySet
@@ -130,7 +131,7 @@ ALLOWED_IN_OUTPUT_DIR = {
 }
 
 @enforce_types
-def help(out_dir: str=OUTPUT_DIR) -> None:
+def help(out_dir: Path=OUTPUT_DIR) -> None:
     """Print the ArchiveBox help message and usage"""
 
     all_subcommands = list_subcommands()
@@ -153,7 +154,7 @@ def help(out_dir: str=OUTPUT_DIR) -> None:
     )
 
 
-    if os.path.exists(os.path.join(out_dir, SQL_INDEX_FILENAME)):
+    if (Path(out_dir) / SQL_INDEX_FILENAME).exists():
         print('''{green}ArchiveBox v{}: The self-hosted internet archive.{reset}
 
 {lightred}Active data directory:{reset}
@@ -202,7 +203,7 @@ def help(out_dir: str=OUTPUT_DIR) -> None:
 
 @enforce_types
 def version(quiet: bool=False,
-            out_dir: str=OUTPUT_DIR) -> None:
+            out_dir: Path=OUTPUT_DIR) -> None:
     """Print the ArchiveBox version and dependency information"""
 
     if quiet:
@@ -239,7 +240,7 @@ def version(quiet: bool=False,
 def run(subcommand: str,
         subcommand_args: Optional[List[str]],
         stdin: Optional[IO]=None,
-        out_dir: str=OUTPUT_DIR) -> None:
+        out_dir: Path=OUTPUT_DIR) -> None:
     """Run a given ArchiveBox subcommand with the given list of args"""
     run_subcommand(
         subcommand=subcommand,
@@ -250,9 +251,9 @@ def run(subcommand: str,
 
 
 @enforce_types
-def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
+def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
-    os.makedirs(out_dir, exist_ok=True)
+    Path(out_dir).mkdir(exist_ok=True)
     is_empty = not len(set(os.listdir(out_dir)) - ALLOWED_IN_OUTPUT_DIR)
 
     if (Path(out_dir) / JSON_INDEX_FILENAME).exists():
@@ -289,32 +290,31 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
     else:
         print('\n{green}[+] Building archive folder structure...{reset}'.format(**ANSI))
     
-    os.makedirs(SOURCES_DIR, exist_ok=True)
+    Path(SOURCES_DIR).mkdir(exist_ok=True)
     print(f'    √ {SOURCES_DIR}')
     
-    os.makedirs(ARCHIVE_DIR, exist_ok=True)
+    Path(ARCHIVE_DIR).mkdir(exist_ok=True)
     print(f'    √ {ARCHIVE_DIR}')
 
-    os.makedirs(LOGS_DIR, exist_ok=True)
+    Path(LOGS_DIR).mkdir(exist_ok=True)
     print(f'    √ {LOGS_DIR}')
 
     write_config_file({}, out_dir=out_dir)
     print(f'    √ {CONFIG_FILE}')
-    
-    if os.path.exists(os.path.join(out_dir, SQL_INDEX_FILENAME)):
+    if (Path(out_dir) / SQL_INDEX_FILENAME).exists():
         print('\n{green}[*] Verifying main SQL index and running migrations...{reset}'.format(**ANSI))
     else:
         print('\n{green}[+] Building main SQL index and running migrations...{reset}'.format(**ANSI))
     
     setup_django(out_dir, check_db=False)
-    DATABASE_FILE = os.path.join(out_dir, SQL_INDEX_FILENAME)
+    DATABASE_FILE = Path(out_dir) / SQL_INDEX_FILENAME
     print(f'    √ {DATABASE_FILE}')
     print()
     for migration_line in apply_migrations(out_dir):
         print(f'    {migration_line}')
 
 
-    assert os.path.exists(DATABASE_FILE)
+    assert DATABASE_FILE.exists()
     
     # from django.contrib.auth.models import User
     # if IS_TTY and not User.objects.filter(is_superuser=True).exists():
@@ -391,7 +391,7 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
 
 
 @enforce_types
-def status(out_dir: str=OUTPUT_DIR) -> None:
+def status(out_dir: Path=OUTPUT_DIR) -> None:
     """Print out some info and statistics about the archive collection"""
 
     check_data_folder(out_dir=out_dir)
@@ -491,7 +491,7 @@ def status(out_dir: str=OUTPUT_DIR) -> None:
 
 
 @enforce_types
-def oneshot(url: str, out_dir: str=OUTPUT_DIR):
+def oneshot(url: str, out_dir: Path=OUTPUT_DIR):
     """
     Create a single URL archive folder with an index.json and index.html, and all the archive method outputs.
     You can run this to archive single pages without needing to create a whole collection with archivebox init.
@@ -514,7 +514,7 @@ def add(urls: Union[str, List[str]],
         index_only: bool=False,
         overwrite: bool=False,
         init: bool=False,
-        out_dir: str=OUTPUT_DIR) -> List[Link]:
+        out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
@@ -577,7 +577,7 @@ def remove(filter_str: Optional[str]=None,
            before: Optional[float]=None,
            yes: bool=False,
            delete: bool=False,
-           out_dir: str=OUTPUT_DIR) -> List[Link]:
+           out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Remove the specified URLs from the archive"""
     
     check_data_folder(out_dir=out_dir)
@@ -658,7 +658,7 @@ def update(resume: Optional[float]=None,
            status: Optional[str]=None,
            after: Optional[str]=None,
            before: Optional[str]=None,
-           out_dir: str=OUTPUT_DIR) -> List[Link]:
+           out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Import any new links from subscriptions and retry any previously failed/skipped links"""
 
     check_data_folder(out_dir=out_dir)
@@ -714,7 +714,7 @@ def list_all(filter_patterns_str: Optional[str]=None,
              json: bool=False,
              html: bool=False,
              with_headers: bool=False,
-             out_dir: str=OUTPUT_DIR) -> Iterable[Link]:
+             out_dir: Path=OUTPUT_DIR) -> Iterable[Link]:
     """List, filter, and export information about archive entries"""
     
     check_data_folder(out_dir=out_dir)
@@ -756,7 +756,7 @@ def list_links(snapshots: Optional[QuerySet]=None,
                filter_type: str='exact',
                after: Optional[float]=None,
                before: Optional[float]=None,
-               out_dir: str=OUTPUT_DIR) -> Iterable[Link]:
+               out_dir: Path=OUTPUT_DIR) -> Iterable[Link]:
     
     check_data_folder(out_dir=out_dir)
 
@@ -776,7 +776,7 @@ def list_links(snapshots: Optional[QuerySet]=None,
 @enforce_types
 def list_folders(links: List[Link],
                  status: str,
-                 out_dir: str=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+                 out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     
     check_data_folder(out_dir=out_dir)
 
@@ -805,7 +805,7 @@ def config(config_options_str: Optional[str]=None,
            get: bool=False,
            set: bool=False,
            reset: bool=False,
-           out_dir: str=OUTPUT_DIR) -> None:
+           out_dir: Path=OUTPUT_DIR) -> None:
     """Get and set your ArchiveBox project configuration values"""
 
     check_data_folder(out_dir=out_dir)
@@ -905,12 +905,12 @@ def schedule(add: bool=False,
              every: Optional[str]=None,
              depth: int=0,
              import_path: Optional[str]=None,
-             out_dir: str=OUTPUT_DIR):
+             out_dir: Path=OUTPUT_DIR):
     """Set ArchiveBox to regularly import URLs at specific times using cron"""
     
     check_data_folder(out_dir=out_dir)
 
-    os.makedirs(os.path.join(out_dir, LOGS_DIR_NAME), exist_ok=True)
+    (Path(out_dir) / LOGS_DIR_NAME).mkdir(exist_ok=True)
 
     cron = CronTab(user=True)
     cron = dedupe_cron_jobs(cron)
@@ -932,7 +932,7 @@ def schedule(add: bool=False,
             quoted(ARCHIVEBOX_BINARY),
             *(['add', f'--depth={depth}', f'"{import_path}"'] if import_path else ['update']),
             '>',
-            quoted(os.path.join(LOGS_DIR, 'archivebox.log')),
+            quoted(Path(LOGS_DIR) / 'archivebox.log'),
             '2>&1',
 
         ]
@@ -1016,7 +1016,7 @@ def server(runserver_args: Optional[List[str]]=None,
            reload: bool=False,
            debug: bool=False,
            init: bool=False,
-           out_dir: str=OUTPUT_DIR) -> None:
+           out_dir: Path=OUTPUT_DIR) -> None:
     """Run the ArchiveBox HTTP server"""
 
     runserver_args = runserver_args or []
@@ -1063,7 +1063,7 @@ def server(runserver_args: Optional[List[str]]=None,
 
 
 @enforce_types
-def manage(args: Optional[List[str]]=None, out_dir: str=OUTPUT_DIR) -> None:
+def manage(args: Optional[List[str]]=None, out_dir: Path=OUTPUT_DIR) -> None:
     """Run an ArchiveBox Django management command"""
 
     check_data_folder(out_dir=out_dir)
@@ -1079,7 +1079,7 @@ def manage(args: Optional[List[str]]=None, out_dir: str=OUTPUT_DIR) -> None:
 
 
 @enforce_types
-def shell(out_dir: str=OUTPUT_DIR) -> None:
+def shell(out_dir: Path=OUTPUT_DIR) -> None:
     """Enter an interactive ArchiveBox Django shell"""
 
     check_data_folder(out_dir=out_dir)

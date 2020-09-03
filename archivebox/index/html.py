@@ -5,6 +5,7 @@ import os
 from string import Template
 from datetime import datetime
 from typing import List, Optional, Iterator, Mapping
+from pathlib import Path
 
 from .schema import Link
 from ..system import atomic_write, copy_and_overwrite
@@ -40,7 +41,7 @@ TITLE_LOADING_MSG = 'Not yet archived...'
 ### Main Links Index
 
 @enforce_types
-def parse_html_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[str]:
+def parse_html_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[str]:
     """parse an archive index html file and return the list of urls"""
 
     index_path = join(out_dir, HTML_INDEX_FILENAME)
@@ -52,7 +53,7 @@ def parse_html_main_index(out_dir: str=OUTPUT_DIR) -> Iterator[str]:
     return ()
 
 @enforce_types
-def write_html_main_index(links: List[Link], out_dir: str=OUTPUT_DIR, finished: bool=False) -> None:
+def write_html_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR, finished: bool=False) -> None:
     """write the html link index to a given path"""
 
     copy_and_overwrite(join(TEMPLATES_DIR, FAVICON_FILENAME), join(out_dir, FAVICON_FILENAME))
