@@ -78,6 +78,8 @@ else
     exit 1
 fi
 
+pip3 install --upgrade archivebox
+
 # Check:
 echo ""
 echo "[*] Checking installed versions:"
@@ -97,6 +99,7 @@ echo "" &&
 which youtube-dl &&
 youtube-dl --version | head -n 1 &&
 echo "---------------------------------------------------" &&
+archivebox version &&
 echo "[√] All dependencies installed. ✅" &&
 exit 0
 
