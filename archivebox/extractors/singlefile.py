@@ -42,10 +42,11 @@ def save_singlefile(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOU
     browser_args = chrome_args(TIMEOUT=0)
 
     # SingleFile CLI Docs: https://github.com/gildas-lormeau/SingleFile/tree/master/cli
+    browser_args = '--browser-args={}'.format(json.dumps(browser_args[1:]))
     cmd = [
         DEPENDENCIES['SINGLEFILE_BINARY']['path'],
         '--browser-executable-path={}'.format(CHROME_BINARY),
-        '--browser-args="{}"'.format(json.dumps(browser_args[1:])),
+        browser_args,
         link.url,
         output
     ]
@@ -73,6 +74,8 @@ def save_singlefile(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOU
         chmod_file(output)
     except (Exception, OSError) as err:
         status = 'failed'
+        # TODO: Make this prettier. This is necessary to run the command (escape JSON internal quotes).
+        cmd[2] = browser_args.replace('"', "\\\"")
         output = err
     finally:
         timer.end()
