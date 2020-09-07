@@ -6,6 +6,7 @@ import sys
 import time
 import argparse
 from multiprocessing import Process
+from pathlib import Path
 
 from datetime import datetime
 from dataclasses import dataclass
@@ -442,11 +443,11 @@ def log_shell_welcome_msg():
 ### Helpers
 
 @enforce_types
-def pretty_path(path: str) -> str:
+def pretty_path(path: Union[Path, str]) -> str:
     """convert paths like .../ArchiveBox/archivebox/../output/abc into output/abc"""
     pwd = os.path.abspath('.')
     # parent = os.path.abspath(os.path.join(pwd, os.path.pardir))
-    return path.replace(pwd + '/', './')
+    return str(path).replace(pwd + '/', './')
 
 
 @enforce_types

@@ -212,7 +212,7 @@ def lowest_uniq_timestamp(used_timestamps: OrderedDict, timestamp: str) -> str:
 
 @contextmanager
 @enforce_types
-def timed_index_update(out_path: str):
+def timed_index_update(out_path: Path):
     log_indexing_started(out_path)
     timer = TimedProgress(TIMEOUT * 2, prefix='      ')
     try:
@@ -220,7 +220,7 @@ def timed_index_update(out_path: str):
     finally:
         timer.end()
 
-    assert os.path.exists(out_path), f'Failed to write index file: {out_path}'
+    assert out_path.exists(), f'Failed to write index file: {out_path}'
     log_indexing_finished(out_path)
 
 
@@ -231,27 +231,27 @@ def write_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR, finished: bool
     log_indexing_process_started(len(links))
 
     try:
-        with timed_index_update(os.path.join(out_dir, SQL_INDEX_FILENAME)):
+        with timed_index_update(out_dir / SQL_INDEX_FILENAME):
             write_sql_main_index(links, out_dir=out_dir)
-            os.chmod(os.path.join(out_dir, SQL_INDEX_FILENAME), int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
+            os.chmod(out_dir / SQL_INDEX_FILENAME, int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
 
         if finished:
             write_static_index(links, out_dir=out_dir)
     except (KeyboardInterrupt, SystemExit):
         stderr('[!] Warning: Still writing index to disk...', color='lightyellow')
         stderr('    Run archivebox init to fix any inconsisntencies from an ungraceful exit.')
-        with timed_index_update(os.path.join(out_dir, SQL_INDEX_FILENAME)):
+        with timed_index_update(out_dir / SQL_INDEX_FILENAME):
             write_sql_main_index(links, out_dir=out_dir)
-            os.chmod(os.path.join(out_dir, SQL_INDEX_FILENAME), int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
+            os.chmod(out_dir / SQL_INDEX_FILENAME, int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
         raise SystemExit(0)
 
     log_indexing_process_finished()
 
 @enforce_types
-def write_static_index(links: List[Link], out_dir: str=OUTPUT_DIR) -> None:
-    with timed_index_update(os.path.join(out_dir, JSON_INDEX_FILENAME)):
+def write_static_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
+    with timed_index_update(str(out_dir / JSON_INDEX_FILENAME)):
         write_json_main_index(links)
-    with timed_index_update(os.path.join(out_dir, HTML_INDEX_FILENAME)):
+    with timed_index_update(str(out_dir / HTML_INDEX_FILENAME)):
         write_html_main_index(links, out_dir=out_dir, finished=True)
 
 @enforce_types
@@ -273,8 +273,8 @@ def load_main_index(out_dir: Path=OUTPUT_DIR, warn: bool=True) -> List[Link]:
 
 @enforce_types
 def load_main_index_meta(out_dir: Path=OUTPUT_DIR) -> Optional[dict]:
-    index_path = os.path.join(out_dir, JSON_INDEX_FILENAME)
-    if os.path.exists(index_path):
+    index_path = out_dir / JSON_INDEX_FILENAME
+    if index_path.exists():
         with open(index_path, 'r', encoding='utf-8') as f:
             meta_dict = pyjson.load(f)
             meta_dict.pop('links')
@@ -422,7 +422,7 @@ def get_present_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[L
 
     all_folders = {}
 
-    for entry in (Path(out_dir) / ARCHIVE_DIR_NAME).iterdir():
+    for entry in (out_dir / ARCHIVE_DIR_NAME).iterdir():
         if entry.is_dir():
             link = None
             try:
@@ -584,9 +584,9 @@ def is_unarchived(link: Link) -> bool:
 def fix_invalid_folder_locations(out_dir: Path=OUTPUT_DIR) -> Tuple[List[str], List[str]]:
     fixed = []
     cant_fix = []
-    for entry in os.scandir(os.path.join(out_dir, ARCHIVE_DIR_NAME)):
+    for entry in os.scandir(out_dir / ARCHIVE_DIR_NAME):
         if entry.is_dir(follow_symlinks=True):
-            if os.path.exists(os.path.join(entry.path, 'index.json')):
+            if (Path(entry.path) / 'index.json').exists():
                 try:
                     link = parse_json_link_details(entry.path)
                 except KeyError:
@@ -595,8 +595,8 @@ def fix_invalid_folder_locations(out_dir: Path=OUTPUT_DIR) -> Tuple[List[str], L
                     continue
 
                 if not entry.path.endswith(f'/{link.timestamp}'):
-                    dest = os.path.join(out_dir, ARCHIVE_DIR_NAME, link.timestamp)
-                    if os.path.exists(dest):
+                    dest = out_dir / ARCHIVE_DIR_NAME / link.timestamp
+                    if dest.exists():
                         cant_fix.append(entry.path)
                     else:
                         shutil.move(entry.path, dest)

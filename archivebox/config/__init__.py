@@ -221,17 +221,17 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'USER':                     {'default': lambda c: getpass.getuser() or os.getlogin()},
     'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
 
-    'REPO_DIR':                 {'default': lambda c: Path(os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')))},
-    'PYTHON_DIR':               {'default': lambda c: Path.joinpath(Path(c['REPO_DIR']), PYTHON_DIR_NAME)},
-    'TEMPLATES_DIR':            {'default': lambda c: Path.joinpath(c['PYTHON_DIR'], TEMPLATES_DIR_NAME, 'legacy')},
+    'REPO_DIR':                 {'default': lambda c: Path(__file__).resolve().parent.parent.parent},
+    'PYTHON_DIR':               {'default': lambda c: c['REPO_DIR'] / PYTHON_DIR_NAME},
+    'TEMPLATES_DIR':            {'default': lambda c: c['PYTHON_DIR'] / TEMPLATES_DIR_NAME / 'legacy'},
 
-    'OUTPUT_DIR':               {'default': lambda c: Path(os.path.abspath(os.path.expanduser(c['OUTPUT_DIR'])) if c['OUTPUT_DIR'] else os.path.abspath(os.curdir))},
-    'ARCHIVE_DIR':              {'default': lambda c: Path.joinpath(c['OUTPUT_DIR'], ARCHIVE_DIR_NAME)},
-    'SOURCES_DIR':              {'default': lambda c: Path.joinpath(c['OUTPUT_DIR'], SOURCES_DIR_NAME)},
-    'LOGS_DIR':                 {'default': lambda c: Path.joinpath(c['OUTPUT_DIR'], LOGS_DIR_NAME)},
-    'CONFIG_FILE':              {'default': lambda c: os.path.abspath(os.path.expanduser(c['CONFIG_FILE'])) if c['CONFIG_FILE'] else Path.joinpath(c['OUTPUT_DIR'], CONFIG_FILENAME)},
-    'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and os.path.abspath(os.path.expanduser(c['COOKIES_FILE']))},
-    'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (os.path.abspath(os.path.expanduser(c['CHROME_USER_DATA_DIR'])) or None)},
+    'OUTPUT_DIR':               {'default': lambda c: Path.home() / c['OUTPUT_DIR'] if c['OUTPUT_DIR'] else Path(os.curdir).resolve()},
+    'ARCHIVE_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / ARCHIVE_DIR_NAME},
+    'SOURCES_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / SOURCES_DIR_NAME},
+    'LOGS_DIR':                 {'default': lambda c: c['OUTPUT_DIR'] / LOGS_DIR_NAME},
+    'CONFIG_FILE':              {'default': lambda c: Path.home() / c['CONFIG_FILE'] if c['CONFIG_FILE'] else c['OUTPUT_DIR'] / CONFIG_FILENAME},
+    'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and Path.home() / c['COOKIES_FILE']},
+    'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else Path.home() / c['CHROME_USER_DATA_DIR'] or None},
     'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'] or '', re.IGNORECASE | re.UNICODE | re.MULTILINE)},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0]},
@@ -346,9 +346,9 @@ def load_config_val(key: str,
 def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
     """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
 
-    out_dir = out_dir or os.path.abspath(os.getenv('OUTPUT_DIR', '.'))
-    config_path = Path.joinpath(Path(out_dir), CONFIG_FILENAME)
-    if os.path.exists(config_path):
+    out_dir = out_dir or Path(os.getenv('OUTPUT_DIR', '.')).resolve()
+    config_path = Path(out_dir) / CONFIG_FILENAME
+    if config_path.exists():
         config_file = ConfigParser()
         config_file.optionxform = str 
         config_file.read(config_path)
@@ -369,10 +369,10 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
 
     from ..system import atomic_write
 
-    out_dir = out_dir or os.path.abspath(os.getenv('OUTPUT_DIR', '.'))
-    config_path = Path.joinpath(out_dir, CONFIG_FILENAME)
+    out_dir = out_dir or Path(os.getenv('OUTPUT_DIR', '.')).resolve()
+    config_path = Path(out_dir) /  CONFIG_FILENAME
     
-    if not os.path.exists(config_path):
+    if not config_path.exists():
         atomic_write(config_path, CONFIG_HEADER)
 
     config_file = ConfigParser()
@@ -592,8 +592,8 @@ def find_chrome_data_dir() -> Optional[str]:
         '~/.config/google-chrome-dev',
     )
     for path in default_profile_paths:
-        full_path = os.path.expanduser(path)
-        if os.path.exists(full_path):
+        full_path = Path.home() / path
+        if full_path.exists():
             return full_path
     return None
 
@@ -608,19 +608,19 @@ def wget_supports_compression(config):
 def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
     return {
         'REPO_DIR': {
-            'path': os.path.abspath(config['REPO_DIR']),
+            'path': config['REPO_DIR'].resolve(),
             'enabled': True,
-            'is_valid': os.path.exists(Path.joinpath(config['REPO_DIR'], 'archivebox')),
+            'is_valid': (config['REPO_DIR'] / 'archivebox').exists(),
         },
         'PYTHON_DIR': {
-            'path': os.path.abspath(config['PYTHON_DIR']),
+            'path': (config['PYTHON_DIR']).resolve(),
             'enabled': True,
-            'is_valid': os.path.exists(Path.joinpath(config['PYTHON_DIR'], '__main__.py')),
+            'is_valid': (config['PYTHON_DIR'] / '__main__.py').exists(),
         },
         'TEMPLATES_DIR': {
-            'path': os.path.abspath(config['TEMPLATES_DIR']),
+            'path': (config['TEMPLATES_DIR']).resolve(),
             'enabled': True,
-            'is_valid': os.path.exists(Path.joinpath(config['TEMPLATES_DIR'], 'static')),
+            'is_valid': (config['TEMPLATES_DIR'] / 'static').exists(),
         },
     }
 
@@ -642,44 +642,44 @@ def get_external_locations(config: ConfigDict) -> ConfigValue:
 def get_data_locations(config: ConfigDict) -> ConfigValue:
     return {
         'OUTPUT_DIR': {
-            'path': os.path.abspath(config['OUTPUT_DIR']),
+            'path': config['OUTPUT_DIR'].resolve(),
             'enabled': True,
-            'is_valid': os.path.exists(Path.joinpath(config['OUTPUT_DIR'], JSON_INDEX_FILENAME)),
+            'is_valid': (config['OUTPUT_DIR'] / JSON_INDEX_FILENAME).exists(),
         },
         'SOURCES_DIR': {
-            'path': os.path.abspath(config['SOURCES_DIR']),
+            'path': config['SOURCES_DIR'].resolve(),
             'enabled': True,
-            'is_valid': os.path.exists(config['SOURCES_DIR']),
+            'is_valid': config['SOURCES_DIR'].exists(),
         },
         'LOGS_DIR': {
-            'path': os.path.abspath(config['LOGS_DIR']),
+            'path': config['LOGS_DIR'].resolve(),
             'enabled': True,
-            'is_valid': os.path.exists(config['LOGS_DIR']),
+            'is_valid': config['LOGS_DIR'].exists(),
         },
         'ARCHIVE_DIR': {
-            'path': os.path.abspath(config['ARCHIVE_DIR']),
+            'path': config['ARCHIVE_DIR'].resolve(),
             'enabled': True,
-            'is_valid': os.path.exists(config['ARCHIVE_DIR']),
+            'is_valid': config['ARCHIVE_DIR'].exists(),
         },
         'CONFIG_FILE': {
-            'path': os.path.abspath(config['CONFIG_FILE']),
+            'path': config['CONFIG_FILE'].resolve(),
             'enabled': True,
-            'is_valid': os.path.exists(config['CONFIG_FILE']),
+            'is_valid': config['CONFIG_FILE'].exists(),
         },
         'SQL_INDEX': {
-            'path': os.path.abspath(Path.joinpath(config['OUTPUT_DIR'], SQL_INDEX_FILENAME)),
+            'path': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).resolve(),
             'enabled': True,
-            'is_valid': os.path.exists(Path.joinpath(config['OUTPUT_DIR'], SQL_INDEX_FILENAME)),
+            'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
         },
         'JSON_INDEX': {
-            'path': os.path.abspath(Path.joinpath(config['OUTPUT_DIR'], JSON_INDEX_FILENAME)),
+            'path': (config['OUTPUT_DIR'] / JSON_INDEX_FILENAME).resolve(),
             'enabled': True,
-            'is_valid': os.path.exists(Path.joinpath(config['OUTPUT_DIR'], JSON_INDEX_FILENAME)),
+            'is_valid': (config['OUTPUT_DIR'] / JSON_INDEX_FILENAME).exists(),
         },
         'HTML_INDEX': {
-            'path': os.path.abspath(Path.joinpath(config['OUTPUT_DIR'], HTML_INDEX_FILENAME)),
+            'path': (config['OUTPUT_DIR'] / HTML_INDEX_FILENAME).resolve(),
             'enabled': True,
-            'is_valid': os.path.exists(Path.joinpath(config['OUTPUT_DIR'], HTML_INDEX_FILENAME)),
+            'is_valid': (config['OUTPUT_DIR'] / HTML_INDEX_FILENAME).exists(),
         },
     }
 
@@ -908,9 +908,9 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
         stderr('        archivebox init')
         raise SystemExit(3)
 
-    sources_dir = Path.joinpath(output_dir, SOURCES_DIR_NAME)
-    if not os.path.exists(sources_dir):
-        os.makedirs(sources_dir)
+    sources_dir = Path(output_dir) / SOURCES_DIR_NAME
+    if not sources_dir.exists():
+        sources_dir.mkdir()
 
 
 
@@ -929,8 +929,8 @@ def setup_django(out_dir: str=None, check_db=False, config: ConfigDict=CONFIG) -
         django.setup()
 
         if check_db:
-            sql_index_path = Path.joinpath(output_dir, SQL_INDEX_FILENAME)
-            assert os.path.exists(sql_index_path), (
+            sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
+            assert sql_index_path.exists(), (
                 f'No database file {SQL_INDEX_FILENAME} found in OUTPUT_DIR: {config["OUTPUT_DIR"]}')
     except KeyboardInterrupt:
         raise SystemExit(2)
