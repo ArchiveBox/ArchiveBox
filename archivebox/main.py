@@ -582,7 +582,7 @@ def remove(filter_str: Optional[str]=None,
     
     check_data_folder(out_dir=out_dir)
 
-    if not snapshots:
+    if snapshots is None:
         if filter_str and filter_patterns:
             stderr(
                 '[X] You should pass either a pattern as an argument, '
