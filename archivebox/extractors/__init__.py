@@ -4,6 +4,7 @@ import os
 
 from typing import Optional, List, Iterable
 from datetime import datetime
+from django.db.models import QuerySet
 
 from ..index.schema import Link
 from ..index import (
@@ -131,14 +132,14 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 @enforce_types
 def archive_links(all_links: any, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None) -> List[Link]:
 
-    if type(all_links) is list:
-        num_links: int = len(all_links)
-        get_link = lambda x: x
-        get_iter = lambda x: x
-    else:
+    if type(all_links) is QuerySet:
         num_links: int = all_links.count()
         get_link = lambda x: x.as_link()
         get_iter = lambda x: x.iterator()
+    else:
+        num_links: int = len(all_links)
+        get_link = lambda x: x
+        get_iter = lambda x: x
 
     if num_links == 0:
         return []
