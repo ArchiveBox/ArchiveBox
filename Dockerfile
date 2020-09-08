@@ -58,6 +58,15 @@ RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add -
         nodejs \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Node dependencies
+WORKDIR "$NODE_DIR"
+ENV PATH="${PATH}:$NODE_DIR/node_modules/.bin" \
+    npm_config_loglevel=error
+RUN npm install -g npm
+ADD ./package.json ./package.json
+ADD ./package-lock.json ./package-lock.json
+RUN npm ci
+
 # Install Python dependencies
 WORKDIR "$CODE_DIR"
 ENV PATH="${PATH}:$VENV_PATH/bin"
@@ -71,14 +80,6 @@ RUN apt-get update -qq \
     && apt-get purge -y build-essential python-dev python3-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Node dependencies
-WORKDIR "$NODE_DIR"
-ENV PATH="${PATH}:$NODE_DIR/node_modules/.bin" \
-    npm_config_loglevel=error
-RUN npm install -g npm
-ADD ./package.json ./package.json
-RUN npm install
 
 # Install ArchiveBox Python package
 WORKDIR "$CODE_DIR"
