@@ -135,11 +135,10 @@ def archive_links(all_links: any, overwrite: bool=False, methods: Optional[Itera
     if type(all_links) is QuerySet:
         num_links: int = all_links.count()
         get_link = lambda x: x.as_link()
-        get_iter = lambda x: x.iterator()
+        all_links = all_links.iterator()
     else:
         num_links: int = len(all_links)
         get_link = lambda x: x
-        get_iter = lambda x: x
 
     if num_links == 0:
         return []
@@ -147,7 +146,7 @@ def archive_links(all_links: any, overwrite: bool=False, methods: Optional[Itera
     log_archiving_started(num_links)
     idx: int = 0
     try:
-        for link in get_iter(all_links):
+        for link in all_links:
             idx += 1
             to_archive = get_link(link)
             archive_link(to_archive, overwrite=overwrite, methods=methods, out_dir=link.link_dir)
