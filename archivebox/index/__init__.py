@@ -302,7 +302,7 @@ def parse_links_from_source(source_path: str, root_url: Optional[str]=None) -> T
 @enforce_types
 def fix_duplicate_links_in_index(snapshots: QuerySet, links: Iterable[Link]) -> Iterable[Link]:
     """
-    Look for urls in the index, and merge them too
+    Given a list of in-memory Links, dedupe and merge them with any conflicting Snapshots in the DB.
     """
     unique_urls: OrderedDict[str, Link] = OrderedDict()
 
