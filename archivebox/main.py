@@ -255,6 +255,10 @@ def init(force: bool=False, out_dir: str=OUTPUT_DIR) -> None:
     os.makedirs(out_dir, exist_ok=True)
     is_empty = not len(set(os.listdir(out_dir)) - ALLOWED_IN_OUTPUT_DIR)
 
+    if (Path(out_dir) / JSON_INDEX_FILENAME).exists():
+        stderr("[!] This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.", color="lightyellow")
+        stderr("    You can run `archivebox list --json --with-headers > index.json` to manually generate it.", color="lightyellow")
+
     existing_index = (Path(out_dir) / SQL_INDEX_FILENAME).exists()
 
     if is_empty and not existing_index:
