@@ -225,13 +225,13 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'PYTHON_DIR':               {'default': lambda c: c['REPO_DIR'] / PYTHON_DIR_NAME},
     'TEMPLATES_DIR':            {'default': lambda c: c['PYTHON_DIR'] / TEMPLATES_DIR_NAME / 'legacy'},
 
-    'OUTPUT_DIR':               {'default': lambda c: Path.home() / c['OUTPUT_DIR'] if c['OUTPUT_DIR'] else Path(os.curdir).resolve()},
+    'OUTPUT_DIR':               {'default': lambda c: Path(c['OUTPUT_DIR']).resolve() if c['OUTPUT_DIR'] else Path(os.curdir).resolve()},
     'ARCHIVE_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / ARCHIVE_DIR_NAME},
     'SOURCES_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / SOURCES_DIR_NAME},
     'LOGS_DIR':                 {'default': lambda c: c['OUTPUT_DIR'] / LOGS_DIR_NAME},
-    'CONFIG_FILE':              {'default': lambda c: Path.home() / c['CONFIG_FILE'] if c['CONFIG_FILE'] else c['OUTPUT_DIR'] / CONFIG_FILENAME},
-    'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and Path.home() / c['COOKIES_FILE']},
-    'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else Path.home() / c['CHROME_USER_DATA_DIR'] or None},
+    'CONFIG_FILE':              {'default': lambda c: Path(c['CONFIG_FILE']).resolve() if c['CONFIG_FILE'] else c['OUTPUT_DIR'] / CONFIG_FILENAME},
+    'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and Path(c['COOKIES_FILE']).resolve()},
+    'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else Path(c['CHROME_USER_DATA_DIR']).resolve() or None},
     'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'] or '', re.IGNORECASE | re.UNICODE | re.MULTILINE)},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0]},
@@ -592,7 +592,7 @@ def find_chrome_data_dir() -> Optional[str]:
         '~/.config/google-chrome-dev',
     )
     for path in default_profile_paths:
-        full_path = Path.home() / path
+        full_path = Path(path).resolve()
         if full_path.exists():
             return full_path
     return None
