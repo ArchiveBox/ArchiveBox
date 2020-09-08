@@ -52,9 +52,9 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help="Print the output in HTML format"
     )
     parser.add_argument(
-        '--index',
+        '--with-headers',
         action='store_true',
-        help='Include the index additional structures'
+        help='Include the headers in the output document' 
     )
     parser.add_argument(
         '--sort', #'-s',
@@ -112,9 +112,9 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     command = parser.parse_args(args or ())
     filter_patterns_str = accept_stdin(stdin)
 
-    if command.index and not (command.json or command.html):
+    if command.with_headers and not (command.json or command.html or command.csv):
         stderr(
-            '[X] --index can only be used with --json or --html options.\n',
+            '[X] --with-headers can only be used with --json, --html or --csv options.\n',
             color='red',
         )
         raise SystemExit(2)
@@ -130,7 +130,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         csv=command.csv,
         json=command.json,
         html=command.html,
-        index=command.index,
+        with_headers=command.with_headers,
         out_dir=pwd or OUTPUT_DIR,
     )
     raise SystemExit(not matching_folders)

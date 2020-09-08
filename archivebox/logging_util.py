@@ -463,11 +463,11 @@ def printable_folders(folders: Dict[str, Optional["Link"]],
                       json: bool=False,
                       html: bool=False,
                       csv: Optional[str]=None,
-                      index: bool=False) -> str:
+                      with_headers: bool=False) -> str:
     links = folders.values()
     if json: 
         from .index.json import to_json
-        if index:
+        if with_headers:
             output = {
                 **MAIN_INDEX_HEADER,
                 'num_links': len(links),
@@ -480,7 +480,7 @@ def printable_folders(folders: Dict[str, Optional["Link"]],
         return to_json(output, indent=4, sort_keys=True)
     elif html:
         from .index.html import main_index_template
-        if index:
+        if with_headers:
             output = main_index_template(links, True)
         else:
             from .index.html import MINIMAL_INDEX_TEMPLATE
@@ -488,7 +488,7 @@ def printable_folders(folders: Dict[str, Optional["Link"]],
         return output
     elif csv:
         from .index.csv import links_to_csv
-        return links_to_csv(folders.values(), cols=csv.split(','), header=True)
+        return links_to_csv(folders.values(), cols=csv.split(','), header=with_headers)
     
     return '\n'.join(
         f'{folder} {link and link.url} "{link and link.title}"'
