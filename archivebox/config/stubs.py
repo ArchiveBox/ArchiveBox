@@ -1,5 +1,7 @@
+from pathlib import Path
 from typing import Optional, Dict, Union, Tuple, Callable, Pattern, Type, Any
 from mypy_extensions import TypedDict
+
 
 
 SimpleConfigValue = Union[str, bool, int, None, Pattern, Dict[str, Any]]
@@ -31,8 +33,8 @@ class ConfigDict(BaseConfig, total=False):
     SHOW_PROGRESS: bool
     IN_DOCKER: bool
 
-    OUTPUT_DIR: Optional[str]
-    CONFIG_FILE: Optional[str]
+    OUTPUT_DIR: Union[str, Path, None]
+    CONFIG_FILE: Union[str, Path, None]
     ONLY_NEW: bool
     TIMEOUT: int
     MEDIA_TIMEOUT: int
@@ -70,8 +72,8 @@ class ConfigDict(BaseConfig, total=False):
     CURL_USER_AGENT: str
     WGET_USER_AGENT: str
     CHROME_USER_AGENT: str
-    COOKIES_FILE: Optional[str]
-    CHROME_USER_DATA_DIR: Optional[str]
+    COOKIES_FILE: Union[str, Path, None]
+    CHROME_USER_DATA_DIR: Union[str, Path, None]
     CHROME_HEADLESS: bool
     CHROME_SANDBOX: bool
 
