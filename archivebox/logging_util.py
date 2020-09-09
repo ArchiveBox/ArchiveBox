@@ -527,7 +527,7 @@ def printable_folder_status(name: str, folder: Dict) -> str:
         else:
             num_files = 'missing'
 
-        if ' ' in folder['path']:
+        if ' ' in str(folder['path']):
             folder['path'] = f'"{folder["path"]}"'
 
     return ' '.join((
