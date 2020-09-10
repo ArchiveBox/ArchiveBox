@@ -535,7 +535,7 @@ def printable_folder_status(name: str, folder: Dict) -> str:
         symbol,
         ANSI['reset'],
         name.ljust(22),
-        (folder["path"] or '').ljust(76),
+        (str(folder["path"]) or '').ljust(76),
         num_files.ljust(14),
         ANSI[color],
         note,
