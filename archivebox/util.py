@@ -185,7 +185,7 @@ def get_headers(url: str, timeout: int=None) -> str:
         timeout=timeout,
     )
     
-    return pyjson.dumps(dict(response.headers))
+    return pyjson.dumps(dict(response.headers), indent=4)
 
 
 @enforce_types
