@@ -46,10 +46,11 @@ def save_headers(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
 
     cmd = [
         CURL_BINARY,
-        '-s',
-        '-I',
-        '-X',
-        '-D',
+        '--silent',
+        '--max-time', str(timeout),
+        '--location',
+        '--compressed',
+        '--head',
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         link.url,
