@@ -173,6 +173,20 @@ def download_url(url: str, timeout: int=None) -> str:
 
     return response.text
 
+@enforce_types
+def get_headers(url: str, timeout: int=None) -> str:
+    """Download the contents of a remote url and return the headers"""
+    from .config import TIMEOUT, CHECK_SSL_VALIDITY, WGET_USER_AGENT
+    timeout = timeout or TIMEOUT
+    response = requests.get(
+        url,
+        headers={'User-Agent': WGET_USER_AGENT},
+        verify=CHECK_SSL_VALIDITY,
+        timeout=timeout,
+    )
+    
+    return pyjson.dumps(dict(response.headers))
+
 
 @enforce_types
 def chrome_args(**options) -> List[str]:
