@@ -1,13 +1,11 @@
 __package__ = 'archivebox.extractors'
 
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 from typing import Optional
-import json
 
-from ..index.schema import Link, ArchiveResult, ArchiveError
-from ..system import run, atomic_write
+from ..index.schema import Link, ArchiveResult, ArchiveOutput
+from ..system import atomic_write
 from ..util import (
     enforce_types,
     get_headers,
@@ -19,7 +17,6 @@ from ..config import (
     CURL_USER_AGENT,
     CURL_VERSION,
     CHECK_SSL_VALIDITY,
-    DEPENDENCIES,
 )
 from ..logging_util import TimedProgress
 
