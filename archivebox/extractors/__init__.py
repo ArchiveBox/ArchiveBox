@@ -2,7 +2,7 @@ __package__ = 'archivebox.extractors'
 
 import os
 
-from typing import Optional, List, Iterable
+from typing import Optional, List, Iterable, Union, TYPE_CHECKING
 from datetime import datetime
 from django.db.models import QuerySet
 
@@ -130,7 +130,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
     return link
 
 @enforce_types
-def archive_links(all_links: any, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None) -> List[Link]:
+def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None) -> List[Link]:
 
     if type(all_links) is QuerySet:
         num_links: int = all_links.count()
