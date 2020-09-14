@@ -1,4 +1,5 @@
 from .fixtures import *
+import json as pyjson
 from archivebox.extractors import ignore_methods, get_default_archive_methods, should_save_title
 
 def test_wget_broken_pipe(tmp_path, process, disable_extractors_dict):
@@ -71,8 +72,14 @@ def test_use_node_false_disables_readability_and_singlefile(tmp_path, process, d
     assert "> readability" not in output_str
 
 def test_headers(tmp_path, process, disable_extractors_dict):
-    add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'],
+    add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/headers/example.com.html'],
                                   capture_output=True, env=disable_extractors_dict)
     archived_item_path = list(tmp_path.glob("archive/**/*"))[0]
     output_file = archived_item_path / "headers.json"
     assert output_file.exists()
+    headers_file = archived_item_path / 'headers.json'
+    with open(headers_file) as f:
+        headers = pyjson.load(f)
+    assert headers['Content-Language'] == 'en'
+    assert headers['Content-Script-Type'] == 'text/javascript'
+    assert headers['Content-Style-Type'] == 'text/css'
