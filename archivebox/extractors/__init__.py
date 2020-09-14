@@ -2,7 +2,7 @@ __package__ = 'archivebox.extractors'
 
 import os
 
-from typing import Optional, List, Iterable, Union, TYPE_CHECKING
+from typing import Optional, List, Iterable, Union
 from datetime import datetime
 from django.db.models import QuerySet
 
