@@ -1,6 +1,7 @@
 __package__ = 'archivebox.extractors'
 
 import os
+from pathlib import Path
 
 from typing import Optional
 
@@ -27,7 +28,7 @@ def should_save_favicon(link: Link, out_dir: Optional[str]=None) -> bool:
     return SAVE_FAVICON
     
 @enforce_types
-def save_favicon(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_favicon(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download site favicon from google's favicon api"""
 
     out_dir = out_dir or link.link_dir
@@ -46,8 +47,8 @@ def save_favicon(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
     status = 'pending'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        run(cmd, cwd=out_dir, timeout=timeout)
-        chmod_file(output, cwd=out_dir)
+        run(cmd, cwd=str(out_dir), timeout=timeout)
+        chmod_file(output, cwd=str(out_dir))
         status = 'succeeded'
     except Exception as err:
         status = 'failed'
@@ -57,7 +58,7 @@ def save_favicon(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
 
     return ArchiveResult(
         cmd=cmd,
-        pwd=out_dir,
+        pwd=str(out_dir),
         cmd_version=CURL_VERSION,
         output=output,
         status=status,

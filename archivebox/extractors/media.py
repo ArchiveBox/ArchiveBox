@@ -1,7 +1,6 @@
 __package__ = 'archivebox.extractors'
 
-import os
-
+from pathlib import Path
 from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
@@ -22,25 +21,25 @@ from ..logging_util import TimedProgress
 
 
 @enforce_types
-def should_save_media(link: Link, out_dir: Optional[str]=None) -> bool:
+def should_save_media(link: Link, out_dir: Optional[Path]=None) -> bool:
     out_dir = out_dir or link.link_dir
 
     if is_static_file(link.url):
         return False
 
-    if os.path.exists(os.path.join(out_dir, 'media')):
+    if (out_dir / "media").exists():
         return False
 
     return SAVE_MEDIA
 
 @enforce_types
-def save_media(link: Link, out_dir: Optional[str]=None, timeout: int=MEDIA_TIMEOUT) -> ArchiveResult:
+def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIMEOUT) -> ArchiveResult:
     """Download playlists or individual video, audio, and subtitles using youtube-dl"""
 
-    out_dir = out_dir or link.link_dir
+    out_dir = out_dir or Path(link.link_dir)
     output: ArchiveOutput = 'media'
-    output_path = os.path.join(out_dir, str(output))
-    os.makedirs(output_path, exist_ok=True)
+    output_path = out_dir / output
+    output_path.mkdir(exist_ok=True)
     cmd = [
         YOUTUBEDL_BINARY,
         '--write-description',
@@ -66,8 +65,8 @@ def save_media(link: Link, out_dir: Optional[str]=None, timeout: int=MEDIA_TIMEO
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(cmd, cwd=output_path, timeout=timeout + 1)
-        chmod_file(output, cwd=out_dir)
+        result = run(cmd, cwd=str(output_path), timeout=timeout + 1)
+        chmod_file(output, cwd=str(out_dir))
         if result.returncode:
             if (b'ERROR: Unsupported URL' in result.stderr
                 or b'HTTP Error 404' in result.stderr
@@ -90,7 +89,7 @@ def save_media(link: Link, out_dir: Optional[str]=None, timeout: int=MEDIA_TIMEO
 
     return ArchiveResult(
         cmd=cmd,
-        pwd=out_dir,
+        pwd=str(out_dir),
         cmd_version=YOUTUBEDL_VERSION,
         output=output,
         status=status,

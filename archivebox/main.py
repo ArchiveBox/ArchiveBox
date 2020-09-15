@@ -5,7 +5,6 @@ import sys
 import shutil
 from pathlib import Path
 
-from pathlib import Path
 from typing import Dict, List, Optional, Iterable, IO, Union
 from crontab import CronTab, CronSlices
 from django.db.models import QuerySet

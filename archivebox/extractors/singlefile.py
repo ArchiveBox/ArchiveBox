@@ -23,21 +23,21 @@ from ..logging_util import TimedProgress
 
 
 @enforce_types
-def should_save_singlefile(link: Link, out_dir: Optional[str]=None) -> bool:
-    out_dir = out_dir or link.link_dir
+def should_save_singlefile(link: Link, out_dir: Optional[Path]=None) -> bool:
+    out_dir = out_dir or Path(link.link_dir)
     if is_static_file(link.url):
         return False
 
-    output = Path(out_dir or link.link_dir) / 'singlefile.html'
+    output = out_dir / 'singlefile.html'
     return SAVE_SINGLEFILE and SINGLEFILE_VERSION and (not output.exists())
 
 
 @enforce_types
-def save_singlefile(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_singlefile(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download full site using single-file"""
 
-    out_dir = out_dir or link.link_dir
-    output = str(Path(out_dir).absolute() / "singlefile.html")
+    out_dir = out_dir or Path(link.link_dir)
+    output = str(out_dir.absolute() / "singlefile.html")
 
     browser_args = chrome_args(TIMEOUT=0)
 
@@ -54,7 +54,7 @@ def save_singlefile(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOU
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(cmd, cwd=out_dir, timeout=timeout)
+        result = run(cmd, cwd=str(out_dir), timeout=timeout)
 
         # parse out number of files downloaded from last line of stderr:
         #  "Downloaded: 76 files, 4.0M in 1.6s (2.52 MB/s)"
@@ -82,7 +82,7 @@ def save_singlefile(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOU
 
     return ArchiveResult(
         cmd=cmd,
-        pwd=out_dir,
+        pwd=str(out_dir),
         cmd_version=SINGLEFILE_VERSION,
         output=output,
         status=status,
