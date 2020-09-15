@@ -1,7 +1,7 @@
 __package__ = 'archivebox.extractors'
 
-import os
 import re
+from pathlib import Path
 
 from typing import Optional
 from datetime import datetime
@@ -35,24 +35,24 @@ from ..logging_util import TimedProgress
 
 
 @enforce_types
-def should_save_wget(link: Link, out_dir: Optional[str]=None) -> bool:
+def should_save_wget(link: Link, out_dir: Optional[Path]=None) -> bool:
     output_path = wget_output_path(link)
-    out_dir = out_dir or link.link_dir
-    if output_path and os.path.exists(os.path.join(out_dir, output_path)):
+    out_dir = out_dir or Path(link.link_dir)
+    if output_path and (out_dir / output_path).exists():
         return False
 
     return SAVE_WGET
 
 
 @enforce_types
-def save_wget(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download full site using wget"""
 
     out_dir = out_dir or link.link_dir
     if SAVE_WARC:
-        warc_dir = os.path.join(out_dir, 'warc')
-        os.makedirs(warc_dir, exist_ok=True)
-        warc_path = os.path.join('warc', str(int(datetime.now().timestamp())))
+        warc_dir = out_dir / "warc"
+        warc_dir.mkdir(exist_ok=True)
+        warc_path = warc_dir / str(int(datetime.now().timestamp()))
 
     # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
     output: ArchiveOutput = None
@@ -69,7 +69,7 @@ def save_wget(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
         '-e', 'robots=off',
         '--timeout={}'.format(timeout),
         *(['--restrict-file-names={}'.format(RESTRICT_FILE_NAMES)] if RESTRICT_FILE_NAMES else []),
-        *(['--warc-file={}'.format(warc_path)] if SAVE_WARC else []),
+        *(['--warc-file={}'.format(str(warc_path))] if SAVE_WARC else []),
         *(['--page-requisites'] if SAVE_WGET_REQUISITES else []),
         *(['--user-agent={}'.format(WGET_USER_AGENT)] if WGET_USER_AGENT else []),
         *(['--load-cookies', COOKIES_FILE] if COOKIES_FILE else []),
@@ -82,7 +82,7 @@ def save_wget(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(cmd, cwd=out_dir, timeout=timeout)
+        result = run(cmd, cwd=str(out_dir), timeout=timeout)
         output = wget_output_path(link)
 
         # parse out number of files downloaded from last line of stderr:
@@ -111,7 +111,7 @@ def save_wget(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
             if b'ERROR 500: Internal Server Error' in result.stderr:
                 raise ArchiveError('500 Internal Server Error', hints)
             raise ArchiveError('Wget failed or got an error from the server', hints)
-        chmod_file(output, cwd=out_dir)
+        chmod_file(output, cwd=str(out_dir))
     except Exception as err:
         status = 'failed'
         output = err
@@ -120,7 +120,7 @@ def save_wget(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> 
 
     return ArchiveResult(
         cmd=cmd,
-        pwd=out_dir,
+        pwd=str(out_dir),
         cmd_version=WGET_VERSION,
         output=output,
         status=status,
@@ -170,26 +170,21 @@ def wget_output_path(link: Link) -> Optional[str]:
     # in order to avoid having to reverse-engineer how they calculate it,
     # we just look in the output folder read the filename wget used from the filesystem
     full_path = without_fragment(without_query(path(link.url))).strip('/')
-    search_dir = os.path.join(
-        link.link_dir,
-        domain(link.url).replace(":", "+"),
-        urldecode(full_path),
-    )
+    search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+") / urldecode(full_path)
     for _ in range(4):
-        if os.path.exists(search_dir):
-            if os.path.isdir(search_dir):
+        if search_dir.exists():
+            if search_dir.is_dir():
                 html_files = [
-                    f for f in os.listdir(search_dir)
-                    if re.search(".+\\.[Ss]?[Hh][Tt][Mm][Ll]?$", f, re.I | re.M)
+                    f for f in search_dir.iterdir()
+                    if re.search(".+\\.[Ss]?[Hh][Tt][Mm][Ll]?$", str(f), re.I | re.M)
                 ]
                 if html_files:
-                    path_from_link_dir = search_dir.split(link.link_dir)[-1].strip('/')
-                    return os.path.join(path_from_link_dir, html_files[0])
+                    return str(Path(search_dir.name) / html_files[0])
 
         # Move up one directory level
-        search_dir = search_dir.rsplit('/', 1)[0]
+        search_dir = search_dir.parent
 
-        if search_dir == link.link_dir:
+        if str(search_dir) == link.link_dir:
             break
 
     return None

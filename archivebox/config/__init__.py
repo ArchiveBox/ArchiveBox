@@ -914,12 +914,12 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
 
 
 
-def setup_django(out_dir: str=None, check_db=False, config: ConfigDict=CONFIG) -> None:
+def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG) -> None:
     check_system_config()
     
-    output_dir = out_dir or config['OUTPUT_DIR']
+    output_dir = out_dir or Path(config['OUTPUT_DIR'])
 
-    assert isinstance(output_dir, (Path, str)) and isinstance(config['PYTHON_DIR'], Path)
+    assert isinstance(output_dir, Path) and isinstance(config['PYTHON_DIR'], Path)
 
     try:
         import django

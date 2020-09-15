@@ -1,6 +1,7 @@
 __package__ = 'archivebox.extractors'
 
 import os
+from pathlib import Path
 
 from typing import Optional, List, Iterable, Union
 from datetime import datetime
@@ -57,7 +58,7 @@ def ignore_methods(to_ignore: List[str]):
     return list(methods)
 
 @enforce_types
-def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None, skip_index: bool=False) -> Link:
+def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None, skip_index: bool=False) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
     ARCHIVE_METHODS = get_default_archive_methods()
@@ -68,7 +69,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
             if method[0] in methods
         ]
 
-    out_dir = out_dir or link.link_dir
+    out_dir = out_dir or Path(link.link_dir)
     try:
         is_new = not os.path.exists(out_dir)
         if is_new:
@@ -130,7 +131,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
     return link
 
 @enforce_types
-def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[str]=None) -> List[Link]:
+def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None) -> List[Link]:
 
     if type(all_links) is QuerySet:
         num_links: int = all_links.count()
@@ -149,7 +150,7 @@ def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=Fa
         for link in all_links:
             idx += 1
             to_archive = get_link(link)
-            archive_link(to_archive, overwrite=overwrite, methods=methods, out_dir=link.link_dir)
+            archive_link(to_archive, overwrite=overwrite, methods=methods, out_dir=Path(link.link_dir))
     except KeyboardInterrupt:
         log_archiving_paused(num_links, idx, link.timestamp)
         raise SystemExit(0)

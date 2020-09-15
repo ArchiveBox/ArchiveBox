@@ -1,6 +1,7 @@
 __package__ = 'archivebox.extractors'
 
 import re
+from pathlib import Path
 from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
@@ -41,7 +42,7 @@ def should_save_title(link: Link, out_dir: Optional[str]=None) -> bool:
     return SAVE_TITLE
 
 @enforce_types
-def save_title(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """try to guess the page's title from its content"""
 
     setup_django(out_dir=out_dir)
@@ -77,7 +78,7 @@ def save_title(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) ->
 
     return ArchiveResult(
         cmd=cmd,
-        pwd=out_dir,
+        pwd=str(out_dir),
         cmd_version=CURL_VERSION,
         output=output,
         status=status,

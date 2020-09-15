@@ -6,7 +6,6 @@ import json as pyjson
 from pathlib import Path
 
 from itertools import chain
-from pathlib import Path
 from typing import List, Tuple, Dict, Optional, Iterable
 from collections import OrderedDict
 from contextlib import contextmanager
@@ -249,13 +248,13 @@ def write_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR, finished: bool
 
 @enforce_types
 def write_static_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
-    with timed_index_update(str(out_dir / JSON_INDEX_FILENAME)):
+    with timed_index_update(out_dir / JSON_INDEX_FILENAME):
         write_json_main_index(links)
-    with timed_index_update(str(out_dir / HTML_INDEX_FILENAME)):
+    with timed_index_update(out_dir / HTML_INDEX_FILENAME):
         write_html_main_index(links, out_dir=out_dir, finished=True)
 
 @enforce_types
-def get_empty_snapshot_queryset(out_dir: str=OUTPUT_DIR):
+def get_empty_snapshot_queryset(out_dir: Path=OUTPUT_DIR):
     setup_django(out_dir, check_db=True)
     from core.models import Snapshot
     return Snapshot.objects.none()
@@ -393,7 +392,7 @@ def snapshot_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type
     return snapshots.filter(q_filter)
 
 
-def get_indexed_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_indexed_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """indexed links without checking archive status or data directory validity"""
     links = [snapshot.as_link() for snapshot in snapshots.iterator()]
     return {
@@ -401,7 +400,7 @@ def get_indexed_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[L
         for link in links
     }
 
-def get_archived_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_archived_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """indexed links that are archived with a valid data directory"""
     links = [snapshot.as_link() for snapshot in snapshots.iterator()]
     return {
@@ -409,7 +408,7 @@ def get_archived_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[
         for link in filter(is_archived, links)
     }
 
-def get_unarchived_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_unarchived_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """indexed links that are unarchived with no data directory or an empty data directory"""
     links = [snapshot.as_link() for snapshot in snapshots.iterator()]
     return {
@@ -417,7 +416,7 @@ def get_unarchived_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optiona
         for link in filter(is_unarchived, links)
     }
 
-def get_present_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_present_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """dirs that actually exist in the archive/ folder"""
 
     all_folders = {}
@@ -434,7 +433,7 @@ def get_present_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[L
 
     return all_folders
 
-def get_valid_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_valid_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """dirs with a valid index matched to the main index and archived content"""
     links = [snapshot.as_link() for snapshot in snapshots.iterator()]
     return {
@@ -442,7 +441,7 @@ def get_valid_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Lin
         for link in filter(is_valid, links)
     }
 
-def get_invalid_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_invalid_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """dirs that are invalid for any reason: corrupted/duplicate/orphaned/unrecognized"""
     duplicate = get_duplicate_folders(snapshots, out_dir=OUTPUT_DIR)
     orphaned = get_orphaned_folders(snapshots, out_dir=OUTPUT_DIR)
@@ -451,7 +450,7 @@ def get_invalid_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[L
     return {**duplicate, **orphaned, **corrupted, **unrecognized}
 
 
-def get_duplicate_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_duplicate_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """dirs that conflict with other directories that have the same link URL or timestamp"""
     by_url = {}
     by_timestamp = {}
@@ -485,7 +484,7 @@ def get_duplicate_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional
                 duplicate_folders[path] = link
     return duplicate_folders
 
-def get_orphaned_folders(links, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_orphaned_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """dirs that contain a valid index but aren't listed in the main index"""
     orphaned_folders = {}
 
