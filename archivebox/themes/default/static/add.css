@@ -1,0 +1,62 @@
+.dashboard #content {
+  width: 100%;
+  margin-right: 0px;
+  margin-left: 0px;
+}
+#submit {
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 10px;
+  border-radius: 4px;
+  background-color: #f5dd5d;
+  color: #333;
+  font-size: 18px;
+  font-weight: 800;
+}
+#add-form button[role="submit"]:hover {
+  background-color: #e5cd4d;
+}
+#add-form label {
+  display: block;
+  font-size: 16px;
+}
+#add-form textarea {
+  width: 100%;
+  min-height: 300px;
+}
+#delay-warning div {
+  border: 1px solid red;
+  border-radius: 4px;
+  margin: 10px;
+  padding: 10px;
+  font-size: 15px;
+  background-color: #f5dd5d;
+}
+#stdout {
+  background-color: #ded;
+  padding: 10px 10px;
+  border-radius: 4px;
+  white-space: normal;
+}
+ul#id_depth {
+  list-style-type: none;
+  padding: 0;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loader {
+  border: 16px solid #f3f3f3; /* Light grey */
+  border-top: 16px solid #3498db; /* Blue */
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  box-sizing: border-box;
+  animation: spin 2s linear infinite;
+}

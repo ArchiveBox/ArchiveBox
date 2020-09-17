@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block body %}
+<br>
+        <form action="{% url 'public-index' %}" method="get">
+            <input name="q" type="text" placeholder="Search...">
+            <button type="submit">Search</button>
+            <button onclick="location.href='{% url 'public-index' %}'" type="button">
+                Reload Index</button>
+          </form>
+            <table id="table-bookmarks">
+            <thead>
+                <tr>
+                    <th style="width: 100px;">Bookmarked</th>
+                    <th style="width: 26vw;">Saved Link ({{num_links}})</th>
+                    <th style="width: 50px">Files</th>
+                    <th style="width: 16vw;whitespace:nowrap;overflow-x:hidden;">Original URL</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for link in object_list %}
+                    <tr>
+                        <td title="{{link.timestamp}}">{{link.added}}</td>
+                        <td class="title-col">
+                            {% if link.is_archived %}
+                                <a href="archive/{{link.timestamp}}/index.html"><img src="archive/{{link.timestamp}}/favicon.ico" class="link-favicon" decoding="async"></a>
+                            {% else %}
+                                <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="link-favicon" decoding="async"></a>
+                            {% endif %}
+                            <a href="archive/{{link.timestamp}}/index.html" title="{{link.title}}">
+                                <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title|default:'Loading...'}}</span>
+                                <small style="float:right">{{link.tags|default:''}}</small>
+                            </a>
+                        </td>
+                        <td>
+                            <a href="archive/{{link.timestamp}}/index.html">📄 
+                                <span data-number-for="{{link.url}}" title="Fetching any missing files...">{{link.icons}} <img src="{% static 'spinner.gif' %}" class="files-spinner" decoding="async"/></span>
+                            </a>
+                        </td>
+                        <td style="text-align:left"><a href="{{link.url}}">{{link.url}}</a></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <center>
+            <span class="step-links">
+                {% if page_obj.has_previous %}
+                    <a href="{% url 'public-index' %}?page=1">&laquo; first</a>
+                    <a href="{% url 'public-index' %}?page={{ page_obj.previous_page_number }}">previous</a>
+                {% endif %}
+        
+                <span class="current">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                </span>
+        
+                {% if page_obj.has_next %}
+                    <a href="{% url 'public-index' %}?page={{ page_obj.next_page_number }}">next </a>
+                    <a href="{% url 'public-index' %}?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
+                {% endif %}
+            </span>
+            <br>
+    </center>
+        {% endblock %}
