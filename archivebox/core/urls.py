@@ -18,6 +18,8 @@ urlpatterns = [
 
     path('archive/', RedirectView.as_view(url='/')),
     path('archive/<path:path>', LinkDetails.as_view(), name='LinkAssets'),
+
+    path('admin/core/snapshot/add/', RedirectView.as_view(url='/add/')),
     path('add/', AddView.as_view()),
     
     path('accounts/login/', RedirectView.as_view(url='/admin/login/')),
