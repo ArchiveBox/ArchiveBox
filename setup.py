@@ -80,6 +80,7 @@ setuptools.setup(
         "base32-crockford==0.3.0",
         "django==3.0.8",
         "django-extensions==3.0.3",
+        "django-taggit==1.3.0",
 
         "dateparser",
         "ipython",

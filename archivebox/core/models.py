@@ -5,9 +5,18 @@ import uuid
 from django.db import models
 from django.utils.functional import cached_property
 
+from taggit.managers import TaggableManager
+from taggit.models import GenericUUIDTaggedItemBase, TaggedItemBase
+
 from ..util import parse_date
 from ..index.schema import Link
 
+
+
+class TaggedItem(GenericUUIDTaggedItemBase, TaggedItemBase):
+    class Meta:
+        verbose_name = "Tag"
+        verbose_name_plural = "Tags"
 
 class Snapshot(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -16,7 +25,7 @@ class Snapshot(models.Model):
     timestamp = models.CharField(max_length=32, unique=True, db_index=True)
 
     title = models.CharField(max_length=128, null=True, blank=True, db_index=True)
-    tags = models.CharField(max_length=256, null=True, blank=True, db_index=True)
+    tags = TaggableManager(through=TaggedItem)
 
     added = models.DateTimeField(auto_now_add=True, db_index=True)
     updated = models.DateTimeField(null=True, blank=True, db_index=True)

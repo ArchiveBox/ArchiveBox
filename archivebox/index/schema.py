@@ -157,7 +157,8 @@ class Link:
             assert isinstance(self.url, str) and '://' in self.url
             assert self.updated is None or isinstance(self.updated, datetime)
             assert self.title is None or (isinstance(self.title, str) and self.title)
-            assert self.tags is None or isinstance(self.tags, str)
+            #for tag in self.tags.all():
+            #    assert tag is None or isinstance(tag, TaggedItem)
             assert isinstance(self.sources, list)
             assert all(isinstance(source, str) and source for source in self.sources)
             assert isinstance(self.history, dict)

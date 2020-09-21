@@ -66,6 +66,12 @@ class SnapshotAdmin(admin.ModelAdmin):
     actions = [delete_snapshots, overwrite_snapshots, update_snapshots, update_titles, verify_snapshots]
     actions_template = 'admin/actions_as_select.html'
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related('tags')
+
+    def tag_list(self, obj):
+        return u", ".join(o.name for o in obj.tags.all())
+
     def id_str(self, obj):
         return format_html(
             '<code style="font-size: 10px">{}</code>',
@@ -75,9 +81,9 @@ class SnapshotAdmin(admin.ModelAdmin):
     def title_str(self, obj):
         canon = obj.as_link().canonical_outputs()
         tags = ''.join(
-            format_html('<span>{}</span>', tag.strip())
-            for tag in obj.tags.split(',')
-        ) if obj.tags else ''
+            format_html(' <span>{}</span> ', tag)
+            for tag in obj.tags.all()
+        ) if obj.tags.all() else ''
         return format_html(
             '<a href="/{}">'
                 '<img src="/{}/{}" class="favicon" onerror="this.remove()">'

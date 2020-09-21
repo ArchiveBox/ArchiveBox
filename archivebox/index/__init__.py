@@ -86,9 +86,16 @@ def merge_links(a: Link, b: Link) -> Link:
     )
 
     # all unique, truthy tags
+    tags_a = []
+    if a.tags:
+        tags_a = a.tags.all()
+    tags_b = []
+    if b.tags:
+        tags_b = b.tags.all()
+   
     tags_set = (
-        set(tag.strip() for tag in (a.tags or '').split(','))
-        | set(tag.strip() for tag in (b.tags or '').split(','))
+        set(tag.name.strip() for tag in tags_a)
+        | set(tag.name.strip() for tag in tags_b)
     )
     tags = ','.join(tags_set) or None
 

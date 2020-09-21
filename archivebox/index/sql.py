@@ -65,7 +65,14 @@ def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
         except Snapshot.DoesNotExist:
             snap = write_link_to_sql_index(link)
         snap.title = link.title
-        snap.tags = link.tags
+
+        tag_set = (
+            set(tag.strip() for tag in (link.tags or '').split(','))
+        )
+        tag_list = list(tag_set) or []
+
+        for tag in tag_list:
+            snap.tags.add(tag)
         snap.save()
 
 
