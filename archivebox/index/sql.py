@@ -72,7 +72,9 @@ def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
         tag_list = list(tag_set) or []
 
         for tag in tag_list:
-            snap.tags.add(tag)
+            # TODO check empty tags
+            if snap.tags:
+                snap.tags.add(tag)
         snap.save()
 
 
