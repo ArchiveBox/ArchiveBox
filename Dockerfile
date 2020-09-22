@@ -94,7 +94,9 @@ ENV IN_DOCKER=True \
     USE_SINGLEFILE=True \
     SINGLEFILE_BINARY="$NODE_DIR/node_modules/.bin/single-file" \
     USE_READABILITY=True \
-    READABILITY_BINARY="$NODE_DIR/node_modules/.bin/readability-extractor"
+    READABILITY_BINARY="$NODE_DIR/node_modules/.bin/readability-extractor" \
+    USE_MERCURY=True \
+    MERCURY_BINARY="$NODE_DIR/node_modules/.bin/mercury-parser"
 
 # Print version for nice docker finish summary
 RUN archivebox version
