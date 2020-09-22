@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 import json
 
+from .readability import get_html
 from ..index.schema import Link, ArchiveResult, ArchiveError
 from ..system import run, atomic_write
 from ..util import (
@@ -41,24 +42,22 @@ def save_mercury(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        cmd = [
-            DEPENDENCIES['MERCURY_BINARY']['path'],
-            link.url,
-            "--format=text"
-        ]
-        result = run(cmd, cwd=out_dir, timeout=timeout)
-        txtresult_json = json.loads(result.stdout)
+        document = get_html(link, out_dir)
+        temp_doc = NamedTemporaryFile(delete=False)
+        temp_doc.write(document.encode("utf-8"))
+        temp_doc.close()
 
         cmd = [
             DEPENDENCIES['MERCURY_BINARY']['path'],
-            link.url
+            temp_doc.name,
+            link.url,
         ]
         result = run(cmd, cwd=out_dir, timeout=timeout)
         result_json = json.loads(result.stdout)
 
         output_folder.mkdir(exist_ok=True)
         atomic_write(str(output_folder / "content.html"), result_json.pop("content"))
-        atomic_write(str(output_folder / "content.txt"), txtresult_json["content"])
+        atomic_write(str(output_folder / "content.txt"), result_json.pop("content_txt"))
         atomic_write(str(output_folder / "article.json"), result_json)
 
         # parse out number of files downloaded from last line of stderr:

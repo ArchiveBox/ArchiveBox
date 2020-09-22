@@ -1,0 +1,28 @@
+#!/usr/bin/env node
+
+// https://github.com/pirate/readability-extractor/blob/master/readability-extractor
+// https://github.com/postlight/mercury-parser/blob/master/cli.js
+
+async function parse(html, url){
+  const Mercury = require('@postlight/mercury-parser');
+  
+  var article = await Mercury.parse(url, {html, contentType: "html"});
+  var article_txt = await Mercury.parse(url, {html, contentType: "text"});
+  article.content_txt = article_txt.content
+  return article;
+}
+
+(async () => {
+  const source_path = process.argv[2];
+  const source_url = process.argv[3] || "https://www.example.com/the-page-i-got-the-source-from";
+  if(source_path == "--version"){
+    console.log("0.1.0")
+  }
+  else{
+    const fs = require("fs");
+    const data = fs.readFileSync(source_path).toString();
+    var parsed = await parse(data, source_url);
+    console.log(JSON.stringify(parsed));
+  }
+  
+})();
