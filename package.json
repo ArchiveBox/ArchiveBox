@@ -13,6 +13,7 @@
     "readability-extractor": "./node_modules/.bin/readability-extractor"
   },
   "dependencies": {
+    "@postlight/mercury-parser": "^2.2.0",
     "readability-extractor": "git+https://github.com/pirate/readability-extractor.git",
     "single-file": "git+https://github.com/gildas-lormeau/SingleFile.git"
   }
