@@ -92,6 +92,7 @@ jobs:
           npm install
           echo "::set-env name=SINGLEFILE_BINARY::$GITHUB_WORKSPACE/node_modules/.bin/single-file"
           echo "::set-env name=READABILITY_BINARY::$GITHUB_WORKSPACE/node_modules/.bin/readability-extractor"
+          echo "::set-env name=MERCURY_BINARY::$GITHUB_WORKSPACE/node_modules/.bin/mercury-parser"
 
 
       ### Run the tests
