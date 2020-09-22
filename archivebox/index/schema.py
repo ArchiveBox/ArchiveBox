@@ -408,6 +408,7 @@ class Link:
             'warc_path': 'warc',
             'singlefile_path': 'singlefile.html',
             'readability_path': 'readability/content.html',
+            'mercury_path': 'mercury/content.html',
             'pdf_path': 'output.pdf',
             'screenshot_path': 'screenshot.png',
             'dom_path': 'output.html',
@@ -429,6 +430,7 @@ class Link:
                 'dom_path': static_path,
                 'singlefile_path': static_path,
                 'readability_path': static_path,
+                'mercury_path': static_path,
             })
         return canonical
 
