@@ -30,6 +30,14 @@ def test_readability_works(tmp_path, process, disable_extractors_dict):
     output_file = archived_item_path / "readability" / "content.html"
     assert output_file.exists()
 
+def test_mercury_works(tmp_path, process, disable_extractors_dict):
+    disable_extractors_dict.update({"USE_MERCURY": "true"})
+    add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'],
+                                  capture_output=True, env=disable_extractors_dict)
+    archived_item_path = list(tmp_path.glob("archive/**/*"))[0]
+    output_file = archived_item_path / "mercury" / "content.html"
+    assert output_file.exists()
+
 def test_readability_works_with_wget(tmp_path, process, disable_extractors_dict):
     disable_extractors_dict.update({"USE_READABILITY": "true", "USE_WGET": "true"})
     add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'],

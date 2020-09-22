@@ -16,6 +16,7 @@ def disable_extractors_dict():
         "USE_WGET": "false",
         "USE_SINGLEFILE": "false",
         "USE_READABILITY": "false",
+        "USE_MERCURY": "false",
         "SAVE_PDF": "false",
         "SAVE_SCREENSHOT": "false",
         "SAVE_DOM": "false",
