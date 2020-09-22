@@ -3,6 +3,7 @@ on: [push]
 
 env:
   MAX_LINE_LENGTH: 110
+  DOCKER_IMAGE: archivebox-ci
 
 jobs:
   lint:
@@ -118,12 +119,12 @@ jobs:
 
       - name: Build image
         run: |
-          docker build . -t archivebox
+          docker build . -t "$DOCKER_IMAGE"
 
       - name: Init data dir
         run: |
           mkdir data
-          docker run -v "$PWD"/data:/data archivebox init
+          docker run -v "$PWD"/data:/data "$DOCKER_IMAGE" init
 
       - name: Run test server
         run: |
@@ -132,16 +133,16 @@ jobs:
 
       - name: Add link
         run: |
-          docker run -v "$PWD"/data:/data --network host archivebox add http://www.test-nginx-1.local
+          docker run -v "$PWD"/data:/data --network host "$DOCKER_IMAGE" add http://www.test-nginx-1.local
 
       - name: Add stdin link
         run: |
-          echo "http://www.test-nginx-2.local" | docker run -i -v "$PWD"/data:/data archivebox add
+          echo "http://www.test-nginx-2.local" | docker run -i -v "$PWD"/data:/data "$DOCKER_IMAGE" add
 
       - name: List links
         run: |
-          docker run -v "$PWD"/data:/data archivebox list | grep -q "www.test-nginx-1.local" || { echo "The site 1 isn't in the list"; exit 1; }
-          docker run -v "$PWD"/data:/data archivebox list | grep -q "www.test-nginx-2.local" || { echo "The site 2 isn't in the list"; exit 1; }
+          docker run -v "$PWD"/data:/data "$DOCKER_IMAGE" list | grep -q "www.test-nginx-1.local" || { echo "The site 1 isn't in the list"; exit 1; }
+          docker run -v "$PWD"/data:/data "$DOCKER_IMAGE" list | grep -q "www.test-nginx-2.local" || { echo "The site 2 isn't in the list"; exit 1; }
 
       - name: Start docker-compose stack
         run: |
