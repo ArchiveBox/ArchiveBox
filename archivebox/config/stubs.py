@@ -57,6 +57,7 @@ class ConfigDict(BaseConfig, total=False):
     SAVE_WGET_REQUISITES: bool
     SAVE_SINGLEFILE: bool
     SAVE_READABILITY: bool
+    SAVE_MERCURY: bool
     SAVE_PDF: bool
     SAVE_SCREENSHOT: bool
     SAVE_DOM: bool
@@ -81,6 +82,7 @@ class ConfigDict(BaseConfig, total=False):
     USE_WGET: bool
     USE_SINGLEFILE: bool
     USE_READABILITY: bool
+    USE_MERCURY: bool
     USE_GIT: bool
     USE_CHROME: bool
     USE_YOUTUBEDL: bool
@@ -89,6 +91,7 @@ class ConfigDict(BaseConfig, total=False):
     WGET_BINARY: str
     SINGLEFILE_BINARY: str
     READABILITY_BINARY: str
+    MERCURY_BINARY: str
     YOUTUBEDL_BINARY: str
     CHROME_BINARY: Optional[str]
 

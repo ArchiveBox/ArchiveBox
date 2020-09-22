@@ -81,6 +81,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'SAVE_WGET_REQUISITES':     {'type': bool,  'default': True, 'aliases': ('FETCH_WGET_REQUISITES',)},
         'SAVE_SINGLEFILE':          {'type': bool,  'default': True, 'aliases': ('FETCH_SINGLEFILE',)},
         'SAVE_READABILITY':         {'type': bool,  'default': True, 'aliases': ('FETCH_READABILITY',)},
+        'SAVE_MERCURY':             {'type': bool,  'default': True, 'aliases': ('FETCH_MERCURY',)},
         'SAVE_PDF':                 {'type': bool,  'default': True, 'aliases': ('FETCH_PDF',)},
         'SAVE_SCREENSHOT':          {'type': bool,  'default': True, 'aliases': ('FETCH_SCREENSHOT',)},
         'SAVE_DOM':                 {'type': bool,  'default': True, 'aliases': ('FETCH_DOM',)},
@@ -112,6 +113,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'USE_WGET':                 {'type': bool,  'default': True},
         'USE_SINGLEFILE':           {'type': bool,  'default': True},
         'USE_READABILITY':          {'type': bool,  'default': True},
+        'USE_MERCURY':              {'type': bool,  'default': True},
         'USE_GIT':                  {'type': bool,  'default': True},
         'USE_CHROME':               {'type': bool,  'default': True},
         'USE_NODE':                 {'type': bool,  'default': True},
@@ -122,6 +124,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'WGET_BINARY':              {'type': str,   'default': 'wget'},
         'SINGLEFILE_BINARY':        {'type': str,   'default': 'single-file'},
         'READABILITY_BINARY':       {'type': str,   'default': 'readability-extractor'},
+        'MERCURY_BINARY':           {'type': str,   'default': 'mercury-parser'},
         'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
         'CHROME_BINARY':            {'type': str,   'default': None},
     },
@@ -265,6 +268,9 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'USE_READABILITY':          {'default': lambda c: c['USE_READABILITY'] and c['SAVE_READABILITY']},
     'READABILITY_VERSION':      {'default': lambda c: bin_version(c['READABILITY_BINARY']) if c['USE_READABILITY'] else None},
 
+    'USE_MERCURY':              {'default': lambda c: c['USE_MERCURY'] and c['SAVE_MERCURY']},
+    'MERCURY_VERSION':          {'default': lambda c: bin_version(c['MERCURY_BINARY']) if c['USE_MERCURY'] else None},
+
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
     'SAVE_GIT':                 {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
@@ -283,6 +289,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'SAVE_DOM':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_DOM']},
     'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_CHROME'] and c['USE_SINGLEFILE'] and c['USE_NODE']},
     'SAVE_READABILITY':         {'default': lambda c: c['USE_READABILITY'] and c['USE_NODE']},
+    'SAVE_MERCURY':             {'default': lambda c: c['USE_MERCURY'] and c['USE_NODE']},
 
     'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
     'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
@@ -727,6 +734,13 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'hash': bin_hash(config['READABILITY_BINARY']),
             'enabled': config['USE_READABILITY'],
             'is_valid': bool(config['READABILITY_VERSION']),
+        },
+        'MERCURY_BINARY': {
+            'path': bin_path(config['MERCURY_BINARY']),
+            'version': config['MERCURY_VERSION'],
+            'hash': bin_hash(config['MERCURY_BINARY']),
+            'enabled': config['USE_MERCURY'],
+            'is_valid': bool(config['MERCURY_VERSION']),
         },
         'GIT_BINARY': {
             'path': bin_path(config['GIT_BINARY']),
