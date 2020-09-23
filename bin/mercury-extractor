@@ -20,7 +20,7 @@ async function parse(html, url){
   var article_txt = await Mercury.parse(url, {html: buf, contentType: "text"});
   var inlined = inliner(article.content, url);
   article.content_txt = article_txt.content;
-  article.content_i = inlined;
+  article.content = inlined;
   return article;
 }
 
