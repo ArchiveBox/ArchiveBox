@@ -21,6 +21,31 @@ from ..config import (
 )
 from ..logging_util import TimedProgress
 
+
+HTML_HEAD = '<meta charset="UTF-8">\n'
+
+@enforce_types
+def get_html(link: Link, path: Path) -> str:
+    """
+    Try to find wget, singlefile and then dom files.
+    If none is found, download the url again.
+    """
+    canonical = link.canonical_outputs()
+    abs_path = path.absolute()
+    sources = [canonical["wget_path"], canonical["dom_path"]]
+    document = None
+    for source in sources:
+        try:
+            with open(abs_path / source, "r") as f:
+                document = f.read()
+                break
+        except (FileNotFoundError, TypeError):
+            continue
+    if document is None:
+        return download_url(link.url)
+    else:
+        return document
+
 @enforce_types
 def should_save_mercury(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
@@ -56,7 +81,7 @@ def save_mercury(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
         result_json = json.loads(result.stdout)
 
         output_folder.mkdir(exist_ok=True)
-        atomic_write(str(output_folder / "content.html"), result_json.pop("content"))
+        atomic_write(str(output_folder / "content.html"), HTML_HEAD + result_json.pop("content"))
         atomic_write(str(output_folder / "content.txt"), result_json.pop("content_txt"))
         atomic_write(str(output_folder / "article.json"), result_json)
 
