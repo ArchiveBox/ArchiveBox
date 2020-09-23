@@ -9,7 +9,6 @@ from ..system import atomic_write
 from ..util import (
     enforce_types,
     get_headers,
-    is_static_file,
 )
 from ..config import (
     TIMEOUT,
@@ -23,8 +22,6 @@ from ..logging_util import TimedProgress
 @enforce_types
 def should_save_headers(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
-    if is_static_file(link.url):
-        return False
 
     output = Path(out_dir or link.link_dir) / 'headers.json'
     return not output.exists()
