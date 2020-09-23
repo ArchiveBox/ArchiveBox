@@ -15,6 +15,7 @@ from datetime import datetime
 from dateparser import parse as dateparser
 
 import requests
+from requests.exceptions import RequestException
 from base32_crockford import encode as base32_encode                            # type: ignore
 from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
 
@@ -178,12 +179,21 @@ def get_headers(url: str, timeout: int=None) -> str:
     """Download the contents of a remote url and return the headers"""
     from .config import TIMEOUT, CHECK_SSL_VALIDITY, WGET_USER_AGENT
     timeout = timeout or TIMEOUT
-    response = requests.get(
-        url,
-        headers={'User-Agent': WGET_USER_AGENT},
-        verify=CHECK_SSL_VALIDITY,
-        timeout=timeout,
-    )
+
+    try:
+        response = requests.head(
+            url,
+            headers={'User-Agent': WGET_USER_AGENT},
+            verify=CHECK_SSL_VALIDITY,
+            timeout=timeout,
+        )
+    except RequestException:
+        response = requests.get(
+            url,
+            headers={'User-Agent': WGET_USER_AGENT},
+            verify=CHECK_SSL_VALIDITY,
+            timeout=timeout,
+        )
     
     return pyjson.dumps(dict(response.headers), indent=4)
 
