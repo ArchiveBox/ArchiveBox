@@ -12,6 +12,12 @@ def index():
 def static_path(filename):
     template_path = abspath(getcwd()) / Path("tests/mock_server/templates")
     response = static_file(filename, root=template_path)
+    return response
+
+@route("/static_no_content_type/<filename>")
+def static_no_content_type(filename):
+    template_path = abspath(getcwd()) / Path("tests/mock_server/templates")
+    response = static_file(filename, root=template_path)
     response.set_header("Content-Type", "")
     return response
 

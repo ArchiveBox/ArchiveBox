@@ -10,7 +10,8 @@
   "bin": {
     "archivebox-node": "./bin/archive",
     "single-file": "./node_modules/.bin/single-file",
-    "readability-extractor": "./node_modules/.bin/readability-extractor"
+    "readability-extractor": "./node_modules/.bin/readability-extractor",
+    "mercury-parser": "./node_modules/.bin/mercury-parser"
   },
   "dependencies": {
     "@postlight/mercury-parser": "^2.2.0",

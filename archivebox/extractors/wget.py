@@ -179,7 +179,7 @@ def wget_output_path(link: Link) -> Optional[str]:
                     if re.search(".+\\.[Ss]?[Hh][Tt][Mm][Ll]?$", str(f), re.I | re.M)
                 ]
                 if html_files:
-                    return str(Path(search_dir.name) / html_files[0])
+                    return str(html_files[0])
 
         # Move up one directory level
         search_dir = search_dir.parent
