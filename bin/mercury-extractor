@@ -3,14 +3,97 @@
 // https://github.com/pirate/readability-extractor/blob/master/readability-extractor
 // https://github.com/postlight/mercury-parser/blob/master/cli.js
 
+// https://stackoverflow.com/a/48729712/1043209
+// https://github.com/maxogden/inline-images/blob/master/index.js
+
 async function parse(html, url){
   const Mercury = require('@postlight/mercury-parser');
   
   var article = await Mercury.parse(url, {html, contentType: "html"});
   var article_txt = await Mercury.parse(url, {html, contentType: "text"});
-  article.content_txt = article_txt.content
+  var inlined = inliner(article.content, url);
+  article.content_txt = article_txt.content;
+  article.content_i = inlined;
   return article;
 }
+
+function getFile(url) {
+  return new Promise((resolve, reject) => {
+      const http      = require('http'),
+            https     = require('https');
+
+      let client = http;
+
+      if (url.toString().indexOf("https") === 0) {
+          client = https;
+      }
+
+      client.get(url, (resp) => {
+          let data = '';
+
+          // A chunk of data has been recieved.
+          resp.on('data', (chunk) => {
+              data += chunk;
+          });
+
+          // The whole response has been received. Print out the result.
+          resp.on('end', () => {
+              resolve(data);
+          });
+
+      }).on("error", (err) => {
+          reject(err);
+      });
+  });
+};
+
+function inliner(html, base) {
+  var cheerio = require('cheerio')
+  var path = require('path')
+  var fs = require('fs')
+  var url = require('url')
+  var request = require('sync-request');
+
+
+  var contentTypes = {
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".bmp": "image/bmp",
+    ".webp": "image/webp"
+  }
+  
+  var dom = cheerio.load(String(html))
+  inlineImages(dom)
+  
+  return dom.html({decodeEntities: false});
+  
+  function inlineImages(dom) {
+    var styles = [];
+    dom('img').each(function(idx, el) {
+      el = dom(el)
+      var src = el.attr('src')
+      src = url.resolve(base, src)
+      if (src) {
+        console.error("Fetching url", src)
+        var res = request('GET', src, {headers: {"Referer": base}});
+        var img = res.getBody();
+        var contentType = contentTypes[path.extname(src)] || 'image/png'
+        var dataUri = "data:" + contentType + ";base64," + img.toString("base64")
+        el.attr('src', dataUri)
+        el.attr('data-x-src', src)
+      }
+    })
+    return dom
+  }
+  
+  function isLocal(href) {
+    return href && !url.parse(href).hostname;
+  }
+}
+
+
 
 (async () => {
   const source_path = process.argv[2];
