@@ -186,13 +186,17 @@ def get_headers(url: str, timeout: int=None) -> str:
             headers={'User-Agent': WGET_USER_AGENT},
             verify=CHECK_SSL_VALIDITY,
             timeout=timeout,
+            allow_redirects=True
         )
+        if response.status_code >= 400:
+            raise RequestException
     except RequestException:
         response = requests.get(
             url,
             headers={'User-Agent': WGET_USER_AGENT},
             verify=CHECK_SSL_VALIDITY,
             timeout=timeout,
+            stream=True
         )
     
     return pyjson.dumps(dict(response.headers), indent=4)
