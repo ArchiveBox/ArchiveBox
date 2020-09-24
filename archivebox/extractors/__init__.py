@@ -58,7 +58,7 @@ def get_default_archive_methods():
 def ignore_methods(to_ignore: List[str]):
     ARCHIVE_METHODS = get_default_archive_methods()
     methods = filter(lambda x: x[0] not in to_ignore, ARCHIVE_METHODS)
-    methods = map(lambda x: x[1], methods)
+    methods = map(lambda x: x[0], methods)
     return list(methods)
 
 @enforce_types
