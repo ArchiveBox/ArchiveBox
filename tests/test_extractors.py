@@ -71,7 +71,15 @@ def test_use_node_false_disables_readability_and_singlefile(tmp_path, process, d
     assert "> singlefile" not in output_str
     assert "> readability" not in output_str
 
-def test_headers(tmp_path, process, disable_extractors_dict):
+def test_headers_ignored(tmp_path, process, disable_extractors_dict):
+    add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/headers/example.com.html'],
+                                  capture_output=True, env=disable_extractors_dict)
+    archived_item_path = list(tmp_path.glob("archive/**/*"))[0]
+    output_file = archived_item_path / "headers.json"
+    assert not output_file.exists()
+
+def test_headers_retrieved(tmp_path, process, disable_extractors_dict):
+    disable_extractors_dict.update({"SAVE_HEADERS": "true"})
     add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/headers/example.com.html'],
                                   capture_output=True, env=disable_extractors_dict)
     archived_item_path = list(tmp_path.glob("archive/**/*"))[0]
@@ -83,3 +91,25 @@ def test_headers(tmp_path, process, disable_extractors_dict):
     assert headers['Content-Language'] == 'en'
     assert headers['Content-Script-Type'] == 'text/javascript'
     assert headers['Content-Style-Type'] == 'text/css'
+
+def test_headers_redirect_chain(tmp_path, process, disable_extractors_dict):
+    disable_extractors_dict.update({"SAVE_HEADERS": "true"})
+    add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/redirect/headers/example.com.html'],
+                                  capture_output=True, env=disable_extractors_dict)
+    archived_item_path = list(tmp_path.glob("archive/**/*"))[0]
+    output_file = archived_item_path / "headers.json" 
+    with open(output_file) as f:
+        headers = pyjson.load(f)
+    assert headers['Content-Language'] == 'en'
+    assert headers['Content-Script-Type'] == 'text/javascript'
+    assert headers['Content-Style-Type'] == 'text/css'
+
+def test_headers_400_plus(tmp_path, process, disable_extractors_dict):
+    disable_extractors_dict.update({"SAVE_HEADERS": "true"})
+    add_process = subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/400/example.com.html'],
+                                  capture_output=True, env=disable_extractors_dict)
+    archived_item_path = list(tmp_path.glob("archive/**/*"))[0]
+    output_file = archived_item_path / "headers.json" 
+    with open(output_file) as f:
+        headers = pyjson.load(f)
+    assert headers["Status-Code"] == "200"

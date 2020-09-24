@@ -20,6 +20,7 @@ def disable_extractors_dict():
         "SAVE_PDF": "false",
         "SAVE_SCREENSHOT": "false",
         "SAVE_DOM": "false",
+        "SAVE_HEADERS": "false",
         "USE_GIT": "false",
         "SAVE_MEDIA": "false",
         "SAVE_ARCHIVE_DOT_ORG": "false"

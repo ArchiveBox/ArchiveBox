@@ -16,6 +16,7 @@ from ..config import (
     CURL_USER_AGENT,
     CURL_VERSION,
     CHECK_SSL_VALIDITY,
+    SAVE_HEADERS
 )
 from ..logging_util import TimedProgress
 
@@ -24,7 +25,7 @@ def should_save_headers(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
 
     output = Path(out_dir or link.link_dir) / 'headers.json'
-    return not output.exists()
+    return not output.exists() and SAVE_HEADERS
 
 
 @enforce_types
