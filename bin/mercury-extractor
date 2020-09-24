@@ -5,26 +5,56 @@
 
 // https://stackoverflow.com/a/48729712/1043209
 // https://github.com/maxogden/inline-images/blob/master/index.js
+// https://github.com/cheeriojs/cheerio/issues/752
 
-const cheerio = require('cheerio')
-const path = require('path')
-const fs = require('fs')
-const url = require('url')
-const request = require('sync-request');
+const cheerio = require('cheerio');
+const path = require('path');
+const url = require('url');
+const Mercury = require('@postlight/mercury-parser');
 
 
 async function parse(html, url){
-  const Mercury = require('@postlight/mercury-parser');
   var buf = Buffer.from(html, "utf-8");
   var article = await Mercury.parse(url, {html: buf, contentType: "html"});
   var article_txt = await Mercury.parse(url, {html: buf, contentType: "text"});
-  var inlined = inliner(article.content, url);
+  var inlined = await inliner(article.content, url);
   article.content_txt = article_txt.content;
   article.content = inlined;
   return article;
 }
 
-function inliner(html, base) {
+function httpGet(url) {
+  return new Promise((resolve, reject) => {
+      const http      = require('http'),
+            https     = require('https');
+
+      let client = http;
+
+      if (url.toString().indexOf("https") === 0) {
+          client = https;
+      }
+
+      client.get(url, (resp) => {
+          let chunks = [];
+
+          // A chunk of data has been recieved.
+          resp.on('data', (chunk) => {
+              chunks.push(chunk);
+          });
+
+          // The whole response has been received. Print out the result.
+          resp.on('end', () => {
+              resolve(Buffer.concat(chunks));
+          });
+
+      }).on("error", (err) => {
+          reject(err);
+      });
+  });
+}
+
+
+async function inliner(html, base) {
   var contentTypes = {
     ".png": "image/png",
     ".gif": "image/gif",
@@ -34,47 +64,39 @@ function inliner(html, base) {
     ".webp": "image/webp"
   }
   
-  var dom = cheerio.load(String(html))
-  inlineImages(dom)
-  
+  var dom = cheerio.load(String(html));
+  var tasks = [];
+
+  dom('img').each(async (idx, el) => {
+    el = dom(el);
+    var src = el.attr('src');
+    if (src.startsWith("data:")) {
+      console.error("found an embedded image, skipped");
+      return;
+    }
+    src = url.resolve(base, src);
+    var task = httpGet(src).then((img) => {
+      console.error("url fetch success", src);
+      var contentType = contentTypes[path.extname(src)] || 'image/png';
+      var dataUri = "data:" + contentType + ";base64," + img.toString("base64");
+      el.attr('src', dataUri);
+      el.attr('data-x-src', src);
+    }).catch((e) => console.error("failed image:", error));
+
+    tasks.push(task);
+  })
+  await Promise.all(tasks);
   return dom.html({decodeEntities: false});
-  
-  function inlineImages(dom) {
-    dom('img').each(function(idx, el) {
-      try {
-        el = dom(el)
-        var src = el.attr('src')
-        if (src.startsWith("data:")) {
-          console.error("already an embedded image, skipped")
-          return
-        }
-        src = url.resolve(base, src)
-        if (src) {
-          console.error("Fetching url", src)
-          var res = request('GET', src, {headers: {"Referer": base}});
-          var img = res.getBody();
-          var contentType = contentTypes[path.extname(src)] || 'image/png'
-          var dataUri = "data:" + contentType + ";base64," + img.toString("base64")
-          el.attr('src', dataUri)
-          el.attr('data-x-src', src)
-        }  
-      } catch (error) {
-        console.error("failed image:", error)
-      }
-    })
-  }
-  
-  function isLocal(href) {
-    return href && !url.parse(href).hostname;
-  }
 }
-
-
 
 (async () => {
   const source_path = process.argv[2];
   const source_url = process.argv[3] || "https://www.example.com/the-page-i-got-the-source-from";
-  if(source_path == "--version"){
+  if (!source_path || !source_url) {
+    console.error("usage: mercury-extractor <html_file> <base_url>");
+    return 1;
+  }
+  if (source_path == "--version"){
     console.log("0.1.0")
   }
   else{
