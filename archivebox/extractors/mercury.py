@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Optional
 import json
 
-from .readability import get_html
 from ..index.schema import Link, ArchiveResult, ArchiveError
 from ..system import run, atomic_write
 from ..util import (
