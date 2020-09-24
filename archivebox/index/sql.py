@@ -40,7 +40,8 @@ def write_link_to_sql_index(link: Link):
         while Snapshot.objects.filter(timestamp=info["timestamp"]).exists():
             info["timestamp"] = str(float(info["timestamp"]) + 1.0)
 
-    return Snapshot.objects.update_or_create(url=link.url, defaults=info)[0]
+    Snapshot.objects.update_or_create(url=link.url, defaults=info)
+    return Snapshot.objects.get(url=link.url)
 
 
 @enforce_types
@@ -72,9 +73,7 @@ def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
         tag_list = list(tag_set) or []
 
         for tag in tag_list:
-            # TODO check empty tags
-            if snap.tags:
-                snap.tags.add(tag)
+            snap.tags.add(tag)
         snap.save()
 
 
