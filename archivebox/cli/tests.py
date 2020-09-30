@@ -7,6 +7,7 @@ import os
 import sys
 import shutil
 import unittest
+from pathlib import Path
 
 from contextlib import contextmanager
 
@@ -109,13 +110,13 @@ class TestInit(unittest.TestCase):
         with output_hidden():
             archivebox_init.main([])
 
-        assert os.path.exists(os.path.join(OUTPUT_DIR, SQL_INDEX_FILENAME))
-        assert os.path.exists(os.path.join(OUTPUT_DIR, JSON_INDEX_FILENAME))
-        assert os.path.exists(os.path.join(OUTPUT_DIR, HTML_INDEX_FILENAME))
+        assert (Path(OUTPUT_DIR) / SQL_INDEX_FILENAME).exists()
+        assert (Path(OUTPUT_DIR) / JSON_INDEX_FILENAME).exists()
+        assert (Path(OUTPUT_DIR) / HTML_INDEX_FILENAME).exists()
         assert len(load_main_index(out_dir=OUTPUT_DIR)) == 0
 
     def test_conflicting_init(self):
-        with open(os.path.join(OUTPUT_DIR, 'test_conflict.txt'), 'w+') as f:
+        with open(Path(OUTPUT_DIR) / 'test_conflict.txt', 'w+') as f:
             f.write('test')
 
         try:
@@ -125,9 +126,9 @@ class TestInit(unittest.TestCase):
         except SystemExit:
             pass
 
-        assert not os.path.exists(os.path.join(OUTPUT_DIR, SQL_INDEX_FILENAME))
-        assert not os.path.exists(os.path.join(OUTPUT_DIR, JSON_INDEX_FILENAME))
-        assert not os.path.exists(os.path.join(OUTPUT_DIR, HTML_INDEX_FILENAME))
+        assert not (Path(OUTPUT_DIR) / SQL_INDEX_FILENAME).exists()
+        assert not (Path(OUTPUT_DIR) / JSON_INDEX_FILENAME).exists()
+        assert not (Path(OUTPUT_DIR) / HTML_INDEX_FILENAME).exists()
         try:
             load_main_index(out_dir=OUTPUT_DIR)
             assert False, 'load_main_index should raise an exception when no index is present'
@@ -159,7 +160,7 @@ class TestAdd(unittest.TestCase):
         assert len(all_links) == 30
 
     def test_add_arg_file(self):
-        test_file = os.path.join(OUTPUT_DIR, 'test.txt')
+        test_file = Path(OUTPUT_DIR) / 'test.txt'
         with open(test_file, 'w+') as f:
             f.write(test_urls)
 
