@@ -249,7 +249,7 @@ class Link:
     @property
     def link_dir(self) -> str:
         from ..config import CONFIG
-        return Path(CONFIG['ARCHIVE_DIR']) / self.timestamp
+        return str(Path(CONFIG['ARCHIVE_DIR']) / self.timestamp)
 
     @property
     def archive_path(self) -> str:
