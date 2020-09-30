@@ -1,6 +1,5 @@
 __package__ = 'archivebox.index'
 
-import os
 from pathlib import Path
 
 from datetime import datetime, timedelta
@@ -250,7 +249,7 @@ class Link:
     @property
     def link_dir(self) -> str:
         from ..config import CONFIG
-        return os.path.join(CONFIG['ARCHIVE_DIR'], self.timestamp)
+        return Path(CONFIG['ARCHIVE_DIR']) / self.timestamp
 
     @property
     def archive_path(self) -> str:
@@ -369,7 +368,7 @@ class Link:
         )
 
         return any(
-            os.path.exists(os.path.join(ARCHIVE_DIR, self.timestamp, path))
+            (Path(ARCHIVE_DIR) / self.timestamp / path).exists()
             for path in output_paths
         )
 
