@@ -431,7 +431,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
         with open(f'{config_path}.bak', 'r') as old:
             atomic_write(config_path, old.read())
 
-    if os.path.exists(f'{config_path}.bak'):
+    if Path(f'{config_path}.bak').exists():
         os.remove(f'{config_path}.bak')
 
     return {}
@@ -540,7 +540,7 @@ def bin_path(binary: Optional[str]) -> Optional[str]:
     if node_modules_bin.exists():
         return str(node_modules_bin.resolve())
 
-    return shutil.which(os.path.expanduser(binary)) or binary
+    return shutil.which(Path(binary).expanduser()) or binary
 
 def bin_hash(binary: Optional[str]) -> Optional[str]:
     if binary is None:
@@ -634,17 +634,17 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
     }
 
 def get_external_locations(config: ConfigDict) -> ConfigValue:
-    abspath = lambda path: None if path is None else os.path.abspath(path)
+    abspath = lambda path: None if path is None else Path(path).resolve()
     return {
         'CHROME_USER_DATA_DIR': {
             'path': abspath(config['CHROME_USER_DATA_DIR']),
             'enabled': config['USE_CHROME'] and config['CHROME_USER_DATA_DIR'],
-            'is_valid': False if config['CHROME_USER_DATA_DIR'] is None else os.path.exists(os.path.join(config['CHROME_USER_DATA_DIR'], 'Default')),
+            'is_valid': False if config['CHROME_USER_DATA_DIR'] is None else (Path(config['CHROME_USER_DATA_DIR']) / 'Default').exists(),
         },
         'COOKIES_FILE': {
             'path': abspath(config['COOKIES_FILE']),
             'enabled': config['USE_WGET'] and config['COOKIES_FILE'],
-            'is_valid': False if config['COOKIES_FILE'] is None else os.path.exists(config['COOKIES_FILE']),
+            'is_valid': False if config['COOKIES_FILE'] is None else Path(config['COOKIES_FILE']).exists(),
         },
     }
 
@@ -828,7 +828,7 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
     # stderr('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
     # stderr('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
     if config['CHROME_USER_DATA_DIR'] is not None:
-        if not os.path.exists(os.path.join(config['CHROME_USER_DATA_DIR'], 'Default')):
+        if not (Path(config['CHROME_USER_DATA_DIR']) / 'Default').exists():
             stderr('[X] Could not find profile "Default" in CHROME_USER_DATA_DIR.', color='red')
             stderr(f'    {config["CHROME_USER_DATA_DIR"]}')
             stderr('    Make sure you set it to a Chrome user data directory containing a Default profile folder.')
