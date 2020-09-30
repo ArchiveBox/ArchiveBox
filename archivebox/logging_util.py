@@ -390,7 +390,7 @@ def log_list_finished(links):
 def log_removal_started(links: List["Link"], yes: bool, delete: bool):
     print('{lightyellow}[i] Found {} matching URLs to remove.{reset}'.format(len(links), **ANSI))
     if delete:
-        file_counts = [link.num_outputs for link in links if os.path.exists(link.link_dir)]
+        file_counts = [link.num_outputs for link in links if Path(link.link_dir).exists()]
         print(
             f'    {len(links)} Links will be de-listed from the main index, and their archived content folders will be deleted from disk.\n'
             f'    ({len(file_counts)} data folders with {sum(file_counts)} archived files will be deleted!)'
@@ -445,9 +445,9 @@ def log_shell_welcome_msg():
 @enforce_types
 def pretty_path(path: Union[Path, str]) -> str:
     """convert paths like .../ArchiveBox/archivebox/../output/abc into output/abc"""
-    pwd = os.path.abspath('.')
+    pwd = Path('.').resolve()
     # parent = os.path.abspath(os.path.join(pwd, os.path.pardir))
-    return str(path).replace(pwd + '/', './')
+    return str(path).replace(str(pwd) + '/', './')
 
 
 @enforce_types
@@ -518,11 +518,11 @@ def printable_folder_status(name: str, folder: Dict) -> str:
         color, symbol, note, num_files = 'lightyellow', '-', 'disabled', '-'
 
     if folder['path']:
-        if os.path.exists(folder['path']):
+        if Path(folder['path']).exists():
             num_files = (
                 f'{len(os.listdir(folder["path"]))} files'
-                if os.path.isdir(folder['path']) else
-                printable_filesize(os.path.getsize(folder['path']))
+                if Path(folder['path']).is_dir() else
+                printable_filesize(Path(folder['path']).stat().st_size)
             )
         else:
             num_files = 'missing'
