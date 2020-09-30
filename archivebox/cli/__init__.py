@@ -6,12 +6,13 @@ import sys
 import argparse
 
 from typing import Optional, Dict, List, IO
+from pathlib import Path
 
 from ..config import OUTPUT_DIR
 
 from importlib import import_module
 
-CLI_DIR = os.path.dirname(os.path.abspath(__file__))
+CLI_DIR = Path(__file__).resolve().parent
 
 # these common commands will appear sorted before any others for ease-of-use
 meta_cmds = ('help', 'version')
