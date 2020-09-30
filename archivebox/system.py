@@ -64,7 +64,7 @@ def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS) -> 
 @enforce_types
 def copy_and_overwrite(from_path: str, to_path: str):
     """copy a given file or directory to a given path, overwriting the destination"""
-    if os.path.isdir(from_path):
+    if Path(from_path).is_dir():
         shutil.rmtree(to_path, ignore_errors=True)
         shutil.copytree(from_path, to_path)
     else:
