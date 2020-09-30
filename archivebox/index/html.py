@@ -1,7 +1,5 @@
 __package__ = 'archivebox.index'
 
-import os
-
 from string import Template
 from datetime import datetime
 from typing import List, Optional, Iterator, Mapping
@@ -30,11 +28,10 @@ from ..config import (
     FAVICON_FILENAME,
 )
 
-join = lambda *paths: os.path.join(*paths)
-MAIN_INDEX_TEMPLATE = join(TEMPLATES_DIR, 'main_index.html')
-MINIMAL_INDEX_TEMPLATE = join(TEMPLATES_DIR, 'main_index_minimal.html')
-MAIN_INDEX_ROW_TEMPLATE = join(TEMPLATES_DIR, 'main_index_row.html')
-LINK_DETAILS_TEMPLATE = join(TEMPLATES_DIR, 'link_details.html')
+MAIN_INDEX_TEMPLATE = str(Path(TEMPLATES_DIR) / 'main_index.html')
+MINIMAL_INDEX_TEMPLATE = str(Path(TEMPLATES_DIR) / 'main_index_minimal.html')
+MAIN_INDEX_ROW_TEMPLATE = str(Path(TEMPLATES_DIR) / 'main_index_row.html')
+LINK_DETAILS_TEMPLATE = str(Path(TEMPLATES_DIR) / 'link_details.html')
 TITLE_LOADING_MSG = 'Not yet archived...'
 
 
@@ -44,8 +41,8 @@ TITLE_LOADING_MSG = 'Not yet archived...'
 def parse_html_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[str]:
     """parse an archive index html file and return the list of urls"""
 
-    index_path = join(out_dir, HTML_INDEX_FILENAME)
-    if os.path.exists(index_path):
+    index_path = Path(out_dir) / HTML_INDEX_FILENAME
+    if index_path.exists():
         with open(index_path, 'r', encoding='utf-8') as f:
             for line in f:
                 if 'class="link-url"' in line:
@@ -56,12 +53,12 @@ def parse_html_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[str]:
 def write_html_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR, finished: bool=False) -> None:
     """write the html link index to a given path"""
 
-    copy_and_overwrite(join(TEMPLATES_DIR, FAVICON_FILENAME), join(out_dir, FAVICON_FILENAME))
-    copy_and_overwrite(join(TEMPLATES_DIR, ROBOTS_TXT_FILENAME), join(out_dir, ROBOTS_TXT_FILENAME))
-    copy_and_overwrite(join(TEMPLATES_DIR, STATIC_DIR_NAME), join(out_dir, STATIC_DIR_NAME))
+    copy_and_overwrite(str(Path(TEMPLATES_DIR) / FAVICON_FILENAME), str(out_dir / FAVICON_FILENAME))
+    copy_and_overwrite(str(Path(TEMPLATES_DIR) / ROBOTS_TXT_FILENAME), str(out_dir / ROBOTS_TXT_FILENAME))
+    copy_and_overwrite(str(Path(TEMPLATES_DIR) / STATIC_DIR_NAME), str(out_dir / STATIC_DIR_NAME))
     
     rendered_html = main_index_template(links, finished=finished)
-    atomic_write(join(out_dir, HTML_INDEX_FILENAME), rendered_html)
+    atomic_write(str(out_dir / HTML_INDEX_FILENAME), rendered_html)
 
 
 @enforce_types
@@ -100,7 +97,7 @@ def main_index_row_template(link: Link) -> str:
 
         # before pages are finished archiving, show fallback loading favicon
         'favicon_url': (
-            join(ARCHIVE_DIR_NAME, link.timestamp, 'favicon.ico')
+            str(Path(ARCHIVE_DIR_NAME) / link.timestamp / 'favicon.ico')
             # if link['is_archived'] else 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
         ),
 
@@ -119,7 +116,7 @@ def write_html_link_details(link: Link, out_dir: Optional[str]=None) -> None:
     out_dir = out_dir or link.link_dir
 
     rendered_html = link_details_template(link)
-    atomic_write(join(out_dir, HTML_INDEX_FILENAME), rendered_html)
+    atomic_write(str(Path(out_dir) / HTML_INDEX_FILENAME), rendered_html)
 
 
 @enforce_types
