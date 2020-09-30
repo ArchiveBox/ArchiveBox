@@ -1,6 +1,5 @@
 __package__ = 'archivebox.extractors'
 
-import os
 from pathlib import Path
 
 from typing import Optional
@@ -22,7 +21,7 @@ from ..logging_util import TimedProgress
 @enforce_types
 def should_save_favicon(link: Link, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or link.link_dir
-    if os.path.exists(os.path.join(out_dir, 'favicon.ico')):
+    if (Path(out_dir) / 'favicon.ico').exists():
         return False
 
     return SAVE_FAVICON
