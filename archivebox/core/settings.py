@@ -50,9 +50,9 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
-            Path(PYTHON_DIR) / 'themes' / ACTIVE_THEME,
-            Path(PYTHON_DIR) / 'themes' / 'default',
-            Path(PYTHON_DIR) / 'themes',
+            str(Path(PYTHON_DIR) / 'themes' / ACTIVE_THEME),
+            str(Path(PYTHON_DIR) / 'themes' / 'default'),
+            str(Path(PYTHON_DIR) / 'themes'),
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -71,7 +71,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': Path(OUTPUT_DIR) / SQL_INDEX_FILENAME,
+        'NAME': str(Path(OUTPUT_DIR) / SQL_INDEX_FILENAME),
     }
 }
 
@@ -106,7 +106,7 @@ SHELL_PLUS_PRINT_SQL = False
 IPYTHON_ARGUMENTS = ['--no-confirm-exit', '--no-banner']
 IPYTHON_KERNEL_DISPLAY_NAME = 'ArchiveBox Django Shell'
 if IS_SHELL:
-    os.environ['PYTHONSTARTUP'] = Path(PYTHON_DIR) / 'core' / 'welcome_message.py'
+    os.environ['PYTHONSTARTUP'] = str(Path(PYTHON_DIR) / 'core' / 'welcome_message.py')
 
 
 LANGUAGE_CODE = 'en-us'
@@ -123,6 +123,6 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
-    Path(PYTHON_DIR) / 'themes' / ACTIVE_THEME / 'static',
-    Path(PYTHON_DIR) / 'themes' / 'default' / 'static',
+    str(Path(PYTHON_DIR) / 'themes' / ACTIVE_THEME / 'static'),
+    str(Path(PYTHON_DIR) / 'themes' / 'default' / 'static'),
 ]
