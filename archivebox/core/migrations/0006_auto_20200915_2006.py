@@ -23,9 +23,9 @@ def forwards_func(apps, schema_editor):
         tag_set = (
             set(tag.strip() for tag in (snapshot.tags_old or '').split(','))
         )
-        tag_list = list(tag_set) or []
-        
-        for tag in tag_list:
+        tag_set.discard("")
+
+        for tag in tag_set:
             new_tag, created = TagModel.objects.get_or_create(name=tag, slug=slugify(tag))
             TaggedItemModel.objects.get_or_create(
                 content_type_id=ct[0].id,
