@@ -81,9 +81,9 @@ class SnapshotAdmin(admin.ModelAdmin):
     def title_str(self, obj):
         canon = obj.as_link().canonical_outputs()
         tags = ''.join(
-            format_html(' <span>{}</span> ', tag)
+            format_html(' <a href="/admin/core/snapshot/?tags__id__exact={}"><span class="tag">{}</span></a> ', tag.id, tag)
             for tag in obj.tags.all()
-        ) if obj.tags.all() else ''
+        )
         return format_html(
             '<a href="/{}">'
                 '<img src="/{}/{}" class="favicon" onerror="this.remove()">'
