@@ -43,10 +43,11 @@ def reverse_func(apps, schema_editor):
     db_alias = schema_editor.connection.alias
     snapshots = SnapshotModel.objects.all()
     for snapshot in snapshots:       
-        for tag in tags:
-            tagged_items = TaggedItemModel.objects.filter(
-                object_id=snapshot.id,
-            ).delete()
+        tags = TaggedItemModel.objects.filter(
+            object_id=snapshot.id,
+        )
+        snapshot.tags_old = ",".join([tag.tag.name for tag in tags])
+        snapshot.save()
 
 
 class Migration(migrations.Migration):
