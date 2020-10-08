@@ -22,7 +22,6 @@ from ..config import (
     ARCHIVE_DIR_NAME,
     SQL_INDEX_FILENAME,
     JSON_INDEX_FILENAME,
-    HTML_INDEX_FILENAME,
     OUTPUT_DIR,
     TIMEOUT,
     URL_BLACKLIST_PTN,
@@ -41,11 +40,9 @@ from ..logging_util import (
 
 from .schema import Link, ArchiveResult
 from .html import (
-    write_html_main_index,
     write_html_link_details,
 )
 from .json import (
-    write_json_main_index,
     parse_json_link_details, 
     write_json_link_details,
 )
