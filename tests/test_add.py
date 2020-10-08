@@ -1,5 +1,6 @@
 import subprocess
 import json
+import sqlite3
 
 from .fixtures import *
 
@@ -43,11 +44,16 @@ def test_depth_flag_1_crawls_the_page_AND_links(tmp_path, process, disable_extra
         capture_output=True,
         env=disable_extractors_dict,
     )
-    
-    with open(tmp_path / "index.json", "r") as f:
-        archive_file = f.read()
-    assert "http://127.0.0.1:8080/static/example.com.html" in archive_file
-    assert "http://127.0.0.1:8080/static/iana.org.html" in archive_file
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    urls = c.execute("SELECT url from core_snapshot").fetchall()
+    conn.commit()
+    conn.close()
+
+    urls = list(map(lambda x: x[0], urls))
+    assert "http://127.0.0.1:8080/static/example.com.html" in urls 
+    assert "http://127.0.0.1:8080/static/iana.org.html" in urls
 
 
 def test_overwrite_flag_is_accepted(process, disable_extractors_dict):
@@ -71,6 +77,8 @@ def test_add_updates_history_json_index(tmp_path, process, disable_extractors_di
         env=disable_extractors_dict,
     )
 
-    with open(tmp_path / "index.json", "r") as f:
+    archived_item_path = list(tmp_path.glob('archive/**/*'))[0]
+
+    with open(archived_item_path / "index.json", "r") as f:
         output_json = json.load(f)
-    assert output_json["links"][0]["history"] != {}
+    assert output_json["history"] != {}

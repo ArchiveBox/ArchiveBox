@@ -31,7 +31,6 @@ from .index import (
     parse_links_from_source,
     dedupe_links,
     write_main_index,
-    write_static_index,
     snapshot_filter,
     get_indexed_folders,
     get_archived_folders,
@@ -561,10 +560,7 @@ def add(urls: Union[str, List[str]],
         archive_links(imported_links, overwrite=True, out_dir=out_dir)
     elif new_links:
         archive_links(new_links, overwrite=False, out_dir=out_dir)
-    else:
-        return all_links
     
-    write_static_index([link.as_link_with_details() for link in all_links], out_dir=out_dir)
     return all_links
 
 @enforce_types
@@ -641,7 +637,6 @@ def remove(filter_str: Optional[str]=None,
 
     remove_from_sql_main_index(snapshots=snapshots, out_dir=out_dir)
     all_snapshots = load_main_index(out_dir=out_dir)
-    write_static_index([link.as_link_with_details() for link in all_snapshots], out_dir=out_dir)
     log_removal_finished(all_snapshots.count(), to_remove)
     
     return all_snapshots
@@ -698,7 +693,6 @@ def update(resume: Optional[float]=None,
 
     # Step 4: Re-write links index with updated titles, icons, and resources
     all_links = load_main_index(out_dir=out_dir)
-    write_static_index([link.as_link_with_details() for link in all_links], out_dir=out_dir)
     return all_links
 
 @enforce_types
