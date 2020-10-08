@@ -225,7 +225,7 @@ def timed_index_update(out_path: Path):
 
 @enforce_types
 def write_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR, finished: bool=False) -> None:
-    """create index.html file for a given list of links"""
+    """Writes links to sqlite3 file for a given list of links"""
 
     log_indexing_process_started(len(links))
 
@@ -234,8 +234,6 @@ def write_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR, finished: bool
             write_sql_main_index(links, out_dir=out_dir)
             os.chmod(out_dir / SQL_INDEX_FILENAME, int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
 
-        if finished:
-            write_static_index(links, out_dir=out_dir)
     except (KeyboardInterrupt, SystemExit):
         stderr('[!] Warning: Still writing index to disk...', color='lightyellow')
         stderr('    Run archivebox init to fix any inconsisntencies from an ungraceful exit.')
@@ -245,13 +243,6 @@ def write_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR, finished: bool
         raise SystemExit(0)
 
     log_indexing_process_finished()
-
-@enforce_types
-def write_static_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
-    with timed_index_update(out_dir / JSON_INDEX_FILENAME):
-        write_json_main_index(links)
-    with timed_index_update(out_dir / HTML_INDEX_FILENAME):
-        write_html_main_index(links, out_dir=out_dir, finished=True)
 
 @enforce_types
 def get_empty_snapshot_queryset(out_dir: Path=OUTPUT_DIR):

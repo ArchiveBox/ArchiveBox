@@ -32,9 +32,10 @@ def test_add_link(tmp_path, process, disable_extractors_dict):
         output_json = json.load(f)
     assert "Example Domain" == output_json['history']['title'][0]['output']
 
-    with open(tmp_path / "index.html", "r") as f:
+    with open(archived_item_path / "index.html", "r") as f:
         output_html = f.read()
     assert "Example Domain" in output_html
+
 
 def test_add_link_support_stdin(tmp_path, process, disable_extractors_dict):
     disable_extractors_dict.update({"USE_WGET": "true"})
@@ -51,7 +52,7 @@ def test_add_link_support_stdin(tmp_path, process, disable_extractors_dict):
     assert "Example Domain" == output_json['history']['title'][0]['output']
 
 def test_correct_permissions_output_folder(tmp_path, process):
-    index_files = ['index.json', 'index.html', 'index.sqlite3', 'archive']
+    index_files = ['index.sqlite3', 'archive']
     for file in index_files:
         file_path = tmp_path / file
         assert oct(file_path.stat().st_mode)[-3:] == OUTPUT_PERMISSIONS
@@ -113,6 +114,9 @@ def test_orphaned_folders(tmp_path, process, disable_extractors_dict):
     os.chdir(tmp_path)
     subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'], capture_output=True,
                      env=disable_extractors_dict)
+    list_process = subprocess.run(["archivebox", "list", "--json", "--with-headers"], capture_output=True)
+    with open(tmp_path / "index.json", "wb") as f:
+        f.write(list_process.stdout)
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
     c.execute("DELETE from core_snapshot")
