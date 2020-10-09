@@ -264,8 +264,8 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
         total=num_links,
     ))
     print()
-    print('    {lightred}Hint:{reset} To view your archive index, open:'.format(**ANSI))
-    print('        {}/{}'.format(OUTPUT_DIR, HTML_INDEX_FILENAME))
+    print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**ANSI))
+    print('        archivebox server  # then visit http://127.0.0.1:8000')
     print('    Continue archiving where you left off by running:')
     print('        archivebox update --resume={}'.format(timestamp))
 
@@ -291,8 +291,8 @@ def log_archiving_finished(num_links: int):
     print('    - {} links updated'.format(_LAST_RUN_STATS.succeeded + _LAST_RUN_STATS.failed))
     print('    - {} links had errors'.format(_LAST_RUN_STATS.failed))
     print()
-    print('    {lightred}Hint:{reset} To view your archive index, open:'.format(**ANSI))
-    print('        {}/{}'.format(OUTPUT_DIR, HTML_INDEX_FILENAME))
+    print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**ANSI))
+    print('        archivebox server  # then visit http://127.0.0.1:8000')
     print('    Or run the built-in webserver:')
     print('        archivebox server')
 
