@@ -12,13 +12,19 @@ IFS=$'\n'
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 
+source "$REPO_DIR/.venv/bin/activate"
 cd "$REPO_DIR"
 
-./bin/build_docs.sh
-./bin/build_pip.sh
-./bin/build_docker.sh
 
-echo "[√] Done. Install the built package by running:"
-echo "    python3 setup.py install"
-echo "    # or"
-echo "    pip3 install ."
+
+echo "[*] Fetching latest docs version"
+cd "$REPO_DIR/docs"
+git pull
+cd "$REPO_DIR"
+
+echo "[+] Building docs"
+sphinx-apidoc -o docs archivebox
+cd "$REPO_DIR/docs"
+make html
+# open docs/_build/html/index.html to see the output
+cd "$REPO_DIR"
