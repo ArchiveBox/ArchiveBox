@@ -26,7 +26,9 @@
 <hr/>
 </div>
 
-ArchiveBox is an internet archiving tool that preserves URLs you give it in several different formats. You use it by installing ArchiveBox via [Docker](https://docs.docker.com/get-docker/) or [`pip`](https://wiki.python.org/moin/BeginnersGuide/Download), and adding URLs via the command line or the built-in Web UI. The archived sites are then stored as plain HTML in a folder on your filesystem with a SQL & JSON index, and are browseabale and managable offline through the filesystem or ArchiveBox's Web UI.
+ArchiveBox is an internet archiving tool that preserves URLs you give it in several different formats. You use it by installing ArchiveBox via [Docker](https://docs.docker.com/get-docker/) or [`pip3`](https://wiki.python.org/moin/BeginnersGuide/Download), and adding URLs via the command line or the built-in Web UI.
+
+It archives each site and stores them as plain HTML in folders on your hard drive, with easy-to-read HTML, SQL, JSON indexes. The snapshots are then browseabale and managable offline through the filesystem, the built-in web UI, or the Python API.
 
 It automatically extracts many types of assets and media from pages and saves them in standard formats, with out-of-the-box support for saving HTML (with dynamic JS), a PDF, a screenshot, a WARC archive, git repositories, audio, video, subtitles, images, PDFs, and more.
 
