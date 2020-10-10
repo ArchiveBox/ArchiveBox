@@ -354,34 +354,43 @@ npm install
 ./bin/setup.sh
 ```
 
-### Running the tests
-
-```python3
-pytest -s
-```
-You can also run the tests using Docker. For more examples see the Github Actions CI/CD tests that are run: `.github/workflows/*.yaml`.
-
-### Building the project
-
-```python3
-rm -Rf build dist archivebox.egg-info
-python3 setup.py sdist bdist_egg bdist_wheel
-
-docker build . -t archivebox
-```
-
-### Building the docs
-
-```python3
-sphinx-apidoc -o docs archivebox
-cd docs/
-make html
-# then open docs/_build/html/index.html
-```
-
-### Other common development tasks
+### Common development tasks
 
 See the `./bin/` folder and read the source of the bash scripts within.
+You can also run all these in Docker. For more examples see the Github Actions CI/CD tests that are run: `.github/workflows/*.yaml`.
+
+#### Run the linters
+
+```bash
+./bin/lint.sh
+```
+(uses `flake8` and `mypy`)
+
+#### Run the integration tests
+
+```bash
+./bin/test.sh
+```
+(uses `pytest -s`)
+
+#### Build the docs, pip package, and docker image
+
+```bash
+./bin/build.sh
+
+# or individually:
+./bin/build_docs.sh
+./bin/build_pip.sh
+./bin/build_docker.sh
+```
+
+#### Roll a release
+
+```bash
+./bin/release.sh
+```
+(bumps the version, builds, and pushes a release to PyPI, Docker Hub, and Github Packages)
+
 
 ---
 
