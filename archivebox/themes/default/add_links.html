@@ -49,6 +49,12 @@
                     <small>(it's safe to leave this page, adding will continue in the background)</small>
                 </div>
             </center>
+            {% if absolute_add_path %}
+            <center id="bookmarklet">
+              <p>Bookmark this link to quickly add to your archive:
+                <a href="javascript:void(window.open('{{ absolute_add_path }}?url='+document.location.href));">Add to ArchiveBox</a></p>
+            </center>
+            {% endif %}
             <script>
                 document.getElementById('add-form').addEventListener('submit', function(event) {
                     setTimeout(function() {
