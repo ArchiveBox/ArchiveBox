@@ -114,7 +114,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: satackey/action-docker-layer-caching@v0.0.4
+      - uses: satackey/action-docker-layer-caching@v0.0.8
 
       - name: Build image
         run: |
