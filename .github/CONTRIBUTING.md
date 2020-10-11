@@ -19,22 +19,18 @@
 ```bash
 git clone https://github.com/pirate/ArchiveBox
 cd ArchiveBox
-# Optionally create a virtualenv
-pip install -r requirements.txt
-pip install -e .
+# Ideally do this in a virtualenv
+pip install -e '.[dev]'  # or use: pipenv install --dev
 ```
 
 ### Running Tests
 
 ```bash
-./bin/archive tests/*
-# look for errors in stdout/stderr
-# then confirm output html looks right
-
-# if on >v0.4 run the django test suite:
-archivebox manage test
+./bin/lint.sh
+./bin/test.sh
+./bin/build.sh
 ```
 
 ### Getting Help
 
-Open issues on Github or contact me https://sweeting.me/#contact.
+Open issues on Github or message me https://sweeting.me/#contact.
