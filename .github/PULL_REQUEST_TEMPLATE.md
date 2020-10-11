@@ -1,10 +1,12 @@
-**IMPORTANT: Do not submit PRs with only formatting / PEP8 / line length changes, I will close them with great prejudice.  The PEP8 checks I don't follow are intentional. PRs for minor bugfixes, typos, etc are fine.**
+<!-- IMPORTANT: Do not submit PRs with only formatting / PEP8 / line length changes. -->
 
 # Summary
 
-e.g. This PR fixes ABC or adds the ability to do XYZ...
+<!--e.g. This PR fixes ABC or adds the ability to do XYZ...-->
 
-**Related issues: #XYZ** (delete this line if there are no related issues)
+# Related issues
+
+<!-- e.g. #123 or Roadmap goal # https://github.com/pirate/ArchiveBox/wiki/Roadmap -->
 
 # Changes these areas
 
@@ -13,9 +15,4 @@ e.g. This PR fixes ABC or adds the ability to do XYZ...
 - [ ] Command line interface
 - [ ] Configuration options
 - [ ] Internal architecture
-- [ ] Archived data layout on disk
-
-# Roadmap Goals
-
-This PR helps us move towards xyz roadmap goal, as outlined here: https://github.com/pirate/ArchiveBox/wiki/Roadmap
-(delete this section if it's just a bugfix / simple PR)
+- [ ] Snapshot data layout on disk
