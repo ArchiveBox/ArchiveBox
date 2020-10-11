@@ -26,17 +26,19 @@
 <hr/>
 </div>
 
-ArchiveBox is an internet archiving tool that preserves URLs you give it in several different formats. You use it by installing ArchiveBox via [Docker](https://docs.docker.com/get-docker/) or [`pip3`](https://wiki.python.org/moin/BeginnersGuide/Download), and adding URLs via the command line or the built-in Web UI.
+ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a varitety of formats depending on the configuration and the content it detects. ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) or [`pip3`](https://wiki.python.org/moin/BeginnersGuide/Download).
 
-It archives each site and stores them as plain HTML in folders on your hard drive, with easy-to-read HTML, SQL, JSON indexes. The snapshots are then browseabale and managable offline through the filesystem, the built-in web UI, or the Python API.
+Once installed, URLs can be added via the command line `archivebox add` or the built-in Web UI `archivebox server`. It can ingest bookmarks from a service like Pocket/Pinboard, your entire browsing history, RSS feeds, or URLs one at a time.
 
-It automatically extracts many types of assets and media from pages and saves them in standard formats, with out-of-the-box support for saving HTML (with dynamic JS), a PDF, a screenshot, a WARC archive, git repositories, audio, video, subtitles, images, PDFs, and more.
+The main index is a self-contained `data/index.sqlite3` file, and each snapshot is stored as a folder `data/archive/<timestamp>/`, with an easy-to-read `index.html` and `index.json` within. For each page, ArchiveBox auto-extracts many types of assets/media and saves them in standard formats, with out-of-the-box support for: 3 types of HTML snapshots (wget, Chrome headless, singlefile), a PDF snapshot, a screenshot, a WARC archive, git repositories, images, audio, video, subtitles, article text, and more. The snapshots are browseable and managable offline through the filesystem, the built-in webserver, or the Python API.
+
 
 #### Quickstart
 
 ```bash
 docker run -d -it -v ~/archivebox:/data -p 8000:8000 nikisweeting/archivebox server --init 0.0.0.0:8000
 docker run -v ~/archivebox:/data -it nikisweeting/archivebox manage createsuperuser
+docker run -v ~/archivebox:/data -it nikisweeting/archivebox add 'https://example.com'
 
 open http://127.0.0.1:8000/admin/login/  # then click "Add" in the navbar
 ```
