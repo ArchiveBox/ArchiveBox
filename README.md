@@ -87,11 +87,12 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 - [**Free & open source**](https://github.com/pirate/ArchiveBox/blob/master/LICENSE), doesn't require signing up for anything, stores all data locally
 - [**Few dependencies**](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies) and [simple command line interface](https://github.com/pirate/ArchiveBox/wiki/Usage#CLI-Usage)
 - [**Comprehensive documentation**](https://github.com/pirate/ArchiveBox/wiki), [active development](https://github.com/pirate/ArchiveBox/wiki/Roadmap), and [rich community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
-- **Doesn't require a constantly-running server**, proxy, or native app
 - Easy to set up **[scheduled importing](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) from multiple sources**
 - Uses common, **durable, [long-term formats](#saves-lots-of-useful-stuff-for-each-imported-link)** like HTML, JSON, PDF, PNG, and WARC
 - ~~**Suitable for paywalled / [authenticated content](https://github.com/pirate/ArchiveBox/wiki/Configuration#chrome_user_data_dir)** (can use your cookies)~~ (do not do this until v0.5 is released with some security fixes)
-- Can [**run scripts during archiving**](https://github.com/pirate/ArchiveBox/issues/51) to [scroll pages](https://github.com/pirate/ArchiveBox/issues/80), [close modals](https://github.com/pirate/ArchiveBox/issues/175), expand comment threads, etc.
+- **Doesn't require a constantly-running daemon**, proxy, or native app
+- Provides a CLI, Python API, self-hosted web UI, and REST API (WIP)
+- Architected to be able to run [**many varieties of scripts during archiving**](https://github.com/pirate/ArchiveBox/issues/51), e.g. to extract media, summarize articles, [scroll pages](https://github.com/pirate/ArchiveBox/issues/80), [close modals](https://github.com/pirate/ArchiveBox/issues/175), expand comment threads, etc.
 - Can also [**mirror content to 3rd-party archiving services**](https://github.com/pirate/ArchiveBox/wiki/Configuration#submit_archive_dot_org) automatically for redundancy
 
 ## Input formats
@@ -193,22 +194,22 @@ apt install python3 python3-pip python3-dev git curl wget youtube-dl chromium-br
 # Install Node + NPM
 curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
   && echo 'deb https://deb.nodesource.com/node_14.x $(lsb_release -cs) main' >> /etc/apt/sources.list \
-  && apt-get update -qq \
-  && apt-get install -qq -y --no-install-recommends nodejs
+  && apt-get update \
+  && apt-get install --no-install-recommends nodejs
 
 # Make a directory to hold your collection
-mkdir data && cd data       # (doesn't have to be called data)
+mkdir data && cd data    # (can be anywhere, doesn't have to be called data)
 
 # Install python package (or do this in a .venv if you want)
 pip install --upgrade archivebox
 
 # Install node packages (needed for SingleFile, Readability, and Puppeteer)
-npm install --prefix data 'git+https://github.com/pirate/ArchiveBox.git' 
+npm install --prefix . 'git+https://github.com/pirate/ArchiveBox.git' 
 
 archivebox init
-archivebox add 'https://example.com'  # add URLs via args or stdin
+archivebox add 'https://example.com'  # add URLs as args pipe them in via stdin
 
-# or import an RSS/JSON/XML/TXT feed/list of links
+# it can injest links from many formats, including RSS/JSON/XML/MD/TXT and more
 curl https://getpocket.com/users/USERNAME/feed/all | archivebox add
 archivebox add --depth=1 https://example.com/table-of-contents.html
 ```
