@@ -34,14 +34,19 @@ def remove_from_sql_main_index(snapshots: QuerySet, out_dir: Path=OUTPUT_DIR) ->
 def write_link_to_sql_index(link: Link):
     from core.models import Snapshot
     info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
+    tags = info.pop("tags")
+    if tags is None:
+        tags = []
+
     try:
         info["timestamp"] = Snapshot.objects.get(url=link.url).timestamp
     except Snapshot.DoesNotExist:
         while Snapshot.objects.filter(timestamp=info["timestamp"]).exists():
             info["timestamp"] = str(float(info["timestamp"]) + 1.0)
 
-    Snapshot.objects.update_or_create(url=link.url, defaults=info)
-    return Snapshot.objects.get(url=link.url)
+    snapshot, _ = Snapshot.objects.update_or_create(url=link.url, defaults=info)
+    snapshot.save_tags(tags)
+    return snapshot
 
 
 @enforce_types
@@ -72,9 +77,8 @@ def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
         )
         tag_list = list(tag_set) or []
 
-        for tag in tag_list:
-            snap.tags.add(tag)
         snap.save()
+        snap.save_tags(tag_list)
 
 
 

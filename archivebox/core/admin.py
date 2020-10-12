@@ -9,9 +9,10 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
+from django import forms
 
 from core.models import Snapshot
-from core.forms import AddLinkForm
+from core.forms import AddLinkForm, TagField
 from core.utils import get_icons
 
 from util import htmldecode, urldecode, ansi_to_html
@@ -55,6 +56,32 @@ def delete_snapshots(modeladmin, request, queryset):
 delete_snapshots.short_description = "Delete"
 
 
+class SnapshotAdminForm(forms.ModelForm):
+    tags = TagField(required=False)
+
+    class Meta:
+        model = Snapshot
+        fields = "__all__"
+
+    def save(self, commit=True):
+        # Based on: https://stackoverflow.com/a/49933068/3509554
+
+        # Get the unsave instance
+        instance = forms.ModelForm.save(self, False)
+        tags = self.cleaned_data.pop("tags")
+
+        #update save_m2m
+        def new_save_m2m():
+            instance.save_tags(tags)
+
+        # Do we need to save all changes now?
+        self.save_m2m = new_save_m2m
+        if commit:
+            instance.save()
+
+        return instance
+
+
 class SnapshotAdmin(admin.ModelAdmin):
     list_display = ('added', 'title_str', 'url_str', 'files', 'size')
     sort_fields = ('title_str', 'url_str', 'added')
@@ -65,6 +92,7 @@ class SnapshotAdmin(admin.ModelAdmin):
     ordering = ['-added']
     actions = [delete_snapshots, overwrite_snapshots, update_snapshots, update_titles, verify_snapshots]
     actions_template = 'admin/actions_as_select.html'
+    form = SnapshotAdminForm
 
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related('tags')

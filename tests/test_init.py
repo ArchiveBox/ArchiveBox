@@ -157,18 +157,16 @@ def test_tags_migration(tmp_path, disable_extractors_dict):
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute("""
-        SELECT snapshot.id snapshot, tags.name tag
-        FROM core_snapshot snapshot, core_taggeditem snapshot_tagged, taggit_tag tags
-        WHERE
-        snapshot.id = snapshot_tagged.object_id
-        AND tags.id = snapshot_tagged.tag_id
+        SELECT core_snapshot.id, core_tag.name from core_snapshot
+        JOIN core_snapshot_tags on core_snapshot_tags.snapshot_id=core_snapshot.id
+        JOIN core_tag on core_tag.id=core_snapshot_tags.tag_id
     """)
     tags = c.fetchall()
     conn.commit()
     conn.close()
 
     for tag in tags:
-        snapshot_id = tag['snapshot']
-        tag_name = tag['tag']
+        snapshot_id = tag["id"]
+        tag_name = tag["name"]
         # Check each tag migrated is in the previous field
         assert tag_name in snapshots_dict[snapshot_id]

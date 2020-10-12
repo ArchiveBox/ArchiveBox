@@ -31,7 +31,6 @@ INSTALLED_APPS = [
     'core',
 
     'django_extensions',
-    'taggit',
 ]
 
 
