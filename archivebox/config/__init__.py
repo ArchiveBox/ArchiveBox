@@ -89,7 +89,6 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'SAVE_WARC':                {'type': bool,  'default': True, 'aliases': ('FETCH_WARC',)},
         'SAVE_GIT':                 {'type': bool,  'default': True, 'aliases': ('FETCH_GIT',)},
         'SAVE_MEDIA':               {'type': bool,  'default': True, 'aliases': ('FETCH_MEDIA',)},
-        'SAVE_PLAYLISTS':           {'type': bool,  'default': True, 'aliases': ('FETCH_PLAYLISTS',)},
         'SAVE_ARCHIVE_DOT_ORG':     {'type': bool,  'default': True, 'aliases': ('SUBMIT_ARCHIVE_DOT_ORG',)},
     },
 
@@ -107,6 +106,21 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
 
         'CHROME_HEADLESS':          {'type': bool,  'default': True},
         'CHROME_SANDBOX':           {'type': bool,  'default': lambda c: not c['IN_DOCKER']},
+        'YOUTUBEDL_ARGS':           {'type': list,  'default': ['--write-description',
+                                                                '--write-info-json',
+                                                                '--write-annotations',
+                                                                '--write-thumbnail',
+                                                                '--no-call-home',
+                                                                '--user-agent',
+                                                                '--all-subs',
+                                                                '--extract-audio',
+                                                                '--keep-video',
+                                                                '--ignore-errors',
+                                                                '--geo-bypass',
+                                                                '--audio-format', 'mp3',
+                                                                '--audio-quality', '320K',
+                                                                '--embed-thumbnail',
+                                                                '--add-metadata']}
     },
 
     'DEPENDENCY_CONFIG': {
@@ -279,7 +293,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'USE_YOUTUBEDL':            {'default': lambda c: c['USE_YOUTUBEDL'] and c['SAVE_MEDIA']},
     'YOUTUBEDL_VERSION':        {'default': lambda c: bin_version(c['YOUTUBEDL_BINARY']) if c['USE_YOUTUBEDL'] else None},
     'SAVE_MEDIA':               {'default': lambda c: c['USE_YOUTUBEDL'] and c['SAVE_MEDIA']},
-    'SAVE_PLAYLISTS':           {'default': lambda c: c['SAVE_PLAYLISTS'] and c['SAVE_MEDIA']},
+    'YOUTUBEDL_ARGS':           {'default': lambda c: c['YOUTUBEDL_ARGS'] or []},
 
     'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'] or c['SAVE_SINGLEFILE'])},
     'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] if c['CHROME_BINARY'] else find_chrome_binary()},
@@ -349,7 +363,10 @@ def load_config_val(key: str,
             raise ValueError(f'Invalid configuration option {key}={val} (expected an integer)')
         return int(val)
 
-    raise Exception('Config values can only be str, bool, or int')
+    elif type is list:
+        return val.split(" ")
+
+    raise Exception('Config values can only be str, bool, int or list')
 
 
 def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
