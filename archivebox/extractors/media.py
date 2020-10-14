@@ -12,7 +12,7 @@ from ..util import (
 from ..config import (
     MEDIA_TIMEOUT,
     SAVE_MEDIA,
-    SAVE_PLAYLISTS,
+    YOUTUBEDL_ARGS,
     YOUTUBEDL_BINARY,
     YOUTUBEDL_VERSION,
     CHECK_SSL_VALIDITY
@@ -42,23 +42,7 @@ def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIME
     output_path.mkdir(exist_ok=True)
     cmd = [
         YOUTUBEDL_BINARY,
-        '--write-description',
-        '--write-info-json',
-        '--write-annotations',
-        '--write-thumbnail',
-        '--no-call-home',
-        '--no-check-certificate',
-        '--user-agent',
-        '--all-subs',
-        '--extract-audio',
-        '--keep-video',
-        '--ignore-errors',
-        '--geo-bypass',
-        '--audio-format', 'mp3',
-        '--audio-quality', '320K',
-        '--embed-thumbnail',
-        '--add-metadata',
-        *(['--yes-playlist'] if SAVE_PLAYLISTS else []),
+        *YOUTUBEDL_ARGS,
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate']),
         link.url,
     ]

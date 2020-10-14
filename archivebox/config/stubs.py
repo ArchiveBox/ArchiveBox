@@ -64,7 +64,6 @@ class ConfigDict(BaseConfig, total=False):
     SAVE_WARC: bool
     SAVE_GIT: bool
     SAVE_MEDIA: bool
-    SAVE_PLAYLISTS: bool
     SAVE_ARCHIVE_DOT_ORG: bool
 
     RESOLUTION: str
@@ -94,6 +93,8 @@ class ConfigDict(BaseConfig, total=False):
     MERCURY_BINARY: str
     YOUTUBEDL_BINARY: str
     CHROME_BINARY: Optional[str]
+
+    YOUTUBEDL_ARGS: Optional[str]
 
 
 ConfigDefaultValueGetter = Callable[[ConfigDict], ConfigValue]
