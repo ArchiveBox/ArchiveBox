@@ -16,6 +16,7 @@ from ..config import (
     CHECK_SSL_VALIDITY,
     SAVE_TITLE,
     CURL_BINARY,
+    CURL_ARGS,
     CURL_VERSION,
     CURL_USER_AGENT,
     setup_django,
@@ -51,10 +52,8 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
     output: ArchiveOutput = None
     cmd = [
         CURL_BINARY,
-        '--silent',
+        *CURL_ARGS,
         '--max-time', str(timeout),
-        '--location',
-        '--compressed',
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         link.url,

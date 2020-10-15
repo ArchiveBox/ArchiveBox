@@ -18,6 +18,7 @@ from ..config import (
     TIMEOUT,
     SAVE_GIT,
     GIT_BINARY,
+    GIT_ARGS,
     GIT_VERSION,
     GIT_DOMAINS,
     CHECK_SSL_VALIDITY
@@ -56,7 +57,7 @@ def save_git(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> 
     cmd = [
         GIT_BINARY,
         'clone',
-        '--recursive',
+        *GIT_ARGS,
         *([] if CHECK_SSL_VALIDITY else ['-c', 'http.sslVerify=false']),
         without_query(without_fragment(link.url)),
     ]

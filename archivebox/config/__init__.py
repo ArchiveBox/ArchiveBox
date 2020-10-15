@@ -134,7 +134,8 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'CURL_ARGS':                {'type': list,  'default': ['--silent',
                                                                 '--location',
                                                                 '--compressed'
-                                                               ]}
+                                                               ]},
+        'GIT_ARGS':                 {'type': list,  'default': ['--recursive']},
     },
 
     'DEPENDENCY_CONFIG': {
