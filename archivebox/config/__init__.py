@@ -133,7 +133,6 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
                                                                 ]},
         'CURL_ARGS':                {'type': list,  'default': ['--silent',
                                                                 '--location',
-                                                                '--head',
                                                                 '--compressed'
                                                                ]}
     },
