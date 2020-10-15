@@ -13,6 +13,7 @@ from ..util import (
 )
 from ..config import (
     TIMEOUT,
+    CURL_ARGS,
     CHECK_SSL_VALIDITY,
     SAVE_ARCHIVE_DOT_ORG,
     CURL_BINARY,
@@ -45,10 +46,7 @@ def save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, timeout: int=
     submit_url = 'https://web.archive.org/save/{}'.format(link.url)
     cmd = [
         CURL_BINARY,
-        '--silent',
-        '--location',
-        '--head',
-        '--compressed',
+        *CURL_ARGS,
         '--max-time', str(timeout),
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
