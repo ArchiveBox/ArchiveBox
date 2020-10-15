@@ -96,6 +96,8 @@ class ConfigDict(BaseConfig, total=False):
 
     YOUTUBEDL_ARGS: Optional[str]
     WGET_ARGS: Optional[str]
+    CURL_ARGS: Optional[str]
+    GIT_ARGS: Optional[str]
 
 
 ConfigDefaultValueGetter = Callable[[ConfigDict], ConfigValue]
