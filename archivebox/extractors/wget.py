@@ -19,6 +19,7 @@ from ..util import (
     urldecode,
 )
 from ..config import (
+    WGET_ARGS,
     TIMEOUT,
     SAVE_WGET,
     SAVE_WARC,
@@ -59,14 +60,7 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
     cmd = [
         WGET_BINARY,
         # '--server-response',  # print headers for better error parsing
-        '--no-verbose',
-        '--adjust-extension',
-        '--convert-links',
-        '--force-directories',
-        '--backup-converted',
-        '--span-hosts',
-        '--no-parent',
-        '-e', 'robots=off',
+        *WGET_ARGS,
         '--timeout={}'.format(timeout),
         *(['--restrict-file-names={}'.format(RESTRICT_FILE_NAMES)] if RESTRICT_FILE_NAMES else []),
         *(['--warc-file={}'.format(str(warc_path))] if SAVE_WARC else []),

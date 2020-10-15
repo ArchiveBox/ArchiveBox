@@ -120,7 +120,17 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
                                                                 '--audio-format', 'mp3',
                                                                 '--audio-quality', '320K',
                                                                 '--embed-thumbnail',
-                                                                '--add-metadata']}
+                                                                '--add-metadata']},
+
+        'WGET_ARGS':                {'type': list,  'default': ['--no-verbose',
+                                                                '--adjust-extension',
+                                                                '--convert-links',
+                                                                '--force-directories',
+                                                                '--backup-converted',
+                                                                '--span-hosts',
+                                                                '--no-parent',
+                                                                '-e', 'robots=off',
+                                                                ]}
     },
 
     'DEPENDENCY_CONFIG': {
@@ -276,6 +286,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'WGET_USER_AGENT':          {'default': lambda c: c['WGET_USER_AGENT'].format(**c)},
     'SAVE_WGET':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WGET']},
     'SAVE_WARC':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WARC']},
+    'WGET_ARGS':                {'default': lambda c: c['WGET_ARGS'] or []},
 
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},

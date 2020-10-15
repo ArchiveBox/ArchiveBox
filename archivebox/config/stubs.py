@@ -95,6 +95,7 @@ class ConfigDict(BaseConfig, total=False):
     CHROME_BINARY: Optional[str]
 
     YOUTUBEDL_ARGS: Optional[str]
+    WGET_ARGS: Optional[str]
 
 
 ConfigDefaultValueGetter = Callable[[ConfigDict], ConfigValue]
