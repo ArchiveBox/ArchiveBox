@@ -364,9 +364,9 @@ def load_config_val(key: str,
         return int(val)
 
     elif type is list:
-        return val.split(" ")
+        return json.loads(val)
 
-    raise Exception('Config values can only be str, bool, int or list')
+    raise Exception('Config values can only be str, bool, int or json')
 
 
 def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
