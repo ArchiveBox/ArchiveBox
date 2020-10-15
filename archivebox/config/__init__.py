@@ -130,7 +130,12 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
                                                                 '--span-hosts',
                                                                 '--no-parent',
                                                                 '-e', 'robots=off',
-                                                                ]}
+                                                                ]},
+        'CURL_ARGS':                {'type': list,  'default': ['--silent',
+                                                                '--location',
+                                                                '--head',
+                                                                '--compressed'
+                                                               ]}
     },
 
     'DEPENDENCY_CONFIG': {
@@ -277,6 +282,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
     'CURL_VERSION':             {'default': lambda c: bin_version(c['CURL_BINARY']) if c['USE_CURL'] else None},
     'CURL_USER_AGENT':          {'default': lambda c: c['CURL_USER_AGENT'].format(**c)},
+    'CURL_ARGS':                {'default': lambda c: c['CURL_ARGS'] or []},
     'SAVE_FAVICON':             {'default': lambda c: c['USE_CURL'] and c['SAVE_FAVICON']},
     'SAVE_ARCHIVE_DOT_ORG':     {'default': lambda c: c['USE_CURL'] and c['SAVE_ARCHIVE_DOT_ORG']},
 
