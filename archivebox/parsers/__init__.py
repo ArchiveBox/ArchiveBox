@@ -33,6 +33,7 @@ from ..logging_util import TimedProgress, log_source_saved
 
 from .pocket_html import parse_pocket_html_export
 from .pinboard_rss import parse_pinboard_rss_export
+from .wallabag_atom import parse_wallabag_atom_export
 from .shaarli_rss import parse_shaarli_rss_export
 from .medium_rss import parse_medium_rss_export
 from .netscape_html import parse_netscape_html_export
@@ -43,6 +44,7 @@ from .generic_txt import parse_generic_txt_export
 
 PARSERS = (
     # Specialized parsers
+    ('Wallabag ATOM', parse_wallabag_atom_export),
     ('Pocket HTML', parse_pocket_html_export),
     ('Pinboard RSS', parse_pinboard_rss_export),
     ('Shaarli RSS', parse_shaarli_rss_export),
