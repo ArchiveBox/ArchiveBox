@@ -4,6 +4,7 @@ import os
 import sys
 import shutil
 from pathlib import Path
+from datetime import date
 
 from typing import Dict, List, Optional, Iterable, IO, Union
 from crontab import CronTab, CronSlices
@@ -386,6 +387,15 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     print()
     print('    For more usage and examples, run:')
     print('        archivebox help')
+
+    json_index = Path(out_dir) / JSON_INDEX_FILENAME
+    html_index = Path(out_dir) / HTML_INDEX_FILENAME
+    index_name = f"{date.today()}_index_old"
+    if json_index.exists():
+        json_index.rename(f"{index_name}.json")
+    if html_index.exists():
+        html_index.rename(f"{index_name}.html")
+
 
 
 @enforce_types
