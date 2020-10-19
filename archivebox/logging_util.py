@@ -24,9 +24,7 @@ from .config import (
     ANSI,
     IS_TTY,
     TERM_WIDTH,
-    OUTPUT_DIR,
     SOURCES_DIR_NAME,
-    HTML_INDEX_FILENAME,
     stderr,
 )
 
