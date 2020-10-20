@@ -14,11 +14,11 @@ def get_icons(snapshot: Snapshot) -> str:
 
     return format_html(
             '<span class="files-icons" style="font-size: 1.2em; opacity: 0.8">'
-                '<a href="/{}/{}/" class="exists-{}" title="Wget clone">🌐 </a> '
+                '<a href="/{}/{}" class="exists-{}" title="Wget clone">🌐 </a> '
                 '<a href="/{}/{}" class="exists-{}" title="PDF">📄</a> '
                 '<a href="/{}/{}" class="exists-{}" title="Screenshot">🖥 </a> '
                 '<a href="/{}/{}" class="exists-{}" title="HTML dump">🅷 </a> '
-                '<a href="/{}/{}/" class="exists-{}" title="WARC">🆆 </a> '
+                '<a href="/{}/{}" class="exists-{}" title="WARC">🆆 </a> '
                 '<a href="/{}/{}" class="exists-{}" title="SingleFile">&#128476; </a>'
                 '<a href="/{}/{}/" class="exists-{}" title="Media files">📼 </a> '
                 '<a href="/{}/{}/" class="exists-{}" title="Git repos">📦 </a> '

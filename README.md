@@ -26,31 +26,52 @@
 <hr/>
 </div>
 
-**ArchiveBox takes a list of website URLs you want to archive, and creates a local, static, browsable HTML clone of the content from those websites (it saves HTML, JS, media files, PDFs, images and more).**
+ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a varitety of formats depending on the configuration and the content it detects. ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) or [`pip3`](https://wiki.python.org/moin/BeginnersGuide/Download).
 
-You can use it to preserve access to websites you care about by storing them locally offline. ArchiveBox imports lists of URLs, renders the pages in a headless, authenticated, user-scriptable browser, and then archives the content in multiple redundant common formats (HTML, PDF, PNG, WARC) that will last long after the originals disappear off the internet. It automatically extracts assets and media from pages and saves them in easily-accessible folders, with out-of-the-box support for extracting git repositories, audio, video, subtitles, images, PDFs, and more.
+Once installed, URLs can be added via the command line `archivebox add` or the built-in Web UI `archivebox server`. It can ingest bookmarks from a service like Pocket/Pinboard, your entire browsing history, RSS feeds, or URLs one at a time.
 
-#### How does it work?
+The main index is a self-contained `data/index.sqlite3` file, and each snapshot is stored as a folder `data/archive/<timestamp>/`, with an easy-to-read `index.html` and `index.json` within. For each page, ArchiveBox auto-extracts many types of assets/media and saves them in standard formats, with out-of-the-box support for: 3 types of HTML snapshots (wget, Chrome headless, singlefile), a PDF snapshot, a screenshot, a WARC archive, git repositories, images, audio, video, subtitles, article text, and more. The snapshots are browseable and managable offline through the filesystem, the built-in webserver, or the Python API.
+
+
+#### Quickstart
 
 ```bash
-pip install archivebox
-mkdir data && cd data
-archivebox init
+docker run -d -it -v ~/archivebox:/data -p 8000:8000 nikisweeting/archivebox server --init 0.0.0.0:8000
+docker run -v ~/archivebox:/data -it nikisweeting/archivebox manage createsuperuser
+docker run -v ~/archivebox:/data -it nikisweeting/archivebox add 'https://example.com'
 
-archivebox add 'https://example.com'
-archivebox add --depth=1 'https://example.com/table-of-contents.html'
-echo 'any text with https://example.com URLs in it' | archivebox add
-
-# open the static data/index.html, or use the interactive web GUI:
-archivebox server 0.0.0.0:8000
+open http://127.0.0.1:8000/admin/login/  # then click "Add" in the navbar
 ```
 
-After installing archivebox, just pass some new links to the `archivebox add` command to start your collection.
+<div align="center">
+<img src="https://i.imgur.com/lUuicew.png" width="400px">
+<br/>
 
-ArchiveBox is written in Python 3.7 and uses wget, Chrome headless, youtube-dl, pywb, and other common UNIX tools to save each page you add in multiple redundant formats. It doesn't require a constantly running server or backend (though it does include an optional one), just open the generated `data/index.html` in a browser to view the archive or run `archivebox server` to use the interactive Web UI. It can import and export links as JSON (among other formats), so it's easy to script or hook up to other APIs. If you run it on a schedule and import from browser history or bookmarks regularly, you can sleep soundly knowing that the slice of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
+[DEMO: archivebox.zervice.io/](https://archivebox.zervice.io)  
+For more information, see the [full Quickstart guide](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) docs.
+</div>
+
+---
+
+
+# Overview
+
+ArchiveBox is a command line tool, self-hostable web-archiving server, and Python library all-in-one. It's available as a Python3 package or a Docker image, both methods provide the same CLI, Web UI, and on-disk data format.
+
+It works on Docker, macOS, and Linux/BSD. Windows is not officially supported, but users have reported getting it working using the WSL2 + Docker.
+
+To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/remove/search/import/export/manage/config/etc using the CLI `archivebox help`, or you can run the Web UI (recommended):
+```bash
+archivebox manage createsuperuser
+archivebox server 0.0.0.0:8000
+open http://127.0.0.1:8000
+```
+
+The CLI is considered "stable", and the ArchiveBox Python API and REST APIs are in "beta".
+
+At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer). You can also self-host your archivebox server on a public domain to provide archive.org-style public access to your site snapshots.
 
 <div align="center">
-
 <img src="https://i.imgur.com/3tBL7PU.png" width="22%" alt="CLI Screenshot" align="top">
 <img src="https://i.imgur.com/viklZNG.png" width="22%" alt="Desktop index screenshot" align="top">
 <img src="https://i.imgur.com/RefWsXB.jpg" width="22%" alt="Desktop details page Screenshot"/>
@@ -60,95 +81,23 @@ ArchiveBox is written in Python 3.7 and uses wget, Chrome headless, youtube-dl, 
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 </div><br/>
 
-## Quickstart
 
-ArchiveBox is written in `python3.7` and has [4 main binary dependencies](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies): `wget`, `chromium`, `youtube-dl` and `nodejs`.
-To get started, you can [install them manually](https://github.com/pirate/ArchiveBox/wiki/Install) using your system's package manager, use the [automated helper script](https://github.com/pirate/ArchiveBox/wiki/Quickstart), or use the official [Docker](https://github.com/pirate/ArchiveBox/wiki/Docker) container. These dependencies are optional if [disabled](https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles) in settings.
+## Key Features
 
-```bash
-# Docker
-mkdir data && cd data
-docker run -v $PWD:/data -it nikisweeting/archivebox init
-docker run -v $PWD:/data -it nikisweeting/archivebox add 'https://example.com'
-docker run -v $PWD:/data -it nikisweeting/archivebox manage createsuperuser
-docker run -v $PWD:/data -it -p 8000:8000 nikisweeting/archivebox server 0.0.0.0:8000
-open http://127.0.0.1:8000
-```
+- [**Free & open source**](https://github.com/pirate/ArchiveBox/blob/master/LICENSE), doesn't require signing up for anything, stores all data locally
+- [**Few dependencies**](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies) and [simple command line interface](https://github.com/pirate/ArchiveBox/wiki/Usage#CLI-Usage)
+- [**Comprehensive documentation**](https://github.com/pirate/ArchiveBox/wiki), [active development](https://github.com/pirate/ArchiveBox/wiki/Roadmap), and [rich community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
+- Easy to set up **[scheduled importing](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) from multiple sources**
+- Uses common, **durable, [long-term formats](#saves-lots-of-useful-stuff-for-each-imported-link)** like HTML, JSON, PDF, PNG, and WARC
+- ~~**Suitable for paywalled / [authenticated content](https://github.com/pirate/ArchiveBox/wiki/Configuration#chrome_user_data_dir)** (can use your cookies)~~ (do not do this until v0.5 is released with some security fixes)
+- **Doesn't require a constantly-running daemon**, proxy, or native app
+- Provides a CLI, Python API, self-hosted web UI, and REST API (WIP)
+- Architected to be able to run [**many varieties of scripts during archiving**](https://github.com/pirate/ArchiveBox/issues/51), e.g. to extract media, summarize articles, [scroll pages](https://github.com/pirate/ArchiveBox/issues/80), [close modals](https://github.com/pirate/ArchiveBox/issues/175), expand comment threads, etc.
+- Can also [**mirror content to 3rd-party archiving services**](https://github.com/pirate/ArchiveBox/wiki/Configuration#submit_archive_dot_org) automatically for redundancy
 
-```bash
-# Docker Compose
-# first download: https://github.com/pirate/ArchiveBox/blob/master/docker-compose.yml
-docker-compose run archivebox init
-docker-compose run archivebox add 'https://example.com'
-docker-compose run archivebox manage createsuperuser
-docker-compose up
-open http://127.0.0.1:8000
-```
+## Input formats
 
-```bash
-# Bare Metal
-# Use apt on Ubuntu/Debian, brew on mac, or pkg on BSD
-# You may need to add a ppa with a more recent version of nodejs
-apt install python3 python3-pip python3-dev git curl wget youtube-dl chromium-browser
-
-# Install Node + NPM
-curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
-  && echo 'deb https://deb.nodesource.com/node_14.x $(lsb_release -cs) main' >> /etc/apt/sources.list \
-  && apt-get update -qq \
-  && apt-get install -qq -y --no-install-recommends nodejs
-
-# Make a directory to hold your collection
-mkdir data && cd data       # (doesn't have to be called data)
-
-# Install python package (or do this in a .venv if you want)
-pip install --upgrade archivebox
-
-# Install node packages (needed for SingleFile, Readability, and Puppeteer)
-npm install --prefix data 'git+https://github.com/pirate/ArchiveBox.git' 
-
-archivebox init
-archivebox add 'https://example.com'  # add URLs via args or stdin
-
-# or import an RSS/JSON/XML/TXT feed/list of links
-curl https://getpocket.com/users/USERNAME/feed/all | archivebox add
-archivebox add --depth=1 https://example.com/table-of-contents.html
-```
-
-Once you've added your first links, open `data/index.html` in a browser to view the static archive.
-
-You can also start it as a server with a full web UI to manage your links:
-
-```bash
-archivebox manage createsuperuser
-archivebox server
-```
-
-You can visit `http://127.0.0.1:8000` in your browser to access it.
-
-[DEMO: archivebox.zervice.io/](https://archivebox.zervice.io)  
-For more information, see the [full Quickstart guide](https://github.com/pirate/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/pirate/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/pirate/ArchiveBox/wiki/Configuration) docs.
-
----
-
-<div align="center">
-<img src="https://i.imgur.com/PVO88AZ.png" width="80%"/>
-</div>
-
-# Overview
-
-Because modern websites are complicated and often rely on dynamic content,
-ArchiveBox archives the sites in **several different formats** beyond what public
-archiving services like Archive.org and Archive.is are capable of saving. Using multiple
-methods and the market-dominant browser to execute JS ensures we can save even the most
-complex, finicky websites in at least a few high-quality, long-term data formats.
-
-ArchiveBox imports a list of URLs from stdin, remote URL, or file, then adds the pages to a local archive folder using wget to create a browsable HTML clone, youtube-dl to extract media, and a full instance of Chrome headless for PDF, Screenshot, and DOM dumps, and more...
-
-Running `archivebox add` adds only new, unique links into your collection on each run. Because it will ignore duplicates and only archive each link the first time you add it, you can schedule it to [run on a timer](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) and re-import all your feeds multiple times a day. It will run quickly even if the feeds are large, because it's only archiving the newest links since the last run. For each link, it runs through all the archive methods. Methods that fail will save `None` and be automatically retried on the next run, methods that succeed save their output into the data folder and are never retried/overwritten by subsequent runs. Support for saving multiple snapshots of each site over time will be [added soon](https://github.com/pirate/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs).
-
-All the archived links are stored by date bookmarked in `./archive/<timestamp>`, and everything is indexed nicely with JSON & HTML files. The intent is for all the content to be viewable with common software in 50 - 100 years without needing to run ArchiveBox in a VM.
-
-#### Can import links from many formats:
+ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exports, Browser bookmarks, Browser history, plain text, HTML, markdown, and more!
 
 ```bash
 echo 'http://example.com' | archivebox add
@@ -165,7 +114,13 @@ archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
 
 See the [Usage: CLI](https://github.com/pirate/ArchiveBox/wiki/Usage#CLI-Usage) page for documentation and examples.
 
-#### Saves lots of useful stuff for each imported link:
+It also includes a built-in scheduled import feature and browser bookmarklet, so you can ingest URLs from RSS feeds, websites, or the filesystem regularly.
+
+## Output formats
+
+All of ArchiveBox's state (including the index, snapshot data, and config file) is stored in a single folder called the "ArchiveBox data folder". All `archivebox` CLI commands must be run from inside this folder, and you first create it by running `archivebox init`.
+
+The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard sqlite3 database (it can also be exported as static JSON/HTML), and the archive snapshots are organized by date-added timestamp in the `archive/` subfolder. Each snapshot subfolder includes a static JSON and HTML index describing its contents, and the snapshot extrator outputs are plain files within the folder (e.g. `media/example.mp4`, `git/somerepo.git`, `static/someimage.png`, etc.)
 
 ```bash
  ls ./archive/<timestamp>/
@@ -186,21 +141,100 @@ See the [Usage: CLI](https://github.com/pirate/ArchiveBox/wiki/Usage#CLI-Usage) 
 
 It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/pirate/ArchiveBox/wiki/Configuration) via environment variables or config file.
 
-If you're importing URLs with secret tokens in them (e.g Google Docs, CodiMD notepads, etc), you may want to disable some of these methods to avoid leaking private URLs to 3rd party APIs during the archiving process. See the [Security Overview](https://github.com/pirate/ArchiveBox/wiki/Security-Overview#stealth-mode) page for more details.
+## Dependencies
 
-## Key Features
+You don't need to install all the dependencies, ArchiveBox will automatically enable the relevant modules based on whatever you have available, but it's recommended to use the official [Docker image](https://github.com/pirate/ArchiveBox/wiki/Docker) with everything preinstalled.
 
-- [**Free & open source**](https://github.com/pirate/ArchiveBox/blob/master/LICENSE), doesn't require signing up for anything, stores all data locally
-- [**Few dependencies**](https://github.com/pirate/ArchiveBox/wiki/Install#dependencies) and [simple command line interface](https://github.com/pirate/ArchiveBox/wiki/Usage#CLI-Usage)
-- [**Comprehensive documentation**](https://github.com/pirate/ArchiveBox/wiki), [active development](https://github.com/pirate/ArchiveBox/wiki/Roadmap), and [rich community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
-- **Doesn't require a constantly-running server**, proxy, or native app
-- Easy to set up **[scheduled importing](https://github.com/pirate/ArchiveBox/wiki/Scheduled-Archiving) from multiple sources**
-- Uses common, **durable, [long-term formats](#saves-lots-of-useful-stuff-for-each-imported-link)** like HTML, JSON, PDF, PNG, and WARC
-- ~~**Suitable for paywalled / [authenticated content](https://github.com/pirate/ArchiveBox/wiki/Configuration#chrome_user_data_dir)** (can use your cookies)~~ (do not do this until v0.5 is released with some security fixes)
-- Can [**run scripts during archiving**](https://github.com/pirate/ArchiveBox/issues/51) to [scroll pages](https://github.com/pirate/ArchiveBox/issues/80), [close modals](https://github.com/pirate/ArchiveBox/issues/175), expand comment threads, etc.
-- Can also [**mirror content to 3rd-party archiving services**](https://github.com/pirate/ArchiveBox/wiki/Configuration#submit_archive_dot_org) automatically for redundancy
+If you so choose, you can also install ArchiveBox and its dependencies directly on any Linux or macOS systems using the [automated setup script](https://github.com/pirate/ArchiveBox/wiki/Quickstart) or the [system package manager](https://github.com/pirate/ArchiveBox/wiki/Install).
 
-## Background & Motivation
+ArchiveBox is written in Python 3 so it requires `python3` and `pip3` available on your system. It also uses a set of optional, but highly recommended external dependencies for archiving sites: `wget` (for plain HTML, static files, and WARC saving), `chromium` (for screenshots, PDFs, JS execution, and more), `youtube-dl` (for audio and video), `git` (for cloning git repos), and `nodejs` (for readability and singlefile), and more.
+
+## Caveats
+
+If you're importing URLs containing secret slugs or pages with private content (e.g Google Docs, CodiMD notepads, etc), you may want to disable some of the extractor modules to avoid leaking private URLs to 3rd party APIs during the archiving process.
+
+Be aware that malicious archived JS can also read the contents of other pages in your archive due to snapshot CSRF and XSS protections being imperfect. See the [Security Overview](https://github.com/pirate/ArchiveBox/wiki/Security-Overview#stealth-mode) page for more details.
+
+Support for saving multiple snapshots of each site over time will be [added soon](https://github.com/pirate/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now ArchiveBox is designed to only archive each URL with each extractor type once.
+
+---
+
+# Setup
+
+## Docker
+
+```bash
+# Docker
+mkdir data && cd data
+docker run -v $PWD:/data -it nikisweeting/archivebox init
+docker run -v $PWD:/data -it nikisweeting/archivebox add 'https://example.com'
+docker run -v $PWD:/data -it nikisweeting/archivebox manage createsuperuser
+docker run -v $PWD:/data -it -p 8000:8000 nikisweeting/archivebox server 0.0.0.0:8000
+
+open http://127.0.0.1:8000
+```
+
+```bash
+# Docker Compose
+# first download: https://github.com/pirate/ArchiveBox/blob/master/docker-compose.yml
+docker-compose run archivebox init
+docker-compose run archivebox add 'https://example.com'
+docker-compose run archivebox manage createsuperuser
+docker-compose up
+open http://127.0.0.1:8000
+```
+
+## Bare Metal
+```bash
+# Bare Metal
+# Use apt on Ubuntu/Debian, brew on mac, or pkg on BSD
+# You may need to add a ppa with a more recent version of nodejs
+apt install python3 python3-pip python3-dev git curl wget youtube-dl chromium-browser
+
+# Install Node + NPM
+curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
+  && echo 'deb https://deb.nodesource.com/node_14.x $(lsb_release -cs) main' >> /etc/apt/sources.list \
+  && apt-get update \
+  && apt-get install --no-install-recommends nodejs
+
+# Make a directory to hold your collection
+mkdir data && cd data    # (can be anywhere, doesn't have to be called data)
+
+# Install python package (or do this in a .venv if you want)
+pip install --upgrade archivebox
+
+# Install node packages (needed for SingleFile, Readability, and Puppeteer)
+npm install --prefix . 'git+https://github.com/pirate/ArchiveBox.git' 
+
+archivebox init
+archivebox add 'https://example.com'  # add URLs as args pipe them in via stdin
+
+# it can injest links from many formats, including RSS/JSON/XML/MD/TXT and more
+curl https://getpocket.com/users/USERNAME/feed/all | archivebox add
+archivebox add --depth=1 https://example.com/table-of-contents.html
+```
+
+Once you've added your first links, open `data/index.html` in a browser to view the static archive.
+
+You can also start it as a server with a full web UI to manage your links:
+
+```bash
+archivebox manage createsuperuser
+archivebox server
+```
+
+You can visit `http://127.0.0.1:8000` in your browser to access it.
+
+
+---
+
+<div align="center">
+<img src="https://i.imgur.com/PVO88AZ.png" width="80%"/>
+</div>
+
+---
+
+# Background & Motivation
 
 Vast treasure troves of knowledge are lost every day on the internet to link rot. As a society, we have an imperative to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
 
@@ -215,6 +249,11 @@ archive internet content enables to you save the stuff you care most about befor
 
 The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful.
 I don't think everything should be preserved in an automated fashion, making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
+
+Because modern websites are complicated and often rely on dynamic content,
+ArchiveBox archives the sites in **several different formats** beyond what public archiving services like Archive.org and Archive.is are capable of saving. Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats.
+
+All the archived links are stored by date bookmarked in `./archive/<timestamp>`, and everything is indexed nicely with JSON & HTML files. The intent is for all the content to be viewable with common software in 50 - 100 years without needing to run ArchiveBox in a VM.
 
 ## Comparison to Other Projects
 
@@ -235,8 +274,6 @@ Unlike crawler software that starts from a seed URL and works outwards, or publi
 Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today. However, as storage space gets cheaper and compression improves, you should be able to use it continuously over the years without having to delete anything. In my experience, ArchiveBox uses about 5gb per 1000 articles, but your milage may vary depending on which options you have enabled and what types of sites you're archiving. By default, it archives everything in as many formats as possible, meaning it takes more space than a using a single method, but more content is accurately replayable over extended periods of time. Storage requirements can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by setting `SAVE_MEDIA=False` to skip audio & video files.
 
 ## Learn more
-
-<!--▶ **Join out our [community chat](http://webchat.freenode.net?channels=ArchiveBox&uio=d4) hosted on IRC freenode.net:`#ArchiveBox`!**-->
 
 Whether you want to learn which organizations are the big players in the web archiving space, want to find a specific open-source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community. Check it out to learn about some of the coolest web archiving projects and communities on the web!
 
@@ -261,20 +298,9 @@ Whether you want to learn which organizations are the big players in the web arc
 
 <img src="https://read-the-docs-guidelines.readthedocs-hosted.com/_images/logo-dark.png" width="13%" align="right"/>
 
-We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) and [Read the Docs](https://archivebox.readthedocs.io/en/latest/) for documentation.
+We use the [Github wiki system](https://github.com/pirate/ArchiveBox/wiki) and [Read the Docs](https://archivebox.readthedocs.io/en/latest/) (WIP) for documentation.
 
 You can also access the docs locally by looking in the [`ArchiveBox/docs/`](https://github.com/pirate/ArchiveBox/wiki/Home) folder.
-
-You can build the docs by running:
-
-```python
-cd ArchiveBox
-pipenv install --dev
-sphinx-apidoc -o docs archivebox
-cd docs/
-make html
-# then open docs/_build/html/index.html
-```
 
 ## Getting Started
 
@@ -293,14 +319,81 @@ make html
 - [Chromium Install](https://github.com/pirate/ArchiveBox/wiki/Install-Chromium)
 - [Security Overview](https://github.com/pirate/ArchiveBox/wiki/Security-Overview)
 - [Troubleshooting](https://github.com/pirate/ArchiveBox/wiki/Troubleshooting)
+- [Python API](https://docs.archivebox.io/en/latest/modules.html)
+- REST API (coming soon...)
 
 ## More Info
 
+- [Tickets](https://github.com/pirate/ArchiveBox/issues)
 - [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap)
 - [Changelog](https://github.com/pirate/ArchiveBox/wiki/Changelog)
 - [Donations](https://github.com/pirate/ArchiveBox/wiki/Donations)
 - [Background & Motivation](https://github.com/pirate/ArchiveBox#background--motivation)
 - [Web Archiving Community](https://github.com/pirate/ArchiveBox/wiki/Web-Archiving-Community)
+
+---
+
+# ArchiveBox Development
+
+All contributions to ArchiveBox are welcomed! Check our [issues](https://github.com/pirate/ArchiveBox/issues) and [Roadmap](https://github.com/pirate/ArchiveBox/wiki/Roadmap) for things to work on, and please open an issue to discuss your proposed implementation before working on things! Otherwise we may have to close your PR if it doesn't align with our roadmap.
+
+### Setup the dev environment
+
+```python3
+git clone https://github.com/pirate/ArchiveBox
+cd ArchiveBox
+git checkout master  # or the branch you want to test
+git pull
+
+# Install ArchiveBox + python dependencies
+python3 -m venv .venv && source .venv/bin/activate && pip install -e .[dev]
+# or
+pipenv install --dev && pipenv shell
+
+# Install node dependencies
+npm install
+
+# Optional: install the extractor dependencies
+./bin/setup.sh
+```
+
+### Common development tasks
+
+See the `./bin/` folder and read the source of the bash scripts within.
+You can also run all these in Docker. For more examples see the Github Actions CI/CD tests that are run: `.github/workflows/*.yaml`.
+
+#### Run the linters
+
+```bash
+./bin/lint.sh
+```
+(uses `flake8` and `mypy`)
+
+#### Run the integration tests
+
+```bash
+./bin/test.sh
+```
+(uses `pytest -s`)
+
+#### Build the docs, pip package, and docker image
+
+```bash
+./bin/build.sh
+
+# or individually:
+./bin/build_docs.sh
+./bin/build_pip.sh
+./bin/build_docker.sh
+```
+
+#### Roll a release
+
+```bash
+./bin/release.sh
+```
+(bumps the version, builds, and pushes a release to PyPI, Docker Hub, and Github Packages)
+
 
 ---
 

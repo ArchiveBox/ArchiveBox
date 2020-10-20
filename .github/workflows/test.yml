@@ -115,7 +115,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: satackey/action-docker-layer-caching@v0.0.4
+      - uses: satackey/action-docker-layer-caching@v0.0.8
 
       - name: Build image
         run: |
@@ -137,7 +137,7 @@ jobs:
 
       - name: Add stdin link
         run: |
-          echo "http://www.test-nginx-2.local" | docker run -i -v "$PWD"/data:/data "$DOCKER_IMAGE" add
+          echo "http://www.test-nginx-2.local" | docker run -i --network host -v "$PWD"/data:/data archivebox add
 
       - name: List links
         run: |

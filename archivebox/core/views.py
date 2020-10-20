@@ -114,12 +114,23 @@ class AddView(UserPassesTestMixin, FormView):
     template_name = "add_links.html"
     form_class = AddLinkForm
 
+    def get_initial(self):
+        """Prefill the AddLinkForm with the 'url' GET parameter"""
+        if self.request.method == 'GET':
+            url = self.request.GET.get('url', None)
+            if url:
+                return {'url': url}
+        else:
+            return super().get_initial()
+
     def test_func(self):
         return PUBLIC_ADD_VIEW or self.request.user.is_authenticated
 
     def get_context_data(self, *args, **kwargs):
         context = super().get_context_data(*args, **kwargs)
         context["title"] = "Add URLs"
+        # We can't just call request.build_absolute_uri in the template, because it would include query parameters
+        context["absolute_add_path"] = self.request.build_absolute_uri(self.request.path)
         return context
 
     def form_valid(self, form):

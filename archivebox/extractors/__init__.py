@@ -75,7 +75,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 
     out_dir = out_dir or Path(link.link_dir)
     try:
-        is_new = not os.path.exists(out_dir)
+        is_new = not Path(out_dir).exists()
         if is_new:
             os.makedirs(out_dir)
 

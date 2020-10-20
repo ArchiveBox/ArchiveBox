@@ -575,7 +575,7 @@ def is_archived(link: Link) -> bool:
     return is_valid(link) and link.is_archived
     
 def is_unarchived(link: Link) -> bool:
-    if not os.path.exists(link.link_dir):
+    if not Path(link.link_dir).exists():
         return True
     return not link.is_archived
 
