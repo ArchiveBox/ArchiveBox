@@ -2,12 +2,54 @@ __package__ = 'archivebox.core'
 
 import uuid
 
-from django.db import models
+from django.db import models, transaction
 from django.utils.functional import cached_property
+from django.utils.text import slugify
 
 from ..util import parse_date
 from ..index.schema import Link
 
+
+class Tag(models.Model):
+    """
+    Based on django-taggit model
+    """
+    name = models.CharField(verbose_name="name", unique=True, blank=False, max_length=100)
+    slug = models.SlugField(verbose_name="slug", unique=True, max_length=100)
+
+    class Meta:
+        verbose_name = "Tag"
+        verbose_name_plural = "Tags"
+
+    def __str__(self):
+        return self.name
+
+    def slugify(self, tag, i=None):
+        slug = slugify(tag)
+        if i is not None:
+            slug += "_%d" % i
+        return slug
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.slug:
+            self.slug = self.slugify(self.name)
+
+            with transaction.atomic():
+                slugs = set(
+                    type(self)
+                    ._default_manager.filter(slug__startswith=self.slug)
+                    .values_list("slug", flat=True)
+                )
+
+                i = None
+                while True:
+                    slug = self.slugify(self.name, i)
+                    if slug not in slugs:
+                        self.slug = slug
+                        return super().save(*args, **kwargs)
+                    i = 1 if i is None else i+1
+        else:
+            return super().save(*args, **kwargs)
 
 class Snapshot(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -16,11 +58,10 @@ class Snapshot(models.Model):
     timestamp = models.CharField(max_length=32, unique=True, db_index=True)
 
     title = models.CharField(max_length=128, null=True, blank=True, db_index=True)
-    tags = models.CharField(max_length=256, null=True, blank=True, db_index=True)
 
     added = models.DateTimeField(auto_now_add=True, db_index=True)
     updated = models.DateTimeField(null=True, blank=True, db_index=True)
-    # bookmarked = models.DateTimeField()
+    tags = models.ManyToManyField(Tag)
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
 
@@ -41,7 +82,8 @@ class Snapshot(models.Model):
         args = args or self.keys
         return {
             key: getattr(self, key)
-            for key in args
+            if key != 'tags' else self.get_tags_str()
+            for key in args 
         }
 
     def as_link(self) -> Link:
@@ -50,6 +92,13 @@ class Snapshot(models.Model):
     def as_link_with_details(self) -> Link:
         from ..index import load_link_details
         return load_link_details(self.as_link())
+    
+    def get_tags_str(self) -> str:
+        tags = ','.join(
+            tag.name
+            for tag in self.tags.all()
+        ) if self.tags.all() else ''
+        return tags
 
     @cached_property
     def bookmarked(self):
@@ -96,3 +145,10 @@ class Snapshot(models.Model):
             and self.history['title'][-1].output.strip()):
             return self.history['title'][-1].output.strip()
         return None
+
+    def save_tags(self, tags=[]):
+        tags_id = []
+        for tag in tags:
+            tags_id.append(Tag.objects.get_or_create(name=tag)[0].id)
+        self.tags.clear()
+        self.tags.add(*tags_id)

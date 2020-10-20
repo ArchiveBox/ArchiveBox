@@ -4,7 +4,7 @@
 import os
 import subprocess
 from pathlib import Path
-import json
+import json, shutil
 import sqlite3
 
 from archivebox.config import OUTPUT_PERMISSIONS
@@ -132,3 +132,41 @@ def test_unrecognized_folders(tmp_path, process, disable_extractors_dict):
     init_process = subprocess.run(['archivebox', 'init'], capture_output=True, env=disable_extractors_dict)
     assert "Skipped adding 1 invalid link data directories" in init_process.stdout.decode("utf-8")
     assert init_process.returncode == 0
+
+def test_tags_migration(tmp_path, disable_extractors_dict):
+    
+    base_sqlite_path = Path(__file__).parent / 'tags_migration'
+    
+    if os.path.exists(tmp_path):
+        shutil.rmtree(tmp_path)
+    shutil.copytree(str(base_sqlite_path), tmp_path)
+    os.chdir(tmp_path)
+
+    conn = sqlite3.connect("index.sqlite3")
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT id, tags from core_snapshot")
+    snapshots = c.fetchall()
+    snapshots_dict = { sn['id']: sn['tags'] for sn in snapshots}
+    conn.commit()
+    conn.close()
+    
+    init_process = subprocess.run(['archivebox', 'init'], capture_output=True, env=disable_extractors_dict)
+
+    conn = sqlite3.connect("index.sqlite3")
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("""
+        SELECT core_snapshot.id, core_tag.name from core_snapshot
+        JOIN core_snapshot_tags on core_snapshot_tags.snapshot_id=core_snapshot.id
+        JOIN core_tag on core_tag.id=core_snapshot_tags.tag_id
+    """)
+    tags = c.fetchall()
+    conn.commit()
+    conn.close()
+
+    for tag in tags:
+        snapshot_id = tag["id"]
+        tag_name = tag["name"]
+        # Check each tag migrated is in the previous field
+        assert tag_name in snapshots_dict[snapshot_id]

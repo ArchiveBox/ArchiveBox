@@ -12,7 +12,7 @@ version: '3.7'
 services:
     archivebox:
         # build: .
-        image: nikisweeting/archivebox:latest
+        image: ${DOCKER_IMAGE:-nikisweeting/archivebox:latest} 
         command: server 0.0.0.0:8000
         stdin_open: true
         tty: true
