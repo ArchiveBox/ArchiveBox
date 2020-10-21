@@ -137,7 +137,7 @@ jobs:
 
       - name: Add stdin link
         run: |
-          echo "http://www.test-nginx-2.local" | docker run -i --network host -v "$PWD"/data:/data archivebox add
+          echo "http://www.test-nginx-2.local" | docker run -i --network host -v "$PWD"/data:/data "$DOCKER_IMAGE" add
 
       - name: List links
         run: |
