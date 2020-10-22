@@ -262,7 +262,6 @@ def get_empty_snapshot_queryset(out_dir: Path=OUTPUT_DIR):
 @enforce_types
 def load_main_index(out_dir: Path=OUTPUT_DIR, warn: bool=True) -> List[Link]:
     """parse and load existing index with any new links from import_path merged in"""
-    setup_django(out_dir, check_db=True)
     from core.models import Snapshot
     try:
         return Snapshot.objects.all()

@@ -129,6 +129,14 @@ ALLOWED_IN_OUTPUT_DIR = {
     FAVICON_FILENAME,
 }
 
+
+def using_django(func):
+    def inner(*args, **kwargs):
+        setup_django(out_dir=kwargs["out_dir"], check_db=True)
+        func(*args, **kwargs)
+    return inner
+        
+
 @enforce_types
 def help(out_dir: Path=OUTPUT_DIR) -> None:
     """Print the ArchiveBox help message and usage"""
@@ -507,6 +515,7 @@ def oneshot(url: str, out_dir: Path=OUTPUT_DIR):
     return oneshot_link
 
 @enforce_types
+@using_django
 def add(urls: Union[str, List[str]],
         depth: int=0,
         update_all: bool=not ONLY_NEW,

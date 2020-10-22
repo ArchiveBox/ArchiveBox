@@ -943,6 +943,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG) 
         os.environ.setdefault('OUTPUT_DIR', str(output_dir))
         os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
         django.setup()
+        check_data_folder(output_dir)
 
         if check_db:
             sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME

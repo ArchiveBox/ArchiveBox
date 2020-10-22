@@ -84,7 +84,6 @@ def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
 
 @enforce_types
 def list_migrations(out_dir: Path=OUTPUT_DIR) -> List[Tuple[bool, str]]:
-    setup_django(out_dir, check_db=False)
     from django.core.management import call_command
     out = StringIO()
     call_command("showmigrations", list=True, stdout=out)
