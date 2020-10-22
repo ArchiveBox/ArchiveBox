@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Dict, Union, Tuple, Callable, Pattern, Type, Any
+from typing import Optional, Dict, Union, Tuple, Callable, Pattern, Type, Any, List
 from mypy_extensions import TypedDict
 
 
@@ -94,10 +94,10 @@ class ConfigDict(BaseConfig, total=False):
     YOUTUBEDL_BINARY: str
     CHROME_BINARY: Optional[str]
 
-    YOUTUBEDL_ARGS: Optional[str]
-    WGET_ARGS: Optional[str]
-    CURL_ARGS: Optional[str]
-    GIT_ARGS: Optional[str]
+    YOUTUBEDL_ARGS: List[str]
+    WGET_ARGS: List[str]
+    CURL_ARGS: List[str]
+    GIT_ARGS: List[str]
 
 
 ConfigDefaultValueGetter = Callable[[ConfigDict], ConfigValue]
