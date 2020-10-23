@@ -73,7 +73,6 @@ jobs:
           python -m pip install .
           python -m pip install pytest bottle
 
-
       - name: Get npm cache dir
         id: npm-cache
         run: |
@@ -91,10 +90,9 @@ jobs:
       - name: Install npm requirements
         run: |
           npm install
-          echo "::set-env name=SINGLEFILE_BINARY::$GITHUB_WORKSPACE/node_modules/.bin/single-file"
-          echo "::set-env name=READABILITY_BINARY::$GITHUB_WORKSPACE/node_modules/.bin/readability-extractor"
-          echo "::set-env name=MERCURY_BINARY::$GITHUB_WORKSPACE/node_modules/.bin/mercury-parser"
-
+          echo "SINGLEFILE_BINARY=$GITHUB_WORKSPACE/node_modules/.bin/single-file" >> $GITHUB_ENV
+          echo "READABILITY_BINARY=$GITHUB_WORKSPACE/node_modules/.bin/readability-extractor" >> $GITHUB_ENV
+          echo "MERCURY_BINARY=$GITHUB_WORKSPACE/node_modules/.bin/mercury-parser" >> $GITHUB_ENV
 
       ### Run the tests
       - name: Directory listing for debugging
