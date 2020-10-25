@@ -152,31 +152,51 @@ ArchiveBox is written in Python 3 so it requires `python3` and `pip3` available 
 ## Caveats
 
 If you're importing URLs containing secret slugs or pages with private content (e.g Google Docs, CodiMD notepads, etc), you may want to disable some of the extractor modules to avoid leaking private URLs to 3rd party APIs during the archiving process.
+```bash
+# don't do this:
+archivebox add 'https://docs.google.com/document/d/12345somelongsecrethere'
+archivebox add 'https://example.com/any/url/you/want/to/keep/secret/'
+
+# without first disabling share the URL with 3rd party APIs:
+archivebox config --set SAVE_ARCHIVE_DOT_ORG=False   # disable saving all URLs in Archive.org
+archivebox config --set SAVE_FAVICON=False  # optional: only the domain is leaked, not full URL
+archivebox config --get CHROME_VERSION      # optional: set this to chromium instead of chrome if you don't like Google
+```
 
 Be aware that malicious archived JS can also read the contents of other pages in your archive due to snapshot CSRF and XSS protections being imperfect. See the [Security Overview](https://github.com/pirate/ArchiveBox/wiki/Security-Overview#stealth-mode) page for more details.
+```bash
+# visiting an archived page with malicious JS:
+https://127.0.0.1:8000/archive/1602401954/example.com/index.html
 
-Support for saving multiple snapshots of each site over time will be [added soon](https://github.com/pirate/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now ArchiveBox is designed to only archive each URL with each extractor type once.
+# example.com/index.js can now make a request to read everything:
+https://127.0.0.1:8000/index.html
+https://127.0.0.1:8000/archive/*
+# then example.com/index.js can send it off to some evil server
+```
+
+Support for saving multiple snapshots of each site over time will be [added soon](https://github.com/pirate/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now ArchiveBox is designed to only archive each URL with each extractor type once. A workaround to take multiple snapshots of the same URL is to make them slightly different by adding a hash:
+```bash
+archivebox add 'https://example.com#2020-10-24'
+...
+archivebox add 'https://example.com#2020-10-25'
+```
 
 ---
 
 # Setup
 
-## Docker
+## Docker Compose
+
+*This is the recommended way of running ArchiveBox.*
+
+It comes with everything working out of the box, including all extractors,
+a headless browser runtime, a full webserver, and CLI interface.
 
 ```bash
-# Docker
-mkdir data && cd data
-docker run -v $PWD:/data -it nikisweeting/archivebox init
-docker run -v $PWD:/data -it nikisweeting/archivebox add 'https://example.com'
-docker run -v $PWD:/data -it nikisweeting/archivebox manage createsuperuser
-docker run -v $PWD:/data -it -p 8000:8000 nikisweeting/archivebox server 0.0.0.0:8000
+# docker-compose run archivebox <command> [args]
 
-open http://127.0.0.1:8000
-```
-
-```bash
-# Docker Compose
-# first download: https://github.com/pirate/ArchiveBox/blob/master/docker-compose.yml
+mkdir archivebox && cd archivebox
+wget 'https://github.com/pirate/ArchiveBox/blob/master/docker-compose.yml'
 docker-compose run archivebox init
 docker-compose run archivebox add 'https://example.com'
 docker-compose run archivebox manage createsuperuser
@@ -184,48 +204,85 @@ docker-compose up
 open http://127.0.0.1:8000
 ```
 
-## Bare Metal
-```bash
-# Bare Metal
-# Use apt on Ubuntu/Debian, brew on mac, or pkg on BSD
-# You may need to add a ppa with a more recent version of nodejs
-apt install python3 python3-pip python3-dev git curl wget youtube-dl chromium-browser
+## Docker
 
-# Install Node + NPM
+```bash
+# docker run -v $PWD:/data -it nikisweeting/archivebox <command> [args]
+
+mkdir archivebox && cd archivebox
+docker run -v $PWD:/data -it nikisweeting/archivebox init
+docker run -v $PWD:/data -it nikisweeting/archivebox add 'https://example.com'
+docker run -v $PWD:/data -it nikisweeting/archivebox manage createsuperuser
+
+# run the webserver to access the web UI
+docker run -v $PWD:/data -it -p 8000:8000 nikisweeting/archivebox server 0.0.0.0:8000
+open http://127.0.0.1:8000
+
+# or export a static version of the index if you dont want to run a server
+docker run -v $PWD:/data -it nikisweeting/archivebox list --html --with-headers > index.html
+docker run -v $PWD:/data -it nikisweeting/archivebox list --json --with-headers > index.json
+open ./index.html
+```
+
+
+## Bare Metal
+
+```bash
+# archivebox <command> [args]
+```
+
+First install the system, pip, and npm dependencies:
+```bash
+# Install main dependendencies using apt on Ubuntu/Debian, brew on mac, or pkg on BSD
+apt install python3 python3-pip python3-dev git curl wget chromium-browser youtube-dl
+
+# Install Node runtime (used for headless browser scripts like Readability, Singlefile, Mercury, etc.)
 curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
   && echo 'deb https://deb.nodesource.com/node_14.x $(lsb_release -cs) main' >> /etc/apt/sources.list \
   && apt-get update \
   && apt-get install --no-install-recommends nodejs
 
 # Make a directory to hold your collection
-mkdir data && cd data    # (can be anywhere, doesn't have to be called data)
+mkdir archivebox && cd archivebox    # (can be anywhere, doesn't have to be called archivebox)
 
-# Install python package (or do this in a .venv if you want)
+# Install the archivebox python package in ./.venv
+python3 -m venv .venv && source .venv/bin/activate
 pip install --upgrade archivebox
 
-# Install node packages (needed for SingleFile, Readability, and Puppeteer)
+# Install node packages in ./node_modules (used for SingleFile, Readability, and Puppeteer)
 npm install --prefix . 'git+https://github.com/pirate/ArchiveBox.git' 
+```
 
+Initialize your archive and add some links:
+```bash
 archivebox init
 archivebox add 'https://example.com'  # add URLs as args pipe them in via stdin
-
+archivebox add --depth=1 https://example.com/table-of-contents.html
 # it can injest links from many formats, including RSS/JSON/XML/MD/TXT and more
 curl https://getpocket.com/users/USERNAME/feed/all | archivebox add
-archivebox add --depth=1 https://example.com/table-of-contents.html
 ```
 
-Once you've added your first links, open `data/index.html` in a browser to view the static archive.
-
-You can also start it as a server with a full web UI to manage your links:
-
+Start the webserver to access the web UI:
 ```bash
 archivebox manage createsuperuser
-archivebox server
+archivebox server 0.0.0.0:8000
+
+open http://127.0.0.1:8000
 ```
 
-You can visit `http://127.0.0.1:8000` in your browser to access it.
+Or export a static HTML version of the index if you don't want to run a webserver:
+```bash
+archivebox list --html --with-headers > index.html
+archivebox list --json --with-headers > index.json
+open ./index.html
+```
 
-
+To view more information about your dependencies, data, or the CLI:
+```bash
+archivebox version
+archivebox status
+archivebox help
+```
 ---
 
 <div align="center">
@@ -339,6 +396,8 @@ All contributions to ArchiveBox are welcomed! Check our [issues](https://github.
 
 ### Setup the dev environment
 
+First, install the system dependencies from the "Bare Metal" section above.
+Then you can clone the ArchiveBox repo and install
 ```python3
 git clone https://github.com/pirate/ArchiveBox
 cd ArchiveBox
