@@ -62,7 +62,7 @@ def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS) -> 
 
 
 @enforce_types
-def copy_and_overwrite(from_path: str, to_path: str):
+def copy_and_overwrite(from_path: Union[str, Path], to_path: Union[str, Path]):
     """copy a given file or directory to a given path, overwriting the destination"""
     if Path(from_path).is_dir():
         shutil.rmtree(to_path, ignore_errors=True)
@@ -74,7 +74,7 @@ def copy_and_overwrite(from_path: str, to_path: str):
 
 
 @enforce_types
-def get_dir_size(path: str, recursive: bool=True, pattern: Optional[str]=None) -> Tuple[int, int, int]:
+def get_dir_size(path: Union[str, Path], recursive: bool=True, pattern: Optional[str]=None) -> Tuple[int, int, int]:
     """get the total disk size of a given directory, optionally summing up 
        recursively and limiting to a given filter list
     """

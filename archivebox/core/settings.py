@@ -68,10 +68,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
+DATABASE_FILE = Path(OUTPUT_DIR) / SQL_INDEX_FILENAME
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': str(Path(OUTPUT_DIR) / SQL_INDEX_FILENAME),
+        'NAME': str(DATABASE_FILE),
     }
 }
 
