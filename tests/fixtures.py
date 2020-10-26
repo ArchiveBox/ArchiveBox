@@ -6,6 +6,7 @@ import pytest
 @pytest.fixture
 def process(tmp_path):
     os.chdir(tmp_path)
+    print("should be at", tmp_path)
     process = subprocess.run(['archivebox', 'init'], capture_output=True)
     return process
 
