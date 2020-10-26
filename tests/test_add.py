@@ -32,7 +32,6 @@ def test_depth_flag_0_crawls_only_the_arg_page(tmp_path, process, disable_extrac
         env=disable_extractors_dict,
     )
     
-    breakpoint()
     archived_item_path = list(tmp_path.glob('archive/**/*'))[0]
     with open(archived_item_path / "index.json", "r") as f:
         output_json = json.load(f)

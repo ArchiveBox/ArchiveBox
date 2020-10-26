@@ -134,3 +134,7 @@ __all__ = (
     'run_subcommand',
     *SUBCOMMANDS.keys(),
 )
+
+
+from ..config import setup_django
+setup_django()
