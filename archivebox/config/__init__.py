@@ -868,7 +868,7 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
             stderr('    Make sure you set it to a Chrome user data directory containing a Default profile folder.')
             stderr('    For more info see:')
             stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#CHROME_USER_DATA_DIR')
-            if 'Default' in str(config['CHROME_USER_DATA_DIR']):
+            if '/Default' in str(config['CHROME_USER_DATA_DIR']):
                 stderr()
                 stderr('    Try removing /Default from the end e.g.:')
                 stderr('        CHROME_USER_DATA_DIR="{}"'.format(config['CHROME_USER_DATA_DIR'].split('/Default')[0]))
