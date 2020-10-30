@@ -72,6 +72,11 @@ def should_save_title(link: Link, out_dir: Optional[str]=None) -> bool:
 
     return SAVE_TITLE
 
+def extract_title_with_regex(html):
+    match = re.search(HTML_TITLE_REGEX, html)
+    output = htmldecode(match.group(1).strip()) if match else None
+    return output
+
 @enforce_types
 def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """try to guess the page's title from its content"""
@@ -97,10 +102,11 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
             parser = TitleParser()
             parser.feed(html)
             output = parser.title
+            if output is None:
+                raise
         except Exception:
             # fallback to regex that can handle broken/malformed html
-            match = re.search(HTML_TITLE_REGEX, html)
-            output = htmldecode(match.group(1).strip()) if match else None
+            output = extract_title_with_regex(html)
         
         # if title is better than the one in the db, update db with new title
         if isinstance(output, str) and output:
