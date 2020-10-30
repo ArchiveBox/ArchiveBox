@@ -85,10 +85,10 @@ class SnapshotAdminForm(forms.ModelForm):
 class SnapshotAdmin(admin.ModelAdmin):
     list_display = ('added', 'title_str', 'url_str', 'files', 'size')
     sort_fields = ('title_str', 'url_str', 'added')
-    readonly_fields = ('id', 'url', 'timestamp', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
+    readonly_fields = ('id', 'timestamp', 'num_outputs', 'is_archived', 'url_hash', 'added')
     search_fields = ('url', 'timestamp', 'title', 'tags')
     fields = (*readonly_fields, 'title', 'tags')
-    list_filter = ('added', 'updated', 'tags')
+    list_filter = ('added',)
     ordering = ['-added']
     actions = [delete_snapshots, overwrite_snapshots, update_snapshots, update_titles, verify_snapshots]
     actions_template = 'admin/actions_as_select.html'
