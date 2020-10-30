@@ -10,7 +10,10 @@ def get_icons(snapshot: Snapshot) -> str:
     canon = link.canonical_outputs()
     out_dir = Path(link.link_dir)
 
-    link_tuple = lambda link, method: (link.archive_path, canon[method] or '', canon[method] and (out_dir / (canon[method] or 'notdone')).exists())
+    # slow version: highlights icons based on whether files exist or not for that output
+    # link_tuple = lambda link, method: (link.archive_path, canon[method] or '', canon[method] and (out_dir / (canon[method] or 'notdone')).exists())
+    # fast version: all icons are highlighted without checking for outputs in filesystem
+    link_tuple = lambda link, method: (link.archive_path, canon[method] or '', canon[method])
 
     return format_html(
             '<span class="files-icons" style="font-size: 1.2em; opacity: 0.8">'
