@@ -25,6 +25,14 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 
+
+HTML_TITLE_REGEX = re.compile(
+    r'<title.*?>'                      # start matching text after <title> tag
+    r'(.[^<>]+)',                      # get everything up to these symbols
+    re.IGNORECASE | re.MULTILINE | re.DOTALL | re.UNICODE,
+)
+
+
 class TitleParser(HTMLParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -84,12 +92,22 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
     timer = TimedProgress(timeout, prefix='      ')
     try:
         html = download_url(link.url, timeout=timeout)
-        parser = TitleParser()
-        parser.feed(html)
-        output = parser.title
-        if output:
+        try:
+            # try using relatively strict html parser first
+            parser = TitleParser()
+            parser.feed(html)
+            output = parser.title
+        except Exception:
+            # fallback to regex that can handle broken/malformed html
+            match = re.search(HTML_TITLE_REGEX, html)
+            output = htmldecode(match.group(1).strip()) if match else None
+        
+        # if title is better than the one in the db, update db with new title
+        if isinstance(output, str) and output:
             if not link.title or len(output) >= len(link.title):
-                Snapshot.objects.filter(url=link.url, timestamp=link.timestamp).update(title=output)
+                Snapshot.objects.filter(url=link.url,
+                                        timestamp=link.timestamp)\
+                                .update(title=output)
         else:
             raise ArchiveError('Unable to detect page title')
     except Exception as err:
