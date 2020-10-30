@@ -26,13 +26,15 @@ from .stubs import (
 )
 
 # precedence order for config:
-# 1. cli args
-# 2. shell environment vars
-# 3. config file
-# 4. defaults
+# 1. cli args                 (e.g. )
+# 2. shell environment vars   (env USE_COLOR=False archivebox add '...')
+# 3. config file              (echo "SAVE_FAVICON=False" >> ArchiveBox.conf)
+# 4. defaults                 (defined below in Python)
 
-# env USE_COLO=false archivebox add '...'
+#
 # env SHOW_PROGRESS=1 archivebox add '...'
+# archivebox config --set TIMEOUT=600
+# 
 
 # ******************************************************************************
 # Documentation: https://github.com/pirate/ArchiveBox/wiki/Configuration
