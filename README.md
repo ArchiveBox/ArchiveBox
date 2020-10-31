@@ -32,15 +32,6 @@ Once installed, URLs can be added via the command line `archivebox add` or the b
 
 The main index is a self-contained `data/index.sqlite3` file, and each snapshot is stored as a folder `data/archive/<timestamp>/`, with an easy-to-read `index.html` and `index.json` within. For each page, ArchiveBox auto-extracts many types of assets/media and saves them in standard formats, with out-of-the-box support for: 3 types of HTML snapshots (wget, Chrome headless, singlefile), a PDF snapshot, a screenshot, a WARC archive, git repositories, images, audio, video, subtitles, article text, and more. The snapshots are browseable and managable offline through the filesystem, the built-in webserver, or the Python API.
 
-All three ways of running ArchiveBox are equivalent and interchangeable:
-
-- `docker-compose run archivebox [subcommand] [...args]`
-  *Using the official Docker image w/ Docker Compose*
-- `archivebox run -it -v $PWD:/data nikisweeting/archivebox [subcommand] [...args]`  
-  *Using the official Docker image*
-- `archivebox [subcommand] [...args]`  
-  *Using the PyPI package via `pip install archivebox`*
-
 
 #### Quickstart
 
@@ -77,6 +68,15 @@ open http://127.0.0.1:8000
 ```
 
 The CLI is considered "stable", and the ArchiveBox Python API and REST APIs are in "beta".
+
+All three ways of running ArchiveBox are equivalent and interchangeable:
+
+- `docker-compose run archivebox [subcommand] [...args]`  
+  *Using the official Docker image w/ Docker Compose (recommended)*
+- `archivebox run -it -v $PWD:/data nikisweeting/archivebox [subcommand] [...args]`  
+  *Using the official Docker image*
+- `archivebox [subcommand] [...args]`  
+  *Using the PyPI package via `pip install archivebox`*
 
 At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer). You can also self-host your archivebox server on a public domain to provide archive.org-style public access to your site snapshots.
 
