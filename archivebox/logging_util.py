@@ -101,23 +101,14 @@ class TimedProgress:
         if self.SHOW_PROGRESS:
             # terminate if we havent already terminated
             try:
-                # WARNING: HACKY
-                # I've spent over 15 hours trying to get rid of this stupid macOS-only  
-                # intermittent (but harmeless) warning when the progress bars end sometimes
-                #     Exception ignored in: <_io.TextIOWrapper name='<stdout>' mode='w' encoding='utf-8'>
-                #     BrokenPipeError: [Errno 32] Broken pipe
-                # In the end, this is the only thing I found that makes it 
-                # happen slightly less often:
-                if platform.system() == 'Darwin':
-                    time.sleep(0.1)
-
                 # kill the progress bar subprocess
+                try:
+                    self.p.close()   # must be closed *before* its terminnated
+                except:
+                    pass
                 self.p.terminate()
                 self.p.join()
-                self.p.close()
 
-                if platform.system() == 'Darwin':
-                    time.sleep(0.1)
 
                 # clear whole terminal line
                 try:
