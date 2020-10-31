@@ -115,3 +115,43 @@ def dedupe_cron_jobs(cron: CronTab) -> CronTab:
         job.enable()
 
     return cron
+
+
+class suppress_output(object):
+    '''
+    A context manager for doing a "deep suppression" of stdout and stderr in 
+    Python, i.e. will suppress all print, even if the print originates in a 
+    compiled C/Fortran sub-function.
+       This will not suppress raised exceptions, since exceptions are printed
+    to stderr just before a script exits, and after the context manager has
+    exited (at least, I think that is why it lets exceptions through).      
+
+    with suppress_stdout_stderr():
+        rogue_function()
+    '''
+    def __init__(self, stdout=True, stderr=True):
+        # Open a pair of null files
+        # Save the actual stdout (1) and stderr (2) file descriptors.
+        self.stdout, self.stderr = stdout, stderr
+        if stdout:
+            self.null_stdout = os.open(os.devnull, os.O_RDWR)
+            self.real_stdout = os.dup(1)
+        if stderr:
+            self.null_stderr = os.open(os.devnull, os.O_RDWR)
+            self.real_stderr = os.dup(2)
+
+    def __enter__(self):
+        # Assign the null pointers to stdout and stderr.
+        if self.stdout:
+            os.dup2(self.null_stdout, 1)
+        if self.stderr:
+            os.dup2(self.null_stderr, 2)
+
+    def __exit__(self, *_):
+        # Re-assign the real stdout/stderr back to (1) and (2)
+        if self.stdout:
+            os.dup2(self.real_stdout, 1)
+            os.close(self.null_stdout)
+        if self.stderr:
+            os.dup2(self.real_stderr, 2)
+            os.close(self.null_stderr)
