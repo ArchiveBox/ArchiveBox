@@ -69,15 +69,6 @@ open http://127.0.0.1:8000
 
 The CLI is considered "stable", and the ArchiveBox Python API and REST APIs are in "beta".
 
-All three ways of running ArchiveBox are equivalent and interchangeable:
-
-- `docker-compose run archivebox [subcommand] [...args]`  
-  *Using the official Docker image w/ Docker Compose (recommended)*
-- `archivebox run -it -v $PWD:/data nikisweeting/archivebox [subcommand] [...args]`  
-  *Using the official Docker image*
-- `archivebox [subcommand] [...args]`  
-  *Using the PyPI package via `pip install archivebox`*
-
 At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer). You can also self-host your archivebox server on a public domain to provide archive.org-style public access to your site snapshots.
 
 <div align="center">
