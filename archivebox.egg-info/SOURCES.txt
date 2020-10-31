@@ -6,6 +6,8 @@ archivebox/LICENSE
 archivebox/README.md
 archivebox/__init__.py
 archivebox/__main__.py
+archivebox/config.py
+archivebox/config_stubs.py
 archivebox/logging_util.py
 archivebox/main.py
 archivebox/manage.py
@@ -35,8 +37,6 @@ archivebox/cli/archivebox_status.py
 archivebox/cli/archivebox_update.py
 archivebox/cli/archivebox_version.py
 archivebox/cli/tests.py
-archivebox/config/__init__.py
-archivebox/config/stubs.py
 archivebox/core/__init__.py
 archivebox/core/admin.py
 archivebox/core/apps.py
@@ -46,6 +46,7 @@ archivebox/core/settings.py
 archivebox/core/tests.py
 archivebox/core/urls.py
 archivebox/core/utils.py
+archivebox/core/utils_taggit.py
 archivebox/core/views.py
 archivebox/core/welcome_message.py
 archivebox/core/wsgi.py
@@ -55,6 +56,7 @@ archivebox/core/migrations/0002_auto_20200625_1521.py
 archivebox/core/migrations/0003_auto_20200630_1034.py
 archivebox/core/migrations/0004_auto_20200713_1552.py
 archivebox/core/migrations/0005_auto_20200728_0326.py
+archivebox/core/migrations/0006_auto_20201012_1520.py
 archivebox/core/migrations/__init__.py
 archivebox/extractors/__init__.py
 archivebox/extractors/archive_org.py
@@ -86,6 +88,7 @@ archivebox/parsers/netscape_html.py
 archivebox/parsers/pinboard_rss.py
 archivebox/parsers/pocket_html.py
 archivebox/parsers/shaarli_rss.py
+archivebox/parsers/wallabag_atom.py
 archivebox/themes/admin/actions_as_select.html
 archivebox/themes/admin/app_index.html
 archivebox/themes/admin/base.html

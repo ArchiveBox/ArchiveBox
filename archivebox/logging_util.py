@@ -22,6 +22,7 @@ from .config import (
     ANSI,
     IS_TTY,
     TERM_WIDTH,
+    SHOW_PROGRESS,
     SOURCES_DIR_NAME,
     stderr,
 )
@@ -82,7 +83,6 @@ class TimedProgress:
     """Show a progress bar and measure elapsed time until .end() is called"""
 
     def __init__(self, seconds, prefix=''):
-        from .config import SHOW_PROGRESS
         self.SHOW_PROGRESS = SHOW_PROGRESS
         if self.SHOW_PROGRESS:
             self.p = Process(target=progress_bar, args=(seconds, prefix))
@@ -461,6 +461,9 @@ def printable_folders(folders: Dict[str, Optional["Link"]],
                       html: bool=False,
                       csv: Optional[str]=None,
                       with_headers: bool=False) -> str:
+    
+    from .index.json import MAIN_INDEX_HEADER
+
     links = folders.values()
     if json: 
         from .index.json import to_json

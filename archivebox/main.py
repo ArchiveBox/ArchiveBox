@@ -225,11 +225,14 @@ def version(quiet: bool=False,
         for name, folder in EXTERNAL_LOCATIONS.items():
             print(printable_folder_status(name, folder))
 
+        print()
         if DATA_LOCATIONS['OUTPUT_DIR']['is_valid']:
-            print()
             print('{white}[i] Data locations:{reset}'.format(**ANSI))
             for name, folder in DATA_LOCATIONS.items():
                 print(printable_folder_status(name, folder))
+        else:
+            print()
+            print('{white}[i] Data locations:{reset}'.format(**ANSI))
 
         print()
         check_dependencies()
