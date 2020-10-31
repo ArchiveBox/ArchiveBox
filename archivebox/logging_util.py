@@ -15,8 +15,6 @@ from typing import Optional, List, Dict, Union, IO, TYPE_CHECKING
 if TYPE_CHECKING:
     from .index.schema import Link, ArchiveResult
 
-from .index.json import MAIN_INDEX_HEADER
-
 from .util import enforce_types
 from .config import (
     ConfigDict,

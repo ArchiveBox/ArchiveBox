@@ -33,8 +33,9 @@ class ConfigDict(BaseConfig, total=False):
     SHOW_PROGRESS: bool
     IN_DOCKER: bool
 
-    OUTPUT_DIR: Union[str, Path, None]
-    CONFIG_FILE: Union[str, Path, None]
+    PACKAGE_DIR: Path
+    OUTPUT_DIR: Path
+    CONFIG_FILE: Path
     ONLY_NEW: bool
     TIMEOUT: int
     MEDIA_TIMEOUT: int

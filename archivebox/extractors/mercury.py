@@ -61,8 +61,7 @@ def save_mercury(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
         atomic_write(str(output_folder / "content.txt"), txtresult_json["content"])
         atomic_write(str(output_folder / "article.json"), result_json)
 
-        # parse out number of files downloaded from last line of stderr:
-        #  "Downloaded: 76 files, 4.0M in 1.6s (2.52 MB/s)"
+        # parse out last line of stderr
         output_tail = [
             line.strip()
             for line in (result.stdout + result.stderr).decode().rsplit('\n', 20)[-20:]

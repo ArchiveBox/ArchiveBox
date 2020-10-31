@@ -216,7 +216,7 @@ def version(quiet: bool=False,
             print(printable_dependency_version(name, dependency))
         
         print()
-        print('{white}[i] Code locations:{reset}'.format(**ANSI))
+        print('{white}[i] Source-code locations:{reset}'.format(**ANSI))
         for name, folder in CODE_LOCATIONS.items():
             print(printable_folder_status(name, folder))
 

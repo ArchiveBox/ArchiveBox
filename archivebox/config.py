@@ -1,4 +1,4 @@
-__package__ = 'archivebox.config'
+__package__ = 'archivebox'
 
 import os
 import io
@@ -17,7 +17,7 @@ from subprocess import run, PIPE, DEVNULL
 from configparser import ConfigParser
 from collections import defaultdict
 
-from .stubs import (
+from .config_stubs import (
     SimpleConfigValueDict,
     ConfigValue,
     ConfigDict,
@@ -162,6 +162,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
     },
 }
 
+# for backwards compatibility with old config files, check old/deprecated names for each key
 CONFIG_ALIASES = {
     alias: key
     for section in CONFIG_DEFAULTS.values()
@@ -169,6 +170,7 @@ CONFIG_ALIASES = {
             for alias in default.get('aliases', ())
 }
 USER_CONFIG = {key for section in CONFIG_DEFAULTS.values() for key in section.keys()}
+
 def get_real_name(key: str) -> str:
     return CONFIG_ALIASES.get(key.upper().strip(), key.upper().strip())
 
@@ -223,7 +225,7 @@ STATICFILE_EXTENSIONS = {
     # html, htm, shtml, xhtml, xml, aspx, php, cgi
 }
 
-PYTHON_DIR_NAME = 'archivebox'
+PACKAGE_DIR_NAME = 'archivebox'
 TEMPLATES_DIR_NAME = 'themes'
 
 ARCHIVE_DIR_NAME = 'archive'
@@ -257,9 +259,8 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'USER':                     {'default': lambda c: getpass.getuser() or os.getlogin()},
     'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
 
-    'REPO_DIR':                 {'default': lambda c: Path(__file__).resolve().parent.parent.parent},
-    'PYTHON_DIR':               {'default': lambda c: c['REPO_DIR'] / PYTHON_DIR_NAME},
-    'TEMPLATES_DIR':            {'default': lambda c: c['PYTHON_DIR'] / TEMPLATES_DIR_NAME / 'legacy'},
+    'PACKAGE_DIR':              {'default': lambda c: Path(__file__).resolve().parent},
+    'TEMPLATES_DIR':            {'default': lambda c: c['PACKAGE_DIR'] / TEMPLATES_DIR_NAME / 'legacy'},
 
     'OUTPUT_DIR':               {'default': lambda c: Path(c['OUTPUT_DIR']).resolve() if c['OUTPUT_DIR'] else Path(os.curdir).resolve()},
     'ARCHIVE_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / ARCHIVE_DIR_NAME},
@@ -271,7 +272,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'] or '', re.IGNORECASE | re.UNICODE | re.MULTILINE)},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0]},
-    'VERSION':                  {'default': lambda c: json.loads((Path(c['PYTHON_DIR']) / 'package.json').read_text().strip())['version']},
+    'VERSION':                  {'default': lambda c: json.loads((Path(c['PACKAGE_DIR']) / 'package.json').read_text().strip())['version']},
     'GIT_SHA':                  {'default': lambda c: c['VERSION'].split('+')[-1] or 'unknown'},
 
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
@@ -412,7 +413,7 @@ def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
 def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
     """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
 
-    from ..system import atomic_write
+    from .system import atomic_write
 
     out_dir = out_dir or Path(os.getenv('OUTPUT_DIR', '.')).resolve()
     config_path = Path(out_dir) /  CONFIG_FILENAME
@@ -652,15 +653,10 @@ def wget_supports_compression(config):
 
 def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
     return {
-        'REPO_DIR': {
-            'path': config['REPO_DIR'].resolve(),
+        'PACKAGE_DIR': {
+            'path': (config['PACKAGE_DIR']).resolve(),
             'enabled': True,
-            'is_valid': (config['REPO_DIR'] / 'archivebox').exists(),
-        },
-        'PYTHON_DIR': {
-            'path': (config['PYTHON_DIR']).resolve(),
-            'enabled': True,
-            'is_valid': (config['PYTHON_DIR'] / '__main__.py').exists(),
+            'is_valid': (config['PACKAGE_DIR'] / '__main__.py').exists(),
         },
         'TEMPLATES_DIR': {
             'path': (config['TEMPLATES_DIR']).resolve(),
@@ -689,7 +685,7 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
         'OUTPUT_DIR': {
             'path': config['OUTPUT_DIR'].resolve(),
             'enabled': True,
-            'is_valid': (config['OUTPUT_DIR'] / JSON_INDEX_FILENAME).exists(),
+            'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
         },
         'SOURCES_DIR': {
             'path': config['SOURCES_DIR'].resolve(),
@@ -715,16 +711,6 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'path': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).resolve(),
             'enabled': True,
             'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
-        },
-        'JSON_INDEX': {
-            'path': (config['OUTPUT_DIR'] / JSON_INDEX_FILENAME).resolve(),
-            'enabled': True,
-            'is_valid': (config['OUTPUT_DIR'] / JSON_INDEX_FILENAME).exists(),
-        },
-        'HTML_INDEX': {
-            'path': (config['OUTPUT_DIR'] / HTML_INDEX_FILENAME).resolve(),
-            'enabled': True,
-            'is_valid': (config['OUTPUT_DIR'] / HTML_INDEX_FILENAME).exists(),
         },
     }
 
@@ -943,7 +929,7 @@ def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) ->
         stderr('        archivebox init')
         raise SystemExit(2)
 
-    from ..index.sql import list_migrations
+    from .index.sql import list_migrations
 
     pending_migrations = [name for status, name in list_migrations() if not status]
 
@@ -971,12 +957,13 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG) 
     
     output_dir = out_dir or Path(config['OUTPUT_DIR'])
 
-    assert isinstance(output_dir, Path) and isinstance(config['PYTHON_DIR'], Path)
+    assert isinstance(output_dir, Path) and isinstance(config['PACKAGE_DIR'], Path)
 
     try:
         import django
-        sys.path.append(str(config['PYTHON_DIR']))
+        sys.path.append(str(config['PACKAGE_DIR']))
         os.environ.setdefault('OUTPUT_DIR', str(output_dir))
+        assert (config['PACKAGE_DIR'] / 'core' / 'settings.py').exists(), 'settings.py was not found at archivebox/core/settings.py'
         os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
         django.setup()
 
