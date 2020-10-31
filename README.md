@@ -32,6 +32,15 @@ Once installed, URLs can be added via the command line `archivebox add` or the b
 
 The main index is a self-contained `data/index.sqlite3` file, and each snapshot is stored as a folder `data/archive/<timestamp>/`, with an easy-to-read `index.html` and `index.json` within. For each page, ArchiveBox auto-extracts many types of assets/media and saves them in standard formats, with out-of-the-box support for: 3 types of HTML snapshots (wget, Chrome headless, singlefile), a PDF snapshot, a screenshot, a WARC archive, git repositories, images, audio, video, subtitles, article text, and more. The snapshots are browseable and managable offline through the filesystem, the built-in webserver, or the Python API.
 
+All three ways of running ArchiveBox are equivalent and interchangeable:
+
+- `docker-compose run archivebox [subcommand] [...args]`
+  *Using the official Docker image w/ Docker Compose*
+- `archivebox run -it -v $PWD:/data nikisweeting/archivebox [subcommand] [...args]`  
+  *Using the official Docker image*
+- `archivebox [subcommand] [...args]`  
+  *Using the PyPI package via `pip install archivebox`*
+
 
 #### Quickstart
 
