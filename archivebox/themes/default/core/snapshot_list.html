@@ -14,7 +14,7 @@
                 <tr>
                     <th style="width: 100px;">Bookmarked</th>
                     <th style="width: 26vw;">Saved Link ({{num_links}})</th>
-                    <th style="width: 50px">Files</th>
+                    <th style="width: 140px">Files</th>
                     <th style="width: 16vw;whitespace:nowrap;overflow-x:hidden;">Original URL</th>
                 </tr>
             </thead>
@@ -30,7 +30,7 @@
                             {% endif %}
                             <a href="archive/{{link.timestamp}}/index.html" title="{{link.title}}">
                                 <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title|default:'Loading...'}}</span>
-                                <small style="float:right">{{link.tags|default:''}}</small>
+                                <small style="float:right">{{link.tags_str}}</small>
                             </a>
                         </td>
                         <td>

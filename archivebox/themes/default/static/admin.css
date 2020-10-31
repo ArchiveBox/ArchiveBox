@@ -224,9 +224,10 @@ body.model-snapshot.change-list #content .object-tools {
 }
 
 .tags > a > .tag {
-  border: 1px solid;
-  border-radius: 10px;
-  background-color: #f3f3f3;
-  padding: 3px;
+    float: right;
+    border-radius: 5px;
+    background-color: #bfdfff;
+    padding: 2px 5px;
+    margin-left: 4px;
+    margin-top: 1px;
 }
-
