@@ -414,6 +414,15 @@ npm install
 
 # Optional: install the extractor dependencies
 ./bin/setup.sh
+
+# Optional: develop via docker by mounting the code dir into the container
+# if you edit e.g. ./archivebox/core/models.py on the docker host, runserver
+# inside the container will reload and pick up your changes
+docker build . -t archivebox
+docker run -it -p 8000:8000 \
+    -v $PWD/data:/data \
+    -v $PWD/archivebox:/app/archivebox \
+    archivebox server 0.0.0.0:8000 --debug --reload
 ```
 
 ### Common development tasks
