@@ -137,7 +137,7 @@ class SnapshotAdmin(admin.ModelAdmin):
             if archive_size > 52428800:
                 size_txt = mark_safe(f'<b>{size_txt}</b>')
         else:
-            size_txt = 'pending'
+            size_txt = mark_safe('<span style="opacity: 0.3">...</span>')
         return format_html(
             '<a href="/{}" title="View all files">{}</a>',
             obj.archive_path,
@@ -146,7 +146,7 @@ class SnapshotAdmin(admin.ModelAdmin):
 
     def url_str(self, obj):
         return format_html(
-            '<a href="{}">{}</a>',
+            '<a href="{}"><code>{}</code></a>',
             obj.url,
             obj.url.split('://www.', 1)[-1].split('://', 1)[-1][:64],
         )

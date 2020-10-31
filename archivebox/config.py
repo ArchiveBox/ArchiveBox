@@ -7,7 +7,6 @@ import sys
 import json
 import getpass
 import shutil
-import platform
 import django
 
 from hashlib import md5
@@ -322,7 +321,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'SAVE_PDF':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_PDF']},
     'SAVE_SCREENSHOT':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SCREENSHOT']},
     'SAVE_DOM':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_DOM']},
-    'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_CHROME'] and c['USE_SINGLEFILE'] and c['USE_NODE']},
+    'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SINGLEFILE'] and c['USE_NODE']},
     'SAVE_READABILITY':         {'default': lambda c: c['USE_READABILITY'] and c['USE_NODE']},
     'SAVE_MERCURY':             {'default': lambda c: c['USE_MERCURY'] and c['USE_NODE']},
 

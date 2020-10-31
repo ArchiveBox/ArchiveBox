@@ -140,7 +140,7 @@ def link_details_template(link: Link) -> str:
         ) or 'about:blank',
         'extension': link.extension or 'html',
         'tags': link.tags or 'untagged',
-        'size': printable_filesize(link.archive_size) if link.archive_size else mark_safe('<span style="opacity: 0.3">pending</span>'),
+        'size': printable_filesize(link.archive_size) if link.archive_size else 'pending',
         'status': 'archived' if link.is_archived else 'not yet archived',
         'status_color': 'success' if link.is_archived else 'danger',
         'oldest_archive_date': ts_to_date(link.oldest_archive_date),
