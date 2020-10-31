@@ -4,7 +4,9 @@ import re
 import os
 import sys
 import time
+import platform
 import argparse
+from math import log
 from multiprocessing import Process
 from pathlib import Path
 
@@ -99,9 +101,23 @@ class TimedProgress:
         if self.SHOW_PROGRESS:
             # terminate if we havent already terminated
             try:
+                # WARNING: HACKY
+                # I've spent over 15 hours trying to get rid of this stupid macOS-only  
+                # intermittent (but harmeless) warning when the progress bars end sometimes
+                #     Exception ignored in: <_io.TextIOWrapper name='<stdout>' mode='w' encoding='utf-8'>
+                #     BrokenPipeError: [Errno 32] Broken pipe
+                # In the end, this is the only thing I found that makes it 
+                # happen slightly less often:
+                if platform.system() == 'Darwin':
+                    time.sleep(0.1)
+
+                # kill the progress bar subprocess
                 self.p.terminate()
                 self.p.join()
                 self.p.close()
+
+                if platform.system() == 'Darwin':
+                    time.sleep(0.1)
 
                 # clear whole terminal line
                 try:
@@ -128,17 +144,18 @@ def progress_bar(seconds: int, prefix: str='') -> None:
                 sys.stdout.write('\r\n')
                 sys.stdout.flush()
             chunks = max_width - len(prefix) - 20
-            progress = s / chunks / seconds * 100
-            bar_width = round(progress/(100/chunks))
+            pct_complete = s / chunks / seconds * 100
+            log_pct = (log(pct_complete or 1, 10) / 2) * 100  # everyone likes faster progress bars ;)
+            bar_width = round(log_pct/(100/chunks))
             last_width = max_width
 
             # ████████████████████           0.9% (1/60sec)
             sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)'.format(
                 prefix,
-                ANSI['green'],
+                ANSI['green' if pct_complete < 80 else 'lightyellow'],
                 (chunk * bar_width).ljust(chunks),
                 ANSI['reset'],
-                round(progress, 1),
+                round(pct_complete, 1),
                 round(s/chunks),
                 seconds,
             ))
@@ -146,7 +163,7 @@ def progress_bar(seconds: int, prefix: str='') -> None:
             time.sleep(1 / chunks)
 
         # ██████████████████████████████████ 100.0% (60/60sec)
-        sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)\n'.format(
+        sys.stdout.write('\r{0}{1}{2}{3} {4}% ({5}/{6}sec)'.format(
             prefix,
             ANSI['red'],
             chunk * chunks,
@@ -156,6 +173,10 @@ def progress_bar(seconds: int, prefix: str='') -> None:
             seconds,
         ))
         sys.stdout.flush()
+        # uncomment to have it disappear when it hits 100% instead of staying full red:
+        # time.sleep(0.5)
+        # sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))
+        # sys.stdout.flush()
     except (KeyboardInterrupt, BrokenPipeError):
         print()
         pass
@@ -242,7 +263,7 @@ def log_archiving_started(num_links: int, resume: Optional[float]=None):
              **ANSI,
         ))
     else:
-        print('{green}[▶] [{}] Collecting content for {} Snapshots in archive...{reset}'.format(
+        print('{green}[▶] [{}] Starting archiving of {} snapshots in index...{reset}'.format(
              start_ts.strftime('%Y-%m-%d %H:%M:%S'),
              num_links,
              **ANSI,
@@ -287,10 +308,8 @@ def log_archiving_finished(num_links: int):
     print('    - {} links updated'.format(_LAST_RUN_STATS.succeeded + _LAST_RUN_STATS.failed))
     print('    - {} links had errors'.format(_LAST_RUN_STATS.failed))
     print()
-    print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**ANSI))
-    print('        archivebox server  # then visit http://127.0.0.1:8000')
-    print('    Or run the built-in webserver:')
-    print('        archivebox server')
+    print('    {lightred}Hint:{reset} To manage your archive in a Web UI, run:'.format(**ANSI))
+    print('        archivebox server 0.0.0.0:8000')
 
 
 def log_link_archiving_started(link: "Link", link_dir: str, is_new: bool):
