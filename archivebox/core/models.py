@@ -82,7 +82,7 @@ class Snapshot(models.Model):
         args = args or self.keys
         return {
             key: getattr(self, key)
-            if key != 'tags' else self.get_tags_str()
+            if key != 'tags' else self.tags_str()
             for key in args 
         }
 
@@ -93,12 +93,8 @@ class Snapshot(models.Model):
         from ..index import load_link_details
         return load_link_details(self.as_link())
     
-    def get_tags_str(self) -> str:
-        tags = ','.join(
-            tag.name
-            for tag in self.tags.all()
-        ) if self.tags.all() else ''
-        return tags
+    def tags_str(self) -> str:
+        return ','.join(self.tags.order_by('name').values_list('name', flat=True))
 
     @cached_property
     def bookmarked(self):

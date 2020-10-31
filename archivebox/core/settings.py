@@ -25,6 +25,7 @@ IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
 ### Django Core Settings
 ################################################################################
 
+DEBUG = True
 WSGI_APPLICATION = 'core.wsgi.application'
 ROOT_URLCONF = 'core.urls'
 

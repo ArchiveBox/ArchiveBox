@@ -885,32 +885,31 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
         stderr('')
 
     if config['TIMEOUT'] < 5:
-        stderr()
         stderr(f'[!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={config["TIMEOUT"]} seconds)', color='red')
         stderr('    You must allow *at least* 5 seconds for indexing and archive methods to run succesfully.')
         stderr('    (Setting it to somewhere between 30 and 3000 seconds is recommended)')
         stderr()
         stderr('    If you want to make ArchiveBox run faster, disable specific archive methods instead:')
         stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles')
+        stderr()
 
     elif config['USE_CHROME'] and config['TIMEOUT'] < 15:
-        stderr()
         stderr(f'[!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={config["TIMEOUT"]} seconds)', color='red')
         stderr('    Chrome will fail to archive all sites if set to less than ~15 seconds.')
         stderr('    (Setting it to somewhere between 30 and 300 seconds is recommended)')
         stderr()
         stderr('    If you want to make ArchiveBox run faster, disable specific archive methods instead:')
         stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles')
+        stderr()
 
     if config['USE_YOUTUBEDL'] and config['MEDIA_TIMEOUT'] < 20:
-        stderr()
         stderr(f'[!] Warning: MEDIA_TIMEOUT is set too low! (currently set to MEDIA_TIMEOUT={config["MEDIA_TIMEOUT"]} seconds)', color='red')
         stderr('    Youtube-dl will fail to archive all media if set to less than ~20 seconds.')
         stderr('    (Setting it somewhere over 60 seconds is recommended)')
         stderr()
         stderr('    If you want to disable media archiving entirely, set SAVE_MEDIA=False instead:')
         stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#save_media')
-
+        stderr()
         
 def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) -> None:
     output_dir = out_dir or config['OUTPUT_DIR']

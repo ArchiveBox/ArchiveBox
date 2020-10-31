@@ -11,7 +11,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
 from django import forms
 
-from core.models import Snapshot
+from core.models import Snapshot, Tag
 from core.forms import AddLinkForm, TagField
 from core.utils import get_icons
 
@@ -109,8 +109,9 @@ class SnapshotAdmin(admin.ModelAdmin):
     def title_str(self, obj):
         canon = obj.as_link().canonical_outputs()
         tags = ''.join(
-            format_html(' <a href="/admin/core/snapshot/?tags__id__exact={}"><span class="tag">{}</span></a> ', tag.id, tag)
+            format_html('<a href="/admin/core/snapshot/?tags__id__exact={}"><span class="tag">{}</span></a> ', tag.id, tag)
             for tag in obj.tags.all()
+            if str(tag).strip()
         )
         return format_html(
             '<a href="/{}">'
@@ -124,7 +125,7 @@ class SnapshotAdmin(admin.ModelAdmin):
             obj.archive_path,
             'fetched' if obj.latest_title or obj.title else 'pending',
             urldecode(htmldecode(obj.latest_title or obj.title or ''))[:128] or 'Pending...'
-        ) + mark_safe(f'<span class="tags">{tags}</span>')
+        ) + mark_safe(f' <span class="tags">{tags}</span>')
 
     def files(self, obj):
         return get_icons(obj)
@@ -151,6 +152,12 @@ class SnapshotAdmin(admin.ModelAdmin):
     title_str.admin_order_field = 'title'
     url_str.admin_order_field = 'url'
 
+class TagAdmin(admin.ModelAdmin):
+    list_display = ('slug', 'name', 'id')
+    sort_fields = ('id', 'name', 'slug')
+    readonly_fields = ('id',)
+    search_fields = ('id', 'name', 'slug')
+    fields = (*readonly_fields, 'name', 'slug')
 
 
 class ArchiveBoxAdmin(admin.AdminSite):
@@ -206,4 +213,5 @@ class ArchiveBoxAdmin(admin.AdminSite):
 admin.site = ArchiveBoxAdmin()
 admin.site.register(get_user_model())
 admin.site.register(Snapshot, SnapshotAdmin)
+admin.site.register(Tag, TagAdmin)
 admin.site.disable_action('delete_selected')

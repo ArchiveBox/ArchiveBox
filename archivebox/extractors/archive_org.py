@@ -59,7 +59,7 @@ def save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, timeout: int=
         result = run(cmd, cwd=str(out_dir), timeout=timeout)
         content_location, errors = parse_archive_dot_org_response(result.stdout)
         if content_location:
-            archive_org_url = 'https://web.archive.org{}'.format(content_location[0])
+            archive_org_url = content_location[0]
         elif len(errors) == 1 and 'RobotAccessControlException' in errors[0]:
             archive_org_url = None
             # raise ArchiveError('Archive.org denied by {}/robots.txt'.format(domain(link.url)))

@@ -50,11 +50,9 @@ def save_headers(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
         link.url,
     ]
     try:
-        json_headers = get_headers(link.url)
-
+        json_headers = get_headers(link.url, timeout=timeout)
         output_folder.mkdir(exist_ok=True)
         atomic_write(str(output_folder / "headers.json"), json_headers)
-
     except (Exception, OSError) as err:
         status = 'failed'
         output = err
