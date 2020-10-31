@@ -356,6 +356,21 @@ def log_archive_method_finished(result: "ArchiveResult"):
     )
 
     if result.status == 'failed':
+        if result.output.__class__.__name__ == 'TimeoutExpired':
+            duration = (result.end_ts - result.start_ts).seconds
+            hint_header = [
+                '{lightyellow}Extractor timed out after {}s.{reset}'.format(duration, **ANSI),
+            ]
+        else:
+            hint_header = [
+                '{lightyellow}Extractor failed:{reset}'.format(**ANSI),
+                '    {reset}{} {red}{}{reset}'.format(
+                    result.output.__class__.__name__.replace('ArchiveError', ''),
+                    result.output, 
+                    **ANSI,
+                ),
+            ]
+
         # Prettify error output hints string and limit to five lines
         hints = getattr(result.output, 'hints', None) or ()
         if hints:
@@ -365,14 +380,10 @@ def log_archive_method_finished(result: "ArchiveResult"):
                 for line in hints[:5] if line.strip()
             )
 
+
         # Collect and prefix output lines with indentation
         output_lines = [
-            '{lightyellow}Extractor failed:{reset}'.format(**ANSI),
-            '    {reset}{} {red}{}{reset}'.format(
-                result.output.__class__.__name__.replace('ArchiveError', ''),
-                result.output, 
-                **ANSI,
-            ),
+            *hint_header,
             *hints,
             '{}Run to see full output:{}'.format(ANSI['lightred'], ANSI['reset']),
             *(['    cd {};'.format(result.pwd)] if result.pwd else []),
