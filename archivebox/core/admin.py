@@ -131,10 +131,17 @@ class SnapshotAdmin(admin.ModelAdmin):
         return get_icons(obj)
 
     def size(self, obj):
+        archive_size = obj.archive_size
+        if archive_size:
+            size_txt = printable_filesize(archive_size)
+            if archive_size > 52428800:
+                size_txt = mark_safe(f'<b>{size_txt}</b>')
+        else:
+            size_txt = 'pending'
         return format_html(
             '<a href="/{}" title="View all files">{}</a>',
             obj.archive_path,
-            printable_filesize(obj.archive_size) if obj.archive_size else 'pending',
+            size_txt,
         )
 
     def url_str(self, obj):
