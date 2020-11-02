@@ -44,6 +44,9 @@ setuptools.setup(
     url=REPO_URL,
     project_urls=PROJECT_URLS,
     python_requires=">=3.7",
+    setup_requires=[
+        "wheel",
+    ],
     install_requires=[
         "requests==2.24.0",
         "atomicwrites==1.4.0",
@@ -67,7 +70,6 @@ setuptools.setup(
     extras_require={
         'dev': [
             "setuptools",
-            "wheel",
             "twine",
             "flake8",
             "ipdb",
