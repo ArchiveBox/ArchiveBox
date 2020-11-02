@@ -4,7 +4,6 @@ import re
 import os
 import sys
 import time
-import platform
 import argparse
 from math import log
 from multiprocessing import Process

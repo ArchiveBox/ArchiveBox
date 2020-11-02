@@ -3,7 +3,7 @@ __package__ = 'archivebox.extractors'
 from pathlib import Path
 
 from subprocess import CompletedProcess
-from typing import Optional, Tuple, List
+from typing import Optional, List
 import json
 
 from ..index.schema import Link, ArchiveResult, ArchiveError
