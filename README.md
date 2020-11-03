@@ -196,7 +196,7 @@ a headless browser runtime, a full webserver, and CLI interface.
 # docker-compose run archivebox <command> [args]
 
 mkdir archivebox && cd archivebox
-wget 'https://github.com/pirate/ArchiveBox/blob/master/docker-compose.yml'
+wget 'https://raw.githubusercontent.com/pirate/ArchiveBox/master/docker-compose.yml'
 docker-compose run archivebox init
 docker-compose run archivebox add 'https://example.com'
 docker-compose run archivebox manage createsuperuser
