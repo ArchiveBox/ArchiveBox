@@ -148,3 +148,13 @@ class Snapshot(models.Model):
             tags_id.append(Tag.objects.get_or_create(name=tag)[0].id)
         self.tags.clear()
         self.tags.add(*tags_id)
+
+
+class ArchiveResult(models.Model):
+    snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
+    cmd = models.CharField(max_length=500, default="")
+    pwd = models.CharField(max_length=200, default="")
+    cmd_version = models.CharField(max_length=20, default="")
+    output = models.CharField(max_length=500, default="")
+    start_ts = models.DateTimeField()
+    end_ts = models.DateTimeField()
