@@ -8,6 +8,9 @@ from django.utils.text import slugify
 
 from ..util import parse_date
 from ..index.schema import Link
+from ..extractors import get_default_archive_methods
+
+EXTRACTORS = [(extractor[0], extractor[0]) for extractor in get_default_archive_methods()]
 
 
 class Tag(models.Model):
@@ -158,3 +161,4 @@ class ArchiveResult(models.Model):
     output = models.CharField(max_length=500, default="")
     start_ts = models.DateTimeField()
     end_ts = models.DateTimeField()
+    extractor = models.CharField(choices=EXTRACTORS, blank=False, max_length=20)
