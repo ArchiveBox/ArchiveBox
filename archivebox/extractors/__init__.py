@@ -65,6 +65,10 @@ def ignore_methods(to_ignore: List[str]):
 def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None, skip_index: bool=False) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
+    # TODO: Remove when the input is changed to be a snapshot. Suboptimal approach.
+    from core.models import Snapshot, ArchiveResult
+    snapshot = Snapshot.objects.get(url=link.url)
+
     ARCHIVE_METHODS = get_default_archive_methods()
     
     if methods:
@@ -99,6 +103,9 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 
                     stats[result.status] += 1
                     log_archive_method_finished(result)
+                    ArchiveResult.objects.create(snapshot=snapshot, extractor=method_name, cmd=result.cmd, cmd_version=result.cmd_version,
+                                                 output=result.output, pwd=result.pwd, start_ts=result.start_ts, end_ts=result.end_ts, status=result.status)
+
                 else:
                     # print('{black}      X {}{reset}'.format(method_name, **ANSI))
                     stats['skipped'] += 1

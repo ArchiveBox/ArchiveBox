@@ -1,8 +1,6 @@
-from pathlib import Path
-
 from django.utils.html import format_html
 
-from core.models import Snapshot, ArchiveResult, EXTRACTORS
+from core.models import Snapshot, EXTRACTORS
 
 
 def get_icons(snapshot: Snapshot) -> str:
