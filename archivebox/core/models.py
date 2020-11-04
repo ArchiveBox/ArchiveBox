@@ -161,4 +161,8 @@ class ArchiveResult(models.Model):
     output = models.CharField(max_length=500, default="")
     start_ts = models.DateTimeField()
     end_ts = models.DateTimeField()
+    status = models.CharField(max_length=10)
     extractor = models.CharField(choices=EXTRACTORS, blank=False, max_length=20)
+
+    def __str__(self):
+        return self.extractor
