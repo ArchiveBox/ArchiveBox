@@ -72,7 +72,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         try:
             snapshot = Snapshot.objects.get(url=link.url) # TODO: This will be unnecessary once everything is a snapshot
         except Snapshot.DoesNotExist:
-            write_link_to_sql_index(link)
+            snapshot = write_link_to_sql_index(link)
 
     ARCHIVE_METHODS = get_default_archive_methods()
     

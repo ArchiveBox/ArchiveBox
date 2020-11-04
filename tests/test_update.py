@@ -17,7 +17,6 @@ def test_update_status_invalid(tmp_path, process, disable_extractors_dict):
     assert link is None
 
     update_process = subprocess.run(['archivebox', 'update', '--status=invalid'], capture_output=True, env=disable_extractors_dict)
-    #breakpoint()
 
     conn = sqlite3.connect(str(tmp_path / "index.sqlite3"))
     c = conn.cursor()
