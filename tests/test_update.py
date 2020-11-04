@@ -6,7 +6,7 @@ def test_update_status_invalid(tmp_path, process, disable_extractors_dict):
     subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'], capture_output=True, env=disable_extractors_dict)
     assert list((tmp_path / "archive").iterdir()) != []
 
-    subprocess.run(['archivebox', 'remove', 'http://127.0.0.1:8080/static/example.com.html', '--yes'], capture_output=True)
+    a_process = subprocess.run(['archivebox', 'remove', 'http://127.0.0.1:8080/static/example.com.html', '--yes'], capture_output=True)
 
     conn = sqlite3.connect(str(tmp_path / "index.sqlite3"))
     c = conn.cursor()
@@ -17,6 +17,7 @@ def test_update_status_invalid(tmp_path, process, disable_extractors_dict):
     assert link is None
 
     update_process = subprocess.run(['archivebox', 'update', '--status=invalid'], capture_output=True, env=disable_extractors_dict)
+    #breakpoint()
 
     conn = sqlite3.connect(str(tmp_path / "index.sqlite3"))
     c = conn.cursor()

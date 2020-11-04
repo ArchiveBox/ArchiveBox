@@ -8,6 +8,7 @@ from datetime import datetime
 from django.db.models import QuerySet
 
 from ..index.schema import Link
+from ..index.sql import write_link_to_sql_index
 from ..index import (
     load_link_details,
     write_link_details,
@@ -68,7 +69,10 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
     # TODO: Remove when the input is changed to be a snapshot. Suboptimal approach.
     if not skip_index:
         from core.models import Snapshot, ArchiveResult
-        snapshot = Snapshot.objects.get(url=link.url)
+        try:
+            snapshot = Snapshot.objects.get(url=link.url) # TODO: This will be unnecessary once everything is a snapshot
+        except Snapshot.DoesNotExist:
+            write_link_to_sql_index(link)
 
     ARCHIVE_METHODS = get_default_archive_methods()
     
