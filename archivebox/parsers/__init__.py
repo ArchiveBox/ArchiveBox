@@ -32,6 +32,7 @@ from ..index.schema import Link
 from ..logging_util import TimedProgress, log_source_saved
 
 from .pocket_html import parse_pocket_html_export
+from .pocket_api import parse_pocket_api_export
 from .pinboard_rss import parse_pinboard_rss_export
 from .wallabag_atom import parse_wallabag_atom_export
 from .shaarli_rss import parse_shaarli_rss_export
@@ -44,6 +45,7 @@ from .generic_txt import parse_generic_txt_export
 
 PARSERS = (
     # Specialized parsers
+    ('Pocket API', parse_pocket_api_export),
     ('Wallabag ATOM', parse_wallabag_atom_export),
     ('Pocket HTML', parse_pocket_html_export),
     ('Pinboard RSS', parse_pinboard_rss_export),
