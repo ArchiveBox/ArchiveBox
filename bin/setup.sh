@@ -31,14 +31,17 @@ if which apt-get > /dev/null; then
     apt install git python3 python3-pip python3-distutils wget curl youtube-dl
 
     if which google-chrome; then
-        echo "[i] You already have google-chrome installed, if you would like to download chromium-browser instead (they work pretty much the same), follow the Manual Setup instructions"
+        echo "[i] You already have google-chrome installed, if you would like to download chromium instead (they work pretty much the same), follow the Manual Setup instructions"
         google-chrome --version
     elif which chromium-browser; then
         echo "[i] chromium-browser already installed, using existing installation."
         chromium-browser --version
+    elif which chromium; then
+        echo "[i] chromium already installed, using existing installation."
+        chromium --version
     else
-        echo "[+] Installing chromium-browser..."
-        apt install chromium-browser
+        echo "[+] Installing chromium..."
+        apt install chromium
     fi
 
 # On Mac:
@@ -63,8 +66,10 @@ elif which brew > /dev/null; then   # 🐍 eye of newt
         echo "[√] Using existing /Applications/Chromium.app"
     elif which chromium-browser; then
         echo "[√] Using existing $(which chromium-browser)"
+    elif which chromium; then
+        echo "[√] Using existing $(which chromium)"
     else
-        echo "[+] Installing chromium-browser..."
+        echo "[+] Installing chromium..."
         brew cask install chromium
     fi
 else
@@ -78,7 +83,7 @@ else
     exit 1
 fi
 
-pip3 install --upgrade archivebox
+python3 -m pip install --upgrade archivebox
 
 # Check:
 echo ""
