@@ -25,16 +25,19 @@ def get_icons(snapshot: Snapshot) -> str:
     exclude = ["favicon"]
     # Missing specific entry for WARC
 
-    for extractor in EXTRACTORS:
-        result = archive_results.filter(extractor=extractor[0], status="succeeded")
+    for extractor, _ in EXTRACTORS:
+        result = archive_results.filter(extractor=extractor, status="succeeded")
+        path, exists = link.archive_path, result.exists()
         try:
-            if extractor[0] not in exclude:
-                output += output_template.format(link.archive_path, canon[f"{extractor[0]}_path"],
-                                                 result.exists(), extractor[0], icons.get(extractor[0], "?"))
-            if extractor[0] == "wget":
-                extractor = "warc"
-                output += output_template.format(link.archive_path, canon[f"{extractor}_path"],
-                                                 result.exists(), extractor, icons.get(extractor, "?"))
+            if extractor not in exclude:
+                output += output_template.format(path, canon[f"{extractor}_path"],
+                                                 exists, extractor, icons.get(extractor, "?"))
+            if extractor == "wget":
+                # warc isn't technically it's own extractor, so we have to add it after wget
+
+                output += output_template.format(path, canon[f"warc_path"],
+                                                 exists, "warc", icons.get("warc", "?"))
+
         except Exception as e:
             print(e)
 
