@@ -33,9 +33,29 @@ def forwards_func(apps, schema_editor):
                 start_ts=result["start_ts"], end_ts=result["end_ts"], status=result["status"], pwd=result["pwd"], output=result["output"])
 
 
+def verify_json_index_integrity(results):
+    results = snapshot.archiveresult_set.all()
+    out_dir = Path(CONFIG['ARCHIVE_DIR']) / snapshot.timestamp
+    with open(out_dir / "index.json", "r") as f:
+        index = json.load(f)
+
+    history = index["history"]
+    extractors = [extractor for extractor in history]
+    index_results = [(result, extractor) for result in history[extractor]]
+    flattened_results = [(result["start_ts"], extractor) for result, extractor in index_results]
+    
+    missing = [result for result in results if result.start_ts not in flattened_results]
+
+    #process missing elements here. Re-add to the index.json
+
+
+
 
 def reverse_func(apps, schema_editor):
-    ArchiveResult = apps.get_model("core", "ArchiveResult")
+    Snapshot = apps.get_model("core", "Snapshot")
+    for snapshot in Snapshot.objects.all():
+        verify_json_index_integrity(snapshot)
+
     ArchiveResult.objects.all().delete()
 
 
