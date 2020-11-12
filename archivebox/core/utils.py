@@ -35,7 +35,7 @@ def get_icons(snapshot: Snapshot) -> str:
             if extractor == "wget":
                 # warc isn't technically it's own extractor, so we have to add it after wget
 
-                output += output_template.format(path, canon[f"warc_path"],
+                output += output_template.format(path, canon["warc_path"],
                                                  exists, "warc", icons.get("warc", "?"))
 
         except Exception as e:

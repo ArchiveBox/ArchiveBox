@@ -7,6 +7,7 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 from config import CONFIG
+from index.json import to_json
 
 
 def forwards_func(apps, schema_editor):
@@ -33,26 +34,31 @@ def forwards_func(apps, schema_editor):
                 start_ts=result["start_ts"], end_ts=result["end_ts"], status=result["status"], pwd=result["pwd"], output=result["output"])
 
 
-def verify_json_index_integrity(results):
+def verify_json_index_integrity(snapshot):
     results = snapshot.archiveresult_set.all()
     out_dir = Path(CONFIG['ARCHIVE_DIR']) / snapshot.timestamp
     with open(out_dir / "index.json", "r") as f:
         index = json.load(f)
 
     history = index["history"]
-    extractors = [extractor for extractor in history]
-    index_results = [(result, extractor) for result in history[extractor]]
-    flattened_results = [(result["start_ts"], extractor) for result, extractor in index_results]
+    index_results = [result for extractor in history for result in history[extractor]]
+    flattened_results = [result["start_ts"] for result in index_results]
     
-    missing = [result for result in results if result.start_ts not in flattened_results]
+    missing_results = [result for result in results if result.start_ts.isoformat() not in flattened_results]
 
-    #process missing elements here. Re-add to the index.json
+    for missing in missing_results:
+        index["history"][missing.extractor].append({"cmd": missing.cmd, "cmd_version": missing.cmd_version, "end_ts": missing.end_ts.isoformat(),
+                                                    "start_ts": missing.start_ts.isoformat(), "pwd": missing.pwd, "output": missing.output,
+                                                    "schema": "ArchiveResult", "status": missing.status})
 
-
+    json_index = to_json(index)
+    with open(out_dir / "index.json", "w") as f:
+        f.write(json_index)
 
 
 def reverse_func(apps, schema_editor):
     Snapshot = apps.get_model("core", "Snapshot")
+    ArchiveResult = apps.get_model("core", "ArchiveResult")
     for snapshot in Snapshot.objects.all():
         verify_json_index_integrity(snapshot)
 
