@@ -1,15 +1,16 @@
 from django.utils.html import format_html
 
 from core.models import Snapshot, EXTRACTORS
+from core.settings import DEBUG
 from pathlib import Path
 
 
 def get_icons(snapshot: Snapshot) -> str:
-    archive_results = snapshot.archiveresult_set
+    archive_results = list(snapshot.archiveresult_set.all())
     link = snapshot.as_link()
     canon = link.canonical_outputs()
     output = ""
-    output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{} </a>'
+    output_template = '<a href="/{}/{}" class="exists-True" title="{}">{} </a>'
     icons = {
         "singlefile": "❶",
         "wget": "🆆",
@@ -27,62 +28,30 @@ def get_icons(snapshot: Snapshot) -> str:
     # Missing specific entry for WARC
 
     for extractor, _ in EXTRACTORS:
-        result = archive_results.filter(extractor=extractor, status="succeeded")
-        path, exists = link.archive_path, result.exists()
-        try:
-            if extractor not in exclude:
-                output += output_template.format(path, canon[f"{extractor}_path"],
-                                                 exists, extractor, icons.get(extractor, "?"))
-            if extractor == "wget":
-                # warc isn't technically it's own extractor, so we have to add it after wget
-                exists = list((Path(path) / canon["warc_path"]).glob("*.warc.gz"))
-                if exists:
-                    output += output_template.format(exists[0], "",
-                                                     True, "warc", icons.get("warc", "?"))
+        for result in archive_results:
+            if result.extractor != extractor or result.status != "succeeded":
+                continue
+            path = link.archive_path
+            try:
+                if extractor not in exclude:
+                    output += output_template.format(path, canon[f"{extractor}_path"],
+                                                     extractor, icons.get(extractor, "?"))
+                if extractor == "wget":
+                    # warc isn't technically it's own extractor, so we have to add it after wget
+                    exists = list((Path(path) / canon["warc_path"]).glob("*.warc.gz"))
+                    if exists:
+                        output += output_template.format(exists[0], "",
+                                                         "warc", icons.get("warc", "?"))
 
-            if extractor == "archive_org" and exists:
-                # The check for archive_org is different, so it has to be handled separately
-                target_path = Path(path) / "archive.org.txt"
-                exists = target_path.exists()
-                if exists:
-                    output += '<a href="{}" class="exists-{}" title="{}">{} </a>'.format(canon["archive_org_path"],
-                                                                                         True, "archive_org", icons.get("archive_org", "?"))
+                if extractor == "archive_org":
+                    # The check for archive_org is different, so it has to be handled separately
+                    target_path = Path(path) / "archive.org.txt"
+                    exists = target_path.exists()
+                    if exists:
+                        output += '<a href="{}" class="exists-True" title="{}">{} </a>'.format(canon["archive_org_path"],
+                                                                                               "archive_org", icons.get("archive_org", "?"))
 
-        except Exception as e:
-            print(e)
+            except Exception as e:
+                print(e)
 
     return format_html(f'<span class="files-icons" style="font-size: 1.2em; opacity: 0.8">{output}<span>')
-
-#def get_icons(snapshot: Snapshot) -> str:
-#    link = snapshot.as_link()
-#    canon = link.canonical_outputs()
-#    out_dir = Path(link.link_dir)
-#
-#    # slow version: highlights icons based on whether files exist or not for that output
-#    # link_tuple = lambda link, method: (link.archive_path, canon[method] or '', canon[method] and (out_dir / (canon[method] or 'notdone')).exists())
-#    # fast version: all icons are highlighted without checking for outputs in filesystem
-#    link_tuple = lambda link, method: (link.archive_path, canon[method] or '', canon[method] and (out_dir / (canon[method] or 'notdone')).exists())
-#
-#    return format_html(
-#            '<span class="files-icons" style="font-size: 1.2em; opacity: 0.8">'
-#                '<a href="/{}/{}" class="exists-{}" title="SingleFile">❶ </a>'
-#                '<a href="/{}/{}" class="exists-{}" title="Wget clone">🆆 </a> '
-#                '<a href="/{}/{}" class="exists-{}" title="HTML dump">🅷 </a> '
-#                '<a href="/{}/{}" class="exists-{}" title="PDF">📄 </a> '
-#                '<a href="/{}/{}" class="exists-{}" title="Screenshot">💻 </a> '
-#                '<a href="/{}/{}" class="exists-{}" title="WARC">📦 </a> '
-#                '<a href="/{}/{}/" class="exists-{}" title="Media files">📼 </a> '
-#                '<a href="/{}/{}/" class="exists-{}" title="Git repos">🅶 </a> '
-#                '<a href="{}" class="exists-{}" title="Archive.org snapshot">🏛 </a> '
-#            '</span>',
-#            *link_tuple(link, 'singlefile_path'),
-#            *link_tuple(link, 'wget_path')[:2], any((out_dir / link.domain).glob('*')),
-#            *link_tuple(link, 'pdf_path'),
-#            *link_tuple(link, 'screenshot_path'),
-#            *link_tuple(link, 'dom_path'),
-#            *link_tuple(link, 'warc_path')[:2], any((out_dir / canon['warc_path']).glob('*.warc.gz')),
-#            *link_tuple(link, 'media_path')[:2], any((out_dir / canon['media_path']).glob('*')),
-#            *link_tuple(link, 'git_path')[:2], any((out_dir / canon['git_path']).glob('*')),
-#            canon['archive_org_path'], (out_dir / 'archive.org.txt').exists(),
-#        )
-#
