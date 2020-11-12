@@ -1,6 +1,7 @@
 from django.utils.html import format_html
 
 from core.models import Snapshot, EXTRACTORS
+from pathlib import Path
 
 
 def get_icons(snapshot: Snapshot) -> str:
@@ -34,9 +35,10 @@ def get_icons(snapshot: Snapshot) -> str:
                                                  exists, extractor, icons.get(extractor, "?"))
             if extractor == "wget":
                 # warc isn't technically it's own extractor, so we have to add it after wget
-
-                output += output_template.format(path, canon["warc_path"],
-                                                 exists, "warc", icons.get("warc", "?"))
+                exists = list((Path(path) / canon["warc_path"]).glob("*.warc.gz"))
+                if exists:
+                    output += output_template.format(exists[0], "",
+                                                     True, "warc", icons.get("warc", "?"))
 
         except Exception as e:
             print(e)
