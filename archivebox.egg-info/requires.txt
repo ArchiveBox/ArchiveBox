@@ -13,7 +13,6 @@ w3lib==1.22.0
 
 [dev]
 setuptools
-wheel
 twine
 flake8
 ipdb
