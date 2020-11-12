@@ -98,7 +98,6 @@ class PublicArchiveView(ListView):
         query = self.request.GET.get('q')
         if query:
             qs = Snapshot.objects.filter(title__icontains=query)
-        qs = qs.prefetch_related("archiveresult_set").all()
         for snapshot in qs:
             snapshot.icons = get_icons(snapshot) 
         return qs

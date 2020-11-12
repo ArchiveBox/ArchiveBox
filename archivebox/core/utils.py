@@ -1,12 +1,11 @@
 from django.utils.html import format_html
 
 from core.models import Snapshot, EXTRACTORS
-from core.settings import DEBUG
 from pathlib import Path
 
 
 def get_icons(snapshot: Snapshot) -> str:
-    archive_results = list(snapshot.archiveresult_set.all())
+    archive_results = snapshot.archiveresult_set.filter(status="succeeded")
     link = snapshot.as_link()
     canon = link.canonical_outputs()
     output = ""
@@ -29,7 +28,7 @@ def get_icons(snapshot: Snapshot) -> str:
 
     for extractor, _ in EXTRACTORS:
         for result in archive_results:
-            if result.extractor != extractor or result.status != "succeeded":
+            if result.extractor != extractor:
                 continue
             path = link.archive_path
             try:
