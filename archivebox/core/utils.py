@@ -23,7 +23,7 @@ def get_icons(snapshot: Snapshot) -> str:
         "mercury": "🅼",
         "warc": "📦"
     }
-    exclude = ["favicon"]
+    exclude = ["favicon", "archive_org"]
     # Missing specific entry for WARC
 
     for extractor, _ in EXTRACTORS:
@@ -39,6 +39,14 @@ def get_icons(snapshot: Snapshot) -> str:
                 if exists:
                     output += output_template.format(exists[0], "",
                                                      True, "warc", icons.get("warc", "?"))
+
+            if extractor == "archive_org" and exists:
+                # The check for archive_org is different, so it has to be handled separately
+                target_path = Path(path) / "archive.org.txt"
+                exists = target_path.exists()
+                if exists:
+                    output += '<a href="{}" class="exists-{}" title="{}">{} </a>'.format(canon["archive_org_path"],
+                                                                                         True, "archive_org", icons.get("archive_org", "?"))
 
         except Exception as e:
             print(e)
