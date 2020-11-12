@@ -643,12 +643,15 @@ def find_chrome_data_dir() -> Optional[str]:
     return None
 
 def wget_supports_compression(config):
-    cmd = [
-        config['WGET_BINARY'],
-        "--compression=auto",
-        "--help",
-    ]
-    return not run(cmd, stdout=DEVNULL, stderr=DEVNULL).returncode
+    try:
+        cmd = [
+            config['WGET_BINARY'],
+            "--compression=auto",
+            "--help",
+        ]
+        return not run(cmd, stdout=DEVNULL, stderr=DEVNULL).returncode
+    except (FileNotFoundError, OSError):
+        return False
 
 def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
     return {
