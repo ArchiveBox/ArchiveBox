@@ -48,7 +48,8 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
     except OSError as e:
         print(f"[X] OSError: Failed to write {path} with fcntl.F_FULLFSYNC. ({e})")
         print("    For data integrity, ArchiveBox requires a filesystem that supports atomic writes.")
-        print("    Some filesystems and network drives don't implement FSYNC, and require workarounds.")
+        print("    Filesystems and network drives that don't implement FSYNC are incompatible and require workarounds.")
+        raise SystemExit(1)
     os.chmod(path, int(OUTPUT_PERMISSIONS, base=8))
 
 @enforce_types
