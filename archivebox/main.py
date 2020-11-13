@@ -525,7 +525,8 @@ def add(urls: Union[str, List[str]],
         index_only: bool=False,
         overwrite: bool=False,
         init: bool=False,
-        out_dir: Path=OUTPUT_DIR) -> List[Link]:
+        out_dir: Path=OUTPUT_DIR,
+        extractors: list=[]) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
@@ -567,12 +568,17 @@ def add(urls: Union[str, List[str]],
         return all_links
 
     # Run the archive methods for each link
+    archive_kwargs = {
+        "out_dir": out_dir,
+    }
+    if extractors:
+        archive_kwargs["methods"] = extractors
     if update_all:
-        archive_links(all_links, overwrite=overwrite, out_dir=out_dir)
+        archive_links(all_links, overwrite=overwrite, **archive_kwargs)
     elif overwrite:
-        archive_links(imported_links, overwrite=True, out_dir=out_dir)
+        archive_links(imported_links, overwrite=True, **archive_kwargs)
     elif new_links:
-        archive_links(new_links, overwrite=False, out_dir=out_dir)
+        archive_links(new_links, overwrite=False, **archive_kwargs)
     
     return all_links
 
