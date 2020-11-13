@@ -90,7 +90,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         overwrite=command.overwrite,
         init=command.init,
         out_dir=pwd or OUTPUT_DIR,
-        extractors = command.extract,
+        extractors=command.extract,
     )
 
 
