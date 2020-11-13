@@ -68,13 +68,15 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     )
     parser.add_argument(
         "--extract",
-        nargs="+",
+        type=str,
         help="Pass a list of the extractors to be used. If the method name is not correct, it will be ignored. \
-              This does not take precedence over the configuration"
+              This does not take precedence over the configuration",
+        default=""
     )
     command = parser.parse_args(args or ())
     urls = command.urls
     stdin_urls = accept_stdin(stdin)
+    extractors = command.extract.split(",") if command.extract else None
     if (stdin_urls and urls) or (not stdin and not urls):
         stderr(
             '[X] You must pass URLs/paths to add via stdin or CLI arguments.\n',
@@ -89,7 +91,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         overwrite=command.overwrite,
         init=command.init,
         out_dir=pwd or OUTPUT_DIR,
-        extractors = command.extract or [],
+        extractors = extractors,
     )
 
 
