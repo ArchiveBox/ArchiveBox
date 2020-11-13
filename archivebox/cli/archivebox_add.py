@@ -76,7 +76,6 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     command = parser.parse_args(args or ())
     urls = command.urls
     stdin_urls = accept_stdin(stdin)
-    extractors = command.extract.split(",") if command.extract else None
     if (stdin_urls and urls) or (not stdin and not urls):
         stderr(
             '[X] You must pass URLs/paths to add via stdin or CLI arguments.\n',
@@ -91,7 +90,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         overwrite=command.overwrite,
         init=command.init,
         out_dir=pwd or OUTPUT_DIR,
-        extractors = extractors,
+        extractors = command.extract,
     )
 
 

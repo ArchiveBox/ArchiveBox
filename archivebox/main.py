@@ -526,13 +526,12 @@ def add(urls: Union[str, List[str]],
         overwrite: bool=False,
         init: bool=False,
         out_dir: Path=OUTPUT_DIR,
-        extractors: list=None) -> List[Link]:
+        extractors: str="") -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
 
-    if extractors is None:
-        extractors = []
+    extractors = extractors.split(",") if extractors else []
 
     if init:
         run_subcommand('init', stdin=None, pwd=out_dir)
