@@ -14,6 +14,7 @@ from django import forms
 from core.models import Snapshot, Tag
 from core.forms import AddLinkForm, TagField
 from core.utils import get_icons
+from core.mixins import SearchResultsAdminMixin
 
 from util import htmldecode, urldecode, ansi_to_html
 from logging_util import printable_filesize
@@ -82,7 +83,7 @@ class SnapshotAdminForm(forms.ModelForm):
         return instance
 
 
-class SnapshotAdmin(admin.ModelAdmin):
+class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     list_display = ('added', 'title_str', 'url_str', 'files', 'size')
     sort_fields = ('title_str', 'url_str', 'added')
     readonly_fields = ('id', 'url', 'timestamp', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')

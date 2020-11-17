@@ -31,6 +31,7 @@ class ArchiveResult:
     status: str
     start_ts: datetime
     end_ts: datetime
+    index_texts: Union[List[str], None] = None
     schema: str = 'ArchiveResult'
 
     def __post_init__(self):
