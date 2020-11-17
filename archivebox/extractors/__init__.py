@@ -23,6 +23,7 @@ from ..logging_util import (
     log_archive_method_started,
     log_archive_method_finished,
 )
+from ..search import write_search_index
 
 from .title import should_save_title, save_title
 from .favicon import should_save_favicon, save_favicon
@@ -107,6 +108,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                     link.history[method_name].append(result)
 
                     stats[result.status] += 1
+                    write_search_index(link=link, texts=result.index_texts)
                     log_archive_method_finished(result)
                     if not skip_index:
                         ArchiveResult.objects.create(snapshot=snapshot, extractor=method_name, cmd=result.cmd, cmd_version=result.cmd_version,
