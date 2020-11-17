@@ -61,6 +61,7 @@ setuptools.setup(
         "python-crontab==2.5.1",
         "croniter==0.3.34",
         "w3lib==1.22.0",
+        "dynaconf[yaml]==3.1.2",
         # Some/all of these will likely be added in the future:
         # wpull
         # pywb
