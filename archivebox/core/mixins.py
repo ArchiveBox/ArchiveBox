@@ -1,10 +1,10 @@
-from django.db.models import Q, Case, When, Value, IntegerField
+from django.contrib import messages
 
-from archivebox.search import search_index
+from archivebox.search import query_search_index
 
 class SearchResultsAdminMixin(object):
     def get_search_results(self, request, queryset, search_term):
-        ''' Show exact match for title and slug at top of admin search results.
+        ''' Enhances the search queryset with results from the search backend.
         '''
         qs, use_distinct = \
             super(SearchResultsAdminMixin, self).get_search_results(
@@ -13,9 +13,13 @@ class SearchResultsAdminMixin(object):
         search_term = search_term.strip()
         if not search_term:
             return qs, use_distinct
+        try:
+            snapshot_ids = query_search_index(search_term)
+        except Exception as err:
+            messages.add_message(request, messages.WARNING, f'Error from the search backend, only showing results from default admin search fields - Error: {err}')
+        else:
+            qsearch = queryset.filter(id__in=snapshot_ids)
+            qs |= qsearch
 
-        snapshot_ids = search_index(search_term)
-        qsearch = queryset.filter(id__in=snapshot_ids)
-        qs |= qsearch
-
-        return qs, use_distinct
+        finally:
+            return qs, use_distinct
