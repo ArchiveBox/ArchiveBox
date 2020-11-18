@@ -1,40 +1,51 @@
-from typing import List, Optional, Union
+from typing import List, Union
 from pathlib import Path
-
-from sonic import IngestClient, SearchClient
-
-from ..index.schema import Link, ArchiveResult
-from ..util import enforce_types
-from ..config import setup_django, OUTPUT_DIR
+from importlib import import_module
 
 
-@enforce_types
-def write_sonic_index(snapshot_id: str, texts: List[str]):
-    # TODO add variables to localhost, port, password, bucket, collection
-    with IngestClient("localhost", 1491, "SecretPassword") as ingestcl:
-        for text in texts:
-            ingestcl.push("archivebox", "snapshots", snapshot_id, str(text))
-
-@enforce_types
-def search_sonic_index(text: str) -> List:
-    with SearchClient("localhost", 1491, "SecretPassword") as querycl:
-        snap_ids = querycl.query("archivebox", "snapshots", text)
-    return snap_ids
+from archivebox.index.schema import Link
+from archivebox.util import enforce_types
+from archivebox.config import setup_django, OUTPUT_DIR
 
 
-@enforce_types
-def search_index(text: str) -> List:
-    # get backend
-    return search_sonic_index(text)
+def indexing_enabled():
+    return True
+    # return FULLTEXT_INDEXING_ENABLED
 
+def search_backend_enabled():
+    return True
+    # return FULLTEXT_SEARCH_ENABLED
+
+def get_backend():
+    return 'search.backends.sonic'
+
+def import_backend():
+    backend_string = get_backend()
+    try:
+        backend = import_module(backend_string)
+    except Exception as err:
+        raise Exception("Could not load '%s' as a backend: %s" % (backend_string, err))
+    return backend
 
 @enforce_types
 def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: Path=OUTPUT_DIR, skip_text_index: bool=False) -> None:
-    setup_django(out_dir, check_db=True)
-    from core.models import Snapshot
+    if not indexing_enabled():
+        return
 
     if not skip_text_index and texts:
+        setup_django(out_dir, check_db=True)
+        from core.models import Snapshot
+
         snap = Snapshot.objects.filter(url=link.url).first()
+        backend = import_backend()
         if snap:
-            # get backend
-            write_sonic_index(str(snap.id), texts)
+            backend.index(snapshot_id=str(snap.id), texts=texts)
+
+@enforce_types
+def query_search_index(text: str) -> List:
+    if search_backend_enabled():
+        backend = import_backend()
+        return backend.search(text)
+    else:
+        return []
+        
