@@ -1,14 +1,14 @@
-__package__ = 'archivebox.extractors'
-
 import re
 from pathlib import Path
 
 from typing import Optional
 from datetime import datetime
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from ..system import run, chmod_file
-from ..util import (
+from .config import settings
+
+from ...index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+from ...system import run, chmod_file
+from ...util import (
     enforce_types,
     is_static_file,
     without_scheme,
@@ -18,7 +18,7 @@ from ..util import (
     domain,
     urldecode,
 )
-from ..config import (
+from ...config import (
     WGET_ARGS,
     TIMEOUT,
     SAVE_WGET,
@@ -32,7 +32,7 @@ from ..config import (
     WGET_USER_AGENT,
     COOKIES_FILE,
 )
-from ..logging_util import TimedProgress
+from ...logging_util import TimedProgress
 
 
 @enforce_types

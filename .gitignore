@@ -3,6 +3,8 @@
 *.pyc
 __pycache__/
 .mypy_cache/
+.secrets.yaml
+.secrets.toml
 
 venv/
 .venv/
