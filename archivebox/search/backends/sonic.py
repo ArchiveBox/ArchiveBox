@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Generator
 
 from sonic import IngestClient, SearchClient
 
@@ -13,13 +13,13 @@ def index(snapshot_id: str, texts: List[str]):
             ingestcl.push(SONIC_COLLECTION, SONIC_BUCKET, snapshot_id, str(text))
 
 @enforce_types
-def search(text: str) -> List:
+def search(text: str) -> List[str]:
     with SearchClient(SEARCH_BACKEND_HOST_NAME, SEARCH_BACKEND_PORT, SEARCH_BACKEND_PASSWORD) as querycl:
         snap_ids = querycl.query(SONIC_COLLECTION, SONIC_BUCKET, text)
     return snap_ids
 
 @enforce_types
-def flush(snapshot_ids: List[str]):
+def flush(snapshot_ids: Generator[str, None, None]):
     with IngestClient(SEARCH_BACKEND_HOST_NAME, SEARCH_BACKEND_PORT, SEARCH_BACKEND_PASSWORD) as ingestcl:
         for id in snapshot_ids:
             ingestcl.flush_object(SONIC_COLLECTION, SONIC_BUCKET, str(id))
