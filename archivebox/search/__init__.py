@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Generator
 from pathlib import Path
 from importlib import import_module
 
@@ -39,7 +39,7 @@ def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: 
             backend.index(snapshot_id=str(snap.id), texts=texts)
 
 @enforce_types
-def query_search_index(text: str) -> List:
+def query_search_index(text: str) -> List[str]:  
     if search_backend_enabled():
         backend = import_backend()
         return backend.search(text)
@@ -47,9 +47,8 @@ def query_search_index(text: str) -> List:
         return []
 
 @enforce_types
-def flush_search_index(snapshot_ids: List[str]):
+def flush_search_index(snapshot_ids: Generator[str, None, None]):
     if not indexing_enabled() or not snapshot_ids:
         return
     backend = import_backend()
     backend.flush(snapshot_ids)
-    
