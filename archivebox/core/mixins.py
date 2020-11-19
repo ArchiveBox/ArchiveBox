@@ -14,12 +14,10 @@ class SearchResultsAdminMixin(object):
         if not search_term:
             return qs, use_distinct
         try:
-            snapshot_ids = query_search_index(search_term)
+            qsearch = query_search_index(search_term)
         except Exception as err:
             messages.add_message(request, messages.WARNING, f'Error from the search backend, only showing results from default admin search fields - Error: {err}')
         else:
-            qsearch = queryset.filter(pk__in=snapshot_ids)
             qs |= qsearch
-
         finally:
             return qs, use_distinct
