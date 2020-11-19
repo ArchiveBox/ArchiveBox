@@ -18,7 +18,7 @@ class SearchResultsAdminMixin(object):
         except Exception as err:
             messages.add_message(request, messages.WARNING, f'Error from the search backend, only showing results from default admin search fields - Error: {err}')
         else:
-            qsearch = queryset.filter(id__in=snapshot_ids)
+            qsearch = queryset.filter(pk__in=snapshot_ids)
             qs |= qsearch
 
         finally:

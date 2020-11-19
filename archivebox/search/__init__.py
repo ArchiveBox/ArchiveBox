@@ -45,4 +45,11 @@ def query_search_index(text: str) -> List:
         return backend.search(text)
     else:
         return []
-        
+
+@enforce_types
+def flush_search_index(snapshot_ids: List[str]):
+    if not indexing_enabled() or not snapshot_ids:
+        return
+    backend = import_backend()
+    backend.flush(snapshot_ids)
+    

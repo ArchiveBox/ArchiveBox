@@ -147,8 +147,8 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'SEARCH_BACKEND_PORT':      {'type': int,   'default': 1491},
         'SEARCH_BACKEND_PASSWORD':  {'type': str,   'default': 'SecretPassword'},
         # SONIC
-        'SONIC_BUCKET':             {'type': str,   'default': 'archivebox'},
-        'SONIC_COLLECTION':         {'type': str,   'default': 'snapshots'},
+        'SONIC_COLLECTION':         {'type': str,   'default': 'archivebox'},
+        'SONIC_BUCKET':             {'type': str,   'default': 'snapshots'},
     },
 
     'DEPENDENCY_CONFIG': {
