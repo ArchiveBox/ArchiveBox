@@ -1,0 +1,10 @@
+WGET_ARGS = ["--no-verbose", "--adjust-extension", "--convert-links",
+             "--force-directories", "--backup-converted","--span-hosts",
+             "--no-parent", "-e", "robots=off"]
+RESTRICT_FILE_NAMES = "windows"
+WGET_USER_AGENT = "Archivebox user agent"
+CHECK_SSL_VALIDITY = true
+SAVE_WGET = true
+SAVE_WARC = true
+TIMEOUT = 60
+WGET_BINARY = "wget"

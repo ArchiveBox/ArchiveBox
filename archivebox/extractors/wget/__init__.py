@@ -18,20 +18,7 @@ from ...util import (
     domain,
     urldecode,
 )
-from ...config import (
-    WGET_ARGS,
-    TIMEOUT,
-    SAVE_WGET,
-    SAVE_WARC,
-    WGET_BINARY,
-    WGET_VERSION,
-    RESTRICT_FILE_NAMES,
-    CHECK_SSL_VALIDITY,
-    SAVE_WGET_REQUISITES,
-    WGET_AUTO_COMPRESSION,
-    WGET_USER_AGENT,
-    COOKIES_FILE,
-)
+from ...config import settings
 from ...logging_util import TimedProgress
 
 
@@ -42,15 +29,15 @@ def should_save_wget(link: Link, out_dir: Optional[Path]=None) -> bool:
     if output_path and (out_dir / output_path).exists():
         return False
 
-    return SAVE_WGET
+    return settings.SAVE_WGET
 
 
 @enforce_types
-def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int = settings.TIMEOUT) -> ArchiveResult:
     """download full site using wget"""
 
     out_dir = out_dir or link.link_dir
-    if SAVE_WARC:
+    if settings.SAVE_WARC:
         warc_dir = out_dir / "warc"
         warc_dir.mkdir(exist_ok=True)
         warc_path = warc_dir / str(int(datetime.now().timestamp()))
@@ -58,18 +45,10 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
     # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
     output: ArchiveOutput = None
     cmd = [
-        WGET_BINARY,
-        # '--server-response',  # print headers for better error parsing
-        *WGET_ARGS,
-        '--timeout={}'.format(timeout),
-        *(['--restrict-file-names={}'.format(RESTRICT_FILE_NAMES)] if RESTRICT_FILE_NAMES else []),
-        *(['--warc-file={}'.format(str(warc_path))] if SAVE_WARC else []),
-        *(['--page-requisites'] if SAVE_WGET_REQUISITES else []),
-        *(['--user-agent={}'.format(WGET_USER_AGENT)] if WGET_USER_AGENT else []),
-        *(['--load-cookies', COOKIES_FILE] if COOKIES_FILE else []),
-        *(['--compression=auto'] if WGET_AUTO_COMPRESSION else []),
-        *([] if SAVE_WARC else ['--timestamping']),
-        *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate', '--no-hsts']),
+        settings.WGET_BINARY,
+        *settings.WGET_ARGS,
+        "--timeout={}".format(timeout),
+        *(['--warc-file={}'.format(str(warc_path))] if settings.SAVE_WARC else []),
         link.url,
     ]
 
@@ -115,7 +94,7 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
     return ArchiveResult(
         cmd=cmd,
         pwd=str(out_dir),
-        cmd_version=WGET_VERSION,
+        cmd_version="123123",
         output=output,
         status=status,
         **timer.stats,

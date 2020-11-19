@@ -24,6 +24,14 @@ from .config_stubs import (
     ConfigDefaultDict,
 )
 
+from dynaconf import Dynaconf
+
+settings = Dynaconf(
+    envvar_prefix="ARCHIVEBOX",
+    root_path=Path(__file__).parent,
+    settings_file=["settings.toml"]
+)
+
 # precedence order for config:
 # 1. cli args                 (e.g. )
 # 2. shell environment vars   (env USE_COLOR=False archivebox add '...')
