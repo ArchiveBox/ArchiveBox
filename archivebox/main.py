@@ -115,6 +115,7 @@ from .logging_util import (
     printable_dependency_version,
 )
 
+from .search import flush_search_index
 
 ALLOWED_IN_OUTPUT_DIR = {
     'lost+found',
@@ -665,6 +666,7 @@ def remove(filter_str: Optional[str]=None,
     to_remove = snapshots.count()
 
     remove_from_sql_main_index(snapshots=snapshots, out_dir=out_dir)
+    flush_search_index(snapshot_ids=[str(pk) for pk in snapshots.values_list('pk',flat=True)])
     all_snapshots = load_main_index(out_dir=out_dir)
     log_removal_finished(all_snapshots.count(), to_remove)
     

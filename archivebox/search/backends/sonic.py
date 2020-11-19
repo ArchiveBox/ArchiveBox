@@ -10,11 +10,16 @@ from archivebox.config import SEARCH_BACKEND_HOST_NAME, SEARCH_BACKEND_PORT, SEA
 def index(snapshot_id: str, texts: List[str]):
     with IngestClient(SEARCH_BACKEND_HOST_NAME, SEARCH_BACKEND_PORT, SEARCH_BACKEND_PASSWORD) as ingestcl:
         for text in texts:
-            ingestcl.push(SONIC_BUCKET, SONIC_COLLECTION, snapshot_id, str(text))
+            ingestcl.push(SONIC_COLLECTION, SONIC_BUCKET, snapshot_id, str(text))
 
 @enforce_types
 def search(text: str) -> List:
     with SearchClient(SEARCH_BACKEND_HOST_NAME, SEARCH_BACKEND_PORT, SEARCH_BACKEND_PASSWORD) as querycl:
-        snap_ids = querycl.query(SONIC_BUCKET, SONIC_COLLECTION, text)
+        snap_ids = querycl.query(SONIC_COLLECTION, SONIC_BUCKET, text)
     return snap_ids
-    
+
+@enforce_types
+def flush(snapshot_ids: List[str]):
+    with IngestClient(SEARCH_BACKEND_HOST_NAME, SEARCH_BACKEND_PORT, SEARCH_BACKEND_PASSWORD) as ingestcl:
+        for id in snapshot_ids:
+            ingestcl.flush_object(SONIC_COLLECTION, SONIC_BUCKET, str(id))
