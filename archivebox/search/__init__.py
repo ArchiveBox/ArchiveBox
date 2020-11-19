@@ -5,19 +5,16 @@ from importlib import import_module
 
 from archivebox.index.schema import Link
 from archivebox.util import enforce_types
-from archivebox.config import setup_django, OUTPUT_DIR
-
+from archivebox.config import setup_django, OUTPUT_DIR, USE_INDEXING_BACKEND, USE_SEARCHING_BACKEND, SEARCH_BACKEND_ENGINE
 
 def indexing_enabled():
-    return True
-    # return FULLTEXT_INDEXING_ENABLED
+    return USE_INDEXING_BACKEND
 
 def search_backend_enabled():
-    return True
-    # return FULLTEXT_SEARCH_ENABLED
+    return USE_SEARCHING_BACKEND
 
 def get_backend():
-    return 'search.backends.sonic'
+    return f'search.backends.{SEARCH_BACKEND_ENGINE}'
 
 def import_backend():
     backend_string = get_backend()
