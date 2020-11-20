@@ -51,7 +51,7 @@ def query_search_index(query: str, out_dir: Path=OUTPUT_DIR) -> QuerySet:
         qsearch = Snapshot.objects.filter(pk__in=snapshot_ids)
         return qsearch
     else:
-        return []
+        return Snapshot.objects.none()
 
 @enforce_types
 def flush_search_index(snapshots: QuerySet):
