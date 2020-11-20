@@ -51,6 +51,8 @@ from .sql import (
     write_sql_link_details,
 )
 
+from ..search import search_backend_enabled, query_search_index
+
 ### Link filtering and checking
 
 @enforce_types
@@ -364,7 +366,7 @@ LINK_FILTERS = {
 }
 
 @enforce_types
-def snapshot_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type: str='exact') -> QuerySet:
+def q_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type: str='exact') -> QuerySet:
     q_filter = Q()
     for pattern in filter_patterns:
         try:
@@ -378,6 +380,36 @@ def snapshot_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type
             stderr(f'    {pattern}')
             raise SystemExit(2)
     return snapshots.filter(q_filter)
+
+def search_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type: str='search') -> QuerySet:
+    if not search_backend_enabled():
+        stderr()
+        stderr(
+                '[X] The search backend is not enabled',
+                color='red',
+            )
+        raise SystemExit(2)
+
+    qsearch = get_empty_snapshot_queryset()
+    for pattern in filter_patterns:
+        try:
+            qsearch |= query_search_index(pattern)
+        except Exception as err:
+            stderr()
+            stderr(
+                f'[X] The search backend threw an exception={err}:',
+                color='red',
+            )
+            raise SystemExit(2)
+    
+    return snapshots & qsearch
+
+@enforce_types
+def snapshot_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type: str='exact') -> QuerySet:
+    if filter_type != 'search':
+        return q_filter(snapshots, filter_patterns, filter_type)
+    else:
+        return search_filter(snapshots, filter_patterns, filter_type)
 
 
 def get_indexed_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
