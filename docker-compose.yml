@@ -21,8 +21,19 @@ services:
         environment:
             - USE_COLOR=True
             - SHOW_PROGRESS=False
+            - SEARCH_BACKEND_HOST_NAME=sonic
         volumes:
             - ./data:/data
+        depends_on:
+            - sonic
+    sonic:
+        image: valeriansaliou/sonic:v1.3.0    
+        ports:
+            - 1491:1491
+        volumes:
+            - ./etc/sonic/config.cfg:/etc/sonic.cfg
+            - ./data:/var/lib/sonic/store/
+    
 
 
     # Optional Addons: tweak these examples as needed for your specific use case
