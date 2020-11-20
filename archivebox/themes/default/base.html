@@ -223,6 +223,14 @@
         .title-col a {
             color: black;
         }
+
+        tr td a.exists-True {
+            opacity: 1;
+        }
+        tr td a.exists-False {
+            opacity: 0.1;
+            filter: grayscale(100%);
+        }
     </style>
     <link rel="stylesheet" href="{% static 'bootstrap.min.css' %}">
     <link rel="stylesheet" href="{% static 'jquery.dataTables.min.css' %}" />
