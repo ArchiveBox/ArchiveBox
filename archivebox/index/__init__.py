@@ -363,6 +363,7 @@ LINK_FILTERS = {
     'substring': lambda pattern: Q(url__icontains=pattern),
     'regex': lambda pattern: Q(url__iregex=pattern),
     'domain': lambda pattern: Q(url__istartswith=f"http://{pattern}") | Q(url__istartswith=f"https://{pattern}") | Q(url__istartswith=f"ftp://{pattern}"),
+    'tag': lambda pattern: Q(tags__name=pattern),
 }
 
 @enforce_types
