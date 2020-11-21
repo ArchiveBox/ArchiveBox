@@ -657,8 +657,8 @@ def remove(filter_str: Optional[str]=None,
 
     to_remove = snapshots.count()
 
-    remove_from_sql_main_index(snapshots=snapshots, out_dir=out_dir)
     flush_search_index(snapshots=snapshots)
+    remove_from_sql_main_index(snapshots=snapshots, out_dir=out_dir)
     all_snapshots = load_main_index(out_dir=out_dir)
     log_removal_finished(all_snapshots.count(), to_remove)
     
