@@ -91,7 +91,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     parser.add_argument(
         '--filter-type',
         type=str,
-        choices=('exact', 'substring', 'domain', 'regex', 'search'),
+        choices=('exact', 'substring', 'domain', 'regex'),
         default='exact',
         help='Type of pattern matching to use when filtering URLs',
     )
