@@ -6,7 +6,7 @@ from django.db.models import QuerySet
 
 from archivebox.index.schema import Link
 from archivebox.util import enforce_types
-from archivebox.config import setup_django, OUTPUT_DIR, USE_INDEXING_BACKEND, USE_SEARCHING_BACKEND, SEARCH_BACKEND_ENGINE
+from archivebox.config import setup_django,stderr, OUTPUT_DIR, USE_INDEXING_BACKEND, USE_SEARCHING_BACKEND, SEARCH_BACKEND_ENGINE
 
 def indexing_enabled():
     return USE_INDEXING_BACKEND
@@ -37,21 +37,37 @@ def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: 
         snap = Snapshot.objects.filter(url=link.url).first()
         backend = import_backend()
         if snap:
-            backend.index(snapshot_id=str(snap.id), texts=texts)
+            try:
+                backend.index(snapshot_id=str(snap.id), texts=texts)
+            except Exception as err:
+                stderr()
+                stderr(
+                    f'[X] The search backend threw an exception={err}:',
+                color='red',
+                )
 
 @enforce_types
-def query_search_index(query: str, out_dir: Path=OUTPUT_DIR) -> QuerySet:  
-    if search_backend_enabled():
-        setup_django(out_dir, check_db=True)
-        from core.models import Snapshot
+def query_search_index(query: str, out_dir: Path=OUTPUT_DIR) -> QuerySet:
+    setup_django(out_dir, check_db=True)
+    from core.models import Snapshot
 
+    if search_backend_enabled():
         backend = import_backend()
-        snapshot_ids = backend.search(query)
-        # TODO preserve ordering from backend
-        qsearch = Snapshot.objects.filter(pk__in=snapshot_ids)
-        return qsearch
-    else:
-        return Snapshot.objects.none()
+        try:
+            snapshot_ids = backend.search(query)
+        except Exception as err:
+            stderr()
+            stderr(
+                    f'[X] The search backend threw an exception={err}:',
+                color='red',
+                )
+            raise
+        else:
+            # TODO preserve ordering from backend
+            qsearch = Snapshot.objects.filter(pk__in=snapshot_ids)
+            return qsearch
+    
+    return Snapshot.objects.none()
 
 @enforce_types
 def flush_search_index(snapshots: QuerySet):
@@ -59,5 +75,11 @@ def flush_search_index(snapshots: QuerySet):
         return
     backend = import_backend()
     snapshot_ids=(str(pk) for pk in snapshots.values_list('pk',flat=True))
-
-    backend.flush(snapshot_ids)
+    try:
+        backend.flush(snapshot_ids)
+    except Exception as err:
+        stderr()
+        stderr(
+            f'[X] The search backend threw an exception={err}:',
+        color='red',
+        )

@@ -386,7 +386,7 @@ def search_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type: 
     if not search_backend_enabled():
         stderr()
         stderr(
-                '[X] The search backend is not enabled',
+                '[X] The search backend is not enabled, set config.USE_SEARCHING_BACKEND = True',
                 color='red',
             )
         raise SystemExit(2)
@@ -395,12 +395,7 @@ def search_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type: 
     for pattern in filter_patterns:
         try:
             qsearch |= query_search_index(pattern)
-        except Exception as err:
-            stderr()
-            stderr(
-                f'[X] The search backend threw an exception={err}:',
-                color='red',
-            )
+        except:
             raise SystemExit(2)
     
     return snapshots & qsearch
