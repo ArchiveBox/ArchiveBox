@@ -865,7 +865,7 @@ def config(config_options_str: Optional[str]=None,
                 stderr(f'    {line}')
                 raise SystemExit(2)
 
-            raw_key, val = line.split('=')
+            raw_key, val = line.split('=', 1)
             raw_key = raw_key.upper().strip()
             key = get_real_name(raw_key)
             if key != raw_key:
