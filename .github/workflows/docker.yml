@@ -43,6 +43,7 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           push: true
           tags: |
+            archivebox:latest
             ${{ secrets.DOCKER_USERNAME }}/archivebox:latest
             ${{ secrets.DOCKER_USERNAME }}/archivebox:${{ github.sha }}
           cache-from: type=local,src=/tmp/.buildx-cache
