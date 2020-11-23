@@ -55,8 +55,8 @@ ls archive/*/index.html                                        # or just browse 
 <img src="https://i.imgur.com/lUuicew.png" width="400px">
 <br/>
 
-[DEMO: archivebox.zervice.io/](https://archivebox.zervice.io)  
-For more information, see the [full Quickstart guide](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart), [Usage](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage), and [Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) docs.
+<a href="https://archivebox.zervice.io">DEMO: archivebox.zervice.io/</a>  
+For more information, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">full Quickstart guide</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a>, and <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a> docs.
 </div>
 
 ---
