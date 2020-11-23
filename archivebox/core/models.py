@@ -1,6 +1,7 @@
 __package__ = 'archivebox.core'
 
 import uuid
+from datetime import datetime
 
 from django.db import models, transaction
 from django.utils.functional import cached_property
@@ -98,7 +99,7 @@ class Snapshot(models.Model):
 
     @cached_property
     def bookmarked(self):
-        return parse_date(self.timestamp)
+        return datetime.fromtimestamp(float(self.timestamp))
 
     @cached_property
     def is_archived(self):
