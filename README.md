@@ -75,7 +75,7 @@ archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
 ```
 
-The CLI is considered "stable", and the ArchiveBox Python API and REST APIs are in "beta".
+The CLI is considered "stable", the ArchiveBox Python API and REST APIs are in "beta", and the [desktop app](https://github.com/ArchiveBox/desktop) is in "alpha" stage.
 
 At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer). You can also self-host your archivebox server on a public domain to provide archive.org-style public access to your site snapshots.
 
