@@ -45,6 +45,8 @@ jobs:
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/archivebox:latest
             ${{ secrets.DOCKER_USERNAME }}/archivebox:${{ github.sha }}
+            archivebox/archivebox:latest
+            archivebox/archivebox:${{ github.sha }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           platforms: linux/arm64,linux/arm/v7
