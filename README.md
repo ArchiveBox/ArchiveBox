@@ -26,7 +26,7 @@
 <hr/>
 </div>
 
-ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a varitety of formats depending on the configuration and the content it detects. ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) or [`pip3`](https://wiki.python.org/moin/BeginnersGuide/Download).
+ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a varitety of formats depending on the configuration and the content it detects. ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended) or [`pip`](https://www.python.org/downloads/).
 
 Once installed, URLs can be added via the command line `archivebox add` or the built-in Web UI `archivebox server`. It can ingest bookmarks from a service like Pocket/Pinboard, your entire browsing history, RSS feeds, or URLs one at a time.
 
@@ -36,11 +36,19 @@ The main index is a self-contained `data/index.sqlite3` file, and each snapshot 
 #### Quickstart
 
 ```bash
-docker run -d -it -v ~/archivebox:/data -p 8000:8000 archivebox/archivebox server --init 0.0.0.0:8000
-docker run -v ~/archivebox:/data -it archivebox/archivebox manage createsuperuser
-docker run -v ~/archivebox:/data -it archivebox/archivebox add 'https://example.com'
+# 1. Create a folder to hold your ArchiveBox data
+mkdir ~/archivebox && cd ~/archivebox
+docker run -v $PWD:/data -it archivebox/archivebox init
 
-open http://127.0.0.1:8000/admin/login/  # then click "Add" in the navbar
+# 2. Archive some URLs to get started
+docker run -v $PWD:/data -t archivebox/archivebox add https://example.com
+docker run -v $PWD:/data -t archivebox/archivebox add --depth=1 https://archivebox.io
+
+# 3. Then browse the Web UI or filesystem to see snapshots of the URLs you added
+docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser
+docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox  # start the server
+open http://127.0.0.1:8000/  # open the interactive web UI
+ls ./archive/*/index.html    # or open the static indexes
 ```
 
 <div align="center">
