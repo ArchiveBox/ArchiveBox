@@ -26,13 +26,15 @@ header h2 {
 #main_content div[align=center] h1 {
     display: none;
 }
-#main_content div[align=center] img[alt=logo] {
+#main_content img {
+    box-shadow: 4px 4px 4px rgba(0,0,0,0.1);
+    border-radius: 8px;
+}
+#main_content em img {
     display: block;
     margin-top: -83px;
     border: 0px;
     padding: 0px;
-    box-shadow: 4px 4px 4px rgba(0,0,0,0.1);
-    border-radius: 8px;
     margin-bottom: 20px;
 }
 
