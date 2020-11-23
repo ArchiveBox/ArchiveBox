@@ -142,7 +142,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
     'SEARCH_BACKEND_CONFIG' : {
         'USE_INDEXING_BACKEND':     {'type': bool,  'default': True},
         'USE_SEARCHING_BACKEND':    {'type': bool,  'default': True},
-        'SEARCH_BACKEND_ENGINE':    {'type': str,   'default': 'sonic'},
+        'SEARCH_BACKEND_ENGINE':    {'type': str,   'default': 'ripgrep'},
         'SEARCH_BACKEND_HOST_NAME': {'type': str,   'default': 'localhost'},
         'SEARCH_BACKEND_PORT':      {'type': int,   'default': 1491},
         'SEARCH_BACKEND_PASSWORD':  {'type': str,   'default': 'SecretPassword'},
