@@ -51,7 +51,6 @@ setuptools.setup(
         "requests==2.24.0",
         "atomicwrites==1.4.0",
         "mypy-extensions==0.4.3",
-        "base32-crockford==0.3.0",
         "django==3.0.8",
         "django-extensions==3.0.3",
 
@@ -80,6 +79,7 @@ setuptools.setup(
             "recommonmark",
             "pytest",
             "bottle",
+            "stdeb",
         ],
         # 'redis': ['redis', 'django-redis'],
         # 'pywb': ['pywb', 'redis'],

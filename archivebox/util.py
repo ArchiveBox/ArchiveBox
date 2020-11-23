@@ -16,7 +16,7 @@ from dateparser import parse as dateparser
 
 import requests
 from requests.exceptions import RequestException, ReadTimeout
-from base32_crockford import encode as base32_encode                            # type: ignore
+from .base32_crockford import encode as base32_encode                            # type: ignore
 from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
 
 try:

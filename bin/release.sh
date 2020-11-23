@@ -42,6 +42,7 @@ echo "${contents}" > package.json
 # Build docs, python package, and docker image
 ./bin/build_docs.sh
 ./bin/build_pip.sh
+./bin/build_deb.sh
 ./bin/build_docker.sh
 
 
@@ -64,11 +65,14 @@ python3 -m twine upload --repository testpypi dist/*
 echo "[^] Uploading to pypi.org"
 python3 -m twine upload --repository pypi dist/*
 
+echo "[^] Uploading to launchpad.net"
+python3 -m dput archivebox "deb_dist/archivebox_${NEW_VERSION}-1_source.changes"
+
 echo "[^] Uploading docker image"
 # docker login --username=nikisweeting
 # docker login docker.pkg.github.com --username=pirate
 docker push docker.io/nikisweeting/archivebox
 docker push docker.io/archivebox/archivebox
-docker push docker.pkg.github.com/pirate/archivebox/archivebox
+docker push docker.pkg.github.com/archivebox/archivebox/archivebox
 
 echo "[√] Done. Published version v$NEW_VERSION"
