@@ -5,7 +5,7 @@ from sonic import IngestClient, SearchClient
 from archivebox.util import enforce_types
 from archivebox.config import SEARCH_BACKEND_HOST_NAME, SEARCH_BACKEND_PORT, SEARCH_BACKEND_PASSWORD, SONIC_BUCKET, SONIC_COLLECTION
 
-MAX_SONIC_TEXT_LENGTH = 1000
+MAX_SONIC_TEXT_LENGTH = 20000
 
 @enforce_types
 def index(snapshot_id: str, texts: List[str]):
