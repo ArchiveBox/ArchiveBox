@@ -36,19 +36,19 @@ The main index is a self-contained `data/index.sqlite3` file, and each snapshot 
 #### Quickstart
 
 ```bash
-# 1. Create a folder to hold your ArchiveBox data
+# 1. Create a folder somewhere to hold your ArchiveBox data
 mkdir ~/archivebox && cd ~/archivebox
 docker run -v $PWD:/data -it archivebox/archivebox init
 
 # 2. Archive some URLs to get started
-docker run -v $PWD:/data -t archivebox/archivebox add https://example.com
-docker run -v $PWD:/data -t archivebox/archivebox add --depth=1 https://archivebox.io
+docker run -v $PWD:/data -t archivebox/archivebox add https://github.com/ArchiveBox/ArchiveBox
+docker run -v $PWD:/data -t archivebox/archivebox add --depth=1 https://example.com
 
 # 3. Then browse the Web UI or filesystem to see snapshots of the URLs you added
-docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser
-docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox  # start the server
-open http://127.0.0.1:8000/  # open the interactive web UI
-ls ./archive/*/index.html    # or open the static indexes
+docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser  # create an admin acct
+docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox                # start the web server
+open http://127.0.0.1:8000/                                         # open the interactive web UI
+ls archive/*/index.html                                             # or browse snapshots on disk
 ```
 
 <div align="center">
