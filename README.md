@@ -1,5 +1,5 @@
 <div align="center">
-<img src="https://i.imgur.com/5B48E3N.png" height="90px">
+<em><img src="https://i.imgur.com/5B48E3N.png" height="90px"></em>
 <h1>ArchiveBox<br/><sub>The open-source self-hosted web archive.</sub></h1>
 
 ▶️ <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> |
@@ -52,7 +52,7 @@ ls archive/*/index.html                                        # or just browse 
 ```
 
 <div align="center">
-<em><img src="https://i.imgur.com/lUuicew.png" width="400px" alt="logo"></em>
+<img src="https://i.imgur.com/lUuicew.png" width="400px">
 <br/>
 
 <a href="https://archivebox.zervice.io">DEMO: archivebox.zervice.io/</a>  
