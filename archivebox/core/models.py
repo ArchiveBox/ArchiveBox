@@ -5,10 +5,11 @@ import uuid
 from django.db import models, transaction
 from django.utils.functional import cached_property
 from django.utils.text import slugify
+from django.db.models import Case, When, Value, IntegerField
 
 from ..util import parse_date
 from ..index.schema import Link
-from ..extractors import get_default_archive_methods
+from ..extractors import get_default_archive_methods, ARCHIVE_METHODS_INDEXING_PRECEDENCE
 
 EXTRACTORS = [(extractor[0], extractor[0]) for extractor in get_default_archive_methods()]
 
@@ -86,7 +87,7 @@ class Snapshot(models.Model):
         return {
             key: getattr(self, key)
             if key != 'tags' else self.tags_str()
-            for key in args 
+            for key in args
         }
 
     def as_link(self) -> Link:
@@ -95,7 +96,7 @@ class Snapshot(models.Model):
     def as_link_with_details(self) -> Link:
         from ..index import load_link_details
         return load_link_details(self.as_link())
-    
+
     def tags_str(self) -> str:
         return ','.join(self.tags.order_by('name').values_list('name', flat=True))
 
@@ -152,7 +153,15 @@ class Snapshot(models.Model):
         self.tags.clear()
         self.tags.add(*tags_id)
 
+class ArchiveResultManager(models.Manager):
+    def indexable(self, sorted: bool = True):
+        INDEXABLE_METHODS = [ r[0] for r in ARCHIVE_METHODS_INDEXING_PRECEDENCE ]
+        qs = self.get_queryset().filter(extractor__in=INDEXABLE_METHODS,status='succeeded')
 
+        if sorted:
+            precedence = [ When(extractor=method, then=Value(precedence)) for method, precedence in ARCHIVE_METHODS_INDEXING_PRECEDENCE ]
+            qs = qs.annotate(indexing_precedence=Case(*precedence, default=Value(1000),output_field=IntegerField())).order_by('indexing_precedence')
+        return qs
 class ArchiveResult(models.Model):
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
     cmd = models.CharField(max_length=500, default="")
@@ -163,6 +172,8 @@ class ArchiveResult(models.Model):
     end_ts = models.DateTimeField()
     status = models.CharField(max_length=10)
     extractor = models.CharField(choices=EXTRACTORS, blank=False, max_length=20)
+
+    objects = ArchiveResultManager()
 
     def __str__(self):
         return self.extractor
