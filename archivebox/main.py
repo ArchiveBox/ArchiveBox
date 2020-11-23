@@ -115,7 +115,7 @@ from .logging_util import (
     printable_dependency_version,
 )
 
-from .search import flush_search_index
+from .search import flush_search_index, index_links
 
 ALLOWED_IN_OUTPUT_DIR = {
     'lost+found',
@@ -711,6 +711,7 @@ def update(resume: Optional[float]=None,
     if index_only:
         for link in all_links:
             write_link_details(link, out_dir=out_dir, skip_sql_index=True)
+        index_links(all_links, out_dir=out_dir)
         return all_links
         
     # Step 2: Run the archive methods for each link
