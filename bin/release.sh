@@ -68,6 +68,7 @@ echo "[^] Uploading docker image"
 # docker login --username=nikisweeting
 # docker login docker.pkg.github.com --username=pirate
 docker push docker.io/nikisweeting/archivebox
+docker push docker.io/archivebox/archivebox
 docker push docker.pkg.github.com/pirate/archivebox/archivebox
 
 echo "[√] Done. Published version v$NEW_VERSION"

@@ -21,7 +21,7 @@
 <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?logo=github&label=Stars&logoColor=blue"/></a>
 <a href="https://test.pypi.org/project/archivebox/"><img src="https://img.shields.io/badge/Python-%3E%3D3.7-yellow.svg?logo=python&logoColor=yellow"/></a>
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies"><img src="https://img.shields.io/badge/Chromium-%3E%3D59-orange.svg?logo=Google+Chrome&logoColor=orange"/></a>
-<a href="https://hub.docker.com/r/nikisweeting/archivebox"><img src="https://img.shields.io/badge/Docker-all%20platforms-lightblue.svg?logo=docker&logoColor=lightblue"/></a>
+<a href="https://hub.docker.com/r/archivebox/archivebox"><img src="https://img.shields.io/badge/Docker-all%20platforms-lightblue.svg?logo=docker&logoColor=lightblue"/></a>
 
 <hr/>
 </div>
@@ -36,9 +36,9 @@ The main index is a self-contained `data/index.sqlite3` file, and each snapshot 
 #### Quickstart
 
 ```bash
-docker run -d -it -v ~/archivebox:/data -p 8000:8000 nikisweeting/archivebox server --init 0.0.0.0:8000
-docker run -v ~/archivebox:/data -it nikisweeting/archivebox manage createsuperuser
-docker run -v ~/archivebox:/data -it nikisweeting/archivebox add 'https://example.com'
+docker run -d -it -v ~/archivebox:/data -p 8000:8000 archivebox/archivebox server --init 0.0.0.0:8000
+docker run -v ~/archivebox:/data -it archivebox/archivebox manage createsuperuser
+docker run -v ~/archivebox:/data -it archivebox/archivebox add 'https://example.com'
 
 open http://127.0.0.1:8000/admin/login/  # then click "Add" in the navbar
 ```
@@ -207,20 +207,20 @@ open http://127.0.0.1:8000
 ## Docker
 
 ```bash
-# docker run -v $PWD:/data -it nikisweeting/archivebox <command> [args]
+# docker run -v $PWD:/data -it archivebox/archivebox <command> [args]
 
 mkdir archivebox && cd archivebox
-docker run -v $PWD:/data -it nikisweeting/archivebox init
-docker run -v $PWD:/data -it nikisweeting/archivebox add 'https://example.com'
-docker run -v $PWD:/data -it nikisweeting/archivebox manage createsuperuser
+docker run -v $PWD:/data -it archivebox/archivebox init
+docker run -v $PWD:/data -it archivebox/archivebox add 'https://example.com'
+docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser
 
 # run the webserver to access the web UI
-docker run -v $PWD:/data -it -p 8000:8000 nikisweeting/archivebox server 0.0.0.0:8000
+docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
 
 # or export a static version of the index if you dont want to run a server
-docker run -v $PWD:/data -it nikisweeting/archivebox list --html --with-headers > index.html
-docker run -v $PWD:/data -it nikisweeting/archivebox list --json --with-headers > index.json
+docker run -v $PWD:/data -it archivebox/archivebox list --html --with-headers > index.html
+docker run -v $PWD:/data -it archivebox/archivebox list --json --with-headers > index.json
 open ./index.html
 ```
 
