@@ -2,12 +2,15 @@ import re
 from subprocess import run, PIPE, DEVNULL
 from typing import List, Generator
 
-from archivebox.config import setup_django, ARCHIVE_DIR, ARCHIVE_DIR_NAME
+from archivebox.config import setup_django, ARCHIVE_DIR
 from archivebox.util import enforce_types
 
-DEFAULT_ARGUMENTS = '-ilt' # Case insensitive, matching files, types
-DEFAULT_EXTENSIONS = 'html'
-REGEX_ARGUMENT = '-e'
+RG_IGNORE_EXTENSIONS = ('css','js','orig','svg')
+
+RG_ADD_TYPE = '--type-add'
+RG_IGNORE_ARGUMENTS = f"ignore:*.{{{','.join(RG_IGNORE_EXTENSIONS)}}}"
+RG_DEFAULT_ARGUMENTS = "-ilTignore" # Case insensitive(i), matching files results(l)
+RG_REGEX_ARGUMENT = '-e'
 
 TIMESTAMP_REGEX = r'\/([\d]+\.[\d]+)\/'
 
@@ -25,13 +28,14 @@ def flush(snapshot_ids: Generator[str, None, None]):
 def search(text: str) -> List[str]:
     is_rg_installed = run(['which', 'rg'], stdout=DEVNULL, stderr=DEVNULL)
     if is_rg_installed.returncode:
-        raise Exception("rg binary not found, install ripgrep to use this backend")
+        raise Exception("ripgrep binary not found, install ripgrep to use this search backend")
 
     setup_django(check_db=True)
     from core.models import Snapshot
 
-    rg = run(['rg',DEFAULT_ARGUMENTS, DEFAULT_EXTENSIONS, REGEX_ARGUMENT, text, str(ARCHIVE_DIR)],stdout=PIPE, stderr=PIPE, timeout=60)
-    file_paths = [p.decode().replace(str(ARCHIVE_DIR_NAME), '') for p in rg.stdout.splitlines()]
+    rg_cmd = ['rg', RG_ADD_TYPE, RG_IGNORE_ARGUMENTS, RG_DEFAULT_ARGUMENTS, RG_REGEX_ARGUMENT, text, str(ARCHIVE_DIR)]
+    rg = run(rg_cmd, stdout=PIPE, stderr=PIPE, timeout=60)
+    file_paths = [p.decode() for p in rg.stdout.splitlines()]
     timestamps = set()
     for path in file_paths:
         if ts := ts_regex.findall(path):
