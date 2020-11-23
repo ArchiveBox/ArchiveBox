@@ -447,7 +447,7 @@ def log_shell_welcome_msg():
     print('{green}from archivebox import *\n    {}{reset}'.format("\n    ".join(list_subcommands().keys()), **ANSI))
     print()
     print('[i] Welcome to the ArchiveBox Shell!')
-    print('    https://github.com/pirate/ArchiveBox/wiki/Usage#Shell-Usage')
+    print('    https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Shell-Usage')
     print()
     print('    {lightred}Hint:{reset} Example use:'.format(**ANSI))
     print('        print(Snapshot.objects.filter(is_archived=True).count())')

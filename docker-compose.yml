@@ -5,7 +5,7 @@
 #     docker-compose run archivebox add --depth=1 https://example.com/some/feed.rss
 #     docker-compose run archivebox config --set PUBLIC_INDEX=True
 # Documentation:
-#     https://github.com/pirate/ArchiveBox/wiki/Docker#docker-compose
+#     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
 
 version: '3.7'
 

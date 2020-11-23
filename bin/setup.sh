@@ -1,7 +1,7 @@
 #!/bin/bash
 # ArchiveBox Setup Script
 # Nick Sweeting 2017 | MIT License
-# https://github.com/pirate/ArchiveBox
+# https://github.com/ArchiveBox/ArchiveBox
 
 echo "[i] ArchiveBox Setup Script 📦"
 echo ""
@@ -16,7 +16,7 @@ echo "        - youtube-dl"
 echo "        - chromium-browser  (skip this if Chrome/Chromium is already installed)"
 echo ""
 echo "    If you'd rather install these manually, you can find documentation here:"
-echo "        https://github.com/pirate/ArchiveBox/wiki/Install"
+echo "        https://github.com/ArchiveBox/ArchiveBox/wiki/Install"
 echo ""
 echo "Press enter to continue with the automatic install, or Ctrl+C to cancel..."
 read
@@ -112,5 +112,5 @@ echo "---------------------------------------------------"
 echo "[X] Failed to install some dependencies! ‼️"
 echo "    - Try the Manual Setup instructions in the README.md"
 echo "    - Try the Troubleshooting: Dependencies instructions in the README.md"
-echo "    - Open an issue on github to get help: https://github.com/pirate/ArchiveBox/issues"
+echo "    - Open an issue on github to get help: https://github.com/ArchiveBox/ArchiveBox/issues"
 exit 1

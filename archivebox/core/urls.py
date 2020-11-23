@@ -14,7 +14,7 @@ urlpatterns = [
     path('robots.txt', static.serve, {'document_root': settings.OUTPUT_DIR, 'path': 'robots.txt'}),
     path('favicon.ico', static.serve, {'document_root': settings.OUTPUT_DIR, 'path': 'favicon.ico'}),
 
-    path('docs/', RedirectView.as_view(url='https://github.com/pirate/ArchiveBox/wiki'), name='Docs'),
+    path('docs/', RedirectView.as_view(url='https://github.com/ArchiveBox/ArchiveBox/wiki'), name='Docs'),
 
     path('archive/', RedirectView.as_view(url='/')),
     path('archive/<path:path>', LinkDetails.as_view(), name='LinkAssets'),

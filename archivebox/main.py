@@ -178,7 +178,7 @@ def help(out_dir: Path=OUTPUT_DIR) -> None:
     archivebox update --resume=15109948213.123
 
 {lightred}Documentation:{reset}
-    https://github.com/pirate/ArchiveBox/wiki
+    https://github.com/ArchiveBox/ArchiveBox/wiki
 '''.format(VERSION, out_dir, COMMANDS_HELP_TEXT, **ANSI))
     
     else:
@@ -197,7 +197,7 @@ def help(out_dir: Path=OUTPUT_DIR) -> None:
         print('    2. archivebox init')
         print()
         print('For more information, see the documentation here:')
-        print('    https://github.com/pirate/ArchiveBox/wiki')
+        print('    https://github.com/ArchiveBox/ArchiveBox/wiki')
 
 
 @enforce_types
