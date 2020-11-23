@@ -39,6 +39,7 @@ from .media import should_save_media, save_media
 from .archive_org import should_save_archive_dot_org, save_archive_dot_org
 from .headers import should_save_headers, save_headers
 
+
 def get_default_archive_methods():
     return [
         ('title', should_save_title, save_title),
@@ -55,6 +56,8 @@ def get_default_archive_methods():
         ('headers', should_save_headers, save_headers),
         ('archive_org', should_save_archive_dot_org, save_archive_dot_org),
     ]
+
+ARCHIVE_METHODS_INDEXING_PRECEDENCE = [('readability', 1), ('singlefile', 2), ('dom', 3), ('wget', 4)]
 
 @enforce_types
 def ignore_methods(to_ignore: List[str]):
