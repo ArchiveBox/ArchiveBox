@@ -52,7 +52,7 @@ ls archive/*/index.html                                        # or just browse 
 ```
 
 <div align="center">
-<img src="https://i.imgur.com/lUuicew.png" width="400px">
+<img src="https://i.imgur.com/lUuicew.png" width="400px" alt="logo">
 <br/>
 
 <a href="https://archivebox.zervice.io">DEMO: archivebox.zervice.io/</a>  
