@@ -8,7 +8,7 @@ from archivebox.index.schema import Link
 from archivebox.util import enforce_types
 from archivebox.config import setup_django,stderr, OUTPUT_DIR, USE_INDEXING_BACKEND, USE_SEARCHING_BACKEND, SEARCH_BACKEND_ENGINE
 
-from .utils import get_indexable_content
+from .utils import get_indexable_content, log_index_started
 
 def indexing_enabled():
     return USE_INDEXING_BACKEND
@@ -98,4 +98,5 @@ def index_links(links: Union[List[Link],None], out_dir: Path=OUTPUT_DIR):
         if snap := Snapshot.objects.filter(url=link.url).first():
             results = ArchiveResult.objects.indexable().filter(snapshot=snap)
             texts = get_indexable_content(results)
+            log_index_started(link.url)
             write_search_index(link, texts, out_dir=out_dir)
