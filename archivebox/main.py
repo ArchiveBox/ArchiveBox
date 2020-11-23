@@ -109,7 +109,7 @@ from .logging_util import (
     printable_dependency_version,
 )
 
-from .search import flush_search_index
+from .search import flush_search_index, index_links
 
 ALLOWED_IN_OUTPUT_DIR = {
     '.DS_Store',
@@ -698,6 +698,7 @@ def update(resume: Optional[float]=None,
     all_links = [link for link in matching_folders.values() if link]
 
     if index_only:
+        index_links(all_links, out_dir=out_dir) 
         return all_links
         
     # Step 2: Run the archive methods for each link
