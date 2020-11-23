@@ -26,7 +26,7 @@
 <hr/>
 </div>
 
-ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a varitety of formats depending on the configuration and the content it detects. ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended) or [`pip`](https://www.python.org/downloads/).
+ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a varitety of formats depending on the configuration and the content it detects. ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended) or [`pip`](https://www.python.org/downloads/). It works on macOS, Windows, and Linux/BSD (both armv7 and amd64).
 
 Once installed, URLs can be added via the command line `archivebox add` or the built-in Web UI `archivebox server`. It can ingest bookmarks from a service like Pocket/Pinboard, your entire browsing history, RSS feeds, or URLs one at a time.
 
