@@ -938,7 +938,7 @@ def schedule(add: bool=False,
 
     if every or add:
         every = every or 'day'
-        quoted = lambda s: f'"{s}"' if s and ' ' in s else s
+        quoted = lambda s: f'"{s}"' if s and ' ' in str(s) else str(s)
         cmd = [
             'cd',
             quoted(out_dir),
