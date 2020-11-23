@@ -11,6 +11,11 @@ from ..index.schema import Link
 from ..extractors import get_default_archive_methods
 
 EXTRACTORS = [(extractor[0], extractor[0]) for extractor in get_default_archive_methods()]
+STATUS_CHOICES = [
+    ("succeeded", "succeeded"),
+    ("failed", "failed"),
+    ("skipped", "skipped")
+]
 
 
 class Tag(models.Model):
@@ -155,14 +160,14 @@ class Snapshot(models.Model):
 
 class ArchiveResult(models.Model):
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
-    cmd = models.CharField(max_length=500, default="")
-    pwd = models.CharField(max_length=200, default="")
-    cmd_version = models.CharField(max_length=20, default="")
-    output = models.CharField(max_length=500, default="")
+    cmd = models.CharField(max_length=500)
+    pwd = models.CharField(max_length=200)
+    cmd_version = models.CharField(max_length=32)
+    output = models.CharField(max_length=500)
     start_ts = models.DateTimeField()
     end_ts = models.DateTimeField()
-    status = models.CharField(max_length=10)
-    extractor = models.CharField(choices=EXTRACTORS, blank=False, max_length=20)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES)
+    extractor = models.CharField(choices=EXTRACTORS, blank=False, max_length=32)
 
     def __str__(self):
         return self.extractor
