@@ -1,5 +1,5 @@
 <div align="center">
-<img src="https://i.imgur.com/4nkFjdv.png" height="80px">
+<img src="https://i.imgur.com/5B48E3N.png" height="90px">
 <h1>ArchiveBox<br/><sub>The open-source self-hosted web archive.</sub></h1>
 
 ▶️ <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> |
