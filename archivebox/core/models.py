@@ -8,6 +8,9 @@ from django.utils.text import slugify
 
 from ..util import parse_date
 from ..index.schema import Link
+from ..extractors import get_default_archive_methods
+
+EXTRACTORS = [(extractor[0], extractor[0]) for extractor in get_default_archive_methods()]
 
 
 class Tag(models.Model):
@@ -148,3 +151,18 @@ class Snapshot(models.Model):
             tags_id.append(Tag.objects.get_or_create(name=tag)[0].id)
         self.tags.clear()
         self.tags.add(*tags_id)
+
+
+class ArchiveResult(models.Model):
+    snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
+    cmd = models.CharField(max_length=500, default="")
+    pwd = models.CharField(max_length=200, default="")
+    cmd_version = models.CharField(max_length=20, default="")
+    output = models.CharField(max_length=500, default="")
+    start_ts = models.DateTimeField()
+    end_ts = models.DateTimeField()
+    status = models.CharField(max_length=10)
+    extractor = models.CharField(choices=EXTRACTORS, blank=False, max_length=20)
+
+    def __str__(self):
+        return self.extractor
