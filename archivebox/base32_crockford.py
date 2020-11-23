@@ -37,9 +37,9 @@ __all__ = ["encode", "decode", "normalize"]
 
 
 if PY3:
-    string_types = str,
+    string_types = (str,)
 else:
-    string_types = basestring,
+    string_types = (basestring,)  # noqa
 
 # The encoded symbol space does not include I, L, O or U
 symbols = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'

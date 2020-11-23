@@ -12,9 +12,8 @@ IFS=$'\n'
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 
-source "$REPO_DIR/.venv/bin/activate"
 cd "$REPO_DIR"
-
+source "./.venv/bin/activate"
 
 
 # Make sure git is clean
@@ -66,7 +65,7 @@ echo "[^] Uploading to pypi.org"
 python3 -m twine upload --repository pypi dist/*
 
 echo "[^] Uploading to launchpad.net"
-python3 -m dput archivebox "deb_dist/archivebox_${NEW_VERSION}-1_source.changes"
+dput archivebox "deb_dist/archivebox_${NEW_VERSION}-1_source.changes"
 
 echo "[^] Uploading docker image"
 # docker login --username=nikisweeting
