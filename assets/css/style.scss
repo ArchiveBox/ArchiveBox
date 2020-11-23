@@ -15,14 +15,24 @@ span.banner-fix {
 
 header h1 {
     background-color: #aa1f55;
+    padding-bottom: 12px;
 }
 header h2 {
     background-color: #aa1f55;
-    font-family: 'Open Sans' Helvetica sans-serif;
+    font-family: 'Open Sans';
 }
 
 #main_content div[align=center] h1 {
     display: none;
+}
+#main_content div[align=center] img {
+    display: block;
+    margin-top: -83px;
+    border: 0px;
+    padding: 0px;
+    box-shadow: 4px 4px 4px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    margin-bottom: 20px;
 }
 
 #forkme_banner {
