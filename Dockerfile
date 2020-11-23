@@ -12,8 +12,8 @@ FROM python:3.8-slim-buster
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <archivebox-docker@sweeting.me>" \
     description="All-in-one personal internet archiving container" \
-    homepage="https://github.com/pirate/ArchiveBox" \
-    documentation="https://github.com/pirate/ArchiveBox/wiki/Docker#docker"
+    homepage="https://github.com/ArchiveBox/ArchiveBox" \
+    documentation="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker"
 
 # System-level base config
 ENV TZ=UTC \

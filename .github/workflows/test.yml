@@ -1,4 +1,4 @@
-name: Test workflow
+name: 'Lint, Test, and Build'
 on: [push]
 
 env:

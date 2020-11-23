@@ -32,9 +32,9 @@ MAIN_INDEX_HEADER = {
         'version': VERSION,
         'git_sha': GIT_SHA,
         'website': 'https://ArchiveBox.io',
-        'docs': 'https://github.com/pirate/ArchiveBox/wiki',
-        'source': 'https://github.com/pirate/ArchiveBox',
-        'issues': 'https://github.com/pirate/ArchiveBox/issues',
+        'docs': 'https://github.com/ArchiveBox/ArchiveBox/wiki',
+        'source': 'https://github.com/ArchiveBox/ArchiveBox',
+        'issues': 'https://github.com/ArchiveBox/ArchiveBox/issues',
         'dependencies': DEPENDENCIES,
     },
 }

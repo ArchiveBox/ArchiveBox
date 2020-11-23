@@ -6,6 +6,7 @@ archivebox/LICENSE
 archivebox/README.md
 archivebox/__init__.py
 archivebox/__main__.py
+archivebox/base32_crockford.py
 archivebox/config.py
 archivebox/config_stubs.py
 archivebox/logging_util.py

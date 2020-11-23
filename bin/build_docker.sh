@@ -21,5 +21,7 @@ docker build . -t archivebox \
                -t archivebox:$VERSION \
                -t docker.io/nikisweeting/archivebox:latest \
                -t docker.io/nikisweeting/archivebox:$VERSION \
+               -t docker.io/archivebox/archivebox:latest \
+               -t docker.io/archivebox/archivebox:$VERSION \
                -t docker.pkg.github.com/pirate/archivebox/archivebox:latest \
                -t docker.pkg.github.com/pirate/archivebox/archivebox:$VERSION

@@ -5,14 +5,14 @@
 #     docker-compose run archivebox add --depth=1 https://example.com/some/feed.rss
 #     docker-compose run archivebox config --set PUBLIC_INDEX=True
 # Documentation:
-#     https://github.com/pirate/ArchiveBox/wiki/Docker#docker-compose
+#     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
 
 version: '3.7'
 
 services:
     archivebox:
         # build: .
-        image: ${DOCKER_IMAGE:-nikisweeting/archivebox:latest} 
+        image: ${DOCKER_IMAGE:-archivebox/archivebox:latest} 
         command: server 0.0.0.0:8000
         stdin_open: true
         tty: true
@@ -31,7 +31,7 @@ services:
     # Example: Run scheduled imports in a docker instead of using cron on the
     # host machine, add tasks and see more info with archivebox schedule --help
     # scheduler:
-    #    image: nikisweeting/archivebox:latest
+    #    image: archivebox/archivebox:latest
     #    command: schedule --foreground --every=day --depth=1 'https://getpocket.com/users/USERNAME/feed/all'
     #    environment:
     #        - USE_COLOR=True
