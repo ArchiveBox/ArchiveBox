@@ -98,4 +98,4 @@ def index_links(links: Union[List[Link],None], out_dir: Path=OUTPUT_DIR):
         if snap := Snapshot.objects.filter(url=link.url).first():
             results = ArchiveResult.objects.indexable().filter(snapshot=snap)
             texts = get_indexable_content(results)
-            write_search_index(link,texts,out_dir=out_dir)
+            write_search_index(link, texts, out_dir=out_dir)

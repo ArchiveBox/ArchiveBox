@@ -5,13 +5,18 @@ from sonic import IngestClient, SearchClient
 from archivebox.util import enforce_types
 from archivebox.config import SEARCH_BACKEND_HOST_NAME, SEARCH_BACKEND_PORT, SEARCH_BACKEND_PASSWORD, SONIC_BUCKET, SONIC_COLLECTION
 
+MAX_SONIC_TEXT_LENGTH = 1000
 
 @enforce_types
 def index(snapshot_id: str, texts: List[str]):
     with IngestClient(SEARCH_BACKEND_HOST_NAME, SEARCH_BACKEND_PORT, SEARCH_BACKEND_PASSWORD) as ingestcl:
         for text in texts:
-            ingestcl.push(SONIC_COLLECTION, SONIC_BUCKET, snapshot_id, str(text))
-
+            if len(text) < MAX_SONIC_TEXT_LENGTH:
+                ingestcl.push(SONIC_COLLECTION, SONIC_BUCKET, snapshot_id, str(text))
+            else:
+                chunks = [text[i:i+MAX_SONIC_TEXT_LENGTH] for i in range(0, len(text), MAX_SONIC_TEXT_LENGTH)]
+                for chunk in chunks:
+                    ingestcl.push(SONIC_COLLECTION, SONIC_BUCKET, snapshot_id, str(chunk))
 @enforce_types
 def search(text: str) -> List[str]:
     with SearchClient(SEARCH_BACKEND_HOST_NAME, SEARCH_BACKEND_PORT, SEARCH_BACKEND_PASSWORD) as querycl:
