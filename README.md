@@ -44,11 +44,11 @@ docker run -v $PWD:/data -it archivebox/archivebox init
 docker run -v $PWD:/data -t archivebox/archivebox add https://github.com/ArchiveBox/ArchiveBox
 docker run -v $PWD:/data -t archivebox/archivebox add --depth=1 https://example.com
 
-# 3. Then browse the Web UI or filesystem to see snapshots of the URLs you added
+# 3. Then view the snapshots of the URLs you added via the self-hosted web UI
 docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser  # create an admin acct
 docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox                # start the web server
-open http://127.0.0.1:8000/                                         # open the interactive web UI
-ls archive/*/index.html                                             # or browse snapshots on disk
+open http://127.0.0.1:8000/                                    # open the interactive admin panel
+ls archive/*/index.html                                        # or just browse snapshots on disk
 ```
 
 <div align="center">
