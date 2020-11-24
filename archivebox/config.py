@@ -157,6 +157,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'READABILITY_BINARY':       {'type': str,   'default': 'readability-extractor'},
         'MERCURY_BINARY':           {'type': str,   'default': 'mercury-parser'},
         'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
+        'NODE_BINARY':              {'type': str,   'default': 'node'},
         'CHROME_BINARY':            {'type': str,   'default': None},
     },
 }
@@ -296,6 +297,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'SAVE_WARC':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WARC']},
     'WGET_ARGS':                {'default': lambda c: c['WGET_ARGS'] or []},
 
+
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
 
@@ -318,6 +320,8 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] if c['CHROME_BINARY'] else find_chrome_binary()},
     'CHROME_VERSION':           {'default': lambda c: bin_version(c['CHROME_BINARY']) if c['USE_CHROME'] else None},
     'USE_NODE':                 {'default': lambda c: c['USE_NODE'] and (c['SAVE_READABILITY'] or c['SAVE_SINGLEFILE'])},
+    'NODE_VERSION':             {'default': lambda c: bin_version(c['NODE_BINARY']) if c['USE_NODE'] else None},
+    
     'SAVE_PDF':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_PDF']},
     'SAVE_SCREENSHOT':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SCREENSHOT']},
     'SAVE_DOM':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_DOM']},
@@ -665,6 +669,11 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
             'enabled': True,
             'is_valid': (config['TEMPLATES_DIR'] / 'static').exists(),
         },
+        # 'NODE_MODULES_DIR': {
+        #     'path': ,
+        #     'enabled': ,
+        #     'is_valid': (...).exists(),
+        # },
     }
 
 def get_external_locations(config: ConfigDict) -> ConfigValue:
@@ -718,6 +727,13 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
 
 def get_dependency_info(config: ConfigDict) -> ConfigValue:
     return {
+        'ARCHIVEBOX_BINARY': {
+            'path': bin_path(config['ARCHIVEBOX_BINARY']),
+            'version': config['VERSION'],
+            'hash': bin_hash(config['ARCHIVEBOX_BINARY']),
+            'enabled': True,
+            'is_valid': True,
+        },
         'PYTHON_BINARY': {
             'path': bin_path(config['PYTHON_BINARY']),
             'version': config['PYTHON_VERSION'],
@@ -745,6 +761,13 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'hash': bin_hash(config['WGET_BINARY']),
             'enabled': config['USE_WGET'],
             'is_valid': bool(config['WGET_VERSION']),
+        },
+        'NODE_BINARY': {
+            'path': bin_path(config['NODE_BINARY']),
+            'version': config['NODE_VERSION'],
+            'hash': bin_hash(config['NODE_BINARY']),
+            'enabled': config['USE_NODE'],
+            'is_valid': bool(config['SINGLEFILE_VERSION']),
         },
         'SINGLEFILE_BINARY': {
             'path': bin_path(config['SINGLEFILE_BINARY']),
