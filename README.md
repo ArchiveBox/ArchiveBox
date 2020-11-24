@@ -26,7 +26,7 @@
 <hr/>
 </div>
 
-ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a varitety of formats depending on the configuration and the content it detects. ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended), [apt](https://launchpad.net/~archivebox/+archive/ubuntu/archivebox/+packages), [brew](https://github.com/ArchiveBox/homebrew-archivebox), or [`pip`](https://www.python.org/downloads/). It works on macOS, Windows, and Linux/BSD (both armv7 and amd64).
+ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a varitety of formats depending on the configuration and the content it detects. ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended), [`apt`](https://launchpad.net/~archivebox/+archive/ubuntu/archivebox/+packages), [`brew`](https://github.com/ArchiveBox/homebrew-archivebox), or [`pip`](https://www.python.org/downloads/). It works on macOS, Windows, and Linux/BSD (both armv7 and amd64).
 
 Once installed, URLs can be added via the command line `archivebox add` or the built-in Web UI `archivebox server`. It can ingest bookmarks from a service like Pocket/Pinboard, your entire browsing history, RSS feeds, or URLs one at a time.
 
@@ -97,7 +97,7 @@ For more information, see the <a href="https://github.com/ArchiveBox/ArchiveBox/
 
 ArchiveBox is a command line tool, self-hostable web-archiving server, and Python library all-in-one. It can be installed on Docker, macOS, and Linux/BSD, and Windows. You can download and install it as a Debian/Ubuntu package, Homebrew package, Python3 package, or a Docker image. No matter which install method you choose, they all provide the same CLI, Web UI, and on-disk data format.
 
-To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/remove/search/import/export/manage/config/etc using the CLI `archivebox help`, or you can run the Web UI (recommended).
+To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/export/manage/etc using the CLI `archivebox help`, or you can run the Web UI (recommended).
 
 The CLI is considered "stable", the ArchiveBox Python API and REST APIs are in "beta", and the [desktop app](https://github.com/ArchiveBox/desktop) is in "alpha" stage.
 
