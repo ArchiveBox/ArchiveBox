@@ -26,12 +26,27 @@
 <hr/>
 </div>
 
-ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a varitety of formats depending on the configuration and the content it detects. ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended) or [`pip`](https://www.python.org/downloads/). It works on macOS, Windows, and Linux/BSD (both armv7 and amd64).
+ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a varitety of formats depending on the configuration and the content it detects. ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended), [apt](https://launchpad.net/~archivebox/+archive/ubuntu/archivebox/+packages), [brew](https://github.com/ArchiveBox/homebrew-archivebox), or [`pip`](https://www.python.org/downloads/). It works on macOS, Windows, and Linux/BSD (both armv7 and amd64).
 
 Once installed, URLs can be added via the command line `archivebox add` or the built-in Web UI `archivebox server`. It can ingest bookmarks from a service like Pocket/Pinboard, your entire browsing history, RSS feeds, or URLs one at a time.
 
 The main index is a self-contained `data/index.sqlite3` file, and each snapshot is stored as a folder `data/archive/<timestamp>/`, with an easy-to-read `index.html` and `index.json` within. For each page, ArchiveBox auto-extracts many types of assets/media and saves them in standard formats, with out-of-the-box support for: 3 types of HTML snapshots (wget, Chrome headless, singlefile), a PDF snapshot, a screenshot, a WARC archive, git repositories, images, audio, video, subtitles, article text, and more. The snapshots are browseable and managable offline through the filesystem, the built-in webserver, or the Python API.
 
+**Get it via your method of choice:**
+```bash
+sudo add-apt-repository ppa:archivebox/archivebox
+apt update
+apt install archivebox
+```
+```bash
+brew install archivebox/archivebox/archivebox
+```
+```bash
+docker pull archivebox/archivebox
+```
+```bash
+pip3 install archivebox    # you must install some system dependencies manually when using pip
+```
 
 #### Quickstart
 
