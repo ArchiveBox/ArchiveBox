@@ -32,39 +32,47 @@ Once installed, URLs can be added via the command line `archivebox add` or the b
 
 The main index is a self-contained `data/index.sqlite3` file, and each snapshot is stored as a folder `data/archive/<timestamp>/`, with an easy-to-read `index.html` and `index.json` within. For each page, ArchiveBox auto-extracts many types of assets/media and saves them in standard formats, with out-of-the-box support for: 3 types of HTML snapshots (wget, Chrome headless, singlefile), a PDF snapshot, a screenshot, a WARC archive, git repositories, images, audio, video, subtitles, article text, and more. The snapshots are browseable and managable offline through the filesystem, the built-in webserver, or the Python API.
 
-**Get it via your method of choice:**
-```bash
-sudo add-apt-repository ppa:archivebox/archivebox
-apt update
-apt install archivebox
-```
-```bash
-brew install archivebox/archivebox/archivebox
-```
-```bash
-docker pull archivebox/archivebox
-```
-```bash
-pip3 install archivebox    # you must install some system dependencies manually when using pip
-```
-
 #### Quickstart
 
+**First, get ArchiveBox using your system package manager, Docker, or pip:**
+```bash
+# To use with Docker (recommended)
+docker pull archivebox/archivebox
+
+# for Ubuntu/Debian
+sudo add-apt-repository -u ppa:archivebox/archivebox
+apt install archivebox
+
+# for macOS
+brew install archivebox/archivebox/archivebox
+
+# for Python version only, without wget/git/chrome/etc. included
+pip3 install archivebox
+```
+
+**Then create a collection and add some URLs to archive:**
 ```bash
 # 1. Create a folder somewhere to hold your ArchiveBox data
 mkdir ~/archivebox && cd ~/archivebox
-docker run -v $PWD:/data -it archivebox/archivebox init
+archivebox init
+archivebox version
 
 # 2. Archive some URLs to get started
-docker run -v $PWD:/data -t archivebox/archivebox add https://github.com/ArchiveBox/ArchiveBox
-docker run -v $PWD:/data -t archivebox/archivebox add --depth=1 https://example.com
+archivebox add https://github.com/ArchiveBox/ArchiveBox
+archivebox/archivebox add --depth=1 https://example.com
 
 # 3. Then view the snapshots of the URLs you added via the self-hosted web UI
-docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser  # create an admin acct
-docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox                # start the web server
-open http://127.0.0.1:8000/                                    # open the interactive admin panel
-ls archive/*/index.html                                        # or just browse snapshots on disk
+archivebox manage createsuperuser         # create an admin acct
+archivebox server 0.0.0.0:8000            # start the web server
+open http://127.0.0.1:8000/               # open the interactive admin panel
+ls ~/archivebox/archive/*/index.html      # or just browse snapshots on disk
 ```
+
+If you're using docker, run the `archivebox [subcommand] [...args]` commands above like this:
+`docker run -v $PWD:/data -it archivebox/archivebox [subcommand] [...args]`
+or with docker compose:
+`docker-compose run archivebox [subcommand] [...args]`
+
 
 <div align="center">
 <img src="https://i.imgur.com/lUuicew.png" width="400px">
@@ -79,16 +87,9 @@ For more information, see the <a href="https://github.com/ArchiveBox/ArchiveBox/
 
 # Overview
 
-ArchiveBox is a command line tool, self-hostable web-archiving server, and Python library all-in-one. It's available as a Python3 package or a Docker image, both methods provide the same CLI, Web UI, and on-disk data format.
+ArchiveBox is a command line tool, self-hostable web-archiving server, and Python library all-in-one. It can be installed on Docker, macOS, and Linux/BSD, and Windows. You can download and install it as a Debian/Ubuntu package, Homebrew package, Python3 package, or a Docker image. No matter which install method you choose, they all provide the same CLI, Web UI, and on-disk data format.
 
-It works on Docker, macOS, and Linux/BSD. Windows is not officially supported, but users have reported getting it working using the WSL2 + Docker.
-
-To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/remove/search/import/export/manage/config/etc using the CLI `archivebox help`, or you can run the Web UI (recommended):
-```bash
-archivebox manage createsuperuser
-archivebox server 0.0.0.0:8000
-open http://127.0.0.1:8000
-```
+To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/remove/search/import/export/manage/config/etc using the CLI `archivebox help`, or you can run the Web UI (recommended).
 
 The CLI is considered "stable", the ArchiveBox Python API and REST APIs are in "beta", and the [desktop app](https://github.com/ArchiveBox/desktop) is in "alpha" stage.
 
@@ -252,32 +253,19 @@ open ./index.html
 
 ```bash
 # archivebox <command> [args]
+
+# on Debian/Ubuntu
+sudo add-apt-repository -u ppa:archivebox/archivebox
+apt install archivebox
+
+# on macOS
+brew install archivebox/archivebox/archivebox
 ```
 
-First install the system, pip, and npm dependencies:
+Initialize your archive in a directory somewhere and add some links:
 ```bash
-# Install main dependendencies using apt on Ubuntu/Debian, brew on mac, or pkg on BSD
-apt install python3 python3-pip python3-dev git curl wget chromium-browser youtube-dl
-
-# Install Node runtime (used for headless browser scripts like Readability, Singlefile, Mercury, etc.)
-curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
-  && echo 'deb https://deb.nodesource.com/node_14.x $(lsb_release -cs) main' >> /etc/apt/sources.list \
-  && apt-get update \
-  && apt-get install --no-install-recommends nodejs
-
-# Make a directory to hold your collection
-mkdir archivebox && cd archivebox    # (can be anywhere, doesn't have to be called archivebox)
-
-# Install the archivebox python package in ./.venv
-python3 -m venv .venv && source .venv/bin/activate
-pip install --upgrade archivebox
-
-# Install node packages in ./node_modules (used for SingleFile, Readability, and Puppeteer)
+mkdir ~/archivebox && cd archivebox
 npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git' 
-```
-
-Initialize your archive and add some links:
-```bash
 archivebox init
 archivebox add 'https://example.com'  # add URLs as args pipe them in via stdin
 archivebox add --depth=1 https://example.com/table-of-contents.html
