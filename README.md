@@ -59,15 +59,20 @@ archivebox --version
 **To start using archivebox, you have to create a data folder and `cd` into it:**
 
 ```bash
-mkdir ~/archivebox && cd ~/archivebox    # pick somewhere to put your data folder
+mkdir ~/archivebox && cd ~/archivebox    # you can put the collection dir anywhere
+archivebox init
 ```
+
+<small>
 
 If you're using an apt/brew/pip install you can run archivebox commands like this:  
 `archivebox [subcommand] [...args]`  
-If you're using Docker it's equivalent to run the commands like this:
+If you're using Docker it's equivalent to run the commands like this:  
 `docker run -v $PWD:/data -it archivebox/archivebox [subcommand] [...args]`
-And the same in Docker Compose:
+And the same in Docker Compose:  
 `docker-compose run archivebox [subcommand] [...args]`
+
+</small>
 
 **Then Add some URLs to your archive collection:**
 ```bash
