@@ -97,6 +97,14 @@ def index_links(links: Union[List[Link],None], out_dir: Path=OUTPUT_DIR):
     for link in links:
         if snap := Snapshot.objects.filter(url=link.url).first():
             results = ArchiveResult.objects.indexable().filter(snapshot=snap)
-            texts = get_indexable_content(results)
             log_index_started(link.url)
-            write_search_index(link, texts, out_dir=out_dir)
+            try:
+                texts = get_indexable_content(results)
+            except Exception as err:
+                stderr()
+                stderr(
+                    f'[X] An Exception ocurred reading the indexable content={err}:',
+                    color='red',
+                    ) 
+            else:
+                write_search_index(link, texts, out_dir=out_dir)
