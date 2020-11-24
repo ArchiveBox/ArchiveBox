@@ -36,42 +36,56 @@ The main index is a self-contained `data/index.sqlite3` file, and each snapshot 
 
 **First, get ArchiveBox using your system package manager, Docker, or pip:**
 ```bash
-# To use with Docker (recommended)
+# You can run it with Docker or Docker Compose (recommended)
 docker pull archivebox/archivebox
+# https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml
 
-# for Ubuntu/Debian
+# or Ubuntu/Debian
 sudo add-apt-repository -u ppa:archivebox/archivebox
 apt install archivebox
 
-# for macOS
+# or macOS
 brew install archivebox/archivebox/archivebox
 
-# for Python version only, without wget/git/chrome/etc. included
+# or for the Python version only, without wget/git/chrome/etc. included
 pip3 install archivebox
 ```
 
-**Then create a collection and add some URLs to archive:**
+Check that everything installed correctly with:
 ```bash
-# 1. Create a folder somewhere to hold your ArchiveBox data
-mkdir ~/archivebox && cd ~/archivebox
-archivebox init
-archivebox version
+archivebox --version
+```
 
-# 2. Archive some URLs to get started
+**To start using archivebox, you have to create a data folder and `cd` into it:**
+
+```bash
+mkdir ~/archivebox && cd ~/archivebox    # pick somewhere to put your data folder
+```
+
+If you're using an apt/brew/pip install you can run archivebox commands like this:  
+`archivebox [subcommand] [...args]`  
+If you're using Docker it's equivalent to run the commands like this:
+`docker run -v $PWD:/data -it archivebox/archivebox [subcommand] [...args]`
+And the same in Docker Compose:
+`docker-compose run archivebox [subcommand] [...args]`
+
+**Then Add some URLs to your archive collection:**
+```bash
 archivebox add https://github.com/ArchiveBox/ArchiveBox
 archivebox/archivebox add --depth=1 https://example.com
+```
 
-# 3. Then view the snapshots of the URLs you added via the self-hosted web UI
+View the snapshots of the URLs you added via the self-hosted web UI:
+```bash
 archivebox manage createsuperuser         # create an admin acct
 archivebox server 0.0.0.0:8000            # start the web server
 open http://127.0.0.1:8000/               # open the interactive admin panel
-ls ~/archivebox/archive/*/index.html      # or just browse snapshots on disk
 ```
 
-If you're using docker, run the `archivebox [subcommand] [...args]` commands above like this:
-`docker run -v $PWD:/data -it archivebox/archivebox [subcommand] [...args]`
-or with docker compose:
-`docker-compose run archivebox [subcommand] [...args]`
+Or just browse the snapshots statically on disk:
+```bash
+ls ~/archivebox/archive/*/index.html
+```
 
 
 <div align="center">
