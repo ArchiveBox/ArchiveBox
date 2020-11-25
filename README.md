@@ -70,7 +70,7 @@ archivebox init
 **Then Add some URLs to your archive collection:**
 ```bash
 archivebox add https://github.com/ArchiveBox/ArchiveBox
-archivebox/archivebox add --depth=1 https://example.com
+archivebox add --depth=1 https://example.com
 ```
 
 **View the snapshots of the URLs you added via the self-hosted web UI:**
