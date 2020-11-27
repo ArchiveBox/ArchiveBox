@@ -161,13 +161,13 @@ class Snapshot(models.Model):
 class ArchiveResult(models.Model):
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
     cmd = models.CharField(max_length=500)
-    pwd = models.CharField(max_length=200)
+    pwd = models.CharField(max_length=256)
     cmd_version = models.CharField(max_length=32)
-    output = models.CharField(max_length=500)
+    output = models.CharField(max_length=512)
     start_ts = models.DateTimeField()
     end_ts = models.DateTimeField()
     status = models.CharField(max_length=16, choices=STATUS_CHOICES)
-    extractor = models.CharField(choices=EXTRACTORS, blank=False, max_length=32)
+    extractor = models.CharField(choices=EXTRACTORS, max_length=32)
 
     def __str__(self):
         return self.extractor
