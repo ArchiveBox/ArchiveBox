@@ -30,7 +30,7 @@ def forwards_func(apps, schema_editor):
 
         for extractor in history:
             for result in history[extractor]:
-                ArchiveResult.objects.create(extractor=extractor, snapshot=snapshot, cmd=json.dumps(result["cmd"]), cmd_version=result["cmd_version"], 
+                ArchiveResult.objects.create(extractor=extractor, snapshot=snapshot, cmd=result["cmd"], cmd_version=result["cmd_version"], 
                 start_ts=result["start_ts"], end_ts=result["end_ts"], status=result["status"], pwd=result["pwd"], output=result["output"])
 
 
@@ -76,11 +76,11 @@ class Migration(migrations.Migration):
             name='ArchiveResult',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('cmd', models.CharField(max_length=500)),
-                ('pwd', models.CharField(max_length=200)),
+                ('cmd', models.JSONField()),
+                ('pwd', models.CharField(max_length=256)),
                 ('cmd_version', models.CharField(max_length=32)),
                 ('status', models.CharField(choices=[('succeeded', 'succeeded'), ('failed', 'failed'), ('skipped', 'skipped')], max_length=16)),
-                ('output', models.CharField(max_length=500)),
+                ('output', models.CharField(max_length=512)),
                 ('start_ts', models.DateTimeField()),
                 ('end_ts', models.DateTimeField()),
                 ('extractor', models.CharField(choices=[('title', 'title'), ('favicon', 'favicon'), ('wget', 'wget'), ('singlefile', 'singlefile'), ('pdf', 'pdf'), ('screenshot', 'screenshot'), ('dom', 'dom'), ('readability', 'readability'), ('mercury', 'mercury'), ('git', 'git'), ('media', 'media'), ('headers', 'headers'), ('archive_org', 'archive_org')], max_length=32)),

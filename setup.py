@@ -52,7 +52,7 @@ setuptools.setup(
         "atomicwrites==1.4.0",
         "mypy-extensions==0.4.3",
         "base32-crockford==0.3.0",
-        "django==3.0.8",
+        "django==3.1.3",
         "django-extensions==3.0.3",
 
         "dateparser",

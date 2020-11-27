@@ -160,7 +160,7 @@ class Snapshot(models.Model):
 
 class ArchiveResult(models.Model):
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
-    cmd = models.CharField(max_length=500)
+    cmd = models.JSONField()
     pwd = models.CharField(max_length=256)
     cmd_version = models.CharField(max_length=32)
     output = models.CharField(max_length=512)
