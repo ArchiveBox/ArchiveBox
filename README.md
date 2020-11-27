@@ -392,7 +392,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 - [Supported Outputs](https://github.com/ArchiveBox/ArchiveBox/wiki#can-save-these-things-for-each-site)
 - [Scheduled Archiving](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving)
 - [Publishing Your Archive](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive)
-- [Chromium Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Install-Chromium)
+- [Chromium Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install)
 - [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview)
 - [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
 - [Python API](https://docs.archivebox.io/en/latest/modules.html)
