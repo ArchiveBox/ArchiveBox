@@ -48,7 +48,7 @@ def get_icons(snapshot: Snapshot) -> str:
             # The check for archive_org is different, so it has to be handled separately
             target_path = Path(path) / "archive.org.txt"
             exists = target_path.exists()
-            output += '<a href="{}" class="exists-{}" title="{}">{} </a>'.format(canon["archive_org_path"], str(exists),
+            output += '<a href="{}" class="exists-{}" title="{}">{}</a> '.format(canon["archive_org_path"], str(exists),
                                                                                         "archive_org", icons.get("archive_org", "?"))
 
-    return format_html(f'<span class="files-icons" style="font-size: 1.2em; opacity: 0.8">{output}<span>')
+    return format_html(f'<span class="files-icons" style="font-size: 1.1em; opacity: 0.8">{output}<span>')
