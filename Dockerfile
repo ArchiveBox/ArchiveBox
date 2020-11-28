@@ -7,7 +7,7 @@
 #     docker run -v "$PWD/data":/data -it archivebox manage createsuperuser
 #     docker run -v "$PWD/data":/data -p 8000:8000 archivebox server
 
-FROM python:3.8-slim-buster
+FROM python:3.9-slim-buster
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <archivebox-docker@sweeting.me>" \
@@ -52,7 +52,7 @@ RUN apt-get update -qq \
 
 # Install Node environment
 RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
-    && echo 'deb https://deb.nodesource.com/node_14.x buster main' >> /etc/apt/sources.list \
+    && echo 'deb https://deb.nodesource.com/node_15.x buster main' >> /etc/apt/sources.list \
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         nodejs \
@@ -62,7 +62,7 @@ RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add -
 WORKDIR "$NODE_DIR"
 ENV PATH="${PATH}:$NODE_DIR/node_modules/.bin" \
     npm_config_loglevel=error
-RUN npm install -g npm
+# RUN npm install -g npm
 ADD ./package.json ./package.json
 ADD ./package-lock.json ./package-lock.json
 RUN npm ci

@@ -16,6 +16,7 @@ cd "$REPO_DIR"
 
 # pipenv install --dev
 
+# the order matters
 ./bin/build_docs.sh
 ./bin/build_pip.sh
 ./bin/build_deb.sh
