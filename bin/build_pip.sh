@@ -18,7 +18,7 @@ cd "$REPO_DIR"
 
 echo "[*] Cleaning up build dirs"
 cd "$REPO_DIR"
-rm -Rf build dist archivebox.egg-info
+rm -Rf build dist
 
 echo "[+] Building sdist, bdist_wheel, and egg_info"
 python3 setup.py \
