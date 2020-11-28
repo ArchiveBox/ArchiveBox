@@ -17,7 +17,7 @@ jobs:
 
       - name: Build Homebrew Bottle
         run: |
-          pip3 install --uprade pip setuptools wheel
+          pip3 install --upgrade pip setuptools wheel
           cd brew_dist/
           brew install --build-bottle ./archivebox.rb
           brew bottle archivebox
