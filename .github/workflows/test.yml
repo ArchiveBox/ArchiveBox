@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          recursive: true
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v1
@@ -39,6 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
+          recursive: true
           fetch-depth: 1
 
       ### Setup Python & JS Languages
@@ -112,6 +116,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
+          recursive: true
           fetch-depth: 1
 
       # TODO: as of 2020-11 this helper layer broke, upgrade and re-enable this once it's usable again
