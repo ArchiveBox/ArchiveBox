@@ -1,3 +1,11 @@
+"""
+
+WARNING: THIS FILE IS ALL LEGACY CODE TO BE REMOVED.
+
+DO NOT ADD ANY NEW FEATURES TO THIS FILE, NEW CODE GOES HERE: core/models.py
+
+"""
+
 __package__ = 'archivebox.index'
 
 from pathlib import Path
