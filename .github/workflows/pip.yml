@@ -23,7 +23,7 @@ jobs:
 
       - name: Build Python Package
         run: |
-          pip3 install --uprade pip setuptools wheel
+          pip3 install --upgrade pip setuptools wheel
           python3 setup.py \
             sdist --dist-dir=./pip_dist \
             bdist_wheel --dist-dir=./pip_dist \
