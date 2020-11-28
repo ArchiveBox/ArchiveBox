@@ -42,8 +42,7 @@ def get_icons(snapshot: Snapshot) -> str:
         if extractor == "wget":
             # warc isn't technically it's own extractor, so we have to add it after wget
             exists = list((Path(path) / canon["warc_path"]).glob("*.warc.gz"))
-            if exists:
-                output += output_template.format(exists[0], "", str(bool(exists)), "warc", icons.get("warc", "?"))
+            output += output_template.format(exists[0] if exists else '#', canon["warc_path"], str(bool(exists)), "warc", icons.get("warc", "?"))
 
         if extractor == "archive_org":
             # The check for archive_org is different, so it has to be handled separately
