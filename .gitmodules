@@ -8,3 +8,6 @@
 [submodule "brew_dist"]
 	path = brew_dist
 	url = https://github.com/ArchiveBox/homebrew-archivebox.git
+[submodule "pip_dist"]
+	path = pip_dist
+	url = https://github.com/ArchiveBox/pip-archivebox.git

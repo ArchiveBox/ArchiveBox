@@ -60,10 +60,10 @@ git push origin --tags
 
 # Push releases to github
 echo "[^] Uploading to test.pypi.org"
-python3 -m twine upload --repository testpypi dist/*
+python3 -m twine upload --repository testpypi pip_dist/*.{whl,tar.gz}
 
 echo "[^] Uploading to pypi.org"
-python3 -m twine upload --repository pypi dist/*
+python3 -m twine upload --repository pypi pip_dist/*.{whl,tar.gz}
 
 echo "[^] Uploading to launchpad.net"
 dput archivebox "deb_dist/archivebox_${NEW_VERSION}-1_source.changes"
