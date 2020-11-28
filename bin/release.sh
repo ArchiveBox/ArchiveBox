@@ -48,6 +48,7 @@ echo "${contents}" > package.json
 # Push build to github
 echo "[^] Pushing source to github"
 git add "$REPO_DIR/docs"
+git add "$REPO_DIR/deb_dist"
 git add "$REPO_DIR/package.json"
 git add "$REPO_DIR/package-lock.json"
 git add "$REPO_DIR/archivebox.egg-info"
