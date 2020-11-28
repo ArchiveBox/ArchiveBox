@@ -114,7 +114,7 @@ class Snapshot(models.Model):
 
     @cached_property
     def num_outputs(self):
-        return self.as_link().num_outputs
+        return self.archiveresult_set.filter(status='succeeded').count()
 
     @cached_property
     def url_hash(self):
@@ -138,6 +138,7 @@ class Snapshot(models.Model):
 
     @cached_property
     def history(self):
+        # TODO: use ArchiveResult for this instead of json
         from ..index import load_link_details
         return load_link_details(self.as_link()).history
 
