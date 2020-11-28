@@ -19,7 +19,9 @@ from ..config import (
     OUTPUT_DIR,
     PUBLIC_INDEX,
     PUBLIC_SNAPSHOTS,
-    PUBLIC_ADD_VIEW
+    PUBLIC_ADD_VIEW,
+    VERSION,
+    FOOTER_INFO,
 )
 from main import add
 from ..util import base_url, ansi_to_html
@@ -92,6 +94,13 @@ class PublicArchiveView(ListView):
     template = 'snapshot_list.html'
     model = Snapshot
     paginate_by = 100
+
+    def get_context_data(self, **kwargs):
+        return {
+            **super().get_context_data(**kwargs),
+            'VERSION': VERSION,
+            'FOOTER_INFO': FOOTER_INFO,
+        }
 
     def get_queryset(self, **kwargs): 
         qs = super().get_queryset(**kwargs) 
