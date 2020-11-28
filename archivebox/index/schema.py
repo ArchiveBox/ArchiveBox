@@ -207,6 +207,10 @@ class Link:
             })
         return info
 
+    def as_snapshot(self):
+        from core.models import Snapshot
+        return Snapshot.objects.get(url=self.url)
+
     @classmethod
     def from_json(cls, json_info, guess=False):
         from ..util import parse_date
@@ -339,7 +343,7 @@ class Link:
     ### Archive Status Helpers
     @property
     def num_outputs(self) -> int:
-        return len(tuple(filter(None, self.latest_outputs().values())))
+        return self.as_snapshot().num_outputs
 
     @property
     def num_failures(self) -> int:

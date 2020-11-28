@@ -135,12 +135,15 @@ class AddView(UserPassesTestMixin, FormView):
     def test_func(self):
         return PUBLIC_ADD_VIEW or self.request.user.is_authenticated
 
-    def get_context_data(self, *args, **kwargs):
-        context = super().get_context_data(*args, **kwargs)
-        context["title"] = "Add URLs"
-        # We can't just call request.build_absolute_uri in the template, because it would include query parameters
-        context["absolute_add_path"] = self.request.build_absolute_uri(self.request.path)
-        return context
+    def get_context_data(self, **kwargs):
+        return {
+            **super().get_context_data(**kwargs),
+            'title': "Add URLs",
+            # We can't just call request.build_absolute_uri in the template, because it would include query parameters
+            'absolute_add_path': self.request.build_absolute_uri(self.request.path),
+            'VERSION': VERSION,
+            'FOOTER_INFO': FOOTER_INFO,
+        }
 
     def form_valid(self, form):
         url = form.cleaned_data["url"]
