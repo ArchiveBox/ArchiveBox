@@ -15,15 +15,9 @@ jobs:
           submodules: true
           fetch-depth: 1
 
-      - name: Set up Python
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.9
-          architecture: x64
-
       - name: Build Debian/Apt package
         run: |
-          sudo apt install -y debhelper dh-python python3-setuptools python3-all python3-wheel python3-stdeb
+          sudo apt install -y debhelper dh-python python3-all stdeb
           pip install --upgrade pip setuptools wheel stdeb
           ./bin/build_deb.sh
 
