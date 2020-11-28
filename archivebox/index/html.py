@@ -8,8 +8,6 @@ from pathlib import Path
 from django.utils.html import format_html
 from collections import defaultdict
 
-from pathlib import Path
-
 from .schema import Link
 from ..system import atomic_write
 from ..logging_util import printable_filesize
@@ -150,7 +148,7 @@ def render_legacy_template(template_path: str, context: Mapping[str, str]) -> st
 
 
 def snapshot_icons(snapshot) -> str:
-    from core.models import Snapshot, EXTRACTORS
+    from core.models import EXTRACTORS
 
     archive_results = snapshot.archiveresult_set.filter(status="succeeded")
     link = snapshot.as_link()
