@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          recursive: true
+          submodules: true
           fetch-depth: 1
 
       ### Setup Python & JS Languages

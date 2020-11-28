@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          recursive: true
+          submodules: true
           fetch-depth: 1
 
       # TODO: as of 2020-11 this helper layer broke, upgrade and re-enable this once it's usable again
@@ -74,7 +74,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
-          recursive: true
+          submodules: true
           fetch-depth: 1
 
       - name: Set up QEMU
