@@ -17,7 +17,7 @@ jobs:
 
       - name: Build Debian/Apt package
         run: |
-          sudo apt install -y debhelper dh-python python3-all stdeb
+          sudo apt install -y debhelper dh-python python3-all
           pip install --upgrade pip setuptools wheel stdeb
           ./bin/build_deb.sh
 
