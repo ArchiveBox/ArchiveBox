@@ -30,6 +30,8 @@ PGP_KEY_ID="7D5695D3B618872647861D51C38137A7C1675988"
 # cleanup build artifacts
 rm -Rf build deb_dist dist archivebox-*.tar.gz
 
+# make sure the stdeb.cfg file is up-to-date with all the dependencies
+
 # build source and binary packages
 python3 setup.py --command-packages=stdeb.command \
     sdist_dsc --debian-version=$DEBIAN_VERSION \

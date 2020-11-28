@@ -12,17 +12,10 @@ IFS=$'\n'
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 
-cd "$REPO_DIR"
+source "$REPO_DIR/.venv/bin/activate"
+cd "$REPO_DIR/brew_dist"
 
-# pipenv install --dev
 
-./bin/build_docs.sh
-./bin/build_pip.sh
-./bin/build_deb.sh
-./bin/build_brew.sh
-./bin/build_docker.sh
-
-echo "[√] Done. Install the built package by running:"
-echo "    python3 setup.py install"
-echo "    # or"
-echo "    pip3 install ."
+echo "[+] Building bottle"
+brew install --build-bottle ./archivebox.rb
+brew bottle archivebox
