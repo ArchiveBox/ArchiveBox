@@ -11,3 +11,6 @@
 [submodule "pip_dist"]
 	path = pip_dist
 	url = https://github.com/ArchiveBox/pip-archivebox.git
+[submodule "docker"]
+	path = docker
+	url = https://github.com/ArchiveBox/docker-archivebox.git
