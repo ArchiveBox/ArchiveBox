@@ -70,8 +70,9 @@ jobs:
 
       - name: Install pip dependencies
         run: |
-          python -m pip install pytest bottle wheel setuptools
-          python -m pip install -e .
+          python -m pip install --upgrade pip setuptools wheel pytest bottle
+          ./bin/build_pip.sh
+          python -m pip install .
 
       - name: Get npm cache dir
         id: npm-cache
