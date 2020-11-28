@@ -1,0 +1,33 @@
+name: Homebrew
+
+on:
+  workflow_dispatch:
+  push:
+
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          recursive: true
+          fetch-depth: 1
+
+      - name: Build Homebrew Bottle
+        run: |
+          pip3 install --uprade pip setuptools wheel
+          cd brew_dist/
+          brew install --build-bottle ./archivebox.rb
+          brew bottle archivebox
+
+      - name: Add some links to test
+        run: |
+          mkdir data && cd data
+          archivebox init
+          archivebox add 'https://example.com'
+          archivebox version
+          archivebox status
+
+      # TODO: push bottle to Github and open homebrew core PR with latest changes

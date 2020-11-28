@@ -1,0 +1,45 @@
+name: Debian
+
+on:
+  workflow_dispatch:
+  push:
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          recursive: true
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.9
+          architecture: x64
+
+      - name: Build Debian/Apt package
+        run: |
+          sudo apt install -y dh-python
+          pip install --upgrade pip setuptools wheel stdeb
+          ./bin/build_deb.sh
+
+      - name: Install archivebox from deb
+        run: |
+          apt install deb_dist/archivebox*.deb
+
+      - name: Add some links to test
+        run: |
+          mkdir data && cd data
+          archivebox init
+          archivebox add 'https://example.com'
+          archivebox version
+          archivebox status
+
+      # TODO: push debian package to launchpad PPA
+      # - name: Push to launchpad
+      #   run: |
+      #     dput archivebox "deb_dist/archivebox_${VERSION}-${DEBIAN_VERSION}_source.changes"

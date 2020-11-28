@@ -1,0 +1,41 @@
+name: Pip
+
+on:
+  workflow_dispatch:
+  push:
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          recursive: true
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.9
+          architecture: x64
+
+      - name: Build Python Package
+        run: |
+          pip3 install --uprade pip setuptools wheel
+          python3 setup.py \
+            sdist --dist-dir=./pip_dist \
+            bdist_wheel --dist-dir=./pip_dist \
+            egg_info --egg-base=./pip_dist
+          pip install pip_dist/archivebox-*.whl
+
+      - name: Add some links to test
+        run: |
+          mkdir data && cd data
+          archivebox init
+          archivebox add 'https://example.com'
+          archivebox version
+          archivebox status
+
+      # TODO: push to PyPI with twine

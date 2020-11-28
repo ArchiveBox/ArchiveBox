@@ -1,5 +1,8 @@
-name: 'Lint'
-on: [push]
+name: Lint
+
+on:
+  workflow_dispatch:
+  push:
 
 env:
   MAX_LINE_LENGTH: 110
@@ -16,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v1
         with:
-          python-version: 3.8
+          python-version: 3.9
           architecture: x64
 
       - name: Install flake8
