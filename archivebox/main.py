@@ -111,6 +111,7 @@ from .logging_util import (
 
 
 ALLOWED_IN_OUTPUT_DIR = {
+    'lost+found',
     '.DS_Store',
     '.venv',
     'venv',
