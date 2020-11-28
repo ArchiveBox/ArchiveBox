@@ -59,6 +59,7 @@ from .index.sql import (
 from .index.html import (
     generate_index_from_links,
 )
+from .index.csv import links_to_csv
 from .extractors import archive_links, archive_link, ignore_methods
 from .config import (
     stderr,
@@ -770,7 +771,6 @@ def list_all(filter_patterns_str: Optional[str]=None,
     elif html:
         output = generate_index_from_links(folders.values(), with_headers)
     elif csv:
-        from .index.csv import links_to_csv
         output = links_to_csv(folders.values(), cols=csv.split(','), header=with_headers)
     else:
         output = printable_folders(folders, with_headers=with_headers)

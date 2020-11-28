@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Optional, Iterator, Any, Union
 
-from .schema import Link, ArchiveResult
+from .schema import Link
 from ..system import atomic_write
 from ..util import enforce_types
 from ..config import (
