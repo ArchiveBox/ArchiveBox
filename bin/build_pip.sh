@@ -12,7 +12,7 @@ IFS=$'\n'
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 
-source "$REPO_DIR/.venv/bin/activate"
+source "$REPO_DIR/.venv/bin/activate" || true
 cd "$REPO_DIR"
 
 
