@@ -3,6 +3,7 @@ __package__ = 'archivebox'
 import os
 import sys
 import shutil
+import platform
 from pathlib import Path
 from datetime import date
 
@@ -111,6 +112,7 @@ from .logging_util import (
 
 
 ALLOWED_IN_OUTPUT_DIR = {
+    'lost+found',
     '.DS_Store',
     '.venv',
     'venv',
@@ -178,7 +180,7 @@ def help(out_dir: Path=OUTPUT_DIR) -> None:
     archivebox update --resume=15109948213.123
 
 {lightred}Documentation:{reset}
-    https://github.com/pirate/ArchiveBox/wiki
+    https://github.com/ArchiveBox/ArchiveBox/wiki
 '''.format(VERSION, out_dir, COMMANDS_HELP_TEXT, **ANSI))
     
     else:
@@ -197,7 +199,7 @@ def help(out_dir: Path=OUTPUT_DIR) -> None:
         print('    2. archivebox init')
         print()
         print('For more information, see the documentation here:')
-        print('    https://github.com/pirate/ArchiveBox/wiki')
+        print('    https://github.com/ArchiveBox/ArchiveBox/wiki')
 
 
 @enforce_types
@@ -209,6 +211,8 @@ def version(quiet: bool=False,
         print(VERSION)
     else:
         print('ArchiveBox v{}'.format(VERSION))
+        p = platform.uname()
+        print(p.system, platform.platform(), p.machine)
         print()
 
         print('{white}[i] Dependency versions:{reset}'.format(**ANSI))
@@ -525,10 +529,13 @@ def add(urls: Union[str, List[str]],
         index_only: bool=False,
         overwrite: bool=False,
         init: bool=False,
-        out_dir: Path=OUTPUT_DIR) -> List[Link]:
+        out_dir: Path=OUTPUT_DIR,
+        extractors: str="") -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
+
+    extractors = extractors.split(",") if extractors else []
 
     if init:
         run_subcommand('init', stdin=None, pwd=out_dir)
@@ -567,12 +574,17 @@ def add(urls: Union[str, List[str]],
         return all_links
 
     # Run the archive methods for each link
+    archive_kwargs = {
+        "out_dir": out_dir,
+    }
+    if extractors:
+        archive_kwargs["methods"] = extractors
     if update_all:
-        archive_links(all_links, overwrite=overwrite, out_dir=out_dir)
+        archive_links(all_links, overwrite=overwrite, **archive_kwargs)
     elif overwrite:
-        archive_links(imported_links, overwrite=True, out_dir=out_dir)
+        archive_links(imported_links, overwrite=True, **archive_kwargs)
     elif new_links:
-        archive_links(new_links, overwrite=False, out_dir=out_dir)
+        archive_links(new_links, overwrite=False, **archive_kwargs)
     
     return all_links
 
@@ -857,7 +869,7 @@ def config(config_options_str: Optional[str]=None,
                 stderr(f'    {line}')
                 raise SystemExit(2)
 
-            raw_key, val = line.split('=')
+            raw_key, val = line.split('=', 1)
             raw_key = raw_key.upper().strip()
             key = get_real_name(raw_key)
             if key != raw_key:
@@ -930,7 +942,7 @@ def schedule(add: bool=False,
 
     if every or add:
         every = every or 'day'
-        quoted = lambda s: f'"{s}"' if s and ' ' in s else s
+        quoted = lambda s: f'"{s}"' if s and ' ' in str(s) else str(s)
         cmd = [
             'cd',
             quoted(out_dir),

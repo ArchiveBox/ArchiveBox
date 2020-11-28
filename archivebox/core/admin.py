@@ -86,7 +86,7 @@ class SnapshotAdmin(admin.ModelAdmin):
     list_display = ('added', 'title_str', 'url_str', 'files', 'size')
     sort_fields = ('title_str', 'url_str', 'added')
     readonly_fields = ('id', 'url', 'timestamp', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
-    search_fields = ('url', 'timestamp', 'title', 'tags')
+    search_fields = ['url', 'timestamp', 'title', 'tags__name']
     fields = (*readonly_fields, 'title', 'tags')
     list_filter = ('added', 'updated', 'tags')
     ordering = ['-added']

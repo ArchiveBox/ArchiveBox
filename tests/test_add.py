@@ -82,3 +82,12 @@ def test_add_updates_history_json_index(tmp_path, process, disable_extractors_di
     with open(archived_item_path / "index.json", "r") as f:
         output_json = json.load(f)
     assert output_json["history"] != {}
+
+def test_extract_input_uses_only_passed_extractors(tmp_path, process):
+    subprocess.run(["archivebox", "add", "http://127.0.0.1:8080/static/example.com.html", "--extract", "wget"],
+                    capture_output=True)
+    
+    archived_item_path = list(tmp_path.glob('archive/**/*'))[0]
+
+    assert (archived_item_path / "warc").exists()
+    assert not (archived_item_path / "singlefile.html").exists()

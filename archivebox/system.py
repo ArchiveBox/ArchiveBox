@@ -39,11 +39,17 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
     mode = 'wb+' if isinstance(contents, bytes) else 'w'
 
     # print('\n> Atomic Write:', mode, path, len(contents), f'overwrite={overwrite}')
-    with lib_atomic_write(path, mode=mode, overwrite=overwrite) as f:
-        if isinstance(contents, dict):
-            dump(contents, f, indent=4, sort_keys=True, cls=ExtendedEncoder)
-        elif isinstance(contents, (bytes, str)):
-            f.write(contents)
+    try:
+        with lib_atomic_write(path, mode=mode, overwrite=overwrite) as f:
+            if isinstance(contents, dict):
+                dump(contents, f, indent=4, sort_keys=True, cls=ExtendedEncoder)
+            elif isinstance(contents, (bytes, str)):
+                f.write(contents)
+    except OSError as e:
+        print(f"[X] OSError: Failed to write {path} with fcntl.F_FULLFSYNC. ({e})")
+        print("    For data integrity, ArchiveBox requires a filesystem that supports atomic writes.")
+        print("    Filesystems and network drives that don't implement FSYNC are incompatible and require workarounds.")
+        raise SystemExit(1)
     os.chmod(path, int(OUTPUT_PERMISSIONS, base=8))
 
 @enforce_types

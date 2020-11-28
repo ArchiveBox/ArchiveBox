@@ -62,9 +62,16 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help="Re-archive URLs from scratch, overwriting any existing files"
     )
     parser.add_argument(
-        '--init', #'-i',
+        "--init", #'-i',
         action='store_true',
         help="Init/upgrade the curent data directory before adding",
+    )
+    parser.add_argument(
+        "--extract",
+        type=str,
+        help="Pass a list of the extractors to be used. If the method name is not correct, it will be ignored. \
+              This does not take precedence over the configuration",
+        default=""
     )
     command = parser.parse_args(args or ())
     urls = command.urls
@@ -83,6 +90,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         overwrite=command.overwrite,
         init=command.init,
         out_dir=pwd or OUTPUT_DIR,
+        extractors=command.extract,
     )
 
 

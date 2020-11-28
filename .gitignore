@@ -4,13 +4,21 @@
 __pycache__/
 .mypy_cache/
 
+# Python and Node dependencies
 venv/
 .venv/
 .docker-venv/
-
-build/
-dist/
 node_modules/
 
+# Packaging artifacts
+archivebox-*.tar.gz
+build/
+deb_dist/
+dist/
+
+# Data folders
 data/
+data1/
+data2/
+data3/
 output/

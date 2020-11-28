@@ -1,4 +1,4 @@
-name: Test workflow
+name: 'Lint, Test, and Build'
 on: [push]
 
 env:
@@ -113,7 +113,8 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: satackey/action-docker-layer-caching@v0.0.8
+      # TODO: as of 2020-11 this helper layer broke, upgrade and re-enable this once it's usable again
+      # - uses: satackey/action-docker-layer-caching@v0.0.8
 
       - name: Build image
         run: |

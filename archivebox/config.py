@@ -36,7 +36,7 @@ from .config_stubs import (
 # 
 
 # ******************************************************************************
-# Documentation: https://github.com/pirate/ArchiveBox/wiki/Configuration
+# Documentation: https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration
 # Use the 'env' command to pass config options to ArchiveBox.  e.g.:
 #     env USE_COLOR=True CHROME_BINARY=chromium archivebox add < example.html
 # ******************************************************************************
@@ -98,8 +98,8 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com'},
         'CHECK_SSL_VALIDITY':       {'type': bool,  'default': True},
 
-        'CURL_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/pirate/ArchiveBox/) curl/{CURL_VERSION}'},
-        'WGET_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/pirate/ArchiveBox/) wget/{WGET_VERSION}'},
+        'CURL_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) curl/{CURL_VERSION}'},
+        'WGET_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) wget/{WGET_VERSION}'},
         'CHROME_USER_AGENT':        {'type': str,   'default': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36'},
 
         'COOKIES_FILE':             {'type': str,   'default': None},
@@ -157,6 +157,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'READABILITY_BINARY':       {'type': str,   'default': 'readability-extractor'},
         'MERCURY_BINARY':           {'type': str,   'default': 'mercury-parser'},
         'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
+        'NODE_BINARY':              {'type': str,   'default': 'node'},
         'CHROME_BINARY':            {'type': str,   'default': None},
     },
 }
@@ -248,7 +249,7 @@ CONFIG_HEADER = (
 #    archivebox init
 #
 # A list of all possible config with documentation and examples can be found here:
-#    https://github.com/pirate/ArchiveBox/wiki/Configuration
+#    https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration
 
 """)
 
@@ -296,6 +297,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'SAVE_WARC':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WARC']},
     'WGET_ARGS':                {'default': lambda c: c['WGET_ARGS'] or []},
 
+
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
 
@@ -318,6 +320,8 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] if c['CHROME_BINARY'] else find_chrome_binary()},
     'CHROME_VERSION':           {'default': lambda c: bin_version(c['CHROME_BINARY']) if c['USE_CHROME'] else None},
     'USE_NODE':                 {'default': lambda c: c['USE_NODE'] and (c['SAVE_READABILITY'] or c['SAVE_SINGLEFILE'])},
+    'NODE_VERSION':             {'default': lambda c: bin_version(c['NODE_BINARY']) if c['USE_NODE'] else None},
+    
     'SAVE_PDF':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_PDF']},
     'SAVE_SCREENSHOT':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SCREENSHOT']},
     'SAVE_DOM':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_DOM']},
@@ -505,7 +509,7 @@ def load_config(defaults: ConfigDefaultDict,
             stderr('    Check your config for mistakes and try again (your archive data is unaffected).')
             stderr()
             stderr('    For config documentation and examples see:')
-            stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration')
+            stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration')
             stderr()
             raise
             raise SystemExit(2)
@@ -565,7 +569,7 @@ def bin_version(binary: Optional[str]) -> Optional[str]:
         # stderr(f'        {binary} --version')
         # stderr()
         # stderr('    If you don\'t want to install it, you can disable it via config. See here for more info:')
-        # stderr('        https://github.com/pirate/ArchiveBox/wiki/Install')
+        # stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Install')
     return None
 
 def bin_path(binary: Optional[str]) -> Optional[str]:
@@ -643,12 +647,15 @@ def find_chrome_data_dir() -> Optional[str]:
     return None
 
 def wget_supports_compression(config):
-    cmd = [
-        config['WGET_BINARY'],
-        "--compression=auto",
-        "--help",
-    ]
-    return not run(cmd, stdout=DEVNULL, stderr=DEVNULL).returncode
+    try:
+        cmd = [
+            config['WGET_BINARY'],
+            "--compression=auto",
+            "--help",
+        ]
+        return not run(cmd, stdout=DEVNULL, stderr=DEVNULL).returncode
+    except (FileNotFoundError, OSError):
+        return False
 
 def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
     return {
@@ -662,6 +669,11 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
             'enabled': True,
             'is_valid': (config['TEMPLATES_DIR'] / 'static').exists(),
         },
+        # 'NODE_MODULES_DIR': {
+        #     'path': ,
+        #     'enabled': ,
+        #     'is_valid': (...).exists(),
+        # },
     }
 
 def get_external_locations(config: ConfigDict) -> ConfigValue:
@@ -715,6 +727,13 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
 
 def get_dependency_info(config: ConfigDict) -> ConfigValue:
     return {
+        'ARCHIVEBOX_BINARY': {
+            'path': bin_path(config['ARCHIVEBOX_BINARY']),
+            'version': config['VERSION'],
+            'hash': bin_hash(config['ARCHIVEBOX_BINARY']),
+            'enabled': True,
+            'is_valid': True,
+        },
         'PYTHON_BINARY': {
             'path': bin_path(config['PYTHON_BINARY']),
             'version': config['PYTHON_VERSION'],
@@ -742,6 +761,13 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'hash': bin_hash(config['WGET_BINARY']),
             'enabled': config['USE_WGET'],
             'is_valid': bool(config['WGET_VERSION']),
+        },
+        'NODE_BINARY': {
+            'path': bin_path(config['NODE_BINARY']),
+            'version': config['NODE_VERSION'],
+            'hash': bin_hash(config['NODE_BINARY']),
+            'enabled': config['USE_NODE'],
+            'is_valid': bool(config['SINGLEFILE_VERSION']),
         },
         'SINGLEFILE_BINARY': {
             'path': bin_path(config['SINGLEFILE_BINARY']),
@@ -828,13 +854,13 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
     if config['USER'] == 'root':
         stderr('[!] ArchiveBox should never be run as root!', color='red')
         stderr('    For more information, see the security overview documentation:')
-        stderr('        https://github.com/pirate/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
+        stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
         raise SystemExit(2)
 
     ### Check Python environment
     if sys.version_info[:3] < (3, 6, 0):
         stderr(f'[X] Python version is not new enough: {config["PYTHON_VERSION"]} (>3.6 is required)', color='red')
-        stderr('    See https://github.com/pirate/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
+        stderr('    See https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
         raise SystemExit(2)
 
     if config['PYTHON_ENCODING'] not in ('UTF-8', 'UTF8'):
@@ -854,7 +880,7 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
             stderr(f'    {config["CHROME_USER_DATA_DIR"]}')
             stderr('    Make sure you set it to a Chrome user data directory containing a Default profile folder.')
             stderr('    For more info see:')
-            stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#CHROME_USER_DATA_DIR')
+            stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#CHROME_USER_DATA_DIR')
             if '/Default' in str(config['CHROME_USER_DATA_DIR']):
                 stderr()
                 stderr('    Try removing /Default from the end e.g.:')
@@ -878,7 +904,7 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
                 )
             )
             if dependency in ('SINGLEFILE_BINARY', 'READABILITY_BINARY', 'MERCURY_BINARY'):
-                hint(('npm install --prefix . "git+https://github.com/pirate/ArchiveBox.git"',
+                hint(('npm install --prefix . "git+https://github.com/ArchiveBox/ArchiveBox.git"',
                     f'or archivebox config --set SAVE_{dependency.rsplit("_", 1)[0]}=False to silence this warning',
                     ''), prefix='      ')
         stderr('')
@@ -889,7 +915,7 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
         stderr('    (Setting it to somewhere between 30 and 3000 seconds is recommended)')
         stderr()
         stderr('    If you want to make ArchiveBox run faster, disable specific archive methods instead:')
-        stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles')
+        stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles')
         stderr()
 
     elif config['USE_CHROME'] and config['TIMEOUT'] < 15:
@@ -898,7 +924,7 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
         stderr('    (Setting it to somewhere between 30 and 300 seconds is recommended)')
         stderr()
         stderr('    If you want to make ArchiveBox run faster, disable specific archive methods instead:')
-        stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#archive-method-toggles')
+        stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles')
         stderr()
 
     if config['USE_YOUTUBEDL'] and config['MEDIA_TIMEOUT'] < 20:
@@ -907,7 +933,7 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
         stderr('    (Setting it somewhere over 60 seconds is recommended)')
         stderr()
         stderr('    If you want to disable media archiving entirely, set SAVE_MEDIA=False instead:')
-        stderr('        https://github.com/pirate/ArchiveBox/wiki/Configuration#save_media')
+        stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#save_media')
         stderr()
         
 def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) -> None:

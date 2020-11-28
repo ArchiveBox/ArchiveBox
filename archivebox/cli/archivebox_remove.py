@@ -50,7 +50,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     parser.add_argument(
         '--filter-type',
         type=str,
-        choices=('exact', 'substring', 'domain', 'regex'),
+        choices=('exact', 'substring', 'domain', 'regex','tag'),
         default='exact',
         help='Type of pattern matching to use when filtering URLs',
     )

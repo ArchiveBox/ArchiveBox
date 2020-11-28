@@ -14,8 +14,11 @@ REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && p
 
 cd "$REPO_DIR"
 
+# pipenv install --dev
+
 ./bin/build_docs.sh
 ./bin/build_pip.sh
+./bin/build_deb.sh
 ./bin/build_docker.sh
 
 echo "[√] Done. Install the built package by running:"

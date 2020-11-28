@@ -9,7 +9,7 @@ DESCRIPTION = "The self-hosted internet archive."
 LICENSE = "MIT"
 AUTHOR = "Nick Sweeting"
 AUTHOR_EMAIL="git@nicksweeting.com"
-REPO_URL = "https://github.com/pirate/ArchiveBox"
+REPO_URL = "https://github.com/ArchiveBox/ArchiveBox"
 PROJECT_URLS = {
     "Source":           f"{REPO_URL}",
     "Documentation":    f"{REPO_URL}/wiki",
@@ -51,10 +51,8 @@ setuptools.setup(
         "requests==2.24.0",
         "atomicwrites==1.4.0",
         "mypy-extensions==0.4.3",
-        "base32-crockford==0.3.0",
         "django==3.1.3",
         "django-extensions==3.0.3",
-
         "dateparser",
         "ipython",
         "youtube-dl",
@@ -80,6 +78,7 @@ setuptools.setup(
             "recommonmark",
             "pytest",
             "bottle",
+            "stdeb",
         ],
         # 'redis': ['redis', 'django-redis'],
         # 'pywb': ['pywb', 'redis'],
