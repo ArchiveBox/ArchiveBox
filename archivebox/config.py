@@ -936,7 +936,7 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
         stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#save_media')
         stderr()
         
-def check_data_folder(out_dir: Optional[str]=None, config: ConfigDict=CONFIG) -> None:
+def check_data_folder(out_dir: Union[str, Path, None]=None, config: ConfigDict=CONFIG) -> None:
     output_dir = out_dir or config['OUTPUT_DIR']
     assert isinstance(output_dir, (str, Path))
 
