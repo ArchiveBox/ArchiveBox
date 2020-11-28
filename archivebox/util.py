@@ -246,6 +246,7 @@ def chrome_args(**options) -> List[str]:
     
     return cmd_args
 
+
 def ansi_to_html(text):
     """
     Based on: https://stackoverflow.com/questions/19212665/python-converting-ansi-color-codes-to-html

@@ -13,8 +13,8 @@ from django import forms
 
 from core.models import Snapshot, Tag
 from core.forms import AddLinkForm, TagField
-from core.utils import get_icons
 
+from index.html import snapshot_icons
 from util import htmldecode, urldecode, ansi_to_html
 from logging_util import printable_filesize
 from main import add, remove
@@ -128,7 +128,7 @@ class SnapshotAdmin(admin.ModelAdmin):
         ) + mark_safe(f' <span class="tags">{tags}</span>')
 
     def files(self, obj):
-        return get_icons(obj)
+        return snapshot_icons(obj)
 
     def size(self, obj):
         archive_size = obj.archive_size

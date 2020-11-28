@@ -12,7 +12,6 @@ from django.views.generic import FormView
 from django.contrib.auth.mixins import UserPassesTestMixin
 
 from core.models import Snapshot
-from core.utils import get_icons
 from core.forms import AddLinkForm
 
 from ..config import (
@@ -25,6 +24,7 @@ from ..config import (
 )
 from main import add
 from ..util import base_url, ansi_to_html
+from ..index.html import snapshot_icons
 
 
 class MainIndex(View):
@@ -108,7 +108,7 @@ class PublicArchiveView(ListView):
         if query:
             qs = Snapshot.objects.filter(title__icontains=query)
         for snapshot in qs:
-            snapshot.icons = get_icons(snapshot) 
+            snapshot.icons = snapshot_icons(snapshot)
         return qs
 
     def get(self, *args, **kwargs):
