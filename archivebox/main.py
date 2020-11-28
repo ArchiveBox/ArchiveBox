@@ -49,11 +49,15 @@ from .index import (
 from .index.json import (
     parse_json_main_index,
     parse_json_links_details,
+    generate_json_index_from_links,
 )
 from .index.sql import (
     get_admins,
     apply_migrations,
     remove_from_sql_main_index,
+)
+from .index.html import (
+    generate_index_from_links,
 )
 from .extractors import archive_links, archive_link, ignore_methods
 from .config import (
@@ -745,7 +749,6 @@ def list_all(filter_patterns_str: Optional[str]=None,
     elif filter_patterns_str:
         filter_patterns = filter_patterns_str.split('\n')
 
-
     snapshots = list_links(
         filter_patterns=filter_patterns,
         filter_type=filter_type,
@@ -761,8 +764,17 @@ def list_all(filter_patterns_str: Optional[str]=None,
         status=status,
         out_dir=out_dir,
     )
-    
-    print(printable_folders(folders, json=json, csv=csv, html=html, with_headers=with_headers))
+
+    if json: 
+        output = generate_json_index_from_links(folders.values(), with_headers)
+    elif html:
+        output = generate_index_from_links(folders.values(), with_headers)
+    elif csv:
+        from .index.csv import links_to_csv
+        output = links_to_csv(folders.values(), cols=csv.split(','), header=with_headers)
+    else:
+        output = printable_folders(folders, with_headers=with_headers)
+    print(output)
     return folders
 
 

@@ -39,7 +39,20 @@ MAIN_INDEX_HEADER = {
     },
 }
 
-### Main Links Index
+@enforce_types
+def generate_json_index_from_links(links: List[Link], with_headers: bool):
+    if with_headers:
+        output = {
+            **MAIN_INDEX_HEADER,
+            'num_links': len(links),
+            'updated': datetime.now(),
+            'last_run_cmd': sys.argv,
+            'links': links,
+        }
+    else:
+        output = links
+    return to_json(output, indent=4, sort_keys=True)
+
 
 @enforce_types
 def parse_json_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[Link]:
