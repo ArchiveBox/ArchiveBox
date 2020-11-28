@@ -151,7 +151,7 @@ class Snapshot(models.Model):
             return self.history['title'][-1].output.strip()
         return None
 
-    def save_tags(self, tags=[]):
+    def save_tags(self, tags=()):
         tags_id = []
         for tag in tags:
             tags_id.append(Tag.objects.get_or_create(name=tag)[0].id)
