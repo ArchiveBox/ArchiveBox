@@ -3,6 +3,7 @@ __package__ = 'archivebox'
 import os
 import sys
 import shutil
+import platform
 from pathlib import Path
 from datetime import date
 
@@ -210,6 +211,8 @@ def version(quiet: bool=False,
         print(VERSION)
     else:
         print('ArchiveBox v{}'.format(VERSION))
+        p = platform.uname()
+        print(p.system, p.release, p.machine)
         print()
 
         print('{white}[i] Dependency versions:{reset}'.format(**ANSI))
