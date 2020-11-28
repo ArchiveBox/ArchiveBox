@@ -1,6 +1,6 @@
 [submodule "docs"]
-	path = docs
-	url = https://github.com/ArchiveBox/ArchiveBox.wiki.git
+    path = docs
+    url = https://github.com/ArchiveBox/ArchiveBox.wiki.git
 
 [submodule "deb_dist"]
     path = deb_dist
