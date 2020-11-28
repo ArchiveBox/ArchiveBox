@@ -478,9 +478,6 @@ def printable_filesize(num_bytes: Union[int, float]) -> str:
 @enforce_types
 def printable_folders(folders: Dict[str, Optional["Link"]],
                       with_headers: bool=False) -> str:
-    
-
-    links = folders.values()
     return '\n'.join(
         f'{folder} {link and link.url} "{link and link.title}"'
         for folder, link in folders.items()
