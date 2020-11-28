@@ -376,7 +376,7 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
         print('        archivebox list --status=invalid')
 
 
-    write_main_index(list(pending_links.values()), out_dir=out_dir, finished=True)
+    write_main_index(list(pending_links.values()), out_dir=out_dir)
 
     print('\n{green}------------------------------------------------------------------{reset}'.format(**ANSI))
     if existing_index:
@@ -565,7 +565,7 @@ def add(urls: Union[str, List[str]],
     imported_links = list({link.url: link for link in (new_links + new_links_depth)}.values())
     new_links = dedupe_links(all_links, imported_links)
 
-    write_main_index(links=new_links, out_dir=out_dir, finished=not new_links)
+    write_main_index(links=new_links, out_dir=out_dir)
     all_links = load_main_index(out_dir=out_dir)
 
     if index_only:
@@ -583,7 +583,7 @@ def add(urls: Union[str, List[str]],
         archive_links(imported_links, overwrite=True, **archive_kwargs)
     elif new_links:
         archive_links(new_links, overwrite=False, **archive_kwargs)
-    
+
     return all_links
 
 @enforce_types

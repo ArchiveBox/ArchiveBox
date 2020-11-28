@@ -221,7 +221,7 @@ def timed_index_update(out_path: Path):
 
 
 @enforce_types
-def write_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR, finished: bool=False) -> None:
+def write_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
     """Writes links to sqlite3 file for a given list of links"""
 
     log_indexing_process_started(len(links))

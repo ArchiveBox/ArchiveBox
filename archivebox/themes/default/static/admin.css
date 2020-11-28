@@ -91,6 +91,7 @@ body.model-snapshot.change-list #content .object-tools {
     padding: 0px;
     background: none;
     margin-right: 0px;
+    width: auto;
 }
 
 #content #changelist .actions .button {

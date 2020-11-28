@@ -49,27 +49,15 @@ def parse_html_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[str]:
                     yield line.split('"')[1]
     return ()
 
-@enforce_types
-def write_html_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR, finished: bool=False) -> None:
-    """write the html link index to a given path"""
-
-    copy_and_overwrite(str(Path(TEMPLATES_DIR) / FAVICON_FILENAME), str(out_dir / FAVICON_FILENAME))
-    copy_and_overwrite(str(Path(TEMPLATES_DIR) / ROBOTS_TXT_FILENAME), str(out_dir / ROBOTS_TXT_FILENAME))
-    copy_and_overwrite(str(Path(TEMPLATES_DIR) / STATIC_DIR_NAME), str(out_dir / STATIC_DIR_NAME))
-    
-    rendered_html = main_index_template(links, finished=finished)
-    atomic_write(str(out_dir / HTML_INDEX_FILENAME), rendered_html)
-
 
 @enforce_types
-def main_index_template(links: List[Link], finished: bool=True, template: str=MAIN_INDEX_TEMPLATE) -> str:
+def main_index_template(links: List[Link], template: str=MAIN_INDEX_TEMPLATE) -> str:
     """render the template for the entire main index"""
 
     return render_legacy_template(template, {
         'version': VERSION,
         'git_sha': GIT_SHA,
         'num_links': str(len(links)),
-        'status': 'finished' if finished else 'running',
         'date_updated': datetime.now().strftime('%Y-%m-%d'),
         'time_updated': datetime.now().strftime('%Y-%m-%d %H:%M'),
         'rows': '\n'.join(

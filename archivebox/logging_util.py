@@ -501,10 +501,10 @@ def printable_folders(folders: Dict[str, Optional["Link"]],
     elif html:
         from .index.html import main_index_template
         if with_headers:
-            output = main_index_template(links, True)
+            output = main_index_template(links)
         else:
             from .index.html import MINIMAL_INDEX_TEMPLATE
-            output = main_index_template(links, True, MINIMAL_INDEX_TEMPLATE)
+            output = main_index_template(links, template=MINIMAL_INDEX_TEMPLATE)
         return output
     elif csv:
         from .index.csv import links_to_csv
