@@ -149,7 +149,7 @@ jobs:
           docker-compose up -d
           sleep 5
           curl --silent --location 'http://127.0.0.1:8000' | grep 'ArchiveBox'
-          curl --silent --location 'http://127.0.0.1:8000/static/admin/js/jquery.init.js' | grep 'django.jQuery'
+          curl --silent --location 'http://127.0.0.1:8000/static/admin/js/jquery.init.js' | grep 'window.django'
 
       - name: Check added urls show up in index
         run: |
