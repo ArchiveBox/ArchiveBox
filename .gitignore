@@ -13,7 +13,6 @@ node_modules/
 # Packaging artifacts
 archivebox-*.tar.gz
 build/
-deb_dist/
 dist/
 
 # Data folders

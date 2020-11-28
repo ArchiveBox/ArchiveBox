@@ -4,4 +4,4 @@
 
 [submodule "deb_dist"]
     path = deb_dist
-    url = https://github.com/ArchiveBox/debian-archivebox
+    url = https://github.com/ArchiveBox/debian-archivebox.git
