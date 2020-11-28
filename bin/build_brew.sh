@@ -16,6 +16,8 @@ source "$REPO_DIR/.venv/bin/activate"
 cd "$REPO_DIR/brew_dist"
 
 
+# make sure archivebox.rb is up-to-date with the dependencies
+
 echo "[+] Building bottle"
 brew install --build-bottle ./archivebox.rb
 brew bottle archivebox
