@@ -139,8 +139,7 @@ class Snapshot(models.Model):
     @cached_property
     def history(self):
         # TODO: use ArchiveResult for this instead of json
-        from ..index import load_link_details
-        return load_link_details(self.as_link()).history
+        return self.as_link_with_details().history
 
     @cached_property
     def latest_title(self):
