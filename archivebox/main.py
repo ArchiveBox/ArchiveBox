@@ -212,7 +212,7 @@ def version(quiet: bool=False,
     else:
         print('ArchiveBox v{}'.format(VERSION))
         p = platform.uname()
-        print(p.system, p.release, p.machine)
+        print(p.system, platform.platform(), p.machine)
         print()
 
         print('{white}[i] Dependency versions:{reset}'.format(**ANSI))
