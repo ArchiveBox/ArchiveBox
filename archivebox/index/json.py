@@ -78,30 +78,6 @@ def parse_json_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[Link]:
                             continue
     return ()
 
-@enforce_types
-def write_json_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
-    """write the json link index to a given path"""
-
-    assert isinstance(links, List), 'Links must be a list, not a generator.'
-    assert not links or isinstance(links[0].history, dict)
-    assert not links or isinstance(links[0].sources, list)
-
-    if links and links[0].history.get('title'):
-        assert isinstance(links[0].history['title'][0], ArchiveResult)
-
-    if links and links[0].sources:
-        assert isinstance(links[0].sources[0], str)
-
-    main_index_json = {
-        **MAIN_INDEX_HEADER,
-        'num_links': len(links),
-        'updated': datetime.now(),
-        'last_run_cmd': sys.argv,
-        'links': links,
-    }
-    atomic_write(str(Path(out_dir) / JSON_INDEX_FILENAME), main_index_json)
-
-
 ### Link Details Index
 
 @enforce_types
