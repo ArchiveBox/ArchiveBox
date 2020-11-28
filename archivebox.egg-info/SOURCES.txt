@@ -58,6 +58,7 @@ archivebox/core/migrations/0003_auto_20200630_1034.py
 archivebox/core/migrations/0004_auto_20200713_1552.py
 archivebox/core/migrations/0005_auto_20200728_0326.py
 archivebox/core/migrations/0006_auto_20201012_1520.py
+archivebox/core/migrations/0007_archiveresult.py
 archivebox/core/migrations/__init__.py
 archivebox/extractors/__init__.py
 archivebox/extractors/archive_org.py

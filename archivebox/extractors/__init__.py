@@ -8,6 +8,7 @@ from datetime import datetime
 from django.db.models import QuerySet
 
 from ..index.schema import Link
+from ..index.sql import write_link_to_sql_index
 from ..index import (
     load_link_details,
     write_link_details,
@@ -65,6 +66,14 @@ def ignore_methods(to_ignore: List[str]):
 def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None, skip_index: bool=False) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
+    # TODO: Remove when the input is changed to be a snapshot. Suboptimal approach.
+    if not skip_index:
+        from core.models import Snapshot, ArchiveResult
+        try:
+            snapshot = Snapshot.objects.get(url=link.url) # TODO: This will be unnecessary once everything is a snapshot
+        except Snapshot.DoesNotExist:
+            snapshot = write_link_to_sql_index(link)
+
     ARCHIVE_METHODS = get_default_archive_methods()
     
     if methods:
@@ -99,6 +108,10 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 
                     stats[result.status] += 1
                     log_archive_method_finished(result)
+                    if not skip_index:
+                        ArchiveResult.objects.create(snapshot=snapshot, extractor=method_name, cmd=result.cmd, cmd_version=result.cmd_version,
+                                                 output=result.output, pwd=result.pwd, start_ts=result.start_ts, end_ts=result.end_ts, status=result.status)
+
                 else:
                     # print('{black}      X {}{reset}'.format(method_name, **ANSI))
                     stats['skipped'] += 1
