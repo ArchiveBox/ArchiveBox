@@ -99,7 +99,8 @@ ENV IN_DOCKER=True \
     MERCURY_BINARY="$NODE_DIR/node_modules/.bin/mercury-parser"
 
 # Print version for nice docker finish summary
-RUN archivebox version
+# RUN archivebox version
+RUN /app/bin/docker_entrypoint.sh archivebox version
 
 # Open up the interfaces to the outside world
 VOLUME "$DATA_DIR"

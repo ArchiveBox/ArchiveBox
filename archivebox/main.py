@@ -83,7 +83,6 @@ from .config import (
     check_dependencies,
     check_data_folder,
     write_config_file,
-    setup_django,
     VERSION,
     CODE_LOCATIONS,
     EXTERNAL_LOCATIONS,
@@ -312,7 +311,6 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     else:
         print('\n{green}[+] Building main SQL index and running migrations...{reset}'.format(**ANSI))
     
-    setup_django(out_dir, check_db=False)
     DATABASE_FILE = Path(out_dir) / SQL_INDEX_FILENAME
     print(f'    √ {DATABASE_FILE}')
     print()
@@ -1048,7 +1046,6 @@ def server(runserver_args: Optional[List[str]]=None,
     config.DEBUG = config.DEBUG or debug
 
     check_data_folder(out_dir=out_dir)
-    setup_django(out_dir)
 
     from django.core.management import call_command
     from django.contrib.auth.models import User
@@ -1085,7 +1082,6 @@ def manage(args: Optional[List[str]]=None, out_dir: Path=OUTPUT_DIR) -> None:
     """Run an ArchiveBox Django management command"""
 
     check_data_folder(out_dir=out_dir)
-    setup_django(out_dir)
     from django.core.management import execute_from_command_line
 
     if (args and "createsuperuser" in args) and (IN_DOCKER and not IS_TTY):
@@ -1102,7 +1098,6 @@ def shell(out_dir: Path=OUTPUT_DIR) -> None:
 
     check_data_folder(out_dir=out_dir)
 
-    setup_django(OUTPUT_DIR)
     from django.core.management import call_command
     call_command("shell_plus")
 
