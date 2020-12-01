@@ -92,12 +92,13 @@ class PublicArchiveView(ListView):
     template = 'snapshot_list.html'
     model = Snapshot
     paginate_by = 100
+    ordering = ['title']
 
     def get_queryset(self, **kwargs): 
         qs = super().get_queryset(**kwargs) 
         query = self.request.GET.get('q')
         if query:
-            qs = Snapshot.objects.filter(title__icontains=query)
+            qs = qs.filter(title__icontains=query)
         for snapshot in qs:
             snapshot.icons = get_icons(snapshot) 
         return qs
