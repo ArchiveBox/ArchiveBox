@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>{{title}}</title>
+        <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            html, body {
+                width: 100%;
+                height: 100%;
+                background-color: #ddd;
+            }
+            header {
+                background-color: #aa1e55;
+                padding-bottom: 12px;
+            }
+            small {
+                font-weight: 200;
+            }
+            header a:hover {
+                text-decoration: none;
+            }
+            .header-top {
+                width: 100%;
+                height: auto;
+                min-height: 40px;
+                margin: 0px;
+                text-align: center;
+                color: white;
+                font-size: calc(11px + 0.84vw);
+                font-weight: 200;
+                padding: 4px 4px;
+                background-color: #aa1e55;
+            }
+            .nav > div {
+                min-height: 30px;
+                margin: 8px 0px;
+            }
+            .header-top a {
+                text-decoration: none;
+                color: rgba(0,0,0,0.6);
+            }
+            .header-top a:hover {
+                text-decoration: none;
+                color: rgba(0,0,0,0.9);
+            }
+            .header-top .col-lg-4 {
+                text-align: center;
+                padding-top: 4px;
+                padding-bottom: 4px;
+            }
+            .header-archivebox img {
+                display: inline-block;
+                margin-right: 3px;
+                height: 30px;
+                margin-left: 12px;
+                margin-top: -4px;
+                margin-bottom: 2px;
+            }
+            .header-archivebox img:hover {
+                opacity: 0.5;
+            }
+            .header-url small {
+                white-space: nowrap;
+                font-weight: 200;
+            }
+            .header-url img {
+                height: 20px;
+                vertical-align: -2px;
+                margin-right: 4px;
+            }
+            
+            .info-row {
+                margin-top: 2px;
+                margin-bottom: 5px;
+            }
+            .info-row .alert {
+                margin-bottom: 0px;
+            }
+            .card {
+                overflow: hidden;
+                box-shadow: 2px 3px 14px 0px rgba(0,0,0,0.02);
+                margin-top: 10px;
+            }
+            .card h4 {
+                font-size: 1.4vw;
+            }
+            .card-body {
+                font-size: 1vw;
+                padding-top: 1.2vw;
+                padding-left: 1vw;
+                padding-right: 1vw;
+                padding-bottom: 1vw;
+                line-height: 1.1;
+                word-wrap: break-word;
+                max-height: 102px;
+                overflow: hidden;
+            }
+            .card-title {
+                margin-bottom: 4px;
+            }
+            .card-img-top {
+                border: 0px;
+                padding: 0px;
+                margin: 0px;
+                overflow: hidden;
+                opacity: 0.8;
+                border-top: 1px solid rgba(0,0,0,0);
+                border-radius: 4px;
+                border-bottom: 1px solid rgba(0,0,0,0);
+                height: 430px;
+                width: 405%;
+                margin-bottom: -330px;
+                background-color: #333;
+                margin-left: -1%;
+                margin-right: -1%;
+
+                transform: scale(0.25); 
+                transform-origin: 0 0;
+            }
+            .full-page-iframe {
+                border-top: 1px solid #ddd;
+                width: 100%;
+                height: 69vh;
+                margin: 0px;
+                border: 0px;
+                border-top: 3px solid #aa1e55;
+            }
+            .card.selected-card {
+                border: 2px solid orange;
+                box-shadow: 0px -6px 13px 1px rgba(0,0,0,0.05);
+            }
+            .iframe-large {
+                height: calc(100% - 40px);
+            }
+            .pdf-frame {
+                transform: none;
+                width: 100%;
+                height: 160px;
+                margin-top: -60px;
+                margin-bottom: 0px;
+                transform: scale(1.1);
+                width: 100%;
+                margin-left: -10%;
+            }
+            img.external {
+                height: 30px;
+                margin-right: -10px;
+                padding: 3px;
+                border-radius: 4px;
+                vertical-align: middle;
+                border: 4px solid rgba(0,0,0,0);
+            }
+            img.external:hover {
+                border: 4px solid green;
+            }
+            .screenshot {
+                background-color: #333;
+                transform: none;
+                width: 100%;
+                min-height: 100px;
+                max-height: 100px;
+                margin-bottom: 0px;
+                object-fit: cover;
+                object-position: top center;
+            }
+            .header-bottom {
+                border-top: 1px solid rgba(170, 30, 85, 0.9);
+                padding-bottom: 12px;
+                border-bottom: 5px solid rgb(170, 30, 85);
+                margin-bottom: -1px;
+
+                border-radius: 4px;
+                background-color: rgba(23, 22, 22, 0.88);
+                width: 98%;
+                border: 1px solid rgba(0,0,0,0.2);
+                box-shadow: 4px 4px 4px rgba(0,0,0,0.2);
+                margin-top: 5px;
+            }
+            .header-bottom-info {
+                color: #6f6f6f;
+                padding-top: 8px;
+                padding-bottom: 13px;
+            }
+
+            .header-bottom-info > div {
+                text-align: center;
+            }
+            .header-bottom-info h5 {
+                font-size: 1.1em;
+                font-weight: 200;
+                margin-top: 3px;
+                margin-bottom: 3px;
+                color: rgba(255, 255, 255, 0.74);
+            }
+            .info-chunk {
+                width: auto;
+                display:inline-block;
+                text-align: center;
+                margin: 10px 10px;
+                vertical-align: top;
+            }
+            .info-chunk .badge {
+                margin-top: 5px;
+            }
+            .header-bottom-frames .card-title {
+                padding-bottom: 0px;
+                font-size: 1.2vw;
+                margin-bottom: 5px;
+            }
+            .header-bottom-frames .card-text {
+                font-size: 0.9em;
+            }
+
+            @media(max-width: 1092px) {
+                iframe {
+                    display: none;
+                }
+            }
+                
+
+            @media(max-width: 728px) {
+                .card h4 {
+                    font-size: 5vw;
+                }
+                .card-body {
+                    font-size: 4vw;
+                }
+                .card {
+                    margin-bottom: 5px;
+                }
+                header > h1 > a.header-url, header > h1 > a.header-archivebox {
+                    display: none;
+                }
+            }
+        </style>
+        <link rel="stylesheet" href="../../static/bootstrap.min.css">
+    </head>
+    <body>
+        <header>
+            <div class="header-top container-fluid">
+                <div class="row nav">
+                    <div class="col-lg-2" style="line-height: 64px;">
+
+                        <a href="../../index.html" class="header-archivebox" title="Go to Main Index...">
+                            <img src="../../static/archive.png" alt="Archive Icon">
+                            ArchiveBox
+                        </a>
+                    </div>
+                    <div class="col-lg-8">
+                        <img src="favicon.ico" alt="Favicon">
+                        &nbsp;&nbsp;
+                        {{title}}
+                        &nbsp;&nbsp;
+                        <a href="#" class="header-toggle">▾</a>
+                        <br/>
+                        <small>
+                            <a href="{{url}}" class="header-url" title="{{url}}">
+                                {{url_str}}
+                            </a>
+                        </small>
+                    </div>
+                </div>
+            </div>
+            <div class="header-bottom container-fluid">
+                <div class="row header-bottom-info">
+                    <div class="col-lg-4">
+                        <div title="Date bookmarked or imported" class="info-chunk">
+                            <h5>Added</h5>
+                            {{bookmarked_date}}
+                        </div>
+                        <div title="Date first archived" class="info-chunk">
+                            <h5>First Archived</h5>
+                            {{oldest_archive_date}}
+                        </div>
+                        <div title="Date last checked" class="info-chunk">
+                            <h5>Last Checked</h5>
+                            {{updated_date}}
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="info-chunk">
+                            <h5>Type</h5>
+                            <div class="badge badge-default">{{extension}}</div>
+                        </div>
+                        <div class="info-chunk">
+                            <h5>Tags</h5>
+                            <div class="badge badge-warning">{{tags}}</div> 
+                        </div>
+                        <div class="info-chunk">
+                            <h5>Status</h5>
+                            <div class="badge badge-{{status_color}}">{{status}}</div>
+                        </div>
+                        <div class="info-chunk">
+                            <h5>Saved</h5>
+                            ✅  {{num_outputs}}
+                        </div>
+                        <div class="info-chunk">
+                            <h5>Errors</h5>
+                            ❌  {{num_failures}}
+                        </div>
+                        <div class="info-chunk">
+                            <h5>Size</h5>
+                            {{size}}
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="info-chunk">
+                            <h5>🗃 Files</h5>
+                            <a href="index.json" title="JSON summary of archived link.">JSON</a> | 
+                            <a href="warc/" title="Any WARC archives for the page">WARC</a> | 
+                            <a href="media/" title="Audio, Video, and Subtitle files.">Media</a> | 
+                            <a href="git/" title="Any git repos at the url">Git</a> | 
+                            <a href="favicon.ico" title="Any git repos at the url">Favicon</a> | 
+                            <a href="." title="Webserver-provided index of files directory.">See all...</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="row header-bottom-frames">
+                    <div class="col-lg-3">
+                        <div class="card selected-card">
+                          <iframe class="card-img-top" src="{{archive_url}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                          <div class="card-body">
+                                <a href="{{archive_url}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="{{archive_url}}" target="preview"><h4 class="card-title">Wget &gt; WARC</h4></a>
+                                <p class="card-text">archive/{{domain}}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3">
+                        <div class="card">
+                            <iframe class="card-img-top" src="{{singlefile_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="{{singlefile_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="{{singlefile_path}}" target="preview"><h4 class="card-title">Chrome &gt; SingleFile</h4></a>
+                                <p class="card-text">archive/singlefile.html</p>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3">
+                        <div class="card">
+                            <iframe class="card-img-top" src="{{archive_org_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="{{archive_org_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="{{archive_org_path}}" target="preview"><h4 class="card-title">Archive.Org</h4></a>
+                                <p class="card-text">web.archive.org/web/...</p>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3">
+                        <div class="card">
+                            <iframe class="card-img-top" src="{{url}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="{{url}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="{{url}}" target="preview"><h4 class="card-title">Original</h4></a>
+                                <p class="card-text">{{domain}}</p>
+                          </div>
+                        </div>
+                    </div>
+                    <br/>
+                    <div class="col-lg-3">
+                        <div class="card">
+                            <iframe class="card-img-top pdf-frame" src="{{pdf_path}}" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="{{pdf_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="{{pdf_path}}" target="preview" id="pdf-btn"><h4 class="card-title">Chrome &gt; PDF</h4></a>
+                                <p class="card-text">archive/output.pdf</p>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3">
+                        <div class="card">
+                            <img class="card-img-top screenshot" src="{{screenshot_path}}"></iframe>
+                            <div class="card-body">
+                                <a href="{{screenshot_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="{{screenshot_path}}" target="preview"><h4 class="card-title">Chrome &gt; Screenshot</h4></a>
+                                <p class="card-text">archive/screenshot.png</p>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3">
+                        <div class="card">
+                            <iframe class="card-img-top" src="{{dom_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="{{dom_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="{{dom_path}}" target="preview"><h4 class="card-title">Chrome &gt; HTML</h4></a>
+                                <p class="card-text">archive/output.html</p>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3">
+                        <div class="card">
+                            <iframe class="card-img-top" src="{{readability_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="{{readability_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="{{readability_path}}" target="preview"><h4 class="card-title">Readability</h4></a>
+                                <p class="card-text">archive/readability/...</p>
+                          </div>
+                        </div>
+                    </div>
+                    <br/>
+                    <div class="col-lg-3">
+                        <div class="card">
+                            <iframe class="card-img-top" src="{{mercury_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="{{mercury_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <img src="../../static/external.png" class="external"/>
+                                </a>
+                                <a href="{{mercury_path}}" target="preview"><h4 class="card-title">mercury</h4></a>
+                                <p class="card-text">archive/mercury/...</p>
+                          </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        <iframe sandbox="allow-same-origin allow-scripts allow-forms" class="full-page-iframe" src="{{archive_url}}" name="preview"></iframe>
+    
+        <script
+              src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+              integrity="sha256-k2WSCIexGzOj3Euiig+TlR8gA0EmPjuc79OEeY5L45g="
+              crossorigin="anonymous"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
+
+        <script>
+            // show selected file in iframe when preview card is clicked
+            jQuery('.card').on('click', function(e) {
+                jQuery('.selected-card').removeClass('selected-card')
+                jQuery(e.target).closest('.card').addClass('selected-card')
+            })
+            jQuery('.card a[target=preview]').on('click', function(e) {
+                if (e.currentTarget.href.endsWith('.pdf')) {
+                    jQuery('.full-page-iframe')[0].removeAttribute('sandbox')
+                } else {
+                    jQuery('.full-page-iframe')[0].sandbox = "allow-same-origin allow-scripts allow-forms"
+                }
+                return true
+            })
+
+            // un-sandbox iframes showing pdfs (required to display pdf viewer)
+            jQuery('iframe').map(function() {
+                if (this.src.endsWith('.pdf')) {
+                    this.removeAttribute('sandbox')
+                    this.src = this.src
+                }
+            })
+
+            // hide header when collapse icon is clicked
+            jQuery('.header-toggle').on('click', function() {
+                if (jQuery('.header-toggle').text().includes('▾')) {
+                    jQuery('.header-toggle').text('▸')
+                    jQuery('.header-bottom').hide()
+                    jQuery('.full-page-iframe').addClass('iframe-large')
+                } else {
+                    jQuery('.header-toggle').text('▾')
+                    jQuery('.header-bottom').show()
+                    jQuery('.full-page-iframe').removeClass('iframe-large')
+                }
+                return true
+            })
+
+            // hide all preview iframes on small screens
+            if (window.innerWidth < 1091) {
+                jQuery('.card a[target=preview]').attr('target', '_self')
+            }
+
+            var pdf_frame = document.querySelector('.pdf-frame');
+            pdf_frame.onload = function () {
+                pdf_frame.contentWindow.scrollTo(0, 400);
+            }
+        </script>
+    </body>
+</html>
