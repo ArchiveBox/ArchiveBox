@@ -112,11 +112,6 @@ class PublicArchiveView(ListView):
             snapshot.icons = snapshot_icons(snapshot)
         return qs
 
-    def get_context_data(self,**kwargs):
-        context = super(PublicArchiveView,self).get_context_data(**kwargs)
-        context['num_links'] = self.get_queryset().count()
-        return context
-
     def get(self, *args, **kwargs):
         if PUBLIC_INDEX or self.request.user.is_authenticated:
             response = super().get(*args, **kwargs)
