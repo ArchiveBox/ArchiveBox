@@ -1,8 +1,12 @@
 name: Docker Push
 
 on:
-  workflow_dispatch:
   push:
+    branches:
+      - master
+  release:
+    types:
+      - created
 
 jobs:
   buildx:
