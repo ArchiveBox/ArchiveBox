@@ -61,7 +61,7 @@ def main_index_template(links: List[Link], template: str=MAIN_INDEX_TEMPLATE) ->
         'date_updated': datetime.now().strftime('%Y-%m-%d'),
         'time_updated': datetime.now().strftime('%Y-%m-%d %H:%M'),
         'links': [link._asdict(extended=True) for link in links],
-        'footer_info': FOOTER_INFO,
+        'FOOTER_INFO': FOOTER_INFO,
     })
 
 
