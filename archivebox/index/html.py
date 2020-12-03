@@ -19,14 +19,10 @@ from ..util import (
 )
 from ..config import (
     OUTPUT_DIR,
-    TEMPLATES_DIR,
     VERSION,
     GIT_SHA,
     FOOTER_INFO,
     HTML_INDEX_FILENAME,
-    STATIC_DIR_NAME,
-    ROBOTS_TXT_FILENAME,
-    FAVICON_FILENAME,
     setup_django,
 )
 
