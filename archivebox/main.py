@@ -681,12 +681,15 @@ def update(resume: Optional[float]=None,
            status: Optional[str]=None,
            after: Optional[str]=None,
            before: Optional[str]=None,
+           extractors: str="",
            out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Import any new links from subscriptions and retry any previously failed/skipped links"""
 
     check_data_folder(out_dir=out_dir)
     check_dependencies()
     new_links: List[Link] = [] # TODO: Remove input argument: only_new
+
+    extractors = extractors.split(",") if extractors else []
 
     # Step 1: Filter for selected_links
     matching_snapshots = list_links(
@@ -720,7 +723,13 @@ def update(resume: Optional[float]=None,
             stderr(f'[√] Nothing found to resume after {resume}', color='green')
             return all_links
 
-    archive_links(to_archive, overwrite=overwrite, out_dir=out_dir)
+    archive_kwargs = {
+        "out_dir": out_dir,
+    }
+    if extractors:
+        archive_kwargs["methods"] = extractors
+
+    archive_links(to_archive, overwrite=overwrite, **archive_kwargs)
 
     # Step 4: Re-write links index with updated titles, icons, and resources
     all_links = load_main_index(out_dir=out_dir)
