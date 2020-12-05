@@ -1,8 +1,12 @@
 name: Docker
 
 on:
-  workflow_dispatch:
   push:
+    branches:
+      - master
+  release:
+    types:
+      - created
 
 env:
   DOCKER_IMAGE: archivebox-ci
