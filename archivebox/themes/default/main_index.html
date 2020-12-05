@@ -222,6 +222,7 @@
                 </div>
             </div>
         </header>
+        
         <table id="table-bookmarks">
             <thead>
                 <tr>
@@ -233,26 +234,7 @@
             </thead>
             <tbody>
                 {% for link in links %}
-                    <tr>
-                        <td title="{{link.timestamp}}">{{link.bookmarked_date}}</td>
-                        <td class="title-col">
-                            {% if link.is_archived %}
-                                <a href="archive/{{link.timestamp}}/index.html"><img src="archive/{{link.timestamp}}/favicon.ico" class="link-favicon" decoding="async"></a>
-                            {% else %}
-                                <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="link-favicon" decoding="async"></a>
-                            {% endif %}
-                            <a href="archive/{{link.timestamp}}/{{link.canonical_outputs.wget_path}}" title="{{link.title}}">
-                                <span data-archived="{{link.is_archived}}">{{link.title|default:'Loading...'}}</span>
-                                <small style="float:right">{{link.tags|default:''}}</small>
-                            </a>
-                        </td>
-                        <td>
-                            <a href="archive/{{link.timestamp}}/index.html">📄 
-                                <span title="Number of extractor outputs present">{{link.num_outputs}}</span>
-                            </a>
-                        </td>
-                        <td style="text-align:left"><a href="{{link.url}}">{{link.url}}</a></td>
-                    </tr>
+                   {% include 'main_index_row.html' with link=link %}
                 {% endfor %}
             </tbody>
         </table>

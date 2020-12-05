@@ -1,0 +1,22 @@
+{% load static %}
+
+<tr>
+    <td title="{{link.timestamp}}"> {% if link.bookmarked_date  %} {{ link.bookmarked_date }} {% else %} {{ link.added }} {% endif %} </td>
+    <td class="title-col">
+        {% if link.is_archived %}
+            <a href="archive/{{link.timestamp}}/index.html"><img src="archive/{{link.timestamp}}/favicon.ico" class="link-favicon" decoding="async"></a>
+        {% else %}
+            <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="link-favicon" decoding="async"></a>
+        {% endif %}
+            <a href="archive/{{link.timestamp}}/{{link.canonical_outputs.wget_path}}" title="{{link.title}}">
+                <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title|default:'Loading...'}}</span>
+                <small style="float:right">{% if link.tags_str != None %} {{link.tags_str|default:''}} {% else %} {{ link.tags|default:'' }} {% endif %}</small>
+            </a>
+    </td>
+    <td>
+        <a href="archive/{{link.timestamp}}/index.html">📄 
+            <span data-number-for="{{link.url}}" title="Fetching any missing files...">{% if link.icons  %} {{link.icons}} {% else %} {{ link.num_outputs}} {% endif %}<img src="{% static 'spinner.gif' %}" class="files-spinner" decoding="async"/></span>
+        </a>
+    </td>
+   <td style="text-align:left"><a href="{{link.url}}">{{link.url}}</a></td>
+</tr>
