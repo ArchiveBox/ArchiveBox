@@ -422,6 +422,8 @@ git clone https://github.com/ArchiveBox/ArchiveBox
 cd ArchiveBox
 git checkout master  # or the branch you want to test
 git pull
+git submodule init
+git submodule update
 
 # Install ArchiveBox + python dependencies
 python3 -m venv .venv && source .venv/bin/activate && pip install -e .[dev]
