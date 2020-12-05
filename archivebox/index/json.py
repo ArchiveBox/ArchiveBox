@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Optional, Iterator, Any, Union
 
-from .schema import Link, ArchiveResult
+from .schema import Link
 from ..system import atomic_write
 from ..util import enforce_types
 from ..config import (
@@ -39,7 +39,20 @@ MAIN_INDEX_HEADER = {
     },
 }
 
-### Main Links Index
+@enforce_types
+def generate_json_index_from_links(links: List[Link], with_headers: bool):
+    if with_headers:
+        output = {
+            **MAIN_INDEX_HEADER,
+            'num_links': len(links),
+            'updated': datetime.now(),
+            'last_run_cmd': sys.argv,
+            'links': links,
+        }
+    else:
+        output = links
+    return to_json(output, indent=4, sort_keys=True)
+
 
 @enforce_types
 def parse_json_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[Link]:
@@ -64,30 +77,6 @@ def parse_json_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[Link]:
                             print("    {lightyellow}! Failed to load the index.json from {}".format(detail_index_path, **ANSI))
                             continue
     return ()
-
-@enforce_types
-def write_json_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
-    """write the json link index to a given path"""
-
-    assert isinstance(links, List), 'Links must be a list, not a generator.'
-    assert not links or isinstance(links[0].history, dict)
-    assert not links or isinstance(links[0].sources, list)
-
-    if links and links[0].history.get('title'):
-        assert isinstance(links[0].history['title'][0], ArchiveResult)
-
-    if links and links[0].sources:
-        assert isinstance(links[0].sources[0], str)
-
-    main_index_json = {
-        **MAIN_INDEX_HEADER,
-        'num_links': len(links),
-        'updated': datetime.now(),
-        'last_run_cmd': sys.argv,
-        'links': links,
-    }
-    atomic_write(str(Path(out_dir) / JSON_INDEX_FILENAME), main_index_json)
-
 
 ### Link Details Index
 

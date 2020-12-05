@@ -383,7 +383,7 @@ def snapshot_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type
 
 def get_indexed_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """indexed links without checking archive status or data directory validity"""
-    links = [snapshot.as_link() for snapshot in snapshots.iterator()]
+    links = [snapshot.as_link_with_details() for snapshot in snapshots.iterator()]
     return {
         link.link_dir: link
         for link in links
@@ -391,7 +391,7 @@ def get_indexed_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Option
 
 def get_archived_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """indexed links that are archived with a valid data directory"""
-    links = [snapshot.as_link() for snapshot in snapshots.iterator()]
+    links = [snapshot.as_link_with_details() for snapshot in snapshots.iterator()]
     return {
         link.link_dir: link
         for link in filter(is_archived, links)
@@ -399,7 +399,7 @@ def get_archived_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optio
 
 def get_unarchived_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """indexed links that are unarchived with no data directory or an empty data directory"""
-    links = [snapshot.as_link() for snapshot in snapshots.iterator()]
+    links = [snapshot.as_link_with_details() for snapshot in snapshots.iterator()]
     return {
         link.link_dir: link
         for link in filter(is_unarchived, links)
@@ -424,7 +424,7 @@ def get_present_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Option
 
 def get_valid_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """dirs with a valid index matched to the main index and archived content"""
-    links = [snapshot.as_link() for snapshot in snapshots.iterator()]
+    links = [snapshot.as_link_with_details() for snapshot in snapshots.iterator()]
     return {
         link.link_dir: link
         for link in filter(is_valid, links)

@@ -47,6 +47,14 @@ def parse_html_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[str]:
     return ()
 
 @enforce_types
+def generate_index_from_links(links: List[Link], with_headers: bool):
+    if with_headers:
+        output = main_index_template(links)
+    else:
+        output = main_index_template(links, template=MINIMAL_INDEX_TEMPLATE)
+    return output
+
+@enforce_types
 def main_index_template(links: List[Link], template: str=MAIN_INDEX_TEMPLATE) -> str:
     """render the template for the entire main index"""
 
