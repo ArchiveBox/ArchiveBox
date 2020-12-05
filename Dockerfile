@@ -46,7 +46,7 @@ RUN apt-get update -qq \
 # Install apt dependencies
 RUN apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
-        wget curl chromium git ffmpeg youtube-dl \
+        wget curl chromium git ffmpeg youtube-dl ripgrep \
         fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 

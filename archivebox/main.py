@@ -115,6 +115,7 @@ from .logging_util import (
     printable_dependency_version,
 )
 
+from .search import flush_search_index, index_links
 
 ALLOWED_IN_OUTPUT_DIR = {
     'lost+found',
@@ -664,6 +665,7 @@ def remove(filter_str: Optional[str]=None,
 
     to_remove = snapshots.count()
 
+    flush_search_index(snapshots=snapshots)
     remove_from_sql_main_index(snapshots=snapshots, out_dir=out_dir)
     all_snapshots = load_main_index(out_dir=out_dir)
     log_removal_finished(all_snapshots.count(), to_remove)
@@ -709,6 +711,7 @@ def update(resume: Optional[float]=None,
     if index_only:
         for link in all_links:
             write_link_details(link, out_dir=out_dir, skip_sql_index=True)
+        index_links(all_links, out_dir=out_dir)
         return all_links
         
     # Step 2: Run the archive methods for each link

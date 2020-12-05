@@ -139,6 +139,18 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'GIT_ARGS':                 {'type': list,  'default': ['--recursive']},
     },
 
+    'SEARCH_BACKEND_CONFIG' : {
+        'USE_INDEXING_BACKEND':     {'type': bool,  'default': True},
+        'USE_SEARCHING_BACKEND':    {'type': bool,  'default': True},
+        'SEARCH_BACKEND_ENGINE':    {'type': str,   'default': 'ripgrep'},
+        'SEARCH_BACKEND_HOST_NAME': {'type': str,   'default': 'localhost'},
+        'SEARCH_BACKEND_PORT':      {'type': int,   'default': 1491},
+        'SEARCH_BACKEND_PASSWORD':  {'type': str,   'default': 'SecretPassword'},
+        # SONIC
+        'SONIC_COLLECTION':         {'type': str,   'default': 'archivebox'},
+        'SONIC_BUCKET':             {'type': str,   'default': 'snapshots'},
+    },
+
     'DEPENDENCY_CONFIG': {
         'USE_CURL':                 {'type': bool,  'default': True},
         'USE_WGET':                 {'type': bool,  'default': True},
@@ -149,7 +161,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'USE_CHROME':               {'type': bool,  'default': True},
         'USE_NODE':                 {'type': bool,  'default': True},
         'USE_YOUTUBEDL':            {'type': bool,  'default': True},
-
+        
         'CURL_BINARY':              {'type': str,   'default': 'curl'},
         'GIT_BINARY':               {'type': str,   'default': 'git'},
         'WGET_BINARY':              {'type': str,   'default': 'wget'},

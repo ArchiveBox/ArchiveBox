@@ -23,6 +23,7 @@ from ..logging_util import (
     log_archive_method_started,
     log_archive_method_finished,
 )
+from ..search import write_search_index
 
 from .title import should_save_title, save_title
 from .favicon import should_save_favicon, save_favicon
@@ -37,6 +38,7 @@ from .git import should_save_git, save_git
 from .media import should_save_media, save_media
 from .archive_org import should_save_archive_dot_org, save_archive_dot_org
 from .headers import should_save_headers, save_headers
+
 
 def get_default_archive_methods():
     return [
@@ -54,6 +56,8 @@ def get_default_archive_methods():
         ('headers', should_save_headers, save_headers),
         ('archive_org', should_save_archive_dot_org, save_archive_dot_org),
     ]
+
+ARCHIVE_METHODS_INDEXING_PRECEDENCE = [('readability', 1), ('singlefile', 2), ('dom', 3), ('wget', 4)]
 
 @enforce_types
 def ignore_methods(to_ignore: List[str]):
@@ -107,6 +111,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                     link.history[method_name].append(result)
 
                     stats[result.status] += 1
+                    write_search_index(link=link, texts=result.index_texts)
                     log_archive_method_finished(result)
                     if not skip_index:
                         ArchiveResult.objects.create(snapshot=snapshot, extractor=method_name, cmd=result.cmd, cmd_version=result.cmd_version,
