@@ -159,6 +159,9 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
         'NODE_BINARY':              {'type': str,   'default': 'node'},
         'CHROME_BINARY':            {'type': str,   'default': None},
+
+        'POCKET_CONSUMER_KEY':      {'type': str,   'default': None},
+        'POCKET_ACCESS_TOKENS':     {'type': dict,  'default': {}},
     },
 }
 
@@ -386,7 +389,7 @@ def load_config_val(key: str,
             raise ValueError(f'Invalid configuration option {key}={val} (expected an integer)')
         return int(val)
 
-    elif type is list:
+    elif type is list or type is dict:
         return json.loads(val)
 
     raise Exception('Config values can only be str, bool, int or json')
