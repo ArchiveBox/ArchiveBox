@@ -102,6 +102,13 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         default=None,
         help='Update only URLs matching these filter patterns.'
     )
+    parser.add_argument(
+        "--extract",
+        type=str,
+        help="Pass a list of the extractors to be used. If the method name is not correct, it will be ignored. \
+              This does not take precedence over the configuration",
+        default=""
+    )
     command = parser.parse_args(args or ())
     filter_patterns_str = accept_stdin(stdin)
 
@@ -117,6 +124,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         after=command.after,
         before=command.before,
         out_dir=pwd or OUTPUT_DIR,
+        extractors=command.extract,
     )
     
 
