@@ -45,6 +45,7 @@ from .index import (
     get_corrupted_folders,
     get_unrecognized_folders,
     fix_invalid_folder_locations,
+    write_link_details,
 )
 from .index.json import (
     parse_json_main_index,
@@ -703,6 +704,8 @@ def update(resume: Optional[float]=None,
     all_links = [link for link in matching_folders.values() if link]
 
     if index_only:
+        for link in all_links:
+            write_link_details(link, out_dir=out_dir, skip_sql_index=True)
         return all_links
         
     # Step 2: Run the archive methods for each link
