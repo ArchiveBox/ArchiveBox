@@ -3,7 +3,7 @@ __package__ = 'archivebox.core'
 from django import forms
 
 from ..util import URL_REGEX
-from .utils_taggit import edit_string_for_tags, parse_tags
+from ..vendor.taggit_utils import edit_string_for_tags, parse_tags
 
 CHOICES = (
     ('0', 'depth = 0 (archive just these URLs)'),

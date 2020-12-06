@@ -14,7 +14,6 @@ from django import forms
 from core.models import Snapshot, Tag
 from core.forms import AddLinkForm, TagField
 
-from core.utils import get_icons
 from core.mixins import SearchResultsAdminMixin
 
 from index.html import snapshot_icons

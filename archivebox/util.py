@@ -1,11 +1,11 @@
 __package__ = 'archivebox'
 
 import re
-from pathlib import Path
+import requests
 import json as pyjson
 
-
 from typing import List, Optional, Any
+from pathlib import Path
 from inspect import signature
 from functools import wraps
 from hashlib import sha256
@@ -13,10 +13,9 @@ from urllib.parse import urlparse, quote, unquote
 from html import escape, unescape
 from datetime import datetime
 from dateparser import parse as dateparser
-
-import requests
 from requests.exceptions import RequestException, ReadTimeout
-from .base32_crockford import encode as base32_encode                            # type: ignore
+
+from .vendor.base32_crockford import encode as base32_encode                            # type: ignore
 from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
 
 try:
