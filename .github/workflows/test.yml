@@ -1,8 +1,11 @@
-name: 'Test'
+name: Run tests
 on: [push]
 
+env:
+  DOCKER_IMAGE: archivebox-ci
+
 jobs:
-  pytest:
+  python_tests:
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -80,3 +83,56 @@ jobs:
       - name: Test built package with pytest
         run: |
           python -m pytest -s
+
+  docker_tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 1
+
+      # TODO: as of 2020-11 this helper layer broke, upgrade and re-enable this once it's usable again
+      # - uses: satackey/action-docker-layer-caching@v0.0.8
+
+      - name: Build image
+        run: |
+          docker build . -t "$DOCKER_IMAGE"
+
+      - name: Init data dir
+        run: |
+          mkdir data
+          docker run -v "$PWD"/data:/data "$DOCKER_IMAGE" init
+
+      - name: Run test server
+        run: |
+          sudo bash -c 'echo "127.0.0.1  www.test-nginx-1.local www.test-nginx-2.local" >> /etc/hosts'
+          docker run --name www-nginx -p 80:80 -d nginx
+
+      - name: Add link
+        run: |
+          docker run -v "$PWD"/data:/data --network host "$DOCKER_IMAGE" add http://www.test-nginx-1.local
+
+      - name: Add stdin link
+        run: |
+          echo "http://www.test-nginx-2.local" | docker run -i --network host -v "$PWD"/data:/data "$DOCKER_IMAGE" add
+
+      - name: List links
+        run: |
+          docker run -v "$PWD"/data:/data "$DOCKER_IMAGE" list | grep -q "www.test-nginx-1.local" || { echo "The site 1 isn't in the list"; exit 1; }
+          docker run -v "$PWD"/data:/data "$DOCKER_IMAGE" list | grep -q "www.test-nginx-2.local" || { echo "The site 2 isn't in the list"; exit 1; }
+
+      - name: Start docker-compose stack
+        run: |
+          docker-compose run archivebox init
+          docker-compose up -d
+          sleep 5
+          curl --silent --location 'http://127.0.0.1:8000' | grep 'ArchiveBox'
+          curl --silent --location 'http://127.0.0.1:8000/static/admin/js/jquery.init.js' | grep 'window.django'
+
+      - name: Check added urls show up in index
+        run: |
+          docker-compose run archivebox add 'http://example.com/#test_docker' --index-only
+          curl --silent --location 'http://127.0.0.1:8000' | grep 'http://example.com/#test_docker'
+          docker-compose down || true

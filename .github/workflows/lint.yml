@@ -1,4 +1,4 @@
-name: Lint
+name: Run linters
 
 on:
   workflow_dispatch:

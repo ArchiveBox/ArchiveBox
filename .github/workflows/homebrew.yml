@@ -1,4 +1,4 @@
-name: Homebrew
+name: Build Homebrew package
 
 on:
   workflow_dispatch:
