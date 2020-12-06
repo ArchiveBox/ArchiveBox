@@ -60,6 +60,7 @@ class Tag(models.Model):
         else:
             return super().save(*args, **kwargs)
 
+
 class Snapshot(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
@@ -158,6 +159,7 @@ class Snapshot(models.Model):
         self.tags.clear()
         self.tags.add(*tags_id)
 
+
 class ArchiveResultManager(models.Manager):
     def indexable(self, sorted: bool = True):
         INDEXABLE_METHODS = [ r[0] for r in ARCHIVE_METHODS_INDEXING_PRECEDENCE ]
@@ -167,6 +169,8 @@ class ArchiveResultManager(models.Manager):
             precedence = [ When(extractor=method, then=Value(precedence)) for method, precedence in ARCHIVE_METHODS_INDEXING_PRECEDENCE ]
             qs = qs.annotate(indexing_precedence=Case(*precedence, default=Value(1000),output_field=IntegerField())).order_by('indexing_precedence')
         return qs
+
+
 class ArchiveResult(models.Model):
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
     cmd = models.JSONField()

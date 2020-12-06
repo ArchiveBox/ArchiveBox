@@ -95,7 +95,8 @@ def index_links(links: Union[List[Link],None], out_dir: Path=OUTPUT_DIR):
     from core.models import Snapshot, ArchiveResult
 
     for link in links:
-        if snap := Snapshot.objects.filter(url=link.url).first():
+        snap = Snapshot.objects.filter(url=link.url).first()
+        if snap: 
             results = ArchiveResult.objects.indexable().filter(snapshot=snap)
             log_index_started(link.url)
             try:
