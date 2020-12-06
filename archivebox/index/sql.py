@@ -4,6 +4,7 @@ from io import StringIO
 from pathlib import Path
 from typing import List, Tuple, Iterator
 from django.db.models import QuerySet
+from django.db import transaction
 
 from .schema import Link
 from ..util import enforce_types
@@ -23,8 +24,6 @@ def parse_sql_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[Link]:
 
 @enforce_types
 def remove_from_sql_main_index(snapshots: QuerySet, out_dir: Path=OUTPUT_DIR) -> None:
-    from django.db import transaction
-
     with transaction.atomic():
         snapshots.delete()
 
@@ -49,8 +48,6 @@ def write_link_to_sql_index(link: Link):
 
 @enforce_types
 def write_sql_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
-    from django.db import transaction
-
     with transaction.atomic():
         for link in links:
             write_link_to_sql_index(link)
@@ -59,7 +56,6 @@ def write_sql_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
 @enforce_types
 def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
     from core.models import Snapshot
-    from django.db import transaction
 
     with transaction.atomic():
         try:

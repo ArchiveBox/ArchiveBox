@@ -8,10 +8,9 @@ if __name__ == '__main__':
     # (e.g. makemigrations), you can comment out this check temporarily
 
     if not ('makemigrations' in sys.argv or 'migrate' in sys.argv):
-        print("[X] Don't run ./manage.py directly, use the archivebox CLI instead e.g.:")
-        print('    archivebox manage createsuperuser')
+        print("[X] Don't run ./manage.py directly (unless you are a developer running makemigrations):")
         print()
-        print('    Hint: Use these archivebox commands instead of the ./manage.py equivalents:')
+        print('    Hint: Use these archivebox CLI commands instead of the ./manage.py equivalents:')
         print('        archivebox init          (migrates the databse to latest version)')
         print('        archivebox server        (runs the Django web server)')
         print('        archivebox shell         (opens an iPython Django shell with all models imported)')
