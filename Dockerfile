@@ -77,6 +77,7 @@ RUN apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         build-essential python-dev python3-dev \
     && grep -B 1000 -E '^$' "$CODE_DIR/pip_dist/archivebox.egg-info/requires.txt" | pip install --quiet -r /dev/stdin \
+    && pip install --quiet "sonic-client==0.0.5" \
     && apt-get purge -y build-essential python-dev python3-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
