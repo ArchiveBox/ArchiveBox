@@ -25,6 +25,8 @@ services:
             - SEARCH_BACKEND_HOST_NAME=sonic
         volumes:
             - ./data:/data
+        depends_on:
+            - sonic
     
     # Run sonic search backend
     sonic:
