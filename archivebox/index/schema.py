@@ -9,6 +9,7 @@ DO NOT ADD ANY NEW FEATURES TO THIS FILE, NEW CODE GOES HERE: core/models.py
 __package__ = 'archivebox.index'
 
 from pathlib import Path
+from django.db.utils import OperationalError
 
 from datetime import datetime, timedelta
 
@@ -352,7 +353,12 @@ class Link:
     ### Archive Status Helpers
     @property
     def num_outputs(self) -> int:
-        return self.as_snapshot().num_outputs
+        try:
+            return self.as_snapshot().num_outputs
+        except OperationalError:
+            return sum(1 for method in self.history.keys()
+                            for result in self.history[method]
+                                if result.status == 'succeeded')
 
     @property
     def num_failures(self) -> int:
