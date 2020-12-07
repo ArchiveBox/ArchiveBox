@@ -58,6 +58,8 @@ def run_subcommand(subcommand: str,
                    stdin: Optional[IO]=None,
                    pwd: Union[Path, str, None]=None) -> None:
     """Run a given ArchiveBox subcommand with the given list of args"""
+    from ..config import setup_django
+    setup_django()
 
     module = import_module('.archivebox_{}'.format(subcommand), __package__)
     module.main(args=subcommand_args, stdin=stdin, pwd=pwd)    # type: ignore
@@ -136,5 +138,3 @@ __all__ = (
 )
 
 
-from ..config import setup_django
-setup_django()
