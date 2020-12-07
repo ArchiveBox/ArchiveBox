@@ -22,6 +22,7 @@ services:
             - USE_COLOR=True
             - SHOW_PROGRESS=False
             - SEARCH_BACKEND_ENGINE=sonic
+            - SEARCH_BACKEND_HOST_NAME=sonic
         volumes:
             - ./data:/data
     
