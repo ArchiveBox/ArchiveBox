@@ -100,10 +100,12 @@ TEMPLATES = [
 ################################################################################
 
 DATABASE_FILE = Path(OUTPUT_DIR) / SQL_INDEX_FILENAME
+DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", DATABASE_FILE)
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': str(DATABASE_FILE),
+        'NAME': DATABASE_NAME,
     }
 }
 
