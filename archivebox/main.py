@@ -524,7 +524,7 @@ def oneshot(url: str, out_dir: Path=OUTPUT_DIR):
             )
         raise SystemExit(2)
     methods = ignore_methods(['title'])
-    archive_link(oneshot_link[0], out_dir=out_dir, methods=methods, skip_index=False)
+    archive_link(oneshot_link[0], out_dir=out_dir, methods=methods)
     return oneshot_link
 
 @enforce_types

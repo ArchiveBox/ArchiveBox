@@ -19,7 +19,7 @@ meta_cmds = ('help', 'version')
 main_cmds = ('init', 'info', 'config')
 archive_cmds = ('add', 'remove', 'update', 'list', 'status')
 
-fake_db = ("oneshot",) + meta_cmds
+fake_db = ("oneshot",)
 
 display_first = (*meta_cmds, *main_cmds, *archive_cmds)
 
@@ -60,8 +60,10 @@ def run_subcommand(subcommand: str,
                    stdin: Optional[IO]=None,
                    pwd: Union[Path, str, None]=None) -> None:
     """Run a given ArchiveBox subcommand with the given list of args"""
-    from ..config import setup_django
-    setup_django(in_memory_db=subcommand in fake_db)
+
+    if subcommand not in meta_cmds:
+        from ..config import setup_django
+        setup_django(in_memory_db=subcommand in fake_db)
 
     module = import_module('.archivebox_{}'.format(subcommand), __package__)
     module.main(args=subcommand_args, stdin=stdin, pwd=pwd)    # type: ignore
