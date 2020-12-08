@@ -991,7 +991,7 @@ def check_data_folder(out_dir: Union[str, Path, None]=None, config: ConfigDict=C
 
 
 
-def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG) -> None:
+def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, in_memory_db=False) -> None:
     check_system_config()
     
     output_dir = out_dir or Path(config['OUTPUT_DIR'])
@@ -1004,7 +1004,15 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG) 
         os.environ.setdefault('OUTPUT_DIR', str(output_dir))
         assert (config['PACKAGE_DIR'] / 'core' / 'settings.py').exists(), 'settings.py was not found at archivebox/core/settings.py'
         os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
-        django.setup()
+
+        if in_memory_db:
+            # Put the db in memory and run migrations in case any command requires it
+            from django.core.management import call_command
+            os.environ.setdefault("ARCHIVEBOX_DATABASE_NAME", ":memory:")
+            django.setup()
+            call_command("migrate", interactive=False, stdout=False)
+        else:
+            django.setup()
 
         if check_db:
             sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME

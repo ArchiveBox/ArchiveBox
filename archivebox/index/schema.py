@@ -353,12 +353,7 @@ class Link:
     ### Archive Status Helpers
     @property
     def num_outputs(self) -> int:
-        try:
-            return self.as_snapshot().num_outputs
-        except OperationalError:
-            return sum(1 for method in self.history.keys()
-                            for result in self.history[method]
-                                if result.status == 'succeeded')
+        return self.as_snapshot().num_outputs
 
     @property
     def num_failures(self) -> int:

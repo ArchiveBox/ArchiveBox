@@ -33,7 +33,6 @@ def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: 
         return
 
     if not skip_text_index and texts:
-        setup_django(out_dir, check_db=True)
         from core.models import Snapshot
 
         snap = Snapshot.objects.filter(url=link.url).first()
@@ -91,7 +90,6 @@ def index_links(links: Union[List[Link],None], out_dir: Path=OUTPUT_DIR):
     if not links:
         return
 
-    setup_django(out_dir=out_dir, check_db=True)
     from core.models import Snapshot, ArchiveResult
 
     for link in links:
