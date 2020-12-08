@@ -1010,7 +1010,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             from django.core.management import call_command
             os.environ.setdefault("ARCHIVEBOX_DATABASE_NAME", ":memory:")
             django.setup()
-            call_command("migrate", interactive=False, stdout=False)
+            call_command("migrate", interactive=False, verbosity=0)
         else:
             django.setup()
 
