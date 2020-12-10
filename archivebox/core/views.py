@@ -148,7 +148,7 @@ class AddView(UserPassesTestMixin, FormView):
             "out_dir": OUTPUT_DIR,
         }
         if extractors:
-            input_kwargs.append("extractors": extractors)
+            input_kwargs.update({"extractors": extractors})
         add_stdout = StringIO()
         with redirect_stdout(add_stdout):
             add(**input_kwargs)
