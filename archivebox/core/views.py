@@ -138,9 +138,7 @@ class AddView(UserPassesTestMixin, FormView):
         url = form.cleaned_data["url"]
         print(f'[+] Adding URL: {url}')
         depth = 0 if form.cleaned_data["depth"] == "0" else 1
-        extractors = ""
-        for extractor in form.cleaned_data["archiveMethods"]:
-            extractors = extractors + extractor + ','
+        extractors = ','.join(form.cleaned_data["archive_methods"])
         input_kwargs = {
             "urls": url,
             "depth": depth,
