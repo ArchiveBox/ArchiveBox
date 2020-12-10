@@ -138,12 +138,17 @@ class AddView(UserPassesTestMixin, FormView):
         url = form.cleaned_data["url"]
         print(f'[+] Adding URL: {url}')
         depth = 0 if form.cleaned_data["depth"] == "0" else 1
+        extractors = ""
+        for extractor in form.cleaned_data["archiveMethods"]:
+            extractors = extractors + extractor + ','
         input_kwargs = {
             "urls": url,
             "depth": depth,
             "update_all": False,
             "out_dir": OUTPUT_DIR,
         }
+        if extractors:
+            input_kwargs.append("extractors": extractors)
         add_stdout = StringIO()
         with redirect_stdout(add_stdout):
             add(**input_kwargs)
