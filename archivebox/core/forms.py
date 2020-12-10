@@ -28,11 +28,11 @@ ARCHIVE_METHODS = [
 class AddLinkForm(forms.Form):
     url = forms.RegexField(label="URLs (one per line)", regex=URL_REGEX, min_length='6', strip=True, widget=forms.Textarea, required=True)
     depth = forms.ChoiceField(label="Archive depth", choices=CHOICES, widget=forms.RadioSelect, initial='0')
-    archiveMethods = forms.MultipleChoiceField(
-    required=False,
-    widget=forms.SelectMultiple,
-    choices=ARCHIVE_METHODS,)
-
+    archive_methods = forms.MultipleChoiceField(
+        required=False,
+        widget=forms.SelectMultiple,
+        choices=ARCHIVE_METHODS,
+    )
 class TagWidgetMixin:
     def format_value(self, value):
         if value is not None and not isinstance(value, str):
