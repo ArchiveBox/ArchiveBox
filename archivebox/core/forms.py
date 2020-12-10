@@ -10,18 +10,11 @@ CHOICES = (
     ('1', 'depth = 1 (archive these URLs and all URLs one hop away)'),
 )
 
+from ..extractors import get_default_archive_methods
+
 ARCHIVE_METHODS = [
-    ('title', 'title'),
-    ('favicon', 'favicon'),
-    ('wget', 'wget'),
-    ('warc', 'warc'),
-    ('pdf', 'pdf'),
-    ('screenshot', 'screenshot'),
-    ('dom', 'dom'),
-    ('singlefile', 'singlefile'),
-    ('git', 'git'),
-    ('media', 'media'),
-    ('archive_org', 'archive_org'),
+    (name, name)
+    for name, _, _ in get_default_archive_methods()
 ]
 
 
