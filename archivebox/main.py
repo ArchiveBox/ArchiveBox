@@ -511,7 +511,7 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
 
 
 @enforce_types
-def oneshot(url: str, out_dir: Path=OUTPUT_DIR):
+def oneshot(url: str, extractors: str="", out_dir: Path=OUTPUT_DIR):
     """
     Create a single URL archive folder with an index.json and index.html, and all the archive method outputs.
     You can run this to archive single pages without needing to create a whole collection with archivebox init.
@@ -523,7 +523,8 @@ def oneshot(url: str, out_dir: Path=OUTPUT_DIR):
                 color='red'
             )
         raise SystemExit(2)
-    methods = ignore_methods(['title'])
+
+    methods = extractors.split(",") if extractors else ignore_methods(['title'])
     archive_link(oneshot_link[0], out_dir=out_dir, methods=methods)
     return oneshot_link
 
@@ -534,8 +535,8 @@ def add(urls: Union[str, List[str]],
         index_only: bool=False,
         overwrite: bool=False,
         init: bool=False,
-        out_dir: Path=OUTPUT_DIR,
-        extractors: str="") -> List[Link]:
+        extractors: str="",
+        out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
