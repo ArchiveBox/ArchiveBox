@@ -107,13 +107,19 @@ apt install archivebox
 
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
+npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git'
 archivebox init
 archivebox --version
 
-# start the webserver and open the UI (optional)
+# start the webserver and open the web UI (optional)
 archivebox manage createsuperuser
 archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
+
+# to export a static HTML/json version of the index:
+archivebox list --html --with-headers > index.html
+archivebox list --json --with-headers > index.json
+open ./index.html
 
 # you can also add links and manage your archive via the CLI:
 archivebox add 'https://example.com'
@@ -131,6 +137,7 @@ brew install archivebox/archivebox/archivebox
 
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
+npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git'
 archivebox init
 archivebox --version
 
@@ -138,6 +145,11 @@ archivebox --version
 archivebox manage createsuperuser
 archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
+
+# to export a static HTML/json version of the index:
+archivebox list --html --with-headers > index.html
+archivebox list --json --with-headers > index.json
+open ./index.html
 
 # you can also add links and manage your archive via the CLI:
 archivebox add 'https://example.com'
@@ -155,6 +167,7 @@ pip3 install archivebox
 
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
+npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git'
 archivebox init
 archivebox --version
 # Install any missing extras like wget/git/chrome/etc. manually as needed
@@ -164,6 +177,11 @@ archivebox manage createsuperuser
 archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
 
+# to export a static HTML/json version of the index:
+archivebox list --html --with-headers > index.html
+archivebox list --json --with-headers > index.json
+open ./index.html
+
 # you can also add links and manage your archive via the CLI:
 archivebox add 'https://example.com'
 archivebox status
@@ -171,7 +189,6 @@ archivebox help  # to see more options
 ```
 
 </details>
-
  
 ---
  
@@ -306,95 +323,6 @@ archivebox add 'https://example.com#2020-10-24'
 archivebox add 'https://example.com#2020-10-25'
 ```
 
----
-
-# Setup
-
-## Docker Compose
-
-*This is the recommended way of running ArchiveBox.*
-
-It comes with everything working out of the box, including all extractors,
-a headless browser runtime, a full webserver, and CLI interface.
-
-```bash
-# docker-compose run archivebox <command> [args]
-
-mkdir archivebox && cd archivebox
-wget 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
-docker-compose run archivebox init
-docker-compose run archivebox add 'https://example.com'
-docker-compose run archivebox manage createsuperuser
-docker-compose up
-open http://127.0.0.1:8000
-```
-
-## Docker
-
-```bash
-# docker run -v $PWD:/data -it archivebox/archivebox <command> [args]
-
-mkdir archivebox && cd archivebox
-docker run -v $PWD:/data -it archivebox/archivebox init
-docker run -v $PWD:/data -it archivebox/archivebox add 'https://example.com'
-docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser
-
-# run the webserver to access the web UI
-docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox server 0.0.0.0:8000
-open http://127.0.0.1:8000
-
-# or export a static version of the index if you dont want to run a server
-docker run -v $PWD:/data -it archivebox/archivebox list --html --with-headers > index.html
-docker run -v $PWD:/data -it archivebox/archivebox list --json --with-headers > index.json
-open ./index.html
-```
-
-
-## Bare Metal
-
-```bash
-# archivebox <command> [args]
-
-# on Debian/Ubuntu
-sudo add-apt-repository -u ppa:archivebox/archivebox
-apt install archivebox
-
-# on macOS
-brew install archivebox/archivebox/archivebox
-```
-
-Initialize your archive in a directory somewhere and add some links:
-```bash
-mkdir ~/archivebox && cd archivebox
-npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git' 
-archivebox init
-archivebox add 'https://example.com'  # add URLs as args pipe them in via stdin
-archivebox add --depth=1 https://example.com/table-of-contents.html
-# it can injest links from many formats, including RSS/JSON/XML/MD/TXT and more
-curl https://getpocket.com/users/USERNAME/feed/all | archivebox add
-```
-
-Start the webserver to access the web UI:
-```bash
-archivebox manage createsuperuser
-archivebox server 0.0.0.0:8000
-
-open http://127.0.0.1:8000
-```
-
-Or export a static HTML version of the index if you don't want to run a webserver:
-```bash
-archivebox list --html --with-headers > index.html
-archivebox list --json --with-headers > index.json
-open ./index.html
-```
-
-To view more information about your dependencies, data, or the CLI:
-```bash
-archivebox version
-archivebox status
-archivebox help
-```
 ---
 
 <div align="center">
