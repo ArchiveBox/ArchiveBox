@@ -172,7 +172,9 @@ archivebox help  # to see more options
 
 </details>
 
-
+ 
+---
+ 
 <div align="center">
 <img src="https://i.imgur.com/lUuicew.png" width="400px">
 <br/>
