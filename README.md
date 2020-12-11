@@ -34,7 +34,7 @@ The main index is a self-contained `data/index.sqlite3` file, and each snapshot 
 
 #### Quickstart
 
-**First, get ArchiveBox using Docker, your system package manager, or pip.** *(click to expand each section)*
+**You can use ArchiveBox with Docker, via system package manager, or pip.** *(click to expand each section)*
 
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> (recommended)</b></summary>
@@ -44,13 +44,17 @@ The main index is a self-contained `data/index.sqlite3` file, and each snapshot 
 mkdir ~/archivebox && cd ~/archivebox
 curl -O https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml
 docker-compose run archivebox init
+docker-compose run archivebox --version
 
 # start the webserver and open the UI (optional)
+docker-compose run archivebox manage createsuperuser
 docker-compose up -d
 open http://127.0.0.1:8000
 
-# To add a new admin user for the Web UI you can run:
-docker-compose run archivebox manage createsuperuser
+# you can also add links and manage your archive via the CLI:
+docker-compose run archivebox add 'https://example.com'
+docker-compose run archivebox status
+docker-compose run archivebox help  # to see more options
 ```
 
 </details>
@@ -62,13 +66,17 @@ docker-compose run archivebox manage createsuperuser
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
 docker run -v $PWD:/data -it archivebox/archivebox init
+docker run -v $PWD:/data -it archivebox/archivebox --version
 
 # start the webserver and open the UI (optional)
-docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
+docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser
+docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
 
-# To add a new admin user for the Web UI you can run:
-docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser
+# you can also add links and manage your archive via the CLI:
+docker run -v $PWD:/data -it archivebox/archivebox add 'https://example.com'
+docker run -v $PWD:/data -it archivebox/archivebox status
+docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
 ```
 
 </details>
@@ -77,8 +85,24 @@ docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser
 <summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu >=20.04</b></summary>
 
 ```bash
+# first add the PPA and install the package
 sudo add-apt-repository -u ppa:archivebox/archivebox
 apt install archivebox
+
+# create a new empty directory and initalize your collection (can be anywhere)
+mkdir ~/archivebox && cd ~/archivebox
+archivebox init
+archivebox --version
+
+# start the webserver and open the UI (optional)
+archivebox manage createsuperuser
+archivebox server 0.0.0.0:8000
+open http://127.0.0.1:8000
+
+# you can also add links and manage your archive via the CLI:
+archivebox add 'https://example.com'
+archivebox status
+archivebox help  # to see more options
 ```
 
 </details>
@@ -92,6 +116,17 @@ brew install archivebox/archivebox/archivebox
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
 archivebox init
+archivebox --version
+
+# start the webserver and open the UI (optional)
+archivebox manage createsuperuser
+archivebox server 0.0.0.0:8000
+open http://127.0.0.1:8000
+
+# you can also add links and manage your archive via the CLI:
+archivebox add 'https://example.com'
+archivebox status
+archivebox help  # to see more options
 ```
 
 </details>
@@ -101,32 +136,25 @@ archivebox init
 
 ```bash
 pip3 install archivebox
-# Install the extra dependencies like wget/git/chrome/etc. separately as needed
 
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
 archivebox init
+archivebox --version
+# Install any missing extras like wget/git/chrome/etc. manually as needed
+
+# start the webserver and open the UI (optional)
+archivebox manage createsuperuser
+archivebox server 0.0.0.0:8000
+open http://127.0.0.1:8000
+
+# you can also add links and manage your archive via the CLI:
+archivebox add 'https://example.com'
+archivebox status
+archivebox help  # to see more options
 ```
 
 </details>
-
-
-<small>Check that everything installed correctly with `archivebox --version`</small>
-
-
-**Then Add some URLs to your archive collection:**
-```bash
-archivebox add https://github.com/ArchiveBox/ArchiveBox
-archivebox add --depth=1 https://example.com
-```
-
-**View the snapshots of the URLs you added via the self-hosted web UI:**
-```bash
-archivebox manage createsuperuser         # create an admin acct
-archivebox server 0.0.0.0:8000            # start the web server
-open http://127.0.0.1:8000/               # open the interactive admin panel
-ls ~/archivebox/archive/*/index.html      # or browse the snapshots on disk
-```
 
 
 <div align="center">
