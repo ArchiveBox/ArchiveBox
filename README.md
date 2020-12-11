@@ -34,9 +34,7 @@ The main index is a self-contained `data/index.sqlite3` file, and each snapshot 
 
 #### Quickstart
 
-**First, get ArchiveBox using Docker, your system package manager, or pip.**
-
-<i>(Click to expand each section)</i>
+**First, get ArchiveBox using Docker, your system package manager, or pip.** *(click to expand each section)*
 
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> (recommended)</b></summary>
