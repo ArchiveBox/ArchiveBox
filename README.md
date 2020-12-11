@@ -43,6 +43,7 @@ archivebox --version
 
 mkdir ~/archivebox && cd ~/archivebox
 archivebox init
+
 archivebox add 'https://example.com'
 archivebox add --depth=1 'https://example.com'
 archivebox schedule --every day https://getpocket.com/users/USERNAME/feed/all
