@@ -39,7 +39,7 @@ jobs:
 
       - name: Install archivebox from deb
         run: |
-          apt install deb_dist/archivebox*.deb
+          sudo apt install deb_dist/archivebox*.deb
 
       - name: Add some links to test
         run: |
