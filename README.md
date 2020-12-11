@@ -44,6 +44,8 @@ archivebox --version
 mkdir ~/archivebox && cd ~/archivebox
 archivebox init
 archivebox add 'https://example.com'
+archivebox schedule --every day https://getpocket.com/users/USERNAME/feed/all
+archivebox oneshot --extract=media https://www.youtube.com/watch?v=dQw4w9WgXcQ
 archivebox help   # to see more options
 ```
 
