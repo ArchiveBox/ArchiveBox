@@ -5,7 +5,7 @@ on:
   push:
 
 env:
-  SETUPTOOLS_USE_DISTUTILS: stdlib
+  SETUPTOOLS_USE_DISTUTILS: local
 
 jobs:
   build:
