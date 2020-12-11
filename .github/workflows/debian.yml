@@ -25,6 +25,9 @@ jobs:
 
       - name: Install packaging dependencies
         run: |
+          sudo echo "deb http://archive.ubuntu.com/ubuntu $(lsb_release -sc) universe" >> /etc/apt/sources.list
+          sudo echo "deb-src http://archive.ubuntu.com/ubuntu $(lsb_release -sc) universe" >> /etc/apt/sources.list
+          sudo apt update
           sudo apt install -y python3 python3-dev python3-pip python3-venv python3-all dh-python debhelper devscripts dput software-properties-common python3-distutils python3-setuptools python3-wheel python3-stdeb
           # pip3 install --upgrade pip setuptools wheel stdeb
 
@@ -40,9 +43,9 @@ jobs:
       - name: Install archivebox from deb
         run: |
           cd deb_dist/
-          sudo apt install ripgrep
           sudo apt install python3-dateparser
           sudo apt install python3-mypy-extensions
+          sudo apt install ripgrep
           sudo apt install ./archivebox*.deb
 
       - name: Add some links to test
