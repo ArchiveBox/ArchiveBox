@@ -34,7 +34,8 @@ The main index is a self-contained `index.sqlite3` file, and each snapshot is st
 
 ### Quickstart
 
-ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended), [`apt`](https://launchpad.net/~archivebox/+archive/ubuntu/archivebox/+packages), [`brew`](https://github.com/ArchiveBox/homebrew-archivebox), or [`pip`](https://www.python.org/downloads/). It works on macOS (stable), Windows (beta), and Linux/BSD (stable on both Intel and ARM CPUs).
+ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended), [`apt`](https://launchpad.net/~archivebox/+archive/ubuntu/archivebox/+packages), [`brew`](https://github.com/ArchiveBox/homebrew-archivebox), or [`pip`](https://www.python.org/downloads/).  
+It works on macOS (with `brew`/`pip3`), Windows (beta with `docker`/`pip3`), and Linux/BSD (Intel and ARM CPUs with `docker`/`apt`/`pip3`).
 
 ```bash
 pip3 install archivebox
@@ -56,7 +57,8 @@ archivebox help   # to see more options
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on any platform (recommended, everything included out-of-the-box)</b></summary>
 
-First make sure you have Docker installed: https://docs.docker.com/get-docker/  
+First make sure you have Docker installed: https://docs.docker.com/get-docker/
+<br/><br/>
 This is the recommended way to run ArchiveBox because it includes *all* the extractors like chrome, wget, youtube-dl, git, etc., as well as full-text search with sonic, and many other great features.
 
 ```bash
@@ -82,8 +84,7 @@ docker-compose run archivebox help  # to see more options
 <details>
 <summary><b>Get ArchiveBox with <code>docker</code> on any platform</b></summary>
 
-First make sure you have Docker installed: https://docs.docker.com/get-docker/
-
+First make sure you have Docker installed: https://docs.docker.com/get-docker/<br/>
 ```bash
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
