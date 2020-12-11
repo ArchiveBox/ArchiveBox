@@ -87,15 +87,10 @@ jobs:
           archivebox version
 
       - name: Test built package with pytest
-        env:
-          OS: ${{ matrix.os }}
+        # TODO: remove this exception for windows once we get tests passing on that platform
+        if: !contains(matrix.os, 'windows')
         run: |
-          # TODO: remove this exception for windows once we get tests passing on that platform
-          if [[ "$OS" == "windows-latest" ]]; then
-            echo "Skipping tests on Windows"
-          else
-            python -m pytest -s
-          fi
+          python -m pytest -s
 
   docker_tests:
     runs-on: ubuntu-latest
