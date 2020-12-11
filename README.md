@@ -248,7 +248,7 @@ archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
 
 See the [Usage: CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) page for documentation and examples.
 
-It also includes a built-in scheduled import feature and browser bookmarklet, so you can ingest URLs from RSS feeds, websites, or the filesystem regularly.
+It also includes a built-in scheduled import feature with `archivebox schedule` and browser bookmarklet, so you can pull in URLs from RSS feeds, websites, or the filesystem regularly/on-demand.
 
 ## Output formats
 
