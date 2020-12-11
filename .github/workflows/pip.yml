@@ -39,14 +39,14 @@ jobs:
           archivebox version
           archivebox status
 
-      # - name: Commit files
+      # - name: Commit built package
       #   run: |
       #     cd pip_dist/
       #     git config --local user.email "action@github.com"
       #     git config --local user.name "GitHub Action"
       #     git commit -m "Pip package autobuild" -a
       
-      # - name: Push changes
+      # - name: Push build to Github
       #   uses: ad-m/github-push-action@master
       #   with:
       #     github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -54,4 +54,8 @@ jobs:
       #     branch: ${{ github.ref }}
       #     directory: pip_dist
 
-      # TODO: push to PyPI with twine
+      # - name: Push build to PyPI
+      #   run: |
+      #     cd pip_dist/
+      #     python3 -m twine upload --repository testpypi pip_dist/*.{whl,tar.gz}
+      #     python3 -m twine upload --repository pypi pip_dist/*.{whl,tar.gz}

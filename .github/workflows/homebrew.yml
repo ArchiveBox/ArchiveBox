@@ -15,6 +15,8 @@ jobs:
           submodules: true
           fetch-depth: 1
 
+      # TODO: modify archivebox.rb to update src url, hashes, and dependencies
+
       - name: Build Homebrew Bottle
         run: |
           pip3 install --upgrade pip setuptools wheel
@@ -30,14 +32,14 @@ jobs:
           archivebox version
           archivebox status
 
-      # - name: Commit files
+      # - name: Commit built package
       #   run: |
       #     cd brew_dist/
       #     git config --local user.email "action@github.com"
       #     git config --local user.name "GitHub Action"
       #     git commit -m "Homebrew package autobuild" -a
       
-      # - name: Push changes
+      # - name: Push build to Github
       #   uses: ad-m/github-push-action@master
       #   with:
       #     github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -45,4 +47,4 @@ jobs:
       #     branch: ${{ github.ref }}
       #     directory: brew_dist
 
-      # TODO: push bottle to Github and open homebrew core PR with latest changes
+      # TODO: push bottle homebrew core PR with latest changes
