@@ -41,7 +41,7 @@ pip3 install archivebox
 archivebox --version
 # install extras as-needed, or use one of full setup methods below to get everything out-of-the-box
 
-mkdir ~/archivebox && cd ~/archivebox
+mkdir ~/archivebox && cd ~/archivebox    # this can be anywhere
 archivebox init
 
 archivebox add 'https://example.com'
