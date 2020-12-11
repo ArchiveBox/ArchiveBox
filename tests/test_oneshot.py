@@ -20,7 +20,6 @@ def test_oneshot_command_saves_page_in_right_folder(tmp_path, disable_extractors
         capture_output=True,
         env=disable_extractors_dict,
     )
-    print(process.stdout)
     items = ' '.join([str(x) for x in tmp_path.iterdir()])
     current_path = ' '.join([str(x) for x in Path.cwd().iterdir()])
     assert "index.json" in items

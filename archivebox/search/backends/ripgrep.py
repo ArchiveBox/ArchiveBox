@@ -2,7 +2,7 @@ import re
 from subprocess import run, PIPE, DEVNULL
 from typing import List, Generator
 
-from archivebox.config import setup_django, ARCHIVE_DIR
+from archivebox.config import ARCHIVE_DIR
 from archivebox.util import enforce_types
 
 RG_IGNORE_EXTENSIONS = ('css','js','orig','svg')
@@ -30,7 +30,6 @@ def search(text: str) -> List[str]:
     if is_rg_installed.returncode:
         raise Exception("ripgrep binary not found, install ripgrep to use this search backend")
 
-    setup_django(check_db=True)
     from core.models import Snapshot
 
     rg_cmd = ['rg', RG_ADD_TYPE, RG_IGNORE_ARGUMENTS, RG_DEFAULT_ARGUMENTS, RG_REGEX_ARGUMENT, text, str(ARCHIVE_DIR)]
