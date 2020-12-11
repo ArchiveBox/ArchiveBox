@@ -24,6 +24,7 @@ jobs:
       - name: Build Python Package
         run: |
           pip3 install --upgrade pip setuptools wheel
+          rm -Rf pip_dist/*.whl
           python3 setup.py \
             sdist --dist-dir=./pip_dist \
             bdist_wheel --dist-dir=./pip_dist \
