@@ -206,7 +206,7 @@ ArchiveBox is a command line tool, self-hostable web-archiving server, and Pytho
 
 To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/export/manage/etc using the CLI `archivebox help`, or you can run the Web UI (recommended). If you only want to archive a single site, you can run `archivebox oneshot` to avoid having to create a whole collection.
 
-The CLI is considered "stable", the ArchiveBox Python API and REST APIs are in "beta", and the [desktop app](https://github.com/ArchiveBox/desktop) is in "alpha" stage.
+The CLI is considered "stable", the ArchiveBox Python API and REST APIs are "beta", and the [desktop app](https://github.com/ArchiveBox/desktop) is "alpha".
 
 At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer). You can also self-host your archivebox server on a public domain to provide archive.org-style public access to your site snapshots.
 
