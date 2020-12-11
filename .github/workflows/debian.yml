@@ -5,7 +5,7 @@ on:
   push:
 
 env:
-  SETUPTOOLS_USE_DISTUTILS=stdlib
+  SETUPTOOLS_USE_DISTUTILS: stdlib
 
 jobs:
   build:
@@ -30,13 +30,11 @@ jobs:
 
       - name: Build Debian/Apt sdist_dsc
         run: |
-          python3 setup.py --command-packages=stdeb.command \
-            sdist_dsc
+          python3 setup.py --command-packages=stdeb.command sdist_dsc
 
       - name: Build Debian/Apt bdist_deb
         run: |
-          python3 setup.py --command-packages=stdeb.command \
-            bdist_deb
+          python3 setup.py --command-packages=stdeb.command bdist_deb
 
       - name: Install archivebox from deb
         run: |
