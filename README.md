@@ -47,7 +47,7 @@ archivebox add 'https://example.com'
 archivebox help   # to see more options
 ```
 
-***(click to expand the sections below for full setup instructions)***
+*(click to expand the sections below for full setup instructions)*
 
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on any platform (recommended, everything included out-of-the-box)</b></summary>
@@ -102,7 +102,6 @@ docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
 <summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu >=20.04</b></summary>
 
 ```bash
-# first add the PPA and install the package
 sudo add-apt-repository -u ppa:archivebox/archivebox
 apt install archivebox
 
