@@ -28,9 +28,9 @@
 
 ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a varitety of formats depending on the configuration and the content it detects.
 
-Your archive can be managed through the command line with commands like `archivebox add` or through the built-in Web UI `archivebox server`. It can ingest bookmarks from a service like Pocket/Pinboard, your entire browsing history, RSS feeds, or URLs one at a time.
+Your archive can be managed through the command line with commands like `archivebox add`, through the built-in Web UI `archivebox server`, or via the Python library API (beta). It can ingest bookmarks from a browser or service like Pocket/Pinboard, your entire browsing history, RSS feeds, or URLs one at a time. You can also schedule regular/realtime imports with `archivebox schedule`.
 
-The main index is a self-contained `data/index.sqlite3` file, and each snapshot is stored as a folder `data/archive/<timestamp>/`, with an easy-to-read `index.html` and `index.json` within. For each page, ArchiveBox auto-extracts many types of assets/media and saves them in standard formats, with out-of-the-box support for: 3 types of HTML snapshots (wget, Chrome headless, singlefile), a PDF snapshot, a screenshot, a WARC archive, git repositories, images, audio, video, subtitles, article text, and more. The snapshots are browseable and managable offline through the filesystem, the built-in webserver, or the Python API.
+The main index is a self-contained `index.sqlite3` file, and each snapshot is stored as a folder `data/archive/<timestamp>/`, with an easy-to-read `index.html` and `index.json` within. For each page, ArchiveBox auto-extracts many types of assets/media and saves them in standard formats, with out-of-the-box support for: several types of HTML snapshots (wget, Chrome headless, singlefile), PDF snapshotting, screenshotting, WARC archiving, git repositories, images, audio, video, subtitles, article text, and more. The snapshots are browseable and managable offline through the filesystem, the built-in webserver, or the Python library API.
 
 ### Quickstart
 
@@ -188,7 +188,7 @@ For more information, see the <a href="https://github.com/ArchiveBox/ArchiveBox/
 
 ArchiveBox is a command line tool, self-hostable web-archiving server, and Python library all-in-one. It can be installed on Docker, macOS, and Linux/BSD, and Windows. You can download and install it as a Debian/Ubuntu package, Homebrew package, Python3 package, or a Docker image. No matter which install method you choose, they all provide the same CLI, Web UI, and on-disk data format.
 
-To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/export/manage/etc using the CLI `archivebox help`, or you can run the Web UI (recommended).
+To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/export/manage/etc using the CLI `archivebox help`, or you can run the Web UI (recommended). If you only want to archive a single site, you can run `archivebox oneshot` to avoid having to create a whole collection.
 
 The CLI is considered "stable", the ArchiveBox Python API and REST APIs are in "beta", and the [desktop app](https://github.com/ArchiveBox/desktop) is in "alpha" stage.
 
