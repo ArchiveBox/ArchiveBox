@@ -9,8 +9,18 @@ def test_oneshot_command_exists(tmp_path, disable_extractors_dict):
 
 def test_oneshot_command_saves_page_in_right_folder(tmp_path, disable_extractors_dict):
     disable_extractors_dict.update({"SAVE_DOM": "true"})
-    process = subprocess.run(["archivebox", "oneshot", f"--out-dir={tmp_path}", "http://127.0.0.1:8080/static/example.com.html"],
-                              capture_output=True, env=disable_extractors_dict)
+    process = subprocess.run(
+        [
+            "archivebox",
+            "oneshot",
+            f"--out-dir={tmp_path}",
+            "--extract=title,favicon,dom",
+            "http://127.0.0.1:8080/static/example.com.html",
+        ],
+        capture_output=True,
+        env=disable_extractors_dict,
+    )
+    print(process.stdout)
     items = ' '.join([str(x) for x in tmp_path.iterdir()])
     current_path = ' '.join([str(x) for x in Path.cwd().iterdir()])
     assert "index.json" in items
