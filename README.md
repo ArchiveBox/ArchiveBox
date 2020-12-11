@@ -435,22 +435,18 @@ All contributions to ArchiveBox are welcomed! Check our [issues](https://github.
 First, install the system dependencies from the "Bare Metal" section above.
 Then you can clone the ArchiveBox repo and install
 ```python3
-git clone https://github.com/ArchiveBox/ArchiveBox
-cd ArchiveBox
+git clone https://github.com/ArchiveBox/ArchiveBox && cd ArchiveBox
 git checkout master  # or the branch you want to test
-git pull
-git submodule init
-git submodule update
+git pull --recurse-submodules
 
 # Install ArchiveBox + python dependencies
 python3 -m venv .venv && source .venv/bin/activate && pip install -e .[dev]
-# or
-pipenv install --dev && pipenv shell
+# or with pipenv: pipenv install --dev && pipenv shell
 
 # Install node dependencies
 npm install
 
-# Optional: install the extractor dependencies
+# Optional: install extractor dependencies manually or with helper script
 ./bin/setup.sh
 
 # Optional: develop via docker by mounting the code dir into the container
@@ -490,6 +486,8 @@ You can also run all these in Docker. For more examples see the Github Actions C
 # or individually:
 ./bin/build_docs.sh
 ./bin/build_pip.sh
+./bin/build_deb.sh
+./bin/build_brew.sh
 ./bin/build_docker.sh
 ```
 
