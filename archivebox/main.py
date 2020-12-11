@@ -29,7 +29,6 @@ from .util import enforce_types                         # type: ignore
 from .system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
 from .index import (
     load_main_index,
-    get_empty_snapshot_queryset,
     parse_links_from_source,
     dedupe_links,
     write_main_index,
@@ -265,6 +264,7 @@ def run(subcommand: str,
 @enforce_types
 def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
+    from core.models import Snapshot
     Path(out_dir).mkdir(exist_ok=True)
     is_empty = not len(set(os.listdir(out_dir)) - ALLOWED_IN_OUTPUT_DIR)
 
@@ -335,7 +335,7 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     print()
     print('{green}[*] Collecting links from any existing indexes and archive folders...{reset}'.format(**ANSI))
 
-    all_links = get_empty_snapshot_queryset()
+    all_links = Snapshot.objects.none()
     pending_links: Dict[str, Link] = {}
 
     if existing_index:
