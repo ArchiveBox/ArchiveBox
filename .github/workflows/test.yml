@@ -3,6 +3,9 @@ on: [push]
 
 env:
   DOCKER_IMAGE: archivebox-ci
+  PYTHONIOENCODING: utf-8
+  PYTHONLEGACYWINDOWSSTDIO: utf-8
+  USE_COLOR: False
 
 jobs:
   python_tests:
