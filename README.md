@@ -53,6 +53,7 @@ archivebox help   # to see more options
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on any platform (recommended, everything included out-of-the-box)</b></summary>
 
 First make sure you have Docker installed: https://docs.docker.com/get-docker/
+This is the recommended way to run ArchiveBox because it includes *all* the extractors like chrome, wget, youtube-dl, git, etc., as well as full-text search with sonic, and many other great features.
 
 ```bash
 # create a new empty directory and initalize your collection (can be anywhere)
