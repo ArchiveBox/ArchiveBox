@@ -69,7 +69,6 @@ from .config import (
     ANSI,
     IS_TTY,
     IN_DOCKER,
-    PYTHON_VERSION,
     USER,
     ARCHIVEBOX_BINARY,
     ONLY_NEW,
@@ -219,7 +218,7 @@ def version(quiet: bool=False,
     else:
         print('ArchiveBox v{}'.format(VERSION))
         p = platform.uname()
-        print(sys.implementation.name.title(), p.system, platform.platform(), p.machine, f'(in Docker)' if IN_DOCKER else f'(not in Docker)')
+        print(sys.implementation.name.title(), p.system, platform.platform(), p.machine, '(in Docker)' if IN_DOCKER else '(not in Docker)')
         print()
 
         print('{white}[i] Dependency versions:{reset}'.format(**ANSI))
