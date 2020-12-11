@@ -11,6 +11,7 @@ venv/
 node_modules/
 
 # Packaging artifacts
+archivebox.egg-info
 archivebox-*.tar.gz
 build/
 dist/
