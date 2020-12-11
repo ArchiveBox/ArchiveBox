@@ -38,7 +38,8 @@ The main index is a self-contained `data/index.sqlite3` file, and each snapshot 
 
 <i>(Click to expand each section)</i>
 
-<details><summary><b>Get ArchiveBox with Docker Compose</b></summary>
+<details>
+<summary><b>Get ArchiveBox with Docker Compose</b></summary>
 
 ```bash
 # Download the compose file into an empty directory somewhere
@@ -55,7 +56,8 @@ docker-compose run archivebox manage createsuperuser
 
 </details>
 
-<details><summary><b>Get ArchiveBox with plain Docker</b></summary>
+<details>
+<summary><b>Get ArchiveBox with plain Docker</b></summary>
 
 ```bash
 # cd into a new empty directory somewhere and pull the latest image
@@ -72,7 +74,8 @@ docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser
 
 </details>
 
-<details><summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu >=20.04</b></summary>
+<details>
+<summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu >=20.04</b></summary>
 
 ```bash
 sudo add-apt-repository -u ppa:archivebox/archivebox
@@ -81,7 +84,8 @@ apt install archivebox
 
 </details>
 
-<details><summary><b>Get ArchiveBox with <code>brew</code> on macOS >=10.13</b></summary>
+<details>
+<summary><b>Get ArchiveBox with <code>brew</code> on macOS >=10.13</b></summary>
 
 ```bash
 brew install archivebox/archivebox/archivebox
@@ -93,7 +97,9 @@ archivebox init
 
 </details>
 
-<details><summary><b>Get ArchiveBox with <code>pip</code> on any platform</b></summary>
+<details>
+<summary><b>Get ArchiveBox with <code>pip</code> on any platform</b></summary>
+
 ```bash
 pip3 install archivebox
 # Install the extra dependencies like wget/git/chrome/etc. separately as needed
