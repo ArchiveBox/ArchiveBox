@@ -44,7 +44,7 @@ jobs:
 
       - name: Add some links to test
         run: |
-          mkdir data && cd data
+          mkdir "${{ github.workspace }}/data" && cd "${{ github.workspace }}/data"
           archivebox init
           archivebox add 'https://example.com'
           archivebox version
