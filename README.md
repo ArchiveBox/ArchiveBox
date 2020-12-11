@@ -34,38 +34,80 @@ The main index is a self-contained `data/index.sqlite3` file, and each snapshot 
 
 #### Quickstart
 
-**First, get ArchiveBox using your system package manager, Docker, or pip:**
-```bash
-# You can run it with Docker or Docker Compose (recommended)
-docker pull archivebox/archivebox
-# https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml
+**First, get ArchiveBox using Docker, your system package manager, or pip.**
 
-# or Ubuntu/Debian
+<i>(Click to expand each section)</i>
+
+<details><summary><b>Get ArchiveBox with Docker Compose</b></summary>
+
+```bash
+# Download the compose file into an empty directory somewhere
+mkdir ~/archivebox && cd ~/archivebox
+wget https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml
+
+docker-compose run archivebox init
+docker-compose up -d
+open http://127.0.0.1:8000
+
+# To add a new admin user for the Web UI you can run:
+docker-compose run archivebox manage createsuperuser
+```
+
+</details>
+
+<details><summary><b>Get ArchiveBox with plain Docker</b></summary>
+
+```bash
+# cd into a new empty directory somewhere and pull the latest image
+mkdir ~/archivebox && cd ~/archivebox
+docker pull archivebox/archivebox
+
+docker run -v $PWD:/data -it archivebox/archivebox init
+docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
+open http://127.0.0.1:8000
+
+# To add a new admin user for the Web UI you can run:
+docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser
+```
+
+</details>
+
+<details><summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu >=20.04</b></summary>
+
+```bash
 sudo add-apt-repository -u ppa:archivebox/archivebox
 apt install archivebox
+```
 
-# or macOS
+</details>
+
+<details><summary><b>Get ArchiveBox with <code>brew</code> on macOS >=10.13</b></summary>
+
+```bash
 brew install archivebox/archivebox/archivebox
 
-# or for the Python version only, without wget/git/chrome/etc. included
-pip3 install archivebox
-
-# If you're using an apt/brew/pip install you can run archivebox commands normally
-#   archivebox [subcommand] [...args]
-# If you're using Docker you'll have to run the commands like this
-#   docker run -v $PWD:/data -it archivebox/archivebox [subcommand] [...args]
-# And the equivalent in Docker Compose:  
-#   docker-compose run archivebox [subcommand] [...args]
+# create a new empty directory and initalize your collection (can be anywhere)
+mkdir ~/archivebox && cd ~/archivebox
+archivebox init
 ```
+
+</details>
+
+<details><summary><b>Get ArchiveBox with <code>pip</code> on any platform</b></summary>
+```bash
+pip3 install archivebox
+# Install the extra dependencies like wget/git/chrome/etc. separately as needed
+
+# create a new empty directory and initalize your collection (can be anywhere)
+mkdir ~/archivebox && cd ~/archivebox
+archivebox init
+```
+
+</details>
+
 
 <small>Check that everything installed correctly with `archivebox --version`</small>
 
-**To start using archivebox, you have to create a data folder and `cd` into it:**
-
-```bash
-mkdir ~/archivebox && cd ~/archivebox    # you can put the collection dir anywhere
-archivebox init
-```
 
 **Then Add some URLs to your archive collection:**
 ```bash
