@@ -34,7 +34,7 @@ The main index is a self-contained `data/index.sqlite3` file, and each snapshot 
 
 ### Quickstart
 
-ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended), [`apt`](https://launchpad.net/~archivebox/+archive/ubuntu/archivebox/+packages), [`brew`](https://github.com/ArchiveBox/homebrew-archivebox), or [`pip`](https://www.python.org/downloads/). It works on macOS, Windows, and Linux/BSD (both Arm and Intel CPUs).
+ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended), [`apt`](https://launchpad.net/~archivebox/+archive/ubuntu/archivebox/+packages), [`brew`](https://github.com/ArchiveBox/homebrew-archivebox), or [`pip`](https://www.python.org/downloads/). It works on macOS (stable), Windows (beta), and Linux/BSD (stable on both Intel and ARM CPUs).
 
 ```bash
 pip3 install archivebox
