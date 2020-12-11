@@ -5,7 +5,7 @@ on:
   push:
 
 env:
-  SETUPTOOLS_USE_DISTUTILS: local
+  DEB_BUILD_OPTIONS: nocheck
 
 jobs:
   build:
