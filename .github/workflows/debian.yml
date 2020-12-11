@@ -40,6 +40,9 @@ jobs:
       - name: Install archivebox from deb
         run: |
           cd deb_dist/
+          sudo apt install ripgrep
+          sudo apt install python3-dateparser
+          sudo apt install python3-mypy-extensions
           sudo apt install ./archivebox*.deb
 
       - name: Add some links to test
