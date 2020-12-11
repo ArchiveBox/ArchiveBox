@@ -42,11 +42,12 @@ The main index is a self-contained `data/index.sqlite3` file, and each snapshot 
 <summary><b>Get ArchiveBox with Docker Compose</b></summary>
 
 ```bash
-# Download the compose file into an empty directory somewhere
+# create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
-wget https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml
-
+curl -O https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml
 docker-compose run archivebox init
+
+# start the webserver and open the UI (optional)
 docker-compose up -d
 open http://127.0.0.1:8000
 
@@ -60,11 +61,11 @@ docker-compose run archivebox manage createsuperuser
 <summary><b>Get ArchiveBox with plain Docker</b></summary>
 
 ```bash
-# cd into a new empty directory somewhere and pull the latest image
+# create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
-docker pull archivebox/archivebox
-
 docker run -v $PWD:/data -it archivebox/archivebox init
+
+# start the webserver and open the UI (optional)
 docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
 open http://127.0.0.1:8000
 
