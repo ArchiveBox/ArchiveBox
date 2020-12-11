@@ -77,7 +77,7 @@ jobs:
       - name: Directory listing for debugging
         run: |
           pwd
-          ls -a ./
+          ls
           archivebox version
 
       - name: Test built package with pytest
