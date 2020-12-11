@@ -320,7 +320,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'READABILITY_VERSION':      {'default': lambda c: bin_version(c['READABILITY_BINARY']) if c['USE_READABILITY'] else None},
 
     'USE_MERCURY':              {'default': lambda c: c['USE_MERCURY'] and c['SAVE_MERCURY']},
-    'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(bin_path(c['MERCURY_BINARY'])) else None},  # mercury is unversioned
+    'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury is unversioned
 
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
@@ -595,7 +595,7 @@ def bin_path(binary: Optional[str]) -> Optional[str]:
     if node_modules_bin.exists():
         return str(node_modules_bin.resolve())
 
-    return shutil.which(Path(binary).expanduser()) or shutil.which(binary) or binary
+    return shutil.which(str(Path(binary).expanduser())) or shutil.which(str(binary)) or binary
 
 def bin_hash(binary: Optional[str]) -> Optional[str]:
     if binary is None:

@@ -78,6 +78,9 @@ jobs:
         run: |
           pwd
           ls
+
+      - name: Archivebox version
+        run: |
           archivebox version
 
       - name: Test built package with pytest
