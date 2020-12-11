@@ -38,7 +38,8 @@ ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (r
 
 ```bash
 pip3 install archivebox
-archivebox --version  # install extras as-needed, or use the methods below
+archivebox --version
+# install extras manually as-needed, or use one of full setup methods below
 
 mkdir ~/archivebox && cd ~/archivebox
 archivebox init
@@ -46,7 +47,7 @@ archivebox add 'https://example.com'
 archivebox help   # to see more options
 ```
 
-***(click to expand the sections below for setup instructions)***
+***(click to expand the sections below for full setup instructions)***
 
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on any platform (recommended, everything included out-of-the-box)</b></summary>
