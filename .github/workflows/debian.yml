@@ -30,6 +30,7 @@ jobs:
 
       - name: Build Debian/Apt sdist_dsc
         run: |
+          rm -Rf deb_dist/*
           python3 setup.py --command-packages=stdeb.command sdist_dsc
 
       - name: Build Debian/Apt bdist_deb
