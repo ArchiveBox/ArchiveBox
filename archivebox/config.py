@@ -334,8 +334,6 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'] or c['SAVE_SINGLEFILE'])},
     'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] if c['CHROME_BINARY'] else find_chrome_binary()},
     'CHROME_VERSION':           {'default': lambda c: bin_version(c['CHROME_BINARY']) if c['USE_CHROME'] else None},
-    'USE_NODE':                 {'default': lambda c: c['USE_NODE'] and (c['SAVE_READABILITY'] or c['SAVE_SINGLEFILE'])},
-    'NODE_VERSION':             {'default': lambda c: bin_version(c['NODE_BINARY']) if c['USE_NODE'] else None},
     
     'SAVE_PDF':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_PDF']},
     'SAVE_SCREENSHOT':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SCREENSHOT']},
@@ -343,6 +341,9 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SINGLEFILE'] and c['USE_NODE']},
     'SAVE_READABILITY':         {'default': lambda c: c['USE_READABILITY'] and c['USE_NODE']},
     'SAVE_MERCURY':             {'default': lambda c: c['USE_MERCURY'] and c['USE_NODE']},
+    
+    'USE_NODE':                 {'default': lambda c: c['USE_NODE'] and (c['SAVE_READABILITY'] or c['SAVE_SINGLEFILE'] or c['SAVE_MERCURY'])},
+    'NODE_VERSION':             {'default': lambda c: bin_version(c['NODE_BINARY']) if c['USE_NODE'] else None},
 
     'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
     'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
