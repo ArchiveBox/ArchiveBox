@@ -39,7 +39,7 @@ The main index is a self-contained `data/index.sqlite3` file, and each snapshot 
 <i>(Click to expand each section)</i>
 
 <details>
-<summary><b>Get ArchiveBox with Docker Compose</b></summary>
+<summary><b>Get ArchiveBox with <code>docker-compose</code> (recommended)</b></summary>
 
 ```bash
 # create a new empty directory and initalize your collection (can be anywhere)
@@ -58,7 +58,7 @@ docker-compose run archivebox manage createsuperuser
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with plain Docker</b></summary>
+<summary><b>Get ArchiveBox with <code>docker</code></b></summary>
 
 ```bash
 # create a new empty directory and initalize your collection (can be anywhere)
