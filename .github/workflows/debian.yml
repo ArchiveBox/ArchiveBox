@@ -9,7 +9,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v2
@@ -40,12 +40,6 @@ jobs:
       - name: Install archivebox from deb
         run: |
           cd deb_dist/
-          sudo bash -c 'echo "deb http://archive.ubuntu.com/ubuntu focal universe" >> /etc/apt/sources.list'
-          sudo bash -c 'echo "deb-src http://archive.ubuntu.com/ubuntu focal universe" >> /etc/apt/sources.list'
-          sudo apt update
-          sudo apt install python3-dateparser
-          sudo apt install python3-mypy-extensions
-          sudo apt install ripgrep
           sudo apt install ./archivebox*.deb
 
       - name: Add some links to test
