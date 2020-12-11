@@ -19,6 +19,13 @@ else
 fi
 cd "$REPO_DIR"
 
+CURRENT_PLAFORM="$(uname)"
+REQUIRED_PLATFORM="Linux"
+if [[ "$CURRENT_PLAFORM" != "$REQUIRED_PLATFORM" ]]; then
+   echo "[!] Skipping the Debian package build on $CURRENT_PLAFORM (it can only be run on $REQUIRED_PLATFORM)."
+   exit 0
+fi
+
 VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
 DEBIAN_VERSION="1"
 PGP_KEY_ID="7D5695D3B618872647861D51C38137A7C1675988"
