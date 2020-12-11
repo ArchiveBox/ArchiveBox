@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   push:
 
+env:
+  SETUPTOOLS_USE_DISTUTILS=stdlib
 
 jobs:
   build:
