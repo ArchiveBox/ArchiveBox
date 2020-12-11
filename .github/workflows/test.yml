@@ -88,7 +88,7 @@ jobs:
 
       - name: Test built package with pytest
         # TODO: remove this exception for windows once we get tests passing on that platform
-        if: !contains(matrix.os, 'windows')
+        if: ${{ !contains(matrix.os, 'windows') }}
         run: |
           python -m pytest -s
 
