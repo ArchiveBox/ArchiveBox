@@ -23,7 +23,6 @@ from ..config import (
     GIT_SHA,
     FOOTER_INFO,
     HTML_INDEX_FILENAME,
-    setup_django,
 )
 
 MAIN_INDEX_TEMPLATE = 'main_index.html'
@@ -111,7 +110,6 @@ def render_django_template(template: str, context: Mapping[str, str]) -> str:
     """render a given html template string with the given template content"""
     from django.template.loader import render_to_string
 
-    setup_django(check_db=False)
     return render_to_string(template, context)
 
 
