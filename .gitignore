@@ -3,6 +3,7 @@
 *.pyc
 __pycache__/
 .mypy_cache/
+tests/out/
 
 # Python and Node dependencies
 venv/
