@@ -29,6 +29,11 @@ jobs:
 
       - name: Install archivebox from deb
         run: |
+          rm -Rf build deb_dist dist archivebox-*.tar.gz
+          python3 setup.py --command-packages=stdeb.command \
+              sdist_dsc
+          python3 setup.py --command-packages=stdeb.command \
+              bdist_deb
           apt install deb_dist/archivebox*.deb
 
       - name: Add some links to test
@@ -42,4 +47,5 @@ jobs:
       # TODO: push debian package to launchpad PPA
       # - name: Push to launchpad
       #   run: |
+      #     debsign -k "$PGP_KEY_ID" "deb_dist/archivebox_${VERSION}-${DEBIAN_VERSION}_source.changes"
       #     dput archivebox "deb_dist/archivebox_${VERSION}-${DEBIAN_VERSION}_source.changes"

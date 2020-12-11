@@ -20,7 +20,7 @@ jobs:
           pip3 install --upgrade pip setuptools wheel
           cd brew_dist/
           brew install --build-bottle ./archivebox.rb
-          brew bottle archivebox
+          # brew bottle archivebox
 
       - name: Add some links to test
         run: |
