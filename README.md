@@ -116,14 +116,11 @@ archivebox manage createsuperuser
 archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
 
-# to export a static HTML/json version of the index:
-archivebox list --html --with-headers > index.html
-archivebox list --json --with-headers > index.json
-open ./index.html
-
-# you can also add links and manage your archive via the CLI:
+# you can also add URLs and manage the archive via the CLI and filesystem:
 archivebox add 'https://example.com'
 archivebox status
+archivebox list --html --with-headers > index.html
+archivebox list --json --with-headers > index.json
 archivebox help  # to see more options
 ```
 
@@ -141,19 +138,16 @@ npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git'
 archivebox init
 archivebox --version
 
-# start the webserver and open the UI (optional)
+# start the webserver and open the web UI (optional)
 archivebox manage createsuperuser
 archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
 
-# to export a static HTML/json version of the index:
-archivebox list --html --with-headers > index.html
-archivebox list --json --with-headers > index.json
-open ./index.html
-
-# you can also add links and manage your archive via the CLI:
+# you can also add URLs and manage the archive via the CLI and filesystem:
 archivebox add 'https://example.com'
 archivebox status
+archivebox list --html --with-headers > index.html
+archivebox list --json --with-headers > index.json
 archivebox help  # to see more options
 ```
 
@@ -172,19 +166,16 @@ archivebox init
 archivebox --version
 # Install any missing extras like wget/git/chrome/etc. manually as needed
 
-# start the webserver and open the UI (optional)
+# start the webserver and open the web UI (optional)
 archivebox manage createsuperuser
 archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
 
-# to export a static HTML/json version of the index:
-archivebox list --html --with-headers > index.html
-archivebox list --json --with-headers > index.json
-open ./index.html
-
-# you can also add links and manage your archive via the CLI:
+# you can also add URLs and manage the archive via the CLI and filesystem:
 archivebox add 'https://example.com'
 archivebox status
+archivebox list --html --with-headers > index.html
+archivebox list --json --with-headers > index.json
 archivebox help  # to see more options
 ```
 
