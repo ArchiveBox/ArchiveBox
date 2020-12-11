@@ -31,12 +31,12 @@ jobs:
       - name: Build Debian/Apt sdist_dsc
         run: |
           python3 setup.py --command-packages=stdeb.command \
-              sdist_dsc
+            sdist_dsc
 
       - name: Build Debian/Apt bdist_deb
         run: |
           python3 setup.py --command-packages=stdeb.command \
-              bdist_deb
+            bdist_deb
 
       - name: Install archivebox from deb
         run: |
@@ -49,6 +49,21 @@ jobs:
           archivebox add 'https://example.com'
           archivebox version
           archivebox status
+
+      # - name: Commit files
+      #   run: |
+      #     cd deb_dist/
+      #     git config --local user.email "action@github.com"
+      #     git config --local user.name "GitHub Action"
+      #     git commit -m "Debian package autobuild" -a
+      
+      # - name: Push changes
+      #   uses: ad-m/github-push-action@master
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     repository: ArchiveBox/debian-archivebox
+      #     branch: ${{ github.ref }}
+      #     directory: deb_dist
 
       # TODO: push debian package to launchpad PPA
       # - name: Push to launchpad
