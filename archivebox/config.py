@@ -275,7 +275,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
 
     'PACKAGE_DIR':              {'default': lambda c: Path(__file__).resolve().parent},
-    'TEMPLATES_DIR':            {'default': lambda c: c['PACKAGE_DIR'] / TEMPLATES_DIR_NAME / 'legacy'},
+    'TEMPLATES_DIR':            {'default': lambda c: c['PACKAGE_DIR'] / TEMPLATES_DIR_NAME},
 
     'OUTPUT_DIR':               {'default': lambda c: Path(c['OUTPUT_DIR']).resolve() if c['OUTPUT_DIR'] else Path(os.curdir).resolve()},
     'ARCHIVE_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / ARCHIVE_DIR_NAME},
@@ -682,7 +682,7 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
         'TEMPLATES_DIR': {
             'path': (config['TEMPLATES_DIR']).resolve(),
             'enabled': True,
-            'is_valid': (config['TEMPLATES_DIR'] / 'static').exists(),
+            'is_valid': (config['TEMPLATES_DIR'] / config['ACTIVE_THEME'] / 'static').exists(),
         },
         # 'NODE_MODULES_DIR': {
         #     'path': ,
