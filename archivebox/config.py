@@ -161,6 +161,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'USE_CHROME':               {'type': bool,  'default': True},
         'USE_NODE':                 {'type': bool,  'default': True},
         'USE_YOUTUBEDL':            {'type': bool,  'default': True},
+        'USE_RIPGREP':              {'type': bool,  'default': True},
         
         'CURL_BINARY':              {'type': str,   'default': 'curl'},
         'GIT_BINARY':               {'type': str,   'default': 'git'},
@@ -170,6 +171,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'MERCURY_BINARY':           {'type': str,   'default': 'mercury-parser'},
         'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
         'NODE_BINARY':              {'type': str,   'default': 'node'},
+        'RIPGREP_BINARY':           {'type': str,   'default': 'rg'},
         'CHROME_BINARY':            {'type': str,   'default': None},
 
         'POCKET_CONSUMER_KEY':      {'type': str,   'default': None},
@@ -312,6 +314,8 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'SAVE_WARC':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WARC']},
     'WGET_ARGS':                {'default': lambda c: c['WGET_ARGS'] or []},
 
+    'USE_RIPGREP':              {'default': lambda c: c['USE_RIPGREP']},
+    'RIPGREP_VERSION':          {'default': lambda c: bin_version(c['RIPGREP_BINARY']) if c['USE_RIPGREP'] else None},
 
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
@@ -826,6 +830,13 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'hash': bin_hash(config['CHROME_BINARY']),
             'enabled': config['USE_CHROME'],
             'is_valid': bool(config['CHROME_VERSION']),
+        },
+        'RIPGREP_BINARY': {
+            'path': bin_path(config['RIPGREP_BINARY']),
+            'version': config['RIPGREP_VERSION'],
+            'hash': bin_hash(config['RIPGREP_BINARY']),
+            'enabled': config['USE_RIPGREP'],
+            'is_valid': bool(config['RIPGREP_VERSION']),
         },
     }
 
