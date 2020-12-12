@@ -107,6 +107,9 @@
                 <a href="{% url 'admin:password_change' %}">{% trans 'Change password' %}</a> /
                 {% endif %}
                 <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
+                |
+                <a href="{% url 'admin:core_snapshot_changelist' %}">☰</a> 
+                <a href="{% url 'admin:grid' %}"><span style="letter-spacing: -.4em">⣿⣿</span>&nbsp;&nbsp;</a> 
             {% endblock %}
         </div>
         {% endif %}
