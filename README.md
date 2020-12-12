@@ -35,7 +35,7 @@ The main index is a self-contained `index.sqlite3` file, and each snapshot is st
 ### Quickstart
 
 ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended), [`apt`](https://launchpad.net/~archivebox/+archive/ubuntu/archivebox/+packages), [`brew`](https://github.com/ArchiveBox/homebrew-archivebox), or [`pip`](https://www.python.org/downloads/).  
-It works on macOS (with `brew`/`pip3`), Windows (beta with `docker`/`pip3`), and Linux/BSD (Intel and ARM CPUs with `docker`/`apt`/`pip3`).
+It works on Linux/BSD (Intel and ARM CPUs with `docker`/`apt`/`pip3`), macOS (with `brew`/`pip3`), and Windows (beta with `docker`/`pip3`).
 
 ```bash
 pip3 install archivebox
