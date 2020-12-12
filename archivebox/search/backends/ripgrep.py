@@ -1,5 +1,5 @@
 import re
-from subprocess import run, PIPE, DEVNULL
+from subprocess import run, PIPE
 from typing import List, Generator
 
 from archivebox.config import ARCHIVE_DIR, RIPGREP_VERSION
