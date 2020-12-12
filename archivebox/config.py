@@ -314,7 +314,6 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'SAVE_WARC':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WARC']},
     'WGET_ARGS':                {'default': lambda c: c['WGET_ARGS'] or []},
 
-    'USE_RIPGREP':              {'default': lambda c: c['USE_RIPGREP']},
     'RIPGREP_VERSION':          {'default': lambda c: bin_version(c['RIPGREP_BINARY']) if c['USE_RIPGREP'] else None},
 
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
