@@ -47,7 +47,7 @@ archivebox init
 
 archivebox add 'https://example.com'
 archivebox add --depth=1 'https://example.com'
-archivebox schedule --every day https://getpocket.com/users/USERNAME/feed/all
+archivebox schedule --every=day https://getpocket.com/users/USERNAME/feed/all
 archivebox oneshot --extract=title,favicon,media https://www.youtube.com/watch?v=dQw4w9WgXcQ
 archivebox help   # to see more options
 ```
@@ -298,8 +298,8 @@ archivebox add 'https://example.com/any/url/you/want/to/keep/secret/'
 
 # without first disabling share the URL with 3rd party APIs:
 archivebox config --set SAVE_ARCHIVE_DOT_ORG=False   # disable saving all URLs in Archive.org
-archivebox config --set SAVE_FAVICON=False  # optional: only the domain is leaked, not full URL
-archivebox config --get CHROME_VERSION      # optional: set this to chromium instead of chrome if you don't like Google
+archivebox config --set SAVE_FAVICON=False      # optional: only the domain is leaked, not full URL
+archivebox config --set CHROME_BINARY=chromium  # optional: switch to chromium to avoid Chrome phoning home to Google
 ```
 
 Be aware that malicious archived JS can also read the contents of other pages in your archive due to snapshot CSRF and XSS protections being imperfect. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page for more details.
