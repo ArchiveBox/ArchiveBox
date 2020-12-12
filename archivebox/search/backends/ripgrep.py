@@ -2,7 +2,7 @@ import re
 from subprocess import run, PIPE, DEVNULL
 from typing import List, Generator
 
-from archivebox.config import ARCHIVE_DIR, RIPGREP_BINARY
+from archivebox.config import ARCHIVE_DIR, RIPGREP_VERSION
 from archivebox.util import enforce_types
 
 RG_IGNORE_EXTENSIONS = ('css','js','orig','svg')
