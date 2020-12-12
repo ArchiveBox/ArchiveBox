@@ -26,8 +26,7 @@ def flush(snapshot_ids: Generator[str, None, None]):
 
 @enforce_types
 def search(text: str) -> List[str]:
-    is_rg_installed = run(['which', RIPGREP_BINARY], stdout=DEVNULL, stderr=DEVNULL)
-    if is_rg_installed.returncode:
+    if not RIPGREP_VERSION:
         raise Exception("ripgrep binary not found, install ripgrep to use this search backend")
 
     from core.models import Snapshot
@@ -44,4 +43,3 @@ def search(text: str) -> List[str]:
     snap_ids = [str(id) for id in Snapshot.objects.filter(timestamp__in=timestamps).values_list('pk', flat=True)]
 
     return snap_ids
-
