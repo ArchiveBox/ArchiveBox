@@ -34,8 +34,7 @@ The main index is a self-contained `index.sqlite3` file, and each snapshot is st
 
 ### Quickstart
 
-ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended), [`apt`](https://launchpad.net/~archivebox/+archive/ubuntu/archivebox/+packages), [`brew`](https://github.com/ArchiveBox/homebrew-archivebox), or [`pip`](https://www.python.org/downloads/).  
-It works on Linux/BSD (Intel and ARM CPUs with `docker`/`apt`/`pip3`), macOS (with `brew`/`pip3`), and Windows (beta with `docker`/`pip3`).
+It works on Linux/BSD (Intel and ARM CPUs with `docker`/`apt`/`pip3`), macOS (with `docker`/`brew`/`pip3`), and Windows (beta with `docker`/`pip3`).
 
 ```bash
 pip3 install archivebox
@@ -109,7 +108,7 @@ docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
 
 ```bash
 sudo add-apt-repository -u ppa:archivebox/archivebox
-apt install archivebox
+sudo apt install archivebox
 
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
@@ -129,6 +128,13 @@ archivebox list --html --with-headers > index.html
 archivebox list --json --with-headers > index.json
 archivebox help  # to see more options
 ```
+
+For other Debian-based systems or older Ubuntu systems you can add these sources to `/etc/apt/sources.list`:
+```bash
+deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main
+deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main
+```
+(you may need to install some other dependencies manually however)
 
 </details>
 
