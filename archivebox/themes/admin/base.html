@@ -189,20 +189,46 @@
 
         };
 
-        function bindSnapshotViewsClick() {
+        function selectSnapshotListView(){
+            myStorage.setItem('currentSnapshotView', 'List');
+            redirectWithQuery("{% url 'admin:core_snapshot_changelist' %}");
+        };
+
+        function selectSnapshotGridView(){
+            myStorage.setItem('currentSnapshotView', 'Grid');
+            redirectWithQuery("{% url 'admin:grid' %}");
+        };
+        
+        function setPreferredSnapshotView(view){
+            urlPath = window.location.pathname;
+
+            if((view==="Grid") && urlPath != "{% url 'admin:grid' %}"){  
+                selectSnapshotGridView();
+            }
+            else if((view==="List") && urlPath != "{% url 'admin:core_snapshot_changelist' %}"){
+                selectSnapshotListView();
+            }
+        };
+
+        function setupSnapshotViews() {
+            myStorage = window.localStorage;
+            const preferredSnapshotView = localStorage.getItem('currentSnapshotView');
+            setPreferredSnapshotView(preferredSnapshotView);
+
             $( document ).ready(function() {
+                
                 $("#snapshotListView").click(function() {
-                    redirectWithQuery("{% url 'admin:core_snapshot_changelist' %}");
+                    selectSnapshotListView();
                 });  
                 $("#snapshotGridView").click(function() {
-                    redirectWithQuery("{% url 'admin:grid' %}");
+                    selectSnapshotGridView();
                 });  
                 
             });
         };
         $(function () {
             fix_actions();
-            bindSnapshotViewsClick();
+            setupSnapshotViews();
         });
     })(django.jQuery);
 </script>
