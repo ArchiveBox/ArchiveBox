@@ -108,8 +108,8 @@
                 {% endif %}
                 <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
                 |
-                <a href="{% url 'admin:core_snapshot_changelist' %}">☰</a> 
-                <a href="{% url 'admin:grid' %}"><span style="letter-spacing: -.4em">⣿⣿</span>&nbsp;&nbsp;</a> 
+                <a> <span id="snapshotListView" style="cursor: pointer">☰</span> </a>       
+                <a> <span id="snapshotGridView"style="letter-spacing: -.4em; cursor: pointer;">⣿⣿</span></a> 
             {% endblock %}
         </div>
         {% endif %}
@@ -182,8 +182,27 @@
                 });
             }
         };
+        
+        function redirectWithQuery(uri){
+            uri_query = uri + document.location.search;
+            window.location = uri_query;
+
+        };
+
+        function bindSnapshotViewsClick() {
+            $( document ).ready(function() {
+                $("#snapshotListView").click(function() {
+                    redirectWithQuery("{% url 'admin:core_snapshot_changelist' %}");
+                });  
+                $("#snapshotGridView").click(function() {
+                    redirectWithQuery("{% url 'admin:grid' %}");
+                });  
+                
+            });
+        };
         $(function () {
             fix_actions();
+            bindSnapshotViewsClick();
         });
     })(django.jQuery);
 </script>
