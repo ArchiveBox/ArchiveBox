@@ -226,7 +226,14 @@
                 $("#snapshotGridView").click(function() {
                     selectSnapshotGridView();
                 });  
-                
+
+                $('input:checkbox').change(function(){
+                    if($(this).is(':checked')) 
+                        $(this).parent().parent().parent().parent().addClass('selected-card'); 
+                    else 
+                        $(this).parent().parent().parent().parent().removeClass('selected-card')
+                });
+
             });
         };
         $(function () {
