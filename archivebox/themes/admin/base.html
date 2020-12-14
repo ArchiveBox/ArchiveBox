@@ -202,12 +202,16 @@
         function setPreferredSnapshotView(view){
             urlPath = window.location.pathname;
 
-            if((view==="Grid") && urlPath != "{% url 'admin:grid' %}"){  
+            if((view==="Grid") && urlPath == "{% url 'admin:core_snapshot_changelist' %}"){  
                 selectSnapshotGridView();
             }
-            else if((view==="List") && urlPath != "{% url 'admin:core_snapshot_changelist' %}"){
+            
+            {% comment %} 
+                else if((view==="List") && urlPath == "{% url 'admin:grid' %}"){
                 selectSnapshotListView();
-            }
+            
+            } 
+            {% endcomment %}
         };
 
         function setupSnapshotViews() {
