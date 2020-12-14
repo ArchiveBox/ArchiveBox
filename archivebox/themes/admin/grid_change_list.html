@@ -64,13 +64,13 @@
         {% endif %}
 
         {% block result_list %}
-          {% comment %} {% if action_form and actions_on_top and cl.show_admin_actions %}{% admin_actions %}{% endif %} {% endcomment %}
+          {% if action_form and actions_on_top and cl.show_admin_actions %}{% admin_actions %}{% endif %}
           {% comment %} 
              Table grid
             {% result_list cl %} 
           {% endcomment %}
           {% snapshots_grid cl %}
-          {% comment %} {% if action_form and actions_on_bottom and cl.show_admin_actions %}{% admin_actions %}{% endif %} {% endcomment %}
+          {% if action_form and actions_on_bottom and cl.show_admin_actions %}{% admin_actions %}{% endif %}
         {% endblock %}
         {% block pagination %}{% pagination cl %}{% endblock %}
         </form>

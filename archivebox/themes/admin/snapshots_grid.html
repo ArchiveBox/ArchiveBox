@@ -146,6 +146,7 @@ footer {
         </div><!-- .card-content -->
         <footer>
             <div class="post-meta">
+                <span style="float:right;"><input type="checkbox" name="_selected_action" value="{{obj.pk}}" class="action-select"></span>
                 <span class="timestamp">&#128337 {{obj.added}}</span>
                 <span class="comments">📖{{obj.num_outputs}}</span>
                 <span>🗄️{{ obj.archive_size | file_size }}</span>
