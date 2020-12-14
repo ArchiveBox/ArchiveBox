@@ -190,12 +190,12 @@
         };
 
         function selectSnapshotListView(){
-            myStorage.setItem('currentSnapshotView', 'List');
+            localStorage.setItem('currentSnapshotView', 'List');
             redirectWithQuery("{% url 'admin:core_snapshot_changelist' %}");
         };
 
         function selectSnapshotGridView(){
-            myStorage.setItem('currentSnapshotView', 'Grid');
+            localStorage.setItem('currentSnapshotView', 'Grid');
             redirectWithQuery("{% url 'admin:grid' %}");
         };
         
@@ -211,7 +211,6 @@
         };
 
         function setupSnapshotViews() {
-            myStorage = window.localStorage;
             const preferredSnapshotView = localStorage.getItem('currentSnapshotView');
             setPreferredSnapshotView(preferredSnapshotView);
 
