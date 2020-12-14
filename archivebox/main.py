@@ -29,7 +29,6 @@ from .util import enforce_types                         # type: ignore
 from .system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
 from .index import (
     load_main_index,
-    get_empty_snapshot_queryset,
     parse_links_from_source,
     dedupe_links,
     write_main_index,
@@ -218,7 +217,7 @@ def version(quiet: bool=False,
     else:
         print('ArchiveBox v{}'.format(VERSION))
         p = platform.uname()
-        print(p.system, platform.platform(), p.machine)
+        print(sys.implementation.name.title(), p.system, platform.platform(), p.machine, '(in Docker)' if IN_DOCKER else '(not in Docker)')
         print()
 
         print('{white}[i] Dependency versions:{reset}'.format(**ANSI))
@@ -265,6 +264,7 @@ def run(subcommand: str,
 @enforce_types
 def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
+    from core.models import Snapshot
     Path(out_dir).mkdir(exist_ok=True)
     is_empty = not len(set(os.listdir(out_dir)) - ALLOWED_IN_OUTPUT_DIR)
 
@@ -335,7 +335,7 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     print()
     print('{green}[*] Collecting links from any existing indexes and archive folders...{reset}'.format(**ANSI))
 
-    all_links = get_empty_snapshot_queryset()
+    all_links = Snapshot.objects.none()
     pending_links: Dict[str, Link] = {}
 
     if existing_index:
@@ -511,7 +511,7 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
 
 
 @enforce_types
-def oneshot(url: str, out_dir: Path=OUTPUT_DIR):
+def oneshot(url: str, extractors: str="", out_dir: Path=OUTPUT_DIR):
     """
     Create a single URL archive folder with an index.json and index.html, and all the archive method outputs.
     You can run this to archive single pages without needing to create a whole collection with archivebox init.
@@ -523,7 +523,8 @@ def oneshot(url: str, out_dir: Path=OUTPUT_DIR):
                 color='red'
             )
         raise SystemExit(2)
-    methods = ignore_methods(['title'])
+
+    methods = extractors.split(",") if extractors else ignore_methods(['title'])
     archive_link(oneshot_link[0], out_dir=out_dir, methods=methods)
     return oneshot_link
 
@@ -534,8 +535,8 @@ def add(urls: Union[str, List[str]],
         index_only: bool=False,
         overwrite: bool=False,
         init: bool=False,
-        out_dir: Path=OUTPUT_DIR,
-        extractors: str="") -> List[Link]:
+        extractors: str="",
+        out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'

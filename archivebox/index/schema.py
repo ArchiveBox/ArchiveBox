@@ -9,7 +9,6 @@ DO NOT ADD ANY NEW FEATURES TO THIS FILE, NEW CODE GOES HERE: core/models.py
 __package__ = 'archivebox.index'
 
 from pathlib import Path
-from django.db.utils import OperationalError
 
 from datetime import datetime, timedelta
 

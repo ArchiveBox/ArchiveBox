@@ -10,11 +10,22 @@ CHOICES = (
     ('1', 'depth = 1 (archive these URLs and all URLs one hop away)'),
 )
 
+from ..extractors import get_default_archive_methods
+
+ARCHIVE_METHODS = [
+    (name, name)
+    for name, _, _ in get_default_archive_methods()
+]
+
+
 class AddLinkForm(forms.Form):
     url = forms.RegexField(label="URLs (one per line)", regex=URL_REGEX, min_length='6', strip=True, widget=forms.Textarea, required=True)
     depth = forms.ChoiceField(label="Archive depth", choices=CHOICES, widget=forms.RadioSelect, initial='0')
-
-
+    archive_methods = forms.MultipleChoiceField(
+        required=False,
+        widget=forms.SelectMultiple,
+        choices=ARCHIVE_METHODS,
+    )
 class TagWidgetMixin:
     def format_value(self, value):
         if value is not None and not isinstance(value, str):

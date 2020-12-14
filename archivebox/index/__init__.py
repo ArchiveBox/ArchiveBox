@@ -18,7 +18,6 @@ from ..util import (
     ExtendedEncoder,
 )
 from ..config import (
-    setup_django,
     ARCHIVE_DIR_NAME,
     SQL_INDEX_FILENAME,
     JSON_INDEX_FILENAME,
@@ -244,15 +243,8 @@ def write_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
     log_indexing_process_finished()
 
 @enforce_types
-def get_empty_snapshot_queryset(out_dir: Path=OUTPUT_DIR):
-    setup_django(out_dir, check_db=True)
-    from core.models import Snapshot
-    return Snapshot.objects.none()
-
-@enforce_types
 def load_main_index(out_dir: Path=OUTPUT_DIR, warn: bool=True) -> List[Link]:
     """parse and load existing index with any new links from import_path merged in"""
-    setup_django(out_dir, check_db=True)
     from core.models import Snapshot
     try:
         return Snapshot.objects.all()
@@ -390,8 +382,9 @@ def search_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type: 
                 color='red',
             )
         raise SystemExit(2)
+    from core.models import Snapshot
 
-    qsearch = get_empty_snapshot_queryset()
+    qsearch = Snapshot.objects.none()
     for pattern in filter_patterns:
         try:
             qsearch |= query_search_index(pattern)

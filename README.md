@@ -26,62 +26,175 @@
 <hr/>
 </div>
 
-ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a varitety of formats depending on the configuration and the content it detects. ArchiveBox can be installed via [Docker](https://docs.docker.com/get-docker/) (recommended), [`apt`](https://launchpad.net/~archivebox/+archive/ubuntu/archivebox/+packages), [`brew`](https://github.com/ArchiveBox/homebrew-archivebox), or [`pip`](https://www.python.org/downloads/). It works on macOS, Windows, and Linux/BSD (both armv7 and amd64).
+ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a varitety of formats depending on the configuration and the content it detects.
 
-Once installed, URLs can be added via the command line `archivebox add` or the built-in Web UI `archivebox server`. It can ingest bookmarks from a service like Pocket/Pinboard, your entire browsing history, RSS feeds, or URLs one at a time.
+Your archive can be managed through the command line with commands like `archivebox add`, through the built-in Web UI `archivebox server`, or via the Python library API (beta). It can ingest bookmarks from a browser or service like Pocket/Pinboard, your entire browsing history, RSS feeds, or URLs one at a time. You can also schedule regular/realtime imports with `archivebox schedule`.
 
-The main index is a self-contained `data/index.sqlite3` file, and each snapshot is stored as a folder `data/archive/<timestamp>/`, with an easy-to-read `index.html` and `index.json` within. For each page, ArchiveBox auto-extracts many types of assets/media and saves them in standard formats, with out-of-the-box support for: 3 types of HTML snapshots (wget, Chrome headless, singlefile), a PDF snapshot, a screenshot, a WARC archive, git repositories, images, audio, video, subtitles, article text, and more. The snapshots are browseable and managable offline through the filesystem, the built-in webserver, or the Python API.
+The main index is a self-contained `index.sqlite3` file, and each snapshot is stored as a folder `data/archive/<timestamp>/`, with an easy-to-read `index.html` and `index.json` within. For each page, ArchiveBox auto-extracts many types of assets/media and saves them in standard formats, with out-of-the-box support for: several types of HTML snapshots (wget, Chrome headless, singlefile), PDF snapshotting, screenshotting, WARC archiving, git repositories, images, audio, video, subtitles, article text, and more. The snapshots are browseable and managable offline through the filesystem, the built-in webserver, or the Python library API.
 
-#### Quickstart
+### Quickstart
 
-**First, get ArchiveBox using your system package manager, Docker, or pip:**
+It works on Linux/BSD (Intel and ARM CPUs with `docker`/`apt`/`pip3`), macOS (with `docker`/`brew`/`pip3`), and Windows (beta with `docker`/`pip3`).
+
 ```bash
-# You can run it with Docker or Docker Compose (recommended)
-docker pull archivebox/archivebox
-# https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml
+pip3 install archivebox
+archivebox --version
+# install extras as-needed, or use one of full setup methods below to get everything out-of-the-box
 
-# or Ubuntu/Debian
+mkdir ~/archivebox && cd ~/archivebox    # this can be anywhere
+archivebox init
+
+archivebox add 'https://example.com'
+archivebox add --depth=1 'https://example.com'
+archivebox schedule --every=day https://getpocket.com/users/USERNAME/feed/all
+archivebox oneshot --extract=title,favicon,media https://www.youtube.com/watch?v=dQw4w9WgXcQ
+archivebox help   # to see more options
+```
+
+*(click to expand the sections below for full setup instructions)*
+
+<details>
+<summary><b>Get ArchiveBox with <code>docker-compose</code> on any platform (recommended, everything included out-of-the-box)</b></summary>
+
+First make sure you have Docker installed: https://docs.docker.com/get-docker/
+<br/><br/>
+This is the recommended way to run ArchiveBox because it includes *all* the extractors like chrome, wget, youtube-dl, git, etc., as well as full-text search with sonic, and many other great features.
+
+```bash
+# create a new empty directory and initalize your collection (can be anywhere)
+mkdir ~/archivebox && cd ~/archivebox
+curl -O https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml
+docker-compose run archivebox init
+docker-compose run archivebox --version
+
+# start the webserver and open the UI (optional)
+docker-compose run archivebox manage createsuperuser
+docker-compose up -d
+open http://127.0.0.1:8000
+
+# you can also add links and manage your archive via the CLI:
+docker-compose run archivebox add 'https://example.com'
+docker-compose run archivebox status
+docker-compose run archivebox help  # to see more options
+```
+
+</details>
+
+<details>
+<summary><b>Get ArchiveBox with <code>docker</code> on any platform</b></summary>
+
+First make sure you have Docker installed: https://docs.docker.com/get-docker/<br/>
+```bash
+# create a new empty directory and initalize your collection (can be anywhere)
+mkdir ~/archivebox && cd ~/archivebox
+docker run -v $PWD:/data -it archivebox/archivebox init
+docker run -v $PWD:/data -it archivebox/archivebox --version
+
+# start the webserver and open the UI (optional)
+docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser
+docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox server 0.0.0.0:8000
+open http://127.0.0.1:8000
+
+# you can also add links and manage your archive via the CLI:
+docker run -v $PWD:/data -it archivebox/archivebox add 'https://example.com'
+docker run -v $PWD:/data -it archivebox/archivebox status
+docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
+```
+
+</details>
+
+<details>
+<summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu >=20.04</b></summary>
+
+```bash
 sudo add-apt-repository -u ppa:archivebox/archivebox
-apt install archivebox
+sudo apt install archivebox
 
-# or macOS
+# create a new empty directory and initalize your collection (can be anywhere)
+mkdir ~/archivebox && cd ~/archivebox
+npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git'
+archivebox init
+archivebox --version
+
+# start the webserver and open the web UI (optional)
+archivebox manage createsuperuser
+archivebox server 0.0.0.0:8000
+open http://127.0.0.1:8000
+
+# you can also add URLs and manage the archive via the CLI and filesystem:
+archivebox add 'https://example.com'
+archivebox status
+archivebox list --html --with-headers > index.html
+archivebox list --json --with-headers > index.json
+archivebox help  # to see more options
+```
+
+For other Debian-based systems or older Ubuntu systems you can add these sources to `/etc/apt/sources.list`:
+```bash
+deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main
+deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main
+```
+(you may need to install some other dependencies manually however)
+
+</details>
+
+<details>
+<summary><b>Get ArchiveBox with <code>brew</code> on macOS >=10.13</b></summary>
+
+```bash
 brew install archivebox/archivebox/archivebox
 
-# or for the Python version only, without wget/git/chrome/etc. included
+# create a new empty directory and initalize your collection (can be anywhere)
+mkdir ~/archivebox && cd ~/archivebox
+npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git'
+archivebox init
+archivebox --version
+
+# start the webserver and open the web UI (optional)
+archivebox manage createsuperuser
+archivebox server 0.0.0.0:8000
+open http://127.0.0.1:8000
+
+# you can also add URLs and manage the archive via the CLI and filesystem:
+archivebox add 'https://example.com'
+archivebox status
+archivebox list --html --with-headers > index.html
+archivebox list --json --with-headers > index.json
+archivebox help  # to see more options
+```
+
+</details>
+
+<details>
+<summary><b>Get ArchiveBox with <code>pip</code> on any platform</b></summary>
+
+```bash
 pip3 install archivebox
 
-# If you're using an apt/brew/pip install you can run archivebox commands normally
-#   archivebox [subcommand] [...args]
-# If you're using Docker you'll have to run the commands like this
-#   docker run -v $PWD:/data -it archivebox/archivebox [subcommand] [...args]
-# And the equivalent in Docker Compose:  
-#   docker-compose run archivebox [subcommand] [...args]
-```
-
-<small>Check that everything installed correctly with `archivebox --version`</small>
-
-**To start using archivebox, you have to create a data folder and `cd` into it:**
-
-```bash
-mkdir ~/archivebox && cd ~/archivebox    # you can put the collection dir anywhere
+# create a new empty directory and initalize your collection (can be anywhere)
+mkdir ~/archivebox && cd ~/archivebox
+npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git'
 archivebox init
+archivebox --version
+# Install any missing extras like wget/git/chrome/etc. manually as needed
+
+# start the webserver and open the web UI (optional)
+archivebox manage createsuperuser
+archivebox server 0.0.0.0:8000
+open http://127.0.0.1:8000
+
+# you can also add URLs and manage the archive via the CLI and filesystem:
+archivebox add 'https://example.com'
+archivebox status
+archivebox list --html --with-headers > index.html
+archivebox list --json --with-headers > index.json
+archivebox help  # to see more options
 ```
 
-**Then Add some URLs to your archive collection:**
-```bash
-archivebox add https://github.com/ArchiveBox/ArchiveBox
-archivebox add --depth=1 https://example.com
-```
-
-**View the snapshots of the URLs you added via the self-hosted web UI:**
-```bash
-archivebox manage createsuperuser         # create an admin acct
-archivebox server 0.0.0.0:8000            # start the web server
-open http://127.0.0.1:8000/               # open the interactive admin panel
-ls ~/archivebox/archive/*/index.html      # or browse the snapshots on disk
-```
-
-
+</details>
+ 
+---
+ 
 <div align="center">
 <img src="https://i.imgur.com/lUuicew.png" width="400px">
 <br/>
@@ -97,9 +210,9 @@ For more information, see the <a href="https://github.com/ArchiveBox/ArchiveBox/
 
 ArchiveBox is a command line tool, self-hostable web-archiving server, and Python library all-in-one. It can be installed on Docker, macOS, and Linux/BSD, and Windows. You can download and install it as a Debian/Ubuntu package, Homebrew package, Python3 package, or a Docker image. No matter which install method you choose, they all provide the same CLI, Web UI, and on-disk data format.
 
-To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/export/manage/etc using the CLI `archivebox help`, or you can run the Web UI (recommended).
+To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/export/manage/etc using the CLI `archivebox help`, or you can run the Web UI (recommended). If you only want to archive a single site, you can run `archivebox oneshot` to avoid having to create a whole collection.
 
-The CLI is considered "stable", the ArchiveBox Python API and REST APIs are in "beta", and the [desktop app](https://github.com/ArchiveBox/desktop) is in "alpha" stage.
+The CLI is considered "stable", the ArchiveBox Python API and REST APIs are "beta", and the [desktop app](https://github.com/ArchiveBox/desktop) is "alpha".
 
 At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer). You can also self-host your archivebox server on a public domain to provide archive.org-style public access to your site snapshots.
 
@@ -146,7 +259,7 @@ archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
 
 See the [Usage: CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) page for documentation and examples.
 
-It also includes a built-in scheduled import feature and browser bookmarklet, so you can ingest URLs from RSS feeds, websites, or the filesystem regularly.
+It also includes a built-in scheduled import feature with `archivebox schedule` and browser bookmarklet, so you can pull in URLs from RSS feeds, websites, or the filesystem regularly/on-demand.
 
 ## Output formats
 
@@ -161,11 +274,14 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
 - **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
 - **Title:** `title` title of the site
 - **Favicon:** `favicon.ico` favicon of the site
+- **Headers:** `headers.json` Any HTTP headers the site returns are saved in a json file
+- **SingleFile:** `singlefile.html` HTML snapshot rendered with headless Chrome using SingleFile
 - **WGET Clone:** `example.com/page-name.html` wget clone of the site, with .html appended if not present
 - **WARC:** `warc/<timestamp>.gz` gzipped WARC of all the resources fetched while archiving
 - **PDF:** `output.pdf` Printed PDF of site using headless chrome
 - **Screenshot:** `screenshot.png` 1440x900 screenshot of site using headless chrome
 - **DOM Dump:** `output.html` DOM Dump of the HTML after rendering using headless chrome
+- **Readability:** `article.html/json` Article text extraction using Readability
 - **URL to Archive.org:** `archive.org.txt` A link to the saved site on archive.org
 - **Audio & Video:** `media/` all audio/video files + playlists, including subtitles & metadata with youtube-dl
 - **Source Code:** `git/` clone of any repository found on github, bitbucket, or gitlab links
@@ -191,8 +307,8 @@ archivebox add 'https://example.com/any/url/you/want/to/keep/secret/'
 
 # without first disabling share the URL with 3rd party APIs:
 archivebox config --set SAVE_ARCHIVE_DOT_ORG=False   # disable saving all URLs in Archive.org
-archivebox config --set SAVE_FAVICON=False  # optional: only the domain is leaked, not full URL
-archivebox config --get CHROME_VERSION      # optional: set this to chromium instead of chrome if you don't like Google
+archivebox config --set SAVE_FAVICON=False      # optional: only the domain is leaked, not full URL
+archivebox config --set CHROME_BINARY=chromium  # optional: switch to chromium to avoid Chrome phoning home to Google
 ```
 
 Be aware that malicious archived JS can also read the contents of other pages in your archive due to snapshot CSRF and XSS protections being imperfect. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page for more details.
@@ -213,95 +329,6 @@ archivebox add 'https://example.com#2020-10-24'
 archivebox add 'https://example.com#2020-10-25'
 ```
 
----
-
-# Setup
-
-## Docker Compose
-
-*This is the recommended way of running ArchiveBox.*
-
-It comes with everything working out of the box, including all extractors,
-a headless browser runtime, a full webserver, and CLI interface.
-
-```bash
-# docker-compose run archivebox <command> [args]
-
-mkdir archivebox && cd archivebox
-wget 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
-docker-compose run archivebox init
-docker-compose run archivebox add 'https://example.com'
-docker-compose run archivebox manage createsuperuser
-docker-compose up
-open http://127.0.0.1:8000
-```
-
-## Docker
-
-```bash
-# docker run -v $PWD:/data -it archivebox/archivebox <command> [args]
-
-mkdir archivebox && cd archivebox
-docker run -v $PWD:/data -it archivebox/archivebox init
-docker run -v $PWD:/data -it archivebox/archivebox add 'https://example.com'
-docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser
-
-# run the webserver to access the web UI
-docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox server 0.0.0.0:8000
-open http://127.0.0.1:8000
-
-# or export a static version of the index if you dont want to run a server
-docker run -v $PWD:/data -it archivebox/archivebox list --html --with-headers > index.html
-docker run -v $PWD:/data -it archivebox/archivebox list --json --with-headers > index.json
-open ./index.html
-```
-
-
-## Bare Metal
-
-```bash
-# archivebox <command> [args]
-
-# on Debian/Ubuntu
-sudo add-apt-repository -u ppa:archivebox/archivebox
-apt install archivebox
-
-# on macOS
-brew install archivebox/archivebox/archivebox
-```
-
-Initialize your archive in a directory somewhere and add some links:
-```bash
-mkdir ~/archivebox && cd archivebox
-npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git' 
-archivebox init
-archivebox add 'https://example.com'  # add URLs as args pipe them in via stdin
-archivebox add --depth=1 https://example.com/table-of-contents.html
-# it can injest links from many formats, including RSS/JSON/XML/MD/TXT and more
-curl https://getpocket.com/users/USERNAME/feed/all | archivebox add
-```
-
-Start the webserver to access the web UI:
-```bash
-archivebox manage createsuperuser
-archivebox server 0.0.0.0:8000
-
-open http://127.0.0.1:8000
-```
-
-Or export a static HTML version of the index if you don't want to run a webserver:
-```bash
-archivebox list --html --with-headers > index.html
-archivebox list --json --with-headers > index.json
-open ./index.html
-```
-
-To view more information about your dependencies, data, or the CLI:
-```bash
-archivebox version
-archivebox status
-archivebox help
-```
 ---
 
 <div align="center">
@@ -418,22 +445,18 @@ All contributions to ArchiveBox are welcomed! Check our [issues](https://github.
 First, install the system dependencies from the "Bare Metal" section above.
 Then you can clone the ArchiveBox repo and install
 ```python3
-git clone https://github.com/ArchiveBox/ArchiveBox
-cd ArchiveBox
+git clone https://github.com/ArchiveBox/ArchiveBox && cd ArchiveBox
 git checkout master  # or the branch you want to test
-git pull
-git submodule init
-git submodule update
+git pull --recurse-submodules
 
 # Install ArchiveBox + python dependencies
 python3 -m venv .venv && source .venv/bin/activate && pip install -e .[dev]
-# or
-pipenv install --dev && pipenv shell
+# or with pipenv: pipenv install --dev && pipenv shell
 
 # Install node dependencies
 npm install
 
-# Optional: install the extractor dependencies
+# Optional: install extractor dependencies manually or with helper script
 ./bin/setup.sh
 
 # Optional: develop via docker by mounting the code dir into the container
@@ -473,6 +496,8 @@ You can also run all these in Docker. For more examples see the Github Actions C
 # or individually:
 ./bin/build_docs.sh
 ./bin/build_pip.sh
+./bin/build_deb.sh
+./bin/build_brew.sh
 ./bin/build_docker.sh
 ```
 

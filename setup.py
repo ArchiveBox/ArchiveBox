@@ -23,7 +23,7 @@ PROJECT_URLS = {
 ROOT_DIR = Path(__file__).parent.resolve()
 PACKAGE_DIR = ROOT_DIR / PKG_NAME
 
-README = (PACKAGE_DIR / "README.md").read_text()
+README = (PACKAGE_DIR / "README.md").read_text(encoding='utf-8', errors='ignore')
 VERSION = json.loads((PACKAGE_DIR / "package.json").read_text().strip())['version']
 
 # To see when setup.py gets called (uncomment for debugging):

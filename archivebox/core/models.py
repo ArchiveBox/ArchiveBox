@@ -18,6 +18,12 @@ STATUS_CHOICES = [
     ("skipped", "skipped")
 ]
 
+try:
+    JSONField = models.JSONField
+except AttributeError:
+    import jsonfield
+    JSONField = jsonfield.JSONField
+
 
 class Tag(models.Model):
     """
@@ -173,7 +179,7 @@ class ArchiveResultManager(models.Manager):
 
 class ArchiveResult(models.Model):
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
-    cmd = models.JSONField()
+    cmd = JSONField()
     pwd = models.CharField(max_length=256)
     cmd_version = models.CharField(max_length=32)
     output = models.CharField(max_length=512)

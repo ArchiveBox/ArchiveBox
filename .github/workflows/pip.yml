@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v2
@@ -24,6 +24,7 @@ jobs:
       - name: Build Python Package
         run: |
           pip3 install --upgrade pip setuptools wheel
+          rm -Rf pip_dist/*.whl
           python3 setup.py \
             sdist --dist-dir=./pip_dist \
             bdist_wheel --dist-dir=./pip_dist \
@@ -38,4 +39,23 @@ jobs:
           archivebox version
           archivebox status
 
-      # TODO: push to PyPI with twine
+      # - name: Commit built package
+      #   run: |
+      #     cd pip_dist/
+      #     git config --local user.email "action@github.com"
+      #     git config --local user.name "GitHub Action"
+      #     git commit -m "Pip package autobuild" -a
+      
+      # - name: Push build to Github
+      #   uses: ad-m/github-push-action@master
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     repository: ArchiveBox/pip-archivebox
+      #     branch: ${{ github.ref }}
+      #     directory: pip_dist
+
+      # - name: Push build to PyPI
+      #   run: |
+      #     cd pip_dist/
+      #     python3 -m twine upload --repository testpypi pip_dist/*.{whl,tar.gz}
+      #     python3 -m twine upload --repository pypi pip_dist/*.{whl,tar.gz}

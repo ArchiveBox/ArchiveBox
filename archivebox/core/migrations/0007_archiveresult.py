@@ -9,6 +9,12 @@ import django.db.models.deletion
 from config import CONFIG
 from index.json import to_json
 
+try:
+    JSONField = models.JSONField
+except AttributeError:
+    import jsonfield
+    JSONField = jsonfield.JSONField
+
 
 def forwards_func(apps, schema_editor):
     from core.models import EXTRACTORS
@@ -76,7 +82,7 @@ class Migration(migrations.Migration):
             name='ArchiveResult',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('cmd', models.JSONField()),
+                ('cmd', JSONField()),
                 ('pwd', models.CharField(max_length=256)),
                 ('cmd_version', models.CharField(max_length=32)),
                 ('status', models.CharField(choices=[('succeeded', 'succeeded'), ('failed', 'failed'), ('skipped', 'skipped')], max_length=16)),

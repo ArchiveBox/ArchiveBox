@@ -89,8 +89,8 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         index_only=command.index_only,
         overwrite=command.overwrite,
         init=command.init,
-        out_dir=pwd or OUTPUT_DIR,
         extractors=command.extract,
+        out_dir=pwd or OUTPUT_DIR,
     )
 
 

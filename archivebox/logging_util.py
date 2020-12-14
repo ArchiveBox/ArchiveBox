@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 from .util import enforce_types
 from .config import (
     ConfigDict,
+    OUTPUT_DIR,
     PYTHON_ENCODING,
     ANSI,
     IS_TTY,
@@ -514,19 +515,24 @@ def printable_folder_status(name: str, folder: Dict) -> str:
         else:
             num_files = 'missing'
 
-        if ' ' in str(folder['path']):
-            folder['path'] = f'"{folder["path"]}"'
+    path = str(folder['path']).replace(str(OUTPUT_DIR), '.') if folder['path'] else ''
+    if path and ' ' in path:
+        path = f'"{path}"'
+
+    # if path is just a plain dot, replace it back with the full path for clarity
+    if path == '.':
+        path = str(OUTPUT_DIR)
 
     return ' '.join((
         ANSI[color],
         symbol,
         ANSI['reset'],
-        name.ljust(22),
-        (str(folder["path"]) or '').ljust(76),
+        name.ljust(21),
         num_files.ljust(14),
         ANSI[color],
-        note,
+        note.ljust(8),
         ANSI['reset'],
+        path.ljust(76),
     ))
 
 
@@ -546,17 +552,18 @@ def printable_dependency_version(name: str, dependency: Dict) -> str:
     else:
         color, symbol, note, version = 'lightyellow', '-', 'disabled', '-'
 
-    if ' ' in (dependency["path"] or ''):
-        dependency["path"] = f'"{dependency["path"]}"'
+    path = str(dependency["path"]).replace(str(OUTPUT_DIR), '.') if dependency["path"] else ''
+    if path and ' ' in path:
+        path = f'"{path}"'
 
     return ' '.join((
         ANSI[color],
         symbol,
         ANSI['reset'],
-        name.ljust(22),
-        (dependency["path"] or '').ljust(76),
+        name.ljust(21),
         version.ljust(14),
         ANSI[color],
-        note,
+        note.ljust(8),
         ANSI['reset'],
+        path.ljust(76),
     ))

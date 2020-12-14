@@ -6,7 +6,7 @@ from django.db.models import QuerySet
 
 from archivebox.index.schema import Link
 from archivebox.util import enforce_types
-from archivebox.config import setup_django,stderr, OUTPUT_DIR, USE_INDEXING_BACKEND, USE_SEARCHING_BACKEND, SEARCH_BACKEND_ENGINE
+from archivebox.config import stderr, OUTPUT_DIR, USE_INDEXING_BACKEND, USE_SEARCHING_BACKEND, SEARCH_BACKEND_ENGINE
 
 from .utils import get_indexable_content, log_index_started
 
@@ -49,7 +49,6 @@ def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: 
 
 @enforce_types
 def query_search_index(query: str, out_dir: Path=OUTPUT_DIR) -> QuerySet:
-    setup_django(out_dir, check_db=True)
     from core.models import Snapshot
 
     if search_backend_enabled():
@@ -107,4 +106,3 @@ def index_links(links: Union[List[Link],None], out_dir: Path=OUTPUT_DIR):
                     ) 
             else:
                 write_search_index(link, texts, out_dir=out_dir)
-                

@@ -3,6 +3,9 @@ on: [push]
 
 env:
   DOCKER_IMAGE: archivebox-ci
+  PYTHONIOENCODING: utf-8
+  PYTHONLEGACYWINDOWSSTDIO: utf-8
+  USE_COLOR: False
 
 jobs:
   python_tests:
@@ -10,8 +13,8 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        python: [3.7, 3.8]
+        os: [ubuntu-20.04, macos-latest, windows-latest]
+        python: [3.7]
 
     steps:
       - uses: actions/checkout@v2
@@ -77,10 +80,15 @@ jobs:
       - name: Directory listing for debugging
         run: |
           pwd
-          ls -a ./
+          ls
+
+      - name: Archivebox version
+        run: |
           archivebox version
 
       - name: Test built package with pytest
+        # TODO: remove this exception for windows once we get tests passing on that platform
+        if: ${{ !contains(matrix.os, 'windows') }}
         run: |
           python -m pytest -s
 
@@ -102,8 +110,8 @@ jobs:
 
       - name: Init data dir
         run: |
-          mkdir data
-          docker run -v "$PWD"/data:/data "$DOCKER_IMAGE" init
+          mkdir "${{ github.workspace }}/data"
+          docker run -v "${{ github.workspace }}/data":/data "$DOCKER_IMAGE" init
 
       - name: Run test server
         run: |

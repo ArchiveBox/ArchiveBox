@@ -161,6 +161,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'USE_CHROME':               {'type': bool,  'default': True},
         'USE_NODE':                 {'type': bool,  'default': True},
         'USE_YOUTUBEDL':            {'type': bool,  'default': True},
+        'USE_RIPGREP':              {'type': bool,  'default': True},
         
         'CURL_BINARY':              {'type': str,   'default': 'curl'},
         'GIT_BINARY':               {'type': str,   'default': 'git'},
@@ -170,6 +171,7 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
         'MERCURY_BINARY':           {'type': str,   'default': 'mercury-parser'},
         'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
         'NODE_BINARY':              {'type': str,   'default': 'node'},
+        'RIPGREP_BINARY':           {'type': str,   'default': 'rg'},
         'CHROME_BINARY':            {'type': str,   'default': None},
 
         'POCKET_CONSUMER_KEY':      {'type': str,   'default': None},
@@ -275,7 +277,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
 
     'PACKAGE_DIR':              {'default': lambda c: Path(__file__).resolve().parent},
-    'TEMPLATES_DIR':            {'default': lambda c: c['PACKAGE_DIR'] / TEMPLATES_DIR_NAME / 'legacy'},
+    'TEMPLATES_DIR':            {'default': lambda c: c['PACKAGE_DIR'] / TEMPLATES_DIR_NAME},
 
     'OUTPUT_DIR':               {'default': lambda c: Path(c['OUTPUT_DIR']).resolve() if c['OUTPUT_DIR'] else Path(os.curdir).resolve()},
     'ARCHIVE_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / ARCHIVE_DIR_NAME},
@@ -312,6 +314,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'SAVE_WARC':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WARC']},
     'WGET_ARGS':                {'default': lambda c: c['WGET_ARGS'] or []},
 
+    'RIPGREP_VERSION':          {'default': lambda c: bin_version(c['RIPGREP_BINARY']) if c['USE_RIPGREP'] else None},
 
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
@@ -320,7 +323,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'READABILITY_VERSION':      {'default': lambda c: bin_version(c['READABILITY_BINARY']) if c['USE_READABILITY'] else None},
 
     'USE_MERCURY':              {'default': lambda c: c['USE_MERCURY'] and c['SAVE_MERCURY']},
-    'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if (c['USE_MERCURY'] and c['MERCURY_BINARY']) else None},  # mercury is unversioned
+    'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury is unversioned
 
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
@@ -334,8 +337,6 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'] or c['SAVE_SINGLEFILE'])},
     'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] if c['CHROME_BINARY'] else find_chrome_binary()},
     'CHROME_VERSION':           {'default': lambda c: bin_version(c['CHROME_BINARY']) if c['USE_CHROME'] else None},
-    'USE_NODE':                 {'default': lambda c: c['USE_NODE'] and (c['SAVE_READABILITY'] or c['SAVE_SINGLEFILE'])},
-    'NODE_VERSION':             {'default': lambda c: bin_version(c['NODE_BINARY']) if c['USE_NODE'] else None},
     
     'SAVE_PDF':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_PDF']},
     'SAVE_SCREENSHOT':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SCREENSHOT']},
@@ -343,6 +344,9 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
     'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SINGLEFILE'] and c['USE_NODE']},
     'SAVE_READABILITY':         {'default': lambda c: c['USE_READABILITY'] and c['USE_NODE']},
     'SAVE_MERCURY':             {'default': lambda c: c['USE_MERCURY'] and c['USE_NODE']},
+    
+    'USE_NODE':                 {'default': lambda c: c['USE_NODE'] and (c['SAVE_READABILITY'] or c['SAVE_SINGLEFILE'] or c['SAVE_MERCURY'])},
+    'NODE_VERSION':             {'default': lambda c: bin_version(c['NODE_BINARY']) if c['USE_NODE'] else None},
 
     'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
     'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
@@ -595,7 +599,7 @@ def bin_path(binary: Optional[str]) -> Optional[str]:
     if node_modules_bin.exists():
         return str(node_modules_bin.resolve())
 
-    return shutil.which(Path(binary).expanduser()) or binary
+    return shutil.which(str(Path(binary).expanduser())) or shutil.which(str(binary)) or binary
 
 def bin_hash(binary: Optional[str]) -> Optional[str]:
     if binary is None:
@@ -682,7 +686,7 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
         'TEMPLATES_DIR': {
             'path': (config['TEMPLATES_DIR']).resolve(),
             'enabled': True,
-            'is_valid': (config['TEMPLATES_DIR'] / 'static').exists(),
+            'is_valid': (config['TEMPLATES_DIR'] / config['ACTIVE_THEME'] / 'static').exists(),
         },
         # 'NODE_MODULES_DIR': {
         #     'path': ,
@@ -825,6 +829,13 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'hash': bin_hash(config['CHROME_BINARY']),
             'enabled': config['USE_CHROME'],
             'is_valid': bool(config['CHROME_VERSION']),
+        },
+        'RIPGREP_BINARY': {
+            'path': bin_path(config['RIPGREP_BINARY']),
+            'version': config['RIPGREP_VERSION'],
+            'hash': bin_hash(config['RIPGREP_BINARY']),
+            'enabled': config['USE_RIPGREP'],
+            'is_valid': bool(config['RIPGREP_VERSION']),
         },
     }
 
