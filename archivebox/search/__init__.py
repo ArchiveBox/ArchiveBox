@@ -107,3 +107,4 @@ def index_links(links: Union[List[Link],None], out_dir: Path=OUTPUT_DIR):
                     ) 
             else:
                 write_search_index(link, texts, out_dir=out_dir)
+                
