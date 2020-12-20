@@ -447,6 +447,7 @@ Then you can clone the ArchiveBox repo and install
 ```python3
 git clone https://github.com/ArchiveBox/ArchiveBox && cd ArchiveBox
 git checkout master  # or the branch you want to test
+git submodule update --init --recursive
 git pull --recurse-submodules
 
 # Install ArchiveBox + python dependencies
