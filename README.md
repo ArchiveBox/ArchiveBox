@@ -489,6 +489,17 @@ You can also run all these in Docker. For more examples see the Github Actions C
 ```
 (uses `pytest -s`)
 
+#### Make migrations or enter a django shell
+
+```bash
+cd archivebox/
+./manage.py makemigrations
+
+cd data/
+archivebox shell
+```
+(uses `pytest -s`)
+
 #### Build the docs, pip package, and docker image
 
 ```bash
