@@ -50,6 +50,13 @@ RUN apt-get update -qq \
         fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 
+# Install apt development dependencies
+# RUN apt-get install -qq \
+#     && apt-get install -qq -y --no-install-recommends \
+#         python3 python3-dev python3-pip python3-venv python3-all \
+#         dh-python debhelper devscripts dput software-properties-common \
+#         python3-distutils python3-setuptools python3-wheel python3-stdeb
+
 # Install Node environment
 RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
     && echo 'deb https://deb.nodesource.com/node_15.x buster main' >> /etc/apt/sources.list \
@@ -62,7 +69,6 @@ RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add -
 WORKDIR "$NODE_DIR"
 ENV PATH="${PATH}:$NODE_DIR/node_modules/.bin" \
     npm_config_loglevel=error
-# RUN npm install -g npm
 ADD ./package.json ./package.json
 ADD ./package-lock.json ./package-lock.json
 RUN npm ci
@@ -82,7 +88,7 @@ RUN apt-get update -qq \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Install ArchiveBox Python package
+# Install ArchiveBox Python package and its dependencies
 WORKDIR "$CODE_DIR"
 ADD . "$CODE_DIR"
 RUN pip install -e .

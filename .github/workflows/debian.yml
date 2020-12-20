@@ -47,7 +47,7 @@ jobs:
           archivebox config --set SAVE_READABILITY=False
           archivebox config --set SAVE_MERCURY=False
           archivebox config --set SAVE_SINGLEFILE=False
-          archivebox version
+          archivebox --version
 
       - name: Add some links to test
         run: |

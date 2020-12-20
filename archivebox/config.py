@@ -1,3 +1,24 @@
+"""
+ArchiveBox config definitons (including defaults and dynamic config options).
+
+Config Usage Example:
+
+    archivebox config --set MEDIA_TIMEOUT=600
+    env MEDIA_TIMEOUT=600 USE_COLOR=False ... archivebox [subcommand] ...
+
+Config Precedence Order:
+
+  1. cli args                 (--update-all / --index-only / etc.)
+  2. shell environment vars   (env USE_COLOR=False archivebox add '...')
+  3. config file              (echo "SAVE_FAVICON=False" >> ArchiveBox.conf)
+  4. defaults                 (defined below in Python)
+
+Documentation:
+
+  https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration
+
+"""
+
 __package__ = 'archivebox'
 
 import os
@@ -24,26 +45,9 @@ from .config_stubs import (
     ConfigDefaultDict,
 )
 
-# precedence order for config:
-# 1. cli args                 (e.g. )
-# 2. shell environment vars   (env USE_COLOR=False archivebox add '...')
-# 3. config file              (echo "SAVE_FAVICON=False" >> ArchiveBox.conf)
-# 4. defaults                 (defined below in Python)
+############################### Config Schema ##################################
 
-#
-# env SHOW_PROGRESS=1 archivebox add '...'
-# archivebox config --set TIMEOUT=600
-# 
-
-# ******************************************************************************
-# Documentation: https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration
-# Use the 'env' command to pass config options to ArchiveBox.  e.g.:
-#     env USE_COLOR=True CHROME_BINARY=chromium archivebox add < example.html
-# ******************************************************************************
-
-################################# User Config ##################################
-
-CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
+CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
     'SHELL_CONFIG': {
         'IS_TTY':                   {'type': bool,  'default': lambda _: sys.stdout.isatty()},
         'USE_COLOR':                {'type': bool,  'default': lambda c: c['IS_TTY']},
@@ -179,21 +183,40 @@ CONFIG_DEFAULTS: Dict[str, ConfigDefaultDict] = {
     },
 }
 
+
+########################## Backwards-Compatibility #############################
+
+
 # for backwards compatibility with old config files, check old/deprecated names for each key
 CONFIG_ALIASES = {
     alias: key
-    for section in CONFIG_DEFAULTS.values()
+    for section in CONFIG_SCHEMA.values()
         for key, default in section.items()
             for alias in default.get('aliases', ())
 }
-USER_CONFIG = {key for section in CONFIG_DEFAULTS.values() for key in section.keys()}
+USER_CONFIG = {key for section in CONFIG_SCHEMA.values() for key in section.keys()}
 
 def get_real_name(key: str) -> str:
+    """get the current canonical name for a given deprecated config key"""
     return CONFIG_ALIASES.get(key.upper().strip(), key.upper().strip())
 
-############################## Derived Config ##############################
 
-# Constants
+
+################################ Constants #####################################
+
+PACKAGE_DIR_NAME = 'archivebox'
+TEMPLATES_DIR_NAME = 'themes'
+
+ARCHIVE_DIR_NAME = 'archive'
+SOURCES_DIR_NAME = 'sources'
+LOGS_DIR_NAME = 'logs'
+STATIC_DIR_NAME = 'static'
+SQL_INDEX_FILENAME = 'index.sqlite3'
+JSON_INDEX_FILENAME = 'index.json'
+HTML_INDEX_FILENAME = 'index.html'
+ROBOTS_TXT_FILENAME = 'robots.txt'
+FAVICON_FILENAME = 'favicon.ico'
+CONFIG_FILENAME = 'ArchiveBox.conf'
 
 DEFAULT_CLI_COLORS = {
     'reset': '\033[00;00m',
@@ -242,36 +265,12 @@ STATICFILE_EXTENSIONS = {
     # html, htm, shtml, xhtml, xml, aspx, php, cgi
 }
 
-PACKAGE_DIR_NAME = 'archivebox'
-TEMPLATES_DIR_NAME = 'themes'
-
-ARCHIVE_DIR_NAME = 'archive'
-SOURCES_DIR_NAME = 'sources'
-LOGS_DIR_NAME = 'logs'
-STATIC_DIR_NAME = 'static'
-SQL_INDEX_FILENAME = 'index.sqlite3'
-JSON_INDEX_FILENAME = 'index.json'
-HTML_INDEX_FILENAME = 'index.html'
-ROBOTS_TXT_FILENAME = 'robots.txt'
-FAVICON_FILENAME = 'favicon.ico'
-CONFIG_FILENAME = 'ArchiveBox.conf'
-
-CONFIG_HEADER = (
-"""# This is the config file for your ArchiveBox collection.
-#
-# You can add options here manually in INI format, or automatically by running:
-#    archivebox config --set KEY=VALUE
-# 
-# If you modify this file manually, make sure to update your archive after by running:
-#    archivebox init
-#
-# A list of all possible config with documentation and examples can be found here:
-#    https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration
-
-""")
 
 
-DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
+############################## Derived Config ##################################
+
+
+DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'TERM_WIDTH':               {'default': lambda c: lambda: shutil.get_terminal_size((100, 10)).columns},
     'USER':                     {'default': lambda c: getpass.getuser() or os.getlogin()},
     'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
@@ -359,6 +358,7 @@ DERIVED_CONFIG_DEFAULTS: ConfigDefaultDict = {
 
 ################################### Helpers ####################################
 
+
 def load_config_val(key: str,
                     default: ConfigDefaultValue=None,
                     type: Optional[Type]=None,
@@ -437,6 +437,20 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
 
     from .system import atomic_write
 
+    CONFIG_HEADER = (
+    """# This is the config file for your ArchiveBox collection.
+    #
+    # You can add options here manually in INI format, or automatically by running:
+    #    archivebox config --set KEY=VALUE
+    # 
+    # If you modify this file manually, make sure to update your archive after by running:
+    #    archivebox init
+    #
+    # A list of all possible config with documentation and examples can be found here:
+    #    https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration
+
+    """)
+
     out_dir = out_dir or Path(os.getenv('OUTPUT_DIR', '.')).resolve()
     config_path = Path(out_dir) /  CONFIG_FILENAME
     
@@ -450,7 +464,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
     with open(config_path, 'r') as old:
         atomic_write(f'{config_path}.bak', old.read())
 
-    find_section = lambda key: [name for name, opts in CONFIG_DEFAULTS.items() if key in opts][0]
+    find_section = lambda key: [name for name, opts in CONFIG_SCHEMA.items() if key in opts][0]
 
     # Set up sections in empty config file
     for key, val in config.items():
@@ -539,6 +553,8 @@ def load_config(defaults: ConfigDefaultDict,
 
 #     with open(os.path.join(config['OUTPUT_DIR'], CONFIG_FILENAME), 'w+') as f:
 
+
+# Logging Helpers
 def stdout(*args, color: Optional[str]=None, prefix: str='', config: Optional[ConfigDict]=None) -> None:
     ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
 
@@ -570,6 +586,7 @@ def hint(text: Union[Tuple[str, ...], List[str], str], prefix='    ', config: Op
             stderr('{}      {}'.format(prefix, line))
 
 
+# Dependency Metadata Helpers
 def bin_version(binary: Optional[str]) -> Optional[str]:
     """check the presence and return valid version line of a specified binary"""
 
@@ -837,6 +854,14 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'enabled': config['USE_RIPGREP'],
             'is_valid': bool(config['RIPGREP_VERSION']),
         },
+        # TODO: add an entry for the sonic search backend?
+        # 'SONIC_BINARY': {
+        #     'path': bin_path(config['SONIC_BINARY']),
+        #     'version': config['SONIC_VERSION'],
+        #     'hash': bin_hash(config['SONIC_BINARY']),
+        #     'enabled': config['USE_SONIC'],
+        #     'is_valid': bool(config['SONIC_VERSION']),
+        # },
     }
 
 def get_chrome_info(config: ConfigDict) -> ConfigValue:
@@ -852,28 +877,51 @@ def get_chrome_info(config: ConfigDict) -> ConfigValue:
     }
 
 
-################################## Load Config #################################
+# ******************************************************************************
+# ******************************************************************************
+# ******************************** Load Config *********************************
+# ******* (compile the defaults, configs, and metadata all into CONFIG) ********
+# ******************************************************************************
+# ******************************************************************************
 
 
 def load_all_config():
     CONFIG: ConfigDict = {}
-    for section_name, section_config in CONFIG_DEFAULTS.items():
+    for section_name, section_config in CONFIG_SCHEMA.items():
         CONFIG = load_config(section_config, CONFIG)
 
-    return load_config(DERIVED_CONFIG_DEFAULTS, CONFIG)
+    return load_config(DYNAMIC_CONFIG_SCHEMA, CONFIG)
 
+# add all final config values in CONFIG to globals in this file
 CONFIG = load_all_config()
 globals().update(CONFIG)
+# this lets us do:  from .config import DEBUG, MEDIA_TIMEOUT, ...
 
-# Timezone set as UTC
+
+# ******************************************************************************
+# ******************************************************************************
+# ******************************************************************************
+# ******************************************************************************
+# ******************************************************************************
+
+
+
+########################### System Environment Setup ###########################
+
+
+# Set timezone to UTC and umask to OUTPUT_PERMISSIONS
 os.environ["TZ"] = 'UTC'
+os.umask(0o777 - int(OUTPUT_PERMISSIONS, base=8))  # noqa: F821
 
 # add ./node_modules/.bin to $PATH so we can use node scripts in extractors
 NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]).absolute() / 'node_modules' / '.bin'))
 sys.path.append(NODE_BIN_PATH)
 
 
-############################## Importable Checkers #############################
+
+
+########################### Config Validity Checkers ###########################
+
 
 def check_system_config(config: ConfigDict=CONFIG) -> None:
     ### Check system environment
@@ -1031,5 +1079,3 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
                 f'No database file {SQL_INDEX_FILENAME} found in OUTPUT_DIR: {config["OUTPUT_DIR"]}')
     except KeyboardInterrupt:
         raise SystemExit(2)
-
-os.umask(0o777 - int(OUTPUT_PERMISSIONS, base=8))  # noqa: F821
