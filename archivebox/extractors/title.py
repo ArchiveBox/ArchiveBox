@@ -5,7 +5,9 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Optional
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+from django.db.models import Model
+
+from ..index.schema import ArchiveResult, ArchiveOutput, ArchiveError
 from ..util import (
     enforce_types,
     is_static_file,
@@ -61,12 +63,12 @@ class TitleParser(HTMLParser):
 
 
 @enforce_types
-def should_save_title(link: Link, out_dir: Optional[str]=None) -> bool:
+def should_save_title(snapshot: Model, out_dir: Optional[str]=None) -> bool:
     # if link already has valid title, skip it
-    if link.title and not link.title.lower().startswith('http'):
+    if snapshot.title and not snapshot.title.lower().startswith('http'):
         return False
 
-    if is_static_file(link.url):
+    if is_static_file(snapshot.url):
         return False
 
     return SAVE_TITLE
@@ -77,7 +79,7 @@ def extract_title_with_regex(html):
     return output
 
 @enforce_types
-def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_title(snapshot: Model, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """try to guess the page's title from its content"""
 
     from core.models import Snapshot
@@ -89,12 +91,12 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
         '--max-time', str(timeout),
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
-        link.url,
+        snapshot.url,
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        html = download_url(link.url, timeout=timeout)
+        html = download_url(snapshot.url, timeout=timeout)
         try:
             # try using relatively strict html parser first
             parser = TitleParser()
@@ -108,10 +110,11 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
         
         # if title is better than the one in the db, update db with new title
         if isinstance(output, str) and output:
-            if not link.title or len(output) >= len(link.title):
-                Snapshot.objects.filter(url=link.url,
-                                        timestamp=link.timestamp)\
+            if not snapshot.title or len(output) >= len(snapshot.title):
+                Snapshot.objects.filter(url=snapshot.url,
+                                        timestamp=snapshot.timestamp)\
                                 .update(title=output)
+                snapshot.title = output
         else:
             raise ArchiveError('Unable to detect page title')
     except Exception as err:

@@ -10,7 +10,7 @@ from typing import List, Tuple, Dict, Optional, Iterable
 from collections import OrderedDict
 from contextlib import contextmanager
 from urllib.parse import urlparse
-from django.db.models import QuerySet, Q
+from django.db.models import QuerySet, Q, Model
 
 from ..util import (
     scheme,
@@ -39,15 +39,15 @@ from ..logging_util import (
 
 from .schema import Link, ArchiveResult
 from .html import (
-    write_html_link_details,
+    write_html_snapshot_details,
 )
 from .json import (
-    parse_json_link_details, 
-    write_json_link_details,
+    parse_json_snapshot_details, 
+    write_json_snapshot_details,
 )
 from .sql import (
     write_sql_main_index,
-    write_sql_link_details,
+    write_sql_snapshot_details,
 )
 
 from ..search import search_backend_enabled, query_search_index
@@ -55,10 +55,12 @@ from ..search import search_backend_enabled, query_search_index
 ### Link filtering and checking
 
 @enforce_types
-def merge_links(a: Link, b: Link) -> Link:
-    """deterministially merge two links, favoring longer field values over shorter,
+def merge_snapshots(a: Model, b: Model) -> Model:
+    """deterministially merge two snapshots, favoring longer field values over shorter,
     and "cleaner" values over worse ones.
+    TODO: Check if this makes sense with the new setup
     """
+    return a
     assert a.base_url == b.base_url, f'Cannot merge two links with different URLs ({a.base_url} != {b.base_url})'
 
     # longest url wins (because a fuzzy url will always be shorter)
@@ -109,55 +111,55 @@ def merge_links(a: Link, b: Link) -> Link:
             key=lambda result: result.start_ts,
         )))
 
-    return Link(
+    return Snapshot(
         url=url,
         timestamp=timestamp,
         title=title,
         tags=tags,
-        sources=sources,
-        history=history,
+        #sources=sources,
+        #history=history,
     )
 
 
 @enforce_types
-def validate_links(links: Iterable[Link]) -> List[Link]:
+def validate_snapshots(snapshots: List[Model]) -> List[Model]:
     timer = TimedProgress(TIMEOUT * 4)
     try:
-        links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
-        links = sorted_links(links)      # deterministically sort the links based on timstamp, url
-        links = fix_duplicate_links(links)  # merge/dedupe duplicate timestamps & urls
+        snapshots = archivable_snapshots(snapshots)  # remove chrome://, about:, mailto: etc.
+        snapshots = sorted_snapshots(snapshots)      # deterministically sort the links based on timestamp, url
+        snapshots = fix_duplicate_snapshots(snapshots)  # merge/dedupe duplicate timestamps & urls
     finally:
         timer.end()
 
-    return list(links)
+    return list(snapshots)
 
 @enforce_types
-def archivable_links(links: Iterable[Link]) -> Iterable[Link]:
+def archivable_snapshots(snapshots: Iterable[Model]) -> Iterable[Model]:
     """remove chrome://, about:// or other schemed links that cant be archived"""
-    for link in links:
+    for snapshot in snapshots:
         try:
-            urlparse(link.url)
+            urlparse(snapshot.url)
         except ValueError:
             continue
-        if scheme(link.url) not in ('http', 'https', 'ftp'):
+        if scheme(snapshot.url) not in ('http', 'https', 'ftp'):
             continue
-        if URL_BLACKLIST_PTN and URL_BLACKLIST_PTN.search(link.url):
+        if URL_BLACKLIST_PTN and URL_BLACKLIST_PTN.search(snapshot.url):
             continue
 
-        yield link
+        yield snapshot
 
 
 @enforce_types
-def fix_duplicate_links(sorted_links: Iterable[Link]) -> Iterable[Link]:
+def fix_duplicate_snapshots(sorted_snapshots: Iterable[Model]) -> Iterable[Model]:
     """
     ensures that all non-duplicate links have monotonically increasing timestamps
+    TODO: Review how to do this with the new snapshots refactor
     """
-    # from core.models import Snapshot
-
+    return sorted_snapshots
     unique_urls: OrderedDict[str, Link] = OrderedDict()
 
-    for link in sorted_links:
-        if link.url in unique_urls:
+    for snapshot in sorted_snapshots:
+        if snapshot.url in unique_urls:
             # merge with any other links that share the same url
             link = merge_links(unique_urls[link.url], link)
         unique_urls[link.url] = link
@@ -166,9 +168,9 @@ def fix_duplicate_links(sorted_links: Iterable[Link]) -> Iterable[Link]:
 
 
 @enforce_types
-def sorted_links(links: Iterable[Link]) -> Iterable[Link]:
-    sort_func = lambda link: (link.timestamp.split('.', 1)[0], link.url)
-    return sorted(links, key=sort_func, reverse=True)
+def sorted_snapshots(snapshots: Iterable[Model]) -> Iterable[Model]:
+    sort_func = lambda snapshot: (snapshot.timestamp.split('.', 1)[0], snapshot.url)
+    return sorted(snapshots, key=sort_func, reverse=True)
 
 
 @enforce_types
@@ -222,14 +224,14 @@ def timed_index_update(out_path: Path):
 
 
 @enforce_types
-def write_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
+def write_main_index(snapshots: List[Model], out_dir: Path=OUTPUT_DIR) -> None:
     """Writes links to sqlite3 file for a given list of links"""
 
-    log_indexing_process_started(len(links))
+    log_indexing_process_started(len(snapshots))
 
     try:
         with timed_index_update(out_dir / SQL_INDEX_FILENAME):
-            write_sql_main_index(links, out_dir=out_dir)
+            write_sql_main_index(snapshots, out_dir=out_dir)
             os.chmod(out_dir / SQL_INDEX_FILENAME, int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
 
     except (KeyboardInterrupt, SystemExit):
@@ -244,7 +246,10 @@ def write_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
 
 @enforce_types
 def load_main_index(out_dir: Path=OUTPUT_DIR, warn: bool=True) -> List[Link]:
-    """parse and load existing index with any new links from import_path merged in"""
+    """
+    Returns all of the snapshots currently in index
+    """
+    setup_django(out_dir, check_db=True)
     from core.models import Snapshot
     try:
         return Snapshot.objects.all()
@@ -265,88 +270,62 @@ def load_main_index_meta(out_dir: Path=OUTPUT_DIR) -> Optional[dict]:
 
 
 @enforce_types
-def parse_links_from_source(source_path: str, root_url: Optional[str]=None) -> Tuple[List[Link], List[Link]]:
+def parse_snapshots_from_source(source_path: str, root_url: Optional[str]=None) -> List[Model]:
 
-    from ..parsers import parse_links
+    from ..parsers import parse_snapshots
 
-    new_links: List[Link] = []
+    new_links: List[Model] = []
 
     # parse and validate the import file
-    raw_links, parser_name = parse_links(source_path, root_url=root_url)
-    new_links = validate_links(raw_links)
+    raw_snapshots, parser_name = parse_snapshots(source_path, root_url=root_url)
+    new_snapshots = validate_snapshots(raw_snapshots)
 
     if parser_name:
-        num_parsed = len(raw_links)
+        num_parsed = len(raw_snapshots)
         log_parsing_finished(num_parsed, parser_name)
 
-    return new_links
+    return new_snapshots
 
 @enforce_types
-def fix_duplicate_links_in_index(snapshots: QuerySet, links: Iterable[Link]) -> Iterable[Link]:
+def filter_new_urls(snapshots: QuerySet,
+                 new_snapshots: List) -> List:
     """
-    Given a list of in-memory Links, dedupe and merge them with any conflicting Snapshots in the DB.
+    Returns a list of Snapshots corresponding to the urls that were not present in the index
     """
-    unique_urls: OrderedDict[str, Link] = OrderedDict()
+    urls = {snapshot.url: snapshot for snapshot in new_snapshots}
+    filtered_snapshots = snapshots.filter(url__in=urls.keys())
 
-    for link in links:
-        index_link = snapshots.filter(url=link.url)
-        if index_link:
-            link = merge_links(index_link[0].as_link(), link)
-
-        unique_urls[link.url] = link
-
-    return unique_urls.values()
-
-@enforce_types
-def dedupe_links(snapshots: QuerySet,
-                 new_links: List[Link]) -> List[Link]:
-    """
-    The validation of links happened at a different stage. This method will
-    focus on actual deduplication and timestamp fixing.
-    """
+    for found_snapshot in filtered_snapshots:
+        urls.pop(found_snapshot.url)
     
-    # merge existing links in out_dir and new links
-    dedup_links = fix_duplicate_links_in_index(snapshots, new_links)
+    log_deduping_finished(len(urls.keys()))
 
-    new_links = [
-        link for link in new_links
-        if not snapshots.filter(url=link.url).exists()
-    ]
-
-    dedup_links_dict = {link.url: link for link in dedup_links}
-
-    # Replace links in new_links with the dedup version
-    for i in range(len(new_links)):
-        if new_links[i].url in dedup_links_dict.keys():
-            new_links[i] = dedup_links_dict[new_links[i].url]
-    log_deduping_finished(len(new_links))
-
-    return new_links
+    return list(urls.values())
 
 ### Link Details Index
 
 @enforce_types
-def write_link_details(link: Link, out_dir: Optional[str]=None, skip_sql_index: bool=False) -> None:
-    out_dir = out_dir or link.link_dir
+def write_snapshot_details(snapshot: List[Model], out_dir: Optional[str]=None, skip_sql_index: bool=False) -> None:
+    out_dir = out_dir or snapshot.snapshot_dir
 
-    write_json_link_details(link, out_dir=out_dir)
-    write_html_link_details(link, out_dir=out_dir)
+    write_json_snapshot_details(snapshot, out_dir=out_dir)
+    #write_html_snapshot_details(snapshot, out_dir=out_dir) TODO: Refactor html code too
     if not skip_sql_index:
-        write_sql_link_details(link)
+        write_sql_snapshot_details(snapshot)
 
 
 @enforce_types
-def load_link_details(link: Link, out_dir: Optional[str]=None) -> Link:
+def load_snapshot_details(snapshot: Model, out_dir: Optional[str]=None) -> Model:
     """check for an existing link archive in the given directory, 
        and load+merge it into the given link dict
     """
-    out_dir = out_dir or link.link_dir
+    out_dir = out_dir or snapshot.snapshot_dir
 
-    existing_link = parse_json_link_details(out_dir)
-    if existing_link:
-        return merge_links(existing_link, link)
+    existing_snapshot = parse_json_snapshot_details(out_dir)
+    if existing_snapshot:
+        return merge_snapshots(existing_snapshot, snapshot)
 
-    return link
+    return snapshot
 
 
 

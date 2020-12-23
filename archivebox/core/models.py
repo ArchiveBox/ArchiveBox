@@ -1,6 +1,7 @@
 __package__ = 'archivebox.core'
 
 import uuid
+from pathlib import Path
 
 from django.db import models, transaction
 from django.utils.functional import cached_property
@@ -9,9 +10,10 @@ from django.db.models import Case, When, Value, IntegerField
 
 from ..util import parse_date
 from ..index.schema import Link
-from ..extractors import get_default_archive_methods, ARCHIVE_METHODS_INDEXING_PRECEDENCE
+from ..config import CONFIG
 
-EXTRACTORS = [(extractor[0], extractor[0]) for extractor in get_default_archive_methods()]
+#EXTRACTORS = [(extractor[0], extractor[0]) for extractor in get_default_archive_methods()]
+EXTRACTORS = ["title", "wget"]
 STATUS_CHOICES = [
     ("succeeded", "succeeded"),
     ("failed", "failed"),
@@ -89,6 +91,7 @@ class Snapshot(models.Model):
         title = self.title or '-'
         return f'[{self.timestamp}] {self.url[:64]} ({title[:64]})'
 
+
     @classmethod
     def from_json(cls, info: dict):
         info = {k: v for k, v in info.items() if k in cls.keys}
@@ -133,8 +136,9 @@ class Snapshot(models.Model):
         return self.as_link().base_url
 
     @cached_property
-    def link_dir(self):
-        return self.as_link().link_dir
+    def snapshot_dir(self):
+        from ..config import CONFIG
+        return str(Path(CONFIG['ARCHIVE_DIR']) / self.timestamp)
 
     @cached_property
     def archive_path(self):
@@ -158,6 +162,16 @@ class Snapshot(models.Model):
             return self.history['title'][-1].output.strip()
         return None
 
+    def _asdict(self):
+        return {
+            "id": str(self.id),
+            "url": self.url,
+            "timestamp": self.timestamp,
+            "title": self.title,
+            "added": self.added,
+            "updated": self.updated,
+        }
+
     def save_tags(self, tags=()):
         tags_id = []
         for tag in tags:
@@ -168,6 +182,7 @@ class Snapshot(models.Model):
 
 class ArchiveResultManager(models.Manager):
     def indexable(self, sorted: bool = True):
+        from ..extractors import ARCHIVE_METHODS_INDEXING_PRECEDENCE
         INDEXABLE_METHODS = [ r[0] for r in ARCHIVE_METHODS_INDEXING_PRECEDENCE ]
         qs = self.get_queryset().filter(extractor__in=INDEXABLE_METHODS,status='succeeded')
 

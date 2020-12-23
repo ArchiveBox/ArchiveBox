@@ -5,6 +5,7 @@ from typing import List, Optional, Iterator, Mapping
 from pathlib import Path
 
 from django.utils.html import format_html
+from django.db.models import Model
 from collections import defaultdict
 
 from .schema import Link
@@ -71,8 +72,8 @@ def main_index_template(links: List[Link], template: str=MAIN_INDEX_TEMPLATE) ->
 ### Link Details Index
 
 @enforce_types
-def write_html_link_details(link: Link, out_dir: Optional[str]=None) -> None:
-    out_dir = out_dir or link.link_dir
+def write_html_snapshot_details(snapshot: Model, out_dir: Optional[str]=None) -> None:
+    out_dir = out_dir or snapshot.snapshot_dir
 
     rendered_html = link_details_template(link)
     atomic_write(str(Path(out_dir) / HTML_INDEX_FILENAME), rendered_html)
