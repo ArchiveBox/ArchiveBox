@@ -7,6 +7,7 @@ from pathlib import Path
 
 from datetime import datetime
 from typing import List, Optional, Iterator, Any, Union
+from django.db.models import Model
 
 from .schema import Link
 from ..system import atomic_write
@@ -81,16 +82,17 @@ def parse_json_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[Link]:
 ### Link Details Index
 
 @enforce_types
-def write_json_link_details(link: Link, out_dir: Optional[str]=None) -> None:
-    """write a json file with some info about the link"""
+def write_json_snapshot_details(snapshot: Model, out_dir: Optional[str]=None) -> None:
+    """write a json file with some info about the snapshot"""
     
-    out_dir = out_dir or link.link_dir
+    out_dir = out_dir or snapshot.snapshot_dir
     path = Path(out_dir) / JSON_INDEX_FILENAME
-    atomic_write(str(path), link._asdict(extended=True))
+    print(snapshot._asdict())
+    atomic_write(str(path), snapshot._asdict())
 
 
 @enforce_types
-def parse_json_link_details(out_dir: Union[Path, str], guess: Optional[bool]=False) -> Optional[Link]:
+def parse_json_link_details(out_dir: Union[Path, str], guess: Optional[bool]=False) -> Optional[Model]:
     """load the json link index from a given directory"""
     existing_index = Path(out_dir) / JSON_INDEX_FILENAME
     if existing_index.exists():
@@ -102,16 +104,31 @@ def parse_json_link_details(out_dir: Union[Path, str], guess: Optional[bool]=Fal
                 pass
     return None
 
+@enforce_types
+def load_snapshot_details(snapshot: Model, out_dir: Path):
+    """
+    Loads the detail from the local json index
+    """
+    existing_index = Path(out_dir) / JSON_INDEX_FILENAME
+    if existing_index.exists():
+        with open(existing_index, 'r', encoding='utf-8') as f:
+            try:
+                return pyjson.load(f)
+            except pyjson.JSONDecodeError:
+                pass
+    return None
+
+
 
 @enforce_types
-def parse_json_links_details(out_dir: Union[Path, str]) -> Iterator[Link]:
+def parse_json_snapshot_details(out_dir: Union[Path, str]) -> Iterator[Link]:
     """read through all the archive data folders and return the parsed links"""
 
     for entry in os.scandir(Path(out_dir) / ARCHIVE_DIR_NAME):
         if entry.is_dir(follow_symlinks=True):
             if (Path(entry.path) / 'index.json').exists():
                 try:
-                    link = parse_json_link_details(entry.path)
+                    link = parse_json_snapshot_details(entry.path)
                 except KeyError:
                     link = None
                 if link:

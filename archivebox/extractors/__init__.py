@@ -4,19 +4,20 @@ import os
 from pathlib import Path
 
 from typing import Optional, List, Iterable, Union
-from datetime import datetime
-from django.db.models import QuerySet
 
-from ..index.schema import Link
-from ..index.sql import write_link_to_sql_index
+from datetime import datetime
+from django.db.models import QuerySet, Model
+
+from ..index.sql import write_snapshot_to_index
 from ..index import (
-    load_link_details,
-    write_link_details,
+    load_snapshot_details,
+    write_snapshot_details,
 )
 from ..util import enforce_types
 from ..logging_util import (
     log_archiving_started,
     log_archiving_paused,
+
     log_archiving_finished,
     log_link_archiving_started,
     log_link_archiving_finished,
@@ -67,15 +68,9 @@ def ignore_methods(to_ignore: List[str]):
     return list(methods)
 
 @enforce_types
-def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None) -> Link:
+def archive_snapshot(snapshot: Model, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None) -> Model:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
-
-    # TODO: Remove when the input is changed to be a snapshot. Suboptimal approach.
-    from core.models import Snapshot, ArchiveResult
-    try:
-        snapshot = Snapshot.objects.get(url=link.url) # TODO: This will be unnecessary once everything is a snapshot
-    except Snapshot.DoesNotExist:
-        snapshot = write_link_to_sql_index(link)
+    from core.models import ArchiveResult
 
     ARCHIVE_METHODS = get_default_archive_methods()
     
@@ -85,33 +80,34 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
             if method[0] in methods
         ]
 
-    out_dir = out_dir or Path(link.link_dir)
+    out_dir = out_dir or Path(snapshot.snapshot_dir)
     try:
         is_new = not Path(out_dir).exists()
         if is_new:
             os.makedirs(out_dir)
+            details = {"history": {}}
+            write_snapshot_details(snapshot, out_dir=out_dir, skip_sql_index=False)
+        else:
+            details = list(load_snapshot_details(snapshot))
 
-        link = load_link_details(link, out_dir=out_dir)
-        write_link_details(link, out_dir=out_dir, skip_sql_index=False)
-        log_link_archiving_started(link, out_dir, is_new)
-        link = link.overwrite(updated=datetime.now())
+        #log_link_archiving_started(link, out_dir, is_new)
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
 
         for method_name, should_run, method_function in ARCHIVE_METHODS:
             try:
-                if method_name not in link.history:
-                    link.history[method_name] = []
+                if method_name not in details["history"]:
+                    details["history"][method_name] = []
 
-                if should_run(link, out_dir) or overwrite:
+                if should_run(snapshot, out_dir) or overwrite:
                     log_archive_method_started(method_name)
 
-                    result = method_function(link=link, out_dir=out_dir)
+                    result = method_function(snapshot=snapshot, out_dir=out_dir)
 
-                    link.history[method_name].append(result)
+                    details["history"][method_name].append(result)
 
                     stats[result.status] += 1
                     log_archive_method_finished(result)
-                    write_search_index(link=link, texts=result.index_texts)
+                    write_search_index(snapshot=snapshot, texts=result.index_texts)
                     ArchiveResult.objects.create(snapshot=snapshot, extractor=method_name, cmd=result.cmd, cmd_version=result.cmd_version,
                                                  output=result.output, pwd=result.pwd, start_ts=result.start_ts, end_ts=result.end_ts, status=result.status)
 
@@ -121,7 +117,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
             except Exception as e:
                 raise Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
                     method_name,
-                    link.url,
+                    snapshot.url,
                 )) from e
 
         # print('    ', stats)
@@ -129,17 +125,17 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         try:
             latest_title = link.history['title'][-1].output.strip()
             if latest_title and len(latest_title) >= len(link.title or ''):
-                link = link.overwrite(title=latest_title)
+                snapshot.title = latest_title
         except Exception:
             pass
 
-        write_link_details(link, out_dir=out_dir, skip_sql_index=False)
+        write_snapshot_details(snapshot, out_dir=out_dir, skip_sql_index=False)
 
-        log_link_archiving_finished(link, link.link_dir, is_new, stats)
+        log_link_archiving_finished(snapshot, snapshot.snapshot_dir, is_new, stats)
 
     except KeyboardInterrupt:
         try:
-            write_link_details(link, out_dir=link.link_dir)
+            write_snapshot_details(snapshot, out_dir=link.link_dir)
         except:
             pass
         raise
@@ -148,35 +144,29 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         print('    ! Failed to archive link: {}: {}'.format(err.__class__.__name__, err))
         raise
 
-    return link
+    return snapshot
 
 @enforce_types
-def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None) -> List[Link]:
+def archive_snapshots(all_snapshots: Union[QuerySet, List[Model]], overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None) -> QuerySet:
 
-    if type(all_links) is QuerySet:
-        num_links: int = all_links.count()
-        get_link = lambda x: x.as_link()
-        all_links = all_links.iterator()
-    else:
-        num_links: int = len(all_links)
-        get_link = lambda x: x
+    all_snapshots = list(all_snapshots)
+    num_snapshots: int = len(all_snapshots)
 
-    if num_links == 0:
+    if num_snapshots == 0:
         return []
 
-    log_archiving_started(num_links)
+    log_archiving_started(num_snapshots)
     idx: int = 0
     try:
-        for link in all_links:
+        for snapshot in all_snapshots:
             idx += 1
-            to_archive = get_link(link)
-            archive_link(to_archive, overwrite=overwrite, methods=methods, out_dir=Path(link.link_dir))
+            archive_snapshot(snapshot, overwrite=overwrite, methods=methods, out_dir=Path(snapshot.snapshot_dir))
     except KeyboardInterrupt:
-        log_archiving_paused(num_links, idx, link.timestamp)
+        log_archiving_paused(num_snapshots, idx, snapshot.timestamp)
         raise SystemExit(0)
     except BaseException:
         print()
         raise
 
-    log_archiving_finished(num_links)
-    return all_links
+    log_archiving_finished(num_snapshots)
+    return all_snapshots

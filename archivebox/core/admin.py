@@ -21,7 +21,7 @@ from util import htmldecode, urldecode, ansi_to_html
 from logging_util import printable_filesize
 from main import add, remove
 from config import OUTPUT_DIR
-from extractors import archive_links
+from extractors import archive_snapshots
 
 # TODO: https://stackoverflow.com/questions/40760880/add-custom-button-to-django-admin-panel
 

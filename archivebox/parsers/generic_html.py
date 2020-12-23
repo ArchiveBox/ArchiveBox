@@ -31,6 +31,7 @@ class HrefParser(HTMLParser):
 @enforce_types
 def parse_generic_html_export(html_file: IO[str], root_url: Optional[str]=None, **_kwargs) -> Iterable[Link]:
     """Parse Generic HTML for href tags and use only the url (support for title coming later)"""
+    from core.models import Snapshot
 
     html_file.seek(0)
     for line in html_file:
@@ -44,10 +45,10 @@ def parse_generic_html_export(html_file: IO[str], root_url: Optional[str]=None, 
                 url = urljoin(root_url, url)
             
             for archivable_url in re.findall(URL_REGEX, url):
-                yield Link(
+                yield Snapshot(
                     url=htmldecode(archivable_url),
                     timestamp=str(datetime.now().timestamp()),
                     title=None,
-                    tags=None,
-                    sources=[html_file.name],
+                    #tags=None,
+                    #sources=[html_file.name],
                 )

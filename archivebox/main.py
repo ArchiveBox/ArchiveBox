@@ -29,8 +29,9 @@ from .util import enforce_types                         # type: ignore
 from .system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
 from .index import (
     load_main_index,
-    parse_links_from_source,
-    dedupe_links,
+    get_empty_snapshot_queryset,
+    parse_snapshots_from_source,
+    filter_new_urls,
     write_main_index,
     snapshot_filter,
     get_indexed_folders,
@@ -44,11 +45,11 @@ from .index import (
     get_corrupted_folders,
     get_unrecognized_folders,
     fix_invalid_folder_locations,
-    write_link_details,
+    write_snapshot_details,
 )
 from .index.json import (
     parse_json_main_index,
-    parse_json_links_details,
+    parse_json_snapshot_details,
     generate_json_index_from_links,
 )
 from .index.sql import (
@@ -60,7 +61,7 @@ from .index.html import (
     generate_index_from_links,
 )
 from .index.csv import links_to_csv
-from .extractors import archive_links, archive_link, ignore_methods
+from .extractors import archive_snapshots, archive_snapshot, ignore_methods
 from .config import (
     stderr,
     hint,
@@ -538,6 +539,7 @@ def add(urls: Union[str, List[str]],
         extractors: str="",
         out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
+    from core.models import Snapshot
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
 
@@ -549,8 +551,8 @@ def add(urls: Union[str, List[str]],
     # Load list of links from the existing index
     check_data_folder(out_dir=out_dir)
     check_dependencies()
-    new_links: List[Link] = []
-    all_links = load_main_index(out_dir=out_dir)
+    new_snapshots: List[Snapshot] = []
+    all_snapshots = load_main_index(out_dir=out_dir)
 
     log_importing_started(urls=urls, depth=depth, index_only=index_only)
     if isinstance(urls, str):
@@ -560,20 +562,21 @@ def add(urls: Union[str, List[str]],
         # save verbatim args to sources
         write_ahead_log = save_text_as_source('\n'.join(urls), filename='{ts}-import.txt', out_dir=out_dir)
     
-    new_links += parse_links_from_source(write_ahead_log, root_url=None)
+    new_snapshots += parse_snapshots_from_source(write_ahead_log, root_url=None)
 
     # If we're going one level deeper, download each link and look for more links
-    new_links_depth = []
-    if new_links and depth == 1:
-        log_crawl_started(new_links)
-        for new_link in new_links:
-            downloaded_file = save_file_as_source(new_link.url, filename=f'{new_link.timestamp}-crawl-{new_link.domain}.txt', out_dir=out_dir)
-            new_links_depth += parse_links_from_source(downloaded_file, root_url=new_link.url)
+    new_snapshots_depth = []
+    if new_snapshots and depth == 1:
+        log_crawl_started(new_snapshots)
+        for new_snapshot in new_snapshots:
+            # TODO: Check if we need to add domain to the Snapshot model
+            downloaded_file = save_file_as_source(new_snapshot.url, filename=f'{new_snapshot.timestamp}-crawl-{new_snapshot.url}.txt', out_dir=out_dir)
+            new_snapshots_depth += parse_links_from_source(downloaded_file, root_url=new_snapshot.url)
 
-    imported_links = list({link.url: link for link in (new_links + new_links_depth)}.values())
-    new_links = dedupe_links(all_links, imported_links)
+    imported_snapshots = [Snapshot(url=snapshot.url) for snapshot in new_snapshots + new_snapshots_depth]
+    new_snapshots = filter_new_urls(all_snapshots, imported_snapshots)
 
-    write_main_index(links=new_links, out_dir=out_dir)
+    write_main_index(snapshots=new_snapshots, out_dir=out_dir)
     all_links = load_main_index(out_dir=out_dir)
 
     if index_only:
@@ -586,13 +589,13 @@ def add(urls: Union[str, List[str]],
     if extractors:
         archive_kwargs["methods"] = extractors
     if update_all:
-        archive_links(all_links, overwrite=overwrite, **archive_kwargs)
+        archive_snapshots(all_snapshots, overwrite=overwrite, **archive_kwargs)
     elif overwrite:
-        archive_links(imported_links, overwrite=True, **archive_kwargs)
-    elif new_links:
-        archive_links(new_links, overwrite=False, **archive_kwargs)
+        archive_snapshots(imported_snapshots, overwrite=True, **archive_kwargs)
+    elif new_snapshots:
+        archive_snapshots(new_snapshots, overwrite=False, **archive_kwargs)
 
-    return all_links
+    return all_snapshots
 
 @enforce_types
 def remove(filter_str: Optional[str]=None,
@@ -711,7 +714,7 @@ def update(resume: Optional[float]=None,
 
     if index_only:
         for link in all_links:
-            write_link_details(link, out_dir=out_dir, skip_sql_index=True)
+            write_snapshot_details(link, out_dir=out_dir, skip_sql_index=True)
         index_links(all_links, out_dir=out_dir)
         return all_links
         
@@ -733,7 +736,7 @@ def update(resume: Optional[float]=None,
     if extractors:
         archive_kwargs["methods"] = extractors
 
-    archive_links(to_archive, overwrite=overwrite, **archive_kwargs)
+    archive_snapshots(to_archive, overwrite=overwrite, **archive_kwargs)
 
     # Step 4: Re-write links index with updated titles, icons, and resources
     all_links = load_main_index(out_dir=out_dir)
