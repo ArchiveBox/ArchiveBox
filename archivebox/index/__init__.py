@@ -124,7 +124,7 @@ def validate_links(links: Iterable[Link]) -> List[Link]:
     timer = TimedProgress(TIMEOUT * 4)
     try:
         links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
-        links = sorted_links(links)      # deterministically sort the links based on timstamp, url
+        links = sorted_links(links)      # deterministically sort the links based on timestamp, url
         links = fix_duplicate_links(links)  # merge/dedupe duplicate timestamps & urls
     finally:
         timer.end()
