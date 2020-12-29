@@ -4,6 +4,8 @@ from pathlib import Path
 
 from typing import Optional
 
+from django.db.models import Model
+
 from ..index.schema import Link, ArchiveResult, ArchiveOutput
 from ..system import atomic_write
 from ..util import (
@@ -22,18 +24,18 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 @enforce_types
-def should_save_headers(link: Link, out_dir: Optional[str]=None) -> bool:
-    out_dir = out_dir or link.link_dir
+def should_save_headers(snapshot: Model, out_dir: Optional[str]=None) -> bool:
+    out_dir = out_dir or snapshot.snapshot_dir
 
-    output = Path(out_dir or link.link_dir) / 'headers.json'
+    output = Path(out_dir or snapshot.snapshot_dir) / 'headers.json'
     return not output.exists() and SAVE_HEADERS
 
 
 @enforce_types
-def save_headers(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_headers(snapshot: Model, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """Download site headers"""
 
-    out_dir = Path(out_dir or link.link_dir)
+    out_dir = Path(out_dir or snapshot.snapshot_dir)
     output_folder = out_dir.absolute()
     output: ArchiveOutput = 'headers.json'
 
@@ -47,10 +49,10 @@ def save_headers(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
         '--max-time', str(timeout),
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
-        link.url,
+        snapshot.url,
     ]
     try:
-        json_headers = get_headers(link.url, timeout=timeout)
+        json_headers = get_headers(snapshot.url, timeout=timeout)
         output_folder.mkdir(exist_ok=True)
         atomic_write(str(output_folder / "headers.json"), json_headers)
     except (Exception, OSError) as err:
