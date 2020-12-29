@@ -6,6 +6,8 @@ from subprocess import CompletedProcess
 from typing import Optional, List
 import json
 
+from django.db.models import Model
+
 from ..index.schema import Link, ArchiveResult, ArchiveError
 from ..system import run, atomic_write
 from ..util import (
@@ -37,20 +39,20 @@ def ShellError(cmd: List[str], result: CompletedProcess, lines: int=20) -> Archi
 
 
 @enforce_types
-def should_save_mercury(link: Link, out_dir: Optional[str]=None) -> bool:
-    out_dir = out_dir or link.link_dir
-    if is_static_file(link.url):
+def should_save_mercury(snapshot: Model, out_dir: Optional[str]=None) -> bool:
+    out_dir = out_dir or snapshot.snapshot_dir
+    if is_static_file(snapshot.url):
         return False
 
-    output = Path(out_dir or link.link_dir) / 'mercury'
+    output = Path(out_dir or snapshot.snapshot_dir) / 'mercury'
     return SAVE_MERCURY and MERCURY_VERSION and (not output.exists())
 
 
 @enforce_types
-def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_mercury(snapshot: Model, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download reader friendly version using @postlight/mercury-parser"""
 
-    out_dir = Path(out_dir or link.link_dir)
+    out_dir = Path(out_dir or snapshot.snapshot_dir)
     output_folder = out_dir.absolute() / "mercury"
     output = str(output_folder)
 
@@ -60,7 +62,7 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
         # Get plain text version of article
         cmd = [
             DEPENDENCIES['MERCURY_BINARY']['path'],
-            link.url,
+            snapshot.url,
             "--format=text"
         ]
         result = run(cmd, cwd=out_dir, timeout=timeout)
@@ -72,7 +74,7 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
         # Get HTML version of article
         cmd = [
             DEPENDENCIES['MERCURY_BINARY']['path'],
-            link.url
+            snapshot.url
         ]
         result = run(cmd, cwd=out_dir, timeout=timeout)
         try:
