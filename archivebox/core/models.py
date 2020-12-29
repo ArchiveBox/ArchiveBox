@@ -2,6 +2,7 @@ __package__ = 'archivebox.core'
 
 import uuid
 from pathlib import Path
+from typing import Dict, Optional
 
 from django.db import models, transaction
 from django.utils.functional import cached_property
@@ -25,7 +26,6 @@ try:
 except AttributeError:
     import jsonfield
     JSONField = jsonfield.JSONField
-
 
 class Tag(models.Model):
     """
@@ -161,6 +161,56 @@ class Snapshot(models.Model):
             and self.history['title'][-1].output.strip()):
             return self.history['title'][-1].output.strip()
         return None
+
+    
+    @cached_property
+    def domain(self) -> str:
+        from ..util import domain
+        return domain(self.url)
+
+    @cached_property
+    def is_static(self) -> bool:
+        from ..util import is_static_file
+        return is_static_file(self.url)
+
+
+    def canonical_outputs(self) -> Dict[str, Optional[str]]:
+        """predict the expected output paths that should be present after archiving"""
+
+        from ..extractors.wget import wget_output_path
+        canonical = {
+            'index_path': 'index.html',
+            'favicon_path': 'favicon.ico',
+            'google_favicon_path': 'https://www.google.com/s2/favicons?domain={}'.format(self.domain),
+            'wget_path': wget_output_path(self),
+            'warc_path': 'warc',
+            'singlefile_path': 'singlefile.html',
+            'readability_path': 'readability/content.html',
+            'mercury_path': 'mercury/content.html',
+            'pdf_path': 'output.pdf',
+            'screenshot_path': 'screenshot.png',
+            'dom_path': 'output.html',
+            'archive_org_path': 'https://web.archive.org/web/{}'.format(self.base_url),
+            'git_path': 'git',
+            'media_path': 'media',
+        }
+        if self.is_static:
+            # static binary files like PDF and images are handled slightly differently.
+            # they're just downloaded once and aren't archived separately multiple times, 
+            # so the wget, screenshot, & pdf urls should all point to the same file
+
+            static_path = wget_output_path(self)
+            canonical.update({
+                'title': self.basename,
+                'wget_path': static_path,
+                'pdf_path': static_path,
+                'screenshot_path': static_path,
+                'dom_path': static_path,
+                'singlefile_path': static_path,
+                'readability_path': static_path,
+                'mercury_path': static_path,
+            })
+        return canonical
 
     def _asdict(self):
         return {
