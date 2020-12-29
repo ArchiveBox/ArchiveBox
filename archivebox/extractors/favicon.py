@@ -4,6 +4,8 @@ from pathlib import Path
 
 from typing import Optional
 
+from django.db.models import Model
+
 from ..index.schema import Link, ArchiveResult, ArchiveOutput
 from ..system import chmod_file, run
 from ..util import enforce_types, domain
@@ -20,18 +22,18 @@ from ..logging_util import TimedProgress
 
 
 @enforce_types
-def should_save_favicon(link: Link, out_dir: Optional[str]=None) -> bool:
-    out_dir = out_dir or link.link_dir
+def should_save_favicon(snapshot: Model, out_dir: Optional[str]=None) -> bool:
+    out_dir = out_dir or snapshot.snapshot_dir
     if (Path(out_dir) / 'favicon.ico').exists():
         return False
 
     return SAVE_FAVICON
     
 @enforce_types
-def save_favicon(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_favicon(snapshot: Model, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download site favicon from google's favicon api"""
 
-    out_dir = out_dir or link.link_dir
+    out_dir = out_dir or snapshot.snapshot_dir
     output: ArchiveOutput = 'favicon.ico'
     cmd = [
         CURL_BINARY,
@@ -40,7 +42,7 @@ def save_favicon(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
         '--output', str(output),
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
-        'https://www.google.com/s2/favicons?domain={}'.format(domain(link.url)),
+        'https://www.google.com/s2/favicons?domain={}'.format(domain(snapshot.url)),
     ]
     status = 'pending'
     timer = TimedProgress(timeout, prefix='      ')
