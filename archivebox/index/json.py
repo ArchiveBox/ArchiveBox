@@ -92,20 +92,7 @@ def write_json_snapshot_details(snapshot: Model, out_dir: Optional[str]=None) ->
 
 
 @enforce_types
-def parse_json_link_details(out_dir: Union[Path, str], guess: Optional[bool]=False) -> Optional[Model]:
-    """load the json link index from a given directory"""
-    existing_index = Path(out_dir) / JSON_INDEX_FILENAME
-    if existing_index.exists():
-        with open(existing_index, 'r', encoding='utf-8') as f:
-            try:
-                link_json = pyjson.load(f)
-                return Link.from_json(link_json, guess)
-            except pyjson.JSONDecodeError:
-                pass
-    return None
-
-@enforce_types
-def load_snapshot_details(snapshot: Model, out_dir: Path):
+def load_snapshot_details(out_Dir: Path) -> Optional[Model]:
     """
     Loads the detail from the local json index
     """
@@ -119,20 +106,19 @@ def load_snapshot_details(snapshot: Model, out_dir: Path):
     return None
 
 
-
 @enforce_types
-def parse_json_snapshot_details(out_dir: Union[Path, str]) -> Iterator[Link]:
+def parse_json_snapshot_details(out_dir: Union[Path, str]) -> Iterator[dict]:
     """read through all the archive data folders and return the parsed links"""
 
     for entry in os.scandir(Path(out_dir) / ARCHIVE_DIR_NAME):
         if entry.is_dir(follow_symlinks=True):
             if (Path(entry.path) / 'index.json').exists():
                 try:
-                    link = parse_json_snapshot_details(entry.path)
+                    snapshot_details = load_snapshot_details(entry.path)
                 except KeyError:
-                    link = None
-                if link:
-                    yield link
+                    snapshot_details = None
+                if snapshot_details:
+                    yield snapshot_details
 
 
 

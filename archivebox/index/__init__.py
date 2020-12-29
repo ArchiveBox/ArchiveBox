@@ -249,7 +249,6 @@ def load_main_index(out_dir: Path=OUTPUT_DIR, warn: bool=True) -> List[Link]:
     """
     Returns all of the snapshots currently in index
     """
-    setup_django(out_dir, check_db=True)
     from core.models import Snapshot
     try:
         return Snapshot.objects.all()

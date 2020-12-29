@@ -29,7 +29,6 @@ from .util import enforce_types                         # type: ignore
 from .system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
 from .index import (
     load_main_index,
-    get_empty_snapshot_queryset,
     parse_snapshots_from_source,
     filter_new_urls,
     write_main_index,
@@ -340,8 +339,8 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     pending_links: Dict[str, Link] = {}
 
     if existing_index:
-        all_links = load_main_index(out_dir=out_dir, warn=False)
-        print('    √ Loaded {} links from existing main index.'.format(all_links.count()))
+        all_snapshots = load_main_index(out_dir=out_dir, warn=False)
+        print('    √ Loaded {} snapshots from existing main index.'.format(all_snapshots.count()))
 
     # Links in data folders that dont match their timestamp
     fixed, cant_fix = fix_invalid_folder_locations(out_dir=out_dir)
@@ -361,22 +360,22 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
         print('    {lightyellow}√ Added {} orphaned links from existing JSON index...{reset}'.format(len(orphaned_json_links), **ANSI))
 
     # Links in data dir indexes but not in main index
-    orphaned_data_dir_links = {
-        link.url: link
-        for link in parse_json_links_details(out_dir)
-        if not all_links.filter(url=link.url).exists()
+    orphaned_data_dir_snapshots = {
+        snapshot.url: snapshot
+        for snapshot in parse_json_snapshot_details(out_dir)
+        if not all_snapshots.filter(url=link.url).exists()
     }
-    if orphaned_data_dir_links:
-        pending_links.update(orphaned_data_dir_links)
-        print('    {lightyellow}√ Added {} orphaned links from existing archive directories.{reset}'.format(len(orphaned_data_dir_links), **ANSI))
+    if orphaned_data_dir_snapshots:
+        pending_snapshots.update(orphaned_data_dir_links)
+        print('    {lightyellow}√ Added {} orphaned snapshots from existing archive directories.{reset}'.format(len(orphaned_data_dir_snapshots), **ANSI))
 
     # Links in invalid/duplicate data dirs
     invalid_folders = {
-        folder: link
-        for folder, link in get_invalid_folders(all_links, out_dir=out_dir).items()
+        folder: snapshot
+        for folder, snapshot in get_invalid_folders(all_snapshots, out_dir=out_dir).items()
     }
     if invalid_folders:
-        print('    {lightyellow}! Skipped adding {} invalid link data directories.{reset}'.format(len(invalid_folders), **ANSI))
+        print('    {lightyellow}! Skipped adding {} invalid snapshot data directories.{reset}'.format(len(invalid_folders), **ANSI))
         print('        X ' + '\n        X '.join(f'{folder} {link}' for folder, link in invalid_folders.items()))
         print()
         print('    {lightred}Hint:{reset} For more information about the link data directories that were skipped, run:'.format(**ANSI))
