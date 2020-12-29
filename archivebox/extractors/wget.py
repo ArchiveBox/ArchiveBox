@@ -8,7 +8,7 @@ from datetime import datetime
 
 from django.db.models import Model
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+from ..index.schema import ArchiveResult, ArchiveOutput, ArchiveError
 from ..system import run, chmod_file
 from ..util import (
     enforce_types,
