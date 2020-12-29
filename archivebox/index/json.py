@@ -87,7 +87,6 @@ def write_json_snapshot_details(snapshot: Model, out_dir: Optional[str]=None) ->
     
     out_dir = out_dir or snapshot.snapshot_dir
     path = Path(out_dir) / JSON_INDEX_FILENAME
-    print(snapshot._asdict())
     atomic_write(str(path), snapshot._asdict())
 
 
