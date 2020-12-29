@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
+from django.db.models import Model
+
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from ..system import run, chmod_file
 from ..util import (
@@ -36,9 +38,9 @@ from ..logging_util import TimedProgress
 
 
 @enforce_types
-def should_save_wget(link: Link, out_dir: Optional[Path]=None) -> bool:
-    output_path = wget_output_path(link)
-    out_dir = out_dir or Path(link.link_dir)
+def should_save_wget(snapshot: Model, out_dir: Optional[Path]=None) -> bool:
+    output_path = wget_output_path(snapshot)
+    out_dir = out_dir or Path(snapshot.snapshot_dir)
     if output_path and (out_dir / output_path).exists():
         return False
 
@@ -46,7 +48,7 @@ def should_save_wget(link: Link, out_dir: Optional[Path]=None) -> bool:
 
 
 @enforce_types
-def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_wget(snapshot: Model, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download full site using wget"""
 
     out_dir = out_dir or link.link_dir
@@ -70,14 +72,14 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
         *(['--compression=auto'] if WGET_AUTO_COMPRESSION else []),
         *([] if SAVE_WARC else ['--timestamping']),
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate', '--no-hsts']),
-        link.url,
+        snapshot.url,
     ]
 
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
         result = run(cmd, cwd=str(out_dir), timeout=timeout)
-        output = wget_output_path(link)
+        output = wget_output_path(snapshot)
 
         # parse out number of files downloaded from last line of stderr:
         #  "Downloaded: 76 files, 4.0M in 1.6s (2.52 MB/s)"
@@ -123,14 +125,14 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
 
 
 @enforce_types
-def wget_output_path(link: Link) -> Optional[str]:
+def wget_output_path(snapshot: Model) -> Optional[str]:
     """calculate the path to the wgetted .html file, since wget may
     adjust some paths to be different than the base_url path.
 
     See docs on wget --adjust-extension (-E)
     """
-    if is_static_file(link.url):
-        return without_scheme(without_fragment(link.url))
+    if is_static_file(snapshot.url):
+        return without_scheme(without_fragment(snapshot.url))
 
     # Wget downloads can save in a number of different ways depending on the url:
     #    https://example.com
@@ -163,8 +165,8 @@ def wget_output_path(link: Link) -> Optional[str]:
     # and there's no way to get the computed output path from wget
     # in order to avoid having to reverse-engineer how they calculate it,
     # we just look in the output folder read the filename wget used from the filesystem
-    full_path = without_fragment(without_query(path(link.url))).strip('/')
-    search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+") / urldecode(full_path)
+    full_path = without_fragment(without_query(path(snapshot.url))).strip('/')
+    search_dir = Path(snapshot.snapshot_dir) / domain(snapshot.url).replace(":", "+") / urldecode(full_path)
     for _ in range(4):
         if search_dir.exists():
             if search_dir.is_dir():
@@ -173,12 +175,12 @@ def wget_output_path(link: Link) -> Optional[str]:
                     if re.search(".+\\.[Ss]?[Hh][Tt][Mm][Ll]?$", str(f), re.I | re.M)
                 ]
                 if html_files:
-                    return str(html_files[0].relative_to(link.link_dir))
+                    return str(html_files[0].relative_to(snapshot.snapshot_dir))
 
         # Move up one directory level
         search_dir = search_dir.parent
 
-        if str(search_dir) == link.link_dir:
+        if str(search_dir) == snapshot.snapshot_dir:
             break
 
     return None
