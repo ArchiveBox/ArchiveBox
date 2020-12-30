@@ -42,6 +42,7 @@ from .html import (
     write_html_snapshot_details,
 )
 from .json import (
+    load_json_snapshot_details,
     parse_json_snapshot_details, 
     write_json_snapshot_details,
 )
@@ -318,9 +319,9 @@ def load_snapshot_details(snapshot: Model, out_dir: Optional[str]=None) -> Model
     """check for an existing link archive in the given directory, 
        and load+merge it into the given link dict
     """
-    out_dir = out_dir or snapshot.snapshot_dir
+    out_dir = out_dir or Path(snapshot.snapshot_dir)
 
-    existing_snapshot = parse_json_snapshot_details(out_dir)
+    existing_snapshot = load_json_snapshot_details(out_dir)
     if existing_snapshot:
         return merge_snapshots(existing_snapshot, snapshot)
 
@@ -379,56 +380,41 @@ def snapshot_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type
         return search_filter(snapshots, filter_patterns, filter_type)
 
 
-def get_indexed_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_indexed_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Model]]:
     """indexed links without checking archive status or data directory validity"""
-    links = [snapshot.as_link_with_details() for snapshot in snapshots.iterator()]
-    return {
-        link.link_dir: link
-        for link in links
-    }
+    return {snapshot.snapshot_dir: snapshot for snapshot in snapshots}
 
-def get_archived_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_archived_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Model]]:
     """indexed links that are archived with a valid data directory"""
-    links = [snapshot.as_link_with_details() for snapshot in snapshots.iterator()]
-    return {
-        link.link_dir: link
-        for link in filter(is_archived, links)
-    }
+    return {snapshot.snapshot_dir: snapshot for snapshot in filter(is_archived, snapshots)}
 
-def get_unarchived_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_unarchived_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Model]]:
     """indexed links that are unarchived with no data directory or an empty data directory"""
-    links = [snapshot.as_link_with_details() for snapshot in snapshots.iterator()]
-    return {
-        link.link_dir: link
-        for link in filter(is_unarchived, links)
-    }
+    return {snapshot.snapshot_dir: snapshot for snapshot in filter(is_unarchived, snapshots)}
 
-def get_present_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_present_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Model]]:
     """dirs that actually exist in the archive/ folder"""
+    from core.models import Snapshot
 
     all_folders = {}
 
     for entry in (out_dir / ARCHIVE_DIR_NAME).iterdir():
         if entry.is_dir():
-            link = None
+            snapshot = None
             try:
-                link = parse_json_link_details(entry.path)
+                snapshot = parse_json_snapshot_details(entry.path)
             except Exception:
                 pass
 
-            all_folders[entry.name] = link
+            all_folders[entry.name] = snapshot
 
     return all_folders
 
-def get_valid_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_valid_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Model]]:
     """dirs with a valid index matched to the main index and archived content"""
-    links = [snapshot.as_link_with_details() for snapshot in snapshots.iterator()]
-    return {
-        link.link_dir: link
-        for link in filter(is_valid, links)
-    }
+    return {snapshot.snapshot_dir: snapshot for snapshot in filter(is_valid, snapshots)}
 
-def get_invalid_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_invalid_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Model]]:
     """dirs that are invalid for any reason: corrupted/duplicate/orphaned/unrecognized"""
     duplicate = get_duplicate_folders(snapshots, out_dir=OUTPUT_DIR)
     orphaned = get_orphaned_folders(snapshots, out_dir=OUTPUT_DIR)
@@ -437,7 +423,7 @@ def get_invalid_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Option
     return {**duplicate, **orphaned, **corrupted, **unrecognized}
 
 
-def get_duplicate_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_duplicate_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Model]]:
     """dirs that conflict with other directories that have the same link URL or timestamp"""
     by_url = {}
     by_timestamp = {}
@@ -450,91 +436,92 @@ def get_duplicate_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Opti
     )
 
     for path in chain(snapshots.iterator(), data_folders):
-        link = None
+        snapshot = None
         if type(path) is not str:
-            path = path.as_link().link_dir
+            path = path.snapshot_dir
 
         try:
-            link = parse_json_link_details(path)
+            snapshot = parse_json_snapshot_details(path)
         except Exception:
             pass
 
-        if link:
-            # link folder has same timestamp as different link folder
-            by_timestamp[link.timestamp] = by_timestamp.get(link.timestamp, 0) + 1
-            if by_timestamp[link.timestamp] > 1:
-                duplicate_folders[path] = link
+        if snapshot:
+            # snapshot folder has same timestamp as different link folder
+            by_timestamp[snapshot.timestamp] = by_timestamp.get(snapshot.timestamp, 0) + 1
+            if by_timestamp[snapshot.timestamp] > 1:
+                duplicate_folders[path] = snapshot
 
             # link folder has same url as different link folder
-            by_url[link.url] = by_url.get(link.url, 0) + 1
-            if by_url[link.url] > 1:
-                duplicate_folders[path] = link
+            by_url[snapshot.url] = by_url.get(snapshot.url, 0) + 1
+            if by_url[snapshot.url] > 1:
+                duplicate_folders[path] = snapshot
     return duplicate_folders
 
-def get_orphaned_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_orphaned_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Model]]:
     """dirs that contain a valid index but aren't listed in the main index"""
     orphaned_folders = {}
 
     for entry in (Path(out_dir) / ARCHIVE_DIR_NAME).iterdir():
         if entry.is_dir():
-            link = None
+            snapshot = None
             try:
-                link = parse_json_link_details(str(entry))
+                snapshot = parse_json_snapshot_details(str(entry))
             except Exception:
                 pass
 
-            if link and not snapshots.filter(timestamp=entry.name).exists():
+            if snapshot and not snapshots.filter(timestamp=entry.name).exists():
                 # folder is a valid link data dir with index details, but it's not in the main index
-                orphaned_folders[str(entry)] = link
+                orphaned_folders[str(entry)] = snapshot
 
     return orphaned_folders
 
-def get_corrupted_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_corrupted_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Model]]:
     """dirs that don't contain a valid index and aren't listed in the main index"""
     corrupted = {}
     for snapshot in snapshots.iterator():
-        link = snapshot.as_link()
-        if is_corrupt(link):
-            corrupted[link.link_dir] = link
+        if is_corrupt(snapshot):
+            corrupted[snapshot.snapshot_dir] = snapshot
     return corrupted
 
-def get_unrecognized_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+def get_unrecognized_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Model]]:
     """dirs that don't contain recognizable archive data and aren't listed in the main index"""
-    unrecognized_folders: Dict[str, Optional[Link]] = {}
+    unrecognized_folders: Dict[str, Optional[Model]] = {}
 
     for entry in (Path(out_dir) / ARCHIVE_DIR_NAME).iterdir():
         if entry.is_dir():
             index_exists = (entry / "index.json").exists()
-            link = None
+            snapshot = None
             try:
-                link = parse_json_link_details(str(entry))
+                snapshot = parse_json_snapshot_details(str(entry))
             except KeyError:
                 # Try to fix index
                 if index_exists:
-                    try:
+                    pass
+                    # TODO: Implement the `guess` bit for snapshots
+                    # try:
                         # Last attempt to repair the detail index
-                        link_guessed = parse_json_link_details(str(entry), guess=True)
-                        write_json_link_details(link_guessed, out_dir=str(entry))
-                        link = parse_json_link_details(str(entry))
-                    except Exception:
-                        pass
+                        # link_guessed = parse_json_snapshot_details(str(entry), guess=True)
+                        # write_json_snapshot_details(link_guessed, out_dir=str(entry))
+                        # link = parse_json_link_details(str(entry))
+                    # except Exception:
+                    #     pass
 
-            if index_exists and link is None:
+            if index_exists and snapshot is None:
                 # index exists but it's corrupted or unparseable
-                unrecognized_folders[str(entry)] = link
+                unrecognized_folders[str(entry)] = snapshot
             
             elif not index_exists:
                 # link details index doesn't exist and the folder isn't in the main index
                 timestamp = entry.name
                 if not snapshots.filter(timestamp=timestamp).exists():
-                    unrecognized_folders[str(entry)] = link
+                    unrecognized_folders[str(entry)] = snapshot
 
     return unrecognized_folders
 
 
-def is_valid(link: Link) -> bool:
-    dir_exists = Path(link.link_dir).exists()
-    index_exists = (Path(link.link_dir) / "index.json").exists()
+def is_valid(snapshot: Model) -> bool:
+    dir_exists = Path(snapshot.snapshot_dir).exists()
+    index_exists = (Path(snapshot.snapshot_dir) / "index.json").exists()
     if not dir_exists:
         # unarchived links are not included in the valid list
         return False
@@ -542,29 +529,30 @@ def is_valid(link: Link) -> bool:
         return False
     if dir_exists and index_exists:
         try:
-            parsed_link = parse_json_link_details(link.link_dir, guess=True)
-            return link.url == parsed_link.url
+            # TODO: review if the `guess` was necessary here
+            parsed_snapshot = parse_json_snapshot_details(snapshot.snapshot_dir)
+            return snapshot.url == parsed_snapshot.url
         except Exception:
             pass
     return False
 
-def is_corrupt(link: Link) -> bool:
-    if not Path(link.link_dir).exists():
+def is_corrupt(snapshot: Model) -> bool:
+    if not Path(snapshot.snapshot_dir).exists():
         # unarchived links are not considered corrupt
         return False
 
-    if is_valid(link):
+    if is_valid(snapshot):
         return False
 
     return True
 
-def is_archived(link: Link) -> bool:
-    return is_valid(link) and link.is_archived
+def is_archived(snapshot: Model) -> bool:
+    return is_valid(snapshot) and snapshot.is_archived
     
-def is_unarchived(link: Link) -> bool:
-    if not Path(link.link_dir).exists():
+def is_unarchived(snapshot: Model) -> bool:
+    if not Path(snapshot.snapshot_dir).exists():
         return True
-    return not link.is_archived
+    return not snapshot.is_archived
 
 
 def fix_invalid_folder_locations(out_dir: Path=OUTPUT_DIR) -> Tuple[List[str], List[str]]:
@@ -574,22 +562,22 @@ def fix_invalid_folder_locations(out_dir: Path=OUTPUT_DIR) -> Tuple[List[str], L
         if entry.is_dir(follow_symlinks=True):
             if (Path(entry.path) / 'index.json').exists():
                 try:
-                    link = parse_json_link_details(entry.path)
+                    snapshot = parse_json_snapshot_details(entry.path)
                 except KeyError:
-                    link = None
-                if not link:
+                    snapshot = None
+                if not snapshot:
                     continue
 
                 if not entry.path.endswith(f'/{link.timestamp}'):
-                    dest = out_dir / ARCHIVE_DIR_NAME / link.timestamp
+                    dest = out_dir / ARCHIVE_DIR_NAME / snapshot.timestamp
                     if dest.exists():
                         cant_fix.append(entry.path)
                     else:
                         shutil.move(entry.path, dest)
                         fixed.append(dest)
                         timestamp = entry.path.rsplit('/', 1)[-1]
-                        assert link.link_dir == entry.path
-                        assert link.timestamp == timestamp
-                        write_json_link_details(link, out_dir=entry.path)
+                        assert snapshot.snapshot_dir == entry.path
+                        assert snapshot.timestamp == timestamp
+                        write_json_snapshot_details(snapshot, out_dir=entry.path)
 
     return fixed, cant_fix
