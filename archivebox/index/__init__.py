@@ -42,7 +42,7 @@ from .html import (
     write_html_snapshot_details,
 )
 from .json import (
-    load_json_snapshot_details,
+    load_json_snapshot,
     parse_json_snapshot_details, 
     write_json_snapshot_details,
 )
@@ -441,7 +441,7 @@ def get_duplicate_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Opti
             path = path.snapshot_dir
 
         try:
-            snapshot = parse_json_snapshot_details(path)
+            snapshot = load_json_snapshot_details(path)
         except Exception:
             pass
 
@@ -530,7 +530,7 @@ def is_valid(snapshot: Model) -> bool:
     if dir_exists and index_exists:
         try:
             # TODO: review if the `guess` was necessary here
-            parsed_snapshot = parse_json_snapshot_details(snapshot.snapshot_dir)
+            parsed_snapshot = load_json_snapshot(snapshot.snapshot_dir)
             return snapshot.url == parsed_snapshot.url
         except Exception:
             pass

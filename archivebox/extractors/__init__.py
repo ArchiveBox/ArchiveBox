@@ -88,7 +88,7 @@ def archive_snapshot(snapshot: Model, overwrite: bool=False, methods: Optional[I
             details = {"history": {}}
             write_snapshot_details(snapshot, out_dir=out_dir, skip_sql_index=False)
         else:
-            details = load_snapshot_details(snapshot)
+            details = snapshot.details
 
         #log_link_archiving_started(link, out_dir, is_new)
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}

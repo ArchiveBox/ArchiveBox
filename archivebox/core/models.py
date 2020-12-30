@@ -138,7 +138,7 @@ class Snapshot(models.Model):
     @cached_property
     def snapshot_dir(self):
         from ..config import CONFIG
-        return str(Path(CONFIG['ARCHIVE_DIR']) / self.timestamp)
+        return Path(CONFIG['ARCHIVE_DIR']) / self.timestamp
 
     @cached_property
     def archive_path(self):
@@ -172,6 +172,12 @@ class Snapshot(models.Model):
     def is_static(self) -> bool:
         from ..util import is_static_file
         return is_static_file(self.url)
+
+    @cached_property
+    def details(self) -> Dict:
+        # TODO: Define what details are, and return them accordingly
+        return {"history": {}}
+
 
 
     def canonical_outputs(self) -> Dict[str, Optional[str]]:
