@@ -427,11 +427,11 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     print(f'    Index size: {size} across {num_files} files')
     print()
 
-    links = load_main_index(out_dir=out_dir)
-    num_sql_links = links.count()
-    num_link_details = sum(1 for link in parse_json_links_details(out_dir=out_dir))
-    print(f'    > SQL Main Index: {num_sql_links} links'.ljust(36), f'(found in {SQL_INDEX_FILENAME})')
-    print(f'    > JSON Link Details: {num_link_details} links'.ljust(36), f'(found in {ARCHIVE_DIR_NAME}/*/index.json)')
+    snapshots = load_main_index(out_dir=out_dir)
+    num_sql_snapshots = snapshots.count()
+    num_snapshot_details = sum(1 for snapshot in parse_json_snapshot_details(out_dir=out_dir))
+    print(f'    > SQL Main Index: {num_sql_snapshots} snapshots'.ljust(36), f'(found in {SQL_INDEX_FILENAME})')
+    print(f'    > JSON Link Details: {num_snapshot_details} snapshots'.ljust(36), f'(found in {ARCHIVE_DIR_NAME}/*/index.json)')
     print()
     print('{green}[*] Scanning archive data directories...{reset}'.format(**ANSI))
     print(ANSI['lightyellow'], f'   {ARCHIVE_DIR}/*', ANSI['reset'])
@@ -439,23 +439,23 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     size = printable_filesize(num_bytes)
     print(f'    Size: {size} across {num_files} files in {num_dirs} directories')
     print(ANSI['black'])
-    num_indexed = len(get_indexed_folders(links, out_dir=out_dir))
-    num_archived = len(get_archived_folders(links, out_dir=out_dir))
-    num_unarchived = len(get_unarchived_folders(links, out_dir=out_dir))
+    num_indexed = len(get_indexed_folders(snapshots, out_dir=out_dir))
+    num_archived = len(get_archived_folders(snapshots, out_dir=out_dir))
+    num_unarchived = len(get_unarchived_folders(snapshots, out_dir=out_dir))
     print(f'    > indexed: {num_indexed}'.ljust(36), f'({get_indexed_folders.__doc__})')
     print(f'      > archived: {num_archived}'.ljust(36), f'({get_archived_folders.__doc__})')
     print(f'      > unarchived: {num_unarchived}'.ljust(36), f'({get_unarchived_folders.__doc__})')
     
-    num_present = len(get_present_folders(links, out_dir=out_dir))
-    num_valid = len(get_valid_folders(links, out_dir=out_dir))
+    num_present = len(get_present_folders(snapshots, out_dir=out_dir))
+    num_valid = len(get_valid_folders(snapshots, out_dir=out_dir))
     print()
     print(f'    > present: {num_present}'.ljust(36), f'({get_present_folders.__doc__})')
     print(f'      > valid: {num_valid}'.ljust(36), f'({get_valid_folders.__doc__})')
     
-    duplicate = get_duplicate_folders(links, out_dir=out_dir)
-    orphaned = get_orphaned_folders(links, out_dir=out_dir)
-    corrupted = get_corrupted_folders(links, out_dir=out_dir)
-    unrecognized = get_unrecognized_folders(links, out_dir=out_dir)
+    duplicate = get_duplicate_folders(snapshots, out_dir=out_dir)
+    orphaned = get_orphaned_folders(snapshots, out_dir=out_dir)
+    corrupted = get_corrupted_folders(snapshots, out_dir=out_dir)
+    unrecognized = get_unrecognized_folders(snapshots, out_dir=out_dir)
     num_invalid = len({**duplicate, **orphaned, **corrupted, **unrecognized})
     print(f'      > invalid: {num_invalid}'.ljust(36), f'({get_invalid_folders.__doc__})')
     print(f'        > duplicate: {len(duplicate)}'.ljust(36), f'({get_duplicate_folders.__doc__})')
@@ -466,7 +466,7 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     print(ANSI['reset'])
 
     if num_indexed:
-        print('    {lightred}Hint:{reset} You can list link data directories by status like so:'.format(**ANSI))
+        print('    {lightred}Hint:{reset} You can list snapshot data directories by status like so:'.format(**ANSI))
         print('        archivebox list --status=<status>  (e.g. indexed, corrupted, archived, etc.)')
 
     if orphaned:
@@ -495,7 +495,7 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
         print('        archivebox manage createsuperuser')
 
     print()
-    for snapshot in links.order_by('-updated')[:10]:
+    for snapshot in snapshots.order_by('-updated')[:10]:
         if not snapshot.updated:
             continue
         print(
