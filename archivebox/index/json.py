@@ -91,7 +91,7 @@ def write_json_snapshot_details(snapshot: Model, out_dir: Optional[str]=None) ->
 
 
 @enforce_types
-def load_snapshot_details(out_Dir: Path) -> Optional[Model]:
+def load_json_snapshot_details(out_dir: Path) -> Optional[Model]:
     """
     Loads the detail from the local json index
     """
@@ -99,7 +99,10 @@ def load_snapshot_details(out_Dir: Path) -> Optional[Model]:
     if existing_index.exists():
         with open(existing_index, 'r', encoding='utf-8') as f:
             try:
-                return pyjson.load(f)
+                output = pyjson.load(f)
+                if "history" not in output.keys():
+                    output["history"] = {}
+                return output
             except pyjson.JSONDecodeError:
                 pass
     return None
@@ -109,7 +112,7 @@ def load_snapshot_details(out_Dir: Path) -> Optional[Model]:
 def parse_json_snapshot_details(out_dir: Union[Path, str]) -> Iterator[dict]:
     """read through all the archive data folders and return the parsed links"""
 
-    for entry in os.scandir(Path(out_dir) / ARCHIVE_DIR_NAME):
+    for entry in os.scandir(Path(out_dir)):
         if entry.is_dir(follow_symlinks=True):
             if (Path(entry.path) / 'index.json').exists():
                 try:

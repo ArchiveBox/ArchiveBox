@@ -9,7 +9,7 @@ from datetime import date
 
 from typing import Dict, List, Optional, Iterable, IO, Union
 from crontab import CronTab, CronSlices
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Model
 
 from .cli import (
     list_subcommands,
@@ -689,15 +689,16 @@ def update(resume: Optional[float]=None,
            extractors: str="",
            out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Import any new links from subscriptions and retry any previously failed/skipped links"""
+    from core.models import Snapshot
 
     check_data_folder(out_dir=out_dir)
     check_dependencies()
-    new_links: List[Link] = [] # TODO: Remove input argument: only_new
+    new_links: List[Snapshot] = [] # TODO: Remove input argument: only_new
 
     extractors = extractors.split(",") if extractors else []
 
     # Step 1: Filter for selected_links
-    matching_snapshots = list_links(
+    matching_snapshots = list_snapshots(
         filter_patterns=filter_patterns,
         filter_type=filter_type,
         before=before,
@@ -705,15 +706,15 @@ def update(resume: Optional[float]=None,
     )
 
     matching_folders = list_folders(
-        links=matching_snapshots,
+        snapshots=matching_snapshots,
         status=status,
         out_dir=out_dir,
     )
     all_links = [link for link in matching_folders.values() if link]
 
     if index_only:
-        for link in all_links:
-            write_snapshot_details(link, out_dir=out_dir, skip_sql_index=True)
+        for snapshot in all_snapshots:
+            write_snapshot_details(snapshot, out_dir=out_dir, skip_sql_index=True)
         index_links(all_links, out_dir=out_dir)
         return all_links
         
@@ -797,7 +798,7 @@ def list_all(filter_patterns_str: Optional[str]=None,
 
 
 @enforce_types
-def list_links(snapshots: Optional[QuerySet]=None,
+def list_snapshots(snapshots: Optional[QuerySet]=None,
                filter_patterns: Optional[List[str]]=None,
                filter_type: str='exact',
                after: Optional[float]=None,
@@ -820,9 +821,9 @@ def list_links(snapshots: Optional[QuerySet]=None,
     return all_snapshots
 
 @enforce_types
-def list_folders(links: List[Link],
+def list_folders(snapshots: List[Model],
                  status: str,
-                 out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+                 out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Model]]:
     
     check_data_folder(out_dir=out_dir)
 
@@ -840,7 +841,7 @@ def list_folders(links: List[Link],
     }
 
     try:
-        return STATUS_FUNCTIONS[status](links, out_dir=out_dir)
+        return STATUS_FUNCTIONS[status](snapshots, out_dir=out_dir)
     except KeyError:
         raise ValueError('Status not recognized.')
 
