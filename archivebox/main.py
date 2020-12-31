@@ -49,7 +49,7 @@ from .index import (
 from .index.json import (
     parse_json_main_index,
     parse_json_snapshot_details,
-    generate_json_index_from_links,
+    generate_json_index_from_snapshots,
 )
 from .index.sql import (
     get_admins,
@@ -57,9 +57,9 @@ from .index.sql import (
     remove_from_sql_main_index,
 )
 from .index.html import (
-    generate_index_from_links,
+    generate_index_from_snapshots,
 )
-from .index.csv import links_to_csv
+from .index.csv import snapshots_to_csv
 from .extractors import archive_snapshots, archive_snapshot, ignore_methods
 from .config import (
     stderr,
@@ -646,7 +646,7 @@ def remove(filter_str: Optional[str]=None,
     log_list_started(filter_patterns, filter_type)
     timer = TimedProgress(360, prefix='      ')
     try:
-        snapshots = list_links(**list_kwargs)
+        snapshots = list_snapshots(**list_kwargs)
     finally:
         timer.end()
 
@@ -771,7 +771,7 @@ def list_all(filter_patterns_str: Optional[str]=None,
     elif filter_patterns_str:
         filter_patterns = filter_patterns_str.split('\n')
 
-    snapshots = list_links(
+    snapshots = list_snapshots(
         filter_patterns=filter_patterns,
         filter_type=filter_type,
         before=before,
@@ -782,17 +782,17 @@ def list_all(filter_patterns_str: Optional[str]=None,
         snapshots = snapshots.order_by(sort)
 
     folders = list_folders(
-        links=snapshots,
+        snapshots=snapshots,
         status=status,
         out_dir=out_dir,
     )
 
     if json: 
-        output = generate_json_index_from_links(folders.values(), with_headers)
+        output = generate_json_index_from_snapshots(folders.values(), with_headers)
     elif html:
-        output = generate_index_from_links(folders.values(), with_headers)
+        output = generate_index_from_snapshots(folders.values(), with_headers)
     elif csv:
-        output = links_to_csv(folders.values(), cols=csv.split(','), header=with_headers)
+        output = snapshots_to_csv(folders.values(), cols=csv.split(','), header=with_headers)
     else:
         output = printable_folders(folders, with_headers=with_headers)
     print(output)

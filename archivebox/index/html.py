@@ -47,24 +47,24 @@ def parse_html_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[str]:
     return ()
 
 @enforce_types
-def generate_index_from_links(links: List[Link], with_headers: bool):
+def generate_index_from_snapshots(snapshots: List[Model], with_headers: bool):
     if with_headers:
-        output = main_index_template(links)
+        output = main_index_template(snapshots)
     else:
-        output = main_index_template(links, template=MINIMAL_INDEX_TEMPLATE)
+        output = main_index_template(snapshots, template=MINIMAL_INDEX_TEMPLATE)
     return output
 
 @enforce_types
-def main_index_template(links: List[Link], template: str=MAIN_INDEX_TEMPLATE) -> str:
+def main_index_template(snapshots: List[Model], template: str=MAIN_INDEX_TEMPLATE) -> str:
     """render the template for the entire main index"""
 
     return render_django_template(template, {
         'version': VERSION,
         'git_sha': GIT_SHA,
-        'num_links': str(len(links)),
+        'num_links': str(len(snapshots)),
         'date_updated': datetime.now().strftime('%Y-%m-%d'),
         'time_updated': datetime.now().strftime('%Y-%m-%d %H:%M'),
-        'links': [link._asdict(extended=True) for link in links],
+        'links': [snapshot.as_json() for snapshot in snapshots],
         'FOOTER_INFO': FOOTER_INFO,
     })
 
