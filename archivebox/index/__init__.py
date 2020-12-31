@@ -43,7 +43,6 @@ from .html import (
 )
 from .json import (
     load_json_snapshot,
-    parse_json_snapshot_details, 
     write_json_snapshot_details,
 )
 from .sql import (
@@ -321,7 +320,7 @@ def load_snapshot_details(snapshot: Model, out_dir: Optional[str]=None) -> Model
     """
     out_dir = out_dir or Path(snapshot.snapshot_dir)
 
-    existing_snapshot = load_json_snapshot_details(out_dir)
+    existing_snapshot = load_json_snapshot_details(Path(out_dir))
     if existing_snapshot:
         return merge_snapshots(existing_snapshot, snapshot)
 
@@ -402,7 +401,7 @@ def get_present_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Option
         if entry.is_dir():
             snapshot = None
             try:
-                snapshot = parse_json_snapshot_details(entry.path)
+                snapshot = load_json_snapshot(Path(entry.path))
             except Exception:
                 pass
 
@@ -441,7 +440,7 @@ def get_duplicate_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Opti
             path = path.snapshot_dir
 
         try:
-            snapshot = load_json_snapshot_details(path)
+            snapshot = load_json_snapshot(Path(path))
         except Exception:
             pass
 
@@ -465,7 +464,7 @@ def get_orphaned_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optio
         if entry.is_dir():
             snapshot = None
             try:
-                snapshot = parse_json_snapshot_details(str(entry))
+                snapshot = load_json_snapshot(str(entry))
             except Exception:
                 pass
 
@@ -492,7 +491,7 @@ def get_unrecognized_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, O
             index_exists = (entry / "index.json").exists()
             snapshot = None
             try:
-                snapshot = parse_json_snapshot_details(str(entry))
+                snapshot = load_json_snapshot(entry)
             except KeyError:
                 # Try to fix index
                 if index_exists:
@@ -562,13 +561,13 @@ def fix_invalid_folder_locations(out_dir: Path=OUTPUT_DIR) -> Tuple[List[str], L
         if entry.is_dir(follow_symlinks=True):
             if (Path(entry.path) / 'index.json').exists():
                 try:
-                    snapshot = parse_json_snapshot_details(entry.path)
+                    snapshot = load_json_snapshot(Path(entry.path))
                 except KeyError:
                     snapshot = None
                 if not snapshot:
                     continue
 
-                if not entry.path.endswith(f'/{link.timestamp}'):
+                if not entry.path.endswith(f'/{snapshot.timestamp}'):
                     dest = out_dir / ARCHIVE_DIR_NAME / snapshot.timestamp
                     if dest.exists():
                         cant_fix.append(entry.path)
