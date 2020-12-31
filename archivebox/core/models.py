@@ -14,7 +14,7 @@ from ..index.schema import Link
 from ..config import CONFIG
 
 #EXTRACTORS = [(extractor[0], extractor[0]) for extractor in get_default_archive_methods()]
-EXTRACTORS = ["title", "wget"]
+EXTRACTORS = [("title", "title"), ("wget", "wget")]
 STATUS_CHOICES = [
     ("succeeded", "succeeded"),
     ("failed", "failed"),

@@ -61,7 +61,7 @@ def write_sql_snapshot_details(snapshot: Model, out_dir: Path=OUTPUT_DIR) -> Non
         try:
             snap = Snapshot.objects.get(url=snapshot.url)
         except Snapshot.DoesNotExist:
-            snap = write_snapshot_to_sql_index(snapshot)
+            snap = write_snapshot_to_index(snapshot)
         snap.title = snapshot.title
 
         # TODO: If there are actual tags, this will break

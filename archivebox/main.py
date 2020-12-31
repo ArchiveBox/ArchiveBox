@@ -22,7 +22,7 @@ from .cli import (
 from .parsers import (
     save_text_as_source,
     save_file_as_source,
-    parse_links_memory,
+    parse_snapshots_memory,
 )
 from .index.schema import Link
 from .util import enforce_types                         # type: ignore
@@ -516,8 +516,8 @@ def oneshot(url: str, extractors: str="", out_dir: Path=OUTPUT_DIR):
     Create a single URL archive folder with an index.json and index.html, and all the archive method outputs.
     You can run this to archive single pages without needing to create a whole collection with archivebox init.
     """
-    oneshot_link, _ = parse_links_memory([url])
-    if len(oneshot_link) > 1:
+    oneshot_snapshots, _ = parse_snapshots_memory([url])
+    if len(oneshot_snapshots) > 1:
         stderr(
                 '[X] You should pass a single url to the oneshot command',
                 color='red'
@@ -525,8 +525,10 @@ def oneshot(url: str, extractors: str="", out_dir: Path=OUTPUT_DIR):
         raise SystemExit(2)
 
     methods = extractors.split(",") if extractors else ignore_methods(['title'])
-    archive_link(oneshot_link[0], out_dir=out_dir, methods=methods)
-    return oneshot_link
+    snapshot = oneshot_snapshots[0]
+    snapshot.save() # Oneshot uses an in-memory database, so this is safe
+    archive_snapshot(snapshot, out_dir=out_dir, methods=methods)
+    return snapshot
 
 @enforce_types
 def add(urls: Union[str, List[str]],
