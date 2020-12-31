@@ -2,7 +2,7 @@ __package__ = 'archivebox.core'
 
 import uuid
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 from django.db import models, transaction
 from django.utils.functional import cached_property
@@ -91,6 +91,11 @@ class Snapshot(models.Model):
         title = self.title or '-'
         return f'[{self.timestamp}] {self.url[:64]} ({title[:64]})'
 
+    def field_names():
+        fields = self._meta.get_field_names()
+        exclude = ["tags", "archiveresult"] # Exclude relationships for now
+        return [field.name for field in fields if field.name not in exclude]
+
 
     @classmethod
     def from_json(cls, info: dict):
@@ -104,6 +109,11 @@ class Snapshot(models.Model):
             if key != 'tags' else self.tags_str()
             for key in args
         }
+
+
+    def as_csv(self, cols: Optional[List[str]]=None, separator: str=',', ljust: int=0) -> str:
+        from ..index.csv import to_csv
+        return to_csv(self, cols=cols or self.field_names(), separator=separator, ljust=ljust)
 
     def as_link(self) -> Link:
         return Link.from_json(self.as_json())
