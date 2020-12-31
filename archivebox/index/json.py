@@ -117,7 +117,7 @@ def parse_json_snapshot_details(out_dir: Union[Path, str]) -> Iterator[dict]:
         if entry.is_dir(follow_symlinks=True):
             if (Path(entry.path) / 'index.json').exists():
                 try:
-                    snapshot_details = load_json_snapshot_details(entry.path)
+                    snapshot_details = load_json_snapshot(Path(entry.path))
                 except KeyError:
                     snapshot_details = None
                 if snapshot_details:
