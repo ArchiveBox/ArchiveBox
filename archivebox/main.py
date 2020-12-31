@@ -336,7 +336,7 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     print('{green}[*] Collecting links from any existing indexes and archive folders...{reset}'.format(**ANSI))
 
     all_links = Snapshot.objects.none()
-    pending_links: Dict[str, Link] = {}
+    pending_snapshots: Dict[str, Link] = {}
 
     if existing_index:
         all_snapshots = load_main_index(out_dir=out_dir, warn=False)
@@ -363,10 +363,10 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     orphaned_data_dir_snapshots = {
         snapshot.url: snapshot
         for snapshot in parse_json_snapshot_details(out_dir)
-        if not all_snapshots.filter(url=link.url).exists()
+        if not all_snapshots.filter(url=snapshot.url).exists()
     }
     if orphaned_data_dir_snapshots:
-        pending_snapshots.update(orphaned_data_dir_links)
+        pending_snapshots.update(orphaned_data_dir_snapshots)
         print('    {lightyellow}√ Added {} orphaned snapshots from existing archive directories.{reset}'.format(len(orphaned_data_dir_snapshots), **ANSI))
 
     # Links in invalid/duplicate data dirs
@@ -383,7 +383,7 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
         print('        archivebox list --status=invalid')
 
 
-    write_main_index(list(pending_links.values()), out_dir=out_dir)
+    write_main_index(list(pending_snapshots.values()), out_dir=out_dir)
 
     print('\n{green}------------------------------------------------------------------{reset}'.format(**ANSI))
     if existing_index:
@@ -656,24 +656,23 @@ def remove(filter_str: Optional[str]=None,
         raise SystemExit(1)
 
 
-    log_links = [link.as_link() for link in snapshots]
-    log_list_finished(log_links)
-    log_removal_started(log_links, yes=yes, delete=delete)
+    log_list_finished(snapshots)
+    log_removal_started(snapshots, yes=yes, delete=delete)
 
     timer = TimedProgress(360, prefix='      ')
     try:
         for snapshot in snapshots:
             if delete:
-                shutil.rmtree(snapshot.as_link().link_dir, ignore_errors=True)
+                shutil.rmtree(snapshot.snapshot_dir, ignore_errors=True)
     finally:
         timer.end()
 
     to_remove = snapshots.count()
+    all_snapshots = load_main_index(out_dir=out_dir).count()
 
     flush_search_index(snapshots=snapshots)
     remove_from_sql_main_index(snapshots=snapshots, out_dir=out_dir)
-    all_snapshots = load_main_index(out_dir=out_dir)
-    log_removal_finished(all_snapshots.count(), to_remove)
+    log_removal_finished(all_snapshots, to_remove)
     
     return all_snapshots
 
