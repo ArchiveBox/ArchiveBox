@@ -66,7 +66,7 @@ PARSERS = (
 
 
 @enforce_types
-def parse_links_memory(urls: List[str], root_url: Optional[str]=None):
+def parse_snapshots_memory(urls: List[str], root_url: Optional[str]=None):
     """
     parse a list of URLS without touching the filesystem
     """
@@ -77,12 +77,12 @@ def parse_links_memory(urls: List[str], root_url: Optional[str]=None):
     file = StringIO()
     file.writelines(urls)
     file.name = "io_string"
-    links, parser = run_parser_functions(file, timer, root_url=root_url)
+    snapshots, parser = run_parser_functions(file, timer, root_url=root_url)
     timer.end()
 
     if parser is None:
         return [], 'Failed to parse'
-    return links, parser
+    return snapshots, parser
     
 
 @enforce_types

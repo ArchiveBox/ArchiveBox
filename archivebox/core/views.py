@@ -41,6 +41,7 @@ class MainIndex(View):
 
 
 class LinkDetails(View):
+
     def get(self, request, path):
         # missing trailing slash -> redirect to index
         if '/' not in path:
