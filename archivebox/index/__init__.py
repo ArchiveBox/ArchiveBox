@@ -464,7 +464,7 @@ def get_orphaned_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optio
         if entry.is_dir():
             snapshot = None
             try:
-                snapshot = load_json_snapshot(str(entry))
+                snapshot = load_json_snapshot(entry)
             except Exception:
                 pass
 

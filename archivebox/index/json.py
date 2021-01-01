@@ -113,7 +113,7 @@ def load_json_snapshot(out_dir: Path) -> Optional[Model]:
 def parse_json_snapshot_details(out_dir: Union[Path, str]) -> Iterator[dict]:
     """read through all the archive data folders and return the parsed snapshots"""
 
-    for entry in os.scandir(Path(out_dir)):
+    for entry in os.scandir(Path(out_dir) / ARCHIVE_DIR_NAME):
         if entry.is_dir(follow_symlinks=True):
             if (Path(entry.path) / 'index.json').exists():
                 try:
