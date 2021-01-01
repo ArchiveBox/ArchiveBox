@@ -335,8 +335,8 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     print()
     print('{green}[*] Collecting links from any existing indexes and archive folders...{reset}'.format(**ANSI))
 
-    all_links = Snapshot.objects.none()
-    pending_snapshots: Dict[str, Link] = {}
+    all_snapshots = Snapshot.objects.none()
+    pending_snapshots: Dict[str, Snapshot] = {}
 
     if existing_index:
         all_snapshots = load_main_index(out_dir=out_dir, warn=False)
@@ -350,14 +350,14 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
         print('    {lightyellow}! Could not fix {} data directory locations due to conflicts with existing folders.{reset}'.format(len(cant_fix), **ANSI))
 
     # Links in JSON index but not in main index
-    orphaned_json_links = {
-        link.url: link
-        for link in parse_json_main_index(out_dir)
+    orphaned_json_snapshots = {
+        snapshot.url: snapshot
+        for snapshot in parse_json_main_index(out_dir)
         if not all_links.filter(url=link.url).exists()
     }
-    if orphaned_json_links:
-        pending_links.update(orphaned_json_links)
-        print('    {lightyellow}√ Added {} orphaned links from existing JSON index...{reset}'.format(len(orphaned_json_links), **ANSI))
+    if orphaned_json_snapshots:
+        pending_snapshots.update(orphaned_json_snapshots)
+        print('    {lightyellow}√ Added {} orphaned snapshots from deprecated JSON index...{reset}'.format(len(orphaned_json_snapshots), **ANSI))
 
     # Links in data dir indexes but not in main index
     orphaned_data_dir_snapshots = {
@@ -368,6 +368,11 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     if orphaned_data_dir_snapshots:
         pending_snapshots.update(orphaned_data_dir_snapshots)
         print('    {lightyellow}√ Added {} orphaned snapshots from existing archive directories.{reset}'.format(len(orphaned_data_dir_snapshots), **ANSI))
+
+
+    # TODO: Should we remove orphaned folders from the invalid list? With init they are being imported, but the same links that were
+    # listed as just imported are listed as skipped because they are invalid. At the very least I think we should improve this message,
+    # because it makes this command a little more confusing.
 
     # Links in invalid/duplicate data dirs
     invalid_folders = {
