@@ -181,7 +181,7 @@ class ArchiveResult(models.Model):
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
     cmd = JSONField()
     pwd = models.CharField(max_length=256)
-    cmd_version = models.CharField(max_length=32)
+    cmd_version = models.CharField(max_length=32, default="")
     output = models.CharField(max_length=512)
     start_ts = models.DateTimeField()
     end_ts = models.DateTimeField()
