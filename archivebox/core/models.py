@@ -100,6 +100,9 @@ class Snapshot(models.Model):
     @classmethod
     def from_json(cls, info: dict):
         info = {k: v for k, v in info.items() if k in cls.keys}
+        if "tags" in info:
+            # TODO: Handle tags
+            info.pop("tags")
         return cls(**info)
 
     def as_json(self, *args) -> dict:
