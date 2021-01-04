@@ -7,7 +7,8 @@ from typing import IO, Iterable
 from datetime import datetime
 from pathlib import Path
 
-from ..index.schema import Link
+from django.db.models import Model
+
 from ..util import (
     htmldecode,
     enforce_types,
@@ -16,7 +17,7 @@ from ..util import (
 
 
 @enforce_types
-def parse_generic_txt_export(text_file: IO[str], **_kwargs) -> Iterable[Link]:
+def parse_generic_txt_export(text_file: IO[str], **_kwargs) -> Iterable[Model]:
     """Parse raw links from each line in a text file"""
     # TODO: Check if we should add sources list to the database
     from core.models import Snapshot
@@ -29,12 +30,12 @@ def parse_generic_txt_export(text_file: IO[str], **_kwargs) -> Iterable[Link]:
         # if the line is a local file path that resolves, then we can archive it
         try:
             if Path(line).exists():
-                yield Link(
+                yield Snapshot(
                     url=line,
                     timestamp=str(datetime.now().timestamp()),
                     title=None,
-                    tags=None,
-                    sources=[text_file.name],
+                    #tags=None,
+                    #sources=[text_file.name],
                 )
         except (OSError, PermissionError):
             # nvm, not a valid path...

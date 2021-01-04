@@ -6,7 +6,8 @@ import re
 from typing import IO, Iterable, Optional
 from datetime import datetime
 
-from ..index.schema import Link
+from django.db.models import Model
+
 from ..util import (
     htmldecode,
     enforce_types,
@@ -29,7 +30,7 @@ class HrefParser(HTMLParser):
 
 
 @enforce_types
-def parse_generic_html_export(html_file: IO[str], root_url: Optional[str]=None, **_kwargs) -> Iterable[Link]:
+def parse_generic_html_export(html_file: IO[str], root_url: Optional[str]=None, **_kwargs) -> Iterable[Model]:
     """Parse Generic HTML for href tags and use only the url (support for title coming later)"""
     from core.models import Snapshot
 
