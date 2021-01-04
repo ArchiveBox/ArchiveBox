@@ -3,6 +3,7 @@ __package__ = 'archivebox.core'
 import uuid
 from pathlib import Path
 from typing import Dict, Optional, List
+from datetime import datetime
 
 from django.db import models, transaction
 from django.utils.functional import cached_property
@@ -12,6 +13,7 @@ from django.db.models import Case, When, Value, IntegerField
 from ..util import parse_date
 from ..index.schema import Link
 from ..config import CONFIG
+from ..system import get_dir_size
 
 #EXTRACTORS = [(extractor[0], extractor[0]) for extractor in get_default_archive_methods()]
 EXTRACTORS = [("title", "title"), ("wget", "wget")]
@@ -133,8 +135,36 @@ class Snapshot(models.Model):
         return parse_date(self.timestamp)
 
     @cached_property
-    def is_archived(self):
-        return self.as_link().is_archived
+    def is_archived(self) -> bool:
+        from ..config import ARCHIVE_DIR
+        from ..util import domain
+
+        output_paths = (
+            domain(self.url),
+            'output.pdf',
+            'screenshot.png',
+            'output.html',
+            'media',
+            'singlefile.html'
+        )
+
+        return any(
+            (Path(ARCHIVE_DIR) / self.timestamp / path).exists()
+            for path in output_paths
+        )
+
+    @cached_property
+    def archive_dates(self) -> List[datetime]:
+        return [
+            result.start_ts
+            for result in self.archiveresult_set.all()
+        ]
+
+    @cached_property
+    def oldest_archive_date(self) -> Optional[datetime]:
+        oldest = self.archiveresult_set.all().order_by("-start_ts")[:1]
+        if len(oldest) > 0:
+            return oldest[0].start_ts
 
     @cached_property
     def num_outputs(self):
@@ -145,8 +175,9 @@ class Snapshot(models.Model):
         return self.as_link().url_hash
 
     @cached_property
-    def base_url(self):
-        return self.as_link().base_url
+    def base_url(self) -> str:
+        from ..util import base_url
+        return base_url(self.url)
 
     @cached_property
     def snapshot_dir(self):
@@ -155,11 +186,15 @@ class Snapshot(models.Model):
 
     @cached_property
     def archive_path(self):
-        return self.as_link().archive_path
+        from ..config import ARCHIVE_DIR_NAME
+        return '{}/{}'.format(ARCHIVE_DIR_NAME, self.timestamp)
 
     @cached_property
-    def archive_size(self):
-        return self.as_link().archive_size
+    def archive_size(self) -> float:
+        try:
+            return get_dir_size(self.archive_path)[0]
+        except Exception:
+            return 0
 
     @cached_property
     def history(self):
@@ -191,7 +226,10 @@ class Snapshot(models.Model):
         # TODO: Define what details are, and return them accordingly
         return {"history": {}}
 
-
+    @property
+    def extension(self) -> str:
+        from ..util import extension
+        return extension(self.url)
 
     def canonical_outputs(self) -> Dict[str, Optional[str]]:
         """predict the expected output paths that should be present after archiving"""
