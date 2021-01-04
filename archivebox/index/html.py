@@ -61,10 +61,10 @@ def main_index_template(snapshots: List[Model], template: str=MAIN_INDEX_TEMPLAT
     return render_django_template(template, {
         'version': VERSION,
         'git_sha': GIT_SHA,
-        'num_links': str(len(snapshots)),
+        'num_snapshots': str(len(snapshots)),
         'date_updated': datetime.now().strftime('%Y-%m-%d'),
         'time_updated': datetime.now().strftime('%Y-%m-%d %H:%M'),
-        'links': [snapshot.as_json() for snapshot in snapshots],
+        'snapshots': snapshots,
         'FOOTER_INFO': FOOTER_INFO,
     })
 
@@ -80,30 +80,30 @@ def write_html_snapshot_details(snapshot: Model, out_dir: Optional[str]=None) ->
 
 
 @enforce_types
-def link_details_template(link: Link) -> str:
+def link_details_template(snapshot: Model) -> str:
 
     from ..extractors.wget import wget_output_path
 
-    link_info = link._asdict(extended=True)
+    snapshot._asdict()
 
     return render_django_template(LINK_DETAILS_TEMPLATE, {
-        **link_info,
-        **link_info['canonical'],
+        **snapshot._asdict(),
+        **snapshot.canonical_outputs(),
         'title': htmlencode(
-            link.title
-            or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
+            snapshot.title
+            or (snapshot.base_url if snapshot.is_archived else TITLE_LOADING_MSG)
         ),
-        'url_str': htmlencode(urldecode(link.base_url)),
+        'url_str': htmlencode(urldecode(snapshot.base_url)),
         'archive_url': urlencode(
-            wget_output_path(link)
-            or (link.domain if link.is_archived else '')
+            wget_output_path(snapshot)
+            or (snapshot.domain if snapshot.is_archived else '')
         ) or 'about:blank',
-        'extension': link.extension or 'html',
-        'tags': link.tags or 'untagged',
-        'size': printable_filesize(link.archive_size) if link.archive_size else 'pending',
-        'status': 'archived' if link.is_archived else 'not yet archived',
-        'status_color': 'success' if link.is_archived else 'danger',
-        'oldest_archive_date': ts_to_date(link.oldest_archive_date),
+        'extension': snapshot.extension or 'html',
+        'tags': snapshot.tags.all() or 'untagged', #TODO: Return a proper comma separated list. Leaving it like this for now to revisit when fixing tags
+        'size': printable_filesize(snapshot.archive_size) if snapshot.archive_size else 'pending',
+        'status': 'archived' if snapshot.is_archived else 'not yet archived',
+        'status_color': 'success' if snapshot.is_archived else 'danger',
+        'oldest_archive_date': ts_to_date(snapshot.oldest_archive_date),
     })
 
 @enforce_types
@@ -118,9 +118,8 @@ def snapshot_icons(snapshot) -> str:
     from core.models import EXTRACTORS
 
     archive_results = snapshot.archiveresult_set.filter(status="succeeded")
-    link = snapshot.as_link()
-    path = link.archive_path
-    canon = link.canonical_outputs()
+    path = snapshot.archive_path
+    canon = snapshot.canonical_outputs()
     output = ""
     output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{} </a>'
     icons = {
