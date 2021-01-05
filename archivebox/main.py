@@ -353,7 +353,7 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     orphaned_json_snapshots = {
         snapshot.url: snapshot
         for snapshot in parse_json_main_index(out_dir)
-        if not all_links.filter(url=link.url).exists()
+        if not all_snapshots.filter(url=link.url).exists()
     }
     if orphaned_json_snapshots:
         pending_snapshots.update(orphaned_json_snapshots)
@@ -381,7 +381,7 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     }
     if invalid_folders:
         print('    {lightyellow}! Skipped adding {} invalid snapshot data directories.{reset}'.format(len(invalid_folders), **ANSI))
-        print('        X ' + '\n        X '.join(f'{folder} {link}' for folder, link in invalid_folders.items()))
+        print('        X ' + '\n        X '.join(f'{folder} {snapshot}' for folder, snapshot in invalid_folders.items()))
         print()
         print('    {lightred}Hint:{reset} For more information about the link data directories that were skipped, run:'.format(**ANSI))
         print('        archivebox status')
@@ -394,7 +394,7 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     if existing_index:
         print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
     else:
-        print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links), **ANSI))
+        print('{green}[√] Done. A new ArchiveBox collection was initialized ({} snapshots).{reset}'.format(len(all_snapshots), **ANSI))
     print()
     print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**ANSI))
     print('        archivebox server  # then visit http://127.0.0.1:8000')
@@ -577,16 +577,16 @@ def add(urls: Union[str, List[str]],
         for new_snapshot in new_snapshots:
             # TODO: Check if we need to add domain to the Snapshot model
             downloaded_file = save_file_as_source(new_snapshot.url, filename=f'{new_snapshot.timestamp}-crawl-{new_snapshot.url}.txt', out_dir=out_dir)
-            new_snapshots_depth += parse_links_from_source(downloaded_file, root_url=new_snapshot.url)
+            new_snapshots_depth += parse_snapshots_from_source(downloaded_file, root_url=new_snapshot.url)
 
     imported_snapshots = [Snapshot(url=snapshot.url) for snapshot in new_snapshots + new_snapshots_depth]
     new_snapshots = filter_new_urls(all_snapshots, imported_snapshots)
 
     write_main_index(snapshots=new_snapshots, out_dir=out_dir)
-    all_links = load_main_index(out_dir=out_dir)
+    all_snapshots = load_main_index(out_dir=out_dir)
 
     if index_only:
-        return all_links
+        return all_snapshots
 
     # Run the archive methods for each link
     archive_kwargs = {

@@ -83,7 +83,7 @@ class Snapshot(models.Model):
     updated = models.DateTimeField(null=True, blank=True, db_index=True)
     tags = models.ManyToManyField(Tag)
 
-    keys = ('url', 'timestamp', 'title', 'tags', 'updated')
+    keys = ('id', 'url', 'timestamp', 'title', 'tags', 'updated', 'base_url')
 
     def __repr__(self) -> str:
         title = self.title or '-'
@@ -109,11 +109,14 @@ class Snapshot(models.Model):
 
     def as_json(self, *args) -> dict:
         args = args or self.keys
-        return {
+        output = {
             key: getattr(self, key)
             if key != 'tags' else self.tags_str()
             for key in args
         }
+        if "id" in output.keys():
+            output["id"] = str(output["id"])
+        return output
 
 
     def as_csv(self, cols: Optional[List[str]]=None, separator: str=',', ljust: int=0) -> str:
@@ -268,16 +271,6 @@ class Snapshot(models.Model):
                 'mercury_path': static_path,
             })
         return canonical
-
-    def _asdict(self):
-        return {
-            "id": str(self.id),
-            "url": self.url,
-            "timestamp": self.timestamp,
-            "title": self.title,
-            "added": self.added,
-            "updated": self.updated,
-        }
 
     def save_tags(self, tags=()):
         tags_id = []
