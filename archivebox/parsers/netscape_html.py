@@ -6,7 +6,7 @@ import re
 from typing import IO, Iterable
 from datetime import datetime
 
-from django.db.models imort Model
+from django.db.models import Model
 
 from ..util import (
     htmldecode,

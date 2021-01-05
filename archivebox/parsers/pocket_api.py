@@ -7,6 +7,9 @@ from typing import IO, Iterable, Optional
 from configparser import ConfigParser
 
 from pathlib import Path
+
+from django.db.models import Model
+
 from ..vendor.pocket import Pocket
 
 from ..util import enforce_types
@@ -96,7 +99,7 @@ def should_parse_as_pocket_api(text: str) -> bool:
 
 
 @enforce_types
-def parse_pocket_api_export(input_buffer: IO[str], **_kwargs) -> Iterable[Link]:
+def parse_pocket_api_export(input_buffer: IO[str], **_kwargs) -> Iterable[Model]:
     """Parse bookmarks from the Pocket API"""
 
     input_buffer.seek(0)
