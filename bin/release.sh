@@ -49,9 +49,10 @@ echo "${contents}" > package.json
 echo "[^] Pushing source to github"
 git add "$REPO_DIR/docs"
 git add "$REPO_DIR/deb_dist"
+git add "$REPO_DIR/pip_dist"
+git add "$REPO_DIR/brew_dist"
 git add "$REPO_DIR/package.json"
 git add "$REPO_DIR/package-lock.json"
-git add "$REPO_DIR/archivebox.egg-info"
 git commit -m "$NEW_VERSION release"
 git tag -a "v$NEW_VERSION" -m "v$NEW_VERSION"
 git push origin master
