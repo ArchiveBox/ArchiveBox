@@ -82,6 +82,9 @@ RUN apt-get update -qq \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
+#Fix Chromium path
+RUN ln -s /usr/bin/chromium /usr/bin/chromium-browser || true
+
 # Install ArchiveBox Python package
 WORKDIR "$CODE_DIR"
 ADD . "$CODE_DIR"
