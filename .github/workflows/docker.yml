@@ -1,4 +1,4 @@
-name: Docker Push
+name: Build Docker image
 
 on:
   push:
@@ -7,6 +7,10 @@ on:
   release:
     types:
       - created
+
+env:
+  DOCKER_IMAGE: archivebox-ci
+
 
 jobs:
   buildx:
@@ -17,20 +21,29 @@ jobs:
         with:
            username: ${{ secrets.DOCKER_USERNAME }}
            password: ${{ secrets.DOCKER_PASSWORD }}
+      
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 1
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
+      
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v1
         with:
           version: latest
           install: true
+      
       - name: Builder instance name
         run: echo ${{ steps.buildx.outputs.name }}
+      
       - name: Available platforms
         run: echo ${{ steps.buildx.outputs.platforms }}
+      
       - name: Cache Docker layers
         uses: actions/cache@v2
         with:
@@ -38,6 +51,7 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
+      
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v2
@@ -54,5 +68,6 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           platforms: linux/amd64,linux/arm64,linux/arm/v7
+      
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}

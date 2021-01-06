@@ -1,0 +1,76 @@
+name: Build Debian package
+
+on:
+  workflow_dispatch:
+  push:
+
+env:
+  DEB_BUILD_OPTIONS: nocheck
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 1
+
+      - name: Install packaging dependencies
+        run: |
+          sudo apt install -y \
+            python3 python3-dev python3-pip python3-venv python3-all \
+            dh-python debhelper devscripts dput software-properties-common \
+            python3-distutils python3-setuptools python3-wheel python3-stdeb
+
+      - name: Build Debian/Apt sdist_dsc
+        run: |
+          rm -Rf deb_dist/*
+          python3 setup.py --command-packages=stdeb.command sdist_dsc
+
+      - name: Build Debian/Apt bdist_deb
+        run: |
+          python3 setup.py --command-packages=stdeb.command bdist_deb
+
+      - name: Install archivebox from deb
+        run: |
+          cd deb_dist/
+          sudo apt install ./archivebox*.deb
+
+      - name: Check ArchiveBox version
+        run: |
+          # must create dir needed for snaps to run as non-root on github actions
+          sudo mkdir -p /run/user/1001 && sudo chmod -R 777 /run/user/1001
+          mkdir "${{ github.workspace }}/data" && cd "${{ github.workspace }}/data"
+          archivebox init
+          archivebox config --set SAVE_READABILITY=False
+          archivebox config --set SAVE_MERCURY=False
+          archivebox config --set SAVE_SINGLEFILE=False
+          archivebox --version
+
+      - name: Add some links to test
+        run: |
+          cd "${{ github.workspace }}/data"
+          archivebox add 'https://example.com'
+          archivebox status
+
+      # - name: Commit built package
+      #   run: |
+      #     cd deb_dist/
+      #     git config --local user.email "action@github.com"
+      #     git config --local user.name "GitHub Action"
+      #     git commit -m "Debian package autobuild" -a
+      
+      # - name: Push build to Github
+      #   uses: ad-m/github-push-action@master
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     repository: ArchiveBox/debian-archivebox
+      #     branch: ${{ github.ref }}
+      #     directory: deb_dist
+
+      # - name: Push build to Launchpad PPA
+      #   run: |
+      #     debsign -k "$PGP_KEY_ID" "deb_dist/archivebox_${VERSION}-${DEBIAN_VERSION}_source.changes"
+      #     dput archivebox "deb_dist/archivebox_${VERSION}-${DEBIAN_VERSION}_source.changes"

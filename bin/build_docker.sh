@@ -14,6 +14,7 @@ REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && p
 VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
 cd "$REPO_DIR"
 
+which docker > /dev/null
 
 echo "[+] Building docker image in the background..."
 docker build . -t archivebox \

@@ -107,6 +107,9 @@
                 <a href="{% url 'admin:password_change' %}">{% trans 'Change password' %}</a> /
                 {% endif %}
                 <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
+                |
+                <a> <span id="snapshotListView" style="cursor: pointer">☰</span> </a>       
+                <a> <span id="snapshotGridView"style="letter-spacing: -.4em; cursor: pointer;">⣿⣿</span></a> 
             {% endblock %}
         </div>
         {% endif %}
@@ -179,8 +182,63 @@
                 });
             }
         };
+        
+        function redirectWithQuery(uri){
+            uri_query = uri + document.location.search;
+            window.location = uri_query;
+
+        };
+
+        function selectSnapshotListView(){
+            localStorage.setItem('currentSnapshotView', 'List');
+            redirectWithQuery("{% url 'admin:core_snapshot_changelist' %}");
+        };
+
+        function selectSnapshotGridView(){
+            localStorage.setItem('currentSnapshotView', 'Grid');
+            redirectWithQuery("{% url 'admin:grid' %}");
+        };
+        
+        function setPreferredSnapshotView(view){
+            urlPath = window.location.pathname;
+
+            if((view==="Grid") && urlPath == "{% url 'admin:core_snapshot_changelist' %}"){  
+                selectSnapshotGridView();
+            }
+            
+            {% comment %} 
+                else if((view==="List") && urlPath == "{% url 'admin:grid' %}"){
+                selectSnapshotListView();
+            
+            } 
+            {% endcomment %}
+        };
+
+        function setupSnapshotViews() {
+            const preferredSnapshotView = localStorage.getItem('currentSnapshotView');
+            setPreferredSnapshotView(preferredSnapshotView);
+
+            $( document ).ready(function() {
+                
+                $("#snapshotListView").click(function() {
+                    selectSnapshotListView();
+                });  
+                $("#snapshotGridView").click(function() {
+                    selectSnapshotGridView();
+                });  
+
+                $('input:checkbox').change(function(){
+                    if($(this).is(':checked')) 
+                        $(this).parent().parent().parent().parent().addClass('selected-card'); 
+                    else 
+                        $(this).parent().parent().parent().parent().removeClass('selected-card')
+                });
+
+            });
+        };
         $(function () {
             fix_actions();
+            setupSnapshotViews();
         });
     })(django.jQuery);
 </script>

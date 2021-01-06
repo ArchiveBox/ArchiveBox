@@ -21,9 +21,23 @@ services:
         environment:
             - USE_COLOR=True
             - SHOW_PROGRESS=False
+            - SEARCH_BACKEND_ENGINE=sonic
+            - SEARCH_BACKEND_HOST_NAME=sonic
         volumes:
             - ./data:/data
-
+        depends_on:
+            - sonic
+    
+    # Run sonic search backend
+    sonic:
+        image: valeriansaliou/sonic:v1.3.0    
+        ports:
+            - 1491:1491
+        environment:
+            - SEARCH_BACKEND_PASSWORD=SecretPassword
+        volumes:
+            - ./etc/sonic/config.cfg:/etc/sonic.cfg
+            - ./data:/var/lib/sonic/store/
 
     # Optional Addons: tweak these examples as needed for your specific use case
 
@@ -73,3 +87,4 @@ services:
     #     volumes:
     #         ./data:/archivebox
     #         ./data/wayback:/webarchive
+    

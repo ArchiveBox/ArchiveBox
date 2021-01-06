@@ -1,0 +1,50 @@
+name: Build Homebrew package
+
+on:
+  workflow_dispatch:
+  push:
+
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 1
+
+      # TODO: modify archivebox.rb to update src url, hashes, and dependencies
+
+      - name: Build Homebrew Bottle
+        run: |
+          pip3 install --upgrade pip setuptools wheel
+          cd brew_dist/
+          brew install --build-bottle ./archivebox.rb
+          # brew bottle archivebox
+
+      - name: Add some links to test
+        run: |
+          mkdir data && cd data
+          archivebox init
+          archivebox add 'https://example.com'
+          archivebox version
+          archivebox status
+
+      # - name: Commit built package
+      #   run: |
+      #     cd brew_dist/
+      #     git config --local user.email "action@github.com"
+      #     git config --local user.name "GitHub Action"
+      #     git commit -m "Homebrew package autobuild" -a
+      
+      # - name: Push build to Github
+      #   uses: ad-m/github-push-action@master
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     repository: ArchiveBox/homebrew-archivebox
+      #     branch: ${{ github.ref }}
+      #     directory: brew_dist
+
+      # TODO: push bottle homebrew core PR with latest changes

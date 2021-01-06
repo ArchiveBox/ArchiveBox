@@ -187,13 +187,6 @@
             display: none;
         }
         
-        body[data-status~=finished] .files-spinner {
-            display: none;
-        }
-        
-        /*body[data-status~=running] .in-progress {
-            display: inline-block;
-        }*/
         tr td a.favicon img {
             padding-left: 6px;
             padding-right: 12px;
@@ -224,12 +217,10 @@
             color: black;
         }
 
-        tr td a.exists-True {
-            opacity: 1;
-        }
-        tr td a.exists-False {
-            opacity: 0.1;
-            filter: grayscale(100%);
+        .exists-False {
+          opacity: 0.1;
+          filter: grayscale(100%);
+          pointer-events: none;
         }
     </style>
     <link rel="stylesheet" href="{% static 'bootstrap.min.css' %}">
@@ -280,10 +271,9 @@
             <br />
             <center>
                 <small>
-                    Archive created using <a href="https://github.com/ArchiveBox/ArchiveBox" title="Github">ArchiveBox</a> &nbsp; |
-                    &nbsp;
-                    Download index as <a href="index.json" title="JSON summary of archived links.">JSON</a>
-                    <br /><br />
+                    Archive created using <a href="https://github.com/ArchiveBox/ArchiveBox" title="Github">ArchiveBox</a> version
+                    <a href="https://github.com/ArchiveBox/ArchiveBox/releases" title="Releases">v{{VERSION}}</a>.
+                    <br/><br/>
                     {{FOOTER_INFO}}
                 </small>
             </center>

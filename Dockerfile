@@ -7,7 +7,7 @@
 #     docker run -v "$PWD/data":/data -it archivebox manage createsuperuser
 #     docker run -v "$PWD/data":/data -p 8000:8000 archivebox server
 
-FROM python:3.8-slim-buster
+FROM python:3.9-slim-buster
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <archivebox-docker@sweeting.me>" \
@@ -46,13 +46,20 @@ RUN apt-get update -qq \
 # Install apt dependencies
 RUN apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
-        wget curl chromium git ffmpeg youtube-dl \
+        wget curl chromium git ffmpeg youtube-dl ripgrep \
         fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 
+# Install apt development dependencies
+# RUN apt-get install -qq \
+#     && apt-get install -qq -y --no-install-recommends \
+#         python3 python3-dev python3-pip python3-venv python3-all \
+#         dh-python debhelper devscripts dput software-properties-common \
+#         python3-distutils python3-setuptools python3-wheel python3-stdeb
+
 # Install Node environment
 RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
-    && echo 'deb https://deb.nodesource.com/node_14.x buster main' >> /etc/apt/sources.list \
+    && echo 'deb https://deb.nodesource.com/node_15.x buster main' >> /etc/apt/sources.list \
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         nodejs \
@@ -62,7 +69,6 @@ RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add -
 WORKDIR "$NODE_DIR"
 ENV PATH="${PATH}:$NODE_DIR/node_modules/.bin" \
     npm_config_loglevel=error
-RUN npm install -g npm
 ADD ./package.json ./package.json
 ADD ./package-lock.json ./package-lock.json
 RUN npm ci
@@ -72,16 +78,17 @@ WORKDIR "$CODE_DIR"
 ENV PATH="${PATH}:$VENV_PATH/bin"
 RUN python -m venv --clear --symlinks "$VENV_PATH" \
     && pip install --upgrade --quiet pip setuptools
-ADD ./archivebox.egg-info/requires.txt "$CODE_DIR/archivebox.egg-info/requires.txt"
+ADD ./pip_dist/archivebox.egg-info/requires.txt "$CODE_DIR/pip_dist/archivebox.egg-info/requires.txt"
 RUN apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         build-essential python-dev python3-dev \
-    && grep -B 1000 -E '^$' "$CODE_DIR/archivebox.egg-info/requires.txt" | pip install --quiet -r /dev/stdin \
+    && grep -B 1000 -E '^$' "$CODE_DIR/pip_dist/archivebox.egg-info/requires.txt" | pip install --quiet -r /dev/stdin \
+    && pip install --quiet "sonic-client==0.0.5" \
     && apt-get purge -y build-essential python-dev python3-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Install ArchiveBox Python package
+# Install ArchiveBox Python package and its dependencies
 WORKDIR "$CODE_DIR"
 ADD . "$CODE_DIR"
 RUN pip install -e .
@@ -99,7 +106,8 @@ ENV IN_DOCKER=True \
     MERCURY_BINARY="$NODE_DIR/node_modules/.bin/mercury-parser"
 
 # Print version for nice docker finish summary
-RUN archivebox version
+# RUN archivebox version
+RUN /app/bin/docker_entrypoint.sh archivebox version
 
 # Open up the interfaces to the outside world
 VOLUME "$DATA_DIR"

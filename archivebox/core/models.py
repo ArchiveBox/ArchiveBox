@@ -5,9 +5,24 @@ import uuid
 from django.db import models, transaction
 from django.utils.functional import cached_property
 from django.utils.text import slugify
+from django.db.models import Case, When, Value, IntegerField
 
 from ..util import parse_date
 from ..index.schema import Link
+from ..extractors import get_default_archive_methods, ARCHIVE_METHODS_INDEXING_PRECEDENCE
+
+EXTRACTORS = [(extractor[0], extractor[0]) for extractor in get_default_archive_methods()]
+STATUS_CHOICES = [
+    ("succeeded", "succeeded"),
+    ("failed", "failed"),
+    ("skipped", "skipped")
+]
+
+try:
+    JSONField = models.JSONField
+except AttributeError:
+    import jsonfield
+    JSONField = jsonfield.JSONField
 
 
 class Tag(models.Model):
@@ -51,6 +66,7 @@ class Tag(models.Model):
         else:
             return super().save(*args, **kwargs)
 
+
 class Snapshot(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
@@ -83,7 +99,7 @@ class Snapshot(models.Model):
         return {
             key: getattr(self, key)
             if key != 'tags' else self.tags_str()
-            for key in args 
+            for key in args
         }
 
     def as_link(self) -> Link:
@@ -92,7 +108,7 @@ class Snapshot(models.Model):
     def as_link_with_details(self) -> Link:
         from ..index import load_link_details
         return load_link_details(self.as_link())
-    
+
     def tags_str(self) -> str:
         return ','.join(self.tags.order_by('name').values_list('name', flat=True))
 
@@ -106,7 +122,7 @@ class Snapshot(models.Model):
 
     @cached_property
     def num_outputs(self):
-        return self.as_link().num_outputs
+        return self.archiveresult_set.filter(status='succeeded').count()
 
     @cached_property
     def url_hash(self):
@@ -130,8 +146,8 @@ class Snapshot(models.Model):
 
     @cached_property
     def history(self):
-        from ..index import load_link_details
-        return load_link_details(self.as_link()).history
+        # TODO: use ArchiveResult for this instead of json
+        return self.as_link_with_details().history
 
     @cached_property
     def latest_title(self):
@@ -142,9 +158,37 @@ class Snapshot(models.Model):
             return self.history['title'][-1].output.strip()
         return None
 
-    def save_tags(self, tags=[]):
+    def save_tags(self, tags=()):
         tags_id = []
         for tag in tags:
             tags_id.append(Tag.objects.get_or_create(name=tag)[0].id)
         self.tags.clear()
         self.tags.add(*tags_id)
+
+
+class ArchiveResultManager(models.Manager):
+    def indexable(self, sorted: bool = True):
+        INDEXABLE_METHODS = [ r[0] for r in ARCHIVE_METHODS_INDEXING_PRECEDENCE ]
+        qs = self.get_queryset().filter(extractor__in=INDEXABLE_METHODS,status='succeeded')
+
+        if sorted:
+            precedence = [ When(extractor=method, then=Value(precedence)) for method, precedence in ARCHIVE_METHODS_INDEXING_PRECEDENCE ]
+            qs = qs.annotate(indexing_precedence=Case(*precedence, default=Value(1000),output_field=IntegerField())).order_by('indexing_precedence')
+        return qs
+
+
+class ArchiveResult(models.Model):
+    snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
+    cmd = JSONField()
+    pwd = models.CharField(max_length=256)
+    cmd_version = models.CharField(max_length=32)
+    output = models.CharField(max_length=512)
+    start_ts = models.DateTimeField()
+    end_ts = models.DateTimeField()
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES)
+    extractor = models.CharField(choices=EXTRACTORS, max_length=32)
+
+    objects = ArchiveResultManager()
+
+    def __str__(self):
+        return self.extractor

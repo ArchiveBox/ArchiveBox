@@ -1,3 +1,11 @@
+"""
+
+WARNING: THIS FILE IS ALL LEGACY CODE TO BE REMOVED.
+
+DO NOT ADD ANY NEW FEATURES TO THIS FILE, NEW CODE GOES HERE: core/models.py
+
+"""
+
 __package__ = 'archivebox.index'
 
 from pathlib import Path
@@ -31,6 +39,7 @@ class ArchiveResult:
     status: str
     start_ts: datetime
     end_ts: datetime
+    index_texts: Union[List[str], None] = None
     schema: str = 'ArchiveResult'
 
     def __post_init__(self):
@@ -207,6 +216,10 @@ class Link:
             })
         return info
 
+    def as_snapshot(self):
+        from core.models import Snapshot
+        return Snapshot.objects.get(url=self.url)
+
     @classmethod
     def from_json(cls, json_info, guess=False):
         from ..util import parse_date
@@ -339,7 +352,7 @@ class Link:
     ### Archive Status Helpers
     @property
     def num_outputs(self) -> int:
-        return len(tuple(filter(None, self.latest_outputs().values())))
+        return self.as_snapshot().num_outputs
 
     @property
     def num_failures(self) -> int:

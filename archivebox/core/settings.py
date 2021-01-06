@@ -12,6 +12,7 @@ from ..config import (                                                          
     ALLOWED_HOSTS,
     PACKAGE_DIR,
     ACTIVE_THEME,
+    TEMPLATES_DIR_NAME,
     SQL_INDEX_FILENAME,
     OUTPUT_DIR,
 )
@@ -68,14 +69,14 @@ AUTHENTICATION_BACKENDS = [
 STATIC_URL = '/static/'
 
 STATICFILES_DIRS = [
-    str(Path(PACKAGE_DIR) / 'themes' / ACTIVE_THEME / 'static'),
-    str(Path(PACKAGE_DIR) / 'themes' / 'default' / 'static'),
+    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / ACTIVE_THEME / 'static'),
+    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'default' / 'static'),
 ]
 
 TEMPLATE_DIRS = [
-    str(Path(PACKAGE_DIR) / 'themes' / ACTIVE_THEME),
-    str(Path(PACKAGE_DIR) / 'themes' / 'default'),
-    str(Path(PACKAGE_DIR) / 'themes'),
+    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / ACTIVE_THEME),
+    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'default'),
+    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME),
 ]
 
 TEMPLATES = [
@@ -100,10 +101,12 @@ TEMPLATES = [
 ################################################################################
 
 DATABASE_FILE = Path(OUTPUT_DIR) / SQL_INDEX_FILENAME
+DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", DATABASE_FILE)
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': str(DATABASE_FILE),
+        'NAME': DATABASE_NAME,
     }
 }
 

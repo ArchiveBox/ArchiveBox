@@ -20,7 +20,6 @@ from ..config import (
     CURL_ARGS,
     CURL_VERSION,
     CURL_USER_AGENT,
-    setup_django,
 )
 from ..logging_util import TimedProgress
 
@@ -81,7 +80,6 @@ def extract_title_with_regex(html):
 def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """try to guess the page's title from its content"""
 
-    setup_django(out_dir=out_dir)
     from core.models import Snapshot
 
     output: ArchiveOutput = None

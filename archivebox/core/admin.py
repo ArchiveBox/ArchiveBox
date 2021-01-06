@@ -13,8 +13,10 @@ from django import forms
 
 from core.models import Snapshot, Tag
 from core.forms import AddLinkForm, TagField
-from core.utils import get_icons
 
+from core.mixins import SearchResultsAdminMixin
+
+from index.html import snapshot_icons
 from util import htmldecode, urldecode, ansi_to_html
 from logging_util import printable_filesize
 from main import add, remove
@@ -82,7 +84,7 @@ class SnapshotAdminForm(forms.ModelForm):
         return instance
 
 
-class SnapshotAdmin(admin.ModelAdmin):
+class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     list_display = ('added', 'title_str', 'url_str', 'files', 'size')
     sort_fields = ('title_str', 'url_str', 'added')
     readonly_fields = ('id', 'url', 'timestamp', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
@@ -93,6 +95,13 @@ class SnapshotAdmin(admin.ModelAdmin):
     actions = [delete_snapshots, overwrite_snapshots, update_snapshots, update_titles, verify_snapshots]
     actions_template = 'admin/actions_as_select.html'
     form = SnapshotAdminForm
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('grid/', self.admin_site.admin_view(self.grid_view),name='grid')
+        ]
+        return custom_urls + urls
 
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related('tags')
@@ -128,7 +137,7 @@ class SnapshotAdmin(admin.ModelAdmin):
         ) + mark_safe(f' <span class="tags">{tags}</span>')
 
     def files(self, obj):
-        return get_icons(obj)
+        return snapshot_icons(obj)
 
     def size(self, obj):
         archive_size = obj.archive_size
@@ -150,6 +159,31 @@ class SnapshotAdmin(admin.ModelAdmin):
             obj.url,
             obj.url.split('://www.', 1)[-1].split('://', 1)[-1][:64],
         )
+
+    def grid_view(self, request):
+
+        # cl = self.get_changelist_instance(request)
+
+        # Save before monkey patching to restore for changelist list view
+        saved_change_list_template = self.change_list_template
+        saved_list_per_page = self.list_per_page
+        saved_list_max_show_all = self.list_max_show_all
+
+        # Monkey patch here plus core_tags.py
+        self.change_list_template = 'admin/grid_change_list.html'
+        self.list_per_page = 20
+        self.list_max_show_all = self.list_per_page
+
+        # Call monkey patched view
+        rendered_response = self.changelist_view(request)
+
+        # Restore values
+        self.change_list_template =  saved_change_list_template
+        self.list_per_page = saved_list_per_page
+        self.list_max_show_all = saved_list_max_show_all
+
+        return rendered_response
+        
 
     id_str.short_description = 'ID'
     title_str.short_description = 'Title'
@@ -215,7 +249,6 @@ class ArchiveBoxAdmin(admin.AdminSite):
                 context["form"] = form
 
         return render(template_name='add_links.html', request=request, context=context)
-
 
 admin.site = ArchiveBoxAdmin()
 admin.site.register(get_user_model())

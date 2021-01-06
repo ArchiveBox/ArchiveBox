@@ -37,6 +37,13 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         )
     )
     parser.add_argument(
+        "--extract",
+        type=str,
+        help="Pass a list of the extractors to be used. If the method name is not correct, it will be ignored. \
+              This does not take precedence over the configuration",
+        default=""
+    )
+    parser.add_argument(
         '--out-dir',
         type=str,
         default=OUTPUT_DIR,
@@ -55,6 +62,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     oneshot(
         url=stdin_url or url,
         out_dir=Path(command.out_dir).resolve(),
+        extractors=command.extract,
     )
 
 

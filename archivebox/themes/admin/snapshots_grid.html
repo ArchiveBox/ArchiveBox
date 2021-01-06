@@ -1,0 +1,162 @@
+{% load i18n admin_urls static admin_list %}
+{% load core_tags %}
+
+{% block extrastyle %}
+<style>
+* {
+  -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+a {
+  text-decoration: none;
+  color: orange;
+}
+h2 {
+  color: #000;
+  margin: 2rem 0 .5rem;
+  font-size: 1.25rem;
+  font-weight: 400;
+  {% comment %} text-transform: uppercase; {% endcomment %}
+}
+
+card.img {
+  display: block;
+    border: 0;
+    width: 100%;
+    height: auto;
+}
+
+/***************************           Cards            *******************************/
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* see notes below */
+  grid-auto-rows: minmax(200px, auto);
+  grid-gap: 1rem;
+}
+
+.card {
+  /*height: 200px;*/
+  /*background: red;*/
+  border: 2px solid #e7e7e7;
+  border-radius: 4px;
+  -webkit-box-shadow: 0 2px 2px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.15);
+  display: flex;
+  /* -webkit-box-orient: vertical; */
+  /* -webkit-box-direction: normal; */
+  -ms-flex-direction: column;
+  flex-direction: column;
+  position: relative;
+  color: #5d5e5e;
+} /* li item */
+
+.thumbnail img {
+    height: 100%;
+    box-sizing: border-box;
+    max-width: 100%;
+    max-height: 100%;
+    width: 100%;
+}
+
+.card-content {
+    font-size: .75rem;
+    padding: .5rem;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    -webkit-box-flex: 1;
+    -ms-flex: 1;
+    flex: 1;
+    
+}
+
+.card-content h4{
+vertical-align:bottom;
+margin: 1.2em 0 0em 0;
+}
+
+.category {
+  font-size: .75rem;
+  text-transform: uppercase;
+}
+.category {
+    position: absolute;
+    top: 5%;
+    right: 0;
+    color: #fff;
+    background: #e74c3c;
+    padding: 10px 15px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.category__01 {
+  background-color: #50c6db;
+  
+}
+
+.tags{
+  opacity: 0.8;
+}
+
+footer {
+  border-top: 2px solid #e7e7e7;
+  {% comment %} margin: .5rem 0 0; {% endcomment %}
+  {% comment %} min-height: 30px; {% endcomment %}
+  font-size: .5rem;
+}
+.post-meta {
+  padding: .3rem;
+}
+
+.comments {
+  margin-left: .5rem;
+}
+
+.selected-card{
+  border: 5px solid #ffaa31;
+}
+
+</style>
+
+{% endblock %}
+
+{% block content %}
+    <section class="cards">
+    {% for obj in results %}
+      <article class="card">
+          <picture class="thumbnail">
+            <a href="/{{obj.archive_path}}/index.html">
+              <img class="category__01" src="{% snapshot_image obj%}" alt="" /> 
+            </a>
+          </picture>
+          <div class="card-content">
+            {% if obj.tags_str %}
+            <p class="category category__01 tags">{{obj.tags_str}}</p>
+            {% endif %}
+            {% if obj.title  %}
+            <a href="{% url 'admin:core_snapshot_change' obj.id %}">
+              <h4>{{obj.title|truncatechars:55 }}</h4>
+            </a>
+            {% endif %}
+            {% comment %} <p> TEXT If needed.</p> {% endcomment %}
+        </div><!-- .card-content -->
+        <footer>
+            <div class="post-meta">
+                <span style="float:right;"><input type="checkbox" name="_selected_action" value="{{obj.pk}}" class="action-select"></span>
+                <span class="timestamp">&#128337 {{obj.added}}</span>
+                <span class="comments">📖{{obj.num_outputs}}</span>
+                <span>🗄️{{ obj.archive_size | file_size }}</span>
+            </div>
+        </footer> 
+      </article>
+    {% endfor %}
+    </section>
+
+{% endblock %}

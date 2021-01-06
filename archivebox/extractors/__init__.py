@@ -8,6 +8,7 @@ from datetime import datetime
 from django.db.models import QuerySet
 
 from ..index.schema import Link
+from ..index.sql import write_link_to_sql_index
 from ..index import (
     load_link_details,
     write_link_details,
@@ -22,6 +23,7 @@ from ..logging_util import (
     log_archive_method_started,
     log_archive_method_finished,
 )
+from ..search import write_search_index
 
 from .title import should_save_title, save_title
 from .favicon import should_save_favicon, save_favicon
@@ -36,6 +38,7 @@ from .git import should_save_git, save_git
 from .media import should_save_media, save_media
 from .archive_org import should_save_archive_dot_org, save_archive_dot_org
 from .headers import should_save_headers, save_headers
+
 
 def get_default_archive_methods():
     return [
@@ -54,6 +57,8 @@ def get_default_archive_methods():
         ('archive_org', should_save_archive_dot_org, save_archive_dot_org),
     ]
 
+ARCHIVE_METHODS_INDEXING_PRECEDENCE = [('readability', 1), ('singlefile', 2), ('dom', 3), ('wget', 4)]
+
 @enforce_types
 def ignore_methods(to_ignore: List[str]):
     ARCHIVE_METHODS = get_default_archive_methods()
@@ -62,8 +67,15 @@ def ignore_methods(to_ignore: List[str]):
     return list(methods)
 
 @enforce_types
-def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None, skip_index: bool=False) -> Link:
+def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
+
+    # TODO: Remove when the input is changed to be a snapshot. Suboptimal approach.
+    from core.models import Snapshot, ArchiveResult
+    try:
+        snapshot = Snapshot.objects.get(url=link.url) # TODO: This will be unnecessary once everything is a snapshot
+    except Snapshot.DoesNotExist:
+        snapshot = write_link_to_sql_index(link)
 
     ARCHIVE_METHODS = get_default_archive_methods()
     
@@ -80,7 +92,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
             os.makedirs(out_dir)
 
         link = load_link_details(link, out_dir=out_dir)
-        write_link_details(link, out_dir=out_dir, skip_sql_index=skip_index)
+        write_link_details(link, out_dir=out_dir, skip_sql_index=False)
         log_link_archiving_started(link, out_dir, is_new)
         link = link.overwrite(updated=datetime.now())
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
@@ -99,6 +111,10 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 
                     stats[result.status] += 1
                     log_archive_method_finished(result)
+                    write_search_index(link=link, texts=result.index_texts)
+                    ArchiveResult.objects.create(snapshot=snapshot, extractor=method_name, cmd=result.cmd, cmd_version=result.cmd_version,
+                                                 output=result.output, pwd=result.pwd, start_ts=result.start_ts, end_ts=result.end_ts, status=result.status)
+
                 else:
                     # print('{black}      X {}{reset}'.format(method_name, **ANSI))
                     stats['skipped'] += 1
@@ -117,7 +133,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         except Exception:
             pass
 
-        write_link_details(link, out_dir=out_dir, skip_sql_index=skip_index)
+        write_link_details(link, out_dir=out_dir, skip_sql_index=False)
 
         log_link_archiving_finished(link, link.link_dir, is_new, stats)
 

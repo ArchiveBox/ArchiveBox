@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 from .util import enforce_types
 from .config import (
     ConfigDict,
+    OUTPUT_DIR,
     PYTHON_ENCODING,
     ANSI,
     IS_TTY,
@@ -443,7 +444,7 @@ def log_shell_welcome_msg():
     from .cli import list_subcommands
 
     print('{green}# ArchiveBox Imports{reset}'.format(**ANSI))
-    print('{green}from archivebox.core.models import Snapshot, User{reset}'.format(**ANSI))
+    print('{green}from core.models import Snapshot, User{reset}'.format(**ANSI))
     print('{green}from archivebox import *\n    {}{reset}'.format("\n    ".join(list_subcommands().keys()), **ANSI))
     print()
     print('[i] Welcome to the ArchiveBox Shell!')
@@ -477,39 +478,7 @@ def printable_filesize(num_bytes: Union[int, float]) -> str:
 
 @enforce_types
 def printable_folders(folders: Dict[str, Optional["Link"]],
-                      json: bool=False,
-                      html: bool=False,
-                      csv: Optional[str]=None,
                       with_headers: bool=False) -> str:
-    
-    from .index.json import MAIN_INDEX_HEADER
-
-    links = folders.values()
-    if json: 
-        from .index.json import to_json
-        if with_headers:
-            output = {
-                **MAIN_INDEX_HEADER,
-                'num_links': len(links),
-                'updated': datetime.now(),
-                'last_run_cmd': sys.argv,
-                'links': links,
-            }
-        else:
-            output = links
-        return to_json(output, indent=4, sort_keys=True)
-    elif html:
-        from .index.html import main_index_template
-        if with_headers:
-            output = main_index_template(links, True)
-        else:
-            from .index.html import MINIMAL_INDEX_TEMPLATE
-            output = main_index_template(links, True, MINIMAL_INDEX_TEMPLATE)
-        return output
-    elif csv:
-        from .index.csv import links_to_csv
-        return links_to_csv(folders.values(), cols=csv.split(','), header=with_headers)
-    
     return '\n'.join(
         f'{folder} {link and link.url} "{link and link.title}"'
         for folder, link in folders.items()
@@ -546,19 +515,24 @@ def printable_folder_status(name: str, folder: Dict) -> str:
         else:
             num_files = 'missing'
 
-        if ' ' in str(folder['path']):
-            folder['path'] = f'"{folder["path"]}"'
+    path = str(folder['path']).replace(str(OUTPUT_DIR), '.') if folder['path'] else ''
+    if path and ' ' in path:
+        path = f'"{path}"'
+
+    # if path is just a plain dot, replace it back with the full path for clarity
+    if path == '.':
+        path = str(OUTPUT_DIR)
 
     return ' '.join((
         ANSI[color],
         symbol,
         ANSI['reset'],
-        name.ljust(22),
-        (str(folder["path"]) or '').ljust(76),
+        name.ljust(21),
         num_files.ljust(14),
         ANSI[color],
-        note,
+        note.ljust(8),
         ANSI['reset'],
+        path.ljust(76),
     ))
 
 
@@ -578,17 +552,18 @@ def printable_dependency_version(name: str, dependency: Dict) -> str:
     else:
         color, symbol, note, version = 'lightyellow', '-', 'disabled', '-'
 
-    if ' ' in (dependency["path"] or ''):
-        dependency["path"] = f'"{dependency["path"]}"'
+    path = str(dependency["path"]).replace(str(OUTPUT_DIR), '.') if dependency["path"] else ''
+    if path and ' ' in path:
+        path = f'"{path}"'
 
     return ' '.join((
         ANSI[color],
         symbol,
         ANSI['reset'],
-        name.ljust(22),
-        (dependency["path"] or '').ljust(76),
+        name.ljust(21),
         version.ljust(14),
         ANSI[color],
-        note,
+        note.ljust(8),
         ANSI['reset'],
+        path.ljust(76),
     ))

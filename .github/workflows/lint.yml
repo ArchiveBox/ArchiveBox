@@ -1,0 +1,34 @@
+name: Run linters
+
+on:
+  workflow_dispatch:
+  push:
+
+env:
+  MAX_LINE_LENGTH: 110
+
+jobs:
+  lint:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.9
+          architecture: x64
+
+      - name: Install flake8
+        run: |
+          pip install flake8
+
+      - name: Lint with flake8
+        run: |
+          # one pass for show-stopper syntax errors or undefined names
+          flake8 archivebox --count --show-source --statistics
+          # one pass for small stylistic things
+          flake8 archivebox --count --max-line-length="$MAX_LINE_LENGTH" --statistics

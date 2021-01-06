@@ -3,6 +3,8 @@
 *.pyc
 __pycache__/
 .mypy_cache/
+.pytest_cache/
+.github/
 
 venv/
 .venv/
@@ -10,6 +12,10 @@ venv/
 
 build/
 dist/
+pip_dist/
+!pip_dist/archivebox.egg-info/requires.txt
+brew_dist/
+assets/
 
 data/
 output/

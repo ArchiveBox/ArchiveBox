@@ -3,6 +3,7 @@
 *.pyc
 __pycache__/
 .mypy_cache/
+tests/out/
 
 # Python and Node dependencies
 venv/
@@ -11,9 +12,9 @@ venv/
 node_modules/
 
 # Packaging artifacts
+archivebox.egg-info
 archivebox-*.tar.gz
 build/
-deb_dist/
 dist/
 
 # Data folders

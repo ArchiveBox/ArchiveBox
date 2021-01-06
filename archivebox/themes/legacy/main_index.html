@@ -127,12 +127,6 @@
             .in-progress {
                 display: none;
             }
-            body[data-status~=finished] .files-spinner {
-                display: none;
-            }
-            /*body[data-status~=running] .in-progress {
-                display: inline-block;
-            }*/
             tr td a.favicon img {
                 padding-left: 6px;
                 padding-right: 12px;
@@ -176,7 +170,7 @@
             });
         </script>
     </head>
-    <body data-status="$status">
+    <body>
         <header>
             <div class="header-top container-fluid">
                 <div class="row nav">
@@ -198,7 +192,7 @@
             <thead>
                 <tr class="thead-tr">
                     <th style="width: 100px;">Bookmarked</th>
-                    <th style="width: 26vw;">Saved Link ($num_links)</th>
+                    <th style="width: 26vw;">Snapshot ($num_links)</th>
                     <th style="width: 50px">Files</th>
                     <th style="width: 16vw;whitespace:nowrap;overflow-x:hidden;">Original URL</th>
                 </tr>
@@ -209,9 +203,8 @@
             <br/>
             <center>
                 <small>
-                    Archive created using <a href="https://github.com/ArchiveBox/ArchiveBox" title="Github">ArchiveBox</a>
-                    version <a href="https://github.com/ArchiveBox/ArchiveBox/tree/v$version" title="Git commit">v$version</a> &nbsp; | &nbsp; 
-                    Download index as <a href="index.json" title="JSON summary of archived links.">JSON</a>
+                    Created using <a href="https://github.com/ArchiveBox/ArchiveBox" title="Github">ArchiveBox</a>
+                    version <a href="https://github.com/ArchiveBox/ArchiveBox/releases" title="Releases">v$version</a>.
                     <br/><br/>
                     $footer_info
                 </small>

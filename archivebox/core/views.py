@@ -12,17 +12,19 @@ from django.views.generic import FormView
 from django.contrib.auth.mixins import UserPassesTestMixin
 
 from core.models import Snapshot
-from core.utils import get_icons
 from core.forms import AddLinkForm
 
 from ..config import (
     OUTPUT_DIR,
     PUBLIC_INDEX,
     PUBLIC_SNAPSHOTS,
-    PUBLIC_ADD_VIEW
+    PUBLIC_ADD_VIEW,
+    VERSION,
+    FOOTER_INFO,
 )
 from main import add
 from ..util import base_url, ansi_to_html
+from ..index.html import snapshot_icons
 
 
 class MainIndex(View):
@@ -94,13 +96,20 @@ class PublicArchiveView(ListView):
     paginate_by = 100
     ordering = ['title']
 
+    def get_context_data(self, **kwargs):
+        return {
+            **super().get_context_data(**kwargs),
+            'VERSION': VERSION,
+            'FOOTER_INFO': FOOTER_INFO,
+        }
+
     def get_queryset(self, **kwargs): 
         qs = super().get_queryset(**kwargs) 
         query = self.request.GET.get('q')
         if query:
             qs = qs.filter(title__icontains=query)
         for snapshot in qs:
-            snapshot.icons = get_icons(snapshot) 
+            snapshot.icons = snapshot_icons(snapshot)
         return qs
 
     def get(self, *args, **kwargs):
@@ -127,23 +136,29 @@ class AddView(UserPassesTestMixin, FormView):
     def test_func(self):
         return PUBLIC_ADD_VIEW or self.request.user.is_authenticated
 
-    def get_context_data(self, *args, **kwargs):
-        context = super().get_context_data(*args, **kwargs)
-        context["title"] = "Add URLs"
-        # We can't just call request.build_absolute_uri in the template, because it would include query parameters
-        context["absolute_add_path"] = self.request.build_absolute_uri(self.request.path)
-        return context
+    def get_context_data(self, **kwargs):
+        return {
+            **super().get_context_data(**kwargs),
+            'title': "Add URLs",
+            # We can't just call request.build_absolute_uri in the template, because it would include query parameters
+            'absolute_add_path': self.request.build_absolute_uri(self.request.path),
+            'VERSION': VERSION,
+            'FOOTER_INFO': FOOTER_INFO,
+        }
 
     def form_valid(self, form):
         url = form.cleaned_data["url"]
         print(f'[+] Adding URL: {url}')
         depth = 0 if form.cleaned_data["depth"] == "0" else 1
+        extractors = ','.join(form.cleaned_data["archive_methods"])
         input_kwargs = {
             "urls": url,
             "depth": depth,
             "update_all": False,
             "out_dir": OUTPUT_DIR,
         }
+        if extractors:
+            input_kwargs.update({"extractors": extractors})
         add_stdout = StringIO()
         with redirect_stdout(add_stdout):
             add(**input_kwargs)

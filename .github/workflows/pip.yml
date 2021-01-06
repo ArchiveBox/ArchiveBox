@@ -1,0 +1,61 @@
+name: Build pip package
+
+on:
+  workflow_dispatch:
+  push:
+
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.9
+          architecture: x64
+
+      - name: Build Python Package
+        run: |
+          pip3 install --upgrade pip setuptools wheel
+          rm -Rf pip_dist/*.whl
+          python3 setup.py \
+            sdist --dist-dir=./pip_dist \
+            bdist_wheel --dist-dir=./pip_dist \
+            egg_info --egg-base=./pip_dist
+          pip install pip_dist/archivebox-*.whl
+
+      - name: Add some links to test
+        run: |
+          mkdir data && cd data
+          archivebox init
+          archivebox add 'https://example.com'
+          archivebox version
+          archivebox status
+
+      # - name: Commit built package
+      #   run: |
+      #     cd pip_dist/
+      #     git config --local user.email "action@github.com"
+      #     git config --local user.name "GitHub Action"
+      #     git commit -m "Pip package autobuild" -a
+      
+      # - name: Push build to Github
+      #   uses: ad-m/github-push-action@master
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     repository: ArchiveBox/pip-archivebox
+      #     branch: ${{ github.ref }}
+      #     directory: pip_dist
+
+      # - name: Push build to PyPI
+      #   run: |
+      #     cd pip_dist/
+      #     python3 -m twine upload --repository testpypi pip_dist/*.{whl,tar.gz}
+      #     python3 -m twine upload --repository pypi pip_dist/*.{whl,tar.gz}

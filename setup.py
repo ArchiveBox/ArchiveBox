@@ -23,7 +23,7 @@ PROJECT_URLS = {
 ROOT_DIR = Path(__file__).parent.resolve()
 PACKAGE_DIR = ROOT_DIR / PKG_NAME
 
-README = (PACKAGE_DIR / "README.md").read_text()
+README = (PACKAGE_DIR / "README.md").read_text(encoding='utf-8', errors='ignore')
 VERSION = json.loads((PACKAGE_DIR / "package.json").read_text().strip())['version']
 
 # To see when setup.py gets called (uncomment for debugging):
@@ -48,23 +48,22 @@ setuptools.setup(
         "wheel",
     ],
     install_requires=[
+        # only add things here that have corresponding apt python3-packages available
+        # anything added here also needs to be added to our package dependencies in
+        # stdeb.cfg (apt), archivebox.rb (brew), Dockerfile, etc.
+        # if there is no apt python3-package equivalent, then vendor it instead in
+        # ./archivebox/vendor/
         "requests==2.24.0",
         "atomicwrites==1.4.0",
         "mypy-extensions==0.4.3",
-        "django==3.0.8",
+        "django==3.1.3",
         "django-extensions==3.0.3",
-
         "dateparser",
         "ipython",
         "youtube-dl",
         "python-crontab==2.5.1",
         "croniter==0.3.34",
         "w3lib==1.22.0",
-        # Some/all of these will likely be added in the future:
-        # wpull
-        # pywb
-        # pyppeteer
-        # archivenow
     ],
     extras_require={
         'dev': [
@@ -81,8 +80,6 @@ setuptools.setup(
             "bottle",
             "stdeb",
         ],
-        # 'redis': ['redis', 'django-redis'],
-        # 'pywb': ['pywb', 'redis'],
     },
     packages=[PKG_NAME],
     include_package_data=True,   # see MANIFEST.in
