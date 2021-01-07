@@ -180,5 +180,9 @@ def wget_output_path(link: Link) -> Optional[str]:
 
         if str(search_dir) == link.link_dir:
             break
+    
+    search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+") / urldecode(full_path)
+    if not search_dir.is_dir():
+        return str(search_dir.relative_to(link.link_dir))
 
     return None
