@@ -23,6 +23,7 @@ services:
             - SHOW_PROGRESS=False
             - SEARCH_BACKEND_ENGINE=sonic
             - SEARCH_BACKEND_HOST_NAME=sonic
+            - SEARCH_BACKEND_PASSWORD=SecretPassword
         volumes:
             - ./data:/data
         depends_on:
