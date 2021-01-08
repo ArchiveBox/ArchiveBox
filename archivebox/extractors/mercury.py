@@ -28,7 +28,7 @@ def ShellError(cmd: List[str], result: CompletedProcess, lines: int=20) -> Archi
     # parse out last line of stderr
     return ArchiveError(
         f'Got {cmd[0]} response code: {result.returncode}).',
-        *(
+        " ".join(
             line.strip()
             for line in (result.stdout + result.stderr).decode().rsplit('\n', lines)[-lines:]
             if line.strip()
