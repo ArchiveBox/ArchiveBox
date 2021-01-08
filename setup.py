@@ -69,6 +69,7 @@ setuptools.setup(
         'dev': [
             "setuptools",
             "twine",
+            "wheel",
             "flake8",
             "ipdb",
             "mypy",
