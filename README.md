@@ -221,7 +221,7 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 <img src="https://i.imgur.com/viklZNG.png" width="22%" alt="Desktop index screenshot" align="top">
 <img src="https://i.imgur.com/RefWsXB.jpg" width="22%" alt="Desktop details page Screenshot"/>
 <img src="https://i.imgur.com/M6HhzVx.png" width="22%" alt="Desktop details page Screenshot"/><br/>
-<sup><a href="https://archive.sweeting.me/">Demo</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a> | <a href="#screenshots">Screenshots</a></sup>
+<sup><a href="https://archive.sweeting.me/">Demo</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
 <br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 </div><br/>
