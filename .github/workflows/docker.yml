@@ -52,6 +52,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
       
+      - name: Get publish tag
+        id: publish
+        run: |
+          if [[ $GITHUB_REF != refs/tags/* ]]; then
+            TAG="${GITHUB_REF##*/}"
+          else
+            TAG=$GITHUB_SHA
+          fi
+          echo ::set-output name=tag::${TAG}
+        env:
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
+      
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v2
@@ -62,12 +75,12 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/archivebox:latest
-            ${{ secrets.DOCKER_USERNAME }}/archivebox:${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}/archivebox:${{ steps.publish.outputs.tag }}
             archivebox/archivebox:latest
-            archivebox/archivebox:${{ github.sha }}
+            archivebox/archivebox:${{ steps.publish.outputs.tag }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           platforms: linux/amd64,linux/arm64,linux/arm/v7
-      
+
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
