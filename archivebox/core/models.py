@@ -4,6 +4,7 @@ import uuid
 from pathlib import Path
 from typing import Dict, Optional, List
 from datetime import datetime
+from collections import defaultdict
 
 from django.db import models, transaction
 from django.utils.functional import cached_property
@@ -107,7 +108,33 @@ class Snapshot(models.Model):
             info.pop("tags")
         return cls(**info)
 
+    def get_history(self) -> dict:
+        """
+        Generates the history dictionary out of the stored ArchiveResults
+        """
+        history_list = self.archiveresult_set.all()
+        history = defaultdict(list)
+        for history_item in history_list:
+            history[history_item.extractor].append(
+                {
+                    "cmd": history_item.cmd,
+                    "cmd_version": history_item.cmd_version,
+                    "end_ts": history_item.end_ts.isoformat(),
+                    "start_ts": history_item.start_ts.isoformat(),
+                    "pwd": history_item.pwd,
+                    "output": history_item.output,
+                    "schema": "ArchiveResult",
+                    "status": history_item.status
+                }
+            )
+        return dict(history)
+
     def as_json(self, *args) -> dict:
+        """
+        Returns the snapshot in json format.
+        id is converted to str
+        history is extracted from ArchiveResult
+        """
         args = args or self.keys
         output = {
             key: getattr(self, key)
@@ -116,6 +143,8 @@ class Snapshot(models.Model):
         }
         if "id" in output.keys():
             output["id"] = str(output["id"])
+
+        output["history"] = self.get_history()
         return output
 
 

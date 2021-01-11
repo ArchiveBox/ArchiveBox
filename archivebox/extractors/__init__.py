@@ -88,7 +88,8 @@ def archive_snapshot(snapshot: Model, overwrite: bool=False, methods: Optional[I
             details = {"history": {}}
             write_snapshot_details(snapshot, out_dir=out_dir, skip_sql_index=False)
         else:
-            details = snapshot.details
+            details = snapshot.details #TODO: This can be retrieved from the sqlite database too.
+                                       # If that makes more sense, it can be easily changed.
 
         #log_link_archiving_started(link, out_dir, is_new)
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
@@ -102,8 +103,6 @@ def archive_snapshot(snapshot: Model, overwrite: bool=False, methods: Optional[I
                     log_archive_method_started(method_name)
 
                     result = method_function(snapshot=snapshot, out_dir=out_dir)
-
-                    details["history"][method_name].append(result)
 
                     stats[result.status] += 1
                     log_archive_method_finished(result)
@@ -135,7 +134,7 @@ def archive_snapshot(snapshot: Model, overwrite: bool=False, methods: Optional[I
 
     except KeyboardInterrupt:
         try:
-            write_snapshot_details(snapshot, out_dir=link.link_dir)
+            write_snapshot_details(snapshot, out_dir=snapshot.snapshot_dir)
         except:
             pass
         raise
