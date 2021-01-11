@@ -51,7 +51,7 @@ def should_save_wget(snapshot: Model, out_dir: Optional[Path]=None) -> bool:
 def save_wget(snapshot: Model, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download full site using wget"""
 
-    out_dir = out_dir or link.link_dir
+    out_dir = out_dir or snapshot.snapshot_dir
     if SAVE_WARC:
         warc_dir = out_dir / "warc"
         warc_dir.mkdir(exist_ok=True)
@@ -183,8 +183,8 @@ def wget_output_path(snapshot: Model) -> Optional[str]:
         if str(search_dir) == snapshot.snapshot_dir:
             break
     
-    search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+") / urldecode(full_path)
+    search_dir = Path(snapshot.snapshot_dir) / domain(snapshot.url).replace(":", "+") / urldecode(full_path)
     if not search_dir.is_dir():
-        return str(search_dir.relative_to(link.link_dir))
+        return str(search_dir.relative_to(snapshot.snapshot_dir))
 
     return None
