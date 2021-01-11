@@ -576,7 +576,7 @@ def add(urls: Union[str, List[str]],
         log_crawl_started(new_snapshots)
         for new_snapshot in new_snapshots:
             # TODO: Check if we need to add domain to the Snapshot model
-            downloaded_file = save_file_as_source(new_snapshot.url, filename=f'{new_snapshot.timestamp}-crawl-{new_snapshot.url}.txt', out_dir=out_dir)
+            downloaded_file = save_file_as_source(new_snapshot.url, filename=f'{new_snapshot.timestamp}-crawl-{new_snapshot.domain}.txt', out_dir=out_dir)
             new_snapshots_depth += parse_snapshots_from_source(downloaded_file, root_url=new_snapshot.url)
 
     imported_snapshots = [Snapshot(url=snapshot.url) for snapshot in new_snapshots + new_snapshots_depth]

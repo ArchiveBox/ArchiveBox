@@ -213,7 +213,6 @@ class Snapshot(models.Model):
             return self.history['title'][-1].output.strip()
         return None
 
-    
     @cached_property
     def domain(self) -> str:
         from ..util import domain
