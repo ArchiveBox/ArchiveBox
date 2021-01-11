@@ -55,8 +55,8 @@ jobs:
       - name: Get publish tag
         id: publish
         run: |
-          if [[ $GITHUB_REF != refs/tags/* ]]; then
-            TAG="${GITHUB_REF##*/}"
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
           else
             TAG=$GITHUB_SHA
           fi
