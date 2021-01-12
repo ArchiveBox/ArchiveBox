@@ -20,7 +20,6 @@ fi
 cd "$REPO_DIR"
 
 
-
 echo "[*] Fetching latest docs version"
 cd "$REPO_DIR/docs"
 git pull
