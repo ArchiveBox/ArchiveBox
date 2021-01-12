@@ -36,7 +36,7 @@ def forwards_func(apps, schema_editor):
 
         for extractor in history:
             for result in history[extractor]:
-                ArchiveResult.objects.create(extractor=extractor, snapshot=snapshot, cmd=result["cmd"], cmd_version=result["cmd_version"], 
+                ArchiveResult.objects.create(extractor=extractor, snapshot=snapshot, cmd=result["cmd"], cmd_version=result["cmd_version"] or 'unknown', 
                 start_ts=result["start_ts"], end_ts=result["end_ts"], status=result["status"], pwd=result["pwd"], output=result["output"])
 
 
