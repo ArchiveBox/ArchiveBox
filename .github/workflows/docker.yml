@@ -52,15 +52,24 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
       
-      - name: Get publish tag
-        id: publish
+      - name: Prepare tags to publish
+        id: prep
         run: |
+          # Always publish to latest.
+          TAGS="${{ secrets.DOCKER_USERNAME }}/archivebox:latest,archivebox/archivebox:latest"
           if [[ $GITHUB_REF == refs/tags/* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${GITHUB_REF#refs/tags/}"
+            MINOR=${VERSION%.*}
+            MAJOR=${MINOR%.*}
+            TAGS="$TAGS,${{ secrets.DOCKER_USERNAME }}/archivebox:$VERSION,archivebox/archivebox:$VERSION"
+            TAGS="$TAGS,${{ secrets.DOCKER_USERNAME }}/archivebox:$MINOR,archivebox/archivebox:$MINOR"
+            TAGS="$TAGS,${{ secrets.DOCKER_USERNAME }}/archivebox:$MAJOR,archivebox/archivebox:$MAJOR"
           else
-            TAG=$GITHUB_SHA
+            VERSION=$GITHUB_SHA
+            TAGS="$TAGS,${{ secrets.DOCKER_USERNAME }}/archivebox:$VERSION,archivebox/archivebox:$VERSION"
           fi
-          echo ::set-output name=tag::${TAG}
+
+          echo ::set-output name=tags::${TAGS}
         env:
           GITHUB_REF: ${{ github.ref }}
           GITHUB_SHA: ${{ github.sha }}
@@ -73,11 +82,7 @@ jobs:
           file: ./Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
           push: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/archivebox:latest
-            ${{ secrets.DOCKER_USERNAME }}/archivebox:${{ steps.publish.outputs.tag }}
-            archivebox/archivebox:latest
-            archivebox/archivebox:${{ steps.publish.outputs.tag }}
+          tags: ${{ steps.prep.outputs.tags }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           platforms: linux/amd64,linux/arm64,linux/arm/v7
