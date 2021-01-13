@@ -10,7 +10,8 @@ assignees: ''
 <!--
 Please fill out the following information, 
 feel free to delete sections if they're not applicable 
-or if long issue templates annoy you :)
+or if long issue templates annoy you.
+(the only required section is the version information)
 -->
 
 #### Describe the bug
@@ -35,9 +36,11 @@ If applicable, post any relevant screenshots or copy/pasted terminal output from
 If you're reporting a parsing / importing error, **you must paste a copy of your redacted import file here**.
 -->
 
-#### Software versions
+#### ArchiveBox version
 
- - OS:                        ([e.g. macOS 10.14] the operating system you're running ArchiveBox on)
- - ArchiveBox version:        (`git rev-parse HEAD | head -c7` [e.g. d798117] commit ID of the version you're running)
- - Python version:            (`python3 --version` [e.g. 3.7.0])
- - Chrome version:            (`chromium-browser --version` [e.g. 73.1.2.3] if relevant to bug)
+<!-- Run the `archivebox version` command locally then copy paste the result here: -->
+```logs
+replace this line with the *full*, unshortened output of running `archivebox version`
+```
+<!-- Tickets without full version info will closed until it is provided,
+we need the full output here to help you solve your issue -->
