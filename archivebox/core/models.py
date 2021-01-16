@@ -106,6 +106,7 @@ class Snapshot(models.Model):
         if "tags" in info:
             # TODO: Handle tags
             info.pop("tags")
+        info.pop("base_url", None) 
         return cls(**info)
 
     def get_history(self) -> dict:

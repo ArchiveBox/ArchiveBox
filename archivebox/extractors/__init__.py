@@ -114,7 +114,7 @@ def archive_snapshot(snapshot: Model, overwrite: bool=False, methods: Optional[I
                     # print('{black}      X {}{reset}'.format(method_name, **ANSI))
                     stats['skipped'] += 1
             except Exception as e:
-                raise Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
+                raise Exception('Exception in archive_methods.save_{}(Snapshot(url={}))'.format(
                     method_name,
                     snapshot.url,
                 )) from e

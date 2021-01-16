@@ -597,6 +597,7 @@ def add(urls: Union[str, List[str]],
     if update_all:
         archive_snapshots(all_snapshots, overwrite=overwrite, **archive_kwargs)
     elif overwrite:
+        imported_snapshots = Snapshot.objects.filter(url__in=[imported_snapshot.url for imported_snapshot in imported_snapshots])
         archive_snapshots(imported_snapshots, overwrite=True, **archive_kwargs)
     elif new_snapshots:
         archive_snapshots(new_snapshots, overwrite=False, **archive_kwargs)
