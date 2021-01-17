@@ -84,7 +84,7 @@ def test_collision_urls_different_timestamps(tmp_path, process, disable_extracto
 
     init_process = subprocess.run(['archivebox', 'init'], capture_output=True, env=disable_extractors_dict)
     # 1 from duplicated url, 1 from corrupted index
-    assert "Skipped adding 2 invalid link data directories" in init_process.stdout.decode("utf-8")
+    assert "Skipped adding 2 invalid snapshot data directories" in init_process.stdout.decode("utf-8")
     assert init_process.returncode == 0
 
 def test_collision_timestamps_different_urls(tmp_path, process, disable_extractors_dict):
