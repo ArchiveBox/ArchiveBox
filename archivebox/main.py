@@ -353,7 +353,7 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     orphaned_json_snapshots = {
         snapshot.url: snapshot
         for snapshot in parse_json_main_index(out_dir)
-        if not all_snapshots.filter(url=link.url).exists()
+        if not all_snapshots.filter(url=snapshot.url).exists()
     }
     if orphaned_json_snapshots:
         pending_snapshots.update(orphaned_json_snapshots)

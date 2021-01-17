@@ -42,16 +42,17 @@ MAIN_INDEX_HEADER = {
 
 @enforce_types
 def generate_json_index_from_snapshots(snapshots: List[Model], with_headers: bool):
+    snapshots_json = [snapshot.as_json() for snapshot in snapshots]
     if with_headers:
         output = {
             **MAIN_INDEX_HEADER,
             'num_links': len(snapshots),
             'updated': datetime.now(),
             'last_run_cmd': sys.argv,
-            'links': snapshots,
+            'links': snapshots_json,
         }
     else:
-        output = snapshots 
+        output = snapshots_json
     return to_json(output, indent=4, sort_keys=True)
 
 
