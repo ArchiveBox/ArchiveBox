@@ -234,11 +234,11 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 - [**Comprehensive documentation**](https://github.com/ArchiveBox/ArchiveBox/wiki), [active development](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap), and [rich community](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
 - Easy to set up **[scheduled importing](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from multiple sources**
 - Uses common, **durable, [long-term formats](#saves-lots-of-useful-stuff-for-each-imported-link)** like HTML, JSON, PDF, PNG, and WARC
-- ~~**Suitable for paywalled / [authenticated content](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir)** (can use your cookies)~~ (do not do this until v0.5 is released with some security fixes)
 - **Doesn't require a constantly-running daemon**, proxy, or native app
 - Provides a CLI, Python API, self-hosted web UI, and REST API (WIP)
 - Architected to be able to run [**many varieties of scripts during archiving**](https://github.com/ArchiveBox/ArchiveBox/issues/51), e.g. to extract media, summarize articles, [scroll pages](https://github.com/ArchiveBox/ArchiveBox/issues/80), [close modals](https://github.com/ArchiveBox/ArchiveBox/issues/175), expand comment threads, etc.
 - Can also [**mirror content to 3rd-party archiving services**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#submit_archive_dot_org) automatically for redundancy
+- ~~**Can archive paywalled / [authenticated content](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir)** (can use your cookies)~~ (doable, but not advisable until some pending security fixes are released)
 
 ## Input formats
 
