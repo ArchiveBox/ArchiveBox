@@ -308,7 +308,7 @@ def write_snapshot_details(snapshot: List[Model], out_dir: Optional[str]=None, s
     out_dir = out_dir or snapshot.snapshot_dir
 
     write_json_snapshot_details(snapshot, out_dir=out_dir)
-    #write_html_snapshot_details(snapshot, out_dir=out_dir) TODO: Refactor html code too
+    write_html_snapshot_details(snapshot, out_dir=out_dir)
     if not skip_sql_index:
         write_sql_snapshot_details(snapshot)
 

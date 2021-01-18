@@ -75,19 +75,23 @@ def main_index_template(snapshots: List[Model], template: str=MAIN_INDEX_TEMPLAT
 def write_html_snapshot_details(snapshot: Model, out_dir: Optional[str]=None) -> None:
     out_dir = out_dir or snapshot.snapshot_dir
 
-    rendered_html = link_details_template(link)
+    rendered_html = snapshot_details_template(snapshot)
     atomic_write(str(Path(out_dir) / HTML_INDEX_FILENAME), rendered_html)
 
 
 @enforce_types
-def link_details_template(snapshot: Model) -> str:
+def snapshot_details_template(snapshot: Model) -> str:
 
     from ..extractors.wget import wget_output_path
 
-    snapshot._asdict()
-
+    tags = snapshot.tags.all()
+    if len(tags) > 0:
+        tags = ",".join(list(tags.values_list("name", flat=True)))
+    else:
+        tags = "untagged"
+    
     return render_django_template(LINK_DETAILS_TEMPLATE, {
-        **snapshot._asdict(),
+        **snapshot.as_json(),
         **snapshot.canonical_outputs(),
         'title': htmlencode(
             snapshot.title
@@ -99,7 +103,7 @@ def link_details_template(snapshot: Model) -> str:
             or (snapshot.domain if snapshot.is_archived else '')
         ) or 'about:blank',
         'extension': snapshot.extension or 'html',
-        'tags': snapshot.tags.all() or 'untagged', #TODO: Return a proper comma separated list. Leaving it like this for now to revisit when fixing tags
+        'tags': tags,
         'size': printable_filesize(snapshot.archive_size) if snapshot.archive_size else 'pending',
         'status': 'archived' if snapshot.is_archived else 'not yet archived',
         'status_color': 'success' if snapshot.is_archived else 'danger',
