@@ -3,7 +3,7 @@ __package__ = 'archivebox.core'
 import uuid
 from pathlib import Path
 from typing import Dict, Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 
 from django.db import models, transaction
@@ -148,7 +148,6 @@ class Snapshot(models.Model):
         output["history"] = self.get_history()
         return output
 
-
     def as_csv(self, cols: Optional[List[str]]=None, separator: str=',', ljust: int=0) -> str:
         from ..index.csv import to_csv
         return to_csv(self, cols=cols or self.field_names(), separator=separator, ljust=ljust)
@@ -166,6 +165,19 @@ class Snapshot(models.Model):
     @cached_property
     def bookmarked(self):
         return parse_date(self.timestamp)
+
+    @cached_property
+    def bookmarked_date(self) -> Optional[str]:
+        from ..util import ts_to_date
+
+        max_ts = (datetime.now() + timedelta(days=30)).timestamp()
+
+        if self.timestamp and self.timestamp.replace('.', '').isdigit():
+            if 0 < float(self.timestamp) < max_ts:
+                return ts_to_date(datetime.fromtimestamp(float(self.timestamp)))
+            else:
+                return str(self.timestamp)
+        return None
 
     @cached_property
     def is_archived(self) -> bool:

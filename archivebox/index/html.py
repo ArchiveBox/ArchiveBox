@@ -84,12 +84,6 @@ def snapshot_details_template(snapshot: Model) -> str:
 
     from ..extractors.wget import wget_output_path
 
-    tags = snapshot.tags.all()
-    if len(tags) > 0:
-        tags = ",".join(list(tags.values_list("name", flat=True)))
-    else:
-        tags = "untagged"
-    
     return render_django_template(LINK_DETAILS_TEMPLATE, {
         **snapshot.as_json(),
         **snapshot.canonical_outputs(),
@@ -103,7 +97,7 @@ def snapshot_details_template(snapshot: Model) -> str:
             or (snapshot.domain if snapshot.is_archived else '')
         ) or 'about:blank',
         'extension': snapshot.extension or 'html',
-        'tags': tags,
+        'tags': snapshot.tags_str() or "untagged",
         'size': printable_filesize(snapshot.archive_size) if snapshot.archive_size else 'pending',
         'status': 'archived' if snapshot.is_archived else 'not yet archived',
         'status_color': 'success' if snapshot.is_archived else 'danger',
