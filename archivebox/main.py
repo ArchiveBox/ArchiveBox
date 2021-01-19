@@ -114,7 +114,7 @@ from .logging_util import (
     printable_dependency_version,
 )
 
-from .search import flush_search_index, index_links
+from .search import flush_search_index, index_snapshots
 
 ALLOWED_IN_OUTPUT_DIR = {
     'lost+found',
@@ -700,7 +700,7 @@ def update(resume: Optional[float]=None,
 
     check_data_folder(out_dir=out_dir)
     check_dependencies()
-    new_links: List[Snapshot] = [] # TODO: Remove input argument: only_new
+    new_snapshots: List[Snapshot] = [] # TODO: Remove input argument: only_new
 
     extractors = extractors.split(",") if extractors else []
 
@@ -717,25 +717,25 @@ def update(resume: Optional[float]=None,
         status=status,
         out_dir=out_dir,
     )
-    all_links = [link for link in matching_folders.values() if link]
+    all_snapshots = [snapshot for snapshot in matching_folders.values()]
 
     if index_only:
         for snapshot in all_snapshots:
             write_snapshot_details(snapshot, out_dir=out_dir, skip_sql_index=True)
-        index_links(all_links, out_dir=out_dir)
-        return all_links
+        index_snapshots(all_snapshots, out_dir=out_dir)
+        return all_snapshots
         
     # Step 2: Run the archive methods for each link
-    to_archive = new_links if only_new else all_links
+    to_archive = new_snapshots if only_new else all_snapshots
     if resume:
         to_archive = [
-            link for link in to_archive
-            if link.timestamp >= str(resume)
+            snapshot for snapshot in to_archive
+            if snapshot.timestamp >= str(resume)
         ]
         if not to_archive:
             stderr('')
             stderr(f'[√] Nothing found to resume after {resume}', color='green')
-            return all_links
+            return all_snapshots
 
     archive_kwargs = {
         "out_dir": out_dir,
@@ -746,8 +746,8 @@ def update(resume: Optional[float]=None,
     archive_snapshots(to_archive, overwrite=overwrite, **archive_kwargs)
 
     # Step 4: Re-write links index with updated titles, icons, and resources
-    all_links = load_main_index(out_dir=out_dir)
-    return all_links
+    all_snapshots = load_main_index(out_dir=out_dir)
+    return all_snapshots
 
 @enforce_types
 def list_all(filter_patterns_str: Optional[str]=None,

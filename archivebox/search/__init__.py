@@ -83,17 +83,17 @@ def flush_search_index(snapshots: QuerySet):
         )
 
 @enforce_types
-def index_links(links: Union[List[Link],None], out_dir: Path=OUTPUT_DIR):
-    if not links:
+def index_snapshots(snapshots: Union[List[Model],None], out_dir: Path=OUTPUT_DIR):
+    if not snapshots:
         return
 
     from core.models import Snapshot, ArchiveResult
 
-    for link in links:
-        snap = Snapshot.objects.filter(url=link.url).first()
+    for snapshot in snapshots:
+        snap = Snapshot.objects.filter(url=snapshot.url).first()
         if snap: 
             results = ArchiveResult.objects.indexable().filter(snapshot=snap)
-            log_index_started(link.url)
+            log_index_started(snapshot.url)
             try:
                 texts = get_indexable_content(results)
             except Exception as err:
@@ -103,4 +103,4 @@ def index_links(links: Union[List[Link],None], out_dir: Path=OUTPUT_DIR):
                     color='red',
                     ) 
             else:
-                write_search_index(link, texts, out_dir=out_dir)
+                write_search_index(snapshot, texts, out_dir=out_dir)
