@@ -180,7 +180,7 @@ def wget_output_path(snapshot: Model) -> Optional[str]:
         # Move up one directory level
         search_dir = search_dir.parent
 
-        if str(search_dir) == snapshot.snapshot_dir:
+        if search_dir == snapshot.snapshot_dir:
             break
     
     search_dir = Path(snapshot.snapshot_dir) / domain(snapshot.url).replace(":", "+") / urldecode(full_path)
