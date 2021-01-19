@@ -5,10 +5,8 @@ from pathlib import Path
 
 from typing import Optional, List, Iterable, Union
 
-from datetime import datetime
 from django.db.models import QuerySet, Model
 
-from ..index.sql import write_snapshot_to_index
 from ..index import (
     load_snapshot_details,
     write_snapshot_details,
@@ -17,10 +15,9 @@ from ..util import enforce_types
 from ..logging_util import (
     log_archiving_started,
     log_archiving_paused,
-
     log_archiving_finished,
-    log_link_archiving_started,
-    log_link_archiving_finished,
+    log_snapshot_archiving_started,
+    log_snapshot_archiving_finished,
     log_archive_method_started,
     log_archive_method_finished,
 )
@@ -91,7 +88,7 @@ def archive_snapshot(snapshot: Model, overwrite: bool=False, methods: Optional[I
             details = snapshot.details #TODO: This can be retrieved from the sqlite database too.
                                        # If that makes more sense, it can be easily changed.
 
-        #log_link_archiving_started(link, out_dir, is_new)
+        log_snapshot_archiving_started(snapshot, out_dir, is_new)
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
 
         for method_name, should_run, method_function in ARCHIVE_METHODS:
@@ -122,15 +119,17 @@ def archive_snapshot(snapshot: Model, overwrite: bool=False, methods: Optional[I
         # print('    ', stats)
 
         try:
-            latest_title = link.history['title'][-1].output.strip()
-            if latest_title and len(latest_title) >= len(link.title or ''):
-                snapshot.title = latest_title
+            latest_title_archive_result = snapshot.archiveresult_set.filter(extractor="title")
+            if latest_title_archive_result.count() > 0:
+                latest_title = latest_title_archive_result.output.strip()
+                if len(latest_title) >= len(snapshot.title or ''):
+                    snapshot.title = latest_title
         except Exception:
             pass
 
         write_snapshot_details(snapshot, out_dir=out_dir, skip_sql_index=False)
 
-        log_link_archiving_finished(snapshot, snapshot.snapshot_dir, is_new, stats)
+        log_snapshot_archiving_finished(snapshot, snapshot.snapshot_dir, is_new, stats)
 
     except KeyboardInterrupt:
         try:

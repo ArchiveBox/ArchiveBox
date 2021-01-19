@@ -348,3 +348,6 @@ class ArchiveResult(models.Model):
 
     def __str__(self):
         return self.extractor
+
+    class Meta:
+        ordering = ["-start_ts"]

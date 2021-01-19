@@ -47,10 +47,10 @@ def write_snapshot_to_index(snapshot: Model):
 
 
 @enforce_types
-def write_sql_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
+def write_sql_main_index(snapshots: List[Model], out_dir: Path=OUTPUT_DIR) -> None:
     with transaction.atomic():
-        for link in links:
-            write_snapshot_to_index(link)
+        for snapshot in snapshots:
+            write_snapshot_to_index(snapshot)
             
 
 @enforce_types

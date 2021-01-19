@@ -6,7 +6,7 @@ from typing import Optional
 
 from django.db.models import Model
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput
+from ..index.schema import ArchiveResult, ArchiveOutput
 from ..system import atomic_write
 from ..util import (
     enforce_types,

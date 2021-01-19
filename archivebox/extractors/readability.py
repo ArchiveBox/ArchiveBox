@@ -8,7 +8,7 @@ import json
 
 from django.db.models import Model
 
-from ..index.schema import Link, ArchiveResult, ArchiveError
+from ..index.schema import ArchiveResult, ArchiveError
 from ..system import run, atomic_write
 from ..util import (
     enforce_types,
