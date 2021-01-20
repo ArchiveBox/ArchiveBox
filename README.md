@@ -483,7 +483,7 @@ Whether you want to learn which organizations are the big players in the web arc
 ---
 
 <div align="center">
-<img src="https://i.imgur.com/yBbx7VU.png" width="45%" alt="documentation graphic"><img src="https://i.imgur.com/yBbx7VU.png" width="45%" alt="documentation graphic">
+<img src="https://i.imgur.com/SMkGW0L.png" width="98%" alt="documentation graphic">
 </div>
 
 # Documentation
