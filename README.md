@@ -31,9 +31,9 @@ ArchiveBox is a powerful self-hosted internet archiving solution written in Pyth
 Running `archivebox init` in a folder creates a collection with a self-contained `index.sqlite3` index, and folders for each snapshot under `./archive/<timestamp>/`, with human-readable `index.html` and `index.json` files within.
 
 For each URL added with `archivebox add`, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats)
-You can use `archivebox schedule` to ingest URLs regularly from your browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or [from many other sources...](#input-formats)
+You can use `archivebox schedule` to ingest URLs regularly from your browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or [and more...](#input-formats)
 
-Archived content is browseable and managable locally with the CLI commands like `archivebox status` or `archivebox list ...`, via the built-in web UI `archivebox server`, directly through the filesystem `./archive/<timestamp>` folders, or via the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha).
+Archived content is browseable and managable locally with the CLI commands like `archivebox status` or `archivebox list ...`, via the built-in web UI `archivebox server`, directly through the filesystem `./archive/<timestamp>` folders, or via the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha) or [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha).
 
 ### Quickstart
 
@@ -230,7 +230,7 @@ ArchiveBox is a command line tool, self-hostable web-archiving server, and Pytho
 
 To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/export/manage/etc using the CLI `archivebox help`, or you can run the Web UI (recommended). If you only want to archive a single site, you can run `archivebox oneshot` to avoid having to create a whole collection.
 
-The CLI is considered "stable", the ArchiveBox Python API and REST APIs are "beta", and the [desktop app](https://github.com/ArchiveBox/desktop) is "alpha".
+The [CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) is considered "stable", the ArchiveBox [Python API](https://docs.archivebox.io/en/latest/modules.html) and [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) are "alpha", and the [desktop app](https://github.com/ArchiveBox/desktop) is "alpha".
 
 At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer). You can also self-host your archivebox server on a public domain to provide archive.org-style public access to your site snapshots.
 
@@ -248,12 +248,12 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 ## Key Features
 
 - [**Free & open source**](https://github.com/ArchiveBox/ArchiveBox/blob/master/LICENSE), doesn't require signing up for anything, stores all data locally
-- [**Powerful, intuitive command line interface**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) with [modular dependencies](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies) 
+- [**Powerful, intuitive command line interface**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) with [modular optional dependencies](#dependencies) 
 - [**Comprehensive documentation**](https://github.com/ArchiveBox/ArchiveBox/wiki), [active development](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap), and [rich community](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
-- [**Extracts a wide variety of content out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51): media w/ youtube-dl, articles w/ readability, code w/ git, etc.
-- [**Supports scheduled/realtime importing**](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from many types of sources
+- [**Extracts a wide variety of content out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51): media w/ youtube-dl, articles w/ readability, code w/ git, [and more...](#output-formats)
+- [**Supports scheduled/realtime importing**](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from [many types of sources](#input-formats)
 - [**Uses standard, durable, long-term formats**](#saves-lots-of-useful-stuff-for-each-imported-link) like HTML, JSON, PDF, PNG, and WARC
-- [**Usable as a oneshot CLI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [**self-hosted web UI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [Python API](https://docs.archivebox.io/en/latest/modules.html) (BETA), REST API (ALPHA), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (ALPHA)
+- [**Usable as a oneshot CLI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [**self-hosted web UI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [Python API](https://docs.archivebox.io/en/latest/modules.html) (BETA), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (ALPHA), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (ALPHA)
 - [**Saves all pages to archive.org as well**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#submit_archive_dot_org) by default for redundancy (can be [disabled](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) for local-only mode)
 - Planned: support for archiving [content requiring a login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (working, but ill-advised until some pending fixes are released)
 - Planned: support for running [JS scripts during archiving](https://github.com/ArchiveBox/ArchiveBox/issues/51), e.g. to block ads, [scroll pages](https://github.com/ArchiveBox/ArchiveBox/issues/80), [close modals](https://github.com/ArchiveBox/ArchiveBox/issues/175), [expand threads](https://github.com/ArchiveBox/ArchiveBox/issues/345), etc.
@@ -443,8 +443,8 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 - [Chromium Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install)
 - [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview)
 - [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
-- [Python API](https://docs.archivebox.io/en/latest/modules.html)
-- REST API (coming soon...)
+- [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha)
+- [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha)
 
 ## More Info
 
