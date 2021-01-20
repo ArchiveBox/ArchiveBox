@@ -40,12 +40,9 @@ Archived content is browseable and managable locally with the CLI commands like 
 <br/>
 <sup><a href="https://archive.sweeting.me/">Demo</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
 <br/>
-<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
-<br/>
-<img src="https://i.imgur.com/3tBL7PU.png" width="22%" alt="CLI Screenshot" align="top">
-<img src="https://i.imgur.com/viklZNG.png" width="22%" alt="Desktop index screenshot" align="top">
-<img src="https://i.imgur.com/RefWsXB.jpg" width="22%" alt="Desktop details page Screenshot" align="top"/>
-<img src="https://i.imgur.com/M6HhzVx.png" width="22%" alt="Desktop details page Screenshot" align="top"/><br/>
+<img src="https://i.imgur.com/njxgSbl.png" width="22%" alt="cli init screenshot" align="top">
+<img src="https://i.imgur.com/p6wK6KM.png" width="22%" alt="server snapshot admin screenshot" align="top">
+<img src="https://i.imgur.com/RefWsXB.jpg" width="22%" alt="server snapshot details page screenshot" align="top"/><br/>
 </div>
 <br/>
 
@@ -277,10 +274,10 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 <img src="https://i.imgur.com/zM4z1aU.png" alt="archivebox server add">
 </td>
 <td>
-<img src="https://i.imgur.com/oGZkXoe.jpg" alt="archivebox server list">
+<img src="https://i.imgur.com/p6wK6KM.png" alt="archivebox server list">
 </td>
 <td>
-<img src="https://i.imgur.com/eMGfkji.jpg" alt="archivebox server detail">
+<img src="https://i.imgur.com/pzq4uXq.png" alt="archivebox server detail">
 </td>
 </tr>
 </tbody>
