@@ -30,10 +30,10 @@ ArchiveBox is a powerful self-hosted internet archiving solution written in Pyth
 
 Running `archivebox init` in a folder creates a collection with a self-contained `index.sqlite3` index, and folders for each snapshot under `./archive/<timestamp>/`, with human-readable `index.html` and `index.json` files within.
 
-For each URL added (`archivebox add https://example.com`), ArchiveBox saves: several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more](#output-formats).
+For each URL added with `archivebox add`, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats)
+You can use `archivebox schedule` to ingest URLs regularly from your browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or [from many other sources...](#input-formats)
 
-Archived site snapshots are browseable and managable offline with the CLI commands like `archivebox status`, directly through the filesystem `./archive/<timestamp>` folders, via the built-in web UI `archivebox server`, or via the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha).
-You can `archivebox add` or `archivebox schedule` regular imports of URLs from browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or just add URLs one at a time manually.
+Archived content is browseable and managable locally with the CLI commands like `archivebox status` or `archivebox list ...`, via the built-in web UI `archivebox server`, directly through the filesystem `./archive/<timestamp>` folders, or via the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha).
 
 ### Quickstart
 
