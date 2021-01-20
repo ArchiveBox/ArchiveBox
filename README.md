@@ -232,15 +232,15 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 ## Key Features
 
 - [**Free & open source**](https://github.com/ArchiveBox/ArchiveBox/blob/master/LICENSE), doesn't require signing up for anything, stores all data locally
-- [**Few dependencies**](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies) and [simple command line interface](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage)
+- [**Powerful, intuitive command line interface**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) with [modular dependencies](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies) 
 - [**Comprehensive documentation**](https://github.com/ArchiveBox/ArchiveBox/wiki), [active development](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap), and [rich community](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
-- Easy to set up **[scheduled importing](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from multiple sources**
-- Uses common, **durable, [long-term formats](#saves-lots-of-useful-stuff-for-each-imported-link)** like HTML, JSON, PDF, PNG, and WARC
-- **Doesn't require a constantly-running daemon**, proxy, or native app
-- Provides a CLI, Python API, self-hosted web UI, and REST API (WIP)
-- Architected to be able to run [**many varieties of scripts during archiving**](https://github.com/ArchiveBox/ArchiveBox/issues/51), e.g. to extract media, summarize articles, [scroll pages](https://github.com/ArchiveBox/ArchiveBox/issues/80), [close modals](https://github.com/ArchiveBox/ArchiveBox/issues/175), expand comment threads, etc.
-- Can also [**mirror content to 3rd-party archiving services**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#submit_archive_dot_org) automatically for redundancy
-- ~~**Can archive paywalled / [authenticated content](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir)** (can use your cookies)~~ (doable, but not advisable until some pending security fixes are released)
+- Runs a [**wide variety of extractor plugins out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51), e.g. youtube-dl for media, readability for article text, git for code repos, etc.
+- Easy to set up **[scheduled/realtime importing](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from multiple sources**
+- Uses standard, **durable, [long-term formats](#saves-lots-of-useful-stuff-for-each-imported-link)** like HTML, JSON, PDF, PNG, and WARC
+- Usable as a **[oneshot CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage)**, **[self-hosted web UI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage)**, [Python API](https://docs.archivebox.io/en/latest/modules.html) (BETA), REST API (ALPHA), and [desktop app](https://github.com/ArchiveBox/electron-archivebox) (ALPHA)
+- [**Also saves snapshots to archive.org**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#submit_archive_dot_org) by default for redundancy (can be [disabled](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) for local-only mode)
+- Will support JS content scripts during archiving in the future, e.g. to block ads, [scroll pages](https://github.com/ArchiveBox/ArchiveBox/issues/80), [close modals](https://github.com/ArchiveBox/ArchiveBox/issues/175), expand comment threads, etc.
+- Will support [content requiring a login/paywall/cookies to view](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (currently doable, but not advised until some pending security fixes are released)
 
 ## Input formats
 
