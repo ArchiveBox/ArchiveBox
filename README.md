@@ -38,11 +38,11 @@ Archived content is browseable and managable locally with the CLI commands like 
 <div align="center">
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/>
-<sup><a href="https://archive.sweeting.me/">Demo</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
+<sup><a href="https://archivebox.zervice.io/">Demo</a> | <a href="#Screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
 <br/>
 <img src="https://i.imgur.com/njxgSbl.png" width="22%" alt="cli init screenshot" align="top">
 <img src="https://i.imgur.com/p6wK6KM.png" width="22%" alt="server snapshot admin screenshot" align="top">
-<img src="https://i.imgur.com/RefWsXB.jpg" width="22%" alt="server snapshot details page screenshot" align="top"/><br/>
+<img src="https://i.imgur.com/RefWsXB.jpg" width="28.6%" alt="server snapshot details page screenshot" align="top"/><br/>
 </div>
 <br/>
 
@@ -246,45 +246,6 @@ The [CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) is cons
 
 At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer). You can also self-host your archivebox server on a public domain to provide archive.org-style public access to your site snapshots.
 
-## Screenshots
-
-<div align="center" width="80%">
-<table>
-<tbody>
-<tr>
-<td>
-<img src="https://i.imgur.com/npareKG.png" alt="brew install archivebox"><br/>
-<img src="https://i.imgur.com/5vSBO2R.png" alt="archivebox version">
-</td>
-<td>
-<img src="https://i.imgur.com/JXXxFzB.png" alt="archivebox init"><br/>
-</td>
-<td>
-<img src="https://i.imgur.com/wNYtV3v.jpg" alt="archivebox add">
-</td>
-<td>
-<img src="https://i.imgur.com/uZcIOn9.png" alt="archivebox data dir">
-</td>
-</tr>
-<tr>
-<td>
-<img src="https://i.imgur.com/H08eaia.png" alt="archivebox server">
-</td>
-<td>
-<img src="https://i.imgur.com/zM4z1aU.png" alt="archivebox server add">
-</td>
-<td>
-<img src="https://i.imgur.com/p6wK6KM.png" alt="archivebox server list">
-</td>
-<td>
-<img src="https://i.imgur.com/pzq4uXq.png" alt="archivebox server detail">
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-
-
 ## Key Features
 
 - [**Free & open source**](https://github.com/ArchiveBox/ArchiveBox/blob/master/LICENSE), doesn't require signing up for anything, stores all data locally
@@ -390,6 +351,46 @@ archivebox add 'https://example.com#2020-10-24'
 ...
 archivebox add 'https://example.com#2020-10-25'
 ```
+
+
+## Screenshots
+
+<div align="center" width="80%">
+<table>
+<tbody>
+<tr>
+<td>
+<img src="https://i.imgur.com/npareKG.png" alt="brew install archivebox"><br/>
+<img src="https://i.imgur.com/5vSBO2R.png" alt="archivebox version">
+</td>
+<td>
+<img src="https://i.imgur.com/JXXxFzB.png" alt="archivebox init"><br/>
+</td>
+<td>
+<img src="https://i.imgur.com/wNYtV3v.jpg" alt="archivebox add">
+</td>
+<td>
+<img src="https://i.imgur.com/uZcIOn9.png" alt="archivebox data dir">
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://i.imgur.com/H08eaia.png" alt="archivebox server">
+</td>
+<td>
+<img src="https://i.imgur.com/zM4z1aU.png" alt="archivebox server add">
+</td>
+<td>
+<img src="https://i.imgur.com/p6wK6KM.png" alt="archivebox server list">
+</td>
+<td>
+<img src="https://i.imgur.com/pzq4uXq.png" alt="archivebox server detail">
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+
 
 ---
 
