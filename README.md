@@ -38,7 +38,7 @@ Archived content is browseable and managable locally with the CLI commands like 
 <div align="center">
 <br/>
 <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic"><img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic">
-<br/>
+<br/><br/>
 <sup><a href="https://archivebox.zervice.io/">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
 <br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
