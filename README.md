@@ -443,6 +443,11 @@ ArchiveBox archives the sites in **several different formats** beyond what publi
 
 All the archived links are stored by date bookmarked in `./archive/<timestamp>`, and everything is indexed nicely with JSON & HTML files. The intent is for all the content to be viewable with common software in 50 - 100 years without needing to run ArchiveBox in a VM.
 
+<br/>
+<div align="center">
+<img src="https://i.imgur.com/q0Oe36M.png" width="96%" alt="dependencies graphic">
+</div>
+
 ## Comparison to Other Projects
 
 ▶ **Check out our [community page](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for an index of web archiving initiatives and projects.**
