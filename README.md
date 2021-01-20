@@ -319,7 +319,7 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
 It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) via environment variables or config file.
 
 <div align="center">
-<img src="https://i.imgur.com/q0Oe36M.png" width="75%" alt="dependencies graphic">
+<img src="https://i.imgur.com/q0Oe36M.png" width="96%" alt="dependencies graphic">
 </div>
 
 ## Dependencies
