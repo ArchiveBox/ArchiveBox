@@ -11,13 +11,14 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
 from django import forms
 
+from .util import htmldecode, urldecode, ansi_to_html
+
 from core.models import Snapshot, Tag
 from core.forms import AddLinkForm, TagField
 
 from core.mixins import SearchResultsAdminMixin
 
 from index.html import snapshot_icons
-from util import htmldecode, urldecode, ansi_to_html
 from logging_util import printable_filesize
 from main import add, remove
 from config import OUTPUT_DIR
