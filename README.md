@@ -210,6 +210,7 @@ archivebox help  # to see more options
 </code></pre>
 
 </details>
+
  
 ---
  
@@ -219,6 +220,43 @@ archivebox help  # to see more options
 
 <a href="https://archivebox.zervice.io">DEMO: archivebox.zervice.io/</a>  
 For more information, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">full Quickstart guide</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a>, and <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a> docs.
+</div>
+
+
+<div align="center" width="80%">
+<table>
+<tbody>
+<tr>
+<td>
+<img src="https://i.imgur.com/npareKG.png" alt="brew install archivebox"><br/>
+<img src="https://i.imgur.com/5vSBO2R.png" alt="archivebox version">
+</td>
+<td>
+<img src="https://i.imgur.com/JXXxFzB.png" alt="archivebox init"><br/>
+</td>
+<td>
+<img src="https://i.imgur.com/wNYtV3v.jpg" alt="archivebox add">
+</td>
+<td>
+<img src="https://i.imgur.com/uZcIOn9.png" alt="archivebox data dir">
+</td>
+</tr>
+<tr>
+<td>
+<img src="https://i.imgur.com/H08eaia.png" alt="archivebox server">
+</td>
+<td>
+<img src="https://i.imgur.com/zM4z1aU.png" alt="archivebox server add">
+</td>
+<td>
+<img src="https://i.imgur.com/oGZkXoe.jpg" alt="archivebox server list">
+</td>
+<td>
+<img src="https://i.imgur.com/eMGfkji.jpg" alt="archivebox server detail">
+</td>
+</tr>
+</tbody>
+</table>
 </div>
 
 ---
