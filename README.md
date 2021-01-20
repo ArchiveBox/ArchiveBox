@@ -37,17 +37,16 @@ Archived content is browseable and managable locally with the CLI commands like 
 
 <div align="center">
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
-<br/>
+<br/><br/>
 <img src="https://i.imgur.com/njxgSbl.png" width="22%" alt="cli init screenshot" align="top">
 <img src="https://i.imgur.com/p6wK6KM.png" width="22%" alt="server snapshot admin screenshot" align="top">
-<img src="https://i.imgur.com/RefWsXB.jpg" width="28.6%" alt="server snapshot details page screenshot" align="top"/><br/>
+<img src="https://i.imgur.com/RefWsXB.jpg" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
 <br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/>
 <sup><a href="https://archivebox.zervice.io/">Demo</a> | <a href="#Screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
 <br/>
 </div>
-<br/>
 
 ### Quickstart
 
