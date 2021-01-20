@@ -45,9 +45,8 @@ mkdir ~/archivebox && cd ~/archivebox    # this can be anywhere
 archivebox init
 
 archivebox add 'https://example.com'
-archivebox add --depth=1 'https://example.com'
-archivebox schedule --every=day https://getpocket.com/users/USERNAME/feed/all
-archivebox oneshot --extract=title,favicon,media https://www.youtube.com/watch?v=dQw4w9WgXcQ
+archivebox schedule --every=day --depth=1 'https://getpocket.com/users/USERNAME/feed/all'
+archivebox oneshot --extract=title,favicon,media 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
 archivebox help   # to see more options
 ```
 
@@ -57,27 +56,27 @@ archivebox help   # to see more options
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on any platform (recommended, everything included out-of-the-box)</b></summary>
 
 <i>First make sure you have Docker installed: https://docs.docker.com/get-docker/</i>
-<br/>
-This is the recommended way to run ArchiveBox because it includes <i>all</i> the extractors like:<br/>
-chrome, wget, youtube-dl, git, etc., full-text search w/ sonic, and many other great features.
 
-<pre language="bash">
+<pre lang="bash"><code>
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
-curl -O https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml
+curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
 docker-compose run archivebox init
 docker-compose run archivebox --version
 
 # start the webserver and open the UI (optional)
 docker-compose run archivebox manage createsuperuser
 docker-compose up -d
-open http://127.0.0.1:8000
+open 'http://127.0.0.1:8000'
 
 # you can also add links and manage your archive via the CLI:
 docker-compose run archivebox add 'https://example.com'
 docker-compose run archivebox status
 docker-compose run archivebox help  # to see more options
-</pre>
+</code></pre>
+
+This is the recommended way to run ArchiveBox because it includes <i>all</i> the extractors like:<br/>
+chrome, wget, youtube-dl, git, etc., full-text search w/ sonic, and many other great features.
 
 </details>
 
@@ -86,7 +85,7 @@ docker-compose run archivebox help  # to see more options
 
 <i>First make sure you have Docker installed: https://docs.docker.com/get-docker/</i>
 
-<pre language="bash">
+<pre lang="bash"><code>
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
 docker run -v $PWD:/data -it archivebox/archivebox init
@@ -101,7 +100,7 @@ open http://127.0.0.1:8000
 docker run -v $PWD:/data -it archivebox/archivebox add 'https://example.com'
 docker run -v $PWD:/data -it archivebox/archivebox status
 docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
-</pre>
+</code></pre>
 
 </details>
 
@@ -110,7 +109,7 @@ docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
 
 <i>First make sure you're on Ubuntu >= 20.04, or scroll down for older/non-Ubuntu instructions.</i>
 
-<pre language="bash">
+<pre lang="bash"><code>
 # add the repo to your sources and install the archivebox package using apt
 sudo apt install software-properties-common
 sudo add-apt-repository -u ppa:archivebox/archivebox
@@ -133,14 +132,14 @@ archivebox status
 archivebox list --html --with-headers > index.html
 archivebox list --json --with-headers > index.json
 archivebox help  # to see more options
-</pre>
+</code></pre>
 
 For other Debian-based systems or older Ubuntu systems you can add these sources to `/etc/apt/sources.list`:
 
-<pre language="bash">
+<pre lang="bash"><code>
 deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main
 deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main
-</pre>
+</code></pre>
 
 Then run `apt update; apt install archivebox; archivebox --version`.
 
@@ -153,7 +152,7 @@ Then run `apt update; apt install archivebox; archivebox --version`.
 
 <i>First make sure you have Homebrew installed: https://brew.sh/#install</i>
 
-<pre language="bash">
+<pre lang="bash"><code>
 # install the archivebox package using homebrew
 brew install archivebox/archivebox/archivebox
 
@@ -174,7 +173,7 @@ archivebox status
 archivebox list --html --with-headers > index.html
 archivebox list --json --with-headers > index.json
 archivebox help  # to see more options
-</pre>
+</code></pre>
 
 </details>
 
@@ -183,7 +182,7 @@ archivebox help  # to see more options
 
 <i>First make sure you have Python >= 3.7 installed: https://realpython.com/installing-python/</i>
 
-<pre language="bash">
+<pre lang="bash"><code>
 # install the archivebox package using pip3
 pip3 install archivebox
 
@@ -205,7 +204,7 @@ archivebox status
 archivebox list --html --with-headers > index.html
 archivebox list --json --with-headers > index.json
 archivebox help  # to see more options
-</pre>
+</code></pre>
 
 </details>
  
