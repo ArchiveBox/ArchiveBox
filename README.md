@@ -373,17 +373,13 @@ archivebox add 'https://example.com#2020-10-24'
 archivebox add 'https://example.com#2020-10-25'
 ```
 
----
-
-<div align="center">
-<img src="https://i.imgur.com/q0Oe36M.png" width="96%" alt="dependencies graphic">
-</div>
 
 ---
 
 ## Screenshots
 
 <div align="center" width="80%">
+<img src="https://i.imgur.com/PVO88AZ.png" width="80%"/>
 <table>
 <tbody>
 <tr>
@@ -419,14 +415,12 @@ archivebox add 'https://example.com#2020-10-25'
 </table>
 </div>
 
-
 ---
 
 <div align="center">
-<img src="https://i.imgur.com/PVO88AZ.png" width="80%"/>
+<img src="https://i.imgur.com/ZSUm9mr.png" width="96%" alt="paisley graphic">
 </div>
 
----
 
 # Background & Motivation
 
