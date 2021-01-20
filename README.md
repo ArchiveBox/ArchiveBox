@@ -381,8 +381,11 @@ archivebox add 'https://example.com#2020-10-24'
 archivebox add 'https://example.com#2020-10-25'
 ```
 
+<br/>
 
 ---
+
+<br/>
 
 ## Screenshots
 
