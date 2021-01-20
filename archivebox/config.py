@@ -775,7 +775,7 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'version': config['PYTHON_VERSION'],
             'hash': bin_hash(config['PYTHON_BINARY']),
             'enabled': True,
-            'is_valid': bool(config['DJANGO_VERSION']),
+            'is_valid': bool(config['PYTHON_VERSION']),
         },
         'DJANGO_BINARY': {
             'path': bin_path(config['DJANGO_BINARY']),
@@ -787,7 +787,7 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
         'CURL_BINARY': {
             'path': bin_path(config['CURL_BINARY']),
             'version': config['CURL_VERSION'],
-            'hash': bin_hash(config['PYTHON_BINARY']),
+            'hash': bin_hash(config['CURL_BINARY']),
             'enabled': config['USE_CURL'],
             'is_valid': bool(config['CURL_VERSION']),
         },
@@ -803,7 +803,7 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'version': config['NODE_VERSION'],
             'hash': bin_hash(config['NODE_BINARY']),
             'enabled': config['USE_NODE'],
-            'is_valid': bool(config['SINGLEFILE_VERSION']),
+            'is_valid': bool(config['NODE_VERSION']),
         },
         'SINGLEFILE_BINARY': {
             'path': bin_path(config['SINGLEFILE_BINARY']),
