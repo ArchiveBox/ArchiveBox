@@ -235,14 +235,15 @@ archivebox help  # to see more options
 ---
  
 <div align="center">
-<img src="https://i.imgur.com/lUuicew.png" width="30%" align="top">
-<img src="https://i.imgur.com/p6wK6KM.png" width="30%" align="top">
-<img src="https://i.imgur.com/pzq4uXq.png" width="30%" align="top">
+<img src="https://i.imgur.com/lUuicew.png" width="22.4%" align="top">
+<img src="https://i.imgur.com/p6wK6KM.png" width="35.9%" align="top">
+<img src="https://i.imgur.com/pzq4uXq.png" width="29.7%" align="top">
 <br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/>
-<a href="https://archivebox.zervice.io">DEMO: archivebox.zervice.io/</a>  
-For more information, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">full Quickstart guide</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a>, and <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a> docs.
+<a href="https://archivebox.zervice.io">DEMO: <code>https://archivebox.zervice.io</code></a><br/>
+<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a>
+<br/>
 </div>
 
 ---
