@@ -442,10 +442,6 @@ ArchiveBox archives the sites in **several different formats** beyond what publi
 
 All the archived links are stored by date bookmarked in `./archive/<timestamp>`, and everything is indexed nicely with JSON & HTML files. The intent is for all the content to be viewable with common software in 50 - 100 years without needing to run ArchiveBox in a VM.
 
----
-
-<img src="https://i.imgur.com/q0Oe36M.png" width="100%" alt="dependencies graphic">
-
 ## Comparison to Other Projects
 
 ▶ **Check out our [community page](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for an index of web archiving initiatives and projects.**
@@ -463,6 +459,10 @@ Unlike crawler software that starts from a seed URL and works outwards, or publi
 #### Storage Requirements
 
 Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today. However, as storage space gets cheaper and compression improves, you should be able to use it continuously over the years without having to delete anything. In my experience, ArchiveBox uses about 5gb per 1000 articles, but your milage may vary depending on which options you have enabled and what types of sites you're archiving. By default, it archives everything in as many formats as possible, meaning it takes more space than a using a single method, but more content is accurately replayable over extended periods of time. Storage requirements can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by setting `SAVE_MEDIA=False` to skip audio & video files.
+
+<br/>
+<img src="https://i.imgur.com/q0Oe36M.png" width="100%" alt="dependencies graphic">
+<br/>
 
 ## Learn more
 
