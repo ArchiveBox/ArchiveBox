@@ -30,7 +30,9 @@ ArchiveBox is a powerful self-hosted internet archiving solution written in Pyth
 
 Your archive can be managed through the command line with commands like `archivebox add`, through the built-in Web UI `archivebox server`, or via the Python library API (beta). It can ingest bookmarks from a browser or service like Pocket/Pinboard, your entire browsing history, RSS feeds, or URLs one at a time. You can also schedule regular/realtime imports with `archivebox schedule`.
 
-The main index is a self-contained `index.sqlite3` file, and each snapshot is stored as a folder `data/archive/<timestamp>/`, with an easy-to-read `index.html` and `index.json` within. For each page, ArchiveBox auto-extracts many types of assets/media and saves them in standard formats, with out-of-the-box support for: several types of HTML snapshots (wget, Chrome headless, singlefile), PDF snapshotting, screenshotting, WARC archiving, git repositories, images, audio, video, subtitles, article text, and more. The snapshots are browseable and managable offline through the filesystem, the built-in webserver, or the Python library API.
+Running `archivebox init` in a folder creates a collection with a self-contained `index.sqlite3` index, and folders for each snapshot under `./archive/<timestamp>/`, with human-readable `index.html` and `index.json` files within. Snapshots are browseable and managable offline through the filesystem, the built-in webserver, or the Python API.
+
+For each archived URL, ArchiveBox saves: several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more](#output-formats).
 
 ### Quickstart
 
@@ -251,9 +253,9 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 - [**Supports scheduled/realtime importing**](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from many types of sources
 - [**Uses standard, durable, long-term formats**](#saves-lots-of-useful-stuff-for-each-imported-link) like HTML, JSON, PDF, PNG, and WARC
 - [**Usable as a oneshot CLI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [**self-hosted web UI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [Python API](https://docs.archivebox.io/en/latest/modules.html) (BETA), REST API (ALPHA), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (ALPHA)
-- [**Also saves snapshots to archive.org**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#submit_archive_dot_org) by default for redundancy (can be [disabled](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) for local-only mode)
-- Will support JS content scripts during archiving in the future, e.g. to block ads, [scroll pages](https://github.com/ArchiveBox/ArchiveBox/issues/80), [close modals](https://github.com/ArchiveBox/ArchiveBox/issues/175), expand comment threads, etc.
-- Will support [content requiring a login/paywall/cookies to view](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (currently doable, but not advised until some pending security fixes are released)
+- [**Saves all pages to archive.org as well**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#submit_archive_dot_org) by default for redundancy (can be [disabled](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) for local-only mode)
+- Planned: support for archiving [content requiring a login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (working, but ill-advised until some pending fixes are released)
+- Planned: support for running [JS scripts during archiving](https://github.com/ArchiveBox/ArchiveBox/issues/51), e.g. to block ads, [scroll pages](https://github.com/ArchiveBox/ArchiveBox/issues/80), [close modals](https://github.com/ArchiveBox/ArchiveBox/issues/175), [expand threads](https://github.com/ArchiveBox/ArchiveBox/issues/345), etc.
 
 ## Input formats
 
