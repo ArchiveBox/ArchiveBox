@@ -60,7 +60,7 @@ First make sure you have Docker installed: https://docs.docker.com/get-docker/
 <br/><br/>
 This is the recommended way to run ArchiveBox because it includes *all* the extractors like chrome, wget, youtube-dl, git, etc., as well as full-text search with sonic, and many other great features.
 
-```bash
+<pre language="bash">
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
 curl -O https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml
@@ -76,7 +76,7 @@ open http://127.0.0.1:8000
 docker-compose run archivebox add 'https://example.com'
 docker-compose run archivebox status
 docker-compose run archivebox help  # to see more options
-```
+</pre>
 
 </details>
 
@@ -85,7 +85,7 @@ docker-compose run archivebox help  # to see more options
 
 First make sure you have Docker installed: https://docs.docker.com/get-docker/<br/>
 
-```bash
+<pre language="bash">
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
 docker run -v $PWD:/data -it archivebox/archivebox init
@@ -100,14 +100,14 @@ open http://127.0.0.1:8000
 docker run -v $PWD:/data -it archivebox/archivebox add 'https://example.com'
 docker run -v $PWD:/data -it archivebox/archivebox status
 docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
-```
+</pre>
 
 </details>
 
 <details>
 <summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu >=20.04</b></summary>
 
-```bash
+<pre language="bash">
 sudo add-apt-repository -u ppa:archivebox/archivebox
 sudo apt install archivebox
 
@@ -128,14 +128,15 @@ archivebox status
 archivebox list --html --with-headers > index.html
 archivebox list --json --with-headers > index.json
 archivebox help  # to see more options
-```
+</pre>
 
 For other Debian-based systems or older Ubuntu systems you can add these sources to `/etc/apt/sources.list`:
 
-```bash
+<pre language="bash">
 deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main
 deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main
-```
+</pre>
+
 (you may need to install some other dependencies manually however)
 
 </details>
@@ -143,7 +144,7 @@ deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main
 <details>
 <summary><b>Get ArchiveBox with <code>brew</code> on macOS >=10.13</b></summary>
 
-```bash
+<pre language="bash">
 brew install archivebox/archivebox/archivebox
 
 # create a new empty directory and initalize your collection (can be anywhere)
@@ -163,14 +164,14 @@ archivebox status
 archivebox list --html --with-headers > index.html
 archivebox list --json --with-headers > index.json
 archivebox help  # to see more options
-```
+</pre>
 
 </details>
 
 <details>
 <summary><b>Get ArchiveBox with <code>pip</code> on any platform</b></summary>
 
-```bash
+<pre language="bash">
 pip3 install archivebox
 
 # create a new empty directory and initalize your collection (can be anywhere)
@@ -191,7 +192,7 @@ archivebox status
 archivebox list --html --with-headers > index.html
 archivebox list --json --with-headers > index.json
 archivebox help  # to see more options
-```
+</pre>
 
 </details>
  
