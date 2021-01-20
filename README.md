@@ -482,6 +482,10 @@ Whether you want to learn which organizations are the big players in the web arc
 
 ---
 
+<div align="center">
+<img src="https://i.imgur.com/yBbx7VU.png" width="45%" alt="documentation graphic"><img src="https://i.imgur.com/yBbx7VU.png" width="45%" alt="documentation graphic">
+</div>
+
 # Documentation
 
 <img src="https://read-the-docs-guidelines.readthedocs-hosted.com/_images/logo-dark.png" width="13%" align="right"/>
