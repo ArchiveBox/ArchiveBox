@@ -56,10 +56,10 @@ archivebox help   # to see more options
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on any platform (recommended, everything included out-of-the-box)</b></summary>
 
-<br/>
 First make sure you have Docker installed: https://docs.docker.com/get-docker/
 <br/>
-This is the recommended way to run ArchiveBox because it includes *all* the extractors like chrome, wget, youtube-dl, git, etc., as well as full-text search with sonic, and many other great features.
+This is the recommended way to run ArchiveBox because it includes <i>all</i> the extractors like:<br/>
+chrome, wget, youtube-dl, git, etc., full-text search w/ sonic, and many other great features.
 
 <pre language="bash">
 # create a new empty directory and initalize your collection (can be anywhere)
@@ -83,8 +83,8 @@ docker-compose run archivebox help  # to see more options
 
 <details>
 <summary><b>Get ArchiveBox with <code>docker</code> on any platform</b></summary>
-<br/>
-First make sure you have Docker installed: https://docs.docker.com/get-docker/<br/>
+
+First make sure you have Docker installed: https://docs.docker.com/get-docker/
 
 <pre language="bash">
 # create a new empty directory and initalize your collection (can be anywhere)
@@ -107,6 +107,8 @@ docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
 
 <details>
 <summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu >=20.04</b></summary>
+
+First make sure you're on Ubuntu >= 20.04, or scroll down for older/non-Ubuntu instructions.
 
 <pre language="bash">
 # add the repo to your sources and install the archivebox package using apt
@@ -148,8 +150,8 @@ Then run `apt update; apt install archivebox; archivebox --version`.
 
 <details>
 <summary><b>Get ArchiveBox with <code>brew</code> on macOS >=10.13</b></summary>
-<br/>
-First make sure you have Homebrew installed:https://brew.sh/#install<br/>
+
+First make sure you have Homebrew installed: https://brew.sh/#install
 
 <pre language="bash">
 # install the archivebox package using homebrew
