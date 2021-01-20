@@ -28,7 +28,7 @@
 
 ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a variety of formats depending on the configuration and the content it detects.
 
-Running `archivebox init` in a folder creates a collection with a self-contained `index.sqlite3` index, and folders for each snapshot under `./archive/<timestamp>/`, with human-readable `index.html` and `index.json` files within.
+Running `archivebox init` in a folder creates a collection with a self-contained `index.sqlite3` index, `ArchiveBox.conf` config file, and folders for each snapshot under `./archive/<timestamp>/`, with human-readable `index.html` and `index.json` files within.
 
 For each URL added with `archivebox add`, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats)
 You can use `archivebox schedule` to ingest URLs regularly from your browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or [and more...](#input-formats)
