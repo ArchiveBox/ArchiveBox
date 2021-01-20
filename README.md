@@ -429,6 +429,8 @@ archivebox add 'https://example.com#2020-10-25'
 
 ---
 
+<br/>
+
 <img src="https://i.imgur.com/ZSUm9mr.png" width="100%" alt="paisley graphic">
 
 
