@@ -48,7 +48,7 @@ Archived content is browseable and managable locally with the CLI commands like 
 <img src="https://i.imgur.com/RefWsXB.jpg" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
 <br/>
 <br/>
-<img src="https://i.imgur.com/T2UAGUD.png" width="70%" opacity="0.3" alt="grass"/>
+<img src="https://i.imgur.com/T2UAGUD.png" width="65%" alt="grass"/>
 </div>
 
 ### Quickstart
@@ -69,7 +69,7 @@ archivebox oneshot --extract=title,favicon,media 'https://www.youtube.com/watch?
 archivebox help   # to see more options
 ```
 
-*(click to expand the sections below for full setup instructions)*
+*(click to expand the ► sections below for full setup instructions)*
 
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on any platform (recommended, everything included out-of-the-box)</b></summary>
@@ -229,24 +229,8 @@ archivebox help  # to see more options
 
 <br/>
 <div align="center">
-<img src="https://i.imgur.com/6AmOGJT.png" width="60%" alt="grass"/>
+<img src="https://i.imgur.com/6AmOGJT.png" width="65%" alt="grass"/>
 </div>
- 
----
- 
-<div align="center">
-<img src="https://i.imgur.com/lUuicew.png" width="22.4%" align="top">
-<img src="https://i.imgur.com/p6wK6KM.png" width="35.9%" align="top">
-<img src="https://i.imgur.com/pzq4uXq.png" width="29.7%" align="top">
-<br/>
-<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
-<br/>
-<a href="https://archivebox.zervice.io">DEMO: <code>https://archivebox.zervice.io</code></a><br/>
-<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a>
-<br/>
-</div>
-
----
 
 
 # Overview
@@ -258,6 +242,18 @@ To use ArchiveBox you start by creating a folder for your data to live in (it ca
 The [CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) is considered "stable", the ArchiveBox [Python API](https://docs.archivebox.io/en/latest/modules.html) and [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) are "alpha", and the [desktop app](https://github.com/ArchiveBox/desktop) is "alpha".
 
 At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer). You can also self-host your archivebox server on a public domain to provide archive.org-style public access to your site snapshots.
+
+<div align="center">
+<img src="https://i.imgur.com/lUuicew.png" width="22.4%" align="top">
+<img src="https://i.imgur.com/p6wK6KM.png" width="35.9%" align="top">
+<img src="https://i.imgur.com/pzq4uXq.png" width="29.7%" align="top">
+<br/>
+<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
+<br/>
+<a href="https://archivebox.zervice.io">DEMO: <code>https://archivebox.zervice.io</code></a><br/>
+<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a>
+<br/>
+</div>
 
 ## Key Features
 
