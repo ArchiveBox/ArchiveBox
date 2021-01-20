@@ -35,6 +35,20 @@ You can use `archivebox schedule` to ingest URLs regularly from your browser boo
 
 Archived content is browseable and managable locally with the CLI commands like `archivebox status` or `archivebox list ...`, via the built-in web UI `archivebox server`, directly through the filesystem `./archive/<timestamp>` folders, or via the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha) or [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha).
 
+<div align="center">
+<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
+<br/>
+<sup><a href="https://archive.sweeting.me/">Demo</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
+<br/>
+<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
+<br/>
+<img src="https://i.imgur.com/3tBL7PU.png" width="22%" alt="CLI Screenshot" align="top">
+<img src="https://i.imgur.com/viklZNG.png" width="22%" alt="Desktop index screenshot" align="top">
+<img src="https://i.imgur.com/RefWsXB.jpg" width="22%" alt="Desktop details page Screenshot" align="top"/>
+<img src="https://i.imgur.com/M6HhzVx.png" width="22%" alt="Desktop details page Screenshot" align="top"/><br/>
+</div>
+<br/>
+
 ### Quickstart
 
 It works on Linux/BSD (Intel and ARM CPUs with `docker`/`apt`/`pip3`), macOS (with `docker`/`brew`/`pip3`), and Windows (beta with `docker`/`pip3`).
@@ -222,6 +236,20 @@ archivebox help  # to see more options
 For more information, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">full Quickstart guide</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a>, and <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a> docs.
 </div>
 
+---
+
+
+# Overview
+
+ArchiveBox is a command line tool, self-hostable web-archiving server, and Python library all-in-one. It can be installed on Docker, macOS, and Linux/BSD, and Windows. You can download and install it as a Debian/Ubuntu package, Homebrew package, Python3 package, or a Docker image. No matter which install method you choose, they all provide the same CLI, Web UI, and on-disk data format.
+
+To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/export/manage/etc using the CLI `archivebox help`, or you can run the Web UI (recommended). If you only want to archive a single site, you can run `archivebox oneshot` to avoid having to create a whole collection.
+
+The [CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) is considered "stable", the ArchiveBox [Python API](https://docs.archivebox.io/en/latest/modules.html) and [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) are "alpha", and the [desktop app](https://github.com/ArchiveBox/desktop) is "alpha".
+
+At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer). You can also self-host your archivebox server on a public domain to provide archive.org-style public access to your site snapshots.
+
+## Screenshots
 
 <div align="center" width="80%">
 <table>
@@ -258,29 +286,6 @@ For more information, see the <a href="https://github.com/ArchiveBox/ArchiveBox/
 </tbody>
 </table>
 </div>
-
----
-
-
-# Overview
-
-ArchiveBox is a command line tool, self-hostable web-archiving server, and Python library all-in-one. It can be installed on Docker, macOS, and Linux/BSD, and Windows. You can download and install it as a Debian/Ubuntu package, Homebrew package, Python3 package, or a Docker image. No matter which install method you choose, they all provide the same CLI, Web UI, and on-disk data format.
-
-To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/export/manage/etc using the CLI `archivebox help`, or you can run the Web UI (recommended). If you only want to archive a single site, you can run `archivebox oneshot` to avoid having to create a whole collection.
-
-The [CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) is considered "stable", the ArchiveBox [Python API](https://docs.archivebox.io/en/latest/modules.html) and [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) are "alpha", and the [desktop app](https://github.com/ArchiveBox/desktop) is "alpha".
-
-At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer). You can also self-host your archivebox server on a public domain to provide archive.org-style public access to your site snapshots.
-
-<div align="center">
-<img src="https://i.imgur.com/3tBL7PU.png" width="22%" alt="CLI Screenshot" align="top">
-<img src="https://i.imgur.com/viklZNG.png" width="22%" alt="Desktop index screenshot" align="top">
-<img src="https://i.imgur.com/RefWsXB.jpg" width="22%" alt="Desktop details page Screenshot"/>
-<img src="https://i.imgur.com/M6HhzVx.png" width="22%" alt="Desktop details page Screenshot"/><br/>
-<sup><a href="https://archive.sweeting.me/">Demo</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
-<br/>
-<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
-</div><br/>
 
 
 ## Key Features
