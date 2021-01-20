@@ -84,6 +84,7 @@ docker-compose run archivebox help  # to see more options
 <summary><b>Get ArchiveBox with <code>docker</code> on any platform</b></summary>
 
 First make sure you have Docker installed: https://docs.docker.com/get-docker/<br/>
+
 ```bash
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
@@ -130,6 +131,7 @@ archivebox help  # to see more options
 ```
 
 For other Debian-based systems or older Ubuntu systems you can add these sources to `/etc/apt/sources.list`:
+
 ```bash
 deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main
 deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main
@@ -300,6 +302,7 @@ ArchiveBox is written in Python 3 so it requires `python3` and `pip3` available 
 ## Caveats
 
 If you're importing URLs containing secret slugs or pages with private content (e.g Google Docs, CodiMD notepads, etc), you may want to disable some of the extractor modules to avoid leaking private URLs to 3rd party APIs during the archiving process.
+
 ```bash
 # don't do this:
 archivebox add 'https://docs.google.com/document/d/12345somelongsecrethere'
@@ -312,6 +315,7 @@ archivebox config --set CHROME_BINARY=chromium  # optional: switch to chromium t
 ```
 
 Be aware that malicious archived JS can also read the contents of other pages in your archive due to snapshot CSRF and XSS protections being imperfect. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page for more details.
+
 ```bash
 # visiting an archived page with malicious JS:
 https://127.0.0.1:8000/archive/1602401954/example.com/index.html
@@ -323,6 +327,7 @@ https://127.0.0.1:8000/archive/*
 ```
 
 Support for saving multiple snapshots of each site over time will be [added soon](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now ArchiveBox is designed to only archive each URL with each extractor type once. A workaround to take multiple snapshots of the same URL is to make them slightly different by adding a hash:
+
 ```bash
 archivebox add 'https://example.com#2020-10-24'
 ...
@@ -442,29 +447,41 @@ All contributions to ArchiveBox are welcomed! Check our [issues](https://github.
 
 ### Setup the dev environment
 
-First, install the system dependencies from the "Bare Metal" section above.
-Then you can clone the ArchiveBox repo and install
-```python3
-git clone https://github.com/ArchiveBox/ArchiveBox && cd ArchiveBox
-git checkout master  # or the branch you want to test
+#### 1. Clone the main code repo (making sure to pull the submodules as well)
+
+```bash
+git clone --recurse-submodules https://github.com/ArchiveBox/ArchiveBox
+cd ArchiveBox
+git checkout dev  # or the branch you want to test
 git submodule update --init --recursive
 git pull --recurse-submodules
+```
 
+#### 2. Option A: Install the Python, JS, and system dependencies directly on your machine
+
+```bash
 # Install ArchiveBox + python dependencies
-python3 -m venv .venv && source .venv/bin/activate && pip install -e .[dev]
-# or with pipenv: pipenv install --dev && pipenv shell
+python3 -m venv .venv && source .venv/bin/activate && pip install -e '.[dev]'
+# or: pipenv install --dev && pipenv shell
 
 # Install node dependencies
 npm install
 
-# Optional: install extractor dependencies manually or with helper script
+# Check to see if anything is missing
+archivebox --version
+# install any missing dependencies manually, or use the helper script:
 ./bin/setup.sh
+```
 
+#### 2. Option B: Build the docker container and use that for development instead
+
+```bash
 # Optional: develop via docker by mounting the code dir into the container
 # if you edit e.g. ./archivebox/core/models.py on the docker host, runserver
 # inside the container will reload and pick up your changes
 docker build . -t archivebox
-docker run -it -p 8000:8000 \
+docker run -it --rm archivebox version
+docker run -it --rm -p 8000:8000 \
     -v $PWD/data:/data \
     -v $PWD/archivebox:/app/archivebox \
     archivebox server 0.0.0.0:8000 --debug --reload
@@ -495,7 +512,7 @@ You can also run all these in Docker. For more examples see the Github Actions C
 cd archivebox/
 ./manage.py makemigrations
 
-cd data/
+cd path/to/test/data/
 archivebox shell
 ```
 (uses `pytest -s`)
@@ -517,9 +534,14 @@ archivebox shell
 
 ```bash
 ./bin/release.sh
-```
-(bumps the version, builds, and pushes a release to PyPI, Docker Hub, and Github Packages)
 
+# or individually:
+./bin/release_docs.sh
+./bin/release_pip.sh
+./bin/release_deb.sh
+./bin/release_brew.sh
+./bin/release_docker.sh
+```
 
 ---
 
