@@ -268,6 +268,12 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 - Planned: support for archiving [content requiring a login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (working, but ill-advised until some pending fixes are released)
 - Planned: support for running [JS scripts during archiving](https://github.com/ArchiveBox/ArchiveBox/issues/51), e.g. to block ads, [scroll pages](https://github.com/ArchiveBox/ArchiveBox/issues/80), [close modals](https://github.com/ArchiveBox/ArchiveBox/issues/175), [expand threads](https://github.com/ArchiveBox/ArchiveBox/issues/345), etc.
 
+---
+
+<div align="center">
+<img src="https://i.imgur.com/OUmgdlH.png" width="96%" alt="lego">
+</div>
+
 ## Input formats
 
 ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exports, Browser bookmarks, Browser history, plain text, HTML, markdown, and more!
@@ -289,10 +295,6 @@ archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
 See the [Usage: CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) page for documentation and examples.
 
 It also includes a built-in scheduled import feature with `archivebox schedule` and browser bookmarklet, so you can pull in URLs from RSS feeds, websites, or the filesystem regularly/on-demand.
-
-<div align="center">
-<img src="https://i.imgur.com/OUmgdlH.png" width="96%" alt="dependencies graphic">
-</div>
 
 ## Output formats
 
@@ -322,11 +324,11 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
 
 It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) via environment variables or config file.
 
----
-
 <div align="center">
-<img src="https://i.imgur.com/q0Oe36M.png" width="96%" alt="dependencies graphic">
+<img src="https://i.imgur.com/ucyimDX.png" width="96%" alt="lego graphic">
 </div>
+
+---
 
 ## Dependencies
 
@@ -371,9 +373,13 @@ archivebox add 'https://example.com#2020-10-24'
 archivebox add 'https://example.com#2020-10-25'
 ```
 
+---
+
 <div align="center">
-<img src="https://i.imgur.com/ucyimDX.png" width="96%" alt="lego graphic">
+<img src="https://i.imgur.com/q0Oe36M.png" width="96%" alt="dependencies graphic">
 </div>
+
+---
 
 ## Screenshots
 
