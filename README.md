@@ -48,7 +48,7 @@ Archived content is browseable and managable locally with the CLI commands like 
 <img src="https://i.imgur.com/RefWsXB.jpg" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
 <br/>
 <br/>
-<img src="https://i.imgur.com/T2UAGUD.png" width="65%" alt="grass"/>
+<img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/><img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/>
 </div>
 
 ### Quickstart
@@ -229,7 +229,7 @@ archivebox help  # to see more options
 
 <br/>
 <div align="center">
-<img src="https://i.imgur.com/6AmOGJT.png" width="65%" alt="grass"/>
+<img src="https://i.imgur.com/6AmOGJT.png" width="49%" alt="grass"/><img src="https://i.imgur.com/6AmOGJT.png" width="49%" alt="grass"/>
 </div>
 
 
@@ -417,9 +417,7 @@ archivebox add 'https://example.com#2020-10-25'
 
 ---
 
-<div align="center">
-<img src="https://i.imgur.com/ZSUm9mr.png" width="96%" alt="paisley graphic">
-</div>
+<img src="https://i.imgur.com/ZSUm9mr.png" width="100%" alt="paisley graphic">
 
 
 # Background & Motivation
@@ -443,10 +441,9 @@ ArchiveBox archives the sites in **several different formats** beyond what publi
 
 All the archived links are stored by date bookmarked in `./archive/<timestamp>`, and everything is indexed nicely with JSON & HTML files. The intent is for all the content to be viewable with common software in 50 - 100 years without needing to run ArchiveBox in a VM.
 
-<br/>
-<div align="center">
-<img src="https://i.imgur.com/q0Oe36M.png" width="96%" alt="dependencies graphic">
-</div>
+---
+
+<img src="https://i.imgur.com/q0Oe36M.png" width="100%" alt="dependencies graphic">
 
 ## Comparison to Other Projects
 
@@ -487,9 +484,7 @@ Whether you want to learn which organizations are the big players in the web arc
 
 ---
 
-<div align="center">
-<img src="https://i.imgur.com/SMkGW0L.png" width="98%" alt="documentation graphic">
-</div>
+<img src="https://i.imgur.com/SMkGW0L.png" width="100%" alt="documentation graphic">
 
 # Documentation
 
