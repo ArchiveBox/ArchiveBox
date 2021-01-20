@@ -414,6 +414,7 @@ archivebox add 'https://example.com#2020-10-25'
 </tbody>
 </table>
 </div>
+<br/>
 
 ---
 
@@ -482,6 +483,8 @@ Whether you want to learn which organizations are the big players in the web arc
 - Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/)" blog post.
 - Or reach out to me for questions and comments via [@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp) or [@theSquashSH](https://twitter.com/thesquashSH) on Twitter.
 
+<br/>
+
 ---
 
 <img src="https://i.imgur.com/SMkGW0L.png" width="100%" alt="documentation graphic">
@@ -523,7 +526,11 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 - [Background & Motivation](https://github.com/ArchiveBox/ArchiveBox#background--motivation)
 - [Web Archiving Community](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
 
+<br/>
+
 ---
+
+<img src="https://i.imgur.com/EGWjbD4.png" width="100%" alt="development">
 
 # ArchiveBox Development
 
