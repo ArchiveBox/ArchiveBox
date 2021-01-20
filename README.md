@@ -28,11 +28,12 @@
 
 ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a variety of formats depending on the configuration and the content it detects.
 
-Your archive can be managed through the command line with commands like `archivebox add`, through the built-in Web UI `archivebox server`, or via the Python library API (beta). It can ingest bookmarks from a browser or service like Pocket/Pinboard, your entire browsing history, RSS feeds, or URLs one at a time. You can also schedule regular/realtime imports with `archivebox schedule`.
+Running `archivebox init` in a folder creates a collection with a self-contained `index.sqlite3` index, and folders for each snapshot under `./archive/<timestamp>/`, with human-readable `index.html` and `index.json` files within.
 
-Running `archivebox init` in a folder creates a collection with a self-contained `index.sqlite3` index, and folders for each snapshot under `./archive/<timestamp>/`, with human-readable `index.html` and `index.json` files within. Snapshots are browseable and managable offline through the filesystem, the built-in webserver, or the Python API.
+For each URL added (`archivebox add https://example.com`), ArchiveBox saves: several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more](#output-formats).
 
-For each archived URL, ArchiveBox saves: several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more](#output-formats).
+Archived site snapshots are browseable and managable offline with the CLI commands like `archivebox status`, directly through the filesystem `./archive/<timestamp>` folders, via the built-in web UI `archivebox server`, or via the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha).
+You can `archivebox add` or `archivebox schedule` regular imports of URLs from browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or just add URLs one at a time manually.
 
 ### Quickstart
 
