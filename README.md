@@ -38,16 +38,17 @@ Archived content is browseable and managable locally with the CLI commands like 
 <div align="center">
 <br/>
 <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic">
-<br/><br/>
-<sup><a href="https://archivebox.zervice.io/">Demo</a> | <a href="#Screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
+<br/>
+<sup><a href="https://archivebox.zervice.io/">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
 <br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
-<br/>
+<br/><br/>
 <img src="https://i.imgur.com/njxgSbl.png" width="22%" alt="cli init screenshot" align="top">
 <img src="https://i.imgur.com/p6wK6KM.png" width="22%" alt="server snapshot admin screenshot" align="top">
 <img src="https://i.imgur.com/RefWsXB.jpg" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
 <br/>
 <br/>
+<img src="https://i.imgur.com/T2UAGUD.png" width="70%" opacity="0.3" alt="grass"/>
 </div>
 
 ### Quickstart
@@ -226,13 +227,20 @@ archivebox help  # to see more options
 
 </details>
 
+<br/>
+<div align="center">
+<img src="https://i.imgur.com/6AmOGJT.png" width="60%" alt="grass"/>
+</div>
  
 ---
  
 <div align="center">
-<img src="https://i.imgur.com/lUuicew.png" width="400px">
+<img src="https://i.imgur.com/lUuicew.png" width="30%" align="top">
+<img src="https://i.imgur.com/p6wK6KM.png" width="30%" align="top">
+<img src="https://i.imgur.com/pzq4uXq.png" width="30%" align="top">
 <br/>
-
+<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
+<br/>
 <a href="https://archivebox.zervice.io">DEMO: archivebox.zervice.io/</a>  
 For more information, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">full Quickstart guide</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a>, and <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a> docs.
 </div>
