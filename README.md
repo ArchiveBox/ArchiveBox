@@ -290,6 +290,10 @@ See the [Usage: CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usa
 
 It also includes a built-in scheduled import feature with `archivebox schedule` and browser bookmarklet, so you can pull in URLs from RSS feeds, websites, or the filesystem regularly/on-demand.
 
+<div align="center">
+<img src="https://i.imgur.com/OUmgdlH.png" width="96%" alt="dependencies graphic">
+</div>
+
 ## Output formats
 
 All of ArchiveBox's state (including the index, snapshot data, and config file) is stored in a single folder called the "ArchiveBox data folder". All `archivebox` CLI commands must be run from inside this folder, and you first create it by running `archivebox init`.
@@ -317,6 +321,8 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
 - _More coming soon! See the [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap)..._
 
 It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) via environment variables or config file.
+
+---
 
 <div align="center">
 <img src="https://i.imgur.com/q0Oe36M.png" width="96%" alt="dependencies graphic">
@@ -365,6 +371,9 @@ archivebox add 'https://example.com#2020-10-24'
 archivebox add 'https://example.com#2020-10-25'
 ```
 
+<div align="center">
+<img src="https://i.imgur.com/ucyimDX.png" width="96%" alt="lego graphic">
+</div>
 
 ## Screenshots
 
