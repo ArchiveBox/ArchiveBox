@@ -561,6 +561,8 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 
 All contributions to ArchiveBox are welcomed! Check our [issues](https://github.com/ArchiveBox/ArchiveBox/issues) and [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap) for things to work on, and please open an issue to discuss your proposed implementation before working on things! Otherwise we may have to close your PR if it doesn't align with our roadmap.
 
+Low hanging fruit / easy first tickets: <a href="https://lgtm.com/projects/g/ArchiveBox/ArchiveBox/alerts/"><img alt="Total alerts" src="https://img.shields.io/lgtm/alerts/g/ArchiveBox/ArchiveBox.svg?logo=lgtm&logoWidth=18"/></a>
+
 ### Setup the dev environment
 
 #### 1. Clone the main code repo (making sure to pull the submodules as well)
