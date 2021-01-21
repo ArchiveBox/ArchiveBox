@@ -30,28 +30,37 @@
 <hr/>
 </div>
 
-ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a variety of formats depending on the configuration and the content it detects. For each URL added with `archivebox add`, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats)
+ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a variety of formats depending on the configuration and the content it detects.
 
-**First steps:**
+**How it works:**
 
-1. Get ArchiveBox (see Quickstart below)
-2. `archivebox init` in a new empty folder to create a collection
-3. `archivebox add 'https://example.com'` to start adding URLs to snapshot in your collection
-4. `archivebox server` to self-host an admin Web UI with your repository of snapshots (archive.org-style)
-
-**Next steps:**
-
-- use `archivebox oneshot` to archive a single URL without starting a whole collection
-- use `archivebox schedule` to ingest URLs regularly from your browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or [and more...](#input-formats)
-- use `archivebox status`, `archivebox list ...`, `archivebox version` to see more information about your setup
-- browse `./archive/<timestamp>/` and view archived content directly from the filesystem
-- or use the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha)
-
-At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
+1. Get ArchiveBox
+   (see Quickstart below)
+2. `archivebox init`
+   Run this in an empty folder to init a collection
+3. `archivebox add 'https://example.com'`
+   Start adding URLs to snapshot in your collection. For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats)
+4. `archivebox server`
+   Self-host an admin Web UI with your repository of snapshots (archive.org-style).
 
 <div align="center">
 <br/><br/>
 <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://i.imgur.com/asPNk8n.png" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic">
+<br/><br/>
+</div>
+
+**⚡️ Common tasks:**
+
+- use `archivebox schedule` to ingest URLs regularly from your browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or [and more...](#input-formats)
+- use `archivebox shell`, the `index.sqlite3`, [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), or [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha) to interact with your archive
+- use `archivebox oneshot` archive single URLs without starting a whole collection
+- use `archivebox status`, `archivebox list ...`, `archivebox remove` to manage Snapshots in the archive
+- use `archivebox config`, `archivebox version`, `archivebox help` to administer your ArchiveBox install
+- browse `./archive/<timestamp>/` and view archived content directly from the filesystem
+
+At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
+
+<div align="center">
 <br/><br/>
 <sup><a href="https://archivebox.zervice.io/">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
 <br/>
