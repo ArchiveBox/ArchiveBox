@@ -348,7 +348,9 @@ ArchiveBox is written in Python 3 so it requires `python3` and `pip3` available 
 
 ---
 
+<div align="center">
 <img src="https://docs.monadical.com/uploads/upload_b6900afc422ae699bfefa2dcda3306f3.png" width="100%" alt="security graphic"/>
+</div>
 
 ## Caveats
 
@@ -435,8 +437,9 @@ archivebox add 'https://example.com#2020-10-25'
 
 <br/>
 
+<div align="center">
 <img src="https://i.imgur.com/ZSUm9mr.png" width="100%" alt="paisley graphic">
-
+</div>
 
 # Background & Motivation
 
@@ -477,9 +480,10 @@ Unlike crawler software that starts from a seed URL and works outwards, or publi
 
 Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today. However, as storage space gets cheaper and compression improves, you should be able to use it continuously over the years without having to delete anything. In my experience, ArchiveBox uses about 5gb per 1000 articles, but your milage may vary depending on which options you have enabled and what types of sites you're archiving. By default, it archives everything in as many formats as possible, meaning it takes more space than a using a single method, but more content is accurately replayable over extended periods of time. Storage requirements can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by setting `SAVE_MEDIA=False` to skip audio & video files.
 
+<div align="center">
 <br/>
 <img src="https://i.imgur.com/q0Oe36M.png" width="100%" alt="dependencies graphic">
-<br/>
+</div>
 
 ## Learn more
 
@@ -504,7 +508,9 @@ Whether you want to learn which organizations are the big players in the web arc
 
 ---
 
+<div align="center">
 <img src="https://i.imgur.com/SMkGW0L.png" width="100%" alt="documentation graphic">
+</div>
 
 # Documentation
 
@@ -547,7 +553,9 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 
 ---
 
+<div align="center">
 <img src="https://i.imgur.com/EGWjbD4.png" width="100%" alt="development">
+</div>
 
 # ArchiveBox Development
 
