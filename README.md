@@ -30,16 +30,23 @@
 <hr/>
 </div>
 
-ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a variety of formats depending on the configuration and the content it detects.
+ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a variety of formats depending on the configuration and the content it detects. For each URL added with `archivebox add`, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats)
 
-Running `archivebox init` in a folder creates a collection with a self-contained `index.sqlite3` index, `ArchiveBox.conf` config file, and folders for each snapshot under `./archive/<timestamp>/`, with human-readable `index.html` and `index.json` files within. If you only want to archive a single site, you can run `archivebox oneshot` to avoid having to create a whole collection.
+**First steps:**
 
-For each URL added with `archivebox add`, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats)
-You can use `archivebox schedule` to ingest URLs regularly from your browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or [and more...](#input-formats)
+1. Get ArchiveBox (see Quickstart below)
+2. `archivebox init` in a new empty folder to create a collection
+3. `archivebox add 'https://example.com'` to start adding URLs to snapshot in your collection
+4. `archivebox server` to self-host an admin Web UI with your repository of snapshots (archive.org-style)
 
-Archived content is browseable and managable locally with the CLI commands like `archivebox status` or `archivebox list ...`, via the built-in web UI `archivebox server`, [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha), directly through the filesystem `./archive/<timestamp>` folders, or via the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha) or [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha). It can be installed on Docker, macOS, and Linux/BSD, and Windows. No matter which install method you choose, they all provide the same CLI, Web UI, and on-disk data format.
+**Next steps:**
 
-You can also self-host your `archivebox server` on a public domain to provide archive.org-style public access to your snapshots.
+- use `archivebox oneshot` to archive a single URL without starting a whole collection
+- use `archivebox schedule` to ingest URLs regularly from your browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or [and more...](#input-formats)
+- use `archivebox status`, `archivebox list ...`, `archivebox version` to see more information about your setup
+- browse `./archive/<timestamp>/` and view archived content directly from the filesystem
+- or use the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha)
+
 At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
 <div align="center">
@@ -60,21 +67,11 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 
 ### Quickstart
 
-It works on Linux/BSD (Intel and ARM CPUs with `docker`/`apt`/`pip3`), macOS (with `docker`/`brew`/`pip3`), and Windows (beta with `docker`/`pip3`).
+It works on Linux/BSD (Intel and ARM CPUs with `docker`/`apt`/`pip3`), macOS (with `docker`/`brew`/`pip3`), and Windows (beta with `docker`/`pip3`). There is also an [Electron desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha). No matter which install method you choose, they all roughly follow this 3-step process and all provide the same CLI, Web UI, and on-disk data format.
 
-```bash
-pip3 install archivebox
-archivebox --version
-# install extras as-needed, or use one of full setup methods below to get everything out-of-the-box
-
-mkdir ~/archivebox && cd ~/archivebox    # this can be anywhere
-archivebox init
-
-archivebox add 'https://example.com'
-archivebox schedule --every=day --depth=1 'https://getpocket.com/users/USERNAME/feed/all'
-archivebox oneshot --extract=title,favicon,media 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
-archivebox help   # to see more options
-```
+1. Install ArchiveBox: `apt/brew/pip3 install archivebox`
+2. Start a collection: `archivebox init`
+3. Start archiving: `archivebox add 'https://example.com'`
 
 *(click to expand the ► sections below for full setup instructions)*
 
