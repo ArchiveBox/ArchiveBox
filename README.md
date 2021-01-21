@@ -83,11 +83,9 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 
 ### Quickstart
 
-It works on Linux/BSD (Intel and ARM CPUs with `docker`/`apt`/`pip3`), macOS (with `docker`/`brew`/`pip3`), and Windows (beta with `docker`/`pip3`). There is also an [Electron desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha). No matter which install method you choose, they all roughly follow this 3-step process and all provide the same CLI, Web UI, and on-disk data format.
+It works on Linux/BSD (Intel and ARM CPUs with `docker`/`apt`/`pip3`), macOS (with `docker`/`brew`/`pip3`), and Windows (beta with `docker`/`pip3`). There is also an [Electron desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha).
 
-1. Install ArchiveBox: `apt/brew/pip3 install archivebox`
-2. Start a collection: `archivebox init`
-3. Start archiving: `archivebox add 'https://example.com'`
+No matter which install method you choose, they all roughly follow this 3-step process and all provide the same CLI, Web UI, and on-disk data format.
 
 *(click to expand the ► sections below for full setup instructions)*
 
@@ -251,15 +249,15 @@ archivebox help  # to see more options
 <div align="center">
 <img src="https://i.imgur.com/6AmOGJT.png" width="49%" alt="grass"/><img src="https://i.imgur.com/6AmOGJT.png" width="49%" alt="grass"/>
 </div>
-
+<br/>
 
 <div align="center">
 <img src="https://i.imgur.com/lUuicew.png" width="22.4%" align="top">
 <img src="https://i.imgur.com/p6wK6KM.png" width="35.9%" align="top">
 <img src="https://i.imgur.com/pzq4uXq.png" width="29.7%" align="top">
-<br/>
+<br/><br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
-<br/>
+<br/><br/>
 <a href="https://archivebox.zervice.io">DEMO: <code>https://archivebox.zervice.io</code></a><br/>
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a>
 <br/>
@@ -270,13 +268,13 @@ archivebox help  # to see more options
 - [**Free & open source**](https://github.com/ArchiveBox/ArchiveBox/blob/master/LICENSE), doesn't require signing up for anything, stores all data locally
 - [**Powerful, intuitive command line interface**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) with [modular optional dependencies](#dependencies) 
 - [**Comprehensive documentation**](https://github.com/ArchiveBox/ArchiveBox/wiki), [active development](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap), and [rich community](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
-- [**Extracts a wide variety of content out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51): media w/ youtube-dl, articles w/ readability, code w/ git, [and more...](#output-formats)
+- [**Extracts a wide variety of content out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51): [media (youtube-dl), articles (readability), code (git), etc.](#output-formats)
 - [**Supports scheduled/realtime importing**](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from [many types of sources](#input-formats)
 - [**Uses standard, durable, long-term formats**](#saves-lots-of-useful-stuff-for-each-imported-link) like HTML, JSON, PDF, PNG, and WARC
 - [**Usable as a oneshot CLI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [**self-hosted web UI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [Python API](https://docs.archivebox.io/en/latest/modules.html) (BETA), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (ALPHA), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (ALPHA)
 - [**Saves all pages to archive.org as well**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#submit_archive_dot_org) by default for redundancy (can be [disabled](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) for local-only mode)
 - Planned: support for archiving [content requiring a login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (working, but ill-advised until some pending fixes are released)
-- Planned: support for running [JS scripts during archiving](https://github.com/ArchiveBox/ArchiveBox/issues/51), e.g. to block ads, [scroll pages](https://github.com/ArchiveBox/ArchiveBox/issues/80), [close modals](https://github.com/ArchiveBox/ArchiveBox/issues/175), [expand threads](https://github.com/ArchiveBox/ArchiveBox/issues/345), etc.
+- Planned: support for running [JS scripts during archiving](https://github.com/ArchiveBox/ArchiveBox/issues/51), e.g. adblock, [autoscroll](https://github.com/ArchiveBox/ArchiveBox/issues/80), [modal-hiding](https://github.com/ArchiveBox/ArchiveBox/issues/175), [thread-expander](https://github.com/ArchiveBox/ArchiveBox/issues/345), etc.
 
 ---
 
