@@ -93,13 +93,13 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 <img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/><img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/>
 </div>
 
-### Quickstart
-
 **Supported Systems:** <small>(x86/ARM 32bit/64bit)</small>
 
  - Linux/BSD w/ `docker`/`apt`/`pip3`/`brew`
  - macOS w/ `docker`/`brew`/`pip3`
  - Windows w/ `docker`/`pip3` (beta)
+
+### Quickstart
 
 *(click to expand the ► sections below for full setup instructions)*
 
