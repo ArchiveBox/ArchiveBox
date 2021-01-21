@@ -90,7 +90,7 @@ archivebox help
 
 ### Quickstart
 
-**🖥&nbsp; Supported Systems:** Linux/BSD, macOS, Windows <small>(x86/ARM 32bit/64bit)</small>  
+**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows  &nbsp; &nbsp; **🎮&nbsp; Supported CPUs:** x86/ARM 32bit/64bit
 **📦&nbsp; Distributions:** `docker`/`apt`/`brew`/`pip3`/`npm` (in order of completeness)
 
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
