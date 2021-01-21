@@ -93,15 +93,13 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 <img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/><img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/>
 </div>
 
-**Supported Systems:** <small>(x86/ARM 32bit/64bit)</small>
-
- - Linux/BSD w/ `docker`/`apt`/`pip3`/`brew`
- - macOS w/ `docker`/`brew`/`pip3`
- - Windows w/ `docker`/`pip3` (beta)
 
 ### Quickstart
 
-*(click to expand the ► sections below for full setup instructions)*
+**Supported Systems:** Linux/BSD, macOS, Windows <small>(x86/ARM 32bit/64bit)</small>  
+**Distributions:** `docker`/`apt`/`brew`/`pip3`/`npm` (in order of completeness)
+
+*(click to expand your preferred ► distribution below for full setup instructions)*
 
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on any platform (recommended, everything included out-of-the-box)</b></summary>
