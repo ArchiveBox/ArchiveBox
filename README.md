@@ -87,6 +87,14 @@ It works on Linux/BSD (Intel and ARM CPUs with `docker`/`apt`/`pip3`), macOS (wi
 
 No matter which install method you choose, they all roughly follow this 3-step process and all provide the same CLI, Web UI, and on-disk data format.
 
+<small>
+
+1. Install ArchiveBox: `apt/brew/pip3 install archivebox`
+2. Start a collection: `archivebox init`
+3. Start archiving: `archivebox add 'https://example.com'`
+
+</small>
+
 *(click to expand the ► sections below for full setup instructions)*
 
 <details>
