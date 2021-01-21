@@ -51,6 +51,8 @@ ls ./archive/*/index.json               # or browse via the filesystem
 
 You can then manage your snapshots via the filesystem, CLI, web UI, or Python API (alpha).
 
+At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
+
 <div align="center">
 <br/><br/>
 <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://i.imgur.com/asPNk8n.png" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic">
@@ -71,8 +73,6 @@ archivebox help
 - `archivebox oneshot` archive single URLs without starting a whole collection
 - `archivebox shell` call the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha), or browse the `index.sqlite3` DB
 
-At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
-
 <div align="center">
 <br/>
 <sup><a href="https://archivebox.zervice.io/">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
@@ -90,10 +90,10 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 
 ### Quickstart
 
-**Supported Systems:** Linux/BSD, macOS, Windows <small>(x86/ARM 32bit/64bit)</small>  
-**Distributions:** `docker`/`apt`/`brew`/`pip3`/`npm` (in order of completeness)
+**🖥&nbsp; Supported Systems:** Linux/BSD, macOS, Windows <small>(x86/ARM 32bit/64bit)</small>  
+**📦&nbsp; Distributions:** `docker`/`apt`/`brew`/`pip3`/`npm` (in order of completeness)
 
-*(click to expand your preferred ► distribution below for full setup instructions)*
+*(click to expand your preferred **► `distribution`** below for full setup instructions)*
 
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on any platform (recommended, everything included out-of-the-box)</b></summary>
