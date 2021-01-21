@@ -38,9 +38,9 @@ ArchiveBox is a powerful self-hosted internet archiving solution written in Pyth
    ([see below](#Quickstart))
 2. `archivebox init`: Run this in an empty folder
 3. `archivebox add 'https://example.com'`: Start adding URLs to archive.  
-    For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats)
-4. `archivebox server`: Run the webserver and open the admin UI
-    Or browse `./archive/<timestamp>/` and view archived content directly from the filesystem.
+    <small>For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats)</small>
+4. `archivebox server`: Run the webserver and open the admin UI  
+    <small>Or browse `./archive/<timestamp>/` and view archived content directly from the filesystem.</small>
 
 <div align="center">
 <br/><br/>
@@ -51,12 +51,13 @@ ArchiveBox is a powerful self-hosted internet archiving solution written in Pyth
 **⚡️&nbsp; CLI Usage:**
 
 ```bash
+# archivebox [subcommand] [--args]
 archivebox --version
 archivebox help
 ```
 
-- `archivebox schedule` to ingest URLs regularly from your browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or [and more...](#input-formats)
-- `archivebox config`, `archivebox version`, `archivebox init`, `archivebox manage createsuperuser` to administer your ArchiveBox install
+- `archivebox schedule` to pull in fresh URLs in regularly from [boorkmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
+- `archivebox init`, `archivebox version`, `archivebox config`, `archivebox manage` to administer your ArchiveBox install
 - `archivebox status`, `archivebox list`, `archivebox remove` to manage Snapshots in the archive
 - `archivebox oneshot` archive single URLs without starting a whole collection
 - `archivebox shell`, the `index.sqlite3`, [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), or [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha) to interact with your archive
