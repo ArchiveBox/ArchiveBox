@@ -20,13 +20,13 @@ from ..logging_util import TimedProgress
 
 
 @enforce_types
-def should_save_favicon(link: Link, out_dir: Optional[str]=None) -> bool:
-    out_dir = out_dir or link.link_dir
-    if (Path(out_dir) / 'favicon.ico').exists():
+def should_save_favicon(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:
+    out_dir = out_dir or Path(link.link_dir)
+    if not overwrite and (out_dir / 'favicon.ico').exists():
         return False
 
     return SAVE_FAVICON
-    
+
 @enforce_types
 def save_favicon(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download site favicon from google's favicon api"""

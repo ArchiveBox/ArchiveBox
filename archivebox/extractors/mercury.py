@@ -37,13 +37,15 @@ def ShellError(cmd: List[str], result: CompletedProcess, lines: int=20) -> Archi
 
 
 @enforce_types
-def should_save_mercury(link: Link, out_dir: Optional[str]=None) -> bool:
-    out_dir = out_dir or link.link_dir
+def should_save_mercury(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:
     if is_static_file(link.url):
         return False
 
-    output = Path(out_dir or link.link_dir) / 'mercury'
-    return SAVE_MERCURY and MERCURY_VERSION and (not output.exists())
+    out_dir = out_dir or Path(link.link_dir)
+    if not overwrite and (out_dir / 'mercury').exists():
+        return False
+
+    return SAVE_MERCURY
 
 
 @enforce_types

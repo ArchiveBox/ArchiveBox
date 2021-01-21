@@ -36,10 +36,10 @@ from ..logging_util import TimedProgress
 
 
 @enforce_types
-def should_save_wget(link: Link, out_dir: Optional[Path]=None) -> bool:
+def should_save_wget(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
     output_path = wget_output_path(link)
     out_dir = out_dir or Path(link.link_dir)
-    if output_path and (out_dir / output_path).exists():
+    if not overwrite and output_path and (out_dir / output_path).exists():
         return False
 
     return SAVE_WGET

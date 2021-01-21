@@ -46,13 +46,15 @@ def get_html(link: Link, path: Path) -> str:
         return document
 
 @enforce_types
-def should_save_readability(link: Link, out_dir: Optional[str]=None) -> bool:
-    out_dir = out_dir or link.link_dir
+def should_save_readability(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:
     if is_static_file(link.url):
         return False
 
-    output = Path(out_dir or link.link_dir) / 'readability'
-    return SAVE_READABILITY and READABILITY_VERSION and (not output.exists())
+    out_dir = out_dir or Path(link.link_dir)
+    if not overwrite and (out_dir / 'readability').exists():
+        return False
+
+    return SAVE_READABILITY
 
 
 @enforce_types
