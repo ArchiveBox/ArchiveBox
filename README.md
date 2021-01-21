@@ -30,9 +30,9 @@
 <hr/>
 </div>
 
-ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a variety of formats depending on the configuration and the content it detects.
+ArchiveBox is a powerful self-hosted internet archiving solution written in Python. You feed it URLs of pages you want to archive, and it saves them to disk in a variety of formats depending on setup and content within.
 
-**🔢&nbsp; How it works:**
+#### 🔢&nbsp; Quickstart
 
 First Get ArchiveBox via Docker, Apt, Brew, Pip, etc. ([see below](#Quickstart)).
 ```bash
@@ -51,7 +51,7 @@ For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrom
 <br/><br/>
 </div>
 
-**⚡️&nbsp; CLI Usage:**
+#### ⚡️&nbsp; CLI Usage
 
 ```bash
 # archivebox [subcommand] [--args]
@@ -81,9 +81,9 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 <img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/><img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/>
 </div>
 
-### Quickstart
+### Install
 
-It works on Linux/BSD (Intel and ARM CPUs with `docker`/`apt`/`pip3`), macOS (with `docker`/`brew`/`pip3`), and Windows (beta with `docker`/`pip3`). There is also an [Electron desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha).
+ArchiveBox should work on most systems: Linux/BSD (Intel & ARM CPUs) w/ `docker`/`apt`/`pip3`, macOS w/ `docker`/`brew`/`pip3`, and Windows w/ `docker`/`pip3` (beta). There is also a cross-platform [Electron desktop app](https://github.com/ArchiveBox/electron-archivebox) (in alpha).
 
 No matter which install method you choose, they all roughly follow this 3-step process and all provide the same CLI, Web UI, and on-disk data format.
 
