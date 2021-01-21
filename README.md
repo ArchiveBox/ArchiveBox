@@ -49,6 +49,8 @@ archivebox server 0.0.0.0:8000          # open http://127.0.0.1:8000/
 ls ./archive/*/index.json               # or browse via the filesystem
 ```
 
+You can then manage your snapshots via the filesystem, CLI, web UI, or Python API (alpha).
+
 <div align="center">
 <br/><br/>
 <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://i.imgur.com/asPNk8n.png" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic">
