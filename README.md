@@ -34,23 +34,26 @@ ArchiveBox is a powerful self-hosted internet archiving solution written in Pyth
 
 #### 🔢&nbsp; Overview
 
-First Get ArchiveBox via Docker, Apt, Brew, Pip, etc. ([see below](#Quickstart)).
+Get ArchiveBox via [Docker Compose (recommended)](#Quickstart), Docker, Apt, Brew, Pip, etc. ([see below](#Quickstart)).
 
 ```bash
 apt/brew/pip3 install archivebox
 ```
 
-Then use the `archivebox` CLI to set up your archive and start the web UI.
+Then use the `archivebox` CLI to set up your archive and add URLs.
 
 ```bash
 archivebox init                         # run this in an empty folder
 archivebox add 'https://example.com'    # start adding URLs to archive
+archivebox schedule --every=day --depth=1 https://example.com/rss.xml
 ```
 
 For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats).
 
 ```bash
-archivebox server 0.0.0.0:8000          # run the admin UI webserver  
+archivebox server 0.0.0.0:8000          # run the admin UI webserver
+open http://127.0.0.1:8000/admin/
+
 ls ./archive/*/index.json               # or browse via the filesystem
 ```
 
