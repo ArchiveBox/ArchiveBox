@@ -32,7 +32,7 @@
 
 ArchiveBox is a powerful self-hosted internet archiving solution written in Python. You feed it URLs of pages you want to archive, and it saves them to disk in a variety of formats depending on setup and content within.
 
-#### 🔢&nbsp; Quickstart
+#### 🔢&nbsp; Intro
 
 First Get ArchiveBox via Docker, Apt, Brew, Pip, etc. ([see below](#Quickstart)).
 ```bash
@@ -43,7 +43,8 @@ apt/brew/pip3 install archivebox
 3. `archivebox add 'https://example.com'`: Start adding URLs to archive.  
 4. `archivebox server`: Run the webserver and open the admin UI  
 
-For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats). Open the web UI at http://127.0.0.1:8000 to manage your collection, or browse `./archive/<timestamp>/` and view archived content directly from the filesystem.
+For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats).  
+Open the web UI at http://127.0.0.1:8000 to manage your collection, or browse `./archive/<timestamp>/` and view archived content directly from the filesystem.
 
 <div align="center">
 <br/><br/>
@@ -81,9 +82,9 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 <img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/><img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/>
 </div>
 
-### Install
+### Quickstart
 
-**Supported Systems:** <small>(x86/ARM 32bit & 64bit)</small>
+**Supported Systems:** <small>(x86/ARM 32bit/64bit)</small>
 
  - Linux/BSD w/ `docker`/`apt`/`pip3`/`brew`
  - macOS w/ `docker`/`brew`/`pip3`
