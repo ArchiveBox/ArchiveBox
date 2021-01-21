@@ -59,11 +59,11 @@ archivebox --version
 archivebox help
 ```
 
+- `archivebox init/version/status/config/manage` to administer your collection
+- `archivebox add/remove/update/list` to manage Snapshots in the archive
 - `archivebox schedule` to pull in fresh URLs in regularly from [boorkmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
-- `archivebox init`, `archivebox version`, `archivebox config`, `archivebox manage` to administer your ArchiveBox install
-- `archivebox status`, `archivebox list`, `archivebox remove` to manage Snapshots in the archive
 - `archivebox oneshot` archive single URLs without starting a whole collection
-- `archivebox shell`, the `index.sqlite3`, [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), or [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha) to interact with your archive
+- `archivebox shell` call the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha), or browse the `index.sqlite3` DB
 
 At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
