@@ -83,17 +83,11 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 
 ### Install
 
-ArchiveBox should work on most systems: Linux/BSD (Intel & ARM CPUs) w/ `docker`/`apt`/`pip3`, macOS w/ `docker`/`brew`/`pip3`, and Windows w/ `docker`/`pip3` (beta). There is also a cross-platform [Electron desktop app](https://github.com/ArchiveBox/electron-archivebox) (in alpha).
+**Supported Systems:** <small>(x86/ARM 32bit & 64bit)</small>
 
-No matter which install method you choose, they all roughly follow this 3-step process and all provide the same CLI, Web UI, and on-disk data format.
-
-<small>
-
-1. Install ArchiveBox: `apt/brew/pip3 install archivebox`
-2. Start a collection: `archivebox init`
-3. Start archiving: `archivebox add 'https://example.com'`
-
-</small>
+ - Linux/BSD w/ `docker`/`apt`/`pip3`/`brew`
+ - macOS w/ `docker`/`brew`/`pip3`
+ - Windows w/ `docker`/`pip3` (beta)
 
 *(click to expand the ► sections below for full setup instructions)*
 
@@ -252,6 +246,16 @@ archivebox help  # to see more options
 </code></pre>
 
 </details>
+
+No matter which install method you choose, they all roughly follow this 3-step process and all provide the same CLI, Web UI, and on-disk data format.
+
+<small>
+
+1. Install ArchiveBox: `apt/brew/pip3 install archivebox`
+2. Start a collection: `archivebox init`
+3. Start archiving: `archivebox add 'https://example.com'`
+
+</small>
 
 <br/>
 <div align="center">
