@@ -364,7 +364,7 @@ It does everything out-of-the-box by default, but you can disable or tweak [indi
 
 You don't need to install all the dependencies, ArchiveBox will automatically enable the relevant modules based on whatever you have available, but it's recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker) with everything preinstalled.
 
-If you so choose, you can also install ArchiveBox and its dependencies directly on any Linux or macOS systems using the [automated setup script](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart) or the [system package manager](https://github.com/ArchiveBox/ArchiveBox/wiki/Install).
+If you so choose, you can also install ArchiveBox and its dependencies directly on any Linux or macOS systems using the [system package manager](https://github.com/ArchiveBox/ArchiveBox/wiki/Install) or by running the [automated setup script](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart).
 
 ArchiveBox is written in Python 3 so it requires `python3` and `pip3` available on your system. It also uses a set of optional, but highly recommended external dependencies for archiving sites: `wget` (for plain HTML, static files, and WARC saving), `chromium` (for screenshots, PDFs, JS execution, and more), `youtube-dl` (for audio and video), `git` (for cloning git repos), and `nodejs` (for readability and singlefile), and more.
 
