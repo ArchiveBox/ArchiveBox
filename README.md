@@ -32,12 +32,15 @@
 
 ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a variety of formats depending on the configuration and the content it detects.
 
-Running `archivebox init` in a folder creates a collection with a self-contained `index.sqlite3` index, `ArchiveBox.conf` config file, and folders for each snapshot under `./archive/<timestamp>/`, with human-readable `index.html` and `index.json` files within.
+Running `archivebox init` in a folder creates a collection with a self-contained `index.sqlite3` index, `ArchiveBox.conf` config file, and folders for each snapshot under `./archive/<timestamp>/`, with human-readable `index.html` and `index.json` files within. If you only want to archive a single site, you can run `archivebox oneshot` to avoid having to create a whole collection.
 
 For each URL added with `archivebox add`, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats)
 You can use `archivebox schedule` to ingest URLs regularly from your browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or [and more...](#input-formats)
 
-Archived content is browseable and managable locally with the CLI commands like `archivebox status` or `archivebox list ...`, via the built-in web UI `archivebox server`, directly through the filesystem `./archive/<timestamp>` folders, or via the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha) or [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha).
+Archived content is browseable and managable locally with the CLI commands like `archivebox status` or `archivebox list ...`, via the built-in web UI `archivebox server`, [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha), directly through the filesystem `./archive/<timestamp>` folders, or via the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha) or [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha). It can be installed on Docker, macOS, and Linux/BSD, and Windows. No matter which install method you choose, they all provide the same CLI, Web UI, and on-disk data format.
+
+You can also self-host your `archivebox server` on a public domain to provide archive.org-style public access to your snapshots.
+At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
 <div align="center">
 <br/><br/>
@@ -236,16 +239,6 @@ archivebox help  # to see more options
 <img src="https://i.imgur.com/6AmOGJT.png" width="49%" alt="grass"/><img src="https://i.imgur.com/6AmOGJT.png" width="49%" alt="grass"/>
 </div>
 
-
-# Overview
-
-ArchiveBox is a command line tool, self-hostable web-archiving server, and Python library all-in-one. It can be installed on Docker, macOS, and Linux/BSD, and Windows. You can download and install it as a Debian/Ubuntu package, Homebrew package, Python3 package, or a Docker image. No matter which install method you choose, they all provide the same CLI, Web UI, and on-disk data format.
-
-To use ArchiveBox you start by creating a folder for your data to live in (it can be anywhere on your system), and running `archivebox init` inside of it. That will create a sqlite3 index and an `ArchiveBox.conf` file. After that, you can continue to add/export/manage/etc using the CLI `archivebox help`, or you can run the Web UI (recommended). If you only want to archive a single site, you can run `archivebox oneshot` to avoid having to create a whole collection.
-
-The [CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) is considered "stable", the ArchiveBox [Python API](https://docs.archivebox.io/en/latest/modules.html) and [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) are "alpha", and the [desktop app](https://github.com/ArchiveBox/desktop) is "alpha".
-
-At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer). You can also self-host your archivebox server on a public domain to provide archive.org-style public access to your site snapshots.
 
 <div align="center">
 <img src="https://i.imgur.com/lUuicew.png" width="22.4%" align="top">
