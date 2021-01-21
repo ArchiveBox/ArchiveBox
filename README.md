@@ -337,17 +337,15 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
 ```
 
 - **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
-- **Title:** `title` title of the site
-- **Favicon:** `favicon.ico` favicon of the site
-- **Headers:** `headers.json` Any HTTP headers the site returns are saved in a json file
-- **SingleFile:** `singlefile.html` HTML snapshot rendered with headless Chrome using SingleFile
-- **WGET Clone:** `example.com/page-name.html` wget clone of the site, with .html appended if not present
-- **WARC:** `warc/<timestamp>.gz` gzipped WARC of all the resources fetched while archiving
-- **PDF:** `output.pdf` Printed PDF of site using headless chrome
-- **Screenshot:** `screenshot.png` 1440x900 screenshot of site using headless chrome
-- **DOM Dump:** `output.html` DOM Dump of the HTML after rendering using headless chrome
-- **Readability:** `article.html/json` Article text extraction using Readability
-- **URL to Archive.org:** `archive.org.txt` A link to the saved site on archive.org
+- **Title**, **Favicon**, **Headers** Response headers, site favicon, and parsed site title
+- **Wget Clone:** `example.com/page-name.html` wget clone of the site with  `warc/<timestamp>.gz`
+- Chrome Headless
+  - **SingleFile:** `singlefile.html` HTML snapshot rendered with headless Chrome using SingleFile
+  - **PDF:** `output.pdf` Printed PDF of site using headless chrome
+  - **Screenshot:** `screenshot.png` 1440x900 screenshot of site using headless chrome
+  - **DOM Dump:** `output.html` DOM Dump of the HTML after rendering using headless chrome
+  - **Readability:** `article.html/json` Article text extraction using Readability
+- **Archive.org Permalink:** `archive.org.txt` A link to the saved site on archive.org
 - **Audio & Video:** `media/` all audio/video files + playlists, including subtitles & metadata with youtube-dl
 - **Source Code:** `git/` clone of any repository found on github, bitbucket, or gitlab links
 - _More coming soon! See the [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap)..._
