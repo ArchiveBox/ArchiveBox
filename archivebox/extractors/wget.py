@@ -66,7 +66,7 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
         *(['--warc-file={}'.format(str(warc_path))] if SAVE_WARC else []),
         *(['--page-requisites'] if SAVE_WGET_REQUISITES else []),
         *(['--user-agent={}'.format(WGET_USER_AGENT)] if WGET_USER_AGENT else []),
-        *(['--load-cookies', COOKIES_FILE] if COOKIES_FILE else []),
+        *(['--load-cookies', str(COOKIES_FILE)] if COOKIES_FILE else []),
         *(['--compression=auto'] if WGET_AUTO_COMPRESSION else []),
         *([] if SAVE_WARC else ['--timestamping']),
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate', '--no-hsts']),
