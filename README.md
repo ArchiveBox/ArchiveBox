@@ -32,16 +32,15 @@
 
 ArchiveBox is a powerful self-hosted internet archiving solution written in Python 3. You feed it URLs of pages you want to archive, and it saves them to disk in a variety of formats depending on the configuration and the content it detects.
 
-**🔢 How it works:**
+**🔢&nbsp; How it works:**
 
 1. Get ArchiveBox: Docker, Apt, Brew, Pip
    ([see below](#Quickstart))
-2. `archivebox init`
-   Run this in an empty folder to init a collection (or use `archivebox oneshot`).
-3. `archivebox add 'https://example.com'`
-   Start adding URLs to archive. For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats)
-4. `archivebox server`
-   Self-host an admin Web UI with your repository of snapshots (archive.org-style) or browse `./archive/<timestamp>/` and view archived content directly from the filesystem.
+2. `archivebox init`: Run this in an empty folder
+3. `archivebox add 'https://example.com'`: Start adding URLs to archive.  
+    For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats)
+4. `archivebox server`: Run the webserver and open the admin UI
+    Or browse `./archive/<timestamp>/` and view archived content directly from the filesystem.
 
 <div align="center">
 <br/><br/>
@@ -49,15 +48,18 @@ ArchiveBox is a powerful self-hosted internet archiving solution written in Pyth
 <br/><br/>
 </div>
 
-**⚡️ CLI Usage:**
+**⚡️&nbsp; CLI Usage:**
 
-- run `archivebox schedule` to ingest URLs regularly from your browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or [and more...](#input-formats)
-- run `archivebox config`, `archivebox version`, `archivebox init` to administer your ArchiveBox install
-- run `archivebox status`, `archivebox list`, `archivebox remove` to manage Snapshots in the archive
-- run `archivebox oneshot` archive single URLs without starting a whole collection
-- run `archivebox shell`, the `index.sqlite3`, [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), or [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha) to interact with your archive
-- run `archivebox manage createsuperuser`, `archivebox server` to manage the web UI
+```bash
+archivebox --version
+archivebox help
+```
 
+- `archivebox schedule` to ingest URLs regularly from your browser boorkmarks/history, a service like Pocket/Pinboard, RSS feeds, or [and more...](#input-formats)
+- `archivebox config`, `archivebox version`, `archivebox init`, `archivebox manage createsuperuser` to administer your ArchiveBox install
+- `archivebox status`, `archivebox list`, `archivebox remove` to manage Snapshots in the archive
+- `archivebox oneshot` archive single URLs without starting a whole collection
+- `archivebox shell`, the `index.sqlite3`, [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), or [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha) to interact with your archive
 
 At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
