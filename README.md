@@ -37,19 +37,21 @@ ArchiveBox is a powerful self-hosted internet archiving solution written in Pyth
 ```bash
 apt/brew/pip3 install archivebox
 
-archivebox init                         # run this in an empty folder
-archivebox add 'https://example.com'    # start adding URLs to archive
-archivebox schedule --every=day --depth=1 https://example.com/rss.xml
+archivebox init                       # run this in an empty folder
+archivebox add 'https://example.com'  # start adding URLs to archive
+curl https://example.com/rss.xml | archivebox add  # or add via stdin
+archivebox schedule --every=day https://example.com/rss.xml
 ```
 
 For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats).
 
 ```bash
-archivebox server 0.0.0.0:8000          # open http://127.0.0.1:8000/
-ls ./archive/*/index.json               # or browse via the filesystem
+archivebox server 0.0.0.0:8000         # use the web UI http://127.0.0.1:8000/
+archivebox list 'https://example.com'  # use the CLI commands (--help for more)
+ls ./archive/*/index.json              # or browse directly via the filesystem
 ```
 
-You can then manage your snapshots via the filesystem, CLI, web UI, or Python API (alpha).
+You can then manage your snapshots via the [filesystem](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#disk-layout), [CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [Web UI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [SQLite DB](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models.py) (`./index.sqlite3`), [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha).
 
 At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
 
@@ -71,7 +73,7 @@ archivebox help
 - `archivebox add/remove/update/list` to manage Snapshots in the archive
 - `archivebox schedule` to pull in fresh URLs in regularly from [boorkmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
 - `archivebox oneshot` archive single URLs without starting a whole collection
-- `archivebox shell` call the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha), or browse the `index.sqlite3` DB
+- `archivebox shell` open a REPL to use the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha)
 
 <div align="center">
 <br/>
