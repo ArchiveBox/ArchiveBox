@@ -23,10 +23,12 @@ echo ""
 
 # On Linux:
 if which apt-get > /dev/null; then
-    echo "[+] Updating apt repos..."
-    sudo apt update -qq
+    echo "[+] Adding ArchiveBox apt repo to sources..."
+    sudo apt install software-properties-common
+    sudo add-apt-repository -u ppa:archivebox/archivebox
     echo "[+] Installing python3, wget, curl..."
-    sudo apt install -y git python3 python3-pip python3-distutils wget curl youtube-dl nodejs npm
+    sudo apt install -y git python3 python3-pip python3-distutils wget curl youtube-dl nodejs npm ripgrep
+    # sudo apt install archivebox
 
     if which google-chrome; then
         echo "[i] You already have google-chrome installed, if you would like to download chromium instead (they work pretty much the same), follow the Manual Setup instructions"
@@ -45,7 +47,7 @@ if which apt-get > /dev/null; then
 # On Mac:
 elif which brew > /dev/null; then   # 🐍 eye of newt
     echo "[+] Installing python3, wget, curl  (ignore 'already installed' warnings)..."
-    brew install git wget curl youtube-dl node
+    brew install git wget curl youtube-dl ripgrep node
     if which python3; then
         if python3 -c 'import sys; raise SystemExit(sys.version_info < (3,5,0))'; then
             echo "[√] Using existing $(which python3)..."
