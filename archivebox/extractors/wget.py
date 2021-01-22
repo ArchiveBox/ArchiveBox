@@ -175,11 +175,22 @@ def wget_output_path(link: Link) -> Optional[str]:
                 if html_files:
                     return str(html_files[0].relative_to(link.link_dir))
 
+                # sometimes wget'd URLs have no ext and return non-html
+                # e.g. /some/example/rss/all -> some RSS XML content)
+                #      /some/other/url.o4g   -> some binary unrecognized ext)
+                # test this with archivebox add --depth=1 https://getpocket.com/users/nikisweeting/feed/all
+                last_part_of_url = urldecode(full_path.rsplit('/', 1)[-1])
+                for file_present in os.listdir(search_dir):
+                    if file_present == last_part_of_url:
+                        return os.path.join(path_from_link_dir, file_present)
+
         # Move up one directory level
         search_dir = search_dir.parent
 
         if str(search_dir) == link.link_dir:
             break
+
+
     
     search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+") / urldecode(full_path)
     if not search_dir.is_dir():
