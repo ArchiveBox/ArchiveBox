@@ -1,6 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ArchiveBox Setup Script
-# Nick Sweeting 2017 | MIT License
 # https://github.com/ArchiveBox/ArchiveBox
 
 echo "[i] ArchiveBox Setup Script 📦"
@@ -19,7 +18,7 @@ echo ""
 echo "    If you'd rather install these manually, you can find documentation here:"
 echo "        https://github.com/ArchiveBox/ArchiveBox/wiki/Install"
 echo ""
-read -p "Press [enter] to continue with the automatic install, or Ctrl+C to cancel..."
+read -p "Press [enter] to continue with the automatic install, or Ctrl+C to cancel..." REPLY
 echo ""
 
 # On Linux:
