@@ -102,7 +102,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                 if method_name not in link.history:
                     link.history[method_name] = []
 
-                if should_run(link, out_dir) or overwrite:
+                if should_run(link, out_dir, overwrite):
                     log_archive_method_started(method_name)
 
                     result = method_function(link=link, out_dir=out_dir)

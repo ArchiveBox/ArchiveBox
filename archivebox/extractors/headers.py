@@ -22,11 +22,12 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 @enforce_types
-def should_save_headers(link: Link, out_dir: Optional[str]=None) -> bool:
-    out_dir = out_dir or link.link_dir
+def should_save_headers(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:
+    out_dir = out_dir or Path(link.link_dir)
+    if not overwrite and (out_dir / 'headers.json').exists():
+        return False
 
-    output = Path(out_dir or link.link_dir) / 'headers.json'
-    return not output.exists() and SAVE_HEADERS
+    return SAVE_HEADERS
 
 
 @enforce_types

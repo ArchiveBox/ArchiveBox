@@ -25,12 +25,12 @@ from ..logging_util import TimedProgress
 
 
 @enforce_types
-def should_save_archive_dot_org(link: Link, out_dir: Optional[Path]=None) -> bool:
-    out_dir = out_dir or Path(link.link_dir)
+def should_save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
     if is_static_file(link.url):
         return False
 
-    if (out_dir / "archive.org.txt").exists():
+    out_dir = out_dir or Path(link.link_dir)
+    if not overwrite and (out_dir / 'archive.org.txt').exists():
         # if open(path, 'r').read().strip() != 'None':
         return False
 

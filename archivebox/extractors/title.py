@@ -61,12 +61,12 @@ class TitleParser(HTMLParser):
 
 
 @enforce_types
-def should_save_title(link: Link, out_dir: Optional[str]=None) -> bool:
-    # if link already has valid title, skip it
-    if link.title and not link.title.lower().startswith('http'):
+def should_save_title(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:
+    if is_static_file(link.url):
         return False
 
-    if is_static_file(link.url):
+    # if link already has valid title, skip it
+    if not overwrite and link.title and not link.title.lower().startswith('http'):
         return False
 
     return SAVE_TITLE
