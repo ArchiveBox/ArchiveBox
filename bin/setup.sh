@@ -19,9 +19,7 @@ echo ""
 echo "    If you'd rather install these manually, you can find documentation here:"
 echo "        https://github.com/ArchiveBox/ArchiveBox/wiki/Install"
 echo ""
-echo "Press enter to continue with the automatic install, or Ctrl+C to cancel..."
-read
-
+read -p "Press [enter] to continue with the automatic install, or Ctrl+C to cancel..."
 echo ""
 
 # On Linux:
@@ -29,7 +27,7 @@ if which apt-get > /dev/null; then
     echo "[+] Updating apt repos..."
     sudo apt update -qq
     echo "[+] Installing python3, wget, curl..."
-    sudo apt install git python3 python3-pip python3-distutils wget curl youtube-dl nodejs npm
+    sudo apt install -y git python3 python3-pip python3-distutils wget curl youtube-dl nodejs npm
 
     if which google-chrome; then
         echo "[i] You already have google-chrome installed, if you would like to download chromium instead (they work pretty much the same), follow the Manual Setup instructions"
@@ -42,7 +40,7 @@ if which apt-get > /dev/null; then
         chromium --version
     else
         echo "[+] Installing chromium..."
-        sudo apt install chromium
+        sudo apt install chromium || sudo apt install chromium-browser
     fi
 
 # On Mac:
