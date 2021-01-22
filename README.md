@@ -516,13 +516,13 @@ Whether you want to learn which organizations are the big players in the web arc
 <img src="https://i.imgur.com/0ZOmOvN.png" width="14%" align="right"/>
 
 - [Community Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
-  - [The Master Lists](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#The-Master-Lists)  
+  - [The Master Lists](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#the-master-lists)  
     _Community-maintained indexes of archiving tools and institutions._
-  - [Web Archiving Software](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects)  
+  - [Web Archiving Software](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#web-archiving-projects)  
     _Open source tools and projects in the internet archiving space._
-  - [Reading List](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#Reading-List)  
+  - [Reading List](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#reading-list)  
     _Articles, posts, and blogs relevant to ArchiveBox and web archiving in general._
-  - [Communities](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#Communities)  
+  - [Communities](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#communities)  
     _A collection of the most active internet archiving communities and initiatives._
 - Check out the ArchiveBox [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap) and [Changelog](https://github.com/ArchiveBox/ArchiveBox/wiki/Changelog)
 - Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/)" blog post.
