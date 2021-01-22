@@ -81,7 +81,10 @@ else
     exit 1
 fi
 
-python3 -m pip install --upgrade archivebox
+npm i -g npm
+pip3 install --upgrade pip setuptools
+
+pip3 install --upgrade archivebox
 npm install -g 'git+https://github.com/ArchiveBox/ArchiveBox.git' 
 
 # Check:
