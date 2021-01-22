@@ -1,6 +1,6 @@
 <div align="center">
 <em><img src="https://i.imgur.com/5B48E3N.png" height="90px"></em>
-<h1>ArchiveBox<br/><sub>The open-source self-hosted web archive.</sub></h1>
+<h1>ArchiveBox<br/><sub>Open-source self-hosted web archiving.</sub></h1>
 
 ▶️ <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> |
 <a href="https://archivebox.zervice.io/">Demo</a> |
