@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional, Iterator, Mapping
 from pathlib import Path
 
-from django.utils.html import format_html, mark_safe
+from django.utils.html import format_html
 from collections import defaultdict
 
 from .schema import Link
