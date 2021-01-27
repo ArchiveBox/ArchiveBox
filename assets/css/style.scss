@@ -1,0 +1,50 @@
+---
+---
+
+@import "{{ site.theme }}";
+
+div.shell {
+    width: 80%;
+    max-width: 1300px;
+    min-width: 300px;
+}
+
+span.banner-fix {
+    width: 80%;
+    max-width: 1300px;
+    min-width: 300px;
+}
+
+header h1 {
+    background-color: #aa1f55;
+    padding-bottom: 15px;
+    font-weight: 200px;
+}
+header h2 {
+    background-color: #aa1f55;
+    font-family: 'Open Sans';
+}
+
+#main_content div[align=center] h1 {
+    display: none;
+}
+#main_content img {
+    box-shadow: 4px 4px 4px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    border: 0px;
+    vertical-align: top;
+}
+#main_content em img {
+    display: block;
+    margin-top: -83px;
+    padding: 0px;
+    margin-bottom: 20px;
+}
+
+#main_content img[alt=comparison] {
+    margin: 25px;
+}
+
+#forkme_banner {
+    opacity: 0.1;
+}
