@@ -180,9 +180,9 @@ def wget_output_path(link: Link) -> Optional[str]:
                 #      /some/other/url.o4g   -> some binary unrecognized ext)
                 # test this with archivebox add --depth=1 https://getpocket.com/users/nikisweeting/feed/all
                 last_part_of_url = urldecode(full_path.rsplit('/', 1)[-1])
-                for file_present in os.listdir(search_dir):
+                for file_present in search_dir.iterdir():
                     if file_present == last_part_of_url:
-                        return os.path.join(path_from_link_dir, file_present)
+                        return search_dir / file_present
 
         # Move up one directory level
         search_dir = search_dir.parent
