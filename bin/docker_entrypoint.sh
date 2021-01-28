@@ -4,11 +4,11 @@ DATA_DIR="${DATA_DIR:-/data}"
 ARCHIVEBOX_USER="${ARCHIVEBOX_USER:-archivebox}"
 
 # Set the archivebox user UID & GID
-if [[ -n "$ARCHIVEBOX_UID" && "$ARCHIVEBOX_UID" != 0 ]]; then
-    usermod -u "$ARCHIVEBOX_UID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
+if [[ -n "$PUID" && "$PUID" != 0 ]]; then
+    usermod -u "$PUID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
 fi
-if [[ -n "$ARCHIVEBOX_GID" && "$ARCHIVEBOX_GID" != 0 ]]; then
-    groupmod -g "$ARCHIVEBOX_GID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
+if [[ -n "$PGID" && "$PGID" != 0 ]]; then
+    groupmod -g "$PGID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
 fi
 
 # Set the permissions of the data dir to match the archivebox user
