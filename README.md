@@ -46,7 +46,7 @@ archivebox schedule --every=day https://example.com/rss.xml
 For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats).
 
 ```bash
-archivebox server 0.0.0.0:8000         # use the web UI http://127.0.0.1:8000/
+archivebox server --createsuperuser 0.0.0.0:8000   # use the interactive web UI
 archivebox list 'https://example.com'  # use the CLI commands (--help for more)
 ls ./archive/*/index.json              # or browse directly via the filesystem
 ```
@@ -137,8 +137,7 @@ docker run -v $PWD:/data -it archivebox/archivebox init
 docker run -v $PWD:/data -it archivebox/archivebox --version
 
 # start the webserver and open the UI (optional)
-docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser
-docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox server 0.0.0.0:8000
+docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox server --createsuperuser 0.0.0.0:8000
 open http://127.0.0.1:8000
 
 # you can also add links and manage your archive via the CLI:
@@ -167,8 +166,7 @@ archivebox init
 archivebox --version
 
 # start the webserver and open the web UI (optional)
-archivebox manage createsuperuser
-archivebox server 0.0.0.0:8000
+archivebox server --createsuperuser 0.0.0.0:8000
 open http://127.0.0.1:8000
 
 # you can also add URLs and manage the archive via the CLI and filesystem:
@@ -208,8 +206,7 @@ archivebox init
 archivebox --version
 
 # start the webserver and open the web UI (optional)
-archivebox manage createsuperuser
-archivebox server 0.0.0.0:8000
+archivebox server --createsuperuser 0.0.0.0:8000
 open http://127.0.0.1:8000
 
 # you can also add URLs and manage the archive via the CLI and filesystem:
@@ -239,8 +236,7 @@ archivebox --version
 # Install any missing extras like wget/git/chrome/etc. manually as needed
 
 # start the webserver and open the web UI (optional)
-archivebox manage createsuperuser
-archivebox server 0.0.0.0:8000
+archivebox server --createsuperuser 0.0.0.0:8000
 open http://127.0.0.1:8000
 
 # you can also add URLs and manage the archive via the CLI and filesystem:
