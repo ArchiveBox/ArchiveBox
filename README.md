@@ -635,6 +635,14 @@ docker run -it --rm -p 8000:8000 \
 See the `./bin/` folder and read the source of the bash scripts within.
 You can also run all these in Docker. For more examples see the Github Actions CI/CD tests that are run: `.github/workflows/*.yaml`.
 
+#### Run in DEBUG mode
+
+```bash
+archivebox config --set DEBUG=True
+# or
+archivebox server --debug ...
+```
+
 #### Run the linters
 
 ```bash
