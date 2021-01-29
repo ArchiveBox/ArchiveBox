@@ -224,11 +224,16 @@ body.model-snapshot.change-list #content .object-tools {
   100% { transform: rotate(360deg); }
 }
 
-.tags > a > .tag {
+.tag {
     float: right;
     border-radius: 5px;
     background-color: #bfdfff;
     padding: 2px 5px;
     margin-left: 4px;
     margin-top: 1px;
+}
+
+.exists-False {
+    opacity: 0.1;
+    filter: grayscale(100%);
 }

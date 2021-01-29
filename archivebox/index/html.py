@@ -121,7 +121,7 @@ def snapshot_icons(snapshot) -> str:
     path = link.archive_path
     canon = link.canonical_outputs()
     output = ""
-    output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{} </a>'
+    output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{}</a> &nbsp;'
     icons = {
         "singlefile": "❶",
         "wget": "🆆",
