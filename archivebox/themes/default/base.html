@@ -64,18 +64,20 @@
                 {% block body %}
                 {% endblock %}
             </div>
-            <footer>
-                <br />
-                <center>
-                    <small>
-                        Archive created using <a href="https://github.com/ArchiveBox/ArchiveBox" title="Github">ArchiveBox</a> version
-                        <a href="https://github.com/ArchiveBox/ArchiveBox/releases" title="Releases">v{{VERSION}}</a>.
-                        <br/><br/>
-                        {{FOOTER_INFO}}
-                    </small>
-                </center>
-                <br />
-            </footer>
+            {% block footer %}
+                <footer>
+                    <br />
+                    <center>
+                        <small>
+                            Archive created using <a href="https://github.com/ArchiveBox/ArchiveBox" title="Github">ArchiveBox</a> version
+                            <a href="https://github.com/ArchiveBox/ArchiveBox/releases" title="Releases">v{{VERSION}}</a>.
+                            <br/><br/>
+                            {{FOOTER_INFO}}
+                        </small>
+                    </center>
+                    <br />
+                </footer>
+            {% endblock %}
         </div>
     </body>
     
