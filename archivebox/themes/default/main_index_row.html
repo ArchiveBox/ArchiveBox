@@ -8,20 +8,19 @@
         {% else %}
             <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="link-favicon" decoding="async"></a>
         {% endif %}
-            <a href="archive/{{link.timestamp}}/{{link.canonical_outputs.wget_path}}" title="{{link.title}}">
-                <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title|default:'Loading...'}}</span>
-                <span class="tags" style="background-color: #79aec8">
-                    <a href="#">
-                        <span class="tag">
-                            {% if link.tags_str != None %}
-                                {{link.tags_str|default:''}}
-                            {% else %}
-                                {{ link.tags|default:'' }}
-                            {% endif %}
-                        </span>
-                    </a>
+
+        <a href="archive/{{link.timestamp}}/index.html" title="{{link.title}}">
+            <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title|default:'Loading...'}}</span>
+            {% if link.tags_str %}
+                <span class="tags" style="float: right; border-radius: 5px; background-color: #bfdfff; padding: 2px 5px; margin-left: 4px; margin-top: 1px;">
+                    {% if link.tags_str != None %}
+                        {{link.tags_str|default:''}}
+                    {% else %}
+                        {{ link.tags|default:'' }}
+                    {% endif %}
                 </span>
-            </a>
+            {% endif %}
+        </a>
     </td>
     <td>
         <a href="archive/{{link.timestamp}}/index.html">📄 
