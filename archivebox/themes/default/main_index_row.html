@@ -9,7 +9,7 @@
             <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="link-favicon" decoding="async" style="height: 15px"></a>
         {% endif %}
 
-        <a href="archive/{{link.timestamp}}/index.html" title="{{link.title}}">
+        <a href="archive/{{link.timestamp}}/index.html" title="{{link.title|default:'Not yet archived...'}}">
             <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title|default:'Loading...'}}</span>
             {% if link.tags_str %}
                 <span class="tags" style="float: right; border-radius: 5px; background-color: #bfdfff; padding: 2px 5px; margin-left: 4px; margin-top: 1px;">
