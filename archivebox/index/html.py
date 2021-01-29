@@ -161,4 +161,4 @@ def snapshot_icons(snapshot) -> str:
             output += '<a href="{}" class="exists-{}" title="{}">{}</a> '.format(canon["archive_org_path"], str(exists),
                                                                                         "archive_org", icons.get("archive_org", "?"))
 
-    return format_html('<span class="files-icons" style="font-size: 1.1em; opacity: 0.8">{}<span>', mark_safe(output))
+    return format_html('<span class="files-icons" style="font-size: 1.1em; opacity: 0.8; min-width: 240px; display: inline-block">{}<span>', mark_safe(output))

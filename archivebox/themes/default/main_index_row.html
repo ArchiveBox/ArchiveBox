@@ -6,7 +6,7 @@
         {% if link.is_archived %}
             <a href="archive/{{link.timestamp}}/index.html"><img src="archive/{{link.timestamp}}/favicon.ico" class="link-favicon" decoding="async"></a>
         {% else %}
-            <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="link-favicon" decoding="async"></a>
+            <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="link-favicon" decoding="async" style="height: 15px"></a>
         {% endif %}
 
         <a href="archive/{{link.timestamp}}/index.html" title="{{link.title}}">
@@ -28,7 +28,7 @@
                 {{link.icons}} <small style="float:right; opacity: 0.5">{{link.num_outputs}}</small>
             {% else %}
                 <a href="archive/{{link.timestamp}}/index.html">📄 
-                    {{link.num_outputs}} <img src="{% static 'spinner.gif' %}" class="files-spinner" decoding="async"/>
+                    {{link.num_outputs}} <img src="{% static 'spinner.gif' %}" class="files-spinner" decoding="async" style="height: 15px"/>
                 </a>
             {% endif %}
         </span>
