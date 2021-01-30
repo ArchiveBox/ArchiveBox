@@ -4,9 +4,9 @@
     <td title="{{link.timestamp}}"> {% if link.bookmarked_date  %} {{ link.bookmarked_date }} {% else %} {{ link.added }} {% endif %} </td>
     <td class="title-col" style="opacity: {% if link.title %}1{% else %}0.3{% endif %}">
         {% if link.is_archived %}
-            <a href="archive/{{link.timestamp}}/index.html"><img src="archive/{{link.timestamp}}/favicon.ico" class="link-favicon" decoding="async"></a>
+            <a href="archive/{{link.timestamp}}/index.html"><img src="archive/{{link.timestamp}}/favicon.ico" onerror="this.style.display='none'" class="link-favicon" decoding="async"></a>
         {% else %}
-            <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="link-favicon" decoding="async" style="height: 15px"></a>
+            <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="link-favicon" decoding="async" style="height: 15px"></a>
         {% endif %}
 
         <a href="archive/{{link.timestamp}}/index.html" title="{{link.title|default:'Not yet archived...'}}">
@@ -28,7 +28,7 @@
                 {{link.icons}} <small style="float:right; opacity: 0.5">{{link.num_outputs}}</small>
             {% else %}
                 <a href="archive/{{link.timestamp}}/index.html">📄 
-                    {{link.num_outputs}} <img src="{% static 'spinner.gif' %}" class="files-spinner" decoding="async" style="height: 15px"/>
+                    {{link.num_outputs}} <img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="files-spinner" decoding="async" style="height: 15px"/>
                 </a>
             {% endif %}
         </span>

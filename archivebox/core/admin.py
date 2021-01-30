@@ -171,7 +171,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
         saved_list_max_show_all = self.list_max_show_all
 
         # Monkey patch here plus core_tags.py
-        self.change_list_template = 'admin/grid_change_list.html'
+        self.change_list_template = 'private_index_grid.html'
         self.list_per_page = 20
         self.list_max_show_all = self.list_per_page
 
@@ -249,7 +249,7 @@ class ArchiveBoxAdmin(admin.AdminSite):
             else:
                 context["form"] = form
 
-        return render(template_name='add_links.html', request=request, context=context)
+        return render(template_name='add.html', request=request, context=context)
 
 admin.site = ArchiveBoxAdmin()
 admin.site.register(get_user_model())

@@ -14,7 +14,7 @@ register = template.Library()
 def snapshot_image(snapshot):
     result = ArchiveResult.objects.filter(snapshot=snapshot, extractor='screenshot', status='succeeded').first()
     if result:
-        return reverse('LinkAssets', args=[f'{str(snapshot.timestamp)}/{result.output}'])
+        return reverse('Snapshot', args=[f'{str(snapshot.timestamp)}/{result.output}'])
     
     return static('archive.png')
 

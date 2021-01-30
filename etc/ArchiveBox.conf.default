@@ -24,7 +24,6 @@
 # PUBLIC_INDEX = True
 # PUBLIC_SNAPSHOTS = True
 # FOOTER_INFO = Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.
-# ACTIVE_THEME = default
 
 
 [ARCHIVE_METHOD_TOGGLES]

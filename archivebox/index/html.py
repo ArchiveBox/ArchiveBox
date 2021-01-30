@@ -25,9 +25,9 @@ from ..config import (
     HTML_INDEX_FILENAME,
 )
 
-MAIN_INDEX_TEMPLATE = 'main_index.html'
-MINIMAL_INDEX_TEMPLATE = 'main_index_minimal.html'
-LINK_DETAILS_TEMPLATE = 'link_details.html'
+MAIN_INDEX_TEMPLATE = 'static_index.html'
+MINIMAL_INDEX_TEMPLATE = 'minimal_index.html'
+LINK_DETAILS_TEMPLATE = 'snapshot.html'
 TITLE_LOADING_MSG = 'Not yet archived...'
 
 
