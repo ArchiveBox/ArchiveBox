@@ -639,7 +639,7 @@ archivebox config --set DEBUG=True
 archivebox server --debug ...
 ```
 
-### Build and run a Github branch
+#### Build and run a Github branch
 
 ```bash
 docker build -t archivebox:dev https://github.com/ArchiveBox/ArchiveBox.git#dev
