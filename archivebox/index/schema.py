@@ -417,7 +417,7 @@ class Link:
             'favicon_path': 'favicon.ico',
             'google_favicon_path': 'https://www.google.com/s2/favicons?domain={}'.format(self.domain),
             'wget_path': wget_output_path(self),
-            'warc_path': 'warc',
+            'warc_path': 'warc/',
             'singlefile_path': 'singlefile.html',
             'readability_path': 'readability/content.html',
             'mercury_path': 'mercury/content.html',
@@ -425,8 +425,8 @@ class Link:
             'screenshot_path': 'screenshot.png',
             'dom_path': 'output.html',
             'archive_org_path': 'https://web.archive.org/web/{}'.format(self.base_url),
-            'git_path': 'git',
-            'media_path': 'media',
+            'git_path': 'git/',
+            'media_path': 'media/',
         }
         if self.is_static:
             # static binary files like PDF and images are handled slightly differently.
