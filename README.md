@@ -639,6 +639,13 @@ archivebox config --set DEBUG=True
 archivebox server --debug ...
 ```
 
+### Build and run a Github branch
+
+```bash
+docker build -t archivebox:dev https://github.com/ArchiveBox/ArchiveBox.git#dev
+docker run -it -v $PWD:/data archivebox:dev ...
+```
+
 #### Run the linters
 
 ```bash
@@ -655,6 +662,7 @@ archivebox server --debug ...
 
 #### Make migrations or enter a django shell
 
+Make sure to run this whenever you change things in `models.py`.
 ```bash
 cd archivebox/
 ./manage.py makemigrations
@@ -666,6 +674,7 @@ archivebox shell
 
 #### Build the docs, pip package, and docker image
 
+(Normally CI takes care of this, but these scripts can be run to do it manually)
 ```bash
 ./bin/build.sh
 
@@ -679,6 +688,7 @@ archivebox shell
 
 #### Roll a release
 
+(Normally CI takes care of this, but these scripts can be run to do it manually)
 ```bash
 ./bin/release.sh
 
