@@ -33,7 +33,7 @@ LOGOUT_REDIRECT_URL = '/'
 PASSWORD_RESET_URL = '/accounts/password_reset/'
 APPEND_SLASH = True
 
-DEBUG = DEBUG or sys.environ.get('DEBUG', 'false').lower() != 'false' or '--debug' in sys.argv
+DEBUG = DEBUG or ('--debug' in sys.argv)
 
 INSTALLED_APPS = [
     'django.contrib.auth',
