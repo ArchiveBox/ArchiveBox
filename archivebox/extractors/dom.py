@@ -20,18 +20,21 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 
+# output = 'output.html'
+
 
 @enforce_types
-def should_save_dom(snapshot: Model, out_dir: Optional[Path]=None) -> bool:
+def should_save_dom(snapshot: Model, overwrite: Optional[bool]=False, out_dir: Optional[Path]=None) -> bool:
     out_dir = out_dir or Path(snapshot.snapshot_dir)
     if is_static_file(snapshot.url):
         return False
-    
-    if (out_dir / 'output.html').exists():
+
+    out_dir = out_dir or Path(link.link_dir)
+    if not overwrite and (out_dir / 'output.html').exists():
         return False
 
     return SAVE_DOM
-    
+
 @enforce_types
 def save_dom(snapshot: Model, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """print HTML of site to file using chrome --dump-html"""

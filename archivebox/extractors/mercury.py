@@ -39,13 +39,16 @@ def ShellError(cmd: List[str], result: CompletedProcess, lines: int=20) -> Archi
 
 
 @enforce_types
-def should_save_mercury(snapshot: Model, out_dir: Optional[str]=None) -> bool:
+def should_save_mercury(snapshot: Model, overwrite: Optional[bool]=False, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or snapshot.snapshot_dir
     if is_static_file(snapshot.url):
         return False
 
     output = Path(out_dir or snapshot.snapshot_dir) / 'mercury'
-    return SAVE_MERCURY and MERCURY_VERSION and (not output.exists())
+    if not overwrite and output.exists():
+        return False
+
+    return SAVE_MERCURY and MERCURY_VERSION
 
 
 @enforce_types

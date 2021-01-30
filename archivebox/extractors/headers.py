@@ -23,12 +23,21 @@ from ..config import (
 )
 from ..logging_util import TimedProgress
 
+
+# output = 'headers.json'
+
 @enforce_types
-def should_save_headers(snapshot: Model, out_dir: Optional[str]=None) -> bool:
+def should_save_headers(snapshot: Model, overwrite: Optional[bool]=False, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or snapshot.snapshot_dir
 
+    if not SAVE_HEADERS:
+        return False
+    
+    if overwrite:
+        return True
+
     output = Path(out_dir or snapshot.snapshot_dir) / 'headers.json'
-    return not output.exists() and SAVE_HEADERS
+    return not output.exists()
 
 
 @enforce_types

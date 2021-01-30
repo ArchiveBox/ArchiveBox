@@ -101,7 +101,7 @@ TEMPLATES = [
 ################################################################################
 
 DATABASE_FILE = Path(OUTPUT_DIR) / SQL_INDEX_FILENAME
-DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", DATABASE_FILE)
+DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(DATABASE_FILE))
 
 DATABASES = {
     'default': {

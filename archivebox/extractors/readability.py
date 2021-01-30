@@ -25,6 +25,7 @@ from ..config import (
 )
 from ..logging_util import TimedProgress
 
+
 @enforce_types
 def get_html(snapshot: Model, path: Path) -> str:
     """
@@ -47,14 +48,20 @@ def get_html(snapshot: Model, path: Path) -> str:
     else:
         return document
 
+
+# output = 'readability/'
+
 @enforce_types
-def should_save_readability(snapshot: Model, out_dir: Optional[str]=None) -> bool:
+def should_save_readability(snapshot: Model, overwrite: Optional[bool]=False, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or snapshot.link_dir
     if is_static_file(snapshot.url):
         return False
 
     output = Path(out_dir or snapshot.snapshot_dir) / 'readability'
-    return SAVE_READABILITY and READABILITY_VERSION and (not output.exists())
+    if not overwrite and output.exists():
+        return False
+
+    return SAVE_READABILITY and READABILITY_VERSION
 
 
 @enforce_types

@@ -25,14 +25,17 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 
+# output = '{domain}/'
+
 
 @enforce_types
-def should_save_archive_dot_org(snapshot: Model, out_dir: Optional[Path]=None) -> bool:
+def should_save_archive_dot_org(snapshot: Model, overwrite: Optional[bool]=False, out_dir: Optional[Path]=None) -> bool:
     out_dir = out_dir or Path(snapshot.snapshot_dir)
     if is_static_file(snapshot.url):
         return False
 
-    if (out_dir / "archive.org.txt").exists():
+    out_dir = out_dir or Path(link.link_dir)
+    if not overwrite and (out_dir / 'archive.org.txt').exists():
         # if open(path, 'r').read().strip() != 'None':
         return False
 

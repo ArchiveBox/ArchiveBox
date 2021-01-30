@@ -25,13 +25,16 @@ from ..logging_util import TimedProgress
 
 
 @enforce_types
-def should_save_singlefile(snapshot: Model, out_dir: Optional[Path]=None) -> bool:
+def should_save_singlefile(snapshot: Model, overwrite: Optional[bool]=False, out_dir: Optional[Path]=None) -> bool:
     out_dir = out_dir or Path(snapshot.snapshot_dir)
     if is_static_file(snapshot.url):
         return False
 
-    output = out_dir / 'singlefile.html'
-    return SAVE_SINGLEFILE and SINGLEFILE_VERSION and (not output.exists())
+    out_dir = out_dir or Path(link.link_dir)
+    if not overwrite and (out_dir / 'singlefile.html').exists():
+        return False
+
+    return SAVE_SINGLEFILE
 
 
 @enforce_types

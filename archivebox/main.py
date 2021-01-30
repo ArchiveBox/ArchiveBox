@@ -1070,6 +1070,7 @@ def server(runserver_args: Optional[List[str]]=None,
            reload: bool=False,
            debug: bool=False,
            init: bool=False,
+           createsuperuser: bool=False,
            out_dir: Path=OUTPUT_DIR) -> None:
     """Run the ArchiveBox HTTP server"""
 
@@ -1077,6 +1078,9 @@ def server(runserver_args: Optional[List[str]]=None,
     
     if init:
         run_subcommand('init', stdin=None, pwd=out_dir)
+
+    if createsuperuser:
+        run_subcommand('manage', subcommand_args=['createsuperuser'], pwd=out_dir)
 
     # setup config for django runserver
     from . import config

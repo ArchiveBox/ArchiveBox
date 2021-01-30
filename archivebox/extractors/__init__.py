@@ -96,7 +96,7 @@ def archive_snapshot(snapshot: Model, overwrite: bool=False, methods: Optional[I
                 if method_name not in details["history"]:
                     details["history"][method_name] = []
 
-                if should_run(snapshot, out_dir) or overwrite:
+                if should_run(snapshot, out_dir, overwrite):
                     log_archive_method_started(method_name)
 
                     result = method_function(snapshot=snapshot, out_dir=out_dir)

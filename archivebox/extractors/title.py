@@ -62,13 +62,15 @@ class TitleParser(HTMLParser):
             self.inside_title_tag = False
 
 
-@enforce_types
-def should_save_title(snapshot: Model, out_dir: Optional[str]=None) -> bool:
-    # if link already has valid title, skip it
-    if snapshot.title and not snapshot.title.lower().startswith('http'):
-        return False
+# output = '{title}'
 
+@enforce_types
+def should_save_title(snapshot: Model, overwrite: Optional[bool]=False, out_dir: Optional[str]=None) -> bool:
     if is_static_file(snapshot.url):
+        False
+
+    # if snapshot already has valid title, skip it
+    if not overwrite and snapshot.title and not snapshot.title.lower().startswith('http'):
         return False
 
     return SAVE_TITLE

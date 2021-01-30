@@ -9,15 +9,15 @@
 
 **Useful links:**
 
-- https://github.com/pirate/ArchiveBox/issues
-- https://github.com/pirate/ArchiveBox/pulls
-- https://github.com/pirate/ArchiveBox/wiki/Roadmap
-- https://github.com/pirate/ArchiveBox/wiki/Install#manual-setup
+- https://github.com/ArchiveBox/ArchiveBox/issues
+- https://github.com/ArchiveBox/ArchiveBox/pulls
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Install#manual-setup
 
 ### Development Setup
 
 ```bash
-git clone https://github.com/pirate/ArchiveBox
+git clone https://github.com/ArchiveBox/ArchiveBox
 cd ArchiveBox
 # Ideally do this in a virtualenv
 pip install -e '.[dev]'  # or use: pipenv install --dev
@@ -30,6 +30,8 @@ pip install -e '.[dev]'  # or use: pipenv install --dev
 ./bin/test.sh
 ./bin/build.sh
 ```
+
+For more common tasks see the `Development` section at the bottom of the README.
 
 ### Getting Help
 

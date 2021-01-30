@@ -19,14 +19,16 @@ from ..config import (
 )
 from ..logging_util import TimedProgress
 
+# output = 'output.pdf'
 
 @enforce_types
-def should_save_pdf(snapshot: Model, out_dir: Optional[Path]=None) -> bool:
+def should_save_pdf(snapshot: Model, verwrite: Optional[bool]=False, out_dir: Optional[Path]=None) -> bool:
     out_dir = out_dir or Path(snapshot.snapshot_dir)
     if is_static_file(snapshot.url):
         return False
-    
-    if (out_dir / "output.pdf").exists():
+
+    out_dir = out_dir or Path(link.link_dir)
+    if not overwrite and (out_dir / 'output.pdf').exists():
         return False
 
     return SAVE_PDF

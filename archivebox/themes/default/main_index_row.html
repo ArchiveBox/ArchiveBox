@@ -1,12 +1,14 @@
 {% load static %}
 
 <tr>
+{% comment %}
+    <!-- from upstream, may need to merge these two -->
     <td title="{{snapshot.timestamp}}"> {% if snapshot.bookmarked_date  %} {{ snapshot.bookmarked_date }} {% else %} {{ snapshot.added }} {% endif %} </td>
     <td class="title-col">
         {% if snapshot.is_archived %}
-            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="archive/{{snapshot.timestamp}}/favicon.ico" class="link-favicon" decoding="async"></a>
+            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="archive/{{snapshot.timestamp}}/favicon.ico" class="snapshot-favicon" decoding="async"></a>
         {% else %}
-            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="link-favicon" decoding="async"></a>
+            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="snapshot-favicon" decoding="async"></a>
         {% endif %}
             <a href="archive/{{snapshot.timestamp}}/{{snapshot.canonical_outputs.wget_path}}" title="{{snapshot.title}}">
                 <span data-title-for="{{snapshot.url}}" data-archived="{{snapshot.is_archived}}">{{snapshot.title|default:'Loading...'}}</span>
@@ -17,6 +19,41 @@
         <a href="archive/{{snapshot.timestamp}}/index.html">📄 
             <span data-number-for="{{snapshot.url}}" title="Fetching any missing files...">{% if snapshot.icons  %} {{snapshot.icons}} {% else %} {{ snapshot.num_outputs}} {% endif %}<img src="{% static 'spinner.gif' %}" class="files-spinner" decoding="async"/></span>
         </a>
+    </td>
+   <td style="text-align:left"><a href="{{snapshot.url}}">{{snapshot.url}}</a></td>
+{% endcomment %}
+
+    <td title="{{snapshot.timestamp}}"> {% if snapshot.bookmarked_date  %} {{ snapshot.bookmarked_date }} {% else %} {{ snapshot.added }} {% endif %} </td>
+    <td class="title-col" style="opacity: {% if snapshot.title %}1{% else %}0.3{% endif %}">
+        {% if snapshot.is_archived %}
+            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="archive/{{snapshot.timestamp}}/favicon.ico" class="snapshot-favicon" decoding="async"></a>
+        {% else %}
+            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="snapshot-favicon" decoding="async" style="height: 15px"></a>
+        {% endif %}
+
+        <a href="archive/{{snapshot.timestamp}}/index.html" title="{{snapshot.title|default:'Not yet archived...'}}">
+            <span data-title-for="{{snapshot.url}}" data-archived="{{snapshot.is_archived}}">{{snapshot.title|default:'Loading...'}}</span>
+            {% if snapshot.tags_str %}
+                <span class="tags" style="float: right; border-radius: 5px; background-color: #bfdfff; padding: 2px 5px; margin-left: 4px; margin-top: 1px;">
+                    {% if snapshot.tags_str != None %}
+                        {{snapshot.tags_str|default:''}}
+                    {% else %}
+                        {{ snapshot.tags|default:'' }}
+                    {% endif %}
+                </span>
+            {% endif %}
+        </a>
+    </td>
+    <td>
+        <span data-number-for="{{snapshot.url}}" title="Fetching any missing files...">
+            {% if snapshot.icons  %}
+                {{snapshot.icons}} <small style="float:right; opacity: 0.5">{{snapshot.num_outputs}}</small>
+            {% else %}
+                <a href="archive/{{snapshot.timestamp}}/index.html">📄 
+                    {{snapshot.num_outputs}} <img src="{% static 'spinner.gif' %}" class="files-spinner" decoding="async" style="height: 15px"/>
+                </a>
+            {% endif %}
+        </span>
     </td>
    <td style="text-align:left"><a href="{{snapshot.url}}">{{snapshot.url}}</a></td>
 </tr>

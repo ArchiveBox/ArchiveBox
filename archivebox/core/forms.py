@@ -22,10 +22,32 @@ class AddLinkForm(forms.Form):
     url = forms.RegexField(label="URLs (one per line)", regex=URL_REGEX, min_length='6', strip=True, widget=forms.Textarea, required=True)
     depth = forms.ChoiceField(label="Archive depth", choices=CHOICES, widget=forms.RadioSelect, initial='0')
     archive_methods = forms.MultipleChoiceField(
+        label="Archive methods (select at least 1, otherwise all will be used by default)",
         required=False,
         widget=forms.SelectMultiple,
         choices=ARCHIVE_METHODS,
     )
+    # TODO: hook these up to the view and put them 
+    # in a collapsible UI section labeled "Advanced"
+    #
+    # exclude_patterns = forms.CharField(
+    #     label="Exclude patterns",
+    #     min_length='1',
+    #     required=False,
+    #     initial=URL_BLACKLIST,
+    # )
+    # timeout = forms.IntegerField(
+    #     initial=TIMEOUT,
+    # )
+    # overwrite = forms.BooleanField(
+    #     label="Overwrite any existing Snapshots",
+    #     initial=False,
+    # )
+    # index_only = forms.BooleanField(
+    #     label="Add URLs to index without Snapshotting",
+    #     initial=False,
+    # )
+
 class TagWidgetMixin:
     def format_value(self, value):
         if value is not None and not isinstance(value, str):

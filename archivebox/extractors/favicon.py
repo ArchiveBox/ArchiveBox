@@ -21,14 +21,17 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 
+# output = 'favicon.ico'
+
+
 @enforce_types
-def should_save_favicon(snapshot: Model, out_dir: Optional[str]=None) -> bool:
+def should_save_favicon(snapshot: Model, overwrite: Optional[bool]=False, out_dir: Optional[str]=None) -> bool:
     out_dir = out_dir or snapshot.snapshot_dir
-    if (Path(out_dir) / 'favicon.ico').exists():
+    if not overwrite and (Path(out_dir) / 'favicon.ico').exists():
         return False
 
     return SAVE_FAVICON
-    
+
 @enforce_types
 def save_favicon(snapshot: Model, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
     """download site favicon from google's favicon api"""

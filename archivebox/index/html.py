@@ -4,8 +4,8 @@ from datetime import datetime
 from typing import List, Optional, Iterator, Mapping
 from pathlib import Path
 
-from django.utils.html import format_html
 from django.db.models import Model
+from django.utils.html import format_html, mark_safe
 from collections import defaultdict
 
 from .schema import Link
@@ -119,7 +119,7 @@ def snapshot_icons(snapshot) -> str:
     path = snapshot.archive_path
     canon = snapshot.canonical_outputs()
     output = ""
-    output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{} </a>'
+    output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{}</a> &nbsp;'
     icons = {
         "singlefile": "❶",
         "wget": "🆆",
@@ -145,12 +145,12 @@ def snapshot_icons(snapshot) -> str:
     for extractor, _ in EXTRACTORS:
         if extractor not in exclude:
             exists = extractor_items[extractor] is not None
-            output += output_template.format(path, canon[f"{extractor}_path"], str(exists),
+            output += format_html(output_template, path, canon[f"{extractor}_path"], str(exists),
                                              extractor, icons.get(extractor, "?"))
         if extractor == "wget":
             # warc isn't technically it's own extractor, so we have to add it after wget
             exists = list((Path(path) / canon["warc_path"]).glob("*.warc.gz"))
-            output += output_template.format(exists[0] if exists else '#', canon["warc_path"], str(bool(exists)), "warc", icons.get("warc", "?"))
+            output += format_html(output_template, exists[0] if exists else '#', canon["warc_path"], str(bool(exists)), "warc", icons.get("warc", "?"))
 
         if extractor == "archive_org":
             # The check for archive_org is different, so it has to be handled separately
@@ -159,4 +159,4 @@ def snapshot_icons(snapshot) -> str:
             output += '<a href="{}" class="exists-{}" title="{}">{}</a> '.format(canon["archive_org_path"], str(exists),
                                                                                         "archive_org", icons.get("archive_org", "?"))
 
-    return format_html(f'<span class="files-icons" style="font-size: 1.1em; opacity: 0.8">{output}<span>')
+    return format_html('<span class="files-icons" style="font-size: 1.1em; opacity: 0.8; min-width: 240px; display: inline-block">{}<span>', mark_safe(output))

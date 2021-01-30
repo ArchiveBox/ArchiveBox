@@ -9,6 +9,7 @@ from django.http import HttpResponse
 from django.views import View, static
 from django.views.generic.list import ListView
 from django.views.generic import FormView
+from django.db.models import Q
 from django.contrib.auth.mixins import UserPassesTestMixin
 
 from core.models import Snapshot
@@ -108,7 +109,7 @@ class PublicArchiveView(ListView):
         qs = super().get_queryset(**kwargs) 
         query = self.request.GET.get('q')
         if query:
-            qs = qs.filter(title__icontains=query)
+            qs = qs.filter(Q(title__icontains=query) | Q(url__icontains=query) | Q(timestamp__icontains=query) | Q(tags__name__icontains=query))
         for snapshot in qs:
             snapshot.icons = snapshot_icons(snapshot)
         return qs

@@ -22,14 +22,17 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 
+# output = 'media/'
+
 @enforce_types
-def should_save_media(snapshot: Model, out_dir: Optional[Path]=None) -> bool:
+def should_save_media(snapshot: Model, overwrite: Optional[bool]=False, out_dir: Optional[Path]=None) -> bool:
     out_dir = out_dir or snapshot.snapshot_dir
 
     if is_static_file(snapshot.url):
         return False
 
-    if (out_dir / "media").exists():
+    out_dir = out_dir or Path(link.link_dir)
+    if not overwrite and (out_dir / 'media').exists():
         return False
 
     return SAVE_MEDIA

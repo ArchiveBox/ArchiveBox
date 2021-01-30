@@ -28,14 +28,20 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 
+# output = 'git/'
+# @contents = output.glob('*.*')
+# @exists = self.contents.exists()
+# @size => get_size(self.contents)
+# @num_files => len(self.contents)
 
 @enforce_types
-def should_save_git(snapshot: Model, out_dir: Optional[Path]=None) -> bool:
+def should_save_git(snapshot: Model, overwrite: Optional[bool]=False, out_dir: Optional[Path]=None) -> bool:
     out_dir = out_dir or snapshot.snapshot_dir
     if is_static_file(snapshot.url):
         return False
 
-    if (out_dir / "git").exists():
+    out_dir = out_dir or Path(link.link_dir)
+    if not overwrite and (out_dir / 'git').exists():
         return False
 
     is_clonable_url = (

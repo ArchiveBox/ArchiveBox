@@ -38,10 +38,10 @@ from ..logging_util import TimedProgress
 
 
 @enforce_types
-def should_save_wget(snapshot: Model, out_dir: Optional[Path]=None) -> bool:
+def should_save_wget(snapshot: Model, overwrite: Optional[bool]=False, out_dir: Optional[Path]=None) -> bool:
     output_path = wget_output_path(snapshot)
     out_dir = out_dir or Path(snapshot.snapshot_dir)
-    if output_path and (out_dir / output_path).exists():
+    if not overwrite output_path and (out_dir / output_path).exists():
         return False
 
     return SAVE_WGET
@@ -68,7 +68,7 @@ def save_wget(snapshot: Model, out_dir: Optional[Path]=None, timeout: int=TIMEOU
         *(['--warc-file={}'.format(str(warc_path))] if SAVE_WARC else []),
         *(['--page-requisites'] if SAVE_WGET_REQUISITES else []),
         *(['--user-agent={}'.format(WGET_USER_AGENT)] if WGET_USER_AGENT else []),
-        *(['--load-cookies', COOKIES_FILE] if COOKIES_FILE else []),
+        *(['--load-cookies', str(COOKIES_FILE)] if COOKIES_FILE else []),
         *(['--compression=auto'] if WGET_AUTO_COMPRESSION else []),
         *([] if SAVE_WARC else ['--timestamping']),
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate', '--no-hsts']),
@@ -177,11 +177,22 @@ def wget_output_path(snapshot: Model) -> Optional[str]:
                 if html_files:
                     return str(html_files[0].relative_to(snapshot.snapshot_dir))
 
+                # sometimes wget'd URLs have no ext and return non-html
+                # e.g. /some/example/rss/all -> some RSS XML content)
+                #      /some/other/url.o4g   -> some binary unrecognized ext)
+                # test this with archivebox add --depth=1 https://getpocket.com/users/nikisweeting/feed/all
+                last_part_of_url = urldecode(full_path.rsplit('/', 1)[-1])
+                for file_present in search_dir.iterdir():
+                    if file_present == last_part_of_url:
+                        return str(search_dir / file_present)
+
         # Move up one directory level
         search_dir = search_dir.parent
 
         if search_dir == snapshot.snapshot_dir:
             break
+
+
     
     search_dir = Path(snapshot.snapshot_dir) / domain(snapshot.url).replace(":", "+") / urldecode(full_path)
     if not search_dir.is_dir():
