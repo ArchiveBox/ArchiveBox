@@ -24,6 +24,16 @@ from main import add, remove
 from config import OUTPUT_DIR
 from extractors import archive_links
 
+# Admin URLs
+# /admin/
+# /admin/login/
+# /admin/core/
+# /admin/core/snapshot/
+# /admin/core/snapshot/:uuid/
+# /admin/core/tag/
+# /admin/core/tag/:uuid/
+
+
 # TODO: https://stackoverflow.com/questions/40760880/add-custom-button-to-django-admin-panel
 
 def update_snapshots(modeladmin, request, queryset):
