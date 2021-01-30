@@ -73,7 +73,7 @@ archivebox help
 - `archivebox add/remove/update/list` to manage Snapshots in the archive
 - `archivebox schedule` to pull in fresh URLs in regularly from [boorkmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
 - `archivebox oneshot` archive single URLs without starting a whole collection
-- `archivebox shell` open a REPL to use the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha)
+- `archivebox shell/manage dbshell` open a REPL to use the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), or SQL API
 
 <div align="center">
 <br/>
@@ -669,6 +669,7 @@ cd archivebox/
 
 cd path/to/test/data/
 archivebox shell
+archivebox manage dbshell
 ```
 (uses `pytest -s`)
 
