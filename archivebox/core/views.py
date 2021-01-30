@@ -28,20 +28,19 @@ from ..util import base_url, ansi_to_html
 from ..index.html import snapshot_icons
 
 
-class MainIndex(View):
-    template = 'main_index.html'
-
+class HomepageView(View):
     def get(self, request):
         if request.user.is_authenticated:
             return redirect('/admin/core/snapshot/')
 
         if PUBLIC_INDEX:
-            return redirect('public-index')
+            return redirect('/public')
         
         return redirect(f'/admin/login/?next={request.path}')
 
 
-class LinkDetails(View):
+class SnapshotView(View):
+    # render static html index from filesystem archive/<timestamp>/index.html
 
     def get(self, request, path):
         # missing trailing slash -> redirect to index
@@ -92,8 +91,8 @@ class LinkDetails(View):
             status=404,
         )
 
-class PublicArchiveView(ListView):
-    template = 'snapshot_list.html'
+class PublicIndexView(ListView):
+    template_name = 'public_index.html'
     model = Snapshot
     paginate_by = 100
     ordering = ['title']
@@ -123,7 +122,7 @@ class PublicArchiveView(ListView):
 
 
 class AddView(UserPassesTestMixin, FormView):
-    template_name = "add_links.html"
+    template_name = "add.html"
     form_class = AddLinkForm
 
     def get_initial(self):

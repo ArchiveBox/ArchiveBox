@@ -6,9 +6,9 @@
     <td title="{{snapshot.timestamp}}"> {% if snapshot.bookmarked_date  %} {{ snapshot.bookmarked_date }} {% else %} {{ snapshot.added }} {% endif %} </td>
     <td class="title-col">
         {% if snapshot.is_archived %}
-            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="archive/{{snapshot.timestamp}}/favicon.ico" class="snapshot-favicon" decoding="async"></a>
+            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="archive/{{snapshot.timestamp}}/favicon.ico" onerror="this.style.display='none'" class="snapshot-favicon" decoding="async"></a>
         {% else %}
-            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="snapshot-favicon" decoding="async"></a>
+            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="snapshot-favicon" decoding="async"></a>
         {% endif %}
             <a href="archive/{{snapshot.timestamp}}/{{snapshot.canonical_outputs.wget_path}}" title="{{snapshot.title}}">
                 <span data-title-for="{{snapshot.url}}" data-archived="{{snapshot.is_archived}}">{{snapshot.title|default:'Loading...'}}</span>
@@ -26,9 +26,9 @@
     <td title="{{snapshot.timestamp}}"> {% if snapshot.bookmarked_date  %} {{ snapshot.bookmarked_date }} {% else %} {{ snapshot.added }} {% endif %} </td>
     <td class="title-col" style="opacity: {% if snapshot.title %}1{% else %}0.3{% endif %}">
         {% if snapshot.is_archived %}
-            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="archive/{{snapshot.timestamp}}/favicon.ico" class="snapshot-favicon" decoding="async"></a>
+            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="archive/{{snapshot.timestamp}}/favicon.ico" onerror="this.style.display='none'" class="snapshot-favicon" decoding="async"></a>
         {% else %}
-            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" class="snapshot-favicon" decoding="async" style="height: 15px"></a>
+            <a href="archive/{{snapshot.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="snapshot-favicon" decoding="async" style="height: 15px"></a>
         {% endif %}
 
         <a href="archive/{{snapshot.timestamp}}/index.html" title="{{snapshot.title|default:'Not yet archived...'}}">
@@ -50,7 +50,7 @@
                 {{snapshot.icons}} <small style="float:right; opacity: 0.5">{{snapshot.num_outputs}}</small>
             {% else %}
                 <a href="archive/{{snapshot.timestamp}}/index.html">📄 
-                    {{snapshot.num_outputs}} <img src="{% static 'spinner.gif' %}" class="files-spinner" decoding="async" style="height: 15px"/>
+                    {{snapshot.num_outputs}} <img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="files-spinner" decoding="async" style="height: 15px"/>
                 </a>
             {% endif %}
         </span>

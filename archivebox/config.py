@@ -76,7 +76,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'PUBLIC_SNAPSHOTS':         {'type': bool,  'default': True},
         'PUBLIC_ADD_VIEW':          {'type': bool,  'default': False},
         'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
-        'ACTIVE_THEME':             {'type': str,   'default': 'default'},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
@@ -204,12 +203,11 @@ def get_real_name(key: str) -> str:
 ################################ Constants #####################################
 
 PACKAGE_DIR_NAME = 'archivebox'
-TEMPLATES_DIR_NAME = 'themes'
+TEMPLATES_DIR_NAME = 'templates'
 
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
 LOGS_DIR_NAME = 'logs'
-STATIC_DIR_NAME = 'static'
 SQL_INDEX_FILENAME = 'index.sqlite3'
 JSON_INDEX_FILENAME = 'index.json'
 HTML_INDEX_FILENAME = 'index.html'
@@ -702,7 +700,7 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
         'TEMPLATES_DIR': {
             'path': (config['TEMPLATES_DIR']).resolve(),
             'enabled': True,
-            'is_valid': (config['TEMPLATES_DIR'] / config['ACTIVE_THEME'] / 'static').exists(),
+            'is_valid': (config['TEMPLATES_DIR'] / 'static').exists(),
         },
         # 'NODE_MODULES_DIR': {
         #     'path': ,

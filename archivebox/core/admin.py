@@ -24,6 +24,16 @@ from main import add, remove
 from config import OUTPUT_DIR
 from extractors import archive_snapshots
 
+# Admin URLs
+# /admin/
+# /admin/login/
+# /admin/core/
+# /admin/core/snapshot/
+# /admin/core/snapshot/:uuid/
+# /admin/core/tag/
+# /admin/core/tag/:uuid/
+
+
 # TODO: https://stackoverflow.com/questions/40760880/add-custom-button-to-django-admin-panel
 
 def update_snapshots(modeladmin, request, queryset):
@@ -171,7 +181,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
         saved_list_max_show_all = self.list_max_show_all
 
         # Monkey patch here plus core_tags.py
-        self.change_list_template = 'admin/grid_change_list.html'
+        self.change_list_template = 'private_index_grid.html'
         self.list_per_page = 20
         self.list_max_show_all = self.list_per_page
 
@@ -249,7 +259,7 @@ class ArchiveBoxAdmin(admin.AdminSite):
             else:
                 context["form"] = form
 
-        return render(template_name='add_links.html', request=request, context=context)
+        return render(template_name='add.html', request=request, context=context)
 
 admin.site = ArchiveBoxAdmin()
 admin.site.register(get_user_model())

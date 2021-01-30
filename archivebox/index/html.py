@@ -26,9 +26,9 @@ from ..config import (
     HTML_INDEX_FILENAME,
 )
 
-MAIN_INDEX_TEMPLATE = 'main_index.html'
-MINIMAL_INDEX_TEMPLATE = 'main_index_minimal.html'
-LINK_DETAILS_TEMPLATE = 'link_details.html'
+MAIN_INDEX_TEMPLATE = 'static_index.html'
+MINIMAL_INDEX_TEMPLATE = 'minimal_index.html'
+LINK_DETAILS_TEMPLATE = 'snapshot.html'
 TITLE_LOADING_MSG = 'Not yet archived...'
 
 
@@ -144,9 +144,15 @@ def snapshot_icons(snapshot) -> str:
 
     for extractor, _ in EXTRACTORS:
         if extractor not in exclude:
-            exists = extractor_items[extractor] is not None
+            exists = False
+            if extractor_items[extractor] is not None:
+                outpath = (Path(path) / canon[f"{extractor}_path"])
+                if outpath.is_dir():
+                    exists = any(outpath.glob('*.*'))
+                elif outpath.is_file():
+                    exists = outpath.stat().st_size > 100
             output += format_html(output_template, path, canon[f"{extractor}_path"], str(exists),
-                                             extractor, icons.get(extractor, "?"))
+                                         extractor, icons.get(extractor, "?"))
         if extractor == "wget":
             # warc isn't technically it's own extractor, so we have to add it after wget
             exists = list((Path(path) / canon["warc_path"]).glob("*.warc.gz"))
