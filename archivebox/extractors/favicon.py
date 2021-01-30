@@ -42,14 +42,13 @@ def save_favicon(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         'https://www.google.com/s2/favicons?domain={}'.format(domain(link.url)),
     ]
-    status = 'pending'
+    status = 'failed'
     timer = TimedProgress(timeout, prefix='      ')
     try:
         run(cmd, cwd=str(out_dir), timeout=timeout)
         chmod_file(output, cwd=str(out_dir))
         status = 'succeeded'
     except Exception as err:
-        status = 'failed'
         output = err
     finally:
         timer.end()

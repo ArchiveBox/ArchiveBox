@@ -2,7 +2,6 @@ __package__ = 'archivebox.index'
 
 import os
 import shutil
-import json as pyjson
 from pathlib import Path
 
 from itertools import chain
@@ -42,6 +41,7 @@ from .html import (
     write_html_link_details,
 )
 from .json import (
+    pyjson,
     parse_json_link_details, 
     write_json_link_details,
 )

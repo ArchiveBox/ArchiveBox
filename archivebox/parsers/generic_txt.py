@@ -51,9 +51,9 @@ def parse_generic_txt_export(text_file: IO[str], **_kwargs) -> Iterable[Link]:
             # look inside the URL for any sub-urls, e.g. for archive.org links
             # https://web.archive.org/web/20200531203453/https://www.reddit.com/r/socialism/comments/gu24ke/nypd_officers_claim_they_are_protecting_the_rule/fsfq0sw/
             # -> https://www.reddit.com/r/socialism/comments/gu24ke/nypd_officers_claim_they_are_protecting_the_rule/fsfq0sw/
-            for url in re.findall(URL_REGEX, line[1:]):
+            for sub_url in re.findall(URL_REGEX, line[1:]):
                 yield Link(
-                    url=htmldecode(url),
+                    url=htmldecode(sub_url),
                     timestamp=str(datetime.now().timestamp()),
                     title=None,
                     tags=None,
