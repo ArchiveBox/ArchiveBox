@@ -182,7 +182,7 @@ def wget_output_path(link: Link) -> Optional[str]:
                 last_part_of_url = urldecode(full_path.rsplit('/', 1)[-1])
                 for file_present in search_dir.iterdir():
                     if file_present == last_part_of_url:
-                        return search_dir / file_present
+                        return str(search_dir / file_present)
 
         # Move up one directory level
         search_dir = search_dir.parent
