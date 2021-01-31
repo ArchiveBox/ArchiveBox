@@ -34,10 +34,11 @@ def get_indexable_content(results: QuerySet):
         return []
     # This should come from a plugin interface
 
+    # TODO: banish this duplication and get these from the extractor file
     if method == 'readability':
         return get_file_result_content(res, 'content.txt')
     elif method == 'singlefile':
-        return get_file_result_content(res, '')
+        return get_file_result_content(res,'',use_pwd=True)
     elif method == 'dom':
         return get_file_result_content(res,'',use_pwd=True)
     elif method == 'wget':
