@@ -23,6 +23,7 @@ from ..config import (
     GIT_SHA,
     FOOTER_INFO,
     HTML_INDEX_FILENAME,
+    SAVE_ARCHIVE_DOT_ORG,
 )
 
 MAIN_INDEX_TEMPLATE = 'static_index.html'
@@ -103,6 +104,7 @@ def link_details_template(link: Link) -> str:
         'status': 'archived' if link.is_archived else 'not yet archived',
         'status_color': 'success' if link.is_archived else 'danger',
         'oldest_archive_date': ts_to_date(link.oldest_archive_date),
+        'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
     })
 
 @enforce_types

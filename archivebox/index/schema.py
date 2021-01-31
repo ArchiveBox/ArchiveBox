@@ -412,6 +412,8 @@ class Link:
         """predict the expected output paths that should be present after archiving"""
 
         from ..extractors.wget import wget_output_path
+        # TODO: banish this awful duplication from the codebase and import these
+        # from their respective extractor files
         canonical = {
             'index_path': 'index.html',
             'favicon_path': 'favicon.ico',
