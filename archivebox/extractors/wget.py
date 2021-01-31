@@ -105,7 +105,12 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
             if b'ERROR 500: Internal Server Error' in result.stderr:
                 raise ArchiveError('500 Internal Server Error', hints)
             raise ArchiveError('Wget failed or got an error from the server', hints)
-        chmod_file(output, cwd=str(out_dir))
+        
+        if (out_dir / output).exists():
+            chmod_file(output, cwd=str(out_dir))
+        else:
+            print(f'          {out_dir}/{output}')
+            raise ArchiveError('Failed to find wget output after running', hints)
     except Exception as err:
         status = 'failed'
         output = err
