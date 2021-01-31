@@ -134,9 +134,7 @@ def wget_output_path(link: Link) -> Optional[str]:
 
     See docs on wget --adjust-extension (-E)
     """
-    if is_static_file(link.url):
-        return without_scheme(without_fragment(link.url))
-
+    
     # Wget downloads can save in a number of different ways depending on the url:
     #    https://example.com
     #       > example.com/index.html
@@ -187,7 +185,7 @@ def wget_output_path(link: Link) -> Optional[str]:
                 last_part_of_url = urldecode(full_path.rsplit('/', 1)[-1])
                 for file_present in search_dir.iterdir():
                     if file_present == last_part_of_url:
-                        return str(search_dir / file_present)
+                        return str((search_dir / file_present).relative_to(link.link_dir))
 
         # Move up one directory level
         search_dir = search_dir.parent
@@ -195,10 +193,16 @@ def wget_output_path(link: Link) -> Optional[str]:
         if str(search_dir) == link.link_dir:
             break
 
-
+    # check for staticfiles
+    base_url = without_scheme(without_fragment(link.url))
+    domain_dir = Path(domain(link.url).replace(":", "+"))
+    files_within = list((Path(link.link_dir) / domain_dir).glob('**/*.*'))
+    if files_within:
+        return str((domain_dir / files_within[-1]).relative_to(link.link_dir))
     
-    search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+") / urldecode(full_path)
-    if not search_dir.is_dir():
-        return str(search_dir.relative_to(link.link_dir))
+    # fallback to just the domain dir
+    search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+")
+    if search_dir.is_dir():
+        return domain(link.url).replace(":", "+")
 
     return None
