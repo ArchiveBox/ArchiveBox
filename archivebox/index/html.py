@@ -140,22 +140,22 @@ def snapshot_icons(snapshot) -> str:
     exclude = ["favicon", "title", "headers", "archive_org"]
     # Missing specific entry for WARC
 
-    extractor_items = defaultdict(lambda: None)
+    extractor_outputs = defaultdict(lambda: None)
     for extractor, _ in EXTRACTORS:
         for result in archive_results:
-            if result.extractor == extractor:
-                extractor_items[extractor] = result
+            if result.extractor == extractor and result:
+                extractor_outputs[extractor] = result
 
     for extractor, _ in EXTRACTORS:
         if extractor not in exclude:
-            exists = False
-            if extractor_items[extractor] is not None:
-                outpath = (Path(path) / canon[f"{extractor}_path"])
-                if outpath.is_dir():
+            outpath = extractor_outputs[extractor] and extractor_outputs[extractor].output
+            if outpath:
+                outpath = (Path(path) / outpath)
+                if outpath.is_file():
+                    exists = True
+                elif outpath.is_dir():
                     exists = any(outpath.glob('*.*'))
-                elif outpath.is_file():
-                    exists = outpath.stat().st_size > 100
-            output += format_html(output_template, path, canon[f"{extractor}_path"], str(exists),
+            output += format_html(output_template, path, canon[f"{extractor}_path"], str(bool(outpath)),
                                          extractor, icons.get(extractor, "?"))
         if extractor == "wget":
             # warc isn't technically it's own extractor, so we have to add it after wget
