@@ -915,7 +915,11 @@ os.umask(0o777 - int(OUTPUT_PERMISSIONS, base=8))  # noqa: F821
 NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]).absolute() / 'node_modules' / '.bin'))
 sys.path.append(NODE_BIN_PATH)
 
-
+if not CHECK_SSL_VALIDITY:
+    import urllib3
+    import requests
+    requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 ########################### Config Validity Checkers ###########################
