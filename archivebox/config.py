@@ -27,6 +27,7 @@ import re
 import sys
 import json
 import getpass
+import platform
 import shutil
 import django
 
@@ -51,7 +52,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
     'SHELL_CONFIG': {
         'IS_TTY':                   {'type': bool,  'default': lambda _: sys.stdout.isatty()},
         'USE_COLOR':                {'type': bool,  'default': lambda c: c['IS_TTY']},
-        'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: c['IS_TTY']},
+        'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: (c['IS_TTY'] and platform.system() != 'Darwin')},  # progress bars are buggy on mac, disable for now
         'IN_DOCKER':                {'type': bool,  'default': False},
         # TODO: 'SHOW_HINTS':       {'type:  bool,  'default': True},
     },
