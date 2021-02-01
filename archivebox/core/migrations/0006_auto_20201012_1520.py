@@ -17,7 +17,7 @@ def forwards_func(apps, schema_editor):
         tag_set.discard("")
 
         for tag in tag_set:
-            to_add, _ = TagModel.objects.get_or_create(name=tag, slug=slugify(tag))
+            to_add, _ = TagModel.objects.get_or_create(name=tag, defaults={'slug': slugify(tag)})
             snapshot.tags.add(to_add)
 
 
