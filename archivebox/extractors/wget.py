@@ -12,8 +12,6 @@ from ..index.schema import ArchiveResult, ArchiveOutput, ArchiveError
 from ..system import run, chmod_file
 from ..util import (
     enforce_types,
-    is_static_file,
-    without_scheme,
     without_fragment,
     without_query,
     path,
@@ -107,7 +105,12 @@ def save_wget(snapshot: Model, out_dir: Optional[Path]=None, timeout: int=TIMEOU
             if b'ERROR 500: Internal Server Error' in result.stderr:
                 raise ArchiveError('500 Internal Server Error', hints)
             raise ArchiveError('Wget failed or got an error from the server', hints)
-        chmod_file(output, cwd=str(out_dir))
+        
+        if (out_dir / output).exists():
+            chmod_file(output, cwd=str(out_dir))
+        else:
+            print(f'          {out_dir}/{output}')
+            raise ArchiveError('Failed to find wget output after running', hints)
     except Exception as err:
         status = 'failed'
         output = err
@@ -131,8 +134,6 @@ def wget_output_path(snapshot: Model) -> Optional[str]:
 
     See docs on wget --adjust-extension (-E)
     """
-    if is_static_file(snapshot.url):
-        return without_scheme(without_fragment(snapshot.url))
 
     # Wget downloads can save in a number of different ways depending on the url:
     #    https://example.com
@@ -184,7 +185,7 @@ def wget_output_path(snapshot: Model) -> Optional[str]:
                 last_part_of_url = urldecode(full_path.rsplit('/', 1)[-1])
                 for file_present in search_dir.iterdir():
                     if file_present == last_part_of_url:
-                        return str(search_dir / file_present)
+                        return str((search_dir / file_present).relative_to(snapshot.snapshot_dir))
 
         # Move up one directory level
         search_dir = search_dir.parent
@@ -192,10 +193,15 @@ def wget_output_path(snapshot: Model) -> Optional[str]:
         if search_dir == snapshot.snapshot_dir:
             break
 
-
+    # check for literally any file present that isnt an empty folder
+    domain_dir = Path(domain(snapshot.url).replace(":", "+"))
+    files_within = list((Path(snapshot.snapshot_dir) / domain_dir).glob('**/*.*'))
+    if files_within:
+        return str((domain_dir / files_within[-1]).relative_to(snapshot.snapshot_dir))
     
-    search_dir = Path(snapshot.snapshot_dir) / domain(snapshot.url).replace(":", "+") / urldecode(full_path)
-    if not search_dir.is_dir():
-        return str(search_dir.relative_to(snapshot.snapshot_dir))
+    # fallback to just the domain dir, dont try to introspect further inside it
+    search_dir = Path(snapshot.snapshot_dir) / domain(snapshot.url).replace(":", "+")
+    if search_dir.is_dir():
+        return domain(snapshot.url).replace(":", "+")
 
     return None

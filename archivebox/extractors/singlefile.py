@@ -42,7 +42,7 @@ def save_singlefile(snapshot: Model, out_dir: Optional[Path]=None, timeout: int=
     """download full site using single-file"""
 
     out_dir = out_dir or Path(snapshot.snapshot_dir)
-    output = str(out_dir.absolute() / "singlefile.html")
+    output = "singlefile.html"
 
     browser_args = chrome_args(TIMEOUT=0)
 
@@ -54,6 +54,7 @@ def save_singlefile(snapshot: Model, out_dir: Optional[Path]=None, timeout: int=
         browser_args,
         snapshot.url,
         output
+        output,
     ]
 
     status = 'succeeded'
@@ -74,9 +75,9 @@ def save_singlefile(snapshot: Model, out_dir: Optional[Path]=None, timeout: int=
         )
 
         # Check for common failure cases
-        if (result.returncode > 0):
+        if (result.returncode > 0) or not (out_dir / output).is_file():
             raise ArchiveError('SingleFile was not able to archive the page', hints)
-        chmod_file(output)
+        chmod_file(output, cwd=str(out_dir))
     except (Exception, OSError) as err:
         status = 'failed'
         # TODO: Make this prettier. This is necessary to run the command (escape JSON internal quotes).

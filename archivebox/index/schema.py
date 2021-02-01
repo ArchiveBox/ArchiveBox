@@ -413,6 +413,8 @@ class Link:
         """predict the expected output paths that should be present after archiving"""
 
         from ..extractors.wget import wget_output_path
+        # TODO: banish this awful duplication from the codebase and import these
+        # from their respective extractor files
         canonical = {
             'index_path': 'index.html',
             'favicon_path': 'favicon.ico',
@@ -428,6 +430,7 @@ class Link:
             'archive_org_path': 'https://web.archive.org/web/{}'.format(self.base_url),
             'git_path': 'git/',
             'media_path': 'media/',
+            'headers_path': 'headers.json',
         }
         if self.is_static:
             # static binary files like PDF and images are handled slightly differently.

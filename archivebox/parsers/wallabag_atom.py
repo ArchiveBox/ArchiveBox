@@ -47,7 +47,7 @@ def parse_wallabag_atom_export(rss_file: IO[str], **_kwargs) -> Iterable[Model]:
         time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
         try:
             tags = str_between(get_row('category'), 'label="', '" />')
-        except:
+        except Exception:
             tags = None
 
         yield Snapshot(

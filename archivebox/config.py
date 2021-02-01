@@ -27,6 +27,7 @@ import re
 import sys
 import json
 import getpass
+import platform
 import shutil
 import django
 
@@ -51,7 +52,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
     'SHELL_CONFIG': {
         'IS_TTY':                   {'type': bool,  'default': lambda _: sys.stdout.isatty()},
         'USE_COLOR':                {'type': bool,  'default': lambda c: c['IS_TTY']},
-        'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: c['IS_TTY']},
+        'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: (c['IS_TTY'] and platform.system() != 'Darwin')},  # progress bars are buggy on mac, disable for now
         'IN_DOCKER':                {'type': bool,  'default': False},
         # TODO: 'SHOW_HINTS':       {'type:  bool,  'default': True},
     },
@@ -914,7 +915,12 @@ os.umask(0o777 - int(OUTPUT_PERMISSIONS, base=8))  # noqa: F821
 NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]).absolute() / 'node_modules' / '.bin'))
 sys.path.append(NODE_BIN_PATH)
 
-
+# disable stderr "you really shouldnt disable ssl" warnings with library config
+if not CONFIG['CHECK_SSL_VALIDITY']:
+    import urllib3
+    import requests
+    requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 ########################### Config Validity Checkers ###########################

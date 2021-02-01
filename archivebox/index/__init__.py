@@ -2,7 +2,6 @@ __package__ = 'archivebox.index'
 
 import os
 import shutil
-import json as pyjson
 from pathlib import Path
 
 from itertools import chain
@@ -42,6 +41,7 @@ from .html import (
     write_html_snapshot_details,
 )
 from .json import (
+    pyjson,
     load_json_snapshot,
     write_json_snapshot_details,
 )
@@ -320,7 +320,7 @@ def load_snapshot_details(snapshot: Model, out_dir: Optional[str]=None) -> Model
     """
     out_dir = out_dir or Path(snapshot.snapshot_dir)
 
-    existing_snapshot = load_json_snapshot_details(Path(out_dir))
+    existing_snapshot = load_json_snapshot(Path(out_dir))
     if existing_snapshot:
         return merge_snapshots(existing_snapshot, snapshot)
 

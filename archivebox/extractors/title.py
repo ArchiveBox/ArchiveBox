@@ -10,7 +10,6 @@ from django.db.models import Model
 from ..index.schema import ArchiveResult, ArchiveOutput, ArchiveError
 from ..util import (
     enforce_types,
-    is_static_file,
     download_url,
     htmldecode,
 )
@@ -65,11 +64,8 @@ class TitleParser(HTMLParser):
 # output = '{title}'
 
 @enforce_types
-def should_save_title(snapshot: Model, overwrite: Optional[bool]=False, out_dir: Optional[str]=None) -> bool:
-    if is_static_file(snapshot.url):
-        False
-
-    # if snapshot already has valid title, skip it
+def should_save_title(snapshot: Model, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:
+    # if link already has valid title, skip it
     if not overwrite and snapshot.title and not snapshot.title.lower().startswith('http'):
         return False
 
@@ -118,7 +114,11 @@ def save_title(snapshot: Model, out_dir: Optional[Path]=None, timeout: int=TIMEO
                                 .update(title=output)
                 snapshot.title = output
         else:
-            raise ArchiveError('Unable to detect page title')
+            # if no content was returned, dont save a title (because it might be a temporary error)
+            if not html:
+                raise ArchiveError('Unable to detect page title')
+            # output = html[:128]       # use first bit of content as the title
+            output = link.base_url      # use the filename as the title (better UX)
     except Exception as err:
         status = 'failed'
         output = err

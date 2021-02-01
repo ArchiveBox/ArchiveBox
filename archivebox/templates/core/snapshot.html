@@ -33,7 +33,7 @@
             }
             .nav > div {
                 min-height: 30px;
-                margin: 8px 0px;
+                line-height: 1.3;
             }
             .header-top a {
                 text-decoration: none;
@@ -68,6 +68,11 @@
                 vertical-align: -2px;
                 margin-right: 4px;
             }
+            .header-toggle {
+                line-height: 14px;
+                font-size: 70px;
+                vertical-align: -8px;
+            }
             
             .info-row {
                 margin-top: 2px;
@@ -76,24 +81,30 @@
             .info-row .alert {
                 margin-bottom: 0px;
             }
-            .card {
+            .header-bottom-frames .card {
                 overflow: hidden;
                 box-shadow: 2px 3px 14px 0px rgba(0,0,0,0.02);
                 margin-top: 10px;
+                border: 1px solid rgba(0,0,0,3);
+                border-radius: 14px;
+                background-color: black;
             }
             .card h4 {
                 font-size: 1.4vw;
             }
             .card-body {
-                font-size: 1vw;
-                padding-top: 1.2vw;
-                padding-left: 1vw;
-                padding-right: 1vw;
-                padding-bottom: 1vw;
+                font-size: 15px;
+                padding: 13px 10px;
+                padding-bottom: 6px;
+                /* padding-left: 3px; */
+                /* padding-right: 3px; */
+                /* padding-bottom: 3px; */
                 line-height: 1.1;
                 word-wrap: break-word;
                 max-height: 102px;
                 overflow: hidden;
+                background-color: #1a1a1a;
+                color: #d3d3d3;
             }
             .card-title {
                 margin-bottom: 4px;
@@ -126,7 +137,7 @@
                 border-top: 3px solid #aa1e55;
             }
             .card.selected-card {
-                border: 2px solid orange;
+                border: 1px solid orange;
                 box-shadow: 0px -6px 13px 1px rgba(0,0,0,0.05);
             }
             .iframe-large {
@@ -174,12 +185,13 @@
                 width: 98%;
                 border: 1px solid rgba(0,0,0,0.2);
                 box-shadow: 4px 4px 4px rgba(0,0,0,0.2);
-                margin-top: 5px;
+                margin-top: 0px;
             }
             .header-bottom-info {
                 color: #6f6f6f;
-                padding-top: 8px;
-                padding-bottom: 13px;
+                padding-top: 0px;
+                padding-bottom: 0px;
+                margin: 0px -15px;
             }
 
             .header-bottom-info > div {
@@ -203,12 +215,30 @@
                 margin-top: 5px;
             }
             .header-bottom-frames .card-title {
-                padding-bottom: 0px;
-                font-size: 1.2vw;
+                width: 100%;
+                text-align: center;
+                font-size: 18px;
                 margin-bottom: 5px;
+                display: inline-block;
+                color: #d3d3d3;
+                font-weight: 200;
+                vertical-align: 0px;
+                margin-top: -6px;
             }
             .header-bottom-frames .card-text {
+                width: 100%;
+                text-align: center;
                 font-size: 0.9em;
+                display: inline-block;
+                position: relative;
+                top: -11px;
+            }
+            .card-text code {
+                padding: .2rem .4rem;
+                font-size: 90%;
+                color: #bd4147;
+                background-color: #101010;
+                border-radius: .25rem;
             }
 
             @media(max-width: 1092px) {
@@ -247,7 +277,7 @@
                         </a>
                     </div>
                     <div class="col-lg-8">
-                        <img src="favicon.ico" alt="Favicon">
+                        <img src="favicon.ico" onerror="this.style.opacity=0" alt="Favicon">
                         &nbsp;&nbsp;
                         {{title}}
                         &nbsp;&nbsp;
@@ -316,120 +346,145 @@
                     </div>
                 </div>
                 <div class="row header-bottom-frames">
-                    <div class="col-lg-3">
+                    <div class="col-lg-2">
                         <div class="card selected-card">
-                          <iframe class="card-img-top" src="{{archive_url}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
-                          <div class="card-body">
-                                <a href="{{archive_url}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                    <img src="../../static/external.png" class="external"/>
-                                </a>
-                                <a href="{{archive_url}}" target="preview"><h4 class="card-title">Wget &gt; WARC</h4></a>
-                                <p class="card-text">archive/{{domain}}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-3">
-                        <div class="card">
                             <iframe class="card-img-top" src="{{singlefile_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
                             <div class="card-body">
-                                <a href="{{singlefile_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                    <img src="../../static/external.png" class="external"/>
+                                <a href="{{singlefile_path}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <p class="card-text"><code>./singlefile.html</code></p>
                                 </a>
                                 <a href="{{singlefile_path}}" target="preview"><h4 class="card-title">Chrome &gt; SingleFile</h4></a>
-                                <p class="card-text">archive/singlefile.html</p>
                           </div>
                         </div>
                     </div>
-                    <div class="col-lg-3">
-                        <div class="card">
-                            <iframe class="card-img-top" src="{{archive_org_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
-                            <div class="card-body">
-                                <a href="{{archive_org_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                    <img src="../../static/external.png" class="external"/>
-                                </a>
-                                <a href="{{archive_org_path}}" target="preview"><h4 class="card-title">Archive.Org</h4></a>
-                                <p class="card-text">web.archive.org/web/...</p>
-                          </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-3">
-                        <div class="card">
-                            <iframe class="card-img-top" src="{{url}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
-                            <div class="card-body">
-                                <a href="{{url}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                    <img src="../../static/external.png" class="external"/>
-                                </a>
-                                <a href="{{url}}" target="preview"><h4 class="card-title">Original</h4></a>
-                                <p class="card-text">{{domain}}</p>
-                          </div>
-                        </div>
-                    </div>
-                    <br/>
-                    <div class="col-lg-3">
+                    <div class="col-lg-2">
                         <div class="card">
                             <iframe class="card-img-top pdf-frame" src="{{pdf_path}}" scrolling="no"></iframe>
                             <div class="card-body">
-                                <a href="{{pdf_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                    <img src="../../static/external.png" class="external"/>
+                                <a href="{{pdf_path}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <p class="card-text"><code>./output.pdf</code></p>
                                 </a>
                                 <a href="{{pdf_path}}" target="preview" id="pdf-btn"><h4 class="card-title">Chrome &gt; PDF</h4></a>
-                                <p class="card-text">archive/output.pdf</p>
                           </div>
                         </div>
                     </div>
-                    <div class="col-lg-3">
+                    <div class="col-lg-2">
                         <div class="card">
-                            <img class="card-img-top screenshot" src="{{screenshot_path}}"></iframe>
+                            <img class="card-img-top" src="{{screenshot_path}}" onerror="this.style.opacity=0.2"/>
                             <div class="card-body">
-                                <a href="{{screenshot_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                    <img src="../../static/external.png" class="external"/>
+                                <a href="{{screenshot_path}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <p class="card-text"><code>./screenshot.png</code></p>
                                 </a>
                                 <a href="{{screenshot_path}}" target="preview"><h4 class="card-title">Chrome &gt; Screenshot</h4></a>
-                                <p class="card-text">archive/screenshot.png</p>
                           </div>
                         </div>
                     </div>
-                    <div class="col-lg-3">
+                    <div class="col-lg-2">
+                        <div class="card">
+                          <iframe class="card-img-top" src="{{archive_url}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                          <div class="card-body">
+                                <a href="{{archive_url}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <p class="card-text"><code>./{{domain}}</code></p>
+                                </a>
+                                <a href="{{archive_url}}" target="preview"><h4 class="card-title">Wget &gt; HTML</h4></a>
+                            </div>
+                        </div>
+                    </div>
+                    {% if SAVE_ARCHIVE_DOT_ORG %}
+                    <div class="col-lg-2">
+                        <div class="card">
+                            <iframe class="card-img-top" src="{{archive_org_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="{{archive_org_path}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <p class="card-text"><code>🌐 web.archive.org/web/...</code></p>
+                                </a>
+                                <a href="{{archive_org_path}}" target="preview"><h4 class="card-title">Archive.Org</h4></a>
+                          </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="col-lg-2">
+                        <div class="card">
+                            <iframe class="card-img-top" src="{{url}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="{{url}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <p class="card-text"><code>🌐 {{domain}}</code></p>
+                                </a>
+                                <a href="{{url}}" target="preview"><h4 class="card-title">Original</h4></a>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2">
+                        <div class="card">
+                            <iframe class="card-img-top" src="{{headers_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="{{headers_path}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <p class="card-text"><code>./headers.json</code></p>
+                                </a>
+                                <a href="{{headers_path}}" target="preview"><h4 class="card-title">Headers</h4></a>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2">
                         <div class="card">
                             <iframe class="card-img-top" src="{{dom_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
                             <div class="card-body">
-                                <a href="{{dom_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                    <img src="../../static/external.png" class="external"/>
+                                <a href="{{dom_path}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <p class="card-text"><code>./output.html</code></p>
                                 </a>
                                 <a href="{{dom_path}}" target="preview"><h4 class="card-title">Chrome &gt; HTML</h4></a>
-                                <p class="card-text">archive/output.html</p>
                           </div>
                         </div>
                     </div>
-                    <div class="col-lg-3">
+                    <div class="col-lg-2">
                         <div class="card">
                             <iframe class="card-img-top" src="{{readability_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
                             <div class="card-body">
-                                <a href="{{readability_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                    <img src="../../static/external.png" class="external"/>
+                                <a href="{{readability_path}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <p class="card-text"><code>./readability/content.html</code></p>
                                 </a>
                                 <a href="{{readability_path}}" target="preview"><h4 class="card-title">Readability</h4></a>
-                                <p class="card-text">archive/readability/...</p>
                           </div>
                         </div>
                     </div>
                     <br/>
-                    <div class="col-lg-3">
+                    <div class="col-lg-2">
                         <div class="card">
                             <iframe class="card-img-top" src="{{mercury_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
                             <div class="card-body">
-                                <a href="{{mercury_path}}" style="float:right" title="Open in new tab..." target="_blank" rel="noopener">
-                                    <img src="../../static/external.png" class="external"/>
+                                <a href="{{mercury_path}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <p class="card-text"><code>./mercury/content.html</code></p>
                                 </a>
-                                <a href="{{mercury_path}}" target="preview"><h4 class="card-title">mercury</h4></a>
-                                <p class="card-text">archive/mercury/...</p>
+                                <a href="{{mercury_path}}" target="preview"><h4 class="card-title">Mercury</h4></a>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2">
+                        <div class="card">
+                            <iframe class="card-img-top" src="{{media_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="{{media_path}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <p class="card-text"><code>./media/*.mp4</code></p>
+                                </a>
+                                <a href="{{media_path}}" target="preview"><h4 class="card-title">Media</h4></a>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2">
+                        <div class="card">
+                            <iframe class="card-img-top" src="{{git_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <div class="card-body">
+                                <a href="{{git_path}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <p class="card-text"><code>./git/*.git</code></p>
+                                </a>
+                                <a href="{{git_path}}" target="preview"><h4 class="card-title">Git</h4></a>
                           </div>
                         </div>
                     </div>
                 </div>
             </div>
         </header>
-        <iframe sandbox="allow-same-origin allow-scripts allow-forms" class="full-page-iframe" src="{{archive_url}}" name="preview"></iframe>
+        <iframe sandbox="allow-same-origin allow-scripts allow-forms" class="full-page-iframe" src="{{singlefile_path}}" name="preview"></iframe>
     
         <script
               src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
