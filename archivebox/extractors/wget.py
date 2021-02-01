@@ -10,8 +10,6 @@ from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from ..system import run, chmod_file
 from ..util import (
     enforce_types,
-    is_static_file,
-    without_scheme,
     without_fragment,
     without_query,
     path,
@@ -36,10 +34,10 @@ from ..logging_util import TimedProgress
 
 
 @enforce_types
-def should_save_wget(link: Link, out_dir: Optional[Path]=None) -> bool:
+def should_save_wget(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
     output_path = wget_output_path(link)
     out_dir = out_dir or Path(link.link_dir)
-    if output_path and (out_dir / output_path).exists():
+    if not overwrite and output_path and (out_dir / output_path).exists():
         return False
 
     return SAVE_WGET
@@ -66,7 +64,7 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
         *(['--warc-file={}'.format(str(warc_path))] if SAVE_WARC else []),
         *(['--page-requisites'] if SAVE_WGET_REQUISITES else []),
         *(['--user-agent={}'.format(WGET_USER_AGENT)] if WGET_USER_AGENT else []),
-        *(['--load-cookies', COOKIES_FILE] if COOKIES_FILE else []),
+        *(['--load-cookies', str(COOKIES_FILE)] if COOKIES_FILE else []),
         *(['--compression=auto'] if WGET_AUTO_COMPRESSION else []),
         *([] if SAVE_WARC else ['--timestamping']),
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate', '--no-hsts']),
@@ -105,7 +103,12 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
             if b'ERROR 500: Internal Server Error' in result.stderr:
                 raise ArchiveError('500 Internal Server Error', hints)
             raise ArchiveError('Wget failed or got an error from the server', hints)
-        chmod_file(output, cwd=str(out_dir))
+        
+        if (out_dir / output).exists():
+            chmod_file(output, cwd=str(out_dir))
+        else:
+            print(f'          {out_dir}/{output}')
+            raise ArchiveError('Failed to find wget output after running', hints)
     except Exception as err:
         status = 'failed'
         output = err
@@ -129,9 +132,7 @@ def wget_output_path(link: Link) -> Optional[str]:
 
     See docs on wget --adjust-extension (-E)
     """
-    if is_static_file(link.url):
-        return without_scheme(without_fragment(link.url))
-
+    
     # Wget downloads can save in a number of different ways depending on the url:
     #    https://example.com
     #       > example.com/index.html
@@ -175,14 +176,30 @@ def wget_output_path(link: Link) -> Optional[str]:
                 if html_files:
                     return str(html_files[0].relative_to(link.link_dir))
 
+                # sometimes wget'd URLs have no ext and return non-html
+                # e.g. /some/example/rss/all -> some RSS XML content)
+                #      /some/other/url.o4g   -> some binary unrecognized ext)
+                # test this with archivebox add --depth=1 https://getpocket.com/users/nikisweeting/feed/all
+                last_part_of_url = urldecode(full_path.rsplit('/', 1)[-1])
+                for file_present in search_dir.iterdir():
+                    if file_present == last_part_of_url:
+                        return str((search_dir / file_present).relative_to(link.link_dir))
+
         # Move up one directory level
         search_dir = search_dir.parent
 
         if str(search_dir) == link.link_dir:
             break
+
+    # check for literally any file present that isnt an empty folder
+    domain_dir = Path(domain(link.url).replace(":", "+"))
+    files_within = list((Path(link.link_dir) / domain_dir).glob('**/*.*'))
+    if files_within:
+        return str((domain_dir / files_within[-1]).relative_to(link.link_dir))
     
-    search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+") / urldecode(full_path)
-    if not search_dir.is_dir():
-        return str(search_dir.relative_to(link.link_dir))
+    # fallback to just the domain dir
+    search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+")
+    if search_dir.is_dir():
+        return domain(link.url).replace(":", "+")
 
     return None

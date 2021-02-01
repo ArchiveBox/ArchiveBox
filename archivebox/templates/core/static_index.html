@@ -1,9 +1,42 @@
+{% load static %}
+
 <!DOCTYPE html>
 <html lang="en">
     <head>
         <title>Archived Sites</title>
         <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
         <style>
+            :root {
+                --bg-main: #efefef;
+                --accent-1: #aa1e55;
+                --accent-2: #ffebeb;
+                --accent-3: #efefef;
+
+                --text-1: #1c1c1c;
+                --text-2: #eaeaea;
+                --text-main: #1a1a1a;
+                --font-main: "Gill Sans", Helvetica, sans-serif;
+            }
+            /* Dark Mode (WIP) */
+            /*
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --accent-2: hsl(160, 100%, 96%);
+
+                    --text-1: #eaeaea;
+                    --text-2: #1a1a1a;
+                    --bg-main: #101010;
+                }
+
+                #table-bookmarks_wrapper,
+                #table-bookmarks_wrapper img,
+                tbody td:nth-child(3),
+                tbody td:nth-child(3) span,
+                footer {
+                    filter: invert(100%);
+                }
+            }*/
+
             html, body {
                 width: 100%;
                 height: 100%;
@@ -12,11 +45,12 @@
                 text-align: center;
                 margin: 0px;
                 padding: 0px;
-                font-family: "Gill Sans", Helvetica, sans-serif;
+                font-family: var(--font-main);
             }
+
             .header-top small {
                 font-weight: 200;
-                color: #efefef;
+                color: var(--accent-3);
             }
             
             .header-top {
@@ -29,8 +63,8 @@
                 font-size: calc(11px + 0.84vw);
                 font-weight: 200;
                 padding: 4px 4px;
-                border-bottom: 3px solid #aa1e55;
-                background-color: #aa1e55;
+                border-bottom: 3px solid var(--accent-1);
+                background-color: var(--accent-1);
             }
             input[type=search] {
                 width: 22vw;
@@ -84,7 +118,7 @@
                 height: 35px;
             }
             tbody tr:nth-child(odd) {
-               background-color: #ffebeb !important;
+               background-color: var(--accent-2) !important;
             }
             table tr td {
                 white-space: nowrap;
@@ -138,7 +172,7 @@
                 color:black;
             }
             tr td a.title small {
-                background-color: #efefef;
+                background-color: var(--accent-3);
                 border-radius: 4px;
                 float:right
             }
@@ -152,10 +186,10 @@
                 color: black;
             }
         </style>
-        <link rel="stylesheet" href="static/bootstrap.min.css">
-        <link rel="stylesheet" href="static/jquery.dataTables.min.css"/>
-        <script src="static/jquery.min.js"></script>
-        <script src="static/jquery.dataTables.min.js"></script>
+        <link rel="stylesheet" href="{% static 'bootstrap.min.css' %}">
+        <link rel="stylesheet" href="{% static 'jquery.dataTables.min.css' %}"/>
+        <script src="{% static 'jquery.min.js' %}"></script>
+        <script src="{% static 'jquery.dataTables.min.js' %}"></script>
         <script>
             document.addEventListener('error', function(e) {
               e.target.style.opacity = 0;
@@ -175,38 +209,44 @@
             <div class="header-top container-fluid">
                 <div class="row nav">
                     <div class="col-sm-2">
-                        <a href="?" class="header-archivebox" title="Last updated: $time_updated">
-                            <img src="static/archive.png" alt="Logo"/>
-                            ArchiveBox
+                        <a href="/" class="header-archivebox" title="Last updated: {{updated}}">
+                            <img src="{% static 'archive.png' %}" alt="Logo"/>
+                            ArchiveBox: Index
                         </a>
                     </div>
                     <div class="col-sm-10" style="text-align: right">
-                        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Documentation</a> &nbsp; | &nbsp; 
-                        <a href="https://github.com/ArchiveBox/ArchiveBox">Source</a> &nbsp; | &nbsp; 
-                        <a href="https://archivebox.io">Website</a>
+                        <a href="/add/">Add Links</a> &nbsp; | &nbsp; 
+                        <a href="/admin/core/snapshot/">Admin</a> &nbsp; | &nbsp; 
+                        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Docs</a>
                     </div>
                 </div>
             </div>
         </header>
+        
         <table id="table-bookmarks">
             <thead>
-                <tr class="thead-tr">
+                <tr>
                     <th style="width: 100px;">Bookmarked</th>
-                    <th style="width: 26vw;">Snapshot ($num_links)</th>
+                    <th style="width: 26vw;">Saved Link ({{num_links}})</th>
                     <th style="width: 50px">Files</th>
                     <th style="width: 16vw;whitespace:nowrap;overflow-x:hidden;">Original URL</th>
                 </tr>
             </thead>
-            <tbody>$rows</tbody>
+            <tbody>
+                {% for link in links %}
+                   {% include 'index_row.html' with link=link %}
+                {% endfor %}
+            </tbody>
         </table>
         <footer>
             <br/>
             <center>
                 <small>
-                    Created using <a href="https://github.com/ArchiveBox/ArchiveBox" title="Github">ArchiveBox</a>
-                    version <a href="https://github.com/ArchiveBox/ArchiveBox/releases" title="Releases">v$version</a>.
+                    Archive created using <a href="https://github.com/ArchiveBox/ArchiveBox" title="Github">ArchiveBox</a>
+                    version <a href="https://github.com/ArchiveBox/ArchiveBox/tree/v{{version}}" title="Git commit">v{{version}}</a> &nbsp; | &nbsp; 
+                    Download index as <a href="index.json" title="JSON summary of archived links.">JSON</a>
                     <br/><br/>
-                    $footer_info
+                    {{FOOTER_INFO}}
                 </small>
             </center>
             <br/>

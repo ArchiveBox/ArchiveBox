@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import List, Optional, Iterator, Mapping
 from pathlib import Path
 
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 from collections import defaultdict
 
 from .schema import Link
@@ -23,11 +23,12 @@ from ..config import (
     GIT_SHA,
     FOOTER_INFO,
     HTML_INDEX_FILENAME,
+    SAVE_ARCHIVE_DOT_ORG,
 )
 
-MAIN_INDEX_TEMPLATE = 'main_index.html'
-MINIMAL_INDEX_TEMPLATE = 'main_index_minimal.html'
-LINK_DETAILS_TEMPLATE = 'link_details.html'
+MAIN_INDEX_TEMPLATE = 'static_index.html'
+MINIMAL_INDEX_TEMPLATE = 'minimal_index.html'
+LINK_DETAILS_TEMPLATE = 'snapshot.html'
 TITLE_LOADING_MSG = 'Not yet archived...'
 
 
@@ -103,6 +104,7 @@ def link_details_template(link: Link) -> str:
         'status': 'archived' if link.is_archived else 'not yet archived',
         'status_color': 'success' if link.is_archived else 'danger',
         'oldest_archive_date': ts_to_date(link.oldest_archive_date),
+        'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
     })
 
 @enforce_types
@@ -116,12 +118,14 @@ def render_django_template(template: str, context: Mapping[str, str]) -> str:
 def snapshot_icons(snapshot) -> str:
     from core.models import EXTRACTORS
 
+    # start = datetime.now()
+
     archive_results = snapshot.archiveresult_set.filter(status="succeeded")
     link = snapshot.as_link()
     path = link.archive_path
     canon = link.canonical_outputs()
     output = ""
-    output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{} </a>'
+    output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{}</a> &nbsp;'
     icons = {
         "singlefile": "❶",
         "wget": "🆆",
@@ -138,27 +142,45 @@ def snapshot_icons(snapshot) -> str:
     exclude = ["favicon", "title", "headers", "archive_org"]
     # Missing specific entry for WARC
 
-    extractor_items = defaultdict(lambda: None)
+    extractor_outputs = defaultdict(lambda: None)
     for extractor, _ in EXTRACTORS:
         for result in archive_results:
-            if result.extractor == extractor:
-                extractor_items[extractor] = result
+            if result.extractor == extractor and result:
+                extractor_outputs[extractor] = result
 
     for extractor, _ in EXTRACTORS:
         if extractor not in exclude:
-            exists = extractor_items[extractor] is not None
-            output += output_template.format(path, canon[f"{extractor}_path"], str(exists),
-                                             extractor, icons.get(extractor, "?"))
+            existing = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
+            # Check filesystsem to see if anything is actually present (too slow, needs optimization/caching)
+            # if existing:
+            #     existing = (Path(path) / existing)
+            #     if existing.is_file():
+            #         existing = True
+            #     elif existing.is_dir():
+            #         existing = any(existing.glob('*.*'))
+            output += format_html(output_template, path, canon[f"{extractor}_path"], str(bool(existing)),
+                                         extractor, icons.get(extractor, "?"))
         if extractor == "wget":
             # warc isn't technically it's own extractor, so we have to add it after wget
-            exists = list((Path(path) / canon["warc_path"]).glob("*.warc.gz"))
-            output += output_template.format(exists[0] if exists else '#', canon["warc_path"], str(bool(exists)), "warc", icons.get("warc", "?"))
+            
+            # get from db (faster but less thurthful)
+            exists = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
+            # get from filesystem (slower but more accurate)
+            # exists = list((Path(path) / canon["warc_path"]).glob("*.warc.gz"))
+            output += format_html(output_template, 'warc/', canon["warc_path"], str(bool(exists)), "warc", icons.get("warc", "?"))
 
         if extractor == "archive_org":
             # The check for archive_org is different, so it has to be handled separately
-            target_path = Path(path) / "archive.org.txt"
-            exists = target_path.exists()
+
+            # get from db (faster)
+            exists = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
+            # get from filesystem (slower)
+            # target_path = Path(path) / "archive.org.txt"
+            # exists = target_path.exists()
             output += '<a href="{}" class="exists-{}" title="{}">{}</a> '.format(canon["archive_org_path"], str(exists),
                                                                                         "archive_org", icons.get("archive_org", "?"))
 
-    return format_html(f'<span class="files-icons" style="font-size: 1.1em; opacity: 0.8">{output}<span>')
+    result = format_html('<span class="files-icons" style="font-size: 1.1em; opacity: 0.8; min-width: 240px; display: inline-block">{}<span>', mark_safe(output))
+    # end = datetime.now()
+    # print(((end - start).total_seconds()*1000) // 1, 'ms')
+    return result

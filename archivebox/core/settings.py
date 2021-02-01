@@ -11,7 +11,6 @@ from ..config import (                                                          
     SECRET_KEY,
     ALLOWED_HOSTS,
     PACKAGE_DIR,
-    ACTIVE_THEME,
     TEMPLATES_DIR_NAME,
     SQL_INDEX_FILENAME,
     OUTPUT_DIR,
@@ -33,6 +32,8 @@ LOGIN_URL = '/accounts/login/'
 LOGOUT_REDIRECT_URL = '/'
 PASSWORD_RESET_URL = '/accounts/password_reset/'
 APPEND_SLASH = True
+
+DEBUG = DEBUG or ('--debug' in sys.argv)
 
 INSTALLED_APPS = [
     'django.contrib.auth',
@@ -69,13 +70,12 @@ AUTHENTICATION_BACKENDS = [
 STATIC_URL = '/static/'
 
 STATICFILES_DIRS = [
-    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / ACTIVE_THEME / 'static'),
-    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'default' / 'static'),
+    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'static'),
 ]
 
 TEMPLATE_DIRS = [
-    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / ACTIVE_THEME),
-    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'default'),
+    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'core'),
+    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'admin'),
     str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME),
 ]
 
@@ -101,7 +101,7 @@ TEMPLATES = [
 ################################################################################
 
 DATABASE_FILE = Path(OUTPUT_DIR) / SQL_INDEX_FILENAME
-DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", DATABASE_FILE)
+DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(DATABASE_FILE))
 
 DATABASES = {
     'default': {

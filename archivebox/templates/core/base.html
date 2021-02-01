@@ -1,0 +1,84 @@
+{% load admin_urls %}
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Archived Sites</title>
+    <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'admin.css' %}">
+    <link rel="stylesheet" href="{% static 'bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'jquery.dataTables.min.css' %}" />
+            {% block extra_head %}
+            {% endblock %}
+    <script src="{% static 'jquery.min.js' %}"></script>
+    <script src="{% static 'jquery.dataTables.min.js' %}"></script>
+    <script>
+        document.addEventListener('error', function (e) {
+            e.target.style.opacity = 0;
+        }, true)
+        jQuery(document).ready(function () {
+            jQuery('#table-bookmarks').DataTable({
+                searching: false,
+                paging: false,
+                stateSave: true, // save state (filtered input, number of entries shown, etc) in localStorage
+                dom: '<lf<t>ip>', // how to show the table and its helpers (filter, etc) in the DOM
+                    order: [[0, 'desc']],
+                    iDisplayLength: 100,
+                });
+            });
+        </script>
+        <base href="{% url 'Home' %}">
+    </head>
+    <body>
+        <div id="container">
+            <div id="header">
+                <div id="branding">
+                    <h1 id="site-name">
+                        <a href="{% url 'public-index' %}" class="header-archivebox" title="Last updated: {{updated}}">
+                            <img src="{% static 'archive.png' %}" alt="Logo" style="height: 30px"/>
+                            ArchiveBox
+                        </a>
+                    </h1>
+                </div>
+                <div id="user-tools">
+                    <a href="/add/">➕&nbsp; Add</a> &nbsp;/&nbsp;
+                    <a href="/">Snapshots</a> &nbsp;/&nbsp;
+                    <a href="/admin/">Admin</a> &nbsp;/&nbsp;
+                    <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Docs</a>
+                    {% if user.is_authenticated %}
+                        &nbsp; &nbsp;
+                        User
+                        <strong>{% firstof user.get_short_name user.get_username %}</strong> &nbsp; &nbsp;
+                        {% if user.has_usable_password %}
+                            <a href="{% url 'admin:password_change' %}">Change password</a> /
+                        {% endif %}
+                        <a href="{% url 'admin:logout' %}">Log out</a>
+                    {% endif %}
+                </div>
+            </div>
+            <div id="content" class="flex">
+                {% block body %}
+                {% endblock %}
+            </div>
+            {% block footer %}
+                <footer>
+                    <br />
+                    <center>
+                        <small>
+                            Archive created using <a href="https://github.com/ArchiveBox/ArchiveBox" title="Github">ArchiveBox</a> version
+                            <a href="https://github.com/ArchiveBox/ArchiveBox/releases" title="Releases">v{{VERSION}}</a>.
+                            <br/><br/>
+                            {{FOOTER_INFO}}
+                        </small>
+                    </center>
+                    <br />
+                </footer>
+            {% endblock %}
+        </div>
+    </body>
+    
+    </html>

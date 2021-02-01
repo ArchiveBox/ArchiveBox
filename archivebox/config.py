@@ -27,6 +27,7 @@ import re
 import sys
 import json
 import getpass
+import platform
 import shutil
 import django
 
@@ -51,7 +52,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
     'SHELL_CONFIG': {
         'IS_TTY':                   {'type': bool,  'default': lambda _: sys.stdout.isatty()},
         'USE_COLOR':                {'type': bool,  'default': lambda c: c['IS_TTY']},
-        'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: c['IS_TTY']},
+        'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: (c['IS_TTY'] and platform.system() != 'Darwin')},  # progress bars are buggy on mac, disable for now
         'IN_DOCKER':                {'type': bool,  'default': False},
         # TODO: 'SHOW_HINTS':       {'type:  bool,  'default': True},
     },
@@ -76,7 +77,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'PUBLIC_SNAPSHOTS':         {'type': bool,  'default': True},
         'PUBLIC_ADD_VIEW':          {'type': bool,  'default': False},
         'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
-        'ACTIVE_THEME':             {'type': str,   'default': 'default'},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
@@ -116,16 +116,15 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--write-annotations',
                                                                 '--write-thumbnail',
                                                                 '--no-call-home',
-                                                                '--user-agent',
                                                                 '--all-subs',
-                                                                '--extract-audio',
-                                                                '--keep-video',
+                                                                '--yes-playlist',
+                                                                '--continue',
                                                                 '--ignore-errors',
                                                                 '--geo-bypass',
-                                                                '--audio-format', 'mp3',
-                                                                '--audio-quality', '320K',
-                                                                '--embed-thumbnail',
-                                                                '--add-metadata']},
+                                                                '--add-metadata',
+                                                                '--max-filesize=750m',
+                                                                ]},
+                                                                    
 
         'WGET_ARGS':                {'type': list,  'default': ['--no-verbose',
                                                                 '--adjust-extension',
@@ -205,12 +204,11 @@ def get_real_name(key: str) -> str:
 ################################ Constants #####################################
 
 PACKAGE_DIR_NAME = 'archivebox'
-TEMPLATES_DIR_NAME = 'themes'
+TEMPLATES_DIR_NAME = 'templates'
 
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
 LOGS_DIR_NAME = 'logs'
-STATIC_DIR_NAME = 'static'
 SQL_INDEX_FILENAME = 'index.sqlite3'
 JSON_INDEX_FILENAME = 'index.json'
 HTML_INDEX_FILENAME = 'index.html'
@@ -703,7 +701,7 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
         'TEMPLATES_DIR': {
             'path': (config['TEMPLATES_DIR']).resolve(),
             'enabled': True,
-            'is_valid': (config['TEMPLATES_DIR'] / config['ACTIVE_THEME'] / 'static').exists(),
+            'is_valid': (config['TEMPLATES_DIR'] / 'static').exists(),
         },
         # 'NODE_MODULES_DIR': {
         #     'path': ,
@@ -775,7 +773,7 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'version': config['PYTHON_VERSION'],
             'hash': bin_hash(config['PYTHON_BINARY']),
             'enabled': True,
-            'is_valid': bool(config['DJANGO_VERSION']),
+            'is_valid': bool(config['PYTHON_VERSION']),
         },
         'DJANGO_BINARY': {
             'path': bin_path(config['DJANGO_BINARY']),
@@ -787,7 +785,7 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
         'CURL_BINARY': {
             'path': bin_path(config['CURL_BINARY']),
             'version': config['CURL_VERSION'],
-            'hash': bin_hash(config['PYTHON_BINARY']),
+            'hash': bin_hash(config['CURL_BINARY']),
             'enabled': config['USE_CURL'],
             'is_valid': bool(config['CURL_VERSION']),
         },
@@ -803,7 +801,7 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'version': config['NODE_VERSION'],
             'hash': bin_hash(config['NODE_BINARY']),
             'enabled': config['USE_NODE'],
-            'is_valid': bool(config['SINGLEFILE_VERSION']),
+            'is_valid': bool(config['NODE_VERSION']),
         },
         'SINGLEFILE_BINARY': {
             'path': bin_path(config['SINGLEFILE_BINARY']),
@@ -917,7 +915,12 @@ os.umask(0o777 - int(OUTPUT_PERMISSIONS, base=8))  # noqa: F821
 NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]).absolute() / 'node_modules' / '.bin'))
 sys.path.append(NODE_BIN_PATH)
 
-
+# disable stderr "you really shouldnt disable ssl" warnings with library config
+if not CONFIG['CHECK_SSL_VALIDITY']:
+    import urllib3
+    import requests
+    requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 ########################### Config Validity Checkers ###########################

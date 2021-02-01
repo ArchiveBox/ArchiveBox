@@ -79,7 +79,6 @@ from .config import (
     ARCHIVE_DIR_NAME,
     SOURCES_DIR_NAME,
     LOGS_DIR_NAME,
-    STATIC_DIR_NAME,
     JSON_INDEX_FILENAME,
     HTML_INDEX_FILENAME,
     SQL_INDEX_FILENAME,
@@ -125,10 +124,10 @@ ALLOWED_IN_OUTPUT_DIR = {
     '.virtualenv',
     'node_modules',
     'package-lock.json',
+    'static',
     ARCHIVE_DIR_NAME,
     SOURCES_DIR_NAME,
     LOGS_DIR_NAME,
-    STATIC_DIR_NAME,
     SQL_INDEX_FILENAME,
     JSON_INDEX_FILENAME,
     HTML_INDEX_FILENAME,
@@ -1060,6 +1059,7 @@ def server(runserver_args: Optional[List[str]]=None,
            reload: bool=False,
            debug: bool=False,
            init: bool=False,
+           createsuperuser: bool=False,
            out_dir: Path=OUTPUT_DIR) -> None:
     """Run the ArchiveBox HTTP server"""
 
@@ -1067,6 +1067,9 @@ def server(runserver_args: Optional[List[str]]=None,
     
     if init:
         run_subcommand('init', stdin=None, pwd=out_dir)
+
+    if createsuperuser:
+        run_subcommand('manage', subcommand_args=['createsuperuser'], pwd=out_dir)
 
     # setup config for django runserver
     from . import config

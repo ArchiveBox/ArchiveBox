@@ -200,7 +200,13 @@ def get_headers(url: str, timeout: int=None) -> str:
             stream=True
         )
     
-    return pyjson.dumps(dict(response.headers), indent=4)
+    return pyjson.dumps(
+        {
+            'Status-Code': response.status_code,
+            **dict(response.headers),
+        },
+        indent=4,
+    )
 
 
 @enforce_types

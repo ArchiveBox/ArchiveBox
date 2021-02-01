@@ -1,9 +1,7 @@
 name: Build Docker image
 
 on:
-  push:
-    branches:
-      - master
+  on: workflow_dispatch
   release:
     types:
       - created
@@ -16,12 +14,6 @@ jobs:
   buildx:
     runs-on: ubuntu-latest
     steps:
-      - name: Docker Login
-        uses: docker/login-action@v1
-        with:
-           username: ${{ secrets.DOCKER_USERNAME }}
-           password: ${{ secrets.DOCKER_PASSWORD }}
-      
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -51,6 +43,23 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
+
+      - name: Docker Login
+        uses: docker/login-action@v1
+        if: github.event_name != 'pull_request'
+        with:
+           username: ${{ secrets.DOCKER_USERNAME }}
+           password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Collect Docker tags
+        id: docker_meta
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          images: archivebox/archivebox,nikisweeting/archivebox
+          tag-sha: true
+          tag-semver: |
+            {{version}}
+            {{major}}.{{minor}}
       
       - name: Build and push
         id: docker_build
@@ -59,15 +68,11 @@ jobs:
           context: ./
           file: ./Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/archivebox:latest
-            ${{ secrets.DOCKER_USERNAME }}/archivebox:${{ github.sha }}
-            archivebox/archivebox:latest
-            archivebox/archivebox:${{ github.sha }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.docker_meta.outputs.tags }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
-      
+          platforms: linux/amd64,linux/386,linux/arm64,linux/arm/v7
+
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}

@@ -8,7 +8,6 @@ from typing import Optional
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from ..util import (
     enforce_types,
-    is_static_file,
     download_url,
     htmldecode,
 )
@@ -61,12 +60,9 @@ class TitleParser(HTMLParser):
 
 
 @enforce_types
-def should_save_title(link: Link, out_dir: Optional[str]=None) -> bool:
+def should_save_title(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:
     # if link already has valid title, skip it
-    if link.title and not link.title.lower().startswith('http'):
-        return False
-
-    if is_static_file(link.url):
+    if not overwrite and link.title and not link.title.lower().startswith('http'):
         return False
 
     return SAVE_TITLE
@@ -113,7 +109,11 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
                                         timestamp=link.timestamp)\
                                 .update(title=output)
         else:
-            raise ArchiveError('Unable to detect page title')
+            # if no content was returned, dont save a title (because it might be a temporary error)
+            if not html:
+                raise ArchiveError('Unable to detect page title')
+            # output = html[:128]       # use first bit of content as the title
+            output = link.base_url      # use the filename as the title (better UX)
     except Exception as err:
         status = 'failed'
         output = err

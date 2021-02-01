@@ -1,4 +1,4 @@
-name: Build pip package
+name: Build Pip package
 
 on:
   workflow_dispatch:

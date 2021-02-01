@@ -11,17 +11,28 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
 from django import forms
 
+from ..util import htmldecode, urldecode, ansi_to_html
+
 from core.models import Snapshot, Tag
 from core.forms import AddLinkForm, TagField
 
 from core.mixins import SearchResultsAdminMixin
 
 from index.html import snapshot_icons
-from util import htmldecode, urldecode, ansi_to_html
 from logging_util import printable_filesize
 from main import add, remove
 from config import OUTPUT_DIR
 from extractors import archive_links
+
+# Admin URLs
+# /admin/
+# /admin/login/
+# /admin/core/
+# /admin/core/snapshot/
+# /admin/core/snapshot/:uuid/
+# /admin/core/tag/
+# /admin/core/tag/:uuid/
+
 
 # TODO: https://stackoverflow.com/questions/40760880/add-custom-button-to-django-admin-panel
 
@@ -88,13 +99,14 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     list_display = ('added', 'title_str', 'url_str', 'files', 'size')
     sort_fields = ('title_str', 'url_str', 'added')
     readonly_fields = ('id', 'url', 'timestamp', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
-    search_fields = ['url', 'timestamp', 'title', 'tags__name']
+    search_fields = ['url__icontains', 'timestamp', 'title', 'tags__name']
     fields = (*readonly_fields, 'title', 'tags')
     list_filter = ('added', 'updated', 'tags')
     ordering = ['-added']
     actions = [delete_snapshots, overwrite_snapshots, update_snapshots, update_titles, verify_snapshots]
     actions_template = 'admin/actions_as_select.html'
     form = SnapshotAdminForm
+    list_per_page = 40
 
     def get_urls(self):
         urls = super().get_urls()
@@ -170,7 +182,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
         saved_list_max_show_all = self.list_max_show_all
 
         # Monkey patch here plus core_tags.py
-        self.change_list_template = 'admin/grid_change_list.html'
+        self.change_list_template = 'private_index_grid.html'
         self.list_per_page = 20
         self.list_max_show_all = self.list_per_page
 
@@ -248,7 +260,7 @@ class ArchiveBoxAdmin(admin.AdminSite):
             else:
                 context["form"] = form
 
-        return render(template_name='add_links.html', request=request, context=context)
+        return render(template_name='add.html', request=request, context=context)
 
 admin.site = ArchiveBoxAdmin()
 admin.site.register(get_user_model())

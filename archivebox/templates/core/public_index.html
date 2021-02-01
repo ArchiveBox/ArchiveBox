@@ -2,13 +2,21 @@
 {% load static %}
 
 {% block body %}
-    <br>
-    <form action="{% url 'public-index' %}" method="get">
-        <input name="q" type="text" placeholder="Search...">
-        <button type="submit">Search</button>
-        <button onclick="location.href='{% url 'public-index' %}'" type="button">
-            Reload Index</button>
-    </form>
+    <div id="toolbar">
+        <form id="changelist-search" action="{% url 'public-index' %}" method="get">
+            <div>
+                <label for="searchbar"><img src="/static/admin/img/search.svg" alt="Search"></label>
+                <input type="text" size="40" name="q" value="" id="searchbar" autofocus placeholder="Title, URL, tags, timestamp, or content...".>
+                <input type="submit" value="Search" style="height: 36px; padding-top: 6px; margin: 8px"/>
+                <input type="button"
+                       value="♺"
+                       title="Refresh..."
+                       onclick="location.href='{% url 'public-index' %}'"
+                       style="background-color: rgba(121, 174, 200, 0.8); height: 30px; font-size: 0.8em; margin-top: 12px; padding-top: 6px; float:right">
+                </input>
+            </div>
+        </form>
+    </div>
     <table id="table-bookmarks">
         <thead>
             <tr>
@@ -20,7 +28,7 @@
         </thead>
             <tbody>
                 {% for link in object_list %}
-                    {% include 'main_index_row.html' with link=link  %}
+                    {% include 'index_row.html' with link=link  %}
                 {% endfor %}
             </tbody>
         </table>

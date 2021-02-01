@@ -43,6 +43,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         action='store_true',
         help='Run archivebox init before starting the server',
     )
+    parser.add_argument(
+        '--createsuperuser',
+        action='store_true',
+        help='Run archivebox manage createsuperuser before starting the server',
+    )
     command = parser.parse_args(args or ())
     reject_stdin(__command__, stdin)
     
@@ -51,6 +56,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         reload=command.reload,
         debug=command.debug,
         init=command.init,
+        createsuperuser=command.createsuperuser,
         out_dir=pwd or OUTPUT_DIR,
     )
 

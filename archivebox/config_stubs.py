@@ -50,7 +50,6 @@ class ConfigDict(BaseConfig, total=False):
     PUBLIC_INDEX: bool
     PUBLIC_SNAPSHOTS: bool
     FOOTER_INFO: str
-    ACTIVE_THEME: str
 
     SAVE_TITLE: bool
     SAVE_FAVICON: bool

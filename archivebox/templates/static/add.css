@@ -1,3 +1,13 @@
+header {
+    font-family: "Roboto","Lucida Grande","DejaVu Sans","Bitstream Vera Sans",Verdana,Arial,sans-serif;
+    font-size: 13px;
+    color: white;
+    height: 30px;
+}
+.header-top {
+  color: white;
+}
+
 .dashboard #content {
   width: 100%;
   margin-right: 0px;
@@ -60,3 +70,21 @@ ul#id_depth {
   box-sizing: border-box;
   animation: spin 2s linear infinite;
 }
+
+
+textarea, select {
+  border-radius: 4px;
+  border: 2px solid #004882;
+  box-shadow:  4px 4px 4px rgba(0,0,0,0.02);
+  width: 100%;
+}
+
+select option:not(:checked) {
+  border: 1px dashed rgba(10,200,20,0.12);
+}
+select option:checked {
+  border: 1px solid green;
+  background-color: green;
+  color: green;
+}
+
