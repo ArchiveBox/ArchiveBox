@@ -10,7 +10,6 @@ from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from ..system import run, chmod_file
 from ..util import (
     enforce_types,
-    is_static_file,
     without_scheme,
     without_fragment,
     without_query,
@@ -193,8 +192,7 @@ def wget_output_path(link: Link) -> Optional[str]:
         if str(search_dir) == link.link_dir:
             break
 
-    # check for staticfiles
-    base_url = without_scheme(without_fragment(link.url))
+    # check for literally any file present that isnt an empty folder
     domain_dir = Path(domain(link.url).replace(":", "+"))
     files_within = list((Path(link.link_dir) / domain_dir).glob('**/*.*'))
     if files_within:

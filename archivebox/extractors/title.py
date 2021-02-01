@@ -8,7 +8,6 @@ from typing import Optional
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from ..util import (
     enforce_types,
-    is_static_file,
     download_url,
     htmldecode,
 )
