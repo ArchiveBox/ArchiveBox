@@ -150,24 +150,33 @@ def snapshot_icons(snapshot) -> str:
 
     for extractor, _ in EXTRACTORS:
         if extractor not in exclude:
-            outpath = extractor_outputs[extractor] and extractor_outputs[extractor].output
-            if outpath:
-                outpath = (Path(path) / outpath)
-                if outpath.is_file():
-                    exists = True
-                elif outpath.is_dir():
-                    exists = any(outpath.glob('*.*'))
-            output += format_html(output_template, path, canon[f"{extractor}_path"], str(bool(outpath)),
+            existing = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
+            # Check filesystsem to see if anything is actually present (too slow, needs optimization/caching)
+            # if existing:
+            #     existing = (Path(path) / existing)
+            #     if existing.is_file():
+            #         existing = True
+            #     elif existing.is_dir():
+            #         existing = any(existing.glob('*.*'))
+            output += format_html(output_template, path, canon[f"{extractor}_path"], str(bool(existing)),
                                          extractor, icons.get(extractor, "?"))
         if extractor == "wget":
             # warc isn't technically it's own extractor, so we have to add it after wget
-            exists = list((Path(path) / canon["warc_path"]).glob("*.warc.gz"))
-            output += format_html(output_template, exists[0] if exists else '#', canon["warc_path"], str(bool(exists)), "warc", icons.get("warc", "?"))
+            
+            # get from db (faster but less thurthful)
+            exists = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
+            # get from filesystem (slower but more accurate)
+            # exists = list((Path(path) / canon["warc_path"]).glob("*.warc.gz"))
+            output += format_html(output_template, 'warc/', canon["warc_path"], str(bool(exists)), "warc", icons.get("warc", "?"))
 
         if extractor == "archive_org":
             # The check for archive_org is different, so it has to be handled separately
-            target_path = Path(path) / "archive.org.txt"
-            exists = target_path.exists()
+
+            # get from db (faster)
+            exists = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
+            # get from filesystem (slower)
+            # target_path = Path(path) / "archive.org.txt"
+            # exists = target_path.exists()
             output += '<a href="{}" class="exists-{}" title="{}">{}</a> '.format(canon["archive_org_path"], str(exists),
                                                                                         "archive_org", icons.get("archive_org", "?"))
 
