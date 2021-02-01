@@ -19,6 +19,7 @@ cd "$REPO_DIR"
 echo "[^] Uploading docker image"
 # docker login --username=nikisweeting
 # docker login docker.pkg.github.com --username=pirate
+docker push archivebox/archivebox:$VERSION archivebox/archivebox:$SHORT_VERSION archivebox/archivebox:latest
 docker push docker.io/nikisweeting/archivebox
 docker push docker.io/archivebox/archivebox
 docker push docker.pkg.github.com/archivebox/archivebox/archivebox

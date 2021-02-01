@@ -62,7 +62,7 @@ RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add -
     && echo 'deb https://deb.nodesource.com/node_15.x buster main' >> /etc/apt/sources.list \
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
-        nodejs \
+        nodejs npm \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node dependencies
