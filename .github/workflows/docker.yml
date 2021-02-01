@@ -1,10 +1,13 @@
 name: Build Docker image
 
 on:
-  on: workflow_dispatch
-  release:
-    types:
-      - created
+  workflow_dispatch:
+  push:
+    branches:
+      - '**'
+    tags:
+      - 'v*'
+  # pull_request:
 
 env:
   DOCKER_IMAGE: archivebox-ci

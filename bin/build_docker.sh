@@ -17,7 +17,7 @@ cd "$REPO_DIR"
 
 which docker > /dev/null
 
-echo "[+] Building docker image in the background..."
+echo "[+] Building archivebox:$VERSION docker image..."
 docker build . -t archivebox \
                -t archivebox:latest \
                -t archivebox:$VERSION \
@@ -28,6 +28,6 @@ docker build . -t archivebox \
                -t docker.io/archivebox/archivebox:latest \
                -t docker.io/archivebox/archivebox:$VERSION \
                -t docker.io/archivebox/archivebox:$SHORT_VERSION \
-               -t docker.pkg.github.com/pirate/archivebox/archivebox:latest \
-               -t docker.pkg.github.com/pirate/archivebox/archivebox:$VERSION \
-               -t docker.pkg.github.com/pirate/archivebox/archivebox:$SHORT_VERSION
+               -t docker.pkg.github.com/archivebox/archivebox/archivebox:latest \
+               -t docker.pkg.github.com/archivebox/archivebox/archivebox:$VERSION \
+               -t docker.pkg.github.com/archivebox/archivebox/archivebox:$SHORT_VERSION
