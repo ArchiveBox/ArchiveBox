@@ -10,7 +10,6 @@ from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from ..system import run, chmod_file
 from ..util import (
     enforce_types,
-    without_scheme,
     without_fragment,
     without_query,
     path,
