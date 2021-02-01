@@ -263,7 +263,9 @@ def run(subcommand: str,
 @enforce_types
 def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
+    
     from core.models import Snapshot
+
     Path(out_dir).mkdir(exist_ok=True)
     is_empty = not len(set(os.listdir(out_dir)) - ALLOWED_IN_OUTPUT_DIR)
 

@@ -47,8 +47,8 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
                 f.write(contents)
     except OSError as e:
         print(f"[X] OSError: Failed to write {path} with fcntl.F_FULLFSYNC. ({e})")
-        print("    For data integrity, ArchiveBox requires a filesystem that supports atomic writes.")
-        print("    Filesystems and network drives that don't implement FSYNC are incompatible and require workarounds.")
+        print("    You can store the archive/ subfolder on a hard drive or network share that doesn't support support syncronous writes,")
+        print("    but the main folder containing the index.sqlite3 and ArchiveBox.conf files must be on a filesystem that supports FSYNC.")
         raise SystemExit(1)
     os.chmod(path, int(OUTPUT_PERMISSIONS, base=8))
 

@@ -1,5 +1,6 @@
 import json
 import setuptools
+from setuptools.command.test import test
 
 from pathlib import Path
 
@@ -30,6 +31,13 @@ VERSION = json.loads((PACKAGE_DIR / "package.json").read_text().strip())['versio
 # import sys
 # print(PACKAGE_DIR, f"     (v{VERSION})")
 # print('>', sys.executable, *sys.argv)
+
+
+class CustomTest(test):
+    def run(self):
+        # setup.py test is deprecated, disable it here by force so stdeb doesnt run it
+        #super().run()
+        pass
 
 
 setuptools.setup(
@@ -120,4 +128,7 @@ setuptools.setup(
         "Framework :: Django",
         "Typing :: Typed",
     ],
+    cmdclass={
+        "test": CustomTest,
+    },
 )
