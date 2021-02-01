@@ -118,6 +118,8 @@ def render_django_template(template: str, context: Mapping[str, str]) -> str:
 def snapshot_icons(snapshot) -> str:
     from core.models import EXTRACTORS
 
+    # start = datetime.now()
+
     archive_results = snapshot.archiveresult_set.filter(status="succeeded")
     link = snapshot.as_link()
     path = link.archive_path
@@ -169,4 +171,7 @@ def snapshot_icons(snapshot) -> str:
             output += '<a href="{}" class="exists-{}" title="{}">{}</a> '.format(canon["archive_org_path"], str(exists),
                                                                                         "archive_org", icons.get("archive_org", "?"))
 
-    return format_html('<span class="files-icons" style="font-size: 1.1em; opacity: 0.8; min-width: 240px; display: inline-block">{}<span>', mark_safe(output))
+    result = format_html('<span class="files-icons" style="font-size: 1.1em; opacity: 0.8; min-width: 240px; display: inline-block">{}<span>', mark_safe(output))
+    # end = datetime.now()
+    # print(((end - start).total_seconds()*1000) // 1, 'ms')
+    return result

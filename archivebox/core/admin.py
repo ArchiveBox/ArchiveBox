@@ -106,6 +106,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     actions = [delete_snapshots, overwrite_snapshots, update_snapshots, update_titles, verify_snapshots]
     actions_template = 'admin/actions_as_select.html'
     form = SnapshotAdminForm
+    list_per_page = 40
 
     def get_urls(self):
         urls = super().get_urls()
