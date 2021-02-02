@@ -83,7 +83,7 @@ archivebox help
 <br/><br/>
 <img src="https://i.imgur.com/njxgSbl.png" width="22%" alt="cli init screenshot" align="top">
 <img src="https://i.imgur.com/p6wK6KM.png" width="22%" alt="server snapshot admin screenshot" align="top">
-<img src="https://i.imgur.com/RefWsXB.jpg" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
+<img src="https://i.imgur.com/xHvQfon.png" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
 <br/>
 <br/>
 <img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/><img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/>
@@ -445,7 +445,7 @@ archivebox add 'https://example.com#2020-10-25'
 <img src="https://i.imgur.com/p6wK6KM.png" alt="archivebox server list">
 </td>
 <td>
-<img src="https://i.imgur.com/pzq4uXq.png" alt="archivebox server detail">
+<img src="https://i.imgur.com/xHvQfon.png" alt="archivebox server detail">
 </td>
 </tr>
 </tbody>
