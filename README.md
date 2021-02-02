@@ -82,6 +82,7 @@ archivebox help
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/><br/>
 <img src="https://i.imgur.com/njxgSbl.png" width="22%" alt="cli init screenshot" align="top">
+<img src="https://i.imgur.com/lUuicew.png" width="22%" alt="cli init screenshot" align="top">
 <img src="https://i.imgur.com/p6wK6KM.png" width="22%" alt="server snapshot admin screenshot" align="top">
 <img src="https://i.imgur.com/xHvQfon.png" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
 <br/>
@@ -266,10 +267,7 @@ No matter which install method you choose, they all roughly follow this 3-step p
 <br/>
 
 <div align="center">
-<img src="https://i.imgur.com/lUuicew.png" width="22.4%" align="top">
-<img src="https://i.imgur.com/p6wK6KM.png" width="35.9%" align="top">
-<img src="https://i.imgur.com/pzq4uXq.png" width="29.7%" align="top">
-<br/><br/>
+<br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/><br/>
 <a href="https://archivebox.zervice.io">DEMO: <code>https://archivebox.zervice.io</code></a><br/>
