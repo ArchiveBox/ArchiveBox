@@ -333,7 +333,7 @@ archivebox list --json --with-headers > index.json
 open index.html
 
 # or browse the snapshots via filesystem directly
- ls ./archive/<timestamp>/
+ls ./archive/<timestamp>/
 ```
 
 - **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
@@ -351,6 +351,12 @@ open index.html
 - _More coming soon! See the [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap)..._
 
 It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) via environment variables or config file.
+
+```bash
+archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
+archivebox config --set YOUTUBEDL_ARGS='--max-filesize=500m'
+archivebox config --help
+```
 
 <div align="center">
 <img src="https://i.imgur.com/ucyimDX.png" width="96%" alt="lego graphic">
