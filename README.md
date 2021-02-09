@@ -152,7 +152,7 @@ docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
 <details>
 <summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu >=20.04</b></summary>
 
-<i>First make sure you're on Ubuntu >= 20.04, or scroll down for older/non-Ubuntu instructions.</i>
+<i>First make sure you're on Ubuntu >= 20.04, or scroll down for older/non-Ubuntu system instructions.</i>
 
 <pre lang="bash"><code>
 # add the repo to your sources and install the archivebox package using apt
@@ -181,11 +181,14 @@ archivebox help  # to see more options
 For other Debian-based systems or older Ubuntu systems you can add these sources to `/etc/apt/sources.list`:
 
 <pre lang="bash"><code>
-deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main
-deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main
+echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" > /etc/apt/sources.list.d/archivebox.list
+echo "deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" >> /etc/apt/sources.list.d/archivebox.list
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
+sudo apt update
+sudo apt install archivebox
+archivebox --version
+# then continue the instructions above
 </code></pre>
-
-Then run `apt update; apt install archivebox; archivebox --version`.
 
 (you may need to install some other dependencies manually however)
 
@@ -252,13 +255,11 @@ archivebox help  # to see more options
 
 No matter which install method you choose, they all roughly follow this 3-step process and all provide the same CLI, Web UI, and on-disk data format.
 
-<small>
-
-1. Install ArchiveBox: `apt/brew/pip3 install archivebox`
-2. Start a collection: `archivebox init`
-3. Start archiving: `archivebox add 'https://example.com'`
-
-</small>
+<small><ol>
+<li>Install ArchiveBox: <code>apt/brew/pip3 install archivebox</code></li>
+<li>Start a collection: <code>archivebox init</code></li>
+<li>Start archiving: <code>archivebox add 'https://example.com'</code></li>
+</ol></small>
 
 <br/>
 <div align="center">
