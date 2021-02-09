@@ -10,14 +10,6 @@ set -o nounset
 set -o pipefail
 IFS=$'\n'
 
-REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
-
-if [[ -f "$REPO_DIR/.venv/bin/activate" ]]; then
-    source "$REPO_DIR/.venv/bin/activate"
-else
-    echo "[!] Warning: No virtualenv presesnt in $REPO_DIR.venv"
-fi
-cd "$REPO_DIR"
 
 CURRENT_PLAFORM="$(uname)"
 REQUIRED_PLATFORM="Linux"
@@ -26,19 +18,27 @@ if [[ "$CURRENT_PLAFORM" != "$REQUIRED_PLATFORM" ]]; then
    exit 0
 fi
 
-VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
-DEBIAN_VERSION="1"
-# make sure the stdeb.cfg file is up-to-date with all the dependencies
 
+REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
+VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
+DEBIAN_VERSION="${DEBIAN_VERSION:-1}"
+cd "$REPO_DIR"
+
+
+if [[ -f "$REPO_DIR/.venv/bin/activate" ]]; then
+    source "$REPO_DIR/.venv/bin/activate"
+else
+    echo "[!] Warning: No virtualenv presesnt in $REPO_DIR.venv"
+fi
 
 # cleanup build artifacts
 rm -Rf build deb_dist dist archivebox-*.tar.gz
 
 
 # build source and binary packages
+# make sure the stdeb.cfg file is up-to-date with all the dependencies
 python3 setup.py --command-packages=stdeb.command \
     sdist_dsc --debian-version=$DEBIAN_VERSION \
     bdist_deb
 
-# push the build to launchpad ppa
-# dput archivebox "deb_dist/archivebox_${VERSION}-${DEBIAN_VERSION}_source.changes"
+# should output deb_dist/archivebox_0.5.4-1.{deb,changes,buildinfo,tar.gz}
