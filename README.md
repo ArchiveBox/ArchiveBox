@@ -150,16 +150,21 @@ docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu >=20.04</b></summary>
+<summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu/Debian</b></summary>
 
-<i>First make sure you're on Ubuntu >= 20.04, or scroll down for older/non-Ubuntu system instructions.</i>
+This method should work on all Ubuntu/Debian based systems, including x86, amd64, arm7, and arm8 CPUs (e.g. Raspberry Pis >=3).
+
+If you're on Ubuntu >= 20.04, add the `apt` repository like so:
 
 <pre lang="bash"><code>
 # add the repo to your sources and install the archivebox package using apt
 sudo apt install software-properties-common
 sudo add-apt-repository -u ppa:archivebox/archivebox
 sudo apt install archivebox
+</code></pre>
+<i>(♰ otherwise follow the instructions below for other systems)</i>
 
+<pre lang="bash"><code>
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
 npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git'
@@ -178,7 +183,7 @@ archivebox list --json --with-headers > index.json
 archivebox help  # to see more options
 </code></pre>
 
-For other Debian-based systems or older Ubuntu systems you can add these sources to `/etc/apt/sources.list`:
+♰ For other Debian-based systems or older Ubuntu systems you can add these sources to `/etc/apt/sources.list`:
 
 <pre lang="bash"><code>
 echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" > /etc/apt/sources.list.d/archivebox.list
