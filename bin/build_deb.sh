@@ -28,28 +28,17 @@ fi
 
 VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
 DEBIAN_VERSION="1"
-PGP_KEY_ID="7D5695D3B618872647861D51C38137A7C1675988"
-# make sure you have this in ~/.dput.cf:
-#     [archivebox-ppa]
-#     fqdn: ppa.launchpad.net
-#     method: ftp
-#     incoming: ~archivebox/ubuntu/archivebox/
-#     login: anonymous
-#     allow_unsigned_uploads: 0
+# make sure the stdeb.cfg file is up-to-date with all the dependencies
 
 
 # cleanup build artifacts
 rm -Rf build deb_dist dist archivebox-*.tar.gz
 
-# make sure the stdeb.cfg file is up-to-date with all the dependencies
 
 # build source and binary packages
 python3 setup.py --command-packages=stdeb.command \
     sdist_dsc --debian-version=$DEBIAN_VERSION \
     bdist_deb
-
-# sign the build with your PGP key ID
-debsign -k "$PGP_KEY_ID" "deb_dist/archivebox_${VERSION}-${DEBIAN_VERSION}_source.changes"
 
 # push the build to launchpad ppa
 # dput archivebox "deb_dist/archivebox_${VERSION}-${DEBIAN_VERSION}_source.changes"
