@@ -59,7 +59,7 @@ class ArchiveResult:
         # TODO: replace emptystrings in these three with None / remove them from the DB
         assert self.pwd is None or isinstance(self.pwd, str)
         assert self.cmd_version is None or isinstance(self.cmd_version, str)
-        assert self.output is None or (isinstance(self.output, (str, Exception))
+        assert self.output is None or isinstance(self.output, (str, Exception))
 
     @classmethod
     def guess_ts(_cls, dict_info):
