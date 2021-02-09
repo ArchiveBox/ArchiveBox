@@ -63,6 +63,7 @@ RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add -
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         nodejs \
+    # && npm install -g npm \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node dependencies
@@ -82,6 +83,7 @@ ADD ./pip_dist/archivebox.egg-info/requires.txt "$CODE_DIR/pip_dist/archivebox.e
 RUN apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         build-essential python-dev python3-dev \
+    # && pip install --upgrade pip \
     && grep -B 1000 -E '^$' "$CODE_DIR/pip_dist/archivebox.egg-info/requires.txt" | pip install --quiet -r /dev/stdin \
     && pip install --quiet "sonic-client==0.0.5" \
     && apt-get purge -y build-essential python-dev python3-dev \

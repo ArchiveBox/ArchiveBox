@@ -33,11 +33,10 @@ VERSION = json.loads((PACKAGE_DIR / "package.json").read_text().strip())['versio
 # print('>', sys.executable, *sys.argv)
 
 
-class CustomTest(test):
+class DisabledTestCommand(test):
     def run(self):
         # setup.py test is deprecated, disable it here by force so stdeb doesnt run it
-        #super().run()
-        pass
+        print('Use the ./bin/test.sh script to run tests, not setup.py test.')
 
 
 setuptools.setup(
@@ -129,6 +128,6 @@ setuptools.setup(
         "Typing :: Typed",
     ],
     cmdclass={
-        "test": CustomTest,
+        "test": DisabledTestCommand,
     },
 )

@@ -55,11 +55,11 @@ class ArchiveResult:
         assert isinstance(self.end_ts, datetime)
         assert isinstance(self.cmd, list)
         assert all(isinstance(arg, str) and arg for arg in self.cmd)
-        assert self.pwd is None or isinstance(self.pwd, str) and self.pwd
-        assert self.cmd_version is None or isinstance(self.cmd_version, str) and self.cmd_version
+
+        # TODO: replace emptystrings in these three with None / remove them from the DB
+        assert self.pwd is None or isinstance(self.pwd, str)
+        assert self.cmd_version is None or isinstance(self.cmd_version, str)
         assert self.output is None or isinstance(self.output, (str, Exception))
-        if isinstance(self.output, str):
-            assert self.output
 
     @classmethod
     def guess_ts(_cls, dict_info):

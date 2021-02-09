@@ -36,8 +36,25 @@ def forwards_func(apps, schema_editor):
 
         for extractor in history:
             for result in history[extractor]:
-                ArchiveResult.objects.create(extractor=extractor, snapshot=snapshot, cmd=result["cmd"], cmd_version=result["cmd_version"] or 'unknown', 
-                start_ts=result["start_ts"], end_ts=result["end_ts"], status=result["status"], pwd=result["pwd"], output=result["output"])
+                try:
+                    ArchiveResult.objects.create(
+                        extractor=extractor,
+                        snapshot=snapshot,
+                        pwd=result["pwd"],
+                        cmd=result.get("cmd") or [],
+                        cmd_version=result.get("cmd_version") or 'unknown',
+                        start_ts=result["start_ts"],
+                        end_ts=result["end_ts"],
+                        status=result["status"],
+                        output=result.get("output") or 'null',
+                    )
+                except Exception as e:
+                    print(
+                        '    ! Skipping import due to missing/invalid index.json:',
+                        out_dir,
+                        e,
+                        '(open an issue with this index.json for help)',
+                    )
 
 
 def verify_json_index_integrity(snapshot):

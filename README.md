@@ -82,8 +82,9 @@ archivebox help
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/><br/>
 <img src="https://i.imgur.com/njxgSbl.png" width="22%" alt="cli init screenshot" align="top">
+<img src="https://i.imgur.com/lUuicew.png" width="22%" alt="cli init screenshot" align="top">
 <img src="https://i.imgur.com/p6wK6KM.png" width="22%" alt="server snapshot admin screenshot" align="top">
-<img src="https://i.imgur.com/RefWsXB.jpg" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
+<img src="https://i.imgur.com/xHvQfon.png" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
 <br/>
 <br/>
 <img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/><img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/>
@@ -266,10 +267,7 @@ No matter which install method you choose, they all roughly follow this 3-step p
 <br/>
 
 <div align="center">
-<img src="https://i.imgur.com/lUuicew.png" width="22.4%" align="top">
-<img src="https://i.imgur.com/p6wK6KM.png" width="35.9%" align="top">
-<img src="https://i.imgur.com/pzq4uXq.png" width="29.7%" align="top">
-<br/><br/>
+<br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/><br/>
 <a href="https://archivebox.zervice.io">DEMO: <code>https://archivebox.zervice.io</code></a><br/>
@@ -327,7 +325,15 @@ All of ArchiveBox's state (including the index, snapshot data, and config file) 
 The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard sqlite3 database (it can also be exported as static JSON/HTML), and the archive snapshots are organized by date-added timestamp in the `archive/` subfolder. Each snapshot subfolder includes a static JSON and HTML index describing its contents, and the snapshot extrator outputs are plain files within the folder (e.g. `media/example.mp4`, `git/somerepo.git`, `static/someimage.png`, etc.)
 
 ```bash
- ls ./archive/<timestamp>/
+# to browse your index statically without running the archivebox server, run:
+archivebox list --html --with-headers > index.html
+archivebox list --json --with-headers > index.json
+
+# then open the static index in a browser
+open index.html
+
+# or browse the snapshots via filesystem directly
+ls ./archive/<timestamp>/
 ```
 
 - **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
@@ -345,6 +351,12 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
 - _More coming soon! See the [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap)..._
 
 It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) via environment variables or config file.
+
+```bash
+archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
+archivebox config --set YOUTUBEDL_ARGS='--max-filesize=500m'
+archivebox config --help
+```
 
 <div align="center">
 <img src="https://i.imgur.com/ucyimDX.png" width="96%" alt="lego graphic">
@@ -445,7 +457,7 @@ archivebox add 'https://example.com#2020-10-25'
 <img src="https://i.imgur.com/p6wK6KM.png" alt="archivebox server list">
 </td>
 <td>
-<img src="https://i.imgur.com/pzq4uXq.png" alt="archivebox server detail">
+<img src="https://i.imgur.com/xHvQfon.png" alt="archivebox server detail">
 </td>
 </tr>
 </tbody>

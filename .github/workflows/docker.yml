@@ -75,7 +75,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
-          platforms: linux/amd64,linux/386,linux/arm64,linux/arm/v7
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}

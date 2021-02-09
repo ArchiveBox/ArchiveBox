@@ -1079,6 +1079,6 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
         if check_db:
             sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
             assert sql_index_path.exists(), (
-                f'No database file {SQL_INDEX_FILENAME} found in OUTPUT_DIR: {config["OUTPUT_DIR"]}')
+                f'No database file {SQL_INDEX_FILENAME} found in: {config["OUTPUT_DIR"]} (Are you in an ArchiveBox collection directory?)')
     except KeyboardInterrupt:
         raise SystemExit(2)
