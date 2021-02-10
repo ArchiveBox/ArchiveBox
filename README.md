@@ -201,7 +201,7 @@ archivebox --version
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with <code>brew</code> on macOS >=10.13</b></summary>
+<summary><b>Get ArchiveBox with <code>brew</code> on macOS</b></summary>
 
 <i>First make sure you have Homebrew installed: https://brew.sh/#install</i>
 
