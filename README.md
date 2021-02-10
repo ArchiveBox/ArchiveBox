@@ -728,9 +728,8 @@ archivebox manage dbshell
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" height="40px"/>
 <br/>
 <i><sub>
-This project is maintained mostly in <a href="https://nicksweeting.com/blog#About">my spare time</a> with the help from generous contributors and Monadical.
-/sub><br/><br/>
-✨ <a href="https://monadical.com">Monadical</a> is our software consultancy specializing in Python+JS development, and it helps support this project. Check us out if you need internet archiving or full-stack development! ✨ 
+This project is maintained mostly in <a href="https://nicksweeting.com/blog#About">my spare time</a> with the help from generous contributors and Monadical (✨  [hire them](https://monadical.com) for dev work!).
+</sub>
 </i>
 <br/><br/>
 
