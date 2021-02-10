@@ -154,15 +154,15 @@ docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
 
 This method should work on all Ubuntu/Debian based systems, including x86, amd64, arm7, and arm8 CPUs (e.g. Raspberry Pis >=3).
 
-If you're on Ubuntu >= 20.04, add the `apt` repository like so:
+If you're on Ubuntu >= 20.04, add the `apt` repository with `add-apt-repository`:
 
+<i>(on other Ubuntu/Debian-based systems follow the <b>♰ instructions</b> below)</i>
 <pre lang="bash"><code>
 # add the repo to your sources and install the archivebox package using apt
 sudo apt install software-properties-common
 sudo add-apt-repository -u ppa:archivebox/archivebox
 sudo apt install archivebox
 </code></pre>
-<i>(♰ otherwise follow the instructions below for other systems)</i>
 
 <pre lang="bash"><code>
 # create a new empty directory and initalize your collection (can be anywhere)
@@ -183,7 +183,7 @@ archivebox list --json --with-headers > index.json
 archivebox help  # to see more options
 </code></pre>
 
-♰ For other Debian-based systems or older Ubuntu systems you can add these sources to `/etc/apt/sources.list`:
+<i><b>♰ On other Ubuntu/Debian-based systems</b> add these sources directly to <code>/etc/apt/sources.list</code>:</i>
 
 <pre lang="bash"><code>
 echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" > /etc/apt/sources.list.d/archivebox.list
@@ -191,8 +191,9 @@ echo "deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" 
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
 sudo apt install archivebox
+sudo snap install chromium
 archivebox --version
-# then continue the instructions above
+# then scroll back up and continue the initalization instructions above
 </code></pre>
 
 (you may need to install some other dependencies manually however)
