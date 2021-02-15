@@ -21,11 +21,12 @@ services:
         environment:
             - USE_COLOR=True
             - SHOW_PROGRESS=False
-            # - SEARCH_BACKEND_ENGINE=sonic
+            # - SEARCH_BACKEND_ENGINE=sonic     # uncomment these if you enable sonic below
             # - SEARCH_BACKEND_HOST_NAME=sonic
             # - SEARCH_BACKEND_PASSWORD=SecretPassword
         volumes:
             - ./data:/data
+            # - ./archivebox:/app/archivebox    # for developers working on archivebox
     
     # To run the Sonic full-text search backend, create an ./etc/sonic folder
     # and download the sonic config file from here into that folder:
