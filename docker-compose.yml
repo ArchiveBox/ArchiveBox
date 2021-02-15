@@ -20,27 +20,27 @@ services:
             - 8000:8000
         environment:
             - USE_COLOR=True
-            - SHOW_PROGRESS=False
-            - SEARCH_BACKEND_ENGINE=sonic
-            - SEARCH_BACKEND_HOST_NAME=sonic
-            - SEARCH_BACKEND_PASSWORD=SecretPassword
+            # - SEARCH_BACKEND_ENGINE=sonic
+            # - SEARCH_BACKEND_HOST_NAME=sonic
+            # - SEARCH_BACKEND_PASSWORD=SecretPassword
         volumes:
             - ./data:/data
-        depends_on:
-            - sonic
     
-    # Run sonic search backend
-    sonic:
-        image: valeriansaliou/sonic:v1.3.0    
-        ports:
-            - 1491:1491
-        environment:
-            - SEARCH_BACKEND_PASSWORD=SecretPassword
-        volumes:
-            - ./etc/sonic/config.cfg:/etc/sonic.cfg
-            - ./data:/var/lib/sonic/store/
+    # To run the Sonic full-text search backend, create an ./etc/sonic folder
+    # and download the sonic config file from here into that folder:
+    # https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/etc/sonic/config.cfg
+    # sonic:
+    #     image: valeriansaliou/sonic:v1.3.0    
+    #     expose:
+    #         - 1491
+    #     environment:
+    #         - SEARCH_BACKEND_PASSWORD=SecretPassword
+    #     volumes:
+    #         - ./etc/sonic/config.cfg:/etc/sonic.cfg
+    #         - ./data/sonic:/var/lib/sonic/store
 
-    # Optional Addons: tweak these examples as needed for your specific use case
+
+    ### Optional Addons: tweak these examples as needed for your specific use case
 
     # Example: Run scheduled imports in a docker instead of using cron on the
     # host machine, add tasks and see more info with archivebox schedule --help
