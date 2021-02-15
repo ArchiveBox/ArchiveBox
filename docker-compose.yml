@@ -11,7 +11,7 @@ version: '3.7'
 
 services:
     archivebox:
-        # build: .
+        # build: .                              # for developers working on archivebox
         image: ${DOCKER_IMAGE:-archivebox/archivebox:latest} 
         command: server --quick-init 0.0.0.0:8000
         stdin_open: true
