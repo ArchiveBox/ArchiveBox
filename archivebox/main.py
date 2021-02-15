@@ -263,7 +263,7 @@ def run(subcommand: str,
 
 
 @enforce_types
-def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
+def init(force: bool=False, quick: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
     
     from core.models import Snapshot
@@ -345,48 +345,49 @@ def init(force: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
         all_links = load_main_index(out_dir=out_dir, warn=False)
         print('    √ Loaded {} links from existing main index.'.format(all_links.count()))
 
-    # Links in data folders that dont match their timestamp
-    fixed, cant_fix = fix_invalid_folder_locations(out_dir=out_dir)
-    if fixed:
-        print('    {lightyellow}√ Fixed {} data directory locations that didn\'t match their link timestamps.{reset}'.format(len(fixed), **ANSI))
-    if cant_fix:
-        print('    {lightyellow}! Could not fix {} data directory locations due to conflicts with existing folders.{reset}'.format(len(cant_fix), **ANSI))
+    if not quick:
+        # Links in data folders that dont match their timestamp
+        fixed, cant_fix = fix_invalid_folder_locations(out_dir=out_dir)
+        if fixed:
+            print('    {lightyellow}√ Fixed {} data directory locations that didn\'t match their link timestamps.{reset}'.format(len(fixed), **ANSI))
+        if cant_fix:
+            print('    {lightyellow}! Could not fix {} data directory locations due to conflicts with existing folders.{reset}'.format(len(cant_fix), **ANSI))
 
-    # Links in JSON index but not in main index
-    orphaned_json_links = {
-        link.url: link
-        for link in parse_json_main_index(out_dir)
-        if not all_links.filter(url=link.url).exists()
-    }
-    if orphaned_json_links:
-        pending_links.update(orphaned_json_links)
-        print('    {lightyellow}√ Added {} orphaned links from existing JSON index...{reset}'.format(len(orphaned_json_links), **ANSI))
+        # Links in JSON index but not in main index
+        orphaned_json_links = {
+            link.url: link
+            for link in parse_json_main_index(out_dir)
+            if not all_links.filter(url=link.url).exists()
+        }
+        if orphaned_json_links:
+            pending_links.update(orphaned_json_links)
+            print('    {lightyellow}√ Added {} orphaned links from existing JSON index...{reset}'.format(len(orphaned_json_links), **ANSI))
 
-    # Links in data dir indexes but not in main index
-    orphaned_data_dir_links = {
-        link.url: link
-        for link in parse_json_links_details(out_dir)
-        if not all_links.filter(url=link.url).exists()
-    }
-    if orphaned_data_dir_links:
-        pending_links.update(orphaned_data_dir_links)
-        print('    {lightyellow}√ Added {} orphaned links from existing archive directories.{reset}'.format(len(orphaned_data_dir_links), **ANSI))
+        # Links in data dir indexes but not in main index
+        orphaned_data_dir_links = {
+            link.url: link
+            for link in parse_json_links_details(out_dir)
+            if not all_links.filter(url=link.url).exists()
+        }
+        if orphaned_data_dir_links:
+            pending_links.update(orphaned_data_dir_links)
+            print('    {lightyellow}√ Added {} orphaned links from existing archive directories.{reset}'.format(len(orphaned_data_dir_links), **ANSI))
 
-    # Links in invalid/duplicate data dirs
-    invalid_folders = {
-        folder: link
-        for folder, link in get_invalid_folders(all_links, out_dir=out_dir).items()
-    }
-    if invalid_folders:
-        print('    {lightyellow}! Skipped adding {} invalid link data directories.{reset}'.format(len(invalid_folders), **ANSI))
-        print('        X ' + '\n        X '.join(f'{folder} {link}' for folder, link in invalid_folders.items()))
-        print()
-        print('    {lightred}Hint:{reset} For more information about the link data directories that were skipped, run:'.format(**ANSI))
-        print('        archivebox status')
-        print('        archivebox list --status=invalid')
+        # Links in invalid/duplicate data dirs
+        invalid_folders = {
+            folder: link
+            for folder, link in get_invalid_folders(all_links, out_dir=out_dir).items()
+        }
+        if invalid_folders:
+            print('    {lightyellow}! Skipped adding {} invalid link data directories.{reset}'.format(len(invalid_folders), **ANSI))
+            print('        X ' + '\n        X '.join(f'{folder} {link}' for folder, link in invalid_folders.items()))
+            print()
+            print('    {lightred}Hint:{reset} For more information about the link data directories that were skipped, run:'.format(**ANSI))
+            print('        archivebox status')
+            print('        archivebox list --status=invalid')
 
 
-    write_main_index(list(pending_links.values()), out_dir=out_dir)
+        write_main_index(list(pending_links.values()), out_dir=out_dir)
 
     print('\n{green}------------------------------------------------------------------{reset}'.format(**ANSI))
     if existing_index:
@@ -1063,14 +1064,15 @@ def server(runserver_args: Optional[List[str]]=None,
            reload: bool=False,
            debug: bool=False,
            init: bool=False,
+           quick_init: bool=False,
            createsuperuser: bool=False,
            out_dir: Path=OUTPUT_DIR) -> None:
     """Run the ArchiveBox HTTP server"""
 
     runserver_args = runserver_args or []
     
-    if init:
-        run_subcommand('init', stdin=None, pwd=out_dir)
+    if init or quick_init:
+        run_subcommand('init', quick=quick_init, stdin=None, pwd=out_dir)
 
     if createsuperuser:
         run_subcommand('manage', subcommand_args=['createsuperuser'], pwd=out_dir)

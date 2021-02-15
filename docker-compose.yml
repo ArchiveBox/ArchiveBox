@@ -13,7 +13,7 @@ services:
     archivebox:
         # build: .
         image: ${DOCKER_IMAGE:-archivebox/archivebox:latest} 
-        command: server 0.0.0.0:8000
+        command: server --quick-init 0.0.0.0:8000
         stdin_open: true
         tty: true
         ports:
