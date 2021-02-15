@@ -107,9 +107,6 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': DATABASE_NAME,
-        'OPTIONS': {
-            'init_command': 'PRAGMA journal_mode=wal;',
-        }
     }
 }
 

@@ -1075,6 +1075,11 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             call_command("migrate", interactive=False, verbosity=0)
         else:
             django.setup()
+            
+            # Enable WAL mode in sqlite3
+            from django.db import connection
+            with connection.cursor() as cursor:
+                cursor.execute("PRAGMA journal_mode=wal;")
 
         if check_db:
             sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
