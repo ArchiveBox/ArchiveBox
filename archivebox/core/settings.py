@@ -6,7 +6,6 @@ import re
 import logging
 
 from pathlib import Path
-from datetime import datetime
 from django.utils.crypto import get_random_string
 
 from ..config import (                                                          # noqa: F401

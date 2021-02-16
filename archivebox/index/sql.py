@@ -30,7 +30,6 @@ def remove_from_sql_main_index(snapshots: QuerySet, out_dir: Path=OUTPUT_DIR) ->
 @enforce_types
 def write_link_to_sql_index(link: Link):
     from core.models import Snapshot, ArchiveResult
-    from index.schema import ArchiveResult as LegacyArchiveResult
     info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
     tags = info.pop("tags")
     if tags is None:

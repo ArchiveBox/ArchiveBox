@@ -1097,7 +1097,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
         with open(settings.ERROR_LOG, "a+") as f:
             command = ' '.join(sys.argv)
             ts = datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
-            f.write(f"\n> {command}; ts={ts} version={VERSION} docker={IN_DOCKER} is_tty={IS_TTY}\n")
+            f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
 
         if check_db:
             sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME

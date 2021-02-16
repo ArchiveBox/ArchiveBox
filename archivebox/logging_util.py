@@ -68,7 +68,12 @@ def get_fd_info(fd) -> Dict[str, Any]:
     IS_TERMINAL =  not (IS_PIPE or IS_FILE)
     IS_LINE_BUFFERED = fd.line_buffering
     IS_READABLE = fd.readable()
-    return {key: val for key, val in locals().items() if val is not fd}
+    return {
+        'NAME': NAME, 'FILENO': FILENO, 'MODE': MODE,
+        'IS_TTY': IS_TTY, 'IS_PIPE': IS_PIPE, 'IS_FILE': IS_FILE,
+        'IS_TERMINAL': IS_TERMINAL, 'IS_LINE_BUFFERED': IS_LINE_BUFFERED,
+        'IS_READABLE': IS_READABLE,
+    }
     
 
 # # Log debug information about stdin, stdout, and stderr
