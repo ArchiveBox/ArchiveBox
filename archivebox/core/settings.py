@@ -117,7 +117,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 ### Security Settings
 ################################################################################
 
-SECRET_KEY = SECRET_KEY or get_random_string(50, 'abcdefghijklmnopqrstuvwxyz0123456789-_+!.')
+SECRET_KEY = SECRET_KEY or get_random_string(50, 'abcdefghijklmnopqrstuvwxyz0123456789_')
 
 ALLOWED_HOSTS = ALLOWED_HOSTS.split(',')
 

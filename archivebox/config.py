@@ -480,7 +480,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
 
     if (not existing_secret_key) or ('not a valid secret' in existing_secret_key):
         from django.utils.crypto import get_random_string
-        chars = 'abcdefghijklmnopqrstuvwxyz0123456789-_+!.'
+        chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'
         random_secret_key = get_random_string(50, chars)
         if 'SERVER_CONFIG' in config_file:
             config_file['SERVER_CONFIG']['SECRET_KEY'] = random_secret_key
