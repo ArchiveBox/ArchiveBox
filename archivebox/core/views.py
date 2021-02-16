@@ -22,6 +22,7 @@ from ..config import (
     PUBLIC_ADD_VIEW,
     VERSION,
     FOOTER_INFO,
+    SNAPSHOTS_PER_PAGE,
 )
 from main import add
 from ..util import base_url, ansi_to_html
@@ -94,7 +95,7 @@ class SnapshotView(View):
 class PublicIndexView(ListView):
     template_name = 'public_index.html'
     model = Snapshot
-    paginate_by = 100
+    paginate_by = SNAPSHOTS_PER_PAGE
     ordering = ['title']
 
     def get_context_data(self, **kwargs):

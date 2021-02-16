@@ -77,6 +77,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'PUBLIC_SNAPSHOTS':         {'type': bool,  'default': True},
         'PUBLIC_ADD_VIEW':          {'type': bool,  'default': False},
         'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
+        'SNAPSHOTS_PER_PAGE':       {'type': int,   'default': 40},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {

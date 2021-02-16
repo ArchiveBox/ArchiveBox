@@ -21,7 +21,7 @@ from core.mixins import SearchResultsAdminMixin
 from index.html import snapshot_icons
 from logging_util import printable_filesize
 from main import add, remove
-from config import OUTPUT_DIR
+from config import OUTPUT_DIR, SNAPSHOTS_PER_PAGE
 from extractors import archive_links
 
 # Admin URLs
@@ -106,7 +106,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     actions = [delete_snapshots, overwrite_snapshots, update_snapshots, update_titles, verify_snapshots]
     actions_template = 'admin/actions_as_select.html'
     form = SnapshotAdminForm
-    list_per_page = 40
+    list_per_page = SNAPSHOTS_PER_PAGE
 
     def get_urls(self):
         urls = super().get_urls()
