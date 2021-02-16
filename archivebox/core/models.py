@@ -144,11 +144,14 @@ class Snapshot(models.Model):
 
     @cached_property
     def archive_path(self):
-        return self.as_link().archive_path
+        return '{}/{}'.format(ARCHIVE_DIR_NAME, self.timestamp)
 
     @cached_property
     def archive_size(self):
-        return self.as_link().archive_size
+        try:
+            return get_dir_size(self.link_dir)[0]
+        except Exception:
+            return 0
 
     @cached_property
     def history(self):
