@@ -178,7 +178,6 @@ class Link:
             raise
     
     def _asdict(self, extended=False):
-        from core.models import Snapshot
         info = {
             'schema': 'Link',
             'url': self.url,

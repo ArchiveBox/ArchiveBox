@@ -71,7 +71,7 @@ AUTHENTICATION_BACKENDS = [
 DEBUG_TOOLBAR = False
 if DEBUG:
     try:
-        import debug_toolbar
+        import debug_toolbar   # noqa
         DEBUG_TOOLBAR = True
     except ImportError:
         pass
