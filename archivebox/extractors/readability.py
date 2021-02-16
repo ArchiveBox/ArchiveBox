@@ -112,6 +112,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
     except (Exception, OSError) as err:
         status = 'failed'
         output = err
+        cmd = [cmd[0], './{singlefile,dom}.html']
     finally:
         timer.end()
 

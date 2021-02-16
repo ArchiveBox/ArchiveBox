@@ -59,6 +59,8 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
+        output_folder.mkdir(exist_ok=True)
+
         # Get plain text version of article
         cmd = [
             DEPENDENCIES['MERCURY_BINARY']['path'],
@@ -71,6 +73,8 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
         except json.JSONDecodeError:
             raise ShellError(cmd, result)
         
+        atomic_write(str(output_folder / "content.txt"), article_text["content"])
+
         # Get HTML version of article
         cmd = [
             DEPENDENCIES['MERCURY_BINARY']['path'],
@@ -82,9 +86,7 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
         except json.JSONDecodeError:
             raise ShellError(cmd, result)
 
-        output_folder.mkdir(exist_ok=True)
         atomic_write(str(output_folder / "content.html"), article_json.pop("content"))
-        atomic_write(str(output_folder / "content.txt"), article_text["content"])
         atomic_write(str(output_folder / "article.json"), article_json)
 
         # Check for common failure cases
