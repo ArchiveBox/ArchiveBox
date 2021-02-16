@@ -16,6 +16,7 @@ from typing import List, Dict, Any, Optional, Union
 
 from dataclasses import dataclass, asdict, field, fields
 
+from django.utils.functional import cached_property
 
 from ..system import get_dir_size
 
@@ -132,7 +133,6 @@ class Link:
     history: Dict[str, List[ArchiveResult]] = field(default_factory=lambda: {})
     updated: Optional[datetime] = None
     schema: str = 'Link'
-
 
     def __str__(self) -> str:
         return f'[{self.timestamp}] {self.url} "{self.title}"'

@@ -5,9 +5,11 @@ import uuid
 from django.db import models, transaction
 from django.utils.functional import cached_property
 from django.utils.text import slugify
+from django.core.cache import cache
 from django.db.models import Case, When, Value, IntegerField
 
-from ..config import ARCHIVE_DIR
+from ..config import ARCHIVE_DIR, ARCHIVE_DIR_NAME
+from ..system import get_dir_size
 from ..util import parse_date, base_url, hashurl
 from ..index.schema import Link
 from ..extractors import get_default_archive_methods, ARCHIVE_METHODS_INDEXING_PRECEDENCE
@@ -111,7 +113,9 @@ class Snapshot(models.Model):
         return load_link_details(self.as_link())
 
     def tags_str(self) -> str:
-        return ','.join(self.tags.order_by('name').values_list('name', flat=True))
+        cache_key = f'{self.id}-{(self.updated or self.added).timestamp()}-tags'
+        calc_tags_str = lambda: ','.join(self.tags.order_by('name').values_list('name', flat=True))
+        return cache.get_or_set(cache_key, calc_tags_str)
 
     @cached_property
     def bookmarked(self):
@@ -148,10 +152,15 @@ class Snapshot(models.Model):
 
     @cached_property
     def archive_size(self):
-        try:
-            return get_dir_size(self.link_dir)[0]
-        except Exception:
-            return 0
+        cache_key = f'{str(self.id)[:12]}-{(self.updated or self.added).timestamp()}-size'
+
+        def calc_dir_size():
+            try:
+                return get_dir_size(self.link_dir)[0]
+            except Exception:
+                return 0
+
+        return cache.get_or_set(cache_key, calc_dir_size)
 
     @cached_property
     def history(self):
