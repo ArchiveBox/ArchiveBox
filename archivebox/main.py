@@ -69,7 +69,6 @@ from .config import (
     IS_TTY,
     DEBUG,
     IN_DOCKER,
-    SHOW_PROGRESS,
     USER,
     ARCHIVEBOX_BINARY,
     ONLY_NEW,
@@ -326,17 +325,13 @@ def init(force: bool=False, quick: bool=False, out_dir: Path=OUTPUT_DIR) -> None
     else:
         print('\n{green}[+] Building archive folder structure...{reset}'.format(**ANSI))
     
+    print(f'    + {ARCHIVE_DIR}, {SOURCES_DIR}, {LOGS_DIR}...')
     Path(SOURCES_DIR).mkdir(exist_ok=True)
-    print(f'    √ {SOURCES_DIR}')
-    
     Path(ARCHIVE_DIR).mkdir(exist_ok=True)
-    print(f'    √ {ARCHIVE_DIR}')
-
     Path(LOGS_DIR).mkdir(exist_ok=True)
-    print(f'    √ {LOGS_DIR}')
-
+    print(f'    + {CONFIG_FILE}...')
     write_config_file({}, out_dir=out_dir)
-    print(f'    √ {CONFIG_FILE}')
+
     if (Path(out_dir) / SQL_INDEX_FILENAME).exists():
         print('\n{green}[*] Verifying main SQL index and running migrations...{reset}'.format(**ANSI))
     else:
@@ -357,7 +352,7 @@ def init(force: bool=False, quick: bool=False, out_dir: Path=OUTPUT_DIR) -> None
     #     call_command("createsuperuser", interactive=True)
 
     print()
-    print('{green}[*] Collecting links from any existing indexes and archive folders...{reset}'.format(**ANSI))
+    print('{green}[*] Checking links from indexes and archive folders...{reset}'.format(**ANSI))
 
     all_links = Snapshot.objects.none()
     pending_links: Dict[str, Link] = {}
@@ -366,7 +361,9 @@ def init(force: bool=False, quick: bool=False, out_dir: Path=OUTPUT_DIR) -> None
         all_links = load_main_index(out_dir=out_dir, warn=False)
         print('    √ Loaded {} links from existing main index.'.format(all_links.count()))
 
-    if not quick:
+    if quick:
+        print('    > Skipping full snapshot directory check (quick mode)')
+    else:
         # Links in data folders that dont match their timestamp
         fixed, cant_fix = fix_invalid_folder_locations(out_dir=out_dir)
         if fixed:
@@ -415,15 +412,17 @@ def init(force: bool=False, quick: bool=False, out_dir: Path=OUTPUT_DIR) -> None
         print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
     else:
         print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links), **ANSI))
-    print()
-    print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**ANSI))
-    print('        archivebox server  # then visit http://127.0.0.1:8000')
-    print()
-    print('    To add new links, you can run:')
-    print("        archivebox add ~/some/path/or/url/to/list_of_links.txt")
-    print()
-    print('    For more usage and examples, run:')
-    print('        archivebox help')
+    
+    if Snapshot.objects.count() < 20:     # hide the hints for experienced users
+        print()
+        print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**ANSI))
+        print('        archivebox server  # then visit http://127.0.0.1:8000')
+        print()
+        print('    To add new links, you can run:')
+        print("        archivebox add ~/some/path/or/url/to/list_of_links.txt")
+        print()
+        print('    For more usage and examples, run:')
+        print('        archivebox help')
 
     json_index = Path(out_dir) / JSON_INDEX_FILENAME
     html_index = Path(out_dir) / HTML_INDEX_FILENAME
@@ -1103,12 +1102,14 @@ def server(runserver_args: Optional[List[str]]=None,
     
     if init:
         run_subcommand('init', stdin=None, pwd=out_dir)
-
-    if quick_init:
+        print()
+    elif quick_init:
         run_subcommand('init', subcommand_args=['--quick'], stdin=None, pwd=out_dir)
+        print()
 
     if createsuperuser:
         run_subcommand('manage', subcommand_args=['createsuperuser'], pwd=out_dir)
+        print()
 
     # setup config for django runserver
     from . import config
@@ -1120,12 +1121,9 @@ def server(runserver_args: Optional[List[str]]=None,
     from django.core.management import call_command
     from django.contrib.auth.models import User
 
-    admin_user = User.objects.filter(is_superuser=True).order_by('date_joined').only('username').last()
-
     print('{green}[+] Starting ArchiveBox webserver...{reset}'.format(**ANSI))
-    if admin_user:
-        hint('The admin username is{lightblue} {}{reset}\n'.format(admin_user.username, **ANSI))
-    else:
+    print('    > Logging errors to ./logs/errors.log')
+    if not User.objects.filter(is_superuser=True).exists():
         print('{lightyellow}[!] No admin users exist yet, you will not be able to edit links in the UI.{reset}'.format(**ANSI))
         print()
         print('    To create an admin user, run:')
@@ -1142,7 +1140,6 @@ def server(runserver_args: Optional[List[str]]=None,
 
     config.SHOW_PROGRESS = False
     config.DEBUG = config.DEBUG or debug
-
 
     call_command("runserver", *runserver_args)
 
