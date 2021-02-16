@@ -253,6 +253,7 @@ class AddView(UserPassesTestMixin, FormView):
             'absolute_add_path': self.request.build_absolute_uri(self.request.path),
             'VERSION': VERSION,
             'FOOTER_INFO': FOOTER_INFO,
+            'stdout': '',
         }
 
     def form_valid(self, form):
