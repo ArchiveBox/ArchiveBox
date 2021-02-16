@@ -7,7 +7,7 @@ from django.db.models import QuerySet
 from django.db import transaction
 
 from .schema import Link
-from ..util import enforce_types
+from ..util import enforce_types, parse_date
 from ..config import OUTPUT_DIR
 
 
@@ -29,7 +29,8 @@ def remove_from_sql_main_index(snapshots: QuerySet, out_dir: Path=OUTPUT_DIR) ->
 
 @enforce_types
 def write_link_to_sql_index(link: Link):
-    from core.models import Snapshot
+    from core.models import Snapshot, ArchiveResult
+    from index.schema import ArchiveResult as LegacyArchiveResult
     info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
     tags = info.pop("tags")
     if tags is None:
@@ -43,6 +44,40 @@ def write_link_to_sql_index(link: Link):
 
     snapshot, _ = Snapshot.objects.update_or_create(url=link.url, defaults=info)
     snapshot.save_tags(tags)
+
+    for extractor, entries in link.history.items():
+        for entry in entries:
+            if isinstance(entry, dict):
+                result, _ = ArchiveResult.objects.get_or_create(
+                    snapshot_id=snapshot.id,
+                    extractor=extractor,
+                    start_ts=parse_date(entry['start_ts']),
+                    defaults={
+                        'end_ts': parse_date(entry['end_ts']),
+                        'cmd': entry['cmd'],
+                        'output': entry['output'],
+                        'cmd_version': entry.get('cmd_version') or 'unknown',
+                        'pwd': entry['pwd'],
+                        'status': entry['status'],
+                    }
+                )
+            else:
+                result, _ = ArchiveResult.objects.get_or_create(
+                    snapshot_id=snapshot.id,
+                    extractor=extractor,
+                    start_ts=parse_date(entry.start_ts),
+                    defaults={
+                        'end_ts': parse_date(entry.end_ts),
+                        'cmd': entry.cmd,
+                        'output': entry.output,
+                        'cmd_version': entry.cmd_version or 'unknown',
+                        'pwd': entry.pwd,
+                        'status': entry.status,
+                    }
+                )
+
+            print(result)
+
     return snapshot
 
 

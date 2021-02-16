@@ -411,7 +411,7 @@ def init(force: bool=False, quick: bool=False, out_dir: Path=OUTPUT_DIR) -> None
     if existing_index:
         print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
     else:
-        print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links), **ANSI))
+        print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links) + len(pending_links), **ANSI))
     
     if Snapshot.objects.count() < 20:     # hide the hints for experienced users
         print()
