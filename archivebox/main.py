@@ -818,11 +818,15 @@ def list_links(snapshots: Optional[QuerySet]=None,
         all_snapshots = load_main_index(out_dir=out_dir)
 
     if after is not None:
-        all_snapshots = all_snapshots.filter(timestamp__lt=after)
+        all_snapshots = all_snapshots.filter(timestamp__gte=after)
     if before is not None:
-        all_snapshots = all_snapshots.filter(timestamp__gt=before)
+        all_snapshots = all_snapshots.filter(timestamp__lt=before)
     if filter_patterns:
         all_snapshots = snapshot_filter(all_snapshots, filter_patterns, filter_type)
+
+    if not all_snapshots:
+        stderr('[!] No Snapshots matched your filters:', filter_patterns, f'({filter_type})', color='lightyellow')
+
     return all_snapshots
 
 @enforce_types
