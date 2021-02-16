@@ -210,7 +210,7 @@ class NoisyRequestsFilter(logging.Filter):
 
         return 1
 
-ERROR_LOG = LOGS_DIR / 'errors.log'
+ERROR_LOG = (LOGS_DIR / 'errors.log') if LOGS_DIR.exists() else '/dev/null'
 
 LOGGING = {
     'version': 1,
@@ -245,10 +245,3 @@ LOGGING = {
         }
     },
 }
-
-
-# log startup message to the error log
-with open(ERROR_LOG, "a+") as f:
-    command = ' '.join(sys.argv)
-    ts = datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
-    f.write(f"\n> {command}; ts={ts} version={VERSION} docker={IN_DOCKER} is_tty={IS_TTY}\n")

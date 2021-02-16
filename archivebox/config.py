@@ -33,6 +33,7 @@ import django
 
 from hashlib import md5
 from pathlib import Path
+from datetime import datetime
 from typing import Optional, Type, Tuple, Dict, Union, List
 from subprocess import run, PIPE, DEVNULL
 from configparser import ConfigParser
@@ -1063,6 +1064,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
 
     try:
         import django
+
         sys.path.append(str(config['PACKAGE_DIR']))
         os.environ.setdefault('OUTPUT_DIR', str(output_dir))
         assert (config['PACKAGE_DIR'] / 'core' / 'settings.py').exists(), 'settings.py was not found at archivebox/core/settings.py'
@@ -1081,6 +1083,14 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             from django.db import connection
             with connection.cursor() as cursor:
                 cursor.execute("PRAGMA journal_mode=wal;")
+
+        from django.conf import settings
+
+        # log startup message to the error log
+        with open(settings.ERROR_LOG, "a+") as f:
+            command = ' '.join(sys.argv)
+            ts = datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
+            f.write(f"\n> {command}; ts={ts} version={VERSION} docker={IN_DOCKER} is_tty={IS_TTY}\n")
 
         if check_db:
             sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
