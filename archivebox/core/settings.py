@@ -2,6 +2,8 @@ __package__ = 'archivebox.core'
 
 import os
 import sys
+import re
+import logging
 
 from pathlib import Path
 from django.utils.crypto import get_random_string
@@ -14,6 +16,7 @@ from ..config import (                                                          
     TEMPLATES_DIR_NAME,
     SQL_INDEX_FILENAME,
     OUTPUT_DIR,
+    LOGS_DIR,
 )
 
 
@@ -107,6 +110,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': DATABASE_NAME,
+        # modified to be in-memory or sqlite3+wal by setup_django() in config.py
     }
 }
 
@@ -163,3 +167,67 @@ USE_TZ = False
 
 DATETIME_FORMAT = 'Y-m-d g:iA'
 SHORT_DATETIME_FORMAT = 'Y-m-d h:iA'
+
+
+################################################################################
+### Logging Settings
+################################################################################
+
+IGNORABLE_404_URLS = [
+    re.compile(r'apple-touch-icon.*\.png$'),
+    re.compile(r'favicon\.ico$'),
+    re.compile(r'robots\.txt$'),
+    re.compile(r'.*\.(css|js)\.map$'),
+]
+
+class NoisyRequestsFilter(logging.Filter):
+    def filter(self, record):
+        logline = record.getMessage()
+
+        # ignore harmless 404s for the patterns in IGNORABLE_404_URLS
+        for ignorable_url_pattern in IGNORABLE_404_URLS:
+            ignorable_log_pattern = re.compile(f'^"GET /.*/?{ignorable_url_pattern.pattern[:-1]} HTTP/.*" (200|30.|404) .+$', re.I | re.M)
+            if ignorable_log_pattern.match(logline):
+                return 0
+
+        # ignore staticfile requests that 200 or 30*
+        ignoreable_200_log_pattern = re.compile(r'"GET /static/.* HTTP/.*" (200|30.) .+', re.I | re.M)
+        if ignoreable_200_log_pattern.match(logline):
+            return 0
+
+        return 1
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+        'logfile': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': LOGS_DIR / 'errors.log',
+            'maxBytes': 1024 * 1024 * 25,  # 25 MB
+            'backupCount': 10,
+        },
+    },
+    'filters': {
+        'noisyrequestsfilter': {
+            '()': NoisyRequestsFilter,
+        }
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'logfile'],
+            'level': 'DEBUG',
+            'filters': ['noisyrequestsfilter'],
+        },
+        'django.server': {
+            'handlers': ['console', 'logfile'],
+            'level': 'DEBUG',
+            'filters': ['noisyrequestsfilter'],
+        }
+    },
+}
+
