@@ -157,7 +157,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
         return snapshot_icons(obj)
 
     def size(self, obj):
-        archive_size = obj.archive_size
+        archive_size = (Path(obj.link_dir) / 'index.html').exists() and obj.archive_size
         if archive_size:
             size_txt = printable_filesize(archive_size)
             if archive_size > 52428800:
