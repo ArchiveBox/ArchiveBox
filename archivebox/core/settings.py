@@ -40,8 +40,7 @@ LOGOUT_REDIRECT_URL = '/'
 PASSWORD_RESET_URL = '/accounts/password_reset/'
 APPEND_SLASH = True
 
-DEBUG = True    # DEBUG or ('--debug' in sys.argv)
-DEBUG_TOOLBAR = True
+DEBUG = DEBUG or ('--debug' in sys.argv)
 
 INSTALLED_APPS = [
     'django.contrib.auth',
@@ -55,6 +54,29 @@ INSTALLED_APPS = [
 
     'django_extensions',
 ]
+
+
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+]
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+DEBUG_TOOLBAR = False
+if DEBUG:
+    try:
+        import debug_toolbar
+        DEBUG_TOOLBAR = True
+    except ImportError:
+        pass
+
 if DEBUG_TOOLBAR:
     INSTALLED_APPS = [*INSTALLED_APPS, 'debug_toolbar']
     INTERNAL_IPS = ['0.0.0.0', '127.0.0.1', '*']
@@ -79,23 +101,7 @@ if DEBUG_TOOLBAR:
         'debug_toolbar.panels.profiling.ProfilingPanel',
         'djdt_flamegraph.FlamegraphPanel',
     ]
-
-
-MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-]
-if DEBUG_TOOLBAR:
     MIDDLEWARE = [*MIDDLEWARE, 'debug_toolbar.middleware.DebugToolbarMiddleware']
-
-AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
-]
-
 
 ################################################################################
 ### Staticfile and Template Settings
