@@ -66,6 +66,7 @@ EXTRAS_REQUIRE = {
         "bottle",
         "stdeb",
         "django-debug-toolbar",
+        "djdt_flamegraph",
     ],
 }
 
