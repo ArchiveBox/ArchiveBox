@@ -1,6 +1,7 @@
 __package__ = 'archivebox.core'
 
 from io import StringIO
+from pathlib import Path
 from contextlib import redirect_stdout
 
 from django.contrib import admin
@@ -94,19 +95,23 @@ class SnapshotAdminForm(forms.ModelForm):
 
         return instance
 
+class ArchiveResultInline(admin.TabularInline):
+    model = ArchiveResult
+
 
 class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     list_display = ('added', 'title_str', 'url_str', 'files', 'size')
     sort_fields = ('title_str', 'url_str', 'added')
-    readonly_fields = ('id', 'url', 'timestamp', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
+    readonly_fields = ('id', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
     search_fields = ['url__icontains', 'timestamp', 'title', 'tags__name']
-    fields = (*readonly_fields, 'title', 'tags')
+    fields = (*readonly_fields, 'timestamp', 'url', 'title', 'tags')
     list_filter = ('added', 'updated', 'tags')
     ordering = ['-added']
     actions = [delete_snapshots, overwrite_snapshots, update_snapshots, update_titles, verify_snapshots]
     actions_template = 'admin/actions_as_select.html'
     form = SnapshotAdminForm
     list_per_page = SNAPSHOTS_PER_PAGE
+    inlines = [ArchiveResultInline]
 
     def get_urls(self):
         urls = super().get_urls()
@@ -213,12 +218,41 @@ class TagAdmin(admin.ModelAdmin):
     fields = (*readonly_fields, 'name', 'slug')
 
 class ArchiveResultAdmin(admin.ModelAdmin):
-    list_display = ('start_ts', 'extractor', 'status', 'snapshot', 'output')
+    list_display = ('id', 'start_ts', 'extractor', 'snapshot_str', 'cmd_str', 'status', 'output_str')
     sort_fields = ('start_ts', 'extractor', 'status')
-    readonly_fields = ('id', 'snapshot', 'extractor')
-    search_fields = ('id', 'snapshot__url', 'extractor', 'output')
-    fields = (*readonly_fields, 'status', 'start_ts', 'end_ts', 'pwd', 'cmd', 'cmd_version', 'output')
+    readonly_fields = ('id', 'uuid', 'snapshot_str')
+    search_fields = ('id', 'uuid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
+    fields = (*readonly_fields, 'snapshot', 'extractor', 'status', 'start_ts', 'end_ts', 'pwd', 'cmd', 'cmd_version', 'output')
 
+    list_filter = ('status', 'extractor', 'start_ts', 'cmd_version')
+    ordering = ['-start_ts']
+    list_per_page = SNAPSHOTS_PER_PAGE
+
+
+    def snapshot_str(self, obj):
+        return format_html(
+            '<a href="/archive/{}/index.html"><b><code>[{}]</code></b></a><br/>'
+            '<small>{}</small>',
+            obj.snapshot.timestamp,
+            obj.snapshot.timestamp,
+            obj.snapshot.url[:128],
+        )
+
+    def cmd_str(self, obj):
+        return format_html(
+            '<pre>{}</pre>',
+            ' '.join(obj.cmd) if isinstance(obj.cmd, list) else str(obj.cmd),
+        )
+
+    def output_str(self, obj):
+        return format_html(
+            '<a href="/archive/{}/{}"><pre>{}</pre></a>',
+            obj.snapshot.timestamp,
+            obj.output if (obj.status == 'succeeded') and obj.extractor not in ('title', 'archive_org') else 'index.html',
+            obj.output,
+        )
+
+    snapshot_str.short_description = 'snapshot'
 
 class ArchiveBoxAdmin(admin.AdminSite):
     site_header = 'ArchiveBox'
