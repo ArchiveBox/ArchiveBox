@@ -169,11 +169,20 @@ class Snapshot(models.Model):
 
     @cached_property
     def latest_title(self):
+        if self.title:
+            return self.title
+        
+        try:
+            return self.archiveresult_set.filter(extractor='title', status='succeeded')[0].output
+        except ArchiveResult.DoesNotExist:
+            pass
+
         if ('title' in self.history
             and self.history['title']
             and (self.history['title'][-1].status == 'succeeded')
             and self.history['title'][-1].output.strip()):
             return self.history['title'][-1].output.strip()
+
         return None
 
     def save_tags(self, tags=()):
