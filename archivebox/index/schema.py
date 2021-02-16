@@ -178,6 +178,7 @@ class Link:
             raise
     
     def _asdict(self, extended=False):
+        from core.models import Snapshot
         info = {
             'schema': 'Link',
             'url': self.url,
@@ -190,6 +191,7 @@ class Link:
         }
         if extended:
             info.update({
+                'snapshot_id': self.snapshot_id,
                 'link_dir': self.link_dir,
                 'archive_path': self.archive_path,
                 
@@ -257,6 +259,11 @@ class Link:
         from .csv import to_csv
 
         return to_csv(self, cols=cols or self.field_names(), separator=separator, ljust=ljust)
+
+    @cached_property
+    def snapshot_id(self):
+        from core.models import Snapshot
+        return str(Snapshot.objects.only('id').get(url=self.url).id)
 
     @classmethod
     def field_names(cls):

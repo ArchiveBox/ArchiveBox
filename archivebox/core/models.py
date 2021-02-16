@@ -79,7 +79,7 @@ class Snapshot(models.Model):
     title = models.CharField(max_length=128, null=True, blank=True, db_index=True)
 
     added = models.DateTimeField(auto_now_add=True, db_index=True)
-    updated = models.DateTimeField(null=True, blank=True, db_index=True)
+    updated = models.DateTimeField(auto_now=True, blank=True, null=True, db_index=True)
     tags = models.ManyToManyField(Tag)
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
@@ -205,12 +205,15 @@ class ArchiveResultManager(models.Manager):
 
 
 class ArchiveResult(models.Model):
+    id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
+
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
     cmd = JSONField()
     pwd = models.CharField(max_length=256)
-    cmd_version = models.CharField(max_length=32, default=None, null=True, blank=True)
-    output = models.CharField(max_length=512)
-    start_ts = models.DateTimeField()
+    cmd_version = models.CharField(max_length=128, default=None, null=True, blank=True)
+    output = models.CharField(max_length=1024)
+    start_ts = models.DateTimeField(db_index=True)
     end_ts = models.DateTimeField()
     status = models.CharField(max_length=16, choices=STATUS_CHOICES)
     extractor = models.CharField(choices=EXTRACTORS, max_length=32)
