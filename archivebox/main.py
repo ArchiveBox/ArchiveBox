@@ -67,7 +67,9 @@ from .config import (
     ConfigDict,
     ANSI,
     IS_TTY,
+    DEBUG,
     IN_DOCKER,
+    SHOW_PROGRESS,
     USER,
     ARCHIVEBOX_BINARY,
     ONLY_NEW,
@@ -85,6 +87,7 @@ from .config import (
     SQL_INDEX_FILENAME,
     ROBOTS_TXT_FILENAME,
     FAVICON_FILENAME,
+    SEARCH_BACKEND_ENGINE,
     check_dependencies,
     check_data_folder,
     write_config_file,
@@ -220,9 +223,23 @@ def version(quiet: bool=False,
     if quiet:
         print(VERSION)
     else:
+        # ArchiveBox v0.5.6
+        # Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
         print('ArchiveBox v{}'.format(VERSION))
         p = platform.uname()
-        print(sys.implementation.name.title(), p.system, platform.platform(), p.machine, '(in Docker)' if IN_DOCKER else '(not in Docker)')
+        print(
+            sys.implementation.name.title(),
+            p.system,
+            platform.platform(),
+            p.machine,
+        )
+        print(
+            f'IN_DOCKER={IN_DOCKER}',
+            f'DEBUG={DEBUG}',
+            f'IS_TTY={IS_TTY}',
+            f'TZ={os.environ.get("TZ", "UTC")}',
+            f'SEARCH_BACKEND_ENGINE={SEARCH_BACKEND_ENGINE}',
+        )
         print()
 
         print('{white}[i] Dependency versions:{reset}'.format(**ANSI))

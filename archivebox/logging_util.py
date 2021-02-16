@@ -3,6 +3,7 @@ __package__ = 'archivebox'
 import re
 import os
 import sys
+import stat
 import time
 import argparse
 from math import log
@@ -11,7 +12,7 @@ from pathlib import Path
 
 from datetime import datetime
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Union, IO, TYPE_CHECKING
+from typing import Any, Optional, List, Dict, Union, IO, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .index.schema import Link, ArchiveResult
@@ -21,8 +22,10 @@ from .config import (
     ConfigDict,
     OUTPUT_DIR,
     PYTHON_ENCODING,
+    VERSION,
     ANSI,
     IS_TTY,
+    IN_DOCKER,
     TERM_WIDTH,
     SHOW_PROGRESS,
     SOURCES_DIR_NAME,
@@ -48,6 +51,32 @@ class RuntimeStats:
 
 # globals are bad, mmkay
 _LAST_RUN_STATS = RuntimeStats()
+
+
+def debug_dict_summary(obj: Dict[Any, Any]) -> None:
+    stderr(' '.join(f'{key}={str(val).ljust(6)}' for key, val in obj.items()))
+
+
+def get_fd_info(fd) -> Dict[str, Any]:
+    NAME = fd.name[1:-1]
+    FILENO = fd.fileno()
+    MODE = os.fstat(FILENO).st_mode
+    IS_TTY = hasattr(fd, 'isatty') and fd.isatty()
+    IS_PIPE = stat.S_ISFIFO(MODE)
+    IS_FILE = stat.S_ISREG(MODE)
+    IS_TERMINAL =  not (IS_PIPE or IS_FILE)
+    IS_LINE_BUFFERED = fd.line_buffering
+    IS_READABLE = fd.readable()
+    return {key: val for key, val in locals().items() if val is not fd}
+    
+
+# # Log debug information about stdin, stdout, and stderr
+# sys.stdout.write('[>&1] this is python stdout\n')
+# sys.stderr.write('[>&2] this is python stderr\n')
+
+# debug_dict_summary(get_fd_info(sys.stdin))
+# debug_dict_summary(get_fd_info(sys.stdout))
+# debug_dict_summary(get_fd_info(sys.stderr))
 
 
 
