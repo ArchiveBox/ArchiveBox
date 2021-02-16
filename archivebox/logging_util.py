@@ -62,22 +62,40 @@ class SmartFormatter(argparse.HelpFormatter):
 def reject_stdin(caller: str, stdin: Optional[IO]=sys.stdin) -> None:
     """Tell the user they passed stdin to a command that doesn't accept it"""
 
-    if stdin and not stdin.isatty():
-        stdin_raw_text = stdin.read().strip()
+    if not stdin:
+        return None
+
+    if IN_DOCKER:
+        # when TTY is disabled in docker we cant tell if stdin is being piped in or not
+        # if we try to read stdin when its not piped we will hang indefinitely waiting for it
+        return None
+
+    if not stdin.isatty():
+        # stderr('READING STDIN TO REJECT...')
+        stdin_raw_text = stdin.read()
         if stdin_raw_text:
+            # stderr('GOT STDIN!', len(stdin_str))
             stderr(f'[X] The "{caller}" command does not accept stdin.', color='red')
             stderr(f'    Run archivebox "{caller} --help" to see usage and examples.')
             stderr()
             raise SystemExit(1)
+    return None
 
 
 def accept_stdin(stdin: Optional[IO]=sys.stdin) -> Optional[str]:
     """accept any standard input and return it as a string or None"""
+    
     if not stdin:
         return None
-    elif stdin and not stdin.isatty():
-        stdin_str = stdin.read().strip()
-        return stdin_str or None
+
+    if not stdin.isatty():
+        # stderr('READING STDIN TO ACCEPT...')
+        stdin_str = stdin.read()
+
+        if stdin_str:
+            # stderr('GOT STDIN...', len(stdin_str))
+            return stdin_str
+
     return None
 
 
@@ -174,7 +192,6 @@ def progress_bar(seconds: int, prefix: str='') -> None:
 
 
 def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str], pwd: str):
-    from .config import VERSION, ANSI
     cmd = ' '.join(('archivebox', subcommand, *subcommand_args))
     stderr('{black}[i] [{now}] ArchiveBox v{VERSION}: {cmd}{reset}'.format(
         now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),

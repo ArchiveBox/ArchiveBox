@@ -50,8 +50,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help= "Path to save the single archive folder to, e.g. ./example.com_archive"
     )
     command = parser.parse_args(args or ())
+    stdin_url = None
     url = command.url
-    stdin_url = accept_stdin(stdin)
+    if not url:
+        stdin_url = accept_stdin(stdin)
+
     if (stdin_url and url) or (not stdin and not url):
         stderr(
             '[X] You must pass a URL/path to add via stdin or CLI arguments.\n',

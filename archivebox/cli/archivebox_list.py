@@ -24,7 +24,7 @@ from ..index import (
     get_corrupted_folders,
     get_unrecognized_folders,
 )
-from ..logging_util import SmartFormatter, accept_stdin, stderr
+from ..logging_util import SmartFormatter, reject_stdin, stderr
 
 
 @docstring(list_all.__doc__)
@@ -111,7 +111,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help='List only URLs matching these filter patterns.'
     )
     command = parser.parse_args(args or ())
-    filter_patterns_str = accept_stdin(stdin)
+    reject_stdin(stdin)
 
     if command.with_headers and not (command.json or command.html or command.csv):
         stderr(
@@ -121,7 +121,6 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         raise SystemExit(2)
 
     matching_folders = list_all(
-        filter_patterns_str=filter_patterns_str,
         filter_patterns=command.filter_patterns,
         filter_type=command.filter_type,
         status=command.status,
