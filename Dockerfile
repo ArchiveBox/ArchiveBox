@@ -50,13 +50,6 @@ RUN apt-get update -qq \
         fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 
-# Install apt development dependencies
-# RUN apt-get install -qq \
-#     && apt-get install -qq -y --no-install-recommends \
-#         python3 python3-dev python3-pip python3-venv python3-all \
-#         dh-python debhelper devscripts dput software-properties-common \
-#         python3-distutils python3-setuptools python3-wheel python3-stdeb
-
 # Install Node environment
 RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
     && echo 'deb https://deb.nodesource.com/node_15.x buster main' >> /etc/apt/sources.list \
@@ -89,6 +82,15 @@ RUN apt-get update -qq \
     && apt-get purge -y build-essential python-dev python3-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
+
+# Install apt development dependencies
+# RUN apt-get install -qq \
+#     && apt-get install -qq -y --no-install-recommends \
+#         python3 python3-dev python3-pip python3-venv python3-all \
+#         dh-python debhelper devscripts dput software-properties-common \
+#         python3-distutils python3-setuptools python3-wheel python3-stdeb
+# RUN python3 -c 'from distutils.core import run_setup; result = run_setup("./setup.py", stop_after="init"); print("\n".join(result.extras_require["dev"]))' > /tmp/dev_requirements.txt \
+    # && pip install --quiet -r /tmp/dev_requirements.txt
 
 # Install ArchiveBox Python package and its dependencies
 WORKDIR "$CODE_DIR"
