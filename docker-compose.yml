@@ -19,8 +19,9 @@ services:
         ports:
             - 8000:8000
         environment:
-            - USE_COLOR=True
-            - SHOW_PROGRESS=False
+            - ALLOWED_HOSTS=*                   # add any config options you want as env vars
+            - MEDIA_MAX_SIZE=750m
+            # - SHOW_PROGRESS=False
             # - SEARCH_BACKEND_ENGINE=sonic     # uncomment these if you enable sonic below
             # - SEARCH_BACKEND_HOST_NAME=sonic
             # - SEARCH_BACKEND_PASSWORD=SecretPassword

@@ -213,12 +213,14 @@ class PublicIndexView(ListView):
         }
 
     def get_queryset(self, **kwargs): 
-        qs = super().get_queryset(**kwargs) 
+        qs = super().get_queryset(**kwargs)
         query = self.request.GET.get('q')
         if query:
             qs = qs.filter(Q(title__icontains=query) | Q(url__icontains=query) | Q(timestamp__icontains=query) | Q(tags__name__icontains=query))
+        
         for snapshot in qs:
-            snapshot.icons = snapshot_icons(snapshot)
+            # lazy load snapshot icons, otherwise it will load icons for entire index at once
+            snapshot.icons = lambda: snapshot_icons(snapshot)
         return qs
 
     def get(self, *args, **kwargs):
