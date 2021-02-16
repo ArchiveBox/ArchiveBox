@@ -44,16 +44,16 @@ def get_default_archive_methods():
     return [
         ('title', should_save_title, save_title),
         ('favicon', should_save_favicon, save_favicon),
-        ('wget', should_save_wget, save_wget),
+        ('headers', should_save_headers, save_headers),
         ('singlefile', should_save_singlefile, save_singlefile),
         ('pdf', should_save_pdf, save_pdf),
         ('screenshot', should_save_screenshot, save_screenshot),
         ('dom', should_save_dom, save_dom),
-        ('readability', should_save_readability, save_readability), #keep readability below wget and singlefile, as it depends on them
+        ('wget', should_save_wget, save_wget),
+        ('readability', should_save_readability, save_readability),  # keep readability below wget and singlefile, as it depends on them
         ('mercury', should_save_mercury, save_mercury),
         ('git', should_save_git, save_git),
         ('media', should_save_media, save_media),
-        ('headers', should_save_headers, save_headers),
         ('archive_org', should_save_archive_dot_org, save_archive_dot_org),
     ]
 
@@ -114,7 +114,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                     write_search_index(link=link, texts=result.index_texts)
                     ArchiveResult.objects.create(snapshot=snapshot, extractor=method_name, cmd=result.cmd, cmd_version=result.cmd_version,
                                                  output=result.output, pwd=result.pwd, start_ts=result.start_ts, end_ts=result.end_ts, status=result.status)
-
+                    snapshot.save()  # bump the updated time
                 else:
                     # print('{black}      X {}{reset}'.format(method_name, **ANSI))
                     stats['skipped'] += 1
