@@ -120,6 +120,10 @@ docker-compose run archivebox add 'https://example.com'
 echo 'https://example.com' | docker-compose run archivebox -T add
 docker-compose run archivebox status
 docker-compose run archivebox help  # to see more options
+
+# when passing stdin/stdout via the cli, use the -T flag
+echo 'https://example.com' | docker-compose run -T archivebox add
+docker-compose run -T archivebox list --html --with-headers > index.html
 </code></pre>
 
 This is the recommended way to run ArchiveBox because it includes <i>all</i> the extractors like:<br/>
@@ -144,9 +148,12 @@ open http://127.0.0.1:8000
 
 # you can also add links and manage your archive via the CLI:
 docker run -v $PWD:/data -it archivebox/archivebox add 'https://example.com'
-echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox add
 docker run -v $PWD:/data -it archivebox/archivebox status
 docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
+
+# when passing stdin/stdout via the cli, use only -i (not -it)
+echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox add
+docker run -v $PWD:/data -i archivebox/archivebox list --html --with-headers > index.html
 </code></pre>
 
 </details>
@@ -316,8 +323,13 @@ archivebox add < ~/Downloads/firefox_bookmarks_export.html
 archivebox add < any_text_with_urls_in_it.txt
 archivebox add --depth=1 'https://example.com/some/downloads.html'
 archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
-```
 
+# (if using docker add -i when passing via stdin)
+echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox add
+
+# (if using docker-compose add -T when passing via stdin)
+echo 'https://example.com' | docker-compose run -T archivebox add
+```
 
 - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> TXT, RSS, XML, JSON, CSV, SQL, HTML, Markdown, or [any other text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)
 - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> [Browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (see instructions for: [Chrome](https://support.google.com/chrome/answer/96816?hl=en), [Firefox](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari](http://i.imgur.com/AtcvUZA.png), [IE](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows), [Opera](http://help.opera.com/Windows/12.10/en/importexport.html), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive))
@@ -337,6 +349,8 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
 # to browse your index statically without running the archivebox server, run:
 archivebox list --html --with-headers > index.html
 archivebox list --json --with-headers > index.json
+# if running these commands with docker-compose, add -T:
+# docker-compose run -T archivebox list ...
 
 # then open the static index in a browser
 open index.html
