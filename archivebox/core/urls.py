@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from django.urls import path, include
 from django.views import static
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.conf import settings
 from django.views.generic.base import RedirectView
 
@@ -35,6 +36,7 @@ urlpatterns = [
     path('index.json', static.serve, {'document_root': settings.OUTPUT_DIR, 'path': 'index.json'}),
     path('', HomepageView.as_view(), name='Home'),
 ]
+urlpatterns += staticfiles_urlpatterns()
 
 if settings.DEBUG_TOOLBAR:
     import debug_toolbar
