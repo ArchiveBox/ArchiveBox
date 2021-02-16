@@ -1,11 +1,11 @@
 __package__ = 'archivebox.index'
 
-from datetime import datetime
-from typing import List, Optional, Iterator, Mapping
 from pathlib import Path
+from datetime import datetime
+from collections import defaultdict
+from typing import List, Optional, Iterator, Mapping
 
 from django.utils.html import format_html, mark_safe
-from collections import defaultdict
 
 from .schema import Link
 from ..system import atomic_write
@@ -116,10 +116,9 @@ def render_django_template(template: str, context: Mapping[str, str]) -> str:
 
 def snapshot_icons(snapshot) -> str:
     from core.models import EXTRACTORS
-
     # start = datetime.now()
 
-    archive_results = snapshot.archiveresult_set.filter(status="succeeded")
+    archive_results = snapshot.archiveresult_set.filter(status="succeeded", output__isnull=False)
     link = snapshot.as_link()
     path = link.archive_path
     canon = link.canonical_outputs()
@@ -166,7 +165,7 @@ def snapshot_icons(snapshot) -> str:
             exists = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
             # get from filesystem (slower but more accurate)
             # exists = list((Path(path) / canon["warc_path"]).glob("*.warc.gz"))
-            output += format_html(output_template, 'warc/', canon["warc_path"], str(bool(exists)), "warc", icons.get("warc", "?"))
+            output += format_html(output_template, path, canon["warc_path"], str(bool(exists)), "warc", icons.get("warc", "?"))
 
         if extractor == "archive_org":
             # The check for archive_org is different, so it has to be handled separately
@@ -183,3 +182,7 @@ def snapshot_icons(snapshot) -> str:
     # end = datetime.now()
     # print(((end - start).total_seconds()*1000) // 1, 'ms')
     return result
+
+    # return cache.get_or_set(cache_key, calc_snapshot_icons)
+
+   
