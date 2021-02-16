@@ -102,6 +102,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'RESOLUTION':               {'type': str,   'default': '1440,2000', 'aliases': ('SCREENSHOT_RESOLUTION',)},
         'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com'},
         'CHECK_SSL_VALIDITY':       {'type': bool,  'default': True},
+        'MEDIA_MAX_SIZE':           {'type': str,   'default': '750m'},
 
         'CURL_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) curl/{CURL_VERSION}'},
         'WGET_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) wget/{WGET_VERSION}'},
@@ -112,7 +113,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
 
         'CHROME_HEADLESS':          {'type': bool,  'default': True},
         'CHROME_SANDBOX':           {'type': bool,  'default': lambda c: not c['IN_DOCKER']},
-        'YOUTUBEDL_ARGS':           {'type': list,  'default': ['--write-description',
+        'YOUTUBEDL_ARGS':           {'type': list,  'default': lambda c: ['--write-description',
                                                                 '--write-info-json',
                                                                 '--write-annotations',
                                                                 '--write-thumbnail',
@@ -123,7 +124,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--ignore-errors',
                                                                 '--geo-bypass',
                                                                 '--add-metadata',
-                                                                '--max-filesize=750m',
+                                                                '--max-filesize={}'.format(c['MEDIA_MAX_SIZE']),
                                                                 ]},
                                                                     
 
