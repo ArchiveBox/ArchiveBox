@@ -6,10 +6,14 @@ import re
 import logging
 
 from pathlib import Path
+from datetime import datetime
 from django.utils.crypto import get_random_string
 
 from ..config import (                                                          # noqa: F401
     DEBUG,
+    IS_TTY,
+    VERSION,
+    IN_DOCKER,
     SECRET_KEY,
     ALLOWED_HOSTS,
     PACKAGE_DIR,
@@ -197,6 +201,8 @@ class NoisyRequestsFilter(logging.Filter):
 
         return 1
 
+ERROR_LOG = LOGS_DIR / 'errors.log'
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -207,7 +213,7 @@ LOGGING = {
         'logfile': {
             'level': 'ERROR',
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': LOGS_DIR / 'errors.log',
+            'filename': ERROR_LOG,
             'maxBytes': 1024 * 1024 * 25,  # 25 MB
             'backupCount': 10,
         },
@@ -231,3 +237,9 @@ LOGGING = {
     },
 }
 
+
+# log startup message to the error log
+with open(ERROR_LOG, "a+") as f:
+    command = ' '.join(sys.argv)
+    ts = datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
+    f.write(f"\n> {command}; ts={ts} version={VERSION} docker={IN_DOCKER} is_tty={IS_TTY}\n")
