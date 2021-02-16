@@ -585,6 +585,10 @@ def add(urls: Union[str, List[str]],
     all_links = load_main_index(out_dir=out_dir)
 
     if index_only:
+        if overwrite:
+            archive_links(imported_links, overwrite=overwrite, methods=['index_only'], out_dir=out_dir)
+        else:
+            archive_links(new_links, overwrite=False, methods=['index_only'], out_dir=out_dir)
         return all_links
 
     # Run the archive methods for each link
@@ -593,6 +597,7 @@ def add(urls: Union[str, List[str]],
     }
     if extractors:
         archive_kwargs["methods"] = extractors
+
     if update_all:
         archive_links(all_links, overwrite=overwrite, **archive_kwargs)
     elif overwrite:
