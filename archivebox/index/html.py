@@ -20,7 +20,6 @@ from ..util import (
 from ..config import (
     OUTPUT_DIR,
     VERSION,
-    GIT_SHA,
     FOOTER_INFO,
     HTML_INDEX_FILENAME,
     SAVE_ARCHIVE_DOT_ORG,
@@ -60,7 +59,7 @@ def main_index_template(links: List[Link], template: str=MAIN_INDEX_TEMPLATE) ->
 
     return render_django_template(template, {
         'version': VERSION,
-        'git_sha': GIT_SHA,
+        'git_sha': VERSION,  # not used anymore, but kept for backwards compatibility
         'num_links': str(len(links)),
         'date_updated': datetime.now().strftime('%Y-%m-%d'),
         'time_updated': datetime.now().strftime('%Y-%m-%d %H:%M'),

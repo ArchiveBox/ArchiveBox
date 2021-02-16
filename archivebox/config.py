@@ -288,7 +288,6 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0]},
     'VERSION':                  {'default': lambda c: json.loads((Path(c['PACKAGE_DIR']) / 'package.json').read_text().strip())['version']},
-    'GIT_SHA':                  {'default': lambda c: c['VERSION'].split('+')[-1] or 'unknown'},
 
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
     'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},

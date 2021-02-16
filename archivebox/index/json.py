@@ -15,7 +15,6 @@ from ..config import (
     VERSION,
     OUTPUT_DIR,
     FOOTER_INFO,
-    GIT_SHA,
     DEPENDENCIES,
     JSON_INDEX_FILENAME,
     ARCHIVE_DIR_NAME,
@@ -30,7 +29,7 @@ MAIN_INDEX_HEADER = {
     'meta': {
         'project': 'ArchiveBox',
         'version': VERSION,
-        'git_sha': GIT_SHA,
+        'git_sha': VERSION,  # not used anymore, but kept for backwards compatibility
         'website': 'https://ArchiveBox.io',
         'docs': 'https://github.com/ArchiveBox/ArchiveBox/wiki',
         'source': 'https://github.com/ArchiveBox/ArchiveBox',
