@@ -13,7 +13,7 @@ from django import forms
 
 from ..util import htmldecode, urldecode, ansi_to_html
 
-from core.models import Snapshot, Tag
+from core.models import Snapshot, ArchiveResult, Tag
 from core.forms import AddLinkForm, TagField
 
 from core.mixins import SearchResultsAdminMixin
@@ -212,6 +212,13 @@ class TagAdmin(admin.ModelAdmin):
     search_fields = ('id', 'name', 'slug')
     fields = (*readonly_fields, 'name', 'slug')
 
+class ArchiveResultAdmin(admin.ModelAdmin):
+    list_display = ('start_ts', 'extractor', 'status', 'snapshot', 'output')
+    sort_fields = ('start_ts', 'extractor', 'status')
+    readonly_fields = ('id', 'snapshot', 'extractor')
+    search_fields = ('id', 'snapshot__url', 'extractor', 'output')
+    fields = (*readonly_fields, 'status', 'start_ts', 'end_ts', 'pwd', 'cmd', 'cmd_version', 'output')
+
 
 class ArchiveBoxAdmin(admin.AdminSite):
     site_header = 'ArchiveBox'
@@ -266,4 +273,5 @@ admin.site = ArchiveBoxAdmin()
 admin.site.register(get_user_model())
 admin.site.register(Snapshot, SnapshotAdmin)
 admin.site.register(Tag, TagAdmin)
+admin.site.register(ArchiveResult, ArchiveResultAdmin)
 admin.site.disable_action('delete_selected')
