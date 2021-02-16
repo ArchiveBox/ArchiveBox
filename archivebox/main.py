@@ -1084,8 +1084,11 @@ def server(runserver_args: Optional[List[str]]=None,
 
     runserver_args = runserver_args or []
     
-    if init or quick_init:
-        run_subcommand('init', quick=quick_init, stdin=None, pwd=out_dir)
+    if init:
+        run_subcommand('init', stdin=None, pwd=out_dir)
+
+    if quick_init:
+        run_subcommand('init', subcommand_args=['--quick'], stdin=None, pwd=out_dir)
 
     if createsuperuser:
         run_subcommand('manage', subcommand_args=['createsuperuser'], pwd=out_dir)
