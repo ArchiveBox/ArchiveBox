@@ -17,6 +17,7 @@ from typing import Any, Optional, List, Dict, Union, IO, TYPE_CHECKING
 if TYPE_CHECKING:
     from .index.schema import Link, ArchiveResult
 
+from .system import get_dir_size
 from .util import enforce_types
 from .config import (
     ConfigDict,
@@ -318,8 +319,6 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
         total=num_links,
     ))
     print()
-    print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**ANSI))
-    print('        archivebox server  # then visit http://127.0.0.1:8000')
     print('    Continue archiving where you left off by running:')
     print('        archivebox update --resume={}'.format(timestamp))
 
@@ -376,6 +375,9 @@ def log_link_archiving_finished(link: "Link", link_dir: str, is_new: bool, stats
         _LAST_RUN_STATS.skipped += 1
     else:
         _LAST_RUN_STATS.succeeded += 1
+
+    size = get_dir_size(link_dir)
+    print('        {black}{} files ({}){reset}'.format(size[2], printable_filesize(size[0]), **ANSI))
 
 
 def log_archive_method_started(method: str):
