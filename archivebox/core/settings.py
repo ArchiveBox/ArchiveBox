@@ -123,9 +123,16 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': DATABASE_NAME,
-        # modified to be in-memory or sqlite3+wal by setup_django() in config.py
+        # DB setup is sometimes modified at runtime by setup_django() in config.py
     }
 }
+
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+#         'LOCATION': 'cache_default',
+#     }
+# }
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
@@ -147,6 +154,8 @@ SESSION_COOKIE_DOMAIN = None
 SESSION_COOKIE_AGE = 1209600  # 2 weeks
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = True
+
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
