@@ -65,6 +65,7 @@ EXTRAS_REQUIRE = {
         "pytest",
         "bottle",
         "stdeb",
+        "django-debug-toolbar",
     ],
 }
 

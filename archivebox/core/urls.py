@@ -36,34 +36,41 @@ urlpatterns = [
     path('', HomepageView.as_view(), name='Home'),
 ]
 
-    # # Proposed UI URLs spec
-    # path('',                 HomepageView)
-    # path('/add',             AddView)
-    # path('/public',          PublicIndexView)
-    # path('/snapshot/:slug',  SnapshotView)
-    
-    # path('/admin',           admin.site.urls)
-    # path('/accounts',        django.contrib.auth.urls)
+if settings.DEBUG_TOOLBAR:
+    import debug_toolbar
+    urlpatterns += [
+        path('__debug__/', include(debug_toolbar.urls)),
+    ]
 
-    # # Prposed REST API spec
-    # # :slugs can be uuid, short_uuid, or any of the unique index_fields
-    # path('api/v1/'),
-    # path('api/v1/core/'                      [GET])
-    # path('api/v1/core/snapshot/',            [GET, POST, PUT]),
-    # path('api/v1/core/snapshot/:slug',       [GET, PATCH, DELETE]),
-    # path('api/v1/core/archiveresult',        [GET, POST, PUT]),
-    # path('api/v1/core/archiveresult/:slug',  [GET, PATCH, DELETE]),
-    # path('api/v1/core/tag/',                 [GET, POST, PUT]),
-    # path('api/v1/core/tag/:slug',            [GET, PATCH, DELETE]),
 
-    # path('api/v1/cli/',                      [GET])
-    # path('api/v1/cli/{add,list,config,...}', [POST]),  # pass query as kwargs directly to `run_subcommand` and return stdout, stderr, exitcode
+# # Proposed FUTURE URLs spec
+# path('',                 HomepageView)
+# path('/add',             AddView)
+# path('/public',          PublicIndexView)
+# path('/snapshot/:slug',  SnapshotView)
 
-    # path('api/v1/extractors/',                    [GET])
-    # path('api/v1/extractors/:extractor/',         [GET]),
-    # path('api/v1/extractors/:extractor/:func',    [GET, POST]),  # pass query as args directly to chosen function
+# path('/admin',           admin.site.urls)
+# path('/accounts',        django.contrib.auth.urls)
 
-    # future, just an idea:
-    # path('api/v1/scheduler/',                [GET])
-    # path('api/v1/scheduler/task/',           [GET, POST, PUT]),
-    # path('api/v1/scheduler/task/:slug',      [GET, PATCH, DELETE]),
+# # Prposed REST API spec
+# # :slugs can be uuid, short_uuid, or any of the unique index_fields
+# path('api/v1/'),
+# path('api/v1/core/'                      [GET])
+# path('api/v1/core/snapshot/',            [GET, POST, PUT]),
+# path('api/v1/core/snapshot/:slug',       [GET, PATCH, DELETE]),
+# path('api/v1/core/archiveresult',        [GET, POST, PUT]),
+# path('api/v1/core/archiveresult/:slug',  [GET, PATCH, DELETE]),
+# path('api/v1/core/tag/',                 [GET, POST, PUT]),
+# path('api/v1/core/tag/:slug',            [GET, PATCH, DELETE]),
+
+# path('api/v1/cli/',                      [GET])
+# path('api/v1/cli/{add,list,config,...}', [POST]),  # pass query as kwargs directly to `run_subcommand` and return stdout, stderr, exitcode
+
+# path('api/v1/extractors/',                    [GET])
+# path('api/v1/extractors/:extractor/',         [GET]),
+# path('api/v1/extractors/:extractor/:func',    [GET, POST]),  # pass query as args directly to chosen function
+
+# future, just an idea:
+# path('api/v1/scheduler/',                [GET])
+# path('api/v1/scheduler/task/',           [GET, POST, PUT]),
+# path('api/v1/scheduler/task/:slug',      [GET, PATCH, DELETE]),

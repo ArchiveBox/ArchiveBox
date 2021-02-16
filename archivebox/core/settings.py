@@ -40,7 +40,8 @@ LOGOUT_REDIRECT_URL = '/'
 PASSWORD_RESET_URL = '/accounts/password_reset/'
 APPEND_SLASH = True
 
-DEBUG = DEBUG or ('--debug' in sys.argv)
+DEBUG = True    # DEBUG or ('--debug' in sys.argv)
+DEBUG_TOOLBAR = True
 
 INSTALLED_APPS = [
     'django.contrib.auth',
@@ -54,6 +55,12 @@ INSTALLED_APPS = [
 
     'django_extensions',
 ]
+if DEBUG_TOOLBAR:
+    INSTALLED_APPS = [*INSTALLED_APPS, 'debug_toolbar']
+    INTERNAL_IPS = ['0.0.0.0', '127.0.0.1', '*']
+    DEBUG_TOOLBAR_CONFIG = {
+        "SHOW_TOOLBAR_CALLBACK": lambda request: True,
+    }
 
 
 MIDDLEWARE = [
@@ -64,6 +71,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
 ]
+if DEBUG_TOOLBAR:
+    MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware', *MIDDLEWARE]
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
@@ -226,12 +235,12 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['console', 'logfile'],
-            'level': 'DEBUG',
+            'level': 'INFO',
             'filters': ['noisyrequestsfilter'],
         },
         'django.server': {
             'handlers': ['console', 'logfile'],
-            'level': 'DEBUG',
+            'level': 'INFO',
             'filters': ['noisyrequestsfilter'],
         }
     },
