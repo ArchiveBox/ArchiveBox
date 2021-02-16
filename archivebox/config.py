@@ -1064,6 +1064,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
 
     try:
         import django
+        from django.core.management import call_command
 
         sys.path.append(str(config['PACKAGE_DIR']))
         os.environ.setdefault('OUTPUT_DIR', str(output_dir))
@@ -1072,7 +1073,6 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
 
         if in_memory_db:
             # Put the db in memory and run migrations in case any command requires it
-            from django.core.management import call_command
             os.environ.setdefault("ARCHIVEBOX_DATABASE_NAME", ":memory:")
             django.setup()
             call_command("migrate", interactive=False, verbosity=0)
@@ -1080,9 +1080,16 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             django.setup()
             
             # Enable WAL mode in sqlite3
-            from django.db import connection
-            with connection.cursor() as cursor:
-                cursor.execute("PRAGMA journal_mode=wal;")
+            # from django.db import connection
+            # with connection.cursor() as cursor:
+            #     cursor.execute("PRAGMA journal_mode=wal;")
+
+            # Create cache table in DB
+            # try:
+            #     from django.core.cache import cache
+            #     cache.get('test', None)
+            # except django.db.utils.OperationalError:
+            #     call_command("createcachetable", verbosity=0)
 
         from django.conf import settings
 
