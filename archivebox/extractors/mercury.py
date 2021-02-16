@@ -54,7 +54,7 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
 
     out_dir = Path(out_dir or link.link_dir)
     output_folder = out_dir.absolute() / "mercury"
-    output = str(output_folder)
+    output = "mercury"
 
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
@@ -73,6 +73,9 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
         except json.JSONDecodeError:
             raise ShellError(cmd, result)
         
+        if article_text.get('failed'):
+            raise ArchiveError('Mercury was not able to get article text from the URL')
+
         atomic_write(str(output_folder / "content.txt"), article_text["content"])
 
         # Get HTML version of article
@@ -85,6 +88,9 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
             article_json = json.loads(result.stdout)
         except json.JSONDecodeError:
             raise ShellError(cmd, result)
+
+        if article_text.get('failed'):
+            raise ArchiveError('Mercury was not able to get article HTML from the URL')
 
         atomic_write(str(output_folder / "content.html"), article_json.pop("content"))
         atomic_write(str(output_folder / "article.json"), article_json)
