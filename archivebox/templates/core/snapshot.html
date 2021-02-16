@@ -335,13 +335,15 @@
                     </div>
                     <div class="col-lg-4">
                         <div class="info-chunk">
-                            <h5>🗃 Files</h5>
+                            <h5>🗃 Snapshot: <a href="/admin/core/snapshot/{{snapshot_id}}/change/"><code style="color: rgba(255,255,255,0.6); font-weight: 200; font-size: 12px; background-color: #1a1a1a"><b>[{{timestamp}}]</b> <small>{{snapshot_id|truncatechars:24}}</small></code></a></h5>
                             <a href="index.json" title="JSON summary of archived link.">JSON</a> | 
                             <a href="warc/" title="Any WARC archives for the page">WARC</a> | 
+                            <a href="/admin/core/snapshot/{{snapshot_id}}/change/" title="Edit this snapshot in the Admin UI">Admin</a> | 
                             <a href="media/" title="Audio, Video, and Subtitle files.">Media</a> | 
                             <a href="git/" title="Any git repos at the url">Git</a> | 
                             <a href="favicon.ico" title="Any git repos at the url">Favicon</a> | 
-                            <a href="." title="Webserver-provided index of files directory.">See all...</a>
+                            <a href="." title="Webserver-provided index of files directory.">See all files...</a><br/>
+                            
                         </div>
                     </div>
                 </div>
