@@ -117,6 +117,7 @@ open 'http://127.0.0.1:8000'
 
 # you can also add links and manage your archive via the CLI:
 docker-compose run archivebox add 'https://example.com'
+echo 'https://example.com' | docker-compose run archivebox -T add
 docker-compose run archivebox status
 docker-compose run archivebox help  # to see more options
 </code></pre>
@@ -143,6 +144,7 @@ open http://127.0.0.1:8000
 
 # you can also add links and manage your archive via the CLI:
 docker run -v $PWD:/data -it archivebox/archivebox add 'https://example.com'
+echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox add
 docker run -v $PWD:/data -it archivebox/archivebox status
 docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
 </code></pre>
