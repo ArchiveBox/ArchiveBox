@@ -7,7 +7,8 @@ from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.db.models import Case, When, Value, IntegerField
 
-from ..util import parse_date
+from ..config import ARCHIVE_DIR
+from ..util import parse_date, base_url, hashurl
 from ..index.schema import Link
 from ..extractors import get_default_archive_methods, ARCHIVE_METHODS_INDEXING_PRECEDENCE
 
@@ -117,6 +118,11 @@ class Snapshot(models.Model):
         return parse_date(self.timestamp)
 
     @cached_property
+    def bookmarked_date(self):
+        # TODO: remove this
+        return self.bookmarked
+
+    @cached_property
     def is_archived(self):
         return self.as_link().is_archived
 
@@ -126,15 +132,15 @@ class Snapshot(models.Model):
 
     @cached_property
     def url_hash(self):
-        return self.as_link().url_hash
+        return hashurl(self.url)
 
     @cached_property
     def base_url(self):
-        return self.as_link().base_url
+        return base_url(self.url)
 
     @cached_property
     def link_dir(self):
-        return self.as_link().link_dir
+        return str(ARCHIVE_DIR / self.timestamp)
 
     @cached_property
     def archive_path(self):
