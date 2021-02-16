@@ -201,6 +201,9 @@ class Link:
                 'basename': self.basename,
                 'extension': self.extension,
                 'is_static': self.is_static,
+                
+                'tags_str': self.tags,   # only used to render static index in index/html.py, remove if no longer needed there
+                'icons': None,           # only used to render static index in index/html.py, remove if no longer needed there
 
                 'bookmarked_date': self.bookmarked_date,
                 'updated_date': self.updated_date,
