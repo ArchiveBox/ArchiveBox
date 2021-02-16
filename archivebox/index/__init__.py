@@ -356,6 +356,7 @@ LINK_FILTERS = {
     'regex': lambda pattern: Q(url__iregex=pattern),
     'domain': lambda pattern: Q(url__istartswith=f"http://{pattern}") | Q(url__istartswith=f"https://{pattern}") | Q(url__istartswith=f"ftp://{pattern}"),
     'tag': lambda pattern: Q(tags__name=pattern),
+    'timestamp': lambda pattern: Q(timestamp=pattern),
 }
 
 @enforce_types
