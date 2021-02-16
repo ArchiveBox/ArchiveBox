@@ -4,8 +4,8 @@ from io import StringIO
 from contextlib import redirect_stdout
 
 from django.shortcuts import render, redirect
-
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
+from django.utils.html import format_html, mark_safe
 from django.views import View, static
 from django.views.generic.list import ListView
 from django.views.generic import FormView
@@ -44,10 +44,6 @@ class SnapshotView(View):
     # render static html index from filesystem archive/<timestamp>/index.html
 
     def get(self, request, path):
-        # missing trailing slash -> redirect to index
-        if '/' not in path:
-            return redirect(f'{path}/index.html')
-
         if not request.user.is_authenticated and not PUBLIC_SNAPSHOTS:
             return redirect(f'/admin/login/?next={request.path}')
 
@@ -56,41 +52,152 @@ class SnapshotView(View):
         except (IndexError, ValueError):
             slug, archivefile = path.split('/', 1)[0], 'index.html'
 
-        all_pages = list(Snapshot.objects.all())
-
         # slug is a timestamp
-        by_ts = {page.timestamp: page for page in all_pages}
-        try:
-            # print('SERVING STATICFILE', by_ts[slug].link_dir, request.path, path)
-            response = static.serve(request, archivefile, document_root=by_ts[slug].link_dir, show_indexes=True)
-            response["Link"] = f'<{by_ts[slug].url}>; rel="canonical"'
-            return response
-        except KeyError:
-            pass
+        if slug.replace('.','').isdigit():
 
-        # slug is a hash
-        by_hash = {page.url_hash: page for page in all_pages}
-        try:
-            timestamp = by_hash[slug].timestamp
-            return redirect(f'/archive/{timestamp}/{archivefile}')
-        except KeyError:
-            pass
+            # missing trailing slash -> redirect to index
+            if '/' not in path:
+                return redirect(f'{path}/index.html')
 
+            try:
+                try:
+                    snapshot = Snapshot.objects.get(timestamp=slug)
+                except Snapshot.DoesNotExist:
+                    if Snapshot.objects.filter(timestamp__startswith=slug).exists():
+                        raise Snapshot.MultipleObjectsReturned
+                response = static.serve(request, archivefile, document_root=snapshot.link_dir, show_indexes=True)
+                response["Link"] = f'<{snapshot.url}>; rel="canonical"'
+                return response
+            except Snapshot.DoesNotExist:
+                # Snapshot does not exist
+                return HttpResponse(
+                    format_html(
+                        (
+                            '<center><br/><br/><br/>'
+                            'No Snapshots match the given timestamp: <code>{}</code><br/><br/>'
+                            'You can <a href="/add/" target="_top">add a new Snapshot</a>, or return to the <a href="/" target="_top">Main Index</a>'
+                            '</center>'
+                        ),
+                        slug,
+                        path,
+                    ),
+                    content_type="text/html",
+                    status=404,
+                )
+            except Snapshot.MultipleObjectsReturned:
+                snapshot_hrefs = mark_safe('<br/>').join(
+                    format_html(
+                        '{} <a href="/archive/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
+                        snap.added.strftime('%Y-%m-%d %H:%M:%S'),
+                        snap.timestamp,
+                        snap.timestamp,
+                        snap.url,
+                        snap.title or '',
+                    )
+                    for snap in Snapshot.objects.filter(timestamp__startswith=slug).only('url', 'timestamp', 'title', 'added').order_by('-added')
+                )
+                return HttpResponse(
+                    format_html(
+                        (
+                            'Multiple Snapshots match the given timestamp <code>{}</code><br/><pre>'
+                        ),
+                        slug,
+                    ) + snapshot_hrefs + format_html(
+                        (
+                            '</pre><br/>'
+                            'Choose a Snapshot to proceed or go back to the <a href="/" target="_top">Main Index</a>'
+                        )
+                    ),
+                    content_type="text/html",
+                    status=404,
+                )
+            except Http404:
+                # Snapshot dir exists but file within does not e.g. 124235.324234/screenshot.png
+                return HttpResponse(
+                    format_html(
+                        (
+                            '<center><br/><br/><br/>'
+                            '<a href="/archive/{}/index.html" target="_top">Snapshot <b><code>{}</code></b></a> exists but no file or folder <b><code>/{}</code></b> exists within.<br/><br/>'
+                            '<small>Maybe this output type is not availabe for this URL,<br/>or the archiving process has not completed for this Snapshot yet?<br/>'
+                            '<pre><code># run this cmd to finish archiving this Snapshot<br/>archivebox update -t timestamp {}</code></pre></small><br/><br/>'
+                            'You can go back to the <a href="/archive/{}/index.html" target="_top">Snapshot <b><code>{}</code></b></a> detail page, or return to the <a href="/" target="_top">Main Index</a>'
+                            '</center>'
+                        ),
+                        snapshot.timestamp,
+                        snapshot.timestamp,
+                        archivefile,
+                        snapshot.timestamp,
+                        snapshot.timestamp,
+                        snapshot.timestamp,
+                    ),
+                    content_type="text/html",
+                    status=404,
+                )
         # slug is a URL
-        by_url = {page.base_url: page for page in all_pages}
-        try:
-            # TODO: add multiple snapshot support by showing index of all snapshots
-            # for given url instead of redirecting to timestamp index
-            timestamp = by_url[base_url(path)].timestamp
-            return redirect(f'/archive/{timestamp}/index.html')
-        except KeyError:
-            pass
-
-        return HttpResponse(
-            'No archived link matches the given timestamp or hash.',
-            content_type="text/plain",
-            status=404,
-        )
+        else:
+            try:
+                try:
+                    # try exact match on full url first
+                    snapshot = Snapshot.objects.get(
+                        Q(url='http://' + path) | Q(url='https://' + path)
+                    )
+                except Snapshot.DoesNotExist:
+                    # fall back to match on exact base_url
+                    try:
+                        snapshot = Snapshot.objects.get(
+                            Q(url='http://' + base_url(path)) | Q(url='https://' + base_url(path))
+                        )
+                    except Snapshot.DoesNotExist:
+                        # fall back to matching base_url as prefix
+                        snapshot = Snapshot.objects.get(
+                            Q(url__startswith='http://' + base_url(path)) | Q(url__startswith='https://' + base_url(path))
+                        )
+                return redirect(f'/archive/{snapshot.timestamp}/index.html')
+            except Snapshot.DoesNotExist:
+                return HttpResponse(
+                    format_html(
+                        (
+                            '<center><br/><br/><br/>'
+                            'No Snapshots match the given url: <code>{}</code><br/><br/>'
+                            'You can <a href="/add/?url=https://{}" target="_top">add a new Snapshot</a>, or return to the <a href="/" target="_top">Main Index</a>'
+                            '</center>'
+                        ),
+                        base_url(path),
+                        path,
+                    ),
+                    content_type="text/html",
+                    status=404,
+                )
+            except Snapshot.MultipleObjectsReturned:
+                snapshot_hrefs = mark_safe('<br/>').join(
+                    format_html(
+                        '{} <a href="/archive/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
+                        snap.added.strftime('%Y-%m-%d %H:%M:%S'),
+                        snap.timestamp,
+                        snap.timestamp,
+                        snap.url,
+                        snap.title or '',
+                    )
+                    for snap in Snapshot.objects.filter(
+                        Q(url__startswith='http://' + base_url(path)) | Q(url__startswith='https://' + base_url(path))
+                    ).only('url', 'timestamp', 'title', 'added').order_by('-added')
+                )
+                return HttpResponse(
+                    format_html(
+                        (
+                            'Multiple Snapshots match the given URL <code>{}</code><br/><pre>'
+                        ),
+                        base_url(path),
+                    ) + snapshot_hrefs + format_html(
+                        (
+                            '</pre><br/>'
+                            'Choose a Snapshot to proceed or go back to the <a href="/" target="_top">Main Index</a>'
+                        )
+                    ),
+                    content_type="text/html",
+                    status=404,
+                )
+            
 
 class PublicIndexView(ListView):
     template_name = 'public_index.html'
