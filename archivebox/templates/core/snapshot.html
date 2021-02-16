@@ -348,7 +348,7 @@
                 <div class="row header-bottom-frames">
                     <div class="col-lg-2">
                         <div class="card selected-card">
-                            <iframe class="card-img-top" src="{{singlefile_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{singlefile_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
                             <div class="card-body">
                                 <a href="{{singlefile_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./singlefile.html</code></p>
@@ -381,7 +381,7 @@
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
-                          <iframe class="card-img-top" src="{{archive_url}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                          <iframe class="card-img-top" src="{{archive_url}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
                           <div class="card-body">
                                 <a href="{{archive_url}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./{{domain}}</code></p>
@@ -393,30 +393,30 @@
                     {% if SAVE_ARCHIVE_DOT_ORG %}
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{archive_org_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{archive_org_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
                             <div class="card-body">
                                 <a href="{{archive_org_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>🌐 web.archive.org/web/...</code></p>
                                 </a>
-                                <a href="{{archive_org_path}}" target="preview"><h4 class="card-title">Archive.Org</h4></a>
+                                <a href="{{archive_org_path}}" target="preview" id="archive_dot_org-btn"><h4 class="card-title">Archive.Org</h4></a>
                           </div>
                         </div>
                     </div>
                     {% endif %}
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{url}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{url}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
                             <div class="card-body">
                                 <a href="{{url}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>🌐 {{domain}}</code></p>
                                 </a>
-                                <a href="{{url}}" target="preview"><h4 class="card-title">Original</h4></a>
+                                <a href="{{url}}" target="preview" id="original-btn"><h4 class="card-title">Original</h4></a>
                           </div>
                         </div>
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{headers_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{headers_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
                             <div class="card-body">
                                 <a href="{{headers_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./headers.json</code></p>
@@ -427,7 +427,7 @@
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{dom_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{dom_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
                             <div class="card-body">
                                 <a href="{{dom_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./output.html</code></p>
@@ -438,7 +438,7 @@
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{readability_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{readability_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
                             <div class="card-body">
                                 <a href="{{readability_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./readability/content.html</code></p>
@@ -450,7 +450,7 @@
                     <br/>
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{mercury_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{mercury_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
                             <div class="card-body">
                                 <a href="{{mercury_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./mercury/content.html</code></p>
@@ -461,7 +461,7 @@
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{media_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{media_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
                             <div class="card-body">
                                 <a href="{{media_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./media/*.mp4</code></p>
@@ -472,7 +472,7 @@
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{git_path}}" sandbox="allow-same-origin allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{git_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
                             <div class="card-body">
                                 <a href="{{git_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./git/*.git</code></p>
@@ -484,7 +484,7 @@
                 </div>
             </div>
         </header>
-        <iframe sandbox="allow-same-origin allow-scripts allow-forms" class="full-page-iframe" src="{{singlefile_path}}" name="preview"></iframe>
+        <iframe sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{singlefile_path}}" name="preview"></iframe>
     
         <script
               src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
@@ -493,6 +493,16 @@
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/js/bootstrap.min.js" integrity="sha384-vBWWzlZJ8ea9aCX4pEW3rVHjgjt7zpkNpZk+02D9phzyeVkE+jo0ieGizqPLForn" crossorigin="anonymous"></script>
 
         <script>
+            function getPreviewTypeFromPath(link) {
+                if (link.id == 'original-btn') {
+                    return 'original'
+                }
+                if (link.id == 'archive_dot_org-btn') {
+                    return 'archive_dot_org'
+                }
+                return link.pathname.split('/').filter(a => a.length).slice(-1)[0].toLowerCase()
+            }
+
             // show selected file in iframe when preview card is clicked
             jQuery('.card').on('click', function(e) {
                 jQuery('.selected-card').removeClass('selected-card')
@@ -502,9 +512,24 @@
                 if (e.currentTarget.href.endsWith('.pdf')) {
                     jQuery('.full-page-iframe')[0].removeAttribute('sandbox')
                 } else {
-                    jQuery('.full-page-iframe')[0].sandbox = "allow-same-origin allow-scripts allow-forms"
+                    jQuery('.full-page-iframe')[0].sandbox = "allow-same-origin allow-scripts allow-forms allow-top-navigation-by-user-activation"
                 }
+                window.location.hash = getPreviewTypeFromPath(e.currentTarget)
                 return true
+            })
+
+            // check URL for hash e.g. #git and load relevant preview
+            jQuery(document).ready(function() {
+                if (window.location.hash) {
+                    for (const link of jQuery('a[target=preview]')) {
+                        console.log(link.pathname)
+                        if (getPreviewTypeFromPath(link) == window.location.hash.slice(1).toLowerCase()) {
+                            jQuery(link).closest('.card').click()
+                            jQuery(link).click()
+                            link.click()
+                        }
+                    }
+                }
             })
 
             // un-sandbox iframes showing pdfs (required to display pdf viewer)
