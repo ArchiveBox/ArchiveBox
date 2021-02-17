@@ -14,13 +14,13 @@ from core.views import HomepageView, SnapshotView, PublicIndexView, AddView
 urlpatterns = [
     path('public/', PublicIndexView.as_view(), name='public-index'),
 
-    path('robots.txt', static.serve, {'document_root': settings.OUTPUT_DIR, 'path': 'robots.txt'}),
-    path('favicon.ico', static.serve, {'document_root': settings.OUTPUT_DIR, 'path': 'favicon.ico'}),
+    path('robots.txt', static.serve, {'document_root': settings.STATICFILES_DIRS[0], 'path': 'robots.txt'}),
+    path('favicon.ico', static.serve, {'document_root': settings.STATICFILES_DIRS[0], 'path': 'favicon.ico'}),
 
     path('docs/', RedirectView.as_view(url='https://github.com/ArchiveBox/ArchiveBox/wiki'), name='Docs'),
 
     path('archive/', RedirectView.as_view(url='/')),
-    path('archive/<path:path>', SnapshotView.as_view(), name='Snapshot'),
+    path('archive/<path:path>', SnapshotView.as_view(), name='snapshot'),
 
     path('admin/core/snapshot/add/', RedirectView.as_view(url='/add/')),
     path('add/', AddView.as_view(), name='add'),
