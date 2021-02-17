@@ -1080,16 +1080,16 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             django.setup()
             
             # Enable WAL mode in sqlite3
-            # from django.db import connection
-            # with connection.cursor() as cursor:
-            #     cursor.execute("PRAGMA journal_mode=wal;")
+            from django.db import connection
+            with connection.cursor() as cursor:
+                cursor.execute("PRAGMA journal_mode=wal;")
 
-            # Create cache table in DB
-            # try:
-            #     from django.core.cache import cache
-            #     cache.get('test', None)
-            # except django.db.utils.OperationalError:
-            #     call_command("createcachetable", verbosity=0)
+            # Create cache table in DB if needed
+            try:
+                from django.core.cache import cache
+                cache.get('test', None)
+            except django.db.utils.OperationalError:
+                call_command("createcachetable", verbosity=0)
 
         from django.conf import settings
 
