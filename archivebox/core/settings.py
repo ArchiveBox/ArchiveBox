@@ -150,12 +150,16 @@ DATABASES = {
     }
 }
 
-# CACHES = {
-#     'default': {
-#         'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
-#         'LOCATION': 'cache_default',
-#     }
-# }
+CACHE_BACKEND = 'django.core.cache.backends.locmem.LocMemCache'
+# CACHE_BACKEND = 'django.core.cache.backends.db.DatabaseCache'
+# CACHE_BACKEND = 'django.core.cache.backends.dummy.DummyCache'
+
+CACHES = {
+    'default': {
+        'BACKEND': CACHE_BACKEND,
+        'LOCATION': 'django_cache_default',
+    }
+}
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
