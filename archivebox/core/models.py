@@ -209,6 +209,7 @@ class ArchiveResult(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
 
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
+    extractor = models.CharField(choices=EXTRACTORS, max_length=32)
     cmd = JSONField()
     pwd = models.CharField(max_length=256)
     cmd_version = models.CharField(max_length=128, default=None, null=True, blank=True)
@@ -216,7 +217,6 @@ class ArchiveResult(models.Model):
     start_ts = models.DateTimeField(db_index=True)
     end_ts = models.DateTimeField()
     status = models.CharField(max_length=16, choices=STATUS_CHOICES)
-    extractor = models.CharField(choices=EXTRACTORS, max_length=32)
 
     objects = ArchiveResultManager()
 

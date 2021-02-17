@@ -260,3 +260,7 @@ body.model-snapshot.change-list #content .object-tools {
 #result_list tbody td.field-status {
     font-variant: small-caps;
 }
+
+.inline-group .tabular td.original p {
+    margin-top: -33px;
+}
