@@ -117,5 +117,8 @@ RUN /app/bin/docker_entrypoint.sh archivebox version
 VOLUME "$DATA_DIR"
 EXPOSE 8000
 
+HEALTHCHECK --interval=30s --timeout=20s --retries=15 \
+    CMD curl --silent 'http://localhost:8000/admin/login/' || exit 1
+
 ENTRYPOINT ["dumb-init", "--", "/app/bin/docker_entrypoint.sh"]
 CMD ["archivebox", "server", "0.0.0.0:8000"]
