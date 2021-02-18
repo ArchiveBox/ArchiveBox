@@ -170,18 +170,31 @@ class Snapshot(models.Model):
     @cached_property
     def latest_title(self):
         if self.title:
-            return self.title
+            return self.title   # whoopdedoo that was easy
         
         try:
-            return self.archiveresult_set.filter(extractor='title', status='succeeded')[0].output
-        except ArchiveResult.DoesNotExist:
+            # take longest successful title from ArchiveResult db history
+            return sorted(
+                self.archiveresult_set\
+                    .filter(extractor='title', status='succeeded', output__isnull=False)\
+                    .values_list('output', flat=True),
+                key=lambda r: len(r),
+            )[-1]
+        except IndexError:
             pass
 
-        if ('title' in self.history
-            and self.history['title']
-            and (self.history['title'][-1].status == 'succeeded')
-            and self.history['title'][-1].output.strip()):
-            return self.history['title'][-1].output.strip()
+        try:
+            # take longest successful title from Link json index file history
+            return sorted(
+                (
+                    result.output.strip()
+                    for result in self.history['title']
+                    if result.status == 'succeeded' and result.output.strip()
+                ),
+                key=lambda r: len(r),
+            )[-1]
+        except (KeyError, IndexError):
+            pass
 
         return None
 
