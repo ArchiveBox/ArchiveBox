@@ -264,3 +264,13 @@ body.model-snapshot.change-list #content .object-tools {
 .inline-group .tabular td.original p {
     margin-top: -33px;
 }
+
+tbody .output-link {
+    float: right;
+    margin-bottom: -25px;
+    margin-right: -3px;
+    margin-top: -4px;
+    opacity: 0.4;
+    box-shadow:   4px 4px 4px rgba(0,0,0,0.1);
+}
+tbody .output-link:hover {opacity: 1;}
