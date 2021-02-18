@@ -65,13 +65,14 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-DEBUG_TOOLBAR = False
-if DEBUG:
+# only enable debug toolbar when in DEBUG mode with --nothreading (it doesnt work in multithreaded mode)
+DEBUG_TOOLBAR = DEBUG and ('--nothreading' in sys.argv) and ('--reload' not in sys.argv)
+if DEBUG_TOOLBAR:
     try:
         import debug_toolbar   # noqa
         DEBUG_TOOLBAR = True
     except ImportError:
-        pass
+        DEBUG_TOOLBAR = False
 
 if DEBUG_TOOLBAR:
     INSTALLED_APPS = [*INSTALLED_APPS, 'debug_toolbar']
