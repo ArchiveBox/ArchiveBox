@@ -201,7 +201,8 @@ class Snapshot(models.Model):
     def save_tags(self, tags=()):
         tags_id = []
         for tag in tags:
-            tags_id.append(Tag.objects.get_or_create(name=tag)[0].id)
+            if tag.strip():
+                tags_id.append(Tag.objects.get_or_create(name=tag)[0].id)
         self.tags.clear()
         self.tags.add(*tags_id)
 
