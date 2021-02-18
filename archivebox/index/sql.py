@@ -61,7 +61,7 @@ def write_link_to_sql_index(link: Link):
                     }
                 )
             else:
-                result, _ = ArchiveResult.objects.get_or_create(
+                result, _ = ArchiveResult.objects.create_or_update(
                     snapshot_id=snapshot.id,
                     extractor=extractor,
                     start_ts=parse_date(entry.start_ts),
@@ -74,8 +74,6 @@ def write_link_to_sql_index(link: Link):
                         'status': entry.status,
                     }
                 )
-
-            print(result)
 
     return snapshot
 
