@@ -1079,6 +1079,16 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
         else:
             django.setup()
             
+
+        from django.conf import settings
+
+        # log startup message to the error log
+        with open(settings.ERROR_LOG, "a+") as f:
+            command = ' '.join(sys.argv)
+            ts = datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
+            f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
+
+        if check_db:
             # Enable WAL mode in sqlite3
             from django.db import connection
             with connection.cursor() as cursor:
@@ -1092,16 +1102,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
                 cache.get('test', None)
             except django.db.utils.OperationalError:
                 call_command("createcachetable", verbosity=0)
-
-        from django.conf import settings
-
-        # log startup message to the error log
-        with open(settings.ERROR_LOG, "a+") as f:
-            command = ' '.join(sys.argv)
-            ts = datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
-            f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
-
-        if check_db:
+            
             sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
             assert sql_index_path.exists(), (
                 f'No database file {SQL_INDEX_FILENAME} found in: {config["OUTPUT_DIR"]} (Are you in an ArchiveBox collection directory?)')
