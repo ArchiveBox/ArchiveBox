@@ -159,11 +159,13 @@ class SnapshotView(View):
                 format_html(
                     (
                         '<center><br/><br/><br/>'
-                        'No Snapshots match the given url: <code>{}</code><br/><br/>'
-                        'You can <a href="/add/?url=https://{}" target="_top">add a new Snapshot</a>, or return to the <a href="/" target="_top">Main Index</a>'
+                        'No Snapshots match the given url: <code>{}</code><br/><br/><br/>'
+                        'Return to the <a href="/" target="_top">Main Index</a>, or:<br/><br/>'
+                        '+ <i><a href="/add/?url={}" target="_top">Add a new Snapshot for <code>{}</code></a><br/><br/></i>'
                         '</center>'
                     ),
                     base_url(path),
+                    path if '://' in path else f'https://{path}',
                     path,
                 ),
                 content_type="text/html",
@@ -241,9 +243,9 @@ class AddView(UserPassesTestMixin, FormView):
         if self.request.method == 'GET':
             url = self.request.GET.get('url', None)
             if url:
-                return {'url': url}
-        else:
-            return super().get_initial()
+                return {'url': url if '://' in url else f'https://{url}'}
+        
+        return super().get_initial()
 
     def test_func(self):
         return PUBLIC_ADD_VIEW or self.request.user.is_authenticated
