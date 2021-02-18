@@ -20,7 +20,7 @@ urlpatterns = [
     path('docs/', RedirectView.as_view(url='https://github.com/ArchiveBox/ArchiveBox/wiki'), name='Docs'),
 
     path('archive/', RedirectView.as_view(url='/')),
-    path('archive/<path:path>', SnapshotView.as_view(), name='snapshot'),
+    path('archive/<path:path>', SnapshotView.as_view(), name='Snapshot'),
 
     path('admin/core/snapshot/add/', RedirectView.as_view(url='/add/')),
     path('add/', AddView.as_view(), name='add'),
