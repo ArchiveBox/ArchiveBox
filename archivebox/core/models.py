@@ -76,7 +76,7 @@ class Snapshot(models.Model):
     url = models.URLField(unique=True)
     timestamp = models.CharField(max_length=32, unique=True, db_index=True)
 
-    title = models.CharField(max_length=128, null=True, blank=True, db_index=True)
+    title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
 
     added = models.DateTimeField(auto_now_add=True, db_index=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True, db_index=True)
