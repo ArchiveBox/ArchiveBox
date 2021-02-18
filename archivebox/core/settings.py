@@ -10,9 +10,6 @@ from django.utils.crypto import get_random_string
 
 from ..config import (                                                          # noqa: F401
     DEBUG,
-    IS_TTY,
-    VERSION,
-    IN_DOCKER,
     SECRET_KEY,
     ALLOWED_HOSTS,
     PACKAGE_DIR,
