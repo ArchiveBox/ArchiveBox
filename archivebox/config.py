@@ -1082,7 +1082,9 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             # Enable WAL mode in sqlite3
             from django.db import connection
             with connection.cursor() as cursor:
-                cursor.execute("PRAGMA journal_mode=wal;")
+                current_mode = cursor.execute("PRAGMA journal_mode")
+                if current_mode != 'wal':
+                    cursor.execute("PRAGMA journal_mode=wal;")
 
             # Create cache table in DB if needed
             try:
