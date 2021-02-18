@@ -12,12 +12,12 @@ from archivebox.config import OUTPUT_PERMISSIONS
 from .fixtures import *
 
 def test_init(tmp_path, process):
-    assert "Initializing a new ArchiveBox collection in this folder..." in process.stdout.decode("utf-8")
+    assert "Initializing a new ArchiveBox" in process.stdout.decode("utf-8")
     
 def test_update(tmp_path, process):
     os.chdir(tmp_path)
     update_process = subprocess.run(['archivebox', 'init'], capture_output=True)
-    assert "Updating existing ArchiveBox collection in this folder" in update_process.stdout.decode("utf-8")
+    assert "updating existing ArchiveBox" in update_process.stdout.decode("utf-8")
 
 def test_add_link(tmp_path, process, disable_extractors_dict):
     disable_extractors_dict.update({"USE_WGET": "true"})
