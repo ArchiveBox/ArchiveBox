@@ -298,13 +298,12 @@ def init(force: bool=False, quick: bool=False, out_dir: Path=OUTPUT_DIR) -> None
     existing_index = (Path(out_dir) / SQL_INDEX_FILENAME).exists()
 
     if is_empty and not existing_index:
-        print('{green}[+] Initializing a new ArchiveBox collection in this folder...{reset}'.format(**ANSI))
-        print(f'    {out_dir}')
-        print('{green}------------------------------------------------------------------{reset}'.format(**ANSI))
+        print('{green}[+] Initializing a new ArchiveBox v{} collection...{reset}'.format(VERSION, **ANSI))
+        print('{green}----------------------------------------------------------------------{reset}'.format(**ANSI))
     elif existing_index:
-        print('{green}[*] Updating existing ArchiveBox collection in this folder...{reset}'.format(**ANSI))
-        print(f'    {out_dir}')
-        print('{green}------------------------------------------------------------------{reset}'.format(**ANSI))
+        # TODO: properly detect and print the existing version in current index as well
+        print('{green}[^] Verifying and updating existing ArchiveBox collection to v{}...{reset}'.format(VERSION, **ANSI))
+        print('{green}----------------------------------------------------------------------{reset}'.format(**ANSI))
     else:
         if force:
             stderr('[!] This folder appears to already have files in it, but no index.sqlite3 is present.', color='lightyellow')
@@ -325,26 +324,25 @@ def init(force: bool=False, quick: bool=False, out_dir: Path=OUTPUT_DIR) -> None
     else:
         print('\n{green}[+] Building archive folder structure...{reset}'.format(**ANSI))
     
-    print(f'    + {ARCHIVE_DIR}, {SOURCES_DIR}, {LOGS_DIR}...')
+    print(f'    + ./{ARCHIVE_DIR.relative_to(OUTPUT_DIR)}, ./{SOURCES_DIR.relative_to(OUTPUT_DIR)}, ./{LOGS_DIR.relative_to(OUTPUT_DIR)}...')
     Path(SOURCES_DIR).mkdir(exist_ok=True)
     Path(ARCHIVE_DIR).mkdir(exist_ok=True)
     Path(LOGS_DIR).mkdir(exist_ok=True)
-    print(f'    + {CONFIG_FILE}...')
+    print(f'    + ./{CONFIG_FILE.relative_to(OUTPUT_DIR)}...')
     write_config_file({}, out_dir=out_dir)
 
     if (Path(out_dir) / SQL_INDEX_FILENAME).exists():
-        print('\n{green}[*] Verifying main SQL index and running migrations...{reset}'.format(**ANSI))
+        print('\n{green}[*] Verifying main SQL index and running any migrations needed...{reset}'.format(**ANSI))
     else:
-        print('\n{green}[+] Building main SQL index and running migrations...{reset}'.format(**ANSI))
+        print('\n{green}[+] Building main SQL index and running initial migrations...{reset}'.format(**ANSI))
     
     DATABASE_FILE = Path(out_dir) / SQL_INDEX_FILENAME
-    print(f'    √ {DATABASE_FILE}')
-    print()
     for migration_line in apply_migrations(out_dir):
         print(f'    {migration_line}')
 
-
     assert DATABASE_FILE.exists()
+    print()
+    print(f'    √ ./{DATABASE_FILE.relative_to(OUTPUT_DIR)}')
     
     # from django.contrib.auth.models import User
     # if IS_TTY and not User.objects.filter(is_superuser=True).exists():
@@ -352,7 +350,7 @@ def init(force: bool=False, quick: bool=False, out_dir: Path=OUTPUT_DIR) -> None
     #     call_command("createsuperuser", interactive=True)
 
     print()
-    print('{green}[*] Checking links from indexes and archive folders...{reset}'.format(**ANSI))
+    print('{green}[*] Checking links from indexes and archive folders (safe to Ctrl+C)...{reset}'.format(**ANSI))
 
     all_links = Snapshot.objects.none()
     pending_links: Dict[str, Link] = {}
@@ -364,56 +362,65 @@ def init(force: bool=False, quick: bool=False, out_dir: Path=OUTPUT_DIR) -> None
     if quick:
         print('    > Skipping full snapshot directory check (quick mode)')
     else:
-        # Links in data folders that dont match their timestamp
-        fixed, cant_fix = fix_invalid_folder_locations(out_dir=out_dir)
-        if fixed:
-            print('    {lightyellow}√ Fixed {} data directory locations that didn\'t match their link timestamps.{reset}'.format(len(fixed), **ANSI))
-        if cant_fix:
-            print('    {lightyellow}! Could not fix {} data directory locations due to conflicts with existing folders.{reset}'.format(len(cant_fix), **ANSI))
+        try:
+            # Links in data folders that dont match their timestamp
+            fixed, cant_fix = fix_invalid_folder_locations(out_dir=out_dir)
+            if fixed:
+                print('    {lightyellow}√ Fixed {} data directory locations that didn\'t match their link timestamps.{reset}'.format(len(fixed), **ANSI))
+            if cant_fix:
+                print('    {lightyellow}! Could not fix {} data directory locations due to conflicts with existing folders.{reset}'.format(len(cant_fix), **ANSI))
 
-        # Links in JSON index but not in main index
-        orphaned_json_links = {
-            link.url: link
-            for link in parse_json_main_index(out_dir)
-            if not all_links.filter(url=link.url).exists()
-        }
-        if orphaned_json_links:
-            pending_links.update(orphaned_json_links)
-            print('    {lightyellow}√ Added {} orphaned links from existing JSON index...{reset}'.format(len(orphaned_json_links), **ANSI))
+            # Links in JSON index but not in main index
+            orphaned_json_links = {
+                link.url: link
+                for link in parse_json_main_index(out_dir)
+                if not all_links.filter(url=link.url).exists()
+            }
+            if orphaned_json_links:
+                pending_links.update(orphaned_json_links)
+                print('    {lightyellow}√ Added {} orphaned links from existing JSON index...{reset}'.format(len(orphaned_json_links), **ANSI))
 
-        # Links in data dir indexes but not in main index
-        orphaned_data_dir_links = {
-            link.url: link
-            for link in parse_json_links_details(out_dir)
-            if not all_links.filter(url=link.url).exists()
-        }
-        if orphaned_data_dir_links:
-            pending_links.update(orphaned_data_dir_links)
-            print('    {lightyellow}√ Added {} orphaned links from existing archive directories.{reset}'.format(len(orphaned_data_dir_links), **ANSI))
+            # Links in data dir indexes but not in main index
+            orphaned_data_dir_links = {
+                link.url: link
+                for link in parse_json_links_details(out_dir)
+                if not all_links.filter(url=link.url).exists()
+            }
+            if orphaned_data_dir_links:
+                pending_links.update(orphaned_data_dir_links)
+                print('    {lightyellow}√ Added {} orphaned links from existing archive directories.{reset}'.format(len(orphaned_data_dir_links), **ANSI))
 
-        # Links in invalid/duplicate data dirs
-        invalid_folders = {
-            folder: link
-            for folder, link in get_invalid_folders(all_links, out_dir=out_dir).items()
-        }
-        if invalid_folders:
-            print('    {lightyellow}! Skipped adding {} invalid link data directories.{reset}'.format(len(invalid_folders), **ANSI))
-            print('        X ' + '\n        X '.join(f'{folder} {link}' for folder, link in invalid_folders.items()))
-            print()
-            print('    {lightred}Hint:{reset} For more information about the link data directories that were skipped, run:'.format(**ANSI))
-            print('        archivebox status')
-            print('        archivebox list --status=invalid')
+            # Links in invalid/duplicate data dirs
+            invalid_folders = {
+                folder: link
+                for folder, link in get_invalid_folders(all_links, out_dir=out_dir).items()
+            }
+            if invalid_folders:
+                print('    {lightyellow}! Skipped adding {} invalid link data directories.{reset}'.format(len(invalid_folders), **ANSI))
+                print('        X ' + '\n        X '.join(f'./{Path(folder).relative_to(OUTPUT_DIR)} {link}' for folder, link in invalid_folders.items()))
+                print()
+                print('    {lightred}Hint:{reset} For more information about the link data directories that were skipped, run:'.format(**ANSI))
+                print('        archivebox status')
+                print('        archivebox list --status=invalid')
 
-
+        except (KeyboardInterrupt, SystemExit):
+            stderr()
+            stderr('[x] Stopped checking archive directories due to Ctrl-C/SIGTERM', color='red')
+            stderr('    Your archive data is safe, but you should re-run `archivebox init` to finish the process later.')
+            stderr()
+            stderr('    {lightred}Hint:{reset} In the future you can run a quick init without checking dirs like so:'.format(**ANSI))
+            stderr('        archivebox init --quick')
+            raise SystemExit(1)
+        
         write_main_index(list(pending_links.values()), out_dir=out_dir)
 
-    print('\n{green}------------------------------------------------------------------{reset}'.format(**ANSI))
+    print('\n{green}----------------------------------------------------------------------{reset}'.format(**ANSI))
     if existing_index:
         print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
     else:
         print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links) + len(pending_links), **ANSI))
     
-    if Snapshot.objects.count() < 20:     # hide the hints for experienced users
+    if Snapshot.objects.count() < 25:     # hide the hints for experienced users
         print()
         print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**ANSI))
         print('        archivebox server  # then visit http://127.0.0.1:8000')

@@ -285,11 +285,11 @@ def log_indexing_process_finished():
 
 def log_indexing_started(out_path: str):
     if IS_TTY:
-        sys.stdout.write(f'    > {out_path}')
+        sys.stdout.write(f'    > ./{Path(out_path).relative_to(OUTPUT_DIR)}')
 
 
 def log_indexing_finished(out_path: str):
-    print(f'\r    √ {out_path}')
+    print(f'\r    √ ./{Path(out_path).relative_to(OUTPUT_DIR)}')
 
 
 ### Archiving Stage
