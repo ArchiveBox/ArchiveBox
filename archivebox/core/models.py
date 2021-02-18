@@ -80,7 +80,7 @@ class Snapshot(models.Model):
 
     added = models.DateTimeField(auto_now_add=True, db_index=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True, db_index=True)
-    tags = models.ManyToManyField(Tag)
+    tags = models.ManyToManyField(Tag, blank=True)
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
 

@@ -38,33 +38,11 @@ from extractors import archive_links
 # TODO: https://stackoverflow.com/questions/40760880/add-custom-button-to-django-admin-panel
 
 
-class SnapshotAdminForm(forms.ModelForm):
-    tags = TagField(required=False)
-
-    class Meta:
-        model = Snapshot
-        fields = "__all__"
-
-    def save(self, commit=True):
-        # Based on: https://stackoverflow.com/a/49933068/3509554
-
-        # Get the unsave instance
-        instance = forms.ModelForm.save(self, False)
-        tags = self.cleaned_data.pop("tags")
-
-        #update save_m2m
-        def new_save_m2m():
-            instance.save_tags(tags)
-
-        # Do we need to save all changes now?
-        self.save_m2m = new_save_m2m
-        if commit:
-            instance.save()
-
-        return instance
-
 class ArchiveResultInline(admin.TabularInline):
     model = ArchiveResult
+
+class TagInline(admin.TabularInline):
+    model = Snapshot.tags.through
 
 from django.contrib.admin.helpers import ActionForm
 
@@ -77,15 +55,15 @@ class SnapshotActionForm(ActionForm):
 class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     list_display = ('added', 'title_str', 'url_str', 'files', 'size')
     sort_fields = ('title_str', 'url_str', 'added')
-    readonly_fields = ('id', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
+    readonly_fields = ('uuid', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
     search_fields = ['url__icontains', 'timestamp', 'title', 'tags__name']
-    fields = (*readonly_fields, 'timestamp', 'url', 'title', 'tags')
+    fields = ('timestamp', 'url', 'title', 'tags', *readonly_fields)
     list_filter = ('added', 'updated', 'tags')
     ordering = ['-added']
     actions = ['delete_snapshots', 'overwrite_snapshots', 'update_snapshots', 'update_titles', 'verify_snapshots', 'add_tag', 'remove_tag']
-    form = SnapshotAdminForm
-    list_per_page = SNAPSHOTS_PER_PAGE
+    autocomplete_fields = ['tags']
     inlines = [ArchiveResultInline]
+    list_per_page = SNAPSHOTS_PER_PAGE
 
     action_form = SnapshotActionForm
 
@@ -125,16 +103,18 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     #         obj.id,
     #     )
 
-    def id_str(self, obj):
+    def uuid(self, obj):
         return format_html(
-            '<code style="font-size: 10px">{}</code>',
-            obj.url_hash[:8],
+            '<code style="font-size: 10px">{}</code><br/><a href="/archive/{}">View index ➡️</a> &nbsp; &nbsp; <a href="/admin/core/snapshot/?id__exact={}">View actions ⚙️</a>',
+            obj.id,
+            obj.timestamp,
+            obj.id,
         )
 
     def title_str(self, obj):
         canon = obj.as_link().canonical_outputs()
         tags = ''.join(
-            format_html('<a href="/admin/core/snapshot/?tags__id__exact={}"><span class="tag">{}</span></a> ', tag.id, tag)
+            format_html('<a href="/admin/core/snapshot/?id__startswith={}"><span class="tag">{}</span></a> ', tag.id, tag)
             for tag in obj.tags.all()
             if str(tag).strip()
         )
@@ -249,11 +229,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
         
 
-    id_str.short_description = 'ID'
     title_str.short_description = 'Title'
     url_str.short_description = 'Original URL'
 
-    id_str.admin_order_field = 'id'
     title_str.admin_order_field = 'title'
     url_str.admin_order_field = 'url'
 
@@ -266,6 +244,7 @@ class TagAdmin(admin.ModelAdmin):
     search_fields = ('id', 'name', 'slug')
     fields = (*readonly_fields, 'name', 'slug')
     actions = ['delete_selected']
+    ordering = ['-id']
 
     def num_snapshots(self, obj):
         return format_html(
@@ -294,6 +273,7 @@ class ArchiveResultAdmin(admin.ModelAdmin):
     readonly_fields = ('id', 'uuid', 'snapshot_str')
     search_fields = ('id', 'uuid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
     fields = (*readonly_fields, 'snapshot', 'snapshot__tags', 'extractor', 'status', 'start_ts', 'end_ts', 'pwd', 'cmd', 'cmd_version', 'output')
+    autocomplete_fields = ['snapshot']
 
     list_filter = ('status', 'extractor', 'start_ts', 'cmd_version')
     ordering = ['-start_ts']
