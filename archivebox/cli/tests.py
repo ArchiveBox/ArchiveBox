@@ -83,7 +83,7 @@ def output_hidden(show_failing=True):
         sys.stderr.close()
         sys.stdout = stdout
         sys.stderr = stderr
-    except:
+    except Exception:
         sys.stdout.close()
         sys.stderr.close()
         sys.stdout = stdout
@@ -132,7 +132,7 @@ class TestInit(unittest.TestCase):
         try:
             load_main_index(out_dir=OUTPUT_DIR)
             assert False, 'load_main_index should raise an exception when no index is present'
-        except:
+        except Exception:
             pass
 
     def test_no_dirty_state(self):
@@ -216,7 +216,7 @@ class TestRemove(unittest.TestCase):
             with output_hidden(show_failing=False):
                 archivebox_remove.main(['--yes', '--delete', 'https://doesntexist.com'])
             assert False, 'Should raise if no URLs match'
-        except:
+        except Exception:
             pass
 
 

@@ -201,46 +201,46 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
         return rendered_response
 
 
-    def update_snapshots(modeladmin, request, queryset):
+    def update_snapshots(self, request, queryset):
         archive_links([
             snapshot.as_link()
             for snapshot in queryset
         ], out_dir=OUTPUT_DIR)
     update_snapshots.short_description = "Archive"
 
-    def update_titles(modeladmin, request, queryset):
+    def update_titles(self, request, queryset):
         archive_links([
             snapshot.as_link()
             for snapshot in queryset
         ], overwrite=True, methods=('title','favicon'), out_dir=OUTPUT_DIR)
     update_titles.short_description = "Pull title"
 
-    def overwrite_snapshots(modeladmin, request, queryset):
+    def overwrite_snapshots(self, request, queryset):
         archive_links([
             snapshot.as_link()
             for snapshot in queryset
         ], overwrite=True, out_dir=OUTPUT_DIR)
     overwrite_snapshots.short_description = "Re-archive (overwrite)"
 
-    def verify_snapshots(modeladmin, request, queryset):
+    def verify_snapshots(self, request, queryset):
         for snapshot in queryset:
             print(snapshot.timestamp, snapshot.url, snapshot.is_archived, snapshot.archive_size, len(snapshot.history))
 
     verify_snapshots.short_description = "Check"
 
-    def delete_snapshots(modeladmin, request, queryset):
+    def delete_snapshots(self, request, queryset):
         remove(snapshots=queryset, yes=True, delete=True, out_dir=OUTPUT_DIR)
 
     delete_snapshots.short_description = "Delete"
 
-    def add_tag(modeladmin, request, queryset):
+    def add_tag(self, request, queryset):
         tag = request.POST['tag']
         for obj in queryset:
             obj.tags.add(tag)
 
     add_tag.short_description = "Add tag"
 
-    def remove_tag(modeladmin, request, queryset):
+    def remove_tag(self, request, queryset):
         tag = request.POST['tag']
         for obj in queryset:
             obj.tags.remove(tag)
@@ -286,7 +286,6 @@ class TagAdmin(admin.ModelAdmin):
             )
             for snap in obj.snapshot_set.order_by('-updated')[:10]
         ) + (f'<br/><a href="/admin/core/snapshot/?tags__id__exact={obj.id}">and {total_count-10} more...<a>' if obj.snapshot_set.count() > 10 else ''))
-        return 
 
 
 class ArchiveResultAdmin(admin.ModelAdmin):
