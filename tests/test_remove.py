@@ -100,7 +100,7 @@ def test_remove_before(tmp_path, process, disable_extractors_dict):
 
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    timestamp = c.execute("SELECT timestamp FROM core_snapshot ORDER BY timestamp DSC").fetchall()
+    timestamp = c.execute("SELECT timestamp FROM core_snapshot ORDER BY timestamp DESC").fetchall()
     conn.commit()
     conn.close()
 
@@ -118,7 +118,7 @@ def test_remove_after(tmp_path, process, disable_extractors_dict):
 
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    timestamp = c.execute("SELECT timestamp FROM core_snapshot ORDER BY timestamp DSC").fetchall()
+    timestamp = c.execute("SELECT timestamp FROM core_snapshot ORDER BY timestamp DESC").fetchall()
     conn.commit()
     conn.close()
 
