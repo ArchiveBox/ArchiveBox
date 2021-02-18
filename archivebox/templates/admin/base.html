@@ -157,15 +157,15 @@
         function fix_actions() {
             var container = $('div.actions');
 
-            if (container.find('option').length < 10) {
-                container.find('label, button').hide();
+            if (container.find('select[name=action] option').length < 10) {
+                container.find('label:nth-child(1), button[value=0]').hide();
 
                 var buttons = $('<div></div>')
-                    .prependTo(container)
+                    .appendTo(container)
                     .css('display', 'inline')
                     .addClass('class', 'action-buttons');
 
-                container.find('option:gt(0)').reverse().each(function () {
+                container.find('select[name=action] option:gt(0)').reverse().each(function () {
                     const name = this.value
                     $('<button>')
                         .appendTo(buttons)
