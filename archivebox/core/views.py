@@ -61,7 +61,7 @@ class SnapshotView(View):
 
             try:
                 try:
-                    snapshot = Snapshot.objects.get(timestamp=slug)
+                    snapshot = Snapshot.objects.get(Q(timestamp=slug) | Q(id__startswith=slug))
                     response = static.serve(request, archivefile, document_root=snapshot.link_dir, show_indexes=True)
                     response["Link"] = f'<{snapshot.url}>; rel="canonical"'
                     return response
@@ -76,7 +76,7 @@ class SnapshotView(View):
                     format_html(
                         (
                             '<center><br/><br/><br/>'
-                            'No Snapshots match the given timestamp or UUID: <code>{}</code><br/><br/>'
+                            'No Snapshot directories match the given timestamp or UUID: <code>{}</code><br/><br/>'
                             'You can <a href="/add/" target="_top">add a new Snapshot</a>, or return to the <a href="/" target="_top">Main Index</a>'
                             '</center>'
                         ),
@@ -119,18 +119,21 @@ class SnapshotView(View):
                     format_html(
                         (
                             '<center><br/><br/><br/>'
-                            '<a href="/archive/{}/index.html" target="_top">Snapshot <b><code>{}</code></b></a> exists but no file or folder <b><code>/{}</code></b> exists within.<br/><br/>'
-                            '<small>Maybe this output type is not availabe for this URL,<br/>or the archiving process has not completed for this Snapshot yet?<br/>'
-                            '<pre><code># run this cmd to finish archiving this Snapshot<br/>archivebox update -t timestamp {}</code></pre></small><br/><br/>'
-                            'You can go back to the <a href="/archive/{}/index.html" target="_top">Snapshot <b><code>{}</code></b></a> detail page, or return to the <a href="/" target="_top">Main Index</a>'
+                            f'Snapshot <a href="/archive/{snapshot.timestamp}/index.html" target="_top"><b><code>[{snapshot.timestamp}]</code></b></a> exists in DB, but resource <b><code>{snapshot.timestamp}/'
+                            '{}'
+                            f'</code></b> does not exist in <a href="/archive/{snapshot.timestamp}/" target="_top">snapshot dir</a> yet.<br/><br/>'
+                            'Maybe this resource type is not availabe for this Snapshot,<br/>or the archiving process has not completed yet?<br/>'
+                            f'<pre><code># run this cmd to finish archiving this Snapshot<br/>archivebox update -t timestamp {snapshot.timestamp}</code></pre><br/><br/>'
+                            '<div class="text-align: left; width: 100%; max-width: 400px">'
+                            '<i><b>Next steps:</i></b><br/>'
+                            f'- list all the <a href="/archive/{snapshot.timestamp}/" target="_top">Snapshot files <code>.*</code></a><br/>'
+                            f'- view the <a href="/archive/{snapshot.timestamp}/index.html" target="_top">Snapshot <code>./index.html</code></a><br/>'
+                            f'- go to the <a href="/admin/core/snapshot/{snapshot.id}/change/" target="_top">Snapshot admin</a> to edit<br/>'
+                            f'- go to the <a href="/admin/core/snapshot/?id__startswith={snapshot.id}" target="_top">Snapshot actions</a> to re-archive<br/>'
+                            '- or return to <a href="/" target="_top">the main index...</a></div>'
                             '</center>'
                         ),
-                        snapshot.timestamp,
-                        snapshot.timestamp,
                         archivefile,
-                        snapshot.timestamp,
-                        snapshot.timestamp,
-                        snapshot.timestamp,
                     ),
                     content_type="text/html",
                     status=404,
@@ -140,7 +143,7 @@ class SnapshotView(View):
             try:
                 # try exact match on full url first
                 snapshot = Snapshot.objects.get(
-                    Q(url='http://' + path) | Q(url='https://' + path)
+                    Q(url='http://' + path) | Q(url='https://' + path) | Q(id__startswith=path)
                 )
             except Snapshot.DoesNotExist:
                 # fall back to match on exact base_url
