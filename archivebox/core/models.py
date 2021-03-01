@@ -32,8 +32,8 @@ class Tag(models.Model):
     """
     Based on django-taggit model
     """
-    name = models.CharField(verbose_name="name", unique=True, blank=False, max_length=100)
-    slug = models.SlugField(verbose_name="slug", unique=True, blank=True, max_length=100)
+    name = models.CharField(unique=True, blank=False, max_length=100)
+    slug = models.SlugField(unique=True, blank=True, max_length=100)
 
     class Meta:
         verbose_name = "Tag"

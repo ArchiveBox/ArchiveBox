@@ -49,7 +49,6 @@ from django.contrib.admin.helpers import ActionForm
 
 class SnapshotActionForm(ActionForm):
     tag = forms.ModelChoiceField(queryset=Tag.objects.all(), required=False)
-    # pass
 
 
 class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
@@ -214,9 +213,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     delete_snapshots.short_description = "Delete"
 
     def add_tag(self, request, queryset):
-        tag = request.POST['tag']
-        for obj in queryset:
-            obj.tags.add(tag)
+        if tag and tag.id:
+            tag = request.POST['tag']
+            for obj in queryset:
+                obj.tags.add(tag)
 
     add_tag.short_description = "Add tag"
 
