@@ -1102,7 +1102,15 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
                 cache.get('test', None)
             except django.db.utils.OperationalError:
                 call_command("createcachetable", verbosity=0)
-            
+
+
+            # if archivebox gets imported multiple times, we have to close
+            # the sqlite3 whenever we init from scratch to avoid multiple threads
+            # sharing the same connection by accident
+            from django.db import connections
+            for conn in connections.all():
+                conn.close_if_unusable_or_obsolete()
+
             sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
             assert sql_index_path.exists(), (
                 f'No database file {SQL_INDEX_FILENAME} found in: {config["OUTPUT_DIR"]} (Are you in an ArchiveBox collection directory?)')
