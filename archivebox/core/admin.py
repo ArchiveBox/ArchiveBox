@@ -258,7 +258,7 @@ class TagAdmin(admin.ModelAdmin):
         return mark_safe('<br/>'.join(
             format_html(
                 '{} <code><a href="/admin/core/snapshot/{}/change"><b>[{}]</b></a> {}</code>',
-                snap.updated.strftime('%Y-%m-%d %H:%M'),
+                snap.updated.strftime('%Y-%m-%d %H:%M') if snap.updated else 'pending...',
                 snap.id,
                 snap.timestamp,
                 snap.url,
