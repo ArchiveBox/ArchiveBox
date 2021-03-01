@@ -15,7 +15,7 @@ from django import forms
 from ..util import htmldecode, urldecode, ansi_to_html
 
 from core.models import Snapshot, ArchiveResult, Tag
-from core.forms import AddLinkForm, TagField
+from core.forms import AddLinkForm
 
 from core.mixins import SearchResultsAdminMixin
 
