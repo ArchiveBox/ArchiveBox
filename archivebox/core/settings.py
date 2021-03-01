@@ -144,6 +144,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': DATABASE_NAME,
+        'OPTIONS': {
+            'timeout': 60,
+            'check_same_thread': False,
+        },
         # DB setup is sometimes modified at runtime by setup_django() in config.py
     }
 }
