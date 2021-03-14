@@ -38,6 +38,8 @@ def save_pdf(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> 
     output: ArchiveOutput = 'output.pdf'
     cmd = [
         *chrome_args(TIMEOUT=timeout),
+        '--run-all-compositor-stages-before-draw',
+        ' --virtual-time-budget=100000',
         '--print-to-pdf',
         link.url,
     ]
