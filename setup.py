@@ -63,7 +63,7 @@ setuptools.setup(
         "requests==2.24.0",
         "atomicwrites==1.4.0",
         "mypy-extensions==0.4.3",
-        "django==3.1.3",
+        "django==3.1.6",
         "django-extensions==3.0.3",
         "dateparser",
         "ipython",
