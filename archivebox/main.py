@@ -537,6 +537,7 @@ def add(urls: Union[str, List[str]],
         overwrite: bool=False,
         init: bool=False,
         extractors: str="",
+        parser: str="auto",
         out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
@@ -561,7 +562,7 @@ def add(urls: Union[str, List[str]],
         # save verbatim args to sources
         write_ahead_log = save_text_as_source('\n'.join(urls), filename='{ts}-import.txt', out_dir=out_dir)
     
-    new_links += parse_links_from_source(write_ahead_log, root_url=None)
+    new_links += parse_links_from_source(write_ahead_log, root_url=None, parser=parser)
 
     # If we're going one level deeper, download each link and look for more links
     new_links_depth = []

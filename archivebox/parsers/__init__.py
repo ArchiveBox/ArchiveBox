@@ -42,25 +42,29 @@ from .generic_rss import parse_generic_rss_export
 from .generic_json import parse_generic_json_export
 from .generic_html import parse_generic_html_export
 from .generic_txt import parse_generic_txt_export
+from .url_list import parse_url_list
 
-PARSERS = (
+PARSERS = {
     # Specialized parsers
-    ('Pocket API', parse_pocket_api_export),
-    ('Wallabag ATOM', parse_wallabag_atom_export),
-    ('Pocket HTML', parse_pocket_html_export),
-    ('Pinboard RSS', parse_pinboard_rss_export),
-    ('Shaarli RSS', parse_shaarli_rss_export),
-    ('Medium RSS', parse_medium_rss_export),
+    'pocket-api': ('Pocket API', parse_pocket_api_export),
+    'wallabag': ('Wallabag ATOM', parse_wallabag_atom_export),
+    'pocket-html': ('Pocket HTML', parse_pocket_html_export),
+    'pinboard-rss': ('Pinboard RSS', parse_pinboard_rss_export),
+    'shaarli-rss': ('Shaarli RSS', parse_shaarli_rss_export),
+    'medium-rss': ('Medium RSS', parse_medium_rss_export),
     
     # General parsers
-    ('Netscape HTML', parse_netscape_html_export),
-    ('Generic RSS', parse_generic_rss_export),
-    ('Generic JSON', parse_generic_json_export),
-    ('Generic HTML', parse_generic_html_export),
+    'netscape-html': ('Netscape HTML', parse_netscape_html_export),
+    'rss': ('Generic RSS', parse_generic_rss_export),
+    'json': ('Generic JSON', parse_generic_json_export),
+    'html': ('Generic HTML', parse_generic_html_export),
 
     # Fallback parser
-    ('Plain Text', parse_generic_txt_export),
-)
+    'plain-text': ('Plain Text', parse_generic_txt_export),
+
+    # Explicitly specified parsers
+    'url-list': ('URL list', parse_url_list),
+}
 
 
 @enforce_types
@@ -84,7 +88,7 @@ def parse_links_memory(urls: List[str], root_url: Optional[str]=None):
     
 
 @enforce_types
-def parse_links(source_file: str, root_url: Optional[str]=None) -> Tuple[List[Link], str]:
+def parse_links(source_file: str, root_url: Optional[str]=None, parser: str="auto") -> Tuple[List[Link], str]:
     """parse a list of URLs with their metadata from an 
        RSS feed, bookmarks export, or text file
     """
@@ -93,7 +97,7 @@ def parse_links(source_file: str, root_url: Optional[str]=None) -> Tuple[List[Li
 
     timer = TimedProgress(TIMEOUT * 4)
     with open(source_file, 'r', encoding='utf-8') as file:
-        links, parser = run_parser_functions(file, timer, root_url=root_url)
+        links, parser = run_parser_functions(file, timer, root_url=root_url, parser=parser)
 
     timer.end()
     if parser is None:
@@ -101,11 +105,20 @@ def parse_links(source_file: str, root_url: Optional[str]=None) -> Tuple[List[Li
     return links, parser
 
 
-def run_parser_functions(to_parse: IO[str], timer, root_url: Optional[str]=None) -> Tuple[List[Link], Optional[str]]:
+def run_parser_functions(to_parse: IO[str], timer, root_url: Optional[str]=None, parser: str="auto") -> Tuple[List[Link], Optional[str]]:
     most_links: List[Link] = []
     best_parser_name = None
 
-    for parser_name, parser_func in PARSERS:
+    if parser != "auto":
+        parser_name, parser_func = PARSERS[parser]
+        parsed_links = list(parser_func(to_parse, root_url=root_url))
+        if not parsed_links:
+            raise Exception('no links found')
+        timer.end()
+        return parsed_links, parser_name
+
+    for parser_id in PARSERS:
+        parser_name, parser_func = PARSERS[parser_id]
         try:
             parsed_links = list(parser_func(to_parse, root_url=root_url))
             if not parsed_links:
