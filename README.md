@@ -93,7 +93,7 @@ archivebox help
 
 ### Quickstart
 
-**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows  &nbsp; &nbsp; **🎮&nbsp; CPU Architectures:** x86, amd64, arm7, arm8 (raspi >=3)
+**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (w/ Docker)  &nbsp; &nbsp; **🎮&nbsp; CPU Architectures:** x86, amd64, arm7, arm8 (raspi >=3)
 **📦&nbsp; Distributions:** `docker`/`apt`/`brew`/`pip3`/`npm` (in order of completeness)
 
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
