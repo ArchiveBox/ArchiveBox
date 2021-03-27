@@ -7,7 +7,7 @@ from django.db.models import QuerySet
 from django.db import transaction
 
 from .schema import Link
-from ..util import enforce_types
+from ..util import enforce_types, parse_date
 from ..config import OUTPUT_DIR
 
 
@@ -23,13 +23,15 @@ def parse_sql_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[Link]:
     )
 
 @enforce_types
-def remove_from_sql_main_index(snapshots: QuerySet, out_dir: Path=OUTPUT_DIR) -> None:
-    with transaction.atomic():
-        snapshots.delete()
+def remove_from_sql_main_index(snapshots: QuerySet, atomic: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
+    if atomic:
+        with transaction.atomic():
+            return snapshots.delete()
+    return snapshots.delete()
 
 @enforce_types
 def write_link_to_sql_index(link: Link):
-    from core.models import Snapshot
+    from core.models import Snapshot, ArchiveResult
     info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
     tags = info.pop("tags")
     if tags is None:
@@ -41,36 +43,74 @@ def write_link_to_sql_index(link: Link):
         while Snapshot.objects.filter(timestamp=info["timestamp"]).exists():
             info["timestamp"] = str(float(info["timestamp"]) + 1.0)
 
-    snapshot, _ = Snapshot.objects.update_or_create(url=link.url, defaults=info)
+        snapshot, _ = Snapshot.objects.update_or_create(url=link.url, defaults=info)
     snapshot.save_tags(tags)
+
+    for extractor, entries in link.history.items():
+        for entry in entries:
+            if isinstance(entry, dict):
+                result, _ = ArchiveResult.objects.get_or_create(
+                    snapshot_id=snapshot.id,
+                    extractor=extractor,
+                    start_ts=parse_date(entry['start_ts']),
+                    defaults={
+                        'end_ts': parse_date(entry['end_ts']),
+                        'cmd': entry['cmd'],
+                        'output': entry['output'],
+                        'cmd_version': entry.get('cmd_version') or 'unknown',
+                        'pwd': entry['pwd'],
+                        'status': entry['status'],
+                    }
+                )
+            else:
+                result, _ = ArchiveResult.objects.update_or_create(
+                    snapshot_id=snapshot.id,
+                    extractor=extractor,
+                    start_ts=parse_date(entry.start_ts),
+                    defaults={
+                        'end_ts': parse_date(entry.end_ts),
+                        'cmd': entry.cmd,
+                        'output': entry.output,
+                        'cmd_version': entry.cmd_version or 'unknown',
+                        'pwd': entry.pwd,
+                        'status': entry.status,
+                    }
+                )
+
     return snapshot
 
 
 @enforce_types
 def write_sql_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
-    with transaction.atomic():
-        for link in links:
-            write_link_to_sql_index(link)
+    for link in links:
+        # with transaction.atomic():
+            # write_link_to_sql_index(link)
+        write_link_to_sql_index(link)
             
 
 @enforce_types
 def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
     from core.models import Snapshot
 
-    with transaction.atomic():
-        try:
-            snap = Snapshot.objects.get(url=link.url)
-        except Snapshot.DoesNotExist:
-            snap = write_link_to_sql_index(link)
-        snap.title = link.title
+    # with transaction.atomic():
+    #     try:
+    #         snap = Snapshot.objects.get(url=link.url)
+    #     except Snapshot.DoesNotExist:
+    #         snap = write_link_to_sql_index(link)
+    #     snap.title = link.title
+    try:
+        snap = Snapshot.objects.get(url=link.url)
+    except Snapshot.DoesNotExist:
+        snap = write_link_to_sql_index(link)
+    snap.title = link.title
 
-        tag_set = (
-            set(tag.strip() for tag in (link.tags or '').split(','))
-        )
-        tag_list = list(tag_set) or []
+    tag_set = (
+        set(tag.strip() for tag in (link.tags or '').split(','))
+    )
+    tag_list = list(tag_set) or []
 
-        snap.save()
-        snap.save_tags(tag_list)
+    snap.save()
+    snap.save_tags(tag_list)
 
 
 

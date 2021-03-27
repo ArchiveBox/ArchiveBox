@@ -12,6 +12,7 @@ from ..main import list_all
 from ..util import docstring
 from ..config import OUTPUT_DIR
 from ..index import (
+    LINK_FILTERS,
     get_indexed_folders,
     get_archived_folders,
     get_unarchived_folders,
@@ -23,7 +24,7 @@ from ..index import (
     get_corrupted_folders,
     get_unrecognized_folders,
 )
-from ..logging_util import SmartFormatter, accept_stdin, stderr
+from ..logging_util import SmartFormatter, reject_stdin, stderr
 
 
 @docstring(list_all.__doc__)
@@ -44,7 +45,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     group.add_argument(
         '--json', #'-j',
         action='store_true',
-        help="Print the output in JSON format with all columns included.",
+        help="Print the output in JSON format with all columns included",
     )
     group.add_argument(
         '--html',
@@ -59,19 +60,19 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     parser.add_argument(
         '--sort', #'-s',
         type=str,
-        help="List the links sorted using the given key, e.g. timestamp or updated.",
+        help="List the links sorted using the given key, e.g. timestamp or updated",
         default=None,
     )
     parser.add_argument(
         '--before', #'-b',
         type=float,
-        help="List only links bookmarked before the given timestamp.",
+        help="List only links bookmarked before (less than) the given timestamp",
         default=None,
     )
     parser.add_argument(
         '--after', #'-a',
         type=float,
-        help="List only links bookmarked after the given timestamp.",
+        help="List only links bookmarked after (greater than or equal to) the given timestamp",
         default=None,
     )
     parser.add_argument(
@@ -96,9 +97,9 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         )
     )
     parser.add_argument(
-        '--filter-type',
+        '--filter-type', '-t',
         type=str,
-        choices=('exact', 'substring', 'domain', 'regex', 'tag', 'search'),
+        choices=(*LINK_FILTERS.keys(), 'search'),
         default='exact',
         help='Type of pattern matching to use when filtering URLs',
     )
@@ -107,20 +108,19 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         nargs='*',
         type=str,
         default=None,
-        help='List only URLs matching these filter patterns.'
+        help='List only URLs matching these filter patterns'
     )
     command = parser.parse_args(args or ())
-    filter_patterns_str = accept_stdin(stdin)
+    reject_stdin(stdin)
 
     if command.with_headers and not (command.json or command.html or command.csv):
         stderr(
-            '[X] --with-headers can only be used with --json, --html or --csv options.\n',
+            '[X] --with-headers can only be used with --json, --html or --csv options\n',
             color='red',
         )
         raise SystemExit(2)
 
     matching_folders = list_all(
-        filter_patterns_str=filter_patterns_str,
         filter_patterns=command.filter_patterns,
         filter_type=command.filter_type,
         status=command.status,

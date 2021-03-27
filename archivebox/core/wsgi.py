@@ -7,10 +7,10 @@ For more information on this file, see
 https://docs.djangoproject.com/en/2.1/howto/deployment/wsgi/
 """
 
-import os
+
+from archivebox.config import setup_django
+setup_django(in_memory_db=False, check_db=True)
 
 from django.core.wsgi import get_wsgi_application
-
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.settings')
 
 application = get_wsgi_application()

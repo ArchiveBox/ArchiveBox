@@ -1,11 +1,12 @@
 __package__ = 'archivebox.index'
 
-from datetime import datetime
-from typing import List, Optional, Iterator, Mapping
 from pathlib import Path
+from datetime import datetime
+from collections import defaultdict
+from typing import List, Optional, Iterator, Mapping
 
 from django.utils.html import format_html, mark_safe
-from collections import defaultdict
+from django.core.cache import cache
 
 from .schema import Link
 from ..system import atomic_write
@@ -20,7 +21,6 @@ from ..util import (
 from ..config import (
     OUTPUT_DIR,
     VERSION,
-    GIT_SHA,
     FOOTER_INFO,
     HTML_INDEX_FILENAME,
     SAVE_ARCHIVE_DOT_ORG,
@@ -60,7 +60,7 @@ def main_index_template(links: List[Link], template: str=MAIN_INDEX_TEMPLATE) ->
 
     return render_django_template(template, {
         'version': VERSION,
-        'git_sha': GIT_SHA,
+        'git_sha': VERSION,  # not used anymore, but kept for backwards compatibility
         'num_links': str(len(links)),
         'date_updated': datetime.now().strftime('%Y-%m-%d'),
         'time_updated': datetime.now().strftime('%Y-%m-%d %H:%M'),
@@ -116,71 +116,78 @@ def render_django_template(template: str, context: Mapping[str, str]) -> str:
 
 
 def snapshot_icons(snapshot) -> str:
-    from core.models import EXTRACTORS
+    cache_key = f'{str(snapshot.id)[:12]}-{(snapshot.updated or snapshot.added).timestamp()}-snapshot-icons'
+    
+    def calc_snapshot_icons():
+        from core.models import EXTRACTORS
+        # start = datetime.now()
 
-    # start = datetime.now()
+        archive_results = snapshot.archiveresult_set.filter(status="succeeded", output__isnull=False)
+        link = snapshot.as_link()
+        path = link.archive_path
+        canon = link.canonical_outputs()
+        output = ""
+        output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{}</a> &nbsp;'
+        icons = {
+            "singlefile": "❶",
+            "wget": "🆆",
+            "dom": "🅷",
+            "pdf": "📄",
+            "screenshot": "💻",
+            "media": "📼",
+            "git": "🅶",
+            "archive_org": "🏛",
+            "readability": "🆁",
+            "mercury": "🅼",
+            "warc": "📦"
+        }
+        exclude = ["favicon", "title", "headers", "archive_org"]
+        # Missing specific entry for WARC
 
-    archive_results = snapshot.archiveresult_set.filter(status="succeeded")
-    link = snapshot.as_link()
-    path = link.archive_path
-    canon = link.canonical_outputs()
-    output = ""
-    output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{}</a> &nbsp;'
-    icons = {
-        "singlefile": "❶",
-        "wget": "🆆",
-        "dom": "🅷",
-        "pdf": "📄",
-        "screenshot": "💻",
-        "media": "📼",
-        "git": "🅶",
-        "archive_org": "🏛",
-        "readability": "🆁",
-        "mercury": "🅼",
-        "warc": "📦"
-    }
-    exclude = ["favicon", "title", "headers", "archive_org"]
-    # Missing specific entry for WARC
+        extractor_outputs = defaultdict(lambda: None)
+        for extractor, _ in EXTRACTORS:
+            for result in archive_results:
+                if result.extractor == extractor and result:
+                    extractor_outputs[extractor] = result
 
-    extractor_outputs = defaultdict(lambda: None)
-    for extractor, _ in EXTRACTORS:
-        for result in archive_results:
-            if result.extractor == extractor and result:
-                extractor_outputs[extractor] = result
+        for extractor, _ in EXTRACTORS:
+            if extractor not in exclude:
+                existing = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
+                # Check filesystsem to see if anything is actually present (too slow, needs optimization/caching)
+                # if existing:
+                #     existing = (Path(path) / existing)
+                #     if existing.is_file():
+                #         existing = True
+                #     elif existing.is_dir():
+                #         existing = any(existing.glob('*.*'))
+                output += format_html(output_template, path, canon[f"{extractor}_path"], str(bool(existing)),
+                                             extractor, icons.get(extractor, "?"))
+            if extractor == "wget":
+                # warc isn't technically it's own extractor, so we have to add it after wget
+                
+                # get from db (faster but less thurthful)
+                exists = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
+                # get from filesystem (slower but more accurate)
+                # exists = list((Path(path) / canon["warc_path"]).glob("*.warc.gz"))
+                output += format_html(output_template, path, canon["warc_path"], str(bool(exists)), "warc", icons.get("warc", "?"))
 
-    for extractor, _ in EXTRACTORS:
-        if extractor not in exclude:
-            existing = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
-            # Check filesystsem to see if anything is actually present (too slow, needs optimization/caching)
-            # if existing:
-            #     existing = (Path(path) / existing)
-            #     if existing.is_file():
-            #         existing = True
-            #     elif existing.is_dir():
-            #         existing = any(existing.glob('*.*'))
-            output += format_html(output_template, path, canon[f"{extractor}_path"], str(bool(existing)),
-                                         extractor, icons.get(extractor, "?"))
-        if extractor == "wget":
-            # warc isn't technically it's own extractor, so we have to add it after wget
-            
-            # get from db (faster but less thurthful)
-            exists = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
-            # get from filesystem (slower but more accurate)
-            # exists = list((Path(path) / canon["warc_path"]).glob("*.warc.gz"))
-            output += format_html(output_template, 'warc/', canon["warc_path"], str(bool(exists)), "warc", icons.get("warc", "?"))
+            if extractor == "archive_org":
+                # The check for archive_org is different, so it has to be handled separately
 
-        if extractor == "archive_org":
-            # The check for archive_org is different, so it has to be handled separately
+                # get from db (faster)
+                exists = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
+                # get from filesystem (slower)
+                # target_path = Path(path) / "archive.org.txt"
+                # exists = target_path.exists()
+                output += '<a href="{}" class="exists-{}" title="{}">{}</a> '.format(canon["archive_org_path"], str(exists),
+                                                                                            "archive_org", icons.get("archive_org", "?"))
 
-            # get from db (faster)
-            exists = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
-            # get from filesystem (slower)
-            # target_path = Path(path) / "archive.org.txt"
-            # exists = target_path.exists()
-            output += '<a href="{}" class="exists-{}" title="{}">{}</a> '.format(canon["archive_org_path"], str(exists),
-                                                                                        "archive_org", icons.get("archive_org", "?"))
+        result = format_html('<span class="files-icons" style="font-size: 1.1em; opacity: 0.8; min-width: 240px; display: inline-block">{}<span>', mark_safe(output))
+        # end = datetime.now()
+        # print(((end - start).total_seconds()*1000) // 1, 'ms')
+        return result
 
-    result = format_html('<span class="files-icons" style="font-size: 1.1em; opacity: 0.8; min-width: 240px; display: inline-block">{}<span>', mark_safe(output))
-    # end = datetime.now()
-    # print(((end - start).total_seconds()*1000) // 1, 'ms')
-    return result
+    return cache.get_or_set(cache_key, calc_snapshot_icons)
+    # return calc_snapshot_icons()
+
+   

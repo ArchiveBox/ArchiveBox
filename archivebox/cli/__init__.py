@@ -63,7 +63,11 @@ def run_subcommand(subcommand: str,
 
     if subcommand not in meta_cmds:
         from ..config import setup_django
-        setup_django(in_memory_db=subcommand in fake_db, check_db=subcommand in archive_cmds)
+
+        cmd_requires_db = subcommand in archive_cmds
+        init_pending = '--init' in subcommand_args or '--quick-init' in subcommand_args
+
+        setup_django(in_memory_db=subcommand in fake_db, check_db=cmd_requires_db and not init_pending)
 
     module = import_module('.archivebox_{}'.format(subcommand), __package__)
     module.main(args=subcommand_args, stdin=stdin, pwd=pwd)    # type: ignore

@@ -2,6 +2,11 @@
 {% load static %}
 
 {% block body %}
+    <style>
+        #table-bookmarks_info {
+            display: none;
+        }
+    </style>
     <div id="toolbar">
         <form id="changelist-search" action="{% url 'public-index' %}" method="get">
             <div>
@@ -21,7 +26,7 @@
         <thead>
             <tr>
                 <th style="width: 100px;">Bookmarked</th>
-                <th style="width: 26vw;">Snapshot ({{object_list|length}})</th>
+                <th style="width: 26vw;">Snapshot ({{page_obj.paginator.count}})</th>
                 <th style="width: 140px">Files</th>
                 <th style="width: 16vw;whitespace:nowrap;overflow-x:hidden;">Original URL</th>
             </tr>
@@ -33,26 +38,26 @@
             </tbody>
         </table>
         <center>
+            <br/>
+            Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} total
+            <br/>
             <span class="step-links">
                 {% if page_obj.has_previous %}
-                    <a href="{% url 'public-index' %}?page=1">&laquo; first</a>
+                    <a href="{% url 'public-index' %}?page=1">&laquo; first</a> &nbsp;
                     <a href="{% url 'public-index' %}?page={{ page_obj.previous_page_number }}">previous</a>
+                    &nbsp;
                 {% endif %}
         
                 <span class="current">
-                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
                 </span>
-        
+            
                 {% if page_obj.has_next %}
-                    <a href="{% url 'public-index' %}?page={{ page_obj.next_page_number }}">next </a>
+                    &nbsp;
+                    <a href="{% url 'public-index' %}?page={{ page_obj.next_page_number }}">next </a> &nbsp;
                     <a href="{% url 'public-index' %}?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
                 {% endif %}
             </span>
-    
-            {% if page_obj.has_next %}
-                <a href="{% url 'public-index' %}?page={{ page_obj.next_page_number }}">next </a>
-                <a href="{% url 'public-index' %}?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
-            {% endif %}
         </span>
         <br>
     </center>

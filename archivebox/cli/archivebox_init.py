@@ -27,11 +27,17 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         action='store_true',
         help='Ignore unrecognized files in current directory and initialize anyway',
     )
+    parser.add_argument(
+        '--quick', '-q',
+        action='store_true',
+        help='Run any updates or migrations without rechecking all snapshot dirs',
+    )
     command = parser.parse_args(args or ())
     reject_stdin(__command__, stdin)
 
     init(
         force=command.force,
+        quick=command.quick,
         out_dir=pwd or OUTPUT_DIR,
     )
     

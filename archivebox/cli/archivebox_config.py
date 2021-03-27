@@ -45,7 +45,10 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help='KEY or KEY=VALUE formatted config values to get or set',
     )
     command = parser.parse_args(args or ())
-    config_options_str = accept_stdin(stdin)
+
+    config_options_str = ''
+    if not command.config_options:
+        config_options_str = accept_stdin(stdin)
 
     config(
         config_options_str=config_options_str,

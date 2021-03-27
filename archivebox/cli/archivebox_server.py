@@ -39,9 +39,19 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help='Enable DEBUG=True mode with more verbose errors',
     )
     parser.add_argument(
+        '--nothreading',
+        action='store_true',
+        help='Force runserver to run in single-threaded mode',
+    )
+    parser.add_argument(
         '--init',
         action='store_true',
-        help='Run archivebox init before starting the server',
+        help='Run a full archivebox init/upgrade before starting the server',
+    )
+    parser.add_argument(
+        '--quick-init', '-i',
+        action='store_true',
+        help='Run quick archivebox init/upgrade before starting the server',
     )
     parser.add_argument(
         '--createsuperuser',
@@ -52,10 +62,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     reject_stdin(__command__, stdin)
     
     server(
-        runserver_args=command.runserver_args,
+        runserver_args=command.runserver_args + (['--nothreading'] if command.nothreading else []),
         reload=command.reload,
         debug=command.debug,
         init=command.init,
+        quick_init=command.quick_init,
         createsuperuser=command.createsuperuser,
         out_dir=pwd or OUTPUT_DIR,
     )
