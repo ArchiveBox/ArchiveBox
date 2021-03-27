@@ -29,6 +29,7 @@ import json
 import getpass
 import platform
 import shutil
+import sqlite3
 import django
 
 from hashlib import md5
@@ -1071,12 +1072,27 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
         assert (config['PACKAGE_DIR'] / 'core' / 'settings.py').exists(), 'settings.py was not found at archivebox/core/settings.py'
         os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 
+        # Check to make sure JSON extension is available in our Sqlite3 instance
+        try:
+            cursor = sqlite3.connect(':memory:').cursor()
+            cursor.execute('SELECT JSON(\'{"a": "b"}\')')
+        except sqlite3.OperationalError as exc:
+            stderr('[X] Your SQLite3 version is missing the required JSON1 extension', color='red')
+            hint([
+                'Upgrade your Python version or install the extension manually:',
+                'https://code.djangoproject.com/wiki/JSON1Extension'
+            ])
+
         if in_memory_db:
-            # Put the db in memory and run migrations in case any command requires it
+            # some commands (e.g. oneshot) dont store a long-lived sqlite3 db file on disk.
+            # in those cases we create a temporary in-memory db and run the migrations
+            # immediately to get a usable in-memory-database at startup
             os.environ.setdefault("ARCHIVEBOX_DATABASE_NAME", ":memory:")
             django.setup()
             call_command("migrate", interactive=False, verbosity=0)
         else:
+            # Otherwise use default sqlite3 file-based database and initialize django
+            # without running migrations automatically (user runs them manually by calling init)
             django.setup()
             
 
@@ -1087,6 +1103,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             command = ' '.join(sys.argv)
             ts = datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
             f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
+
 
         if check_db:
             # Enable WAL mode in sqlite3
