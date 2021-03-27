@@ -23,7 +23,7 @@ if [[ -d "$DATA_DIR/archive" ]]; then
     fi
 else
     # create data directory
-    mkdir -p "$DATA_DIR"
+    mkdir -p "$DATA_DIR/logs"
     chown -R $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR"
 fi
 chown $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR"
