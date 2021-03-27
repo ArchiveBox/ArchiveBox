@@ -37,7 +37,7 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
     """Safe atomic write to filesystem by writing to temp file + atomic rename"""
 
     mode = 'wb+' if isinstance(contents, bytes) else 'w'
-    encoding = None if isinstance(contents, bytes) else 'utf-8'
+    encoding = None if isinstance(contents, bytes) else 'utf-8'  # enforce utf-8 on all text writes
 
     # print('\n> Atomic Write:', mode, path, len(contents), f'overwrite={overwrite}')
     try:
