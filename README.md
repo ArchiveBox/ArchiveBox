@@ -274,6 +274,7 @@ No matter which install method you choose, they all roughly follow this 3-step p
 <li>Install ArchiveBox: <code>apt/brew/pip3 install archivebox</code></li>
 <li>Start a collection: <code>archivebox init</code></li>
 <li>Start archiving: <code>archivebox add 'https://example.com'</code></li>
+<li>View the archive: <code>archivebox server</code> or <code>archivebox list ...</code>, <code>ls ./archive/*/index.html</code></li>
 </ol></small>
 
 <br/>
