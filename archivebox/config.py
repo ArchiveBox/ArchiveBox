@@ -462,7 +462,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
     config_file.optionxform = str
     config_file.read(config_path)
 
-    with open(config_path, 'r') as old:
+    with open(config_path, 'r', encoding='utf-8') as old:
         atomic_write(f'{config_path}.bak', old.read())
 
     find_section = lambda key: [name for name, opts in CONFIG_SCHEMA.items() if key in opts][0]
@@ -490,7 +490,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
         else:
             config_file['SERVER_CONFIG'] = {'SECRET_KEY': random_secret_key}
 
-    with open(config_path, 'w+') as new:
+    with open(config_path, 'w+', encoding='utf-8') as new:
         config_file.write(new)
     
     try:
@@ -502,7 +502,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
         }
     except:
         # something went horribly wrong, rever to the previous version
-        with open(f'{config_path}.bak', 'r') as old:
+        with open(f'{config_path}.bak', 'r', encoding='utf-8') as old:
             atomic_write(config_path, old.read())
 
     if Path(f'{config_path}.bak').exists():
@@ -1099,7 +1099,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
         from django.conf import settings
 
         # log startup message to the error log
-        with open(settings.ERROR_LOG, "a+") as f:
+        with open(settings.ERROR_LOG, "a+", encoding='utf-8') as f:
             command = ' '.join(sys.argv)
             ts = datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
             f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")

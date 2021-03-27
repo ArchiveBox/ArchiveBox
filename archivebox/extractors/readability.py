@@ -35,7 +35,7 @@ def get_html(link: Link, path: Path) -> str:
     document = None
     for source in sources:
         try:
-            with open(abs_path / source, "r") as f:
+            with open(abs_path / source, "r", encoding="utf-8") as f:
                 document = f.read()
                 break
         except (FileNotFoundError, TypeError):

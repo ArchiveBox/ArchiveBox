@@ -31,7 +31,7 @@ def should_save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, overwr
 
     out_dir = out_dir or Path(link.link_dir)
     if not overwrite and (out_dir / 'archive.org.txt').exists():
-        # if open(path, 'r').read().strip() != 'None':
+        # if open(path, 'r', encoding='utf-8').read().strip() != 'None':
         return False
 
     return SAVE_ARCHIVE_DOT_ORG

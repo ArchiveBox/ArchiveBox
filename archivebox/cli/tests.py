@@ -75,8 +75,8 @@ def output_hidden(show_failing=True):
         yield
         return
 
-    sys.stdout = open('stdout.txt', 'w+')
-    sys.stderr = open('stderr.txt', 'w+')
+    sys.stdout = open('stdout.txt', 'w+', encoding='utf-8')
+    sys.stderr = open('stderr.txt', 'w+', encoding='utf-8')
     try:
         yield
         sys.stdout.close()
@@ -89,9 +89,9 @@ def output_hidden(show_failing=True):
         sys.stdout = stdout
         sys.stderr = stderr
         if show_failing:
-            with open('stdout.txt', 'r') as f:
+            with open('stdout.txt', 'r', encoding='utf-8') as f:
                 print(f.read())
-            with open('stderr.txt', 'r') as f:
+            with open('stderr.txt', 'r', encoding='utf-8') as f:
                 print(f.read())
         raise
     finally:
@@ -116,7 +116,7 @@ class TestInit(unittest.TestCase):
         assert len(load_main_index(out_dir=OUTPUT_DIR)) == 0
 
     def test_conflicting_init(self):
-        with open(Path(OUTPUT_DIR) / 'test_conflict.txt', 'w+') as f:
+        with open(Path(OUTPUT_DIR) / 'test_conflict.txt', 'w+', encoding='utf-8') as f:
             f.write('test')
 
         try:
@@ -161,7 +161,7 @@ class TestAdd(unittest.TestCase):
 
     def test_add_arg_file(self):
         test_file = Path(OUTPUT_DIR) / 'test.txt'
-        with open(test_file, 'w+') as f:
+        with open(test_file, 'w+', encoding='utf') as f:
             f.write(test_urls)
 
         with output_hidden():
