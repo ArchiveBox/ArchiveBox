@@ -132,7 +132,7 @@ chrome, wget, youtube-dl, git, etc., full-text search w/ sonic, and many other g
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with <code>docker</code> on any platform</b></summary>
+<summary><b>Get ArchiveBox with <code>docker</code> on macOS/Linux/Windows</b></summary>
 
 <i>First make sure you have Docker installed: https://docs.docker.com/get-docker/</i>
 
