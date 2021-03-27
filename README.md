@@ -103,18 +103,20 @@ archivebox help
 
 <i>First make sure you have Docker installed: https://docs.docker.com/get-docker/</i>
 
+Download the [`docker-compose.yml`](https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml) file.
 <pre lang="bash"><code>
-# create a new empty directory and initalize your collection (can be anywhere)
-mkdir ~/archivebox && cd ~/archivebox
 curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
-docker-compose run archivebox init
-docker-compose run archivebox --version
+</code></pre>
 
-# start the webserver and open the UI (optional)
+Start the server.
+<pre lang="bash"><code>
+docker-compose run archivebox server --quick-init
 docker-compose run archivebox manage createsuperuser
-docker-compose up -d
-open 'http://127.0.0.1:8000'
+</code></pre>
 
+Open [`http://127.0.0.1:8000`](http://127.0.0.1:8000).
+
+<pre lang="bash"><code>
 # you can also add links and manage your archive via the CLI:
 docker-compose run archivebox add 'https://example.com'
 echo 'https://example.com' | docker-compose run archivebox -T add
