@@ -166,8 +166,8 @@ docker run -v $PWD:/data -i archivebox/archivebox list --html --with-headers > i
 This method should work on all Ubuntu/Debian based systems, including x86, amd64, arm7, and arm8 CPUs (e.g. Raspberry Pis >=3).
 
 If you're on Ubuntu >= 20.04, add the `apt` repository with `add-apt-repository`:
+<small><i>(on other Ubuntu/Debian-based systems follow the <b>♰ instructions</b> below)</i></small>
 
-<i>(on other Ubuntu/Debian-based systems follow the <b>♰ instructions</b> below)</i>
 <pre lang="bash"><code>
 # add the repo to your sources and install the archivebox package using apt
 sudo apt install software-properties-common
