@@ -2,7 +2,7 @@ __package__ = 'archivebox.core'
 
 import uuid
 
-from django.db import models, transaction
+from django.db import models
 from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.core.cache import cache
