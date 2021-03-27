@@ -643,7 +643,7 @@ def add(urls: Union[str, List[str]],
         for link in imported_links:
             snapshot = link.as_snapshot()
             snapshot.tags.add(*tags)
-            tags_str = snapshot.tags_str(nocache=True)
+            snapshot.tags_str(nocache=True)
             snapshot.save()
         # print(f'    √ Tagged {len(imported_links)} Snapshots with {len(tags)} tags {tags_str}')
 

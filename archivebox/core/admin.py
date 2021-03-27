@@ -173,7 +173,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
         rendered_response = self.changelist_view(request)
 
         # Restore values
-        self.change_list_template =  saved_change_list_template
+        self.change_list_template = saved_change_list_template
         self.list_per_page = saved_list_per_page
         self.list_max_show_all = saved_list_max_show_all
 
