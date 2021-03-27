@@ -1077,7 +1077,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             cursor = sqlite3.connect(':memory:').cursor()
             cursor.execute('SELECT JSON(\'{"a": "b"}\')')
         except sqlite3.OperationalError as exc:
-            stderr('[X] Your SQLite3 version is missing the required JSON1 extension', color='red')
+            stderr(f'[X] Your SQLite3 version is missing the required JSON1 extension: {exc}', color='red')
             hint([
                 'Upgrade your Python version or install the extension manually:',
                 'https://code.djangoproject.com/wiki/JSON1Extension'
