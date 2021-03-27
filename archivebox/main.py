@@ -611,17 +611,6 @@ def add(urls: Union[str, List[str]],
     write_main_index(links=new_links, out_dir=out_dir)
     all_links = load_main_index(out_dir=out_dir)
 
-    # add any tags to imported links
-    tags = [
-        Tag.objects.get_or_create(name=name.strip())
-        for name in tag.split(',')
-        if name.strip()
-    ]
-    if tags:
-        for link in imported_links:
-            link.as_snapshot().tags.add(*tags)
-
-    
     if index_only:
         # mock archive all the links using the fake index_only extractor method in order to update their state
         if overwrite:
@@ -642,6 +631,21 @@ def add(urls: Union[str, List[str]],
             archive_links(imported_links, overwrite=True, **archive_kwargs)
         elif new_links:
             archive_links(new_links, overwrite=False, **archive_kwargs)
+
+
+    # add any tags to imported links
+    tags = [
+        Tag.objects.get_or_create(name=name.strip())[0]
+        for name in tag.split(',')
+        if name.strip()
+    ]
+    if tags:
+        for link in imported_links:
+            snapshot = link.as_snapshot()
+            snapshot.tags.add(*tags)
+            tags_str = snapshot.tags_str(nocache=True)
+            snapshot.save()
+        # print(f'    √ Tagged {len(imported_links)} Snapshots with {len(tags)} tags {tags_str}')
 
 
     return all_links

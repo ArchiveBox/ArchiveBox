@@ -116,9 +116,13 @@ class Snapshot(models.Model):
         from ..index import load_link_details
         return load_link_details(self.as_link())
 
-    def tags_str(self) -> str:
+    def tags_str(self, nocache=True) -> str:
         cache_key = f'{self.id}-{(self.updated or self.added).timestamp()}-tags'
         calc_tags_str = lambda: ','.join(self.tags.order_by('name').values_list('name', flat=True))
+        if nocache:
+            tags_str = calc_tags_str()
+            cache.set(cache_key, tags_str)
+            return tags_str
         return cache.get_or_set(cache_key, calc_tags_str)
 
     @cached_property

@@ -267,10 +267,12 @@ class AddView(UserPassesTestMixin, FormView):
     def form_valid(self, form):
         url = form.cleaned_data["url"]
         print(f'[+] Adding URL: {url}')
+        tag = form.cleaned_data["tag"]
         depth = 0 if form.cleaned_data["depth"] == "0" else 1
         extractors = ','.join(form.cleaned_data["archive_methods"])
         input_kwargs = {
             "urls": url,
+            "tag": tag,
             "depth": depth,
             "update_all": False,
             "out_dir": OUTPUT_DIR,
