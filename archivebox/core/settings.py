@@ -4,6 +4,7 @@ import os
 import sys
 import re
 import logging
+import tempfile
 
 from pathlib import Path
 from django.utils.crypto import get_random_string
@@ -248,7 +249,12 @@ class NoisyRequestsFilter(logging.Filter):
 
         return 1
 
-ERROR_LOG = (LOGS_DIR / 'errors.log') if LOGS_DIR.exists() else '/dev/null'
+if LOGS_DIR.exists():
+    ERROR_LOG = (LOGS_DIR / 'errors.log')
+else:
+    # meh too many edge cases here around creating log dir w/ correct permissions
+    # cant be bothered, just trash the log and let them figure it out via stdout/stderr
+    ERROR_LOG = tempfile.NamedTemporaryFile().name
 
 LOGGING = {
     'version': 1,
