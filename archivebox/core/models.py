@@ -33,7 +33,10 @@ class Tag(models.Model):
     Based on django-taggit model
     """
     name = models.CharField(unique=True, blank=False, max_length=100)
+
+    # slug is autoset on save from name, never set it manually
     slug = models.SlugField(unique=True, blank=True, max_length=100)
+
 
     class Meta:
         verbose_name = "Tag"

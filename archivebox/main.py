@@ -561,6 +561,7 @@ def oneshot(url: str, extractors: str="", out_dir: Path=OUTPUT_DIR):
 
 @enforce_types
 def add(urls: Union[str, List[str]],
+        tag: str='',
         depth: int=0,
         update_all: bool=not ONLY_NEW,
         index_only: bool=False,
@@ -569,6 +570,8 @@ def add(urls: Union[str, List[str]],
         extractors: str="",
         out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
+
+    from core.models import Tag
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
 
@@ -602,31 +605,44 @@ def add(urls: Union[str, List[str]],
             new_links_depth += parse_links_from_source(downloaded_file, root_url=new_link.url)
 
     imported_links = list({link.url: link for link in (new_links + new_links_depth)}.values())
+    
     new_links = dedupe_links(all_links, imported_links)
 
     write_main_index(links=new_links, out_dir=out_dir)
     all_links = load_main_index(out_dir=out_dir)
 
+    # add any tags to imported links
+    tags = [
+        Tag.objects.get_or_create(name=name.strip())
+        for name in tag.split(',')
+        if name.strip()
+    ]
+    if tags:
+        for link in imported_links:
+            link.as_snapshot().tags.add(*tags)
+
+    
     if index_only:
+        # mock archive all the links using the fake index_only extractor method in order to update their state
         if overwrite:
             archive_links(imported_links, overwrite=overwrite, methods=['index_only'], out_dir=out_dir)
         else:
             archive_links(new_links, overwrite=False, methods=['index_only'], out_dir=out_dir)
-        return all_links
+    else:
+        # fully run the archive extractor methods for each link
+        archive_kwargs = {
+            "out_dir": out_dir,
+        }
+        if extractors:
+            archive_kwargs["methods"] = extractors
 
-    # Run the archive methods for each link
-    archive_kwargs = {
-        "out_dir": out_dir,
-    }
-    if extractors:
-        archive_kwargs["methods"] = extractors
+        if update_all:
+            archive_links(all_links, overwrite=overwrite, **archive_kwargs)
+        elif overwrite:
+            archive_links(imported_links, overwrite=True, **archive_kwargs)
+        elif new_links:
+            archive_links(new_links, overwrite=False, **archive_kwargs)
 
-    if update_all:
-        archive_links(all_links, overwrite=overwrite, **archive_kwargs)
-    elif overwrite:
-        archive_links(imported_links, overwrite=True, **archive_kwargs)
-    elif new_links:
-        archive_links(new_links, overwrite=False, **archive_kwargs)
 
     return all_links
 
