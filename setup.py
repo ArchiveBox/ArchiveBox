@@ -36,7 +36,6 @@ INSTALL_REQUIRES = [
     # if there is no apt python3-package equivalent, then vendor it instead in
     # ./archivebox/vendor/
     "requests>=2.24.0",
-    "atomicwrites>=1.4.0",
     "mypy-extensions>=0.4.3",
     "django>=3.1.3",
     "django-extensions>=3.0.3",

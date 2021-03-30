@@ -10,7 +10,7 @@ from typing import Optional, Union, Set, Tuple
 from subprocess import run as subprocess_run
 
 from crontab import CronTab
-from atomicwrites import atomic_write as lib_atomic_write
+from .vendor.atomicwrites import atomic_write as lib_atomic_write
 
 from .util import enforce_types, ExtendedEncoder
 from .config import OUTPUT_PERMISSIONS

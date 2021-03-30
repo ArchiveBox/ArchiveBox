@@ -23,3 +23,6 @@
 [submodule "archivebox/vendor/django-taggit"]
 	path = archivebox/vendor/django-taggit
 	url = https://github.com/jazzband/django-taggit
+[submodule "archivebox/vendor/python-atomicwrites"]
+	path = archivebox/vendor/python-atomicwrites
+	url = https://github.com/untitaker/python-atomicwrites
