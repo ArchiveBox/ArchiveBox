@@ -1036,8 +1036,8 @@ def schedule(add: bool=False,
             '&&',
             quoted(ARCHIVEBOX_BINARY),
             *(['add', f'--depth={depth}', f'"{import_path}"'] if import_path else ['update']),
-            '>',
-            quoted(Path(LOGS_DIR) / 'archivebox.log'),
+            '>>',
+            quoted(Path(LOGS_DIR) / 'schedule.log'),
             '2>&1',
 
         ]
