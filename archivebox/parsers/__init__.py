@@ -20,6 +20,8 @@ from ..config import (
     OUTPUT_DIR,
     SOURCES_DIR_NAME,
     TIMEOUT,
+    stderr,
+    hint,
 )
 from ..util import (
     basename,
@@ -112,7 +114,10 @@ def run_parser_functions(to_parse: IO[str], timer, root_url: Optional[str]=None,
         parser_name, parser_func = PARSERS[parser]
         parsed_links = list(parser_func(to_parse, root_url=root_url))
         if not parsed_links:
-            raise Exception('no links found')
+            stderr()
+            stderr(f'[X] No links found using {parser_name} parser', color='red')
+            hint('Try a different parser or double check the input?')
+            stderr()
         timer.end()
         return parsed_links, parser_name
 
@@ -121,7 +126,7 @@ def run_parser_functions(to_parse: IO[str], timer, root_url: Optional[str]=None,
         try:
             parsed_links = list(parser_func(to_parse, root_url=root_url))
             if not parsed_links:
-                raise Exception('no links found')
+                raise Exception(f'No links found using {parser_name} parser')
 
             # print(f'[√] Parser {parser_name} succeeded: {len(parsed_links)} links parsed')
             if len(parsed_links) > len(most_links):
@@ -130,8 +135,8 @@ def run_parser_functions(to_parse: IO[str], timer, root_url: Optional[str]=None,
                 
         except Exception as err:                                                # noqa
             # Parsers are tried one by one down the list, and the first one
-            # that succeeds is used. To see why a certain parser was not used
-            # due to error or format incompatibility, uncomment this line:
+            # that succeeds is used. To debug why a certain parser was not used
+            # due to python error or format incompatibility, uncomment this line:
             
             # print('[!] Parser {} failed: {} {}'.format(parser_name, err.__class__.__name__, err))
             # raise
