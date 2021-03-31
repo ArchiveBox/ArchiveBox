@@ -3,6 +3,7 @@
 DATA_DIR="${DATA_DIR:-/data}"
 ARCHIVEBOX_USER="${ARCHIVEBOX_USER:-archivebox}"
 
+
 # Set the archivebox user UID & GID
 if [[ -n "$PUID" && "$PUID" != 0 ]]; then
     usermod -u "$PUID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
@@ -10,6 +11,7 @@ fi
 if [[ -n "$PGID" && "$PGID" != 0 ]]; then
     groupmod -g "$PGID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
 fi
+
 
 # Set the permissions of the data dir to match the archivebox user
 if [[ -d "$DATA_DIR/archive" ]]; then
@@ -21,7 +23,7 @@ if [[ -d "$DATA_DIR/archive" ]]; then
     fi
 else
     # create data directory
-    mkdir -p "$DATA_DIR"
+    mkdir -p "$DATA_DIR/logs"
     chown -R $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR"
 fi
 chown $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR"
@@ -33,11 +35,11 @@ if [[ "$1" == /* || "$1" == "echo" || "$1" == "archivebox" ]]; then
     # e.g. "archivebox init"
     #      "/bin/bash"
     #      "echo"
-    gosu "$ARCHIVEBOX_USER" bash -c "$*"
+    exec gosu "$ARCHIVEBOX_USER" bash -c "$*"
 else
     # no command given, assume args were meant to be passed to archivebox cmd
     # e.g. "add https://example.com"
     #      "manage createsupseruser"
     #      "server 0.0.0.0:8000"
-    gosu "$ARCHIVEBOX_USER" bash -c "archivebox $*"
+    exec gosu "$ARCHIVEBOX_USER" bash -c "archivebox $*"
 fi

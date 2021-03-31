@@ -237,3 +237,40 @@ body.model-snapshot.change-list #content .object-tools {
     opacity: 0.1;
     filter: grayscale(100%);
 }
+
+
+#result_list tbody td.field-cmd_str pre,
+#result_list tbody td.field-output_str pre {
+    max-width: 22vw;
+    word-wrap: anywhere;
+    white-space: break-spaces;
+    max-height: 40px;
+    overflow: hidden;
+    margin: 2px;
+    background-color: rgba(0,0,0,0.05);
+    padding: 1px 4px 16px 8px;
+    border-radius: 4px;
+}
+
+#result_list tbody td.field-extractor {
+    font-weight: 800;
+    font-variant: small-caps;
+}
+
+#result_list tbody td.field-status {
+    font-variant: small-caps;
+}
+
+.inline-group .tabular td.original p {
+    margin-top: -33px;
+}
+
+tbody .output-link {
+    float: right;
+    margin-bottom: -25px;
+    margin-right: -3px;
+    margin-top: -4px;
+    opacity: 0.4;
+    box-shadow:   4px 4px 4px rgba(0,0,0,0.1);
+}
+tbody .output-link:hover {opacity: 1;}

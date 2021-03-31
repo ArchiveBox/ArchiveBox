@@ -1,6 +1,6 @@
 {
   "name": "archivebox",
-  "version": "0.5.6",
+  "version": "0.6.0",
   "description": "ArchiveBox: The self-hosted internet archive",
   "author": "Nick Sweeting <archivebox-npm@sweeting.me>",
   "license": "MIT",

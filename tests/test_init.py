@@ -12,12 +12,12 @@ from archivebox.config import OUTPUT_PERMISSIONS
 from .fixtures import *
 
 def test_init(tmp_path, process):
-    assert "Initializing a new ArchiveBox collection in this folder..." in process.stdout.decode("utf-8")
+    assert "Initializing a new ArchiveBox" in process.stdout.decode("utf-8")
     
 def test_update(tmp_path, process):
     os.chdir(tmp_path)
     update_process = subprocess.run(['archivebox', 'init'], capture_output=True)
-    assert "Updating existing ArchiveBox collection in this folder" in update_process.stdout.decode("utf-8")
+    assert "updating existing ArchiveBox" in update_process.stdout.decode("utf-8")
 
 def test_add_link(tmp_path, process, disable_extractors_dict):
     disable_extractors_dict.update({"USE_WGET": "true"})
@@ -28,11 +28,11 @@ def test_add_link(tmp_path, process, disable_extractors_dict):
 
     assert "index.json" in [x.name for x in archived_item_path.iterdir()]
 
-    with open(archived_item_path / "index.json", "r") as f:
+    with open(archived_item_path / "index.json", "r", encoding="utf-8") as f:
         output_json = json.load(f)
     assert "Example Domain" == output_json['history']['title'][0]['output']
 
-    with open(archived_item_path / "index.html", "r") as f:
+    with open(archived_item_path / "index.html", "r", encoding="utf-8") as f:
         output_html = f.read()
     assert "Example Domain" in output_html
 
@@ -47,7 +47,7 @@ def test_add_link_support_stdin(tmp_path, process, disable_extractors_dict):
 
     assert "index.json" in [x.name for x in archived_item_path.iterdir()]
 
-    with open(archived_item_path / "index.json", "r") as f:
+    with open(archived_item_path / "index.json", "r", encoding="utf-8") as f:
         output_json = json.load(f)
     assert "Example Domain" == output_json['history']['title'][0]['output']
 
@@ -75,11 +75,11 @@ def test_collision_urls_different_timestamps(tmp_path, process, disable_extracto
     
     first_archive = tmp_path / "archive" / str(min([float(folder) for folder in archive_folders]))
     json_index = str(first_archive / "index.json")
-    with open(json_index, "r") as f:
+    with open(json_index, "r", encoding="utf-8") as f:
         link_details = json.loads(f.read())
 
     link_details["url"] = "http://127.0.0.1:8080/static/iana.org.html"
-    with open(json_index, "w") as f:
+    with open(json_index, "w", encoding="utf-8") as f:
         json.dump(link_details, f)
 
     init_process = subprocess.run(['archivebox', 'init'], capture_output=True, env=disable_extractors_dict)
@@ -98,12 +98,12 @@ def test_collision_timestamps_different_urls(tmp_path, process, disable_extracto
     archive_folders.remove(first_archive.name)
     json_index = str(first_archive / "index.json")
 
-    with open(json_index, "r") as f:
+    with open(json_index, "r", encoding="utf-8") as f:
         link_details = json.loads(f.read())
 
     link_details["timestamp"] = archive_folders[0]
 
-    with open(json_index, "w") as f:
+    with open(json_index, "w", encoding="utf-8") as f:
         json.dump(link_details, f)
 
     init_process = subprocess.run(['archivebox', 'init'], capture_output=True, env=disable_extractors_dict)

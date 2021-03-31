@@ -86,7 +86,7 @@ def test_headers_retrieved(tmp_path, process, disable_extractors_dict):
     output_file = archived_item_path / "headers.json"
     assert output_file.exists()
     headers_file = archived_item_path / 'headers.json'
-    with open(headers_file) as f:
+    with open(headers_file, 'r', encoding='utf-8') as f:
         headers = pyjson.load(f)
     assert headers['Content-Language'] == 'en'
     assert headers['Content-Script-Type'] == 'text/javascript'
@@ -98,7 +98,7 @@ def test_headers_redirect_chain(tmp_path, process, disable_extractors_dict):
                                   capture_output=True, env=disable_extractors_dict)
     archived_item_path = list(tmp_path.glob("archive/**/*"))[0]
     output_file = archived_item_path / "headers.json" 
-    with open(output_file) as f:
+    with open(output_file, 'r', encoding='utf-8') as f:
         headers = pyjson.load(f)
     assert headers['Content-Language'] == 'en'
     assert headers['Content-Script-Type'] == 'text/javascript'
@@ -110,6 +110,6 @@ def test_headers_400_plus(tmp_path, process, disable_extractors_dict):
                                   capture_output=True, env=disable_extractors_dict)
     archived_item_path = list(tmp_path.glob("archive/**/*"))[0]
     output_file = archived_item_path / "headers.json" 
-    with open(output_file) as f:
+    with open(output_file, 'r', encoding='utf-8') as f:
         headers = pyjson.load(f)
     assert headers["Status-Code"] == "200"

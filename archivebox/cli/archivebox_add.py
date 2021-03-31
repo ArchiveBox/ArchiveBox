@@ -23,6 +23,12 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         formatter_class=SmartFormatter,
     )
     parser.add_argument(
+        '--tag', '-t',
+        type=str,
+        default='',
+        help="Tag the added URLs with the provided tags e.g. --tag=tag1,tag2,tag3",
+    )
+    parser.add_argument(
         '--update-all', #'-n',
         action='store_true',
         default=not ONLY_NEW,  # when ONLY_NEW=True we skip updating old links
@@ -75,7 +81,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     )
     command = parser.parse_args(args or ())
     urls = command.urls
-    stdin_urls = accept_stdin(stdin)
+
+    stdin_urls = ''
+    if not urls:
+        stdin_urls = accept_stdin(stdin)
+
     if (stdin_urls and urls) or (not stdin and not urls):
         stderr(
             '[X] You must pass URLs/paths to add via stdin or CLI arguments.\n',
@@ -85,6 +95,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     add(
         urls=stdin_urls or urls,
         depth=command.depth,
+        tag=command.tag,
         update_all=command.update_all,
         index_only=command.index_only,
         overwrite=command.overwrite,

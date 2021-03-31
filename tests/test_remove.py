@@ -100,16 +100,18 @@ def test_remove_before(tmp_path, process, disable_extractors_dict):
 
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    timestamp = c.execute("SELECT timestamp FROM core_snapshot ORDER BY timestamp ASC").fetchall()
+    higherts, lowerts = timestamp = c.execute("SELECT timestamp FROM core_snapshot ORDER BY timestamp DESC").fetchall()
     conn.commit()
     conn.close()
 
-    before = list(map(lambda x: int(x[0].split(".")[0]), timestamp))
+    lowerts = lowerts[0]
+    higherts = higherts[0]
 
-    subprocess.run(['archivebox', 'remove', '--filter-type=regex', '.*', '--yes', '--delete', '--before', str(before[1])], capture_output=True)
+    # before is less than, so only the lower snapshot gets deleted
+    subprocess.run(['archivebox', 'remove', '--filter-type=regex', '.*', '--yes', '--delete', '--before', higherts], capture_output=True)
 
-    assert (tmp_path / "archive" / timestamp[0][0]).exists()
-    assert not (tmp_path / "archive" / timestamp[1][0]).exists()
+    assert not (tmp_path / "archive" / lowerts).exists()
+    assert (tmp_path / "archive" / higherts).exists()
 
 def test_remove_after(tmp_path, process, disable_extractors_dict):
     subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'], capture_output=True, env=disable_extractors_dict)
@@ -118,13 +120,15 @@ def test_remove_after(tmp_path, process, disable_extractors_dict):
 
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
-    timestamp = c.execute("SELECT timestamp FROM core_snapshot ORDER BY timestamp ASC").fetchall()
+    higherts, lowerts = c.execute("SELECT timestamp FROM core_snapshot ORDER BY timestamp DESC").fetchall()
     conn.commit()
     conn.close()
 
-    after = list(map(lambda x: int(x[0].split(".")[0]), timestamp))
+    lowerts = lowerts[0].split(".")[0]
+    higherts = higherts[0].split(".")[0]
 
-    subprocess.run(['archivebox', 'remove', '--filter-type=regex', '.*', '--yes', '--delete', '--after', str(after[1])], capture_output=True)
+    # after is greater than or equal to, so both snapshots get deleted
+    subprocess.run(['archivebox', 'remove', '--filter-type=regex', '.*', '--yes', '--delete', '--after', lowerts], capture_output=True)
 
-    assert (tmp_path / "archive" / timestamp[1][0]).exists()
-    assert not (tmp_path / "archive" / timestamp[0][0]).exists()
+    assert not (tmp_path / "archive" / lowerts).exists()
+    assert not (tmp_path / "archive" / higherts).exists()

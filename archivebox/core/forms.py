@@ -20,7 +20,8 @@ ARCHIVE_METHODS = [
 
 class AddLinkForm(forms.Form):
     url = forms.RegexField(label="URLs (one per line)", regex=URL_REGEX, min_length='6', strip=True, widget=forms.Textarea, required=True)
-    depth = forms.ChoiceField(label="Archive depth", choices=CHOICES, widget=forms.RadioSelect, initial='0')
+    tag = forms.CharField(label="Tags (comma separated tag1,tag2,tag3)", strip=True, required=False)
+    depth = forms.ChoiceField(label="Archive depth", choices=CHOICES, initial='0', widget=forms.RadioSelect(attrs={"class": "depth-selection"}))
     archive_methods = forms.MultipleChoiceField(
         label="Archive methods (select at least 1, otherwise all will be used by default)",
         required=False,

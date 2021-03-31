@@ -16,7 +16,7 @@ def get_file_result_content(res, extra_path, use_pwd=False):
     if extra_path:
         fpath = f'{fpath}/{extra_path}'
 
-    with open(fpath, 'r') as file:
+    with open(fpath, 'r', encoding='utf-8') as file:
         data = file.read()
     if data:
         return [data]

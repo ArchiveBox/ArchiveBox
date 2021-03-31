@@ -12,6 +12,7 @@ from ..main import update
 from ..util import docstring
 from ..config import OUTPUT_DIR
 from ..index import (
+    LINK_FILTERS,
     get_indexed_folders,
     get_archived_folders,
     get_unarchived_folders,
@@ -89,9 +90,9 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         )
     )
     parser.add_argument(
-        '--filter-type',
+        '--filter-type', '-t',
         type=str,
-        choices=('exact', 'substring', 'domain', 'regex', 'tag', 'search'),
+        choices=(*LINK_FILTERS.keys(), 'search'),
         default='exact',
         help='Type of pattern matching to use when filtering URLs',
     )
@@ -110,7 +111,10 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         default=""
     )
     command = parser.parse_args(args or ())
-    filter_patterns_str = accept_stdin(stdin)
+
+    filter_patterns_str = None
+    if not command.filter_patterns:
+        filter_patterns_str = accept_stdin(stdin)
 
     update(
         resume=command.resume,

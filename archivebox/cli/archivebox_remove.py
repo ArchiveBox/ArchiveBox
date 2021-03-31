@@ -61,7 +61,10 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help='URLs matching this filter pattern will be removed from the index.'
     )
     command = parser.parse_args(args or ())
-    filter_str = accept_stdin(stdin)
+    
+    filter_str = None
+    if not command.filter_patterns:
+        filter_str = accept_stdin(stdin)
 
     remove(
         filter_str=filter_str,

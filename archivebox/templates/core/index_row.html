@@ -10,7 +10,7 @@
         {% endif %}
 
         <a href="archive/{{link.timestamp}}/index.html" title="{{link.title|default:'Not yet archived...'}}">
-            <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title|default:'Loading...'}}</span>
+            <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title|default:'Loading...'|truncatechars:128}}</span>
             {% if link.tags_str %}
                 <span class="tags" style="float: right; border-radius: 5px; background-color: #bfdfff; padding: 2px 5px; margin-left: 4px; margin-top: 1px;">
                     {% if link.tags_str != None %}
@@ -33,5 +33,5 @@
             {% endif %}
         </span>
     </td>
-   <td style="text-align:left"><a href="{{link.url}}">{{link.url}}</a></td>
+   <td style="text-align:left; word-wrap: anywhere;"><a href="{{link.url}}">{{link.url|truncatechars:128}}</a></td>
 </tr>

@@ -68,7 +68,6 @@ def parse_links_memory(urls: List[str], root_url: Optional[str]=None):
     """
     parse a list of URLS without touching the filesystem
     """
-    check_url_parsing_invariants()
 
     timer = TimedProgress(TIMEOUT * 4)
     #urls = list(map(lambda x: x + "\n", urls))
@@ -88,8 +87,6 @@ def parse_links(source_file: str, root_url: Optional[str]=None) -> Tuple[List[Li
     """parse a list of URLs with their metadata from an 
        RSS feed, bookmarks export, or text file
     """
-
-    check_url_parsing_invariants()
 
     timer = TimedProgress(TIMEOUT * 4)
     with open(source_file, 'r', encoding='utf-8') as file:
@@ -173,31 +170,48 @@ def save_file_as_source(path: str, timeout: int=TIMEOUT, filename: str='{ts}-{ba
     return source_path
 
 
-def check_url_parsing_invariants() -> None:
-    """Check that plain text regex URL parsing works as expected"""
-
-    # this is last-line-of-defense to make sure the URL_REGEX isn't
-    # misbehaving, as the consequences could be disastrous and lead to many
-    # incorrect/badly parsed links being added to the archive
-
-    test_urls = '''
-    https://example1.com/what/is/happening.html?what=1#how-about-this=1
-    https://example2.com/what/is/happening/?what=1#how-about-this=1
-    HTtpS://example3.com/what/is/happening/?what=1#how-about-this=1f
-    https://example4.com/what/is/happening.html
-    https://example5.com/
-    https://example6.com
-
-    <test>http://example7.com</test>
-    [https://example8.com/what/is/this.php?what=1]
-    [and http://example9.com?what=1&other=3#and-thing=2]
-    <what>https://example10.com#and-thing=2 "</about>
-    abc<this["https://example11.com/what/is#and-thing=2?whoami=23&where=1"]that>def
-    sdflkf[what](https://example12.com/who/what.php?whoami=1#whatami=2)?am=hi
-    example13.bada
-    and example14.badb
-    <or>htt://example15.badc</that>
-    '''
-    # print('\n'.join(re.findall(URL_REGEX, test_urls)))
-    assert len(re.findall(URL_REGEX, test_urls)) == 12
-
+# Check that plain text regex URL parsing works as expected
+#   this is last-line-of-defense to make sure the URL_REGEX isn't
+#   misbehaving due to some OS-level or environment level quirks (e.g. bad regex lib)
+#   the consequences of bad URL parsing could be disastrous and lead to many
+#   incorrect/badly parsed links being added to the archive, so this is worth the cost of checking
+_test_url_strs = {
+    'example.com': 0,
+    '/example.com': 0,
+    '//example.com': 0,
+    ':/example.com': 0,
+    '://example.com': 0,
+    'htt://example8.com': 0,
+    '/htt://example.com': 0,
+    'https://example': 1,
+    'https://localhost/2345': 1,
+    'https://localhost:1234/123': 1,
+    '://': 0,
+    'https://': 0,
+    'http://': 0,
+    'ftp://': 0,
+    'ftp://example.com': 0,
+    'https://example.com': 1,
+    'https://example.com/': 1,
+    'https://a.example.com': 1,
+    'https://a.example.com/': 1,
+    'https://a.example.com/what/is/happening.html': 1,
+    'https://a.example.com/what/ís/happening.html': 1,
+    'https://a.example.com/what/is/happening.html?what=1&2%20b#höw-about-this=1a': 1,
+    'https://a.example.com/what/is/happéning/?what=1&2%20b#how-aboüt-this=1a': 1,
+    'HTtpS://a.example.com/what/is/happening/?what=1&2%20b#how-about-this=1af&2f%20b': 1,
+    'https://example.com/?what=1#how-about-this=1&2%20baf': 1,
+    'https://example.com?what=1#how-about-this=1&2%20baf': 1,
+    '<test>http://example7.com</test>': 1,
+    '[https://example8.com/what/is/this.php?what=1]': 1,
+    '[and http://example9.com?what=1&other=3#and-thing=2]': 1,
+    '<what>https://example10.com#and-thing=2 "</about>': 1,
+    'abc<this["https://example11.com/what/is#and-thing=2?whoami=23&where=1"]that>def': 1,
+    'sdflkf[what](https://example12.com/who/what.php?whoami=1#whatami=2)?am=hi': 1,
+    '<or>http://examplehttp://15.badc</that>': 2,
+    'https://a.example.com/one.html?url=http://example.com/inside/of/another?=http://': 2,
+    '[https://a.example.com/one.html?url=http://example.com/inside/of/another?=](http://a.example.com)': 3,
+}
+for url_str, num_urls in _test_url_strs.items():
+    assert len(re.findall(URL_REGEX, url_str)) == num_urls, (
+        f'{url_str} does not contain {num_urls} urls')

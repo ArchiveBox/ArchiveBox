@@ -4,8 +4,8 @@ from io import StringIO
 from contextlib import redirect_stdout
 
 from django.shortcuts import render, redirect
-
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
+from django.utils.html import format_html, mark_safe
 from django.views import View, static
 from django.views.generic.list import ListView
 from django.views.generic import FormView
@@ -22,6 +22,7 @@ from ..config import (
     PUBLIC_ADD_VIEW,
     VERSION,
     FOOTER_INFO,
+    SNAPSHOTS_PER_PAGE,
 )
 from main import add
 from ..util import base_url, ansi_to_html
@@ -43,10 +44,6 @@ class SnapshotView(View):
     # render static html index from filesystem archive/<timestamp>/index.html
 
     def get(self, request, path):
-        # missing trailing slash -> redirect to index
-        if '/' not in path:
-            return redirect(f'{path}/index.html')
-
         if not request.user.is_authenticated and not PUBLIC_SNAPSHOTS:
             return redirect(f'/admin/login/?next={request.path}')
 
@@ -55,46 +52,163 @@ class SnapshotView(View):
         except (IndexError, ValueError):
             slug, archivefile = path.split('/', 1)[0], 'index.html'
 
-        all_pages = list(Snapshot.objects.all())
-
         # slug is a timestamp
-        by_ts = {page.timestamp: page for page in all_pages}
-        try:
-            # print('SERVING STATICFILE', by_ts[slug].link_dir, request.path, path)
-            response = static.serve(request, archivefile, document_root=by_ts[slug].link_dir, show_indexes=True)
-            response["Link"] = f'<{by_ts[slug].url}>; rel="canonical"'
-            return response
-        except KeyError:
-            pass
+        if slug.replace('.','').isdigit():
 
-        # slug is a hash
-        by_hash = {page.url_hash: page for page in all_pages}
-        try:
-            timestamp = by_hash[slug].timestamp
-            return redirect(f'/archive/{timestamp}/{archivefile}')
-        except KeyError:
-            pass
+            # missing trailing slash -> redirect to index
+            if '/' not in path:
+                return redirect(f'{path}/index.html')
 
+            try:
+                try:
+                    snapshot = Snapshot.objects.get(Q(timestamp=slug) | Q(id__startswith=slug))
+                    response = static.serve(request, archivefile, document_root=snapshot.link_dir, show_indexes=True)
+                    response["Link"] = f'<{snapshot.url}>; rel="canonical"'
+                    return response
+                except Snapshot.DoesNotExist:
+                    if Snapshot.objects.filter(timestamp__startswith=slug).exists():
+                        raise Snapshot.MultipleObjectsReturned
+                    else:
+                        raise
+            except Snapshot.DoesNotExist:
+                # Snapshot does not exist
+                return HttpResponse(
+                    format_html(
+                        (
+                            '<center><br/><br/><br/>'
+                            'No Snapshot directories match the given timestamp or UUID: <code>{}</code><br/><br/>'
+                            'You can <a href="/add/" target="_top">add a new Snapshot</a>, or return to the <a href="/" target="_top">Main Index</a>'
+                            '</center>'
+                        ),
+                        slug,
+                        path,
+                    ),
+                    content_type="text/html",
+                    status=404,
+                )
+            except Snapshot.MultipleObjectsReturned:
+                snapshot_hrefs = mark_safe('<br/>').join(
+                    format_html(
+                        '{} <a href="/archive/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
+                        snap.added.strftime('%Y-%m-%d %H:%M:%S'),
+                        snap.timestamp,
+                        snap.timestamp,
+                        snap.url,
+                        snap.title or '',
+                    )
+                    for snap in Snapshot.objects.filter(timestamp__startswith=slug).only('url', 'timestamp', 'title', 'added').order_by('-added')
+                )
+                return HttpResponse(
+                    format_html(
+                        (
+                            'Multiple Snapshots match the given timestamp/UUID <code>{}</code><br/><pre>'
+                        ),
+                        slug,
+                    ) + snapshot_hrefs + format_html(
+                        (
+                            '</pre><br/>'
+                            'Choose a Snapshot to proceed or go back to the <a href="/" target="_top">Main Index</a>'
+                        )
+                    ),
+                    content_type="text/html",
+                    status=404,
+                )
+            except Http404:
+                # Snapshot dir exists but file within does not e.g. 124235.324234/screenshot.png
+                return HttpResponse(
+                    format_html(
+                        (
+                            '<center><br/><br/><br/>'
+                            f'Snapshot <a href="/archive/{snapshot.timestamp}/index.html" target="_top"><b><code>[{snapshot.timestamp}]</code></b></a> exists in DB, but resource <b><code>{snapshot.timestamp}/'
+                            '{}'
+                            f'</code></b> does not exist in <a href="/archive/{snapshot.timestamp}/" target="_top">snapshot dir</a> yet.<br/><br/>'
+                            'Maybe this resource type is not availabe for this Snapshot,<br/>or the archiving process has not completed yet?<br/>'
+                            f'<pre><code># run this cmd to finish archiving this Snapshot<br/>archivebox update -t timestamp {snapshot.timestamp}</code></pre><br/><br/>'
+                            '<div class="text-align: left; width: 100%; max-width: 400px">'
+                            '<i><b>Next steps:</i></b><br/>'
+                            f'- list all the <a href="/archive/{snapshot.timestamp}/" target="_top">Snapshot files <code>.*</code></a><br/>'
+                            f'- view the <a href="/archive/{snapshot.timestamp}/index.html" target="_top">Snapshot <code>./index.html</code></a><br/>'
+                            f'- go to the <a href="/admin/core/snapshot/{snapshot.id}/change/" target="_top">Snapshot admin</a> to edit<br/>'
+                            f'- go to the <a href="/admin/core/snapshot/?id__startswith={snapshot.id}" target="_top">Snapshot actions</a> to re-archive<br/>'
+                            '- or return to <a href="/" target="_top">the main index...</a></div>'
+                            '</center>'
+                        ),
+                        archivefile,
+                    ),
+                    content_type="text/html",
+                    status=404,
+                )
         # slug is a URL
-        by_url = {page.base_url: page for page in all_pages}
         try:
-            # TODO: add multiple snapshot support by showing index of all snapshots
-            # for given url instead of redirecting to timestamp index
-            timestamp = by_url[base_url(path)].timestamp
-            return redirect(f'/archive/{timestamp}/index.html')
-        except KeyError:
-            pass
-
-        return HttpResponse(
-            'No archived link matches the given timestamp or hash.',
-            content_type="text/plain",
-            status=404,
-        )
+            try:
+                # try exact match on full url first
+                snapshot = Snapshot.objects.get(
+                    Q(url='http://' + path) | Q(url='https://' + path) | Q(id__startswith=path)
+                )
+            except Snapshot.DoesNotExist:
+                # fall back to match on exact base_url
+                try:
+                    snapshot = Snapshot.objects.get(
+                        Q(url='http://' + base_url(path)) | Q(url='https://' + base_url(path))
+                    )
+                except Snapshot.DoesNotExist:
+                    # fall back to matching base_url as prefix
+                    snapshot = Snapshot.objects.get(
+                        Q(url__startswith='http://' + base_url(path)) | Q(url__startswith='https://' + base_url(path))
+                    )
+            return redirect(f'/archive/{snapshot.timestamp}/index.html')
+        except Snapshot.DoesNotExist:
+            return HttpResponse(
+                format_html(
+                    (
+                        '<center><br/><br/><br/>'
+                        'No Snapshots match the given url: <code>{}</code><br/><br/><br/>'
+                        'Return to the <a href="/" target="_top">Main Index</a>, or:<br/><br/>'
+                        '+ <i><a href="/add/?url={}" target="_top">Add a new Snapshot for <code>{}</code></a><br/><br/></i>'
+                        '</center>'
+                    ),
+                    base_url(path),
+                    path if '://' in path else f'https://{path}',
+                    path,
+                ),
+                content_type="text/html",
+                status=404,
+            )
+        except Snapshot.MultipleObjectsReturned:
+            snapshot_hrefs = mark_safe('<br/>').join(
+                format_html(
+                    '{} <a href="/archive/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
+                    snap.added.strftime('%Y-%m-%d %H:%M:%S'),
+                    snap.timestamp,
+                    snap.timestamp,
+                    snap.url,
+                    snap.title or '',
+                )
+                for snap in Snapshot.objects.filter(
+                    Q(url__startswith='http://' + base_url(path)) | Q(url__startswith='https://' + base_url(path))
+                ).only('url', 'timestamp', 'title', 'added').order_by('-added')
+            )
+            return HttpResponse(
+                format_html(
+                    (
+                        'Multiple Snapshots match the given URL <code>{}</code><br/><pre>'
+                    ),
+                    base_url(path),
+                ) + snapshot_hrefs + format_html(
+                    (
+                        '</pre><br/>'
+                        'Choose a Snapshot to proceed or go back to the <a href="/" target="_top">Main Index</a>'
+                    )
+                ),
+                content_type="text/html",
+                status=404,
+            )
+        
 
 class PublicIndexView(ListView):
     template_name = 'public_index.html'
     model = Snapshot
-    paginate_by = 100
+    paginate_by = SNAPSHOTS_PER_PAGE
     ordering = ['title']
 
     def get_context_data(self, **kwargs):
@@ -105,12 +219,14 @@ class PublicIndexView(ListView):
         }
 
     def get_queryset(self, **kwargs): 
-        qs = super().get_queryset(**kwargs) 
+        qs = super().get_queryset(**kwargs)
         query = self.request.GET.get('q')
         if query:
             qs = qs.filter(Q(title__icontains=query) | Q(url__icontains=query) | Q(timestamp__icontains=query) | Q(tags__name__icontains=query))
+        
         for snapshot in qs:
-            snapshot.icons = snapshot_icons(snapshot)
+            # lazy load snapshot icons, otherwise it will load icons for entire index at once
+            snapshot.icons = lambda: snapshot_icons(snapshot)
         return qs
 
     def get(self, *args, **kwargs):
@@ -130,9 +246,9 @@ class AddView(UserPassesTestMixin, FormView):
         if self.request.method == 'GET':
             url = self.request.GET.get('url', None)
             if url:
-                return {'url': url}
-        else:
-            return super().get_initial()
+                return {'url': url if '://' in url else f'https://{url}'}
+        
+        return super().get_initial()
 
     def test_func(self):
         return PUBLIC_ADD_VIEW or self.request.user.is_authenticated
@@ -145,15 +261,18 @@ class AddView(UserPassesTestMixin, FormView):
             'absolute_add_path': self.request.build_absolute_uri(self.request.path),
             'VERSION': VERSION,
             'FOOTER_INFO': FOOTER_INFO,
+            'stdout': '',
         }
 
     def form_valid(self, form):
         url = form.cleaned_data["url"]
         print(f'[+] Adding URL: {url}')
+        tag = form.cleaned_data["tag"]
         depth = 0 if form.cleaned_data["depth"] == "0" else 1
         extractors = ','.join(form.cleaned_data["archive_methods"])
         input_kwargs = {
             "urls": url,
+            "tag": tag,
             "depth": depth,
             "update_all": False,
             "out_dir": OUTPUT_DIR,
