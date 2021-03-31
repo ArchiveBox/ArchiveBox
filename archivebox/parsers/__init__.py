@@ -31,36 +31,42 @@ from ..util import (
 from ..index.schema import Link
 from ..logging_util import TimedProgress, log_source_saved
 
-from .pocket_html import parse_pocket_html_export
-from .pocket_api import parse_pocket_api_export
-from .pinboard_rss import parse_pinboard_rss_export
-from .wallabag_atom import parse_wallabag_atom_export
-from .shaarli_rss import parse_shaarli_rss_export
-from .medium_rss import parse_medium_rss_export
-from .netscape_html import parse_netscape_html_export
-from .generic_rss import parse_generic_rss_export
-from .generic_json import parse_generic_json_export
-from .generic_html import parse_generic_html_export
-from .generic_txt import parse_generic_txt_export
+from . import pocket_api
+from . import wallabag_atom
+from . import pocket_html
+from . import pinboard_rss
+from . import shaarli_rss
+from . import medium_rss
 
-PARSERS = (
+from . import netscape_html
+from . import generic_rss
+from . import generic_json
+from . import generic_html
+from . import generic_txt
+from . import url_list
+
+
+PARSERS = {
     # Specialized parsers
-    ('Pocket API', parse_pocket_api_export),
-    ('Wallabag ATOM', parse_wallabag_atom_export),
-    ('Pocket HTML', parse_pocket_html_export),
-    ('Pinboard RSS', parse_pinboard_rss_export),
-    ('Shaarli RSS', parse_shaarli_rss_export),
-    ('Medium RSS', parse_medium_rss_export),
-    
-    # General parsers
-    ('Netscape HTML', parse_netscape_html_export),
-    ('Generic RSS', parse_generic_rss_export),
-    ('Generic JSON', parse_generic_json_export),
-    ('Generic HTML', parse_generic_html_export),
+    pocket_api.KEY:     (pocket_api.NAME,       pocket_api.PARSER),
+    wallabag_atom.KEY:  (wallabag_atom.NAME,    wallabag_atom.PARSER),
+    pocket_html.KEY:    (pocket_html.NAME,      pocket_html.PARSER),
+    pinboard_rss.KEY:   (pinboard_rss.NAME,     pinboard_rss.PARSER),
+    shaarli_rss.KEY:    (shaarli_rss.NAME,      shaarli_rss.PARSER),
+    medium_rss.KEY:     (medium_rss.NAME,       medium_rss.PARSER),
 
-    # Fallback parser
-    ('Plain Text', parse_generic_txt_export),
-)
+    # General parsers
+    netscape_html.KEY:  (netscape_html.NAME,    netscape_html.PARSER),
+    generic_rss.KEY:    (generic_rss.NAME,      generic_rss.PARSER),
+    generic_json.KEY:   (generic_json.NAME,     generic_json.PARSER),
+    generic_html.KEY:   (generic_html.NAME,     generic_html.PARSER),
+
+    # Catchall fallback parser
+    generic_txt.KEY:    (generic_txt.NAME,      generic_txt.PARSER),
+
+    # Explicitly specified parsers
+    url_list.KEY:       (url_list.NAME,         url_list.PARSER),
+}
 
 
 @enforce_types
@@ -83,14 +89,14 @@ def parse_links_memory(urls: List[str], root_url: Optional[str]=None):
     
 
 @enforce_types
-def parse_links(source_file: str, root_url: Optional[str]=None) -> Tuple[List[Link], str]:
+def parse_links(source_file: str, root_url: Optional[str]=None, parser: str="auto") -> Tuple[List[Link], str]:
     """parse a list of URLs with their metadata from an 
        RSS feed, bookmarks export, or text file
     """
 
     timer = TimedProgress(TIMEOUT * 4)
     with open(source_file, 'r', encoding='utf-8') as file:
-        links, parser = run_parser_functions(file, timer, root_url=root_url)
+        links, parser = run_parser_functions(file, timer, root_url=root_url, parser=parser)
 
     timer.end()
     if parser is None:
@@ -98,11 +104,20 @@ def parse_links(source_file: str, root_url: Optional[str]=None) -> Tuple[List[Li
     return links, parser
 
 
-def run_parser_functions(to_parse: IO[str], timer, root_url: Optional[str]=None) -> Tuple[List[Link], Optional[str]]:
+def run_parser_functions(to_parse: IO[str], timer, root_url: Optional[str]=None, parser: str="auto") -> Tuple[List[Link], Optional[str]]:
     most_links: List[Link] = []
     best_parser_name = None
 
-    for parser_name, parser_func in PARSERS:
+    if parser != "auto":
+        parser_name, parser_func = PARSERS[parser]
+        parsed_links = list(parser_func(to_parse, root_url=root_url))
+        if not parsed_links:
+            raise Exception('no links found')
+        timer.end()
+        return parsed_links, parser_name
+
+    for parser_id in PARSERS:
+        parser_name, parser_func = PARSERS[parser_id]
         try:
             parsed_links = list(parser_func(to_parse, root_url=root_url))
             if not parsed_links:

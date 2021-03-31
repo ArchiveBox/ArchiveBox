@@ -48,3 +48,8 @@ def parse_shaarli_rss_export(rss_file: IO[str], **_kwargs) -> Iterable[Link]:
             tags=None,
             sources=[rss_file.name],
         )
+
+
+KEY = 'shaarli_rss'
+NAME = 'Shaarli RSS'
+PARSER = parse_shaarli_rss_export

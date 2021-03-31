@@ -111,3 +111,8 @@ def parse_pocket_api_export(input_buffer: IO[str], **_kwargs) -> Iterable[Link]:
                 yield link_from_article(article, sources=[line])
     
             write_since(username, api.last_since)
+
+
+KEY = 'pocket_api'
+NAME = 'Pocket API'
+PARSER = parse_pocket_api_export

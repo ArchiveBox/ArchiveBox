@@ -33,3 +33,8 @@ def parse_medium_rss_export(rss_file: IO[str], **_kwargs) -> Iterable[Link]:
             tags=None,
             sources=[rss_file.name],
         )
+
+
+KEY = 'medium_rss'
+NAME = 'Medium RSS'
+PARSER = parse_medium_rss_export

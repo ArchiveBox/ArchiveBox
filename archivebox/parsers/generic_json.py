@@ -63,3 +63,8 @@ def parse_generic_json_export(json_file: IO[str], **_kwargs) -> Iterable[Link]:
                 tags=htmldecode(link.get('tags')) or '',
                 sources=[json_file.name],
             )
+
+
+KEY = 'json'
+NAME = 'Generic JSON'
+PARSER = parse_generic_json_export

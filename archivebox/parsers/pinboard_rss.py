@@ -45,3 +45,8 @@ def parse_pinboard_rss_export(rss_file: IO[str], **_kwargs) -> Iterable[Link]:
             tags=htmldecode(tags) or None,
             sources=[rss_file.name],
         )
+
+
+KEY = 'pinboard_rss'
+NAME = 'Pinboard RSS'
+PARSER = parse_pinboard_rss_export

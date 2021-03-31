@@ -55,3 +55,8 @@ def parse_wallabag_atom_export(rss_file: IO[str], **_kwargs) -> Iterable[Link]:
             tags=tags or '',
             sources=[rss_file.name],
         )
+
+
+KEY = 'wallabag_atom'
+NAME = 'Wallabag Atom'
+PARSER = parse_wallabag_atom_export

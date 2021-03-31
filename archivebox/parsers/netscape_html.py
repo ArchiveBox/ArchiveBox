@@ -37,3 +37,7 @@ def parse_netscape_html_export(html_file: IO[str], **_kwargs) -> Iterable[Link]:
                 sources=[html_file.name],
             )
 
+
+KEY = 'netscape_html'
+NAME = 'Netscape HTML'
+PARSER = parse_netscape_html_export

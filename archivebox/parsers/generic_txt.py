@@ -17,7 +17,7 @@ from ..util import (
 
 @enforce_types
 def parse_generic_txt_export(text_file: IO[str], **_kwargs) -> Iterable[Link]:
-    """Parse raw links from each line in a text file"""
+    """Parse links from a text file, ignoring other text"""
 
     text_file.seek(0)
     for line in text_file.readlines():
@@ -59,3 +59,7 @@ def parse_generic_txt_export(text_file: IO[str], **_kwargs) -> Iterable[Link]:
                     tags=None,
                     sources=[text_file.name],
                 )
+
+KEY = 'txt'
+NAME = 'Generic TXT'
+PARSER = parse_generic_txt_export
