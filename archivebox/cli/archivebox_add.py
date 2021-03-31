@@ -79,7 +79,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         type=str,
         help="Parser used to read inputted URLs.",
         default="auto",
-        choices=["auto"] + list(PARSERS.keys())
+        choices=["auto", *PARSERS.keys()],
     )
     command = parser.parse_args(args or ())
     urls = command.urls
