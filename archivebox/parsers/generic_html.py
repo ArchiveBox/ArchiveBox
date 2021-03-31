@@ -51,3 +51,8 @@ def parse_generic_html_export(html_file: IO[str], root_url: Optional[str]=None, 
                     tags=None,
                     sources=[html_file.name],
                 )
+
+
+KEY = 'html'
+NAME = 'Generic HTML'
+PARSER = parse_generic_html_export

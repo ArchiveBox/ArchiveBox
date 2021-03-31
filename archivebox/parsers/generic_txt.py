@@ -59,3 +59,7 @@ def parse_generic_txt_export(text_file: IO[str], **_kwargs) -> Iterable[Link]:
                     tags=None,
                     sources=[text_file.name],
                 )
+
+KEY = 'txt'
+NAME = 'Generic TXT'
+PARSER = parse_generic_txt_export

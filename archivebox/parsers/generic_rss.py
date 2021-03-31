@@ -47,3 +47,8 @@ def parse_generic_rss_export(rss_file: IO[str], **_kwargs) -> Iterable[Link]:
             tags=None,
             sources=[rss_file.name],
         )
+
+
+KEY = 'rss'
+NAME = 'Generic RSS'
+PARSER = parse_generic_rss_export

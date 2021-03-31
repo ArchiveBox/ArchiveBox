@@ -17,7 +17,7 @@ def parse_url_list(text_file: IO[str], **_kwargs) -> Iterable[Link]:
     text_file.seek(0)
     for line in text_file.readlines():
         url = line.strip()
-        if len(url) == 0:
+        if not url:
             continue
 
         yield Link(
@@ -27,3 +27,8 @@ def parse_url_list(text_file: IO[str], **_kwargs) -> Iterable[Link]:
             tags=None,
             sources=[text_file.name],
         )
+
+
+KEY = 'url_list'
+NAME = 'URL List'
+PARSER = parse_url_list

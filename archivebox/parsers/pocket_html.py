@@ -36,3 +36,8 @@ def parse_pocket_html_export(html_file: IO[str], **_kwargs) -> Iterable[Link]:
                 tags=tags or '',
                 sources=[html_file.name],
             )
+
+
+KEY = 'pocket_html'
+NAME = 'Pocket HTML'
+PARSER = parse_pocket_html_export

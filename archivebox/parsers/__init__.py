@@ -31,39 +31,41 @@ from ..util import (
 from ..index.schema import Link
 from ..logging_util import TimedProgress, log_source_saved
 
-from .pocket_html import parse_pocket_html_export
-from .pocket_api import parse_pocket_api_export
-from .pinboard_rss import parse_pinboard_rss_export
-from .wallabag_atom import parse_wallabag_atom_export
-from .shaarli_rss import parse_shaarli_rss_export
-from .medium_rss import parse_medium_rss_export
-from .netscape_html import parse_netscape_html_export
-from .generic_rss import parse_generic_rss_export
-from .generic_json import parse_generic_json_export
-from .generic_html import parse_generic_html_export
-from .generic_txt import parse_generic_txt_export
-from .url_list import parse_url_list
+from . import pocket_api
+from . import wallabag_atom
+from . import pocket_html
+from . import pinboard_rss
+from . import shaarli_rss
+from . import medium_rss
+
+from . import netscape_html
+from . import generic_rss
+from . import generic_json
+from . import generic_html
+from . import generic_txt
+from . import url_list
+
 
 PARSERS = {
     # Specialized parsers
-    'pocket-api': ('Pocket API', parse_pocket_api_export),
-    'wallabag': ('Wallabag ATOM', parse_wallabag_atom_export),
-    'pocket-html': ('Pocket HTML', parse_pocket_html_export),
-    'pinboard-rss': ('Pinboard RSS', parse_pinboard_rss_export),
-    'shaarli-rss': ('Shaarli RSS', parse_shaarli_rss_export),
-    'medium-rss': ('Medium RSS', parse_medium_rss_export),
-    
-    # General parsers
-    'netscape-html': ('Netscape HTML', parse_netscape_html_export),
-    'rss': ('Generic RSS', parse_generic_rss_export),
-    'json': ('Generic JSON', parse_generic_json_export),
-    'html': ('Generic HTML', parse_generic_html_export),
+    pocket_api.KEY:     (pocket_api.NAME,       pocket_api.PARSER),
+    wallabag_atom.KEY:  (wallabag_atom.NAME,    wallabag_atom.PARSER),
+    pocket_html.KEY:    (pocket_html.NAME,      pocket_html.PARSER),
+    pinboard_rss.KEY:   (pinboard_rss.NAME,     pinboard_rss.PARSER),
+    shaarli_rss.KEY:    (shaarli_rss.NAME,      shaarli_rss.PARSER),
+    medium_rss.KEY:     (medium_rss.NAME,       medium_rss.PARSER),
 
-    # Fallback parser
-    'plain-text': ('Plain Text', parse_generic_txt_export),
+    # General parsers
+    netscape_html.KEY:  (netscape_html.NAME,    netscape_html.PARSER),
+    generic_rss.KEY:    (generic_rss.NAME,      generic_rss.PARSER),
+    generic_json.KEY:   (generic_json.NAME,     generic_json.PARSER),
+    generic_html.KEY:   (generic_html.NAME,     generic_html.PARSER),
+
+    # Catchall fallback parser
+    generic_txt.KEY:    (generic_txt.NAME,      generic_txt.PARSER),
 
     # Explicitly specified parsers
-    'url-list': ('URL list', parse_url_list),
+    url_list.KEY:       (url_list.NAME,         url_list.PARSER),
 }
 
 
