@@ -10,6 +10,7 @@ from typing import List, Optional, IO
 
 from ..main import add
 from ..util import docstring
+from ..parsers import PARSERS
 from ..config import OUTPUT_DIR, ONLY_NEW
 from ..logging_util import SmartFormatter, accept_stdin, stderr
 
@@ -79,6 +80,13 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
               This does not take precedence over the configuration",
         default=""
     )
+    parser.add_argument(
+        "--parser",
+        type=str,
+        help="Parser used to read inputted URLs.",
+        default="auto",
+        choices=["auto", *PARSERS.keys()],
+    )
     command = parser.parse_args(args or ())
     urls = command.urls
 
@@ -101,6 +109,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         overwrite=command.overwrite,
         init=command.init,
         extractors=command.extract,
+        parser=command.parser,
         out_dir=pwd or OUTPUT_DIR,
     )
 
