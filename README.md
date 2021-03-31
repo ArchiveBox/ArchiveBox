@@ -364,13 +364,13 @@ ls ./archive/<timestamp>/
 
 - **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
 - **Title**, **Favicon**, **Headers** Response headers, site favicon, and parsed site title
+- **SingleFile:** `singlefile.html` HTML snapshot rendered with headless Chrome using SingleFile
 - **Wget Clone:** `example.com/page-name.html` wget clone of the site with  `warc/<timestamp>.gz`
 - Chrome Headless
-  - **SingleFile:** `singlefile.html` HTML snapshot rendered with headless Chrome using SingleFile
   - **PDF:** `output.pdf` Printed PDF of site using headless chrome
   - **Screenshot:** `screenshot.png` 1440x900 screenshot of site using headless chrome
   - **DOM Dump:** `output.html` DOM Dump of the HTML after rendering using headless chrome
-  - **Readability:** `article.html/json` Article text extraction using Readability
+- **Article Text:** `article.html/json` Article text extraction using Readability & Mercury
 - **Archive.org Permalink:** `archive.org.txt` A link to the saved site on archive.org
 - **Audio & Video:** `media/` all audio/video files + playlists, including subtitles & metadata with youtube-dl
 - **Source Code:** `git/` clone of any repository found on github, bitbucket, or gitlab links
