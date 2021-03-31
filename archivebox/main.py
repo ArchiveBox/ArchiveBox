@@ -1103,7 +1103,7 @@ def schedule(add: bool=False,
             try:
                 for job in existing_jobs:
                     sys.stdout.write(f'  > {job.command.split("/archivebox ")[0].split(" && ")[0]}\n')
-                    sys.stdout.write(f'    > {job.command.split("/archivebox ")[-1].split(" > ")[0]}')
+                    sys.stdout.write(f'    > {job.command.split("/archivebox ")[-1].split(" >> ")[0]}')
                     sys.stdout.flush()
                     job.run()
                     sys.stdout.write(f'\r    √ {job.command.split("/archivebox ")[-1]}\n')
@@ -1114,7 +1114,7 @@ def schedule(add: bool=False,
         if foreground:
             try:
                 for job in existing_jobs:
-                    print(f'  > {job.command.split("/archivebox ")[-1].split(" > ")[0]}')
+                    print(f'  > {job.command.split("/archivebox ")[-1].split(" >> ")[0]}')
                 for result in cron.run_scheduler():
                     print(result)
             except KeyboardInterrupt:
