@@ -104,8 +104,8 @@ def test_remove_before(tmp_path, process, disable_extractors_dict):
     conn.commit()
     conn.close()
 
-    lowerts = lowerts[0].split(".")[0]
-    higherts = higherts[0].split(".")[0]
+    lowerts = lowerts[0]
+    higherts = higherts[0]
 
     # before is less than, so only the lower snapshot gets deleted
     subprocess.run(['archivebox', 'remove', '--filter-type=regex', '.*', '--yes', '--delete', '--before', higherts], capture_output=True)

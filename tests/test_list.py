@@ -50,7 +50,7 @@ def test_list_csv_headers(process, disable_extractors_dict):
 
 def test_list_index_with_wrong_flags(process):
     list_process = subprocess.run(["archivebox", "list", "--with-headers"], capture_output=True)
-    assert "--with-headers can only be used with --json, --html or --csv options." in list_process.stderr.decode("utf-8")
+    assert "--with-headers can only be used with --json, --html or --csv options" in list_process.stderr.decode("utf-8")
 
 def test_link_sort_by_url(process, disable_extractors_dict):
     subprocess.run(["archivebox", "add", "http://127.0.0.1:8080/static/iana.org.html", "--depth=0"],
