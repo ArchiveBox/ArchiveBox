@@ -44,7 +44,12 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         type=int,
         choices=[0, 1],
         default=0,
-        help='Depth to archive to [0] or 1, see "add" command help for more info.',
+        help='Depth to archive to [0] or 1, see "add" command help for more info',
+    )
+    parser.add_argument(
+        '--overwrite',
+        action='store_true',
+        help='Re-archive any URLs that have been previously archived, overwriting existing Snapshots',
     )
     group.add_argument(
         '--clear', # '-c'
@@ -88,6 +93,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         quiet=command.quiet,
         every=command.every,
         depth=command.depth,
+        overwrite=command.overwrite,
         import_path=command.import_path,
         out_dir=pwd or OUTPUT_DIR,
     )

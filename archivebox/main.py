@@ -1009,13 +1009,14 @@ def schedule(add: bool=False,
              quiet: bool=False,
              every: Optional[str]=None,
              depth: int=0,
+             overwrite: bool=False,
              import_path: Optional[str]=None,
              out_dir: Path=OUTPUT_DIR):
     """Set ArchiveBox to regularly import URLs at specific times using cron"""
     
     check_data_folder(out_dir=out_dir)
 
-    (Path(out_dir) / LOGS_DIR_NAME).mkdir(exist_ok=True)
+    Path(LOGS_DIR).mkdir(exist_ok=True)
 
     cron = CronTab(user=True)
     cron = dedupe_cron_jobs(cron)
@@ -1029,13 +1030,18 @@ def schedule(add: bool=False,
 
     if every or add:
         every = every or 'day'
-        quoted = lambda s: f'"{s}"' if s and ' ' in str(s) else str(s)
+        quoted = lambda s: f'"{s}"' if (s and ' ' in str(s)) else str(s)
         cmd = [
             'cd',
             quoted(out_dir),
             '&&',
             quoted(ARCHIVEBOX_BINARY),
-            *(['add', f'--depth={depth}', f'"{import_path}"'] if import_path else ['update']),
+            *([
+                'add',
+                *(['--overwrite'] if overwrite else []),
+                f'--depth={depth}',
+                f'"{import_path}"',
+            ] if import_path else ['update']),
             '>>',
             quoted(Path(LOGS_DIR) / 'schedule.log'),
             '2>&1',
@@ -1052,8 +1058,8 @@ def schedule(add: bool=False,
             stderr('{red}[X] Got invalid timeperiod for cron task.{reset}'.format(**ANSI))
             stderr('    It must be one of minute/hour/day/month')
             stderr('    or a quoted cron-format schedule like:')
-            stderr('        archivebox init --every=day https://example.com/some/rss/feed.xml')
-            stderr('        archivebox init --every="0/5 * * * *" https://example.com/some/rss/feed.xml')
+            stderr('        archivebox init --every=day --depth=1 https://example.com/some/rss/feed.xml')
+            stderr('        archivebox init --every="0/5 * * * *" --depth=1 https://example.com/some/rss/feed.xml')
             raise SystemExit(1)
 
         cron = dedupe_cron_jobs(cron)
@@ -1079,7 +1085,7 @@ def schedule(add: bool=False,
         else:
             stderr('{red}[X] There are no ArchiveBox cron jobs scheduled for your user ({}).{reset}'.format(USER, **ANSI))
             stderr('    To schedule a new job, run:')
-            stderr('        archivebox schedule --every=[timeperiod] https://example.com/some/rss/feed.xml')
+            stderr('        archivebox schedule --every=[timeperiod] --depth=1 https://example.com/some/rss/feed.xml')
         raise SystemExit(0)
 
     cron = CronTab(user=True)
@@ -1089,7 +1095,7 @@ def schedule(add: bool=False,
     if foreground or run_all:
         if not existing_jobs:
             stderr('{red}[X] You must schedule some jobs first before running in foreground mode.{reset}'.format(**ANSI))
-            stderr('    archivebox schedule --every=hour https://example.com/some/rss/feed.xml')
+            stderr('    archivebox schedule --every=hour --depth=1 https://example.com/some/rss/feed.xml')
             raise SystemExit(1)
 
         print('{green}[*] Running {} ArchiveBox jobs in foreground task scheduler...{reset}'.format(len(existing_jobs), **ANSI))
