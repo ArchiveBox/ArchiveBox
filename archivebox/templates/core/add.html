@@ -38,16 +38,7 @@
             </form>
             <br/><br/><br/>
             <center id="delay-warning" style="display: none">
-                <b><i>This page will be unresponsive until the process is completely finished.</i></b>
-                <br/><br/>
-                <div>
-                    Warning: it may take several minutes to finish adding!<br/>
-                    <br/>
-                    Progress will be displayed in the <code>archivebox server</code> stdout,<br/>
-                    and on this page once the archiving process completes.<br/>
-                    <br/>
-                    <small>(it's safe to leave this page, adding will continue in the background)</small>
-                </div>
+                <small>(it's safe to leave this page, adding will continue in the background)</small>
             </center>
             {% if absolute_add_path %}
             <center id="bookmarklet">
@@ -58,7 +49,7 @@
             <script>
                 document.getElementById('add-form').addEventListener('submit', function(event) {
                     setTimeout(function() {
-                        document.getElementById('add-form').innerHTML = '<center><h3>Adding URLs to index and running archive methods...<h3><br/><div class="loader"></div><br/>(see terminal for progress)</center>'
+                        document.getElementById('add-form').innerHTML = '<center><h3>Adding URLs to index and running archive methods...<h3><br/><div class="loader"></div><br/>Check server log or <a href="/admin/core/archiveresult/?o=-1">Outputs page</a> for progress...</center>'
                         document.getElementById('delay-warning').style.display = 'block'
                     }, 200)
                     return true
