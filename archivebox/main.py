@@ -119,6 +119,7 @@ from .logging_util import (
 from .search import flush_search_index, index_links
 
 ALLOWED_IN_OUTPUT_DIR = {
+    '.gitignore',
     'lost+found',
     '.DS_Store',
     '.venv',
@@ -126,7 +127,9 @@ ALLOWED_IN_OUTPUT_DIR = {
     'virtualenv',
     '.virtualenv',
     'node_modules',
+    'package.json',
     'package-lock.json',
+    'yarn.lock',
     'static',
     'sonic',
     ARCHIVE_DIR_NAME,

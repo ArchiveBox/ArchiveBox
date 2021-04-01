@@ -3,6 +3,7 @@
   "version": "0.6.0",
   "description": "ArchiveBox: The self-hosted internet archive",
   "author": "Nick Sweeting <archivebox-npm@sweeting.me>",
+  "repository": "github:ArchiveBox/ArchiveBox",
   "license": "MIT",
   "scripts": {
     "archivebox": "./bin/archive"
@@ -15,7 +16,7 @@
   },
   "dependencies": {
     "@postlight/mercury-parser": "^2.2.0",
-    "readability-extractor": "git+https://github.com/pirate/readability-extractor.git",
+    "readability-extractor": "git+https://github.com/ArchiveBox/readability-extractor.git",
     "single-file": "git+https://github.com/gildas-lormeau/SingleFile.git"
   }
 }
