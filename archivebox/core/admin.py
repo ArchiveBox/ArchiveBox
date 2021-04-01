@@ -267,11 +267,11 @@ class TagAdmin(admin.ModelAdmin):
 
 
 class ArchiveResultAdmin(admin.ModelAdmin):
-    list_display = ('id', 'start_ts', 'extractor', 'snapshot_str', 'cmd_str', 'status', 'output_str')
+    list_display = ('id', 'start_ts', 'extractor', 'snapshot_str', 'tags_str', 'cmd_str', 'status', 'output_str')
     sort_fields = ('start_ts', 'extractor', 'status')
-    readonly_fields = ('id', 'uuid', 'snapshot_str')
+    readonly_fields = ('id', 'uuid', 'snapshot_str', 'tags_str')
     search_fields = ('id', 'uuid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
-    fields = (*readonly_fields, 'snapshot', 'snapshot__tags', 'extractor', 'status', 'start_ts', 'end_ts', 'pwd', 'cmd', 'cmd_version', 'output')
+    fields = (*readonly_fields, 'snapshot', 'extractor', 'status', 'start_ts', 'end_ts', 'output', 'pwd', 'cmd', 'cmd_version')
     autocomplete_fields = ['snapshot']
 
     list_filter = ('status', 'extractor', 'start_ts', 'cmd_version')
@@ -287,6 +287,9 @@ class ArchiveResultAdmin(admin.ModelAdmin):
             obj.snapshot.url[:128],
         )
 
+    def tags_str(self, obj):
+        return obj.snapshot.tags_str()
+
     def cmd_str(self, obj):
         return format_html(
             '<pre>{}</pre>',
@@ -301,6 +304,7 @@ class ArchiveResultAdmin(admin.ModelAdmin):
             obj.output,
         )
 
+    tags_str.short_description = 'tags'
     snapshot_str.short_description = 'snapshot'
 
 class ArchiveBoxAdmin(admin.AdminSite):
