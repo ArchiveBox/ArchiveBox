@@ -1,12 +1,15 @@
 __package__ = 'archivebox.parsers'
 __description__ = 'URL list'
 
+import re
+
 from typing import IO, Iterable
 from datetime import datetime
 
 from ..index.schema import Link
 from ..util import (
-    enforce_types
+    enforce_types,
+    URL_REGEX,
 )
 
 
@@ -17,7 +20,7 @@ def parse_url_list(text_file: IO[str], **_kwargs) -> Iterable[Link]:
     text_file.seek(0)
     for line in text_file.readlines():
         url = line.strip()
-        if not url:
+        if (not url) or not re.findall(URL_REGEX, url):
             continue
 
         yield Link(
