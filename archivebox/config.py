@@ -1020,8 +1020,8 @@ def check_data_folder(out_dir: Union[str, Path, None]=None, config: ConfigDict=C
     output_dir = out_dir or config['OUTPUT_DIR']
     assert isinstance(output_dir, (str, Path))
 
-    sql_index_exists = (Path(output_dir) / SQL_INDEX_FILENAME).exists()
-    if not sql_index_exists:
+    archive_dir_exists = (Path(output_dir) / ARCHIVE_DIR_NAME).exists()
+    if not archive_dir_exists:
         stderr('[X] No archivebox index found in the current directory.', color='red')
         stderr(f'    {output_dir}', color='lightyellow')
         stderr()
@@ -1033,26 +1033,22 @@ def check_data_folder(out_dir: Union[str, Path, None]=None, config: ConfigDict=C
         stderr('        archivebox init')
         raise SystemExit(2)
 
+def check_migrations(out_dir: Union[str, Path, None]=None, config: ConfigDict=CONFIG):
+    output_dir = out_dir or config['OUTPUT_DIR']
     from .index.sql import list_migrations
 
     pending_migrations = [name for status, name in list_migrations() if not status]
 
-    if (not sql_index_exists) or pending_migrations:
-        if sql_index_exists:
-            pending_operation = f'apply the {len(pending_migrations)} pending migrations'
-        else:
-            pending_operation = 'generate the new SQL main index'
-
+    if pending_migrations:
         stderr('[X] This collection was created with an older version of ArchiveBox and must be upgraded first.', color='lightyellow')
         stderr(f'    {output_dir}')
         stderr()
-        stderr(f'    To upgrade it to the latest version and {pending_operation} run:')
+        stderr(f'    To upgrade it to the latest version and apply the {len(pending_migrations)} pending migrations, run:')
         stderr('        archivebox init')
         raise SystemExit(3)
 
-    sources_dir = Path(output_dir) / SOURCES_DIR_NAME
-    if not sources_dir.exists():
-        sources_dir.mkdir()
+    (Path(output_dir) / SOURCES_DIR_NAME).mkdir(exist_ok=True)
+    (Path(output_dir) / LOGS_DIR_NAME).mkdir(exist_ok=True)
 
 
 

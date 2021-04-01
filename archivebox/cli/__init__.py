@@ -8,7 +8,7 @@ import argparse
 from typing import Optional, Dict, List, IO, Union
 from pathlib import Path
 
-from ..config import OUTPUT_DIR
+from ..config import OUTPUT_DIR, check_data_folder, check_migrations
 
 from importlib import import_module
 
@@ -67,7 +67,13 @@ def run_subcommand(subcommand: str,
         cmd_requires_db = subcommand in archive_cmds
         init_pending = '--init' in subcommand_args or '--quick-init' in subcommand_args
 
+        if cmd_requires_db:
+            check_data_folder(pwd)
+
         setup_django(in_memory_db=subcommand in fake_db, check_db=cmd_requires_db and not init_pending)
+
+        if cmd_requires_db:
+            check_migrations()
 
     module = import_module('.archivebox_{}'.format(subcommand), __package__)
     module.main(args=subcommand_args, stdin=stdin, pwd=pwd)    # type: ignore
