@@ -3,9 +3,14 @@ __package__ = 'archivebox.core'
 from django import forms
 
 from ..util import URL_REGEX
+from ..parsers import PARSERS
 from ..vendor.taggit_utils import edit_string_for_tags, parse_tags
 
-CHOICES = (
+PARSER_CHOICES = [
+    (parser_key, parser[0])
+    for parser_key, parser in PARSERS.items()
+]
+DEPTH_CHOICES = (
     ('0', 'depth = 0 (archive just these URLs)'),
     ('1', 'depth = 1 (archive these URLs and all URLs one hop away)'),
 )
@@ -20,8 +25,9 @@ ARCHIVE_METHODS = [
 
 class AddLinkForm(forms.Form):
     url = forms.RegexField(label="URLs (one per line)", regex=URL_REGEX, min_length='6', strip=True, widget=forms.Textarea, required=True)
+    parser = forms.ChoiceField(label="URLs format", choices=[('auto', 'Auto-detect parser'), *PARSER_CHOICES], initial='auto')
     tag = forms.CharField(label="Tags (comma separated tag1,tag2,tag3)", strip=True, required=False)
-    depth = forms.ChoiceField(label="Archive depth", choices=CHOICES, initial='0', widget=forms.RadioSelect(attrs={"class": "depth-selection"}))
+    depth = forms.ChoiceField(label="Archive depth", choices=DEPTH_CHOICES, initial='0', widget=forms.RadioSelect(attrs={"class": "depth-selection"}))
     archive_methods = forms.MultipleChoiceField(
         label="Archive methods (select at least 1, otherwise all will be used by default)",
         required=False,
