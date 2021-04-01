@@ -29,9 +29,8 @@ services:
             - ./data:/data
             # - ./archivebox:/app/archivebox    # for developers working on archivebox
     
-    # To run the Sonic full-text search backend, create an ./etc/sonic folder
-    # and download the sonic config file from here into that folder:
-    # https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/etc/sonic/config.cfg
+    # To run the Sonic full-text search backend, first download the config file to sonic.cfg
+    # curl https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/etc/sonic/config.cfg > sonic.cfg
     # sonic:
     #     image: valeriansaliou/sonic:v1.3.0    
     #     expose:
@@ -39,7 +38,7 @@ services:
     #     environment:
     #         - SEARCH_BACKEND_PASSWORD=SecretPassword
     #     volumes:
-    #         - ./etc/sonic/config.cfg:/etc/sonic.cfg
+    #         - ./sonic.cfg:/etc/sonic.cfg:ro
     #         - ./data/sonic:/var/lib/sonic/store
 
 
