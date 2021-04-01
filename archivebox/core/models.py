@@ -78,7 +78,7 @@ class Tag(models.Model):
 class Snapshot(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    url = models.URLField(unique=True)
+    url = models.URLField(unique=True, db_index=True)
     timestamp = models.CharField(max_length=32, unique=True, db_index=True)
 
     title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
