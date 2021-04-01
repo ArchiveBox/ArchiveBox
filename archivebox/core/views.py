@@ -209,7 +209,7 @@ class PublicIndexView(ListView):
     template_name = 'public_index.html'
     model = Snapshot
     paginate_by = SNAPSHOTS_PER_PAGE
-    ordering = ['title']
+    ordering = ['-added']
 
     def get_context_data(self, **kwargs):
         return {
@@ -223,10 +223,6 @@ class PublicIndexView(ListView):
         query = self.request.GET.get('q')
         if query:
             qs = qs.filter(Q(title__icontains=query) | Q(url__icontains=query) | Q(timestamp__icontains=query) | Q(tags__name__icontains=query))
-        
-        for snapshot in qs:
-            # lazy load snapshot icons, otherwise it will load icons for entire index at once
-            snapshot.icons = lambda: snapshot_icons(snapshot)
         return qs
 
     def get(self, *args, **kwargs):

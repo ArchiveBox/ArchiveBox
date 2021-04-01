@@ -12,6 +12,7 @@ from ..config import ARCHIVE_DIR, ARCHIVE_DIR_NAME
 from ..system import get_dir_size
 from ..util import parse_date, base_url, hashurl
 from ..index.schema import Link
+from ..index.html import snapshot_icons
 from ..extractors import get_default_archive_methods, ARCHIVE_METHODS_INDEXING_PRECEDENCE
 
 EXTRACTORS = [(extractor[0], extractor[0]) for extractor in get_default_archive_methods()]
@@ -124,6 +125,9 @@ class Snapshot(models.Model):
             cache.set(cache_key, tags_str)
             return tags_str
         return cache.get_or_set(cache_key, calc_tags_str)
+
+    def icons(self) -> str:
+        return snapshot_icons(self)
 
     @cached_property
     def bookmarked(self):

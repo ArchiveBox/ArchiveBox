@@ -116,7 +116,7 @@ def render_django_template(template: str, context: Mapping[str, str]) -> str:
 
 
 def snapshot_icons(snapshot) -> str:
-    cache_key = f'{str(snapshot.id)[:12]}-{(snapshot.updated or snapshot.added).timestamp()}-snapshot-icons'
+    cache_key = f'{snapshot.id}-{(snapshot.updated or snapshot.added).timestamp()}-snapshot-icons'
     
     def calc_snapshot_icons():
         from core.models import EXTRACTORS
