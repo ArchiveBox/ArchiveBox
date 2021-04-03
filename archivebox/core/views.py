@@ -26,7 +26,6 @@ from ..config import (
 )
 from main import add
 from ..util import base_url, ansi_to_html
-from ..index.html import snapshot_icons
 
 
 class HomepageView(View):
