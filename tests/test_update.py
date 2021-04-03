@@ -20,7 +20,7 @@ def test_update_status_invalid(tmp_path, process, disable_extractors_dict):
 
     conn = sqlite3.connect(str(tmp_path / "index.sqlite3"))
     c = conn.cursor()
-    url = c.execute("SELECT * FROM core_snapshot").fetchone()[1]
+    url = c.execute("SELECT url FROM core_snapshot").fetchone()[0]
     conn.commit()
     conn.close()
     
