@@ -7,8 +7,7 @@
   "license": "MIT",
   "scripts": {
     "archivebox": "python3 -m archivebox",
-    "selfupdate": "python3 -m pip install --upgrade archivebox && npm install --no-audit --no-fund --loglevel=error",
-    "postinstall": "archivebox version --quiet || (python3 -m pip install archivebox && archivebox --version)"
+    "selfupdate": "python3 -m pip install --upgrade archivebox && npm install --no-audit --no-fund --loglevel=error"
   },
   "bin": {
     "archivebox": "python3 -m archivebox",
