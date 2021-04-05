@@ -56,13 +56,16 @@ jobs:
       
       - name: Collect Docker tags
         id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+        uses: crazy-max/ghaction-docker-meta@v2
         with:
           images: archivebox/archivebox,nikisweeting/archivebox
-          tag-sha: true
-          tag-semver: |
-            {{version}}
-            {{major}}.{{minor}}
+          flavor: |
+              latest=auto
+          tags: |
+              type=ref,event=branch
+              type=semver,pattern={{version}}
+              type=semver,pattern={{major}}.{{minor}}
+              type=sha
       
       - name: Build and push
         id: docker_build
