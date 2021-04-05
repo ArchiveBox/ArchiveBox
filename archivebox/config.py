@@ -983,7 +983,7 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
                     info['version'] or 'unable to detect version',
                 )
             )
-            if dependency in ('SINGLEFILE_BINARY', 'READABILITY_BINARY', 'MERCURY_BINARY'):
+            if dependency in ('YOUTUBEDL_BINARY', 'CHROME_BINARY', 'SINGLEFILE_BINARY', 'READABILITY_BINARY', 'MERCURY_BINARY'):
                 hint(('To install all packages automatically run: archivebox setup',
                     f'or to disable it and silence this warning: archivebox config --set SAVE_{dependency.rsplit("_", 1)[0]}=False',
                     ''), prefix='      ')
