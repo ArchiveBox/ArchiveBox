@@ -60,7 +60,7 @@ jobs:
         with:
           images: archivebox/archivebox,nikisweeting/archivebox
           flavor: |
-              latest=true
+              latest=auto
           tags: |
               type=ref,event=branch
               type=semver,pattern={{version}}
