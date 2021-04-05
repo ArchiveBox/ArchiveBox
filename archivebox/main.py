@@ -989,7 +989,7 @@ def config(config_options_str: Optional[str]=None,
             stderr()
             stderr('[X] These options failed to set (check for typos):', color='red')
             stderr('    {}'.format('\n    '.join(failed_options)))
-        raise SystemExit(bool(failed_options))
+            raise SystemExit(1)
     elif reset:
         stderr('[X] This command is not implemented yet.', color='red')
         stderr('    Please manually remove the relevant lines from your config file:')
