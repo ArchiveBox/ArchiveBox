@@ -104,7 +104,6 @@ from .config import (
     USE_YOUTUBEDL,
     USE_NODE,
     NODE_VERSION,
-    USE_CHROME,
     load_all_config,
     CONFIG,
     USER_CONFIG,

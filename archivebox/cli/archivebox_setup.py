@@ -27,7 +27,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     #     action='store_true',
     #     help='Overwrite any existing packages that conflict with the ones ArchiveBox is trying to install',
     # )
-    command = parser.parse_args(args or ())
+    command = parser.parse_args(args or ())   # no-qa
     reject_stdin(__command__, stdin)
 
     setup(
