@@ -5,16 +5,6 @@
   "author": "Nick Sweeting <archivebox-npm@sweeting.me>",
   "repository": "github:ArchiveBox/ArchiveBox",
   "license": "MIT",
-  "scripts": {
-    "archivebox": "python3 -m archivebox",
-    "selfupdate": "python3 -m pip install --upgrade archivebox && npm install --no-audit --no-fund --loglevel=error"
-  },
-  "bin": {
-    "archivebox": "python3 -m archivebox",
-    "single-file": "./node_modules/.bin/single-file",
-    "readability-extractor": "./node_modules/.bin/readability-extractor",
-    "mercury-parser": "./node_modules/.bin/mercury-parser"
-  },
   "dependencies": {
     "@postlight/mercury-parser": "^2.2.0",
     "readability-extractor": "git+https://github.com/ArchiveBox/readability-extractor.git",
