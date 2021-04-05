@@ -27,6 +27,7 @@ from .parsers import (
 from .index.schema import Link
 from .util import enforce_types                         # type: ignore
 from .system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
+from .system import run as run_shell
 from .index import (
     load_main_index,
     parse_links_from_source,
@@ -70,12 +71,14 @@ from .config import (
     DEBUG,
     IN_DOCKER,
     USER,
+    PYTHON_BINARY,
     ARCHIVEBOX_BINARY,
     ONLY_NEW,
     OUTPUT_DIR,
     SOURCES_DIR,
     ARCHIVE_DIR,
     LOGS_DIR,
+    PACKAGE_DIR,
     CONFIG_FILE,
     CONFIG_FILENAME,
     ARCHIVE_DIR_NAME,
@@ -95,6 +98,13 @@ from .config import (
     EXTERNAL_LOCATIONS,
     DATA_LOCATIONS,
     DEPENDENCIES,
+    USE_CHROME,
+    CHROME_BINARY,
+    CHROME_VERSION,
+    USE_YOUTUBEDL,
+    USE_NODE,
+    NODE_VERSION,
+    USE_CHROME,
     load_all_config,
     CONFIG,
     USER_CONFIG,
@@ -906,6 +916,78 @@ def list_folders(links: List[Link],
     except KeyError:
         raise ValueError('Status not recognized.')
 
+@enforce_types
+def setup(out_dir: Path=OUTPUT_DIR) -> None:
+    """Automatically install all ArchiveBox dependencies and extras"""
+
+    check_data_folder(out_dir=out_dir)
+
+    stderr('[+] Installing enabled ArchiveBox dependencies automatically...', color='green')
+
+    stderr('\n    Installing YOUTUBEDL_BINARY automatically using pip...')
+    if USE_YOUTUBEDL:
+        try:
+            run_shell([
+                PYTHON_BINARY,
+                '-m', 'pip',
+                'install', '--upgrade', 'youtube_dl',
+            ], capture_output=False, cwd=out_dir)
+            run_shell([PYTHON_BINARY, '-m', 'youtube_dl', '--version'], capture_output=False, cwd=out_dir)
+        except BaseException as e:
+            stderr(f'[X] Failed to install python packages: {e}', color='red')
+            raise SystemExit(1)
+
+    stderr('\n    Installing CHROME_BINARY automatically using playwright...')
+    if USE_CHROME:
+        if CHROME_VERSION:
+            print(f'{CHROME_VERSION} is already installed', CHROME_BINARY)
+        else:
+            try:
+                run_shell([PYTHON_BINARY, '-m', 'pip', 'install', '--upgrade', 'playwright'], capture_output=False, cwd=out_dir)
+                run_shell([PYTHON_BINARY, '-m', 'playwright', 'install', 'chromium'], capture_output=False, cwd=out_dir)
+                proc = run_shell([PYTHON_BINARY, '-c', 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)'], capture_output=True, text=True, cwd=out_dir)
+                NEW_CHROME_BINARY = proc.stdout.strip()
+                assert NEW_CHROME_BINARY and len(NEW_CHROME_BINARY), 'CHROME_BINARY must contain a path'
+                config(f'CHROME_BINARY={NEW_CHROME_BINARY}', set=True, out_dir=out_dir)
+            except BaseException as e:
+                stderr(f'[X] Failed to install chromium using playwright: {e.__class__.__name__} {e}', color='red')
+                raise SystemExit(1)
+
+    stderr('\n    Installing SINGLEFILE_BINARY, READABILITY_BINARY, MERCURY_BINARY automatically using npm...')
+    if USE_NODE:
+        try:
+            if not NODE_VERSION:
+                stderr('[X] You must first install node using your system package manager', color='red')
+                hint('Or run: curl -sL https://deb.nodesource.com/setup_15.x | sudo -E bash -')
+                raise SystemExit(1)
+
+            # clear out old npm package locations
+            to_delete = (
+                Path(out_dir) / 'package.json',
+                Path(out_dir) / 'package_lock.json',
+            )
+            for path in to_delete:
+                if path.exists():
+                    os.remove(path)
+
+            shutil.copyfile(PACKAGE_DIR / 'package.json', out_dir / 'package.json')
+            run_shell([
+                'npm',
+                'install',
+                '--prefix', out_dir,
+                '--no-save',
+                '--no-audit',
+                '--no-fund',
+                '--loglevel', 'error',
+            ], capture_output=False, cwd=out_dir)
+            os.remove(out_dir / 'package.json')
+        except BaseException as e:
+            stderr(f'[X] Failed to install npm packages: {e}', color='red')
+            hint(f'Try deleting {out_dir}/node_modules and running it again')
+            raise SystemExit(1)
+
+    stderr('\n[√] Installed ArchiveBox dependencies successfully.', color='green')
+    hint('To see all the installed package versions run: archivebox --version')
 
 @enforce_types
 def config(config_options_str: Optional[str]=None,

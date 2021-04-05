@@ -15,11 +15,10 @@ from importlib import import_module
 CLI_DIR = Path(__file__).resolve().parent
 
 # these common commands will appear sorted before any others for ease-of-use
-meta_cmds = ('help', 'version')
-main_cmds = ('init', 'info', 'config')
-archive_cmds = ('add', 'remove', 'update', 'list', 'status')
-
-fake_db = ("oneshot",)
+meta_cmds = ('help', 'version')                                # dont require valid data folder at all
+main_cmds = ('init', 'config', 'setup')                        # dont require existing db present
+archive_cmds = ('add', 'remove', 'update', 'list', 'status')   # require existing db present
+fake_db = ("oneshot",)                                         # use fake in-memory db
 
 display_first = (*meta_cmds, *main_cmds, *archive_cmds)
 
