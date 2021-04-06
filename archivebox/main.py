@@ -101,6 +101,11 @@ from .config import (
     USE_CHROME,
     CHROME_BINARY,
     CHROME_VERSION,
+    YOUTUBEDL_BINARY,
+    YOUTUBEDL_VERSION,
+    SINGLEFILE_VERSION,
+    READABILITY_VERSION,
+    MERCURY_VERSION,
     USE_YOUTUBEDL,
     USE_NODE,
     NODE_VERSION,
@@ -108,6 +113,7 @@ from .config import (
     CONFIG,
     USER_CONFIG,
     get_real_name,
+    setup_django,
 )
 from .logging_util import (
     TERM_WIDTH,
@@ -295,19 +301,19 @@ def run(subcommand: str,
 
 
 @enforce_types
-def init(force: bool=False, quick: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
+def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
     
     from core.models import Snapshot
 
-    Path(out_dir).mkdir(exist_ok=True)
+    out_dir.mkdir(exist_ok=True)
     is_empty = not len(set(os.listdir(out_dir)) - ALLOWED_IN_OUTPUT_DIR)
 
-    if (Path(out_dir) / JSON_INDEX_FILENAME).exists():
+    if (out_dir / JSON_INDEX_FILENAME).exists():
         stderr("[!] This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.", color="lightyellow")
         stderr("    You can run `archivebox list --json --with-headers > index.json` to manually generate it.", color="lightyellow")
 
-    existing_index = (Path(out_dir) / SQL_INDEX_FILENAME).exists()
+    existing_index = (out_dir / SQL_INDEX_FILENAME).exists()
 
     if is_empty and not existing_index:
         print('{green}[+] Initializing a new ArchiveBox v{} collection...{reset}'.format(VERSION, **ANSI))
@@ -343,12 +349,12 @@ def init(force: bool=False, quick: bool=False, out_dir: Path=OUTPUT_DIR) -> None
     print(f'    + ./{CONFIG_FILE.relative_to(OUTPUT_DIR)}...')
     write_config_file({}, out_dir=out_dir)
 
-    if (Path(out_dir) / SQL_INDEX_FILENAME).exists():
+    if (out_dir / SQL_INDEX_FILENAME).exists():
         print('\n{green}[*] Verifying main SQL index and running any migrations needed...{reset}'.format(**ANSI))
     else:
         print('\n{green}[+] Building main SQL index and running initial migrations...{reset}'.format(**ANSI))
     
-    DATABASE_FILE = Path(out_dir) / SQL_INDEX_FILENAME
+    DATABASE_FILE = out_dir / SQL_INDEX_FILENAME
     for migration_line in apply_migrations(out_dir):
         print(f'    {migration_line}')
 
@@ -443,15 +449,16 @@ def init(force: bool=False, quick: bool=False, out_dir: Path=OUTPUT_DIR) -> None
         print('    For more usage and examples, run:')
         print('        archivebox help')
 
-    json_index = Path(out_dir) / JSON_INDEX_FILENAME
-    html_index = Path(out_dir) / HTML_INDEX_FILENAME
+    json_index = out_dir / JSON_INDEX_FILENAME
+    html_index = out_dir / HTML_INDEX_FILENAME
     index_name = f"{date.today()}_index_old"
     if json_index.exists():
         json_index.rename(f"{index_name}.json")
     if html_index.exists():
         html_index.rename(f"{index_name}.html")
 
-
+    if setup:
+        run_subcommand('setup', pwd=out_dir)
 
 @enforce_types
 def status(out_dir: Path=OUTPUT_DIR) -> None:
