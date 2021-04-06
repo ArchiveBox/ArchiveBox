@@ -148,14 +148,18 @@
                     $('<button>')
                         .appendTo(buttons)
                         .attr('name', this.value)
+                        .attr('type', 'button')
                         .addClass('button')
                         .text(this.text)
-                        .click(function () {
+                        .click(function (e) {
+                            e.preventDefault()
+                            e.stopPropagation()
                             container.find('select')
-                                .find(':selected').attr('selected', '').end()
-                                .find('[value=' + this.name + ']').attr('selected', 'selected');
+                                .find(':selected').removeAttr('selected').end()
+                                .find('[value=' + name + ']').attr('selected', 'selected').click();
                             $('#changelist-form button[name="index"]').click();
                             document.querySelector('#logo').outerHTML = '<div class="loader"></div>'
+                            return false
                         });
                 });
             }
