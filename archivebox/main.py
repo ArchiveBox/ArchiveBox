@@ -919,22 +919,44 @@ def list_folders(links: List[Link],
 def setup(out_dir: Path=OUTPUT_DIR) -> None:
     """Automatically install all ArchiveBox dependencies and extras"""
 
-    check_data_folder(out_dir=out_dir)
+    if not (out_dir / ARCHIVE_DIR_NAME).exists():
+        run_subcommand('init', stdin=None, pwd=out_dir)
 
-    stderr('[+] Installing enabled ArchiveBox dependencies automatically...', color='green')
+    setup_django(out_dir=out_dir, check_db=True)
+    from core.models import User
+
+    if not User.objects.filter(is_superuser=True).exists():
+        stderr('\n[+] Creating new admin user for the Web UI...', color='green')
+        run_subcommand('manage', subcommand_args=['createsuperuser'], pwd=out_dir)
+
+    stderr('\n[+] Installing enabled ArchiveBox dependencies automatically...', color='green')
 
     stderr('\n    Installing YOUTUBEDL_BINARY automatically using pip...')
     if USE_YOUTUBEDL:
-        try:
-            run_shell([
-                PYTHON_BINARY,
-                '-m', 'pip',
-                'install', '--upgrade', '--no-cache-dir', 'youtube_dl',
-            ], capture_output=False, cwd=out_dir)
-            run_shell([PYTHON_BINARY, '-m', 'youtube_dl', '--version'], capture_output=False, cwd=out_dir)
-        except BaseException as e:
-            stderr(f'[X] Failed to install python packages: {e}', color='red')
-            raise SystemExit(1)
+        if YOUTUBEDL_VERSION:
+            print(f'{YOUTUBEDL_VERSION} is already installed', YOUTUBEDL_BINARY)
+        else:
+            try:
+                run_shell([
+                    PYTHON_BINARY, '-m', 'pip',
+                    'install',
+                    '--upgrade',
+                    '--no-cache-dir',
+                    '--no-warn-script-location',
+                    'youtube_dl',
+                ], capture_output=False, cwd=out_dir)
+                pkg_path = run_shell([
+                    PYTHON_BINARY, '-m', 'pip',
+                    'show',
+                    'youtube_dl',
+                ], capture_output=True, text=True, cwd=out_dir).stdout.split('Location: ')[-1].split('\n', 1)[0]
+                NEW_YOUTUBEDL_BINARY = Path(pkg_path) / 'youtube_dl' / '__main__.py'
+                os.chmod(NEW_YOUTUBEDL_BINARY, 0o777)
+                assert NEW_YOUTUBEDL_BINARY.exists(), f'youtube_dl must exist inside {pkg_path}'
+                config(f'YOUTUBEDL_BINARY={NEW_YOUTUBEDL_BINARY}', set=True, out_dir=out_dir)
+            except BaseException as e:
+                stderr(f'[X] Failed to install python packages: {e}', color='red')
+                raise SystemExit(1)
 
     stderr('\n    Installing CHROME_BINARY automatically using playwright...')
     if USE_CHROME:
@@ -942,7 +964,14 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
             print(f'{CHROME_VERSION} is already installed', CHROME_BINARY)
         else:
             try:
-                run_shell([PYTHON_BINARY, '-m', 'pip', 'install', '--no-cache-dir', 'upgrade', 'playwright'], capture_output=False, cwd=out_dir)
+                run_shell([
+                    PYTHON_BINARY, '-m', 'pip',
+                    'install',
+                    '--upgrade',
+                    '--no-cache-dir',
+                    '--no-warn-script-location',
+                    'playwright',
+                ], capture_output=False, cwd=out_dir)
                 run_shell([PYTHON_BINARY, '-m', 'playwright', 'install', 'chromium'], capture_output=False, cwd=out_dir)
                 proc = run_shell([PYTHON_BINARY, '-c', 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)'], capture_output=True, text=True, cwd=out_dir)
                 NEW_CHROME_BINARY = proc.stdout.strip()
@@ -954,40 +983,50 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
 
     stderr('\n    Installing SINGLEFILE_BINARY, READABILITY_BINARY, MERCURY_BINARY automatically using npm...')
     if USE_NODE:
-        try:
-            if not NODE_VERSION:
-                stderr('[X] You must first install node using your system package manager', color='red')
-                hint('Or run: curl -sL https://deb.nodesource.com/setup_15.x | sudo -E bash -')
-                raise SystemExit(1)
-
-            # clear out old npm package locations
-            to_delete = (
-                Path(out_dir) / 'package.json',
-                Path(out_dir) / 'package_lock.json',
-            )
-            for path in to_delete:
-                if path.exists():
-                    os.remove(path)
-
-            shutil.copyfile(PACKAGE_DIR / 'package.json', out_dir / 'package.json')
-            run_shell([
-                'npm',
-                'install',
-                '--prefix', out_dir,
-                '--force',
-                '--no-save',
-                '--no-audit',
-                '--no-fund',
-                '--loglevel', 'error',
-            ], capture_output=False, cwd=out_dir)
-            os.remove(out_dir / 'package.json')
-        except BaseException as e:
-            stderr(f'[X] Failed to install npm packages: {e}', color='red')
-            hint(f'Try deleting {out_dir}/node_modules and running it again')
+        if not NODE_VERSION:
+            stderr('[X] You must first install node using your system package manager', color='red')
+            hint([
+                'curl -sL https://deb.nodesource.com/setup_15.x | sudo -E bash -',
+                'or to disable all node-based modules run: archivebox config --set USE_NODE=False',
+            ])
             raise SystemExit(1)
 
-    stderr('\n[√] Installed ArchiveBox dependencies successfully.', color='green')
-    hint('To see all the installed package versions run: archivebox --version')
+        if all((SINGLEFILE_VERSION, READABILITY_VERSION, MERCURY_VERSION)):
+            print('SINGLEFILE_BINARY, READABILITY_BINARY, and MERCURURY_BINARY are already installed')
+        else:
+            try:
+                # clear out old npm package locations
+                paths = (
+                    out_dir / 'package.json',
+                    out_dir / 'package_lock.json',
+                    out_dir / 'node_modules',
+                )
+                for path in paths:
+                    if path.is_dir():
+                        shutil.rmtree(path, ignore_errors=True)
+                    elif path.is_file():
+                        os.remove(path)
+
+                shutil.copyfile(PACKAGE_DIR / 'package.json', out_dir / 'package.json')
+                run_shell([
+                    'npm',
+                    'install',
+                    '--prefix', str(out_dir),
+                    '--force',
+                    '--no-save',
+                    '--no-audit',
+                    '--no-fund',
+                    '--loglevel', 'error',
+                ], capture_output=False, cwd=out_dir)
+                os.remove(out_dir / 'package.json')
+            except BaseException as e:
+                stderr(f'[X] Failed to install npm packages: {e}', color='red')
+                hint(f'Try deleting {out_dir}/node_modules and running it again')
+                raise SystemExit(1)
+
+    stderr('\n[√] Set up ArchiveBox and its dependencies successfully.', color='green')
+    
+    run_shell([ARCHIVEBOX_BINARY, '--version'], capture_output=False, cwd=out_dir)
 
 @enforce_types
 def config(config_options_str: Optional[str]=None,
