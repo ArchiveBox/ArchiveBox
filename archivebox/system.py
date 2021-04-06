@@ -19,7 +19,9 @@ from .config import OUTPUT_PERMISSIONS
 
 
 def run(*args, input=None, capture_output=True, timeout=None, check=False, text=False, start_new_session=True, **kwargs):
-    """Patched of subprocess.run to kill forked child subprocesses and fix blocking io making timeout=innefective"""
+    """Patched of subprocess.run to kill forked child subprocesses and fix blocking io making timeout=innefective
+        Mostly copied from https://github.com/python/cpython/blob/master/Lib/subprocess.py
+    """
 
     if input is not None:
         if kwargs.get('stdin') is not None:
