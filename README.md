@@ -104,19 +104,19 @@ archivebox help
 <i>First make sure you have Docker installed: https://docs.docker.com/get-docker/</i>
 
 Download the [`docker-compose.yml`](https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml) file.
-<pre lang="bash"><code>
+<pre lang="bash"><code style="white-space: pre-line">
 curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
 </code></pre>
 
 Start the server.
-<pre lang="bash"><code>
+<pre lang="bash"><code style="white-space: pre-line">
 docker-compose run --rm archivebox init --setup
 docker-compose up
 </code></pre>
 
 Open [`http://127.0.0.1:8000`](http://127.0.0.1:8000).
 
-<pre lang="bash"><code>
+<pre lang="bash"><code style="white-space: pre-line">
 # you can also add links and manage your archive via the CLI:
 docker-compose run archivebox add 'https://example.com'
 echo 'https://example.com' | docker-compose run archivebox -T add
@@ -138,7 +138,7 @@ chrome, wget, youtube-dl, git, etc., full-text search w/ sonic, and many other g
 
 <i>First make sure you have Docker installed: https://docs.docker.com/get-docker/</i>
 
-<pre lang="bash"><code>
+<pre lang="bash"><code style="white-space: pre-line">
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
@@ -167,14 +167,14 @@ This method should work on all Ubuntu/Debian based systems, including x86, amd64
 If you're on Ubuntu >= 20.04, add the `apt` repository with `add-apt-repository`:
 <small><i>(on other Ubuntu/Debian-based systems follow the <b>♰ instructions</b> below)</i></small>
 
-<pre lang="bash"><code>
+<pre lang="bash"><code style="white-space: pre-line">
 # add the repo to your sources and install the archivebox package using apt
 sudo apt install software-properties-common
 sudo add-apt-repository -u ppa:archivebox/archivebox
 sudo apt install archivebox
 </code></pre>
 
-<pre lang="bash"><code>
+<pre lang="bash"><code style="white-space: pre-line">
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
 archivebox init --setup
@@ -193,7 +193,7 @@ archivebox help  # to see more options
 
 <i><b>♰ On other Ubuntu/Debian-based systems</b> add these sources directly to <code>/etc/apt/sources.list</code>:</i>
 
-<pre lang="bash"><code>
+<pre lang="bash"><code style="white-space: pre-line">
 echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" > /etc/apt/sources.list.d/archivebox.list
 echo "deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" >> /etc/apt/sources.list.d/archivebox.list
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
@@ -213,7 +213,7 @@ archivebox --version
 
 <i>First make sure you have Homebrew installed: https://brew.sh/#install</i>
 
-<pre lang="bash"><code>
+<pre lang="bash"><code style="white-space: pre-line">
 # install the archivebox package using homebrew
 brew install archivebox/archivebox/archivebox
 
@@ -240,7 +240,7 @@ archivebox help  # to see more options
 
 <i>First make sure you have [Python >= v3.7](https://realpython.com/installing-python/) and [Node >= v12](https://nodejs.org/en/download/package-manager/) installed.</i>
 
-<pre lang="bash"><code>
+<pre lang="bash"><code style="white-space: pre-line">
 # install the archivebox package using pip3
 pip3 install archivebox
 
