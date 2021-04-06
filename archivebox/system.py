@@ -68,7 +68,7 @@ def run(*args, input=None, capture_output=True, timeout=None, check=False, text=
         # force kill any straggler subprocesses that were forked from the main proc
         try:
             os.killpg(pgid, signal.SIGINT)
-        except Exception as e:
+        except Exception:
             pass
 
     return CompletedProcess(process.args, retcode, stdout, stderr)

@@ -13,10 +13,13 @@ MAX_SONIC_TEXT_CHUNK_LENGTH = 2000          # dont index more than 2000 characte
 def index(snapshot_id: str, texts: List[str]):
     with IngestClient(SEARCH_BACKEND_HOST_NAME, SEARCH_BACKEND_PORT, SEARCH_BACKEND_PASSWORD) as ingestcl:
         for text in texts:
-            max_length = 1000000
             chunks = (
                 text[i:i+MAX_SONIC_TEXT_CHUNK_LENGTH]
-                for i in range(0, min(len(text), MAX_SONIC_TEXT_TOTAL_LENGTH), MAX_SONIC_TEXT_CHUNK_LENGTH)
+                for i in range(
+                    0,
+                    min(len(text), MAX_SONIC_TEXT_TOTAL_LENGTH),
+                    MAX_SONIC_TEXT_CHUNK_LENGTH,
+                )
             )
             for chunk in chunks:
                 ingestcl.push(SONIC_COLLECTION, SONIC_BUCKET, snapshot_id, str(chunk))
