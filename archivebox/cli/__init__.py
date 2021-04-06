@@ -60,6 +60,8 @@ def run_subcommand(subcommand: str,
                    pwd: Union[Path, str, None]=None) -> None:
     """Run a given ArchiveBox subcommand with the given list of args"""
 
+    subcommand_args = subcommand_args or []
+
     if subcommand not in meta_cmds:
         from ..config import setup_django
 
