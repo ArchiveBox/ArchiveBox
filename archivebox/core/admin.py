@@ -57,7 +57,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     readonly_fields = ('uuid', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
     search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
     fields = ('timestamp', 'url', 'title', 'tags', *readonly_fields)
-    list_filter = ('added', 'updated', 'tags')
+    list_filter = ('added', 'updated', 'tags', 'archiveresult__status')
     ordering = ['-added']
     actions = ['delete_snapshots', 'overwrite_snapshots', 'update_snapshots', 'update_titles', 'verify_snapshots', 'add_tag', 'remove_tag']
     autocomplete_fields = ['tags']
