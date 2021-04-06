@@ -502,7 +502,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
             key.upper(): CONFIG.get(key.upper())
             for key in config.keys()
         }
-    except:
+    except BaseException:
         # something went horribly wrong, rever to the previous version
         with open(f'{config_path}.bak', 'r', encoding='utf-8') as old:
             atomic_write(config_path, old.read())
@@ -547,7 +547,7 @@ def load_config(defaults: ConfigDefaultDict,
             stderr('    For config documentation and examples see:')
             stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration')
             stderr()
-            raise
+            # raise
             raise SystemExit(2)
     
     return extended_config
@@ -1067,7 +1067,6 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
     assert isinstance(output_dir, Path) and isinstance(config['PACKAGE_DIR'], Path)
 
     try:
-        import django
         from django.core.management import call_command
 
         sys.path.append(str(config['PACKAGE_DIR']))

@@ -157,7 +157,7 @@ class TimedProgress:
                 # kill the progress bar subprocess
                 try:
                     self.p.close()   # must be closed *before* its terminnated
-                except:
+                except BaseException:
                     pass
                 self.p.terminate()
                 self.p.join()
@@ -223,7 +223,6 @@ def progress_bar(seconds: int, prefix: str='') -> None:
         # sys.stdout.flush()
     except (KeyboardInterrupt, BrokenPipeError):
         print()
-        pass
 
 
 def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str], pwd: str):
