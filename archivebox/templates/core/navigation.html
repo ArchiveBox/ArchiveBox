@@ -9,14 +9,18 @@
     <a href="{% url 'public-index' %}">Public</a> | 
     <a href="/admin/">Admin</a>
      &nbsp; &nbsp;
-    {% block welcome-msg %}
-        {% trans 'User' %}
-        <strong>{% firstof user.get_short_name user.get_username %}</strong> &nbsp; &nbsp;
-    {% endblock %}
-    {% block userlinks %}
-        {% if user.has_usable_password %}
-            <a href="{% url 'admin:password_change' %}">Account</a> /
-        {% endif %}
-        <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
-    {% endblock %}
+    {% if user.is_authenticated %}
+        {% block welcome-msg %}
+            {% trans 'User' %}
+            <strong>{% firstof user.get_short_name user.get_username %}</strong> &nbsp; &nbsp;
+        {% endblock %}
+        {% block userlinks %}
+            {% if user.has_usable_password %}
+                <a href="{% url 'admin:password_change' %}">Account</a> /
+            {% endif %}
+            <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
+        {% endblock %}
+    {% else %}
+        <a href="{% url 'admin:login' %}">{% trans 'Log in' %}</a>
+    {% endif %}
 </div>
