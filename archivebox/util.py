@@ -219,6 +219,9 @@ def chrome_args(**options) -> List[str]:
 
     options = {**CHROME_OPTIONS, **options}
 
+    if not options['CHROME_BINARY']:
+        raise Exception('Could not find any CHROME_BINARY installed on your system')
+
     cmd_args = [options['CHROME_BINARY']]
 
     if options['CHROME_HEADLESS']:
