@@ -7,6 +7,7 @@ from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.core.cache import cache
 from django.db.models import Case, When, Value, IntegerField
+from django.contrib.auth.models import User   # noqa
 
 from ..config import ARCHIVE_DIR, ARCHIVE_DIR_NAME
 from ..system import get_dir_size
