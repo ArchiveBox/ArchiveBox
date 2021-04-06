@@ -28,6 +28,7 @@ services:
 
     # To run the Sonic full-text search backend, first download the config file to sonic.cfg
     # curl https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/etc/sonic/config.cfg > sonic.cfg
+    # after starting, backfill any existing Snapshots into the index: docker-compose run archivebox update --index-only
     # sonic:
     #     image: valeriansaliou/sonic:v1.3.0    
     #     expose:
