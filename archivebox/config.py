@@ -291,7 +291,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (Path(c['CHROME_USER_DATA_DIR']).resolve() if c['CHROME_USER_DATA_DIR'] else None)},   # None means unset, so we autodetect it with find_chrome_Data_dir(), but emptystring '' means user manually set it to '', and we should store it as None
     'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'] or '', re.IGNORECASE | re.UNICODE | re.MULTILINE)},
 
-    'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0]},
+    'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
     'VERSION':                  {'default': lambda c: json.loads((Path(c['PACKAGE_DIR']) / 'package.json').read_text().strip())['version']},
 
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
