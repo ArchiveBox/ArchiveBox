@@ -36,10 +36,10 @@ def get_indexable_content(results: QuerySet):
 
     # TODO: banish this duplication and get these from the extractor file
     if method == 'readability':
-        return get_file_result_content(res, 'content.txt')
+        return get_file_result_content(res, 'content.txt', use_pwd=True)
     elif method == 'singlefile':
-        return get_file_result_content(res,'',use_pwd=True)
+        return get_file_result_content(res, '', use_pwd=True)
     elif method == 'dom':
-        return get_file_result_content(res,'',use_pwd=True)
+        return get_file_result_content(res, '', use_pwd=True)
     elif method == 'wget':
-        return get_file_result_content(res,'',use_pwd=True)
+        return get_file_result_content(res, '', use_pwd=True)
