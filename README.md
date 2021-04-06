@@ -35,9 +35,9 @@ ArchiveBox is a powerful self-hosted internet archiving solution written in Pyth
 **🔢&nbsp; Run ArchiveBox via [Docker Compose (recommended)](#Quickstart), Docker, Apt, Brew, or Pip ([see below](#Quickstart)).**
 
 ```bash
-apt/brew/pip3 install archivebox
+apt/brew/pip3/etc install archivebox
 
-archivebox init                       # run this in an empty folder
+archivebox init --setup               # run this in an empty folder
 archivebox add 'https://example.com'  # start adding URLs to archive
 curl https://example.com/rss.xml | archivebox add  # or add via stdin
 archivebox schedule --every=day https://example.com/rss.xml
@@ -46,7 +46,7 @@ archivebox schedule --every=day https://example.com/rss.xml
 For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats).
 
 ```bash
-archivebox server --createsuperuser 0.0.0.0:8000   # use the interactive web UI
+archivebox server 0.0.0.0:8000         # use the interactive web UI
 archivebox list 'https://example.com'  # use the CLI commands (--help for more)
 ls ./archive/*/index.json              # or browse directly via the filesystem
 ```
@@ -110,8 +110,8 @@ curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-c
 
 Start the server.
 <pre lang="bash"><code>
-docker-compose run archivebox server --quick-init
-docker-compose run archivebox manage createsuperuser
+docker-compose run --rm archivebox init --setup
+docker-compose up
 </code></pre>
 
 Open [`http://127.0.0.1:8000`](http://127.0.0.1:8000).
@@ -141,11 +141,10 @@ chrome, wget, youtube-dl, git, etc., full-text search w/ sonic, and many other g
 <pre lang="bash"><code>
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
-docker run -v $PWD:/data -it archivebox/archivebox init
-docker run -v $PWD:/data -it archivebox/archivebox --version
+docker run -v $PWD:/data -it archivebox/archivebox init --setup
 
 # start the webserver and open the UI (optional)
-docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox server --createsuperuser 0.0.0.0:8000
+docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
 
 # you can also add links and manage your archive via the CLI:
@@ -178,12 +177,10 @@ sudo apt install archivebox
 <pre lang="bash"><code>
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
-npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git'
-archivebox init
-archivebox --version
+archivebox init --setup
 
 # start the webserver and open the web UI (optional)
-archivebox server --createsuperuser 0.0.0.0:8000
+archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
 
 # you can also add URLs and manage the archive via the CLI and filesystem:
@@ -222,12 +219,10 @@ brew install archivebox/archivebox/archivebox
 
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
-npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git'
-archivebox init
-archivebox --version
+archivebox init --setup
 
 # start the webserver and open the web UI (optional)
-archivebox server --createsuperuser 0.0.0.0:8000
+archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
 
 # you can also add URLs and manage the archive via the CLI and filesystem:
@@ -243,7 +238,7 @@ archivebox help  # to see more options
 <details>
 <summary><b>Get ArchiveBox with <code>pip</code> on any platform</b></summary>
 
-<i>First make sure you have Python >= 3.7 installed: https://realpython.com/installing-python/</i>
+<i>First make sure you have [Python >= v3.7](https://realpython.com/installing-python/) and [Node >= v12](https://nodejs.org/en/download/package-manager/) installed.</i>
 
 <pre lang="bash"><code>
 # install the archivebox package using pip3
@@ -251,13 +246,11 @@ pip3 install archivebox
 
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
-npm install --prefix . 'git+https://github.com/ArchiveBox/ArchiveBox.git'
-archivebox init
-archivebox --version
-# Install any missing extras like wget/git/chrome/etc. manually as needed
+archivebox init --setup
+# Install any missing extras like wget/git/ripgrep/etc. manually as needed
 
 # start the webserver and open the web UI (optional)
-archivebox server --createsuperuser 0.0.0.0:8000
+archivebox server 0.0.0.0:8000
 open http://127.0.0.1:8000
 
 # you can also add URLs and manage the archive via the CLI and filesystem:
