@@ -929,7 +929,7 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
             run_shell([
                 PYTHON_BINARY,
                 '-m', 'pip',
-                'install', '--upgrade', 'youtube_dl',
+                'install', '--upgrade', '--no-cache-dir', 'youtube_dl',
             ], capture_output=False, cwd=out_dir)
             run_shell([PYTHON_BINARY, '-m', 'youtube_dl', '--version'], capture_output=False, cwd=out_dir)
         except BaseException as e:
@@ -942,7 +942,7 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
             print(f'{CHROME_VERSION} is already installed', CHROME_BINARY)
         else:
             try:
-                run_shell([PYTHON_BINARY, '-m', 'pip', 'install', '--upgrade', 'playwright'], capture_output=False, cwd=out_dir)
+                run_shell([PYTHON_BINARY, '-m', 'pip', 'install', '--no-cache-dir', 'upgrade', 'playwright'], capture_output=False, cwd=out_dir)
                 run_shell([PYTHON_BINARY, '-m', 'playwright', 'install', 'chromium'], capture_output=False, cwd=out_dir)
                 proc = run_shell([PYTHON_BINARY, '-c', 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)'], capture_output=True, text=True, cwd=out_dir)
                 NEW_CHROME_BINARY = proc.stdout.strip()
@@ -974,6 +974,7 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
                 'npm',
                 'install',
                 '--prefix', out_dir,
+                '--force',
                 '--no-save',
                 '--no-audit',
                 '--no-fund',
