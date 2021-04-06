@@ -80,6 +80,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'PUBLIC_ADD_VIEW':          {'type': bool,  'default': False},
         'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
         'SNAPSHOTS_PER_PAGE':       {'type': int,   'default': 40},
+        'CUSTOM_TEMPLATES_DIR':     {'type': str,   'default': None}
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
@@ -279,6 +280,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
 
     'PACKAGE_DIR':              {'default': lambda c: Path(__file__).resolve().parent},
     'TEMPLATES_DIR':            {'default': lambda c: c['PACKAGE_DIR'] / TEMPLATES_DIR_NAME},
+    'CUSTOM_TEMPLATES_DIR':     {'default': lambda c: c['CUSTOM_TEMPLATES_DIR'] and Path(c['CUSTOM_TEMPLATES_DIR'])},
 
     'OUTPUT_DIR':               {'default': lambda c: Path(c['OUTPUT_DIR']).resolve() if c['OUTPUT_DIR'] else Path(os.curdir).resolve()},
     'ARCHIVE_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / ARCHIVE_DIR_NAME},
@@ -705,6 +707,11 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
             'path': (config['TEMPLATES_DIR']).resolve(),
             'enabled': True,
             'is_valid': (config['TEMPLATES_DIR'] / 'static').exists(),
+        },
+        'CUSTOM_TEMPLATES_DIR': {
+            'path': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).resolve(),
+            'enabled': bool(config['CUSTOM_TEMPLATES_DIR']),
+            'is_valid': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).exists(),
         },
         # 'NODE_MODULES_DIR': {
         #     'path': ,

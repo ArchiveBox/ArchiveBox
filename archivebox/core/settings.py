@@ -15,6 +15,7 @@ from ..config import (                                                          
     ALLOWED_HOSTS,
     PACKAGE_DIR,
     TEMPLATES_DIR_NAME,
+    CUSTOM_TEMPLATES_DIR,
     SQL_INDEX_FILENAME,
     OUTPUT_DIR,
     LOGS_DIR,
@@ -108,10 +109,12 @@ if DEBUG_TOOLBAR:
 STATIC_URL = '/static/'
 
 STATICFILES_DIRS = [
+    *([str(CUSTOM_TEMPLATES_DIR / 'static')] if CUSTOM_TEMPLATES_DIR else []),
     str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'static'),
 ]
 
 TEMPLATE_DIRS = [
+    *([str(CUSTOM_TEMPLATES_DIR)] if CUSTOM_TEMPLATES_DIR else []),
     str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'core'),
     str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'admin'),
     str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME),
