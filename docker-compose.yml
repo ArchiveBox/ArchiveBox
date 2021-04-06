@@ -7,7 +7,7 @@
 # Documentation:
 #     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
 
-version: '3.7'
+version: '2.4'
 
 services:
     archivebox:
@@ -87,4 +87,3 @@ services:
     #     volumes:
     #         ./data:/archivebox
     #         ./data/wayback:/webarchive
-    

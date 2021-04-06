@@ -89,31 +89,7 @@
         </div>
         {% block usertools %}
         {% if has_permission %}
-        <div id="user-tools">
-            <a href="{% url 'admin:Add' %}">Add ➕</a> &nbsp; &nbsp;
-            <a href="{% url 'Home' %}">Snapshots</a> |
-            <a href="/admin/core/archiveresult/?o=-1">Outputs</a> |
-            <a href="/admin/core/tag/">Tags</a> &nbsp; &nbsp;
-            <a href="{% url 'Docs' %}">Docs</a> | 
-            <a href="/admin/">Admin</a>
-             &nbsp; &nbsp;
-            {% block welcome-msg %}
-                {% trans 'User' %}
-                <strong>{% firstof user.get_short_name user.get_username %}</strong> &nbsp; &nbsp;
-            {% endblock %}
-            {% block userlinks %}
-                {% if user.is_active and user.is_staff %}
-                    {% url 'django-admindocs-docroot' as docsroot %}
-                    {% if docsroot %}
-                        <a href="{{ docsroot }}">{% trans 'Documentation' %}</a> /
-                    {% endif %}
-                {% endif %}
-                {% if user.has_usable_password %}
-                <a href="{% url 'admin:password_change' %}">Account</a> /
-                {% endif %}
-                <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
-            {% endblock %}
-        </div>
+            {% include 'navigation.html' %}
         {% endif %}
         {% endblock %}
         {% block nav-global %}{% endblock %}
