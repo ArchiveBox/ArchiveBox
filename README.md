@@ -110,7 +110,7 @@ curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-c
 
 Start the server.
 <pre lang="bash"><code style="white-space: pre-line">
-docker-compose run --rm archivebox init --setup
+docker-compose run archivebox init --setup
 docker-compose up
 </code></pre>
 
@@ -651,11 +651,13 @@ archivebox --version
 # if you edit e.g. ./archivebox/core/models.py on the docker host, runserver
 # inside the container will reload and pick up your changes
 docker build . -t archivebox
-docker run -it --rm archivebox version
-docker run -it --rm -p 8000:8000 \
+docker run -it archivebox init --setup
+docker run -it -p 8000:8000 \
     -v $PWD/data:/data \
     -v $PWD/archivebox:/app/archivebox \
     archivebox server 0.0.0.0:8000 --debug --reload
+
+# (remove the --reload flag and add the --nothreading flag when profiling with the django debug toolbar)
 ```
 
 ### Common development tasks

@@ -437,17 +437,6 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
         print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
     else:
         print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links) + len(pending_links), **ANSI))
-    
-    if Snapshot.objects.count() < 25:     # hide the hints for experienced users
-        print()
-        print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**ANSI))
-        print('        archivebox server  # then visit http://127.0.0.1:8000')
-        print()
-        print('    To add new links, you can run:')
-        print("        archivebox add ~/some/path/or/url/to/list_of_links.txt")
-        print()
-        print('    For more usage and examples, run:')
-        print('        archivebox help')
 
     json_index = out_dir / JSON_INDEX_FILENAME
     html_index = out_dir / HTML_INDEX_FILENAME
@@ -459,6 +448,17 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
 
     if setup:
         run_subcommand('setup', pwd=out_dir)
+    
+    if Snapshot.objects.count() < 25:     # hide the hints for experienced users
+        print()
+        print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**ANSI))
+        print('        archivebox server  # then visit http://127.0.0.1:8000')
+        print()
+        print('    To add new links, you can run:')
+        print("        archivebox add ~/some/path/or/url/to/list_of_links.txt")
+        print()
+        print('    For more usage and examples, run:')
+        print('        archivebox help')
 
 @enforce_types
 def status(out_dir: Path=OUTPUT_DIR) -> None:

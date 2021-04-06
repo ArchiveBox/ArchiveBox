@@ -73,10 +73,11 @@ ENV PATH="${PATH}:$VENV_PATH/bin"
 RUN python -m venv --clear --symlinks "$VENV_PATH" \
     && pip install --upgrade --quiet pip setuptools
 ADD "./setup.py" "$CODE_DIR/"
-ADD "./README.md" "./package.json" "$CODE_DIR/archivebox/"
+ADD "./package.json" "$CODE_DIR/archivebox/"
 RUN apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         build-essential python-dev python3-dev \
+    && echo 'empty placeholder for setup.py to use' > "$CODE_DIR/archivebox/README.md" \
     && python3 -c 'from distutils.core import run_setup; result = run_setup("./setup.py", stop_after="init"); print("\n".join(result.install_requires + result.extras_require["sonic"]))' > /tmp/requirements.txt \
     && pip install --quiet -r /tmp/requirements.txt \
     && apt-get purge -y build-essential python-dev python3-dev \

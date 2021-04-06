@@ -1,6 +1,6 @@
 # Usage:
-#     docker-compose up -d
-#     docker-compose run archivebox init
+#     docker-compose run archivebox init --setup
+#     docker-compose up
 #     echo "https://example.com" | docker-compose run archivebox archivebox add
 #     docker-compose run archivebox add --depth=1 https://example.com/some/feed.rss
 #     docker-compose run archivebox config --set PUBLIC_INDEX=True
@@ -12,23 +12,20 @@ version: '3.7'
 services:
     archivebox:
         # build: .                              # for developers working on archivebox
-        image: ${DOCKER_IMAGE:-archivebox/archivebox:latest} 
+        image: ${DOCKER_IMAGE:-archivebox/archivebox:latest}
         command: server --quick-init 0.0.0.0:8000
-        stdin_open: true
-        tty: true
         ports:
             - 8000:8000
         environment:
             - ALLOWED_HOSTS=*                   # add any config options you want as env vars
             - MEDIA_MAX_SIZE=750m
-            # - SHOW_PROGRESS=False
             # - SEARCH_BACKEND_ENGINE=sonic     # uncomment these if you enable sonic below
             # - SEARCH_BACKEND_HOST_NAME=sonic
             # - SEARCH_BACKEND_PASSWORD=SecretPassword
         volumes:
             - ./data:/data
             # - ./archivebox:/app/archivebox    # for developers working on archivebox
-    
+
     # To run the Sonic full-text search backend, first download the config file to sonic.cfg
     # curl https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/etc/sonic/config.cfg > sonic.cfg
     # sonic:
@@ -54,7 +51,7 @@ services:
     #        - SHOW_PROGRESS=False
     #    volumes:
     #        - ./data:/data
-    
+
     # Example: Put Nginx in front of the ArchiveBox server for SSL termination
     # nginx:
     #     image: nginx:alpine
@@ -78,7 +75,7 @@ services:
     #   volumes:
     #     - /lib/modules:/lib/modules
     #     - ./wireguard.conf:/config/wg0.conf:ro
-    
+
     # Example: Run PYWB in parallel and auto-import WARCs from ArchiveBox
     # pywb:
     #     image: webrecorder/pywb:latest
