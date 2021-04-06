@@ -448,7 +448,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
 
     if setup:
         run_subcommand('setup', pwd=out_dir)
-    
+
     if Snapshot.objects.count() < 25:     # hide the hints for experienced users
         print()
         print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**ANSI))
