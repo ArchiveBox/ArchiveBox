@@ -30,13 +30,13 @@
 <hr/>
 </div>
 
-**ArchiveBox is a powerful internet archiving solution that works like a self-hosted Wayback Machine.** You feed it URLs of pages you want to archive, and it saves them locally in a variety of formats depending on setup and content within.
+**ArchiveBox is a powerful internet archiving solution that lets you run your very own self-hosted "Wayback Machine".**
 
 **You can feed it URLs one at a time, or schedule regular imports** from browser bookmarks/history, RSS, services like Pocket/Pinboard and more. For a full list see <a href="#input-formats">input formats</a>.
 
 **It saves snapshots of the URLs you feed it in a variety of formats:** HTML, PDF, PNG screenshots, WARC, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (article text, audio/video, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
 
-At the end of the day, the goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved on your own machine. By saving sites in multiple, durable, long-term formats it ensures that content will be accessible and sharable for many decades to come without needing ArchiveBox or other specialized software to access it.
+The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessable formats for decades to come.
 
 <div align="center">
 <br/><br/>
