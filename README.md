@@ -67,8 +67,6 @@ archivebox add 'https://example.com'                                     # add U
 archivebox schedule --every=day --depth=1 https://example.com/rss.xml    # or have it import URLs on a schedule
 ```
 
-<sup>ArchiveBox will save HTML snapshots (w/ wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, article text, images, audio/video, subtitles, git repos, and more.</sup>
-
 3. Then view your archived pages
 
 ```bash
