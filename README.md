@@ -735,6 +735,16 @@ archivebox manage dbshell
 ./bin/release_docker.sh
 ```
 
+### ArchiveBox Resources
+
+- Main site: https://archivebox.io (hosted by Github Pages)
+- Demo site: https://demo.archivebox.io (hosted by Monadical.com)
+- Docs site: https://docs.archivebox.io (hosted by ReadTheDocs.org)
+- Docs wiki: https://github.com/ArchiveBox/ArchiveBox/wiki (hosted by Github)
+- Releases site: https://releases.archivebox.io (hosted by ReleasePage.co)
+- Issue tracker: https://github.com/ArchiveBox/ArchiveBox/issues
+- Donations: https://github.com/sponsors/pirate
+
 ---
 
 <div align="center">
