@@ -616,12 +616,9 @@ All contributions to ArchiveBox are welcomed! Check our [issues](https://github.
 Low hanging fruit / easy first tickets:<br/>
 <a href="https://lgtm.com/projects/g/ArchiveBox/ArchiveBox/alerts/"><img alt="Total alerts" src="https://img.shields.io/lgtm/alerts/g/ArchiveBox/ArchiveBox.svg?logo=lgtm&logoWidth=18"/></a>
 
-<details>
-<summary>
-
 ### Setup the dev environment
 
-</summary>
+<details><summary><i>Click to expand...</i></summary>
 
 #### 1. Clone the main code repo (making sure to pull the submodules as well)
 
@@ -672,13 +669,9 @@ docker run -it -p 8000:8000 \
 See the `./bin/` folder and read the source of the bash scripts within.
 You can also run all these in Docker. For more examples see the Github Actions CI/CD tests that are run: `.github/workflows/*.yaml`.
 
-
-<details>
-<summary>
-
 #### Run in DEBUG mode
 
-</summary>
+<details><summary><i>Click to expand...</i></summary>
 
 ```bash
 archivebox config --set DEBUG=True
@@ -688,12 +681,9 @@ archivebox server --debug ...
 
 </details>
 
-<details>
-<summary>
-
 #### Build and run a Github branch
 
-</summary>
+<details><summary><i>Click to expand...</i></summary>
 
 ```bash
 docker build -t archivebox:dev https://github.com/ArchiveBox/ArchiveBox.git#dev
@@ -702,12 +692,9 @@ docker run -it -v $PWD:/data archivebox:dev ...
 
 </details>
 
-<details>
-<summary>
-
 #### Run the linters
 
-</summary>
+<details><summary><i>Click to expand...</i></summary>
 
 ```bash
 ./bin/lint.sh
@@ -716,12 +703,9 @@ docker run -it -v $PWD:/data archivebox:dev ...
 
 </details>
 
-<details>
-<summary>
-
 #### Run the integration tests
 
-</summary>
+<details><summary><i>Click to expand...</i></summary>
 
 ```bash
 ./bin/test.sh
@@ -730,12 +714,9 @@ docker run -it -v $PWD:/data archivebox:dev ...
 
 </details>
 
-<details>
-<summary>
-
 #### Make migrations or enter a django shell
 
-</summary>
+<details><summary><i>Click to expand...</i></summary>
 
 Make sure to run this whenever you change things in `models.py`.
 ```bash
@@ -750,12 +731,9 @@ archivebox manage dbshell
 
 </details>
 
-<details>
-<summary>
-
 #### Build the docs, pip package, and docker image
 
-</summary>
+<details><summary><i>Click to expand...</i></summary>
 
 (Normally CI takes care of this, but these scripts can be run to do it manually)
 ```bash
@@ -771,12 +749,9 @@ archivebox manage dbshell
 
 </details>
 
-<details>
-<summary>
-
 #### Roll a release
 
-</summary>
+<details><summary><i>Click to expand...</i></summary>
 
 (Normally CI takes care of this, but these scripts can be run to do it manually)
 ```bash
