@@ -497,7 +497,7 @@ Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not offici
 
 ## Caveats
 
-#### Archiving Private URLs
+### Archiving Private URLs
 
 If you're importing URLs containing secret slugs or pages with private content (e.g Google Docs, unlisted videos, etc), **you may want to disable some of the extractor modules to avoid leaking private URLs to 3rd party APIs** during the archiving process.
 
@@ -514,7 +514,7 @@ archivebox config --set SAVE_FAVICON=False          # disable favicon fetching (
 archivebox config --set CHROME_BINARY=chromium      # ensure it's using Chromium instead of Chrome
 ```
 
-#### Security Risks of Viewing Archived JS
+### Security Risks of Viewing Archived JS
 
 Be aware that malicious archived JS can access the contents of other pages in your archive when viewed. Because the Web UI serves all viewed snapshots from a single domain, they share a request context and **typical CSRF/CORS/XSS/CSP protections do not work to prevent cross-site request attacks**. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page for more details.
 
@@ -528,7 +528,7 @@ https://127.0.0.1:8000/archive/*
 # then example.com/index.js can send it off to some evil server
 ```
 
-#### Saving Multiple Snapshots of a Single URL
+### Saving Multiple Snapshots of a Single URL
 
 Support for saving multiple snapshots of each site over time will be [added eventually](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now **ArchiveBox is designed to only archive each URL with each extractor type once**. A workaround to take multiple snapshots of the same URL is to make them slightly different by adding a hash:
 
@@ -538,7 +538,7 @@ archivebox add 'https://example.com#2020-10-24'
 archivebox add 'https://example.com#2020-10-25'
 ```
 
-#### Storage Requirements
+### Storage Requirements
 
 Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today. However, as storage space gets cheaper and compression improves, you should be able to use it continuously over the years without having to delete anything.
 
