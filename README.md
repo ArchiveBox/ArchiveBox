@@ -116,7 +116,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
 
 <details>
-<summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows (recommended, everything included out-of-the-box ✨)</b></summary>
+<summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (recommended, everything included out-of-the-box )</summary>
 
 <i>First make sure you have Docker installed: https://docs.docker.com/get-docker/</i>
 
@@ -253,7 +253,7 @@ archivebox help  # to see more options
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with <code>pip</code> on any other platforms</b></summary>
+<summary><b>Get ArchiveBox with <code>pip</code> on any other platforms</b> (but extras must be installed manually)</summary>
 
 <i>First make sure you have [Python >= v3.7](https://realpython.com/installing-python/) and [Node >= v12](https://nodejs.org/en/download/package-manager/) installed.</i>
 
