@@ -441,7 +441,7 @@ archivebox config --set YOUTUBEDL_ARGS='--max-filesize=500m'
 
 You can export the main index to browse it statically without the Web UI.
 
-*Note about large exports: These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export only specific Snapshots or ranges.*
+*Note about large exports: These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.*
 
 ```bash|
 # archivebox list --help
