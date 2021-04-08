@@ -616,7 +616,12 @@ All contributions to ArchiveBox are welcomed! Check our [issues](https://github.
 Low hanging fruit / easy first tickets:<br/>
 <a href="https://lgtm.com/projects/g/ArchiveBox/ArchiveBox/alerts/"><img alt="Total alerts" src="https://img.shields.io/lgtm/alerts/g/ArchiveBox/ArchiveBox.svg?logo=lgtm&logoWidth=18"/></a>
 
+<details>
+<summary>
+
 ### Setup the dev environment
+
+</summary>
 
 #### 1. Clone the main code repo (making sure to pull the submodules as well)
 
@@ -660,12 +665,20 @@ docker run -it -p 8000:8000 \
 # (remove the --reload flag and add the --nothreading flag when profiling with the django debug toolbar)
 ```
 
+</details>
+
 ### Common development tasks
 
 See the `./bin/` folder and read the source of the bash scripts within.
 You can also run all these in Docker. For more examples see the Github Actions CI/CD tests that are run: `.github/workflows/*.yaml`.
 
+
+<details>
+<summary>
+
 #### Run in DEBUG mode
+
+</summary>
 
 ```bash
 archivebox config --set DEBUG=True
@@ -673,28 +686,56 @@ archivebox config --set DEBUG=True
 archivebox server --debug ...
 ```
 
+</details>
+
+<details>
+<summary>
+
 #### Build and run a Github branch
+
+</summary>
 
 ```bash
 docker build -t archivebox:dev https://github.com/ArchiveBox/ArchiveBox.git#dev
 docker run -it -v $PWD:/data archivebox:dev ...
 ```
 
+</details>
+
+<details>
+<summary>
+
 #### Run the linters
+
+</summary>
 
 ```bash
 ./bin/lint.sh
 ```
 (uses `flake8` and `mypy`)
 
+</details>
+
+<details>
+<summary>
+
 #### Run the integration tests
+
+</summary>
 
 ```bash
 ./bin/test.sh
 ```
 (uses `pytest -s`)
 
+</details>
+
+<details>
+<summary>
+
 #### Make migrations or enter a django shell
+
+</summary>
 
 Make sure to run this whenever you change things in `models.py`.
 ```bash
@@ -707,7 +748,14 @@ archivebox manage dbshell
 ```
 (uses `pytest -s`)
 
+</details>
+
+<details>
+<summary>
+
 #### Build the docs, pip package, and docker image
+
+</summary>
 
 (Normally CI takes care of this, but these scripts can be run to do it manually)
 ```bash
@@ -721,7 +769,14 @@ archivebox manage dbshell
 ./bin/build_docker.sh
 ```
 
+</details>
+
+<details>
+<summary>
+
 #### Roll a release
+
+</summary>
 
 (Normally CI takes care of this, but these scripts can be run to do it manually)
 ```bash
@@ -735,7 +790,11 @@ archivebox manage dbshell
 ./bin/release_docker.sh
 ```
 
-### ArchiveBox Resources
+</details>
+
+---
+
+## More ArchiveBox Resources
 
 - Main site: https://archivebox.io (via Github Pages)
 - Demo site: https://demo.archivebox.io (hosted by Monadical.com)
