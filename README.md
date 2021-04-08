@@ -30,7 +30,7 @@
 <hr/>
 </div>
 
-**ArchiveBox is a powerful, self-hosted internet archiving solution that lets you save sites like the "[Wayback Machine](https://web.archive.org)".**
+**ArchiveBox is a powerful, self-hosted internet archiving solution that lets you preserve, collect, and browse archives of websites on your machine.**
 
 **You can feed it URLs one at a time, or schedule regular imports** from browser bookmarks/history, RSS, services like Pocket/Pinboard and more. For a full list see <a href="#input-formats">input formats</a>.
 
