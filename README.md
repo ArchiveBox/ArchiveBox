@@ -83,7 +83,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 <img src="https://i.imgur.com/lUuicew.png" width="22%" alt="cli init screenshot" align="top">
 <img src="https://i.imgur.com/p6wK6KM.png" width="22%" alt="server snapshot admin screenshot" align="top">
 <img src="https://i.imgur.com/xHvQfon.png" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
-<br/>
+<br/><br/>
 </div>
 
 ## Key Features
@@ -106,7 +106,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 <img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/><img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/>
 </div>
 
-### Quickstart
+# Quickstart
 
 **🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (w/ Docker, WSL/WSL2)  &nbsp; &nbsp; **🎮&nbsp; CPU Architectures:** amd64, x86, arm8, arm7 (raspi >=3)
 
@@ -337,22 +337,19 @@ archivebox config --set PUBLIC_ADD_VIEW=False
 
 ## Dependencies
 
-You don't need to install all the dependencies, ArchiveBox will automatically enable the relevant modules based on whatever you have available, but it's recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker) with everything preinstalled.
+You don't need to install all the dependencies, ArchiveBox will automatically enable the relevant modules based on whatever you have available, but it's recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker) with everything preinstalled for the best experience.
 
-If you so choose, you can also install ArchiveBox and its dependencies directly on any Linux or macOS systems using the [system package manager](https://github.com/ArchiveBox/ArchiveBox/wiki/Install) and the `archivebox setup` command.
+You can also install ArchiveBox and its dependencies using your [system package manager](https://github.com/ArchiveBox/ArchiveBox/wiki/Install) or `pip` directly on any Linux or macOS system, or on Windows (advanced users only).
 
 ```bash
 # install archivebox with your system package manager
 # apt/brew/pip/etc install ... (see Quickstart instructions above)
 
-# run the setup to auto install all the extractors and extras
-archivebox setup
-
-# see information about all the dependencies
-archivebox --version
+archivebox setup       # auto install all the extractors and extras
+archivebox --version   # see info and versions of installed dependencies
 ```
 
-ArchiveBox is written in Python 3 so it requires `python3` and `pip3` available on your system. It also uses a set of optional, but highly recommended external dependencies for archiving sites: `wget` (for plain HTML, static files, and WARC saving), `chromium` (for screenshots, PDFs, JS execution, and more), `youtube-dl` (for audio and video), `git` (for cloning git repos), and `nodejs` (for readability, mercury, and singlefile), and more.
+ArchiveBox is written in Python 3 so it requires `python3` and `pip3` are available on your system when not using Docker. The optional dependencies used for archiving sites include: `wget` (for plain HTML, static files, and WARC saving), `chromium` (for screenshots, PDFs, JS execution, and more), `youtube-dl` (for audio and video), `git` (for cloning git repos), and `nodejs` (for readability, mercury, and singlefile), and more.
 
 <br/>
 
@@ -368,6 +365,7 @@ ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exp
 - <img src="https://getpocket.com/favicon.ico" height="22px"/> [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Instapaper](https://www.instapaper.com/user/export), [Shaarli](https://shaarli.readthedocs.io/en/master/Usage/#importexport), [Delicious](https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/), [Reddit Saved](https://github.com/csu/export-saved-reddit), [Wallabag](https://doc.wallabag.org/en/user/import/wallabagv2.html), [Unmark.it](http://help.unmark.it/import-export), [OneTab](https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
 
 ```bash
+# archivebox add --help
 echo 'http://example.com' | archivebox add
 archivebox add 'https://example.com/some/page'
 archivebox add < ~/Downloads/firefox_bookmarks_export.html
@@ -410,25 +408,21 @@ All of ArchiveBox's state (including the index, snapshot data, and config file) 
 It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) via environment variables or config file.
 
 ```bash
+# archivebox config --help
+archivebox config    # see all currently configured options
 archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
 archivebox config --set YOUTUBEDL_ARGS='--max-filesize=500m'
-archivebox config --help
 ```
 
 The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard sqlite3 database (it can also be exported as static JSON/HTML), and the archive snapshots are organized by date-added timestamp in the `archive/` subfolder. Each snapshot subfolder includes a static JSON and HTML index describing its contents, and the snapshot extrator outputs are plain files within the folder (e.g. `media/example.mp4`, `git/somerepo.git`, `static/someimage.png`, etc.)
 
 ```bash
 # to browse your index statically without running the archivebox server, run:
-archivebox list --html --with-headers > index.html
+archivebox list --html --with-headers > index.html    # open index.html to view
 archivebox list --json --with-headers > index.json
-# if running these commands with docker-compose, add -T:
-# docker-compose run -T archivebox list ...
 
-# then open the static index in a browser
-open index.html
-
-# or browse the snapshots via filesystem directly
-ls ./archive/<timestamp>/
+# (if using docker-compose, add the -T flag when piping)
+docker-compose run -T archivebox list --csv > index.csv
 ```
 
 <br/>
@@ -458,13 +452,13 @@ archivebox config --set CHROME_BINARY=chromium  # optional: switch to chromium t
 
 #### Security Risks of Viewing Archived JS
 
-Be aware that malicious archived JS can also read the contents of other pages in your archive due to snapshot CSRF and XSS protections being imperfect. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page for more details.
+Be aware that malicious archived JS can access the contents of other pages in your archive when viewed. Because the Web UI serves all viewed snapshots from a single domain, they share a request context and typical CSRF/CORS/XSS/CSP protections do not work to prevent cross-site request attacks. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page for more details.
 
 ```bash
 # visiting an archived page with malicious JS:
 https://127.0.0.1:8000/archive/1602401954/example.com/index.html
 
-# example.com/index.js can now make a request to read everything:
+# example.com/index.js can now make a request to read everything from:
 https://127.0.0.1:8000/index.html
 https://127.0.0.1:8000/archive/*
 # then example.com/index.js can send it off to some evil server
@@ -472,7 +466,7 @@ https://127.0.0.1:8000/archive/*
 
 #### Saving Multiple Snapshots of a Single URL
 
-Support for saving multiple snapshots of each site over time will be [added soon](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now ArchiveBox is designed to only archive each URL with each extractor type once. A workaround to take multiple snapshots of the same URL is to make them slightly different by adding a hash:
+Support for saving multiple snapshots of each site over time will be [added eventually](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now ArchiveBox is designed to only archive each URL with each extractor type once. A workaround to take multiple snapshots of the same URL is to make them slightly different by adding a hash:
 
 ```bash
 archivebox add 'https://example.com#2020-10-24'
@@ -486,7 +480,9 @@ Because ArchiveBox is designed to ingest a firehose of browser history and bookm
 
 ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
 
-Storage requirements can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need.
+Storage requirements can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. Don't store large collections on older filesystems like EXT3/FAT as they may not be able to handle more than 50k directory entries in the `archive/` folder.
+
+Try to keep the `index.sqlite3` file on local drive (not a network mount), and ideally on an SSD for maximum performance, however the `archive/` folder can be on a network mount or spinning HDD.
 
 <br/>
 
