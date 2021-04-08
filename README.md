@@ -116,7 +116,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
 
 <details>
-<summary><b>Get ArchiveBox with <code>docker-compose</code> on any platform (recommended, everything included out-of-the-box)</b></summary>
+<summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows (recommended, everything included out-of-the-box ✨)</b></summary>
 
 <i>First make sure you have Docker installed: https://docs.docker.com/get-docker/</i>
 
@@ -253,7 +253,7 @@ archivebox help  # to see more options
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with <code>pip</code> on any platform</b></summary>
+<summary><b>Get ArchiveBox with <code>pip</code> on any other platforms</b></summary>
 
 <i>First make sure you have [Python >= v3.7](https://realpython.com/installing-python/) and [Node >= v12](https://nodejs.org/en/download/package-manager/) installed.</i>
 
@@ -405,7 +405,7 @@ All of ArchiveBox's state (including the index, snapshot data, and config file) 
 - **Source Code:** `git/` clone of any repository found on github, bitbucket, or gitlab links
 - _More coming soon! See the [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap)..._
 
-It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) via environment variables or config file.
+It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) via environment variables / config.
 
 ```bash
 # archivebox config --help
@@ -445,9 +445,11 @@ archivebox add 'https://docs.google.com/document/d/12345somelongsecrethere'
 archivebox add 'https://example.com/any/url/you/want/to/keep/secret/'
 
 # without first disabling share the URL with 3rd party APIs:
-archivebox config --set SAVE_ARCHIVE_DOT_ORG=False   # disable saving all URLs in Archive.org
-archivebox config --set SAVE_FAVICON=False      # optional: only the domain is leaked, not full URL
-archivebox config --set CHROME_BINARY=chromium  # optional: switch to chromium to avoid Chrome phoning home to Google
+archivebox config --set SAVE_ARCHIVE_DOT_ORG=False  # disable saving all URLs in Archive.org
+
+# if extra paranoid or anti-google:
+archivebox config --set SAVE_FAVICON=False          # disable favicon fetching (it calls a google API)
+archivebox config --set CHROME_BINARY=chromium      # ensure it's using Chromium instead of Chrome
 ```
 
 #### Security Risks of Viewing Archived JS
