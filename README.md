@@ -38,6 +38,8 @@
 
 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessable formats for decades to come.
 
+ArchiveBox can be used as a [command-line tool](#Quickstart), [self-hosted web UI](#Quickstart), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha), and you can get it using Docker, `apt` on Linux, `brew` on macOS, or `pip` on Windows and other systems.
+
 <div align="center">
 <br/><br/>
 <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://i.imgur.com/asPNk8n.png" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic">
