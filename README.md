@@ -253,7 +253,7 @@ archivebox help  # to see more options
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with <code>pip</code> on any other platforms</b> (but extras must be installed manually)</summary>
+<summary><b>Get ArchiveBox with <code>pip</code> on any other platforms</b> (some extras must be installed manually)</summary>
 
 <i>First make sure you have [Python >= v3.7](https://realpython.com/installing-python/) and [Node >= v12](https://nodejs.org/en/download/package-manager/) installed.</i>
 
@@ -309,6 +309,14 @@ Then open http://127.0.0.1:8000 to view the UI.
 archivebox config --set PUBLIC_INDEX=False
 archivebox config --set PUBLIC_SNAPSHOTS=False
 archivebox config --set PUBLIC_ADD_VIEW=False
+```
+
+#### 🗄&nbsp; SQL/Python/Filesystem Usage
+
+```bash
+sqlite3 index.sqlite3      # run SQL queries on your index
+archivebox shell           # explore the Python API in a REPL
+ls ./archive/*/index.html  # or inspect snapshots on the filesystem
 ```
 
 <br/>
