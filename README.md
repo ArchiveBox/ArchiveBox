@@ -52,7 +52,7 @@ ArchiveBox can be used as a [command-line tool](#Quickstart), [web app](#Quickst
 
 <br/>
 
-**📦&nbsp; First, get ArchiveBox using [Docker Compose (recommended)](#Quickstart) / Docker, or `apt` / `brew` / `pip` ([see the instructions below](#Quickstart)).**
+**📦&nbsp; Install ArchiveBox with [Docker Compose (recommended)](#Quickstart) / Docker, or `apt` / `brew` / `pip` ([see below](#Quickstart)).**
 
 *No matter which setup method you choose, they all follow this basic process and provide the same CLI, Web UI, and on-disk data layout.*
 
@@ -97,7 +97,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 - [**Usable as a oneshot CLI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [**self-hosted web UI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [Python API](https://docs.archivebox.io/en/latest/modules.html) (BETA), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (ALPHA), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (ALPHA)
 - [**Saves all pages to archive.org as well**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#submit_archive_dot_org) by default for redundancy (can be [disabled](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) for local-only mode)
 - Planned: support for archiving [content requiring a login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (working, but ill-advised until some pending fixes are released)
-- Planned: support for running [JS scripts during archiving](https://github.com/ArchiveBox/ArchiveBox/issues/51), e.g. adblock, [autoscroll](https://github.com/ArchiveBox/ArchiveBox/issues/80), [modal-hiding](https://github.com/ArchiveBox/ArchiveBox/issues/175), [thread-expander](https://github.com/ArchiveBox/ArchiveBox/issues/345), etc.
+- Planned: support for running [JS during archiving](https://github.com/ArchiveBox/ArchiveBox/issues/51) to adblock, [autoscroll](https://github.com/ArchiveBox/ArchiveBox/issues/80), [modal-hide](https://github.com/ArchiveBox/ArchiveBox/issues/175), [thread-expand](https://github.com/ArchiveBox/ArchiveBox/issues/345)...
 
 <br/><br/>
 
@@ -108,7 +108,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 # Quickstart
 
-**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL/WSL2)  &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 (raspi >=3)
+**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL) &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 <sup>(raspi>=3)</sup>
 
 
 #### ⬇️&nbsp; Initial Setup
