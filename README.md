@@ -38,7 +38,7 @@
 
 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessable formats for decades to come.
 
-ArchiveBox can be used as a [command-line tool](#Quickstart), [web app](#Quickstart), or [desktop app](https://github.com/ArchiveBox/electron-archivebox), on Linux, macOS, and Windows, using [**Docker ✨**](#Quickstart), `apt`, `brew`, or `pip`.
+Get ArchiveBox as a [command-line tool](#Quickstart), [web app](#Quickstart), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha), on Linux, macOS, and Windows. [Get started... ⤵](#Quickstart)
 
 <div align="center">
 <br/><br/>
