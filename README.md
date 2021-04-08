@@ -116,7 +116,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
 
 <details>
-<summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (recommended, everything included out-of-the-box )</summary>
+<summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (recommended, w/ everything out-of-the-box)</summary>
 
 <i>First make sure you have Docker installed: https://docs.docker.com/get-docker/</i>
 
@@ -631,7 +631,8 @@ Whether you want to learn which organizations are the big players in the web arc
 - Check out the ArchiveBox [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap) and [Changelog](https://github.com/ArchiveBox/ArchiveBox/wiki/Changelog)
 - Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/)" blog post.
 - Reach out to me for questions and comments via [@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp) or [@theSquashSH](https://twitter.com/thesquashSH) on Twitter
-- ✨ **[Hire us](https://monadical.com) to develop an internet archiving solution for you** ([@MonadicalSAS](https://twitter.com/MonadicalSAS) on Twitter)
+
+> ✨ **[Hire us](https://monadical.com) to develop an internet archiving solution for you.** (we're [@MonadicalSAS](https://twitter.com/MonadicalSAS) on Twitter)
 
 <br/>
 
