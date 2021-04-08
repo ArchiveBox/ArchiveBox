@@ -344,6 +344,8 @@ ls ./archive/*/index.html  # or inspect snapshots on the filesystem
 
 <br/>
 
+# Overview
+
 ## Input formats
 
 ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exports, Browser bookmarks, Browser history, plain text, HTML, markdown, and more!
@@ -377,7 +379,7 @@ It also includes a built-in scheduled import feature with `archivebox schedule` 
 
 <br/>
 
-### Archive Layout
+## Archive Layout
 
 All of ArchiveBox's state (including the index, snapshot data, and config file) is stored in a single folder called the "ArchiveBox data folder". All `archivebox` CLI commands must be run from inside this folder, and you first create it by running `archivebox init`.
 
@@ -670,7 +672,13 @@ Whether you want to learn which organizations are the big players in the web arc
 - Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/)" blog post.
 - Reach out to me for questions and comments via [@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp) or [@theSquashSH](https://twitter.com/thesquashSH) on Twitter
 
-> ✨ **[Hire us](https://monadical.com) to develop an internet archiving solution for you.** (we're [@MonadicalSAS](https://twitter.com/MonadicalSAS) on Twitter)
+<br/>
+
+**Need help building a custom archiving solution?**
+
+> ✨ **[Hire the team that helps build Archivebox](https://monadical.com) to work on your project.** (we're [@MonadicalSAS](https://twitter.com/MonadicalSAS) on Twitter)
+
+<sup>(They also do general software consulting across many industries)</sup>
 
 <br/>
 
@@ -887,15 +895,15 @@ archivebox manage dbshell
 
 ---
 
-## More ArchiveBox Resources
+## Futher Reading
 
-- Main site: https://archivebox.io (via Github Pages)
-- Demo site: https://demo.archivebox.io (hosted by Monadical.com)
-- Docs site: https://docs.archivebox.io (via ReadTheDocs.org)
-- Docs wiki: https://wiki.archivebox.io (via Github Wiki)
-- Issues: https://issues.archivebox.io (via Github Issues)
-- Forum: https://forum.archivebox.io (via Github Discussions)
-- Releases: https://releases.archivebox.io (via ReleasePage.co)
+- Home: https://archivebox.io
+- Demo: https://demo.archivebox.io
+- Docs: https://docs.archivebox.io
+- Wiki: https://wiki.archivebox.io
+- Issues: https://issues.archivebox.io
+- Forum: https://forum.archivebox.io
+- Releases: https://releases.archivebox.io
 - Donations: https://github.com/sponsors/pirate
 
 ---
@@ -905,13 +913,13 @@ archivebox manage dbshell
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" height="40px"/>
 <br/>
 <i><sub>
-This project is maintained mostly in <a href="https://nicksweeting.com/blog#About">my spare time</a> with the help from generous contributors and Monadical (✨  <a href="https://monadical.com">hire them</a> for dev work!).
+This project is maintained mostly in <a href="https://nicksweeting.com/blog#About">my spare time</a> with the help from generous contributors and <a href="https://monadical.com">Monadical</a> (✨  <a href="https://monadical.com">hire them</a> for dev work!).
 </sub>
 </i>
 <br/><br/>
 
 <br/>
-<a href="https://github.com/sponsors/pirate">Sponsor us on Github</a>
+<a href="https://github.com/sponsors/pirate">Sponsor this project on Github</a>
 <br>
 <br>
 <a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Donate_to_support_development-via_Patreon-%23DD5D76.svg?style=flat"/></a>
@@ -920,7 +928,7 @@ This project is maintained mostly in <a href="https://nicksweeting.com/blog#Abou
 <a href="https://twitter.com/ArchiveBoxApp"><img src="https://img.shields.io/badge/Tweet-%40ArchiveBoxApp-blue.svg?style=flat"/></a>
 <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>
 
-<br/><br/>
+<br/>
 
 [![](https://api.releasepage.co/v1/pages/23bfec45-7105-4fd1-9f87-806ae7ff56bb/badge.svg?apiKey=live.clBJeKsXJ6gsidbO)](http://releases.archivebox.io)
 
