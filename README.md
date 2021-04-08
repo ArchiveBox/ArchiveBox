@@ -285,16 +285,17 @@ archivebox help  # to see more options
 
 ```bash
 # archivebox [subcommand] [--args]
+# docker-compose run archivebox [subcommand] [--args]
+# docker run -v $PWD:/data -it [subcommand] [--args]
+
+archivebox init --setup      # safe to run init multiple times (also how you update versions)
 archivebox --version
 archivebox help
 ```
 
 - `archivebox setup/init/config/status/manage` to administer your collection
-- `archivebox add/remove/update/list` to manage Snapshots in the archive
+- `archivebox add/schedule/remove/update/list/shell/oneshot` to manage Snapshots in the archive
 - `archivebox schedule` to pull in fresh URLs in regularly from [boorkmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
-- `archivebox oneshot` archive single URLs without starting a whole collection
-- `archivebox shell/manage dbshell` open a REPL to use the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), or SQL API
-
 
 #### 🖥&nbsp; Web UI Usage
 
