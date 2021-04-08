@@ -30,15 +30,19 @@
 <hr/>
 </div>
 
-ArchiveBox is a powerful internet archiving solution that works like a self-hosted Wayback Machine. You feed it URLs of pages you want to archive (as bookmarks, browser history, RSS, etc.), and it saves them to disk in a variety of formats depending on setup and content within.
+ArchiveBox is a powerful internet archiving solution that works like a self-hosted Wayback Machine. You feed it URLs of pages you want to archive, and it saves them locally in a variety of formats depending on setup and content within.
 
-It supports taking URLs in one at a time, or scheduled importing from browser bookmarks or history, RSS, services like Pocket/Pinboard and more. For a full list see <a href="#input-formats">input formats</a>.
+It supports taking URLs in one at a time, or scheduled importing from browser bookmarks/history, RSS, services like Pocket/Pinboard and more. For a full list see <a href="#input-formats">input formats</a>.
 
-It saves Snapshots of the URLs you feed it as HTML, PDFs, Screenshots, plain text, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (audio/video, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
+It saves snapshots of the URLs you feed it as HTML, PDF, PNG screenshots, WARC, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (article text, audio/video, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
 
-At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible and sharable for many decades.
+At the end of the day, the goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved on your own machine. By saving sites in multiple, durable, long-term formats it ensures that content will be accessible and sharable for many decades to come without needing ArchiveBox or other specialized software to access it.
 
-**🔢&nbsp; First, get ArchiveBox via [Docker Compose (recommended)](#Quickstart), or Docker, Apt, Brew, Pip ([see below](#Quickstart)).**
+<br/>
+
+**🔢&nbsp; First, get ArchiveBox using [Docker Compose (recommended)](#Quickstart), or Docker, Apt, Brew, Pip (see below for [instructions for each OS](#Quickstart)).**
+
+*No matter which install method you choose, they all roughly follow this 3-step process and all provide the same CLI, Web UI, and on-disk data format.*
 
 1. Once you have ArchiveBox, run this in a new empty folder to get started
 ```bash
@@ -68,7 +72,7 @@ ls ./archive/*/index.json              # or browse directly via the filesystem
 <br/><br/>
 <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://i.imgur.com/asPNk8n.png" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic">
 <br/><br/>
-<sup><a href="https://demo.archivebox.io">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
+<small><a href="https://demo.archivebox.io">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></small>
 <br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/><br/>
@@ -101,21 +105,12 @@ ls ./archive/*/index.json              # or browse directly via the filesystem
 
 ### Quickstart
 
-**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (w/ Docker)  &nbsp; &nbsp; **🎮&nbsp; CPU Architectures:** x86, amd64, arm7, arm8 (raspi >=3)
-**📦&nbsp; Distributions:** `docker`/`apt`/`brew`/`pip3`/`npm` (in order of completeness)
-
-No matter which install method you choose, they all roughly follow this 3-step process and all provide the same CLI, Web UI, and on-disk data format.
-
-<small><ol>
-<li>Install ArchiveBox: <code>apt/brew/pip3/etc install archivebox</code></li>
-<li>Start a collection: <code>archivebox init</code></li>
-<li>Start archiving: <code>archivebox add 'https://example.com'</code></li>
-<li>View the archive: <code>archivebox server</code> or <code>archivebox list ...</code>, <code>ls ./archive/*/index.html</code></li>
-</ol></small>
+**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (w/ Docker or WSL/WSL2)  &nbsp; &nbsp; **🎮&nbsp; CPU Architectures:** x86, amd64, arm7, arm8 (raspi >=3)
+**📦&nbsp; Distributions:** `docker`/`apt`/`brew`/`pip3`
 
 <br/>
 
-#### ⬇️&nbsp; Install
+#### ⬇️&nbsp; Initial Setup
 
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
 
