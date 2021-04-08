@@ -335,24 +335,6 @@ archivebox config --set PUBLIC_ADD_VIEW=False
 
 <br/>
 
-## Dependencies
-
-You don't need to install all the dependencies, ArchiveBox will automatically enable the relevant modules based on whatever you have available, but it's recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker) with everything preinstalled for the best experience.
-
-You can also install ArchiveBox and its dependencies using your [system package manager](https://github.com/ArchiveBox/ArchiveBox/wiki/Install) or `pip` directly on any Linux or macOS system, or on Windows (advanced users only).
-
-```bash
-# install archivebox with your system package manager
-# apt/brew/pip/etc install ... (see Quickstart instructions above)
-
-archivebox setup       # auto install all the extractors and extras
-archivebox --version   # see info and versions of installed dependencies
-```
-
-ArchiveBox is written in Python 3 so it requires `python3` and `pip3` are available on your system when not using Docker. The optional dependencies used for archiving sites include: `wget` (for plain HTML, static files, and WARC saving), `chromium` (for screenshots, PDFs, JS execution, and more), `youtube-dl` (for audio and video), `git` (for cloning git repos), and `nodejs` (for readability, mercury, and singlefile), and more.
-
-<br/>
-
 ## Input formats
 
 ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exports, Browser bookmarks, Browser history, plain text, HTML, markdown, and more!
@@ -424,6 +406,37 @@ archivebox list --json --with-headers > index.json
 # (if using docker-compose, add the -T flag when piping)
 docker-compose run -T archivebox list --csv > index.csv
 ```
+
+<br/>
+
+## Dependencies
+
+*If using Docker, ignore this section, all dependencies are setup properly out-of-the-box*.
+
+To achieve high fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party tools and libraries that specialize in extracting different types of content. These optional dependencies used for archiving sites include:
+
+- `chromium` / `chrome` (for screenshots, PDF, DOM HTML, and headless JS scripts)
+- `node` & `npm` (for readability, mercury, and singlefile)
+- `wget` (for plain HTML, static files, and WARC saving)
+- `youtube-dl` (for audio, video, and subtitles)
+- `git` (for cloning git repos)
+- and more as we grow...
+
+You don't need to install every dependency to use ArchiveBox. ArchiveBox will automatically disable extractors that rely on dependencies that aren't installed, based on what is configured and available in your `$PATH`.
+
+For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything preinstalled for the best experience.
+
+However, if you prefer not using Docker, you *can* install ArchiveBox and its dependencies using your [system package manager](https://github.com/ArchiveBox/ArchiveBox/wiki/Install) or `pip` directly on any Linux/macOS system.
+
+```bash
+# install python3 and archivebox with your system package manager
+# apt/brew/pip/etc install ... (see Quickstart instructions above)
+
+archivebox setup       # auto install all the extractors and extras
+archivebox --version   # see info and versions of installed dependencies
+```
+
+Installing directly on Windows without Docker or WSL/WSL2/Cygwin is not officially supported, but some advanced users have reported getting it working.
 
 <br/>
 
