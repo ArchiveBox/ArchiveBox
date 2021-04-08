@@ -377,10 +377,38 @@ It also includes a built-in scheduled import feature with `archivebox schedule` 
 
 <br/>
 
-## Output formats
+### Archive Layout
 
 All of ArchiveBox's state (including the index, snapshot data, and config file) is stored in a single folder called the "ArchiveBox data folder". All `archivebox` CLI commands must be run from inside this folder, and you first create it by running `archivebox init`.
 
+The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard `index.sqlite3` database in the root of the data folder (it can also be exported as static JSON/HTML), and the archive snapshots are organized by date-added timestamp in the `./archive/` subfolder.
+
+```bash
+tree .
+./
+    index.sqlite3
+    ArchiveBox.conf
+    archive/
+        ...
+        1617687755/
+            index.html
+            index.json
+            screenshot.png
+            media/some_video.mp4
+            warc/1617687755.warc.gz
+            git/somerepo.git
+            ...
+```
+
+Each snapshot subfolder `./archive/<timestamp>/` includes a static `index.json` and `index.html` describing its contents, and the snapshot extrator outputs are plain files within the folder.
+
+<br/>
+
+## Output formats
+
+Inside each Snapshot folder, ArchiveBox save these different types of extractor outputs as plain files:
+
+`./archive/<snapshot timestamp>/<output type>`
 
 - **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
 - **Title**, **Favicon**, **Headers** Response headers, site favicon, and parsed site title
@@ -405,16 +433,26 @@ archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
 archivebox config --set YOUTUBEDL_ARGS='--max-filesize=500m'
 ```
 
-The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard sqlite3 database (it can also be exported as static JSON/HTML), and the archive snapshots are organized by date-added timestamp in the `archive/` subfolder. Each snapshot subfolder includes a static JSON and HTML index describing its contents, and the snapshot extrator outputs are plain files within the folder (e.g. `media/example.mp4`, `git/somerepo.git`, `static/someimage.png`, etc.)
+<br/>
 
-```bash
-# to browse your index statically without running the archivebox server, run:
-archivebox list --html --with-headers > index.html    # open index.html to view
-archivebox list --json --with-headers > index.json
+## Static Archive Exporting
+
+You can export the main index to browse it statically without the Web UI.
+
+*Note about large exports: These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export only certain Snapshots or chunks at a time.*
+
+```bash|
+# archivebox list --help
+
+archivebox list --html --with-headers > index.html  # export to static html table
+archivebox list --json --with-headers > index.json  # export to static json blob
+archivebox list --csv --with-headers > index.csv  # export to static csv table
 
 # (if using docker-compose, add the -T flag when piping)
 docker-compose run -T archivebox list --csv > index.csv
 ```
+
+The paths in the static exports are relative, make sure to keep them next to your `./archive` folder when backing them up or viewing them.
 
 <br/>
 
