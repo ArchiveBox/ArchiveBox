@@ -459,7 +459,7 @@ Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not offici
 
 #### Archiving Private URLs
 
-If you're importing URLs containing secret slugs or pages with private content (e.g Google Docs, CodiMD notepads, etc), **you may want to disable some of the extractor modules to avoid leaking private URLs to 3rd party APIs** during the archiving process.
+If you're importing URLs containing secret slugs or pages with private content (e.g Google Docs, unlisted videos, etc), **you may want to disable some of the extractor modules to avoid leaking private URLs to 3rd party APIs** during the archiving process.
 
 ```bash
 # don't do this:
