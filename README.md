@@ -108,7 +108,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 # Quickstart
 
-**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (w/ Docker, WSL/WSL2)  &nbsp; &nbsp; **🎮&nbsp; CPU Architectures:** amd64, x86, arm8, arm7 (raspi >=3)
+**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL/WSL2)  &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 (raspi >=3)
 
 
 #### ⬇️&nbsp; Initial Setup
