@@ -30,11 +30,11 @@
 <hr/>
 </div>
 
-ArchiveBox is a powerful internet archiving solution that works like a self-hosted Wayback Machine. You feed it URLs of pages you want to archive, and it saves them locally in a variety of formats depending on setup and content within.
+**ArchiveBox is a powerful internet archiving solution that works like a self-hosted Wayback Machine.** You feed it URLs of pages you want to archive, and it saves them locally in a variety of formats depending on setup and content within.
 
-It supports taking URLs in one at a time, or scheduled importing from browser bookmarks/history, RSS, services like Pocket/Pinboard and more. For a full list see <a href="#input-formats">input formats</a>.
+**You can feed it URLs one at a time, or schedule regular imports** from browser bookmarks/history, RSS, services like Pocket/Pinboard and more. For a full list see <a href="#input-formats">input formats</a>.
 
-It saves snapshots of the URLs you feed it as HTML, PDF, PNG screenshots, WARC, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (article text, audio/video, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
+**It saves snapshots of the URLs you feed it in a variety of formats:** HTML, PDF, PNG screenshots, WARC, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (article text, audio/video, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
 
 At the end of the day, the goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved on your own machine. By saving sites in multiple, durable, long-term formats it ensures that content will be accessible and sharable for many decades to come without needing ArchiveBox or other specialized software to access it.
 
@@ -436,7 +436,7 @@ archivebox setup       # auto install all the extractors and extras
 archivebox --version   # see info and versions of installed dependencies
 ```
 
-Installing directly on Windows without Docker or WSL/WSL2/Cygwin is not officially supported, but some advanced users have reported getting it working.
+Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not officially supported**, but some advanced users have reported getting it working.
 
 <br/>
 
@@ -450,7 +450,7 @@ Installing directly on Windows without Docker or WSL/WSL2/Cygwin is not official
 
 #### Archiving Private URLs
 
-If you're importing URLs containing secret slugs or pages with private content (e.g Google Docs, CodiMD notepads, etc), you may want to disable some of the extractor modules to avoid leaking private URLs to 3rd party APIs during the archiving process.
+If you're importing URLs containing secret slugs or pages with private content (e.g Google Docs, CodiMD notepads, etc), **you may want to disable some of the extractor modules to avoid leaking private URLs to 3rd party APIs** during the archiving process.
 
 ```bash
 # don't do this:
@@ -467,7 +467,7 @@ archivebox config --set CHROME_BINARY=chromium      # ensure it's using Chromium
 
 #### Security Risks of Viewing Archived JS
 
-Be aware that malicious archived JS can access the contents of other pages in your archive when viewed. Because the Web UI serves all viewed snapshots from a single domain, they share a request context and typical CSRF/CORS/XSS/CSP protections do not work to prevent cross-site request attacks. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page for more details.
+Be aware that malicious archived JS can access the contents of other pages in your archive when viewed. Because the Web UI serves all viewed snapshots from a single domain, they share a request context and **typical CSRF/CORS/XSS/CSP protections do not work to prevent cross-site request attacks**. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page for more details.
 
 ```bash
 # visiting an archived page with malicious JS:
@@ -481,7 +481,7 @@ https://127.0.0.1:8000/archive/*
 
 #### Saving Multiple Snapshots of a Single URL
 
-Support for saving multiple snapshots of each site over time will be [added eventually](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now ArchiveBox is designed to only archive each URL with each extractor type once. A workaround to take multiple snapshots of the same URL is to make them slightly different by adding a hash:
+Support for saving multiple snapshots of each site over time will be [added eventually](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now **ArchiveBox is designed to only archive each URL with each extractor type once**. A workaround to take multiple snapshots of the same URL is to make them slightly different by adding a hash:
 
 ```bash
 archivebox add 'https://example.com#2020-10-24'
@@ -493,11 +493,11 @@ archivebox add 'https://example.com#2020-10-25'
 
 Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today. However, as storage space gets cheaper and compression improves, you should be able to use it continuously over the years without having to delete anything.
 
-ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
+**ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles**, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
 
-Storage requirements can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. Don't store large collections on older filesystems like EXT3/FAT as they may not be able to handle more than 50k directory entries in the `archive/` folder.
+Storage requirements can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. **Don't store large collections on older filesystems like EXT3/FAT** as they may not be able to handle more than 50k directory entries in the `archive/` folder.
 
-Try to keep the `index.sqlite3` file on local drive (not a network mount), and ideally on an SSD for maximum performance, however the `archive/` folder can be on a network mount or spinning HDD.
+**Try to keep the `index.sqlite3` file on local drive (not a network mount)**, and ideally on an SSD for maximum performance, however the `archive/` folder can be on a network mount or spinning HDD.
 
 <br/>
 
@@ -569,7 +569,7 @@ Whether it's to resist censorship by saving articles before they get taken down 
 The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful. I don't think everything should be preserved in an automated fashion--making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
 
 Because modern websites are complicated and often rely on dynamic content,
-ArchiveBox archives the sites in **several different formats** beyond what public archiving services like Archive.org and Archive.is save. Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats. All the archived links are stored by date bookmarked in `./archive/<timestamp>`, and everything is indexed nicely with SQLite3, JSON, and HTML files. 
+ArchiveBox archives the sites in **several different formats** beyond what public archiving services like Archive.org/Archive.is save. Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats.
 
 ## Comparison to Other Projects
 
@@ -622,7 +622,7 @@ Whether you want to learn which organizations are the big players in the web arc
 - Check out the ArchiveBox [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap) and [Changelog](https://github.com/ArchiveBox/ArchiveBox/wiki/Changelog)
 - Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/)" blog post.
 - Reach out to me for questions and comments via [@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp) or [@theSquashSH](https://twitter.com/thesquashSH) on Twitter
-- Hire us to develop an internet archiving solution for you [@MonadicalSAS](https://twitter.com/MonadicalSAS) [Monadical.com](https://monadical.com)
+- ✨ **[Hire us](https://monadical.com) to develop an internet archiving solution for you** ([@MonadicalSAS](https://twitter.com/MonadicalSAS) on Twitter)
 
 <br/>
 
