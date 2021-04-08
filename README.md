@@ -3,7 +3,7 @@
 <h1>ArchiveBox<br/><sub>Open-source self-hosted web archiving.</sub></h1>
 
 ▶️ <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> |
-<a href="https://archivebox.zervice.io/">Demo</a> |
+<a href="https://demo.archivebox.io">Demo</a> |
 <a href="https://github.com/ArchiveBox/ArchiveBox">Github</a> |
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Documentation</a> |
 <a href="#background--motivation">Info & Motivation</a> |
@@ -77,7 +77,7 @@ archivebox help
 
 <div align="center">
 <br/>
-<sup><a href="https://archivebox.zervice.io/">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
+<sup><a href="https://demo.archivebox.io">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
 <br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/><br/>
@@ -282,7 +282,7 @@ No matter which install method you choose, they all roughly follow this 3-step p
 <br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/><br/>
-<a href="https://archivebox.zervice.io">DEMO: <code>https://archivebox.zervice.io</code></a><br/>
+<a href="hhttps://demo.archivebox.io">DEMO: <code>https://demo.archivebox.io</code></a><br/>
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a>
 <br/>
 </div>
