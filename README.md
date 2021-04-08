@@ -52,11 +52,11 @@ ArchiveBox can be used as a [command-line tool](#Quickstart), [web app](#Quickst
 
 <br/>
 
-**📦&nbsp; First, get ArchiveBox using [Docker Compose (recommended)](#Quickstart), or Docker, Apt, Brew, Pip ([see the instructions below for your OS](#Quickstart)).**
+**📦&nbsp; First, get ArchiveBox using [Docker Compose (recommended)](#Quickstart) / Docker, or `apt` / `brew` / `pip` ([see the instructions below](#Quickstart)).**
 
 *No matter which setup method you choose, they all follow this basic process and provide the same CLI, Web UI, and on-disk data layout.*
 
-1. Run this in a new empty folder to get started
+1. Once you've installed ArchiveBox, run this in a new empty folder to get started
 ```bash
 archivebox init --setup                   # creates a new collection in the current directory
 ```
