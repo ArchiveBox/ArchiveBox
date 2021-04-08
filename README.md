@@ -769,4 +769,6 @@ This project is maintained mostly in <a href="https://nicksweeting.com/blog#Abou
 
 <br/><br/>
 
+<script src="//cdn.releasepage.co/js/version.js" data-repo="ArchiveBox/ArchiveBox" data-api-key="live.clBJeKsXJ6gsidbO" data-page-id="23bfec45-7105-4fd1-9f87-806ae7ff56bb"></script>
+
 </div>
