@@ -741,8 +741,9 @@ archivebox manage dbshell
 - Demo site: https://demo.archivebox.io (hosted by Monadical.com)
 - Docs site: https://docs.archivebox.io (hosted by ReadTheDocs.org)
 - Docs wiki: https://github.com/ArchiveBox/ArchiveBox/wiki (hosted by Github)
-- Releases site: https://releases.archivebox.io (hosted by ReleasePage.co) [![](https://api.releasepage.co/v1/pages/23bfec45-7105-4fd1-9f87-806ae7ff56bb/badge.svg?apiKey=live.clBJeKsXJ6gsidbO)](http://releases.archivebox.io)
-- Issue tracker: https://github.com/ArchiveBox/ArchiveBox/issues
+- Releases: https://releases.archivebox.io (hosted by ReleasePage.co)
+- Issues: https://github.com/ArchiveBox/ArchiveBox/issues
+- Forum: https://github.com/ArchiveBox/ArchiveBox/discussions
 - Donations: https://github.com/sponsors/pirate
 
 ---
@@ -768,5 +769,7 @@ This project is maintained mostly in <a href="https://nicksweeting.com/blog#Abou
 <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>
 
 <br/><br/>
+
+[![](https://api.releasepage.co/v1/pages/23bfec45-7105-4fd1-9f87-806ae7ff56bb/badge.svg?apiKey=live.clBJeKsXJ6gsidbO)](http://releases.archivebox.io)
 
 </div>
