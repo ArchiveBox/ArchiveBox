@@ -50,30 +50,29 @@ At the end of the day, the goal is to sleep soundly knowing the part of the inte
 
 <br/>
 
-**📦&nbsp; First, get ArchiveBox using [Docker Compose (recommended)](#Quickstart), or Docker, Apt, Brew, Pip (see below for [instructions for each OS](#Quickstart)).**
+**📦&nbsp; First, get ArchiveBox using [Docker Compose (recommended)](#Quickstart), or Docker, Apt, Brew, Pip ([see the instructions below for your OS](#Quickstart)).**
 
-*No matter which install method you choose, they all roughly follow this process and all provide the same CLI, Web UI, and data folder layout.*
+*No matter which setup method you choose, they all follow this basic process and provide the same CLI, Web UI, and on-disk data layout.*
 
-1. Once you have ArchiveBox, run this in a new empty folder to get started
+1. Run this in a new empty folder to get started
 ```bash
 archivebox init --setup          # create a new collection in the current directory
 ```
 
 2. Add some URLs you want to archive
 ```bash
-archivebox add 'https://example.com'                                     # add URLs one at a time via args or piped stdin
-
-archivebox schedule --every=day --depth=1 https://example.com/rss.xml    # or pull in URLs on a schedule
+archivebox add 'https://example.com'                                     # add URLs one at a time via args / piped stdin
+archivebox schedule --every=day --depth=1 https://example.com/rss.xml    # or have it import URLs on a schedule
 ```
 
-<sup>For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, git repositories, images, audio, video, subtitles, article text, and more.</sup>
+<sup>ArchiveBox will save HTML snapshots (w/ wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, article text, images, audio/video, subtitles, git repos, and more.</sup>
 
 3. Then view your archived pages
 
 ```bash
-archivebox server 0.0.0.0:8000         # use the interactive web UI
-archivebox list 'https://example.com'  # use the CLI commands (--help for more)
-ls ./archive/*/index.json              # or browse directly via the filesystem
+archivebox server 0.0.0.0:8000            # use the interactive web UI
+archivebox list 'https://example.com'     # use the CLI commands (--help for more)
+ls ./archive/*/index.json                 # or browse directly via the filesystem
 ```
 
 **⤵️ See the [Quickstart](#Quickstart) below for more...**
