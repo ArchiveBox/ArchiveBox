@@ -30,20 +30,31 @@
 <hr/>
 </div>
 
-ArchiveBox is a powerful self-hosted internet archiving solution written in Python. You feed it URLs of pages you want to archive, and it saves them to disk in a variety of formats depending on setup and content within.
+ArchiveBox is a powerful internet archiving solution that works like a self-hosted Wayback Machine. You feed it URLs of pages you want to archive (as bookmarks, browser history, RSS, etc.), and it saves them to disk in a variety of formats depending on setup and content within.
 
-**🔢&nbsp; Run ArchiveBox via [Docker Compose (recommended)](#Quickstart), Docker, Apt, Brew, or Pip ([see below](#Quickstart)).**
+It supports taking URLs in one at a time, or scheduled importing from browser bookmarks or history, RSS, services like Pocket/Pinboard and more. For a full list see <a href="#input-formats">input formats</a>.
 
+It saves Snapshots of the URLs you feed it as HTML, PDFs, Screenshots, plain text, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (audio/video, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
+
+At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible and sharable for many decades.
+
+**🔢&nbsp; First, get ArchiveBox via [Docker Compose (recommended)](#Quickstart), or Docker, Apt, Brew, Pip ([see below](#Quickstart)).**
+
+1. Once you have ArchiveBox, run this in a new empty folder to get started
 ```bash
-apt/brew/pip3/etc install archivebox
-
-archivebox init --setup               # run this in an empty folder
-archivebox add 'https://example.com'  # start adding URLs to archive
-curl https://example.com/rss.xml | archivebox add  # or add via stdin
-archivebox schedule --every=day https://example.com/rss.xml
+archivebox init --setup          # this creates a new collection
 ```
 
-For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, [and more...](#output-formats).
+2. Then add some URLs you want to archive
+```bash
+archivebox add 'https://example.com'                         # one at a time
+curl https://example.com/rss.xml | archivebox add            # piped via stdin
+archivebox schedule --every=day https://example.com/rss.xml  # frequent imports
+```
+
+<small>For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, .</small>
+
+3. Then view your archive collection
 
 ```bash
 archivebox server 0.0.0.0:8000         # use the interactive web UI
@@ -51,9 +62,7 @@ archivebox list 'https://example.com'  # use the CLI commands (--help for more)
 ls ./archive/*/index.json              # or browse directly via the filesystem
 ```
 
-You can then manage your snapshots via the [filesystem](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#disk-layout), [CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [Web UI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [SQLite DB](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models.py) (`./index.sqlite3`), [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha).
-
-At the end of the day, the goal is to sleep soundly knowing that the part of the internet you care about will be automatically preserved in multiple, durable long-term formats that will be accessible for decades (or longer).
+**⤵️ See the [Quickstart](#Quickstart) below for more...**
 
 <div align="center">
 <br/><br/>
@@ -63,8 +72,12 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 <br/>
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/><br/>
+<img src="https://i.imgur.com/njxgSbl.png" width="22%" alt="cli init screenshot" align="top">
+<img src="https://i.imgur.com/lUuicew.png" width="22%" alt="cli init screenshot" align="top">
+<img src="https://i.imgur.com/p6wK6KM.png" width="22%" alt="server snapshot admin screenshot" align="top">
+<img src="https://i.imgur.com/xHvQfon.png" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
+<br/>
 </div>
-
 
 ## Key Features
 
@@ -79,18 +92,12 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 - Planned: support for archiving [content requiring a login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (working, but ill-advised until some pending fixes are released)
 - Planned: support for running [JS scripts during archiving](https://github.com/ArchiveBox/ArchiveBox/issues/51), e.g. adblock, [autoscroll](https://github.com/ArchiveBox/ArchiveBox/issues/80), [modal-hiding](https://github.com/ArchiveBox/ArchiveBox/issues/175), [thread-expander](https://github.com/ArchiveBox/ArchiveBox/issues/345), etc.
 
-<br/>
+<br/><br/>
 
 <div align="center">
-<img src="https://i.imgur.com/njxgSbl.png" width="22%" alt="cli init screenshot" align="top">
-<img src="https://i.imgur.com/lUuicew.png" width="22%" alt="cli init screenshot" align="top">
-<img src="https://i.imgur.com/p6wK6KM.png" width="22%" alt="server snapshot admin screenshot" align="top">
-<img src="https://i.imgur.com/xHvQfon.png" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
-<br/>
 <br/>
 <img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/><img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/>
 </div>
-
 
 ### Quickstart
 
@@ -106,7 +113,9 @@ No matter which install method you choose, they all roughly follow this 3-step p
 <li>View the archive: <code>archivebox server</code> or <code>archivebox list ...</code>, <code>ls ./archive/*/index.html</code></li>
 </ol></small>
 
-#### ⚡️&nbsp; Install
+<br/>
+
+#### ⬇️&nbsp; Install
 
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
 
@@ -275,7 +284,6 @@ archivebox help  # to see more options
 
 </details>
 
-<br/>
 
 #### ⚡️&nbsp; CLI Usage
 
@@ -291,16 +299,17 @@ archivebox help
 - `archivebox oneshot` archive single URLs without starting a whole collection
 - `archivebox shell/manage dbshell` open a REPL to use the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), or SQL API
 
-#### ⚡️&nbsp; Web UI Usage
+
+#### 🖥&nbsp; Web UI Usage
 
 ```bash
+archivebox manage createsuperuser
 archivebox server 0.0.0.0:8000
 ```
 Then open http://127.0.0.1:8000 to view the UI.
 
 ```bash
-# optionally lock down the Web UI to require logging in with an admin account
-archivebox manage createsuperuser
+# you can also configure whether or not login is required for most features
 archivebox config --set PUBLIC_INDEX=False
 archivebox config --set PUBLIC_SNAPSHOTS=False
 archivebox config --set PUBLIC_ADD_VIEW=False
