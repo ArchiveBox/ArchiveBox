@@ -38,27 +38,37 @@ It saves snapshots of the URLs you feed it as HTML, PDF, PNG screenshots, WARC, 
 
 At the end of the day, the goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved on your own machine. By saving sites in multiple, durable, long-term formats it ensures that content will be accessible and sharable for many decades to come without needing ArchiveBox or other specialized software to access it.
 
+<div align="center">
+<br/><br/>
+<img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://i.imgur.com/asPNk8n.png" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic">
+<br/><br/>
+<small><a href="https://demo.archivebox.io">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></small>
+<br/>
+<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
+<br/><br/>
+</div>
+
 <br/>
 
-**🔢&nbsp; First, get ArchiveBox using [Docker Compose (recommended)](#Quickstart), or Docker, Apt, Brew, Pip (see below for [instructions for each OS](#Quickstart)).**
+**📦&nbsp; First, get ArchiveBox using [Docker Compose (recommended)](#Quickstart), or Docker, Apt, Brew, Pip (see below for [instructions for each OS](#Quickstart)).**
 
-*No matter which install method you choose, they all roughly follow this 3-step process and all provide the same CLI, Web UI, and on-disk data format.*
+*No matter which install method you choose, they all roughly follow this process and all provide the same CLI, Web UI, and data folder layout.*
 
 1. Once you have ArchiveBox, run this in a new empty folder to get started
 ```bash
-archivebox init --setup          # this creates a new collection
+archivebox init --setup          # create a new collection in the current directory
 ```
 
-2. Then add some URLs you want to archive
+2. Add some URLs you want to archive
 ```bash
-archivebox add 'https://example.com'                         # one at a time
-curl https://example.com/rss.xml | archivebox add            # piped via stdin
-archivebox schedule --every=day https://example.com/rss.xml  # frequent imports
+archivebox add 'https://example.com'                                     # add URLs one at a time via args or piped stdin
+
+archivebox schedule --every=day --depth=1 https://example.com/rss.xml    # or pull in URLs on a schedule
 ```
 
-<small>For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, any git repositories, images, audio, video, subtitles, article text, .</small>
+<sup>For each URL added, ArchiveBox saves several types of HTML snapshot (wget, Chrome headless, singlefile), a PDF, a screenshot, a WARC archive, git repositories, images, audio, video, subtitles, article text, and more.</sup>
 
-3. Then view your archive collection
+3. Then view your archived pages
 
 ```bash
 archivebox server 0.0.0.0:8000         # use the interactive web UI
@@ -69,12 +79,6 @@ ls ./archive/*/index.json              # or browse directly via the filesystem
 **⤵️ See the [Quickstart](#Quickstart) below for more...**
 
 <div align="center">
-<br/><br/>
-<img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://i.imgur.com/asPNk8n.png" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic">
-<br/><br/>
-<small><a href="https://demo.archivebox.io">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></small>
-<br/>
-<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/><br/>
 <img src="https://i.imgur.com/njxgSbl.png" width="22%" alt="cli init screenshot" align="top">
 <img src="https://i.imgur.com/lUuicew.png" width="22%" alt="cli init screenshot" align="top">
@@ -105,8 +109,7 @@ ls ./archive/*/index.json              # or browse directly via the filesystem
 
 ### Quickstart
 
-**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (w/ Docker or WSL/WSL2)  &nbsp; &nbsp; **🎮&nbsp; CPU Architectures:** x86, amd64, arm7, arm8 (raspi >=3)
-**📦&nbsp; Distributions:** `docker`/`apt`/`brew`/`pip3`
+**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (w/ Docker, WSL/WSL2)  &nbsp; &nbsp; **🎮&nbsp; CPU Architectures:** x86, amd64, arm7, arm8 (raspi >=3)
 
 <br/>
 
