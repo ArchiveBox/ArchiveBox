@@ -59,6 +59,10 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 <br/><br/>
 <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://i.imgur.com/asPNk8n.png" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic">
 <br/><br/>
+<sup><a href="https://demo.archivebox.io">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
+<br/>
+<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
+<br/><br/>
 </div>
 
 
@@ -77,13 +81,7 @@ At the end of the day, the goal is to sleep soundly knowing that the part of the
 
 <br/>
 
-
 <div align="center">
-<br/>
-<sup><a href="https://demo.archivebox.io">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></sup>
-<br/>
-<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
-<br/><br/>
 <img src="https://i.imgur.com/njxgSbl.png" width="22%" alt="cli init screenshot" align="top">
 <img src="https://i.imgur.com/lUuicew.png" width="22%" alt="cli init screenshot" align="top">
 <img src="https://i.imgur.com/p6wK6KM.png" width="22%" alt="server snapshot admin screenshot" align="top">
@@ -107,6 +105,8 @@ No matter which install method you choose, they all roughly follow this 3-step p
 <li>Start archiving: <code>archivebox add 'https://example.com'</code></li>
 <li>View the archive: <code>archivebox server</code> or <code>archivebox list ...</code>, <code>ls ./archive/*/index.html</code></li>
 </ol></small>
+
+#### ⚡️&nbsp; Install
 
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
 
@@ -275,6 +275,8 @@ archivebox help  # to see more options
 
 </details>
 
+<br/>
+
 #### ⚡️&nbsp; CLI Usage
 
 ```bash
@@ -289,6 +291,20 @@ archivebox help
 - `archivebox oneshot` archive single URLs without starting a whole collection
 - `archivebox shell/manage dbshell` open a REPL to use the [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha), or SQL API
 
+#### ⚡️&nbsp; Web UI Usage
+
+```bash
+archivebox server 0.0.0.0:8000
+```
+Then open http://127.0.0.1:8000 to view the UI.
+
+```bash
+# optionally lock down the Web UI to require logging in with an admin account
+archivebox manage createsuperuser
+archivebox config --set PUBLIC_INDEX=False
+archivebox config --set PUBLIC_SNAPSHOTS=False
+archivebox config --set PUBLIC_ADD_VIEW=False
+```
 
 <br/>
 <div align="center">
@@ -305,7 +321,7 @@ archivebox help
 <br/>
 </div>
 
-
+<br/>
 
 ---
 
@@ -354,6 +370,8 @@ See the [Usage: CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usa
 
 It also includes a built-in scheduled import feature with `archivebox schedule` and browser bookmarklet, so you can pull in URLs from RSS feeds, websites, or the filesystem regularly/on-demand.
 
+<br/>
+
 ## Output formats
 
 All of ArchiveBox's state (including the index, snapshot data, and config file) is stored in a single folder called the "ArchiveBox data folder". All `archivebox` CLI commands must be run from inside this folder, and you first create it by running `archivebox init`.
@@ -395,6 +413,8 @@ archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
 archivebox config --set YOUTUBEDL_ARGS='--max-filesize=500m'
 archivebox config --help
 ```
+
+<br/>
 
 ---
 
