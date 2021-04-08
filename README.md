@@ -314,7 +314,7 @@ archivebox config --set PUBLIC_ADD_VIEW=False
 #### 🗄&nbsp; SQL/Python/Filesystem Usage
 
 ```bash
-sqlite3 index.sqlite3      # run SQL queries on your index
+sqlite3 ./index.sqlite3    # run SQL queries on your index
 archivebox shell           # explore the Python API in a REPL
 ls ./archive/*/index.html  # or inspect snapshots on the filesystem
 ```
