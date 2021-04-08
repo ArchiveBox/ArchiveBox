@@ -737,13 +737,13 @@ archivebox manage dbshell
 
 ### ArchiveBox Resources
 
-- Main site: https://archivebox.io (hosted by Github Pages)
+- Main site: https://archivebox.io (via Github Pages)
 - Demo site: https://demo.archivebox.io (hosted by Monadical.com)
-- Docs site: https://docs.archivebox.io (hosted by ReadTheDocs.org)
-- Docs wiki: https://github.com/ArchiveBox/ArchiveBox/wiki (hosted by Github)
-- Releases: https://releases.archivebox.io (hosted by ReleasePage.co)
-- Issues: https://github.com/ArchiveBox/ArchiveBox/issues
-- Forum: https://github.com/ArchiveBox/ArchiveBox/discussions
+- Docs site: https://docs.archivebox.io (via ReadTheDocs.org)
+- Docs wiki: https://wiki.archivebox.io (via Github Wiki)
+- Issues: https://issues.archivebox.io (via Github Issues)
+- Forum: https://forum.archivebox.io (via Github Discussions)
+- Releases: https://releases.archivebox.io (via ReleasePage.co)
 - Donations: https://github.com/sponsors/pirate
 
 ---
