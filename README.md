@@ -266,7 +266,7 @@ archivebox help  # to see more options
 No matter which install method you choose, they all roughly follow this 3-step process and all provide the same CLI, Web UI, and on-disk data format.
 
 <small><ol>
-<li>Install ArchiveBox: <code>apt/brew/pip3 install archivebox</code></li>
+<li>Install ArchiveBox: <code>apt/brew/pip3/etc install archivebox</code></li>
 <li>Start a collection: <code>archivebox init</code></li>
 <li>Start archiving: <code>archivebox add 'https://example.com'</code></li>
 <li>View the archive: <code>archivebox server</code> or <code>archivebox list ...</code>, <code>ls ./archive/*/index.html</code></li>
@@ -326,6 +326,8 @@ echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox a
 # (if using docker-compose add -T when passing via stdin)
 echo 'https://example.com' | docker-compose run -T archivebox add
 ```
+
+*Click these links for instructions on how to propare your links from these sources:*
 
 - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> TXT, RSS, XML, JSON, CSV, SQL, HTML, Markdown, or [any other text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)
 - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> [Browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (see instructions for: [Chrome](https://support.google.com/chrome/answer/96816?hl=en), [Firefox](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari](http://i.imgur.com/AtcvUZA.png), [IE](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows), [Opera](http://help.opera.com/Windows/12.10/en/importexport.html), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive))
@@ -391,9 +393,9 @@ archivebox config --help
 
 You don't need to install all the dependencies, ArchiveBox will automatically enable the relevant modules based on whatever you have available, but it's recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker) with everything preinstalled.
 
-If you so choose, you can also install ArchiveBox and its dependencies directly on any Linux or macOS systems using the [system package manager](https://github.com/ArchiveBox/ArchiveBox/wiki/Install) or by running the [automated setup script](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart).
+If you so choose, you can also install ArchiveBox and its dependencies directly on any Linux or macOS systems using the [system package manager](https://github.com/ArchiveBox/ArchiveBox/wiki/Install) and the `archivebox setup` command.
 
-ArchiveBox is written in Python 3 so it requires `python3` and `pip3` available on your system. It also uses a set of optional, but highly recommended external dependencies for archiving sites: `wget` (for plain HTML, static files, and WARC saving), `chromium` (for screenshots, PDFs, JS execution, and more), `youtube-dl` (for audio and video), `git` (for cloning git repos), and `nodejs` (for readability and singlefile), and more.
+ArchiveBox is written in Python 3 so it requires `python3` and `pip3` available on your system. It also uses a set of optional, but highly recommended external dependencies for archiving sites: `wget` (for plain HTML, static files, and WARC saving), `chromium` (for screenshots, PDFs, JS execution, and more), `youtube-dl` (for audio and video), `git` (for cloning git repos), and `nodejs` (for readability, mercury, and singlefile), and more.
 
 <br/>
 
@@ -404,6 +406,8 @@ ArchiveBox is written in Python 3 so it requires `python3` and `pip3` available 
 </div>
 
 ## Caveats
+
+#### Archiving Private URLs
 
 If you're importing URLs containing secret slugs or pages with private content (e.g Google Docs, CodiMD notepads, etc), you may want to disable some of the extractor modules to avoid leaking private URLs to 3rd party APIs during the archiving process.
 
@@ -418,6 +422,8 @@ archivebox config --set SAVE_FAVICON=False      # optional: only the domain is l
 archivebox config --set CHROME_BINARY=chromium  # optional: switch to chromium to avoid Chrome phoning home to Google
 ```
 
+#### Security Risks of Viewing Archived JS
+
 Be aware that malicious archived JS can also read the contents of other pages in your archive due to snapshot CSRF and XSS protections being imperfect. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page for more details.
 
 ```bash
@@ -430,6 +436,8 @@ https://127.0.0.1:8000/archive/*
 # then example.com/index.js can send it off to some evil server
 ```
 
+#### Saving Multiple Snapshots of a Single URL
+
 Support for saving multiple snapshots of each site over time will be [added soon](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now ArchiveBox is designed to only archive each URL with each extractor type once. A workaround to take multiple snapshots of the same URL is to make them slightly different by adding a hash:
 
 ```bash
@@ -437,6 +445,14 @@ archivebox add 'https://example.com#2020-10-24'
 ...
 archivebox add 'https://example.com#2020-10-25'
 ```
+
+#### Storage Requirements
+
+Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today. However, as storage space gets cheaper and compression improves, you should be able to use it continuously over the years without having to delete anything.
+
+ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
+
+Storage requirements can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need.
 
 <br/>
 
@@ -494,42 +510,49 @@ archivebox add 'https://example.com#2020-10-25'
 
 # Background & Motivation
 
+The aim of ArchiveBox is to enable more of the internet to be archived by empowering people to self-host their own archives. The intent is for all the web content you care about to be viewable with common software in 50 - 100 years without needing to run ArchiveBox or other specialized software to replay it.
+
 Vast treasure troves of knowledge are lost every day on the internet to link rot. As a society, we have an imperative to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
 
-Whether it's to resist censorship by saving articles before they get taken down or edited, or
-just to save a collection of early 2010's flash games you love to play, having the tools to
-archive internet content enables to you save the stuff you care most about before it disappears.
+Whether it's to resist censorship by saving articles before they get taken down or edited, or just to save a collection of early 2010's flash games you love to play, having the tools to archive internet content enables to you save the stuff you care most about before it disappears.
 
 <div align="center">
-<img src="https://i.imgur.com/bC6eZcV.png" width="50%"/><br/>
+<img src="https://i.imgur.com/bC6eZcV.png" width="40%"/><br/>
  <sup><i>Image from <a href="https://digiday.com/media/wtf-link-rot/">WTF is Link Rot?</a>...</i><br/></sup>
 </div>
 
-The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful.
-I don't think everything should be preserved in an automated fashion, making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
+The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful. I don't think everything should be preserved in an automated fashion--making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
 
 Because modern websites are complicated and often rely on dynamic content,
-ArchiveBox archives the sites in **several different formats** beyond what public archiving services like Archive.org and Archive.is are capable of saving. Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats.
-
-All the archived links are stored by date bookmarked in `./archive/<timestamp>`, and everything is indexed nicely with JSON & HTML files. The intent is for all the content to be viewable with common software in 50 - 100 years without needing to run ArchiveBox in a VM.
+ArchiveBox archives the sites in **several different formats** beyond what public archiving services like Archive.org and Archive.is save. Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats. All the archived links are stored by date bookmarked in `./archive/<timestamp>`, and everything is indexed nicely with SQLite3, JSON, and HTML files. 
 
 ## Comparison to Other Projects
 
 ▶ **Check out our [community page](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for an index of web archiving initiatives and projects.**
 
-<img src="https://i.imgur.com/4nkFjdv.png" width="10%" align="left" alt="comparison"/> The aim of ArchiveBox is to go beyond what the Wayback Machine and other public archiving services can do, by adding a headless browser to replay sessions accurately, and by automatically extracting all the content in multiple redundant formats that will survive being passed down to historians and archivists through many generations.
+<img src="https://i.imgur.com/4nkFjdv.png" width="10%" align="left" alt="comparison"/> 
 
-#### User Interface & Intended Purpose
+A variety of open and closed-source archiving projects exist, but few provide a nice UI and CLI to manage a large, high-fidelity archive collection over time.
 
-ArchiveBox differentiates itself from [similar projects](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by being a simple, one-shot CLI interface for users to ingest bulk feeds of URLs over extended periods, as opposed to being a backend service that ingests individual, manually-submitted URLs from a web UI. However, we also have the option to add urls via a web interface through our Django frontend.
+ArchiveBox tries to be a robust, set-and-forget archiving solution suitable for archiving RSS feeds, bookmarks, or your entire browsing history (beware, it may be too big to store), ~~including private/authenticated content that you wouldn't otherwise share with a centralized service~~ (this is not recommended due to JS replay security concerns).
 
 #### Private Local Archives vs Centralized Public Archives
 
-Unlike crawler software that starts from a seed URL and works outwards, or public tools like Archive.org designed for users to manually submit links from the public internet, ArchiveBox tries to be a set-and-forget archiver suitable for archiving your entire browsing history, RSS feeds, or bookmarks, ~~including private/authenticated content that you wouldn't otherwise share with a centralized service~~ (do not do this until v0.5 is released with some security fixes). Also by having each user store their own content locally, we can save much larger portions of everyone's browsing history than a shared centralized service would be able to handle.
+Not all content is suitable to be archived in a centralized collection, wehther because it's private, copyrighted, too large, or too complex. ArchiveBox hopes to fill that gap.
 
-#### Storage Requirements
+By having each user store their own content locally, we can save much larger portions of everyone's browsing history than a shared centralized service would be able to handle. The eventual goal is to work towards federated archiving where users can share portions of their collections with each other.
 
-Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today. However, as storage space gets cheaper and compression improves, you should be able to use it continuously over the years without having to delete anything. In my experience, ArchiveBox uses about 5gb per 1000 articles, but your milage may vary depending on which options you have enabled and what types of sites you're archiving. By default, it archives everything in as many formats as possible, meaning it takes more space than a using a single method, but more content is accurately replayable over extended periods of time. Storage requirements can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by setting `SAVE_MEDIA=False` to skip audio & video files.
+#### Compared to Other Self-Hosted Archiving Options
+
+ArchiveBox differentiates itself from [similar self-hosted projects](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by providing both a comprehensive CLI interface for managing your archive, a Web UI that can be used either indepenently or together with the CLI, and a simple on-disk data format that can be used without either.
+
+ArchiveBox is neither the highest fidelity, nor the simplest tool available for self-hosted archiving, rather it's a jack-of-all-trades that tries to do most things well by default. It can be as simple or advanced as you want, and is designed to do everything out-of-the-box but be tuned to suit your needs.
+
+*If being able to archive very complex interactive pages with JS and video is paramount, check out ArchiveWeb.page and ReplayWeb.page.*
+
+*If you prefer a simpler, leaner solution that archives page text in markdown and provides note-taking abilities, check out Archivy or 22120.*
+
+For more alternatives, see our [list here](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects)...
 
 <div align="center">
 <br/>
