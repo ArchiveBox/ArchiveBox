@@ -116,7 +116,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
 
 <details>
-<summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (recommended, w/ everything out-of-the-box)</summary>
+<summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (highly recommended)</summary>
 
 <i>First make sure you have Docker installed: https://docs.docker.com/get-docker/</i>
 
