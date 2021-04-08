@@ -157,7 +157,10 @@ class TimedProgress:
                 # kill the progress bar subprocess
                 try:
                     self.p.close()   # must be closed *before* its terminnated
-                except BaseException:
+                except (KeyboardInterrupt, SystemExit):
+                    print()
+                    raise
+                except BaseException:                                           # lgtm [py/catch-base-exception]
                     pass
                 self.p.terminate()
                 self.p.join()
