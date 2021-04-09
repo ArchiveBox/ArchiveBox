@@ -68,7 +68,6 @@ archivebox schedule --every=day --depth=1 https://example.com/rss.xml    # or ha
 ```
 
 3. Then view your archived pages
-
 ```bash
 archivebox server 0.0.0.0:8000            # use the interactive web UI
 archivebox list 'https://example.com'     # use the CLI commands (--help for more)
@@ -359,17 +358,16 @@ ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exp
 
 ```bash
 # archivebox add --help
-echo 'http://example.com' | archivebox add
 archivebox add 'https://example.com/some/page'
 archivebox add < ~/Downloads/firefox_bookmarks_export.html
-archivebox add < any_text_with_urls_in_it.txt
-archivebox add --depth=1 'https://example.com/some/downloads.html'
 archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
+echo 'http://example.com' | archivebox add
+echo 'any_text_with [urls](https://example.com) in it' | archivebox add
 
-# (if using docker add -i when passing via stdin)
+# (if using docker add -i when piping stdin)
 echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox add
 
-# (if using docker-compose add -T when passing via stdin)
+# (if using docker-compose add -T when piping stdin / stdout)
 echo 'https://example.com' | docker-compose run -T archivebox add
 ```
 
@@ -386,7 +384,6 @@ All of ArchiveBox's state (including the index, snapshot data, and config file) 
 The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard `index.sqlite3` database in the root of the data folder (it can also be exported as static JSON/HTML), and the archive snapshots are organized by date-added timestamp in the `./archive/` subfolder.
 
 ```bash
-tree .
 ./
     index.sqlite3
     ArchiveBox.conf
@@ -410,7 +407,7 @@ Each snapshot subfolder `./archive/<timestamp>/` includes a static `index.json` 
 
 Inside each Snapshot folder, ArchiveBox save these different types of extractor outputs as plain files:
 
-`./archive/<snapshot timestamp>/<output type>`
+`./archive/<timestamp>/*`
 
 - **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
 - **Title**, **Favicon**, **Headers** Response headers, site favicon, and parsed site title
@@ -430,7 +427,7 @@ It does everything out-of-the-box by default, but you can disable or tweak [indi
 
 ```bash
 # archivebox config --help
-archivebox config    # see all currently configured options
+archivebox config # see all currently configured options
 archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
 archivebox config --set YOUTUBEDL_ARGS='--max-filesize=500m'
 ```
@@ -446,12 +443,12 @@ You can export the main index to browse it statically without the Web UI.
 ```bash|
 # archivebox list --help
 
-archivebox list --html --with-headers > index.html  # export to static html table
-archivebox list --json --with-headers > index.json  # export to static json blob
-archivebox list --csv --with-headers > index.csv  # export to static csv table
+archivebox list --html --with-headers > index.html     # export to static html table
+archivebox list --json --with-headers > index.json     # export to json blob
+archivebox list --csv=timestamp,url,title > index.csv  # export to csv spreadsheet
 
 # (if using docker-compose, add the -T flag when piping)
-docker-compose run -T archivebox list --csv > index.csv
+docker-compose run -T archivebox list --json > index.json
 ```
 
 The paths in the static exports are relative, make sure to keep them next to your `./archive` folder when backing them up or viewing them.
@@ -475,7 +472,7 @@ You don't need to install every dependency to use ArchiveBox. ArchiveBox will au
 
 For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything preinstalled for the best experience.
 
-However, if you prefer not using Docker, you *can* install ArchiveBox and its dependencies using your [system package manager](https://github.com/ArchiveBox/ArchiveBox/wiki/Install) or `pip` directly on any Linux/macOS system.
+However, if you prefer not using Docker, you *can* install ArchiveBox and its dependencies using your [system package manager](https://github.com/ArchiveBox/ArchiveBox/wiki/Install) or `pip` directly on any Linux/macOS system. Just make sure to keep the dependencies up-to-date and check that ArchiveBox isn't reporting any incompatibility with the versions you install.
 
 ```bash
 # install python3 and archivebox with your system package manager
@@ -930,6 +927,6 @@ This project is maintained mostly in <a href="https://nicksweeting.com/blog#Abou
 
 <br/>
 
-[![](https://api.releasepage.co/v1/pages/23bfec45-7105-4fd1-9f87-806ae7ff56bb/badge.svg?apiKey=live.clBJeKsXJ6gsidbO)](http://releases.archivebox.io)
+<a href="https://releases.archivebox.io"><img src="https://api.releasepage.co/v1/pages/23bfec45-7105-4fd1-9f87-806ae7ff56bb/badge.svg?apiKey=live.clBJeKsXJ6gsidbO"/></a>
 
 </div>
