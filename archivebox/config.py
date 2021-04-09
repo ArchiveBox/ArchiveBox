@@ -499,10 +499,6 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
     try:
         # validate the config by attempting to re-parse it
         CONFIG = load_all_config()
-        return {
-            key.upper(): CONFIG.get(key.upper())
-            for key in config.keys()
-        }
     except BaseException:                                                       # lgtm [py/catch-base-exception]
         # something went horribly wrong, rever to the previous version
         with open(f'{config_path}.bak', 'r', encoding='utf-8') as old:
@@ -512,8 +508,11 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
 
     if Path(f'{config_path}.bak').exists():
         os.remove(f'{config_path}.bak')
-
-    return {}
+    
+    return {
+        key.upper(): CONFIG.get(key.upper())
+        for key in config.keys()
+    }
 
    
 
