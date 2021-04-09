@@ -157,6 +157,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         # SONIC
         'SONIC_COLLECTION':         {'type': str,   'default': 'archivebox'},
         'SONIC_BUCKET':             {'type': str,   'default': 'snapshots'},
+        'SEARCH_BACKEND_TIMEOUT':   {'type': int,   'default': 90},
     },
 
     'DEPENDENCY_CONFIG': {
