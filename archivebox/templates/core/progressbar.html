@@ -1,0 +1,45 @@
+<style>
+  /* Loading Progress Bar */
+    #progress {
+        position: absolute;
+        z-index: 1000;
+        top: 0px;
+        left: -6px;
+        width: 2%;
+        opacity: 1;
+        height: 2px;
+        background: #1a1a1a;
+        border-radius: 1px;
+        transition: width 4s ease-out, opacity 400ms linear;
+    }
+
+    @-moz-keyframes bugfix { from { padding-right: 1px ; } to { padding-right: 0; } }
+</style>
+<script>
+    // Page Loading Bar
+    window.loadStart = function(distance) {
+        var distance = distance || 0;
+        // only add progrstess bar if not already present
+        if (django.jQuery("#loading-bar").length == 0) {
+            django.jQuery("body").add("<div id=\"loading-bar\"></div>");
+        }
+        if (django.jQuery("#progress").length === 0) {
+            django.jQuery("body").append(django.jQuery("<div></div>").attr("id", "progress"));
+            let last_distance = (distance || (30 + (Math.random() * 30)))
+            django.jQuery("#progress").width(last_distance + "%");
+            setInterval(function() {
+                last_distance += Math.random()
+                django.jQuery("#progress").width(last_distance + "%");
+            }, 1000)
+        }
+    };
+
+    window.loadFinish = function() {
+        django.jQuery("#progress").width("101%").delay(200).fadeOut(400, function() {
+            django.jQuery(this).remove();
+        });
+    };
+    window.loadStart();
+    window.addEventListener('beforeunload', function() {window.loadStart(27)});
+    document.addEventListener('DOMContentLoaded', function() {window.loadFinish()});
+</script>

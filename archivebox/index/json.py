@@ -5,7 +5,7 @@ import sys
 import json as pyjson
 from pathlib import Path
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Iterator, Any, Union
 
 from .schema import Link
@@ -44,7 +44,7 @@ def generate_json_index_from_links(links: List[Link], with_headers: bool):
         output = {
             **MAIN_INDEX_HEADER,
             'num_links': len(links),
-            'updated': datetime.now(),
+            'updated': datetime.now(timezone.utc),
             'last_run_cmd': sys.argv,
             'links': links,
         }

@@ -4,228 +4,228 @@
 
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
-<head>
-<title>{% block title %}{% endblock %} | ArchiveBox</title>
-<link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
-{% block extrastyle %}{% endblock %}
-{% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}">{% endif %}
-{% block extrahead %}{% endblock %}
-{% block responsive %}
-    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <link rel="stylesheet" type="text/css" href="{% static "admin/css/responsive.css" %}">
-    {% if LANGUAGE_BIDI %}<link rel="stylesheet" type="text/css" href="{% static "admin/css/responsive_rtl.css" %}">{% endif %}
-{% endblock %}
-{% block blockbots %}<meta name="robots" content="NONE,NOARCHIVE">{% endblock %}
-<link rel="stylesheet" type="text/css" href="{% static "admin.css" %}">
-</head>
-{% load i18n %}
-
-<body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}"
-  data-admin-utc-offset="{% now "Z" %}">
-
-  <style>
-      /* Loading Progress Bar */
-        #progress {
-            position: absolute;
-            z-index: 1000;
-            top: 0px;
-            left: -6px;
-            width: 2%;
-            opacity: 1;
-            height: 2px;
-            background: #1a1a1a;
-            border-radius: 1px;
-            transition: width 4s ease-out, opacity 400ms linear;
-        }
-  
-        @-moz-keyframes bugfix { from { padding-right: 1px ; } to { padding-right: 0; } }
-  </style>
-
-  <script>
-        // Page Loading Bar
-        window.loadStart = function(distance) {
-            var distance = distance || 0;
-            // only add progrstess bar if not already present
-            if (django.jQuery("#loading-bar").length == 0) {
-                django.jQuery("body").add("<div id=\"loading-bar\"></div>");
-            }
-            if (django.jQuery("#progress").length === 0) {
-                django.jQuery("body").append(django.jQuery("<div></div>").attr("id", "progress"));
-                let last_distance = (distance || (30 + (Math.random() * 30)))
-                django.jQuery("#progress").width(last_distance + "%");
-                setInterval(function() {
-                    last_distance += Math.random()
-                    django.jQuery("#progress").width(last_distance + "%");
-                }, 1000)
-            }
-        };
-  
-        window.loadFinish = function() {
-            django.jQuery("#progress").width("101%").delay(200).fadeOut(400, function() {
-                django.jQuery(this).remove();
-            });
-        };
-        window.loadStart();
-        window.addEventListener('beforeunload', function() {window.loadStart(27)});
-        document.addEventListener('DOMContentLoaded', function() {window.loadFinish()});
-  </script>
-
-
-<!-- Container -->
-<div id="container">
-
-    {% if not is_popup %}
-    <!-- Header -->
-    <div id="header">
-        <div id="branding">
-            <h1 id="site-name">
-                <a href="{% url 'Home' %}">
-                    <img src="{% static 'archive.png' %}" id="logo">
-                    ArchiveBox
-                </a>
-                &nbsp; &nbsp;
-                <small style="display: inline-block;margin-top: 2px;font-size: 18px;opacity: 0.8;">
-                    <a><span id="snapshotListView" style="cursor: pointer">☰</span></a> | 
-                    <a><span id="snapshotGridView"style="letter-spacing: -.4em; cursor: pointer;">⣿⣿</span></a> 
-                </small>
-            </h1>
-        </div>
-        {% block usertools %}
-        {% if has_permission %}
-            {% include 'navigation.html' %}
+    <head>
+        <title>{% block title %}Home{% endblock %} | ArchiveBox</title>
+        
+        {% block blockbots %}
+            <meta name="robots" content="NONE,NOARCHIVE">
+        {% endblock %}
+        
+        <link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
+        {% block extrastyle %}{% endblock %}
+        
+        {% if LANGUAGE_BIDI %}
+            <link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}">
         {% endif %}
+        
+        {% block responsive %}
+            <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0">
+            <link rel="stylesheet" type="text/css" href="{% static "admin/css/responsive.css" %}">
+            {% if LANGUAGE_BIDI %}
+                <link rel="stylesheet" type="text/css" href="{% static "admin/css/responsive_rtl.css" %}">
+            {% endif %}
         {% endblock %}
-        {% block nav-global %}{% endblock %}
-    </div>
-        <!-- END Header -->
-        {% block breadcrumbs %}
-        <div class="breadcrumbs">
-        <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
-        {% if title %} &rsaquo; {{ title }}{% endif %}
+        
+        <link rel="stylesheet" type="text/css" href="{% static "admin.css" %}">
+        
+        <script>
+            function selectSnapshotListView(e) {
+                e && e.stopPropagation()
+                e && e.preventDefault()
+                console.log('Switching to Snapshot list view...')
+                localStorage.setItem('preferred_snapshot_view_mode', 'list')
+                window.location = "{% url 'admin:core_snapshot_changelist' %}" + document.location.search
+                return false
+            }
+            function selectSnapshotGridView(e) {
+                e && e.stopPropagation()
+                e && e.preventDefault()
+                console.log('Switching to Snapshot grid view...')
+                localStorage.setItem('preferred_snapshot_view_mode', 'grid')
+                window.location = "{% url 'admin:grid' %}" + document.location.search
+                return false
+            }
+
+            const preferred_view = localStorage.getItem('preferred_snapshot_view_mode') || 'unset'
+            const current_view = (
+                window.location.pathname === "{% url 'admin:core_snapshot_changelist' %}"
+                    ? 'list'
+                    : 'grid')
+            console.log('Preferred snapshot view is:', preferred_view, 'Current view mode is:', current_view)
+            
+            if (preferred_view === 'grid' && current_view !== 'grid') {  
+                selectSnapshotGridView()
+            }
+        </script>
+
+        {% block extrahead %}{% endblock %}
+    </head>
+
+
+    <body class="{% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %}" data-admin-utc-offset="{% now "Z" %}">
+        {% include 'progressbar.html' %}
+
+        <div id="container">
+            {% if not is_popup %}
+                <div id="header">
+                    <div id="branding">
+                        <h1 id="site-name">
+                            <a href="{% url 'Home' %}">
+                                <img src="{% static 'archive.png' %}" id="logo">
+                                ArchiveBox
+                            </a>
+                        </h1>
+                    </div>
+                    {% block usertools %}
+                        {% if has_permission %}
+                            {% include 'navigation.html' %}
+                        {% endif %}
+                    {% endblock %}
+                    {% block nav-global %}{% endblock %}
+                </div>
+
+                {% block breadcrumbs %}
+                    <div class="breadcrumbs">
+                        <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+                        {% if title %} &rsaquo; {{ title }}{% endif %}
+                    </div>
+                {% endblock %}
+            {% endif %}
+
+            {% block messages %}
+                {% if messages %}
+                    <ul class="messagelist">
+                        {% for message in messages %}
+                            <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message|capfirst }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endblock messages %}
+
+            <div id="content" class="{% block coltype %}colM{% endblock %}">
+                {% if opts.model_name == 'snapshot' and cl %}
+                    <small id="snapshot-view-mode">
+                        <a href="#list" title="List view" id="snapshot-view-list">☰</a> | 
+                        <a href="#grid" title="Grid view" id="snapshot-view-grid" style="letter-spacing: -.4em;">⣿⣿</a> 
+                    </small>
+                {% endif %}
+                {% block pretitle %}{% endblock %}
+                {% block content_title %}{# {% if title %}<h1>{{ title }}</h1>{% endif %} #}{% endblock %}
+                {% block content %}
+                    {% block object-tools %}{% endblock %}
+                    {{ content }}
+                {% endblock %}
+                {% block sidebar %}{% endblock %}
+                <br class="clear">
+            </div>
+
+            {% block footer %}<div id="footer"></div>{% endblock %}
         </div>
-        {% endblock %}
-    {% endif %}
 
-    {% block messages %}
-        {% if messages %}
-        <ul class="messagelist">{% for message in messages %}
-          <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message|capfirst }}</li>
-        {% endfor %}</ul>
-        {% endif %}
-    {% endblock messages %}
+        <script>
+            $ = django.jQuery;
+            $.fn.reverse = [].reverse;
 
-    <!-- Content -->
-    <div id="content" class="{% block coltype %}colM{% endblock %}">
-        {% block pretitle %}{% endblock %}
-        {% block content_title %}{# {% if title %}<h1>{{ title }}</h1>{% endif %} #}{% endblock %}
-        {% block content %}
-            {% block object-tools %}{% endblock %}
-            {{ content }}
-        {% endblock %}
-        {% block sidebar %}{% endblock %}
-        <br class="clear">
-    </div>
-    <!-- END Content -->
+            // hide images that fail to load
+            document.querySelector('body').addEventListener('error', function (e) {
+                e.target.style.opacity = 0;
+            }, true)
 
-    {% block footer %}<div id="footer"></div>{% endblock %}
-</div>
-<!-- END Container -->
+            // setup timezone
+            {% get_current_timezone as TIME_ZONE %}
+            window.TIME_ZONE = '{{TIME_ZONE}}'
 
-<script>
-    (function ($) {
-        $.fn.reverse = [].reverse;
+            window.setCookie = function(name, value, days) {
+                let expires = ""
+                if (days) {
+                    const date = new Date()
+                    date.setTime(date.getTime() + (days*24*60*60*1000))
+                    expires = "; expires=" + date.toUTCString()
+                }
+                document.cookie = name + "=" + (value || "")  + expires + "; path=/"
+            }
 
-        function fix_actions() {
-            var container = $('div.actions');
+            function setTimeOffset() {
+                if (window.GMT_OFFSET) return
+                window.GMT_OFFSET = -(new Date).getTimezoneOffset()
+                window.setCookie('GMT_OFFSET', window.GMT_OFFSET, 365)
+            }
 
-            if (container.find('select[name=action] option').length < 10) {
-                container.find('label:nth-child(1), button[value=0]').hide();
+            // change the admin actions button from a dropdown to buttons across
+            function fix_actions() {
+                const container = $('div.actions')
 
-                var buttons = $('<div></div>')
-                    .appendTo(container)
+                // too many actions to turn into buttons
+                if (container.find('select[name=action] option').length >= 11) return
+
+                // hide the empty default option thats just a placeholder with no value
+                container.find('label:nth-child(1), button[value=0]').hide()
+
+                const buttons = $('<div></div>')
+                    .insertAfter('div.actions button[type=submit]')
                     .css('display', 'inline')
                     .addClass('class', 'action-buttons');
 
-                container.find('select[name=action] option:gt(0)').reverse().each(function () {
-                    const name = this.value
+                // for each action in the dropdown, turn it into a button instead
+                container.find('select[name=action] option:gt(0)').each(function () {
+                    const action_type = this.value
                     $('<button>')
-                        .appendTo(buttons)
-                        .attr('name', this.value)
                         .attr('type', 'button')
+                        .attr('name', action_type)
                         .addClass('button')
                         .text(this.text)
                         .click(function (e) {
                             e.preventDefault()
                             e.stopPropagation()
-                            container.find('select')
-                                .find(':selected').removeAttr('selected').end()
-                                .find('[value=' + name + ']').attr('selected', 'selected').click();
-                            $('#changelist-form button[name="index"]').click();
+
+                            const num_selected = document.querySelector('.action-counter').innerText.split(' ')[0]
+
+                            if (action_type === 'overwrite_snapshots') {
+                                const message = (
+                                    'Are you sure you want to re-archive (overwrite) ' + num_selected + ' Snapshots?\n\n' +
+                                    'This will delete all previously saved files from these Snapshots and re-archive them from scratch.\n\n'
+                                )
+                                if (!window.confirm(message)) return false
+                            }
+                            if (action_type === 'delete_snapshots') {
+                                const message = (
+                                    'Are you sure you want to permanently delete ' + num_selected + ' Snapshots?\n\n' +
+                                    'They will be removed from your index, and all their Snapshot content on disk will be permanently deleted.'
+                                )
+                                if (!window.confirm(message)) return false
+                            }
+
+                            // select the action button from the dropdown
+                            container.find('select[name=action]')
+                                .find('op:selected').removeAttr('selected').end()
+                                .find('[value=' + action_type + ']').attr('selected', 'selected').click()
+                            
+                            // click submit & replace the archivebox logo with a spinner
+                            $('#changelist-form button[name="index"]').click()
                             document.querySelector('#logo').outerHTML = '<div class="loader"></div>'
                             return false
-                        });
-                });
-            }
-        };
-        
-        function redirectWithQuery(uri){
-            uri_query = uri + document.location.search;
-            window.location = uri_query;
-
-        };
-
-        function selectSnapshotListView(){
-            localStorage.setItem('currentSnapshotView', 'List');
-            redirectWithQuery("{% url 'admin:core_snapshot_changelist' %}");
-        };
-
-        function selectSnapshotGridView(){
-            localStorage.setItem('currentSnapshotView', 'Grid');
-            redirectWithQuery("{% url 'admin:grid' %}");
-        };
-        
-        function setPreferredSnapshotView(view){
-            urlPath = window.location.pathname;
-
-            if((view==="Grid") && urlPath == "{% url 'admin:core_snapshot_changelist' %}"){  
-                selectSnapshotGridView();
+                        })
+                        .appendTo(buttons)
+                })
+                console.log('Converted', buttons.children().length, 'admin actions from dropdown to buttons')
             }
             
-            {% comment %} 
-                else if((view==="List") && urlPath == "{% url 'admin:grid' %}"){
-                selectSnapshotListView();
-            
-            } 
-            {% endcomment %}
-        };
+            function setupSnapshotGridListToggle() {
+                $("#snapshot-view-list").click(selectSnapshotListView)
+                $("#snapshot-view-grid").click(selectSnapshotGridView)
 
-        function setupSnapshotViews() {
-            const preferredSnapshotView = localStorage.getItem('currentSnapshotView');
-            setPreferredSnapshotView(preferredSnapshotView);
-
-            $( document ).ready(function() {
-                
-                $("#snapshotListView").click(function() {
-                    selectSnapshotListView();
-                });  
-                $("#snapshotGridView").click(function() {
-                    selectSnapshotGridView();
-                });  
-
-                $('input:checkbox').change(function(){
-                    if($(this).is(':checked')) 
-                        $(this).parent().parent().parent().parent().addClass('selected-card'); 
+                $('#changelist-form .card input:checkbox').change(function() {
+                    if ($(this).is(':checked'))
+                        $(this).parents('.card').addClass('selected-card')
                     else 
-                        $(this).parent().parent().parent().parent().removeClass('selected-card')
-                });
-
-            });
-        };
-        $(function () {
-            fix_actions();
-            setupSnapshotViews();
-        });
-    })(django.jQuery);
-</script>
-</body>
+                        $(this).parents('.card').removeClass('selected-card')
+                })
+            };
+            $(document).ready(function() {
+                fix_actions()
+                setupSnapshotGridListToggle()
+                setTimeOffset()
+            })
+        </script>
+    </body>
 </html>

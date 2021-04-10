@@ -1,3 +1,9 @@
+* {
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
 #logo {
     height: 30px;
     vertical-align: -6px;
@@ -34,6 +40,23 @@ div.breadcrumbs {
     background: #772948;
     color: #f5dd5d;
     padding: 6px 15px;
+}
+
+#toolbar #searchbar {
+    height: 25px;
+}
+
+#snapshot-view-mode {
+    float: right;
+    margin-bottom: -40px;
+    display: inline-block;
+    margin-top: 3px;
+    margin-right: 10px;
+    font-size: 14px;
+    opacity: 0.8;
+}
+#snapshot-view-mode a {
+    color: #ccc;
 }
 
 body.model-snapshot.change-list div.breadcrumbs,
@@ -92,6 +115,14 @@ body.model-snapshot.change-list #content .object-tools {
     background: none;
     margin-right: 0px;
     width: auto;
+    max-height: 40px;
+    overflow: hidden;
+    display: block;
+}
+@media (max-width: 1000px) {
+    #content #changelist .actions {
+        max-height: 200px;
+    }
 }
 
 #content #changelist .actions .button {
@@ -116,18 +147,43 @@ body.model-snapshot.change-list #content .object-tools {
     background-color:lightseagreen;
     color: #333;
 }
+#content #changelist .actions .button[name=resnapshot_snapshot] {
+    background-color: #9ee54b;
+    color: #333;
+}
 #content #changelist .actions .button[name=overwrite_snapshots] {
     background-color: #ffaa31;
     color: #333;
+    margin-left: 10px;
 }
 #content #changelist .actions .button[name=delete_snapshots] {
     background-color: #f91f74;
     color: rgb(255 248 252 / 64%);
 }
+#content #changelist .actions .button[name=add_tags] {
+}
+#content #changelist .actions .button[name=remove_tags] {
+    margin-right: 25px;
+}
 
+#content #changelist .actions .select2-selection {
+    max-height: 25px;
+}
+#content #changelist .actions .select2-container--admin-autocomplete.select2-container {
+    width: auto !important;
+    min-width: 90px;
+}
+#content #changelist .actions .select2-selection__rendered .select2-selection__choice {
+    margin-top: 3px;
+}
 
 #content #changelist-filter h2 {
     border-radius: 4px 4px 0px 0px;
+}
+
+#changelist .paginator {
+    border-top: 0px;
+    border-bottom: 0px;
 }
 
 @media (min-width: 767px) {
@@ -157,7 +213,7 @@ body.model-snapshot.change-list #content .object-tools {
 
 #content a img.favicon {
     height: 20px;
-    width: 20px;
+    max-width: 28px;
     vertical-align: -5px;
     padding-right: 6px;
 }
@@ -177,7 +233,7 @@ body.model-snapshot.change-list #content .object-tools {
 
 #content th.field-added, #content td.field-updated {
     word-break: break-word;
-    min-width: 128px;
+    min-width: 135px;
     white-space: normal;
 }
 

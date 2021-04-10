@@ -1,37 +1,44 @@
-{% load static %}
+{% load static tz core_tags %}
 
 <tr>
-    <td title="{{link.timestamp}}"> {% if link.bookmarked_date  %} {{ link.bookmarked_date }} {% else %} {{ link.added }} {% endif %} </td>
-    <td class="title-col" style="opacity: {% if link.title %}1{% else %}0.3{% endif %}">
+    <td title="Bookmarked: {{link.bookmarked_date|localtime}} ({{link.timestamp}})" data-sort="{{link.added.timestamp}}">
+        {{ link.added|localtime }}
+    </td>
+    <td class="title-col" style="opacity: {% if link.title %}1{% else %}0.3{% endif %}" title="{{link.title|default:'Not yet archived...'}}">
         {% if link.is_archived %}
-            <a href="archive/{{link.timestamp}}/index.html"><img src="archive/{{link.timestamp}}/favicon.ico" onerror="this.style.display='none'" class="link-favicon" decoding="async"></a>
+            <a href="/archive/{{link.timestamp}}/index.html"><img src="archive/{{link.timestamp}}/favicon.ico" onerror="this.style.display='none'" class="link-favicon" decoding="async"></a>
         {% else %}
-            <a href="archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="link-favicon" decoding="async" style="height: 15px"></a>
+            <a href="/archive/{{link.timestamp}}/index.html"><img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="link-favicon" decoding="async" style="height: 15px"></a>
         {% endif %}
 
-        <a href="archive/{{link.timestamp}}/index.html" title="{{link.title|default:'Not yet archived...'}}">
-            <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">{{link.title|default:'Loading...'|truncatechars:128}}</span>
+        <a href="/archive/{{link.timestamp}}/index.html" title="{{link.title|default:'Not yet archived...'}}">
+            <span data-title-for="{{link.url}}" data-archived="{{link.is_archived}}">
+                {{link.title|default:'Loading...'|truncatechars:128}}
+            </span>
             {% if link.tags_str %}
-                <span class="tags" style="float: right; border-radius: 5px; background-color: #bfdfff; padding: 2px 5px; margin-left: 4px; margin-top: 1px;">
-                    {% if link.tags_str != None %}
-                        {{link.tags_str|default:''}}
-                    {% else %}
-                        {{ link.tags|default:'' }}
-                    {% endif %}
-                </span>
+                {% for tag in link.tags_str|split:',' %}
+                    <span class="tag" style="float: right; border-radius: 5px; background-color: #bfdfff; padding: 2px 5px; margin-left: 4px; margin-top: 1px;">
+                        {{tag}}
+                    </span>
+                {% endfor %}
             {% endif %}
         </a>
     </td>
     <td>
         <span data-number-for="{{link.url}}" title="Fetching any missing files...">
             {% if link.icons  %}
-                {{link.icons}} <small style="float:right; opacity: 0.5">{{link.num_outputs}}</small>
+                {{link.icons}}&nbsp; <small style="float:right; opacity: 0.5">{{link.num_outputs}}</small>
             {% else %}
-                <a href="archive/{{link.timestamp}}/index.html">📄 
+                <a href="/archive/{{link.timestamp}}/index.html">
+                    📄 &nbsp;
                     {{link.num_outputs}} <img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="files-spinner" decoding="async" style="height: 15px"/>
                 </a>
             {% endif %}
         </span>
     </td>
-   <td style="text-align:left; word-wrap: anywhere;"><a href="{{link.url}}">{{link.url|truncatechars:128}}</a></td>
+    <td style="text-align:left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; title="{{link.url}}">
+        <a href="{{link.url}}">
+            {{link.url}}
+        </a>
+    </td>
 </tr>

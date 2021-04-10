@@ -19,8 +19,8 @@ from ..config import (                                                          
     SQL_INDEX_FILENAME,
     OUTPUT_DIR,
     LOGS_DIR,
+    TIME_ZONE,
 )
-
 
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
 IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
@@ -154,6 +154,7 @@ DATABASES = {
             'timeout': 60,
             'check_same_thread': False,
         },
+        'TIME_ZONE': 'UTC',
         # DB setup is sometimes modified at runtime by setup_django() in config.py
     }
 }
@@ -182,6 +183,7 @@ ALLOWED_HOSTS = ALLOWED_HOSTS.split(',')
 
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
@@ -217,13 +219,16 @@ if IS_SHELL:
 ################################################################################
 
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
-USE_I18N = False
-USE_L10N = False
-USE_TZ = False
-
+USE_I18N = True
+USE_L10N = True
+USE_TZ = True
 DATETIME_FORMAT = 'Y-m-d g:iA'
 SHORT_DATETIME_FORMAT = 'Y-m-d h:iA'
+
+from django.conf.locale.en import formats as en_formats
+
+en_formats.DATETIME_FORMAT = DATETIME_FORMAT
+en_formats.SHORT_DATETIME_FORMAT = SHORT_DATETIME_FORMAT
 
 
 ################################################################################

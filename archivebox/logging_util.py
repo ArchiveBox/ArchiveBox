@@ -10,7 +10,7 @@ from math import log
 from multiprocessing import Process
 from pathlib import Path
 
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Any, Optional, List, Dict, Union, IO, TYPE_CHECKING
 
@@ -138,17 +138,19 @@ class TimedProgress:
     """Show a progress bar and measure elapsed time until .end() is called"""
 
     def __init__(self, seconds, prefix=''):
+
         self.SHOW_PROGRESS = SHOW_PROGRESS
         if self.SHOW_PROGRESS:
             self.p = Process(target=progress_bar, args=(seconds, prefix))
             self.p.start()
 
-        self.stats = {'start_ts': datetime.now(), 'end_ts': None}
+        self.stats = {'start_ts': datetime.now(timezone.utc), 'end_ts': None}
 
     def end(self):
         """immediately end progress, clear the progressbar line, and save end_ts"""
 
-        end_ts = datetime.now()
+
+        end_ts = datetime.now(timezone.utc)
         self.stats['end_ts'] = end_ts
         
         if self.SHOW_PROGRESS:
@@ -231,7 +233,7 @@ def progress_bar(seconds: int, prefix: str='') -> None:
 def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str], pwd: str):
     cmd = ' '.join(('archivebox', subcommand, *subcommand_args))
     stderr('{black}[i] [{now}] ArchiveBox v{VERSION}: {cmd}{reset}'.format(
-        now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        now=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
         VERSION=VERSION,
         cmd=cmd,
         **ANSI,
@@ -243,7 +245,7 @@ def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional
 
 
 def log_importing_started(urls: Union[str, List[str]], depth: int, index_only: bool):
-    _LAST_RUN_STATS.parse_start_ts = datetime.now()
+    _LAST_RUN_STATS.parse_start_ts = datetime.now(timezone.utc)
     print('{green}[+] [{}] Adding {} links to index (crawl depth={}){}...{reset}'.format(
         _LAST_RUN_STATS.parse_start_ts.strftime('%Y-%m-%d %H:%M:%S'),
         len(urls) if isinstance(urls, list) else len(urls.split('\n')),
@@ -256,7 +258,7 @@ def log_source_saved(source_file: str):
     print('    > Saved verbatim input to {}/{}'.format(SOURCES_DIR_NAME, source_file.rsplit('/', 1)[-1]))
 
 def log_parsing_finished(num_parsed: int, parser_name: str):
-    _LAST_RUN_STATS.parse_end_ts = datetime.now()
+    _LAST_RUN_STATS.parse_end_ts = datetime.now(timezone.utc)
     print('    > Parsed {} URLs from input ({})'.format(num_parsed, parser_name))
 
 def log_deduping_finished(num_new_links: int):
@@ -270,7 +272,7 @@ def log_crawl_started(new_links):
 ### Indexing Stage
 
 def log_indexing_process_started(num_links: int):
-    start_ts = datetime.now()
+    start_ts = datetime.now(timezone.utc)
     _LAST_RUN_STATS.index_start_ts = start_ts
     print()
     print('{black}[*] [{}] Writing {} links to main index...{reset}'.format(
@@ -281,7 +283,7 @@ def log_indexing_process_started(num_links: int):
 
 
 def log_indexing_process_finished():
-    end_ts = datetime.now()
+    end_ts = datetime.now(timezone.utc)
     _LAST_RUN_STATS.index_end_ts = end_ts
 
 
@@ -297,7 +299,8 @@ def log_indexing_finished(out_path: str):
 ### Archiving Stage
 
 def log_archiving_started(num_links: int, resume: Optional[float]=None):
-    start_ts = datetime.now()
+
+    start_ts = datetime.now(timezone.utc)
     _LAST_RUN_STATS.archiving_start_ts = start_ts
     print()
     if resume:
@@ -315,7 +318,8 @@ def log_archiving_started(num_links: int, resume: Optional[float]=None):
         ))
 
 def log_archiving_paused(num_links: int, idx: int, timestamp: str):
-    end_ts = datetime.now()
+
+    end_ts = datetime.now(timezone.utc)
     _LAST_RUN_STATS.archiving_end_ts = end_ts
     print()
     print('\n{lightyellow}[X] [{now}] Downloading paused on link {timestamp} ({idx}/{total}){reset}'.format(
@@ -330,7 +334,8 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
     print('        archivebox update --resume={}'.format(timestamp))
 
 def log_archiving_finished(num_links: int):
-    end_ts = datetime.now()
+
+    end_ts = datetime.now(timezone.utc)
     _LAST_RUN_STATS.archiving_end_ts = end_ts
     assert _LAST_RUN_STATS.archiving_start_ts is not None
     seconds = end_ts.timestamp() - _LAST_RUN_STATS.archiving_start_ts.timestamp()
@@ -356,6 +361,7 @@ def log_archiving_finished(num_links: int):
 
 
 def log_link_archiving_started(link: "Link", link_dir: str, is_new: bool):
+
     # [*] [2019-03-22 13:46:45] "Log Structured Merge Trees - ben stopford"
     #     http://www.benstopford.com/2015/02/14/log-structured-merge-trees/
     #     > output/archive/1478739709
@@ -363,7 +369,7 @@ def log_link_archiving_started(link: "Link", link_dir: str, is_new: bool):
     print('\n[{symbol_color}{symbol}{reset}] [{symbol_color}{now}{reset}] "{title}"'.format(
         symbol_color=ANSI['green' if is_new else 'black'],
         symbol='+' if is_new else '√',
-        now=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        now=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
         title=link.title or link.base_url,
         **ANSI,
     ))

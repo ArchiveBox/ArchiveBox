@@ -10,7 +10,7 @@ __package__ = 'archivebox.index'
 
 from pathlib import Path
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 from typing import List, Dict, Any, Optional, Union
 
@@ -19,7 +19,7 @@ from dataclasses import dataclass, asdict, field, fields
 from django.utils.functional import cached_property
 
 from ..system import get_dir_size
-
+from ..util import ts_to_date_str, parse_date
 from ..config import OUTPUT_DIR, ARCHIVE_DIR_NAME
 
 class ArchiveError(Exception):
@@ -203,7 +203,7 @@ class Link:
                 'extension': self.extension,
                 'is_static': self.is_static,
                 
-                'tags_str': self.tags,   # only used to render static index in index/html.py, remove if no longer needed there
+                'tags_str': (self.tags or '').strip(','),   # only used to render static index in index/html.py, remove if no longer needed there
                 'icons': None,           # only used to render static index in index/html.py, remove if no longer needed there
 
                 'bookmarked_date': self.bookmarked_date,
@@ -325,13 +325,11 @@ class Link:
     ### Pretty Printing Helpers
     @property
     def bookmarked_date(self) -> Optional[str]:
-        from ..util import ts_to_date
-
-        max_ts = (datetime.now() + timedelta(days=30)).timestamp()
+        max_ts = (datetime.now(timezone.utc) + timedelta(days=30)).timestamp()
 
         if self.timestamp and self.timestamp.replace('.', '').isdigit():
             if 0 < float(self.timestamp) < max_ts:
-                return ts_to_date(datetime.fromtimestamp(float(self.timestamp)))
+                return ts_to_date_str(datetime.fromtimestamp(float(self.timestamp)))
             else:
                 return str(self.timestamp)
         return None
@@ -339,13 +337,12 @@ class Link:
 
     @property
     def updated_date(self) -> Optional[str]:
-        from ..util import ts_to_date
-        return ts_to_date(self.updated) if self.updated else None
+        return ts_to_date_str(self.updated) if self.updated else None
 
     @property
     def archive_dates(self) -> List[datetime]:
         return [
-            result.start_ts
+            parse_date(result.start_ts)
             for method in self.history.keys()
                 for result in self.history[method]
         ]

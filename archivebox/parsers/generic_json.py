@@ -3,7 +3,7 @@ __package__ = 'archivebox.parsers'
 import json
 
 from typing import IO, Iterable
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..index.schema import Link
 from ..util import (
@@ -30,7 +30,7 @@ def parse_generic_json_export(json_file: IO[str], **_kwargs) -> Iterable[Link]:
                 raise Exception('JSON must contain URL in each entry [{"url": "http://...", ...}, ...]')
 
             # Parse the timestamp
-            ts_str = str(datetime.now().timestamp())
+            ts_str = str(datetime.now(timezone.utc).timestamp())
             if link.get('timestamp'):
                 # chrome/ff histories use a very precise timestamp
                 ts_str = str(link['timestamp'] / 10000000)  

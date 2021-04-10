@@ -11,7 +11,7 @@ from functools import wraps
 from hashlib import sha256
 from urllib.parse import urlparse, quote, unquote
 from html import escape, unescape
-from datetime import datetime
+from datetime import datetime, timezone
 from dateparser import parse as dateparser
 from requests.exceptions import RequestException, ReadTimeout
 
@@ -51,7 +51,7 @@ htmlencode = lambda s: s and escape(s, quote=True)
 htmldecode = lambda s: s and unescape(s)
 
 short_ts = lambda ts: str(parse_date(ts).timestamp()).split('.')[0]
-ts_to_date = lambda ts: ts and parse_date(ts).strftime('%Y-%m-%d %H:%M')
+ts_to_date_str = lambda ts: ts and parse_date(ts).strftime('%Y-%m-%d %H:%M')
 ts_to_iso = lambda ts: ts and parse_date(ts).isoformat()
 
 
@@ -144,13 +144,17 @@ def parse_date(date: Any) -> Optional[datetime]:
         return None
 
     if isinstance(date, datetime):
+        if date.tzinfo is None:
+            return date.replace(tzinfo=timezone.utc)
+
+        assert date.tzinfo.utcoffset(datetime.now()).seconds == 0, 'Refusing to load a non-UTC date!'
         return date
     
     if isinstance(date, (float, int)):
         date = str(date)
 
     if isinstance(date, str):
-        return dateparser(date)
+        return dateparser(date, settings={'TIMEZONE': 'UTC'}).replace(tzinfo=timezone.utc)
 
     raise ValueError('Tried to parse invalid date! {}'.format(date))
 

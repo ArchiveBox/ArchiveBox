@@ -1,3 +1,5 @@
+{% load tz core_tags %}
+
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -20,7 +22,6 @@
             }
             header {
                 background-color: #aa1e55;
-                padding-bottom: 12px;
             }
             small {
                 font-weight: 200;
@@ -34,15 +35,15 @@
                 min-height: 40px;
                 margin: 0px;
                 text-align: center;
-                color: white;
-                font-size: calc(11px + 0.84vw);
+                color: #f6f6f6;
+                font-size: calc(10px + 0.84vw);
                 font-weight: 200;
-                padding: 4px 4px;
+                padding: 3px 4px;
                 background-color: #aa1e55;
             }
             .nav > div {
                 min-height: 30px;
-                line-height: 1.3;
+                line-height: 1.2;
             }
             .header-top a {
                 text-decoration: none;
@@ -68,9 +69,14 @@
             .header-archivebox img:hover {
                 opacity: 0.5;
             }
-            .header-url small {
+            header small code {
                 white-space: nowrap;
                 font-weight: 200;
+                display: block;
+                margin-top: -1px;
+                font-size: 13px;
+                opacity: 0.8;
+                user-select: all;
             }
             .header-url img {
                 height: 20px;
@@ -90,28 +96,38 @@
             .info-row .alert {
                 margin-bottom: 0px;
             }
+            .row.header-bottom {
+                margin-left: -10px;
+                margin-right: -10px;
+            }
+            .header-bottom .col-lg-2 {
+                padding-left: 4px;
+                padding-right: 4px;
+            }
+
             .header-bottom-frames .card {
-                overflow: hidden;
                 box-shadow: 2px 3px 14px 0px rgba(0,0,0,0.02);
-                margin-top: 10px;
+                margin-bottom: 5px;
                 border: 1px solid rgba(0,0,0,3);
-                border-radius: 14px;
+                border-radius: 10px;
                 background-color: black;
+                overflow: hidden;
             }
             .card h4 {
                 font-size: 1.4vw;
             }
             .card-body {
-                font-size: 15px;
+                font-size: 14px;
                 padding: 13px 10px;
-                padding-bottom: 6px;
+                padding-bottom: 1px;
                 /* padding-left: 3px; */
                 /* padding-right: 3px; */
                 /* padding-bottom: 3px; */
-                line-height: 1.1;
+                line-height: 1;
                 word-wrap: break-word;
                 max-height: 102px;
                 overflow: hidden;
+                text-overflow: ellipsis;
                 background-color: #1a1a1a;
                 color: #d3d3d3;
             }
@@ -146,21 +162,11 @@
                 border-top: 3px solid #aa1e55;
             }
             .card.selected-card {
-                border: 1px solid orange;
+                border: 2px solid orange;
                 box-shadow: 0px -6px 13px 1px rgba(0,0,0,0.05);
             }
             .iframe-large {
                 height: calc(100% - 40px);
-            }
-            .pdf-frame {
-                transform: none;
-                width: 100%;
-                height: 160px;
-                margin-top: -60px;
-                margin-bottom: 0px;
-                transform: scale(1.1);
-                width: 100%;
-                margin-left: -10%;
             }
             img.external {
                 height: 30px;
@@ -185,7 +191,7 @@
             }
             .header-bottom {
                 border-top: 1px solid rgba(170, 30, 85, 0.9);
-                padding-bottom: 12px;
+                padding-bottom: 1px;
                 border-bottom: 5px solid rgb(170, 30, 85);
                 margin-bottom: -1px;
 
@@ -215,10 +221,11 @@
             }
             .info-chunk {
                 width: auto;
-                display:inline-block;
+                display: inline-block;
                 text-align: center;
-                margin: 10px 10px;
+                margin: 8px 4px;
                 vertical-align: top;
+                font-size: 14px;
             }
             .info-chunk .badge {
                 margin-top: 5px;
@@ -226,13 +233,12 @@
             .header-bottom-frames .card-title {
                 width: 100%;
                 text-align: center;
-                font-size: 18px;
-                margin-bottom: 5px;
+                font-size: 17px;
+                margin-bottom: 0px;
                 display: inline-block;
                 color: #d3d3d3;
                 font-weight: 200;
-                vertical-align: 0px;
-                margin-top: -6px;
+                vertical-align: 3px;
             }
             .header-bottom-frames .card-text {
                 width: 100%;
@@ -277,8 +283,7 @@
         <header>
             <div class="header-top container-fluid">
                 <div class="row nav">
-                    <div class="col-lg-2" style="line-height: 64px;">
-
+                    <div class="col-lg-2" style="line-height: 50px; vertical-align: middle">
                         <a href="../../index.html" class="header-archivebox" title="Go to Main Index...">
                             <img src="../../static/archive.png" alt="Archive Icon">
                             ArchiveBox
@@ -290,10 +295,9 @@
                         {{title|safe}}
                         &nbsp;&nbsp;
                         <a href="#" class="header-toggle">▾</a>
-                        <br/>
                         <small>
                             <a href="{{url}}" class="header-url" title="{{url}}">
-                                {{url_str}}
+                                <code>{{url}}</code>
                             </a>
                         </small>
                     </div>
@@ -302,27 +306,25 @@
             <div class="header-bottom container-fluid">
                 <div class="row header-bottom-info">
                     <div class="col-lg-4">
-                        <div title="Date bookmarked or imported" class="info-chunk">
+                        <div title="Date bookmarked or imported" class="info-chunk" title="UTC Timezone {{timestamp}}">
                             <h5>Added</h5>
                             {{bookmarked_date}}
                         </div>
-                        <div title="Date first archived" class="info-chunk">
+                        <div title="Date first archived" class="info-chunk" title="UTC Timezone">
                             <h5>First Archived</h5>
                             {{oldest_archive_date}}
                         </div>
-                        <div title="Date last checked" class="info-chunk">
+                        <div title="Date last checked" class="info-chunk" title="UTC Timezone">
                             <h5>Last Checked</h5>
                             {{updated_date}}
                         </div>
                     </div>
                     <div class="col-lg-4">
-                        <div class="info-chunk">
-                            <h5>Type</h5>
-                            <div class="badge badge-default">{{extension}}</div>
-                        </div>
-                        <div class="info-chunk">
-                            <h5>Tags</h5>
-                            <div class="badge badge-warning">{{tags}}</div> 
+                        <div class="info-chunk" style="max-width: 280px">
+                            <h5>Tags <small title="Auto-guessed content type">({{extension}})</small></h5>
+                            {% for tag in tags_str|split:',' %}
+                                <div class="badge badge-info" style="word-break: break-all;">{{tag}}</div>
+                            {% endfor %}
                         </div>
                         <div class="info-chunk">
                             <h5>Status</h5>
@@ -330,11 +332,11 @@
                         </div>
                         <div class="info-chunk">
                             <h5>Saved</h5>
-                            ✅  {{num_outputs}}
+                            ✅&nbsp; {{num_outputs}}
                         </div>
                         <div class="info-chunk">
                             <h5>Errors</h5>
-                            ❌  {{num_failures}}
+                            ❌&nbsp; {{num_failures}}
                         </div>
                         <div class="info-chunk">
                             <h5>Size</h5>
@@ -343,7 +345,7 @@
                     </div>
                     <div class="col-lg-4">
                         <div class="info-chunk">
-                            <h5>🗃 Snapshot ID: <a href="/admin/core/snapshot/{{snapshot_id}}/change/"><code style="color: rgba(255,255,255,0.6); font-weight: 200; font-size: 12px; background-color: #1a1a1a"><b>[{{timestamp}}]</b> <small>{{snapshot_id|truncatechars:24}}</small></code></a></h5>
+                            <h5>🗃&nbsp; Snapshot: <a href="/admin/core/snapshot/{{snapshot_id}}/change/"><code style="color: rgba(255,255,255,0.6); font-weight: 200; font-size: 12px; background-color: #1a1a1a"><b>[{{timestamp}}]</b> <small>{{snapshot_id|truncatechars:24}}</small></code></a></h5>
                             <a href="index.json" title="JSON summary of archived link.">JSON</a> | 
                             <a href="warc/" title="Any WARC archives for the page">WARC</a> | 
                             <a href="media/" title="Audio, Video, and Subtitle files.">Media</a> | 
@@ -357,7 +359,7 @@
                 <div class="row header-bottom-frames">
                     <div class="col-lg-2">
                         <div class="card selected-card">
-                            <iframe class="card-img-top" src="{{singlefile_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{singlefile_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                             <div class="card-body">
                                 <a href="{{singlefile_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./singlefile.html</code></p>
@@ -368,7 +370,7 @@
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top pdf-frame" src="{{pdf_path}}" scrolling="no"></iframe>
+                            <iframe class="card-img-top pdf-frame" src="{{pdf_path}}#toolbar=0" scrolling="no" loading="lazy"></iframe>
                             <div class="card-body">
                                 <a href="{{pdf_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./output.pdf</code></p>
@@ -390,7 +392,7 @@
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
-                          <iframe class="card-img-top" src="{{archive_url}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
+                          <iframe class="card-img-top" src="{{archive_url}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                           <div class="card-body">
                                 <a href="{{archive_url}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./{{domain}}</code></p>
@@ -402,7 +404,7 @@
                     {% if SAVE_ARCHIVE_DOT_ORG %}
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{archive_org_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{archive_org_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                             <div class="card-body">
                                 <a href="{{archive_org_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>🌐 web.archive.org/web/...</code></p>
@@ -414,7 +416,7 @@
                     {% endif %}
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{url}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{url}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                             <div class="card-body">
                                 <a href="{{url}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>🌐 {{domain}}</code></p>
@@ -425,7 +427,7 @@
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{headers_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{headers_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                             <div class="card-body">
                                 <a href="{{headers_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./headers.json</code></p>
@@ -436,7 +438,7 @@
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{dom_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{dom_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                             <div class="card-body">
                                 <a href="{{dom_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./output.html</code></p>
@@ -447,7 +449,7 @@
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{readability_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{readability_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                             <div class="card-body">
                                 <a href="{{readability_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./readability/content.html</code></p>
@@ -459,7 +461,7 @@
                     <br/>
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{mercury_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{mercury_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                             <div class="card-body">
                                 <a href="{{mercury_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./mercury/content.html</code></p>
@@ -470,7 +472,7 @@
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{media_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{media_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                             <div class="card-body">
                                 <a href="{{media_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./media/*.mp4</code></p>
@@ -481,7 +483,7 @@
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{git_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no"></iframe>
+                            <iframe class="card-img-top" src="{{git_path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                             <div class="card-body">
                                 <a href="{{git_path}}" title="Open in new tab..." target="_blank" rel="noopener">
                                     <p class="card-text"><code>./git/*.git</code></p>

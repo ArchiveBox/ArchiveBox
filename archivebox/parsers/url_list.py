@@ -4,7 +4,7 @@ __description__ = 'URL list'
 import re
 
 from typing import IO, Iterable
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..index.schema import Link
 from ..util import (
@@ -25,7 +25,7 @@ def parse_url_list(text_file: IO[str], **_kwargs) -> Iterable[Link]:
 
         yield Link(
             url=url,
-            timestamp=str(datetime.now().timestamp()),
+            timestamp=str(datetime.now(timezone.utc).timestamp()),
             title=None,
             tags=None,
             sources=[text_file.name],

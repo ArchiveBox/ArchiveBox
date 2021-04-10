@@ -585,6 +585,7 @@ def add(urls: Union[str, List[str]],
         update_all: bool=not ONLY_NEW,
         index_only: bool=False,
         overwrite: bool=False,
+        # duplicate: bool=False,  # TODO: reuse the logic from admin.py resnapshot to allow adding multiple snapshots by appending timestamp automatically
         init: bool=False,
         extractors: str="",
         parser: str="auto",

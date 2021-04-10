@@ -4,7 +4,7 @@ __package__ = 'archivebox.parsers'
 import re
 
 from typing import IO, Iterable, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..index.schema import Link
 from ..util import (
@@ -46,7 +46,7 @@ def parse_generic_html_export(html_file: IO[str], root_url: Optional[str]=None, 
             for archivable_url in re.findall(URL_REGEX, url):
                 yield Link(
                     url=htmldecode(archivable_url),
-                    timestamp=str(datetime.now().timestamp()),
+                    timestamp=str(datetime.now(timezone.utc).timestamp()),
                     title=None,
                     tags=None,
                     sources=[html_file.name],

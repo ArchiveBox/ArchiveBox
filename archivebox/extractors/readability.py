@@ -92,6 +92,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
         result = run(cmd, cwd=out_dir, timeout=timeout)
         try:
             result_json = json.loads(result.stdout)
+            assert result_json and 'content' in result_json
         except json.JSONDecodeError:
             raise ArchiveError('Readability was not able to archive the page', result.stdout + result.stderr)
 

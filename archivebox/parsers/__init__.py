@@ -11,7 +11,7 @@ import re
 from io import StringIO
 
 from typing import IO, Tuple, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path 
 
 from ..system import atomic_write
@@ -147,7 +147,7 @@ def run_parser_functions(to_parse: IO[str], timer, root_url: Optional[str]=None,
 
 @enforce_types
 def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: Path=OUTPUT_DIR) -> str:
-    ts = str(datetime.now().timestamp()).split('.', 1)[0]
+    ts = str(datetime.now(timezone.utc).timestamp()).split('.', 1)[0]
     source_path = str(out_dir / SOURCES_DIR_NAME / filename.format(ts=ts))
     atomic_write(source_path, raw_text)
     log_source_saved(source_file=source_path)
@@ -157,7 +157,7 @@ def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: 
 @enforce_types
 def save_file_as_source(path: str, timeout: int=TIMEOUT, filename: str='{ts}-{basename}.txt', out_dir: Path=OUTPUT_DIR) -> str:
     """download a given url's content into output/sources/domain-<timestamp>.txt"""
-    ts = str(datetime.now().timestamp()).split('.', 1)[0]
+    ts = str(datetime.now(timezone.utc).timestamp()).split('.', 1)[0]
     source_path = str(OUTPUT_DIR / SOURCES_DIR_NAME / filename.format(basename=basename(path), ts=ts))
 
     if any(path.startswith(s) for s in ('http://', 'https://', 'ftp://')):

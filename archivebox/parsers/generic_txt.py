@@ -4,7 +4,7 @@ __description__ = 'Plain Text'
 import re
 
 from typing import IO, Iterable
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ..index.schema import Link
@@ -29,7 +29,7 @@ def parse_generic_txt_export(text_file: IO[str], **_kwargs) -> Iterable[Link]:
             if Path(line).exists():
                 yield Link(
                     url=line,
-                    timestamp=str(datetime.now().timestamp()),
+                    timestamp=str(datetime.now(timezone.utc).timestamp()),
                     title=None,
                     tags=None,
                     sources=[text_file.name],
@@ -42,7 +42,7 @@ def parse_generic_txt_export(text_file: IO[str], **_kwargs) -> Iterable[Link]:
         for url in re.findall(URL_REGEX, line):
             yield Link(
                 url=htmldecode(url),
-                timestamp=str(datetime.now().timestamp()),
+                timestamp=str(datetime.now(timezone.utc).timestamp()),
                 title=None,
                 tags=None,
                 sources=[text_file.name],
@@ -54,7 +54,7 @@ def parse_generic_txt_export(text_file: IO[str], **_kwargs) -> Iterable[Link]:
             for sub_url in re.findall(URL_REGEX, line[1:]):
                 yield Link(
                     url=htmldecode(sub_url),
-                    timestamp=str(datetime.now().timestamp()),
+                    timestamp=str(datetime.now(timezone.utc).timestamp()),
                     title=None,
                     tags=None,
                     sources=[text_file.name],

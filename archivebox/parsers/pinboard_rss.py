@@ -2,7 +2,7 @@ __package__ = 'archivebox.parsers'
 
 
 from typing import IO, Iterable
-from datetime import datetime
+from datetime import datetime, timezone
 
 from xml.etree import ElementTree
 
@@ -36,7 +36,7 @@ def parse_pinboard_rss_export(rss_file: IO[str], **_kwargs) -> Iterable[Link]:
         if ts_str:
             time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
         else:
-            time = datetime.now()
+            time = datetime.now(timezone.utc)
 
         yield Link(
             url=htmldecode(url),

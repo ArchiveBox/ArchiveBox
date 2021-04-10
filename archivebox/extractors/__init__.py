@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from typing import Optional, List, Iterable, Union
-from datetime import datetime
+from datetime import datetime, timezone
 from django.db.models import QuerySet
 
 from ..index.schema import Link
@@ -94,7 +94,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         link = load_link_details(link, out_dir=out_dir)
         write_link_details(link, out_dir=out_dir, skip_sql_index=False)
         log_link_archiving_started(link, out_dir, is_new)
-        link = link.overwrite(updated=datetime.now())
+        link = link.overwrite(updated=datetime.now(timezone.utc))
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
 
         for method_name, should_run, method_function in ARCHIVE_METHODS:

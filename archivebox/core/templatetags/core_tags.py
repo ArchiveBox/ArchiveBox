@@ -1,22 +1,15 @@
 from django import template
-from django.urls import reverse
 from django.contrib.admin.templatetags.base import InclusionAdminNode
-from django.templatetags.static import static
 
 
 from typing import Union
 
-from core.models import ArchiveResult
 
 register = template.Library()
 
-@register.simple_tag
-def snapshot_image(snapshot):
-    result = ArchiveResult.objects.filter(snapshot=snapshot, extractor='screenshot', status='succeeded').first()
-    if result:
-        return reverse('Snapshot', args=[f'{str(snapshot.timestamp)}/{result.output}'])
-    
-    return static('archive.png')
+@register.filter(name='split')
+def split(value, separator: str=','):
+    return (value or '').split(separator)
 
 @register.filter
 def file_size(num_bytes: Union[int, float]) -> str:

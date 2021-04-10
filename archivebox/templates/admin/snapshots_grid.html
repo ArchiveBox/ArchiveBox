@@ -3,160 +3,189 @@
 
 {% block extrastyle %}
 <style>
-* {
-  -webkit-box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    box-sizing: border-box;
-}
+  #changelist-search #searchbar {
+    min-height: 24px;
+  }
+  .cards {
+      padding-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* see notes below */
+      grid-auto-rows: minmax(200px, auto);
+      grid-gap: 14px 14px;
+  }
 
-a {
-  text-decoration: none;
-  color: orange;
-}
-h2 {
-  color: #000;
-  margin: 2rem 0 .5rem;
-  font-size: 1.25rem;
-  font-weight: 400;
-  {% comment %} text-transform: uppercase; {% endcomment %}
-}
-
-card.img {
-  display: block;
-    border: 0;
-    width: 100%;
-    height: auto;
-}
-
-/***************************           Cards            *******************************/
-
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* see notes below */
-  grid-auto-rows: minmax(200px, auto);
-  grid-gap: 1rem;
-}
-
-.card {
-  /*height: 200px;*/
-  /*background: red;*/
-  border: 2px solid #e7e7e7;
-  border-radius: 4px;
-  -webkit-box-shadow: 0 2px 2px rgba(0, 0, 0, 0.15);
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.15);
-  display: flex;
-  /* -webkit-box-orient: vertical; */
-  /* -webkit-box-direction: normal; */
-  -ms-flex-direction: column;
-  flex-direction: column;
-  position: relative;
-  color: #5d5e5e;
-} /* li item */
-
-.thumbnail img {
-    height: 100%;
-    box-sizing: border-box;
-    max-width: 100%;
-    max-height: 100%;
-    width: 100%;
-}
-
-.card-content {
-    font-size: .75rem;
-    padding: .5rem;
-    display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-    -ms-flex-direction: column;
-    flex-direction: column;
-    -webkit-box-flex: 1;
-    -ms-flex: 1;
-    flex: 1;
+  .cards .card {
+      position: relative;
+      max-height: 380px;
+      overflow: hidden;
     
-}
+      background-color: #fffcfc;
+      border: 1px solid #f1efef;
+      border-radius: 4px;
+      box-shadow: 4px 4px 2px 2px rgba(0, 0, 0, 0.01);
+    
+      text-align: center;
+      color: #5d5e5e;
+  }
 
-.card-content h4{
-vertical-align:bottom;
-margin: 1.2em 0 0em 0;
-}
+  .cards .card.selected-card {
+    border: 3px solid #2196f3;
+    box-shadow: 2px 3px 6px 2px rgba(0, 0, 221, 0.14);
+  }
 
-.category {
-  font-size: .75rem;
-  text-transform: uppercase;
-}
-.category {
-    position: absolute;
-    top: 5%;
-    right: 0;
-    color: #fff;
-    background: #e74c3c;
-    padding: 10px 15px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-}
+  .cards .card .card-thumbnail {
+      display: block;
+      width: 100%;
+      height: 345px;
+      overflow: hidden;
+      border-radius: 4px;
+      background-color: #fffcfc;
+  }
 
-.category__01 {
-  background-color: #50c6db;
-  
-}
+  .cards .card .card-thumbnail img {
+      width: 100%;
+      height: auto;
+      border: 0;
+  }
+  .cards .card .card-thumbnail.missing img {
+      opacity: 0.03;
+      width: 20%;
+      height: auto;
+      margin-top: 84px;
+  }
 
-.tags{
-  opacity: 0.8;
-}
+  .cards .card .card-tags {
+      width: 100%;
+  }
+  .cards .card .card-tags span {
+      display: inline-block;
+      padding: 2px 5px;
+      border-radius: 5px;
+      opacity: 0.95;
+      background-color: #bfdfff;
+      color: #679ac2;
+      font-size: 12px;
+      margin-bottom: 3px;
+  }
 
-footer {
-  border-top: 2px solid #e7e7e7;
-  {% comment %} margin: .5rem 0 0; {% endcomment %}
-  {% comment %} min-height: 30px; {% endcomment %}
-  font-size: .5rem;
-}
-.post-meta {
-  padding: .3rem;
-}
+  .cards .card .card-footer {
+      width: 100%;
+      position: absolute;
+      bottom: 0;
+      text-align: center;
+  }
+  .cards .card .card-title {
+      padding: 4px 5px;
+      background-color: #fffcfc;
+      /*height: 50px;
+      vertical-align: middle;
+      line-height: 50px;*/
+  }
+  .cards .card .card-title h4 {
+      color: initial;
+      display: block;
+      vertical-align: middle;
+      line-height: normal;
+      margin: 0px;
+      padding: 5px 0px;
+      font-size: 13.5px;
+      font-weight: 400;
+      word-break: break-all;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-height: 46px;
+  }
+  .cards .card .card-title h4 .title-text {
+    user-select: all;
+  }
+  .cards .card .card-title .link-favicon {
+      height: 15px;
+      margin: 2px;
+      vertical-align: -5px;
+      display: inline-block;
+  }
 
-.comments {
-  margin-left: .5rem;
-}
-
-.selected-card{
-  border: 5px solid #ffaa31;
-}
+  .cards .card .card-info {
+      padding: 2px 4px;
+      /*border-top: 1px solid #ddd;*/
+      background-color: #fffcfc;
+      font-size: 11px;
+      color: #333;
+  }
+  .cards .card .card-info input[type=checkbox] {
+      float: right;
+      width: 18px;
+      height: 18px;
+  }
+  .cards .card .card-info label {
+      display: inline-block;
+      height: 20px;
+      width: 145px;
+      font-size: 11px;
+  }
+  .cards .card .card-info .timestamp {
+      font-weight: 600;
+  }
+  .cards .card .card-footer code {
+      display: inline-block;
+      width: 100%;
+      margin-top: 2px;
+      font-size: 10px;
+      opacity: 0.4;
+      user-select: all;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+  }
 
 </style>
 
 {% endblock %}
 
 {% block content %}
-    <section class="cards">
+  <section class="cards">
     {% for obj in results %}
-      <article class="card">
-          <picture class="thumbnail">
-            <a href="/{{obj.archive_path}}/index.html">
-              <img class="category__01" src="{% snapshot_image obj%}" alt="" /> 
-            </a>
-          </picture>
-          <div class="card-content">
-            {% if obj.tags_str %}
-            <p class="category category__01 tags">{{obj.tags_str}}</p>
-            {% endif %}
-            {% if obj.title  %}
+      <div class="card">
+          <div class="card-info">
             <a href="{% url 'admin:core_snapshot_change' obj.id %}">
-              <h4>{{obj.title|truncatechars:55 }}</h4>
+              <span class="timestamp">{{obj.added}}</span>
             </a>
-            {% endif %}
-            {% comment %} <p> TEXT If needed.</p> {% endcomment %}
-        </div><!-- .card-content -->
-        <footer>
-            <div class="post-meta">
-                <span style="float:right;"><input type="checkbox" name="_selected_action" value="{{obj.pk}}" class="action-select"></span>
-                <span class="timestamp">&#128337 {{obj.added}}</span>
-                <span class="comments">📖{{obj.num_outputs}}</span>
-                <span>🗄️{{ obj.archive_size | file_size }}</span>
-            </div>
-        </footer> 
-      </article>
+            &nbsp; &nbsp;
+            <label>
+              <span class="num_outputs">📄 &nbsp; {{obj.num_outputs}}</span> &nbsp; &nbsp;
+              <span>🗄&nbsp; {{ obj.archive_size | file_size }}</span>
+              <input type="checkbox" name="_selected_action" value="{{obj.pk}}"/>
+            </label>
+          </div>
+          <a href="/{{obj.archive_path}}/index.html" class="card-thumbnail {% if not obj.thumbnail_url %}missing{% endif %}">
+            <img src="{{obj.thumbnail_url|default:'/static/spinner.gif' }}" alt="{{obj.title|default:'Not yet archived...'}}" /> 
+          </a>
+          <div class="card-footer">
+              {% if obj.tags_str %}
+                <div class="card-tags">
+                  {% for tag in obj.tags_str|split:',' %}
+                    <span>
+                      {{tag}}
+                    </span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+              <div class="card-title" title="{{obj.title}}">
+                <a href="/{{obj.archive_path}}/index.html">
+                  <h4>
+                    {% if obj.is_archived %}
+                        <img src="/{{obj.archive_path}}/favicon.ico" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
+                    {% else %}
+                        <img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
+                    {% endif %}
+                    <span class="title-text">{{obj.title|default:'Pending...' }}</span>
+                  </h4>
+                </a>
+                <code title="{{obj.url}}">{{obj.url}}</code>
+              </div>
+          </div> 
+      </div>
     {% endfor %}
-    </section>
-
+  </section>
+  <br/>
 {% endblock %}

@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from ..system import run, chmod_file
@@ -51,7 +51,7 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
     if SAVE_WARC:
         warc_dir = out_dir / "warc"
         warc_dir.mkdir(exist_ok=True)
-        warc_path = warc_dir / str(int(datetime.now().timestamp()))
+        warc_path = warc_dir / str(int(datetime.now(timezone.utc).timestamp()))
 
     # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
     output: ArchiveOutput = None

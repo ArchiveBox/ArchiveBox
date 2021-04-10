@@ -2,35 +2,17 @@
 
 <!DOCTYPE html>
 <html lang="en">
+    <head>
+        <title>Archived Sites</title>
+        <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
 
-<head>
-    <title>Archived Sites</title>
-    <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
-
-    <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
-    <link rel="stylesheet" type="text/css" href="{% static 'admin.css' %}">
-    <link rel="stylesheet" href="{% static 'bootstrap.min.css' %}">
-    <link rel="stylesheet" href="{% static 'jquery.dataTables.min.css' %}" />
-            {% block extra_head %}
-            {% endblock %}
-    <script src="{% static 'jquery.min.js' %}"></script>
-    <script src="{% static 'jquery.dataTables.min.js' %}"></script>
-    <script>
-        document.addEventListener('error', function (e) {
-            e.target.style.opacity = 0;
-        }, true)
-        jQuery(document).ready(function () {
-            jQuery('#table-bookmarks').DataTable({
-                searching: false,
-                paging: false,
-                stateSave: true, // save state (filtered input, number of entries shown, etc) in localStorage
-                dom: '<lf<t>ip>', // how to show the table and its helpers (filter, etc) in the DOM
-                    order: [[0, 'desc']],
-                    iDisplayLength: 100,
-                });
-            });
-        </script>
-        <base href="{% url 'Home' %}">
+        <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
+        <link rel="stylesheet" href="{% static 'admin.css' %}">
+        <link rel="stylesheet" href="{% static 'bootstrap.min.css' %}">
+        
+        <script src="{% static 'jquery.min.js' %}"></script>
+        {% block extra_head %}
+        {% endblock %}
     </head>
     <body>
         <div id="container">
@@ -48,6 +30,7 @@
             </div>
             <div id="content" class="flex">
                 {% block body %}
+
                 {% endblock %}
             </div>
             {% block footer %}

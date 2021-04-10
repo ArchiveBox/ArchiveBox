@@ -1,7 +1,7 @@
 __package__ = 'archivebox.index'
 
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import defaultdict
 from typing import List, Optional, Iterator, Mapping
 
@@ -13,7 +13,7 @@ from ..system import atomic_write
 from ..logging_util import printable_filesize
 from ..util import (
     enforce_types,
-    ts_to_date,
+    ts_to_date_str,
     urlencode,
     htmlencode,
     urldecode,
@@ -62,8 +62,8 @@ def main_index_template(links: List[Link], template: str=MAIN_INDEX_TEMPLATE) ->
         'version': VERSION,
         'git_sha': VERSION,  # not used anymore, but kept for backwards compatibility
         'num_links': str(len(links)),
-        'date_updated': datetime.now().strftime('%Y-%m-%d'),
-        'time_updated': datetime.now().strftime('%Y-%m-%d %H:%M'),
+        'date_updated': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
+        'time_updated': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M'),
         'links': [link._asdict(extended=True) for link in links],
         'FOOTER_INFO': FOOTER_INFO,
     })
@@ -103,7 +103,7 @@ def link_details_template(link: Link) -> str:
         'size': printable_filesize(link.archive_size) if link.archive_size else 'pending',
         'status': 'archived' if link.is_archived else 'not yet archived',
         'status_color': 'success' if link.is_archived else 'danger',
-        'oldest_archive_date': ts_to_date(link.oldest_archive_date),
+        'oldest_archive_date': ts_to_date_str(link.oldest_archive_date),
         'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
     })
 
@@ -120,7 +120,7 @@ def snapshot_icons(snapshot) -> str:
     
     def calc_snapshot_icons():
         from core.models import EXTRACTORS
-        # start = datetime.now()
+        # start = datetime.now(timezone.utc)
 
         archive_results = snapshot.archiveresult_set.filter(status="succeeded", output__isnull=False)
         link = snapshot.as_link()
@@ -183,7 +183,7 @@ def snapshot_icons(snapshot) -> str:
                                                                                             "archive_org", icons.get("archive_org", "?"))
 
         result = format_html('<span class="files-icons" style="font-size: 1.1em; opacity: 0.8; min-width: 240px; display: inline-block">{}<span>', mark_safe(output))
-        # end = datetime.now()
+        # end = datetime.now(timezone.utc)
         # print(((end - start).total_seconds()*1000) // 1, 'ms')
         return result
 

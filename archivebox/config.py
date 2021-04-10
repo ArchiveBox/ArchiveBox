@@ -34,7 +34,7 @@ import django
 
 from hashlib import md5
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Type, Tuple, Dict, Union, List
 from subprocess import run, PIPE, DEVNULL
 from configparser import ConfigParser
@@ -80,7 +80,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'PUBLIC_ADD_VIEW':          {'type': bool,  'default': False},
         'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
         'SNAPSHOTS_PER_PAGE':       {'type': int,   'default': 40},
-        'CUSTOM_TEMPLATES_DIR':     {'type': str,   'default': None}
+        'CUSTOM_TEMPLATES_DIR':     {'type': str,   'default': None},
+        'TIME_ZONE':                {'type': str,   'default': 'UTC'},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
@@ -1105,7 +1106,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
         # log startup message to the error log
         with open(settings.ERROR_LOG, "a+", encoding='utf-8') as f:
             command = ' '.join(sys.argv)
-            ts = datetime.now().strftime('%Y-%m-%d__%H:%M:%S')
+            ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
             f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
 
 
