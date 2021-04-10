@@ -78,9 +78,9 @@ class SnapshotActionForm(ActionForm):
 
 
 class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
-    list_display = ('added', 'title_str', 'url_str', 'files', 'size')
-    sort_fields = ('title_str', 'url_str', 'added')
-    readonly_fields = ('uuid', 'num_outputs', 'is_archived', 'url_hash', 'added', 'updated')
+    list_display = ('added', 'title_str', 'files', 'size', 'url_str')
+    sort_fields = ('title_str', 'url_str', 'added', 'files')
+    readonly_fields = ('info', 'bookmarked', 'added', 'updated')
     search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
     fields = ('timestamp', 'url', 'title', 'tags', *readonly_fields)
     list_filter = ('added', 'updated', 'tags', 'archiveresult__status')
@@ -95,7 +95,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path('grid/', self.admin_site.admin_view(self.grid_view),name='grid')
+            path('grid/', self.admin_site.admin_view(self.grid_view), name='grid')
         ]
         return custom_urls + urls
 
@@ -128,10 +128,33 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     #         obj.id,
     #     )
 
-    def uuid(self, obj):
+    def info(self, obj):
         return format_html(
-            '<code style="font-size: 10px">{}</code><br/><a href="/archive/{}">View index ➡️</a> &nbsp; &nbsp; <a href="/admin/core/snapshot/?id__exact={}">View actions ⚙️</a>',
+            '''
+            UUID: <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;
+            Timestamp: <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;
+            URL Hash: <code style="font-size: 10px; user-select: all">{}</code><br/>
+            Archived: {} ({} files {}) &nbsp; &nbsp;
+            Favicon: <img src="{}" style="height: 20px"/> &nbsp; &nbsp;
+            Status code: {} &nbsp; &nbsp;
+            Server: {} &nbsp; &nbsp;
+            Content type: {} &nbsp; &nbsp;
+            Extension: {} &nbsp; &nbsp;
+            <br/><br/>
+            <a href="/archive/{}">View Snapshot index ➡️</a> &nbsp; &nbsp;
+            <a href="/admin/core/snapshot/?id__exact={}">View actions ⚙️</a>
+            ''',
             obj.id,
+            obj.timestamp,
+            obj.url_hash,
+            '✅' if obj.is_archived else '❌',
+            obj.num_outputs,
+            self.size(obj),
+            f'/archive/{obj.timestamp}/favicon.ico',
+            obj.status_code or '?',
+            obj.headers and obj.headers.get('Server') or '?',
+            obj.headers and obj.headers.get('Content-Type') or '?',
+            obj.extension or '?',
             obj.timestamp,
             obj.id,
         )
@@ -160,6 +183,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     def files(self, obj):
         return snapshot_icons(obj)
 
+    files.admin_order_field = 'updated'
+    files.short_description = 'Files Saved'
+
     def size(self, obj):
         archive_size = (Path(obj.link_dir) / 'index.html').exists() and obj.archive_size
         if archive_size:
@@ -174,14 +200,16 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
             size_txt,
         )
 
+    size.admin_order_field = 'archiveresult__count'
+
     def url_str(self, obj):
         return format_html(
-            '<a href="{}"><code>{}</code></a>',
+            '<a href="{}"><code style="user-select: all;">{}</code></a>',
             obj.url,
-            obj.url.split('://www.', 1)[-1].split('://', 1)[-1][:64],
+            obj.url,
         )
 
-    def grid_view(self, request):
+    def grid_view(self, request, extra_context=None):
 
         # cl = self.get_changelist_instance(request)
 
@@ -192,11 +220,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
         # Monkey patch here plus core_tags.py
         self.change_list_template = 'private_index_grid.html'
-        self.list_per_page = 20
+        self.list_per_page = SNAPSHOTS_PER_PAGE
         self.list_max_show_all = self.list_per_page
 
         # Call monkey patched view
-        rendered_response = self.changelist_view(request)
+        rendered_response = self.changelist_view(request, extra_context=extra_context)
 
         # Restore values
         self.change_list_template = saved_change_list_template
@@ -205,33 +233,38 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
         return rendered_response
 
+    # for debugging, uncomment this to print all requests:
+    # def changelist_view(self, request, extra_context=None):
+    #     print('[*] Got request', request.method, request.POST)
+    #     return super().changelist_view(request, extra_context=None)
 
     def update_snapshots(self, request, queryset):
         archive_links([
             snapshot.as_link()
             for snapshot in queryset
         ], out_dir=OUTPUT_DIR)
-    update_snapshots.short_description = "Archive"
+    update_snapshots.short_description = "Pull"
 
     def update_titles(self, request, queryset):
         archive_links([
             snapshot.as_link()
             for snapshot in queryset
         ], overwrite=True, methods=('title','favicon'), out_dir=OUTPUT_DIR)
-    update_titles.short_description = "Pull title"
+    update_titles.short_description = "⬇️ Title"
+
+    def resnapshot_snapshot(self, request, queryset):
+        for snapshot in queryset:
+            timestamp = datetime.now(timezone.utc).isoformat('T', 'seconds')
+            new_url = snapshot.url.split('#')[0] + f'#{timestamp}'
+            add(new_url, tag=snapshot.tags_str())
+    resnapshot_snapshot.short_description = "Re-Snapshot"
 
     def overwrite_snapshots(self, request, queryset):
         archive_links([
             snapshot.as_link()
             for snapshot in queryset
         ], overwrite=True, out_dir=OUTPUT_DIR)
-    overwrite_snapshots.short_description = "Re-archive (overwrite)"
-
-    def verify_snapshots(self, request, queryset):
-        for snapshot in queryset:
-            print(snapshot.timestamp, snapshot.url, snapshot.is_archived, snapshot.archive_size, len(snapshot.history))
-
-    verify_snapshots.short_description = "Check"
+    overwrite_snapshots.short_description = "Reset"
 
     def delete_snapshots(self, request, queryset):
         remove(snapshots=queryset, yes=True, delete=True, out_dir=OUTPUT_DIR)
