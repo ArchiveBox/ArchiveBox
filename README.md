@@ -448,7 +448,7 @@ archivebox list --json --with-headers > index.json     # export to json blob
 archivebox list --csv=timestamp,url,title > index.csv  # export to csv spreadsheet
 
 # (if using docker-compose, add the -T flag when piping)
-docker-compose run -T archivebox list --json > index.json
+docker-compose run -T archivebox list --html --filter-type=search snozzberries > index.json
 ```
 
 The paths in the static exports are relative, make sure to keep them next to your `./archive` folder when backing them up or viewing them.
