@@ -26,6 +26,3 @@
 [submodule "archivebox/vendor/python-atomicwrites"]
 	path = archivebox/vendor/python-atomicwrites
 	url = https://github.com/untitaker/python-atomicwrites
-[submodule "archivebox/vendor/tzlocal"]
-	path = archivebox/vendor/tzlocal
-	url = https://github.com/regebro/tzlocal
