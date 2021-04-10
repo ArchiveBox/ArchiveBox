@@ -201,7 +201,7 @@ class Snapshot(models.Model):
     @cached_property
     def headers(self) -> Optional[dict]:
         try:
-            return json.loads((Path(self.link_dir) / 'headers.json').read_text().strip())
+            return json.loads((Path(self.link_dir) / 'headers.json').read_text(encoding='utf-8').strip())
         except Exception:
             pass
         return None
