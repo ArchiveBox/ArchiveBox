@@ -41,7 +41,7 @@ class Tag(models.Model):
     Based on django-taggit model
     """
     id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
-    
+
     name = models.CharField(unique=True, blank=False, max_length=100)
 
     # slug is autoset on save from name, never set it manually

@@ -70,11 +70,24 @@ def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIME
     finally:
         timer.end()
 
+    # add video description and subtitles to full-text index
+    index_texts = [
+        text_file.read_text(encoding='utf-8').strip()
+        for text_file in (
+            *output_path.glob('*.description'),
+            *output_path.glob('*.srt'),
+            *output_path.glob('*.vtt'),
+            *output_path.glob('*.lrc'),
+            *output_path.glob('*.lrc'),
+        )
+    ]
+
     return ArchiveResult(
         cmd=cmd,
         pwd=str(out_dir),
         cmd_version=YOUTUBEDL_VERSION,
         output=output,
         status=status,
+        index_texts=index_texts,
         **timer.stats,
     )

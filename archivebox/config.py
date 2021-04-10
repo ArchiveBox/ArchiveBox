@@ -126,6 +126,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--write-sub',
                                                                 '--all-subs',
                                                                 '--write-auto-sub',
+                                                                '--convert-subs=srt',
                                                                 '--yes-playlist',
                                                                 '--continue',
                                                                 '--ignore-errors',
