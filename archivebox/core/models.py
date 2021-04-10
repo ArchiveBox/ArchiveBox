@@ -40,6 +40,8 @@ class Tag(models.Model):
     """
     Based on django-taggit model
     """
+    id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
+    
     name = models.CharField(unique=True, blank=False, max_length=100)
 
     # slug is autoset on save from name, never set it manually
@@ -265,7 +267,7 @@ class ArchiveResultManager(models.Manager):
 
 
 class ArchiveResult(models.Model):
-    id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')
+    id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
 
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)

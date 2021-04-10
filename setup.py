@@ -37,7 +37,7 @@ INSTALL_REQUIRES = [
     # ./archivebox/vendor/
     "requests>=2.24.0",
     "mypy-extensions>=0.4.3",
-    "django>=3.1.3",
+    "django>=3.1.3,<3.2",
     "django-extensions>=3.0.3",
     "dateparser",
     "ipython",
