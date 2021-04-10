@@ -28,17 +28,17 @@ services:
             # - ./archivebox:/app/archivebox    # for developers working on archivebox
 
     # To run the Sonic full-text search backend, first download the config file to sonic.cfg
-    # curl https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/etc/sonic/config.cfg > sonic.cfg
+    # curl -O https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/etc/sonic.cfg
     # after starting, backfill any existing Snapshots into the index: docker-compose run archivebox update --index-only
     # sonic:
-    #     image: valeriansaliou/sonic:v1.3.0    
-    #     expose:
-    #         - 1491
-    #     environment:
-    #         - SEARCH_BACKEND_PASSWORD=SecretPassword
-    #     volumes:
-    #         - ./sonic.cfg:/etc/sonic.cfg:ro
-    #         - ./data/sonic:/var/lib/sonic/store
+    #    image: valeriansaliou/sonic:v1.3.0
+    #    expose:
+    #        - 1491
+    #    environment:
+    #        - SEARCH_BACKEND_PASSWORD=SecretPassword
+    #    volumes:
+    #        - ./sonic.cfg:/etc/sonic.cfg:ro
+    #        - ./data/sonic:/var/lib/sonic/store
 
 
     ### Optional Addons: tweak these examples as needed for your specific use case
