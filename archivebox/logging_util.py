@@ -335,6 +335,8 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
 
 def log_archiving_finished(num_links: int):
 
+    from core.models import Snapshot
+
     end_ts = datetime.now(timezone.utc)
     _LAST_RUN_STATS.archiving_end_ts = end_ts
     assert _LAST_RUN_STATS.archiving_start_ts is not None
@@ -355,9 +357,11 @@ def log_archiving_finished(num_links: int):
     print('    - {} links skipped'.format(_LAST_RUN_STATS.skipped))
     print('    - {} links updated'.format(_LAST_RUN_STATS.succeeded + _LAST_RUN_STATS.failed))
     print('    - {} links had errors'.format(_LAST_RUN_STATS.failed))
-    print()
-    print('    {lightred}Hint:{reset} To manage your archive in a Web UI, run:'.format(**ANSI))
-    print('        archivebox server 0.0.0.0:8000')
+    
+    if Snapshot.objects.count() < 50:
+        print()
+        print('    {lightred}Hint:{reset} To manage your archive in a Web UI, run:'.format(**ANSI))
+        print('        archivebox server 0.0.0.0:8000')
 
 
 def log_link_archiving_started(link: "Link", link_dir: str, is_new: bool):

@@ -241,7 +241,6 @@ def chrome_args(**options) -> List[str]:
             '--disable-dev-shm-usage',
             '--disable-software-rasterizer',
             '--run-all-compositor-stages-before-draw',
-            f'--virtual-time-budget={options["TIMEOUT"] * 1000}',
             '--hide-scrollbars',
         )
 
