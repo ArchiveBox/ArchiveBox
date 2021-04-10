@@ -96,6 +96,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         log_link_archiving_started(link, out_dir, is_new)
         link = link.overwrite(updated=datetime.now(timezone.utc))
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
+        start_ts = datetime.now(timezone.utc)
 
         for method_name, should_run, method_function in ARCHIVE_METHODS:
             try:
@@ -142,7 +143,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 
         write_link_details(link, out_dir=out_dir, skip_sql_index=False)
 
-        log_link_archiving_finished(link, link.link_dir, is_new, stats)
+        log_link_archiving_finished(link, link.link_dir, is_new, stats, start_ts)
 
     except KeyboardInterrupt:
         try:
