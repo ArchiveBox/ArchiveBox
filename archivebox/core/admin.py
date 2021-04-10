@@ -45,10 +45,36 @@ class TagInline(admin.TabularInline):
     model = Snapshot.tags.through
 
 from django.contrib.admin.helpers import ActionForm
+from django.contrib.admin.widgets import AutocompleteSelectMultiple
+
+class AutocompleteTags:
+    model = Tag
+    search_fields = ['name']
+
+class AutocompleteTagsAdminStub:
+    name = 'admin'
 
 
 class SnapshotActionForm(ActionForm):
-    tag = forms.ModelChoiceField(queryset=Tag.objects.all(), required=False)
+    tags = forms.ModelMultipleChoiceField(
+        queryset=Tag.objects.all(),
+        required=False,
+        widget=AutocompleteSelectMultiple(
+            AutocompleteTags(),
+            AutocompleteTagsAdminStub(),
+        ),
+    )
+
+    # TODO: allow selecting actions for specific extractors? is this useful?
+    # EXTRACTOR_CHOICES = [
+    #     (name, name.title())
+    #     for name, _, _ in get_default_archive_methods()
+    # ]
+    # extractor = forms.ChoiceField(
+    #     choices=EXTRACTOR_CHOICES,
+    #     required=False,
+    #     widget=forms.MultileChoiceField(attrs={'class': "form-control"})
+    # )
 
 
 class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
@@ -59,7 +85,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     fields = ('timestamp', 'url', 'title', 'tags', *readonly_fields)
     list_filter = ('added', 'updated', 'tags', 'archiveresult__status')
     ordering = ['-added']
-    actions = ['delete_snapshots', 'overwrite_snapshots', 'update_snapshots', 'update_titles', 'verify_snapshots', 'add_tag', 'remove_tag']
+    actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
     autocomplete_fields = ['tags']
     inlines = [ArchiveResultInline]
     list_per_page = SNAPSHOTS_PER_PAGE
@@ -212,19 +238,21 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
     delete_snapshots.short_description = "Delete"
 
-    def add_tag(self, request, queryset):
-        tag = request.POST['tag']
+    def add_tags(self, request, queryset):
+        tags = request.POST.getlist('tags')
+        print('[+] Adding tags', tags, 'to Snapshots', queryset)
         for obj in queryset:
-            obj.tags.add(tag)
+            obj.tags.add(*tags)
 
-    add_tag.short_description = "Add tag"
+    add_tags.short_description = "+"
 
-    def remove_tag(self, request, queryset):
-        tag = request.POST['tag']
+    def remove_tags(self, request, queryset):
+        tags = request.POST.getlist('tags')
+        print('[-] Removing tags', tags, 'to Snapshots', queryset)
         for obj in queryset:
-            obj.tags.remove(tag)
+            obj.tags.remove(*tags)
 
-    remove_tag.short_description = "Remove tag"
+    remove_tags.short_description = "–"
 
         
 
