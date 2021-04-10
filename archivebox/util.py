@@ -240,6 +240,9 @@ def chrome_args(**options) -> List[str]:
             '--disable-gpu',
             '--disable-dev-shm-usage',
             '--disable-software-rasterizer',
+            '--run-all-compositor-stages-before-draw',
+            f'--virtual-time-budget={options["TIMEOUT"] * 1000}',
+            '--hide-scrollbars',
         )
 
 
@@ -253,7 +256,7 @@ def chrome_args(**options) -> List[str]:
         cmd_args += ('--window-size={}'.format(options['RESOLUTION']),)
 
     if options['TIMEOUT']:
-        cmd_args += ('--timeout={}'.format((options['TIMEOUT']) * 1000),)
+        cmd_args += ('--timeout={}'.format(options['TIMEOUT'] * 1000),)
 
     if options['CHROME_USER_DATA_DIR']:
         cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
