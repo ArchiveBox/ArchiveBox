@@ -24,8 +24,9 @@ from ..config import (
     FOOTER_INFO,
     SNAPSHOTS_PER_PAGE,
 )
-from main import add
+from ..main import add
 from ..util import base_url, ansi_to_html
+from ..search import query_search_index
 
 
 class HomepageView(View):
@@ -220,8 +221,9 @@ class PublicIndexView(ListView):
     def get_queryset(self, **kwargs): 
         qs = super().get_queryset(**kwargs)
         query = self.request.GET.get('q')
-        if query:
+        if query and query.strip():
             qs = qs.filter(Q(title__icontains=query) | Q(url__icontains=query) | Q(timestamp__icontains=query) | Q(tags__name__icontains=query))
+            qs = qs | query_search_index(query)
         return qs
 
     def get(self, *args, **kwargs):
