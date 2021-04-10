@@ -223,7 +223,10 @@ class PublicIndexView(ListView):
         query = self.request.GET.get('q')
         if query and query.strip():
             qs = qs.filter(Q(title__icontains=query) | Q(url__icontains=query) | Q(timestamp__icontains=query) | Q(tags__name__icontains=query))
-            qs = qs | query_search_index(query)
+            try:
+                qs = qs | query_search_index(query)
+            except Exception as err:
+                print(f'[!] Error while using search backend: {err.__class__.__name__} {err}')
         return qs
 
     def get(self, *args, **kwargs):
