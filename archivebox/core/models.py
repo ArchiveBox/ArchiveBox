@@ -1,11 +1,17 @@
 __package__ = 'archivebox.core'
 
+
 import uuid
+import json
+
+from pathlib import Path
+from typing import Optional, List
 
 from django.db import models
 from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.core.cache import cache
+from django.urls import reverse
 from django.db.models import Case, When, Value, IntegerField
 from django.contrib.auth.models import User   # noqa
 
@@ -131,6 +137,11 @@ class Snapshot(models.Model):
         return snapshot_icons(self)
 
     @cached_property
+    def extension(self) -> str:
+        from ..util import extension
+        return extension(self.url)
+
+    @cached_property
     def bookmarked(self):
         return parse_date(self.timestamp)
 
@@ -176,12 +187,34 @@ class Snapshot(models.Model):
         return cache.get_or_set(cache_key, calc_dir_size)
 
     @cached_property
-    def history(self):
+    def thumbnail_url(self) -> Optional[str]:
+        result = self.archiveresult_set.filter(
+            extractor='screenshot',
+            status='succeeded'
+        ).only('output').last()
+        if result:
+            return reverse('Snapshot', args=[f'{str(self.timestamp)}/{result.output}'])
+        return None
+
+    @cached_property
+    def headers(self) -> Optional[dict]:
+        try:
+            return json.loads((Path(self.link_dir) / 'headers.json').read_text().strip())
+        except Exception:
+            pass
+        return None
+
+    @cached_property
+    def status_code(self) -> Optional[str]:
+        return self.headers and self.headers.get('Status-Code')
+
+    @cached_property
+    def history(self) -> dict:
         # TODO: use ArchiveResult for this instead of json
         return self.as_link_with_details().history
 
     @cached_property
-    def latest_title(self):
+    def latest_title(self) -> Optional[str]:
         if self.title:
             return self.title   # whoopdedoo that was easy
         
@@ -211,7 +244,7 @@ class Snapshot(models.Model):
 
         return None
 
-    def save_tags(self, tags=()):
+    def save_tags(self, tags: List[str]=()) -> None:
         tags_id = []
         for tag in tags:
             if tag.strip():
