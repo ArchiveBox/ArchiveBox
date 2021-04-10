@@ -436,7 +436,7 @@ archivebox config --set YOUTUBEDL_ARGS='--max-filesize=500m'
 
 ## Static Archive Exporting
 
-You can export the main index to browse it statically without the Web UI.
+You can export the main index to browse it statically without needing to run a server.
 
 *Note about large exports: These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.*
 
@@ -457,20 +457,21 @@ The paths in the static exports are relative, make sure to keep them next to you
 
 ## Dependencies
 
-*If using Docker, ignore this section, all dependencies are setup properly out-of-the-box*.
+For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything preinstalled for the best experience.
 
 To achieve high fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party tools and libraries that specialize in extracting different types of content. These optional dependencies used for archiving sites include:
 
 - `chromium` / `chrome` (for screenshots, PDF, DOM HTML, and headless JS scripts)
 - `node` & `npm` (for readability, mercury, and singlefile)
 - `wget` (for plain HTML, static files, and WARC saving)
+- `curl` (for fetching headers, favicon, and posting to Archive.org)
 - `youtube-dl` (for audio, video, and subtitles)
 - `git` (for cloning git repos)
 - and more as we grow...
 
 You don't need to install every dependency to use ArchiveBox. ArchiveBox will automatically disable extractors that rely on dependencies that aren't installed, based on what is configured and available in your `$PATH`.
 
-For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything preinstalled for the best experience.
+*If using Docker, you don't have to install any of these manually, all dependencies are set up properly out-of-the-box*.
 
 However, if you prefer not using Docker, you *can* install ArchiveBox and its dependencies using your [system package manager](https://github.com/ArchiveBox/ArchiveBox/wiki/Install) or `pip` directly on any Linux/macOS system. Just make sure to keep the dependencies up-to-date and check that ArchiveBox isn't reporting any incompatibility with the versions you install.
 
@@ -479,7 +480,7 @@ However, if you prefer not using Docker, you *can* install ArchiveBox and its de
 # apt/brew/pip/etc install ... (see Quickstart instructions above)
 
 archivebox setup       # auto install all the extractors and extras
-archivebox --version   # see info and versions of installed dependencies
+archivebox --version   # see info and check validity of installed dependencies
 ```
 
 Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not officially supported**, but some advanced users have reported getting it working.
