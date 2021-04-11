@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 from django.utils.crypto import get_random_string
 
-from ..config import (                                                          # noqa: F401
+from ..config import (
     DEBUG,
     SECRET_KEY,
     ALLOWED_HOSTS,
@@ -19,7 +19,7 @@ from ..config import (                                                          
     SQL_INDEX_FILENAME,
     OUTPUT_DIR,
     LOGS_DIR,
-    TIME_ZONE,
+    TIME_ZONE,                                                      # noqa: F401
 )
 
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
