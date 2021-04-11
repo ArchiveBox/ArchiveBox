@@ -150,7 +150,6 @@
             <a href="{% url 'admin:core_snapshot_change' obj.id %}">
               <span class="timestamp">{{obj.added}}</span>
             </a>
-            &nbsp; &nbsp;
             <label>
               <span class="num_outputs">📄 &nbsp; {{obj.num_outputs}}</span> &nbsp; &nbsp;
               <span>🗄&nbsp; {{ obj.archive_size | file_size }}</span>
