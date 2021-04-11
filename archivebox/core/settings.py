@@ -19,7 +19,7 @@ from ..config import (
     SQL_INDEX_FILENAME,
     OUTPUT_DIR,
     LOGS_DIR,
-    TIME_ZONE,                                                      # noqa: F401
+    TIME_ZONE,
 )
 
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
@@ -224,6 +224,7 @@ USE_L10N = True
 USE_TZ = True
 DATETIME_FORMAT = 'Y-m-d g:iA'
 SHORT_DATETIME_FORMAT = 'Y-m-d h:iA'
+TIME_ZONE = TIME_ZONE                            # noqa
 
 from django.conf.locale.en import formats as en_formats
 
