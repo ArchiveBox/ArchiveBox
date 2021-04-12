@@ -60,7 +60,19 @@ def parse_json_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[Link]:
     index_path = Path(out_dir) / JSON_INDEX_FILENAME
     if index_path.exists():
         with open(index_path, 'r', encoding='utf-8') as f:
-            links = pyjson.load(f)['links']
+            try:
+                links = pyjson.load(f)['links']
+                if links:
+                    Link.from_json(links[0])
+            except Exception as err:
+                print("    {lightyellow}! Found an index.json in the project root but couldn't load links from it: {} {}".format(
+                    index_path,
+                    err.__class__.__name__,
+                    err,
+                    **ANSI,
+                ))
+                return ()
+
             for link_json in links:
                 try:
                     yield Link.from_json(link_json)
