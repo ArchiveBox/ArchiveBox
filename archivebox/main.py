@@ -80,15 +80,11 @@ from .config import (
     LOGS_DIR,
     PACKAGE_DIR,
     CONFIG_FILE,
-    CONFIG_FILENAME,
     ARCHIVE_DIR_NAME,
-    SOURCES_DIR_NAME,
-    LOGS_DIR_NAME,
     JSON_INDEX_FILENAME,
     HTML_INDEX_FILENAME,
     SQL_INDEX_FILENAME,
-    ROBOTS_TXT_FILENAME,
-    FAVICON_FILENAME,
+    ALLOWED_IN_OUTPUT_DIR,
     SEARCH_BACKEND_ENGINE,
     check_dependencies,
     check_data_folder,
@@ -133,33 +129,7 @@ from .logging_util import (
 
 from .search import flush_search_index, index_links
 
-ALLOWED_IN_OUTPUT_DIR = {
-    '.gitignore',
-    'lost+found',
-    '.DS_Store',
-    '.venv',
-    'venv',
-    'virtualenv',
-    '.virtualenv',
-    'node_modules',
-    'package.json',
-    'package-lock.json',
-    'yarn.lock',
-    'static',
-    'sonic',
-    ARCHIVE_DIR_NAME,
-    SOURCES_DIR_NAME,
-    LOGS_DIR_NAME,
-    SQL_INDEX_FILENAME,
-    f'{SQL_INDEX_FILENAME}-wal',
-    f'{SQL_INDEX_FILENAME}-shm',
-    JSON_INDEX_FILENAME,
-    HTML_INDEX_FILENAME,
-    ROBOTS_TXT_FILENAME,
-    FAVICON_FILENAME,
-    CONFIG_FILENAME,
-    f'{CONFIG_FILENAME}.bak',
-}
+
 
 @enforce_types
 def help(out_dir: Path=OUTPUT_DIR) -> None:
@@ -311,7 +281,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
 
     if (out_dir / JSON_INDEX_FILENAME).exists():
         stderr("[!] This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.", color="lightyellow")
-        stderr("    You can run `archivebox list --json --with-headers > index.json` to manually generate it.", color="lightyellow")
+        stderr("    You can run `archivebox list --json --with-headers > static_index.json` to manually generate it.", color="lightyellow")
 
     existing_index = (out_dir / SQL_INDEX_FILENAME).exists()
 

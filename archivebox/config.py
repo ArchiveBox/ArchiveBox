@@ -274,7 +274,38 @@ STATICFILE_EXTENSIONS = {
     # html, htm, shtml, xhtml, xml, aspx, php, cgi
 }
 
-
+# When initializing archivebox in a new directory, we check to make sure the dir is
+# actually empty so that we dont clobber someone's home directory or desktop by accident.
+# These files are exceptions to the is_empty check when we're trying to init a new dir,
+# as they could be from a previous archivebox version, system artifacts, dependencies, etc.
+ALLOWED_IN_OUTPUT_DIR = {
+    '.gitignore',
+    'lost+found',
+    '.DS_Store',
+    '.venv',
+    'venv',
+    'virtualenv',
+    '.virtualenv',
+    'node_modules',
+    'package.json',
+    'package-lock.json',
+    'yarn.lock',
+    'static',
+    'sonic',
+    ARCHIVE_DIR_NAME,
+    SOURCES_DIR_NAME,
+    LOGS_DIR_NAME,
+    SQL_INDEX_FILENAME,
+    f'{SQL_INDEX_FILENAME}-wal',
+    f'{SQL_INDEX_FILENAME}-shm',
+    JSON_INDEX_FILENAME,
+    HTML_INDEX_FILENAME,
+    ROBOTS_TXT_FILENAME,
+    FAVICON_FILENAME,
+    CONFIG_FILENAME,
+    f'{CONFIG_FILENAME}.bak',
+    'static_index.json',
+}
 
 ############################## Derived Config ##################################
 
