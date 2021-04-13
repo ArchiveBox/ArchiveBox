@@ -39,6 +39,12 @@ jobs:
           archivebox version
           archivebox status
 
+      # - name: Push build to PyPI
+      #   run: |
+      #     cd pip_dist/
+      #     python3 -m twine upload --repository testpypi pip_dist/*.{whl,tar.gz}
+      #     python3 -m twine upload --repository pypi pip_dist/*.{whl,tar.gz}
+
       # - name: Commit built package
       #   run: |
       #     cd pip_dist/
@@ -54,8 +60,3 @@ jobs:
       #     branch: ${{ github.ref }}
       #     directory: pip_dist
 
-      # - name: Push build to PyPI
-      #   run: |
-      #     cd pip_dist/
-      #     python3 -m twine upload --repository testpypi pip_dist/*.{whl,tar.gz}
-      #     python3 -m twine upload --repository pypi pip_dist/*.{whl,tar.gz}
