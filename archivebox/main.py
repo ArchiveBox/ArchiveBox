@@ -952,7 +952,7 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
                 ], capture_output=False, cwd=out_dir)
                 run_shell([PYTHON_BINARY, '-m', 'playwright', 'install', 'chromium'], capture_output=False, cwd=out_dir)
                 proc = run_shell([PYTHON_BINARY, '-c', 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)'], capture_output=True, text=True, cwd=out_dir)
-                NEW_CHROME_BINARY = proc.stdout.strip()
+                NEW_CHROME_BINARY = proc.stdout.decode().strip() if isinstance(bytes, proc.stdout) else proc.stdout.strip()
                 assert NEW_CHROME_BINARY and len(NEW_CHROME_BINARY), 'CHROME_BINARY must contain a path'
                 config(f'CHROME_BINARY={NEW_CHROME_BINARY}', set=True, out_dir=out_dir)
             except BaseException as e:

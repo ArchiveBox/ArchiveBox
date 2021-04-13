@@ -215,7 +215,7 @@ echo "deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" 
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
 sudo apt install archivebox
-sudo snap install chromium
+archivebox setup
 archivebox --version
 # then scroll back up and continue the initalization instructions above
 </code></pre>
