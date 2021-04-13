@@ -66,7 +66,6 @@ def parse_json_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[Link]:
                     Link.from_json(links[0])
             except Exception as err:
                 print("    {lightyellow}! Found an index.json in the project root but couldn't load links from it: {} {}".format(
-                    index_path,
                     err.__class__.__name__,
                     err,
                     **ANSI,
