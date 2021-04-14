@@ -40,8 +40,6 @@ You can set it up as a [command-line tool](#Quickstart), [web app](#Quickstart),
 
 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessable formats for decades after it goes down.
 
-*✨ Have spare CPU/disk/bandwidth and want to help the world? Check out our [Good Karma Kit](https://github.com/ArchiveBox/good-karma-kit)...*
-
 <div align="center">
 <br/><br/>
 <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://i.imgur.com/asPNk8n.png" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic">
@@ -931,5 +929,9 @@ This project is maintained mostly in <a href="https://nicksweeting.com/blog#Abou
 <br/>
 
 <a href="https://releases.archivebox.io"><img src="https://api.releasepage.co/v1/pages/23bfec45-7105-4fd1-9f87-806ae7ff56bb/badge.svg?apiKey=live.clBJeKsXJ6gsidbO"/></a>
+
+<br/>
+
+<i>✨ Have spare CPU/disk/bandwidth and want to help the world? Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
 
 </div>
