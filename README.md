@@ -930,4 +930,8 @@ This project is maintained mostly in <a href="https://nicksweeting.com/blog#Abou
 
 <a href="https://releases.archivebox.io"><img src="https://api.releasepage.co/v1/pages/23bfec45-7105-4fd1-9f87-806ae7ff56bb/badge.svg?apiKey=live.clBJeKsXJ6gsidbO"/></a>
 
+<br/>
+
+<i>✨ Have spare CPU/disk/bandwidth and want to help the world? Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
+
 </div>
