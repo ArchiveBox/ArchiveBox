@@ -7,7 +7,7 @@ import platform
 from pathlib import Path
 from datetime import date
 
-from typing import Dict, List, Optional, Iterable, IO, Union
+from typing import Dict, List, Tuple, Optional, Iterable, IO, Union
 from crontab import CronTab, CronSlices
 from django.db.models import QuerySet
 
@@ -549,7 +549,7 @@ def oneshot(url: str, extractors: str="", out_dir: Path=OUTPUT_DIR):
     return oneshot_link
 
 @enforce_types
-def add(urls: Union[str, List[str]],
+def add(urls: Union[str, List[str], Path],
         tag: str='',
         depth: int=0,
         update_all: bool=not ONLY_NEW,
@@ -559,7 +559,7 @@ def add(urls: Union[str, List[str]],
         init: bool=False,
         extractors: str="",
         parser: str="auto",
-        out_dir: Path=OUTPUT_DIR) -> List[Link]:
+        out_dir: Path=OUTPUT_DIR) -> Tuple[List[Link], List[Link]]:
     """Add a new URL or list of URLs to your archive"""
 
     from core.models import Tag
@@ -584,7 +584,9 @@ def add(urls: Union[str, List[str]],
     elif isinstance(urls, list):
         # save verbatim args to sources
         write_ahead_log = save_text_as_source('\n'.join(urls), filename='{ts}-import.txt', out_dir=out_dir)
-    
+    elif isinstance(urls, Path):
+        write_ahead_log = str(urls)
+
     new_links += parse_links_from_source(write_ahead_log, root_url=None, parser=parser)
 
     # If we're going one level deeper, download each link and look for more links
@@ -638,8 +640,7 @@ def add(urls: Union[str, List[str]],
             snapshot.save()
         # print(f'    √ Tagged {len(imported_links)} Snapshots with {len(tags)} tags {tags_str}')
 
-
-    return all_links
+    return all_links, new_links
 
 @enforce_types
 def remove(filter_str: Optional[str]=None,
@@ -1147,7 +1148,6 @@ def schedule(add: bool=False,
             '>>',
             quoted(Path(LOGS_DIR) / 'schedule.log'),
             '2>&1',
-
         ]
         new_job = cron.new(command=' '.join(cmd), comment=CRON_COMMENT)
 
