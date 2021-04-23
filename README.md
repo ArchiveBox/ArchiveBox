@@ -122,13 +122,14 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> and <a href="https://docs.docker.com/compose/install/#install-using-pip">Docker Compose</a> on your system (if not already installed).</li>
-<li>Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory somewhere.
-<pre lang="bash"><code style="white-space: pre-line">curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
+<li>Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory (can be anywhere).
+<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
+curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
 </code></pre></li>
 <li>Run the initial setup and create an admin user.
 <pre lang="bash"><code style="white-space: pre-line">docker-compose run archivebox init --setup
 </code></pre></li>
-<li>Optional: start the server web then open login to adminUI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+<li>Optional: start the server web then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin UI.
 <pre lang="bash"><code style="white-space: pre-line">
 docker-compose up
 </code></pre></li>
@@ -148,7 +149,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 </code></pre>
 </li>
-<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ➡ Admin UI.
+<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin UI.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
 </code></pre>
 </li>
@@ -183,9 +184,11 @@ sudo apt update
 archivebox init --setup           # if any problems, install with pip instead
 </code></pre>
 </li>
-<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ➡ Admin UI.
+<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin UI.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
-</code></pre></li>
+# completely optional, the CLI can also be used without running a server
+</code></pre>
+</li>
 </ol>
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python manage your archive.
@@ -206,8 +209,9 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 archivebox init --setup         # if any problems, install with pip instead
 </code></pre>
 </li>
-<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ➡ Admin UI.
+<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin UI.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
+# completely optional, the CLI can also be used without running a server
 </code></pre>
 </li>
 </ol>
@@ -230,8 +234,9 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 archivebox init --setup  # install any missing extras like wget/ripgrep/etc. manually
 </code></pre>
 </li>
-<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ➡ Admin UI.
+<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin UI.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
+# completely optional, the CLI can also be used without running a server
 </code></pre>
 </li>
 </ol>
