@@ -176,7 +176,7 @@ sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
 </code></pre>
 </li>
-<li>Install the ArchiveBox package using <code>apt</code>.</li>
+<li>Install the ArchiveBox package using <code>apt</code>.
 <pre lang="bash"><code style="white-space: pre-line">sudo apt install archivebox
 </code></pre>
 </li>
@@ -252,8 +252,9 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <br/>
 <ul>
 <li><a href="https://monadical.com">
- <img src="https://img.shields.io/badge/Custom_Solution-Monadical.com-%231a1a1a.svg?style=flat" height="22px"/>
+ <img src="https://img.shields.io/badge/Custom_Managed_Solution-Monadical.com-%231a1a1a.svg?style=flat" height="22px"/>
 </a> (<a href="https://monadical.com/contact-us.html">get a quote</a>)</li>
+<li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-StellarHosted.com-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
 <br/>
 None of these hosting providers are officially endorsed:<br/>
 <sub><i>(most still require manual setup or manual periodic updating using the methods above)</i></sub>
@@ -264,7 +265,6 @@ None of these hosting providers are officially endorsed:<br/>
 <li><a href="https://www.vultr.com/?ref=7130289">
  <img src="https://img.shields.io/badge/Unmanaged_VPS-Vultr.com-%232337a8.svg?style=flat" height="22px"/>
 </a> (USD $5-25/mo, <a href="https://www.vultr.com/?ref=7130289">🎗&nbsp; referral link</a>, <a href="https://www.vultr.com/docs/install-docker-compose-on-ubuntu-20-04">instructions</a>)</li>
-<li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Managed_App-StellarHosted.com-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
 <li><a href="https://fly.io/">
  <img src="https://img.shields.io/badge/Unmanaged_App-Fly.io-%239a2de6.svg?style=flat" height="22px"/>
 </a> (USD $10-50/mo, <a href="https://fly.io/docs/hands-on/start/">instructions</a>)</li>
