@@ -279,15 +279,15 @@ archivebox help  # to see more options
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with a paid hosting provider</b></summary>
+<summary><b>Get ArchiveBox with a paid hosting solution</b></summary>
 <br/>
 <ul>
 <li><a href="https://m.do.co/c/cbc4c0c17840">
  <img src="https://img.shields.io/badge/Custom_Solution-Monadical.com-%231a1a1a.svg?style=flat" height="22px"/>
-</a> (<a href="https://monadical.com/contact-us.html">contact us for pricing</a>)</li>
+</a> (<a href="https://monadical.com/contact-us.html">get a quote</a>)</li>
 <br/>
 None of these hosting providers are officially endorsed:<br/>
-<small><i>(most still require manual setup or manual periodic updating using the methods above)</i></small>
+<sub><i>(most still require manual setup or manual periodic updating using the methods above)</i></sub>
 <br/><br/>
 <li><a href="https://m.do.co/c/cbc4c0c17840">
  <img src="https://img.shields.io/badge/Unmanaged_VPS-DigitalOcean.com-%23061b4d.svg?style=flat" height="22px"/>
