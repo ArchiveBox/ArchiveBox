@@ -111,7 +111,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 #### ⬇️&nbsp; Initial Setup
 
-Docker Compose is the recommended way to run ArchiveBox because it includes <i>all</i> the extractor dependencies and full-text search out-of-the-box, and it's the easiest way to keep those dependencies up-to-date and securely isolated from the rest of your system.
+<code>docker-compose</code> is the recommended way to run ArchiveBox because it includes <i>all</i> the extractor dependencies + full-text search out-of-the-box, and it's the easiest way to keep those dependencies up-to-date and securely isolated from the rest of your system.
 
 <br/>
 
@@ -120,17 +120,20 @@ Docker Compose is the recommended way to run ArchiveBox because it includes <i>a
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (highly recommended)</summary>
 <br/>
-<i>First make sure you have <a href="https://docs.docker.com/get-docker/">Docker</a> and <a href="https://docs.docker.com/compose/install/#install-using-pip">Docker Compose</a> installed on your system.</i>
-
-Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory and run the initial setup.
+<ol>
+<li><i>First make sure you have <a href="https://docs.docker.com/get-docker/">Docker</a> and <a href="https://docs.docker.com/compose/install/#install-using-pip">Docker Compose</a> installed on your system.</i></li>
+<li>Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory somewhere.
 <pre lang="bash"><code style="white-space: pre-line">curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
 docker-compose run archivebox init --setup
-</code></pre>
-
-Optional: Start the server and open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+</code></pre></li>
+<li>Run the initial setup.
+<pre lang="bash"><code style="white-space: pre-line">docker-compose run archivebox init --setup
+</code></pre></li>
+<li>Optional: Start the server then open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">
 docker-compose up
-</code></pre>
+</code></pre></li>
+</ol>
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 <br/><br/>
@@ -146,7 +149,7 @@ mkdir ~/archivebox && cd ~/archivebox
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 </code></pre>
 
-Optional: Start the server and open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+Optional: Start the server then open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
 </code></pre>
 
@@ -164,7 +167,7 @@ sudo add-apt-repository -u ppa:archivebox/archivebox
 </code></pre>
 
 <b>On Ubuntu <= 19.10, or other Debian-style systems</b> add the <code>apt</code> sources manually:
-<pre lang="bash"><code style="white-space: pre-line">echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee -a /etc/apt/sources.list.d/archivebox.list
+<pre lang="bash"><code style="white-space: pre-line">echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/archivebox.list
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
 </code></pre>
@@ -177,8 +180,8 @@ mkdir ~/archivebox && cd ~/archivebox
 archivebox init --setup           # if any problems, install with pip instead
 </code></pre>
 
-Optional: Start the server and open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
-<pre lang="bash"><code style="white-space: pre-line">archivebox server
+Optional: Start the server then open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 </code></pre>
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
@@ -198,7 +201,7 @@ mkdir ~/archivebox && cd ~/archivebox
 archivebox init --setup         # if any problems, install with pip instead
 </code></pre>
 
-Optional: Start the server and open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+Optional: Start the server then open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 </code></pre>
 
@@ -209,7 +212,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <details>
 <summary><b>Get ArchiveBox with <code>pip</code> on any other platforms</b> (some extras must be installed manually)</summary>
 <br/>
-<i>First make sure you have [Python >= v3.7](https://realpython.com/installing-python/) and [Node >= v14](https://nodejs.org/en/download/package-manager/) installed.</i>
+<i>First make sure you have <a href="https://realpython.com/installing-python/">Python >= v3.7</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v14</a> installed.</i>
 
 <pre lang="bash"><code style="white-space: pre-line"># install the archivebox package using pip3
 pip3 install archivebox
@@ -220,7 +223,7 @@ archivebox init --setup
 # Install any missing extras like wget/git/ripgrep/etc. manually as needed
 </code></pre>
 
-Optional: Start the server and open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+Optional: Start the server then open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 </code></pre>
 
@@ -283,11 +286,8 @@ archivebox add < ~/Downloads/bookmarks.html
 
 ```bash
 archivebox manage createsuperuser
-archivebox server 0.0.0.0:8000
-```
-Then open http://127.0.0.1:8000 to view the UI.
+archivebox server 0.0.0.0:8000   # open http://127.0.0.1:8000 to view it
 
-```bash
 # you can also configure whether or not login is required for most features
 archivebox config --set PUBLIC_INDEX=False
 archivebox config --set PUBLIC_SNAPSHOTS=False
