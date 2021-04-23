@@ -110,8 +110,8 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 **🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL) &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 <sup>(raspi>=3)</sup>
 
 
-<a href="https://cloud.digitalocean.com/apps/new?repo=https://github.com/ArchiveBox/ArchiveBox/tree/dev?refcode=f7c41d4eeae1">
- <img src="https://www.deploytodo.com/do-btn-blue.svg" alt="Deploy to DigitalOcean (referral link)">
+<a href="https://cloud.digitalocean.com/apps/new?repo=https://github.com/ArchiveBox/ArchiveBox/tree/dev&refcode=f7c41d4eeae1">
+ <img src="https://www.deploytodo.com/do-btn-blue-ghost.svg" alt="Deploy to DigitalOcean (referral link)">
 </a>
 
 #### ⬇️&nbsp; Initial Setup

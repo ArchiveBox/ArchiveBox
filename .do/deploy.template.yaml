@@ -1,4 +1,9 @@
 spec:
   services:
     - name: archivebox
-      image: archivebox/archivebox:latest
+      image:
+        registry_type: 'DOCKER_HUB'
+        registry: 'archivebox'
+        repository: 'archivebox'
+        tag: 'latest'
+      http_port: 8000
