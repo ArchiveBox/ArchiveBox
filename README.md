@@ -283,18 +283,19 @@ archivebox help  # to see more options
 <br/>
 <ul>
 <li><a href="https://m.do.co/c/cbc4c0c17840">
- <img src="https://img.shields.io/badge/Custom_Solution-Monadical-%231a1a1a.svg?style=flat" height="22px"/>
+ <img src="https://img.shields.io/badge/Custom_Solution-Monadical.com-%231a1a1a.svg?style=flat" height="22px"/>
 </a> (<a href="https://monadical.com/contact-us.html">contact us for pricing</a>)</li>
 <br/>
-None of these hosting providers are officially endorsed, most still require manual setup or manual periodic updating using the methods above:
+None of these hosting providers are officially endorsed:<br/>
+<small><i>(most still require manual setup or manual periodic updating using the methods above)</i></small>
 <br/><br/>
 <li><a href="https://m.do.co/c/cbc4c0c17840">
- <img src="https://img.shields.io/badge/Unmanaged_VPS-DigitalOcean-%23061b4d.svg?style=flat" height="22px"/>
+ <img src="https://img.shields.io/badge/Unmanaged_VPS-DigitalOcean.com-%23061b4d.svg?style=flat" height="22px"/>
 </a> (USD $5-25/mo, <a href="https://m.do.co/c/cbc4c0c17840">🎗&nbsp; referral link</a>, <a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-compose-on-ubuntu-20-04">instructions</a>)</li>
 <li><a href="https://www.vultr.com/?ref=7130289">
- <img src="https://img.shields.io/badge/Unmanaged_VPS-Vultr-%232337a8.svg?style=flat" height="22px"/>
+ <img src="https://img.shields.io/badge/Unmanaged_VPS-Vultr.com-%232337a8.svg?style=flat" height="22px"/>
 </a> (USD $5-25/mo, <a href="https://www.vultr.com/?ref=7130289">🎗&nbsp; referral link</a>, <a href="https://www.vultr.com/docs/install-docker-compose-on-ubuntu-20-04">instructions</a>)</li>
-<li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_App-Stellar_Hosted-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
+<li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Managed_App-StellarHosted.com-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
 <li><a href="https://fly.io/">
  <img src="https://img.shields.io/badge/Unmanaged_App-Fly.io-%239a2de6.svg?style=flat" height="22px"/>
 </a> (USD $10-50/mo, <a href="https://fly.io/docs/hands-on/start/">instructions</a>)</li>
