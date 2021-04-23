@@ -116,61 +116,42 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (highly recommended)</summary>
 
-<i>First make sure you have [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/#install-using-pip) installed on your system.</i>
+<i>First make sure you have <a href="https://docs.docker.com/get-docker/">Docker</a> and <a href="https://docs.docker.com/compose/install/#install-using-pip">Docker Compose</a> installed on your system.</i>
 
-Download the [`docker-compose.yml`](https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml) file into a new empty directory.
-<pre lang="bash"><code style="white-space: pre-line">
-curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
+Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory.
+<pre lang="bash"><code style="white-space: pre-line">curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
 </code></pre>
 
-Start the server.
-<pre lang="bash"><code style="white-space: pre-line">
-docker-compose run archivebox init --setup
+Start the web UI server (optional).
+<pre lang="bash"><code style="white-space: pre-line">docker-compose run archivebox init --setup
 docker-compose up
 </code></pre>
 
-Open [`http://127.0.0.1:8000`](http://127.0.0.1:8000).
+Open <a href="http://127.0.0.1:8000"><code>http://127.0.0.1:8000</code></a>.
 
-<pre lang="bash"><code style="white-space: pre-line">
-# you can also add links and manage your archive via the CLI:
-docker-compose run archivebox add 'https://example.com'
-echo 'https://example.com' | docker-compose run archivebox -T add
-docker-compose run archivebox status
-docker-compose run archivebox help  # to see more options
-
-# when passing stdin/stdout via the cli, use the -T flag
-echo 'https://example.com' | docker-compose run -T archivebox add
-docker-compose run -T archivebox list --html --with-headers > index.html
-</code></pre>
+See below for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 
 This is the recommended way to run ArchiveBox because it includes <i>all</i> the extractors like:<br/>
-chrome, wget, youtube-dl, git, etc., full-text search w/ sonic, and many other great features.
-
+chrome, wget, youtube-dl, git, etc., full-text search w/ sonic, and provides the easiest way to keep those dependencies up-to-date and securely isolated from the rest of your system.
+<br/>
 </details>
 
 <details>
 <summary><b>Get ArchiveBox with <code>docker</code> on macOS/Linux/Windows</b></summary>
 
-<i>First make sure you have [Docker](https://docs.docker.com/get-docker/) installed on your system.</i>
+<i>First make sure you have <a href="https://docs.docker.com/get-docker/">Docker</a> installed on your system.</i>
 
-<pre lang="bash"><code style="white-space: pre-line">
-# create a new empty directory and initalize your collection (can be anywhere)
+<pre lang="bash"><code style="white-space: pre-line"># create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
-
-# start the webserver and open the UI (optional)
-docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox server 0.0.0.0:8000
-open http://127.0.0.1:8000
-
-# you can also add links and manage your archive via the CLI:
-docker run -v $PWD:/data -it archivebox/archivebox add 'https://example.com'
-docker run -v $PWD:/data -it archivebox/archivebox status
-docker run -v $PWD:/data -it archivebox/archivebox help  # to see more options
-
-# when passing stdin/stdout via the cli, use only -i (not -it)
-echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox add
-docker run -v $PWD:/data -i archivebox/archivebox list --html --with-headers > index.html
 </code></pre>
+Start the server.
+<pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
+</code></pre>
+
+Open <a href="http://127.0.0.1:8000"><code>http://127.0.0.1:8000</code></a>.
+
+See below for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 
 </details>
 
@@ -193,18 +174,15 @@ sudo apt install archivebox
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
 archivebox init --setup
-
-# start the webserver and open the web UI (optional)
-archivebox server 0.0.0.0:8000
-open http://127.0.0.1:8000
-
-# you can also add URLs and manage the archive via the CLI and filesystem:
-archivebox add 'https://example.com'
-archivebox status
-archivebox list --html --with-headers > index.html
-archivebox list --json --with-headers > index.json
-archivebox help  # to see more options
 </code></pre>
+
+Start the web UI server (optional).
+<pre lang="bash"><code style="white-space: pre-line">archivebox server
+</code></pre>
+
+Open <a href="http://127.0.0.1:8000"><code>http://127.0.0.1:8000</code></a>.
+
+See below for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 
 <i><b>♰ On other Ubuntu/Debian-based systems</b> add these sources directly to <code>/etc/apt/sources.list</code>:</i>
 
@@ -214,8 +192,6 @@ echo "deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" 
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
 sudo apt install archivebox
-archivebox setup
-archivebox --version
 # then scroll back up and continue the initalization instructions above
 </code></pre>
 
@@ -226,7 +202,7 @@ archivebox --version
 <details>
 <summary><b>Get ArchiveBox with <code>brew</code> on macOS</b></summary>
 
-<i>First make sure you have Homebrew installed: https://brew.sh/#install</i>
+<i>First make sure you have <a href="https://brew.sh/#install">Homebrew</a> installed on your system.</i>
 
 <pre lang="bash"><code style="white-space: pre-line">
 # install the archivebox package using homebrew
@@ -235,18 +211,15 @@ brew install archivebox/archivebox/archivebox
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
 archivebox init --setup
-
-# start the webserver and open the web UI (optional)
-archivebox server 0.0.0.0:8000
-open http://127.0.0.1:8000
-
-# you can also add URLs and manage the archive via the CLI and filesystem:
-archivebox add 'https://example.com'
-archivebox status
-archivebox list --html --with-headers > index.html
-archivebox list --json --with-headers > index.json
-archivebox help  # to see more options
 </code></pre>
+
+Start the web UI server (optional).
+<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
+</code></pre>
+
+Open <a href="http://127.0.0.1:8000"><code>http://127.0.0.1:8000</code></a>.
+
+See below for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 
 </details>
 
@@ -263,18 +236,15 @@ pip3 install archivebox
 mkdir ~/archivebox && cd ~/archivebox
 archivebox init --setup
 # Install any missing extras like wget/git/ripgrep/etc. manually as needed
-
-# start the webserver and open the web UI (optional)
-archivebox server 0.0.0.0:8000
-open http://127.0.0.1:8000
-
-# you can also add URLs and manage the archive via the CLI and filesystem:
-archivebox add 'https://example.com'
-archivebox status
-archivebox list --html --with-headers > index.html
-archivebox list --json --with-headers > index.json
-archivebox help  # to see more options
 </code></pre>
+
+Start the web UI server (optional).
+<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
+</code></pre>
+
+Open <a href="http://127.0.0.1:8000"><code>http://127.0.0.1:8000</code></a>.
+
+See below for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 
 </details>
 
@@ -318,6 +288,9 @@ For more discussion on managed and paid hosting options see here: <a href="https
 archivebox init --setup      # safe to run init multiple times (also how you update versions)
 archivebox --version
 archivebox help
+
+archivebox add --depth=1 'https://example.com/some/rss/feed.xml'
+archivebox add < ~/Downloads/bookmarks.html
 ```
 
 - `archivebox setup/init/config/status/manage` to administer your collection
@@ -392,11 +365,10 @@ archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
 echo 'http://example.com' | archivebox add
 echo 'any_text_with [urls](https://example.com) in it' | archivebox add
 
-# (if using docker add -i when piping stdin)
-echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox add
-
-# (if using docker-compose add -T when piping stdin / stdout)
-echo 'https://example.com' | docker-compose run -T archivebox add
+# if using docker add -i when piping stdin:
+# echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox add
+# if using docker-compose add -T when piping stdin / stdout:
+# echo 'https://example.com' | docker-compose run -T archivebox add
 ```
 
 See the [Usage: CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) page for documentation and examples.
@@ -457,7 +429,7 @@ It does everything out-of-the-box by default, but you can disable or tweak [indi
 # archivebox config --help
 archivebox config # see all currently configured options
 archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
-archivebox config --set YOUTUBEDL_ARGS='--max-filesize=500m'
+archivebox config --set GIT_ARGS='--recursive'
 ```
 
 <br/>
@@ -468,7 +440,7 @@ You can export the main index to browse it statically without needing to run a s
 
 *Note about large exports: These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.*
 
-```bash|
+```bash
 # archivebox list --help
 
 archivebox list --html --with-headers > index.html     # export to static html table
