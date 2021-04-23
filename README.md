@@ -127,12 +127,10 @@ Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/ma
 docker-compose run archivebox init --setup
 </code></pre>
 
-Start the web UI server (optional).
+Optional: Start the server and open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">
 docker-compose up
 </code></pre>
-
-Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 <br/><br/>
@@ -148,11 +146,9 @@ mkdir ~/archivebox && cd ~/archivebox
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 </code></pre>
 
-Start the web UI server (optional).
+Optional: Start the server and open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
 </code></pre>
-
-Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 <br/><br/>
@@ -162,32 +158,28 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu/Debian</b></summary>
 <br/>
 
-<b>On Ubuntu >= 20.04:</b>
-<pre lang="bash"><code style="white-space: pre-line"># add the apt sources using automatically
-sudo apt install software-properties-common
+<b>On Ubuntu >= 20.04</b>, add the <code>apt</code> sources automatically:
+<pre lang="bash"><code style="white-space: pre-line">sudo apt install software-properties-common
 sudo add-apt-repository -u ppa:archivebox/archivebox
 </code></pre>
 
-<b>On Ubuntu <= 19.10, Debian >= 10, or other Debian-based systems:</b>
-<pre lang="bash"><code style="white-space: pre-line"># add the apt sources manually
-echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" > /etc/apt/sources.list.d/archivebox.list
+<b>On Ubuntu <= 19.10, or other Debian-style systems</b> add the <code>apt</code> sources manually:
+<pre lang="bash"><code style="white-space: pre-line">echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee -a /etc/apt/sources.list.d/archivebox.list
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
 </code></pre>
 
-<pre lang="bash"><code style="white-space: pre-line"># install the archivebox package using apt
-sudo apt install archivebox
+<b>Then install the <code>apt</code> package and continue the setup:</b>
+<pre lang="bash"><code style="white-space: pre-line">sudo apt install archivebox
 
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
 archivebox init --setup           # if any problems, install with pip instead
 </code></pre>
 
-Start the web UI server (optional).
+Optional: Start the server and open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server
 </code></pre>
-
-Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 <br/><br/>
@@ -206,11 +198,9 @@ mkdir ~/archivebox && cd ~/archivebox
 archivebox init --setup         # if any problems, install with pip instead
 </code></pre>
 
-Start the web UI server (optional).
+Optional: Start the server and open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 </code></pre>
-
-Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 <br/><br/>
@@ -230,11 +220,9 @@ archivebox init --setup
 # Install any missing extras like wget/git/ripgrep/etc. manually as needed
 </code></pre>
 
-Start the web UI server (optional).
+Optional: Start the server and open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 </code></pre>
-
-Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 <br/><br/>
