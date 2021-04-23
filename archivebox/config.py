@@ -988,6 +988,11 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
         stderr('    See https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
         raise SystemExit(2)
 
+    if int(CONFIG['DJANGO_VERSION'].split('.')[0]) < 3:
+        stderr(f'[X] Django version is not new enough: {config["DJANGO_VERSION"]} (>3.0 is required)', color='red')
+        stderr('    Upgrade django using pip or your system package manager: pip3 install --upgrade django')
+        raise SystemExit(2)
+
     if config['PYTHON_ENCODING'] not in ('UTF-8', 'UTF8'):
         stderr(f'[X] Your system is running python3 scripts with a bad locale setting: {config["PYTHON_ENCODING"]} (it should be UTF-8).', color='red')
         stderr('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
