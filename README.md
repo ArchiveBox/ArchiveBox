@@ -148,7 +148,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 </code></pre>
 </li>
-<li>Optional: Start the web server then login to the admin UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ➡ Admin UI.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
 </code></pre>
 </li>
@@ -162,7 +162,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu/Debian</b></summary>
 <br/>
 <ol>
-<li>Add the Apt sources and install the package.<br/>
+<li>Add the ArchiveBox repository to your sources.<br/>
 <b>On Ubuntu >= 20.04</b>, add the <code>apt</code> sources automatically:
 <pre lang="bash"><code style="white-space: pre-line">sudo apt install software-properties-common
 sudo add-apt-repository -u ppa:archivebox/archivebox
@@ -183,7 +183,7 @@ sudo apt update
 archivebox init --setup           # if any problems, install with pip instead
 </code></pre>
 </li>
-<li>Optional: Start the web server then login to the admin UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ➡ Admin UI.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 </code></pre></li>
 </ol>
@@ -206,7 +206,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 archivebox init --setup         # if any problems, install with pip instead
 </code></pre>
 </li>
-<li>Optional: Start the web server then login to the admin UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ➡ Admin UI.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 </code></pre>
 </li>
@@ -230,7 +230,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 archivebox init --setup  # install any missing extras like wget/ripgrep/etc. manually
 </code></pre>
 </li>
-<li>Optional: Start the web server then login to the admin UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ➡ Admin UI.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 </code></pre>
 </li>
