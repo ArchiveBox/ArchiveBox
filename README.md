@@ -130,8 +130,7 @@ curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-c
 <pre lang="bash"><code style="white-space: pre-line">docker-compose run archivebox init --setup
 </code></pre></li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
-<pre lang="bash"><code style="white-space: pre-line">
-docker-compose up
+<pre lang="bash"><code style="white-space: pre-line">docker-compose up
 # completely optional, CLI can always be used without running a server
 </code></pre></li>
 </ol>
@@ -893,16 +892,16 @@ archivebox manage dbshell
 
 ---
 
-## Futher Reading
+## Further Reading
 
-- Home: https://archivebox.io
-- Demo: https://demo.archivebox.io
-- Docs: https://docs.archivebox.io
-- Wiki: https://wiki.archivebox.io
-- Issues: https://issues.archivebox.io
-- Forum: https://forum.archivebox.io
-- Releases: https://releases.archivebox.io
-- Donations: https://github.com/sponsors/pirate
+- Home: [ArchiveBox.io](https://archivebox.io)
+- Demo: [Demo.ArchiveBox.io](https://demo.archivebox.io)
+- Docs: [Docs.ArchiveBox.io](https://docs.archivebox.io)
+- Wiki: [Wiki.ArchiveBox.io](https://wiki.archivebox.io)
+- Issues: [Issues.ArchiveBox.io](https://issues.archivebox.io)
+- Forum: [Forum.ArchiveBox.io](https://forum.archivebox.io)
+- Releases: [Releases.ArchiveBox.io](https://releases.archivebox.io)
+- Donations: [Github.com/sponsors/pirate](https://github.com/sponsors/pirate)
 
 ---
 
@@ -931,7 +930,7 @@ This project is maintained mostly in <a href="https://nicksweeting.com/blog#Abou
 <a href="https://releases.archivebox.io"><img src="https://api.releasepage.co/v1/pages/23bfec45-7105-4fd1-9f87-806ae7ff56bb/badge.svg?apiKey=live.clBJeKsXJ6gsidbO"/></a>
 
 <br/>
-
-<i>✨ Have spare CPU/disk/bandwidth and want to help the world? Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
-
+<br/>
+<i>✨ Have spare CPU/disk/bandwidth and want to help the world?<br/>Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
+<br/>
 </div>
