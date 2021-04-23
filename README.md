@@ -111,6 +111,8 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 #### ⬇️&nbsp; Initial Setup
 
+Docker Compose is recommended way to run ArchiveBox because it includes <i>all</i> the extractor dependencies and full-text search out-of-the-box, and it's the easiest way to keep those dependencies up-to-date and securely isolated from the rest of your system.
+
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
 
 <details>
@@ -118,21 +120,19 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 <i>First make sure you have <a href="https://docs.docker.com/get-docker/">Docker</a> and <a href="https://docs.docker.com/compose/install/#install-using-pip">Docker Compose</a> installed on your system.</i>
 
-Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory.
+Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory and run the initial setup.
 <pre lang="bash"><code style="white-space: pre-line">curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
+docker-compose run archivebox init --setup
 </code></pre>
 
 Start the web UI server (optional).
-<pre lang="bash"><code style="white-space: pre-line">docker-compose run archivebox init --setup
+<pre lang="bash"><code style="white-space: pre-line">
 docker-compose up
 </code></pre>
 
-Open <a href="http://127.0.0.1:8000"><code>http://127.0.0.1:8000</code></a>.
+Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
-See below for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
-
-This is the recommended way to run ArchiveBox because it includes <i>all</i> the extractors like:<br/>
-chrome, wget, youtube-dl, git, etc., full-text search w/ sonic, and provides the easiest way to keep those dependencies up-to-date and securely isolated from the rest of your system.
+See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 <br/>
 </details>
 
@@ -145,13 +145,14 @@ chrome, wget, youtube-dl, git, etc., full-text search w/ sonic, and provides the
 mkdir ~/archivebox && cd ~/archivebox
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 </code></pre>
-Start the server.
+
+Start the web UI server (optional).
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
 </code></pre>
 
-Open <a href="http://127.0.0.1:8000"><code>http://127.0.0.1:8000</code></a>.
+Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
-See below for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
+See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 
 </details>
 
@@ -180,9 +181,9 @@ Start the web UI server (optional).
 <pre lang="bash"><code style="white-space: pre-line">archivebox server
 </code></pre>
 
-Open <a href="http://127.0.0.1:8000"><code>http://127.0.0.1:8000</code></a>.
+Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
-See below for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
+See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 
 <i><b>♰ On other Ubuntu/Debian-based systems</b> add these sources directly to <code>/etc/apt/sources.list</code>:</i>
 
@@ -217,9 +218,9 @@ Start the web UI server (optional).
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 </code></pre>
 
-Open <a href="http://127.0.0.1:8000"><code>http://127.0.0.1:8000</code></a>.
+Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
-See below for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
+See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 
 </details>
 
@@ -242,9 +243,9 @@ Start the web UI server (optional).
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 </code></pre>
 
-Open <a href="http://127.0.0.1:8000"><code>http://127.0.0.1:8000</code></a>.
+Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
-See below for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
+See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
 
 </details>
 
@@ -277,6 +278,8 @@ None of these hosting providers are officially endorsed:<br/>
 For more discussion on managed and paid hosting options see here: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/531">Issue #531</a>.
 
 </details>
+
+<br/><br/>
 
 #### ⚡️&nbsp; CLI Usage
 
