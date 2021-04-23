@@ -169,8 +169,8 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <pre lang="bash"><code style="white-space: pre-line"># On Ubuntu >= 20.04, add the sources automatically:
 sudo apt install software-properties-common
 sudo add-apt-repository -u ppa:archivebox/archivebox
-
-# On Ubuntu <= 19.10, or other Debian-style systems add the sources manually:
+</code></pre>
+<pre lang="bash"><code style="white-space: pre-line"># On Ubuntu <= 19.10, or other Debian-style systems add the sources manually:
 echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/archivebox.list
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
