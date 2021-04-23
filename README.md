@@ -128,7 +128,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 <li>Run the initial setup and create an admin user.
 <pre lang="bash"><code style="white-space: pre-line">docker-compose run archivebox init --setup
 </code></pre></li>
-<li>Optional: start the server then open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+<li>Optional: start the server web then open login to adminUI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">
 docker-compose up
 </code></pre></li>
@@ -148,7 +148,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 </code></pre>
 </li>
-<li>Optional: Start the server then open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+<li>Optional: Start the web server then login to the admin UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
 </code></pre>
 </li>
@@ -162,7 +162,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu/Debian</b></summary>
 <br/>
 <ol>
-<li>Add the Apt sources and install the package.
+<li>Add the Apt sources and install the package.<br/>
 <b>On Ubuntu >= 20.04</b>, add the <code>apt</code> sources automatically:
 <pre lang="bash"><code style="white-space: pre-line">sudo apt install software-properties-common
 sudo add-apt-repository -u ppa:archivebox/archivebox
@@ -173,8 +173,8 @@ sudo add-apt-repository -u ppa:archivebox/archivebox
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
 </code></pre>
-
-<b>Then install the <code>apt</code> package:</b>
+</li>
+<li>Install the ArchiveBox package using <code>apt</code>.</li>
 <pre lang="bash"><code style="white-space: pre-line">sudo apt install archivebox
 </code></pre>
 </li>
@@ -183,7 +183,7 @@ sudo apt update
 archivebox init --setup           # if any problems, install with pip instead
 </code></pre>
 </li>
-<li>Optional: Start the server then open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+<li>Optional: Start the web server then login to the admin UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 </code></pre></li>
 </ol>
@@ -197,7 +197,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <br/>
 <ol>
 <li>Install <a href="https://brew.sh/#install">Homebrew</a> on your system (if not already installed).</li>
-<li>Install the archivebox package using homebrew.
+<li>Install the ArchiveBox package using <code>brew</code>.
 <pre lang="bash"><code style="white-space: pre-line">brew install archivebox/archivebox/archivebox
 </code>
 </li>
@@ -206,7 +206,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 archivebox init --setup         # if any problems, install with pip instead
 </code></pre>
 </li>
-<li>Optional: Start the server then open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+<li>Optional: Start the web server then login to the admin UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 </code></pre>
 </li>
@@ -221,17 +221,16 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <br/>
 <ol>
 <li>Install <a href="https://realpython.com/installing-python/">Python >= v3.7</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v14</a> on your system (if not already installed).</li>
-<li>Install the archivebox package using pip3.
+<li>Install the ArchiveBox package using <code>pip3</code>.
 <pre lang="bash"><code style="white-space: pre-line">pip3 install archivebox
 </code></pre>
 </li>
 <li>Create a new empty directory and initalize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
-archivebox init --setup
-# Install any missing extras like wget/git/ripgrep/etc. manually as needed
+archivebox init --setup  # install any missing extras like wget/ripgrep/etc. manually
 </code></pre>
 </li>
-<li>Optional: Start the server then open the web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+<li>Optional: Start the web server then login to the admin UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 </code></pre>
 </li>
