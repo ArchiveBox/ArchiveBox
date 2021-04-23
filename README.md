@@ -281,22 +281,22 @@ archivebox help  # to see more options
 <details>
 <summary><b>Get ArchiveBox with a paid hosting provider</b></summary>
 <br/>
-<small><i>Note: These are referral links, clicking them helps pay for our demo server hosting costs 🎗.</i></small>
+None of these providers are officially endorsed, most still require manual setup or manual periodic updating using the methods above, and you may experience varying levels of service quality from them.
 <ul>
-<li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Fully_Managed-Stellar_Hosted-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo)</li>
+<li><a href="https://m.do.co/c/cbc4c0c17840">
+ <img src="https://img.shields.io/badge/Unmanaged_VPS-DigitalOcean-%23061b4d.svg?style=flat" height="22px"/>
+</a> (USD $5-25/mo, 🎗&nbsp; referral link)</li>
+<li><a href="https://www.vultr.com/?ref=7130289">
+ <img src="https://img.shields.io/badge/Unmanaged_VPS-Vultr-%232337a8.svg?style=flat" height="22px"/>
+</a> (USD $5-25/mo, 🎗&nbsp; referral link)</li>
+<li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Managed_App-Stellar_Hosted-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo)</li>
 <li><a href="https://fly.io/">
  <img src="https://img.shields.io/badge/Unmanaged_App-Fly.io-%239a2de6.svg?style=flat" height="22px"/>
 </a> (USD $10-50/mo)</li>
-<li><a href="https://m.do.co/c/cbc4c0c17840">
- <img src="https://img.shields.io/badge/Unmanaged_VPS-DigitalOcean-%23061b4d.svg?style=flat" height="22px"/>
-</a> (USD $5-25/mo)</li>
-<li><a href="https://www.vultr.com/?ref=7130289">
- <img src="https://img.shields.io/badge/Unmanaged_VPS-Vultr-%232337a8.svg?style=flat" height="22px"/>
-</a> (USD $5-25/mo)</li>
-<li><a href="https://aws.amazon.com/marketplace/pp/Linnovate-Open-Source-Innovation-Support-For-Archi/B08RVW6MJ2"><img src="https://img.shields.io/badge/Unmanaged_VPS-AWS_Marketplace-%23ee8135.svg?style=flat" height="22px"/></a> (USD $60-200/mo)</li>
+<li><a href="https://aws.amazon.com/marketplace/pp/Linnovate-Open-Source-Innovation-Support-For-Archi/B08RVW6MJ2"><img src="https://img.shields.io/badge/Unmanaged_VPS-AWS-%23ee8135.svg?style=flat" height="22px"/></a> (USD $60-200/mo)</li>
 </ul>
 
-None of these providers are officially endorsed, some require manual setup or manual periodic updating, and you may experience varying levels of service quality from them.
+<small><i>Note: Some of these are referral links 🎗, using them will get you some free credit and helps pay for the ArchiveBox <a href="https://demo.archivebox.io">demo server</a> hosting costs.</i></small>
 
 For more discussion on managed and paid hosting setups see here: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/531">Issue #531</a>.
 
