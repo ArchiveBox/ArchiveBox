@@ -32,7 +32,7 @@
 
 **ArchiveBox is a powerful, self-hosted internet archiving solution to collect, save, and view sites you want to preserve offline.**
 
-You can set it up as a [command-line tool](#Quickstart), [web app](#Quickstart), and [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha), on Linux, macOS, and Windows.
+You can set it up as a [command-line tool](#quickstart), [web app](#quickstart), and [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha), on Linux, macOS, and Windows.
 
 **You can feed it URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
 
@@ -52,7 +52,7 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 <br/>
 
-**📦&nbsp; Install ArchiveBox with [Docker Compose (recommended)](#Quickstart) / Docker, or `apt` / `brew` / `pip` ([see below](#Quickstart)).**
+**📦&nbsp; Install ArchiveBox with [Docker Compose (recommended)](#quickstart) / Docker, or `apt` / `brew` / `pip` ([see below](#quickstart)).**
 
 *No matter which setup method you choose, they all follow this basic process and provide the same CLI, Web UI, and on-disk data layout.*
 
@@ -74,7 +74,7 @@ archivebox list 'https://example.com'     # use the CLI commands (--help for mor
 ls ./archive/*/index.json                 # or browse directly via the filesystem
 ```
 
-**⤵️ See the [Quickstart](#Quickstart) below for more...**
+**⤵️ See the [Quickstart](#quickstart) below for more...**
 
 <div align="center">
 <br/><br/>
