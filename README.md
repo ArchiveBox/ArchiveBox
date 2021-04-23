@@ -132,6 +132,7 @@ curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-c
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker-compose up
 # completely optional, CLI can always be used without running a server
+# docker-compose run [-T] archivebox [subcommand] [--args]
 </code></pre></li>
 </ol>
 
@@ -152,6 +153,7 @@ docker run -v $PWD:/data -it archivebox/archivebox init --setup
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
 # completely optional, CLI can always be used without running a server
+# docker run -v $PWD:/data -it [subcommand] [--args]
 </code></pre>
 </li>
 </ol>
@@ -187,6 +189,7 @@ archivebox init --setup           # if any problems, install with pip instead
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
+# archivebox [subcommand] [--args]
 </code></pre>
 </li>
 </ol>
@@ -212,6 +215,7 @@ archivebox init --setup         # if any problems, install with pip instead
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
+# archivebox [subcommand] [--args]
 </code></pre>
 </li>
 </ol>
@@ -238,6 +242,7 @@ archivebox init --setup
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
+# archivebox [subcommand] [--args]
 </code></pre>
 </li>
 </ol>
