@@ -129,9 +129,10 @@ curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-c
 <li>Run the initial setup and create an admin user.
 <pre lang="bash"><code style="white-space: pre-line">docker-compose run archivebox init --setup
 </code></pre></li>
-<li>Optional: start the server web then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin UI.
+<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">
 docker-compose up
+# completely optional, CLI can also be used without running a server
 </code></pre></li>
 </ol>
 
@@ -149,8 +150,9 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 </code></pre>
 </li>
-<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin UI.
+<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
+# completely optional, CLI can also be used without running a server
 </code></pre>
 </li>
 </ol>
@@ -164,13 +166,12 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <br/>
 <ol>
 <li>Add the ArchiveBox repository to your sources.<br/>
-<b>On Ubuntu >= 20.04</b>, add the <code>apt</code> sources automatically:
-<pre lang="bash"><code style="white-space: pre-line">sudo apt install software-properties-common
+<pre lang="bash"><code style="white-space: pre-line"># On Ubuntu >= 20.04, add the sources automatically:
+sudo apt install software-properties-common
 sudo add-apt-repository -u ppa:archivebox/archivebox
-</code></pre>
 
-<b>On Ubuntu <= 19.10, or other Debian-style systems</b> add the <code>apt</code> sources manually:
-<pre lang="bash"><code style="white-space: pre-line">echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/archivebox.list
+# On Ubuntu <= 19.10, or other Debian-style systems add the sources manually:
+echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/archivebox.list
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
 </code></pre>
@@ -184,9 +185,9 @@ sudo apt update
 archivebox init --setup           # if any problems, install with pip instead
 </code></pre>
 </li>
-<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin UI.
+<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
-# completely optional, the CLI can also be used without running a server
+# completely optional, CLI can also be used without running a server
 </code></pre>
 </li>
 </ol>
@@ -209,9 +210,9 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 archivebox init --setup         # if any problems, install with pip instead
 </code></pre>
 </li>
-<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin UI.
+<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
-# completely optional, the CLI can also be used without running a server
+# completely optional, CLI can also be used without running a server
 </code></pre>
 </li>
 </ol>
@@ -234,9 +235,9 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 archivebox init --setup  # install any missing extras like wget/ripgrep/etc. manually
 </code></pre>
 </li>
-<li>Optional: Start the web server then login to the <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin UI.
+<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
-# completely optional, the CLI can also be used without running a server
+# completely optional, CLI can also be used without running a server
 </code></pre>
 </li>
 </ol>
