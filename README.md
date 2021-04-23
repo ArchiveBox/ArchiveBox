@@ -279,7 +279,7 @@ archivebox help  # to see more options
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with a "one-click" paid hosting provider</summary>
+<summary><b>Get ArchiveBox with a "one-click" paid hosting provider</b></summary>
 <br/>
 <ul>
 <li><a href="https://cloud.digitalocean.com/apps/new?repo=https://github.com/ArchiveBox/ArchiveBox/tree/dev&refcode=f7c41d4eeae1">
@@ -292,6 +292,7 @@ archivebox help  # to see more options
 None of these providers are officially endorsed, some manual setup or periodic updating may be required, and you may experience varying levels of service quality from them.
 
 <small><i>Note: some of these are referral links, any earnings go towards supporting ArchiveBox development.</i></small>
+</details>
 
 #### ⚡️&nbsp; CLI Usage
 
