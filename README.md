@@ -109,11 +109,6 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 **🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL) &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 <sup>(raspi>=3)</sup>
 
-
-<a href="https://cloud.digitalocean.com/apps/new?repo=https://github.com/ArchiveBox/ArchiveBox/tree/dev&refcode=f7c41d4eeae1">
- <img src="https://www.deploytodo.com/do-btn-blue-ghost.svg" alt="Deploy to DigitalOcean (referral link)">
-</a>
-
 #### ⬇️&nbsp; Initial Setup
 
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
@@ -283,6 +278,20 @@ archivebox help  # to see more options
 
 </details>
 
+<details>
+<summary><b>Get ArchiveBox with a "one-click" paid hosting provider</summary>
+<br/>
+<ul>
+<li><a href="https://cloud.digitalocean.com/apps/new?repo=https://github.com/ArchiveBox/ArchiveBox/tree/dev&refcode=f7c41d4eeae1">
+ <img src="https://www.deploytodo.com/do-btn-blue-ghost.svg" alt="Deploy to DigitalOcean (referral link)" height="28px"/>
+</a> (USD $25-50/mo)</li>
+<li><a href="https://aws.amazon.com/marketplace/pp/Linnovate-Open-Source-Innovation-Support-For-Archi/B08RVW6MJ2"><img src="https://img.shields.io/badge/Amazon_Web_Services-Marketplace-%23ee8135.svg?style=flat" height="28px"/></a> (USD $60-200/mo)</li>
+<li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Stellar_Hosted-Managed-%23193f7e.svg?style=flat" height="28px"/></a> (USD $29-250/mo)</li>
+</ul>
+
+None of these providers are officially endorsed, some manual setup or periodic updating may be required, and you may experience varying levels of service quality from them.
+
+<small><i>Note: some of these are referral links, any earnings go towards supporting ArchiveBox development.</i></small>
 
 #### ⚡️&nbsp; CLI Usage
 
