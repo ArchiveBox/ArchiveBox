@@ -406,6 +406,11 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
     if existing_index:
         print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
     else:
+        # TODO: allow creating new supersuer via env vars on first init
+        # if config.HTTP_USER and config.HTTP_PASS:
+        #     from django.contrib.auth.models import User
+        #     User.objects.create_superuser(HTTP_USER, '', HTTP_PASS)
+
         print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links) + len(pending_links), **ANSI))
 
     json_index = out_dir / JSON_INDEX_FILENAME
