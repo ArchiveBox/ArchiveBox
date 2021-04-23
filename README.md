@@ -111,13 +111,15 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 #### ⬇️&nbsp; Initial Setup
 
-Docker Compose is recommended way to run ArchiveBox because it includes <i>all</i> the extractor dependencies and full-text search out-of-the-box, and it's the easiest way to keep those dependencies up-to-date and securely isolated from the rest of your system.
+Docker Compose is the recommended way to run ArchiveBox because it includes <i>all</i> the extractor dependencies and full-text search out-of-the-box, and it's the easiest way to keep those dependencies up-to-date and securely isolated from the rest of your system.
+
+<br/>
 
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
 
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (highly recommended)</summary>
-
+<br/>
 <i>First make sure you have <a href="https://docs.docker.com/get-docker/">Docker</a> and <a href="https://docs.docker.com/compose/install/#install-using-pip">Docker Compose</a> installed on your system.</i>
 
 Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory and run the initial setup.
@@ -133,12 +135,12 @@ docker-compose up
 Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
-<br/>
+<br/><br/>
 </details>
 
 <details>
 <summary><b>Get ArchiveBox with <code>docker</code> on macOS/Linux/Windows</b></summary>
-
+<br/>
 <i>First make sure you have <a href="https://docs.docker.com/get-docker/">Docker</a> installed on your system.</i>
 
 <pre lang="bash"><code style="white-space: pre-line"># create a new empty directory and initalize your collection (can be anywhere)
@@ -153,28 +155,32 @@ Start the web UI server (optional).
 Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
-
+<br/><br/>
 </details>
 
 <details>
 <summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu/Debian</b></summary>
+<br/>
 
-This method should work on all Ubuntu/Debian based systems, including x86, amd64, arm7, and arm8 CPUs (e.g. Raspberry Pis >=3).
-
-If you're on Ubuntu >= 20.04, add the `apt` repository with `add-apt-repository`:
-<small><i>(on other Ubuntu/Debian-based systems follow the <b>♰ instructions</b> below)</i></small>
-
-<pre lang="bash"><code style="white-space: pre-line">
-# add the repo to your sources and install the archivebox package using apt
+<b>On Ubuntu >= 20.04:</b>
+<pre lang="bash"><code style="white-space: pre-line"># add the apt sources using automatically
 sudo apt install software-properties-common
 sudo add-apt-repository -u ppa:archivebox/archivebox
-sudo apt install archivebox
 </code></pre>
 
-<pre lang="bash"><code style="white-space: pre-line">
+<b>On Ubuntu <= 19.10, Debian >= 10, or other Debian-based systems:</b>
+<pre lang="bash"><code style="white-space: pre-line"># add the apt sources manually
+echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" > /etc/apt/sources.list.d/archivebox.list
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
+sudo apt update
+</code></pre>
+
+<pre lang="bash"><code style="white-space: pre-line"># install the archivebox package using apt
+sudo apt install archivebox
+
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
-archivebox init --setup
+archivebox init --setup           # if any problems, install with pip instead
 </code></pre>
 
 Start the web UI server (optional).
@@ -184,34 +190,20 @@ Start the web UI server (optional).
 Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
-
-<i><b>♰ On other Ubuntu/Debian-based systems</b> add these sources directly to <code>/etc/apt/sources.list</code>:</i>
-
-<pre lang="bash"><code style="white-space: pre-line">
-echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" > /etc/apt/sources.list.d/archivebox.list
-echo "deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" >> /etc/apt/sources.list.d/archivebox.list
-sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
-sudo apt update
-sudo apt install archivebox
-# then scroll back up and continue the initalization instructions above
-</code></pre>
-
-(you may need to install some other dependencies manually however)
-
+<br/><br/>
 </details>
 
 <details>
 <summary><b>Get ArchiveBox with <code>brew</code> on macOS</b></summary>
-
+<br/>
 <i>First make sure you have <a href="https://brew.sh/#install">Homebrew</a> installed on your system.</i>
 
-<pre lang="bash"><code style="white-space: pre-line">
-# install the archivebox package using homebrew
+<pre lang="bash"><code style="white-space: pre-line"># install the archivebox package using homebrew
 brew install archivebox/archivebox/archivebox
 
 # create a new empty directory and initalize your collection (can be anywhere)
 mkdir ~/archivebox && cd ~/archivebox
-archivebox init --setup
+archivebox init --setup         # if any problems, install with pip instead
 </code></pre>
 
 Start the web UI server (optional).
@@ -221,16 +213,15 @@ Start the web UI server (optional).
 Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
-
+<br/><br/>
 </details>
 
 <details>
 <summary><b>Get ArchiveBox with <code>pip</code> on any other platforms</b> (some extras must be installed manually)</summary>
+<br/>
+<i>First make sure you have [Python >= v3.7](https://realpython.com/installing-python/) and [Node >= v14](https://nodejs.org/en/download/package-manager/) installed.</i>
 
-<i>First make sure you have [Python >= v3.7](https://realpython.com/installing-python/) and [Node >= v12](https://nodejs.org/en/download/package-manager/) installed.</i>
-
-<pre lang="bash"><code style="white-space: pre-line">
-# install the archivebox package using pip3
+<pre lang="bash"><code style="white-space: pre-line"># install the archivebox package using pip3
 pip3 install archivebox
 
 # create a new empty directory and initalize your collection (can be anywhere)
@@ -246,7 +237,7 @@ Start the web UI server (optional).
 Then open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> to start using it.
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, and filesystem/SQL/Python to add URLs and manage your archive.
-
+<br/><br/>
 </details>
 
 <details>
@@ -279,7 +270,7 @@ For more discussion on managed and paid hosting options see here: <a href="https
 
 </details>
 
-<br/><br/>
+<br/>
 
 #### ⚡️&nbsp; CLI Usage
 
