@@ -285,9 +285,9 @@ archivebox help  # to see more options
 <li><a href="https://m.do.co/c/cbc4c0c17840">
  <img src="https://img.shields.io/badge/Custom_Solution-Monadical-%231a1a1a.svg?style=flat" height="22px"/>
 </a> (<a href="https://monadical.com/contact-us.html">contact us for pricing</a>)</li>
-<br/><br/>
-None of these hosting providers are officially endorsed, most still require manual setup or manual periodic updating using the methods above.
 <br/>
+None of these hosting providers are officially endorsed, most still require manual setup or manual periodic updating using the methods above:
+<br/><br/>
 <li><a href="https://m.do.co/c/cbc4c0c17840">
  <img src="https://img.shields.io/badge/Unmanaged_VPS-DigitalOcean-%23061b4d.svg?style=flat" height="22px"/>
 </a> (USD $5-25/mo, <a href="https://m.do.co/c/cbc4c0c17840">🎗&nbsp; referral link</a>, <a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-compose-on-ubuntu-20-04">instructions</a>)</li>
@@ -301,7 +301,7 @@ None of these hosting providers are officially endorsed, most still require manu
 <li><a href="https://aws.amazon.com/marketplace/pp/Linnovate-Open-Source-Innovation-Support-For-Archi/B08RVW6MJ2"><img src="https://img.shields.io/badge/Unmanaged_VPS-AWS-%23ee8135.svg?style=flat" height="22px"/></a> (USD $60-200/mo)</li>
 </ul>
 
-<small><i>Note: Some of these are referral links 🎗, using them will get you some free credit and helps pay for the ArchiveBox <a href="https://demo.archivebox.io">demo server</a> hosting costs.</i></small>
+<small><i>Note: Referral links are marked 🎗, using them will get you some free credit and helps pay for the ArchiveBox <a href="https://demo.archivebox.io">demo server</a> hosting costs.</i></small>
 
 For more discussion on managed and paid hosting options see here: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/531">Issue #531</a>.
 
