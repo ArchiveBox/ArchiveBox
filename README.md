@@ -222,7 +222,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with <code>pip</code> on any other platforms</b> (some extras must be installed manually)</summary>
+<summary><b>Get ArchiveBox with <code>pip</code> on any platform</b></summary>
 <br/>
 <ol>
 <li>Install <a href="https://realpython.com/installing-python/">Python >= v3.7</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v14</a> on your system (if not already installed).</li>
@@ -253,12 +253,12 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <ul>
 <li><a href="https://monadical.com">
  <img src="https://img.shields.io/badge/Custom_Managed_Solution-Monadical.com-%231a1a1a.svg?style=flat" height="22px"/>
-</a> (<a href="https://monadical.com/contact-us.html">get a quote</a>)</li>
-<li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-StellarHosted.com-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
+</a> (<a href="https://monadical.com/contact-us.html">for larger setups, get a quote</a>)</li>
 <br/>
 None of these hosting providers are officially endorsed:<br/>
 <sub><i>(most still require manual setup or manual periodic updating using the methods above)</i></sub>
 <br/><br/>
+<li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-StellarHosted.com-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
 <li><a href="https://m.do.co/c/cbc4c0c17840">
  <img src="https://img.shields.io/badge/Unmanaged_VPS-DigitalOcean.com-%23061b4d.svg?style=flat" height="22px"/>
 </a> (USD $5-25/mo, <a href="https://m.do.co/c/cbc4c0c17840">🎗&nbsp; referral link</a>, <a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-compose-on-ubuntu-20-04">instructions</a>)</li>
@@ -270,7 +270,7 @@ None of these hosting providers are officially endorsed:<br/>
 </a> (USD $10-50/mo, <a href="https://fly.io/docs/hands-on/start/">instructions</a>)</li>
 <li><a href="https://aws.amazon.com/marketplace/pp/Linnovate-Open-Source-Innovation-Support-For-Archi/B08RVW6MJ2"><img src="https://img.shields.io/badge/Unmanaged_VPS-AWS-%23ee8135.svg?style=flat" height="22px"/></a> (USD $60-200/mo)</li>
 <br/>
-<sub><i>Referral links are marked 🎗, they provide $5-10 of free credit and help pay for our <a href="https://demo.archivebox.io">demo server</a> hosting costs.</i></sub>
+<sub><i>Referral links marked 🎗 provide $5-10 of free credit for new users and help pay for our <a href="https://demo.archivebox.io">demo server</a> hosting costs.</i></sub>
 </ul>
 
 For more discussion on managed and paid hosting options see here: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/531">Issue #531</a>.
