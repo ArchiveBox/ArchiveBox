@@ -1,0 +1,4 @@
+spec:
+  services:
+    - name: archivebox
+      image: archivebox/archivebox:latest
