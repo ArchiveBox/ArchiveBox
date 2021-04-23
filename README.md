@@ -116,9 +116,9 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (highly recommended)</summary>
 
-<i>First make sure you have Docker installed: https://docs.docker.com/get-docker/</i>
+<i>First make sure you have [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/#install-using-pip) installed on your system.</i>
 
-Download the [`docker-compose.yml`](https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml) file.
+Download the [`docker-compose.yml`](https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml) file into a new empty directory.
 <pre lang="bash"><code style="white-space: pre-line">
 curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
 </code></pre>
@@ -151,7 +151,7 @@ chrome, wget, youtube-dl, git, etc., full-text search w/ sonic, and many other g
 <details>
 <summary><b>Get ArchiveBox with <code>docker</code> on macOS/Linux/Windows</b></summary>
 
-<i>First make sure you have Docker installed: https://docs.docker.com/get-docker/</i>
+<i>First make sure you have [Docker](https://docs.docker.com/get-docker/) installed on your system.</i>
 
 <pre lang="bash"><code style="white-space: pre-line">
 # create a new empty directory and initalize your collection (can be anywhere)
