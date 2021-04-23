@@ -6,3 +6,5 @@ spec:
       branch: dev
       repo_clone_url: https://github.com/ArchiveBox/ArchiveBox.git
     name: archivebox
+    source_dir: ./
+    instance_count: 1
