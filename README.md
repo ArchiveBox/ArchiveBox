@@ -132,7 +132,7 @@ curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-c
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">
 docker-compose up
-# completely optional, CLI can also be used without running a server
+# completely optional, CLI can always be used without running a server
 </code></pre></li>
 </ol>
 
@@ -152,7 +152,7 @@ docker run -v $PWD:/data -it archivebox/archivebox init --setup
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
-# completely optional, CLI can also be used without running a server
+# completely optional, CLI can always be used without running a server
 </code></pre>
 </li>
 </ol>
@@ -187,7 +187,7 @@ archivebox init --setup           # if any problems, install with pip instead
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
-# completely optional, CLI can also be used without running a server
+# completely optional, CLI can always be used without running a server
 </code></pre>
 </li>
 </ol>
@@ -203,7 +203,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <li>Install <a href="https://brew.sh/#install">Homebrew</a> on your system (if not already installed).</li>
 <li>Install the ArchiveBox package using <code>brew</code>.
 <pre lang="bash"><code style="white-space: pre-line">brew install archivebox/archivebox/archivebox
-</code>
+</code></pre>
 </li>
 <li>Create a new empty directory and initalize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
@@ -212,7 +212,7 @@ archivebox init --setup         # if any problems, install with pip instead
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
-# completely optional, CLI can also be used without running a server
+# completely optional, CLI can always be used without running a server
 </code></pre>
 </li>
 </ol>
@@ -232,12 +232,13 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </li>
 <li>Create a new empty directory and initalize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
-archivebox init --setup  # install any missing extras like wget/ripgrep/etc. manually
+archivebox init --setup
+# install any missing extras like wget/git/ripgrep/etc. manually as needed
 </code></pre>
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
-# completely optional, CLI can also be used without running a server
+# completely optional, CLI can always be used without running a server
 </code></pre>
 </li>
 </ol>
@@ -289,8 +290,10 @@ archivebox init --setup      # safe to run init multiple times (also how you upd
 archivebox --version
 archivebox help
 
-archivebox add --depth=1 'https://example.com/some/rss/feed.xml'
-archivebox add < ~/Downloads/bookmarks.html
+# example usage:
+# archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
+# archivebox add --depth=1 'https://example.com/some/rss/feed.xml'
+# archivebox list --with-headers --html > static_index.html
 ```
 
 - `archivebox setup/init/config/status/manage` to administer your collection
