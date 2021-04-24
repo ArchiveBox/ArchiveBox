@@ -283,6 +283,17 @@ For more discussion on managed and paid hosting options see here: <a href="https
 
 <br/>
 
+#### ➕&nbsp; Next Steps
+
+- Import URLs from some of the supported [Input Formats](#input-formats) or view the supported [Output Formats](#output-formats)...
+- Tweak your UI or archiving behavior [Configuration](#configuration) or read about some of the [Caveats](#caveats) and troubleshooting steps...
+- Read about the [Dependencies](#dependencies) used for archiving or the [Archive Layout](#archive-layout) on disk...
+- Or check out our full [Documentation](#documentation) section below...
+
+<br/>
+
+### Usage
+
 #### ⚡️&nbsp; CLI Usage
 
 ```bash
@@ -318,14 +329,6 @@ sqlite3 ./index.sqlite3    # run SQL queries on your index
 archivebox shell           # explore the Python API in a REPL
 ls ./archive/*/index.html  # or inspect snapshots on the filesystem
 ```
-
-#### ➕&nbsp; Next Steps
-
-- Import URLs from some of the supported [Input Formats](#input-formats) or view the supported [Output Formats](#output-formats)...
-- Tweak your UI or archiving behavior [Configuration](#configuration) or read about some of the [Caveats](#caveats) and troubleshooting steps...
-- Read about the [Dependencies](#dependencies) used for archiving or the [Archive Layout](#archive-layout) on disk...
-- Or check out our full [Documentation](#documentation) section below...
-
 
 <br/>
 <div align="center">
@@ -384,32 +387,6 @@ It also includes a built-in scheduled import feature with `archivebox schedule` 
 
 <br/>
 
-## Archive Layout
-
-All of ArchiveBox's state (including the index, snapshot data, and config file) is stored in a single folder called the "ArchiveBox data folder". All `archivebox` CLI commands must be run from inside this folder, and you first create it by running `archivebox init`.
-
-The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard `index.sqlite3` database in the root of the data folder (it can also be exported as static JSON/HTML), and the archive snapshots are organized by date-added timestamp in the `./archive/` subfolder.
-
-```bash
-./
-    index.sqlite3
-    ArchiveBox.conf
-    archive/
-        ...
-        1617687755/
-            index.html
-            index.json
-            screenshot.png
-            media/some_video.mp4
-            warc/1617687755.warc.gz
-            git/somerepo.git
-            ...
-```
-
-Each snapshot subfolder `./archive/<timestamp>/` includes a static `index.json` and `index.html` describing its contents, and the snapshot extrator outputs are plain files within the folder.
-
-<br/>
-
 ## Output Formats
 
 Inside each Snapshot folder, ArchiveBox save these different types of extractor outputs as plain files:
@@ -440,27 +417,6 @@ archivebox config --set GIT_ARGS='--recursive'
 ```
 
 <br/>
-
-## Static Archive Exporting
-
-You can export the main index to browse it statically without needing to run a server.
-
-*Note about large exports: These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.*
-
-```bash
-# archivebox list --help
-archivebox list --html --with-headers > index.html     # export to static html table
-archivebox list --json --with-headers > index.json     # export to json blob
-archivebox list --csv=timestamp,url,title > index.csv  # export to csv spreadsheet
-
-# (if using docker-compose, add the -T flag when piping)
-# docker-compose run -T archivebox list --html --filter-type=search snozzberries > index.json
-```
-
-The paths in the static exports are relative, make sure to keep them next to your `./archive` folder when backing them up or viewing them.
-
-<br/>
-
 
 ## Configuration
 
@@ -522,6 +478,55 @@ archivebox --version   # see info and check validity of installed dependencies
 ```
 
 Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not officially supported**, but some advanced users have reported getting it working.
+
+
+<br/>
+
+## Archive Layout
+
+All of ArchiveBox's state (including the index, snapshot data, and config file) is stored in a single folder called the "ArchiveBox data folder". All `archivebox` CLI commands must be run from inside this folder, and you first create it by running `archivebox init`.
+
+The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard `index.sqlite3` database in the root of the data folder (it can also be exported as static JSON/HTML), and the archive snapshots are organized by date-added timestamp in the `./archive/` subfolder.
+
+```bash
+./
+    index.sqlite3
+    ArchiveBox.conf
+    archive/
+        ...
+        1617687755/
+            index.html
+            index.json
+            screenshot.png
+            media/some_video.mp4
+            warc/1617687755.warc.gz
+            git/somerepo.git
+            ...
+```
+
+Each snapshot subfolder `./archive/<timestamp>/` includes a static `index.json` and `index.html` describing its contents, and the snapshot extrator outputs are plain files within the folder.
+
+
+<br/>
+
+## Static Archive Exporting
+
+You can export the main index to browse it statically without needing to run a server.
+
+*Note about large exports: These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.*
+
+```bash
+# archivebox list --help
+archivebox list --html --with-headers > index.html     # export to static html table
+archivebox list --json --with-headers > index.json     # export to json blob
+archivebox list --csv=timestamp,url,title > index.csv  # export to csv spreadsheet
+
+# (if using docker-compose, add the -T flag when piping)
+# docker-compose run -T archivebox list --html --filter-type=search snozzberries > index.json
+```
+
+The paths in the static exports are relative, make sure to keep them next to your `./archive` folder when backing them up or viewing them.
+
 
 <br/>
 
