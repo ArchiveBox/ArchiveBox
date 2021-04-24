@@ -26,6 +26,7 @@
 <a href="https://lgtm.com/projects/g/ArchiveBox/ArchiveBox/context:javascript"><img alt="Language grade: JavaScript" src="https://img.shields.io/lgtm/grade/javascript/g/ArchiveBox/ArchiveBox.svg?logo=lgtm&logoWidth=18"/></a>
 <a href="https://lgtm.com/projects/g/ArchiveBox/ArchiveBox/alerts/"><img alt="Total alerts" src="https://img.shields.io/lgtm/alerts/g/ArchiveBox/ArchiveBox.svg?logo=lgtm&logoWidth=18"/></a>
 
+<pre lang="bash"><code style="white-space: pre-line">curl -sSL 'https://get.archivebox.io' | bash</code></pre>
 
 <hr/>
 </div>
@@ -53,11 +54,6 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 <br/>
 
 **📦&nbsp; Install ArchiveBox with [Docker Compose (recommended)](#quickstart) / Docker, or `apt` / `brew` / `pip` ([see below](#quickstart)).**
-
-```bash
-# Optional: Use the auto-setup script (sets up ArchiveBox using Docker or your system pkg manager)
-curl -sSL 'https://get.archivebox.io' | bash
-```
 
 *No matter which setup method you choose, they all follow this basic process and provide the same CLI, Web UI, and on-disk data layout.*
 
