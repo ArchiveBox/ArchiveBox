@@ -8,11 +8,10 @@ clear
 if [ $(id -u) -eq 0 ]; then
     echo ""
     echo "[X] You cannot run this script as root. You must run it as a non-root user with sudo ability."
-    echo "    Create a new non-privileged user 'archivebox' if necessary. Instructions for Ubuntu/Debian:"
-    echo "      https://www.digitalocean.com/community/tutorials/how-to-create-a-new-sudo-enabled-user-on-ubuntu-20-04-quickstart"
-    echo "      adduser archivebox"
-    echo "      usermod -a archivebox -G sudo"
-    echo "      su archivebox"
+    echo "    Create a new non-privileged user 'archivebox' if necessary."
+    echo "      adduser archivebox && usermod -a archivebox -G sudo && su archivebox"
+    echo "    https://www.digitalocean.com/community/tutorials/how-to-create-a-new-sudo-enabled-user-on-ubuntu-20-04-quickstart"
+    echo "    https://www.vultr.com/docs/create-a-sudo-user-on-freebsd"
     echo "    Then re-run this script as the non-root user."
     echo ""
     exit 2
@@ -154,7 +153,7 @@ fi
 
 echo ""
 echo "[+] Installing ArchiveBox and its dependencies using pip..."
-python3 -m pip install --upgrade archivebox
+python3 -m pip install --upgrade --ignore-installed archivebox
 
 echo
 echo "[+] Initializing ArchiveBox data folder at ~/archivebox..."
