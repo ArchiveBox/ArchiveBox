@@ -11,7 +11,7 @@
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
 <pre lang="bash"><code style="white-space: pre-line">"Your own personal internet archive" (网站存档 / 爬虫)
-curl -sSL 'https://get.archivebox.io' | bash
+curl -sSL 'https://get.archivebox.io' | sh
 </code></pre>
 
 <!--<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>-->
@@ -55,7 +55,7 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 ```bash
 # Or use this auto setup script to install it for you (optional)
-curl -sSL 'https://get.archivebox.io' | bash
+curl -sSL 'https://get.archivebox.io' | sh
 ```
 
 **🔢 Example usage: adding links to archive.**
