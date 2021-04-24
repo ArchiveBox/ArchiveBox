@@ -125,10 +125,10 @@ elif which pkg > /dev/null; then
     echo "[+] Installing ArchiveBox and its dependencies using pkg..."
     sudo pkg install python37 py37-pip py37-sqlite3 node npm wget curl youtube_dl ffmpeg git ripgrep
 else
-    echo "[!] Warning: Could not find aptitude or homebrew! May not be able to install all dependencies automatically."
+    echo "[!] Warning: Could not find aptitude/homebrew/pkg! May not be able to install all dependencies automatically."
     echo ""
     echo "    If you're on macOS, make sure you have homebrew installed:     https://brew.sh/"
-    echo "    If you're on Linux, only Ubuntu/Debian systems are officially supported with this script."
+    echo "    If you're on Linux, only Ubuntu/Debian/BSD systems are officially supported with this script."
     echo "    If you're on Windows, this script is not officially supported (Docker is recommeded instead)."
     echo ""
     echo "See the README.md for Manual Setup & Troubleshooting instructions if you you're unable to run ArchiveBox after this script completes."
@@ -145,10 +145,10 @@ if ! (python3 --version && python3 -m pip --version); then
     exit 1
 fi
 
-echo ""
-echo "[+] Upgrading npm and pip..."
-npm i -g npm || true
-python3 -m pip install --upgrade pip setuptools || true
+# echo ""
+# echo "[+] Upgrading npm and pip..."
+# sudo npm i -g npm || true
+# sudo python3 -m pip install --upgrade pip setuptools || true
 
 echo ""
 echo "[+] Installing ArchiveBox and its dependencies using pip..."
@@ -161,11 +161,11 @@ cd ~/archivebox
 if [ -f "./data/index.sqlite3" ]; then
     cd ./data
 fi
-: | archivebox init --setup || true   # pipe in empty command to make sure stdin is closed
+: | python3 -m archivebox init --setup || true   # pipe in empty command to make sure stdin is closed
 
 echo
 echo "[+] Starting ArchiveBox server using: nohup archivebox server &..."
-nohup archivebox server 0.0.0.0:8000 > ./logs/server.log 2>&1 &
+nohup python3 -m archivebox server 0.0.0.0:8000 > ./logs/server.log 2>&1 &
 sleep 7
 open http://127.0.0.1:8000 || true
 
