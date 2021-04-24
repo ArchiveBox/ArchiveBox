@@ -107,11 +107,6 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 #### ⬇️&nbsp; Initial Setup
 
-> **`docker-compose` is the recommended way to run ArchiveBox.** It includes everything out-of-the-box and provides the fastest setup.  
-> It's also the easiest way to keep all the [dependencies](#dependencies) isolated from the rest of your system and up-to-date over-time.
-
-<br/>
-
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
 
 <details>
@@ -277,6 +272,11 @@ None of these hosting providers are officially endorsed:<br/>
 For more discussion on managed and paid hosting options see here: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/531">Issue #531</a>.
 
 </details>
+
+<br/>
+
+> **`docker-compose` is the recommended way to run ArchiveBox.** It includes everything out-of-the-box and provides the fastest setup.  
+> It's also the easiest way to keep all the [dependencies](#dependencies) isolated from the rest of your system and up-to-date over-time.
 
 <br/>
 
