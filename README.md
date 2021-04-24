@@ -290,14 +290,9 @@ For more discussion on managed and paid hosting options see here: <a href="https
 # docker-compose run archivebox [subcommand] [--args]
 # docker run -v $PWD:/data -it [subcommand] [--args]
 
+archivebox help
 archivebox init --setup      # safe to run init multiple times (also how you update versions)
 archivebox --version
-archivebox help
-
-# example usage:
-# archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
-# archivebox add --depth=1 'https://example.com/some/rss/feed.xml'
-# archivebox list --with-headers --html > static_index.html
 ```
 
 - `archivebox setup/init/config/status/manage` to administer your collection
