@@ -116,6 +116,7 @@ if which apt-get > /dev/null; then
     sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser || true
     sudo apt-get install -y archivebox
     sudo apt-get --only-upgrade install -y archivebox
+    sudo python3.7 -m pip install --upgrade --ignore-installed archivebox
 
 # On Mac:
 elif which brew > /dev/null; then
@@ -127,6 +128,7 @@ elif which pkg > /dev/null; then
     echo "[+] Installing ArchiveBox and its dependencies using pkg..."
     sudo pkg install -y python37 py37-pip py37-sqlite3 node npm wget curl youtube_dl ffmpeg git ripgrep
     sudo pkg install -y chromium
+    sudo python3.7 -m pip install --upgrade --ignore-installed archivebox
     alias python3=python3.7
 else
     echo "[!] Warning: Could not find aptitude/homebrew/pkg! May not be able to install all dependencies automatically."
