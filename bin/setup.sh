@@ -79,10 +79,11 @@ echo "    ⚠️ If you want to use Docker, press [Ctrl-C] to cancel now. ⚠️
 echo "        Get Docker: https://docs.docker.com/get-docker/"
 echo "        After you've installed Docker, run this script again."
 echo ""
-echo "Otherwise, install will continue with apt/brew/pip in 15s... (press [Ctrl+C] to cancel)"
+echo "Otherwise, install will continue with apt/brew/pip in 12s... (press [Ctrl+C] to cancel)"
 echo ""
-sleep 15 || exit 1
-
+sleep 12 || exit 1
+echo "Proceeding with system package manager..."
+echo ""
 
 echo "[i] ArchiveBox Setup Script 📦"
 echo ""
@@ -97,9 +98,10 @@ echo ""
 echo "    If you'd rather install these manually as-needed, you can find detailed documentation here:"
 echo "        https://github.com/ArchiveBox/ArchiveBox/wiki/Install"
 echo ""
-echo "Continuing in 15s... (press [Ctrl+C] to cancel)"
+echo "Continuing in 12s... (press [Ctrl+C] to cancel)"
 echo ""
-sleep 15 || exit 1
+sleep 12 || exit 1
+echo "Proceeding to install dependencies..."
 echo ""
 
 # On Linux:
@@ -112,23 +114,29 @@ if which apt-get > /dev/null; then
         sudo apt-get update -qq
     fi
     echo
-    echo "[+] Installing ArchiveBox and its dependencies using apt..."
+    echo "[+] Installing ArchiveBox system dependencies using apt..."
     sudo apt-get install -y git python3 python3-pip python3-distutils wget curl youtube-dl ffmpeg git nodejs npm ripgrep
-    sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser || true
+    sudo apt-get install -y libgtk2.0-0 libgtk-3-0 libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb libgbm-dev || sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser || true
     sudo apt-get install -y archivebox
     sudo apt-get --only-upgrade install -y archivebox
+    echo ""
+    echo "[+] Installing ArchiveBox python dependencies using pip..."
     sudo python3.7 -m pip install --upgrade --ignore-installed archivebox
-
 # On Mac:
 elif which brew > /dev/null; then
-    echo "[+] Installing ArchiveBox and its dependencies using brew..."
+    echo "[+] Installing ArchiveBox system dependencies using brew..."
     brew tap archivebox/archivebox
     brew update
     brew install --fetch-HEAD -f archivebox
+    echo ""
+    echo "[+] Installing ArchiveBox python dependencies using pip..."
+    python3 -m pip install --upgrade --ignore-installed archivebox
 elif which pkg > /dev/null; then
-    echo "[+] Installing ArchiveBox and its dependencies using pkg..."
+    echo "[+] Installing ArchiveBox system dependencies using pkg..."
     sudo pkg install -y python37 py37-pip py37-sqlite3 node npm wget curl youtube_dl ffmpeg git ripgrep
     sudo pkg install -y chromium
+    echo ""
+    echo "[+] Installing ArchiveBox python dependencies using pip..."
     sudo python3.7 -m pip install --upgrade --ignore-installed archivebox
     alias python3=python3.7
 else
@@ -143,7 +151,7 @@ fi
 
 echo ""
 
-if ! (python3 --version && python3 -m pip --version); then
+if ! (python3 --version && python3 -m pip --version && python3 -m django --version); then
     echo "[X] Python 3 pip was not found on your system!"
     echo "    You must first install Python >= 3.7 (and pip3):"
     echo "      https://www.python.org/downloads/"
@@ -152,14 +160,17 @@ if ! (python3 --version && python3 -m pip --version); then
     exit 1
 fi
 
+if ! (python3 -m django --version && python3 -m archivebox version --quiet); then
+    echo "[X] Django and ArchiveBox were not found after installing!"
+    echo "    Check to see if a previous step failed."
+    echo ""
+    exit 1
+fi
+
 # echo ""
 # echo "[+] Upgrading npm and pip..."
 # sudo npm i -g npm || true
 # sudo python3 -m pip install --upgrade pip setuptools || true
-
-echo ""
-echo "[+] Installing ArchiveBox and its dependencies using pip..."
-python3 -m pip install --upgrade --ignore-installed archivebox
 
 echo
 echo "[+] Initializing ArchiveBox data folder at ~/archivebox..."
@@ -174,7 +185,7 @@ echo
 echo "[+] Starting ArchiveBox server using: nohup archivebox server &..."
 nohup python3 -m archivebox server 0.0.0.0:8000 > ./logs/server.log 2>&1 &
 sleep 7
-open http://127.0.0.1:8000 || true
+which open > /dev/null && open http://127.0.0.1:8000 || true
 
 echo
 echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox. Usage:"
