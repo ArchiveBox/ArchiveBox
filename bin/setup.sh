@@ -5,7 +5,7 @@
 
 clear
 
-if [ (id -u) -eq 0 ]; then
+if [ $(id -u) -eq 0 ]; then
     echo ""
     echo "[X] You cannot run this script as root. You must run it as a non-root user with sudo ability."
     echo "    (create a new non-privileged user 'archivebox' if necessary, then re-run the script as that user)"
