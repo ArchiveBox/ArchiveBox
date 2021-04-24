@@ -68,13 +68,14 @@ echo "Otherwise, install will continue with apt/brew/pip in 15s... (press [Ctrl+
 echo ""
 sleep 15 || exit 1
 
+
 echo "[i] ArchiveBox Setup Script 📦"
 echo ""
 echo "    This is a helper script which installs the ArchiveBox dependencies on your system using brew/apt/pip3."
 echo "    You may be prompted for a sudo password in order to install the following:"
 echo ""
-echo "        - python3, python3-pip, python3-distutils"
-echo "        - nodejs, npm                  (used for singlefile, readability, mercury, and more)"
+echo "        - archivebox"
+echo "        - python3, pip, nodejs, npm    (languages used by ArchiveBox, and its extractor modules)"
 echo "        - curl, wget, git, youtube-dl  (used for extracting title, favicon, git, media, and more)"
 echo "        - chromium                     (skips this if any Chrome/Chromium version is already installed)"
 echo ""
@@ -83,6 +84,7 @@ echo "    If you'd rather install these manually as-needed, you can find detaile
 echo "        https://github.com/ArchiveBox/ArchiveBox/wiki/Install"
 echo ""
 echo "Continuing in 15s... (press [Ctrl+C] to cancel)"
+echo ""
 sleep 15 || exit 1
 echo ""
 
@@ -108,22 +110,32 @@ elif which brew > /dev/null; then
     brew update
     brew install --fetch-HEAD -f archivebox
 else
-    echo "[!] Warning: Could not find aptitude or homebrew! May not be able to install all dependencies correctly."
+    echo "[!] Warning: Could not find aptitude or homebrew! May not be able to install all dependencies automatically."
     echo ""
     echo "    If you're on macOS, make sure you have homebrew installed:     https://brew.sh/"
     echo "    If you're on Linux, only Ubuntu/Debian systems are officially supported with this script."
-    echo "    If you're on Windows, this script is not officially supported (Docker is recommeded)."
+    echo "    If you're on Windows, this script is not officially supported (Docker is recommeded instead)."
     echo ""
     echo "See the README.md for Manual Setup & Troubleshooting instructions if you you're unable to run ArchiveBox after this script completes."
 fi
 
+echo ""
+
+if ! (python3 --version && python3 -m pip --version); then
+    echo "[X] Python 3 pip was not found on your system, you must first install Python >= 3.7."
+    echo "    https://www.python.org/downloads/"
+    echo "    https://wiki.python.org/moin/BeginnersGuide/Download"
+    echo "    (after installing, run this script again)"
+    exit 1
+fi
+
 # echo "[+] Upgrading npm and pip..."
 # npm i -g npm
-# pip3 install --upgrade pip setuptools
+# python3 -m pip install --upgrade pip setuptools
 
-echo
+echo ""
 echo "[+] Installing ArchiveBox and its dependencies using pip..."
-pip3 install --upgrade archivebox
+python3 -m pip install --upgrade archivebox
 
 echo
 echo "[+] Initializing ArchiveBox data folder at ~/archivebox..."
