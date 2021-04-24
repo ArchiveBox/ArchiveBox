@@ -56,7 +56,7 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 ```bash
 # Optional: Use the auto-setup script (sets up ArchiveBox using Docker or your system pkg manager)
-curl 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | bash
+curl -sSL 'https://get.archivebox.io' | bash
 ```
 
 *No matter which setup method you choose, they all follow this basic process and provide the same CLI, Web UI, and on-disk data layout.*
@@ -947,11 +947,11 @@ archivebox manage dbshell
 - Home: [ArchiveBox.io](https://archivebox.io)
 - Demo: [Demo.ArchiveBox.io](https://demo.archivebox.io)
 - Docs: [Docs.ArchiveBox.io](https://docs.archivebox.io)
-- Wiki: [Wiki.ArchiveBox.io](https://wiki.archivebox.io)
-- Issues: [Issues.ArchiveBox.io](https://issues.archivebox.io)
-- Forum: [Forum.ArchiveBox.io](https://forum.archivebox.io)
 - Releases: [Releases.ArchiveBox.io](https://releases.archivebox.io)
-- Donations: [Github.com/sponsors/pirate](https://github.com/sponsors/pirate)
+- Wiki: [Github.com/ArchiveBox/ArchiveBox/wiki](https://github.com/ArchiveBox/ArchiveBox/wiki)
+- Issues: [Github.com/ArchiveBox/ArchiveBox/issues](https://github.com/ArchiveBox/ArchiveBox/issues)
+- Forum: [Github.com/ArchiveBox/ArchiveBox/discussions](https://github.com/ArchiveBox/ArchiveBox/discussions)
+- Donations: [Github.com/ArchiveBox/ArchiveBox/wiki/Donations](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations)
 
 ---
 
