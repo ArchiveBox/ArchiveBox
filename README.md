@@ -114,7 +114,10 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 **🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL) &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 <sup>(raspi>=3)</sup>
 
-#### ⬇️&nbsp; Manual Setup
+> **`docker-compose` is the recommended way to run ArchiveBox.** It includes everything out-of-the-box and provides the fastest setup experience.  
+> It's also the easiest way to keep ArchiveBox and all its [dependencies](#dependencies) securely isolated from the rest of your system, and kept up-to-date over-time.
+
+#### ⬇️&nbsp; Initial Setup
 
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
 
@@ -281,11 +284,6 @@ None of these hosting providers are officially endorsed:<br/>
 For more discussion on managed and paid hosting options see here: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/531">Issue #531</a>.
 
 </details>
-
-<br/>
-
-<b><code>docker-compose</code> is the recommended way to run ArchiveBox.</b> It includes everything out-of-the-box and provides the fastest setup experience.  
-It's also the easiest way to keep ArchiveBox and all its [dependencies](#dependencies) securely isolated from the rest of your system, and kept up-to-date over-time.
 
 <br/>
 
