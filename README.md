@@ -51,28 +51,19 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 <br/>
 
+**📦&nbsp; Get ArchiveBox with [Docker Compose (recommended)](#quickstart) / Docker, or `apt` / `brew` / `pip` ([see below](#quickstart)).**
+
 ```bash
-# Use this auto setup script to get started, or follow the Install steps below
+# Use this auto setup script to get started, or follow the full Quickstart instructions below
 curl -sSL 'https://get.archivebox.io' | bash
 ```
-
-**📦&nbsp; Install ArchiveBox with [Docker Compose (recommended)](#quickstart) / Docker, or `apt` / `brew` / `pip` ([see below](#quickstart)).**
-
-*No matter which setup method you choose, they all follow this basic process and provide the same CLI, Web UI, and on-disk data layout.*
-
-1. Once you've installed ArchiveBox, run this in a new empty folder to get started
 ```bash
-# mkdir -p ~/archivebox && cd ~/archivebox   # you can put the data folder anywhere, e.g. ~/archivebox
-archivebox init --setup                      # initialize a collection in the current directory
-```
-
-2. Add some URLs you want to archive
-```bash
+# Basic usage
+cd ~/archivebox                                                          # you can setup a data folder anywhere
+archivebox init --setup                                                  # initialize a collection and create an admin user
 archivebox add 'https://example.com'                                     # add URLs one at a time via args / piped stdin
-archivebox schedule --every=day --depth=1 https://example.com/rss.xml    # or have it import URLs on a schedule
+archivebox schedule --every=day --depth=1 https://example.com/rss.xml    # or have it import URLs regularly on a schedule
 ```
-
-3. Then view your archived pages
 ```bash
 archivebox server 0.0.0.0:8000            # use the interactive web UI
 archivebox list 'https://example.com'     # use the CLI commands (--help for more)
