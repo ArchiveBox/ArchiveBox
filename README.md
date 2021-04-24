@@ -54,11 +54,17 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 **📦&nbsp; Install ArchiveBox with [Docker Compose (recommended)](#quickstart) / Docker, or `apt` / `brew` / `pip` ([see below](#quickstart)).**
 
+```bash
+# Optional: Use the auto-setup script (sets up ArchiveBox using Docker or your system pkg manager)
+curl 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | bash
+```
+
 *No matter which setup method you choose, they all follow this basic process and provide the same CLI, Web UI, and on-disk data layout.*
 
 1. Once you've installed ArchiveBox, run this in a new empty folder to get started
 ```bash
-archivebox init --setup                   # creates a new collection in the current directory
+# mkdir -p ~/archivebox && cd ~/archivebox   # you can put the data folder anywhere, e.g. ~/archivebox
+archivebox init --setup                      # initialize a collection in the current directory
 ```
 
 2. Add some URLs you want to archive
