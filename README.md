@@ -109,6 +109,10 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 **🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL) &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 <sup>(raspi>=3)</sup>
 
+```bash
+curl -sSL 'https://get.archivebox.io' | bash    # run this, or follow the instructions below
+```
+
 #### ⬇️&nbsp; Initial Setup
 
 <code>docker-compose</code> is the recommended way to run ArchiveBox because it includes <i>all</i> the extractor dependencies + full-text search out-of-the-box, and it's the easiest way to keep those dependencies up-to-date and securely isolated from the rest of your system.
