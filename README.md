@@ -530,20 +530,20 @@ Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not offici
 
 ## Caveats
 
-### Archiving Private URLs
+### Archiving Private Content
 
-If you're importing URLs containing secret slugs or pages with private content (e.g Google Docs, unlisted videos, etc), **you may want to disable some of the extractor modules to avoid leaking private URLs to 3rd party APIs** during the archiving process.
+If you're importing pages with private content or URLs containing secret tokens you don't want public (e.g Google Docs, paywalled content, unlisted videos, etc.), **you may want to disable some of the extractor methods to avoid leaking that content to 3rd party APIs or the public**.
 
 ```bash
-# don't do this:
-archivebox add 'https://docs.google.com/document/d/12345somelongsecrethere'
-archivebox add 'https://example.com/any/url/you/want/to/keep/secret/'
+# don't save private content to ArchiveBox, e.g.:
+archivebox add 'https://docs.google.com/document/d/12345somePrivateDocument'
+archivebox add 'https://vimeo.com/somePrivateVideo'
 
-# without first disabling share the URL with 3rd party APIs:
+# without first disabling saving to Archive.org:
 archivebox config --set SAVE_ARCHIVE_DOT_ORG=False  # disable saving all URLs in Archive.org
 
-# if extra paranoid or anti-google:
-archivebox config --set SAVE_FAVICON=False          # disable favicon fetching (it calls a google API)
+# if extra paranoid or anti-Google:
+archivebox config --set SAVE_FAVICON=False          # disable favicon fetching (it calls a Google API passing the URL's domain part only)
 archivebox config --set CHROME_BINARY=chromium      # ensure it's using Chromium instead of Chrome
 ```
 
@@ -570,6 +570,9 @@ archivebox add 'https://example.com#2020-10-24'
 ...
 archivebox add 'https://example.com#2020-10-25'
 ```
+
+There is also a "Re-Snapshot" button in the UI to do this automatically.<br/>
+<img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button in Admin UI" height="24px"/>
 
 ### Storage Requirements
 
