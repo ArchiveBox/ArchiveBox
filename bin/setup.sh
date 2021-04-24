@@ -16,6 +16,15 @@ if (which docker-compose > /dev/null && docker pull archivebox/archivebox); then
     docker-compose up -d
     sleep 7
     open http://127.0.0.1:8000 || true
+    echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox/data. Usage:"
+    echo "    cd ~/archivebox"
+    echo "    docker-compose ps"
+    echo "    docker-compose down"
+    echo "    docker-compose pull"
+    echo "    docker-compose up"
+    echo "    docker-compose run archivebox help"
+    echo "    docker-compose run archivebox add 'https://example.com'"
+    echo "    docker-compose run archivebox list"
     exit 0
 elif (which docker > /dev/null && docker pull archivebox/archivebox); then
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox using Docker..."
@@ -25,9 +34,18 @@ elif (which docker > /dev/null && docker pull archivebox/archivebox); then
         cd ./data
     fi
     docker run -v "$PWD":/data -it --rm archivebox/archivebox init --setup
-    docker run -v "$PWD":/data -it -d -p 8000:8000 archivebox/archivebox
+    docker run -v "$PWD":/data -it -d -p 8000:8000 --name=archivebox archivebox/archivebox
     sleep 7
     open http://127.0.0.1:8000 || true
+    echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox. Usage:"
+    echo "    cd ~/archivebox"
+    echo "    docker ps --filter name=archivebox"
+    echo "    docker kill archivebox"
+    echo "    docker pull archivebox/archivebox"
+    echo "    docker run -v $PWD:/data -d -p 8000:8000 --name=archivebox archivebox/archivebox"
+    echo "    docker run -v $PWD:/data -it archivebox/archivebox help"
+    echo "    docker run -v $PWD:/data -it archivebox/archivebox add 'https://example.com'"
+    echo "    docker run -v $PWD:/data -it archivebox/archivebox list"
     exit 0
 fi
 
@@ -99,4 +117,16 @@ cd ~/archivebox
 if [ -f "./data/index.sqlite3" ]; then
     cd ./data
 fi
-exec archivebox init --setup
+archivebox init --setup
+nohup archivebox server 0.0.0.0:8000 &
+sleep 7
+open http://127.0.0.1:8000 || true
+echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox. Usage:"
+echo "    cd ~/archivebox"
+echo "    ps aux | grep archivebox"
+echo "    pkill archivebox"
+echo "    pip3 install --upgrade archviebox"
+echo "    archivebox server --quick-init 0.0.0.0:8000"
+echo "    archivebox help"
+echo "    archivebox add 'https://example.com'"
+echo "    archivebox list"
