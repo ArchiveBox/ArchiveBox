@@ -38,7 +38,8 @@ jobs:
         run: |
           cd deb_dist/
           sudo apt-get install ./archivebox*.deb
-          python3 -m pip install "django==3.1.8"
+          python3 -c 'from distutils.core import run_setup; result = run_setup("./setup.py", stop_after="init"); print("\n".join(result.install_requires + result.extras_require["sonic"]))' > ./requirements.txt
+          python3 -m pip install -r ./requirements.txt
           archivebox --version
           # sudo python3 -m pip install --upgrade --ignore-installed .
 
