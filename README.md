@@ -51,6 +51,11 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 <br/>
 
+```bash
+# Use this auto setup script to get started, or follow the Install steps below
+curl -sSL 'https://get.archivebox.io' | bash
+```
+
 **📦&nbsp; Install ArchiveBox with [Docker Compose (recommended)](#quickstart) / Docker, or `apt` / `brew` / `pip` ([see below](#quickstart)).**
 
 *No matter which setup method you choose, they all follow this basic process and provide the same CLI, Web UI, and on-disk data layout.*
@@ -107,19 +112,9 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 # Quickstart
 
-```bash
-# Use this auto setup script to get started, or read the Manual Setup steps below
-curl -sSL 'https://get.archivebox.io' | bash
-```
-
 **🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL) &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 <sup>(raspi>=3)</sup>
 
 #### ⬇️&nbsp; Manual Setup
-
-<code>docker-compose</code> is the recommended way to run ArchiveBox. It includes everything out-of-the-box and provides the fastest setup experience.  
-It's also the easiest way to keep ArchiveBox and all its [dependencies](#dependencies) securely isolated from the rest of your system, and kept up-to-date over-time.
-
-<br/>
 
 *(click to expand your preferred **► `distribution`** below for full setup instructions)*
 
@@ -286,6 +281,11 @@ None of these hosting providers are officially endorsed:<br/>
 For more discussion on managed and paid hosting options see here: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/531">Issue #531</a>.
 
 </details>
+
+<br/>
+
+<b><code>docker-compose</code> is the recommended way to run ArchiveBox.</b> It includes everything out-of-the-box and provides the fastest setup experience.  
+It's also the easiest way to keep ArchiveBox and all its [dependencies](#dependencies) securely isolated from the rest of your system, and kept up-to-date over-time.
 
 <br/>
 
