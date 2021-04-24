@@ -107,18 +107,17 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 # Quickstart
 
-**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL) &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 <sup>(raspi>=3)</sup>
-
 ```bash
-# Optional: use this automatic setup script to get started
+# Use this auto setup script to get started, or read the Manual Setup steps below
 curl -sSL 'https://get.archivebox.io' | bash
-# (otherwise follow the Initial Setup instructions for your platform below)
 ```
 
-#### ⬇️&nbsp; Initial Setup
+**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL) &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 <sup>(raspi>=3)</sup>
 
-<code>docker-compose</code> is the recommended way to run ArchiveBox. It includes everything out-of-the-box and provides the fastest setup experience.
-It's also the easiest way to keep ArchiveBox and it's dependencies securely isolated from the rest of your system, and kept up-to-date over-time.
+#### ⬇️&nbsp; Manual Setup
+
+<code>docker-compose</code> is the recommended way to run ArchiveBox. It includes everything out-of-the-box and provides the fastest setup experience.  
+It's also the easiest way to keep ArchiveBox and all its [dependencies](#dependencies) securely isolated from the rest of your system, and kept up-to-date over-time.
 
 <br/>
 
