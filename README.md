@@ -333,6 +333,17 @@ ls ./archive/*/index.html  # or inspect snapshots on the filesystem
 <br/>
 </div>
 
+#### ➕&nbsp; Next Steps
+
+- Import URLs from some of the supported [Input Formats](#input-formats)...
+- Check out the multitude of [Output Formats](#output-formats) supported...
+- Tweak your UI or archiving behavior [Configuration](#configuration)...
+- Read about the [Dependencies](#dependencies) used for archiving...
+- Learn about the [Archive Layout](#archive-layout) on disk...
+- Set up [Static Archive Exporting](#static-archive-exporting) to browse without the server...
+- Read about some of ArchiveBox's [Caveats][#caveats] and troubleshooting steps...
+- Or check out our full [Documentation](#documentation) section below...
+
 <br/>
 
 ---
@@ -345,7 +356,7 @@ ls ./archive/*/index.html  # or inspect snapshots on the filesystem
 
 # Overview
 
-## Input formats
+## Input Formats
 
 ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exports, Browser bookmarks, Browser history, plain text, HTML, markdown, and more!
 
@@ -402,7 +413,7 @@ Each snapshot subfolder `./archive/<timestamp>/` includes a static `index.json` 
 
 <br/>
 
-## Output formats
+## Output Formats
 
 Inside each Snapshot folder, ArchiveBox save these different types of extractor outputs as plain files:
 
