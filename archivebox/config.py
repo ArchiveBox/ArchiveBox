@@ -25,7 +25,6 @@ import os
 import io
 import re
 import sys
-import pwd
 import json
 import getpass
 import platform
@@ -48,6 +47,15 @@ from .config_stubs import (
     ConfigDefaultValue,
     ConfigDefaultDict,
 )
+
+SYSTEM_USER = getpass.getuser() or os.getlogin()
+
+try:
+    import pwd
+    SYSTEM_USER = pwd.getpwuid(os.geteuid()).pw_name or SYSTEM_USER
+except ModuleNotFoundError:
+    # pwd is only needed for some linux systems, doesn't exist on windows
+    pass
 
 ############################### Config Schema ##################################
 
@@ -313,7 +321,7 @@ ALLOWED_IN_OUTPUT_DIR = {
 
 DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'TERM_WIDTH':               {'default': lambda c: lambda: shutil.get_terminal_size((100, 10)).columns},
-    'USER':                     {'default': lambda c: pwd.getpwuid(os.geteuid()).pw_name or getpass.getuser() or os.getlogin()},
+    'USER':                     {'default': lambda c: SYSTEM_USER},
     'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
 
     'PACKAGE_DIR':              {'default': lambda c: Path(__file__).resolve().parent},
