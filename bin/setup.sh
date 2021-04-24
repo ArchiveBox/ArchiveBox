@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# ArchiveBox Setup Script
-# https://github.com/ArchiveBox/ArchiveBox
+# ArchiveBox Setup Script: https://github.com/ArchiveBox/ArchiveBox
+# Usage:
+#    curl 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | sh
 
 echo "[!] It's highly recommended to use Docker instead of running this script. ⚠️"
 echo "    Docker is safer and easier to set up, and includes everything working out-of-the-box:"
@@ -65,11 +66,4 @@ pip3 install --upgrade archivebox
 echo "[+] Initializing ArchiveBox data folder at ~/archivebox..."
 mkdir -p ~/archivebox
 cd ~/archivebox
-archivebox init --setup && exit 0
-
-echo "---------------------------------------------------"
-echo "[X] Failed to install some dependencies! ‼️"
-echo "    - Try the Manual Setup instructions in the README.md"
-echo "    - Try the Troubleshooting: Dependencies instructions in the README.md"
-echo "    - Open an issue on github to get help: https://github.com/ArchiveBox/ArchiveBox/issues"
-exit 1
+archivebox init --setup
