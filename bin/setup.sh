@@ -1,7 +1,9 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 # ArchiveBox Setup Script: https://github.com/ArchiveBox/ArchiveBox
 # Usage:
-#    curl 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | bash
+#    curl 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | sh
+
+clear
 
 if (which docker-compose > /dev/null && docker pull archivebox/archivebox:latest); then
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker Compose..."
