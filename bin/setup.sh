@@ -55,13 +55,15 @@ elif (which docker > /dev/null && docker pull archivebox/archivebox); then
     exit 0
 fi
 
-echo "[!] It's highly recommended to use Docker to set up ArchiveBox, but Docker wasn't found. ⚠️"
 echo ""
-echo "    If you want to use Docker, press [Ctrl-C] to cancel now and install it yourself."
-echo "        https://docs.docker.com/get-docker/"
-echo "        (after installing, run this script again)"
+echo "[!] It's highly recommended to use ArchiveBox with Docker, but Docker wasn't found."
+echo ""
+echo "    ⚠️ If you want to use Docker, press [Ctrl-C] to cancel now. ⚠️"
+echo "        Get Docker: https://docs.docker.com/get-docker/"
+echo "        (after you've installed Docker, run this script again)"
 echo ""
 echo "Otherwise, install will continue with apt/brew/pip in 10s... (press [Ctrl+C] to cancel)"
+echo ""
 sleep 10 || exit 1
 
 echo "[i] ArchiveBox Setup Script 📦"
