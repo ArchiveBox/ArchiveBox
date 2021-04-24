@@ -472,54 +472,25 @@ archivebox config --set CHROME_BINARY=chromium  # set a config value
 env CHROME_BINARY=chromium archivebox add ...   # set a value temporarily
 ```
 
-**The config file definition with all the options is in [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/master/archivebox/config.py).**
+**The config loading logic with all the options defined is here: [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/master/archivebox/config.py).**
 
 Most options are also documented on the **[Configuration Wiki page](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**.
 
-
-#### Most Common Archiving Options
-
-These are the most common archiving behavior options that you may want to tweak.
+**These are the most common options that you may want to tweak:**
 
 ```bash
-# increase these values (in seconds) to account for slower network speeds
-archivebox config --set TIMEOUT=60
-archivebox config --set MEDIA_TIMEOUT=3600
+# e.g. archivebox config --set TIMEOUT=120
 
-# set this to True to allow archiving pages with invalid/expired SSL certs
-archivebox config --set CHECK_SSL_VALIDITY=False
+TIMEOUT=60                # increase this (in seconds) on slower networks
+CHECK_SSL_VALIDITY=False  # True = allow archiving pages w/ invalid/expired SSL
+SAVE_ARCHIVE_DOT_ORG=True # False = disable submitting all URLs to Archive.org
 
-# set this to False to disable submitting all URLs to Archive.org
-archivebox config --set SAVE_ARCHIVE_DOT_ORG=True
+SAVE_MEDIA=True           # False = don't save audio/video/subs w/ youtubedl
+MAX_MEDIA_SIZE=750m       # set max audio/video filesize to limit disk usage (anything bigger is lossily compressed down until it's this size)
 
-# configure whether or not audio/video files are saved, and their max size
-archivebox config --set SAVE_MEDIA=True
-archivebox config --set MAX_MEDIA_SIZE=750m
-
-# set these to authenticate before archiving using your chrome user or cookies
-archivebox config --set CHROME_USER_DATA_DIR=/some/chrome/data/dir
-archivebox config --set COOKIES_FILE=/some/cookies.txt
-```
-
-#### Most Common Web UI Options
-
-These are the most common Web UI options that you may want to tweak.
-
-```bash
-# set this to restrict what domain/hostname your server can be accessed on
-archivebox config --set ALLOWED_HOSTS=*
-
-# toggle anonymous users ability to view your index, snapshots, and add URLs
-archivebox config --set PUBLIC_INDEX=True
-archivebox config --set PUBLIC_SNAPSHOTS=True
-archivebox config --set PUBLIC_ADD_VIEW=False
-
-# tweak how many snapshots are shown on list pages, and the footer text
-archivebox config --set SNAPSHOTS_PER_PAGE=40
-archivebox config --set FOOTER_INFO='Operated by ACME Inc. | GDPR contact: ...'
-
- # override default UI styling with your own custom html/css/images in this dir
-archivebox config --set CUSTOM_TEMPLATES_DIR='./some/custom_templates'
+PUBLIC_INDEX=True         # False = anonymous users can't view the index
+PUBLIC_SNAPSHOTS=True     # False = anonymous users can't view snapshots
+PUBLIC_ADD_VIEW=False     # True = anonymous users can submit new URLs
 ```
 
 <br/>
