@@ -3,11 +3,31 @@
 # Usage:
 #    curl 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | sh
 
-if (which docker > /dev/null && docker pull archivebox/archivebox); then
+if (which docker-compose > /dev/null && docker pull archivebox/archivebox); then
+    echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker Compose..."
+    mkdir -p ~/archivebox
+    cd ~/archivebox
+    mkdir -p data
+    if [[ -f "./index.sqlite3" ]]; then
+        mv ~/archivebox/* ~/archivebox/data/
+    fi
+    curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
+    docker-compose run --rm archivebox init --setup
+    docker-compose up -d
+    sleep 7
+    open http://127.0.0.1:8000 || true
+    exit 0
+elif (which docker > /dev/null && docker pull archivebox/archivebox); then
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox using Docker..."
     mkdir -p ~/archivebox
     cd ~/archivebox
-    docker run -v "$PWD":/data -it archivebox init --setup
+    if [[ -f "./data/index.sqlite3" ]]; then
+        cd ./data
+    fi
+    docker run -v "$PWD":/data -it --rm archivebox/archivebox init --setup
+    docker run -v "$PWD":/data -it -d -p 8000:8000 archivebox/archivebox
+    sleep 7
+    open http://127.0.0.1:8000 || true
     exit 0
 fi
 
@@ -16,7 +36,8 @@ echo "    Docker is safer and easier to set up, and includes everything working 
 echo "        https://github.com/ArchiveBox/ArchiveBox/wiki/Docker"
 echo ""
 echo "Continuing in 5s... (press [Ctrl+C] to cancel)"
-sleep 5
+sleep 5 || exit 1
+
 echo "[i] ArchiveBox Setup Script 📦"
 echo ""
 echo "    This is a helper script which installs the ArchiveBox dependencies on your system using brew/apt/pip3."
@@ -31,7 +52,8 @@ echo ""
 echo "    If you'd rather install these manually as-needed, you can find detailed documentation here:"
 echo "        https://github.com/ArchiveBox/ArchiveBox/wiki/Install"
 echo ""
-read -p "Press [enter] to continue with the automatic install, or Ctrl+C to cancel..." REPLY
+echo "Continuing in 10s... (press [Ctrl+C] to cancel)"
+sleep 10 || exit 1
 echo ""
 
 # On Linux:
@@ -74,4 +96,7 @@ pip3 install --upgrade archivebox
 echo "[+] Initializing ArchiveBox data folder at ~/archivebox..."
 mkdir -p ~/archivebox
 cd ~/archivebox
+if [[ -f "./data/index.sqlite3" ]]; then
+    cd ./data
+fi
 exec archivebox init --setup
