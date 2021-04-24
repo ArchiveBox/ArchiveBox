@@ -3,6 +3,14 @@
 # Usage:
 #    curl 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | sh
 
+if (which docker > /dev/null && docker pull archivebox/archivebox); then
+    echo "[+] Initializing an ArchiveBox data folder at ~/archivebox using Docker..."
+    mkdir -p ~/archivebox
+    cd ~/archivebox
+    docker run -v "$PWD":/data -it archivebox init --setup
+    exit 0
+fi
+
 echo "[!] It's highly recommended to use Docker instead of running this script. ⚠️"
 echo "    Docker is safer and easier to set up, and includes everything working out-of-the-box:"
 echo "        https://github.com/ArchiveBox/ArchiveBox/wiki/Docker"
