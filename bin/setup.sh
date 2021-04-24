@@ -9,6 +9,9 @@ if [ $(id -u) -eq 0 ]; then
     echo ""
     echo "[X] You cannot run this script as root. You must run it as a non-root user with sudo ability."
     echo "    (create a new non-privileged user 'archivebox' if necessary, then re-run the script as that user)"
+    echo "    adduser archivebox"
+    echo "    usermod -a archivebox -G sudo     # (on Ubuntu/Debian)"
+    exit 2
 fi
 
 if (which docker-compose > /dev/null && docker pull archivebox/archivebox:latest); then
