@@ -446,13 +446,12 @@ You can export the main index to browse it statically without needing to run a s
 
 ```bash
 # archivebox list --help
-
 archivebox list --html --with-headers > index.html     # export to static html table
 archivebox list --json --with-headers > index.json     # export to json blob
 archivebox list --csv=timestamp,url,title > index.csv  # export to csv spreadsheet
 
 # (if using docker-compose, add the -T flag when piping)
-docker-compose run -T archivebox list --html --filter-type=search snozzberries > index.json
+# docker-compose run -T archivebox list --html --filter-type=search snozzberries > index.json
 ```
 
 The paths in the static exports are relative, make sure to keep them next to your `./archive` folder when backing them up or viewing them.
@@ -509,9 +508,7 @@ To achieve high fidelity archives in as many situations as possible, ArchiveBox 
 
 You don't need to install every dependency to use ArchiveBox. ArchiveBox will automatically disable extractors that rely on dependencies that aren't installed, based on what is configured and available in your `$PATH`.
 
-*If using Docker, you don't have to install any of these manually, all dependencies are set up properly out-of-the-box*.
-
-However, if you prefer not using Docker, you *can* install ArchiveBox and its dependencies using your [system package manager](https://github.com/ArchiveBox/ArchiveBox/wiki/Install) or `pip` directly on any Linux/macOS system. Just make sure to keep the dependencies up-to-date and check that ArchiveBox isn't reporting any incompatibility with the versions you install.
+If not using Docker, make sure to keep the dependencies up-to-date yourself and check that ArchiveBox isn't reporting any incompatibility with the versions you install.
 
 ```bash
 # install python3 and archivebox with your system package manager
