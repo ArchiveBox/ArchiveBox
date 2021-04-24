@@ -8,9 +8,11 @@ clear
 if [ $(id -u) -eq 0 ]; then
     echo ""
     echo "[X] You cannot run this script as root. You must run it as a non-root user with sudo ability."
-    echo "    (create a new non-privileged user 'archivebox' if necessary, then re-run the script as that user)"
-    echo "    adduser archivebox"
-    echo "    usermod -a archivebox -G sudo     # (on Ubuntu/Debian)"
+    echo "    Create a new non-privileged user 'archivebox' if necessary. Instructions for Ubuntu/Debian:"
+    echo "      https://www.digitalocean.com/community/tutorials/how-to-create-a-new-sudo-enabled-user-on-ubuntu-20-04-quickstart"
+    echo "      adduser -G sudo archivebox"
+    echo "      su archivebox"
+    echo "    Then re-run this script as the non-root user."
     exit 2
 fi
 
@@ -73,7 +75,7 @@ echo "[!] It's highly recommended to use ArchiveBox with Docker, but Docker wasn
 echo ""
 echo "    ⚠️ If you want to use Docker, press [Ctrl-C] to cancel now. ⚠️"
 echo "        Get Docker: https://docs.docker.com/get-docker/"
-echo "        (after you've installed Docker, run this script again)"
+echo "        After you've installed Docker, run this script again."
 echo ""
 echo "Otherwise, install will continue with apt/brew/pip in 15s... (press [Ctrl+C] to cancel)"
 echo ""
@@ -89,7 +91,6 @@ echo "        - archivebox"
 echo "        - python3, pip, nodejs, npm    (languages used by ArchiveBox, and its extractor modules)"
 echo "        - curl, wget, git, youtube-dl  (used for extracting title, favicon, git, media, and more)"
 echo "        - chromium                     (skips this if any Chrome/Chromium version is already installed)"
-echo ""
 echo ""
 echo "    If you'd rather install these manually as-needed, you can find detailed documentation here:"
 echo "        https://github.com/ArchiveBox/ArchiveBox/wiki/Install"
@@ -110,7 +111,7 @@ if which apt-get > /dev/null; then
     fi
     echo
     echo "[+] Installing ArchiveBox and its dependencies using apt..."
-    # sudo apt install -y git python3 python3-pip python3-distutils wget curl youtube-dl ffmpeg git nodejs npm ripgrep
+    sudo apt install -y git python3 python3-pip python3-distutils wget curl youtube-dl ffmpeg git nodejs npm ripgrep
     sudo apt-get install -y archivebox
     sudo apt-get --only-upgrade install -y archivebox
 
@@ -136,10 +137,11 @@ fi
 echo ""
 
 if ! (python3 --version && python3 -m pip --version); then
-    echo "[X] Python 3 pip was not found on your system, you must first install Python >= 3.7."
-    echo "    https://www.python.org/downloads/"
-    echo "    https://wiki.python.org/moin/BeginnersGuide/Download"
-    echo "    (after installing, run this script again)"
+    echo "[X] Python 3 pip was not found on your system!"
+    echo "    You must first install Python >= 3.7 (and pip3):"
+    echo "      https://www.python.org/downloads/"
+    echo "      https://wiki.python.org/moin/BeginnersGuide/Download"
+    echo "    After installing, run this script again."
     exit 1
 fi
 
