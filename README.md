@@ -283,12 +283,12 @@ For more discussion on managed and paid hosting options see here: <a href="https
 
 <br/>
 
-#### ➕&nbsp; Next Steps
+#### ➡️&nbsp; Next Steps
 
 - Import URLs from some of the supported [Input Formats](#input-formats) or view the supported [Output Formats](#output-formats)...
 - Tweak your UI or archiving behavior [Configuration](#configuration) or read about some of the [Caveats](#caveats) and troubleshooting steps...
 - Read about the [Dependencies](#dependencies) used for archiving or the [Archive Layout](#archive-layout) on disk...
-- Or check out our full [Documentation](#documentation) section below...
+- Or check out our full [Documentation](#documentation) or [Community Wiki](#internet-archiving-ecosystem)...
 
 <br/>
 
@@ -571,7 +571,7 @@ https://127.0.0.1:8000/archive/*
 
 ### Saving Multiple Snapshots of a Single URL
 
-Support for saving multiple snapshots of each site over time will be [added eventually](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now **ArchiveBox is designed to only archive each URL with each extractor type once**. A workaround to take multiple snapshots of the same URL is to make them slightly different by adding a hash:
+First-class support for saving multiple snapshots of each site over time will be [added eventually](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now **ArchiveBox is designed to only archive each unique URL with each extractor type once**. The workaround to take multiple snapshots of the same URL is to make them slightly different by adding a hash:
 
 ```bash
 archivebox add 'https://example.com#2020-10-24'
@@ -579,18 +579,13 @@ archivebox add 'https://example.com#2020-10-24'
 archivebox add 'https://example.com#2020-10-25'
 ```
 
-There is also a "Re-Snapshot" button in the UI to do this automatically.<br/>
-<img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button in Admin UI" height="24px"/>
+The <img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button" height="24px"/> button in the Admin UI works by using hash-date trick.
 
 ### Storage Requirements
 
-Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today. However, as storage space gets cheaper and compression improves, you should be able to use it continuously over the years without having to delete anything.
+Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today. **ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles**, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
 
-**ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles**, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
-
-Storage requirements can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. **Don't store large collections on older filesystems like EXT3/FAT** as they may not be able to handle more than 50k directory entries in the `archive/` folder.
-
-**Try to keep the `index.sqlite3` file on local drive (not a network mount)**, and ideally on an SSD for maximum performance, however the `archive/` folder can be on a network mount or spinning HDD.
+Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. **Don't store large collections on older filesystems like EXT3/FAT** as they may not be able to handle more than 50k directory entries in the `archive/` folder. **Try to keep the `index.sqlite3` file on local drive (not a network mount)** or SSD for maximum performance, however the `archive/` folder can be on a network mount or spinning HDD.
 
 <br/>
 
