@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # ArchiveBox Setup Script: https://github.com/ArchiveBox/ArchiveBox
 # Usage:
-#    curl 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | sh
+#    curl 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | bash
 
 if (which docker-compose > /dev/null && docker pull archivebox/archivebox); then
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker Compose..."
     mkdir -p ~/archivebox
     cd ~/archivebox
     mkdir -p data
-    if [[ -f "./index.sqlite3" ]]; then
+    if [ -f "./index.sqlite3" ]; then
         mv ~/archivebox/* ~/archivebox/data/
     fi
     curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
@@ -21,7 +21,7 @@ elif (which docker > /dev/null && docker pull archivebox/archivebox); then
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox using Docker..."
     mkdir -p ~/archivebox
     cd ~/archivebox
-    if [[ -f "./data/index.sqlite3" ]]; then
+    if [ -f "./data/index.sqlite3" ]; then
         cd ./data
     fi
     docker run -v "$PWD":/data -it --rm archivebox/archivebox init --setup
@@ -96,7 +96,7 @@ pip3 install --upgrade archivebox
 echo "[+] Initializing ArchiveBox data folder at ~/archivebox..."
 mkdir -p ~/archivebox
 cd ~/archivebox
-if [[ -f "./data/index.sqlite3" ]]; then
+if [ -f "./data/index.sqlite3" ]; then
     cd ./data
 fi
 exec archivebox init --setup
