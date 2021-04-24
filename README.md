@@ -169,6 +169,7 @@ sudo apt update
 </li>
 <li>Install the ArchiveBox package using <code>apt</code>.
 <pre lang="bash"><code style="white-space: pre-line">sudo apt install archivebox
+sudo python3 -m pip install --upgrade --ignore-installed archivebox
 </code></pre>
 </li>
 <li>Create a new empty directory and initalize your collection (can be anywhere).
