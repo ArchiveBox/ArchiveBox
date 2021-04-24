@@ -3,7 +3,7 @@
 # Usage:
 #    curl 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | bash
 
-if (which docker-compose > /dev/null && docker pull archivebox/archivebox); then
+if (which docker-compose > /dev/null && docker pull archivebox/archivebox:latest); then
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker Compose..."
     mkdir -p ~/archivebox
     cd ~/archivebox
@@ -25,21 +25,22 @@ if (which docker-compose > /dev/null && docker pull archivebox/archivebox); then
     echo "    docker-compose down"
     echo "    docker-compose pull"
     echo "    docker-compose up"
-    echo "    docker-compose run archivebox help"
+    echo "    docker-compose run archivebox manage createsuperuser"
     echo "    docker-compose run archivebox add 'https://example.com'"
     echo "    docker-compose run archivebox list"
+    echo "    docker-compose run archivebox help"
     exit 0
-elif (which docker > /dev/null && docker pull archivebox/archivebox); then
+elif (which docker > /dev/null && docker pull archivebox/archivebox:latest); then
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox using Docker..."
     mkdir -p ~/archivebox
     cd ~/archivebox
     if [ -f "./data/index.sqlite3" ]; then
         cd ./data
     fi
-    docker run -v "$PWD":/data -it --rm archivebox/archivebox init --setup
+    docker run -v "$PWD":/data -it --rm archivebox/archivebox:latest init --setup
     echo
     echo "[+] Starting ArchiveBox server using: docker run -d archivebox/archivebox..."
-    docker run -v "$PWD":/data -it -d -p 8000:8000 --name=archivebox archivebox/archivebox
+    docker run -v "$PWD":/data -it -d -p 8000:8000 --name=archivebox archivebox/archivebox:latest
     sleep 7
     open http://127.0.0.1:8000 || true
     echo
@@ -49,9 +50,10 @@ elif (which docker > /dev/null && docker pull archivebox/archivebox); then
     echo "    docker kill archivebox"
     echo "    docker pull archivebox/archivebox"
     echo "    docker run -v $PWD:/data -d -p 8000:8000 --name=archivebox archivebox/archivebox"
-    echo "    docker run -v $PWD:/data -it archivebox/archivebox help"
+    echo "    docker run -v $PWD:/data -it archivebox/archivebox manage createsuperuser"
     echo "    docker run -v $PWD:/data -it archivebox/archivebox add 'https://example.com'"
     echo "    docker run -v $PWD:/data -it archivebox/archivebox list"
+    echo "    docker run -v $PWD:/data -it archivebox/archivebox help"
     exit 0
 fi
 
@@ -130,11 +132,11 @@ cd ~/archivebox
 if [ -f "./data/index.sqlite3" ]; then
     cd ./data
 fi
-: | archivebox init --setup || true
+: | archivebox init --setup || true   # pipe in empty command to make sure stdin is closed
 
 echo
 echo "[+] Starting ArchiveBox server using: nohup archivebox server &..."
-nohup archivebox server 0.0.0.0:8000 &
+nohup archivebox server 0.0.0.0:8000 > ./logs/server.log 2>&1 &
 sleep 7
 open http://127.0.0.1:8000 || true
 
@@ -142,9 +144,10 @@ echo
 echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox. Usage:"
 echo "    cd ~/archivebox"
 echo "    ps aux | grep archivebox"
-echo "    pkill archivebox"
+echo "    pkill -f archivebox"
 echo "    pip3 install --upgrade archviebox"
 echo "    archivebox server --quick-init 0.0.0.0:8000"
-echo "    archivebox help"
+echo "    archivebox manage createsuperuser"
 echo "    archivebox add 'https://example.com'"
 echo "    archivebox list"
+echo "    archivebox help"
