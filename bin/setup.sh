@@ -5,6 +5,12 @@
 
 clear
 
+if [ (id -u) -eq 0 ]; then
+    echo ""
+    echo "[X] You cannot run this script as root. You must run it as a non-root user with sudo ability."
+    echo "    (create a new non-privileged user 'archivebox' if necessary, then re-run the script as that user)"
+fi
+
 if (which docker-compose > /dev/null && docker pull archivebox/archivebox:latest); then
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker Compose..."
     mkdir -p ~/archivebox
@@ -111,6 +117,9 @@ elif which brew > /dev/null; then
     brew tap archivebox/archivebox
     brew update
     brew install --fetch-HEAD -f archivebox
+elif which pkg > /dev/null; then
+    echo "[+] Installing ArchiveBox and its dependencies using pkg..."
+    sudo pkg install python37 py37-pip py37-sqlite3 node npm wget curl youtube_dl ffmpeg git ripgrep
 else
     echo "[!] Warning: Could not find aptitude or homebrew! May not be able to install all dependencies automatically."
     echo ""
@@ -131,9 +140,10 @@ if ! (python3 --version && python3 -m pip --version); then
     exit 1
 fi
 
-# echo "[+] Upgrading npm and pip..."
-# npm i -g npm
-# python3 -m pip install --upgrade pip setuptools
+echo ""
+echo "[+] Upgrading npm and pip..."
+npm i -g npm || true
+python3 -m pip install --upgrade pip setuptools || true
 
 echo ""
 echo "[+] Installing ArchiveBox and its dependencies using pip..."
