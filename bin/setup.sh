@@ -127,6 +127,7 @@ elif which pkg > /dev/null; then
     echo "[+] Installing ArchiveBox and its dependencies using pkg..."
     sudo pkg install -y python37 py37-pip py37-sqlite3 node npm wget curl youtube_dl ffmpeg git ripgrep
     sudo pkg install -y chromium
+    alias python3=python3.7
 else
     echo "[!] Warning: Could not find aptitude/homebrew/pkg! May not be able to install all dependencies automatically."
     echo ""
