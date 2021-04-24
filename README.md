@@ -476,21 +476,19 @@ env CHROME_BINARY=chromium archivebox add ...   # set a value temporarily
 
 Most options are also documented on the **[Configuration Wiki page](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**.
 
-**These are the most common options that you may want to tweak:**
+#### Most Common Options to Tweak
 
 ```bash
 # e.g. archivebox config --set TIMEOUT=120
 
-TIMEOUT=60                # increase this (in seconds) on slower networks
-CHECK_SSL_VALIDITY=False  # True = allow archiving pages w/ invalid/expired SSL
-SAVE_ARCHIVE_DOT_ORG=True # False = disable submitting all URLs to Archive.org
+TIMEOUT=120                # default: 60    add more seconds on slower networks
+CHECK_SSL_VALIDITY=True    # default: False True = allow saving URLs w/ bad SSL
+SAVE_ARCHIVE_DOT_ORG=False # default: True  False = disable Archive.org saving
+MAX_MEDIA_SIZE=1500m       # default: 750m  raise/lower youtubedl output size
 
-SAVE_MEDIA=True           # False = don't save audio/video/subs w/ youtubedl
-MAX_MEDIA_SIZE=750m       # set max audio/video filesize to limit disk usage (anything bigger is lossily compressed down until it's this size)
-
-PUBLIC_INDEX=True         # False = anonymous users can't view the index
-PUBLIC_SNAPSHOTS=True     # False = anonymous users can't view snapshots
-PUBLIC_ADD_VIEW=False     # True = anonymous users can submit new URLs
+PUBLIC_INDEX=True          # default: True  whether anon users can view index
+PUBLIC_SNAPSHOTS=True      # default: True  whether anon users can view pages
+PUBLIC_ADD_VIEW=False      # default: False whether anon users can add new URLs
 ```
 
 <br/>
