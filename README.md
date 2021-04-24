@@ -540,6 +540,8 @@ The paths in the static exports are relative, make sure to keep them next to you
 
 ### Archiving Private Content
 
+<a id="archiving-private-urls"/>
+
 If you're importing pages with private content or URLs containing secret tokens you don't want public (e.g Google Docs, paywalled content, unlisted videos, etc.), **you may want to disable some of the extractor methods to avoid leaking that content to 3rd party APIs or the public**.
 
 ```bash
@@ -579,7 +581,7 @@ archivebox add 'https://example.com#2020-10-24'
 archivebox add 'https://example.com#2020-10-25'
 ```
 
-The <img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button" height="24px"/> button in the Admin UI works by using hash-date trick.
+The <img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button" height="24px"/> button in the Admin UI is a shortcut for this hash-date workaround.
 
 ### Storage Requirements
 
