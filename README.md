@@ -54,23 +54,22 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 **📦&nbsp; Get ArchiveBox with [Docker Compose (recommended)](#quickstart) / Docker, or `apt` / `brew` / `pip` ([see below](#quickstart)).**
 
 ```bash
-# Use this auto setup script to get started, or follow the full Quickstart instructions below
+# Use this auto setup script, or follow the full Quickstart instructions below
 curl -sSL 'https://get.archivebox.io' | bash
 ```
+**⤵️ See the [Quickstart](#quickstart) below for full instructions...**
+
+**🔢 Example usage: adding links to archive.**
 ```bash
-# Basic usage
-cd ~/archivebox                                                          # you can setup a data folder anywhere
-archivebox init --setup                                                  # initialize a collection and create an admin user
-archivebox add 'https://example.com'                                     # add URLs one at a time via args / piped stdin
-archivebox schedule --every=day --depth=1 https://example.com/rss.xml    # or have it import URLs regularly on a schedule
+archivebox add 'https://example.com'                                   # add URLs one at a time via args / piped stdin
+archivebox schedule --every=day --depth=1 https://example.com/rss.xml  # or have it import URLs regularly on a schedule
 ```
+**🔢 Example usage: viewing the archived content.**
 ```bash
 archivebox server 0.0.0.0:8000            # use the interactive web UI
 archivebox list 'https://example.com'     # use the CLI commands (--help for more)
 ls ./archive/*/index.json                 # or browse directly via the filesystem
 ```
-
-**⤵️ See the [Quickstart](#quickstart) below for more...**
 
 <div align="center">
 <br/><br/>
