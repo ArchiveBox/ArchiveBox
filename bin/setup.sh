@@ -112,7 +112,8 @@ if which apt-get > /dev/null; then
     fi
     echo
     echo "[+] Installing ArchiveBox and its dependencies using apt..."
-    sudo apt install -y git python3 python3-pip python3-distutils wget curl youtube-dl ffmpeg git nodejs npm ripgrep
+    sudo apt-get install -y git python3 python3-pip python3-distutils wget curl youtube-dl ffmpeg git nodejs npm ripgrep
+    sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser || true
     sudo apt-get install -y archivebox
     sudo apt-get --only-upgrade install -y archivebox
 
@@ -124,7 +125,8 @@ elif which brew > /dev/null; then
     brew install --fetch-HEAD -f archivebox
 elif which pkg > /dev/null; then
     echo "[+] Installing ArchiveBox and its dependencies using pkg..."
-    sudo pkg install python37 py37-pip py37-sqlite3 node npm wget curl youtube_dl ffmpeg git ripgrep
+    sudo pkg install -y python37 py37-pip py37-sqlite3 node npm wget curl youtube_dl ffmpeg git ripgrep
+    sudo pkg install -y chromium
 else
     echo "[!] Warning: Could not find aptitude/homebrew/pkg! May not be able to install all dependencies automatically."
     echo ""
