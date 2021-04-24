@@ -10,9 +10,11 @@ if [ $(id -u) -eq 0 ]; then
     echo "[X] You cannot run this script as root. You must run it as a non-root user with sudo ability."
     echo "    Create a new non-privileged user 'archivebox' if necessary. Instructions for Ubuntu/Debian:"
     echo "      https://www.digitalocean.com/community/tutorials/how-to-create-a-new-sudo-enabled-user-on-ubuntu-20-04-quickstart"
-    echo "      adduser -G sudo archivebox"
+    echo "      adduser archivebox"
+    echo "      usermod -a archivebox -G sudo"
     echo "      su archivebox"
     echo "    Then re-run this script as the non-root user."
+    echo ""
     exit 2
 fi
 
