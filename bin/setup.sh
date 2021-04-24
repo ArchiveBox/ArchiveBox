@@ -66,4 +66,4 @@ pip3 install --upgrade archivebox
 echo "[+] Initializing ArchiveBox data folder at ~/archivebox..."
 mkdir -p ~/archivebox
 cd ~/archivebox
-archivebox init --setup
+exec archivebox init --setup
