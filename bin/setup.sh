@@ -62,9 +62,9 @@ echo "    ⚠️ If you want to use Docker, press [Ctrl-C] to cancel now. ⚠️
 echo "        Get Docker: https://docs.docker.com/get-docker/"
 echo "        (after you've installed Docker, run this script again)"
 echo ""
-echo "Otherwise, install will continue with apt/brew/pip in 10s... (press [Ctrl+C] to cancel)"
+echo "Otherwise, install will continue with apt/brew/pip in 15s... (press [Ctrl+C] to cancel)"
 echo ""
-sleep 10 || exit 1
+sleep 15 || exit 1
 
 echo "[i] ArchiveBox Setup Script 📦"
 echo ""
@@ -80,8 +80,8 @@ echo ""
 echo "    If you'd rather install these manually as-needed, you can find detailed documentation here:"
 echo "        https://github.com/ArchiveBox/ArchiveBox/wiki/Install"
 echo ""
-echo "Continuing in 10s... (press [Ctrl+C] to cancel)"
-sleep 10 || exit 1
+echo "Continuing in 15s... (press [Ctrl+C] to cancel)"
+sleep 15 || exit 1
 echo ""
 
 # On Linux:
@@ -130,7 +130,7 @@ cd ~/archivebox
 if [ -f "./data/index.sqlite3" ]; then
     cd ./data
 fi
-archivebox init --setup
+: | archivebox init --setup || true
 
 echo
 echo "[+] Starting ArchiveBox server using: nohup archivebox server &..."
