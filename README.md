@@ -459,6 +459,71 @@ The paths in the static exports are relative, make sure to keep them next to you
 
 <br/>
 
+
+## Configuration
+
+ArchiveBox can be configured via environment variables, by using the `archivebox config` CLI, or by editing the `ArchiveBox.conf` config file directly.
+
+```bash
+archivebox config                               # view the entire config
+archivebox config --get CHROME_BINARY           # view a specific value
+
+archivebox config --set CHROME_BINARY=chromium  # set a config value
+env CHROME_BINARY=chromium archivebox add ...   # set a value temporarily
+```
+
+**The config file definition with all the options is in [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/master/archivebox/config.py).**
+
+Most options are also documented on the **[Configuration Wiki page](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**.
+
+
+#### Most Common Archiving Options
+
+These are the most common archiving behavior options that you may want to tweak.
+
+```bash
+# increase these values (in seconds) to account for slower network speeds
+archivebox config --set TIMEOUT=60
+archivebox config --set MEDIA_TIMEOUT=3600
+
+# set this to True to allow archiving pages with invalid/expired SSL certs
+archivebox config --set CHECK_SSL_VALIDITY=False
+
+# set this to False to disable submitting all URLs to Archive.org
+archivebox config --set SAVE_ARCHIVE_DOT_ORG=True
+
+# configure whether or not audio/video files are saved, and their max size
+archivebox config --set SAVE_MEDIA=True
+archivebox config --set MAX_MEDIA_SIZE=750m
+
+# set these to authenticate before archiving using your chrome user or cookies
+archivebox config --set CHROME_USER_DATA_DIR=/some/chrome/data/dir
+archivebox config --set COOKIES_FILE=/some/cookies.txt
+```
+
+#### Most Common Web UI Options
+
+These are the most common Web UI options that you may want to tweak.
+
+```bash
+# set this to restrict what domain/hostname your server can be accessed on
+archivebox config --set ALLOWED_HOSTS=*
+
+# toggle anonymous users ability to view your index, snapshots, and add URLs
+archivebox config --set PUBLIC_INDEX=True
+archivebox config --set PUBLIC_SNAPSHOTS=True
+archivebox config --set PUBLIC_ADD_VIEW=False
+
+# tweak how many snapshots are shown on list pages, and the footer text
+archivebox config --set SNAPSHOTS_PER_PAGE=40
+archivebox config --set FOOTER_INFO='Operated by ACME Inc. | GDPR contact: ...'
+
+ # override default UI styling with your own custom html/css/images in this dir
+archivebox config --set CUSTOM_TEMPLATES_DIR='./some/custom_templates'
+```
+
+<br/>
+
 ## Dependencies
 
 For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything preinstalled for the best experience.
