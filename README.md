@@ -409,13 +409,6 @@ Inside each Snapshot folder, ArchiveBox save these different types of extractor 
 
 It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) via environment variables / config.
 
-```bash
-# archivebox config --help
-archivebox config # see all currently configured options
-archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
-archivebox config --set GIT_ARGS='--recursive'
-```
-
 <br/>
 
 ## Configuration
@@ -426,9 +419,14 @@ ArchiveBox can be configured via environment variables, by using the `archivebox
 archivebox config                               # view the entire config
 archivebox config --get CHROME_BINARY           # view a specific value
 
-archivebox config --set CHROME_BINARY=chromium  # set a config value
-env CHROME_BINARY=chromium archivebox add ...   # set a value temporarily
+archivebox config --set CHROME_BINARY=chromium  # persist a config using CLI
+# OR
+echo CHROME_BINARY=chromium >> ArchiveBox.conf  # persist a config using file
+# OR
+env CHROME_BINARY=chromium archivebox ...       # run with a one-off config
 ```
+
+<sup>These methods also work the same way when run inside Docker, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration">Docker Configuration</a> wiki page for details.</sup>
 
 **The config loading logic with all the options defined is here: [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/master/archivebox/config.py).**
 
