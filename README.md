@@ -51,13 +51,12 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 <br/>
 
-**📦&nbsp; Get ArchiveBox with [Docker Compose (recommended)](#quickstart) / Docker, or `apt` / `brew` / `pip` ([see below](#quickstart)).**
+**📦&nbsp; Get ArchiveBox with [Docker Compose (recommended)](#quickstart) / Docker, or `apt` / `brew` / `pip` ([see Quickstart](#quickstart)).**
 
 ```bash
 # Use this auto setup script, or follow the full Quickstart instructions below
 curl -sSL 'https://get.archivebox.io' | bash
 ```
-**⤵️ See the [Quickstart](#quickstart) below for full instructions...**
 
 **🔢 Example usage: adding links to archive.**
 ```bash
