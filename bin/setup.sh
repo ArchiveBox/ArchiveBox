@@ -13,9 +13,12 @@ if (which docker-compose > /dev/null && docker pull archivebox/archivebox); then
     fi
     curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
     docker-compose run --rm archivebox init --setup
+    echo
+    echo "[+] Starting ArchiveBox server using: docker-compose up -d..."
     docker-compose up -d
     sleep 7
     open http://127.0.0.1:8000 || true
+    echo
     echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox/data. Usage:"
     echo "    cd ~/archivebox"
     echo "    docker-compose ps"
@@ -34,9 +37,12 @@ elif (which docker > /dev/null && docker pull archivebox/archivebox); then
         cd ./data
     fi
     docker run -v "$PWD":/data -it --rm archivebox/archivebox init --setup
+    echo
+    echo "[+] Starting ArchiveBox server using: docker run -d archivebox/archivebox..."
     docker run -v "$PWD":/data -it -d -p 8000:8000 --name=archivebox archivebox/archivebox
     sleep 7
     open http://127.0.0.1:8000 || true
+    echo
     echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox. Usage:"
     echo "    cd ~/archivebox"
     echo "    docker ps --filter name=archivebox"
@@ -56,12 +62,12 @@ echo "        https://docs.docker.com/get-docker/"
 echo "        (after installing, run this script again)"
 echo ""
 echo "Otherwise, install will continue with apt/brew/pip in 10s... (press [Ctrl+C] to cancel)"
-sleep 5 || exit 1
+sleep 10 || exit 1
 
 echo "[i] ArchiveBox Setup Script 📦"
 echo ""
 echo "    This is a helper script which installs the ArchiveBox dependencies on your system using brew/apt/pip3."
-echo "    You may be prompted for a password in order to install the following:"
+echo "    You may be prompted for a sudo password in order to install the following:"
 echo ""
 echo "        - python3, python3-pip, python3-distutils"
 echo "        - nodejs, npm                  (used for singlefile, readability, mercury, and more)"
@@ -78,13 +84,14 @@ echo ""
 
 # On Linux:
 if which apt-get > /dev/null; then
-    echo "[+] Adding ArchiveBox apt repo to sources..."
+    echo "[+] Adding ArchiveBox apt repo and signing key to sources..."
     if ! (sudo apt install -y software-properties-common && sudo add-apt-repository -u ppa:archivebox/archivebox); then
         echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/archivebox.list
         echo "deb-src http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee -a /etc/apt/sources.list.d/archivebox.list
         sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
         sudo apt-get update -qq
     fi
+    echo
     echo "[+] Installing ArchiveBox and its dependencies using apt..."
     # sudo apt install -y git python3 python3-pip python3-distutils wget curl youtube-dl ffmpeg git nodejs npm ripgrep
     sudo apt-get install -y archivebox
@@ -100,8 +107,8 @@ else
     echo "[!] Warning: Could not find aptitude or homebrew! May not be able to install all dependencies correctly."
     echo ""
     echo "    If you're on macOS, make sure you have homebrew installed:     https://brew.sh/"
-    echo "    If you're on Ubuntu/Debian, make sure you have apt installed:  https://help.ubuntu.com/lts/serverguide/apt.html"
-    echo "    (those are the only currently supported systems for the automatic setup script)"
+    echo "    If you're on Linux, only Ubuntu/Debian systems are officially supported with this script."
+    echo "    If you're on Windows, this script is not officially supported (Docker is recommeded)."
     echo ""
     echo "See the README.md for Manual Setup & Troubleshooting instructions if you you're unable to run ArchiveBox after this script completes."
 fi
@@ -110,9 +117,11 @@ fi
 # npm i -g npm
 # pip3 install --upgrade pip setuptools
 
+echo
 echo "[+] Installing ArchiveBox and its dependencies using pip..."
 pip3 install --upgrade archivebox
 
+echo
 echo "[+] Initializing ArchiveBox data folder at ~/archivebox..."
 mkdir -p ~/archivebox
 cd ~/archivebox
@@ -120,9 +129,14 @@ if [ -f "./data/index.sqlite3" ]; then
     cd ./data
 fi
 archivebox init --setup
+
+echo
+echo "[+] Starting ArchiveBox server using: nohup archivebox server &..."
 nohup archivebox server 0.0.0.0:8000 &
 sleep 7
 open http://127.0.0.1:8000 || true
+
+echo
 echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox. Usage:"
 echo "    cd ~/archivebox"
 echo "    ps aux | grep archivebox"
