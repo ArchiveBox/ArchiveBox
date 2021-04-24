@@ -1006,7 +1006,7 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
 
     stderr('\n[√] Set up ArchiveBox and its dependencies successfully.', color='green')
     
-    run_shell([ARCHIVEBOX_BINARY, '--version'], capture_output=False, cwd=out_dir)
+    run_shell([PYTHON_BINARY, ARCHIVEBOX_BINARY, '--version'], capture_output=False, cwd=out_dir)
 
 @enforce_types
 def config(config_options_str: Optional[str]=None,
