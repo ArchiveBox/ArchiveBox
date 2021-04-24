@@ -14,7 +14,7 @@ from crontab import CronTab
 from .vendor.atomicwrites import atomic_write as lib_atomic_write
 
 from .util import enforce_types, ExtendedEncoder
-from .config import OUTPUT_PERMISSIONS
+from .config import PYTHON_BINARY, OUTPUT_PERMISSIONS
 
 
 
@@ -37,6 +37,9 @@ def run(*args, input=None, capture_output=True, timeout=None, check=False, text=
 
     pgid = None
     try:
+        if args[0].endswith('.py'):
+            args = (PYTHON_BINARY, *args)
+
         with Popen(*args, start_new_session=start_new_session, **kwargs) as process:
             pgid = os.getpgid(process.pid)
             try:
