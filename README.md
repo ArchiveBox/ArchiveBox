@@ -107,6 +107,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 *Click to expand your preferred **► `distribution`** below for full instructions (Docker is recommended for best security and UX):*
 
+<br/>
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (highly recommended)</summary>
 <br/>
