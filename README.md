@@ -105,7 +105,9 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 #### ⬇️&nbsp; Initial Setup
 
-*Click to expand your preferred **► `distribution`** below for full instructions (Docker recommended for security & easier install/updating UX):*
+*Click to expand your preferred **► `distribution`** below for full instructions:*
+
+<sub>(Docker recommended for the easiest install/update UX + best security + all <a href="#dependencies">extras</a> working out-of-the-box)</sub>
 
 <br/>
 <details>
