@@ -107,8 +107,6 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 *Click to expand your preferred **► `distribution`** below for full instructions:*
 
-<sub>(Docker is recommended for the easiest install/update UX + best security + all <a href="#dependencies">extras</a> working out-of-the-box)</sub>
-
 <br/>
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (highly recommended)</summary>
@@ -154,6 +152,8 @@ docker run -v $PWD:/data -it archivebox/archivebox init --setup
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python manage your archive.
 <br/><br/>
 </details>
+
+<sub>(Docker is recommended for the easiest install/update UX + best security + all <a href="#dependencies">extras</a> working out-of-the-box)</sub>
 
 <br/>
 
