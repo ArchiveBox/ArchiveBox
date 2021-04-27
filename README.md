@@ -108,6 +108,8 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 *Click to expand your preferred **► `distribution`** below for full instructions:*
 
 <br/>
+<sup>Containerized (easiest install/update UX + best security + all <a href="#dependencies">extras</a> working out-of-the-box):</sup>
+
 <details>
 <summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (highly recommended)</summary>
 <br/>
@@ -153,9 +155,8 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <br/><br/>
 </details>
 
-<sub>(Docker is recommended for the easiest install/update UX + best security + all <a href="#dependencies">extras</a> working out-of-the-box)</sub>
-
 <br/>
+<sup>Bare Metal:</sup>
 
 <details>
 <summary><b>Get ArchiveBox with <code>apt</code> on Ubuntu/Debian</b></summary>
@@ -248,6 +249,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <br/>
+<sup>Other:</sup>
 
 <details>
 <summary><b>Get ArchiveBox with a paid hosting solution</b></summary>
