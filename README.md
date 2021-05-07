@@ -103,9 +103,11 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 **🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL) &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 <sup>(raspi>=3)</sup>
 
-**⬇️&nbsp; Easy Setup:** *(click to expand)*
+<br/>
 
-<br/><br/>
+*(click to expand)*
+
+#### ✳️&nbsp; Easy Setup
 
 <details>
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker-compose</code></b>  (macOS/Linux/Windows) ✨ <b>(highly recommended)</b></summary>
@@ -173,7 +175,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 
 <br/>
 
-**🛠&nbsp; Manual Setup:** *(click to expand)*
+#### 🛠&nbsp; Manual Setup**
 
 <details>
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" alt="aptitude" height="28px" align="top"/> <code>apt</code></b> (Ubuntu/Debian)</summary>
