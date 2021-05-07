@@ -154,6 +154,20 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <br/><br/>
 </details>
 
+<details>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.pngg" alt="curl | sh automatic setup script" height="28px" align="top"/> <code>curl -sSL 'https://get.archivebox.io' | sh</code></b>  (macOS/Ubuntu/Debian/FreeBSD)</summary>
+<br/>
+<ol>
+<li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (optional, highly recommended).</li>
+<li>Run the automatic setup script.
+<pre lang="bash"><code style="white-space: pre-line">curl -sSL 'https://get.archivebox.io' | sh</code></pre>
+</li>
+</ol>
+
+See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python manage your archive.
+<br/><br/>
+</details>
+
 <br/>
 
 #### 🛠&nbsp; Manual Setup
