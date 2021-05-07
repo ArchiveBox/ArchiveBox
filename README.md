@@ -766,7 +766,7 @@ Whether you want to learn which organizations are the big players in the web arc
 
 **Need help building a custom archiving solution?**
 
-> ✨ **[Hire the team that helps build Archivebox](https://monadical.com) to work on your project.** (we're [@MonadicalSAS](https://twitter.com/MonadicalSAS) on Twitter)
+> ✨ **[Hire the team that helps build Archivebox](https://monadical.com) to work on your project.** ([@MonadicalSAS](https://twitter.com/MonadicalSAS))
 
 <sup>(They also do general software consulting across many industries)</sup>
 
