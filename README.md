@@ -108,7 +108,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 #### ✳️&nbsp; Easy Setup
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker-compose</code></b>  (macOS/Linux/Windows) &nbsp; <b>👈&nbsp; best</b> &nbsp; <sup><i>(click to expand)</i></sup></summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker-compose</code></b>  (macOS/Linux/Windows) &nbsp; <b>👈&nbsp; recommended</b> &nbsp; <i>(click to expand)</i></summary>
 <br/>
 👍 Docker Compose is recommended for the easiest install/update UX + best security + all the <a href="#dependencies">extras</a> working out-of-the-box.</i>
 <br/>
