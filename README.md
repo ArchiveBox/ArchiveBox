@@ -376,6 +376,8 @@ ls ./archive/*/index.html  # or inspect snapshots on the filesystem
 
 ## Input Formats
 
+<img src="https://i.imgur.com/zM4z1aU.png" width="330px" align="right">
+
 ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exports, Browser bookmarks, Browser history, plain text, HTML, markdown, and more!
 
 
@@ -407,6 +409,8 @@ It also includes a built-in scheduled import feature with `archivebox schedule` 
 
 ## Output Formats
 
+<img src="https://i.imgur.com/xHvQfon.png" width="330px" align="right">
+
 Inside each Snapshot folder, ArchiveBox save these different types of extractor outputs as plain files:
 
 `./archive/<timestamp>/*`
@@ -430,6 +434,8 @@ It does everything out-of-the-box by default, but you can disable or tweak [indi
 <br/>
 
 ## Configuration
+
+<img src="https://i.imgur.com/H08eaia.png" width="330px" align="right">
 
 ArchiveBox can be configured via environment variables, by using the `archivebox config` CLI, or by editing the `ArchiveBox.conf` config file directly.
 
@@ -468,6 +474,8 @@ PUBLIC_ADD_VIEW=False      # default: False whether anon users can add new URLs
 <br/>
 
 ## Dependencies
+
+<img src="https://i.imgur.com/5vSBO2R.png" width="330px" align="right">
 
 For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything preinstalled for the best experience.
 
