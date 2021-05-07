@@ -105,12 +105,12 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 <br/>
 
-*(click to expand)*
+<sup><i>(click to expand)</i></sup>
 
 #### ✳️&nbsp; Easy Setup
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker-compose</code></b>  (macOS/Linux/Windows) ✨ <b>(highly recommended)</b></summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker-compose</code></b>  (macOS/Linux/Windows) &nbsp; <b>👈 recommended</b></summary>
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> and <a href="https://docs.docker.com/compose/install/#install-using-pip">Docker Compose</a> on your system (if not already installed).</li>
@@ -175,7 +175,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 
 <br/>
 
-#### 🛠&nbsp; Manual Setup**
+#### 🛠&nbsp; Manual Setup
 
 <details>
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" alt="aptitude" height="28px" align="top"/> <code>apt</code></b> (Ubuntu/Debian)</summary>
