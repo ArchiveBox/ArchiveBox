@@ -376,8 +376,6 @@ ls ./archive/*/index.html  # or inspect snapshots on the filesystem
 
 ## Input Formats
 
-<img src="https://i.imgur.com/zM4z1aU.png" width="330px" align="right">
-
 ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exports, Browser bookmarks, Browser history, plain text, HTML, markdown, and more!
 
 
@@ -386,6 +384,9 @@ ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exp
 - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> TXT, RSS, XML, JSON, CSV, SQL, HTML, Markdown, or [any other text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)
 - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> [Browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (see instructions for: [Chrome](https://support.google.com/chrome/answer/96816?hl=en), [Firefox](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari](http://i.imgur.com/AtcvUZA.png), [IE](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows), [Opera](http://help.opera.com/Windows/12.10/en/importexport.html), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive))
 - <img src="https://getpocket.com/favicon.ico" height="22px"/> [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Instapaper](https://www.instapaper.com/user/export), [Shaarli](https://shaarli.readthedocs.io/en/master/Usage/#importexport), [Delicious](https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/), [Reddit Saved](https://github.com/csu/export-saved-reddit), [Wallabag](https://doc.wallabag.org/en/user/import/wallabagv2.html), [Unmark.it](http://help.unmark.it/import-export), [OneTab](https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
+
+<img src="https://i.imgur.com/zM4z1aU.png" width="330px" align="right">
+
 
 ```bash
 # archivebox add --help
@@ -409,9 +410,9 @@ It also includes a built-in scheduled import feature with `archivebox schedule` 
 
 ## Output Formats
 
-<img src="https://i.imgur.com/xHvQfon.png" width="330px" align="right">
-
 Inside each Snapshot folder, ArchiveBox save these different types of extractor outputs as plain files:
+
+<img src="https://i.imgur.com/xHvQfon.png" width="330px" align="right">
 
 `./archive/<timestamp>/*`
 
@@ -475,11 +476,11 @@ PUBLIC_ADD_VIEW=False      # default: False whether anon users can add new URLs
 
 ## Dependencies
 
-<img src="https://i.imgur.com/5vSBO2R.png" width="330px" align="right">
-
 For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything preinstalled for the best experience.
 
 To achieve high fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party tools and libraries that specialize in extracting different types of content. These optional dependencies used for archiving sites include:
+
+<img src="https://i.imgur.com/5vSBO2R.png" width="330px" align="right">
 
 - `chromium` / `chrome` (for screenshots, PDF, DOM HTML, and headless JS scripts)
 - `node` & `npm` (for readability, mercury, and singlefile)
@@ -508,11 +509,12 @@ Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not offici
 
 ## Archive Layout
 
-<img src="https://user-images.githubusercontent.com/511499/117453293-c7b91600-af12-11eb-8a3f-aa48b0f9da3c.png" width="360px" align="right">
-
 All of ArchiveBox's state (including the index, snapshot data, and config file) is stored in a single folder called the "ArchiveBox data folder". All `archivebox` CLI commands must be run from inside this folder, and you first create it by running `archivebox init`.
 
 The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard `index.sqlite3` database in the root of the data folder (it can also be exported as static JSON/HTML), and the archive snapshots are organized by date-added timestamp in the `./archive/` subfolder.
+
+<img src="https://user-images.githubusercontent.com/511499/117453293-c7b91600-af12-11eb-8a3f-aa48b0f9da3c.png" width="400px" align="right">
+
 
 ```bash
 ./
