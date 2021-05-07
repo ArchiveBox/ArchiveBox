@@ -269,7 +269,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 #### 🎗&nbsp; Other Options
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> + <img src="https://user-images.githubusercontent.com/511499/117447263-4316c980-af0b-11eb-928d-eaf1292ac646.png" alt="Electron" height="28px" align="top"/> Desktop App</b> (macOS/Linux/Window)</summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> + <img src="https://user-images.githubusercontent.com/511499/117447263-4316c980-af0b-11eb-928d-eaf1292ac646.png" alt="Electron" height="28px" align="top"/> Desktop App</b> (macOS/Linux/Windows)</summary>
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
@@ -996,7 +996,7 @@ archivebox manage dbshell
 - Home: [ArchiveBox.io](https://archivebox.io)
 - Demo: [Demo.ArchiveBox.io](https://demo.archivebox.io)
 - Docs: [Docs.ArchiveBox.io](https://docs.archivebox.io)
-- Releases: [Releases.ArchiveBox.io](https://releases.archivebox.io)
+- Releases: [Github.com/ArchiveBox/ArchiveBox/releases](https://github.com/ArchiveBox/ArchiveBox/releases)
 - Wiki: [Github.com/ArchiveBox/ArchiveBox/wiki](https://github.com/ArchiveBox/ArchiveBox/wiki)
 - Issues: [Github.com/ArchiveBox/ArchiveBox/issues](https://github.com/ArchiveBox/ArchiveBox/issues)
 - Forum: [Github.com/ArchiveBox/ArchiveBox/discussions](https://github.com/ArchiveBox/ArchiveBox/discussions)
@@ -1023,10 +1023,6 @@ This project is maintained mostly in <a href="https://nicksweeting.com/blog#Abou
 
 <a href="https://twitter.com/ArchiveBoxApp"><img src="https://img.shields.io/badge/Tweet-%40ArchiveBoxApp-blue.svg?style=flat"/></a>
 <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>
-
-<br/>
-
-<a href="https://releases.archivebox.io"><img src="https://api.releasepage.co/v1/pages/23bfec45-7105-4fd1-9f87-806ae7ff56bb/badge.svg?apiKey=live.clBJeKsXJ6gsidbO"/></a>
 
 <br/>
 <br/>
