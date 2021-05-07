@@ -155,7 +155,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.pngg" alt="curl | sh automatic setup script" height="28px" align="top"/> <code>curl -sSL 'https://get.archivebox.io' | sh</code></b>  (macOS/Ubuntu/Debian/FreeBSD)</summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" height="28px" align="top"/> <code>curl | sh</code> setup script</b>  (macOS/Linux)</summary>
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (optional, highly recommended).</li>
