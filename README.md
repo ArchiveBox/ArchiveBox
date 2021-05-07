@@ -103,10 +103,8 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 **🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL) &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 <sup>(raspi>=3)</sup>
 
-**⬇️&nbsp; Initial Setup:** *Click to expand your preferred **► `distribution`** below for install instructions.*
+**⬇️&nbsp; Easy Setup:** *(click to expand)*
 
-<br/>
-<sup>&nbsp; &nbsp; &nbsp;(easiest install/update UX + best security + all <a href="#dependencies">extras</a> working out-of-the-box)</sup>
 <br/><br/>
 
 <details>
@@ -175,7 +173,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 
 <br/>
 
-<sup>&nbsp; &nbsp; &nbsp;(harder than Docker, up to you to keep ArchiveBox and its <a href="#dependencies">extras</a> up-to-date)</sup>
+**🛠&nbsp; Manual Setup:** *(click to expand)*
 
 <details>
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" alt="aptitude" height="28px" align="top"/> <code>apt</code></b> (Ubuntu/Debian)</summary>
@@ -269,7 +267,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" alt="paid" height="28px" align="top"/> Paid hosting solutions</summary>
+<summary><img src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" alt="paid" height="27px" align="top"/> Paid hosting solutions</summary>
 <br/>
 <ul>
 <li><a href="https://monadical.com">
