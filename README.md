@@ -109,9 +109,9 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 <br/>
 <sup>&nbsp; &nbsp; &nbsp;(easiest install/update UX + best security + all <a href="#dependencies">extras</a> working out-of-the-box)</sup>
-
+<br/>
 <details>
-<summary><b>Get ArchiveBox with <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (highly recommended)</summary>
+<summary><b>Get ArchiveBox with <img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="48px"/> <code>docker-compose</code> on macOS/Linux/Windows ✨</b> (highly recommended)</summary>
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> and <a href="https://docs.docker.com/compose/install/#install-using-pip">Docker Compose</a> on your system (if not already installed).</li>
@@ -134,7 +134,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with <code>docker</code> on macOS/Linux/Windows</b></summary>
+<summary><b>Get ArchiveBox with <img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="48px"/> <code>docker</code> on macOS/Linux/Windows</b></summary>
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
@@ -156,7 +156,9 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b>Get ArchiveBox as a Desktop App on macOS/Linux/Window</b></summary>
+<summary><b>Get ArchiveBox as a 
+
+<img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="48px"/> + <img src="https://user-images.githubusercontent.com/511499/117447263-4316c980-af0b-11eb-928d-eaf1292ac646.png" alt="Electron" height="48px"/> Desktop App on macOS/Linux/Window</b></summary>
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
@@ -216,7 +218,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with <code>brew</code> on macOS</b></summary>
+<summary><b>Get ArchiveBox with <img src="https://user-images.githubusercontent.com/511499/117447803-f2ec3700-af0b-11eb-87d3-671d114f011d.png" alt="Homebrew" height="48px"/> <code>brew</code> on macOS</b></summary>
 <br/>
 <ol>
 <li>Install <a href="https://brew.sh/#install">Homebrew</a> on your system (if not already installed).</li>
@@ -242,9 +244,10 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with <code>pip</code> on any platform</b></summary>
+<summary><b>Get ArchiveBox with <img src="https://user-images.githubusercontent.com/511499/117447613-ba4c5d80-af0b-11eb-8f89-1d98e31b6a79.png" alt="Pip" height="48px"/> <code>pip</code> on any platform</b></summary>
 <br/>
 <ol>
+
 <li>Install <a href="https://realpython.com/installing-python/">Python >= v3.7</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v14</a> on your system (if not already installed).</li>
 <li>Install the ArchiveBox package using <code>pip3</code>.
 <pre lang="bash"><code style="white-space: pre-line">pip3 install archivebox
