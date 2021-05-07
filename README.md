@@ -109,9 +109,10 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 <br/>
 <sup>&nbsp; &nbsp; &nbsp;(easiest install/update UX + best security + all <a href="#dependencies">extras</a> working out-of-the-box)</sup>
-<br/>
+<br/><br/>
+
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="24px"/> <code>docker-compose</code>  (macOS/Linux/Windows) ✨</b> (highly recommended)</summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker-compose</code></b>  (macOS/Linux/Windows) ✨ <b>(highly recommended)</b></summary>
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> and <a href="https://docs.docker.com/compose/install/#install-using-pip">Docker Compose</a> on your system (if not already installed).</li>
@@ -134,7 +135,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="24px"/> <code>docker</code>  (macOS/Linux/Windows)</b></summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker</code></b>  (macOS/Linux/Windows)</summary>
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
@@ -156,7 +157,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="24px"/> + <img src="https://user-images.githubusercontent.com/511499/117447263-4316c980-af0b-11eb-928d-eaf1292ac646.png" alt="Electron" height="24px"/> Electron Desktop App (macOS/Linux/Window)</b></summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> + <img src="https://user-images.githubusercontent.com/511499/117447263-4316c980-af0b-11eb-928d-eaf1292ac646.png" alt="Electron" height="28px" align="top"/> Desktop App</b> (macOS/Linux/Window)</summary>
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
@@ -179,7 +180,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <sup>&nbsp; &nbsp; &nbsp;(harder than Docker, up to you to keep ArchiveBox and its <a href="#dependencies">extras</a> up-to-date)</sup>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" alt="aptitude" height="24px"/> <code>apt</code> (Ubuntu/Debian)</b></summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" alt="aptitude" height="28px" align="top"/> <code>apt</code></b> (Ubuntu/Debian)</summary>
 <br/>
 <ol>
 <li>Add the ArchiveBox repository to your sources.<br/>
@@ -216,7 +217,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447803-f2ec3700-af0b-11eb-87d3-671d114f011d.png" alt="homebrew" height="24px"/> <code>brew</code> (macOS)</b></summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117447803-f2ec3700-af0b-11eb-87d3-671d114f011d.png" alt="homebrew" height="28px" align="top"/> <code>brew</code></b> (macOS)</summary>
 <br/>
 <ol>
 <li>Install <a href="https://brew.sh/#install">Homebrew</a> on your system (if not already installed).</li>
@@ -242,7 +243,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447613-ba4c5d80-af0b-11eb-8f89-1d98e31b6a79.png" alt="Pip" height="24px"/> <code>pip</code> (macOS/Linux/Windows)</b></summary>
+<summary><img src="https://user-images.githubusercontent.com/511499/117447613-ba4c5d80-af0b-11eb-8f89-1d98e31b6a79.png" alt="Pip" height="24px"/> <code>pip</code> (macOS/Linux/Windows)</summary>
 <br/>
 <ol>
 
@@ -270,7 +271,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" alt="paid" height="24px"/> Paid hosting solutions</b></summary>
+<summary<img src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" alt="paid" height="28px" align="top"/> Paid hosting solutions</summary>
 <br/>
 <ul>
 <li><a href="https://monadical.com">
