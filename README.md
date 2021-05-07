@@ -156,9 +156,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b>Get ArchiveBox with as a Desktop App on macOS/Linux/Windows (requires <code>docker</code>)</b></summary>
-<br/>
-<i>⚠️ Alpha (contributors wanted!)</i>: for more info, see the: <a href="https://github.com/ArchiveBox/electron-archivebox">Electron ArchiveBox</a> repo.
+<summary><b>Get ArchiveBox as a Desktop App on macOS/Linux/Window</b></summary>
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
@@ -170,6 +168,9 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
  </ul>
  </li>
  </ol>
+<img src="https://i.imgur.com/QPHUS5C.png" width="320px">
+<br/>
+<i>✨ Alpha (contributors wanted!)</i>: for more info, see the: <a href="https://github.com/ArchiveBox/electron-archivebox">Electron ArchiveBox</a> repo.
   <br/>
 </details>
 
