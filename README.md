@@ -865,13 +865,19 @@ archivebox server --debug ...
 
 </details>
 
-#### Build and run a Github branch
+#### Install and run a specific Github branch
 
 <details><summary><i>Click to expand...</i></summary>
 
 ```bash
+# docker:
 docker build -t archivebox:dev https://github.com/ArchiveBox/ArchiveBox.git#dev
-docker run -it -v $PWD:/data archivebox:dev ...
+docker run -it -v $PWD:/data archivebox:dev init --setup
+
+# bare metal:
+pip install 'git+https://github.com/pirate/ArchiveBox@dev'
+npm install 'git+https://github.com/ArchiveBox/ArchiveBox.git#dev'
+archivebox init --setup
 ```
 
 </details>
