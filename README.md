@@ -103,9 +103,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 **🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL) &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 <sup>(raspi>=3)</sup>
 
-#### ⬇️&nbsp; Initial Setup
-
-*Click to expand your preferred **► `distribution`** below for full instructions:*
+**⬇️&nbsp; Initial Setup:** *Click to expand your preferred **► `distribution`** below for install instructions.*
 
 <br/>
 <sup>&nbsp; &nbsp; &nbsp;(easiest install/update UX + best security + all <a href="#dependencies">extras</a> working out-of-the-box)</sup>
@@ -243,7 +241,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/117447613-ba4c5d80-af0b-11eb-8f89-1d98e31b6a79.png" alt="Pip" height="24px"/> <code>pip</code> (macOS/Linux/Windows)</summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117447613-ba4c5d80-af0b-11eb-8f89-1d98e31b6a79.png" alt="Pip" height="28px" align="top"/> <code>pip</code></b> (macOS/Linux/Windows)</summary>
 <br/>
 <ol>
 
@@ -271,7 +269,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary<img src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" alt="paid" height="28px" align="top"/> Paid hosting solutions</summary>
+<summary><img src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" alt="paid" height="28px" align="top"/> Paid hosting solutions</summary>
 <br/>
 <ul>
 <li><a href="https://monadical.com">
