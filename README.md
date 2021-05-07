@@ -155,7 +155,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" height="28px" align="top"/> <code>curl | sh</code> setup script</b>  (macOS/Linux)</summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" height="28px" align="top"/> <code>bash</code> auto-setup script</b>  (macOS/Linux)</summary>
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (optional, highly recommended).</li>
@@ -264,6 +264,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <br/><br/>
 </details>
 
+<br/>
 
 #### 🎗&nbsp; Other Options
 
@@ -308,6 +309,7 @@ None of these hosting providers are officially endorsed:<br/>
  <img src="https://img.shields.io/badge/Unmanaged_App-Fly.io-%239a2de6.svg?style=flat" height="22px"/>
 </a> (USD $10-50+/mo, <a href="https://fly.io/docs/hands-on/start/">instructions</a>)</li>
 <li><a href="https://aws.amazon.com/marketplace/pp/Linnovate-Open-Source-Innovation-Support-For-Archi/B08RVW6MJ2"><img src="https://img.shields.io/badge/Unmanaged_VPS-AWS-%23ee8135.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
+<li><a href="https://azuremarketplace.microsoft.com/en-us/marketplace/apps/meanio.archivebox?ocid=gtmrewards_whatsnewblog_archivebox_vol118"><img src="https://img.shields.io/badge/Unmanaged_VPS-Azure-%237cb300.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
 <br/>
 <sub><i>Referral links marked 🎗 provide $5-10 of free credit for new users and help pay for our <a href="https://demo.archivebox.io">demo server</a> hosting costs.</i></sub>
 </ul>
