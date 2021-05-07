@@ -155,7 +155,20 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <br/><br/>
 </details>
 
+<details>
+<summary><b>Get ArchiveBox with as a Desktop App on macOS/Linux/Windows (requires <code>docker</code>)</b></summary>
 <br/>
+<a href="https://github.com/ArchiveBox/electron-archivebox">Electron ArchiveBox</a> (alpha, contributors wanted!)<br/><br/>
+<sub><i>Note: requires Docker or Docker Compose ArchiveBox to already be running on your computer (see instructions above)</i></sub>
+<ol>
+ <li>macOS: <a href="https://github.com/ArchiveBox/ArchiveBox/releases/download/v0.6.2/Electron-ArchiveBox-macOS-x64-0.6.2.app.zip" download><code>ArchiveBox.app.zip</code></a></li>
+ <li>Linux: <code>ArchiveBox.deb</code> (alpha: <a href="https://github.com/ArchiveBox/electron-archivebox#quickstart">build manually</a>)</li>
+ <li>Windows: <code>ArchiveBox.exe</code> (beta: <a href="https://github.com/ArchiveBox/electron-archivebox#quickstart">build manually</a>)</li>
+ </ol>
+<br/>
+</details>
+<br/>
+
 <sup>&nbsp; &nbsp; &nbsp;(harder than Docker, up to you to keep ArchiveBox and its <a href="#dependencies">extras</a> up-to-date)</sup>
 
 <details>
