@@ -158,7 +158,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" height="28px" align="top"/> <code>bash</code> auto-setup script</b>  (macOS/Linux)</summary>
 <br/>
 <ol>
-<li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (optional, highly recommended).</li>
+<li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (optional, highly recommended but not required).</li>
 <li>Run the automatic setup script.
 <pre lang="bash"><code style="white-space: pre-line">curl -sSL 'https://get.archivebox.io' | sh</code></pre>
 </li>
