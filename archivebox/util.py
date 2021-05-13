@@ -242,6 +242,8 @@ def chrome_args(**options) -> List[str]:
             '--disable-software-rasterizer',
             '--run-all-compositor-stages-before-draw',
             '--hide-scrollbars',
+            '--single-process',
+            '--no-zygote',
         )
 
 
