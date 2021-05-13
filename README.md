@@ -288,6 +288,19 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/118077361-f0616580-b381-11eb-973c-ee894a3349fb.png" alt="Arch" height="28px" align="top"/> Arch / <img src="https://user-images.githubusercontent.com/511499/118077424-0c650700-b382-11eb-94f6-1795b5d4402d.png" alt="NixOS" height="28px" align="top"/> NixOS</b> (Arch/NixOS/FreeBSD/more)</summary>
+<br/>
+<ul>
+<li>Arch: <a href="https://aur.archlinux.org/packages/archivebox/"><code>archivebox</code></a> (maintained by <code>imlonghao</code>)</li>
+<li>FreeBSD: <a href="https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup"><code>curl -sSL 'https://get.archivebox.io' | sh</code></a> (calls <code>pkg</code> and <code>pip3</code> under-the-hood)</li>
+<li>NixOS: <a href="https://github.com/NixOS/nixpkgs/issues/122793">help wanted!</a></li>
+<li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distro here...!</i></a></li>
+</ul>
+See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python manage your archive.
+<br/><br/>
+</details>
+
+<details>
 <summary><img src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" alt="paid" height="27px" align="top"/> Paid hosting solutions</summary>
 <br/>
 <ul>
