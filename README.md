@@ -637,6 +637,8 @@ https://127.0.0.1:8000/archive/*
 
 The admin UI is also served from the same origin as replayed JS, so malicious pages could also potentially use your ArchiveBox login cookies to perform admin actions (e.g. adding/removing links, running extractors, etc.). We are planning to fix this security shortcoming in a future version by using separate ports/origins to serve the Admin UI and archived content (see [Issue #239](https://github.com/ArchiveBox/ArchiveBox/issues/239)).
 
+*Note: Only the `wget` extractor method allows replaying archived JS on replay, all other archive methods produce static output that does not execute JS on viewing. If you are worried about these issues ^ you can disable the wget extractor method using `SAVE_WGET=False`.*
+
 ### Saving Multiple Snapshots of a Single URL
 
 First-class support for saving multiple snapshots of each site over time will be [added eventually](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now **ArchiveBox is designed to only archive each unique URL with each extractor type once**. The workaround to take multiple snapshots of the same URL is to make them slightly different by adding a hash:
