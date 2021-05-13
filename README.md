@@ -37,7 +37,7 @@ You can set it up as a [command-line tool](#quickstart), [web app](#quickstart),
 
 **It saves snapshots of the URLs you feed it in several formats:** HTML, PDF, PNG screenshots, WARC, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (article text, audio/video, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
 
-The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessable formats for decades after it goes down.
+The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessable formats [for decades](#background--motivation) after it goes down.
 
 <div align="center">
 <br/><br/>
