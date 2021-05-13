@@ -264,6 +264,19 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <br/><br/>
 </details>
 
+<details>
+<summary><img src="https://user-images.githubusercontent.com/511499/118077361-f0616580-b381-11eb-973c-ee894a3349fb.png" alt="Arch" height="28px" align="top"/> <code>pacman</code> / <img src="https://user-images.githubusercontent.com/511499/118077946-29e6a080-b383-11eb-94f0-d4871da08c3f.png" alt="FreeBSD" height="28px" align="top"/> <code>pkg</code> / <img src="https://user-images.githubusercontent.com/511499/118077861-002d7980-b383-11eb-86a7-5936fad9190f.png" alt="Nix" height="28px" align="top"/> <code>nix</code> (Arch/FreeBSD/NixOS/more)</summary>
+<br/>
+<ul>
+<li>Arch: <a href="https://aur.archlinux.org/packages/archivebox/"><code>pacman install archivebox</code></a> (maintained by <code>imlonghao</code>)</li>
+<li>FreeBSD: <a href="https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup"><code>curl -sSL 'https://get.archivebox.io' | sh</code></a> (uses <code>pkg</code> and <code>pip3</code> under-the-hood)</li>
+<li>NixOS: <a href="https://github.com/NixOS/nixpkgs/issues/122793"><i>help wanted!</i></a></li>
+<li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distro here...!</i></a></li>
+</ul>
+See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
+<br/><br/>
+</details>
+
 <br/>
 
 #### 🎗&nbsp; Other Options
@@ -285,19 +298,6 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <br/>
 <i>✨ Alpha (contributors wanted!)</i>: for more info, see the: <a href="https://github.com/ArchiveBox/electron-archivebox">Electron ArchiveBox</a> repo.
   <br/>
-</details>
-
-<details>
-<summary><img src="https://user-images.githubusercontent.com/511499/118077361-f0616580-b381-11eb-973c-ee894a3349fb.png" alt="Arch" height="28px" align="top"/> <code>pacman</code> / <img src="https://user-images.githubusercontent.com/511499/118077946-29e6a080-b383-11eb-94f0-d4871da08c3f.png" alt="FreeBSD" height="28px" align="top"/> <code>pkg</code> / <img src="https://user-images.githubusercontent.com/511499/118077861-002d7980-b383-11eb-86a7-5936fad9190f.png" alt="Nix" height="28px" align="top"/> <code>nix</code> (Arch/FreeBSD/NixOS/more)</summary>
-<br/>
-<ul>
-<li>Arch: <a href="https://aur.archlinux.org/packages/archivebox/"><code>pacman install archivebox</code></a> (maintained by <code>imlonghao</code>)</li>
-<li>FreeBSD: <a href="https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup"><code>curl -sSL 'https://get.archivebox.io' | sh</code></a> (uses <code>pkg</code> and <code>pip3</code> under-the-hood)</li>
-<li>NixOS: <a href="https://github.com/NixOS/nixpkgs/issues/122793"><i>help wanted!</i></a></li>
-<li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distro here...!</i></a></li>
-</ul>
-See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
-<br/><br/>
 </details>
 
 <details>
