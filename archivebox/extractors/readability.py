@@ -87,6 +87,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
         cmd = [
             DEPENDENCIES['READABILITY_BINARY']['path'],
             temp_doc.name,
+            link.url,
         ]
 
         result = run(cmd, cwd=out_dir, timeout=timeout)
