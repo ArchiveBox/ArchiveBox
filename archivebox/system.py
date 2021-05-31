@@ -117,10 +117,16 @@ def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS) -> 
         raise Exception('Failed to chmod: {} does not exist (did the previous step fail?)'.format(path))
 
     if not root.is_dir():
+        # path is just a plain file
         os.chmod(root, int(OUTPUT_PERMISSIONS, base=8))
     else:
         for subpath in Path(path).glob('**/*'):
-            os.chmod(subpath, int(OUTPUT_PERMISSIONS, base=8))
+            if subpath.is_dir():
+                # directories need execute permissions to be able to list contents
+                perms_with_x_allowed = OUTPUT_PERMISSIONS.replace('4', '5').replace('6', '7')
+                os.chmod(subpath, int(perms_with_x_allowed, base=8))
+            else:
+                os.chmod(subpath, int(OUTPUT_PERMISSIONS, base=8))
 
 
 @enforce_types
