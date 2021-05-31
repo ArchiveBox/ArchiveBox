@@ -14,7 +14,7 @@ from crontab import CronTab
 from .vendor.atomicwrites import atomic_write as lib_atomic_write
 
 from .util import enforce_types, ExtendedEncoder
-from .config import PYTHON_BINARY, OUTPUT_PERMISSIONS
+from .config import PYTHON_BINARY, OUTPUT_PERMISSIONS, ENFORCE_ATOMIC_WRITES
 
 
 
@@ -78,7 +78,7 @@ def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, 
 
 
 @enforce_types
-def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], overwrite: bool=True) -> None:
+def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], overwrite: bool=True, permissions: str=OUTPUT_PERMISSIONS) -> None:
     """Safe atomic write to filesystem by writing to temp file + atomic rename"""
 
     mode = 'wb+' if isinstance(contents, bytes) else 'w'
@@ -92,11 +92,21 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
             elif isinstance(contents, (bytes, str)):
                 f.write(contents)
     except OSError as e:
-        print(f"[X] OSError: Failed to write {path} with fcntl.F_FULLFSYNC. ({e})")
-        print("    You can store the archive/ subfolder on a hard drive or network share that doesn't support support syncronous writes,")
-        print("    but the main folder containing the index.sqlite3 and ArchiveBox.conf files must be on a filesystem that supports FSYNC.")
-        raise SystemExit(1)
-    os.chmod(path, int(OUTPUT_PERMISSIONS, base=8))
+        if ENFORCE_ATOMIC_WRITES:
+            print(f"[X] OSError: Failed to write {path} with fcntl.F_FULLFSYNC. ({e})")
+            print("    You can store the archive/ subfolder on a hard drive or network share that doesn't support support syncronous writes,")
+            print("    but the main folder containing the index.sqlite3 and ArchiveBox.conf files must be on a filesystem that supports FSYNC.")
+            raise SystemExit(1)
+
+        # retry the write without forcing FSYNC (aka atomic mode)
+        with open(path, mode=mode, encoding=encoding) as f:
+            if isinstance(contents, dict):
+                dump(contents, f, indent=4, sort_keys=True, cls=ExtendedEncoder)
+            elif isinstance(contents, (bytes, str)):
+                f.write(contents)
+
+    # set permissions
+    os.chmod(path, int(permissions, base=8))
 
 @enforce_types
 def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS) -> None:

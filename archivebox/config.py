@@ -77,6 +77,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'OUTPUT_PERMISSIONS':       {'type': str,   'default': '755'},
         'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},
         'URL_BLACKLIST':            {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$'},  # to avoid downloading code assets as their own pages
+        'ENFORCE_ATOMIC_WRITES':    {'type': bool,  'default': True},
     },
 
     'SERVER_CONFIG': {
