@@ -78,7 +78,7 @@ def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, 
 
 
 @enforce_types
-def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], overwrite: bool=True, permissions: str=OUTPUT_PERMISSIONS) -> None:
+def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], overwrite: bool=True) -> None:
     """Safe atomic write to filesystem by writing to temp file + atomic rename"""
 
     mode = 'wb+' if isinstance(contents, bytes) else 'w'
@@ -105,8 +105,8 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
             elif isinstance(contents, (bytes, str)):
                 f.write(contents)
 
-    # set permissions
-    os.chmod(path, int(permissions, base=8))
+    # set file permissions
+    os.chmod(path, int(OUTPUT_PERMISSIONS, base=8))
 
 @enforce_types
 def chmod_file(path: str, cwd: str='.') -> None:
@@ -118,7 +118,7 @@ def chmod_file(path: str, cwd: str='.') -> None:
 
     if not root.is_dir():
         # path is just a plain file
-        os.chmod(root, int(permissions, base=8))
+        os.chmod(root, int(OUTPUT_PERMISSIONS, base=8))
     else:
         for subpath in Path(path).glob('**/*'):
             if subpath.is_dir():
