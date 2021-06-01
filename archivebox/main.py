@@ -984,16 +984,18 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
                 elif path.is_file():
                     os.remove(path)
 
-            shutil.copyfile(PACKAGE_DIR / 'package.json', out_dir / 'package.json')
+            shutil.copyfile(PACKAGE_DIR / 'package.json', out_dir / 'package.json')   # copy the js requirements list from the source install into the data dir
+            # lets blindly assume that calling out to npm via shell works reliably cross-platform 🤡 (until proven otherwise via support tickets)
             run_shell([
                 'npm',
                 'install',
-                '--prefix', str(out_dir),
-                '--force',
-                '--no-save',
-                '--no-audit',
-                '--no-fund',
-                '--loglevel', 'error',
+                '--prefix', str(out_dir),        # force it to put the node_modules dir in this folder
+                '--force',                       # overwrite any existing node_modules
+                '--no-save',                     # don't bother saving updating the package.json or package-lock.json file
+                '--no-audit',                    # don't bother checking for newer versions with security vuln fixes
+                '--no-fund',                     # hide "please fund our project" messages
+                '--loglevel', 'error',           # only show erros (hide warn/info/debug) during installation
+                # these args are written in blood, change with caution
             ], capture_output=False, cwd=out_dir)
             os.remove(out_dir / 'package.json')
         except BaseException as e:                                              # lgtm [py/catch-base-exception]
