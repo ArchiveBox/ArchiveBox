@@ -14,7 +14,7 @@ from crontab import CronTab
 from .vendor.atomicwrites import atomic_write as lib_atomic_write
 
 from .util import enforce_types, ExtendedEncoder
-from .config import PYTHON_BINARY, OUTPUT_PERMISSIONS, ENFORCE_ATOMIC_WRITES
+from .config import PYTHON_BINARY, OUTPUT_PERMISSIONS, DIR_OUTPUT_PERMISSIONS, ENFORCE_ATOMIC_WRITES
 
 
 
@@ -109,7 +109,7 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
     os.chmod(path, int(permissions, base=8))
 
 @enforce_types
-def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS) -> None:
+def chmod_file(path: str, cwd: str='.') -> None:
     """chmod -R <permissions> <cwd>/<path>"""
 
     root = Path(cwd) / path
@@ -123,10 +123,9 @@ def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS) -> 
         for subpath in Path(path).glob('**/*'):
             if subpath.is_dir():
                 # directories need execute permissions to be able to list contents
-                perms_with_x_allowed = permissions.replace('4', '5').replace('6', '7')
-                os.chmod(subpath, int(perms_with_x_allowed, base=8))
+                os.chmod(subpath, int(DIR_OUTPUT_PERMISSIONS, base=8))
             else:
-                os.chmod(subpath, int(permissions, base=8))
+                os.chmod(subpath, int(OUTPUT_PERMISSIONS, base=8))
 
 
 @enforce_types

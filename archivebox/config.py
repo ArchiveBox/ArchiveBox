@@ -337,6 +337,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and Path(c['COOKIES_FILE']).resolve()},
     'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (Path(c['CHROME_USER_DATA_DIR']).resolve() if c['CHROME_USER_DATA_DIR'] else None)},   # None means unset, so we autodetect it with find_chrome_Data_dir(), but emptystring '' means user manually set it to '', and we should store it as None
     'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'] or '', re.IGNORECASE | re.UNICODE | re.MULTILINE)},
+    'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
     'VERSION':                  {'default': lambda c: json.loads((Path(c['PACKAGE_DIR']) / 'package.json').read_text(encoding='utf-8').strip())['version']},
@@ -967,7 +968,7 @@ globals().update(CONFIG)
 
 # Set timezone to UTC and umask to OUTPUT_PERMISSIONS
 os.environ["TZ"] = 'UTC'
-os.umask(0o777 - int(OUTPUT_PERMISSIONS, base=8))  # noqa: F821
+os.umask(0o777 - int(DIR_OUTPUT_PERMISSIONS, base=8))  # noqa: F821
 
 # add ./node_modules/.bin to $PATH so we can use node scripts in extractors
 NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]).absolute() / 'node_modules' / '.bin'))
