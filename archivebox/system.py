@@ -118,15 +118,15 @@ def chmod_file(path: str, cwd: str='.', permissions: str=OUTPUT_PERMISSIONS) -> 
 
     if not root.is_dir():
         # path is just a plain file
-        os.chmod(root, int(OUTPUT_PERMISSIONS, base=8))
+        os.chmod(root, int(permissions, base=8))
     else:
         for subpath in Path(path).glob('**/*'):
             if subpath.is_dir():
                 # directories need execute permissions to be able to list contents
-                perms_with_x_allowed = OUTPUT_PERMISSIONS.replace('4', '5').replace('6', '7')
+                perms_with_x_allowed = permissions.replace('4', '5').replace('6', '7')
                 os.chmod(subpath, int(perms_with_x_allowed, base=8))
             else:
-                os.chmod(subpath, int(OUTPUT_PERMISSIONS, base=8))
+                os.chmod(subpath, int(permissions, base=8))
 
 
 @enforce_types
