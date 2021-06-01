@@ -182,7 +182,7 @@ def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=Fa
     except KeyboardInterrupt:
         log_archiving_paused(num_links, idx, link.timestamp)
         raise SystemExit(0)
-    except BaseException:
+    except BaseException:                                                       # lgtm [py/catch-base-exception]
         print()
         raise
 

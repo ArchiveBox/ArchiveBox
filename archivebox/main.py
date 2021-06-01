@@ -933,7 +933,7 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
             os.chmod(NEW_YOUTUBEDL_BINARY, 0o777)
             assert NEW_YOUTUBEDL_BINARY.exists(), f'youtube_dl must exist inside {pkg_path}'
             config(f'YOUTUBEDL_BINARY={NEW_YOUTUBEDL_BINARY}', set=True, out_dir=out_dir)
-        except BaseException as e:
+        except BaseException as e:                                              # lgtm [py/catch-base-exception]
             stderr(f'[X] Failed to install python packages: {e}', color='red')
             raise SystemExit(1)
 
@@ -955,7 +955,7 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
             NEW_CHROME_BINARY = proc.stdout.decode().strip() if isinstance(proc.stdout, bytes) else proc.stdout.strip()
             assert NEW_CHROME_BINARY and len(NEW_CHROME_BINARY), 'CHROME_BINARY must contain a path'
             config(f'CHROME_BINARY={NEW_CHROME_BINARY}', set=True, out_dir=out_dir)
-        except BaseException as e:
+        except BaseException as e:                                              # lgtm [py/catch-base-exception]
             stderr(f'[X] Failed to install chromium using playwright: {e.__class__.__name__} {e}', color='red')
             raise SystemExit(1)
 
@@ -996,7 +996,7 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
                 '--loglevel', 'error',
             ], capture_output=False, cwd=out_dir)
             os.remove(out_dir / 'package.json')
-        except BaseException as e:
+        except BaseException as e:                                              # lgtm [py/catch-base-exception]
             stderr(f'[X] Failed to install npm packages: {e}', color='red')
             hint(f'Try deleting {out_dir}/node_modules and running it again')
             raise SystemExit(1)
