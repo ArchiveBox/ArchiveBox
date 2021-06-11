@@ -4,7 +4,7 @@
 
 ▶️ <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> |
 <a href="https://demo.archivebox.io">Demo</a> |
-<a href="https://github.com/ArchiveBox/ArchiveBox">Github</a> |
+<a href="https://github.com/ArchiveBox/ArchiveBox">GitHub</a> |
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Documentation</a> |
 <a href="#background--motivation">Info & Motivation</a> |
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a> |
@@ -37,7 +37,7 @@ You can set it up as a [command-line tool](#quickstart), [web app](#quickstart),
 
 **It saves snapshots of the URLs you feed it in several formats:** HTML, PDF, PNG screenshots, WARC, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (article text, audio/video, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
 
-The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessable formats [for decades](#background--motivation) after it goes down.
+The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
 
 <div align="center">
 <br/><br/>
@@ -415,7 +415,7 @@ ls ./archive/*/index.html  # or inspect snapshots on the filesystem
 ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exports, Browser bookmarks, Browser history, plain text, HTML, markdown, and more!
 
 
-*Click these links for instructions on how to propare your links from these sources:*
+*Click these links for instructions on how to prepare your links from these sources:*
 
 - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> TXT, RSS, XML, JSON, CSV, SQL, HTML, Markdown, or [any other text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)
 - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> [Browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (see instructions for: [Chrome](https://support.google.com/chrome/answer/96816?hl=en), [Firefox](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari](http://i.imgur.com/AtcvUZA.png), [IE](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows), [Opera](http://help.opera.com/Windows/12.10/en/importexport.html), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive))
@@ -463,7 +463,7 @@ Inside each Snapshot folder, ArchiveBox save these different types of extractor 
 - **Article Text:** `article.html/json` Article text extraction using Readability & Mercury
 - **Archive.org Permalink:** `archive.org.txt` A link to the saved site on archive.org
 - **Audio & Video:** `media/` all audio/video files + playlists, including subtitles & metadata with youtube-dl
-- **Source Code:** `git/` clone of any repository found on github, bitbucket, or gitlab links
+- **Source Code:** `git/` clone of any repository found on GitHub, Bitbucket, or GitLab links
 - _More coming soon! See the [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap)..._
 
 It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) via environment variables / config.
@@ -512,7 +512,7 @@ PUBLIC_ADD_VIEW=False      # default: False whether anon users can add new URLs
 
 ## Dependencies
 
-For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything preinstalled for the best experience.
+For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything pre-installed for the best experience.
 
 To achieve high fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party tools and libraries that specialize in extracting different types of content. These optional dependencies used for archiving sites include:
 
@@ -568,7 +568,7 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
             ...
 ```
 
-Each snapshot subfolder `./archive/<timestamp>/` includes a static `index.json` and `index.html` describing its contents, and the snapshot extrator outputs are plain files within the folder.
+Each snapshot subfolder `./archive/<timestamp>/` includes a static `index.json` and `index.html` describing its contents, and the snapshot extractor outputs are plain files within the folder.
 
 
 <br/>
@@ -741,13 +741,13 @@ ArchiveBox tries to be a robust, set-and-forget archiving solution suitable for 
 
 ### Comparison With Centralized Public Archives
 
-Not all content is suitable to be archived in a centralized collection, wehther because it's private, copyrighted, too large, or too complex. ArchiveBox hopes to fill that gap.
+Not all content is suitable to be archived in a centralized collection, whether because it's private, copyrighted, too large, or too complex. ArchiveBox hopes to fill that gap.
 
 By having each user store their own content locally, we can save much larger portions of everyone's browsing history than a shared centralized service would be able to handle. The eventual goal is to work towards federated archiving where users can share portions of their collections with each other.
 
 ### Comparison With Other Self-Hosted Archiving Options
 
-ArchiveBox differentiates itself from [similar self-hosted projects](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by providing both a comprehensive CLI interface for managing your archive, a Web UI that can be used either indepenently or together with the CLI, and a simple on-disk data format that can be used without either.
+ArchiveBox differentiates itself from [similar self-hosted projects](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by providing both a comprehensive CLI interface for managing your archive, a Web UI that can be used either independently or together with the CLI, and a simple on-disk data format that can be used without either.
 
 ArchiveBox is neither the highest fidelity, nor the simplest tool available for self-hosted archiving, rather it's a jack-of-all-trades that tries to do most things well by default. It can be as simple or advanced as you want, and is designed to do everything out-of-the-box but be tuned to suit your needs.
 
@@ -803,7 +803,7 @@ Whether you want to learn which organizations are the big players in the web arc
 
 <img src="https://read-the-docs-guidelines.readthedocs-hosted.com/_images/logo-dark.png" width="13%" align="right"/>
 
-We use the [Github wiki system](https://github.com/ArchiveBox/ArchiveBox/wiki) and [Read the Docs](https://archivebox.readthedocs.io/en/latest/) (WIP) for documentation.
+We use the [GitHub wiki system](https://github.com/ArchiveBox/ArchiveBox/wiki) and [Read the Docs](https://archivebox.readthedocs.io/en/latest/) (WIP) for documentation.
 
 You can also access the docs locally by looking in the [`ArchiveBox/docs/`](https://github.com/ArchiveBox/ArchiveBox/wiki/Home) folder.
 
@@ -904,7 +904,7 @@ docker run -it -p 8000:8000 \
 ### Common development tasks
 
 See the `./bin/` folder and read the source of the bash scripts within.
-You can also run all these in Docker. For more examples see the Github Actions CI/CD tests that are run: `.github/workflows/*.yaml`.
+You can also run all these in Docker. For more examples see the GitHub Actions CI/CD tests that are run: `.github/workflows/*.yaml`.
 
 #### Run in DEBUG mode
 
@@ -918,7 +918,7 @@ archivebox server --debug ...
 
 </details>
 
-#### Install and run a specific Github branch
+#### Install and run a specific GitHub branch
 
 <details><summary><i>Click to expand...</i></summary>
 
@@ -1036,7 +1036,7 @@ This project is maintained mostly in <a href="https://nicksweeting.com/blog#Abou
 <br/><br/>
 
 <br/>
-<a href="https://github.com/sponsors/pirate">Sponsor this project on Github</a>
+<a href="https://github.com/sponsors/pirate">Sponsor this project on GitHub</a>
 <br>
 <br>
 <a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Donate_to_support_development-via_Patreon-%23DD5D76.svg?style=flat"/></a>
