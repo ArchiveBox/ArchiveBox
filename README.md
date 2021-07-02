@@ -178,11 +178,11 @@ See <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/bin/setup.sh"><co
 <br/>
 <ol>
 <li>Add the ArchiveBox repository to your sources.<br/>
-<pre lang="bash"><code style="white-space: pre-line"># On Ubuntu >= 20.04, add the sources automatically:
+<pre lang="bash"><code style="white-space: pre-line"># On Ubuntu == 20.04, add the sources automatically:
 sudo apt install software-properties-common
 sudo add-apt-repository -u ppa:archivebox/archivebox
 </code></pre>
-<pre lang="bash"><code style="white-space: pre-line"># On Ubuntu <= 19.10, or other Debian-style systems add the sources manually:
+<pre lang="bash"><code style="white-space: pre-line"># On Ubuntu >= 20.10 or <= 19.10, or other Debian-style systems, add the sources manually:
 echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/archivebox.list
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
@@ -971,6 +971,38 @@ archivebox shell
 archivebox manage dbshell
 ```
 (uses `pytest -s`)
+
+</details>
+
+#### Contributing a new extractor
+
+<details><summary><i>Click to expand...</i></summary><br/><br/>
+
+ArchiveBox [`extractors`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/extractors/media.py) are external binaries or Python/Node scripts that ArchiveBox runs to archive content on a page.
+
+Extractors take the URL of a page to archive, write their output to the filesystem `archive/<timestamp>/<extractorname>/...`, and return an [`ArchiveResult`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models.py#:~:text=return%20qs-,class%20ArchiveResult,-(models.Model)%3A) entry which is saved to the database (visible on the `Log` page in the UI).
+
+*Check out how we added **[`archivebox/extractors/singlefile.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/extractors/singlefile.py)** as an example of the process: [Issue #399](https://github.com/ArchiveBox/ArchiveBox/issues/399) + [PR #403](https://github.com/ArchiveBox/ArchiveBox/pull/403).*
+
+<br/>
+
+
+**The process to contribute a new extractor is like this:**
+
+1. [Open an issue](https://github.com/ArchiveBox/ArchiveBox/issues/new?assignees=&labels=changes%3A+behavior%2Cstatus%3A+idea+phase&template=feature_request.md&title=Feature+Request%3A+...) with your propsoed implementation (please link to the pages of any new external dependencies you plan on using)
+2. Ensure any dependencies needed are easily installable via a package managers like `apt`, `brew`, `pip3`, `npm`
+   (Ideally, prefer to use external programs available via `pip3` or `npm`, however we do support using any binary installable via package manager that exposes a CLI/Python API and writes output to stdout or the filesystem.)
+3. Create a new file in [`archivebox/extractors/<extractorname>.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/extractors) (copy an existing extractor like [`singlefile.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/extractors/singlefile.py) as a template)
+4. Add config settings to enable/disable any new dependencies and the extractor as a whole, e.g. `USE_DEPENDENCYNAME`, `SAVE_EXTRACTORNAME`, `EXTRACTORNAME_SOMEOTHEROPTION` in [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config.py)
+5. Add a preview section to [`archivebox/templates/core/snapshot.html`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html) to view the output, and a column to [`archivebox/templates/core/index_row.html`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/index_row.html) with an icon for your extractor
+6. Add an integration test for your extractor in [`tests/test_extractors.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/tests/test_extractors.py)
+7. [Submit your PR for review!](https://github.com/ArchiveBox/ArchiveBox/blob/dev/.github/CONTRIBUTING.md) 🎉
+8. Once merged, please document it in these places and anywhere else you see info about other extractors:
+  - https://github.com/ArchiveBox/ArchiveBox#output-formats
+  - https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles
+  - https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies
+
+<br/><br/>
 
 </details>
 
