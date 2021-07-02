@@ -11,6 +11,8 @@ from django.views.generic.list import ListView
 from django.views.generic import FormView
 from django.db.models import Q
 from django.contrib.auth.mixins import UserPassesTestMixin
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 from core.models import Snapshot
 from core.forms import AddLinkForm
@@ -236,7 +238,7 @@ class PublicIndexView(ListView):
         else:
             return redirect(f'/admin/login/?next={self.request.path}')
 
-
+@method_decorator(csrf_exempt, name='dispatch')
 class AddView(UserPassesTestMixin, FormView):
     template_name = "add.html"
     form_class = AddLinkForm
