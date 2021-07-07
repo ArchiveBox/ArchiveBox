@@ -23,6 +23,7 @@ from ..config import (
     OUTPUT_DIR,
     TIMEOUT,
     URL_BLACKLIST_PTN,
+    URL_WHITELIST_PTN,
     stderr,
     OUTPUT_PERMISSIONS
 )
@@ -141,10 +142,9 @@ def archivable_links(links: Iterable[Link]) -> Iterable[Link]:
             continue
         if scheme(link.url) not in ('http', 'https', 'ftp'):
             continue
-        if URL_BLACKLIST_PTN and (URL_BLACKLIST_PTN.match(link.url) or URL_BLACKLIST_PTN.search(link.url)):
-            # https://stackoverflow.com/questions/180986/what-is-the-difference-between-re-search-and-re-match
-            # we want both behaviors in order to support multiple patterns in the regex,
-            # and negation regexes like (?!someptnhere) to allow for whitelisting
+        if URL_BLACKLIST_PTN and URL_BLACKLIST_PTN.search(link.url):
+            continue
+        if URL_WHITELIST_PTN and (not URL_WHITELIST_PTN.search(link.url)):
             continue
 
         yield link
