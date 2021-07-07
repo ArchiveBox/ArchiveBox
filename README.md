@@ -616,6 +616,11 @@ archivebox add 'https://vimeo.com/somePrivateVideo'
 # without first disabling saving to Archive.org:
 archivebox config --set SAVE_ARCHIVE_DOT_ORG=False  # disable saving all URLs in Archive.org
 
+# restrict the main index, snapshot content, and add form to authenticated in users as needed:
+archivebox config --set PUBLIC_INDEX=False
+archivebox config --set PUBLIC_SNAPSHOTS=False
+archivebox config --set PUBLIC_ADD_VIEW=False 
+
 # if extra paranoid or anti-Google:
 archivebox config --set SAVE_FAVICON=False          # disable favicon fetching (it calls a Google API passing the URL's domain part only)
 archivebox config --set CHROME_BINARY=chromium      # ensure it's using Chromium instead of Chrome
