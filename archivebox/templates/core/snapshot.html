@@ -416,12 +416,14 @@
                     {% endif %}
                     <div class="col-lg-2">
                         <div class="card">
-                            <iframe class="card-img-top" src="{{url}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
+                            <iframe class="card-img-top" src="{{url}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy" referrerpolicy="no-referrer"></iframe>
                             <div class="card-body">
-                                <a href="{{url}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                <a href="{{url}}" title="Open in new tab..." target="_blank" rel="noopener" referrerpolicy="no-referrer">
                                     <p class="card-text"><code>🌐 {{domain}}</code></p>
                                 </a>
-                                <a href="{{url}}" target="preview" id="original-btn"><h4 class="card-title">Original</h4></a>
+                                <a href="{{url}}" target="preview" id="original-btn" referrerpolicy="no-referrer">
+                                    <h4 class="card-title">Original</h4>
+                                </a>
                           </div>
                         </div>
                     </div>
