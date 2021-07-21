@@ -192,7 +192,7 @@ echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized
 echo "    cd ~/archivebox"
 echo "    ps aux | grep archivebox"
 echo "    pkill -f archivebox"
-echo "    pip3 install --upgrade archviebox"
+echo "    pip3 install --upgrade archivebox"
 echo "    archivebox server --quick-init 0.0.0.0:8000"
 echo "    archivebox manage createsuperuser"
 echo "    archivebox add 'https://example.com'"
