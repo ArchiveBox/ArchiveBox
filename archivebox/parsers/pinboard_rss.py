@@ -21,13 +21,18 @@ def parse_pinboard_rss_export(rss_file: IO[str], **_kwargs) -> Iterable[Link]:
     root = ElementTree.parse(rss_file).getroot()
     items = root.findall("{http://purl.org/rss/1.0/}item")
     for item in items:
-        find = lambda p: item.find(p).text.strip() if item.find(p) else None    # type: ignore
+        find = lambda p: item.find(p).text.strip() if item.find(p) is not None else None    # type: ignore
 
         url = find("{http://purl.org/rss/1.0/}link")
         tags = find("{http://purl.org/dc/elements/1.1/}subject")
         title = find("{http://purl.org/rss/1.0/}title")
         ts_str = find("{http://purl.org/dc/elements/1.1/}date")
         
+        if url is None:
+            # Yielding a Link with no URL will
+            # crash on a URL validation assertion
+            continue
+
         # Pinboard includes a colon in its date stamp timezone offsets, which
         # Python can't parse. Remove it:
         if ts_str and ts_str[-3:-2] == ":":
