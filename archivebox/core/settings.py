@@ -61,11 +61,13 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.ReverseProxyAuthMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'core.middleware.CacheControlMiddleware',
 ]
 
 AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.RemoteUserBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
 
