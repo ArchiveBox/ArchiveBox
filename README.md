@@ -898,7 +898,9 @@ archivebox --version
 # if you edit e.g. ./archivebox/core/models.py on the docker host, runserver
 # inside the container will reload and pick up your changes
 docker build . -t archivebox
-docker run -it archivebox init --setup
+docker run -it \
+    -v $PWD/data:/data \
+    archivebox init --setup
 docker run -it -p 8000:8000 \
     -v $PWD/data:/data \
     -v $PWD/archivebox:/app/archivebox \
