@@ -174,8 +174,9 @@ See <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/bin/setup.sh"><co
 
 <br/>
 
-#### 🛠&nbsp; Manual Setup
+#### 🛠&nbsp; Package Manager Setup
 
+<a name="Manual-Setup"></a>
 <details>
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" alt="aptitude" height="28px" align="top"/> <code>apt</code></b> (Ubuntu/Debian)</summary>
 <br/>
