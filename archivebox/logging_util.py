@@ -432,7 +432,10 @@ def log_archive_method_finished(result: "ArchiveResult"):
         # Prettify error output hints string and limit to five lines
         hints = getattr(result.output, 'hints', None) or ()
         if hints:
-            hints = hints if isinstance(hints, (list, tuple)) else hints.split('\n')
+            if not isinstance(hints, (list, tuple)):
+                if isinstance(hints, bytes):
+                    hints = hints.decode()
+                hints = hints.split('\n')
             hints = (
                 '    {}{}{}'.format(ANSI['lightyellow'], line.strip(), ANSI['reset'])
                 for line in hints[:5] if line.strip()
