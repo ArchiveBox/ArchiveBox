@@ -34,8 +34,11 @@ def write_link_to_sql_index(link: Link):
     from core.models import Snapshot, ArchiveResult
     info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
     tags = info.pop("tags")
-    if tags is None:
-        tags = []
+
+    tag_set = (
+        set(tag.strip() for tag in (link.tags or '').split(','))
+    )
+    tag_list = list(tag_set) or []
 
     try:
         info["timestamp"] = Snapshot.objects.get(url=link.url).timestamp
@@ -44,7 +47,7 @@ def write_link_to_sql_index(link: Link):
             info["timestamp"] = str(float(info["timestamp"]) + 1.0)
 
         snapshot, _ = Snapshot.objects.update_or_create(url=link.url, defaults=info)
-    snapshot.save_tags(tags)
+    snapshot.save_tags(tag_list)
 
     for extractor, entries in link.history.items():
         for entry in entries:
