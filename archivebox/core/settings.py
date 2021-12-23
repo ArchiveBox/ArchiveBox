@@ -68,6 +68,15 @@ MIDDLEWARE = [
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# https://whitenoise.evans.io/en/stable/django.html
+# pip install whitenoise[brotli]
+WHITENOISE_INDEX_FILE = True
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_ALLOW_ALL_ORIGINS = True
+
+# Use django-storages for user-uploaded files / archived content
+# https://django-storages.readthedocs.io/en/latest/
+
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
