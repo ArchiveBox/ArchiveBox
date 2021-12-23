@@ -28,7 +28,7 @@ jobs:
       - name: Add some links to test
         run: |
           mkdir data && cd data
-          archivebox init
+          archivebox init --setup
           archivebox add 'https://example.com'
           archivebox version
           archivebox status
