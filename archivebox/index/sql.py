@@ -33,12 +33,10 @@ def remove_from_sql_main_index(snapshots: QuerySet, atomic: bool=False, out_dir:
 def write_link_to_sql_index(link: Link):
     from core.models import Snapshot, ArchiveResult
     info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
-    tags = info.pop("tags")
 
-    tag_set = (
-        set(tag.strip() for tag in (link.tags or '').split(','))
-    )
-    tag_list = list(tag_set) or []
+    tag_list = list(dict.fromkeys(
+        tag.strip() for tag in (link.tags or '').split(',')
+    ))
 
     try:
         info["timestamp"] = Snapshot.objects.get(url=link.url).timestamp
@@ -107,10 +105,9 @@ def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
         snap = write_link_to_sql_index(link)
     snap.title = link.title
 
-    tag_set = (
-        set(tag.strip() for tag in (link.tags or '').split(','))
-    )
-    tag_list = list(tag_set) or []
+    tag_list = list(dict.fromkeys(
+        tag.strip() for tag in (link.tags or '').split(',')
+    ))
 
     snap.save()
     snap.save_tags(tag_list)
