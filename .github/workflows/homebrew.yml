@@ -23,6 +23,7 @@ jobs:
           cd brew_dist/
           brew install --build-bottle ./archivebox.rb
           # brew bottle archivebox
+          archivebox version
 
       - name: Add some links to test
         run: |
