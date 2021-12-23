@@ -37,6 +37,7 @@ def write_link_to_sql_index(link: Link):
     tag_list = list(dict.fromkeys(
         tag.strip() for tag in (link.tags or '').split(',')
     ))
+    info.pop('tags')
 
     try:
         info["timestamp"] = Snapshot.objects.get(url=link.url).timestamp
