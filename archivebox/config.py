@@ -79,7 +79,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'URL_BLACKLIST':            {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$'},  # to avoid downloading code assets as their own pages
         'URL_WHITELIST':            {'type': str,   'default': None},
         'ENFORCE_ATOMIC_WRITES':    {'type': bool,  'default': True},
-        'TAG_SEPARATOR_PATTERN':    {'type': str,   'default': '[,]'},
+        'TAG_SEPARATOR_PATTERN':    {'type': str,   'default': r'[,]'},
     },
 
     'SERVER_CONFIG': {
