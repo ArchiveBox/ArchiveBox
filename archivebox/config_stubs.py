@@ -98,6 +98,7 @@ class ConfigDict(BaseConfig, total=False):
     WGET_ARGS: List[str]
     CURL_ARGS: List[str]
     GIT_ARGS: List[str]
+    TAG_SEPARATOR_PATTERN: str
 
 
 ConfigDefaultValueGetter = Callable[[ConfigDict], ConfigValue]

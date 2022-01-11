@@ -1,5 +1,7 @@
 __package__ = 'archivebox.index'
 
+import re
+
 from io import StringIO
 from pathlib import Path
 from typing import List, Tuple, Iterator
@@ -8,7 +10,10 @@ from django.db import transaction
 
 from .schema import Link
 from ..util import enforce_types, parse_date
-from ..config import OUTPUT_DIR
+from ..config import (
+    OUTPUT_DIR,
+    TAG_SEPARATOR_PATTERN,
+)
 
 
 ### Main Links Index
@@ -35,7 +40,7 @@ def write_link_to_sql_index(link: Link):
     info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
 
     tag_list = list(dict.fromkeys(
-        tag.strip() for tag in (link.tags or '').split(',')
+        tag.strip() for tag in re.split(TAG_SEPARATOR_PATTERN, link.tags or '')
     ))
     info.pop('tags')
 
@@ -107,7 +112,7 @@ def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
     snap.title = link.title
 
     tag_list = list(dict.fromkeys(
-        tag.strip() for tag in (link.tags or '').split(',')
+        tag.strip() for tag in re.split(TAG_SEPARATOR_PATTERN, link.tags or '')
     ))
 
     snap.save()
