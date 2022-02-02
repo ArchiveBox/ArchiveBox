@@ -1,0 +1,44 @@
+# Note: due to reasons, this requires a python3 (matching, e.g. python3.9 on both), python3-venv, nodejs and npm ON THE BUILDING HOST
+app: archivebox
+ingredients:
+  dist: focal
+  sources:
+    # Order is important, currently (as of 2022-01-23) apt-get.do-download in pkg2appimage prefers earlier sources
+    # When switching distributions, be sure to adapt the pythonpath in `script:` as well
+    - deb https://deb.nodesource.com/node_14.x focal main
+    - deb http://archive.ubuntu.com/ubuntu/ focal focal-updates focal-security main universe
+    - deb http://archive.ubuntu.com/ubuntu/ focal-updates main universe
+    - deb http://archive.ubuntu.com/ubuntu/ focal-security main universe
+  packages:
+    - python3.9-venv
+    - nodejs
+    - npm
+    - wget
+    - curl
+script:
+  - wget -c "https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/icon.png" -O archivebox.png
+  - cp ./archivebox.png ./usr/share/icons/hicolor/256x256/
+  - npm install -g --prefix ./usr 'git+https://github.com/pirate/readability-extractor'
+  - npm install -g --prefix ./usr '@postlight/mercury-parser'
+  - npm install -g --prefix ./usr 'gildas-lormeau/SingleFile#master'
+  - python3.9 -m venv usr
+  - source ./usr/bin/activate
+  - ./usr/bin/pip3 install --ignore-installed "$ARCHIVEBOXSRCDIR"
+  - cat > archivebox.desktop <<\EOF
+  - [Desktop Entry]
+  - Type=Application
+  - Terminal=true
+  - Name=archivebox
+  - Exec=archivebox
+  - Categories=Network;
+  - Icon=archivebox
+  - EOF
+  - usr/bin/pip3 freeze | grep "archivebox" | cut -d "=" -f 3 | head -n1 > ../VERSION
+  # Fixup the pythonpath: Warning: the import os happens some lines below
+  - sed -i '3s|^|import sys\nsys.path.insert(0, os.getenv("APPDIR") + "/usr/lib/python3.9/site-packages")\nsys.path.insert(0, os.getenv("APPDIR") + "/usr/lib/python3.9")\n|' ./usr/bin/archivebox
+  # Prepare it for "recursion", i.e. calling other python programms
+  - sed -i '3s|^|os.environ["PYTHONPATH"] = os.getenv("APPDIR") + "/usr/lib/python3.9:" + os.getenv("APPDIR") + "/usr/lib/python3.9/site-packages"\n|' ./usr/bin/archivebox
+  # Appimage chdirs to usr/ by default...
+  - sed -i '3s|^|import os\nos.chdir(os.getenv("OWD"))\n|' ./usr/bin/archivebox
+  # Patch python interpreter path
+  - find . -type f -exec sed -i '1 s|^#!/.*\.AppDir/usr/bin/\(python3*\)|#!/usr/bin/env \1|g' {} +

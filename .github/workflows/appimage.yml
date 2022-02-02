@@ -1,0 +1,76 @@
+name: Build AppImage
+
+on:
+  workflow_dispatch:
+  push:
+
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 1
+
+      - name: Install debian dependencies
+        run: |
+          sudo apt-get install -y \
+            python3.9             \
+            python3.9-venv        \
+            npm                   \
+            curl                  \
+            jq
+
+      - name: Download latest pkg2appimage release
+        run: |
+          set -x
+          cd appimage_dist
+          URL="$(curl -s https://api.github.com/repos/AppImage/pkg2appimage/releases/latest | jq -r '.assets | map(select( .name | test("^pkg2appimage-.*-x86_64.AppImage$")))[0] .browser_download_url')"
+          curl --location --output pkg2appimage "$URL"
+          chmod u+x pkg2appimage
+
+      - name: Build AppImage
+        run: |
+          set -x
+          export ARCHIVEBOXSRCDIR="$(pwd)"
+          cd appimage_dist
+          ARCH=x86_64 ./pkg2appimage archivebox.yml
+
+      - name: Archive build Appimage
+        uses: actions/upload-artifact@v2
+        with:
+          name: AppImage
+          path: appimage_dist/out
+
+      #- name: Add some links to test
+        #run: |
+          #mkdir data && cd data
+          #archivebox init
+          #archivebox add 'https://example.com'
+          #archivebox version
+          #archivebox status
+
+      # - name: Push build to PyPI
+      #   run: |
+      #     cd pip_dist/
+      #     python3 -m twine upload --repository testpypi pip_dist/*.{whl,tar.gz}
+      #     python3 -m twine upload --repository pypi pip_dist/*.{whl,tar.gz}
+
+      # - name: Commit built package
+      #   run: |
+      #     cd pip_dist/
+      #     git config --local user.email "action@github.com"
+      #     git config --local user.name "GitHub Action"
+      #     git commit -m "Pip package autobuild" -a
+      
+      # - name: Push build to Github
+      #   uses: ad-m/github-push-action@master
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     repository: ArchiveBox/pip-archivebox
+      #     branch: ${{ github.ref }}
+      #     directory: pip_dist
+
