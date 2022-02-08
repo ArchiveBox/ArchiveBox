@@ -22,28 +22,8 @@ from ..config import (
     READABILITY_VERSION,
 )
 from ..logging_util import TimedProgress
+from .title import get_html
 
-@enforce_types
-def get_html(link: Link, path: Path) -> str:
-    """
-    Try to find wget, singlefile and then dom files.
-    If none is found, download the url again.
-    """
-    canonical = link.canonical_outputs()
-    abs_path = path.absolute()
-    sources = [canonical["singlefile_path"], canonical["wget_path"], canonical["dom_path"]]
-    document = None
-    for source in sources:
-        try:
-            with open(abs_path / source, "r", encoding="utf-8") as f:
-                document = f.read()
-                break
-        except (FileNotFoundError, TypeError):
-            continue
-    if document is None:
-        return download_url(link.url)
-    else:
-        return document
 
 @enforce_types
 def should_save_readability(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:

@@ -42,7 +42,6 @@ from .headers import should_save_headers, save_headers
 
 def get_default_archive_methods():
     return [
-        ('title', should_save_title, save_title),
         ('favicon', should_save_favicon, save_favicon),
         ('headers', should_save_headers, save_headers),
         ('singlefile', should_save_singlefile, save_singlefile),
@@ -50,7 +49,8 @@ def get_default_archive_methods():
         ('screenshot', should_save_screenshot, save_screenshot),
         ('dom', should_save_dom, save_dom),
         ('wget', should_save_wget, save_wget),
-        ('readability', should_save_readability, save_readability),  # keep readability below wget and singlefile, as it depends on them
+        ('title', should_save_title, save_title),                   # keep title and readability below wget and singlefile, as it depends on them
+        ('readability', should_save_readability, save_readability),
         ('mercury', should_save_mercury, save_mercury),
         ('git', should_save_git, save_git),
         ('media', should_save_media, save_media),
@@ -182,7 +182,7 @@ def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=Fa
     except KeyboardInterrupt:
         log_archiving_paused(num_links, idx, link.timestamp)
         raise SystemExit(0)
-    except BaseException:                                                       # lgtm [py/catch-base-exception]
+    except BaseException:
         print()
         raise
 
