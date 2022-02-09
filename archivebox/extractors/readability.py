@@ -10,9 +10,7 @@ from ..index.schema import Link, ArchiveResult, ArchiveError
 from ..system import run, atomic_write
 from ..util import (
     enforce_types,
-    download_url,
     is_static_file,
-    
 )
 from ..config import (
     TIMEOUT,
