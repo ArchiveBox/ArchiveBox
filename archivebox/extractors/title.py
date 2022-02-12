@@ -10,6 +10,7 @@ from ..util import (
     enforce_types,
     download_url,
     htmldecode,
+    UserAgentFormatter,
 )
 from ..config import (
     TIMEOUT,
@@ -83,7 +84,7 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
         CURL_BINARY,
         *CURL_ARGS,
         '--max-time', str(timeout),
-        *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
+        *(['--user-agent', '{}'.format(UserAgentFormatter(CURL_USER_AGENT).get_agent())]),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         link.url,
     ]

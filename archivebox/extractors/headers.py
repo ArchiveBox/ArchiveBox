@@ -9,6 +9,7 @@ from ..system import atomic_write
 from ..util import (
     enforce_types,
     get_headers,
+    UserAgentFormatter,
 )
 from ..config import (
     TIMEOUT,
@@ -21,8 +22,9 @@ from ..config import (
 )
 from ..logging_util import TimedProgress
 
+
 @enforce_types
-def should_save_headers(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:
+def should_save_headers(link: Link, out_dir: Optional[str] = None, overwrite: Optional[bool] = False) -> bool:
     out_dir = out_dir or Path(link.link_dir)
     if not overwrite and (out_dir / 'headers.json').exists():
         return False
@@ -31,7 +33,7 @@ def should_save_headers(link: Link, out_dir: Optional[str]=None, overwrite: Opti
 
 
 @enforce_types
-def save_headers(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_headers(link: Link, out_dir: Optional[str] = None, timeout: int = TIMEOUT) -> ArchiveResult:
     """Download site headers"""
 
     out_dir = Path(out_dir or link.link_dir)
@@ -46,7 +48,7 @@ def save_headers(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
         *CURL_ARGS,
         '--head',
         '--max-time', str(timeout),
-        *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
+        *(['--user-agent', '{}'.format(UserAgentFormatter(CURL_USER_AGENT).get_agent())]),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         link.url,
     ]

@@ -10,6 +10,7 @@ from ..system import run, chmod_file
 from ..util import (
     enforce_types,
     is_static_file,
+    UserAgentFormatter,
 )
 from ..config import (
     TIMEOUT,
@@ -49,7 +50,7 @@ def save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, timeout: int=
         *CURL_ARGS,
         '--head',
         '--max-time', str(timeout),
-        *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
+        *(['--user-agent', '{}'.format(UserAgentFormatter(CURL_USER_AGENT).get_agent())]),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         submit_url,
     ]

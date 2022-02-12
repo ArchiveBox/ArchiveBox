@@ -22,7 +22,9 @@ Documentation:
 __package__ = 'archivebox'
 
 import os
+import os.path
 import io
+import random
 import re
 import sys
 import json
@@ -30,15 +32,18 @@ import getpass
 import platform
 import shutil
 import sqlite3
+from urllib import response
 import django
 
 from hashlib import md5
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Type, Tuple, Dict, Union, List
 from subprocess import run, PIPE, DEVNULL
 from configparser import ConfigParser
 from collections import defaultdict
+
+import requests
 
 from .config_stubs import (
     SimpleConfigValueDict,
@@ -56,6 +61,7 @@ try:
 except ModuleNotFoundError:
     # pwd is only needed for some linux systems, doesn't exist on windows
     pass
+
 
 ############################### Config Schema ##################################
 
@@ -120,9 +126,9 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'CHECK_SSL_VALIDITY':       {'type': bool,  'default': True},
         'MEDIA_MAX_SIZE':           {'type': str,   'default': '750m'},
 
-        'CURL_USER_AGENT':          {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.61 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) curl/{CURL_VERSION}'},
-        'WGET_USER_AGENT':          {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.61 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) wget/{WGET_VERSION}'},
-        'CHROME_USER_AGENT':        {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.61 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)'},
+        'CURL_USER_AGENT':          {'type': str,   'default': ''},
+        'WGET_USER_AGENT':          {'type': str,   'default': ''},
+        'CHROME_USER_AGENT':        {'type': str,   'default': ''},
 
         'COOKIES_FILE':             {'type': str,   'default': None},
         'CHROME_USER_DATA_DIR':     {'type': str,   'default': None},

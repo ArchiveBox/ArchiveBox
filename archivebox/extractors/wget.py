@@ -15,6 +15,7 @@ from ..util import (
     path,
     domain,
     urldecode,
+    UserAgentFormatter,
 )
 from ..config import (
     WGET_ARGS,
@@ -34,7 +35,7 @@ from ..logging_util import TimedProgress
 
 
 @enforce_types
-def should_save_wget(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
+def should_save_wget(link: Link, out_dir: Optional[Path] = None, overwrite: Optional[bool] = False) -> bool:
     output_path = wget_output_path(link)
     out_dir = out_dir or Path(link.link_dir)
     if not overwrite and output_path and (out_dir / output_path).exists():
@@ -44,7 +45,7 @@ def should_save_wget(link: Link, out_dir: Optional[Path]=None, overwrite: Option
 
 
 @enforce_types
-def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_wget(link: Link, out_dir: Optional[Path] = None, timeout: int = TIMEOUT) -> ArchiveResult:
     """download full site using wget"""
 
     out_dir = out_dir or link.link_dir
@@ -63,7 +64,7 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
         *(['--restrict-file-names={}'.format(RESTRICT_FILE_NAMES)] if RESTRICT_FILE_NAMES else []),
         *(['--warc-file={}'.format(str(warc_path))] if SAVE_WARC else []),
         *(['--page-requisites'] if SAVE_WGET_REQUISITES else []),
-        *(['--user-agent={}'.format(WGET_USER_AGENT)] if WGET_USER_AGENT else []),
+        *(['--user-agent={}'.format(UserAgentFormatter(WGET_USER_AGENT).get_agent())]),
         *(['--load-cookies', str(COOKIES_FILE)] if COOKIES_FILE else []),
         *(['--compression=auto'] if WGET_AUTO_COMPRESSION else []),
         *([] if SAVE_WARC else ['--timestamping']),
@@ -103,7 +104,7 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
             if b'ERROR 500: Internal Server Error' in result.stderr:
                 raise ArchiveError('500 Internal Server Error', hints)
             raise ArchiveError('Wget failed or got an error from the server', hints)
-        
+
         if (out_dir / output).exists():
             chmod_file(output, cwd=str(out_dir))
         else:
@@ -132,7 +133,7 @@ def wget_output_path(link: Link) -> Optional[str]:
 
     See docs on wget --adjust-extension (-E)
     """
-    
+
     # Wget downloads can save in a number of different ways depending on the url:
     #    https://example.com
     #       > example.com/index.html
@@ -196,7 +197,7 @@ def wget_output_path(link: Link) -> Optional[str]:
     files_within = list((Path(link.link_dir) / domain_dir).glob('**/*.*'))
     if files_within:
         return str((domain_dir / files_within[-1]).relative_to(link.link_dir))
-    
+
     # fallback to just the domain dir
     search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+")
     if search_dir.is_dir():

@@ -1,5 +1,6 @@
 __package__ = 'archivebox'
 
+import os
 import re
 import requests
 import json as pyjson
@@ -11,15 +12,17 @@ from functools import wraps
 from hashlib import sha256
 from urllib.parse import urlparse, quote, unquote
 from html import escape, unescape
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from random import choice, randrange
 from dateparser import parse as dateparser
 from requests.exceptions import RequestException, ReadTimeout
 
-from .vendor.base32_crockford import encode as base32_encode                            # type: ignore
+from .vendor.base32_crockford import encode as base32_encode  # type: ignore
 from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
 
 try:
     import chardet
+
     detect_encoding = lambda rawdata: chardet.detect(rawdata)["encoding"]
 except ImportError:
     detect_encoding = lambda rawdata: "utf-8"
@@ -54,19 +57,19 @@ short_ts = lambda ts: str(parse_date(ts).timestamp()).split('.')[0]
 ts_to_date_str = lambda ts: ts and parse_date(ts).strftime('%Y-%m-%d %H:%M')
 ts_to_iso = lambda ts: ts and parse_date(ts).isoformat()
 
-
 URL_REGEX = re.compile(
     r'(?=('
-    r'http[s]?://'                    # start matching from allowed schemes
-    r'(?:[a-zA-Z]|[0-9]'              # followed by allowed alphanum characters
-    r'|[$-_@.&+]|[!*\(\),]'           #    or allowed symbols
-    r'|(?:%[0-9a-fA-F][0-9a-fA-F]))'  #    or allowed unicode bytes
-    r'[^\]\[\(\)<>"\'\s]+'          # stop parsing at these symbols
+    r'http[s]?://'  # start matching from allowed schemes
+    r'(?:[a-zA-Z]|[0-9]'  # followed by allowed alphanum characters
+    r'|[$-_@.&+]|[!*\(\),]'  # or allowed symbols
+    r'|(?:%[0-9a-fA-F][0-9a-fA-F]))'  # or allowed unicode bytes
+    r'[^\]\[\(\)<>"\'\s]+'  # stop parsing at these symbols
     r'))',
     re.IGNORECASE,
 )
 
 COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
+
 
 def is_static_file(url: str):
     # TODO: the proper way is with MIME type detection + ext, not only extension
@@ -78,6 +81,7 @@ def enforce_types(func):
     """
     Enforce function arg and kwarg types at runtime using its python3 type hints
     """
+
     # TODO: check return type as well
 
     @wraps(func)
@@ -118,15 +122,17 @@ def enforce_types(func):
 
 def docstring(text: Optional[str]):
     """attach the given docstring to the decorated function"""
+
     def decorator(func):
         if text:
             func.__doc__ = text
         return func
+
     return decorator
 
 
 @enforce_types
-def str_between(string: str, start: str, end: str=None) -> str:
+def str_between(string: str, start: str, end: str = None) -> str:
     """(<abc>12345</def>, <abc>, </def>)  ->  12345"""
 
     content = string.split(start, 1)[-1]
@@ -139,7 +145,7 @@ def str_between(string: str, start: str, end: str=None) -> str:
 @enforce_types
 def parse_date(date: Any) -> Optional[datetime]:
     """Parse unix timestamps, iso format, and human-readable strings"""
-    
+
     if date is None:
         return None
 
@@ -149,7 +155,7 @@ def parse_date(date: Any) -> Optional[datetime]:
 
         assert date.tzinfo.utcoffset(datetime.now()).seconds == 0, 'Refusing to load a non-UTC date!'
         return date
-    
+
     if isinstance(date, (float, int)):
         date = str(date)
 
@@ -160,13 +166,13 @@ def parse_date(date: Any) -> Optional[datetime]:
 
 
 @enforce_types
-def download_url(url: str, timeout: int=None) -> str:
+def download_url(url: str, timeout: int = None) -> str:
     """Download the contents of a remote url and return the text"""
     from .config import TIMEOUT, CHECK_SSL_VALIDITY, WGET_USER_AGENT
     timeout = timeout or TIMEOUT
     response = requests.get(
         url,
-        headers={'User-Agent': WGET_USER_AGENT},
+        headers={'User-Agent': UserAgentFormatter(WGET_USER_AGENT).get_agent()},
         verify=CHECK_SSL_VALIDITY,
         timeout=timeout,
     )
@@ -179,8 +185,9 @@ def download_url(url: str, timeout: int=None) -> str:
 
     return response.text
 
+
 @enforce_types
-def get_headers(url: str, timeout: int=None) -> str:
+def get_headers(url: str, timeout: int = None) -> str:
     """Download the contents of a remote url and return the headers"""
     from .config import TIMEOUT, CHECK_SSL_VALIDITY, WGET_USER_AGENT
     timeout = timeout or TIMEOUT
@@ -188,7 +195,7 @@ def get_headers(url: str, timeout: int=None) -> str:
     try:
         response = requests.head(
             url,
-            headers={'User-Agent': WGET_USER_AGENT},
+            headers={'User-Agent': UserAgentFormatter(WGET_USER_AGENT).get_agent()},
             verify=CHECK_SSL_VALIDITY,
             timeout=timeout,
             allow_redirects=True,
@@ -200,12 +207,12 @@ def get_headers(url: str, timeout: int=None) -> str:
     except RequestException:
         response = requests.get(
             url,
-            headers={'User-Agent': WGET_USER_AGENT},
+            headers={'User-Agent': UserAgentFormatter(WGET_USER_AGENT).get_agent()},
             verify=CHECK_SSL_VALIDITY,
             timeout=timeout,
             stream=True
         )
-    
+
     return pyjson.dumps(
         {
             'Status-Code': response.status_code,
@@ -230,7 +237,7 @@ def chrome_args(**options) -> List[str]:
 
     if options['CHROME_HEADLESS']:
         cmd_args += ('--headless',)
-    
+
     if not options['CHROME_SANDBOX']:
         # assume this means we are running inside a docker container
         # in docker, GPU support is limited, sandboxing is unecessary, 
@@ -246,12 +253,11 @@ def chrome_args(**options) -> List[str]:
             '--no-zygote',
         )
 
-
     if not options['CHECK_SSL_VALIDITY']:
         cmd_args += ('--disable-web-security', '--ignore-certificate-errors')
 
     if options['CHROME_USER_AGENT']:
-        cmd_args += ('--user-agent={}'.format(options['CHROME_USER_AGENT']),)
+        cmd_args += ('--user-agent={}'.format(UserAgentFormatter(options['CHROME_USER_AGENT']).get_agent()),)
 
     if options['RESOLUTION']:
         cmd_args += ('--window-size={}'.format(options['RESOLUTION']),)
@@ -261,8 +267,59 @@ def chrome_args(**options) -> List[str]:
 
     if options['CHROME_USER_DATA_DIR']:
         cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
-    
+
     return cmd_args
+
+
+class UserAgentFormatter:
+
+    def __init__(self, user_agent):
+        self.user_agent = user_agent
+        self.user_agents_path = './user_agents.txt'
+
+        if not user_agent or user_agent.lower() == 'random':
+            # Load list of user agents to pick a random one for each request
+            if not hasattr(self, 'user_agents'):
+                self.user_agents = []
+
+            if len(self.user_agents) == 0:
+                self.reload_user_agent_list()
+        elif isinstance(self.user_agent, str):
+            self.user_agents = [self.user_agent]
+        elif isinstance(self.user_agent, list):
+            self.user_agents = self.user_agent
+        else:
+            raise ValueError('The selected User agent is not valid: {}'.format(self.user_agent))
+
+    def get_agent(self):
+        if self.user_agent and self.user_agent.lower() != 'random':
+            return self.user_agent
+        else:
+            return fast_random(self.user_agents)
+
+    def reload_user_agent_list(self):
+        self.user_agents = []
+        if not os.path.exists(self.user_agents_path) or os.path.getmtime(self.user_agents_path) < (
+                datetime.now() - timedelta(days=1)).timestamp():
+            user_agents_response = requests.get(
+                'https://raw.githubusercontent.com/DavidWittman/requests-random-user-agent/master/requests_random_user'
+                '_agent/useragents.txt')
+            if user_agents_response.status_code == 200:
+                with open(self.user_agents_path, "w") as output:
+                    output.write(user_agents_response.text)
+                for line in user_agents_response.text.split('\n'):
+                    self.user_agents.append(line.strip())
+        else:
+            # We try to load the cached list to avoid unneccessary HTTP calls
+            with open(self.user_agents_path, "r") as file:
+                for line in file.readlines():
+                    self.user_agents.append(line.replace('\n', ''))
+
+
+def fast_random(lst: List[str]) -> str:
+    i = randrange(len(lst))  # get random index
+    lst[i], lst[-1] = lst[-1], lst[i]  # swap with the last element
+    return lst.pop()  # pop last element O(1)
 
 
 def ansi_to_html(text):
@@ -326,12 +383,11 @@ class ExtendedEncoder(pyjson.JSONEncoder):
 
         elif isinstance(obj, Exception):
             return '{}: {}'.format(obj.__class__.__name__, obj)
-        
+
         elif isinstance(obj, Path):
             return str(obj)
-        
+
         elif cls_name in ('dict_items', 'dict_keys', 'dict_values'):
             return tuple(obj)
 
         return pyjson.JSONEncoder.default(self, obj)
-
