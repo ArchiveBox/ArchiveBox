@@ -5,6 +5,7 @@ __pycache__/
 .mypy_cache/
 .eggs/
 tests/out/
+.idea
 
 # Python and Node dependencies
 venv/
@@ -24,3 +25,6 @@ data1/
 data2/
 data3/
 output/
+
+# User agents cache
+user_agents.txt

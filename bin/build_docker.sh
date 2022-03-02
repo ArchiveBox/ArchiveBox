@@ -22,12 +22,12 @@ docker build . -t archivebox \
                -t archivebox:latest \
                -t archivebox:$VERSION \
                -t archivebox:$SHORT_VERSION \
-               -t docker.io/nikisweeting/archivebox:latest \
-               -t docker.io/nikisweeting/archivebox:$VERSION \
-               -t docker.io/nikisweeting/archivebox:$SHORT_VERSION \
-               -t docker.io/archivebox/archivebox:latest \
-               -t docker.io/archivebox/archivebox:$VERSION \
-               -t docker.io/archivebox/archivebox:$SHORT_VERSION \
-               -t docker.pkg.github.com/archivebox/archivebox/archivebox:latest \
-               -t docker.pkg.github.com/archivebox/archivebox/archivebox:$VERSION \
-               -t docker.pkg.github.com/archivebox/archivebox/archivebox:$SHORT_VERSION
+               -t matiaszanolli/archivebox:latest \
+               -t matiaszanolli/archivebox:$VERSION \
+               -t matiaszanolli/archivebox:$SHORT_VERSION
+#               -t docker.io/archivebox/archivebox:latest \
+#               -t docker.io/archivebox/archivebox:$VERSION \
+#               -t docker.io/archivebox/archivebox:$SHORT_VERSION \
+#               -t docker.pkg.github.com/archivebox/archivebox/archivebox:latest \
+#               -t docker.pkg.github.com/archivebox/archivebox/archivebox:$VERSION \
+#               -t docker.pkg.github.com/archivebox/archivebox/archivebox:$SHORT_VERSION

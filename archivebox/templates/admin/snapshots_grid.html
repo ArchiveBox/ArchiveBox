@@ -160,6 +160,7 @@
             <img src="{{obj.thumbnail_url|default:'/static/spinner.gif' }}" alt="{{obj.title|default:'Not yet archived...'}}" /> 
           </a>
           <div class="card-footer">
+              {% comment "Temporarily disabled" %}
               {% if obj.tags_str %}
                 <div class="card-tags">
                   {% for tag in obj.tags_str|split:',' %}
@@ -169,6 +170,7 @@
                   {% endfor %}
                 </div>
               {% endif %}
+              {% endcomment %}
               <div class="card-title" title="{{obj.title}}">
                 <a href="/{{obj.archive_path}}/index.html">
                   <h4>

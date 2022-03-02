@@ -220,7 +220,8 @@ def timed_index_update(out_path: Path):
     finally:
         timer.end()
 
-    assert out_path.exists(), f'Failed to write index file: {out_path}'
+    # TODO: Reactivate for SQLite
+    # assert out_path.exists(), f'Failed to write index file: {out_path}'
     log_indexing_finished(out_path)
 
 
@@ -233,7 +234,8 @@ def write_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
     try:
         with timed_index_update(out_dir / SQL_INDEX_FILENAME):
             write_sql_main_index(links, out_dir=out_dir)
-            os.chmod(out_dir / SQL_INDEX_FILENAME, int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
+            # Todo: Reenable for SQLite
+            # os.chmod(out_dir / SQL_INDEX_FILENAME, int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
 
     except (KeyboardInterrupt, SystemExit):
         stderr('[!] Warning: Still writing index to disk...', color='lightyellow')

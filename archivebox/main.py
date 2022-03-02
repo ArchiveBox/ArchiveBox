@@ -270,7 +270,8 @@ def run(subcommand: str,
 @enforce_types
 def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
-    
+
+    from django.core.management import call_command
     from core.models import Snapshot
 
     out_dir.mkdir(exist_ok=True)
@@ -280,7 +281,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
         stderr("[!] This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.", color="lightyellow")
         stderr("    You can run `archivebox list --json --with-headers > static_index.json` to manually generate it.", color="lightyellow")
 
-    existing_index = (out_dir / SQL_INDEX_FILENAME).exists()
+    existing_index = True  # (out_dir / SQL_INDEX_FILENAME).exists()
 
     if is_empty and not existing_index:
         print('{green}[+] Initializing a new ArchiveBox v{} collection...{reset}'.format(VERSION, **ANSI))
@@ -320,19 +321,20 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
         print('\n{green}[*] Verifying main SQL index and running any migrations needed...{reset}'.format(**ANSI))
     else:
         print('\n{green}[+] Building main SQL index and running initial migrations...{reset}'.format(**ANSI))
-    
-    DATABASE_FILE = out_dir / SQL_INDEX_FILENAME
+
+    # TODO: Commented for PostgreSQL use, must solve dual compatibility
+    # DATABASE_FILE = out_dir / SQL_INDEX_FILENAME
     for migration_line in apply_migrations(out_dir):
         print(f'    {migration_line}')
 
-    assert DATABASE_FILE.exists()
-    print()
-    print(f'    √ ./{DATABASE_FILE.relative_to(OUTPUT_DIR)}')
+    # assert DATABASE_FILE.exists()
+    # print()
+    # print(f'    √ ./{DATABASE_FILE.relative_to(OUTPUT_DIR)}')
     
-    # from django.contrib.auth.models import User
-    # if IS_TTY and not User.objects.filter(is_superuser=True).exists():
-    #     print('{green}[+] Creating admin user account...{reset}'.format(**ANSI))
-    #     call_command("createsuperuser", interactive=True)
+    from django.contrib.auth.models import User
+    if IS_TTY and not User.objects.filter(is_superuser=True).exists():
+        print('{green}[+] Creating admin user account...{reset}'.format(**ANSI))
+        call_command("createsuperuser", interactive=True)
 
     print()
     print('{green}[*] Checking links from indexes and archive folders (safe to Ctrl+C)...{reset}'.format(**ANSI))

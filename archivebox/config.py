@@ -1136,30 +1136,31 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
         os.environ.setdefault('OUTPUT_DIR', str(output_dir))
         assert (config['PACKAGE_DIR'] / 'core' / 'settings.py').exists(), 'settings.py was not found at archivebox/core/settings.py'
         os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
-
+         #TODO: Replace by a config parameter
         # Check to make sure JSON extension is available in our Sqlite3 instance
-        try:
-            cursor = sqlite3.connect(':memory:').cursor()
-            cursor.execute('SELECT JSON(\'{"a": "b"}\')')
-        except sqlite3.OperationalError as exc:
-            stderr(f'[X] Your SQLite3 version is missing the required JSON1 extension: {exc}', color='red')
-            hint([
-                'Upgrade your Python version or install the extension manually:',
-                'https://code.djangoproject.com/wiki/JSON1Extension'
-            ])
-
-        if in_memory_db:
-            # some commands (e.g. oneshot) dont store a long-lived sqlite3 db file on disk.
-            # in those cases we create a temporary in-memory db and run the migrations
-            # immediately to get a usable in-memory-database at startup
-            os.environ.setdefault("ARCHIVEBOX_DATABASE_NAME", ":memory:")
-            django.setup()
-            call_command("migrate", interactive=False, verbosity=0)
-        else:
-            # Otherwise use default sqlite3 file-based database and initialize django
-            # without running migrations automatically (user runs them manually by calling init)
-            django.setup()
-            
+        # try:
+        #     cursor = sqlite3.connect(':memory:').cursor()
+        #     cursor.execute('SELECT JSON(\'{"a": "b"}\')')
+        # except sqlite3.OperationalError as exc:
+        #     stderr(f'[X] Your SQLite3 version is missing the required JSON1 extension: {exc}', color='red')
+        #     hint([
+        #         'Upgrade your Python version or install the extension manually:',
+        #         'https://code.djangoproject.com/wiki/JSON1Extension'
+        #     ])
+        #
+        # if in_memory_db:
+        #     # some commands (e.g. oneshot) dont store a long-lived sqlite3 db file on disk.
+        #     # in those cases we create a temporary in-memory db and run the migrations
+        #     # immediately to get a usable in-memory-database at startup
+        #     os.environ.setdefault("ARCHIVEBOX_DATABASE_NAME", ":memory:")
+        #     django.setup()
+        #     call_command("migrate", interactive=False, verbosity=0)
+        # else:
+        #     # Otherwise use default sqlite3 file-based database and initialize django
+        #     # without running migrations automatically (user runs them manually by calling init)
+        #     django.setup()
+        django.setup()
+        call_command("migrate", interactive=False, verbosity=0)
 
         from django.conf import settings
 
@@ -1170,13 +1171,13 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
 
 
-        if check_db:
-            # Enable WAL mode in sqlite3
-            from django.db import connection
-            with connection.cursor() as cursor:
-                current_mode = cursor.execute("PRAGMA journal_mode")
-                if current_mode != 'wal':
-                    cursor.execute("PRAGMA journal_mode=wal;")
+        # if check_db:
+        #     # Enable WAL mode in sqlite3
+        #     from django.db import connection
+        #     with connection.cursor() as cursor:
+        #         current_mode = cursor.execute("PRAGMA journal_mode")
+        #         if current_mode != 'wal':
+        #             cursor.execute("PRAGMA journal_mode=wal;")
 
             # Create cache table in DB if needed
             try:
@@ -1193,9 +1194,9 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             for conn in connections.all():
                 conn.close_if_unusable_or_obsolete()
 
-            sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
-            assert sql_index_path.exists(), (
-                f'No database file {SQL_INDEX_FILENAME} found in: {config["OUTPUT_DIR"]} (Are you in an ArchiveBox collection directory?)')
+            # sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
+            # assert sql_index_path.exists(), (
+            #     f'No database file {SQL_INDEX_FILENAME} found in: {config["OUTPUT_DIR"]} (Are you in an ArchiveBox collection directory?)')
 
     except KeyboardInterrupt:
         raise SystemExit(2)

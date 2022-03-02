@@ -4,7 +4,7 @@ from django import forms
 
 from ..util import URL_REGEX
 from ..parsers import PARSERS
-from ..vendor.taggit_utils import edit_string_for_tags, parse_tags
+# from ..vendor.taggit_utils import edit_string_for_tags, parse_tags
 
 PARSER_CHOICES = [
     (parser_key, parser[0])
@@ -46,51 +46,51 @@ class AddLinkForm(forms.Form):
     # timeout = forms.IntegerField(
     #     initial=TIMEOUT,
     # )
-    # overwrite = forms.BooleanField(
-    #     label="Overwrite any existing Snapshots",
-    #     initial=False,
-    # )
-    # index_only = forms.BooleanField(
-    #     label="Add URLs to index without Snapshotting",
-    #     initial=False,
-    # )
+    overwrite = forms.BooleanField(
+        label="Overwrite any existing Snapshots",
+        initial=False,
+    )
+    index_only = forms.BooleanField(
+        label="Add URLs to index without Snapshotting",
+        initial=False,
+    )
 
-class TagWidgetMixin:
-    def format_value(self, value):
-        if value is not None and not isinstance(value, str):
-            value = edit_string_for_tags(value)
-        return super().format_value(value)
+# class TagWidgetMixin:
+#     def format_value(self, value):
+#         if value is not None and not isinstance(value, str):
+#             value = edit_string_for_tags(value)
+#         return super().format_value(value)
 
-class TagWidget(TagWidgetMixin, forms.TextInput):
-    pass
+# class TagWidget(TagWidgetMixin, forms.TextInput):
+#     pass
 
-class TagField(forms.CharField):
-    widget = TagWidget
+# class TagField(forms.CharField):
+#     widget = TagWidget
 
-    def clean(self, value):
-        value = super().clean(value)
-        try:
-            return parse_tags(value)
-        except ValueError:
-            raise forms.ValidationError(
-                "Please provide a comma-separated list of tags."
-            )
+#     def clean(self, value):
+#         value = super().clean(value)
+#         try:
+#             return parse_tags(value)
+#         except ValueError:
+#             raise forms.ValidationError(
+#                 "Please provide a comma-separated list of tags."
+#             )
 
-    def has_changed(self, initial_value, data_value):
-        # Always return False if the field is disabled since self.bound_data
-        # always uses the initial value in this case.
-        if self.disabled:
-            return False
+#     def has_changed(self, initial_value, data_value):
+#         # Always return False if the field is disabled since self.bound_data
+#         # always uses the initial value in this case.
+#         if self.disabled:
+#             return False
 
-        try:
-            data_value = self.clean(data_value)
-        except forms.ValidationError:
-            pass
+#         try:
+#             data_value = self.clean(data_value)
+#         except forms.ValidationError:
+#             pass
 
-        if initial_value is None:
-            initial_value = []
+#         if initial_value is None:
+#             initial_value = []
 
-        initial_value = [tag.name for tag in initial_value]
-        initial_value.sort()
+#         initial_value = [tag.name for tag in initial_value]
+#         initial_value.sort()
 
-        return initial_value != data_value
+#         return initial_value != data_value

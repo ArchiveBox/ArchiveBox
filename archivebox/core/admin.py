@@ -6,6 +6,7 @@ from contextlib import redirect_stdout
 from datetime import datetime, timezone
 
 from django.contrib import admin
+from django.forms.widgets import SelectMultiple
 from django.urls import path
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
@@ -46,7 +47,6 @@ class TagInline(admin.TabularInline):
     model = Snapshot.tags.through
 
 from django.contrib.admin.helpers import ActionForm
-from django.contrib.admin.widgets import AutocompleteSelectMultiple
 
 class AutocompleteTags:
     model = Tag
@@ -60,7 +60,7 @@ class SnapshotActionForm(ActionForm):
     tags = forms.ModelMultipleChoiceField(
         queryset=Tag.objects.all(),
         required=False,
-        widget=AutocompleteSelectMultiple(
+        widget=SelectMultiple(
             AutocompleteTags(),
             AutocompleteTagsAdminStub(),
         ),
@@ -82,12 +82,12 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     list_display = ('added', 'title_str', 'files', 'size', 'url_str')
     sort_fields = ('title_str', 'url_str', 'added', 'files')
     readonly_fields = ('info', 'bookmarked', 'added', 'updated')
-    search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
+    search_fields = ('id', 'url', 'timestamp', 'title') #, 'tags__name')
     fields = ('timestamp', 'url', 'title', 'tags', *readonly_fields)
     list_filter = ('added', 'updated', 'tags', 'archiveresult__status')
     ordering = ['-added']
-    actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
-    autocomplete_fields = ['tags']
+    actions = ["""add_tags', 'remove_tags',"""'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
+    # autocomplete_fields = ['tags']
     inlines = [ArchiveResultInline]
     list_per_page = SNAPSHOTS_PER_PAGE
 

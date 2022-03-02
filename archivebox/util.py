@@ -244,7 +244,8 @@ def chrome_args(**options) -> List[str]:
         # and SHM is limited to 64MB by default (which is too low to be usable).
         cmd_args += (
             '--no-sandbox',
-            '--disable-gpu',
+            # '--disable-gpu',
+            '--use-gl=egl',
             '--disable-dev-shm-usage',
             '--disable-software-rasterizer',
             '--run-all-compositor-stages-before-draw',

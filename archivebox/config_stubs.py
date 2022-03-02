@@ -2,8 +2,6 @@ from pathlib import Path
 from typing import Optional, Dict, Union, Tuple, Callable, Pattern, Type, Any, List
 from mypy_extensions import TypedDict
 
-
-
 SimpleConfigValue = Union[str, bool, int, None, Pattern, Dict[str, Any]]
 SimpleConfigValueDict = Dict[str, SimpleConfigValue]
 SimpleConfigValueGetter = Callable[[], SimpleConfigValue]
@@ -12,6 +10,7 @@ ConfigValue = Union[SimpleConfigValue, SimpleConfigValueDict, SimpleConfigValueG
 
 class BaseConfig(TypedDict):
     pass
+
 
 class ConfigDict(BaseConfig, total=False):
     """
@@ -99,6 +98,11 @@ class ConfigDict(BaseConfig, total=False):
     CURL_ARGS: List[str]
     GIT_ARGS: List[str]
     TAG_SEPARATOR_PATTERN: str
+
+    PG_HOST: str
+    PG_DATABASE: str
+    PG_USERNAME: str
+    PG_PASSWORD: str
 
 
 ConfigDefaultValueGetter = Callable[[ConfigDict], ConfigValue]

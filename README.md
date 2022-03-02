@@ -1,6 +1,9 @@
 <div align="center">
 <em><img src="https://i.imgur.com/5B48E3N.png" height="90px"></em>
-<h1>ArchiveBox<br/><sub>Open-source self-hosted web archiving.</sub></h1>
+<h1>ArchiveBox-Redux<br/><sub>Open-source self-hosted web archiving.</sub></h1>
+<h2>Fork of <a href="https://github.com/ArchiveBox/ArchiveBox">ArchiveBox with many improvements in progress.</h2>
+
+<h4>The final purpose of this project is to get as many features, updates and fixes into the main ArchiveBox branch, yet have a bleeding-edge workspace to work on them.</h4>
 
 ▶️ <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> |
 <a href="https://demo.archivebox.io">Demo</a> |

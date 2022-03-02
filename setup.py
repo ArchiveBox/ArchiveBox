@@ -28,7 +28,7 @@ PACKAGE_DIR = ROOT_DIR / PKG_NAME
 README = (PACKAGE_DIR / "README.md").read_text(encoding='utf-8', errors='ignore')
 VERSION = json.loads((PACKAGE_DIR / "package.json").read_text().strip())['version']
 
-PYTHON_REQUIRES = ">=3.7"
+PYTHON_REQUIRES = ">=3.9"
 SETUP_REQUIRES = ["wheel"]
 INSTALL_REQUIRES = [
     # only add things here that have corresponding apt python3-packages available
@@ -36,16 +36,18 @@ INSTALL_REQUIRES = [
     # stdeb.cfg (apt), archivebox.rb (brew), Dockerfile, etc.
     # if there is no apt python3-package equivalent, then vendor it instead in
     # ./archivebox/vendor/
-    "requests>=2.24.0",
+    "requests>=2.27.1",
     "mypy-extensions>=0.4.3",
-    "django>=3.1.3,<3.2",
-    "django-extensions>=3.0.3",
-    "dateparser>=1.0.0",
-    "youtube-dl>=2021.04.17",
+    "django>=3.2,<4.0",
+    "django-extensions>=3.1.3",
+    "dateparser>=1.1.0",
+    "youtube-dl>=2021.12.17",
     "python-crontab>=2.5.1",
     "croniter>=0.3.34",
     "w3lib>=1.22.0",
     "ipython>5.0.0",
+    "pymemcache>=3.5.1",
+    "psycopg2-binary>=2.9.3",
 ]
 EXTRAS_REQUIRE = {
     'sonic': [

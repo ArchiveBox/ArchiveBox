@@ -143,30 +143,44 @@ TEMPLATES = [
 ### External Service Settings
 ################################################################################
 
-DATABASE_FILE = Path(OUTPUT_DIR) / SQL_INDEX_FILENAME
-DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(DATABASE_FILE))
+# DATABASE_FILE = Path(OUTPUT_DIR) / SQL_INDEX_FILENAME
+# DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(DATABASE_FILE))
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': DATABASE_NAME,
-        'OPTIONS': {
-            'timeout': 60,
-            'check_same_thread': False,
-        },
-        'TIME_ZONE': 'UTC',
-        # DB setup is sometimes modified at runtime by setup_django() in config.py
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('PG_DATABASE'),
+        'USER': os.environ.get('PG_USERNAME'),
+        'PASSWORD': os.environ.get('PG_PASSWORD'),
+        'HOST': os.environ.get('PG_HOST'),
+        'PORT': '5432',
     }
 }
 
-CACHE_BACKEND = 'django.core.cache.backends.locmem.LocMemCache'
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': DATABASE_NAME,
+#         'OPTIONS': {
+#             'timeout': 60,
+#             'check_same_thread': False,
+#         },
+#         'TIME_ZONE': 'UTC',
+#         # DB setup is sometimes modified at runtime by setup_django() in config.py
+#     }
+# }
+
+# CACHE_BACKEND = 'django.core.cache.backends.locmem.LocMemCache'
 # CACHE_BACKEND = 'django.core.cache.backends.db.DatabaseCache'
 # CACHE_BACKEND = 'django.core.cache.backends.dummy.DummyCache'
+CACHE_BACKEND = 'django.core.cache.backends.memcached.PyMemcacheCache'
 
 CACHES = {
     'default': {
-        'BACKEND': CACHE_BACKEND,
-        'LOCATION': 'django_cache_default',
+        'BACKEND': 'django.core.cache.backends.memcached.PyMemcacheCache',
+        'LOCATION': 'memcached:11211',
     }
 }
 

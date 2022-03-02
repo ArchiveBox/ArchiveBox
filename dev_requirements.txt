@@ -1,0 +1,15 @@
+setuptools
+twine
+wheel
+flake8
+ipdb
+mypy
+django-stubs
+sphinx
+sphinx-rtd-theme
+recommonmark
+pytest
+bottle
+stdeb
+django-debug-toolbar
+djdt_flamegraph
