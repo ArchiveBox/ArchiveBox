@@ -366,7 +366,7 @@ archivebox help
 
 - `archivebox setup/init/config/status/manage` to administer your collection
 - `archivebox add/schedule/remove/update/list/shell/oneshot` to manage Snapshots in the archive
-- `archivebox schedule` to pull in fresh URLs in regularly from [boorkmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
+- `archivebox schedule` to pull in fresh URLs in regularly from [bookmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
 
 #### 🖥&nbsp; Web UI Usage
 
