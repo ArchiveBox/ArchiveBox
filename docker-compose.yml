@@ -29,6 +29,9 @@ services:
             - ./data:/data
             # - ./archivebox:/app/archivebox    # for developers working on archivebox
 
+
+    ### Optional Addons: tweak these examples as needed for your specific use case
+
     # To run the Sonic full-text search backend, first download the config file to sonic.cfg
     # curl -O https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/etc/sonic.cfg
     # after starting, backfill any existing Snapshots into the index: docker-compose run archivebox update --index-only
@@ -53,10 +56,8 @@ services:
         # - ./data/pihole:/etc/pihole
         # - ./data/dnsmasq:/etc/dnsmasq.d
 
-    ### Optional Addons: tweak these examples as needed for your specific use case
-
     # Example: Run scheduled imports in a docker instead of using cron on the
-    # host machine, add tasks and see more info with archivebox schedule --help
+    #  host machine, add tasks and see more info with archivebox schedule --help
     # scheduler:
     #    image: archivebox/archivebox:latest
     #    command: schedule --foreground --every=day --depth=1 'https://getpocket.com/users/USERNAME/feed/all'
