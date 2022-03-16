@@ -49,7 +49,7 @@ services:
     # pihole:
       # image: pihole/pihole:latest
       # ports:
-        # - 80/80       # uncomment to access the admin HTTP interface on http://localhost:80
+        # - 80:80       # uncomment to access the admin HTTP interface on http://localhost:80
       # environment:
         # WEBPASSWORD: 'set a secure password here or it will be random'
       # volumes:
