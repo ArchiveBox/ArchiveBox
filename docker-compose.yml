@@ -23,6 +23,8 @@ services:
             # - SEARCH_BACKEND_ENGINE=sonic     # uncomment these if you enable sonic below
             # - SEARCH_BACKEND_HOST_NAME=sonic
             # - SEARCH_BACKEND_PASSWORD=SecretPassword
+        # dns:                                  # uncomment to use pihole below for ad/tracker blocking during archiving
+            # - pihole
         volumes:
             - ./data:/data
             # - ./archivebox:/app/archivebox    # for developers working on archivebox
@@ -39,7 +41,17 @@ services:
     #    volumes:
     #        - ./sonic.cfg:/etc/sonic.cfg:ro
     #        - ./data/sonic:/var/lib/sonic/store
-
+    
+    # To run pihole in order to block ad/tracker requests during archiving, uncomment this block and set up pihole using its admin interface
+    # pihole:
+      # image: pihole/pihole:latest
+      # ports:
+        # - 80/80       # uncomment to access the admin HTTP interface on http://localhost:80
+      # environment:
+        # WEBPASSWORD: 'set a secure password here or it will be random'
+      # volumes:
+        # - ./data/pihole:/etc/pihole
+        # - ./data/dnsmasq:/etc/dnsmasq.d
 
     ### Optional Addons: tweak these examples as needed for your specific use case
 
