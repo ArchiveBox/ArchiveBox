@@ -32,9 +32,10 @@ services:
 
     ### Optional Addons: tweak these examples as needed for your specific use case
 
-    # To run the Sonic full-text search backend, first download the config file to sonic.cfg
+    ### Example: To run the Sonic full-text search backend, first download the config file to sonic.cfg
     # curl -O https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/etc/sonic.cfg
     # after starting, backfill any existing Snapshots into the index: docker-compose run archivebox update --index-only
+
     # sonic:
     #    image: valeriansaliou/sonic:v1.3.0
     #    expose:
@@ -45,19 +46,24 @@ services:
     #        - ./sonic.cfg:/etc/sonic.cfg:ro
     #        - ./data/sonic:/var/lib/sonic/store
     
-    # To run pihole in order to block ad/tracker requests during archiving, uncomment this block and set up pihole using its admin interface
-    # pihole:
-      # image: pihole/pihole:latest
-      # ports:
-        # - 80:80       # uncomment to access the admin HTTP interface on http://localhost:80
-      # environment:
-        # WEBPASSWORD: 'set a secure password here or it will be random'
-      # volumes:
-        # - ./data/pihole:/etc/pihole
-        # - ./data/dnsmasq:/etc/dnsmasq.d
+    
+    ### Example: To run pihole in order to block ad/tracker requests during archiving,
+    # uncomment this block and set up pihole using its admin interface
 
-    # Example: Run scheduled imports in a docker instead of using cron on the
-    #  host machine, add tasks and see more info with archivebox schedule --help
+    # pihole:
+    #   image: pihole/pihole:latest
+    #   ports:
+    #     - 80:80       # uncomment to access the admin HTTP interface on http://localhost:80
+    #   environment:
+    #     WEBPASSWORD: 'set a secure password here or it will be random'
+    #   volumes:
+    #     - ./data/pihole:/etc/pihole
+    #     - ./data/dnsmasq:/etc/dnsmasq.d
+
+
+    ### Example: Run scheduled imports in a docker instead of using cron on the
+    #     host machine, add tasks and see more info with archivebox schedule --help
+
     # scheduler:
     #    image: archivebox/archivebox:latest
     #    command: schedule --foreground --every=day --depth=1 'https://getpocket.com/users/USERNAME/feed/all'
@@ -67,7 +73,9 @@ services:
     #    volumes:
     #        - ./data:/data
 
-    # Example: Put Nginx in front of the ArchiveBox server for SSL termination
+
+    ### Example: Put Nginx in front of the ArchiveBox server for SSL termination
+
     # nginx:
     #     image: nginx:alpine
     #     ports:
@@ -77,7 +85,9 @@ services:
     #         - ./etc/nginx/nginx.conf:/etc/nginx/nginx.conf
     #         - ./data:/var/www
 
-    # Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel
+
+    ### Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel
+
     # wireguard:
     #   image: linuxserver/wireguard
     #   network_mode: 'service:archivebox'
@@ -91,7 +101,9 @@ services:
     #     - /lib/modules:/lib/modules
     #     - ./wireguard.conf:/config/wg0.conf:ro
 
-    # Example: Run PYWB in parallel and auto-import WARCs from ArchiveBox
+
+    ### Example: Run PYWB in parallel and auto-import WARCs from ArchiveBox
+
     # pywb:
     #     image: webrecorder/pywb:latest
     #     entrypoint: /bin/sh 'wb-manager add default /archivebox/archive/*/warc/*.warc.gz; wayback --proxy;'
