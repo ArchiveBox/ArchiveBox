@@ -95,6 +95,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'TIME_ZONE':                 {'type': str,   'default': 'UTC'},
         'REVERSE_PROXY_USER_HEADER': {'type': str,   'default': 'Remote-User'},
         'REVERSE_PROXY_WHITELIST':   {'type': str,   'default': ''},
+        'LOGOUT_REDIRECT_URL':       {'type': str,   'default': '/'},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {

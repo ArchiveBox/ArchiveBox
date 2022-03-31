@@ -34,7 +34,8 @@ WSGI_APPLICATION = 'core.wsgi.application'
 ROOT_URLCONF = 'core.urls'
 
 LOGIN_URL = '/accounts/login/'
-LOGOUT_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = os.environ.get('LOGOUT_REDIRECT_URL', '/')
+
 PASSWORD_RESET_URL = '/accounts/password_reset/'
 APPEND_SLASH = True
 
