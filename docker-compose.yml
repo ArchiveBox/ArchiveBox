@@ -106,7 +106,7 @@ services:
 
     # pywb:
     #     image: webrecorder/pywb:latest
-    #     entrypoint: /bin/sh 'wb-manager add default /archivebox/archive/*/warc/*.warc.gz; wayback --proxy;'
+    #     entrypoint: /bin/sh '(wb-manager init default || test $? -eq 2) && wb-manager add default /archivebox/archive/*/warc/*.warc.gz; wayback;'
     #     environment:
     #         - INIT_COLLECTION=archivebox
     #     ports:
