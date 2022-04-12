@@ -345,7 +345,7 @@ For more discussion on managed and paid hosting options see here: <a href="https
 
 - Import URLs from some of the supported [Input Formats](#input-formats) or view the supported [Output Formats](#output-formats)...
 - Tweak your UI or archiving behavior [Configuration](#configuration) or read about some of the [Caveats](#caveats) and troubleshooting steps...
-- Read about the [Dependencies](#dependencies) used for archiving or the [Archive Layout](#archive-layout) on disk...
+- Read about the [Dependencies](#dependencies) used for archiving, the [Upgrading Process](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives), or the [Archive Layout](#archive-layout) on disk...
 - Or check out our full [Documentation](#documentation) or [Community Wiki](#internet-archiving-ecosystem)...
 
 <br/>
@@ -543,8 +543,9 @@ archivebox setup       # auto install all the extractors and extras
 archivebox --version   # see info and check validity of installed dependencies
 ```
 
-Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not officially supported**, but some advanced users have reported getting it working.
+Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not officially supported** (I cannot respond to Windows support tickets), but some advanced users have reported getting it working.
 
+For detailed information about ugprading ArchiveBox and its dependencies, see: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives
 
 <br/>
 
@@ -834,6 +835,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 - [Chromium Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install)
 - [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview)
 - [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
+- [Upgrading or Merging Archives](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives)
 - [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha)
 - [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha)
 
