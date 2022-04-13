@@ -931,6 +931,8 @@ archivebox config --set DEBUG=True
 archivebox server --debug ...
 ```
 
+https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
+
 </details>
 
 #### Install and run a specific GitHub branch
@@ -985,7 +987,8 @@ cd path/to/test/data/
 archivebox shell
 archivebox manage dbshell
 ```
-(uses `pytest -s`)
+(uses `pytest -s`)  
+https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
 
 </details>
 
