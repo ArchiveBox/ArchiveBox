@@ -43,6 +43,7 @@ def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIME
         YOUTUBEDL_BINARY,
         *YOUTUBEDL_ARGS,
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate']),
+        # TODO: add --cookies-from-browser={CHROME_USER_DATA_DIR}
         link.url,
     ]
     status = 'succeeded'

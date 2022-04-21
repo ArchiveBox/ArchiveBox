@@ -81,7 +81,8 @@ RUN apt-get update -qq \
         build-essential python-dev python3-dev \
     && echo 'empty placeholder for setup.py to use' > "$CODE_DIR/archivebox/README.md" \
     && python3 -c 'from distutils.core import run_setup; result = run_setup("./setup.py", stop_after="init"); print("\n".join(result.install_requires + result.extras_require["sonic"]))' > /tmp/requirements.txt \
-    && pip install --quiet -r /tmp/requirements.txt \
+    && pip install -r /tmp/requirements.txt \
+    && pip install --upgrade youtube-dl yt-dlp \
     && apt-get purge -y build-essential python-dev python3-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
@@ -104,7 +105,7 @@ RUN pip install -e .
 WORKDIR "$DATA_DIR"
 ENV IN_DOCKER=True \
     CHROME_SANDBOX=False \
-    CHROME_BINARY="chromium" \
+    CHROME_BINARY="/usr/bin/chromium-browser" \
     USE_SINGLEFILE=True \
     SINGLEFILE_BINARY="$NODE_DIR/node_modules/.bin/single-file" \
     USE_READABILITY=True \
