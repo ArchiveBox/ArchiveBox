@@ -427,7 +427,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
         print('        archivebox server  # then visit http://127.0.0.1:8000')
         print()
         print('    To add new links, you can run:')
-        print("        archivebox add ~/some/path/or/url/to/list_of_links.txt")
+        print("        archivebox add < ~/some/path/to/list_of_links.txt")
         print()
         print('    For more usage and examples, run:')
         print('        archivebox help')
