@@ -8,7 +8,7 @@
 #     docker run -v "$PWD/data":/data -p 8000:8000 archivebox server
 # Multi-arch build:
 #     docker buildx create --use
-#     docker buildx build . --platform=linux/amd64,linux/arm64,linux/386,linux/arm/v7 --push -t archivebox/archivebox:latest -t archivebox/archivebox:dev
+#     docker buildx build . --platform=linux/amd64,linux/arm64,linux/arm/v7 --push -t archivebox/archivebox:latest -t archivebox/archivebox:dev
 
 
 FROM python:3.10-slim-bullseye
