@@ -7,7 +7,7 @@
 #     docker run -v "$PWD/data":/data -it archivebox manage createsuperuser
 #     docker run -v "$PWD/data":/data -p 8000:8000 archivebox server
 
-FROM python:3.9-slim-buster
+FROM python:3.10-slim-bullseye
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <archivebox-docker@sweeting.me>" \
@@ -48,11 +48,12 @@ RUN apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         wget curl chromium git ffmpeg youtube-dl ripgrep \
         fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
+    && ln -s /usr/bin/chromium /usr/bin/chromium-browser \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node environment
 RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
-    && echo 'deb https://deb.nodesource.com/node_15.x buster main' >> /etc/apt/sources.list \
+    && echo 'deb https://deb.nodesource.com/node_17.x buster main' >> /etc/apt/sources.list \
     && apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
         nodejs \
@@ -109,7 +110,8 @@ ENV IN_DOCKER=True \
     USE_READABILITY=True \
     READABILITY_BINARY="$NODE_DIR/node_modules/.bin/readability-extractor" \
     USE_MERCURY=True \
-    MERCURY_BINARY="$NODE_DIR/node_modules/.bin/mercury-parser"
+    MERCURY_BINARY="$NODE_DIR/node_modules/.bin/mercury-parser" \
+    YOUTUBEDL_BINARY="yt-dlp"
 
 # Print version for nice docker finish summary
 # RUN archivebox version
