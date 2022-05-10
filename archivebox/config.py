@@ -653,6 +653,8 @@ def bin_version(binary: Optional[str]) -> Optional[str]:
 
     try:
         version_str = run([abspath, "--version"], stdout=PIPE, env={'LANG': 'C'}).stdout.strip().decode()
+        if not version_str:
+            version_str = run([abspath, "--version"], stdout=PIPE).stdout.strip().decode()
         # take first 3 columns of first line of version info
         return ' '.join(version_str.split('\n')[0].strip().split()[:3])
     except OSError:
