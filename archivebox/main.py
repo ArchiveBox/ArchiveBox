@@ -594,8 +594,11 @@ def add(urls: Union[str, List[str]],
     if new_links and depth == 1:
         log_crawl_started(new_links)
         for new_link in new_links:
-            downloaded_file = save_file_as_source(new_link.url, filename=f'{new_link.timestamp}-crawl-{new_link.domain}.txt', out_dir=out_dir)
-            new_links_depth += parse_links_from_source(downloaded_file, root_url=new_link.url)
+            try:
+                downloaded_file = save_file_as_source(new_link.url, filename=f'{new_link.timestamp}-crawl-{new_link.domain}.txt', out_dir=out_dir)
+                new_links_depth += parse_links_from_source(downloaded_file, root_url=new_link.url)
+            except Exception as err:
+                stderr('[!] Failed to get contents of URL {new_link.url}', err, color='red')
 
     imported_links = list({link.url: link for link in (new_links + new_links_depth)}.values())
     

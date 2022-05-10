@@ -176,7 +176,7 @@ def save_file_as_source(path: str, timeout: int=TIMEOUT, filename: str='{ts}-{ba
                 ANSI['reset'],
             ))
             print('    ', e)
-            raise SystemExit(1)
+            raise e
 
     else:
         # Source is a path to a local file on the filesystem
