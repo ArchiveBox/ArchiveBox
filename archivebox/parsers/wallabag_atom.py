@@ -34,13 +34,19 @@ def parse_wallabag_atom_export(rss_file: IO[str], **_kwargs) -> Iterable[Link]:
 
         trailing_removed = entry.split('</entry>', 1)[0]
         leading_removed = trailing_removed.strip()
-        rows = leading_removed.split('\n')
+        splits_fixed = leading_removed.replace('"\n              href="', '" href="')
+        rows = splits_fixed.split('\n')
 
-        def get_row(key):
-            return [r.strip() for r in rows if r.strip().startswith('<{}'.format(key))][0]
+        def get_row(prefix):
+            return [
+                row.strip()
+                for row in rows
+                if row.strip().startswith('<{}'.format(prefix))
+            ][0]
 
         title = str_between(get_row('title'), '<title><![CDATA[', ']]></title>').strip()
-        url = str_between(get_row('link rel="via"'), '<link rel="via">', '</link>')
+        url_inside_link = str_between(get_row('link rel="via"'), '<link rel="via">', '</link>')
+        url_inside_attr = str_between(get_row('link rel="via"'), 'href="', '"/>')
         ts_str = str_between(get_row('published'), '<published>', '</published>')
         time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
         try:
@@ -49,7 +55,7 @@ def parse_wallabag_atom_export(rss_file: IO[str], **_kwargs) -> Iterable[Link]:
             tags = None
 
         yield Link(
-            url=htmldecode(url),
+            url=htmldecode(url_inside_attr or url_inside_link),
             timestamp=str(time.timestamp()),
             title=htmldecode(title) or None,
             tags=tags or '',
