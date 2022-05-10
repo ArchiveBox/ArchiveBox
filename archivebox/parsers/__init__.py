@@ -8,7 +8,6 @@ For examples of supported import formats see tests/.
 __package__ = 'archivebox.parsers'
 
 import re
-import os
 from io import StringIO
 
 from typing import IO, Tuple, List, Optional

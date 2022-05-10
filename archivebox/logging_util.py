@@ -433,11 +433,12 @@ def log_archive_method_finished(result: "ArchiveResult"):
         hints = getattr(result.output, 'hints', None) or ()
         if hints:
             if isinstance(hints, (list, tuple, type(_ for _ in ()))):
-                hints = (hint.decode() for hint in hints if isinstance(hint, bytes))
+                hints = [hint.decode() for hint in hints if isinstance(hint, bytes)]
             else:
                 if isinstance(hints, bytes):
                     hints = hints.decode()
                 hints = hints.split('\n')
+
             hints = (
                 '    {}{}{}'.format(ANSI['lightyellow'], line.strip(), ANSI['reset'])
                 for line in hints[:5] if line.strip()
