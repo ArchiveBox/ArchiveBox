@@ -6,7 +6,7 @@
   "repository": "github:ArchiveBox/ArchiveBox",
   "license": "MIT",
   "dependencies": {
-    "@postlight/mercury-parser": "^2.2.1",
+    "@postlight/mercury-parser": "git+https://github.com/postlight/mercury-parser.git",
     "readability-extractor": "git+https://github.com/ArchiveBox/readability-extractor.git",
     "single-file": "git+https://github.com/gildas-lormeau/SingleFile.git"
   }
