@@ -94,6 +94,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SNAPSHOTS_PER_PAGE':       {'type': int,   'default': 40},
         'CUSTOM_TEMPLATES_DIR':     {'type': str,   'default': None},
         'TIME_ZONE':                {'type': str,   'default': 'UTC'},
+        'PREVIEW_ORIGINALS':        {'type': bool,  'default': True},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
