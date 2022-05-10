@@ -120,8 +120,8 @@ if which apt-get > /dev/null; then
     sudo apt-get install -y archivebox
     sudo apt-get --only-upgrade install -y archivebox
     echo ""
-    echo "[+] Installing ArchiveBox python dependencies using pip..."
-    sudo python3.7 -m pip install --upgrade --ignore-installed archivebox
+    echo "[+] Installing ArchiveBox python dependencies using pip3..."
+    sudo python3 -m pip install --upgrade --ignore-installed archivebox
 # On Mac:
 elif which brew > /dev/null; then
     echo "[+] Installing ArchiveBox system dependencies using brew..."
@@ -129,16 +129,15 @@ elif which brew > /dev/null; then
     brew update
     brew install --fetch-HEAD -f archivebox
     echo ""
-    echo "[+] Installing ArchiveBox python dependencies using pip..."
+    echo "[+] Installing ArchiveBox python dependencies using pip3..."
     python3 -m pip install --upgrade --ignore-installed archivebox
 elif which pkg > /dev/null; then
-    echo "[+] Installing ArchiveBox system dependencies using pkg..."
+    echo "[+] Installing ArchiveBox system dependencies using pkg and pip37 (python3.7)..."
     sudo pkg install -y python37 py37-pip py37-sqlite3 node npm wget curl youtube_dl ffmpeg git ripgrep
     sudo pkg install -y chromium
     echo ""
-    echo "[+] Installing ArchiveBox python dependencies using pip..."
-    sudo python3.7 -m pip install --upgrade --ignore-installed archivebox
-    alias python3=python3.7
+    echo "[+] Installing ArchiveBox python dependencies using pip37..."
+    sudo python3 -m pip install --upgrade --ignore-installed archivebox
 else
     echo "[!] Warning: Could not find aptitude/homebrew/pkg! May not be able to install all dependencies automatically."
     echo ""
