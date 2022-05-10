@@ -37,7 +37,7 @@ services:
     # after starting, backfill any existing Snapshots into the index: docker-compose run archivebox update --index-only
 
     # sonic:
-    #    image: valeriansaliou/sonic:v1.3.0
+    #    image: valeriansaliou/sonic:v1.3.1
     #    expose:
     #        - 1491
     #    environment:
