@@ -30,10 +30,16 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help="Tag the added URLs with the provided tags e.g. --tag=tag1,tag2,tag3",
     )
     parser.add_argument(
-        '--update-all', #'-n',
+        '--update', #'-u',
         action='store_true',
         default=not ONLY_NEW,  # when ONLY_NEW=True we skip updating old links
         help="Also retry previously skipped/failed links when adding new links",
+    )
+    parser.add_argument(
+        '--update-all', #'-n',
+        action='store_true',
+        default=False, 
+        help="Also update ALL links in index when finished adding new links",
     )
     parser.add_argument(
         '--index-only', #'-o',
@@ -104,6 +110,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         urls=stdin_urls or urls,
         depth=command.depth,
         tag=command.tag,
+        update=command.update,
         update_all=command.update_all,
         index_only=command.index_only,
         overwrite=command.overwrite,

@@ -4,8 +4,9 @@ import os
 import sys
 import shutil
 import platform
+from django.utils import timezone
 from pathlib import Path
-from datetime import date
+from datetime import date, datetime
 
 from typing import Dict, List, Optional, Iterable, IO, Union
 from crontab import CronTab, CronSlices
@@ -554,7 +555,8 @@ def oneshot(url: str, extractors: str="", out_dir: Path=OUTPUT_DIR):
 def add(urls: Union[str, List[str]],
         tag: str='',
         depth: int=0,
-        update_all: bool=not ONLY_NEW,
+        update: bool=not ONLY_NEW,
+        update_all: bool=False,
         index_only: bool=False,
         overwrite: bool=False,
         # duplicate: bool=False,  # TODO: reuse the logic from admin.py resnapshot to allow adding multiple snapshots by appending timestamp automatically
@@ -621,11 +623,21 @@ def add(urls: Union[str, List[str]],
         if extractors:
             archive_kwargs["methods"] = extractors
 
-        if update_all:
+        stderr()
+
+        ts = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+        if update:
+            stderr(f'[*] [{ts}] Archiving + updating', len(imported_links), 'URLs from added set...', color='green')
+            archive_links(imported_links, overwrite=overwrite, **archive_kwargs)
+        elif update_all:
+            stderr(f'[*] [{ts}] Archiving + updating ', len(all_links), 'URLs from entire library...', color='green')
             archive_links(all_links, overwrite=overwrite, **archive_kwargs)
         elif overwrite:
+            stderr(f'[*] [{ts}] Archiving + overwriting', len(imported_links), 'URLs from added set...', color='green')
             archive_links(imported_links, overwrite=True, **archive_kwargs)
         elif new_links:
+            stderr(f'[*] [{ts}] Archiving', len(imported_links), 'URLs from added set...', color='green')
             archive_links(new_links, overwrite=False, **archive_kwargs)
 
 
