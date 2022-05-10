@@ -150,7 +150,17 @@ def run_parser_functions(to_parse: IO[str], timer, root_url: Optional[str]=None,
 def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: Path=OUTPUT_DIR) -> str:
     ts = str(datetime.now(timezone.utc).timestamp()).split('.', 1)[0]
     source_path = str(out_dir / SOURCES_DIR_NAME / filename.format(ts=ts))
-    atomic_write(source_path, raw_text)
+
+    referenced_texts = ''
+
+    for entry in raw_text.split():
+        try:
+            if Path(entry).exists:
+                referenced_texts += Path(entry).read_text()
+        except Exception as err:
+            print(err)
+
+    atomic_write(source_path, raw_text + '\n' + referenced_texts)
     log_source_saved(source_file=source_path)
     return source_path
 
