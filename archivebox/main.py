@@ -1128,6 +1128,7 @@ def schedule(add: bool=False,
              every: Optional[str]=None,
              depth: int=0,
              overwrite: bool=False,
+             update: bool=not ONLY_NEW,
              import_path: Optional[str]=None,
              out_dir: Path=OUTPUT_DIR):
     """Set ArchiveBox to regularly import URLs at specific times using cron"""
@@ -1157,6 +1158,7 @@ def schedule(add: bool=False,
             *([
                 'add',
                 *(['--overwrite'] if overwrite else []),
+                *(['--update'] if update else []),
                 f'--depth={depth}',
                 f'"{import_path}"',
             ] if import_path else ['update']),
