@@ -589,6 +589,7 @@ def add(urls: Union[str, List[str]],
         # save verbatim args to sources
         write_ahead_log = save_text_as_source('\n'.join(urls), filename='{ts}-import.txt', out_dir=out_dir)
     
+
     new_links += parse_links_from_source(write_ahead_log, root_url=None, parser=parser)
 
     # If we're going one level deeper, download each link and look for more links
@@ -628,16 +629,16 @@ def add(urls: Union[str, List[str]],
         ts = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
         if update:
-            stderr(f'[*] [{ts}] Archiving + updating', len(imported_links), 'URLs from added set...', color='green')
+            stderr(f'[*] [{ts}] Archiving + updating {len(imported_links)}/{len(all_links)}', len(imported_links), 'URLs from added set...', color='green')
             archive_links(imported_links, overwrite=overwrite, **archive_kwargs)
         elif update_all:
-            stderr(f'[*] [{ts}] Archiving + updating ', len(all_links), 'URLs from entire library...', color='green')
+            stderr(f'[*] [{ts}] Archiving + updating {len(all_links)}/{len(all_links)}', len(all_links), 'URLs from entire library...', color='green')
             archive_links(all_links, overwrite=overwrite, **archive_kwargs)
         elif overwrite:
-            stderr(f'[*] [{ts}] Archiving + overwriting', len(imported_links), 'URLs from added set...', color='green')
+            stderr(f'[*] [{ts}] Archiving + overwriting {len(imported_links)}/{len(all_links)}', len(imported_links), 'URLs from added set...', color='green')
             archive_links(imported_links, overwrite=True, **archive_kwargs)
         elif new_links:
-            stderr(f'[*] [{ts}] Archiving', len(imported_links), 'URLs from added set...', color='green')
+            stderr(f'[*] [{ts}] Archiving {len(new_links)}/{len(all_links)} URLs from added set...', color='green')
             archive_links(new_links, overwrite=False, **archive_kwargs)
 
 
