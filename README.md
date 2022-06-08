@@ -1081,7 +1081,7 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" height="40px"/>
 <br/>
 <i><sub>
-This project is maintained mostly in <a href="https://nicksweeting.com/blog#About">my spare time</a> with the help from generous contributors and <a href="https://monadical.com">Monadical</a> (✨  <a href="https://monadical.com">hire them</a> for dev work!).
+This project is maintained mostly in <a href="https://nicksweeting.com/blog#About">my spare time</a> with the help from generous <a href="https://github.com/ArchiveBox/ArchiveBox/graphs/contributors">contributors</a> and <a href="https://monadical.com">Monadical</a> (✨  <a href="https://monadical.com">hire them</a> for dev work!).
 </sub>
 </i>
 <br/><br/>
