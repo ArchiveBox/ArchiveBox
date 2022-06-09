@@ -49,6 +49,9 @@ from .config_stubs import (
     ConfigDefaultDict,
 )
 
+
+### Pre-Fetch Minimal System Config
+
 SYSTEM_USER = getpass.getuser() or os.getlogin()
 
 try:
@@ -57,6 +60,13 @@ try:
 except ModuleNotFoundError:
     # pwd is only needed for some linux systems, doesn't exist on windows
     pass
+
+COMMIT_HASH = None
+try:
+    COMMIT_HASH = list((PACKAGE_DIR / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
+except Exception as e:
+    pass
+
 
 ############################### Config Schema ##################################
 
@@ -805,6 +815,7 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'path': config['OUTPUT_DIR'].resolve(),
             'enabled': True,
             'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
+            'is_mount': os.path.ismount(OUTPUT_DIR),
         },
         'SOURCES_DIR': {
             'path': config['SOURCES_DIR'].resolve(),
@@ -820,6 +831,7 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'path': config['ARCHIVE_DIR'].resolve(),
             'enabled': True,
             'is_valid': config['ARCHIVE_DIR'].exists(),
+            'is_mount': os.path.ismount(ARCHIVE_DIR),
         },
         'CONFIG_FILE': {
             'path': config['CONFIG_FILE'].resolve(),
@@ -830,6 +842,7 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'path': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).resolve(),
             'enabled': True,
             'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
+            'is_mount': os.path.ismount(config['OUTPUT_DIR'] / SQL_INDEX_FILENAME),
         },
     }
 
