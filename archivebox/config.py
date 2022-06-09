@@ -96,7 +96,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
         'SNAPSHOTS_PER_PAGE':       {'type': int,   'default': 40},
         'CUSTOM_TEMPLATES_DIR':     {'type': str,   'default': None},
-        'TIME_ZONE':                {'type': str,   'default': 'UTC'},
+        'TIMEZONE':                 {'type': str,   'default': 'UTC'},
         'PREVIEW_ORIGINALS':        {'type': bool,  'default': True},
     },
 
@@ -989,7 +989,8 @@ globals().update(CONFIG)
 
 
 # Set timezone to UTC and umask to OUTPUT_PERMISSIONS
-os.environ["TZ"] = 'UTC'
+assert TIMEZONE == 'UTC', 'The server timezone should always be set to UTC'  # we may allow this to change later
+os.environ["TZ"] = TIMEZONE
 os.umask(0o777 - int(DIR_OUTPUT_PERMISSIONS, base=8))  # noqa: F821
 
 # add ./node_modules/.bin to $PATH so we can use node scripts in extractors
