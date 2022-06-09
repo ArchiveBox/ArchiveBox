@@ -848,26 +848,12 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
 
 def get_dependency_info(config: ConfigDict) -> ConfigValue:
     return {
-        'ARCHIVEBOX_BINARY': {
-            'path': bin_path(config['ARCHIVEBOX_BINARY']),
-            'version': config['VERSION'],
-            'hash': bin_hash(config['ARCHIVEBOX_BINARY']),
-            'enabled': True,
-            'is_valid': True,
-        },
         'PYTHON_BINARY': {
             'path': bin_path(config['PYTHON_BINARY']),
             'version': config['PYTHON_VERSION'],
             'hash': bin_hash(config['PYTHON_BINARY']),
             'enabled': True,
             'is_valid': bool(config['PYTHON_VERSION']),
-        },
-        'DJANGO_BINARY': {
-            'path': bin_path(config['DJANGO_BINARY']),
-            'version': config['DJANGO_VERSION'],
-            'hash': bin_hash(config['DJANGO_BINARY']),
-            'enabled': True,
-            'is_valid': bool(config['DJANGO_VERSION']),
         },
         'SQLITE_BINARY': {
             'path': bin_path(config['SQLITE_BINARY']),
@@ -876,6 +862,21 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'enabled': True,
             'is_valid': bool(config['SQLITE_VERSION']),
         },
+        'DJANGO_BINARY': {
+            'path': bin_path(config['DJANGO_BINARY']),
+            'version': config['DJANGO_VERSION'],
+            'hash': bin_hash(config['DJANGO_BINARY']),
+            'enabled': True,
+            'is_valid': bool(config['DJANGO_VERSION']),
+        },
+        'ARCHIVEBOX_BINARY': {
+            'path': bin_path(config['ARCHIVEBOX_BINARY']),
+            'version': config['VERSION'],
+            'hash': bin_hash(config['ARCHIVEBOX_BINARY']),
+            'enabled': True,
+            'is_valid': True,
+        },
+        
         'CURL_BINARY': {
             'path': bin_path(config['CURL_BINARY']),
             'version': config['CURL_VERSION'],
