@@ -815,7 +815,7 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'path': config['OUTPUT_DIR'].resolve(),
             'enabled': True,
             'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
-            'is_mount': os.path.ismount(OUTPUT_DIR),
+            'is_mount': os.path.ismount(config['OUTPUT_DIR'].resolve()),
         },
         'SOURCES_DIR': {
             'path': config['SOURCES_DIR'].resolve(),
@@ -831,7 +831,7 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'path': config['ARCHIVE_DIR'].resolve(),
             'enabled': True,
             'is_valid': config['ARCHIVE_DIR'].exists(),
-            'is_mount': os.path.ismount(ARCHIVE_DIR),
+            'is_mount': os.path.ismount(onfig['ARCHIVE_DIR'].resolve()),
         },
         'CONFIG_FILE': {
             'path': config['CONFIG_FILE'].resolve(),
@@ -842,7 +842,7 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'path': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).resolve(),
             'enabled': True,
             'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
-            'is_mount': os.path.ismount(config['OUTPUT_DIR'] / SQL_INDEX_FILENAME),
+            'is_mount': os.path.ismount((config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).resolve()),
         },
     }
 
