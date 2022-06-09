@@ -355,6 +355,11 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
 
     'DJANGO_BINARY':            {'default': lambda c: django.__file__.replace('__init__.py', 'bin/django-admin.py')},
     'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{} {} ({})'.format(*django.VERSION)},
+    
+    'SQLITE_BINARY':            {'default': lambda c: 'sqlite3'},
+    'SQLITE_VERSION':           {'default': lambda c: None},
+    'SQLITE_JOURNAL_MODE':      {'default': lambda c: None},
+    'SQLITE_EXTENSIONS':        {'default': lambda c: []},
 
     'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
     'CURL_VERSION':             {'default': lambda c: bin_version(c['CURL_BINARY']) if c['USE_CURL'] else None},
@@ -850,6 +855,13 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'enabled': True,
             'is_valid': bool(config['DJANGO_VERSION']),
         },
+        'SQLITE_BINARY': {
+            'path': bin_path(config['SQLITE_BINARY']),
+            'version': config['SQLITE_VERSION'],
+            'hash': bin_hash(config['SQLITE_BINARY']),
+            'enabled': True,
+            'is_valid': bool(config['SQLITE_VERSION']) and ('JSON1' in config['SQLITE_EXTENSIONS']),
+        },
         'CURL_BINARY': {
             'path': bin_path(config['CURL_BINARY']),
             'version': config['CURL_VERSION'],
@@ -1159,7 +1171,6 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             # Otherwise use default sqlite3 file-based database and initialize django
             # without running migrations automatically (user runs them manually by calling init)
             django.setup()
-            
 
         from django.conf import settings
 
@@ -1192,6 +1203,11 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             except django.db.utils.OperationalError:
                 call_command("createcachetable", verbosity=0)
 
+            
+            with connection.cursor() as cursor:
+                config['SQLITE_VERSION'] = cursor.execute("SELECT sqlite_version();").fetchone()[0]
+                config['SQLITE_JOURNAL_MODE'] = cursor.execute('PRAGMA journal_mode;').fetchone()[0]
+                config['SQLITE_EXTENSIONS'] = ['JSON1'] if ('ENABLE_JSON1',) in cursor.execute('PRAGMA compile_options;').fetchall() else []
 
             # if archivebox gets imported multiple times, we have to close
             # the sqlite3 whenever we init from scratch to avoid multiple threads
