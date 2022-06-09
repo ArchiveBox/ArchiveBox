@@ -220,15 +220,14 @@ def version(quiet: bool=False,
         
         COMMIT_HASH = None
         try:
-            COMMIT_HASH = list((PACKAGE_DIR / '../.git/refs/heads/').glob('*'))[0].read_text()
+            COMMIT_HASH = list((PACKAGE_DIR / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
         except Exception as e:
-            print(e)
             pass
         
         p = platform.uname()
         print(
             'ArchiveBox v{}'.format(VERSION),
-            *((COMMIT_HASH[7:],) if COMMIT_HASH else ()),
+            *((COMMIT_HASH[:7],) if COMMIT_HASH else ()),
             sys.implementation.name.title(),
             p.system,
             platform.platform(),
@@ -251,6 +250,10 @@ def version(quiet: bool=False,
         print('{white}[i] Dependency versions:{reset}'.format(**ANSI))
         for name, dependency in DEPENDENCIES.items():
             print(printable_dependency_version(name, dependency))
+            
+            # add a newline between core dependencies and extractor dependencies for easier reading
+            if 'sqlite' in name.lower():
+                print()
         
         print()
         print('{white}[i] Source-code locations:{reset}'.format(**ANSI))
