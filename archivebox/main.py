@@ -96,6 +96,7 @@ from .config import (
     check_data_folder,
     write_config_file,
     VERSION,
+    COMMIT_HASH,
     CODE_LOCATIONS,
     EXTERNAL_LOCATIONS,
     DATA_LOCATIONS,
@@ -213,16 +214,9 @@ def version(quiet: bool=False,
     print(VERSION)
     
     if not quiet:
-        # 0.5.6
-        # ArchiveBox v0.5.6 Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
+        # 0.6.3
+        # ArchiveBox v0.6.3 Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
         # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 501:20 SEARCH_BACKEND=ripgrep
-        # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 501:20 SEARCH_BACKEND=ripgrepw
-        
-        COMMIT_HASH = None
-        try:
-            COMMIT_HASH = list((PACKAGE_DIR / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
-        except Exception as e:
-            pass
         
         p = platform.uname()
         print(
@@ -233,7 +227,7 @@ def version(quiet: bool=False,
             platform.platform(),
             p.machine,
         )
-        OUTPUT_IS_REMOTE_FS = bool(os.path.ismount(OUTPUT_DIR) or os.path.ismount(ARCHIVE_DIR))
+        OUTPUT_IS_REMOTE_FS = DATA_LOCATIONS['OUTPUT_DIR']['is_mount'] or DATA_LOCATIONS['ARCHIVE_DIR']['is_mount']
         print(
             f'DEBUG={DEBUG}',
             f'IN_DOCKER={IN_DOCKER}',
