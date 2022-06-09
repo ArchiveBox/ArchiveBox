@@ -61,13 +61,6 @@ except ModuleNotFoundError:
     # pwd is only needed for some linux systems, doesn't exist on windows
     pass
 
-COMMIT_HASH = None
-try:
-    COMMIT_HASH = list((PACKAGE_DIR / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
-except Exception as e:
-    pass
-
-
 ############################### Config Schema ##################################
 
 CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
@@ -334,6 +327,15 @@ ALLOWED_IN_OUTPUT_DIR = {
     'static_index.json',
 }
 
+def get_version(config):
+    return json.loads((Path(config['PACKAGE_DIR']) / 'package.json').read_text(encoding='utf-8').strip())['version']
+
+def get_commit_hash(config):
+    try:
+        return list((config['PACKAGE_DIR'] / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
+    except Exception:
+        return None
+
 ############################## Derived Config ##################################
 
 
@@ -358,8 +360,9 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
-    'VERSION':                  {'default': lambda c: json.loads((Path(c['PACKAGE_DIR']) / 'package.json').read_text(encoding='utf-8').strip())['version']},
-
+    'VERSION':                  {'default': lambda c: get_version(c)},
+    'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},
+    
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
     'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},
     'PYTHON_VERSION':           {'default': lambda c: '{}.{}.{}'.format(*sys.version_info[:3])},
@@ -369,7 +372,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     
     'SQLITE_BINARY':            {'default': lambda c: inspect.getfile(sqlite3)},
     'SQLITE_VERSION':           {'default': lambda c: sqlite3.version},
-    #'SQLITE_JOURNAL_MODE':      {'default': lambda c: 'wal'},   # set at runtime below
+    #'SQLITE_JOURNAL_MODE':      {'default': lambda c: 'wal'},         # set at runtime below, interesting but unused for now
     #'SQLITE_OPTIONS':           {'default': lambda c: ['JSON1']},     # set at runtime below
 
     'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
