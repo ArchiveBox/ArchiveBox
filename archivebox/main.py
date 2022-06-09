@@ -246,7 +246,7 @@ def version(quiet: bool=False,
             print(printable_dependency_version(name, dependency))
             
             # add a newline between core dependencies and extractor dependencies for easier reading
-            if 'sqlite' in name.lower():
+            if name == 'ARCHIVEBOX_BINARY':
                 print()
         
         print()
