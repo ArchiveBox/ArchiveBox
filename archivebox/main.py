@@ -228,7 +228,7 @@ def version(quiet: bool=False,
             f'DEBUG={DEBUG}',
             f'IS_TTY={IS_TTY}',
             f'TZ={os.environ.get("TZ", "UTC")}',
-            f'DB=SQLite v{CONFIG["SQLITE_VERSION"]} ({CONFIG["SQLITE_JOURNAL_MODE"]} {CONFIG["SQLITE_EXTENSIONS"])',
+            f'DB=SQLite v{CONFIG["SQLITE_VERSION"]} ({CONFIG["SQLITE_JOURNAL_MODE"]} {CONFIG["SQLITE_EXTENSIONS"]})',
             f'FS={"atomic" if ENFORCE_ATOMIC_WRITES else "non-atomic"} {PUID}:{PGID} ({OUTPUT_PERMISSIONS})',
             f'SEARCH_BACKEND_ENGINE={SEARCH_BACKEND_ENGINE}',
         )
