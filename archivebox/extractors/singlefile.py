@@ -17,6 +17,7 @@ from ..config import (
     SAVE_SINGLEFILE,
     DEPENDENCIES,
     SINGLEFILE_VERSION,
+    SINGLEFILE_ARGS,
     CHROME_BINARY,
 )
 from ..logging_util import TimedProgress
@@ -47,6 +48,7 @@ def save_singlefile(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
     browser_args = '--browser-args={}'.format(json.dumps(browser_args[1:]))
     cmd = [
         DEPENDENCIES['SINGLEFILE_BINARY']['path'],
+        *SINGLEFILE_ARGS,
         '--browser-executable-path={}'.format(CHROME_BINARY),
         browser_args,
         link.url,
