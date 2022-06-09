@@ -831,7 +831,7 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'path': config['ARCHIVE_DIR'].resolve(),
             'enabled': True,
             'is_valid': config['ARCHIVE_DIR'].exists(),
-            'is_mount': os.path.ismount(onfig['ARCHIVE_DIR'].resolve()),
+            'is_mount': os.path.ismount(config['ARCHIVE_DIR'].resolve()),
         },
         'CONFIG_FILE': {
             'path': config['CONFIG_FILE'].resolve(),
