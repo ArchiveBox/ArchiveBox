@@ -71,7 +71,11 @@ from .config import (
     IS_TTY,
     DEBUG,
     IN_DOCKER,
+    PUID,
+    PGID,
     USER,
+    ENFORCE_ATOMIC_WRITES,
+    OUTPUT_PERMISSIONS,
     PYTHON_BINARY,
     ARCHIVEBOX_BINARY,
     ONLY_NEW,
@@ -210,6 +214,7 @@ def version(quiet: bool=False,
     else:
         # ArchiveBox v0.5.6
         # Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
+        # IN_DOCKER=True USER=501:20 DEBUG=False IS_TTY=True TZ=UTC SEARCH_BACKEND_ENGINE=ripgrep
         print('ArchiveBox v{}'.format(VERSION))
         p = platform.uname()
         print(
@@ -223,6 +228,8 @@ def version(quiet: bool=False,
             f'DEBUG={DEBUG}',
             f'IS_TTY={IS_TTY}',
             f'TZ={os.environ.get("TZ", "UTC")}',
+            f'DB=SQLite v{CONFIG["SQLITE_VERSION"]} ({CONFIG["SQLITE_JOURNAL_MODE"]} {CONFIG["SQLITE_EXTENSIONS"])',
+            f'FS={"atomic" if ENFORCE_ATOMIC_WRITES else "non-atomic"} {PUID}:{PGID} ({OUTPUT_PERMISSIONS})',
             f'SEARCH_BACKEND_ENGINE={SEARCH_BACKEND_ENGINE}',
         )
         print()
