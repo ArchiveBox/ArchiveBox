@@ -19,7 +19,7 @@ from ..config import (
     SQL_INDEX_FILENAME,
     OUTPUT_DIR,
     LOGS_DIR,
-    TIME_ZONE,
+    TIMEZONE,
 )
 
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
@@ -154,7 +154,7 @@ DATABASES = {
             'timeout': 60,
             'check_same_thread': False,
         },
-        'TIME_ZONE': 'UTC',
+        'TIME_ZONE': TIMEZONE,
         # DB setup is sometimes modified at runtime by setup_django() in config.py
     }
 }
@@ -224,7 +224,8 @@ USE_L10N = True
 USE_TZ = True
 DATETIME_FORMAT = 'Y-m-d g:iA'
 SHORT_DATETIME_FORMAT = 'Y-m-d h:iA'
-TIME_ZONE = TIME_ZONE                            # noqa
+TIME_ZONE = TIMEZONE        # django convention is TIME_ZONE, archivebox config uses TIMEZONE, they are equivalent
+
 
 from django.conf.locale.en import formats as en_formats
 
