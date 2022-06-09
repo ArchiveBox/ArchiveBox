@@ -65,6 +65,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'USE_COLOR':                {'type': bool,  'default': lambda c: c['IS_TTY']},
         'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: (c['IS_TTY'] and platform.system() != 'Darwin')},  # progress bars are buggy on mac, disable for now
         'IN_DOCKER':                {'type': bool,  'default': False},
+        'PUID':                     {'type': int,   'default': os.getuid()},
+        'PGID':                     {'type': int,   'default': os.getgid()},
         # TODO: 'SHOW_HINTS':       {'type:  bool,  'default': True},
     },
 
