@@ -1203,12 +1203,6 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             except django.db.utils.OperationalError:
                 call_command("createcachetable", verbosity=0)
 
-            
-            with connection.cursor() as cursor:
-                config['SQLITE_VERSION'] = cursor.execute("SELECT sqlite_version();").fetchone()[0]
-                config['SQLITE_JOURNAL_MODE'] = cursor.execute('PRAGMA journal_mode;').fetchone()[0]
-                config['SQLITE_EXTENSIONS'] = ['JSON1'] if ('ENABLE_JSON1',) in cursor.execute('PRAGMA compile_options;').fetchall() else []
-
             # if archivebox gets imported multiple times, we have to close
             # the sqlite3 whenever we init from scratch to avoid multiple threads
             # sharing the same connection by accident
@@ -1219,6 +1213,11 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
             assert sql_index_path.exists(), (
                 f'No database file {SQL_INDEX_FILENAME} found in: {config["OUTPUT_DIR"]} (Are you in an ArchiveBox collection directory?)')
+
+        with connection.cursor() as cursor:
+            config['SQLITE_VERSION'] = cursor.execute("SELECT sqlite_version();").fetchone()[0]
+            config['SQLITE_JOURNAL_MODE'] = cursor.execute('PRAGMA journal_mode;').fetchone()[0]
+            config['SQLITE_EXTENSIONS'] = ['JSON1'] if ('ENABLE_JSON1',) in cursor.execute('PRAGMA compile_options;').fetchall() else []
 
     except KeyboardInterrupt:
         raise SystemExit(2)
