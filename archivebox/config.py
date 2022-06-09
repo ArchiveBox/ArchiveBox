@@ -358,7 +358,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{} {} ({})'.format(*django.VERSION)},
     
     'SQLITE_BINARY':            {'default': lambda c: inspect.getfile(sqlite3)},
-    'SQLITE_VERSION':           {'default': lambda c: sqlite3.version_info},
+    'SQLITE_VERSION':           {'default': lambda c: sqlite3.version},
     'SQLITE_JOURNAL_MODE':      {'default': lambda c: None},   # set at runtime below
     'SQLITE_OPTIONS':           {'default': lambda c: []},     # set at runtime below
 
@@ -1005,6 +1005,7 @@ if not CONFIG['CHECK_SSL_VALIDITY']:
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # get SQLite database version, compile options, and runtime options
+# TODO: move this somewhere better, e.g. setup_django
 cursor = sqlite3.connect(':memory:').cursor()
 #DYNAMIC_CONFIG_SCHEMA['SQLITE_VERSION'] = lambda c: cursor.execute("SELECT sqlite_version();").fetchone()[0]
 DYNAMIC_CONFIG_SCHEMA['SQLITE_JOURNAL_MODE'] = lambda c: cursor.execute('PRAGMA journal_mode;').fetchone()[0]
