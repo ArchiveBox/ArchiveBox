@@ -74,6 +74,7 @@ from .config import (
     PUID,
     PGID,
     USER,
+    TIMEZONE,
     ENFORCE_ATOMIC_WRITES,
     OUTPUT_PERMISSIONS,
     PYTHON_BINARY,
@@ -209,6 +210,8 @@ def version(quiet: bool=False,
             out_dir: Path=OUTPUT_DIR) -> None:
     """Print the ArchiveBox version and dependency information"""
 
+    from django.conf import settings
+    
     if quiet:
         print(VERSION)
     else:
@@ -227,8 +230,8 @@ def version(quiet: bool=False,
             f'IN_DOCKER={IN_DOCKER}',
             f'DEBUG={DEBUG}',
             f'IS_TTY={IS_TTY}',
-            f'TZ={os.environ.get("TZ", "UTC")}',
-            f'DB=SQLite v{CONFIG["SQLITE_VERSION"]} ({CONFIG["SQLITE_JOURNAL_MODE"]} {CONFIG["SQLITE_EXTENSIONS"]})',
+            f'TZ={TIMEZONE}',
+            f'DB={settings.DATABASES["default"]["engine"]} (({CONFIG["SQLITE_JOURNAL_MODE"]} {CONFIG["SQLITE_EXTENSIONS"]})',
             f'FS={"atomic" if ENFORCE_ATOMIC_WRITES else "non-atomic"} {PUID}:{PGID} ({OUTPUT_PERMISSIONS})',
             f'SEARCH_BACKEND_ENGINE={SEARCH_BACKEND_ENGINE}',
         )
