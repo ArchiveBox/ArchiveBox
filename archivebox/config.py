@@ -1005,10 +1005,11 @@ if not CONFIG['CHECK_SSL_VALIDITY']:
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # get SQLite database version, compile options, and runtime options
-with sqlite3.connect(':memory:').cursor() as cursor:
-    config['SQLITE_VERSION'] = cursor.execute("SELECT sqlite_version();").fetchone()[0]
-    config['SQLITE_JOURNAL_MODE'] = cursor.execute('PRAGMA journal_mode;').fetchone()[0]
-    config['SQLITE_OPTIONS'] = [option[0] for option in cursor.execute('PRAGMA compile_options;').fetchall()]
+cursor = sqlite3.connect(':memory:').cursor()
+config['SQLITE_VERSION'] = cursor.execute("SELECT sqlite_version();").fetchone()[0]
+config['SQLITE_JOURNAL_MODE'] = cursor.execute('PRAGMA journal_mode;').fetchone()[0]
+config['SQLITE_OPTIONS'] = [option[0] for option in cursor.execute('PRAGMA compile_options;').fetchall()]
+cursor.close()
 
 ########################### Config Validity Checkers ###########################
 
