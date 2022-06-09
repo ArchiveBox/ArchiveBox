@@ -861,7 +861,7 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'version': config['SQLITE_VERSION'],
             'hash': bin_hash(config['SQLITE_BINARY']),
             'enabled': True,
-            'is_valid': bool(config['SQLITE_VERSION']) and ('ENABLE_JSON1' in config['SQLITE_OPTIONS']),
+            'is_valid': bool(config['SQLITE_VERSION']),
         },
         'CURL_BINARY': {
             'path': bin_path(config['CURL_BINARY']),
@@ -1006,7 +1006,7 @@ if not CONFIG['CHECK_SSL_VALIDITY']:
 
 # get SQLite database version, compile options, and runtime options
 cursor = sqlite3.connect(':memory:').cursor()
-DYNAMIC_CONFIG_SCHEMA['SQLITE_VERSION'] = lambda c: cursor.execute("SELECT sqlite_version();").fetchone()[0]
+#DYNAMIC_CONFIG_SCHEMA['SQLITE_VERSION'] = lambda c: cursor.execute("SELECT sqlite_version();").fetchone()[0]
 DYNAMIC_CONFIG_SCHEMA['SQLITE_JOURNAL_MODE'] = lambda c: cursor.execute('PRAGMA journal_mode;').fetchone()[0]
 DYNAMIC_CONFIG_SCHEMA['SQLITE_OPTIONS'] = lambda c: [option[0] for option in cursor.execute('PRAGMA compile_options;').fetchall()]
 cursor.close()
