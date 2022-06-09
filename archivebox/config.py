@@ -1006,9 +1006,9 @@ if not CONFIG['CHECK_SSL_VALIDITY']:
 
 # get SQLite database version, compile options, and runtime options
 cursor = sqlite3.connect(':memory:').cursor()
-config['SQLITE_VERSION'] = cursor.execute("SELECT sqlite_version();").fetchone()[0]
-config['SQLITE_JOURNAL_MODE'] = cursor.execute('PRAGMA journal_mode;').fetchone()[0]
-config['SQLITE_OPTIONS'] = [option[0] for option in cursor.execute('PRAGMA compile_options;').fetchall()]
+DYNAMIC_CONFIG_SCHEMA['SQLITE_VERSION'] = lambda c: cursor.execute("SELECT sqlite_version();").fetchone()[0]
+DYNAMIC_CONFIG_SCHEMA['SQLITE_JOURNAL_MODE'] = lambda c: cursor.execute('PRAGMA journal_mode;').fetchone()[0]
+DYNAMIC_CONFIG_SCHEMA['SQLITE_OPTIONS'] = lambda c: [option[0] for option in cursor.execute('PRAGMA compile_options;').fetchall()]
 cursor.close()
 
 ########################### Config Validity Checkers ###########################
