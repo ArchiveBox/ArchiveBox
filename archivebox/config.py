@@ -359,8 +359,8 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     
     'SQLITE_BINARY':            {'default': lambda c: inspect.getfile(sqlite3)},
     'SQLITE_VERSION':           {'default': lambda c: sqlite3.version_info},
-    'SQLITE_JOURNAL_MODE':      {'default': lambda c: None},
-    'SQLITE_EXTENSIONS':        {'default': lambda c: []},
+    'SQLITE_JOURNAL_MODE':      {'default': lambda c: None},   # set at runtime below
+    'SQLITE_OPTIONS':           {'default': lambda c: []},     # set at runtime below
 
     'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
     'CURL_VERSION':             {'default': lambda c: bin_version(c['CURL_BINARY']) if c['USE_CURL'] else None},
@@ -861,7 +861,7 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'version': config['SQLITE_VERSION'],
             'hash': bin_hash(config['SQLITE_BINARY']),
             'enabled': True,
-            'is_valid': bool(config['SQLITE_VERSION']) and ('JSON1' in config['SQLITE_EXTENSIONS']),
+            'is_valid': bool(config['SQLITE_VERSION']) and ('ENABLE_JSON1' in config['SQLITE_OPTIONS']),
         },
         'CURL_BINARY': {
             'path': bin_path(config['CURL_BINARY']),
@@ -1004,6 +1004,11 @@ if not CONFIG['CHECK_SSL_VALIDITY']:
     requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# get SQLite database version, compile options, and runtime options
+with sqlite3.connect(':memory:').cursor() as cursor:
+    config['SQLITE_VERSION'] = cursor.execute("SELECT sqlite_version();").fetchone()[0]
+    config['SQLITE_JOURNAL_MODE'] = cursor.execute('PRAGMA journal_mode;').fetchone()[0]
+    config['SQLITE_OPTIONS'] = [option[0] for option in cursor.execute('PRAGMA compile_options;').fetchall()]
 
 ########################### Config Validity Checkers ###########################
 
@@ -1099,6 +1104,7 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
         stderr('    If you want to disable media archiving entirely, set SAVE_MEDIA=False instead:')
         stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#save_media')
         stderr()
+
         
 def check_data_folder(out_dir: Union[str, Path, None]=None, config: ConfigDict=CONFIG) -> None:
     output_dir = out_dir or config['OUTPUT_DIR']
@@ -1215,11 +1221,6 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
             assert sql_index_path.exists(), (
                 f'No database file {SQL_INDEX_FILENAME} found in: {config["OUTPUT_DIR"]} (Are you in an ArchiveBox collection directory?)')
-
-        with connection.cursor() as cursor:
-            config['SQLITE_VERSION'] = cursor.execute("SELECT sqlite_version();").fetchone()[0]
-            config['SQLITE_JOURNAL_MODE'] = cursor.execute('PRAGMA journal_mode;').fetchone()[0]
-            config['SQLITE_EXTENSIONS'] = ['JSON1'] if ('ENABLE_JSON1',) in cursor.execute('PRAGMA compile_options;').fetchall() else []
 
     except KeyboardInterrupt:
         raise SystemExit(2)
