@@ -231,7 +231,7 @@ def version(quiet: bool=False,
             f'IS_TTY={IS_TTY}',
             f'TZ={TIMEZONE}',
             f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',
-            f'FS={"remote" if fs_is_mount else "local" {"atomic" if ENFORCE_ATOMIC_WRITES else "non-atomic"} {PUID}:{PGID} ({OUTPUT_PERMISSIONS})',
+            f'FS={"remote" if fs_is_mount else "local"} {"atomic" if ENFORCE_ATOMIC_WRITES else "non-atomic"} {PUID}:{PGID} ({OUTPUT_PERMISSIONS})',
             f'SEARCH_BACKEND_ENGINE={SEARCH_BACKEND_ENGINE}',
         )
         print()
