@@ -209,8 +209,6 @@ def help(out_dir: Path=OUTPUT_DIR) -> None:
 def version(quiet: bool=False,
             out_dir: Path=OUTPUT_DIR) -> None:
     """Print the ArchiveBox version and dependency information"""
-
-    from django.conf import settings
     
     if quiet:
         print(VERSION)
@@ -226,13 +224,14 @@ def version(quiet: bool=False,
             platform.platform(),
             p.machine,
         )
+        fs_is_mount = os.path.ismount(ARCHIVE_DIR)
         print(
             f'IN_DOCKER={IN_DOCKER}',
             f'DEBUG={DEBUG}',
             f'IS_TTY={IS_TTY}',
             f'TZ={TIMEZONE}',
-            f'DB={settings.DATABASES["default"]["engine"]} (({CONFIG["SQLITE_JOURNAL_MODE"]} {CONFIG["SQLITE_EXTENSIONS"]})',
-            f'FS={"atomic" if ENFORCE_ATOMIC_WRITES else "non-atomic"} {PUID}:{PGID} ({OUTPUT_PERMISSIONS})',
+            f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',
+            f'FS={"remote" if fs_is_mount else "local" {"atomic" if ENFORCE_ATOMIC_WRITES else "non-atomic"} {PUID}:{PGID} ({OUTPUT_PERMISSIONS})',
             f'SEARCH_BACKEND_ENGINE={SEARCH_BACKEND_ENGINE}',
         )
         print()
