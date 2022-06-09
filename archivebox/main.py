@@ -220,7 +220,7 @@ def version(quiet: bool=False,
         
         COMMIT_HASH = None
         try:
-            COMMIT_HASH = list((PACKAGE_DIR / '.git/refs/heads/').glob('*'))[0].read_text()
+            COMMIT_HASH = list((PACKAGE_DIR / '../.git/refs/heads/').glob('*'))[0].read_text()
         except Exception as e:
             print(e)
             pass
