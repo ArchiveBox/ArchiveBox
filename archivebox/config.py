@@ -26,11 +26,12 @@ import io
 import re
 import sys
 import json
+import inspect
 import getpass
 import platform
 import shutil
-import sqlite3
 import django
+from sqlite3 import dbapi2 as sqlite3
 
 from hashlib import md5
 from pathlib import Path
@@ -356,8 +357,8 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'DJANGO_BINARY':            {'default': lambda c: django.__file__.replace('__init__.py', 'bin/django-admin.py')},
     'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{} {} ({})'.format(*django.VERSION)},
     
-    'SQLITE_BINARY':            {'default': lambda c: 'sqlite3'},
-    'SQLITE_VERSION':           {'default': lambda c: None},
+    'SQLITE_BINARY':            {'default': lambda c: inspect.getfile(sqlite3)},
+    'SQLITE_VERSION':           {'default': lambda c: sqlite3.version_info},
     'SQLITE_JOURNAL_MODE':      {'default': lambda c: None},
     'SQLITE_EXTENSIONS':        {'default': lambda c: []},
 
