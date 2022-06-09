@@ -210,29 +210,41 @@ def version(quiet: bool=False,
             out_dir: Path=OUTPUT_DIR) -> None:
     """Print the ArchiveBox version and dependency information"""
     
-    if quiet:
+    print(VERSION)
+    
+    if not quiet:
+        # 0.5.6
+        # ArchiveBox v0.5.6 Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
+        # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 501:20 SEARCH_BACKEND=ripgrep
+        # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 501:20 SEARCH_BACKEND=ripgrep
         print(VERSION)
-    else:
-        # ArchiveBox v0.5.6
-        # Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
-        # IN_DOCKER=True USER=501:20 DEBUG=False IS_TTY=True TZ=UTC SEARCH_BACKEND_ENGINE=ripgrep
-        print('ArchiveBox v{}'.format(VERSION))
+        
+        COMMIT_HASH = None
+        try:
+            COMMIT_HASH = list(Path('.git/refs/heads/').glob('*'))[0].read_text() or list((SOURCE_DIR / '.git/refs/heads/').glob('*'))[0].read_text()
+        except Exception:
+            pass
+        
         p = platform.uname()
         print(
+            'ArchiveBox v{}'.format(VERSION),
+            *((COMMIT_HASH[7:],) if COMMIT_HASH else ()),
             sys.implementation.name.title(),
             p.system,
             platform.platform(),
             p.machine,
         )
-        fs_is_mount = os.path.ismount(ARCHIVE_DIR)
+        OUTPUT_IS_REMOTE_FS = bool(os.path.ismount(OUTPUT_DIR) or os.path.ismount(ARCHIVE_DIR))
         print(
-            f'IN_DOCKER={IN_DOCKER}',
             f'DEBUG={DEBUG}',
+            f'IN_DOCKER={IN_DOCKER}',
             f'IS_TTY={IS_TTY}',
             f'TZ={TIMEZONE}',
             #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
-            f'FS={"remote" if fs_is_mount else "local"} {"atomic" if ENFORCE_ATOMIC_WRITES else "non-atomic"} {PUID}:{PGID};({OUTPUT_PERMISSIONS})',
-            f'SEARCH_BACKEND_ENGINE={SEARCH_BACKEND_ENGINE}',
+            f'FS_ATOMIC={ENFORCE_ATOMIC_WRITES}',
+            f'FS_REMOTE={OUTPUT_IS_REMOTE_FS}',
+            f'FS_PERMS={OUTPUT_PERMISSIONS} {PUID}:{PGID}',
+            f'SEARCH_BACKEND={SEARCH_BACKEND_ENGINE}',
         )
         print()
 
