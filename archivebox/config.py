@@ -364,13 +364,13 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},
     'PYTHON_VERSION':           {'default': lambda c: '{}.{}.{}'.format(*sys.version_info[:3])},
 
-    'DJANGO_BINARY':            {'default': lambda c: django.__file__.replace('__init__.py', 'bin/django-admin.py')},
+    'DJANGO_BINARY':            {'default': lambda c: inspect.getfile(django)},
     'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{} {} ({})'.format(*django.VERSION)},
     
     'SQLITE_BINARY':            {'default': lambda c: inspect.getfile(sqlite3)},
     'SQLITE_VERSION':           {'default': lambda c: sqlite3.version},
-    'SQLITE_JOURNAL_MODE':      {'default': lambda c: None},   # set at runtime below
-    'SQLITE_OPTIONS':           {'default': lambda c: []},     # set at runtime below
+    #'SQLITE_JOURNAL_MODE':      {'default': lambda c: 'wal'},   # set at runtime below
+    #'SQLITE_OPTIONS':           {'default': lambda c: ['JSON1']},     # set at runtime below
 
     'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
     'CURL_VERSION':             {'default': lambda c: bin_version(c['CURL_BINARY']) if c['USE_CURL'] else None},
@@ -1010,6 +1010,14 @@ os.umask(0o777 - int(DIR_OUTPUT_PERMISSIONS, base=8))  # noqa: F821
 NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]).absolute() / 'node_modules' / '.bin'))
 sys.path.append(NODE_BIN_PATH)
 
+# OPTIONAL: also look around the host system for node modules to use
+#   avoid enabling this unless absolutely needed,
+#   having overlapping potential sources of libs is a big source of bugs/confusing to users
+# DEV_NODE_BIN_PATH = str((Path(CONFIG["PACKAGE_DIR"]).absolute() / '..' / 'node_modules' / '.bin'))
+# sys.path.append(DEV_NODE_BIN_PATH)
+# USER_NODE_BIN_PATH = str(Path('~/.node_modules/.bin').resolve())
+# sys.path.append(USER_NODE_BIN_PATH)
+
 # disable stderr "you really shouldnt disable ssl" warnings with library config
 if not CONFIG['CHECK_SSL_VALIDITY']:
     import urllib3
@@ -1018,12 +1026,12 @@ if not CONFIG['CHECK_SSL_VALIDITY']:
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # get SQLite database version, compile options, and runtime options
-# TODO: move this somewhere better, e.g. setup_django
-cursor = sqlite3.connect(':memory:').cursor()
+# TODO: make this a less hacky proper assertion checker helper function in somewhere like setup_django
+#cursor = sqlite3.connect(':memory:').cursor()
 #DYNAMIC_CONFIG_SCHEMA['SQLITE_VERSION'] = lambda c: cursor.execute("SELECT sqlite_version();").fetchone()[0]
-DYNAMIC_CONFIG_SCHEMA['SQLITE_JOURNAL_MODE'] = lambda c: cursor.execute('PRAGMA journal_mode;').fetchone()[0]
-DYNAMIC_CONFIG_SCHEMA['SQLITE_OPTIONS'] = lambda c: [option[0] for option in cursor.execute('PRAGMA compile_options;').fetchall()]
-cursor.close()
+#DYNAMIC_CONFIG_SCHEMA['SQLITE_JOURNAL_MODE'] = lambda c: cursor.execute('PRAGMA journal_mode;').fetchone()[0]
+#DYNAMIC_CONFIG_SCHEMA['SQLITE_OPTIONS'] = lambda c: [option[0] for option in cursor.execute('PRAGMA compile_options;').fetchall()]
+#cursor.close()
 
 ########################### Config Validity Checkers ###########################
 
