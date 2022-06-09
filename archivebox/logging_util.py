@@ -572,7 +572,7 @@ def printable_config(config: ConfigDict, prefix: str='') -> str:
 def printable_folder_status(name: str, folder: Dict) -> str:
     if folder['enabled']:
         if folder['is_valid']:
-            color, symbol, note = 'green', '√', 'valid'
+            color, symbol, note, num_files = 'green', '√', 'valid', ''
         else:
             color, symbol, note, num_files = 'red', 'X', 'invalid', '?'
     else:
@@ -587,6 +587,10 @@ def printable_folder_status(name: str, folder: Dict) -> str:
             )
         else:
             num_files = 'missing'
+        
+    if folder.get('is_mount'):
+        # add symbol @ next to filecount if path is a remote filesystem mount
+        num_files = f'{num_files} @' if num_files else '@'
 
     path = str(folder['path']).replace(str(OUTPUT_DIR), '.') if folder['path'] else ''
     if path and ' ' in path:
