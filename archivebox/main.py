@@ -216,13 +216,13 @@ def version(quiet: bool=False,
         # 0.5.6
         # ArchiveBox v0.5.6 Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
         # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 501:20 SEARCH_BACKEND=ripgrep
-        # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 501:20 SEARCH_BACKEND=ripgrep
-        print(VERSION)
+        # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 501:20 SEARCH_BACKEND=ripgrepw
         
         COMMIT_HASH = None
         try:
-            COMMIT_HASH = list(Path('.git/refs/heads/').glob('*'))[0].read_text() or list((SOURCE_DIR / '.git/refs/heads/').glob('*'))[0].read_text()
-        except Exception:
+            COMMIT_HASH = list((SOURCE_DIR / '.git/refs/heads/').glob('*'))[0].read_text()
+        except Exception as e:
+            print(e)
             pass
         
         p = platform.uname()
