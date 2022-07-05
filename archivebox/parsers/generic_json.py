@@ -17,6 +17,7 @@ def parse_generic_json_export(json_file: IO[str], **_kwargs) -> Iterable[Link]:
     """Parse JSON-format bookmarks export files (produced by pinboard.in/export/, or wallabag)"""
 
     json_file.seek(0)
+    next(json_file)
     links = json.load(json_file)
     json_date = lambda s: datetime.strptime(s, '%Y-%m-%dT%H:%M:%S%z')
 
