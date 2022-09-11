@@ -1,8 +1,6 @@
 name: Run linters
 
-on:
-  workflow_dispatch:
-  push:
+on: [push]
 
 env:
   MAX_LINE_LENGTH: 110
