@@ -1,6 +1,8 @@
 # This is the Dockerfile for ArchiveBox, it bundles the following dependencies:
 #     python3, ArchiveBox, curl, wget, git, chromium, youtube-dl, single-file
 # Usage:
+#     git submodule update --init --recursive
+#     git pull --recurse-submodules
 #     docker build . -t archivebox --no-cache
 #     docker run -v "$PWD/data":/data archivebox init
 #     docker run -v "$PWD/data":/data archivebox add 'https://example.com'
