@@ -143,11 +143,12 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                 with open(ERROR_LOG, "a", encoding='utf-8') as f:
                     command = ' '.join(sys.argv)
                     ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
-                    f.write(("\n" + 'Exception in archive_methods.save_{}(Link(url={}))'.format(
+                    f.write(("\n" + 'Exception in archive_methods.save_{}(Link(url={})) command={}'.format(
                         method_name,
                         link.url,
+                        command
                     ) + "\n"))
-                    f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
+                    #f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
 
         # print('    ', stats)
 
