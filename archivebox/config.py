@@ -149,6 +149,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--yes-playlist',
                                                                 '--continue',
                                                                 '--ignore-errors',
+                                                                # This flag doesn't exist in youtube-dl
+                                                                # only in yt-dlp
                                                                 '--no-abort-on-error',
                                                                 '--geo-bypass',
                                                                 '--add-metadata',

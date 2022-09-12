@@ -33,7 +33,7 @@ def should_save_media(link: Link, out_dir: Optional[Path]=None, overwrite: Optio
 
 @enforce_types
 def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIMEOUT) -> ArchiveResult:
-    """Download playlists or individual video, audio, and subtitles using youtube-dl"""
+    """Download playlists or individual video, audio, and subtitles using youtube-dl or yt-dlp"""
 
     out_dir = out_dir or Path(link.link_dir)
     output: ArchiveOutput = 'media'
@@ -61,7 +61,7 @@ def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIME
                 pass
             else:
                 hints = (
-                    'Got youtube-dl response code: {}.'.format(result.returncode),
+                    'Got youtube-dl (or yt-dlp) response code: {}.'.format(result.returncode),
                     *result.stderr.decode().split('\n'),
                 )
                 raise ArchiveError('Failed to save media', hints)
