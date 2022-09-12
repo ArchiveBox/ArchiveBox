@@ -91,7 +91,7 @@ echo "    This is a helper script which installs the ArchiveBox dependencies on 
 echo "    You may be prompted for a sudo password in order to install the following:"
 echo ""
 echo "        - archivebox"
-echo "        - python3, pip, nodejs, npm    	     (languages used by ArchiveBox, and its extractor modules)"
+echo "        - python3, pip, nodejs, npm            (languages used by ArchiveBox, and its extractor modules)"
 echo "        - curl, wget, git, youtube-dl, yt-dlp  (used for extracting title, favicon, git, media, and more)"
 echo "        - chromium                             (skips this if any Chrome/Chromium version is already installed)"
 echo ""
