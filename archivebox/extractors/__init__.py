@@ -1,6 +1,7 @@
 __package__ = 'archivebox.extractors'
 
 import os
+import sys
 from pathlib import Path
 
 from typing import Optional, List, Iterable, Union
