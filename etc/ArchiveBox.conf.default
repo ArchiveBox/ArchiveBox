@@ -55,7 +55,7 @@
 # CURL_BINARY = curl
 # GIT_BINARY = git
 # WGET_BINARY = wget
-# YOUTUBEDL_BINARY = youtube-dl
+# YOUTUBEDL_BINARY = yt-dlp
 # CHROME_BINARY = chromium
 
 # CHROME_USER_DATA_DIR="~/.config/google-chrome/Default"

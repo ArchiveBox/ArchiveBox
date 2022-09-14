@@ -24,3 +24,6 @@ data1/
 data2/
 data3/
 output/
+
+# vim
+*.sw?

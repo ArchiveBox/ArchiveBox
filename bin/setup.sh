@@ -91,9 +91,9 @@ echo "    This is a helper script which installs the ArchiveBox dependencies on 
 echo "    You may be prompted for a sudo password in order to install the following:"
 echo ""
 echo "        - archivebox"
-echo "        - python3, pip, nodejs, npm    (languages used by ArchiveBox, and its extractor modules)"
-echo "        - curl, wget, git, youtube-dl  (used for extracting title, favicon, git, media, and more)"
-echo "        - chromium                     (skips this if any Chrome/Chromium version is already installed)"
+echo "        - python3, pip, nodejs, npm            (languages used by ArchiveBox, and its extractor modules)"
+echo "        - curl, wget, git, youtube-dl, yt-dlp  (used for extracting title, favicon, git, media, and more)"
+echo "        - chromium                             (skips this if any Chrome/Chromium version is already installed)"
 echo ""
 echo "    If you'd rather install these manually as-needed, you can find detailed documentation here:"
 echo "        https://github.com/ArchiveBox/ArchiveBox/wiki/Install"
@@ -115,7 +115,7 @@ if which apt-get > /dev/null; then
     fi
     echo
     echo "[+] Installing ArchiveBox system dependencies using apt..."
-    sudo apt-get install -y git python3 python3-pip python3-distutils wget curl youtube-dl ffmpeg git nodejs npm ripgrep
+    sudo apt-get install -y git python3 python3-pip python3-distutils wget curl youtube-dl yt-dlp ffmpeg git nodejs npm ripgrep
     sudo apt-get install -y libgtk2.0-0 libgtk-3-0 libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb libgbm-dev || sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser || true
     sudo apt-get install -y archivebox
     sudo apt-get --only-upgrade install -y archivebox

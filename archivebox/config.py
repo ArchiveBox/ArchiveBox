@@ -146,10 +146,12 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--all-subs',
                                                                 # There are too many of these and youtube
                                                                 # throttles you with HTTP error 429
-                                                                #'--write-auto-sub',
+                                                                #'--write-auto-subs',
                                                                 '--convert-subs=srt',
                                                                 '--yes-playlist',
                                                                 '--continue',
+                                                                # This flag doesn't exist in youtube-dl
+                                                                # only in yt-dlp
                                                                 '--no-abort-on-error',
                                                                 # --ignore-errors must come AFTER
                                                                 # --no-abort-on-error
@@ -208,7 +210,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SINGLEFILE_BINARY':        {'type': str,   'default': lambda c: bin_path('single-file')},
         'READABILITY_BINARY':       {'type': str,   'default': lambda c: bin_path('readability-extractor')},
         'MERCURY_BINARY':           {'type': str,   'default': lambda c: bin_path('mercury-parser')},
-        'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
+        #'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
+        'YOUTUBEDL_BINARY':         {'type': str,   'default': 'yt-dlp'},
         'NODE_BINARY':              {'type': str,   'default': 'node'},
         'RIPGREP_BINARY':           {'type': str,   'default': 'rg'},
         'CHROME_BINARY':            {'type': str,   'default': None},

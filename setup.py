@@ -42,6 +42,7 @@ INSTALL_REQUIRES = [
     "django-extensions>=3.0.3",
     "dateparser>=1.0.0",
     "youtube-dl>=2021.04.17",
+    "yt-dlp>=2021.4.11",
     "python-crontab>=2.5.1",
     "croniter>=0.3.34",
     "w3lib>=1.22.0",
