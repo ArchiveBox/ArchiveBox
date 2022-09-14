@@ -144,12 +144,17 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--no-call-home',
                                                                 '--write-sub',
                                                                 '--all-subs',
-                                                                '--write-auto-sub',
+                                                                # There are too many of these and youtube
+                                                                # throttles you with HTTP error 429
+                                                                #'--write-auto-sub',
                                                                 '--convert-subs=srt',
                                                                 '--yes-playlist',
                                                                 '--continue',
-                                                                '--ignore-errors',
                                                                 '--no-abort-on-error',
+                                                                # --ignore-errors must come AFTER
+                                                                # --no-abort-on-error
+                                                                # https://github.com/yt-dlp/yt-dlp/issues/4914
+                                                                '--ignore-errors',
                                                                 '--geo-bypass',
                                                                 '--add-metadata',
                                                                 '--max-filesize={}'.format(c['MEDIA_MAX_SIZE']),
