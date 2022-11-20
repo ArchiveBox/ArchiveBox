@@ -154,7 +154,7 @@ def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: 
 
     for entry in raw_text.split():
         try:
-            if Path(entry).exists:
+            if Path(entry).exists():
                 referenced_texts += Path(entry).read_text()
         except Exception as err:
             print(err)
