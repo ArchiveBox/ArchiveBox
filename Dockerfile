@@ -1,6 +1,8 @@
 # This is the Dockerfile for ArchiveBox, it bundles the following dependencies:
 #     python3, ArchiveBox, curl, wget, git, chromium, youtube-dl, single-file
 # Usage:
+#     git submodule update --init --recursive
+#     git pull --recurse-submodules
 #     docker build . -t archivebox --no-cache
 #     docker run -v "$PWD/data":/data archivebox init
 #     docker run -v "$PWD/data":/data archivebox add 'https://example.com'
@@ -9,6 +11,9 @@
 # Multi-arch build:
 #     docker buildx create --use
 #     docker buildx build . --platform=linux/amd64,linux/arm64,linux/arm/v7 --push -t archivebox/archivebox:latest -t archivebox/archivebox:dev
+#
+# Read more about [developing
+# Archivebox](https://github.com/ArchiveBox/ArchiveBox#archivebox-development).
 
 
 FROM python:3.10-slim-bullseye
