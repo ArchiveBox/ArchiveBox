@@ -77,7 +77,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
 
         output_folder.mkdir(exist_ok=True)
         readability_content = result_json.pop("textContent") 
-        atomic_write(str(output_folder / "content.html"), result_json.pop("content"))
+        atomic_write(str(output_folder / "content.html"), '<meta charset="UTF-8">\n' + result_json.pop("content"))
         atomic_write(str(output_folder / "content.txt"), readability_content)
         atomic_write(str(output_folder / "article.json"), result_json)
 
