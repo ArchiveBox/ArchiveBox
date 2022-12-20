@@ -128,7 +128,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                 else:
                     # print('{black}      X {}{reset}'.format(method_name, **ANSI))
                     stats['skipped'] += 1
-            except Exception:
+            except Exception as e:
                 # Disabled until https://github.com/ArchiveBox/ArchiveBox/issues/984
                 # and https://github.com/ArchiveBox/ArchiveBox/issues/1014
                 # are fixed.
