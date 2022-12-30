@@ -132,12 +132,13 @@ elif which brew > /dev/null; then
     echo "[+] Installing ArchiveBox python dependencies using pip3..."
     python3 -m pip install --upgrade --ignore-installed archivebox
 elif which pkg > /dev/null; then
-    echo "[+] Installing ArchiveBox system dependencies using pkg and pip37 (python3.7)..."
-    sudo pkg install -y python37 py37-pip py37-sqlite3 node npm wget curl youtube_dl ffmpeg git ripgrep
+    echo "[+] Installing ArchiveBox system dependencies using pkg and pip (python3.9)..."
+    sudo pkg install -y python3 py39-pip py39-sqlite3 npm wget curl youtube_dl ffmpeg git ripgrep
     sudo pkg install -y chromium
     echo ""
-    echo "[+] Installing ArchiveBox python dependencies using pip37..."
-    sudo python3 -m pip install --upgrade --ignore-installed archivebox
+    echo "[+] Installing ArchiveBox python dependencies using pip..."
+    # don't use sudo here so that pip installs in $HOME/.local instead of into /usr/local
+    python3 -m pip install --upgrade --ignore-installed archivebox
 else
     echo "[!] Warning: Could not find aptitude/homebrew/pkg! May not be able to install all dependencies automatically."
     echo ""
@@ -191,7 +192,7 @@ echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized
 echo "    cd ~/archivebox"
 echo "    ps aux | grep archivebox"
 echo "    pkill -f archivebox"
-echo "    pip3 install --upgrade archivebox"
+echo "    python3 -m pip install --upgrade archivebox"
 echo "    archivebox server --quick-init 0.0.0.0:8000"
 echo "    archivebox manage createsuperuser"
 echo "    archivebox add 'https://example.com'"
