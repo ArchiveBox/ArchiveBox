@@ -1,8 +1,11 @@
 __package__ = 'archivebox.core'
 
+import ipaddress
 from django.utils import timezone
+from django.contrib.auth.middleware import RemoteUserMiddleware
+from django.core.exceptions import ImproperlyConfigured
 
-from ..config import PUBLIC_SNAPSHOTS
+from ..config import PUBLIC_SNAPSHOTS, REVERSE_PROXY_USER_HEADER, REVERSE_PROXY_WHITELIST
 
 
 def detect_timezone(request, activate: bool=True):
@@ -35,3 +38,23 @@ def CacheControlMiddleware(get_response):
         return response
 
     return middleware
+
+class ReverseProxyAuthMiddleware(RemoteUserMiddleware):
+    header = 'HTTP_{normalized}'.format(normalized=REVERSE_PROXY_USER_HEADER.replace('-', '_').upper())
+
+    def process_request(self, request):
+        if REVERSE_PROXY_WHITELIST == '':
+            return
+
+        ip = request.META.get('REMOTE_ADDR')
+
+        for cidr in REVERSE_PROXY_WHITELIST.split(','):
+            try:
+                network = ipaddress.ip_network(cidr)
+            except ValueError:
+                raise ImproperlyConfigured(
+                    "The REVERSE_PROXY_WHITELIST config paramater is in invalid format, or "
+                    "contains invalid CIDR. Correct format is a coma-separated list of IPv4/IPv6 CIDRs.")
+
+            if ipaddress.ip_address(ip) in network:
+                return super().process_request(request)

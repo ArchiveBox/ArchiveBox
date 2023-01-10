@@ -34,7 +34,8 @@ WSGI_APPLICATION = 'core.wsgi.application'
 ROOT_URLCONF = 'core.urls'
 
 LOGIN_URL = '/accounts/login/'
-LOGOUT_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = os.environ.get('LOGOUT_REDIRECT_URL', '/')
+
 PASSWORD_RESET_URL = '/accounts/password_reset/'
 APPEND_SLASH = True
 
@@ -61,11 +62,13 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.ReverseProxyAuthMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'core.middleware.CacheControlMiddleware',
 ]
 
 AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.RemoteUserBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
 

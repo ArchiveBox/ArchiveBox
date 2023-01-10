@@ -89,18 +89,23 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
     },
 
     'SERVER_CONFIG': {
-        'SECRET_KEY':               {'type': str,   'default': None},
-        'BIND_ADDR':                {'type': str,   'default': lambda c: ['127.0.0.1:8000', '0.0.0.0:8000'][c['IN_DOCKER']]},
-        'ALLOWED_HOSTS':            {'type': str,   'default': '*'},
-        'DEBUG':                    {'type': bool,  'default': False},
-        'PUBLIC_INDEX':             {'type': bool,  'default': True},
-        'PUBLIC_SNAPSHOTS':         {'type': bool,  'default': True},
-        'PUBLIC_ADD_VIEW':          {'type': bool,  'default': False},
-        'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
-        'SNAPSHOTS_PER_PAGE':       {'type': int,   'default': 40},
-        'CUSTOM_TEMPLATES_DIR':     {'type': str,   'default': None},
+        'SECRET_KEY':                {'type': str,   'default': None},
+        'BIND_ADDR':                 {'type': str,   'default': lambda c: ['127.0.0.1:8000', '0.0.0.0:8000'][c['IN_DOCKER']]},
+        'ALLOWED_HOSTS':             {'type': str,   'default': '*'},
+        'DEBUG':                     {'type': bool,  'default': False},
+        'PUBLIC_INDEX':              {'type': bool,  'default': True},
+        'PUBLIC_SNAPSHOTS':          {'type': bool,  'default': True},
+        'PUBLIC_ADD_VIEW':           {'type': bool,  'default': False},
+        'FOOTER_INFO':               {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
+        'SNAPSHOTS_PER_PAGE':        {'type': int,   'default': 40},
+        'CUSTOM_TEMPLATES_DIR':      {'type': str,   'default': None},
+        'TIME_ZONE':                 {'type': str,   'default': 'UTC'},
         'TIMEZONE':                 {'type': str,   'default': 'UTC'},
+        'REVERSE_PROXY_USER_HEADER': {'type': str,   'default': 'Remote-User'},
+        'REVERSE_PROXY_WHITELIST':   {'type': str,   'default': ''},
+        'LOGOUT_REDIRECT_URL':       {'type': str,   'default': '/'},
         'PREVIEW_ORIGINALS':        {'type': bool,  'default': True},
+        'LOGOUT_REDIRECT_URL':   {'type': str,   'default': '/'},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
@@ -161,7 +166,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--add-metadata',
                                                                 '--max-filesize={}'.format(c['MEDIA_MAX_SIZE']),
                                                                 ]},
-                                                                    
+
 
         'WGET_ARGS':                {'type': list,  'default': ['--no-verbose',
                                                                 '--adjust-extension',
@@ -204,7 +209,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'USE_NODE':                 {'type': bool,  'default': True},
         'USE_YOUTUBEDL':            {'type': bool,  'default': True},
         'USE_RIPGREP':              {'type': bool,  'default': True},
-        
+
         'CURL_BINARY':              {'type': str,   'default': 'curl'},
         'GIT_BINARY':               {'type': str,   'default': 'git'},
         'WGET_BINARY':              {'type': str,   'default': 'wget'},
@@ -286,7 +291,7 @@ STATICFILE_EXTENSIONS = {
     # that can be downloaded as-is, not html pages that need to be rendered
     'gif', 'jpeg', 'jpg', 'png', 'tif', 'tiff', 'wbmp', 'ico', 'jng', 'bmp',
     'svg', 'svgz', 'webp', 'ps', 'eps', 'ai',
-    'mp3', 'mp4', 'm4a', 'mpeg', 'mpg', 'mkv', 'mov', 'webm', 'm4v', 
+    'mp3', 'mp4', 'm4a', 'mpeg', 'mpg', 'mkv', 'mov', 'webm', 'm4v',
     'flv', 'wmv', 'avi', 'ogg', 'ts', 'm3u8',
     'pdf', 'txt', 'rtf', 'rtfd', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
     'atom', 'rss', 'css', 'js', 'json',
@@ -295,7 +300,7 @@ STATICFILE_EXTENSIONS = {
 
     # Less common extensions to consider adding later
     # jar, swf, bin, com, exe, dll, deb
-    # ear, hqx, eot, wmlc, kml, kmz, cco, jardiff, jnlp, run, msi, msp, msm, 
+    # ear, hqx, eot, wmlc, kml, kmz, cco, jardiff, jnlp, run, msi, msp, msm,
     # pl pm, prc pdb, rar, rpm, sea, sit, tcl tk, der, pem, crt, xpi, xspf,
     # ra, mng, asx, asf, 3gpp, 3gp, mid, midi, kar, jad, wml, htc, mml
 
@@ -423,14 +428,14 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] or find_chrome_binary()},
     'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and c['CHROME_BINARY'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'] or c['SAVE_SINGLEFILE'])},
     'CHROME_VERSION':           {'default': lambda c: bin_version(c['CHROME_BINARY']) if c['USE_CHROME'] else None},
-    
+
     'SAVE_PDF':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_PDF']},
     'SAVE_SCREENSHOT':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SCREENSHOT']},
     'SAVE_DOM':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_DOM']},
     'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SINGLEFILE'] and c['USE_NODE']},
     'SAVE_READABILITY':         {'default': lambda c: c['USE_READABILITY'] and c['USE_NODE']},
     'SAVE_MERCURY':             {'default': lambda c: c['USE_MERCURY'] and c['USE_NODE']},
-    
+
     'USE_NODE':                 {'default': lambda c: c['USE_NODE'] and (c['SAVE_READABILITY'] or c['SAVE_SINGLEFILE'] or c['SAVE_MERCURY'])},
     'NODE_VERSION':             {'default': lambda c: bin_version(c['NODE_BINARY']) if c['USE_NODE'] else None},
 
@@ -480,7 +485,7 @@ def load_config_val(key: str,
         elif val.lower() in ('false', 'no', '0'):
             return False
         else:
-            raise ValueError(f'Invalid configuration option {key}={val} (expected a boolean: True/False)') 
+            raise ValueError(f'Invalid configuration option {key}={val} (expected a boolean: True/False)')
 
     elif type is str:
         if val.lower() in ('true', 'false', 'yes', 'no', '1', '0'):
@@ -505,7 +510,7 @@ def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
     config_path = Path(out_dir) / CONFIG_FILENAME
     if config_path.exists():
         config_file = ConfigParser()
-        config_file.optionxform = str 
+        config_file.optionxform = str
         config_file.read(config_path)
         # flatten into one namespace
         config_file_vars = {
@@ -529,7 +534,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
     #
     # You can add options here manually in INI format, or automatically by running:
     #    archivebox config --set KEY=VALUE
-    # 
+    #
     # If you modify this file manually, make sure to update your archive after by running:
     #    archivebox init
     #
@@ -540,7 +545,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
 
     out_dir = out_dir or Path(os.getenv('OUTPUT_DIR', '.')).resolve()
     config_path = Path(out_dir) /  CONFIG_FILENAME
-    
+
     if not config_path.exists():
         atomic_write(config_path, CONFIG_HEADER)
 
@@ -578,7 +583,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
 
     with open(config_path, 'w+', encoding='utf-8') as new:
         config_file.write(new)
-    
+
     try:
         # validate the config by attempting to re-parse it
         CONFIG = load_all_config()
@@ -591,20 +596,20 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
 
     if Path(f'{config_path}.bak').exists():
         os.remove(f'{config_path}.bak')
-    
+
     return {
         key.upper(): CONFIG.get(key.upper())
         for key in config.keys()
     }
 
-   
+
 
 def load_config(defaults: ConfigDefaultDict,
                 config: Optional[ConfigDict]=None,
                 out_dir: Optional[str]=None,
                 env_vars: Optional[os._Environ]=None,
                 config_file_vars: Optional[Dict[str, str]]=None) -> ConfigDict:
-    
+
     env_vars = env_vars or os.environ
     config_file_vars = config_file_vars or load_config_file(out_dir=out_dir)
 
@@ -634,7 +639,7 @@ def load_config(defaults: ConfigDefaultDict,
             stderr()
             # raise
             raise SystemExit(2)
-    
+
     return extended_config
 
 # def write_config(config: ConfigDict):
@@ -719,7 +724,7 @@ def bin_hash(binary: Optional[str]) -> Optional[str]:
     with io.open(abs_path, mode='rb') as f:
         for chunk in iter(lambda: f.read(io.DEFAULT_BUFFER_SIZE), b''):
             file_hash.update(chunk)
-            
+
     return f'md5:{file_hash.hexdigest()}'
 
 def find_chrome_binary() -> Optional[str]:
@@ -744,7 +749,7 @@ def find_chrome_binary() -> Optional[str]:
         full_path_exists = shutil.which(name)
         if full_path_exists:
             return name
-    
+
     return None
 
 def find_chrome_data_dir() -> Optional[str]:
@@ -1181,7 +1186,7 @@ def check_migrations(out_dir: Union[str, Path, None]=None, config: ConfigDict=CO
 
 def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, in_memory_db=False) -> None:
     check_system_config()
-    
+
     output_dir = out_dir or Path(config['OUTPUT_DIR'])
 
     assert isinstance(output_dir, Path) and isinstance(config['PACKAGE_DIR'], Path)
