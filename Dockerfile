@@ -1,5 +1,5 @@
 # This is the Dockerfile for ArchiveBox, it bundles the following dependencies:
-#     python3, ArchiveBox, curl, wget, git, chromium, youtube-dl, single-file
+#     python3, ArchiveBox, curl, wget, git, chromium, youtube-dl, yt-dlp, single-file
 # Usage:
 #     git submodule update --init --recursive
 #     git pull --recurse-submodules
