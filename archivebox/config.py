@@ -177,6 +177,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--compressed'
                                                                ]},
         'GIT_ARGS':                 {'type': list,  'default': ['--recursive']},
+        'SINGLEFILE_ARGS':          {'type': list,  'default' : None}
     },
 
     'SEARCH_BACKEND_CONFIG' : {
@@ -402,6 +403,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
 
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
+    'SINGLEFILE_ARGS':          {'default': lambda c: c['SINGLEFILE_ARGS'] or []},
 
     'USE_READABILITY':          {'default': lambda c: c['USE_READABILITY'] and c['SAVE_READABILITY']},
     'READABILITY_VERSION':      {'default': lambda c: bin_version(c['READABILITY_BINARY']) if c['USE_READABILITY'] else None},
