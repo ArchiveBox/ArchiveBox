@@ -91,9 +91,9 @@ echo "    This is a helper script which installs the ArchiveBox dependencies on 
 echo "    You may be prompted for a sudo password in order to install the following:"
 echo ""
 echo "        - archivebox"
-echo "        - python3, pip, nodejs, npm    (languages used by ArchiveBox, and its extractor modules)"
-echo "        - curl, wget, git, youtube-dl  (used for extracting title, favicon, git, media, and more)"
-echo "        - chromium                     (skips this if any Chrome/Chromium version is already installed)"
+echo "        - python3, pip, nodejs, npm            (languages used by ArchiveBox, and its extractor modules)"
+echo "        - curl, wget, git, youtube-dl, yt-dlp  (used for extracting title, favicon, git, media, and more)"
+echo "        - chromium                             (skips this if any Chrome/Chromium version is already installed)"
 echo ""
 echo "    If you'd rather install these manually as-needed, you can find detailed documentation here:"
 echo "        https://github.com/ArchiveBox/ArchiveBox/wiki/Install"
@@ -115,13 +115,13 @@ if which apt-get > /dev/null; then
     fi
     echo
     echo "[+] Installing ArchiveBox system dependencies using apt..."
-    sudo apt-get install -y git python3 python3-pip python3-distutils wget curl youtube-dl ffmpeg git nodejs npm ripgrep
+    sudo apt-get install -y git python3 python3-pip python3-distutils wget curl youtube-dl yt-dlp ffmpeg git nodejs npm ripgrep
     sudo apt-get install -y libgtk2.0-0 libgtk-3-0 libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb libgbm-dev || sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser || true
     sudo apt-get install -y archivebox
     sudo apt-get --only-upgrade install -y archivebox
     echo ""
-    echo "[+] Installing ArchiveBox python dependencies using pip..."
-    sudo python3.7 -m pip install --upgrade --ignore-installed archivebox
+    echo "[+] Installing ArchiveBox python dependencies using pip3..."
+    sudo python3 -m pip install --upgrade --ignore-installed archivebox
 # On Mac:
 elif which brew > /dev/null; then
     echo "[+] Installing ArchiveBox system dependencies using brew..."
@@ -129,16 +129,16 @@ elif which brew > /dev/null; then
     brew update
     brew install --fetch-HEAD -f archivebox
     echo ""
-    echo "[+] Installing ArchiveBox python dependencies using pip..."
+    echo "[+] Installing ArchiveBox python dependencies using pip3..."
     python3 -m pip install --upgrade --ignore-installed archivebox
 elif which pkg > /dev/null; then
-    echo "[+] Installing ArchiveBox system dependencies using pkg..."
-    sudo pkg install -y python37 py37-pip py37-sqlite3 node npm wget curl youtube_dl ffmpeg git ripgrep
+    echo "[+] Installing ArchiveBox system dependencies using pkg and pip (python3.9)..."
+    sudo pkg install -y python3 py39-pip py39-sqlite3 npm wget curl youtube_dl ffmpeg git ripgrep
     sudo pkg install -y chromium
     echo ""
     echo "[+] Installing ArchiveBox python dependencies using pip..."
-    sudo python3.7 -m pip install --upgrade --ignore-installed archivebox
-    alias python3=python3.7
+    # don't use sudo here so that pip installs in $HOME/.local instead of into /usr/local
+    python3 -m pip install --upgrade --ignore-installed archivebox
 else
     echo "[!] Warning: Could not find aptitude/homebrew/pkg! May not be able to install all dependencies automatically."
     echo ""
@@ -192,7 +192,7 @@ echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized
 echo "    cd ~/archivebox"
 echo "    ps aux | grep archivebox"
 echo "    pkill -f archivebox"
-echo "    pip3 install --upgrade archivebox"
+echo "    python3 -m pip install --upgrade archivebox"
 echo "    archivebox server --quick-init 0.0.0.0:8000"
 echo "    archivebox manage createsuperuser"
 echo "    archivebox add 'https://example.com'"

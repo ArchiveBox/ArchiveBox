@@ -33,7 +33,7 @@ def should_save_media(link: Link, out_dir: Optional[Path]=None, overwrite: Optio
 
 @enforce_types
 def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIMEOUT) -> ArchiveResult:
-    """Download playlists or individual video, audio, and subtitles using youtube-dl"""
+    """Download playlists or individual video, audio, and subtitles using youtube-dl or yt-dlp"""
 
     out_dir = out_dir or Path(link.link_dir)
     output: ArchiveOutput = 'media'
@@ -43,6 +43,7 @@ def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIME
         YOUTUBEDL_BINARY,
         *YOUTUBEDL_ARGS,
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate']),
+        # TODO: add --cookies-from-browser={CHROME_USER_DATA_DIR}
         link.url,
     ]
     status = 'succeeded'
@@ -60,7 +61,7 @@ def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIME
                 pass
             else:
                 hints = (
-                    'Got youtube-dl response code: {}.'.format(result.returncode),
+                    'Got youtube-dl (or yt-dlp) response code: {}.'.format(result.returncode),
                     *result.stderr.decode().split('\n'),
                 )
                 raise ArchiveError('Failed to save media', hints)
@@ -71,8 +72,18 @@ def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIME
         timer.end()
 
     # add video description and subtitles to full-text index
+    # Let's try a few different 
     index_texts = [
-        text_file.read_text(encoding='utf-8').strip()
+        # errors:
+        # * 'strict' to raise a ValueError exception if there is an
+        #   encoding error. The default value of None has the same effect.
+        # * 'ignore' ignores errors. Note that ignoring encoding errors
+        #   can lead to data loss.
+        # * 'xmlcharrefreplace' is only supported when writing to a
+        #   file. Characters not supported by the encoding are replaced with
+        #   the appropriate XML character reference &#nnn;.
+        # There are a few more options described in https://docs.python.org/3/library/functions.html#open
+        text_file.read_text(encoding='utf-8', errors='xmlcharrefreplace').strip()
         for text_file in (
             *output_path.glob('*.description'),
             *output_path.glob('*.srt'),

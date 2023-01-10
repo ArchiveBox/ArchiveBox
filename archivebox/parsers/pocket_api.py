@@ -47,11 +47,11 @@ def get_pocket_articles(api: Pocket, since=None, page=0):
 
 
 def link_from_article(article: dict, sources: list):
-    url: str = article['resolved_url'] or article['given_url']
+    url: str = article.get('resolved_url') or article['given_url']
     broken_protocol = _BROKEN_PROTOCOL_RE.match(url)
     if broken_protocol:
         url = url.replace(f'{broken_protocol.group(1)}:/', f'{broken_protocol.group(1)}://')
-    title = article['resolved_title'] or article['given_title'] or url
+    title = article.get('resolved_title') or article.get('given_title') or url
 
     return Link(
         url=url,

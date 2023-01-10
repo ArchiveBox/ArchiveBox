@@ -23,11 +23,12 @@ jobs:
           cd brew_dist/
           brew install --build-bottle ./archivebox.rb
           # brew bottle archivebox
+          archivebox version
 
       - name: Add some links to test
         run: |
           mkdir data && cd data
-          archivebox init
+          archivebox init --setup
           archivebox add 'https://example.com'
           archivebox version
           archivebox status

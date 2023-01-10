@@ -197,7 +197,7 @@
 
                             // select the action button from the dropdown
                             container.find('select[name=action]')
-                                .find('op:selected').removeAttr('selected').end()
+                                .find('[selected]').removeAttr('selected').end()
                                 .find('[value=' + action_type + ']').attr('selected', 'selected').click()
                             
                             // click submit & replace the archivebox logo with a spinner

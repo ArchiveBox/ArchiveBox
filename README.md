@@ -51,10 +51,13 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 <br/>
 
-**📦&nbsp; Get ArchiveBox with `docker-compose` / `docker` / `apt` / `brew` / `pip3` ([see Quickstart below](#quickstart)).**
+**📦&nbsp; Get ArchiveBox with Docker / `apt` / `brew` / `pip3` / etc. ([see Quickstart below](#quickstart)).**
 
 ```bash
-# Or use this auto setup script to install it for you (optional)
+# Follow the instructions for your package manager in the quickstart, e.g.:
+pip3 install archivebox
+
+# Or use the optional auto setup script to install it for you:
 curl -sSL 'https://get.archivebox.io' | sh
 ```
 
@@ -81,15 +84,15 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 ## Key Features
 
-- [**Free & open source**](https://github.com/ArchiveBox/ArchiveBox/blob/master/LICENSE), doesn't require signing up for anything, stores all data locally
+- [**Free & open source**](https://github.com/ArchiveBox/ArchiveBox/blob/master/LICENSE), doesn't require signing up online, stores all data locally
 - [**Powerful, intuitive command line interface**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) with [modular optional dependencies](#dependencies) 
 - [**Comprehensive documentation**](https://github.com/ArchiveBox/ArchiveBox/wiki), [active development](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap), and [rich community](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
-- [**Extracts a wide variety of content out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51): [media (youtube-dl), articles (readability), code (git), etc.](#output-formats)
+- [**Extracts a wide variety of content out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51): [media (youtube-dl or yt-dlp), articles (readability), code (git), etc.](#output-formats)
 - [**Supports scheduled/realtime importing**](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from [many types of sources](#input-formats)
 - [**Uses standard, durable, long-term formats**](#saves-lots-of-useful-stuff-for-each-imported-link) like HTML, JSON, PDF, PNG, and WARC
 - [**Usable as a oneshot CLI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [**self-hosted web UI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [Python API](https://docs.archivebox.io/en/latest/modules.html) (BETA), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (ALPHA), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (ALPHA)
-- [**Saves all pages to archive.org as well**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#submit_archive_dot_org) by default for redundancy (can be [disabled](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) for local-only mode)
-- Planned: support for archiving [content requiring a login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (working, but ill-advised until some pending fixes are released)
+- [**Saves all pages to archive.org as well**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#save_archive_dot_org) by default for redundancy (can be [disabled](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) for local-only mode)
+- Advanced users: support for archiving [content requiring login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (see wiki security caveats!)
 - Planned: support for running [JS during archiving](https://github.com/ArchiveBox/ArchiveBox/issues/51) to adblock, [autoscroll](https://github.com/ArchiveBox/ArchiveBox/issues/80), [modal-hide](https://github.com/ArchiveBox/ArchiveBox/issues/175), [thread-expand](https://github.com/ArchiveBox/ArchiveBox/issues/345)...
 
 <br/><br/>
@@ -165,14 +168,16 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </ol>
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
-See <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/bin/setup.sh"><code>setup.sh</code></a> for the source code of the auto-install script.
+See <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/bin/setup.sh"><code>setup.sh</code></a> for the source code of the auto-install script.<br/>
+See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as an install method"</a> blog post for my thoughts on the shortcomings of this install method.
 <br/><br/>
 </details>
 
 <br/>
 
-#### 🛠&nbsp; Manual Setup
+#### 🛠&nbsp; Package Manager Setup
 
+<a name="Manual-Setup"></a>
 <details>
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" alt="aptitude" height="28px" align="top"/> <code>apt</code></b> (Ubuntu/Debian)</summary>
 <br/>
@@ -272,7 +277,7 @@ See the <a href="https://github.com/ArchiveBox/pip-archivebox"><code>pip-archive
 <summary><img src="https://user-images.githubusercontent.com/511499/118077361-f0616580-b381-11eb-973c-ee894a3349fb.png" alt="Arch" height="28px" align="top"/> <code>pacman</code> / <img src="https://user-images.githubusercontent.com/511499/118077946-29e6a080-b383-11eb-94f0-d4871da08c3f.png" alt="FreeBSD" height="28px" align="top"/> <code>pkg</code> / <img src="https://user-images.githubusercontent.com/511499/118077861-002d7980-b383-11eb-86a7-5936fad9190f.png" alt="Nix" height="28px" align="top"/> <code>nix</code> (Arch/FreeBSD/NixOS/more)</summary>
 <br/>
 <ul>
-<li>Arch: <a href="https://aur.archlinux.org/packages/archivebox/"><code>pacman install archivebox</code></a> (contributed by <a href="https://github.com/imlonghao"><code>@imlonghao</code></a>)</li>
+<li>Arch: <a href="https://aur.archlinux.org/packages/archivebox/"><code>yay -S archivebox</code></a> (contributed by <a href="https://github.com/imlonghao"><code>@imlonghao</code></a>)</li>
 <li>FreeBSD: <a href="https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup"><code>curl -sSL 'https://get.archivebox.io' | sh</code></a> (uses <code>pkg</code> + <code>pip3</code> under-the-hood)</li>
 <li>Nix: <a href="https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/archivebox/default.nix"><code>nix-env --install archivebox</code></a> (contributed by <a href="https://github.com/siraben"><code>@siraben</code></a>)</li>
 <li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distribution...!</i></a></li>
@@ -316,6 +321,7 @@ None of these hosting providers are officially endorsed:<br/>
 <sub><i>(most still require manual setup or manual periodic updating using the methods above)</i></sub>
 <br/><br/>
 <li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-StellarHosted.com-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
+<li><a href="https://www.pikapods.com/pods?run=archivebox"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-PikaPods.com-%2343a047.svg?style=flat" height="22px"/></a> (from USD $2.6/mo)</li>
 <li><a href="https://m.do.co/c/cbc4c0c17840">
  <img src="https://img.shields.io/badge/Unmanaged_VPS-DigitalOcean.com-%232f7cf7.svg?style=flat" height="22px"/>
 </a> (USD $5-50+/mo, <a href="https://m.do.co/c/cbc4c0c17840">🎗&nbsp; referral link</a>, <a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-compose-on-ubuntu-20-04">instructions</a>)</li>
@@ -341,7 +347,7 @@ For more discussion on managed and paid hosting options see here: <a href="https
 
 - Import URLs from some of the supported [Input Formats](#input-formats) or view the supported [Output Formats](#output-formats)...
 - Tweak your UI or archiving behavior [Configuration](#configuration) or read about some of the [Caveats](#caveats) and troubleshooting steps...
-- Read about the [Dependencies](#dependencies) used for archiving or the [Archive Layout](#archive-layout) on disk...
+- Read about the [Dependencies](#dependencies) used for archiving, the [Upgrading Process](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives), or the [Archive Layout](#archive-layout) on disk...
 - Or check out our full [Documentation](#documentation) or [Community Wiki](#internet-archiving-ecosystem)...
 
 <br/>
@@ -362,13 +368,13 @@ archivebox help
 
 - `archivebox setup/init/config/status/manage` to administer your collection
 - `archivebox add/schedule/remove/update/list/shell/oneshot` to manage Snapshots in the archive
-- `archivebox schedule` to pull in fresh URLs in regularly from [boorkmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
+- `archivebox schedule` to pull in fresh URLs in regularly from [bookmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
 
 #### 🖥&nbsp; Web UI Usage
 
 ```bash
-archivebox manage createsuperuser
-archivebox server 0.0.0.0:8000   # open http://127.0.0.1:8000 to view it
+archivebox manage createsuperuser  # set an admin password
+archivebox server 0.0.0.0:8000     # open http://127.0.0.1:8000 to view it
 
 # you can also configure whether or not login is required for most features
 archivebox config --set PUBLIC_INDEX=False
@@ -419,6 +425,7 @@ ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exp
 
 - <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> TXT, RSS, XML, JSON, CSV, SQL, HTML, Markdown, or [any other text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)
 - <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> [Browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (see instructions for: [Chrome](https://support.google.com/chrome/answer/96816?hl=en), [Firefox](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari](http://i.imgur.com/AtcvUZA.png), [IE](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows), [Opera](http://help.opera.com/Windows/12.10/en/importexport.html), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive))
+- <img src="https://i.imgur.com/AQyHbu8.png" height="22px"/> Browser extension [`archivebox-exporter`](https://github.com/tjhorner/archivebox-exporter) (realtime archiving from Chrome/Chromium/Firefox)
 - <img src="https://getpocket.com/favicon.ico" height="22px"/> [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Instapaper](https://www.instapaper.com/user/export), [Shaarli](https://shaarli.readthedocs.io/en/master/Usage/#importexport), [Delicious](https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/), [Reddit Saved](https://github.com/csu/export-saved-reddit), [Wallabag](https://doc.wallabag.org/en/user/import/wallabagv2.html), [Unmark.it](http://help.unmark.it/import-export), [OneTab](https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
 
 <img src="https://i.imgur.com/zM4z1aU.png" width="330px" align="right">
@@ -462,7 +469,7 @@ Inside each Snapshot folder, ArchiveBox save these different types of extractor 
   - **DOM Dump:** `output.html` DOM Dump of the HTML after rendering using headless chrome
 - **Article Text:** `article.html/json` Article text extraction using Readability & Mercury
 - **Archive.org Permalink:** `archive.org.txt` A link to the saved site on archive.org
-- **Audio & Video:** `media/` all audio/video files + playlists, including subtitles & metadata with youtube-dl
+- **Audio & Video:** `media/` all audio/video files + playlists, including subtitles & metadata with youtube-dl (or yt-dlp)
 - **Source Code:** `git/` clone of any repository found on GitHub, Bitbucket, or GitLab links
 - _More coming soon! See the [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap)..._
 
@@ -522,7 +529,7 @@ To achieve high fidelity archives in as many situations as possible, ArchiveBox 
 - `node` & `npm` (for readability, mercury, and singlefile)
 - `wget` (for plain HTML, static files, and WARC saving)
 - `curl` (for fetching headers, favicon, and posting to Archive.org)
-- `youtube-dl` (for audio, video, and subtitles)
+- `youtube-dl` or `yt-dlp` (for audio, video, and subtitles)
 - `git` (for cloning git repos)
 - and more as we grow...
 
@@ -538,8 +545,9 @@ archivebox setup       # auto install all the extractors and extras
 archivebox --version   # see info and check validity of installed dependencies
 ```
 
-Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not officially supported**, but some advanced users have reported getting it working.
+Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not officially supported** (I cannot respond to Windows support tickets), but some advanced users have reported getting it working.
 
+For detailed information about ugprading ArchiveBox and its dependencies, see: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives
 
 <br/>
 
@@ -829,6 +837,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 - [Chromium Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install)
 - [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview)
 - [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
+- [Upgrading or Merging Archives](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives)
 - [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha)
 - [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha)
 
@@ -895,7 +904,9 @@ archivebox --version
 # if you edit e.g. ./archivebox/core/models.py on the docker host, runserver
 # inside the container will reload and pick up your changes
 docker build . -t archivebox
-docker run -it archivebox init --setup
+docker run -it \
+    -v $PWD/data:/data \
+    archivebox init --setup
 docker run -it -p 8000:8000 \
     -v $PWD/data:/data \
     -v $PWD/archivebox:/app/archivebox \
@@ -920,6 +931,8 @@ archivebox config --set DEBUG=True
 # or
 archivebox server --debug ...
 ```
+
+https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
 
 </details>
 
@@ -975,7 +988,8 @@ cd path/to/test/data/
 archivebox shell
 archivebox manage dbshell
 ```
-(uses `pytest -s`)
+(uses `pytest -s`)  
+https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
 
 </details>
 
@@ -1067,7 +1081,7 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" height="40px"/>
 <br/>
 <i><sub>
-This project is maintained mostly in <a href="https://nicksweeting.com/blog#About">my spare time</a> with the help from generous contributors and <a href="https://monadical.com">Monadical</a> (✨  <a href="https://monadical.com">hire them</a> for dev work!).
+This project is maintained mostly in <a href="https://nicksweeting.com/blog#About">my spare time</a> with the help from generous <a href="https://github.com/ArchiveBox/ArchiveBox/graphs/contributors">contributors</a> and <a href="https://monadical.com">Monadical</a> (✨  <a href="https://monadical.com">hire them</a> for dev work!).
 </sub>
 </i>
 <br/><br/>

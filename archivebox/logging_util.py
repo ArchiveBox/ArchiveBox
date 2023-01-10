@@ -432,7 +432,13 @@ def log_archive_method_finished(result: "ArchiveResult"):
         # Prettify error output hints string and limit to five lines
         hints = getattr(result.output, 'hints', None) or ()
         if hints:
-            hints = hints if isinstance(hints, (list, tuple)) else hints.split('\n')
+            if isinstance(hints, (list, tuple, type(_ for _ in ()))):
+                hints = [hint.decode() for hint in hints if isinstance(hint, bytes)]
+            else:
+                if isinstance(hints, bytes):
+                    hints = hints.decode()
+                hints = hints.split('\n')
+
             hints = (
                 '    {}{}{}'.format(ANSI['lightyellow'], line.strip(), ANSI['reset'])
                 for line in hints[:5] if line.strip()
@@ -566,7 +572,7 @@ def printable_config(config: ConfigDict, prefix: str='') -> str:
 def printable_folder_status(name: str, folder: Dict) -> str:
     if folder['enabled']:
         if folder['is_valid']:
-            color, symbol, note = 'green', '√', 'valid'
+            color, symbol, note, num_files = 'green', '√', 'valid', ''
         else:
             color, symbol, note, num_files = 'red', 'X', 'invalid', '?'
     else:
@@ -581,6 +587,10 @@ def printable_folder_status(name: str, folder: Dict) -> str:
             )
         else:
             num_files = 'missing'
+        
+    if folder.get('is_mount'):
+        # add symbol @ next to filecount if path is a remote filesystem mount
+        num_files = f'{num_files} @' if num_files else '@'
 
     path = str(folder['path']).replace(str(OUTPUT_DIR), '.') if folder['path'] else ''
     if path and ' ' in path:

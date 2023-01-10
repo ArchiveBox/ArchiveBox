@@ -1,5 +1,7 @@
 __package__ = 'archivebox.index'
 
+import re
+
 from io import StringIO
 from pathlib import Path
 from typing import List, Tuple, Iterator
@@ -8,7 +10,10 @@ from django.db import transaction
 
 from .schema import Link
 from ..util import enforce_types, parse_date
-from ..config import OUTPUT_DIR
+from ..config import (
+    OUTPUT_DIR,
+    TAG_SEPARATOR_PATTERN,
+)
 
 
 ### Main Links Index
@@ -33,9 +38,11 @@ def remove_from_sql_main_index(snapshots: QuerySet, atomic: bool=False, out_dir:
 def write_link_to_sql_index(link: Link):
     from core.models import Snapshot, ArchiveResult
     info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
-    tags = info.pop("tags")
-    if tags is None:
-        tags = []
+
+    tag_list = list(dict.fromkeys(
+        tag.strip() for tag in re.split(TAG_SEPARATOR_PATTERN, link.tags or '')
+    ))
+    info.pop('tags')
 
     try:
         info["timestamp"] = Snapshot.objects.get(url=link.url).timestamp
@@ -44,7 +51,7 @@ def write_link_to_sql_index(link: Link):
             info["timestamp"] = str(float(info["timestamp"]) + 1.0)
 
         snapshot, _ = Snapshot.objects.update_or_create(url=link.url, defaults=info)
-    snapshot.save_tags(tags)
+    snapshot.save_tags(tag_list)
 
     for extractor, entries in link.history.items():
         for entry in entries:
@@ -104,10 +111,9 @@ def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
         snap = write_link_to_sql_index(link)
     snap.title = link.title
 
-    tag_set = (
-        set(tag.strip() for tag in (link.tags or '').split(','))
-    )
-    tag_list = list(tag_set) or []
+    tag_list = list(dict.fromkeys(
+        tag.strip() for tag in re.split(TAG_SEPARATOR_PATTERN, link.tags or '')
+    ))
 
     snap.save()
     snap.save_tags(tag_list)

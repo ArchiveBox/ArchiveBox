@@ -28,6 +28,14 @@
                 <a href="/add" id="submit">&nbsp; Add more URLs ➕</a>
             </center>
         {% else %}
+            <div id="in-progress" style="display: none;">
+                <center><h3>Adding URLs to index and running archive methods...</h3>
+                    <br/>
+                    <div class="loader"></div>
+                    <br/>
+                    Check the server log or the <a href="/admin/core/archiveresult/?o=-1">Log</a> page for progress...
+                </center>
+            </div>
             <form id="add-form" method="POST" class="p-form">{% csrf_token %}
                 <h1>Add new URLs to your archive</h1>
                 <br/>
@@ -48,10 +56,9 @@
             {% endif %}
             <script>
                 document.getElementById('add-form').addEventListener('submit', function(event) {
-                    setTimeout(function() {
-                        document.getElementById('add-form').innerHTML = '<center><h3>Adding URLs to index and running archive methods...<h3><br/><div class="loader"></div><br/>Check the server log or the <a href="/admin/core/archiveresult/?o=-1">Log</a> page for progress...</center>'
-                        document.getElementById('delay-warning').style.display = 'block'
-                    }, 200)
+                    document.getElementById('in-progress').style.display = 'block'
+                    document.getElementById('add-form').style.display = 'none'
+                    document.getElementById('delay-warning').style.display = 'block'
                     return true
                 })
             </script>

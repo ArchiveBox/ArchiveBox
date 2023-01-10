@@ -58,6 +58,27 @@ class TitleParser(HTMLParser):
         if tag.lower() == "title":
             self.inside_title_tag = False
 
+@enforce_types
+def get_html(link: Link, path: Path, timeout: int=TIMEOUT) -> str:
+    """
+    Try to find wget, singlefile and then dom files.
+    If none is found, download the url again.
+    """
+    canonical = link.canonical_outputs()
+    abs_path = path.absolute()
+    sources = [canonical["singlefile_path"], canonical["wget_path"], canonical["dom_path"]]
+    document = None
+    for source in sources:
+        try:
+            with open(abs_path / source, "r", encoding="utf-8") as f:
+                document = f.read()
+                break
+        except (FileNotFoundError, TypeError):
+            continue
+    if document is None:
+        return download_url(link.url, timeout=timeout)
+    else:
+        return document
 
 @enforce_types
 def should_save_title(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:
@@ -90,7 +111,7 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        html = download_url(link.url, timeout=timeout)
+        html = get_html(link, out_dir, timeout=timeout)
         try:
             # try using relatively strict html parser first
             parser = TitleParser()

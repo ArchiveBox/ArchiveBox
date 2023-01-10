@@ -4,8 +4,9 @@ import os
 import sys
 import shutil
 import platform
+from django.utils import timezone
 from pathlib import Path
-from datetime import date
+from datetime import date, datetime
 
 from typing import Dict, List, Optional, Iterable, IO, Union
 from crontab import CronTab, CronSlices
@@ -70,7 +71,12 @@ from .config import (
     IS_TTY,
     DEBUG,
     IN_DOCKER,
+    PUID,
+    PGID,
     USER,
+    TIMEZONE,
+    ENFORCE_ATOMIC_WRITES,
+    OUTPUT_PERMISSIONS,
     PYTHON_BINARY,
     ARCHIVEBOX_BINARY,
     ONLY_NEW,
@@ -90,6 +96,7 @@ from .config import (
     check_data_folder,
     write_config_file,
     VERSION,
+    COMMIT_HASH,
     CODE_LOCATIONS,
     EXTERNAL_LOCATIONS,
     DATA_LOCATIONS,
@@ -203,32 +210,44 @@ def help(out_dir: Path=OUTPUT_DIR) -> None:
 def version(quiet: bool=False,
             out_dir: Path=OUTPUT_DIR) -> None:
     """Print the ArchiveBox version and dependency information"""
-
-    if quiet:
-        print(VERSION)
-    else:
-        # ArchiveBox v0.5.6
-        # Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
-        print('ArchiveBox v{}'.format(VERSION))
+    
+    print(VERSION)
+    
+    if not quiet:
+        # 0.6.3
+        # ArchiveBox v0.6.3 Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
+        # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 501:20 SEARCH_BACKEND=ripgrep
+        
         p = platform.uname()
         print(
+            'ArchiveBox v{}'.format(VERSION),
+            *((COMMIT_HASH[:7],) if COMMIT_HASH else ()),
             sys.implementation.name.title(),
             p.system,
             platform.platform(),
             p.machine,
         )
+        OUTPUT_IS_REMOTE_FS = DATA_LOCATIONS['OUTPUT_DIR']['is_mount'] or DATA_LOCATIONS['ARCHIVE_DIR']['is_mount']
         print(
-            f'IN_DOCKER={IN_DOCKER}',
             f'DEBUG={DEBUG}',
+            f'IN_DOCKER={IN_DOCKER}',
             f'IS_TTY={IS_TTY}',
-            f'TZ={os.environ.get("TZ", "UTC")}',
-            f'SEARCH_BACKEND_ENGINE={SEARCH_BACKEND_ENGINE}',
+            f'TZ={TIMEZONE}',
+            #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
+            f'FS_ATOMIC={ENFORCE_ATOMIC_WRITES}',
+            f'FS_REMOTE={OUTPUT_IS_REMOTE_FS}',
+            f'FS_PERMS={OUTPUT_PERMISSIONS} {PUID}:{PGID}',
+            f'SEARCH_BACKEND={SEARCH_BACKEND_ENGINE}',
         )
         print()
 
         print('{white}[i] Dependency versions:{reset}'.format(**ANSI))
         for name, dependency in DEPENDENCIES.items():
             print(printable_dependency_version(name, dependency))
+            
+            # add a newline between core dependencies and extractor dependencies for easier reading
+            if name == 'ARCHIVEBOX_BINARY':
+                print()
         
         print()
         print('{white}[i] Source-code locations:{reset}'.format(**ANSI))
@@ -427,7 +446,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
         print('        archivebox server  # then visit http://127.0.0.1:8000')
         print()
         print('    To add new links, you can run:')
-        print("        archivebox add ~/some/path/or/url/to/list_of_links.txt")
+        print("        archivebox add < ~/some/path/to/list_of_links.txt")
         print()
         print('    For more usage and examples, run:')
         print('        archivebox help')
@@ -554,7 +573,8 @@ def oneshot(url: str, extractors: str="", out_dir: Path=OUTPUT_DIR):
 def add(urls: Union[str, List[str]],
         tag: str='',
         depth: int=0,
-        update_all: bool=not ONLY_NEW,
+        update: bool=not ONLY_NEW,
+        update_all: bool=False,
         index_only: bool=False,
         overwrite: bool=False,
         # duplicate: bool=False,  # TODO: reuse the logic from admin.py resnapshot to allow adding multiple snapshots by appending timestamp automatically
@@ -587,6 +607,7 @@ def add(urls: Union[str, List[str]],
         # save verbatim args to sources
         write_ahead_log = save_text_as_source('\n'.join(urls), filename='{ts}-import.txt', out_dir=out_dir)
     
+
     new_links += parse_links_from_source(write_ahead_log, root_url=None, parser=parser)
 
     # If we're going one level deeper, download each link and look for more links
@@ -594,8 +615,11 @@ def add(urls: Union[str, List[str]],
     if new_links and depth == 1:
         log_crawl_started(new_links)
         for new_link in new_links:
-            downloaded_file = save_file_as_source(new_link.url, filename=f'{new_link.timestamp}-crawl-{new_link.domain}.txt', out_dir=out_dir)
-            new_links_depth += parse_links_from_source(downloaded_file, root_url=new_link.url)
+            try:
+                downloaded_file = save_file_as_source(new_link.url, filename=f'{new_link.timestamp}-crawl-{new_link.domain}.txt', out_dir=out_dir)
+                new_links_depth += parse_links_from_source(downloaded_file, root_url=new_link.url)
+            except Exception as err:
+                stderr('[!] Failed to get contents of URL {new_link.url}', err, color='red')
 
     imported_links = list({link.url: link for link in (new_links + new_links_depth)}.values())
     
@@ -618,11 +642,21 @@ def add(urls: Union[str, List[str]],
         if extractors:
             archive_kwargs["methods"] = extractors
 
-        if update_all:
+        stderr()
+
+        ts = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+        if update:
+            stderr(f'[*] [{ts}] Archiving + updating {len(imported_links)}/{len(all_links)}', len(imported_links), 'URLs from added set...', color='green')
+            archive_links(imported_links, overwrite=overwrite, **archive_kwargs)
+        elif update_all:
+            stderr(f'[*] [{ts}] Archiving + updating {len(all_links)}/{len(all_links)}', len(all_links), 'URLs from entire library...', color='green')
             archive_links(all_links, overwrite=overwrite, **archive_kwargs)
         elif overwrite:
+            stderr(f'[*] [{ts}] Archiving + overwriting {len(imported_links)}/{len(all_links)}', len(imported_links), 'URLs from added set...', color='green')
             archive_links(imported_links, overwrite=True, **archive_kwargs)
         elif new_links:
+            stderr(f'[*] [{ts}] Archiving {len(new_links)}/{len(all_links)} URLs from added set...', color='green')
             archive_links(new_links, overwrite=False, **archive_kwargs)
 
 
@@ -1113,6 +1147,7 @@ def schedule(add: bool=False,
              every: Optional[str]=None,
              depth: int=0,
              overwrite: bool=False,
+             update: bool=not ONLY_NEW,
              import_path: Optional[str]=None,
              out_dir: Path=OUTPUT_DIR):
     """Set ArchiveBox to regularly import URLs at specific times using cron"""
@@ -1142,6 +1177,7 @@ def schedule(add: bool=False,
             *([
                 'add',
                 *(['--overwrite'] if overwrite else []),
+                *(['--update'] if update else []),
                 f'--depth={depth}',
                 f'"{import_path}"',
             ] if import_path else ['update']),
