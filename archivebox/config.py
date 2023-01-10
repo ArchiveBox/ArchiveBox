@@ -105,6 +105,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'REVERSE_PROXY_WHITELIST':   {'type': str,   'default': ''},
         'LOGOUT_REDIRECT_URL':       {'type': str,   'default': '/'},
         'PREVIEW_ORIGINALS':        {'type': bool,  'default': True},
+        'LOGOUT_REDIRECT_URL':   {'type': str,   'default': '/'},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
