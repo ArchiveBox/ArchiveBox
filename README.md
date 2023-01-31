@@ -188,7 +188,8 @@ sudo add-apt-repository -u ppa:archivebox/archivebox
 echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/archivebox.list
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
-</code></pre>
+</code></pre><br/>
+<i>Note: You may also need to <a href="https://github.com/nodesource/distributions#debinstall">install a recent version of NodeJS + NPM from NodeSource</a> (if not already installed).</i>
 </li>
 <li>Install the ArchiveBox package using <code>apt</code>.
 <pre lang="bash"><code style="white-space: pre-line">sudo apt install archivebox
