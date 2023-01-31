@@ -188,8 +188,7 @@ sudo add-apt-repository -u ppa:archivebox/archivebox
 echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/archivebox.list
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
-</code></pre><br/>
-<i>Note: You may also need to <a href="https://github.com/nodesource/distributions#debinstall">install a recent version of NodeJS + NPM from NodeSource</a> (if not already installed).</i>
+</code></pre>
 </li>
 <li>Install the ArchiveBox package using <code>apt</code>.
 <pre lang="bash"><code style="white-space: pre-line">sudo apt install archivebox
@@ -200,6 +199,7 @@ sudo python3 -m pip install --upgrade --ignore-installed archivebox   # pip need
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
 archivebox init --setup           # if any problems, install with pip instead
 </code></pre>
+<i>Note: If you encounter issues with NPM/NodeJS, <a href="https://github.com/nodesource/distributions#debinstall">install a more recent version</a>.</i>
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
