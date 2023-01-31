@@ -138,7 +138,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
-<li>Create a new empty directory and initalize your collection (can be anywhere).
+<li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 </code></pre>
@@ -196,7 +196,7 @@ sudo apt update
 sudo python3 -m pip install --upgrade --ignore-installed archivebox   # pip needed because apt only provides a broken older version of Django
 </code></pre>
 </li>
-<li>Create a new empty directory and initalize your collection (can be anywhere).
+<li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
 archivebox init --setup           # if any problems, install with pip instead
 </code></pre>
@@ -225,7 +225,7 @@ See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-a
 brew install archivebox
 </code></pre>
 </li>
-<li>Create a new empty directory and initalize your collection (can be anywhere).
+<li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
 archivebox init --setup         # if any problems, install with pip instead
 </code></pre>
@@ -253,7 +253,7 @@ See the <a href="https://github.com/ArchiveBox/homebrew-archivebox"><code>homebr
 <pre lang="bash"><code style="white-space: pre-line">pip3 install archivebox
 </code></pre>
 </li>
-<li>Create a new empty directory and initalize your collection (can be anywhere).
+<li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
 archivebox init --setup
 # install any missing extras like wget/git/ripgrep/etc. manually as needed
@@ -367,7 +367,7 @@ archivebox help
 
 - `archivebox setup/init/config/status/manage` to administer your collection
 - `archivebox add/schedule/remove/update/list/shell/oneshot` to manage Snapshots in the archive
-- `archivebox schedule` to pull in fresh URLs in regularly from [bookmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
+- `archivebox schedule` to pull in fresh URLs regularly from [bookmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
 
 #### 🖥&nbsp; Web UI Usage
 
@@ -452,7 +452,7 @@ It also includes a built-in scheduled import feature with `archivebox schedule` 
 
 ## Output Formats
 
-Inside each Snapshot folder, ArchiveBox save these different types of extractor outputs as plain files:
+Inside each Snapshot folder, ArchiveBox saves these different types of extractor outputs as plain files:
 
 <img src="https://i.imgur.com/xHvQfon.png" width="330px" align="right">
 
@@ -520,7 +520,7 @@ PUBLIC_ADD_VIEW=False      # default: False whether anon users can add new URLs
 
 For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything pre-installed for the best experience.
 
-To achieve high fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party tools and libraries that specialize in extracting different types of content. These optional dependencies used for archiving sites include:
+To achieve high-fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party tools and libraries that specialize in extracting different types of content. These optional dependencies used for archiving sites include:
 
 <img src="https://i.imgur.com/5vSBO2R.png" width="330px" align="right">
 
@@ -546,7 +546,7 @@ archivebox --version   # see info and check validity of installed dependencies
 
 Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not officially supported** (I cannot respond to Windows support tickets), but some advanced users have reported getting it working.
 
-For detailed information about ugprading ArchiveBox and its dependencies, see: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives
+For detailed information about upgrading ArchiveBox and its dependencies, see: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives
 
 <br/>
 
@@ -623,7 +623,7 @@ archivebox add 'https://vimeo.com/somePrivateVideo'
 # without first disabling saving to Archive.org:
 archivebox config --set SAVE_ARCHIVE_DOT_ORG=False  # disable saving all URLs in Archive.org
 
-# restrict the main index, snapshot content, and add form to authenticated in users as needed:
+# restrict the main index, Snapshot content, and Add Page to authenticated users as-needed:
 archivebox config --set PUBLIC_INDEX=False
 archivebox config --set PUBLIC_SNAPSHOTS=False
 archivebox config --set PUBLIC_ADD_VIEW=False 
@@ -725,7 +725,7 @@ Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS
 
 # Background & Motivation
 
-The aim of ArchiveBox is to enable more of the internet to be archived by empowering people to self-host their own archives. The intent is for all the web content you care about to be viewable with common software in 50 - 100 years without needing to run ArchiveBox or other specialized software to replay it.
+ArchiveBox aims to enable more of the internet to be saved from deterioration by empowering people to self-host their own archives. The intent is for all the web content you care about to be viewable with common software in 50 - 100 years without needing to run ArchiveBox or other specialized software to replay it.
 
 Vast treasure troves of knowledge are lost every day on the internet to link rot. As a society, we have an imperative to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
 
@@ -761,7 +761,7 @@ By having each user store their own content locally, we can save much larger por
 
 ArchiveBox differentiates itself from [similar self-hosted projects](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by providing both a comprehensive CLI interface for managing your archive, a Web UI that can be used either independently or together with the CLI, and a simple on-disk data format that can be used without either.
 
-ArchiveBox is neither the highest fidelity, nor the simplest tool available for self-hosted archiving, rather it's a jack-of-all-trades that tries to do most things well by default. It can be as simple or advanced as you want, and is designed to do everything out-of-the-box but be tuned to suit your needs.
+ArchiveBox is neither the highest fidelity nor the simplest tool available for self-hosted archiving, rather it's a jack-of-all-trades that tries to do most things well by default. It can be as simple or advanced as you want, and is designed to do everything out-of-the-box but be tuned to suit your needs.
 
 *If you want better fidelity for very complex interactive pages with heavy JS/streams/API requests, check out [ArchiveWeb.page](https://archiveweb.page) and [ReplayWeb.page](https://replayweb.page).*
 
@@ -861,8 +861,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 
 All contributions to ArchiveBox are welcomed! Check our [issues](https://github.com/ArchiveBox/ArchiveBox/issues) and [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap) for things to work on, and please open an issue to discuss your proposed implementation before working on things! Otherwise we may have to close your PR if it doesn't align with our roadmap.
 
-Low hanging fruit / easy first tickets:<br/>
-<a href="https://lgtm.com/projects/g/ArchiveBox/ArchiveBox/alerts/"><img alt="Total alerts" src="https://img.shields.io/lgtm/alerts/g/ArchiveBox/ArchiveBox.svg?logo=lgtm&logoWidth=18"/></a>
+For low hanging fruit / easy first tickets, see: <a href="https://github.com/ArchiveBox/ArchiveBox/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22help+wanted%22">ArchiveBox/Issues `#good first ticket` `#help wanted`</a>.
 
 ### Setup the dev environment
 
