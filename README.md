@@ -863,6 +863,8 @@ All contributions to ArchiveBox are welcomed! Check our [issues](https://github.
 
 For low hanging fruit / easy first tickets, see: <a href="https://github.com/ArchiveBox/ArchiveBox/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22help+wanted%22">ArchiveBox/Issues `#good first ticket` `#help wanted`</a>.
 
+**Python API Documentation:** https://docs.archivebox.io/en/master/archivebox.html#module-archivebox.main
+
 ### Setup the dev environment
 
 <details><summary><i>Click to expand...</i></summary>
