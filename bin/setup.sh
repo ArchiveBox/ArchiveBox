@@ -2,7 +2,7 @@
 # ArchiveBox Setup Script: https://github.com/ArchiveBox/ArchiveBox
 # Supported Platforms: Ubuntu/Debian/FreeBSD/macOS
 # Usage:
-#    curl 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | sh
+#    curl -sSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | sh
 
 clear
 
