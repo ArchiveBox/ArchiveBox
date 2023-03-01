@@ -75,6 +75,12 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help="Re-archive URLs from scratch, overwriting any existing files"
     )
     parser.add_argument(
+        "--resnapshot",
+        default=False,
+        action="store_true",
+        help="Re-archive URLs from scratch, creating a new snapshot timestamped with the current time"
+    )
+    parser.add_argument(
         "--init", #'-i',
         action='store_true',
         help="Init/upgrade the curent data directory before adding",
@@ -114,6 +120,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         update_all=command.update_all,
         index_only=command.index_only,
         overwrite=command.overwrite,
+        resnapshot=command.resnapshot,
         init=command.init,
         extractors=command.extract,
         parser=command.parser,

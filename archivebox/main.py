@@ -47,6 +47,7 @@ from .index import (
     get_unrecognized_folders,
     fix_invalid_folder_locations,
     write_link_details,
+    add_timestamp_to_links,
 )
 from .index.json import (
     parse_json_main_index,
@@ -577,6 +578,7 @@ def add(urls: Union[str, List[str]],
         update_all: bool=False,
         index_only: bool=False,
         overwrite: bool=False,
+        resnapshot: bool=False,
         # duplicate: bool=False,  # TODO: reuse the logic from admin.py resnapshot to allow adding multiple snapshots by appending timestamp automatically
         init: bool=False,
         extractors: str="",
@@ -622,6 +624,10 @@ def add(urls: Union[str, List[str]],
                 stderr('[!] Failed to get contents of URL {new_link.url}', err, color='red')
 
     imported_links = list({link.url: link for link in (new_links + new_links_depth)}.values())
+
+    if resnapshot:
+        imported_links = add_timestamp_to_links(imported_links, datetime.now(timezone.utc).isoformat('T', 'seconds'))
+        # imported_links should now all be new, so should get added to new_links
     
     new_links = dedupe_links(all_links, imported_links)
 
@@ -1147,6 +1153,7 @@ def schedule(add: bool=False,
              every: Optional[str]=None,
              depth: int=0,
              overwrite: bool=False,
+             resnapshot: bool=False,
              update: bool=not ONLY_NEW,
              import_path: Optional[str]=None,
              out_dir: Path=OUTPUT_DIR):
@@ -1177,6 +1184,7 @@ def schedule(add: bool=False,
             *([
                 'add',
                 *(['--overwrite'] if overwrite else []),
+                *(['--resnapshot'] if resnapshot else []),
                 *(['--update'] if update else []),
                 f'--depth={depth}',
                 f'"{import_path}"',

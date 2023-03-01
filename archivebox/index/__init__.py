@@ -132,6 +132,17 @@ def validate_links(links: Iterable[Link]) -> List[Link]:
 
     return list(links)
 
+
+@enforce_types
+def add_timestamp_to_links(links: Iterable[Link], timestamp: Optional[str]=None) -> List[Link]:
+    """ Also overwrites any previous timestamps if there was one """
+    if timestamp is None:
+        timestamp = datetime.now(timezone.utc).isoformat('T', 'seconds')
+
+    links = [link.overwrite(url=link.url.split('#')[0] + f'#{timestamp}') for link in links]
+
+    return links
+
 @enforce_types
 def archivable_links(links: Iterable[Link]) -> Iterable[Link]:
     """remove chrome://, about:// or other schemed links that cant be archived"""

@@ -52,6 +52,12 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help='Re-archive any URLs that have been previously archived, overwriting existing Snapshots',
     )
     parser.add_argument(
+        "--resnapshot",
+        default=False,
+        action="store_true",
+        help="Re-archive URLs from scratch, creating a new snapshot timestamped with the current time"
+    )
+    parser.add_argument(
         '--update',
         action='store_true',
         help='Re-pull any URLs that have been previously added, as needed to fill missing ArchiveResults',
@@ -99,6 +105,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         every=command.every,
         depth=command.depth,
         overwrite=command.overwrite,
+        resnapshot=command.resnapshot,
         update=command.update,
         import_path=command.import_path,
         out_dir=pwd or OUTPUT_DIR,
