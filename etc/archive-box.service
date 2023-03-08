@@ -1,0 +1,28 @@
+#
+# These are just a few examples of settings
+#
+# Items that probably need to be rewritten depending on the environment:
+#   WorkingDirectory, ExecStart, User, Group,
+#
+
+[Unit]
+Description=Open source self-hosted web archiving
+Documentation=https://github.com/ArchiveBox/ArchiveBox/wiki
+
+[Service]
+Type=simple
+WorkingDirectory=/home/archive-box/archive-box/
+ExecStart=/usr/local/bin/archivebox server 0.0.0.0:8000
+ExecReload=/bin/kill -s HUP $MAINPID
+ExecStop=/bin/kill -s QUIT $MAINPID
+Restart=always
+RestartSec=2
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=archive-box
+User=archive-box
+Group=archive-box
+
+
+[Install]
+WantedBy=multi-user.target
