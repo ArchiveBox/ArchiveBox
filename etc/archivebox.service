@@ -1,9 +1,10 @@
+# This is an example systemd service config definition for ArchiveBox.
 #
-# These are just a few examples of settings
+# Link it into place on your system to use systemd to auto-start the ArchiveBox server on boot:
+#   https://unix.stackexchange.com/questions/224992/where-do-i-put-my-systemd-unit-file
 #
-# Items that probably need to be rewritten depending on the environment:
-#   WorkingDirectory, ExecStart, User, Group,
-#
+# Review and change these lines as-needed for your specific environment and needs:
+#   WorkingDirectory, ExecStart, User, Group
 
 [Unit]
 Description=Open source self-hosted web archiving
