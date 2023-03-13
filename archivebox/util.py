@@ -230,20 +230,24 @@ def chrome_args(**options) -> List[str]:
 
     if options['CHROME_HEADLESS']:
         cmd_args += ('--headless',)
-    
+
     if not options['CHROME_SANDBOX']:
         # assume this means we are running inside a docker container
-        # in docker, GPU support is limited, sandboxing is unecessary, 
+        # in docker, GPU support is limited, sandboxing is unecessary,
         # and SHM is limited to 64MB by default (which is too low to be usable).
         cmd_args += (
-            '--no-sandbox',
-            '--disable-gpu',
-            '--disable-dev-shm-usage',
-            '--disable-software-rasterizer',
-            '--run-all-compositor-stages-before-draw',
-            '--hide-scrollbars',
-            '--single-process',
-            '--no-zygote',
+            "--no-sandbox",
+            "--no-zygote",
+            "--disable-dev-shm-usage",
+            "--disable-software-rasterizer",
+            "--run-all-compositor-stages-before-draw",
+            "--hide-scrollbars",
+            "--window-size=1440,2000",
+            "--autoplay-policy=no-user-gesture-required",
+            "--no-first-run",
+            "--use-fake-ui-for-media-stream",
+            "--use-fake-device-for-media-stream",
+            "--disable-sync",
         )
 
 
