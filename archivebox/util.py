@@ -260,8 +260,8 @@ def chrome_args(**options) -> List[str]:
     if options['RESOLUTION']:
         cmd_args += ('--window-size={}'.format(options['RESOLUTION']),)
 
-    if options['TIMEOUT']:
-        cmd_args += ('--timeout={}'.format(options['TIMEOUT'] * 1000),)
+    #if options['TIMEOUT']:
+    #    cmd_args += ('--timeout={}'.format(options['TIMEOUT'] * 1000),)
 
     if options['CHROME_USER_DATA_DIR']:
         cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
