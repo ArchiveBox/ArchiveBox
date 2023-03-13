@@ -26,7 +26,8 @@ def should_save_dom(link: Link, out_dir: Optional[Path]=None, overwrite: Optiona
 
     out_dir = out_dir or Path(link.link_dir)
     if not overwrite and (out_dir / 'output.html').exists():
-        return False
+        if (out_dir / 'output.html').stat().st_size > 1:
+            return False
 
     return SAVE_DOM
 
