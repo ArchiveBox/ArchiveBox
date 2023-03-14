@@ -39,7 +39,7 @@ def save_dom(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> 
     output: ArchiveOutput = 'output.html'
     output_path = out_dir / output
     cmd = [
-        *chrome_args(TIMEOUT=timeout),
+        *chrome_args(),
         '--dump-dom',
         link.url
     ]

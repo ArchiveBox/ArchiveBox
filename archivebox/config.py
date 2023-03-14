@@ -139,6 +139,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'COOKIES_FILE':             {'type': str,   'default': None},
         'CHROME_USER_DATA_DIR':     {'type': str,   'default': None},
 
+        'CHROME_TIMEOUT':           {'type': int,  'default': 0},
         'CHROME_HEADLESS':          {'type': bool,  'default': True},
         'CHROME_SANDBOX':           {'type': bool,  'default': lambda c: not c['IN_DOCKER']},
         'YOUTUBEDL_ARGS':           {'type': list,  'default': lambda c: [
@@ -981,6 +982,7 @@ def get_chrome_info(config: ConfigDict) -> ConfigValue:
         'RESOLUTION': config['RESOLUTION'],
         'CHECK_SSL_VALIDITY': config['CHECK_SSL_VALIDITY'],
         'CHROME_BINARY': bin_path(config['CHROME_BINARY']),
+        'CHROME_TIMEOUT':config['CHROME_TIMEOUT'],
         'CHROME_HEADLESS': config['CHROME_HEADLESS'],
         'CHROME_SANDBOX': config['CHROME_SANDBOX'],
         'CHROME_USER_AGENT': config['CHROME_USER_AGENT'],

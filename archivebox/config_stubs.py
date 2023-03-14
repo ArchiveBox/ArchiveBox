@@ -74,6 +74,7 @@ class ConfigDict(BaseConfig, total=False):
     CHROME_USER_AGENT: str
     COOKIES_FILE: Union[str, Path, None]
     CHROME_USER_DATA_DIR: Union[str, Path, None]
+    CHROME_TIMEOUT: int
     CHROME_HEADLESS: bool
     CHROME_SANDBOX: bool
 

@@ -37,7 +37,7 @@ def save_pdf(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> 
     out_dir = out_dir or Path(link.link_dir)
     output: ArchiveOutput = 'output.pdf'
     cmd = [
-        *chrome_args(TIMEOUT=timeout),
+        *chrome_args(),
         '--print-to-pdf',
         link.url,
     ]

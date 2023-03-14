@@ -37,7 +37,7 @@ def save_screenshot(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
     out_dir = out_dir or Path(link.link_dir)
     output: ArchiveOutput = 'screenshot.png'
     cmd = [
-        *chrome_args(TIMEOUT=timeout),
+        *chrome_args(),
         '--screenshot',
         link.url,
     ]
