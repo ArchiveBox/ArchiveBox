@@ -42,7 +42,7 @@ def save_singlefile(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
     out_dir = out_dir or Path(link.link_dir)
     output = "singlefile.html"
 
-    browser_args = chrome_args(TIMEOUT=0)
+    browser_args = chrome_args(CHROME_TIMEOUT=0)
 
     # SingleFile CLI Docs: https://github.com/gildas-lormeau/SingleFile/tree/master/cli
     browser_args = '--browser-args={}'.format(json.dumps(browser_args[1:]))
