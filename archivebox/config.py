@@ -690,7 +690,8 @@ def bin_version(binary: Optional[str]) -> Optional[str]:
         return None
 
     try:
-        version_str = run([abspath, "--version"], stdout=PIPE, env={'LANG': 'C'}).stdout.strip().decode()
+        bin_env = os.environ | {'LANG': 'C'}
+        version_str = run([abspath, "--version"], stdout=PIPE, env=bin_env).stdout.strip().decode()
         if not version_str:
             version_str = run([abspath, "--version"], stdout=PIPE).stdout.strip().decode()
         # take first 3 columns of first line of version info
