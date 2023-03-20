@@ -2,6 +2,7 @@ __package__ = 'archivebox.index'
 
 import re
 
+from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
 from typing import List, Tuple, Iterator
@@ -13,6 +14,7 @@ from ..util import enforce_types, parse_date
 from ..config import (
     OUTPUT_DIR,
     TAG_SEPARATOR_PATTERN,
+    USE_TIMESTAMP_AS_ADDED,
 )
 
 
@@ -43,6 +45,13 @@ def write_link_to_sql_index(link: Link):
         tag.strip() for tag in re.split(TAG_SEPARATOR_PATTERN, link.tags or '')
     ))
     info.pop('tags')
+
+    if USE_TIMESTAMP_AS_ADDED:
+        try:
+            info["added"] = datetime.fromtimestamp(float(info["timestamp"]), tz=timezone.utc)
+        except Exception:
+            # Silently skip if timestamp isn't parseable as a float and datetime.datetime
+            pass
 
     try:
         info["timestamp"] = Snapshot.objects.get(url=link.url).timestamp

@@ -10,6 +10,7 @@ from typing import Optional, List
 from django.db import models
 from django.utils.functional import cached_property
 from django.utils.text import slugify
+from django.utils import timezone
 from django.core.cache import cache
 from django.urls import reverse
 from django.db.models import Case, When, Value, IntegerField
@@ -92,7 +93,7 @@ class Snapshot(models.Model):
 
     title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
 
-    added = models.DateTimeField(auto_now_add=True, db_index=True)
+    added = models.DateTimeField(default=timezone.now, editable=False, blank=True, db_index=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True, db_index=True)
     tags = models.ManyToManyField(Tag, blank=True)
 

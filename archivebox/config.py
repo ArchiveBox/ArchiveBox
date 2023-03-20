@@ -86,6 +86,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'URL_WHITELIST':            {'type': str,   'default': None},
         'ENFORCE_ATOMIC_WRITES':    {'type': bool,  'default': True},
         'TAG_SEPARATOR_PATTERN':    {'type': str,   'default': r'[,]'},
+        'USE_TIMESTAMP_AS_ADDED':   {'type': bool,  'default': False},
     },
 
     'SERVER_CONFIG': {
