@@ -5,13 +5,11 @@ from django.views import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.conf import settings
 from django.views.generic.base import RedirectView
-
 from core.views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView
-
-
-# print('DEBUG', settings.DEBUG)
+from archivebox.core.views import CSVUploadView
 
 urlpatterns = [
+    path('csv-upload/', CSVUploadView.as_view(), name='csv_upload'),
     path('public/', PublicIndexView.as_view(), name='public-index'),
 
     path('robots.txt', static.serve, {'document_root': settings.STATICFILES_DIRS[0], 'path': 'robots.txt'}),

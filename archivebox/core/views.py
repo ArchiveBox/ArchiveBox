@@ -13,6 +13,10 @@ from django.db.models import Q
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from rest_framework import views, status
+from rest_framework.response import Response
+from rest_framework.parsers import CSVParser
+from .serializers import CSVSerializer
 
 from core.models import Snapshot
 from core.forms import AddLinkForm
@@ -29,7 +33,22 @@ from ..config import (
 from ..main import add
 from ..util import base_url, ansi_to_html
 from ..search import query_search_index
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
+
+class CSVUploadView(views.APIView):
+    authentication_classes = [JWTAuthentication]
+    parser_classes = [CSVParser]
+
+    def post(self, request):
+        serializer = CSVSerializer(data=request.data)
+        if serializer.is_valid():
+            # handle the uploaded CSV file
+            csv_file = serializer.validated_data['csv_file']
+            # process the csv_file as required
+            return Response(status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class HomepageView(View):
     def get(self, request):

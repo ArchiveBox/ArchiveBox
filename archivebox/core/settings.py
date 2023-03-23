@@ -48,11 +48,23 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admin',
-
+    'rest_framework',
+    'rest_framework_csv',
+    'rest_framework_simplejwt',
     'core',
 
     'django_extensions',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+}
+
+SIMPLE_JWT = {
+    'ALGORITHM': 'ES384',
+}
 
 
 MIDDLEWARE = [

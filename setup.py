@@ -1,7 +1,6 @@
 import json
 import setuptools
 from setuptools.command.test import test
-
 from pathlib import Path
 
 
@@ -67,6 +66,9 @@ EXTRAS_REQUIRE = {
         "bottle",
         "stdeb",
         "django-debug-toolbar",
+        "djangorestframework",
+        "djangorestframework-csv",
+        "djangorestframework-simplejwt",
         "djdt_flamegraph",
     ],
 }
