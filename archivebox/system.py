@@ -11,7 +11,7 @@ from typing import Optional, Union, Set, Tuple
 from subprocess import _mswindows, PIPE, Popen, CalledProcessError, CompletedProcess, TimeoutExpired
 
 from crontab import CronTab
-from .vendor.atomicwrites import atomic_write as lib_atomic_write
+from archivebox.vendor.atomicwrites import atomic_write as lib_atomic_write
 
 from .util import enforce_types, ExtendedEncoder
 from .config import PYTHON_BINARY, OUTPUT_PERMISSIONS, DIR_OUTPUT_PERMISSIONS, ENFORCE_ATOMIC_WRITES

@@ -34,7 +34,7 @@ from ..main import add
 from ..util import base_url, ansi_to_html
 from ..search import query_search_index
 from rest_framework_simplejwt.authentication import JWTAuthentication
-
+import csv
 
 class CSVUploadView(views.APIView):
     authentication_classes = [JWTAuthentication]
@@ -45,7 +45,9 @@ class CSVUploadView(views.APIView):
         if serializer.is_valid():
             # handle the uploaded CSV file
             csv_file = serializer.validated_data['csv_file']
-            # process the csv_file as required
+            csv_data = csv.DictReader(csv_file.file)
+            urls = csv_data.get('urls')
+            add(urls)
             return Response(status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
