@@ -6,6 +6,7 @@ verify_ssl = true
 [packages]
 # see setup.py for package dependency list
 "e1839a8" = {path = ".", editable = true}
+djangorestframework = "*"
 
 [dev-packages]
 # see setup.py for dev package dependency list
