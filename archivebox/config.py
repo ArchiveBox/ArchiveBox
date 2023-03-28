@@ -393,7 +393,10 @@ def get_version(config):
 
 def get_commit_hash(config):
     try:
-        return list((config['PACKAGE_DIR'] / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
+        git_dir = config['PACKAGE_DIR'] / '../')
+        ref = (git_dir / 'HEAD').read_text().strip().split(' ')[-1]
+        commit_hash = git_dir.joinpath(ref).read_text().strip()
+        return commit_hash
     except Exception:
         return None
 
