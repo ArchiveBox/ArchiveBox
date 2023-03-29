@@ -962,7 +962,7 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
                 PYTHON_BINARY, '-m', 'pip',
                 'show',
                 'youtube_dl',
-            ], capture_output=True, text=True, cwd=out_dir).stdout.split('Location: ')[-1].split('\n', 1)[0]
+            ], capture_output=True, text=True, cwd=out_dir).stdout.decode().split('Location: ')[-1].split('\n', 1)[0]
             NEW_YOUTUBEDL_BINARY = Path(pkg_path) / 'youtube_dl' / '__main__.py'
             os.chmod(NEW_YOUTUBEDL_BINARY, 0o777)
             assert NEW_YOUTUBEDL_BINARY.exists(), f'youtube_dl must exist inside {pkg_path}'
