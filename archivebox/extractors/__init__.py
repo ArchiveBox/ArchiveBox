@@ -184,7 +184,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                         link.url,
                         command,
                         ts
-                    ) + "\n"))
+                    ) + "\n" + str(e) + "\n"))
                     #f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
 
         # print('    ', stats)

@@ -53,6 +53,7 @@ from .config_stubs import (
 
 ### Pre-Fetch Minimal System Config
 
+TIMEZONE = 'UTC'
 SYSTEM_USER = getpass.getuser() or os.getlogin()
 
 try:
@@ -81,7 +82,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'IN_QEMU':                  {'type': bool,  'default': False},
         'PUID':                     {'type': int,   'default': os.getuid()},
         'PGID':                     {'type': int,   'default': os.getgid()},
-        # TODO: 'SHOW_HINTS':       {'type:  bool,  'default': True},
     },
 
     'GENERAL_CONFIG': {
@@ -393,7 +393,7 @@ def get_version(config):
 
 def get_commit_hash(config):
     try:
-        git_dir = config['PACKAGE_DIR'] / '../')
+        git_dir = config['PACKAGE_DIR'] / '../'
         ref = (git_dir / 'HEAD').read_text().strip().split(' ')[-1]
         commit_hash = git_dir.joinpath(ref).read_text().strip()
         return commit_hash
@@ -1195,7 +1195,7 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
 
     if config['USE_YOUTUBEDL'] and config['MEDIA_TIMEOUT'] < 20:
         stderr(f'[!] Warning: MEDIA_TIMEOUT is set too low! (currently set to MEDIA_TIMEOUT={config["MEDIA_TIMEOUT"]} seconds)', color='red')
-        stderr('    Youtube-dl will fail to archive all media if set to less than ~20 seconds.')
+        stderr('    youtube-dl/yt-dlp will fail to archive any media if set to less than ~20 seconds.')
         stderr('    (Setting it somewhere over 60 seconds is recommended)')
         stderr()
         stderr('    If you want to disable media archiving entirely, set SAVE_MEDIA=False instead:')
