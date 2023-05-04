@@ -50,6 +50,7 @@ function create_builder() {
     docker buildx use xbuilder && return 0
     echo "[+] Creating new xbuilder for: $SELECTED_PLATFORMS"
     echo
+    docker pull 'moby/buildkit:buildx-stable-1'
 
     # Switch to buildx builder if already present / previously created
     docker buildx create --name xbuilder --driver docker-container --bootstrap --use --platform "$SELECTED_PLATFORMS" || true
