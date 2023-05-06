@@ -20,7 +20,7 @@ from django.utils.functional import cached_property
 
 from ..system import get_dir_size
 from ..util import ts_to_date_str, parse_date
-from ..config import OUTPUT_DIR, ARCHIVE_DIR_NAME
+from ..config import OUTPUT_DIR, ARCHIVE_DIR_NAME, FAVICON_PROVIDER
 
 class ArchiveError(Exception):
     def __init__(self, message, hints=None):
@@ -423,7 +423,7 @@ class Link:
         canonical = {
             'index_path': 'index.html',
             'favicon_path': 'favicon.ico',
-            'google_favicon_path': 'https://www.google.com/s2/favicons?domain={}'.format(self.domain),
+            'google_favicon_path': FAVICON_PROVIDER.format(self.domain),
             'wget_path': wget_output_path(self),
             'warc_path': 'warc/',
             'singlefile_path': 'singlefile.html',
