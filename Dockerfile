@@ -108,7 +108,7 @@ RUN apt-get update -qq \
 # Install ArchiveBox Python package and its dependencies
 WORKDIR "$CODE_DIR"
 ADD . "$CODE_DIR"
-RUN pip install -e .
+RUN chown -R root:root . && chmod a+rX -R . && pip install -e .
 
 # Setup ArchiveBox runtime config
 WORKDIR "$DATA_DIR"

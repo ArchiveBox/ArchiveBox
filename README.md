@@ -913,6 +913,7 @@ docker run -it -p 8000:8000 \
     archivebox server 0.0.0.0:8000 --debug --reload
 
 # (remove the --reload flag and add the --nothreading flag when profiling with the django debug toolbar)
+# When using --reload, make sure any files you create can be read by the user in the Docker container, eg with 'chmod a+rX'.
 ```
 
 </details>
