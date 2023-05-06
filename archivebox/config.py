@@ -183,7 +183,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--compressed'
                                                                ]},
         'GIT_ARGS':                 {'type': list,  'default': ['--recursive']},
-        'SINGLEFILE_ARGS':          {'type': list,  'default' : None}
+        'SINGLEFILE_ARGS':          {'type': list,  'default' : None},
+        'FAVICON_PROVIDER':         {'type': str,   'default': 'https://www.google.com/s2/favicons?domain={}'},
     },
 
     'SEARCH_BACKEND_CONFIG' : {

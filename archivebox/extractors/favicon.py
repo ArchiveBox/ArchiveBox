@@ -10,6 +10,7 @@ from ..util import enforce_types, domain
 from ..config import (
     TIMEOUT,
     SAVE_FAVICON,
+    FAVICON_PROVIDER,
     CURL_BINARY,
     CURL_ARGS,
     CURL_VERSION,
@@ -40,7 +41,7 @@ def save_favicon(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
         '--output', str(output),
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
-        'https://www.google.com/s2/favicons?domain={}'.format(domain(link.url)),
+        FAVICON_PROVIDER.format(domain(link.url)),
     ]
     status = 'failed'
     timer = TimedProgress(timeout, prefix='      ')
