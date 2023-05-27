@@ -44,7 +44,24 @@ if [[ "$1" == "--firefox" ]]; then
     fi
     
     sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "SELECT \"[\" || group_concat(json_object('timestamp', last_visit_date, 'description', title, 'href', url)) || \"]\" FROM moz_places;" > "$OUTPUT_DIR/firefox_history.json"
-    sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "SELECT \"[\" || group_concat(json_object('timestamp', b.dateAdded, 'description', b.title, 'href', f.url)) || \"]\" FROM moz_bookmarks AS b JOIN moz_places AS f ON f.id = b.fk" > "$OUTPUT_DIR/firefox_bookmarks.json"
+
+    sqlite3 "$OUTPUT_DIR/firefox_history.db.tmp" "
+    with recursive tags AS (
+          select id, title, '' AS tags
+          FROM moz_bookmarks
+          where parent == 0
+        UNION ALL
+          select c.id, p.title, c.title || ',' || tags AS tags
+          from moz_bookmarks AS c
+          JOIN tags AS p
+          ON c.parent = p.id
+        )
+
+        SELECT '[' || group_concat(json_object('timestamp', b.dateAdded, 'description', b.title, 'href', f.url, 'tags', tags.tags)) || ']'
+        FROM moz_bookmarks AS b
+        JOIN moz_places AS f ON f.id = b.fk
+        JOIN tags ON tags.id = b.parent
+        WHERE f.url LIKE '%://%';" > "$OUTPUT_DIR/firefox_bookmarks.json"
     
     rm "$OUTPUT_DIR"/firefox_history.db.*
     echo "Firefox history exported to:"
