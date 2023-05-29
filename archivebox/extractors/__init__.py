@@ -162,7 +162,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 
         write_link_details(link, out_dir=out_dir, skip_sql_index=False)
 
-        log_link_archiving_finished(link, out_dir or link.link_dir, is_new, stats, start_ts)
+        log_link_archiving_finished(link, out_dir, is_new, stats, start_ts)
 
     except KeyboardInterrupt:
         try:
