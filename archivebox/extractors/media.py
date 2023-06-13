@@ -26,10 +26,7 @@ def should_save_media(link: Link, out_dir: Optional[Path]=None, overwrite: Optio
         return False
 
     out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'media').exists():
-        return False
-
-    return SAVE_MEDIA
+    return False if not overwrite and (out_dir / 'media').exists() else SAVE_MEDIA
 
 @enforce_types
 def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIMEOUT) -> ArchiveResult:
