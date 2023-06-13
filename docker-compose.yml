@@ -13,16 +13,16 @@ version: '2.4'   # '3.9' or greater also works
 services:
     archivebox:
         # build: .                              # for developers working on archivebox
-        image: ${DOCKER_IMAGE:-archivebox/archivebox:master}
+        image: ${DOCKER_IMAGE:-archivebox/archivebox:dev}
         command: server --quick-init 0.0.0.0:8000
         ports:
             - 8000:8000
         environment:
-            - ALLOWED_HOSTS=*                   # add any config options you want as env vars
+            - ALLOWED_HOSTS=*                   # add any ArchiveBox config options you want as env vars
             - MEDIA_MAX_SIZE=750m
-            # - SEARCH_BACKEND_ENGINE=sonic     # uncomment these if you enable sonic below
+            # - SEARCH_BACKEND_ENGINE=sonic     # uncomment these if you enable sonic for better full-text search below
             # - SEARCH_BACKEND_HOST_NAME=sonic
-            # - SEARCH_BACKEND_PASSWORD=SecretPassword
+            # - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
         # dns:                                  # uncomment to use pihole below for ad/tracker blocking during archiving
             # - pihole
         volumes:
@@ -37,11 +37,11 @@ services:
     # after starting, backfill any existing Snapshots into the index: docker-compose run archivebox update --index-only
 
     # sonic:
-    #    image: valeriansaliou/sonic:v1.3.1
+    #    image: valeriansaliou/sonic:latest
     #    expose:
     #        - 1491
     #    environment:
-    #        - SEARCH_BACKEND_PASSWORD=SecretPassword
+    #        - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
     #    volumes:
     #        - ./sonic.cfg:/etc/sonic.cfg:ro
     #        - ./data/sonic:/var/lib/sonic/store
@@ -64,9 +64,9 @@ services:
     ### Example: Run scheduled imports in a docker instead of using cron on the
     #     host machine, add tasks and see more info with archivebox schedule --help
 
-    # scheduler:
-    #    image: archivebox/archivebox:latest
-    #    command: schedule --foreground --every=day --depth=1 'https://getpocket.com/users/USERNAME/feed/all'
+    # archivebox_scheduled_rss_task:
+    #    image: ${DOCKER_IMAGE:-archivebox/archivebox:dev}
+    #    command: schedule --foreground --every=day --depth=1 'https://getpocket.com/users/SOME_USERNAME/feed/all'
     #    environment:
     #        - USE_COLOR=True
     #        - SHOW_PROGRESS=False
@@ -89,7 +89,7 @@ services:
     ### Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel
 
     # wireguard:
-    #   image: linuxserver/wireguard
+    #   image: linuxserver/wireguard:latest
     #   network_mode: 'service:archivebox'
     #   cap_add:
     #     - NET_ADMIN
