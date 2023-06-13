@@ -212,15 +212,15 @@ def version(quiet: bool=False,
     """Print the ArchiveBox version and dependency information"""
     
     print(VERSION)
-    
+
     if not quiet:
         # 0.6.3
         # ArchiveBox v0.6.3 Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
         # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 501:20 SEARCH_BACKEND=ripgrep
-        
+
         p = platform.uname()
         print(
-            'ArchiveBox v{}'.format(VERSION),
+            f'ArchiveBox v{VERSION}',
             *((COMMIT_HASH[:7],) if COMMIT_HASH else ()),
             sys.implementation.name.title(),
             p.system,
@@ -244,11 +244,11 @@ def version(quiet: bool=False,
         print('{white}[i] Dependency versions:{reset}'.format(**ANSI))
         for name, dependency in DEPENDENCIES.items():
             print(printable_dependency_version(name, dependency))
-            
+
             # add a newline between core dependencies and extractor dependencies for easier reading
             if name == 'ARCHIVEBOX_BINARY':
                 print()
-        
+
         print()
         print('{white}[i] Source-code locations:{reset}'.format(**ANSI))
         for name, folder in CODE_LOCATIONS.items():
@@ -308,26 +308,25 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
         # TODO: properly detect and print the existing version in current index as well
         print('{green}[^] Verifying and updating existing ArchiveBox collection to v{}...{reset}'.format(VERSION, **ANSI))
         print('{green}----------------------------------------------------------------------{reset}'.format(**ANSI))
+    elif force:
+        stderr('[!] This folder appears to already have files in it, but no index.sqlite3 is present.', color='lightyellow')
+        stderr('    Because --force was passed, ArchiveBox will initialize anyway (which may overwrite existing files).')
     else:
-        if force:
-            stderr('[!] This folder appears to already have files in it, but no index.sqlite3 is present.', color='lightyellow')
-            stderr('    Because --force was passed, ArchiveBox will initialize anyway (which may overwrite existing files).')
-        else:
-            stderr(
-                ("{red}[X] This folder appears to already have files in it, but no index.sqlite3 present.{reset}\n\n"
-                "    You must run init in a completely empty directory, or an existing data folder.\n\n"
-                "    {lightred}Hint:{reset} To import an existing data folder make sure to cd into the folder first, \n"
-                "    then run and run 'archivebox init' to pick up where you left off.\n\n"
-                "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
-                ).format(out_dir, **ANSI)
-            )
-            raise SystemExit(2)
+        stderr(
+            ("{red}[X] This folder appears to already have files in it, but no index.sqlite3 present.{reset}\n\n"
+            "    You must run init in a completely empty directory, or an existing data folder.\n\n"
+            "    {lightred}Hint:{reset} To import an existing data folder make sure to cd into the folder first, \n"
+            "    then run and run 'archivebox init' to pick up where you left off.\n\n"
+            "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
+            ).format(out_dir, **ANSI)
+        )
+        raise SystemExit(2)
 
     if existing_index:
         print('\n{green}[*] Verifying archive folder structure...{reset}'.format(**ANSI))
     else:
         print('\n{green}[+] Building archive folder structure...{reset}'.format(**ANSI))
-    
+
     print(f'    + ./{ARCHIVE_DIR.relative_to(OUTPUT_DIR)}, ./{SOURCES_DIR.relative_to(OUTPUT_DIR)}, ./{LOGS_DIR.relative_to(OUTPUT_DIR)}...')
     Path(SOURCES_DIR).mkdir(exist_ok=True)
     Path(ARCHIVE_DIR).mkdir(exist_ok=True)
@@ -339,7 +338,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
         print('\n{green}[*] Verifying main SQL index and running any migrations needed...{reset}'.format(**ANSI))
     else:
         print('\n{green}[+] Building main SQL index and running initial migrations...{reset}'.format(**ANSI))
-    
+
     DATABASE_FILE = out_dir / SQL_INDEX_FILENAME
     for migration_line in apply_migrations(out_dir):
         print(f'    {migration_line}')
@@ -347,7 +346,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
     assert DATABASE_FILE.exists()
     print()
     print(f'    √ ./{DATABASE_FILE.relative_to(OUTPUT_DIR)}')
-    
+
     # from django.contrib.auth.models import User
     # if IS_TTY and not User.objects.filter(is_superuser=True).exists():
     #     print('{green}[+] Creating admin user account...{reset}'.format(**ANSI))
@@ -361,7 +360,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
 
     if existing_index:
         all_links = load_main_index(out_dir=out_dir, warn=False)
-        print('    √ Loaded {} links from existing main index.'.format(all_links.count()))
+        print(f'    √ Loaded {all_links.count()} links from existing main index.')
 
     if quick:
         print('    > Skipping full snapshot directory check (quick mode)')
@@ -374,32 +373,25 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
             if cant_fix:
                 print('    {lightyellow}! Could not fix {} data directory locations due to conflicts with existing folders.{reset}'.format(len(cant_fix), **ANSI))
 
-            # Links in JSON index but not in main index
-            orphaned_json_links = {
+            if orphaned_json_links := {
                 link.url: link
                 for link in parse_json_main_index(out_dir)
                 if not all_links.filter(url=link.url).exists()
-            }
-            if orphaned_json_links:
-                pending_links.update(orphaned_json_links)
+            }:
+                pending_links |= orphaned_json_links
                 print('    {lightyellow}√ Added {} orphaned links from existing JSON index...{reset}'.format(len(orphaned_json_links), **ANSI))
 
-            # Links in data dir indexes but not in main index
-            orphaned_data_dir_links = {
+            if orphaned_data_dir_links := {
                 link.url: link
                 for link in parse_json_links_details(out_dir)
                 if not all_links.filter(url=link.url).exists()
-            }
-            if orphaned_data_dir_links:
-                pending_links.update(orphaned_data_dir_links)
+            }:
+                pending_links |= orphaned_data_dir_links
                 print('    {lightyellow}√ Added {} orphaned links from existing archive directories.{reset}'.format(len(orphaned_data_dir_links), **ANSI))
 
-            # Links in invalid/duplicate data dirs
-            invalid_folders = {
-                folder: link
-                for folder, link in get_invalid_folders(all_links, out_dir=out_dir).items()
-            }
-            if invalid_folders:
+            if invalid_folders := dict(
+                get_invalid_folders(all_links, out_dir=out_dir).items()
+            ):
                 print('    {lightyellow}! Skipped adding {} invalid link data directories.{reset}'.format(len(invalid_folders), **ANSI))
                 print('        X ' + '\n        X '.join(f'./{Path(folder).relative_to(OUTPUT_DIR)} {link}' for folder, link in invalid_folders.items()))
                 print()
@@ -415,7 +407,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
             stderr('    {lightred}Hint:{reset} In the future you can run a quick init without checking dirs like so:'.format(**ANSI))
             stderr('        archivebox init --quick')
             raise SystemExit(1)
-        
+
         write_main_index(list(pending_links.values()), out_dir=out_dir)
 
     print('\n{green}----------------------------------------------------------------------{reset}'.format(**ANSI))
@@ -470,7 +462,7 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
 
     links = load_main_index(out_dir=out_dir)
     num_sql_links = links.count()
-    num_link_details = sum(1 for link in parse_json_links_details(out_dir=out_dir))
+    num_link_details = sum(1 for _ in parse_json_links_details(out_dir=out_dir))
     print(f'    > SQL Main Index: {num_sql_links} links'.ljust(36), f'(found in {SQL_INDEX_FILENAME})')
     print(f'    > JSON Link Details: {num_link_details} links'.ljust(36), f'(found in {ARCHIVE_DIR_NAME}/*/index.json)')
     print()
@@ -486,13 +478,13 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     print(f'    > indexed: {num_indexed}'.ljust(36), f'({get_indexed_folders.__doc__})')
     print(f'      > archived: {num_archived}'.ljust(36), f'({get_archived_folders.__doc__})')
     print(f'      > unarchived: {num_unarchived}'.ljust(36), f'({get_unarchived_folders.__doc__})')
-    
+
     num_present = len(get_present_folders(links, out_dir=out_dir))
     num_valid = len(get_valid_folders(links, out_dir=out_dir))
     print()
     print(f'    > present: {num_present}'.ljust(36), f'({get_present_folders.__doc__})')
     print(f'      > valid: {num_valid}'.ljust(36), f'({get_valid_folders.__doc__})')
-    
+
     duplicate = get_duplicate_folders(links, out_dir=out_dir)
     orphaned = get_orphaned_folders(links, out_dir=out_dir)
     corrupted = get_corrupted_folders(links, out_dir=out_dir)
@@ -503,7 +495,7 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     print(f'        > orphaned: {len(orphaned)}'.ljust(36), f'({get_orphaned_folders.__doc__})')
     print(f'        > corrupted: {len(corrupted)}'.ljust(36), f'({get_corrupted_folders.__doc__})')
     print(f'        > unrecognized: {len(unrecognized)}'.ljust(36), f'({get_unrecognized_folders.__doc__})')
-        
+
     print(ANSI['reset'])
 
     if num_indexed:
@@ -517,17 +509,15 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     if num_invalid:
         print('    {lightred}Hint:{reset} You may need to manually remove or fix some invalid data directories, afterwards make sure to run:'.format(**ANSI))
         print('        archivebox init')
-    
+
     print()
     print('{green}[*] Scanning recent archive changes and user logins:{reset}'.format(**ANSI))
     print(ANSI['lightyellow'], f'   {LOGS_DIR}/*', ANSI['reset'])
     users = get_admins().values_list('username', flat=True)
     print(f'    UI users {len(users)}: {", ".join(users)}')
-    last_login = User.objects.order_by('last_login').last()
-    if last_login:
+    if last_login := User.objects.order_by('last_login').last():
         print(f'    Last UI login: {last_login.username} @ {str(last_login.last_login)[:16]}')
-    last_updated = Snapshot.objects.order_by('updated').last()
-    if last_updated:
+    if last_updated := Snapshot.objects.order_by('updated').last():
         print(f'    Last changes: {str(last_updated.updated)[:16]}')
 
     if not users:
@@ -586,7 +576,7 @@ def add(urls: Union[str, List[str]],
 
     from core.models import Tag
 
-    assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
+    assert depth in {0, 1}, 'Depth must be 0 or 1 (depth >1 is not supported yet)'
 
     extractors = extractors.split(",") if extractors else []
 
@@ -606,7 +596,7 @@ def add(urls: Union[str, List[str]],
     elif isinstance(urls, list):
         # save verbatim args to sources
         write_ahead_log = save_text_as_source('\n'.join(urls), filename='{ts}-import.txt', out_dir=out_dir)
-    
+
 
     new_links += parse_links_from_source(write_ahead_log, root_url=None, parser=parser)
 
@@ -622,7 +612,7 @@ def add(urls: Union[str, List[str]],
                 stderr('[!] Failed to get contents of URL {new_link.url}', err, color='red')
 
     imported_links = list({link.url: link for link in (new_links + new_links_depth)}.values())
-    
+
     new_links = dedupe_links(all_links, imported_links)
 
     write_main_index(links=new_links, out_dir=out_dir)
@@ -660,21 +650,16 @@ def add(urls: Union[str, List[str]],
             archive_links(new_links, overwrite=False, **archive_kwargs)
 
 
-    # add any tags to imported links
-    tags = [
+    if tags := [
         Tag.objects.get_or_create(name=name.strip())[0]
         for name in tag.split(',')
         if name.strip()
-    ]
-    if tags:
+    ]:
         for link in imported_links:
             snapshot = link.as_snapshot()
             snapshot.tags.add(*tags)
             snapshot.tags_str(nocache=True)
             snapshot.save()
-        # print(f'    √ Tagged {len(imported_links)} Snapshots with {len(tags)} tags {tags_str}')
-
-
     return all_links
 
 @enforce_types
@@ -887,11 +872,7 @@ def list_links(snapshots: Optional[QuerySet]=None,
     
     check_data_folder(out_dir=out_dir)
 
-    if snapshots:
-        all_snapshots = snapshots
-    else:
-        all_snapshots = load_main_index(out_dir=out_dir)
-
+    all_snapshots = snapshots if snapshots else load_main_index(out_dir=out_dir)
     if after is not None:
         all_snapshots = all_snapshots.filter(timestamp__gte=after)
     if before is not None:
@@ -1071,15 +1052,16 @@ def config(config_options_str: Optional[str]=None,
         if config_options:
             config_options = [get_real_name(key) for key in config_options]
             matching_config = {key: CONFIG[key] for key in config_options if key in CONFIG}
-            failed_config = [key for key in config_options if key not in CONFIG]
-            if failed_config:
+            if failed_config := [
+                key for key in config_options if key not in CONFIG
+            ]:
                 stderr()
                 stderr('[X] These options failed to get', color='red')
                 stderr('    {}'.format('\n    '.join(config_options)))
                 raise SystemExit(1)
         else:
             matching_config = CONFIG
-        
+
         print(printable_config(matching_config))
         raise SystemExit(not matching_config)
     elif set:
@@ -1110,12 +1092,13 @@ def config(config_options_str: Optional[str]=None,
             after = load_all_config()
             print(printable_config(matching_config))
 
-            side_effect_changes: ConfigDict = {}
-            for key, val in after.items():
-                if key in USER_CONFIG and (before[key] != after[key]) and (key not in matching_config):
-                    side_effect_changes[key] = after[key]
-
-            if side_effect_changes:
+            if side_effect_changes := {
+                key: after[key]
+                for key, val in after.items()
+                if key in USER_CONFIG
+                and (before[key] != after[key])
+                and (key not in matching_config)
+            }:
                 stderr()
                 stderr('[i] Note: This change also affected these other options that depended on it:', color='lightyellow')
                 print('    {}'.format(printable_config(side_effect_changes, prefix='    ')))
@@ -1167,7 +1150,6 @@ def schedule(add: bool=False,
     existing_jobs = list(cron.find_comment(CRON_COMMENT))
 
     if every or add:
-        every = every or 'day'
         quoted = lambda s: f'"{s}"' if (s and ' ' in str(s)) else str(s)
         cmd = [
             'cd',
@@ -1188,6 +1170,7 @@ def schedule(add: bool=False,
         ]
         new_job = cron.new(command=' '.join(cmd), comment=CRON_COMMENT)
 
+        every = every or 'day'
         if every in ('minute', 'hour', 'day', 'month', 'year'):
             set_every = getattr(new_job.every(), every)
             set_every()
@@ -1238,27 +1221,27 @@ def schedule(add: bool=False,
             raise SystemExit(1)
 
         print('{green}[*] Running {} ArchiveBox jobs in foreground task scheduler...{reset}'.format(len(existing_jobs), **ANSI))
-        if run_all:
-            try:
-                for job in existing_jobs:
-                    sys.stdout.write(f'  > {job.command.split("/archivebox ")[0].split(" && ")[0]}\n')
-                    sys.stdout.write(f'    > {job.command.split("/archivebox ")[-1].split(" >> ")[0]}')
-                    sys.stdout.flush()
-                    job.run()
-                    sys.stdout.write(f'\r    √ {job.command.split("/archivebox ")[-1]}\n')
-            except KeyboardInterrupt:
-                print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
-                raise SystemExit(1)
+    if run_all:
+        try:
+            for job in existing_jobs:
+                sys.stdout.write(f'  > {job.command.split("/archivebox ")[0].split(" && ")[0]}\n')
+                sys.stdout.write(f'    > {job.command.split("/archivebox ")[-1].split(" >> ")[0]}')
+                sys.stdout.flush()
+                job.run()
+                sys.stdout.write(f'\r    √ {job.command.split("/archivebox ")[-1]}\n')
+        except KeyboardInterrupt:
+            print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
+            raise SystemExit(1)
 
-        if foreground:
-            try:
-                for job in existing_jobs:
-                    print(f'  > {job.command.split("/archivebox ")[-1].split(" >> ")[0]}')
-                for result in cron.run_scheduler():
-                    print(result)
-            except KeyboardInterrupt:
-                print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
-                raise SystemExit(1)
+    if foreground:
+        try:
+            for job in existing_jobs:
+                print(f'  > {job.command.split("/archivebox ")[-1].split(" >> ")[0]}')
+            for result in cron.run_scheduler():
+                print(result)
+        except KeyboardInterrupt:
+            print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
+            raise SystemExit(1)
 
     
 @enforce_types
@@ -1326,7 +1309,10 @@ def manage(args: Optional[List[str]]=None, out_dir: Path=OUTPUT_DIR) -> None:
 
     if (args and "createsuperuser" in args) and (IN_DOCKER and not IS_TTY):
         stderr('[!] Warning: you need to pass -it to use interactive commands in docker', color='lightyellow')
-        stderr('    docker run -it archivebox manage {}'.format(' '.join(args or ['...'])), color='lightyellow')
+        stderr(
+            f"    docker run -it archivebox manage {' '.join(args or ['...'])}",
+            color='lightyellow',
+        )
         stderr()
 
     execute_from_command_line([f'{ARCHIVEBOX_BINARY} manage', *(args or ['help'])])

@@ -124,10 +124,7 @@ def accept_stdin(stdin: Optional[IO]=sys.stdin) -> Optional[str]:
         return None
 
     if not stdin.isatty():
-        # stderr('READING STDIN TO ACCEPT...')
-        stdin_str = stdin.read()
-
-        if stdin_str:
+        if stdin_str := stdin.read():
             # stderr('GOT STDIN...', len(stdin_str))
             return stdin_str
 
@@ -152,7 +149,7 @@ class TimedProgress:
 
         end_ts = datetime.now(timezone.utc)
         self.stats['end_ts'] = end_ts
-        
+
         if self.SHOW_PROGRESS:
             # terminate if we havent already terminated
             try:
@@ -170,7 +167,7 @@ class TimedProgress:
 
                 # clear whole terminal line
                 try:
-                    sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))
+                    sys.stdout.write(f"\r{' ' * TERM_WIDTH()}{ANSI['reset']}\r")
                 except (IOError, BrokenPipeError):
                     # ignore when the parent proc has stopped listening to our stdout
                     pass
@@ -255,14 +252,16 @@ def log_importing_started(urls: Union[str, List[str]], depth: int, index_only: b
     ))
 
 def log_source_saved(source_file: str):
-    print('    > Saved verbatim input to {}/{}'.format(SOURCES_DIR_NAME, source_file.rsplit('/', 1)[-1]))
+    print(
+        f"    > Saved verbatim input to {SOURCES_DIR_NAME}/{source_file.rsplit('/', 1)[-1]}"
+    )
 
 def log_parsing_finished(num_parsed: int, parser_name: str):
     _LAST_RUN_STATS.parse_end_ts = datetime.now(timezone.utc)
-    print('    > Parsed {} URLs from input ({})'.format(num_parsed, parser_name))
+    print(f'    > Parsed {num_parsed} URLs from input ({parser_name})')
 
 def log_deduping_finished(num_new_links: int):
-    print('    > Found {} new URLs not already in index'.format(num_new_links))
+    print(f'    > Found {num_new_links} new URLs not already in index')
 
 
 def log_crawl_started(new_links):
@@ -331,7 +330,7 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
     ))
     print()
     print('    Continue archiving where you left off by running:')
-    print('        archivebox update --resume={}'.format(timestamp))
+    print(f'        archivebox update --resume={timestamp}')
 
 def log_archiving_finished(num_links: int):
 
@@ -347,17 +346,15 @@ def log_archiving_finished(num_links: int):
         duration = '{0:.2f} sec'.format(seconds)
 
     print()
-    print('{}[√] [{}] Update of {} pages complete ({}){}'.format(
-        ANSI['green'],
-        end_ts.strftime('%Y-%m-%d %H:%M:%S'),
-        num_links,
-        duration,
-        ANSI['reset'],
-    ))
-    print('    - {} links skipped'.format(_LAST_RUN_STATS.skipped))
-    print('    - {} links updated'.format(_LAST_RUN_STATS.succeeded + _LAST_RUN_STATS.failed))
-    print('    - {} links had errors'.format(_LAST_RUN_STATS.failed))
-    
+    print(
+        f"{ANSI['green']}[√] [{end_ts.strftime('%Y-%m-%d %H:%M:%S')}] Update of {num_links} pages complete ({duration}){ANSI['reset']}"
+    )
+    print(f'    - {_LAST_RUN_STATS.skipped} links skipped')
+    print(
+        f'    - {_LAST_RUN_STATS.succeeded + _LAST_RUN_STATS.failed} links updated'
+    )
+    print(f'    - {_LAST_RUN_STATS.failed} links had errors')
+
     if Snapshot.objects.count() < 50:
         print()
         print('    {lightred}Hint:{reset} To manage your archive in a Web UI, run:'.format(**ANSI))
@@ -378,10 +375,7 @@ def log_link_archiving_started(link: "Link", link_dir: str, is_new: bool):
         **ANSI,
     ))
     print('    {blue}{url}{reset}'.format(url=link.url, **ANSI))
-    print('    {} {}'.format(
-        '>' if is_new else '√',
-        pretty_path(link_dir),
-    ))
+    print(f"    {'>' if is_new else '√'} {pretty_path(link_dir)}")
 
 def log_link_archiving_finished(link: "Link", link_dir: str, is_new: bool, stats: dict, start_ts: datetime):
     total = sum(stats.values())
@@ -400,65 +394,60 @@ def log_link_archiving_finished(link: "Link", link_dir: str, is_new: bool, stats
 
 
 def log_archive_method_started(method: str):
-    print('      > {}'.format(method))
+    print(f'      > {method}')
 
 
 def log_archive_method_finished(result: "ArchiveResult"):
     """quote the argument with whitespace in a command so the user can 
        copy-paste the outputted string directly to run the cmd
     """
-    # Prettify CMD string and make it safe to copy-paste by quoting arguments
-    quoted_cmd = ' '.join(
-        '"{}"'.format(arg) if ' ' in arg else arg
-        for arg in result.cmd
-    )
+    if result.status != 'failed':
+        return
+    if result.output.__class__.__name__ == 'TimeoutExpired':
+        duration = (result.end_ts - result.start_ts).seconds
+        hint_header = [
+            '{lightyellow}Extractor timed out after {}s.{reset}'.format(duration, **ANSI),
+        ]
+    else:
+        hint_header = [
+            '{lightyellow}Extractor failed:{reset}'.format(**ANSI),
+            '    {reset}{} {red}{}{reset}'.format(
+                result.output.__class__.__name__.replace('ArchiveError', ''),
+                result.output, 
+                **ANSI,
+            ),
+        ]
 
-    if result.status == 'failed':
-        if result.output.__class__.__name__ == 'TimeoutExpired':
-            duration = (result.end_ts - result.start_ts).seconds
-            hint_header = [
-                '{lightyellow}Extractor timed out after {}s.{reset}'.format(duration, **ANSI),
-            ]
+    # Prettify error output hints string and limit to five lines
+    hints = getattr(result.output, 'hints', None) or ()
+    if hints:
+        if isinstance(hints, (list, tuple, type(iter(())))):
+            hints = [hint.decode() for hint in hints if isinstance(hint, bytes)]
         else:
-            hint_header = [
-                '{lightyellow}Extractor failed:{reset}'.format(**ANSI),
-                '    {reset}{} {red}{}{reset}'.format(
-                    result.output.__class__.__name__.replace('ArchiveError', ''),
-                    result.output, 
-                    **ANSI,
-                ),
-            ]
+            if isinstance(hints, bytes):
+                hints = hints.decode()
+            hints = hints.split('\n')
 
-        # Prettify error output hints string and limit to five lines
-        hints = getattr(result.output, 'hints', None) or ()
-        if hints:
-            if isinstance(hints, (list, tuple, type(_ for _ in ()))):
-                hints = [hint.decode() for hint in hints if isinstance(hint, bytes)]
-            else:
-                if isinstance(hints, bytes):
-                    hints = hints.decode()
-                hints = hints.split('\n')
+        hints = (
+            f"    {ANSI['lightyellow']}{line.strip()}{ANSI['reset']}"
+            for line in hints[:5]
+            if line.strip()
+        )
 
-            hints = (
-                '    {}{}{}'.format(ANSI['lightyellow'], line.strip(), ANSI['reset'])
-                for line in hints[:5] if line.strip()
-            )
 
+    # Prettify CMD string and make it safe to copy-paste by quoting arguments
+    quoted_cmd = ' '.join(f'"{arg}"' if ' ' in arg else arg for arg in result.cmd)
 
         # Collect and prefix output lines with indentation
-        output_lines = [
-            *hint_header,
-            *hints,
-            '{}Run to see full output:{}'.format(ANSI['lightred'], ANSI['reset']),
-            *(['    cd {};'.format(result.pwd)] if result.pwd else []),
-            '    {}'.format(quoted_cmd),
-        ]
-        print('\n'.join(
-            '        {}'.format(line)
-            for line in output_lines
-            if line
-        ))
-        print()
+    output_lines = [
+        *hint_header,
+        *hints,
+        f"{ANSI['lightred']}Run to see full output:{ANSI['reset']}",
+        *([f'    cd {result.pwd};'] if result.pwd else []),
+        f'    {quoted_cmd}',
+    ]
+    print('\n'.join(f'        {line}' for line in output_lines if line))
+    print()
 
 
 def log_list_started(filter_patterns: Optional[List[str]], filter_type: str):
@@ -466,7 +455,7 @@ def log_list_started(filter_patterns: Optional[List[str]], filter_type: str):
         filter_type,
         **ANSI,
     ))
-    print('    {}'.format(' '.join(filter_patterns or ())))
+    print(f"    {' '.join(filter_patterns or ())}")
 
 def log_list_finished(links):
     from .index.csv import links_to_csv
@@ -500,17 +489,16 @@ def log_removal_started(links: List["Link"], yes: bool, delete: bool):
             raise SystemExit(0)
 
 def log_removal_finished(all_links: int, to_remove: int):
+    print()
     if all_links == 0:
-        print()
         print('{red}[X] No matching links found.{reset}'.format(**ANSI))
     else:
-        print()
         print('{red}[√] Removed {} out of {} links from the archive index.{reset}'.format(
             to_remove,
             all_links,
             **ANSI,
         ))
-        print('    Index now contains {} links.'.format(all_links - to_remove))
+        print(f'    Index now contains {all_links - to_remove} links.')
 
 
 def log_shell_welcome_msg():
@@ -537,7 +525,7 @@ def pretty_path(path: Union[Path, str]) -> str:
     """convert paths like .../ArchiveBox/archivebox/../output/abc into output/abc"""
     pwd = Path('.').resolve()
     # parent = os.path.abspath(os.path.join(pwd, os.path.pardir))
-    return str(path).replace(str(pwd) + '/', './')
+    return str(path).replace(f'{str(pwd)}/', './')
 
 
 @enforce_types
@@ -620,8 +608,9 @@ def printable_dependency_version(name: str, dependency: Dict) -> str:
         if dependency['is_valid']:
             color, symbol, note, version = 'green', '√', 'valid', ''
 
-            parsed_version_num = re.search(r'[\d\.]+', dependency['version'])
-            if parsed_version_num:
+            if parsed_version_num := re.search(
+                r'[\d\.]+', dependency['version']
+            ):
                 version = f'v{parsed_version_num[0]}'
 
         if not version:
