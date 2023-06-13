@@ -34,7 +34,7 @@ def parse_generic_txt_export(text_file: IO[str], **_kwargs) -> Iterable[Link]:
                     tags=None,
                     sources=[text_file.name],
                 )
-        except (OSError, PermissionError):
+        except OSError:
             # nvm, not a valid path...
             pass
 

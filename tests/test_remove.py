@@ -24,7 +24,7 @@ def test_remove_single_page_filesystem(tmp_path, process, disable_extractors_dic
 
     subprocess.run(['archivebox', 'remove', 'http://127.0.0.1:8080/static/example.com.html', '--yes', '--delete'], capture_output=True)
 
-    assert list((tmp_path / "archive").iterdir()) == []
+    assert not list((tmp_path / "archive").iterdir())
 
 def test_remove_regex(tmp_path, process, disable_extractors_dict):
     subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'], capture_output=True, env=disable_extractors_dict)
@@ -33,7 +33,7 @@ def test_remove_regex(tmp_path, process, disable_extractors_dict):
 
     subprocess.run(['archivebox', 'remove', '--filter-type=regex', '.*', '--yes', '--delete'], capture_output=True)
 
-    assert list((tmp_path / "archive").iterdir()) == []
+    assert not list((tmp_path / "archive").iterdir())
 
 def test_remove_exact(tmp_path, process, disable_extractors_dict):
     subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'], capture_output=True, env=disable_extractors_dict)
@@ -60,7 +60,7 @@ def test_remove_domain(tmp_path, process, disable_extractors_dict):
 
     remove_process = subprocess.run(['archivebox', 'remove', '--filter-type=domain', '127.0.0.1', '--yes', '--delete'], capture_output=True)
 
-    assert len(list((tmp_path / "archive").iterdir())) == 0
+    assert not list((tmp_path / "archive").iterdir())
 
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
@@ -75,7 +75,7 @@ def test_remove_tag(tmp_path, process, disable_extractors_dict):
     subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/example.com.html'], capture_output=True, env=disable_extractors_dict)
     subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/iana.org.html'], capture_output=True, env=disable_extractors_dict)
     assert list((tmp_path / "archive").iterdir()) != []
-    
+
     conn = sqlite3.connect("index.sqlite3")
     c = conn.cursor()
     c.execute("INSERT INTO core_tag (id, name, slug) VALUES (2, 'test-tag', 'test-tag')")
@@ -85,7 +85,7 @@ def test_remove_tag(tmp_path, process, disable_extractors_dict):
 
     remove_process = subprocess.run(['archivebox', 'remove', '--filter-type=tag', 'test-tag', '--yes', '--delete'], capture_output=True)
 
-    assert len(list((tmp_path / "archive").iterdir())) == 0
+    assert not list((tmp_path / "archive").iterdir())
 
     count = c.execute("SELECT COUNT() from core_snapshot").fetchone()[0]
     conn.commit()

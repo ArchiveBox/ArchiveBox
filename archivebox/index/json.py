@@ -150,7 +150,7 @@ class ExtendedEncoder(pyjson.JSONEncoder):
             return obj.isoformat()
 
         elif isinstance(obj, Exception):
-            return '{}: {}'.format(obj.__class__.__name__, obj)
+            return f'{obj.__class__.__name__}: {obj}'
 
         elif cls_name in ('dict_items', 'dict_keys', 'dict_values'):
             return tuple(obj)

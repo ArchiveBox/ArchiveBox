@@ -11,9 +11,7 @@ def forwards_func(apps, schema_editor):
     snapshots = SnapshotModel.objects.all()
     for snapshot in snapshots:
         tags = snapshot.tags
-        tag_set = (
-            set(tag.strip() for tag in (snapshot.tags_old or '').split(','))
-        )
+        tag_set = {tag.strip() for tag in (snapshot.tags_old or '').split(',')}
         tag_set.discard("")
 
         for tag in tag_set:
@@ -29,7 +27,7 @@ def reverse_func(apps, schema_editor):
     snapshots = SnapshotModel.objects.all()
     for snapshot in snapshots:
         tags = snapshot.tags.values_list("name", flat=True)
-        snapshot.tags_old = ",".join([tag for tag in tags])
+        snapshot.tags_old = ",".join(list(tags))
         snapshot.save()
 
 

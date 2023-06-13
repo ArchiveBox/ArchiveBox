@@ -24,7 +24,7 @@ def import_backend():
     try:
         backend = import_module(backend_string)
     except Exception as err:
-        raise Exception("Could not load '%s' as a backend: %s" % (backend_string, err))
+        raise Exception(f"Could not load '{backend_string}' as a backend: {err}")
     return backend
 
 @enforce_types
@@ -63,10 +63,7 @@ def query_search_index(query: str, out_dir: Path=OUTPUT_DIR) -> QuerySet:
                 )
             raise
         else:
-            # TODO preserve ordering from backend
-            qsearch = Snapshot.objects.filter(pk__in=snapshot_ids)
-            return qsearch
-    
+            return Snapshot.objects.filter(pk__in=snapshot_ids)
     return Snapshot.objects.none()
 
 @enforce_types
@@ -92,8 +89,7 @@ def index_links(links: Union[List[Link],None], out_dir: Path=OUTPUT_DIR):
     from core.models import Snapshot, ArchiveResult
 
     for link in links:
-        snap = Snapshot.objects.filter(url=link.url).first()
-        if snap: 
+        if snap := Snapshot.objects.filter(url=link.url).first():
             results = ArchiveResult.objects.indexable().filter(snapshot=snap)
             log_index_started(link.url)
             try:

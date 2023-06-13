@@ -112,10 +112,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     )
     command = parser.parse_args(args or ())
 
-    filter_patterns_str = None
-    if not command.filter_patterns:
-        filter_patterns_str = accept_stdin(stdin)
-
+    filter_patterns_str = None if command.filter_patterns else accept_stdin(stdin)
     update(
         resume=command.resume,
         only_new=command.only_new,

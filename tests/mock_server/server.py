@@ -10,8 +10,7 @@ def index():
 @route("/static/<filename>")
 def static_path(filename):
     template_path = Path.cwd().resolve() / "tests/mock_server/templates"
-    response = static_file(filename, root=template_path)
-    return response
+    return static_file(filename, root=template_path)
 
 @route("/static_no_content_type/<filename>")
 def static_no_content_type(filename):
@@ -46,7 +45,7 @@ def static_200(filename):
 
 @route("/redirect/headers/<filename>")
 def redirect_to_static(filename):
-    redirect(f"/static/headers/$filename")
+    redirect("/static/headers/$filename")
 
 
 def start():

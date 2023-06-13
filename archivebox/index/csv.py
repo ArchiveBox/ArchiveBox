@@ -14,11 +14,8 @@ def links_to_csv(links: List[Link],
                  ljust: int=0) -> str:
 
     cols = cols or ['timestamp', 'is_archived', 'url']
-    
-    header_str = ''
-    if header:
-        header_str = separator.join(col.ljust(ljust) for col in cols)
 
+    header_str = separator.join(col.ljust(ljust) for col in cols) if header else ''
     row_strs = (
         link.to_csv(cols=cols, ljust=ljust, separator=separator)
         for link in links

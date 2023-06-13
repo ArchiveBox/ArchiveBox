@@ -40,10 +40,7 @@ def should_save_git(link: Link, out_dir: Optional[Path]=None, overwrite: Optiona
         (domain(link.url) in GIT_DOMAINS)
         or (extension(link.url) == 'git')
     )
-    if not is_clonable_url:
-        return False
-
-    return SAVE_GIT
+    return False if not is_clonable_url else SAVE_GIT
 
 
 @enforce_types
@@ -69,7 +66,7 @@ def save_git(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> 
             # ignore failed re-download when the folder already exists
             pass
         elif result.returncode > 0:
-            hints = 'Got git response code: {}.'.format(result.returncode)
+            hints = f'Got git response code: {result.returncode}.'
             raise ArchiveError('Failed to save git clone', hints)
 
         chmod_file(output, cwd=str(out_dir))

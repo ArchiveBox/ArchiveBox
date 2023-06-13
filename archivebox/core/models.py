@@ -62,26 +62,25 @@ class Tag(models.Model):
         return slug
 
     def save(self, *args, **kwargs):
-        if self._state.adding and not self.slug:
-            self.slug = self.slugify(self.name)
-
-            # if name is different but slug conficts with another tags slug, append a counter
-            # with transaction.atomic():
-            slugs = set(
-                type(self)
-                ._default_manager.filter(slug__startswith=self.slug)
-                .values_list("slug", flat=True)
-            )
-
-            i = None
-            while True:
-                slug = self.slugify(self.name, i)
-                if slug not in slugs:
-                    self.slug = slug
-                    return super().save(*args, **kwargs)
-                i = 1 if i is None else i+1
-        else:
+        if not self._state.adding or self.slug:
             return super().save(*args, **kwargs)
+        self.slug = self.slugify(self.name)
+
+        # if name is different but slug conficts with another tags slug, append a counter
+        # with transaction.atomic():
+        slugs = set(
+            type(self)
+            ._default_manager.filter(slug__startswith=self.slug)
+            .values_list("slug", flat=True)
+        )
+
+        i = None
+        while True:
+            slug = self.slugify(self.name, i)
+            if slug not in slugs:
+                self.slug = slug
+                return super().save(*args, **kwargs)
+            i = 1 if i is None else i+1
 
 
 class Snapshot(models.Model):
@@ -174,7 +173,7 @@ class Snapshot(models.Model):
 
     @cached_property
     def archive_path(self):
-        return '{}/{}'.format(ARCHIVE_DIR_NAME, self.timestamp)
+        return f'{ARCHIVE_DIR_NAME}/{self.timestamp}'
 
     @cached_property
     def archive_size(self):
@@ -190,11 +189,13 @@ class Snapshot(models.Model):
 
     @cached_property
     def thumbnail_url(self) -> Optional[str]:
-        result = self.archiveresult_set.filter(
-            extractor='screenshot',
-            status='succeeded'
-        ).only('output').last()
-        if result:
+        if (
+            result := self.archiveresult_set.filter(
+                extractor='screenshot', status='succeeded'
+            )
+            .only('output')
+            .last()
+        ):
             return reverse('Snapshot', args=[f'{str(self.timestamp)}/{result.output}'])
         return None
 
@@ -247,10 +248,11 @@ class Snapshot(models.Model):
         return None
 
     def save_tags(self, tags: List[str]=()) -> None:
-        tags_id = []
-        for tag in tags:
-            if tag.strip():
-                tags_id.append(Tag.objects.get_or_create(name=tag)[0].id)
+        tags_id = [
+            Tag.objects.get_or_create(name=tag)[0].id
+            for tag in tags
+            if tag.strip()
+        ]
         self.tags.clear()
         self.tags.add(*tags_id)
 

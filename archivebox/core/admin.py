@@ -188,8 +188,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     files.short_description = 'Files Saved'
 
     def size(self, obj):
-        archive_size = (Path(obj.link_dir) / 'index.html').exists() and obj.archive_size
-        if archive_size:
+        if (
+            archive_size := (Path(obj.link_dir) / 'index.html').exists()
+            and obj.archive_size
+        ):
             size_txt = printable_filesize(archive_size)
             if archive_size > 52428800:
                 size_txt = mark_safe(f'<b>{size_txt}</b>')
@@ -409,10 +411,10 @@ class ArchiveBoxAdmin(admin.AdminSite):
                    add(**input_kwargs)
                 print(add_stdout.getvalue())
 
-                context.update({
+                context |= {
                     "stdout": ansi_to_html(add_stdout.getvalue().strip()),
-                    "form": AddLinkForm()
-                })
+                    "form": AddLinkForm(),
+                }
             else:
                 context["form"] = form
 

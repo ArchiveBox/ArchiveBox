@@ -90,8 +90,7 @@ def should_save_title(link: Link, out_dir: Optional[str]=None, overwrite: Option
 
 def extract_title_with_regex(html):
     match = re.search(HTML_TITLE_REGEX, html)
-    output = htmldecode(match.group(1).strip()) if match else None
-    return output
+    return htmldecode(match[1].strip()) if match else None
 
 @enforce_types
 def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
@@ -103,8 +102,9 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
     cmd = [
         CURL_BINARY,
         *CURL_ARGS,
-        '--max-time', str(timeout),
-        *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
+        '--max-time',
+        str(timeout),
+        *(['--user-agent', f'{CURL_USER_AGENT}'] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         link.url,
     ]
@@ -122,19 +122,18 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
         except Exception:
             # fallback to regex that can handle broken/malformed html
             output = extract_title_with_regex(html)
-        
+
         # if title is better than the one in the db, update db with new title
         if isinstance(output, str) and output:
             if not link.title or len(output) >= len(link.title):
                 Snapshot.objects.filter(url=link.url,
                                         timestamp=link.timestamp)\
                                 .update(title=output)
-        else:
-            # if no content was returned, dont save a title (because it might be a temporary error)
-            if not html:
-                raise ArchiveError('Unable to detect page title')
+        elif html:
             # output = html[:128]       # use first bit of content as the title
             output = link.base_url      # use the filename as the title (better UX)
+        else:
+            raise ArchiveError('Unable to detect page title')
     except Exception as err:
         status = 'failed'
         output = err

@@ -114,7 +114,9 @@ def chmod_file(path: str, cwd: str='.') -> None:
 
     root = Path(cwd) / path
     if not root.exists():
-        raise Exception('Failed to chmod: {} does not exist (did the previous step fail?)'.format(path))
+        raise Exception(
+            f'Failed to chmod: {path} does not exist (did the previous step fail?)'
+        )
 
     if not root.is_dir():
         # path is just a plain file

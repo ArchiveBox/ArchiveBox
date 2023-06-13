@@ -43,13 +43,14 @@ def save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, timeout: int=
     out_dir = out_dir or Path(link.link_dir)
     output: ArchiveOutput = 'archive.org.txt'
     archive_org_url = None
-    submit_url = 'https://web.archive.org/save/{}'.format(link.url)
+    submit_url = f'https://web.archive.org/save/{link.url}'
     cmd = [
         CURL_BINARY,
         *CURL_ARGS,
         '--head',
-        '--max-time', str(timeout),
-        *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
+        '--max-time',
+        str(timeout),
+        *(['--user-agent', f'{CURL_USER_AGENT}'] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         submit_url,
     ]

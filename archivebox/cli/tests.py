@@ -16,10 +16,10 @@ TEST_CONFIG = {
     'SHOW_PROGRESS': 'False',
 
     'OUTPUT_DIR': 'data.tests',
-    
+
     'SAVE_ARCHIVE_DOT_ORG': 'False',
     'SAVE_TITLE': 'False',
-    
+
     'USE_CURL': 'False',
     'USE_WGET': 'False',
     'USE_GIT': 'False',
@@ -28,7 +28,7 @@ TEST_CONFIG = {
 }
 
 OUTPUT_DIR = 'data.tests'
-os.environ.update(TEST_CONFIG)
+os.environ |= TEST_CONFIG
 
 from ..main import init
 from ..index import load_main_index

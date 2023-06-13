@@ -259,10 +259,7 @@ class NoisyRequestsFilter(logging.Filter):
 
         # ignore staticfile requests that 200 or 30*
         ignoreable_200_log_pattern = re.compile(r'"GET /static/.* HTTP/.*" (200|30.) .+', re.I | re.M)
-        if ignoreable_200_log_pattern.match(logline):
-            return 0
-
-        return 1
+        return 0 if ignoreable_200_log_pattern.match(logline) else 1
 
 if LOGS_DIR.exists():
     ERROR_LOG = (LOGS_DIR / 'errors.log')

@@ -45,8 +45,9 @@ def save_headers(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
         CURL_BINARY,
         *CURL_ARGS,
         '--head',
-        '--max-time', str(timeout),
-        *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
+        '--max-time',
+        str(timeout),
+        *(['--user-agent', f'{CURL_USER_AGENT}'] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
         link.url,
     ]
@@ -54,7 +55,7 @@ def save_headers(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
         json_headers = get_headers(link.url, timeout=timeout)
         output_folder.mkdir(exist_ok=True)
         atomic_write(str(output_folder / "headers.json"), json_headers)
-    except (Exception, OSError) as err:
+    except Exception as err:
         status = 'failed'
         output = err
     finally:

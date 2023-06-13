@@ -113,7 +113,12 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     command = parser.parse_args(args or ())
     reject_stdin(stdin)
 
-    if command.with_headers and not (command.json or command.html or command.csv):
+    if (
+        command.with_headers
+        and not command.json
+        and not command.html
+        and not command.csv
+    ):
         stderr(
             '[X] --with-headers can only be used with --json, --html or --csv options\n',
             color='red',

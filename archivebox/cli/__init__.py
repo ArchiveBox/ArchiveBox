@@ -40,7 +40,7 @@ def list_subcommands() -> Dict[str, str]:
     for filename in os.listdir(CLI_DIR):
         if is_cli_module(filename):
             subcommand = filename.replace('archivebox_', '').replace('.py', '')
-            module = import_module('.archivebox_{}'.format(subcommand), __package__)
+            module = import_module(f'.archivebox_{subcommand}', __package__)
             assert is_valid_cli_module(module, subcommand)
             COMMANDS.append((subcommand, module.main.__doc__))
             globals()[subcommand] = module.main
@@ -76,7 +76,7 @@ def run_subcommand(subcommand: str,
         if cmd_requires_db:
             check_migrations()
 
-    module = import_module('.archivebox_{}'.format(subcommand), __package__)
+    module = import_module(f'.archivebox_{subcommand}', __package__)
     module.main(args=subcommand_args, stdin=stdin, pwd=pwd)    # type: ignore
 
 

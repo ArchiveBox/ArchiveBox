@@ -46,10 +46,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     )
     command = parser.parse_args(args or ())
 
-    config_options_str = ''
-    if not command.config_options:
-        config_options_str = accept_stdin(stdin)
-
+    config_options_str = accept_stdin(stdin) if not command.config_options else ''
     config(
         config_options_str=config_options_str,
         config_options=command.config_options,

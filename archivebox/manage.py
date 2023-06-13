@@ -7,7 +7,7 @@ if __name__ == '__main__':
     # versions of ./manage.py commands whenever possible. When that's not possible
     # (e.g. makemigrations), you can comment out this check temporarily
 
-    if not ('makemigrations' in sys.argv or 'migrate' in sys.argv):
+    if 'makemigrations' not in sys.argv and 'migrate' not in sys.argv:
         print("[X] Don't run ./manage.py directly (unless you are a developer running makemigrations):")
         print()
         print('    Hint: Use these archivebox CLI commands instead of the ./manage.py equivalents:')

@@ -6,13 +6,11 @@ import pytest
 @pytest.fixture
 def process(tmp_path):
     os.chdir(tmp_path)
-    process = subprocess.run(['archivebox', 'init'], capture_output=True)
-    return process
+    return subprocess.run(['archivebox', 'init'], capture_output=True)
 
 @pytest.fixture
 def disable_extractors_dict():
-    env = os.environ.copy()
-    env.update({
+    return os.environ | {
         "USE_WGET": "false",
         "USE_SINGLEFILE": "false",
         "USE_READABILITY": "false",
@@ -23,6 +21,5 @@ def disable_extractors_dict():
         "SAVE_HEADERS": "false",
         "USE_GIT": "false",
         "SAVE_MEDIA": "false",
-        "SAVE_ARCHIVE_DOT_ORG": "false"
-    })
-    return env
+        "SAVE_ARCHIVE_DOT_ORG": "false",
+    }

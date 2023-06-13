@@ -36,10 +36,12 @@ def search(text: str) -> List[str]:
     file_paths = [p.decode() for p in rg.stdout.splitlines()]
     timestamps = set()
     for path in file_paths:
-        ts = ts_regex.findall(path)
-        if ts:
+        if ts := ts_regex.findall(path):
             timestamps.add(ts[0])
-    
-    snap_ids = [str(id) for id in Snapshot.objects.filter(timestamp__in=timestamps).values_list('pk', flat=True)]
 
-    return snap_ids
+    return [
+        str(id)
+        for id in Snapshot.objects.filter(
+            timestamp__in=timestamps
+        ).values_list('pk', flat=True)
+    ]

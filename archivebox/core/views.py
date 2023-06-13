@@ -145,18 +145,22 @@ class SnapshotView(View):
             try:
                 # try exact match on full url first
                 snapshot = Snapshot.objects.get(
-                    Q(url='http://' + path) | Q(url='https://' + path) | Q(id__startswith=path)
+                    Q(url=f'http://{path}')
+                    | Q(url=f'https://{path}')
+                    | Q(id__startswith=path)
                 )
             except Snapshot.DoesNotExist:
                 # fall back to match on exact base_url
                 try:
                     snapshot = Snapshot.objects.get(
-                        Q(url='http://' + base_url(path)) | Q(url='https://' + base_url(path))
+                        Q(url=f'http://{base_url(path)}')
+                        | Q(url=f'https://{base_url(path)}')
                     )
                 except Snapshot.DoesNotExist:
                     # fall back to matching base_url as prefix
                     snapshot = Snapshot.objects.get(
-                        Q(url__startswith='http://' + base_url(path)) | Q(url__startswith='https://' + base_url(path))
+                        Q(url__startswith=f'http://{base_url(path)}')
+                        | Q(url__startswith=f'https://{base_url(path)}')
                     )
             return redirect(f'/archive/{snapshot.timestamp}/index.html')
         except Snapshot.DoesNotExist:
@@ -187,8 +191,11 @@ class SnapshotView(View):
                     snap.title or '',
                 )
                 for snap in Snapshot.objects.filter(
-                    Q(url__startswith='http://' + base_url(path)) | Q(url__startswith='https://' + base_url(path))
-                ).only('url', 'timestamp', 'title', 'added').order_by('-added')
+                    Q(url__startswith=f'http://{base_url(path)}')
+                    | Q(url__startswith=f'https://{base_url(path)}')
+                )
+                .only('url', 'timestamp', 'title', 'added')
+                .order_by('-added')
             )
             return HttpResponse(
                 format_html(
@@ -233,8 +240,7 @@ class PublicIndexView(ListView):
 
     def get(self, *args, **kwargs):
         if PUBLIC_INDEX or self.request.user.is_authenticated:
-            response = super().get(*args, **kwargs)
-            return response
+            return super().get(*args, **kwargs)
         else:
             return redirect(f'/admin/login/?next={self.request.path}')
 
@@ -246,8 +252,7 @@ class AddView(UserPassesTestMixin, FormView):
     def get_initial(self):
         """Prefill the AddLinkForm with the 'url' GET parameter"""
         if self.request.method == 'GET':
-            url = self.request.GET.get('url', None)
-            if url:
+            if url := self.request.GET.get('url', None):
                 return {'url': url if '://' in url else f'https://{url}'}
 
         return super().get_initial()
@@ -272,7 +277,6 @@ class AddView(UserPassesTestMixin, FormView):
         parser = form.cleaned_data["parser"]
         tag = form.cleaned_data["tag"]
         depth = 0 if form.cleaned_data["depth"] == "0" else 1
-        extractors = ','.join(form.cleaned_data["archive_methods"])
         input_kwargs = {
             "urls": url,
             "tag": tag,
@@ -281,8 +285,8 @@ class AddView(UserPassesTestMixin, FormView):
             "update_all": False,
             "out_dir": OUTPUT_DIR,
         }
-        if extractors:
-            input_kwargs.update({"extractors": extractors})
+        if extractors := ','.join(form.cleaned_data["archive_methods"]):
+            input_kwargs["extractors"] = extractors
         add_stdout = StringIO()
         with redirect_stdout(add_stdout):
             add(**input_kwargs)

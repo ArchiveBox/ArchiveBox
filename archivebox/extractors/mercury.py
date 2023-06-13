@@ -72,7 +72,7 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
             article_text = json.loads(result.stdout)
         except json.JSONDecodeError:
             raise ShellError(cmd, result)
-        
+
         if article_text.get('failed'):
             raise ArchiveError('Mercury was not able to get article text from the URL')
 
@@ -98,7 +98,7 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
         # Check for common failure cases
         if (result.returncode > 0):
             raise ShellError(cmd, result)
-    except (ArchiveError, Exception, OSError) as err:
+    except (ArchiveError, Exception) as err:
         status = 'failed'
         output = err
     finally:
