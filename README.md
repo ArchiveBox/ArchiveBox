@@ -49,13 +49,16 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 <br/>
 
-**📦&nbsp; Get ArchiveBox with Docker / `apt` / `brew` / `pip3` / etc. ([see Quickstart below](#quickstart)).**
+**📦&nbsp; Get ArchiveBox with `docker` / `apt` / `brew` / `pip3` / `nix` / etc. ([see Quickstart below](#quickstart)).**
 
 ```bash
-# Follow the instructions for your package manager in the quickstart, e.g.:
+# Get ArchiveBox with Docker or Docker Compose (recommended)
+docker run -v $PWD/data:/data -it archivebox/archivebox:dev init --setup
+
+# Or install with your preferred package manager (see Quickstart below for apt, brew, and more)
 pip3 install archivebox
 
-# Or use the optional auto setup script to install it for you:
+# Or use the optional auto setup script to install it
 curl -sSL 'https://get.archivebox.io' | sh
 ```
 
