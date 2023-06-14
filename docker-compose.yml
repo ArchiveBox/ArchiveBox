@@ -1,40 +1,53 @@
 # Usage:
-#     docker-compose run archivebox init --setup
-#     docker-compose up
-#     echo "https://example.com" | docker-compose run archivebox archivebox add
-#     docker-compose run archivebox add --depth=1 https://example.com/some/feed.rss
-#     docker-compose run archivebox config --set PUBLIC_INDEX=True
-#     docker-compose run archivebox help
+#     docker compose run archivebox init --setup
+#     docker compose up
+#     echo "https://example.com" | docker compose run archivebox archivebox add
+#     docker compose run archivebox add --depth=1 https://example.com/some/feed.rss
+#     docker compose run archivebox config --set MEDIA_MAX_SIZE=750m
+#     docker compose run archivebox help
 # Documentation:
 #     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
 
-version: '2.4'   # '3.9' or greater also works
+version: '3.9'
 
 services:
     archivebox:
-        # build: .                              # for developers working on archivebox
         image: ${DOCKER_IMAGE:-archivebox/archivebox:dev}
         command: server --quick-init 0.0.0.0:8000
         ports:
             - 8000:8000
-        environment:
-            - ALLOWED_HOSTS=*                   # add any ArchiveBox config options you want as env vars
-            - MEDIA_MAX_SIZE=750m
-            # - SEARCH_BACKEND_ENGINE=sonic     # uncomment these if you enable sonic for better full-text search below
-            # - SEARCH_BACKEND_HOST_NAME=sonic
-            # - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
-        # dns:                                  # uncomment to use pihole below for ad/tracker blocking during archiving
-            # - pihole
         volumes:
             - ./data:/data
-            # - ./archivebox:/app/archivebox    # for developers working on archivebox
+            # - ./etc/crontabs:/var/spool/cron/crontabs  # uncomment this and archivebox_scheduler below to set up automatic recurring archive jobs
+            # - ./archivebox:/app/archivebox             # uncomment this to mount the ArchiveBox source code at runtime (for developers working on archivebox)
+        # build: .                                       # uncomment this to build the image from source code at buildtime (for developers working on archivebox)
+        # dns:                                           # uncomment this and pihole container below for ad-blocking during archiving
+            # - pihole
+        environment:
+            - ALLOWED_HOSTS=*                   # restrict this to only accept incoming traffic via specific domain name
+            # - MEDIA_MAX_SIZE=750m             # increase this filesize limit to allow archiving larger audio/video files
+            # - TIMEOUT=60                      # increase this number to 120+ seconds if you see many slow downloads timing out
+            # - CHECK_SSL_VALIDITY=True         # set to False to disable strict SSL checking (allows saving URLs w/ broken certs)
+            # - SAVE_ARCHIVE_DOT_ORG=True       # set to False to disable submitting all URLs to Archive.org when archiving
+            # - PUBLIC_INDEX=True               # set to False to prevent anonymous users from viewing snapshot list
+            # - PUBLIC_SNAPSHOTS=True           # set to False to prevent anonymous users from viewing snapshot content
+            # - PUBLIC_ADD_VIEW=False           # set to True to allow anonymous users to submit new URLs to archive
+            # - PUID=1000                       # set to your host user's UID & GID if you encounter permissions issues
+            # - PGID=1000
+            # - SEARCH_BACKEND_ENGINE=sonic     # uncomment these and sonic container below for better full-text search
+            # - SEARCH_BACKEND_HOST_NAME=sonic
+            # - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
+            # ...
+            # add further configuration options from archivebox/config.py as needed (to apply them only to this container)
+            # or set using `docker compose run archivebox config --set SOME_KEY=someval` (to persist config across all containers)
 
 
-    ### Optional Addons: tweak these examples as needed for your specific use case
+    ######## Optional Addons: tweak examples below as needed for your specific use case ########
 
     ### Example: To run the Sonic full-text search backend, first download the config file to sonic.cfg
-    # curl -O https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/etc/sonic.cfg
-    # after starting, backfill any existing Snapshots into the index: docker-compose run archivebox update --index-only
+    #   $ curl -O https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/etc/sonic.cfg
+    # After starting, backfill any existing Snapshots into the full-text index:
+    #   $ docker-compose run archivebox update --index-only
 
     # sonic:
     #    image: valeriansaliou/sonic:latest
@@ -53,25 +66,36 @@ services:
     # pihole:
     #   image: pihole/pihole:latest
     #   ports:
-    #     - 80:80       # uncomment to access the admin HTTP interface on http://localhost:80
+    #     - 8090:80       # uncomment to access the admin HTTP interface on http://localhost:8090
     #   environment:
-    #     WEBPASSWORD: 'set a secure password here or it will be random'
+    #     - WEBPASSWORD=SET_THIS_TO_SOME_SECRET_PASSWORD_FOR_ADMIN_DASHBOARD
     #   volumes:
-    #     - ./data/pihole:/etc/pihole
-    #     - ./data/dnsmasq:/etc/dnsmasq.d
+    #     - ./etc/pihole:/etc/pihole
+    #     - ./etc/dnsmasq:/etc/dnsmasq.d
 
 
-    ### Example: Run scheduled imports in a docker instead of using cron on the
-    #     host machine, add tasks and see more info with archivebox schedule --help
+    ### Example: Enable ability to run regularly scheduled archiving tasks by uncommenting this container
+    #   $ docker compose run archivebox schedule --every=day --depth=1 'https://example.com/some/rss/feed.xml'
+    # then restart the scheduler container to apply the changes to the schedule
+    #   $ docker compose restart archivebox_scheduler
 
-    # archivebox_scheduled_rss_task:
+    # archivebox_scheduler:
     #    image: ${DOCKER_IMAGE:-archivebox/archivebox:dev}
-    #    command: schedule --foreground --every=day --depth=1 'https://getpocket.com/users/SOME_USERNAME/feed/all'
+    #    command: schedule --foreground
     #    environment:
-    #        - USE_COLOR=True
-    #        - SHOW_PROGRESS=False
+    #        - MEDIA_MAX_SIZE=750m               # increase this number to allow archiving larger audio/video files
+    #        # - TIMEOUT=60                      # increase if you see timeouts often during archiving / on slow networks
+    #        # - ONLY_NEW=True                   # set to False to retry previously failed URLs when re-adding instead of skipping them
+    #        # - CHECK_SSL_VALIDITY=True         # set to False to allow saving URLs w/ broken SSL certs
+    #        # - SAVE_ARCHIVE_DOT_ORG=True       # set to False to disable submitting URLs to Archive.org when archiving
+    #        # - PUID=502                        # set to your host user's UID & GID if you encounter permissions issues
+    #        # - PGID=20
     #    volumes:
     #        - ./data:/data
+    #        - ./etc/crontabs:/var/spool/cron/crontabs
+    #    # cpus: 2                               # uncomment / edit these values to limit container resource consumption
+    #    # mem_limit: 2048m
+    #    # shm_size: 1024m
 
 
     ### Example: Put Nginx in front of the ArchiveBox server for SSL termination
@@ -82,7 +106,7 @@ services:
     #         - 443:443
     #         - 80:80
     #     volumes:
-    #         - ./etc/nginx/nginx.conf:/etc/nginx/nginx.conf
+    #         - ./etc/nginx.conf:/etc/nginx/nginx.conf
     #         - ./data:/var/www
 
 
