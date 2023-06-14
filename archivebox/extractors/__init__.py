@@ -80,7 +80,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         snapshot = write_link_to_sql_index(link)
 
     ARCHIVE_METHODS = get_default_archive_methods()
-    
+
     if methods:
         ARCHIVE_METHODS = [
             method for method in ARCHIVE_METHODS
@@ -143,13 +143,16 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                 with open(ERROR_LOG, "a", encoding='utf-8') as f:
                     command = ' '.join(sys.argv)
                     ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
-                    f.write(("\n" + 'Exception in archive_methods.save_{}(Link(url={})) command={}; ts={}'.format(
-                        method_name,
-                        link.url,
-                        command,
-                        ts
-                    ) + "\n"))
-                    #f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
+                    f.write(
+                        (
+                            (
+                                "\n"
+                                + f'Exception in archive_methods.save_{method_name}(Link(url={link.url})) command={command}; ts={ts}'
+                            )
+                            + "\n"
+                        )
+                    )
+                                    #f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
 
         # print('    ', stats)
 
@@ -172,7 +175,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         raise
 
     except Exception as err:
-        print('    ! Failed to archive link: {}: {}'.format(err.__class__.__name__, err))
+        print(f'    ! Failed to archive link: {err.__class__.__name__}: {err}')
         raise
 
     return link

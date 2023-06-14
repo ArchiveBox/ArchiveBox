@@ -63,9 +63,9 @@ def save_singlefile(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
         option_name = argument.split("=")[0]
         if option_name in seen_option_names:
             return False
-        else:
-            seen_option_names.append(option_name)
-            return True
+        seen_option_names.append(option_name)
+        return True
+
     deduped_options = list(filter(test_seen, options))
 
     cmd = [
@@ -96,7 +96,7 @@ def save_singlefile(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
         if (result.returncode > 0) or not (out_dir / output).is_file():
             raise ArchiveError('SingleFile was not able to archive the page', hints)
         chmod_file(output, cwd=str(out_dir))
-    except (Exception, OSError) as err:
+    except Exception as err:
         status = 'failed'
         # TODO: Make this prettier. This is necessary to run the command (escape JSON internal quotes).
         cmd[2] = browser_args.replace('"', "\\\"")

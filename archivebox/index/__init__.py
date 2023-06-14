@@ -85,10 +85,9 @@ def merge_links(a: Link, b: Link) -> Link:
     )
 
     # all unique, truthy tags
-    tags_set = (
-        set(tag.strip() for tag in (a.tags or '').split(','))
-        | set(tag.strip() for tag in (b.tags or '').split(','))
-    )
+    tags_set = {tag.strip() for tag in (a.tags or '').split(',')} | {
+        tag.strip() for tag in (b.tags or '').split(',')
+    }
     tags = ','.join(tags_set) or None
 
     # all unique source entries
@@ -199,10 +198,10 @@ def lowest_uniq_timestamp(used_timestamps: OrderedDict, timestamp: str) -> str:
     if timestamp not in used_timestamps:
         return timestamp
 
-    new_timestamp = '{}.{}'.format(timestamp, nonce)
+    new_timestamp = f'{timestamp}.{nonce}'
     while new_timestamp in used_timestamps:
         nonce += 1
-        new_timestamp = '{}.{}'.format(timestamp, nonce)
+        new_timestamp = f'{timestamp}.{nonce}'
 
     return new_timestamp
 
@@ -292,8 +291,7 @@ def fix_duplicate_links_in_index(snapshots: QuerySet, links: Iterable[Link]) -> 
     unique_urls: OrderedDict[str, Link] = OrderedDict()
 
     for link in links:
-        index_link = snapshots.filter(url=link.url)
-        if index_link:
+        if index_link := snapshots.filter(url=link.url):
             link = merge_links(index_link[0].as_link(), link)
 
         unique_urls[link.url] = link
@@ -320,7 +318,7 @@ def dedupe_links(snapshots: QuerySet,
 
     # Replace links in new_links with the dedup version
     for i in range(len(new_links)):
-        if new_links[i].url in dedup_links_dict.keys():
+        if new_links[i].url in dedup_links_dict:
             new_links[i] = dedup_links_dict[new_links[i].url]
     log_deduping_finished(len(new_links))
 
@@ -345,8 +343,7 @@ def load_link_details(link: Link, out_dir: Optional[str]=None) -> Link:
     """
     out_dir = out_dir or link.link_dir
 
-    existing_link = parse_json_link_details(out_dir)
-    if existing_link:
+    if existing_link := parse_json_link_details(out_dir):
         return merge_links(existing_link, link)
 
     return link
@@ -564,33 +561,23 @@ def is_valid(link: Link) -> bool:
     if not dir_exists:
         # unarchived links are not included in the valid list
         return False
-    if dir_exists and not index_exists:
+    if not index_exists:
         return False
-    if dir_exists and index_exists:
-        try:
-            parsed_link = parse_json_link_details(link.link_dir, guess=True)
-            return link.url == parsed_link.url
-        except Exception:
-            pass
+    try:
+        parsed_link = parse_json_link_details(link.link_dir, guess=True)
+        return link.url == parsed_link.url
+    except Exception:
+        pass
     return False
 
 def is_corrupt(link: Link) -> bool:
-    if not Path(link.link_dir).exists():
-        # unarchived links are not considered corrupt
-        return False
-
-    if is_valid(link):
-        return False
-
-    return True
+    return False if not Path(link.link_dir).exists() else not is_valid(link)
 
 def is_archived(link: Link) -> bool:
     return is_valid(link) and link.is_archived
     
 def is_unarchived(link: Link) -> bool:
-    if not Path(link.link_dir).exists():
-        return True
-    return not link.is_archived
+    return True if not Path(link.link_dir).exists() else not link.is_archived
 
 
 def fix_invalid_folder_locations(out_dir: Path=OUTPUT_DIR) -> Tuple[List[str], List[str]]:

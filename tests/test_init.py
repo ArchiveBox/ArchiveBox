@@ -74,8 +74,12 @@ def test_collision_urls_different_timestamps(tmp_path, process, disable_extracto
     subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/iana.org.html'], capture_output=True,
                      env=disable_extractors_dict)
     archive_folders = [x.name for x in (tmp_path / "archive").iterdir()]
-    
-    first_archive = tmp_path / "archive" / str(min([float(folder) for folder in archive_folders]))
+
+    first_archive = (
+        tmp_path
+        / "archive"
+        / str(min(float(folder) for folder in archive_folders))
+    )
     json_index = str(first_archive / "index.json")
     with open(json_index, "r", encoding="utf-8") as f:
         link_details = json.loads(f.read())
@@ -96,7 +100,11 @@ def test_collision_timestamps_different_urls(tmp_path, process, disable_extracto
     subprocess.run(['archivebox', 'add', 'http://127.0.0.1:8080/static/iana.org.html'], capture_output=True,
                      env=disable_extractors_dict)
     archive_folders = [x.name for x in (tmp_path / "archive").iterdir()]
-    first_archive = tmp_path / "archive" / str(min([float(folder) for folder in archive_folders]))
+    first_archive = (
+        tmp_path
+        / "archive"
+        / str(min(float(folder) for folder in archive_folders))
+    )
     archive_folders.remove(first_archive.name)
     json_index = str(first_archive / "index.json")
 

@@ -48,8 +48,7 @@ def get_pocket_articles(api: Pocket, since=None, page=0):
 
 def link_from_article(article: dict, sources: list):
     url: str = article.get('resolved_url') or article['given_url']
-    broken_protocol = _BROKEN_PROTOCOL_RE.match(url)
-    if broken_protocol:
+    if broken_protocol := _BROKEN_PROTOCOL_RE.match(url):
         url = url.replace(f'{broken_protocol.group(1)}:/', f'{broken_protocol.group(1)}://')
     title = article.get('resolved_title') or article.get('given_title') or url
 
@@ -103,13 +102,13 @@ def parse_pocket_api_export(input_buffer: IO[str], **_kwargs) -> Iterable[Link]:
     for line in input_buffer:
         if should_parse_as_pocket_api(line):
             
-            username = pattern.search(line).group(1)
+            username = pattern.search(line)[1]
             api = Pocket(POCKET_CONSUMER_KEY, POCKET_ACCESS_TOKENS[username])
             api.last_since = None
-    
+
             for article in get_pocket_articles(api, since=read_since(username)):
                 yield link_from_article(article, sources=[line])
-    
+
             write_since(username, api.last_since)
 
 

@@ -145,9 +145,7 @@ class Link:
         return Link(**{**self._asdict(), **kwargs})
 
     def __eq__(self, other):
-        if not isinstance(other, Link):
-            return NotImplemented
-        return self.url == other.url
+        return NotImplemented if not isinstance(other, Link) else self.url == other.url
 
     def __gt__(self, other):
         if not isinstance(other, Link):
@@ -189,11 +187,10 @@ class Link:
             'history': self.history or {},
         }
         if extended:
-            info.update({
+            info |= {
                 'snapshot_id': self.snapshot_id,
                 'link_dir': self.link_dir,
                 'archive_path': self.archive_path,
-                
                 'hash': self.url_hash,
                 'base_url': self.base_url,
                 'scheme': self.scheme,
@@ -202,22 +199,20 @@ class Link:
                 'basename': self.basename,
                 'extension': self.extension,
                 'is_static': self.is_static,
-                
-                'tags_str': (self.tags or '').strip(','),   # only used to render static index in index/html.py, remove if no longer needed there
-                'icons': None,           # only used to render static index in index/html.py, remove if no longer needed there
-
+                'tags_str': (self.tags or '').strip(
+                    ','
+                ),  # only used to render static index in index/html.py, remove if no longer needed there
+                'icons': None,  # only used to render static index in index/html.py, remove if no longer needed there
                 'bookmarked_date': self.bookmarked_date,
                 'updated_date': self.updated_date,
                 'oldest_archive_date': self.oldest_archive_date,
                 'newest_archive_date': self.newest_archive_date,
-        
                 'is_archived': self.is_archived,
                 'num_outputs': self.num_outputs,
                 'num_failures': self.num_failures,
-                
                 'latest': self.latest_outputs(),
                 'canonical': self.canonical_outputs(),
-            })
+            }
         return info
 
     def as_snapshot(self):
@@ -276,7 +271,7 @@ class Link:
     @property
     def archive_path(self) -> str:
         from ..config import ARCHIVE_DIR_NAME
-        return '{}/{}'.format(ARCHIVE_DIR_NAME, self.timestamp)
+        return f'{ARCHIVE_DIR_NAME}/{self.timestamp}'
     
     @property
     def archive_size(self) -> float:
@@ -406,8 +401,7 @@ class Link:
             if status is not None:
                 history = list(filter(lambda result: result.status == status, history))
 
-            history = list(history)
-            if history:
+            if history := list(history):
                 latest[archive_method] = history[0].output
             else:
                 latest[archive_method] = None
@@ -432,7 +426,7 @@ class Link:
             'pdf_path': 'output.pdf',
             'screenshot_path': 'screenshot.png',
             'dom_path': 'output.html',
-            'archive_org_path': 'https://web.archive.org/web/{}'.format(self.base_url),
+            'archive_org_path': f'https://web.archive.org/web/{self.base_url}',
             'git_path': 'git/',
             'media_path': 'media/',
             'headers_path': 'headers.json',
@@ -443,7 +437,7 @@ class Link:
             # so the wget, screenshot, & pdf urls should all point to the same file
 
             static_path = wget_output_path(self)
-            canonical.update({
+            canonical |= {
                 'title': self.basename,
                 'wget_path': static_path,
                 'pdf_path': static_path,
@@ -452,6 +446,6 @@ class Link:
                 'singlefile_path': static_path,
                 'readability_path': static_path,
                 'mercury_path': static_path,
-            })
+            }
         return canonical
 
