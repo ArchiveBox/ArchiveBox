@@ -64,9 +64,9 @@ curl -sSL 'https://get.archivebox.io' | sh
 
 **🔢 Example usage: adding links to archive.**
 ```bash
-archivebox add 'https://example.com'                                   # add URLs one at a time (pass --help for more info)
-archivebox add < ~/Downloads/bookmarks.json                            # or pipe in a list of URLs in any text-based format
-archivebox schedule --every=day --depth=1 https://example.com/rss.xml  # or have it import URLs regularly on a schedule
+archivebox add 'https://example.com'                                   # add URLs one at a time
+archivebox add < ~/Downloads/bookmarks.json                            # or pipe in URLs in any text-based format
+archivebox schedule --every=day --depth=1 https://example.com/rss.xml  # or auto-import URLs regularly on a schedule
 ```
 **🔢 Example usage: viewing the archived content.**
 ```bash
