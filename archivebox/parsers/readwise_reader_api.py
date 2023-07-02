@@ -44,11 +44,7 @@ class ReadwiseReaderAPI:
 def get_readwise_reader_articles(api: ReadwiseReaderAPI):
     response = api.get_archive()
     body = response.json()
-    articles = body["results"]
-
-    yield from articles
-
-
+    yield from body["results"]
     if body['nextPageCursor']:
         api.cursor = body["nextPageCursor"]
         yield from get_readwise_reader_articles(api)
@@ -108,7 +104,7 @@ def parse_readwise_reader_api_export(input_buffer: IO[str], **_kwargs) -> Iterab
     pattern = re.compile(r"^readwise-reader:\/\/(\w+)")
     for line in input_buffer:
         if should_parse_as_readwise_reader_api(line):
-            username = pattern.search(line).group(1)
+            username = pattern.search(line)[1]
             api = ReadwiseReaderAPI(READWISE_READER_TOKENS[username], cursor=read_cursor(username))
 
             for article in get_readwise_reader_articles(api):

@@ -87,9 +87,7 @@ def parse_links_memory(urls: List[str], root_url: Optional[str]=None):
     links, parser = run_parser_functions(file, timer, root_url=root_url)
     timer.end()
 
-    if parser is None:
-        return [], 'Failed to parse'
-    return links, parser
+    return ([], 'Failed to parse') if parser is None else (links, parser)
     
 
 @enforce_types
@@ -103,9 +101,7 @@ def parse_links(source_file: str, root_url: Optional[str]=None, parser: str="aut
         links, parser = run_parser_functions(file, timer, root_url=root_url, parser=parser)
 
     timer.end()
-    if parser is None:
-        return [], 'Failed to parse'
-    return links, parser
+    return ([], 'Failed to parse') if parser is None else (links, parser)
 
 
 def run_parser_functions(to_parse: IO[str], timer, root_url: Optional[str]=None, parser: str="auto") -> Tuple[List[Link], Optional[str]]:
@@ -182,11 +178,7 @@ def save_file_as_source(path: str, timeout: int=TIMEOUT, filename: str='{ts}-{ba
             timer.end()
         except Exception as e:
             timer.end()
-            print('{}[!] Failed to download {}{}\n'.format(
-                ANSI['red'],
-                path,
-                ANSI['reset'],
-            ))
+            print(f"{ANSI['red']}[!] Failed to download {path}{ANSI['reset']}\n")
             print('    ', e)
             raise e
 
