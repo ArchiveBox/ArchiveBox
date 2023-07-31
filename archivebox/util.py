@@ -229,7 +229,8 @@ def chrome_args(**options) -> List[str]:
     cmd_args = [options['CHROME_BINARY']]
 
     if options['CHROME_HEADLESS']:
-        if int(CHROME_VERSION.split()[1].split('.')[0]) >= 111:
+        chrome_major_version = int(re.search(r'\s(\d+)\.\d', CHROME_VERSION)[1])
+        if chrome_major_version >= 111:
             cmd_args += ("--headless=new",)
         else:
             cmd_args += ('--headless',)
