@@ -4,7 +4,7 @@ import os
 import sys
 from pathlib import Path
 
-from typing import Callable, Optional, List, Iterable, TypeAlias, Union
+from typing import Callable, Optional, List, Iterable, Union
 from datetime import datetime, timezone
 from django.db.models import QuerySet
 
@@ -46,9 +46,9 @@ from .archive_org import should_save_archive_dot_org, save_archive_dot_org
 from .headers import should_save_headers, save_headers
 
 
-ShouldSaveFunction: TypeAlias = Callable[[Link, Optional[Path], Optional[bool]], bool]
-SaveFunction: TypeAlias = Callable[[Link, Optional[Path], int], ArchiveResult]
-ArchiveMethodEntry: TypeAlias = tuple[str, ShouldSaveFunction, SaveFunction]
+ShouldSaveFunction = Callable[[Link, Optional[Path], Optional[bool]], bool]
+SaveFunction = Callable[[Link, Optional[Path], int], ArchiveResult]
+ArchiveMethodEntry = tuple[str, ShouldSaveFunction, SaveFunction]
 
 def get_default_archive_methods() -> List[ArchiveMethodEntry]:
     return [
