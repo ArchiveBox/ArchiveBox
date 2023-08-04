@@ -26,7 +26,9 @@ def should_save_media(link: Link, out_dir: Optional[Path]=None, overwrite: Optio
         return False
 
     out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'media').exists():
+    media_dir = out_dir / 'media'
+    media_dir_has_files = media_dir.exists() and any(media_dir.iterdir())
+    if not overwrite and media_dir_has_files:
         return False
 
     return SAVE_MEDIA
@@ -66,6 +68,12 @@ def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIME
                 )
                 raise ArchiveError('Failed to save media', hints)
     except Exception as err:
+        try:
+            # Try to remove an empty media directory,
+            # and ignore any failures
+            output_path.rmdir()
+        except Exception:
+            pass
         status = 'failed'
         output = err
     finally:
