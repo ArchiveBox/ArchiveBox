@@ -59,7 +59,7 @@ URL_REGEX = re.compile(
     r'(?=('
     r'http[s]?://'                    # start matching from allowed schemes
     r'(?:[a-zA-Z]|[0-9]'              # followed by allowed alphanum characters
-    r'|[$-_@.&+]|[!*\(\),]'           #    or allowed symbols
+    r'|[-_$@.&+!*\(\),]'           #    or allowed symbols (keep hyphen first to match literal hyphen)
     r'|(?:%[0-9a-fA-F][0-9a-fA-F]))'  #    or allowed unicode bytes
     r'[^\]\[\(\)<>"\'\s]+'          # stop parsing at these symbols
     r'))',
