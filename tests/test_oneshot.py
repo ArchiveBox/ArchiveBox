@@ -5,7 +5,7 @@ from .fixtures import *
 def test_oneshot_command_exists(tmp_path, disable_extractors_dict):
     os.chdir(tmp_path)
     process = subprocess.run(['archivebox', 'oneshot'], capture_output=True, env=disable_extractors_dict)
-    assert not "invalid choice: 'oneshot'" in process.stderr.decode("utf-8")
+    assert "invalid choice: 'oneshot'" not in process.stderr.decode("utf-8")
 
 def test_oneshot_command_saves_page_in_right_folder(tmp_path, disable_extractors_dict):
     disable_extractors_dict.update({"SAVE_DOM": "true"})
@@ -23,7 +23,7 @@ def test_oneshot_command_saves_page_in_right_folder(tmp_path, disable_extractors
     items = ' '.join([str(x) for x in tmp_path.iterdir()])
     current_path = ' '.join([str(x) for x in Path.cwd().iterdir()])
     assert "index.json" in items
-    assert not "index.sqlite3" in current_path
+    assert "index.sqlite3" not in current_path
     assert "output.html" in items
 
 def test_oneshot_command_succeeds(tmp_path, disable_extractors_dict):

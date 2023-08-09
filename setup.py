@@ -12,14 +12,14 @@ AUTHOR = "Nick Sweeting"
 AUTHOR_EMAIL="git@nicksweeting.com"
 REPO_URL = "https://github.com/ArchiveBox/ArchiveBox"
 PROJECT_URLS = {
-    "Source":           f"{REPO_URL}",
-    "Documentation":    f"{REPO_URL}/wiki",
-    "Bug Tracker":      f"{REPO_URL}/issues",
-    "Changelog":        f"{REPO_URL}/releases",
-    "Roadmap":          f"{REPO_URL}/wiki/Roadmap",
-    "Community":        f"{REPO_URL}/wiki/Web-Archiving-Community",
-    "Demo":             f"https://demo.archivebox.io",
-    "Donate":           f"{REPO_URL}/wiki/Donations",
+    "Source": f"{REPO_URL}",
+    "Documentation": f"{REPO_URL}/wiki",
+    "Bug Tracker": f"{REPO_URL}/issues",
+    "Changelog": f"{REPO_URL}/releases",
+    "Roadmap": f"{REPO_URL}/wiki/Roadmap",
+    "Community": f"{REPO_URL}/wiki/Web-Archiving-Community",
+    "Demo": "https://demo.archivebox.io",
+    "Donate": f"{REPO_URL}/wiki/Donations",
 }
 
 ROOT_DIR = Path(__file__).parent.resolve()
