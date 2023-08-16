@@ -177,7 +177,7 @@ def snapshot_icons(snapshot) -> str:
                 # The check for archive_org is different, so it has to be handled separately
 
                 # get from db (faster)
-                exists = extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
+                exists = extractor in extractor_outputs and extractor_outputs[extractor] and extractor_outputs[extractor].status == 'succeeded' and extractor_outputs[extractor].output
                 # get from filesystem (slower)
                 # target_path = Path(path) / "archive.org.txt"
                 # exists = target_path.exists()
