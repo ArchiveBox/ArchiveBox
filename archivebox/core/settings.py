@@ -6,6 +6,9 @@ import re
 import logging
 import tempfile
 
+import ldap
+from django_auth_ldap.config import LDAPSearch
+
 from pathlib import Path
 from django.utils.crypto import get_random_string
 
@@ -20,6 +23,17 @@ from ..config import (
     OUTPUT_DIR,
     LOGS_DIR,
     TIMEZONE,
+
+    LDAP,
+    LDAP_SERVER_URI,
+    LDAP_BIND_DN,
+    LDAP_BIND_PASSWORD,
+    LDAP_USER_BASE,
+    LDAP_USER_FILTER,
+    LDAP_USERNAME_ATTR,
+    LDAP_FIRSTNAME_ATTR,
+    LDAP_LASTNAME_ATTR,
+    LDAP_EMAIL_ATTR,
 )
 
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
@@ -54,7 +68,6 @@ INSTALLED_APPS = [
     'django_extensions',
 ]
 
-
 MIDDLEWARE = [
     'core.middleware.TimezoneMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -67,10 +80,47 @@ MIDDLEWARE = [
     'core.middleware.CacheControlMiddleware',
 ]
 
+################################################################################
+### Authentication Settings
+################################################################################
+
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.RemoteUserBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
+
+if LDAP:
+    global AUTH_LDAP_SERVER_URI
+    AUTH_LDAP_SERVER_URI = LDAP_SERVER_URI
+
+    global AUTH_LDAP_BIND_DN
+    AUTH_LDAP_BIND_DN = LDAP_BIND_DN
+
+    global AUTH_LDAP_BIND_PASSWORD
+    AUTH_LDAP_BIND_PASSWORD = LDAP_BIND_PASSWORD
+
+    global AUTH_LDAP_USER_SEARCH
+    AUTH_LDAP_USER_SEARCH = LDAPSearch(
+        LDAP_USER_BASE,
+        ldap.SCOPE_SUBTREE,
+        '(&(' + LDAP_USERNAME_ATTR + '=%(user)s)' + LDAP_USER_FILTER + ')',
+    )
+
+    global AUTH_LDAP_USER_ATTR_MAP
+    AUTH_LDAP_USER_ATTR_MAP = {
+        'username': LDAP_USERNAME_ATTR,
+        'first_name': LDAP_FIRSTNAME_ATTR,
+        'last_name': LDAP_LASTNAME_ATTR,
+        'email': LDAP_EMAIL_ATTR,
+    }
+
+    AUTHENTICATION_BACKENDS = [
+        'django_auth_ldap.backend.LDAPBackend',
+    ]
+
+################################################################################
+### Debug Settings
+################################################################################
 
 # only enable debug toolbar when in DEBUG mode with --nothreading (it doesnt work in multithreaded mode)
 DEBUG_TOOLBAR = DEBUG and ('--nothreading' in sys.argv) and ('--reload' not in sys.argv)
