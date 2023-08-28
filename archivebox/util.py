@@ -17,6 +17,8 @@ from requests.exceptions import RequestException, ReadTimeout
 
 from .vendor.base32_crockford import encode as base32_encode                            # type: ignore
 from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
+from os.path import lexists
+from os import remove as remove_file
 
 try:
     import chardet
@@ -272,6 +274,16 @@ def chrome_args(**options) -> List[str]:
     
     return cmd_args
 
+def chrome_cleanup():
+    """
+    Cleans up any state or runtime files that chrome leaves behind when killed by
+    a timeout or other error
+    """
+
+    from .config import IN_DOCKER
+    
+    if IN_DOCKER and lexists("/home/archivebox/.config/chromium/SingletonLock"):
+        remove_file("/home/archivebox/.config/chromium/SingletonLock")
 
 def ansi_to_html(text):
     """
