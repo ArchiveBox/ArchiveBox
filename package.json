@@ -7,7 +7,8 @@
   "license": "MIT",
   "dependencies": {
     "@postlight/mercury-parser": "git+https://github.com/postlight/mercury-parser.git",
+    "playwright": "^1.37.1",
     "readability-extractor": "git+https://github.com/ArchiveBox/readability-extractor.git",
-    "single-file": "git+https://github.com/gildas-lormeau/SingleFile.git"
+    "single-file-cli": "^1.0.63"
   }
 }
