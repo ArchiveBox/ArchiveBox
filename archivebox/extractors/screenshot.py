@@ -9,6 +9,7 @@ from ..util import (
     enforce_types,
     is_static_file,
     chrome_args,
+    chrome_cleanup,
 )
 from ..config import (
     TIMEOUT,
@@ -54,6 +55,7 @@ def save_screenshot(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
     except Exception as err:
         status = 'failed'
         output = err
+        chrome_cleanup()
     finally:
         timer.end()
 
