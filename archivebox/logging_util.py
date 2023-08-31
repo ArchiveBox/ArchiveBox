@@ -441,7 +441,7 @@ def log_archive_method_finished(result: "ArchiveResult"):
 
             hints = (
                 '    {}{}{}'.format(ANSI['lightyellow'], line.strip(), ANSI['reset'])
-                for line in hints[:5] if line.strip()
+                for line in list(hints)[:5] if line.strip()
             )
 
 
