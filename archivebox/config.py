@@ -100,12 +100,12 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SNAPSHOTS_PER_PAGE':        {'type': int,   'default': 40},
         'CUSTOM_TEMPLATES_DIR':      {'type': str,   'default': None},
         'TIME_ZONE':                 {'type': str,   'default': 'UTC'},
-        'TIMEZONE':                 {'type': str,   'default': 'UTC'},
+        'TIMEZONE':                  {'type': str,   'default': 'UTC'},
         'REVERSE_PROXY_USER_HEADER': {'type': str,   'default': 'Remote-User'},
         'REVERSE_PROXY_WHITELIST':   {'type': str,   'default': ''},
         'LOGOUT_REDIRECT_URL':       {'type': str,   'default': '/'},
-        'PREVIEW_ORIGINALS':        {'type': bool,  'default': True},
-        'LOGOUT_REDIRECT_URL':   {'type': str,   'default': '/'},
+        'PREVIEW_ORIGINALS':         {'type': bool,  'default': True},
+        'LOGOUT_REDIRECT_URL':       {'type': str,   'default': '/'},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
@@ -149,10 +149,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--write-thumbnail',
                                                                 '--no-call-home',
                                                                 '--write-sub',
-                                                                '--all-subs',
-                                                                # There are too many of these and youtube
-                                                                # throttles you with HTTP error 429
-                                                                #'--write-auto-subs',
+                                                                '--write-auto-subs',
                                                                 '--convert-subs=srt',
                                                                 '--yes-playlist',
                                                                 '--continue',
@@ -165,7 +162,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--ignore-errors',
                                                                 '--geo-bypass',
                                                                 '--add-metadata',
-                                                                '--max-filesize={}'.format(c['MEDIA_MAX_SIZE']),
+                                                                '--format=(bv*+ba/b)[filesize<={}][filesize_approx<=?{}]/(bv*+ba/b)'.format(c['MEDIA_MAX_SIZE'], c['MEDIA_MAX_SIZE']),
                                                                 ]},
 
 
