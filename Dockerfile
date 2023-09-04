@@ -87,12 +87,12 @@ ADD "./setup.py" "$CODE_DIR/"
 ADD "./package.json" "$CODE_DIR/archivebox/"
 RUN apt-get update -qq \
     && apt-get install -qq -y --no-install-recommends \
-        build-essential python-dev python3-dev \
+        build-essential python-dev python3-dev libldap2-dev libsasl2-dev \
     && echo 'empty placeholder for setup.py to use' > "$CODE_DIR/archivebox/README.md" \
     && python3 -c 'from distutils.core import run_setup; result = run_setup("./setup.py", stop_after="init"); print("\n".join(result.install_requires + result.extras_require["sonic"]))' > /tmp/requirements.txt \
     && pip install -r /tmp/requirements.txt \
     && pip install --upgrade youtube-dl yt-dlp \
-    && apt-get purge -y build-essential python-dev python3-dev \
+    && apt-get purge -y build-essential python-dev python3-dev libldap2-dev libsasl2-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 

@@ -105,7 +105,17 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'REVERSE_PROXY_WHITELIST':   {'type': str,   'default': ''},
         'LOGOUT_REDIRECT_URL':       {'type': str,   'default': '/'},
         'PREVIEW_ORIGINALS':         {'type': bool,  'default': True},
-        'LOGOUT_REDIRECT_URL':       {'type': str,   'default': '/'},
+
+        'LDAP':                      {'type': bool,  'default': False},
+        'LDAP_SERVER_URI':           {'type': str,   'default': None},
+        'LDAP_BIND_DN':              {'type': str,   'default': None},
+        'LDAP_BIND_PASSWORD':        {'type': str,   'default': None},
+        'LDAP_USER_BASE':            {'type': str,   'default': None},
+        'LDAP_USER_FILTER':          {'type': str,   'default': None},
+        'LDAP_USERNAME_ATTR':        {'type': str,   'default': None},
+        'LDAP_FIRSTNAME_ATTR':       {'type': str,   'default': None},
+        'LDAP_LASTNAME_ATTR':        {'type': str,   'default': None},
+        'LDAP_EMAIL_ATTR':           {'type': str,   'default': None},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
