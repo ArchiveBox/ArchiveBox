@@ -223,6 +223,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
 
         'POCKET_CONSUMER_KEY':      {'type': str,   'default': None},
         'POCKET_ACCESS_TOKENS':     {'type': dict,  'default': {}},
+
+        'READWISE_READER_TOKENS':     {'type': dict,  'default': {}},
     },
 }
 
