@@ -68,6 +68,13 @@ INSTALLED_APPS = [
     'django_extensions',
 ]
 
+
+# For usage with https://www.jetadmin.io/integrations/django
+# INSTALLED_APPS += ['jet_django']
+# JET_PROJECT = 'archivebox'
+# JET_TOKEN = 'some-api-token-here'
+
+
 MIDDLEWARE = [
     'core.middleware.TimezoneMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -317,8 +324,8 @@ class NoisyRequestsFilter(logging.Filter):
 if LOGS_DIR.exists():
     ERROR_LOG = (LOGS_DIR / 'errors.log')
 else:
-    # meh too many edge cases here around creating log dir w/ correct permissions
-    # cant be bothered, just trash the log and let them figure it out via stdout/stderr
+    # historically too many edge cases here around creating log dir w/ correct permissions early on
+    # if there's an issue on startup, we trash the log and let user figure it out via stdout/stderr
     ERROR_LOG = tempfile.NamedTemporaryFile().name
 
 LOGGING = {
