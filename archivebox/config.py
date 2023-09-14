@@ -57,8 +57,16 @@ SYSTEM_USER = getpass.getuser() or os.getlogin()
 try:
     import pwd
     SYSTEM_USER = pwd.getpwuid(os.geteuid()).pw_name or SYSTEM_USER
+except KeyError:
+    # Process' UID might not map to a user in cases such as running the Docker image
+    # (where `archivebox` is 999) as a different UID.
+    pass
 except ModuleNotFoundError:
     # pwd is only needed for some linux systems, doesn't exist on windows
+    pass
+except Exception:
+    # this should never happen, uncomment to debug
+    # raise
     pass
 
 ############################### Config Schema ##################################
