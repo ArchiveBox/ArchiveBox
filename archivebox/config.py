@@ -213,6 +213,11 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SONIC_COLLECTION':         {'type': str,   'default': 'archivebox'},
         'SONIC_BUCKET':             {'type': str,   'default': 'snapshots'},
         'SEARCH_BACKEND_TIMEOUT':   {'type': int,   'default': 90},
+        # SQLite3 FTS5
+        'FTS_SEPARATE_DATABASE':    {'type': bool,  'default': True},
+        'FTS_TOKENIZERS':           {'type': str,   'default': 'porter unicode61 remove_diacritics 2'},
+        # Default from https://www.sqlite.org/limits.html#max_length
+        'FTS_SQLITE_MAX_LENGTH':    {'type': int,   'default': int(1e9)},
     },
 
     'DEPENDENCY_CONFIG': {
@@ -345,6 +350,7 @@ ALLOWED_IN_OUTPUT_DIR = {
     'yarn.lock',
     'static',
     'sonic',
+    'search.sqlite3',
     ARCHIVE_DIR_NAME,
     SOURCES_DIR_NAME,
     LOGS_DIR_NAME,
