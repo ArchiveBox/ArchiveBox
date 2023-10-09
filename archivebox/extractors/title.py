@@ -26,7 +26,7 @@ from ..logging_util import TimedProgress
 
 HTML_TITLE_REGEX = re.compile(
     r'<title.*?>'                      # start matching text after <title> tag
-    r'(.[^<>]+)',                      # get everything up to these symbols
+    r'([^<>]+)',                      # get everything up to these symbols
     re.IGNORECASE | re.MULTILINE | re.DOTALL | re.UNICODE,
 )
 
