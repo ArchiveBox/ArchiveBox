@@ -129,13 +129,15 @@ def index(snapshot_id: str, texts: List[str]):
                     "INSERT OR REPLACE INTO"
                     f" {table}(rowid, {column}) VALUES ({SQLITE_BIND}, {SQLITE_BIND})",
                     [rowid, text])
-                # All statements succeeded; break retry loop
-                break
+                # All statements succeeded; return
+                return
             except Exception as e:
-                if str(e).startswith(f"no such table:"):
+                if str(e).startswith("no such table:") and retries > 0:
                     _create_tables()
                 else:
                     raise
+
+    raise RuntimeError("Failed to create tables for SQLite FTS5 search")
 
 @enforce_types
 def search(text: str) -> List[str]:
