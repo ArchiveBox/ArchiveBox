@@ -4,7 +4,7 @@ import io
 from django.db.models import QuerySet
 
 from archivebox.util import enforce_types
-from archivebox.config import ANSI
+from archivebox.config import ANSI, SEARCH_PROCESS_HTML
 
 BLOCK_SIZE = 32768
 
@@ -128,7 +128,8 @@ def get_indexable_content(results: QuerySet):
     if method == 'readability':
         return get_file_result_content(res, 'content.txt', use_pwd=True)
     elif method == 'singlefile':
-        return get_file_result_content(res, '', use_pwd=True, filter=_extract_html_text)
+        filter = _extract_html_text if SEARCH_PROCESS_HTML else _read_all
+        return get_file_result_content(res, '', use_pwd=True, filter=filter)
     elif method == 'dom':
         return get_file_result_content(res, '', use_pwd=True)
     elif method == 'wget':

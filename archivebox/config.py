@@ -209,6 +209,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SEARCH_BACKEND_HOST_NAME': {'type': str,   'default': 'localhost'},
         'SEARCH_BACKEND_PORT':      {'type': int,   'default': 1491},
         'SEARCH_BACKEND_PASSWORD':  {'type': str,   'default': 'SecretPassword'},
+        'SEARCH_PROCESS_HTML':      {'type': bool,  'default': True},
         # SONIC
         'SONIC_COLLECTION':         {'type': str,   'default': 'archivebox'},
         'SONIC_BUCKET':             {'type': str,   'default': 'snapshots'},
