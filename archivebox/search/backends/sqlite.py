@@ -15,15 +15,15 @@ FTS_COLUMN = "texts"
 
 if FTS_SEPARATE_DATABASE:
     database = sqlite3.connect("search.sqlite3")
-    # Make connection callable, because `django.db.connection.cursor()`
+    # Make get_connection callable, because `django.db.connection.cursor()`
     # has to be called to get a context manager, but sqlite3.Connection
     # is a context manager without being called.
-    def connection():
+    def get_connection():
         return database
     SQLITE_BIND = "?"
 else:
     from django.db import connection as database
-    connection = database.cursor
+    get_connection = database.cursor
     SQLITE_BIND = "%s"
 
 # Only Python >= 3.11 supports sqlite3.Connection.getlimit(),
@@ -71,7 +71,7 @@ def _create_tables():
     tokenizers = _escape_sqlite3_value(FTS_TOKENIZERS)
     trigger_name = _escape_sqlite3_identifier(f"{FTS_ID_TABLE}_ad")
 
-    with connection() as cursor:
+    with get_connection() as cursor:
         # Create a contentless-delete FTS5 table that indexes
         # but does not store the texts of snapshots
         cursor.execute(
@@ -107,7 +107,7 @@ def index(snapshot_id: str, texts: List[str]):
     column = _escape_sqlite3_identifier(FTS_COLUMN)
     id_table = _escape_sqlite3_identifier(FTS_ID_TABLE)
 
-    with connection() as cursor:
+    with get_connection() as cursor:
         retries = 2
         while retries > 0:
             retries -= 1
@@ -144,7 +144,7 @@ def search(text: str) -> List[str]:
     table = _escape_sqlite3_identifier(FTS_TABLE)
     id_table = _escape_sqlite3_identifier(FTS_ID_TABLE)
 
-    with connection() as cursor:
+    with get_connection() as cursor:
         res = cursor.execute(
             f"SELECT snapshot_id FROM {table}"
             f" INNER JOIN {id_table}"
@@ -160,7 +160,7 @@ def flush(snapshot_ids: Generator[str, None, None]):
 
     id_table = _escape_sqlite3_identifier(FTS_ID_TABLE)
 
-    with connection() as cursor:
+    with get_connection() as cursor:
         cursor.executemany(
             f"DELETE FROM {id_table} WHERE snapshot_id={SQLITE_BIND}",
             [snapshot_ids])
