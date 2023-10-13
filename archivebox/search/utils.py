@@ -65,6 +65,11 @@ class HTMLTextExtractor(HTMLParser):
             # ancestor matching this end tag
             while tag != self._tag_stack.pop():
                 pass
+            # Write a space after every tag, to ensure that tokens
+            # in tag text aren't concatenated. This may result in
+            # excess spaces, which should be ignored by search tokenizers.
+            if not self._in_notext_tag() and tag not in self.NOTEXT_TAGS:
+                self.output.write(" ")
         except IndexError:
             # Got to the top of the stack, but somehow missed
             # this end tag -- maybe malformed markup -- restore the
@@ -75,9 +80,8 @@ class HTMLTextExtractor(HTMLParser):
         # Don't output text data if any ancestor is in NOTEXT_TAGS
         if self._in_notext_tag():
             return
-        if stripped := data.strip():
-            self.output.write(stripped)
-            self.output.write(" ")
+        
+        self.output.write(data)
 
     def __str__(self):
         return self.output.getvalue()
