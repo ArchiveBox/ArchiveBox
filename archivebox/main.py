@@ -112,6 +112,8 @@ from .config import (
     load_all_config,
     CONFIG,
     USER_CONFIG,
+    ARCHIVEBOX_USERNAME,
+    ARCHIVEBOX_PASSWORD,
     get_real_name,
     setup_django,
 )
@@ -422,7 +424,10 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
     if existing_index:
         print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
     else:
-        # TODO: allow creating new supersuer via env vars on first init
+        if ARCHIVEBOX_USERNAME and ARCHIVEBOX_PASSWORD:
+            print('{green}[+] ARCHIVEBOX_USERNAME and  ARCHIVEBOX_PASSWORD configuration options found. Creating new admin user with username {} and password {}.{reset}'.format(ARCHIVEBOX_USERNAME, ARCHIVEBOX_PASSWORD, **ANSI))
+            from django.contrib.auth.models import User
+            User.objects.create_superuser(username=ARCHIVEBOX_USERNAME, password=ARCHIVEBOX_PASSWORD)
         # if config.HTTP_USER and config.HTTP_PASS:
         #     from django.contrib.auth.models import User
         #     User.objects.create_superuser(HTTP_USER, '', HTTP_PASS)
