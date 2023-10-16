@@ -425,7 +425,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
         print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
     else:
         if ARCHIVEBOX_USERNAME and ARCHIVEBOX_PASSWORD:
-            print('{green}[+] ARCHIVEBOX_USERNAME and  ARCHIVEBOX_PASSWORD configuration options found. Creating new admin user with username {} and password {}.{reset}'.format(ARCHIVEBOX_USERNAME, ARCHIVEBOX_PASSWORD, **ANSI))
+            print('{green}[+] ARCHIVEBOX_USERNAME and  ARCHIVEBOX_PASSWORD configuration options found. Creating new admin user.{reset}'.format(**ANSI))
             from django.contrib.auth.models import User
             User.objects.create_superuser(username=ARCHIVEBOX_USERNAME, password=ARCHIVEBOX_PASSWORD)
         # if config.HTTP_USER and config.HTTP_PASS:
