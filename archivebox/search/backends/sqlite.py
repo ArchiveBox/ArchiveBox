@@ -75,12 +75,23 @@ def _create_tables():
     with get_connection() as cursor:
         # Create a contentless-delete FTS5 table that indexes
         # but does not store the texts of snapshots
-        cursor.execute(
-            f"CREATE VIRTUAL TABLE {table}"
-            f" USING fts5({column},"
-            f" tokenize={tokenizers},"
-            " content='', contentless_delete=1);"
-            )
+        try:
+            cursor.execute(
+                f"CREATE VIRTUAL TABLE {table}"
+                f" USING fts5({column},"
+                f" tokenize={tokenizers},"
+                " content='', contentless_delete=1);"
+                )
+        except Exception as e:
+            msg = str(e)
+            if 'unrecognized option: "contentlessdelete"' in msg:
+                sqlite_version = getattr(sqlite3, "sqlite_version", "Unknown")
+                raise RuntimeError(
+                    "SQLite full-text search requires SQLite >= 3.43.0;"
+                    f" the running version is {sqlite_version}"
+                ) from e
+            else:
+                raise
         # Create a one-to-one mapping between ArchiveBox snapshot_id
         # and FTS5 rowid, because the column type of rowid can't be
         # customized.
