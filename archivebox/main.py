@@ -112,6 +112,8 @@ from .config import (
     load_all_config,
     CONFIG,
     USER_CONFIG,
+    ADMIN_USERNAME,
+    ADMIN_PASSWORD,
     get_real_name,
     setup_django,
 )
@@ -419,14 +421,16 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
         write_main_index(list(pending_links.values()), out_dir=out_dir)
 
     print('\n{green}----------------------------------------------------------------------{reset}'.format(**ANSI))
+
+    from django.contrib.auth.models import User
+
+    if (ADMIN_USERNAME and ADMIN_PASSWORD) and not User.objects.filter(username=ADMIN_USERNAME).exists():
+        print('{green}[+] Found ADMIN_USERNAME and ADMIN_PASSWORD configuration options, creating new admin user.{reset}'.format(**ANSI))
+        User.objects.create_superuser(username=ADMIN_USERNAME, password=ADMIN_PASSWORD)
+
     if existing_index:
         print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
     else:
-        # TODO: allow creating new supersuer via env vars on first init
-        # if config.HTTP_USER and config.HTTP_PASS:
-        #     from django.contrib.auth.models import User
-        #     User.objects.create_superuser(HTTP_USER, '', HTTP_PASS)
-
         print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links) + len(pending_links), **ANSI))
 
     json_index = out_dir / JSON_INDEX_FILENAME
