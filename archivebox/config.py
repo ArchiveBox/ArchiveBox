@@ -91,8 +91,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'OUTPUT_PERMISSIONS':       {'type': str,   'default': '644'},
         'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},
         'URL_BLACKLIST':            {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$'},  # to avoid downloading code assets as their own pages
-        'ARCHIVEBOX_USERNAME':      {'type': str,   'default': None},
-        'ARCHIVEBOX_PASSWORD':      {'type': str,   'default': None},
+        'ADMIN_USERNAME':      {'type': str,   'default': None},
+        'ADMIN_PASSWORD':      {'type': str,   'default': None},
         'URL_WHITELIST':            {'type': str,   'default': None},
         'ENFORCE_ATOMIC_WRITES':    {'type': bool,  'default': True},
         'TAG_SEPARATOR_PATTERN':    {'type': str,   'default': r'[,]'},
