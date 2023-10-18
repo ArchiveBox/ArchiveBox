@@ -424,9 +424,9 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
 
     from django.contrib.auth.models import User
 
-    if (ADMIN_USERNAME and ADMIN_PASSWORD) and not User.objects.filter(username=ADMIN_USERNAME, is_superuser=True).exists():
+    if (ADMIN_USERNAME and ADMIN_PASSWORD) and not User.objects.filter(username=ADMIN_USERNAME).exists():
         User.objects.create_superuser(username=ADMIN_USERNAME, password=ADMIN_PASSWORD)
-        print('{green}[+] New ADMIN_USERNAME and  ADMIN_PASSWORD configuration options found. Creating new admin user.{reset}'.format(ADMIN_USERNAME, ADMIN_PASSWORD, **ANSI))
+        print('{green}[+] Found ADMIN_USERNAME and ADMIN_PASSWORD configuration options, creating new admin user.{reset}'.format(**ANSI))
 
     if existing_index:
         print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
