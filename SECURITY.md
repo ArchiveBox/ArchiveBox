@@ -27,7 +27,7 @@ We use Github's built-in [Private Reporting](https://docs.github.com/en/code-sec
 
 1. Go to the Security tab on our Github repo: https://github.com/ArchiveBox/ArchiveBox/security
 
-2. Click "Report a Vulnerability"
+2. Click the ["Report a Vulnerability"](https://github.com/ArchiveBox/ArchiveBox/security/advisories/new) button
 
 3. Fill out the form to submit the details of the report and it will be securely sent to the maintainers
 
