@@ -616,7 +616,7 @@ The paths in the static exports are relative, make sure to keep them next to you
 
 ### Archiving Private Content
 
-<a id="archiving-private-urls"/>
+<a id="archiving-private-urls"></a>
 
 If you're importing pages with private content or URLs containing secret tokens you don't want public (e.g Google Docs, paywalled content, unlisted videos, etc.), **you may want to disable some of the extractor methods to avoid leaking that content to 3rd party APIs or the public**.
 
