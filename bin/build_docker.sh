@@ -66,7 +66,7 @@ check_platforms || (recreate_builder && check_platforms) || exit 1
 
 echo "[+] Building archivebox:$VERSION docker image..."
 #docker build . \
-docker buildx build --platform "$REQUIRED_PLATFORMS" --push . \
+docker buildx build --platform "$REQUIRED_PLATFORMS" --load . \
                -t archivebox \
                -t archivebox:$TAG_NAME \
                -t archivebox:$VERSION \
