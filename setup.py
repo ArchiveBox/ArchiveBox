@@ -28,7 +28,7 @@ PACKAGE_DIR = ROOT_DIR / PKG_NAME
 README = (PACKAGE_DIR / "README.md").read_text(encoding='utf-8', errors='ignore')
 VERSION = json.loads((PACKAGE_DIR / "package.json").read_text().strip())['version']
 
-PYTHON_REQUIRES = ">=3.7"
+PYTHON_REQUIRES = ">=3.9"
 SETUP_REQUIRES = ["wheel"]
 INSTALL_REQUIRES = [
     # only add things here that have corresponding apt python3-packages available
