@@ -91,6 +91,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'OUTPUT_PERMISSIONS':       {'type': str,   'default': '644'},
         'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},
         'URL_BLACKLIST':            {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$'},  # to avoid downloading code assets as their own pages
+        'ADMIN_USERNAME':           {'type': str,   'default': None},
+        'ADMIN_PASSWORD':           {'type': str,   'default': None},
         'URL_WHITELIST':            {'type': str,   'default': None},
         'ENFORCE_ATOMIC_WRITES':    {'type': bool,  'default': True},
         'TAG_SEPARATOR_PATTERN':    {'type': str,   'default': r'[,]'},
@@ -234,12 +236,11 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
 
         'CURL_BINARY':              {'type': str,   'default': 'curl'},
         'GIT_BINARY':               {'type': str,   'default': 'git'},
-        'WGET_BINARY':              {'type': str,   'default': 'wget'},
+        'WGET_BINARY':              {'type': str,   'default': 'wget'},     # also can accept wget2
         'SINGLEFILE_BINARY':        {'type': str,   'default': lambda c: bin_path('single-file')},
         'READABILITY_BINARY':       {'type': str,   'default': lambda c: bin_path('readability-extractor')},
-        'MERCURY_BINARY':           {'type': str,   'default': lambda c: bin_path('mercury-parser')},
-        #'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
-        'YOUTUBEDL_BINARY':         {'type': str,   'default': 'yt-dlp'},
+        'MERCURY_BINARY':           {'type': str,   'default': lambda c: bin_path('postlight-parser')},
+        'YOUTUBEDL_BINARY':         {'type': str,   'default': 'yt-dlp'},   # also can accept youtube-dl
         'NODE_BINARY':              {'type': str,   'default': 'node'},
         'RIPGREP_BINARY':           {'type': str,   'default': 'rg'},
         'CHROME_BINARY':            {'type': str,   'default': None},
@@ -439,7 +440,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'READABILITY_VERSION':      {'default': lambda c: bin_version(c['READABILITY_BINARY']) if c['USE_READABILITY'] else None},
 
     'USE_MERCURY':              {'default': lambda c: c['USE_MERCURY'] and c['SAVE_MERCURY']},
-    'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury is unversioned
+    'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury doesnt expose version info until this is merged https://github.com/postlight/parser/pull/750
 
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
