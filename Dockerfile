@@ -12,11 +12,11 @@
 #     docker buildx create --use
 #     docker buildx build . --platform=linux/amd64,linux/arm64,linux/arm/v7 --push -t archivebox/archivebox:latest -t archivebox/archivebox:dev
 #
-# Read more about [developing
-# Archivebox](https://github.com/ArchiveBox/ArchiveBox#archivebox-development).
+# Read more about [developing Archivebox](https://github.com/ArchiveBox/ArchiveBox#archivebox-development).
 
 
 FROM debian:bookworm-backports
+# Debian 12 w/ faster package updates: https://packages.debian.org/bookworm-backports/
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <dockerfile@archivebox.io>" \
@@ -49,19 +49,19 @@ ENV PATH="$PATH:$GLOBAL_VENV/bin:$APP_VENV/bin:$NODE_MODULES/.bin"
 
 
 # Create non-privileged user for archivebox and chrome
-RUN echo "[*] Setting up system environment..." \
+RUN echo "[*] Setting up system environment for $ARCHIVEBOX_USER ($TARGETPLATFORM)..." \
     && groupadd --system $ARCHIVEBOX_USER \
     && useradd --system --create-home --gid $ARCHIVEBOX_USER --groups audio,video $ARCHIVEBOX_USER \
     && mkdir -p /etc/apt/keyrings
 
 # Install system apt dependencies (adding backports to access more recent apt updates)
 RUN echo "[+] Installing system dependencies..." \
-    && echo 'deb https://deb.debian.org/debian bullseye-backports main contrib non-free' >> /etc/apt/sources.list.d/backports.list \
+    && echo 'deb https://deb.debian.org/debian bookworm-backports main contrib non-free' >> /etc/apt/sources.list.d/backports.list \
     && apt-get update -qq \
     && apt-get install -qq -y \
         apt-transport-https ca-certificates gnupg2 curl wget \
         zlib1g-dev dumb-init gosu cron unzip \
-        nano iputils-ping dnsutils htop procps \
+        # nano iputils-ping dnsutils htop procps \
         # 1. packaging dependencies
         # 2. docker and init system dependencies
         # 3. frivolous CLI helpers to make debugging failed archiving easier
@@ -108,7 +108,7 @@ RUN echo "[+] Installing extractor APT dependencies..." \
 ENV PLAYWRIGHT_BROWSERS_PATH="/browsers"
 RUN echo "[+] Installing extractor Chromium dependency..." \
     && apt-get update -qq \
-    && $GLOBAL_VENV/bin/pip install playwright \
+    && ($GLOBAL_VENV/bin/pip install playwright || [[ "$TARGETPLATFORM" == "linux/arm/v7" ]]) \
     && $GLOBAL_VENV/bin/playwright install --with-deps chromium \
     && CHROME_BINARY="$($GLOBAL_VENV/bin/python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
