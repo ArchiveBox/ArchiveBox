@@ -218,7 +218,7 @@ def version(quiet: bool=False,
     if not quiet:
         # 0.6.3
         # ArchiveBox v0.6.3 Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
-        # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 501:20 SEARCH_BACKEND=ripgrep
+        # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 FS_USER=501:20 SEARCH_BACKEND=ripgrep
         
         p = platform.uname()
         print(
@@ -238,7 +238,8 @@ def version(quiet: bool=False,
             #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
             f'FS_ATOMIC={ENFORCE_ATOMIC_WRITES}',
             f'FS_REMOTE={OUTPUT_IS_REMOTE_FS}',
-            f'FS_PERMS={OUTPUT_PERMISSIONS} {PUID}:{PGID}',
+            f'FS_USER={PUID}:{PGID}',
+            f'FS_PERMS={OUTPUT_PERMISSIONS}',
             f'SEARCH_BACKEND={SEARCH_BACKEND_ENGINE}',
         )
         print()
@@ -253,19 +254,19 @@ def version(quiet: bool=False,
         
         print()
         print('{white}[i] Source-code locations:{reset}'.format(**ANSI))
-        for name, folder in CODE_LOCATIONS.items():
-            print(printable_folder_status(name, folder))
+        for name, path in CODE_LOCATIONS.items():
+            print(printable_folder_status(name, path))
 
         print()
         print('{white}[i] Secrets locations:{reset}'.format(**ANSI))
-        for name, folder in EXTERNAL_LOCATIONS.items():
-            print(printable_folder_status(name, folder))
+        for name, path in EXTERNAL_LOCATIONS.items():
+            print(printable_folder_status(name, path))
 
         print()
         if DATA_LOCATIONS['OUTPUT_DIR']['is_valid']:
             print('{white}[i] Data locations:{reset}'.format(**ANSI))
-            for name, folder in DATA_LOCATIONS.items():
-                print(printable_folder_status(name, folder))
+            for name, path in DATA_LOCATIONS.items():
+                print(printable_folder_status(name, path))
         else:
             print()
             print('{white}[i] Data locations:{reset}'.format(**ANSI))

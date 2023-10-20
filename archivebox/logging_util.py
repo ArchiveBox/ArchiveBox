@@ -533,11 +533,27 @@ def log_shell_welcome_msg():
 ### Helpers
 
 @enforce_types
-def pretty_path(path: Union[Path, str]) -> str:
+def pretty_path(path: Union[Path, str], pwd: Union[Path, str]=OUTPUT_DIR) -> str:
     """convert paths like .../ArchiveBox/archivebox/../output/abc into output/abc"""
-    pwd = Path('.').resolve()
-    # parent = os.path.abspath(os.path.join(pwd, os.path.pardir))
-    return str(path).replace(str(pwd) + '/', './')
+    pwd = str(Path(pwd))  # .resolve()
+    path = str(path)
+
+    if not path:
+        return path
+
+    # replace long absolute paths with ./ relative ones to save on terminal output width
+    if path.startswith(pwd) and (pwd != '/'):
+        path = path.replace(pwd, '.', 1)
+    
+    # quote paths containing spaces
+    if ' ' in path:
+        path = f'"{path}"'
+
+    # if path is just a plain dot, replace it back with the absolute path for clarity
+    if path == '.':
+        path = pwd
+
+    return path
 
 
 @enforce_types
@@ -578,6 +594,7 @@ def printable_folder_status(name: str, folder: Dict) -> str:
     else:
         color, symbol, note, num_files = 'lightyellow', '-', 'disabled', '-'
 
+
     if folder['path']:
         if Path(folder['path']).exists():
             num_files = (
@@ -592,13 +609,7 @@ def printable_folder_status(name: str, folder: Dict) -> str:
         # add symbol @ next to filecount if path is a remote filesystem mount
         num_files = f'{num_files} @' if num_files else '@'
 
-    path = str(folder['path']).replace(str(OUTPUT_DIR), '.') if folder['path'] else ''
-    if path and ' ' in path:
-        path = f'"{path}"'
-
-    # if path is just a plain dot, replace it back with the full path for clarity
-    if path == '.':
-        path = str(OUTPUT_DIR)
+    path = pretty_path(folder['path'])
 
     return ' '.join((
         ANSI[color],
@@ -629,9 +640,7 @@ def printable_dependency_version(name: str, dependency: Dict) -> str:
     else:
         color, symbol, note, version = 'lightyellow', '-', 'disabled', '-'
 
-    path = str(dependency["path"]).replace(str(OUTPUT_DIR), '.') if dependency["path"] else ''
-    if path and ' ' in path:
-        path = f'"{path}"'
+    path = pretty_path(dependency['path'])
 
     return ' '.join((
         ANSI[color],

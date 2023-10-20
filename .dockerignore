@@ -5,16 +5,21 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 .github/
+.git/
+.pdm-build/
+.pdm-python/
+.eggs/
 
 venv/
 .venv/
 .docker-venv/
+node_modules/
 
 build/
 dist/
-pip_dist/
-!pip_dist/archivebox.egg-info/requires.txt
 brew_dist/
+deb_dist/
+pip_dist/
 assets/
 
 data/
