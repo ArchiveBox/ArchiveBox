@@ -12,8 +12,8 @@ if [[ -n "$PGID" && "$PGID" != 0 ]]; then
     groupmod -g "$PGID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
 fi
 
-PUID="$(id -u archivebox)"
-PGID="$(id -g archivebox)"
+export PUID="$(id -u archivebox)"
+export PGID="$(id -g archivebox)"
 
 # Check the permissions of the data dir (or create if it doesn't exist)
 if [[ -d "$DATA_DIR/archive" ]]; then
@@ -32,7 +32,6 @@ else
     mkdir -p "$DATA_DIR/logs"
 fi
 chown $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR" "$DATA_DIR"/*
-
 
 # Drop permissions to run commands as the archivebox user
 if [[ "$1" == /* || "$1" == "echo" || "$1" == "archivebox" ]]; then
