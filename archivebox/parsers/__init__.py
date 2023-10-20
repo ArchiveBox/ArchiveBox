@@ -34,6 +34,7 @@ from ..index.schema import Link
 from ..logging_util import TimedProgress, log_source_saved
 
 from . import pocket_api
+from . import readwise_reader_api
 from . import wallabag_atom
 from . import pocket_html
 from . import pinboard_rss
@@ -51,6 +52,7 @@ from . import url_list
 PARSERS = {
     # Specialized parsers
     pocket_api.KEY:     (pocket_api.NAME,       pocket_api.PARSER),
+    readwise_reader_api.KEY: (readwise_reader_api.NAME, readwise_reader_api.PARSER),
     wallabag_atom.KEY:  (wallabag_atom.NAME,    wallabag_atom.PARSER),
     pocket_html.KEY:    (pocket_html.NAME,      pocket_html.PARSER),
     pinboard_rss.KEY:   (pinboard_rss.NAME,     pinboard_rss.PARSER),
@@ -233,6 +235,10 @@ _test_url_strs = {
     'https://example.com/?what=1#how-about-this=1&2%20baf': 1,
     'https://example.com?what=1#how-about-this=1&2%20baf': 1,
     '<test>http://example7.com</test>': 1,
+    'https://<test>': 0,
+    'https://[test]': 0,
+    'http://"test"': 0,
+    'http://\'test\'': 0,
     '[https://example8.com/what/is/this.php?what=1]': 1,
     '[and http://example9.com?what=1&other=3#and-thing=2]': 1,
     '<what>https://example10.com#and-thing=2 "</about>': 1,

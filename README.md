@@ -10,13 +10,13 @@
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a> |
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
-<pre lang="bash"><code style="white-space: pre-line">"Your own personal internet archive" (网站存档 / 爬虫)
+<pre lang="bash" align="center"><code style="white-space: pre-line; text-align: center" align="center">"Your own personal internet archive" (网站存档 / 爬虫)
 curl -sSL 'https://get.archivebox.io' | sh
 </code></pre>
 
 <!--<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>-->
 
-<a href="https://github.com/ArchiveBox/ArchiveBox/blob/master/LICENSE"><img src="https://img.shields.io/badge/Open_source-MIT-green.svg?logo=git&logoColor=green"/></a>
+<a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE"><img src="https://img.shields.io/badge/Open_source-MIT-green.svg?logo=git&logoColor=green"/></a>
 <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?logo=github&label=Stars&logoColor=blue"/></a>
 <a href="https://github.com/ArchiveBox/ArchiveBox/commits/dev"><img src="https://img.shields.io/github/last-commit/ArchiveBox/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=active"/></a> &nbsp;
 <a href="https://pypi.org/project/archivebox/"><img src="https://img.shields.io/badge/Python-yellow.svg?logo=python&logoColor=yellow"/></a>
@@ -86,7 +86,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 ## Key Features
 
-- [**Free & open source**](https://github.com/ArchiveBox/ArchiveBox/blob/master/LICENSE), doesn't require signing up online, stores all data locally
+- [**Free & open source**](https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE), doesn't require signing up online, stores all data locally
 - [**Powerful, intuitive command line interface**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) with [modular optional dependencies](#dependencies) 
 - [**Comprehensive documentation**](https://github.com/ArchiveBox/ArchiveBox/wiki), [active development](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap), and [rich community](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
 - [**Extracts a wide variety of content out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51): [media (youtube-dl or yt-dlp), articles (readability), code (git), etc.](#output-formats)
@@ -119,9 +119,9 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 <br/><br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> and <a href="https://docs.docker.com/compose/install/#install-using-pip">Docker Compose</a> on your system (if not already installed).</li>
-<li>Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory (can be anywhere).
+<li>Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
-curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
+curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml'
 </code></pre></li>
 <li>Run the initial setup and create an admin user.
 <pre lang="bash"><code style="white-space: pre-line">docker compose run archivebox init --setup
@@ -499,7 +499,7 @@ env CHROME_BINARY=chromium archivebox ...       # run with a one-off config
 
 <sup>These methods also work the same way when run inside Docker, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration">Docker Configuration</a> wiki page for details.</sup>
 
-**The config loading logic with all the options defined is here: [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/master/archivebox/config.py).**
+**The config loading logic with all the options defined is here: [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config.py).**
 
 Most options are also documented on the **[Configuration Wiki page](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**.
 
@@ -588,7 +588,8 @@ Each snapshot subfolder `./archive/<timestamp>/` includes a static `index.json` 
 
 You can export the main index to browse it statically without needing to run a server.
 
-*Note about large exports: These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.*
+> **Note**
+> These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.
 
 ```bash
 # archivebox list --help
@@ -615,7 +616,7 @@ The paths in the static exports are relative, make sure to keep them next to you
 
 ### Archiving Private Content
 
-<a id="archiving-private-urls"/>
+<a id="archiving-private-urls"></a>
 
 If you're importing pages with private content or URLs containing secret tokens you don't want public (e.g Google Docs, paywalled content, unlisted videos, etc.), **you may want to disable some of the extractor methods to avoid leaking that content to 3rd party APIs or the public**.
 
@@ -796,7 +797,7 @@ Whether you want to learn which organizations are the big players in the web arc
   - [Communities](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#communities)  
     _A collection of the most active internet archiving communities and initiatives._
 - Check out the ArchiveBox [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap) and [Changelog](https://github.com/ArchiveBox/ArchiveBox/wiki/Changelog)
-- Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://parameters.ssrc.org/2018/09/on-the-importance-of-web-archiving/)" blog post.
+- Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://items.ssrc.org/parameters/on-the-importance-of-web-archiving/)" blog post.
 - Reach out to me for questions and comments via [@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp) or [@theSquashSH](https://twitter.com/thesquashSH) on Twitter
 
 <br/>
@@ -867,7 +868,7 @@ All contributions to ArchiveBox are welcomed! Check our [issues](https://github.
 
 For low hanging fruit / easy first tickets, see: <a href="https://github.com/ArchiveBox/ArchiveBox/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22help+wanted%22">ArchiveBox/Issues `#good first ticket` `#help wanted`</a>.
 
-**Python API Documentation:** https://docs.archivebox.io/en/master/archivebox.html#module-archivebox.main
+**Python API Documentation:** https://docs.archivebox.io/en/dev/archivebox.html#module-archivebox.main
 
 ### Setup the dev environment
 
@@ -985,6 +986,7 @@ archivebox init --setup
 <details><summary><i>Click to expand...</i></summary>
 
 Make sure to run this whenever you change things in `models.py`.
+
 ```bash
 cd archivebox/
 ./manage.py makemigrations
@@ -993,6 +995,7 @@ cd path/to/test/data/
 archivebox shell
 archivebox manage dbshell
 ```
+
 (uses `pytest -s`)  
 https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
 
@@ -1000,7 +1003,9 @@ https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-dj
 
 #### Contributing a new extractor
 
-<details><summary><i>Click to expand...</i></summary><br/><br/>
+<details><summary><i>Click to expand...</i></summary>
+
+<br/><br/>
 
 ArchiveBox [`extractors`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/extractors/media.py) are external binaries or Python/Node scripts that ArchiveBox runs to archive content on a page.
 

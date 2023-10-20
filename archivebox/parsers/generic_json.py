@@ -17,7 +17,10 @@ def parse_generic_json_export(json_file: IO[str], **_kwargs) -> Iterable[Link]:
     """Parse JSON-format bookmarks export files (produced by pinboard.in/export/, or wallabag)"""
 
     json_file.seek(0)
-    links = json.load(json_file)
+
+    # sometimes the first line is a comment or filepath, so we get everything after the first {
+    json_file_json_str = '{' + json_file.read().split('{', 1)[-1]
+    links = json.loads(json_file_json_str)
     json_date = lambda s: datetime.strptime(s, '%Y-%m-%dT%H:%M:%S%z')
 
     for link in links:

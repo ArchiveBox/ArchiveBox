@@ -25,7 +25,10 @@ cd "$REPO_DIR"
 rm -Rf build dist
 
 echo "[+] Building sdist, bdist_wheel, and egg_info"
-python3 setup.py \
-    sdist --dist-dir=./pip_dist \
-    bdist_wheel --dist-dir=./pip_dist \
-    egg_info --egg-base=./pip_dist
+# python3 setup.py \
+#     sdist --dist-dir=./pip_dist \
+#     bdist_wheel --dist-dir=./pip_dist \
+#     egg_info --egg-base=./pip_dist
+
+# pip install --upgrade pip setuptools build
+python -m build

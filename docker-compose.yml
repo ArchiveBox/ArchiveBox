@@ -34,6 +34,8 @@ services:
             # - PUBLIC_ADD_VIEW=False           # set to True to allow anonymous users to submit new URLs to archive
             # - PUID=1000                       # set to your host user's UID & GID if you encounter permissions issues
             # - PGID=1000
+            # - ADMIN_USERNAME=admin            # create an admin user on first run with the given user/pass combo
+            # - ADMIN_PASSWORD=SomeSecretPassword
             # - SEARCH_BACKEND_ENGINE=sonic     # uncomment these and sonic container below for better full-text search
             # - SEARCH_BACKEND_HOST_NAME=sonic
             # - SEARCH_BACKEND_PASSWORD=SomeSecretPassword

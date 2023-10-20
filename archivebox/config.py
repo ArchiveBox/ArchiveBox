@@ -57,8 +57,16 @@ SYSTEM_USER = getpass.getuser() or os.getlogin()
 try:
     import pwd
     SYSTEM_USER = pwd.getpwuid(os.geteuid()).pw_name or SYSTEM_USER
+except KeyError:
+    # Process' UID might not map to a user in cases such as running the Docker image
+    # (where `archivebox` is 999) as a different UID.
+    pass
 except ModuleNotFoundError:
     # pwd is only needed for some linux systems, doesn't exist on windows
+    pass
+except Exception:
+    # this should never happen, uncomment to debug
+    # raise
     pass
 
 ############################### Config Schema ##################################
@@ -82,8 +90,13 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
         'OUTPUT_PERMISSIONS':       {'type': str,   'default': '644'},
         'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},
+
         'URL_DENYLIST':             {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$', 'aliases': ('URL_BLACKLIST',)},  # to avoid downloading code assets as their own pages
         'URL_ALLOWLIST':            {'type': str,   'default': None, 'aliases': ('URL_WHITELIST',)},
+
+        'ADMIN_USERNAME':           {'type': str,   'default': None},
+        'ADMIN_PASSWORD':           {'type': str,   'default': None},
+
         'ENFORCE_ATOMIC_WRITES':    {'type': bool,  'default': True},
         'TAG_SEPARATOR_PATTERN':    {'type': str,   'default': r'[,]'},
     },
@@ -100,12 +113,22 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SNAPSHOTS_PER_PAGE':        {'type': int,   'default': 40},
         'CUSTOM_TEMPLATES_DIR':      {'type': str,   'default': None},
         'TIME_ZONE':                 {'type': str,   'default': 'UTC'},
-        'TIMEZONE':                 {'type': str,   'default': 'UTC'},
+        'TIMEZONE':                  {'type': str,   'default': 'UTC'},
         'REVERSE_PROXY_USER_HEADER': {'type': str,   'default': 'Remote-User'},
         'REVERSE_PROXY_WHITELIST':   {'type': str,   'default': ''},
         'LOGOUT_REDIRECT_URL':       {'type': str,   'default': '/'},
-        'PREVIEW_ORIGINALS':        {'type': bool,  'default': True},
-        'LOGOUT_REDIRECT_URL':   {'type': str,   'default': '/'},
+        'PREVIEW_ORIGINALS':         {'type': bool,  'default': True},
+
+        'LDAP':                      {'type': bool,  'default': False},
+        'LDAP_SERVER_URI':           {'type': str,   'default': None},
+        'LDAP_BIND_DN':              {'type': str,   'default': None},
+        'LDAP_BIND_PASSWORD':        {'type': str,   'default': None},
+        'LDAP_USER_BASE':            {'type': str,   'default': None},
+        'LDAP_USER_FILTER':          {'type': str,   'default': None},
+        'LDAP_USERNAME_ATTR':        {'type': str,   'default': None},
+        'LDAP_FIRSTNAME_ATTR':       {'type': str,   'default': None},
+        'LDAP_LASTNAME_ATTR':        {'type': str,   'default': None},
+        'LDAP_EMAIL_ATTR':           {'type': str,   'default': None},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
@@ -151,10 +174,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--write-thumbnail',
                                                                 '--no-call-home',
                                                                 '--write-sub',
-                                                                '--all-subs',
-                                                                # There are too many of these and youtube
-                                                                # throttles you with HTTP error 429
-                                                                #'--write-auto-subs',
+                                                                '--write-auto-subs',
                                                                 '--convert-subs=srt',
                                                                 '--yes-playlist',
                                                                 '--continue',
@@ -167,7 +187,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--ignore-errors',
                                                                 '--geo-bypass',
                                                                 '--add-metadata',
-                                                                '--max-filesize={}'.format(c['MEDIA_MAX_SIZE']),
+                                                                '--format=(bv*+ba/b)[filesize<={}][filesize_approx<=?{}]/(bv*+ba/b)'.format(c['MEDIA_MAX_SIZE'], c['MEDIA_MAX_SIZE']),
                                                                 ]},
 
 
@@ -216,18 +236,19 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
 
         'CURL_BINARY':              {'type': str,   'default': 'curl'},
         'GIT_BINARY':               {'type': str,   'default': 'git'},
-        'WGET_BINARY':              {'type': str,   'default': 'wget'},
+        'WGET_BINARY':              {'type': str,   'default': 'wget'},     # also can accept wget2
         'SINGLEFILE_BINARY':        {'type': str,   'default': lambda c: bin_path('single-file')},
         'READABILITY_BINARY':       {'type': str,   'default': lambda c: bin_path('readability-extractor')},
-        'MERCURY_BINARY':           {'type': str,   'default': lambda c: bin_path('mercury-parser')},
-        #'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
-        'YOUTUBEDL_BINARY':         {'type': str,   'default': 'yt-dlp'},
+        'MERCURY_BINARY':           {'type': str,   'default': lambda c: bin_path('postlight-parser')},
+        'YOUTUBEDL_BINARY':         {'type': str,   'default': 'yt-dlp'},   # also can accept youtube-dl
         'NODE_BINARY':              {'type': str,   'default': 'node'},
         'RIPGREP_BINARY':           {'type': str,   'default': 'rg'},
         'CHROME_BINARY':            {'type': str,   'default': None},
 
         'POCKET_CONSUMER_KEY':      {'type': str,   'default': None},
         'POCKET_ACCESS_TOKENS':     {'type': dict,  'default': {}},
+
+        'READWISE_READER_TOKENS':     {'type': dict,  'default': {}},
     },
 }
 
@@ -420,7 +441,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'READABILITY_VERSION':      {'default': lambda c: bin_version(c['READABILITY_BINARY']) if c['USE_READABILITY'] else None},
 
     'USE_MERCURY':              {'default': lambda c: c['USE_MERCURY'] and c['SAVE_MERCURY']},
-    'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury is unversioned
+    'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury doesnt expose version info until this is merged https://github.com/postlight/parser/pull/750
 
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
