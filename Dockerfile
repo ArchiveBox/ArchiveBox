@@ -46,10 +46,18 @@ ENV CODE_DIR=/app \
     ARCHIVEBOX_USER="archivebox"
 
 ENV PATH="$PATH:$GLOBAL_VENV/bin:$APP_VENV/bin:$NODE_MODULES/.bin"
+SHELL ["/bin/bash", "-c"] 
+ARG TARGETPLATFORM
+ARG TARGETARCH
+ARG TARGETVARIANT
+RUN printf "[i] Building for TARGETPLATFORM=${TARGETPLATFORM}" \
+    && printf ", TARGETARCH=${TARGETARCH}" \
+    && printf ", TARGETVARIANT=${TARGETVARIANT} \n" \
+    && printf "uname -a : " && uname -a
 
 
 # Create non-privileged user for archivebox and chrome
-RUN echo "[*] Setting up system environment for $ARCHIVEBOX_USER ($TARGETPLATFORM)..." \
+RUN echo "[*] Setting up system environment..." \
     && groupadd --system $ARCHIVEBOX_USER \
     && useradd --system --create-home --gid $ARCHIVEBOX_USER --groups audio,video $ARCHIVEBOX_USER \
     && mkdir -p /etc/apt/keyrings
@@ -108,12 +116,12 @@ RUN echo "[+] Installing extractor APT dependencies..." \
 ENV PLAYWRIGHT_BROWSERS_PATH="/browsers"
 RUN echo "[+] Installing extractor Chromium dependency..." \
     && apt-get update -qq \
-    && ($GLOBAL_VENV/bin/pip install playwright || [[ "$TARGETPLATFORM" == "linux/arm/v7" ]]) \
-    && $GLOBAL_VENV/bin/playwright install --with-deps chromium \
-    && CHROME_BINARY="$($GLOBAL_VENV/bin/python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
+    && $GLOBAL_VENV/bin/pip install playwright || true \
+    && $GLOBAL_VENV/bin/playwright install --with-deps chromium || true \
+    && CHROME_BINARY="$($GLOBAL_VENV/bin/python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" || true \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
     && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
-    && chown -R $ARCHIVEBOX_USER "/home/${ARCHIVEBOX_USER}/.config"
+    && chown -R $ARCHIVEBOX_USER "/home/${ARCHIVEBOX_USER}/.config" \
 
 # Install Node dependencies
 WORKDIR "$CODE_DIR"
@@ -124,7 +132,7 @@ RUN echo "[+] Installing extractor Node dependencies..." \
 
 ######### Build Dependencies ####################################
 
-# # Installing Python dependencies to build from source
+# # Building ArchiveBox from source with all pdm dev dependencies
 # WORKDIR "$CODE_DIR"
 # COPY --chown=root:root --chmod=755 "./pyproject.toml" "./pdm.lock" "$CODE_DIR/"
 # RUN echo "[+] Installing project Python dependencies..." \
