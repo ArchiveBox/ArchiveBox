@@ -49,17 +49,19 @@ ENV PATH="$PATH:$GLOBAL_VENV/bin:$APP_VENV/bin:$NODE_MODULES/.bin"
 
 
 # Create non-privileged user for archivebox and chrome
-RUN groupadd --system $ARCHIVEBOX_USER \
+RUN echo "[*] Setting up system environment..." \
+    && groupadd --system $ARCHIVEBOX_USER \
     && useradd --system --create-home --gid $ARCHIVEBOX_USER --groups audio,video $ARCHIVEBOX_USER \
     && mkdir -p /etc/apt/keyrings
 
 # Install system apt dependencies (adding backports to access more recent apt updates)
-RUN echo 'deb https://deb.debian.org/debian bullseye-backports main contrib non-free' >> /etc/apt/sources.list.d/backports.list \
+RUN echo "[+] Installing system dependencies..." \
+    && echo 'deb https://deb.debian.org/debian bullseye-backports main contrib non-free' >> /etc/apt/sources.list.d/backports.list \
     && apt-get update -qq \
     && apt-get install -qq -y \
         apt-transport-https ca-certificates gnupg2 curl wget \
         zlib1g-dev dumb-init gosu cron unzip \
-        nano iputils-ping dnsutils \
+        nano iputils-ping dnsutils htop procps \
         # 1. packaging dependencies
         # 2. docker and init system dependencies
         # 3. frivolous CLI helpers to make debugging failed archiving easier
@@ -70,7 +72,8 @@ RUN echo 'deb https://deb.debian.org/debian bullseye-backports main contrib non-
 ######### Language Environments ####################################
 
 # Install Node environment
-RUN echo 'deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main' >> /etc/apt/sources.list.d/nodejs.list \
+RUN echo "[+] Installing Node environment..." \
+    && echo 'deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main' >> /etc/apt/sources.list.d/nodejs.list \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && apt-get update -qq \
     && apt-get install -qq -y nodejs \
@@ -79,18 +82,21 @@ RUN echo 'deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesourc
     && npm --version
 
 # Install Python environment
-RUN apt-get update -qq \
+RUN echo "[+] Installing Python environment..." \
+    && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
         python3 python3-pip python3-venv python3-setuptools python3-wheel python-dev-is-python3 \
+        python3-ldap libldap2-dev libsasl2-dev libssl-dev \
     && rm /usr/lib/python3*/EXTERNALLY-MANAGED \
-    && python3 -m venv $GLOBAL_VENV \
-    && $GLOBAL_VENV/bin/pip install --upgrade pip pdm setuptools wheel \
+    && python3 -m venv --system-site-packages --symlinks $GLOBAL_VENV \
+    && $GLOBAL_VENV/bin/pip install --upgrade pip pdm setuptools wheel python-ldap \
     && rm -rf /var/lib/apt/lists/*
 
 ######### Extractor Dependencies ##################################
 
 # Install apt dependencies
-RUN apt-get update -qq \
+RUN echo "[+] Installing extractor APT dependencies..." \
+    && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
         curl wget git yt-dlp ffmpeg ripgrep \
         # Packages we have also needed in the past:
@@ -99,8 +105,9 @@ RUN apt-get update -qq \
     && rm -rf /var/lib/apt/lists/*
 
 # Install chromium browser using playwright
-ENV PLAYWRIGHT_BROWSERS_PATH=/browsers
-RUN apt-get update -qq \
+ENV PLAYWRIGHT_BROWSERS_PATH="/browsers"
+RUN echo "[+] Installing extractor Chromium dependency..." \
+    && apt-get update -qq \
     && $GLOBAL_VENV/bin/pip install playwright \
     && $GLOBAL_VENV/bin/playwright install --with-deps chromium \
     && CHROME_BINARY="$($GLOBAL_VENV/bin/python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
@@ -110,21 +117,22 @@ RUN apt-get update -qq \
 
 # Install Node dependencies
 WORKDIR "$CODE_DIR"
-ADD "package.json" "package-lock.json" "$CODE_DIR/"
-RUN npm ci --prefer-offline --no-audit
-RUN "$NODE_MODULES/.bin/readability-extractor" --version
+COPY --chown=root:root --chmod=755 "package.json" "package-lock.json" "$CODE_DIR/"
+RUN echo "[+] Installing extractor Node dependencies..." \
+    && npm ci --prefer-offline --no-audit \
+    && npm version
 
 ######### Build Dependencies ####################################
 
-WORKDIR "$CODE_DIR"
-COPY --chown=root:root . "$CODE_DIR/"
-
-# Install Python Build dependencies & build ArchiveBox package
-# RUN apt-get update -qq \
+# # Installing Python dependencies to build from source
+# WORKDIR "$CODE_DIR"
+# COPY --chown=root:root --chmod=755 "./pyproject.toml" "./pdm.lock" "$CODE_DIR/"
+# RUN echo "[+] Installing project Python dependencies..." \
+#     && apt-get update -qq \
 #     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
 #         build-essential libssl-dev libldap2-dev libsasl2-dev \
-#     && pdm venv create \
-#     && pdm install --fail-fast --no-lock --group :all \
+#     && pdm use -f $GLOBAL_VENV \
+#     && pdm install --fail-fast --no-lock --group :all --no-self \
 #     && pdm build \
 #     && apt-get purge -y \
 #         build-essential libssl-dev libldap2-dev libsasl2-dev \
@@ -132,14 +140,16 @@ COPY --chown=root:root . "$CODE_DIR/"
 #     && apt-get autoremove -y \
 #     && rm -rf /var/lib/apt/lists/*
 
-
 # Install ArchiveBox Python package from source
-RUN apt-get update -qq \
+COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
+RUN echo "[*] Installing ArchiveBox package from /app..." \
+    && apt-get update -qq \
     && $GLOBAL_VENV/bin/pip install -e "$CODE_DIR"[sonic,ldap]
 
 ####################################################
 
 # Setup ArchiveBox runtime config
+WORKDIR "$DATA_DIR"
 ENV IN_DOCKER=True \
     WGET_BINARY="wget" \
     YOUTUBEDL_BINARY="yt-dlp" \

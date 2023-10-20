@@ -99,22 +99,23 @@ if LDAP:
         from django_auth_ldap.config import LDAPSearch
 
         global AUTH_LDAP_SERVER_URI
-        AUTH_LDAP_SERVER_URI = LDAP_SERVER_URI
-
         global AUTH_LDAP_BIND_DN
-        AUTH_LDAP_BIND_DN = LDAP_BIND_DN
-
         global AUTH_LDAP_BIND_PASSWORD
+        global AUTH_LDAP_USER_SEARCH
+        global AUTH_LDAP_USER_ATTR_MAP
+
+        AUTH_LDAP_SERVER_URI = LDAP_SERVER_URI
+        AUTH_LDAP_BIND_DN = LDAP_BIND_DN
         AUTH_LDAP_BIND_PASSWORD = LDAP_BIND_PASSWORD
 
-        global AUTH_LDAP_USER_SEARCH
+        assert AUTH_LDAP_SERVER_URI and LDAP_USERNAME_ATTR and LDAP_USER_FILTER, 'LDAP_* config options must all be set if LDAP=True'
+
         AUTH_LDAP_USER_SEARCH = LDAPSearch(
             LDAP_USER_BASE,
             ldap.SCOPE_SUBTREE,
             '(&(' + LDAP_USERNAME_ATTR + '=%(user)s)' + LDAP_USER_FILTER + ')',
         )
 
-        global AUTH_LDAP_USER_ATTR_MAP
         AUTH_LDAP_USER_ATTR_MAP = {
             'username': LDAP_USERNAME_ATTR,
             'first_name': LDAP_FIRSTNAME_ATTR,

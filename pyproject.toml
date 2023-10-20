@@ -85,9 +85,12 @@ doc = [
 
 [project.optional-dependencies]
 sonic = [
+    # echo "deb [signed-by=/usr/share/keyrings/valeriansaliou_sonic.gpg] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main" > /etc/apt/sources.list.d/valeriansaliou_sonic.list
+    # curl -fsSL https://packagecloud.io/valeriansaliou/sonic/gpgkey | gpg --dearmor -o /usr/share/keyrings/valeriansaliou_sonic.gpg
     "sonic-client>=0.0.5",
 ]
 ldap = [
+    # apt install libldap2-dev libsasl2-dev
     "django-auth-ldap>=4.1.0",
 ]
 
