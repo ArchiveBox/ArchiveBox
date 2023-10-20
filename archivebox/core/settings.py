@@ -6,9 +6,6 @@ import re
 import logging
 import tempfile
 
-import ldap
-from django_auth_ldap.config import LDAPSearch
-
 from pathlib import Path
 from django.utils.crypto import get_random_string
 
@@ -97,33 +94,42 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 if LDAP:
-    global AUTH_LDAP_SERVER_URI
-    AUTH_LDAP_SERVER_URI = LDAP_SERVER_URI
+    try:
+        import ldap
+        from django_auth_ldap.config import LDAPSearch
 
-    global AUTH_LDAP_BIND_DN
-    AUTH_LDAP_BIND_DN = LDAP_BIND_DN
+        global AUTH_LDAP_SERVER_URI
+        AUTH_LDAP_SERVER_URI = LDAP_SERVER_URI
 
-    global AUTH_LDAP_BIND_PASSWORD
-    AUTH_LDAP_BIND_PASSWORD = LDAP_BIND_PASSWORD
+        global AUTH_LDAP_BIND_DN
+        AUTH_LDAP_BIND_DN = LDAP_BIND_DN
 
-    global AUTH_LDAP_USER_SEARCH
-    AUTH_LDAP_USER_SEARCH = LDAPSearch(
-        LDAP_USER_BASE,
-        ldap.SCOPE_SUBTREE,
-        '(&(' + LDAP_USERNAME_ATTR + '=%(user)s)' + LDAP_USER_FILTER + ')',
-    )
+        global AUTH_LDAP_BIND_PASSWORD
+        AUTH_LDAP_BIND_PASSWORD = LDAP_BIND_PASSWORD
 
-    global AUTH_LDAP_USER_ATTR_MAP
-    AUTH_LDAP_USER_ATTR_MAP = {
-        'username': LDAP_USERNAME_ATTR,
-        'first_name': LDAP_FIRSTNAME_ATTR,
-        'last_name': LDAP_LASTNAME_ATTR,
-        'email': LDAP_EMAIL_ATTR,
-    }
+        global AUTH_LDAP_USER_SEARCH
+        AUTH_LDAP_USER_SEARCH = LDAPSearch(
+            LDAP_USER_BASE,
+            ldap.SCOPE_SUBTREE,
+            '(&(' + LDAP_USERNAME_ATTR + '=%(user)s)' + LDAP_USER_FILTER + ')',
+        )
 
-    AUTHENTICATION_BACKENDS = [
-        'django_auth_ldap.backend.LDAPBackend',
-    ]
+        global AUTH_LDAP_USER_ATTR_MAP
+        AUTH_LDAP_USER_ATTR_MAP = {
+            'username': LDAP_USERNAME_ATTR,
+            'first_name': LDAP_FIRSTNAME_ATTR,
+            'last_name': LDAP_LASTNAME_ATTR,
+            'email': LDAP_EMAIL_ATTR,
+        }
+
+        AUTHENTICATION_BACKENDS = [
+            'django_auth_ldap.backend.LDAPBackend',
+        ]
+    except ModuleNotFoundError:
+        sys.stderr.write('[X] Error: Found LDAP=True config but LDAP packages not installed. You may need to run: pip install archivebox[ldap]\n\n')
+        # dont hard exit here. in case the user is just running "archivebox version" or "archivebox help", we still want those to work despite broken ldap
+        # sys.exit(1)
+
 
 ################################################################################
 ### Debug Settings
