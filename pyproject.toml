@@ -16,7 +16,7 @@ dependencies = [
     "python-crontab>=2.5.1",
     "requests>=2.24.0",
     "w3lib>=1.22.0",
-    "youtube-dl>=2021.04.17",
+    # "youtube-dl>=2021.04.17",
     "yt-dlp>=2021.4.11",
     "playwright>=1.39.0",
 ]
