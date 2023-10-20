@@ -73,10 +73,10 @@ RUN echo "[+] Installing system dependencies..." \
 
 # Install Node environment
 RUN echo "[+] Installing Node environment..." \
-    && echo 'deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main' >> /etc/apt/sources.list.d/nodejs.list \
+    && echo 'deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_21.x nodistro main' >> /etc/apt/sources.list.d/nodejs.list \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && apt-get update -qq \
-    && apt-get install -qq -y nodejs \
+    && apt-get install -qq -y nodejs libatomic1 \
     && npm i -g npm \
     && node --version \
     && npm --version
@@ -86,7 +86,7 @@ RUN echo "[+] Installing Python environment..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
         python3 python3-pip python3-venv python3-setuptools python3-wheel python-dev-is-python3 \
-        python3-ldap libldap2-dev libsasl2-dev libssl-dev \
+        python3-ldap libldap2-dev libsasl2-dev libssl-dev python3-msgpack \
     && rm /usr/lib/python3*/EXTERNALLY-MANAGED \
     && python3 -m venv --system-site-packages --symlinks $GLOBAL_VENV \
     && $GLOBAL_VENV/bin/pip install --upgrade pip pdm setuptools wheel python-ldap \
