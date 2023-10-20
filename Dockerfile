@@ -16,15 +16,17 @@
 # Archivebox](https://github.com/ArchiveBox/ArchiveBox#archivebox-development).
 
 
-FROM python:3.11-slim-bullseye
+FROM debian:bookworm-backports
 
 LABEL name="archivebox" \
-    maintainer="Nick Sweeting <archivebox-docker@sweeting.me>" \
+    maintainer="Nick Sweeting <dockerfile@archivebox.io>" \
     description="All-in-one personal internet archiving container" \
     homepage="https://github.com/ArchiveBox/ArchiveBox" \
     documentation="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker"
 
-# System-level base config
+######### Base System Setup ####################################
+
+# Global system-level config
 ENV TZ=UTC \
     LANGUAGE=en_US:en \
     LC_ALL=C.UTF-8 \
@@ -32,103 +34,136 @@ ENV TZ=UTC \
     PYTHONIOENCODING=UTF-8 \
     PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive \
-    APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1
+    APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1 \
+    npm_config_loglevel=error
 
-# Application-level base config
+# Application-level config
 ENV CODE_DIR=/app \
-    VENV_PATH=/venv \
     DATA_DIR=/data \
-    NODE_DIR=/node \
+    GLOBAL_VENV=/venv \
+    APP_VENV=/app/.venv \
+    NODE_MODULES=/app/node_modules \
     ARCHIVEBOX_USER="archivebox"
+
+ENV PATH="$PATH:$GLOBAL_VENV/bin:$APP_VENV/bin:$NODE_MODULES/.bin"
+
 
 # Create non-privileged user for archivebox and chrome
 RUN groupadd --system $ARCHIVEBOX_USER \
-    && useradd --system --create-home --gid $ARCHIVEBOX_USER --groups audio,video $ARCHIVEBOX_USER
+    && useradd --system --create-home --gid $ARCHIVEBOX_USER --groups audio,video $ARCHIVEBOX_USER \
+    && mkdir -p /etc/apt/keyrings
 
-# Install system dependencies
-RUN apt-get update -qq \
-    && apt-get install -qq -y --no-install-recommends \
-        apt-transport-https ca-certificates gnupg2 zlib1g-dev \
-        dumb-init gosu cron unzip curl \
+# Install system apt dependencies (adding backports to access more recent apt updates)
+RUN echo 'deb https://deb.debian.org/debian bullseye-backports main contrib non-free' >> /etc/apt/sources.list.d/backports.list \
+    && apt-get update -qq \
+    && apt-get install -qq -y \
+        apt-transport-https ca-certificates gnupg2 curl wget \
+        zlib1g-dev dumb-init gosu cron unzip \
+        nano iputils-ping dnsutils \
+        # 1. packaging dependencies
+        # 2. docker and init system dependencies
+        # 3. frivolous CLI helpers to make debugging failed archiving easier
+    && mkdir -p /etc/apt/keyrings \
     && rm -rf /var/lib/apt/lists/*
+
+
+######### Language Environments ####################################
+
+# Install Node environment
+RUN echo 'deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main' >> /etc/apt/sources.list.d/nodejs.list \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && apt-get update -qq \
+    && apt-get install -qq -y nodejs \
+    && npm i -g npm \
+    && node --version \
+    && npm --version
+
+# Install Python environment
+RUN apt-get update -qq \
+    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+        python3 python3-pip python3-venv python3-setuptools python3-wheel python-dev-is-python3 \
+    && rm /usr/lib/python3*/EXTERNALLY-MANAGED \
+    && python3 -m venv $GLOBAL_VENV \
+    && $GLOBAL_VENV/bin/pip install --upgrade pip pdm setuptools wheel \
+    && rm -rf /var/lib/apt/lists/*
+
+######### Extractor Dependencies ##################################
 
 # Install apt dependencies
 RUN apt-get update -qq \
-    && apt-get install -qq -y --no-install-recommends \
-        wget curl chromium git ffmpeg youtube-dl ripgrep \
-        fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
-    && ln -s /usr/bin/chromium /usr/bin/chromium-browser \
+    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+        curl wget git yt-dlp ffmpeg ripgrep \
+        # Packages we have also needed in the past:
+        # youtube-dl wget2 aria2 python3-pyxattr rtmpdump libfribidi-bin mpv \
+        # fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node environment
-RUN curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
-    && echo 'deb https://deb.nodesource.com/node_18.x buster main' >> /etc/apt/sources.list \
-    && apt-get update -qq \
-    && apt-get install -qq -y --no-install-recommends \
-        nodejs \
-    # && npm install -g npm \
-    && rm -rf /var/lib/apt/lists/*
+# Install chromium browser using playwright
+ENV PLAYWRIGHT_BROWSERS_PATH=/browsers
+RUN apt-get update -qq \
+    && $GLOBAL_VENV/bin/pip install playwright \
+    && $GLOBAL_VENV/bin/playwright install --with-deps chromium \
+    && CHROME_BINARY="$($GLOBAL_VENV/bin/python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
+    && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
+    && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
+    && chown -R $ARCHIVEBOX_USER "/home/${ARCHIVEBOX_USER}/.config"
 
 # Install Node dependencies
-WORKDIR "$NODE_DIR"
-ENV PATH="${PATH}:$NODE_DIR/node_modules/.bin" \
-    npm_config_loglevel=error
-ADD ./package.json ./package.json
-ADD ./package-lock.json ./package-lock.json
-RUN npm ci
-
-# Install Python dependencies
 WORKDIR "$CODE_DIR"
-ENV PATH="${PATH}:$VENV_PATH/bin"
-RUN python -m venv --clear --symlinks "$VENV_PATH" \
-    && pip install --upgrade --quiet pip setuptools \
-    && mkdir -p "$CODE_DIR/archivebox"
-ADD "./setup.py" "$CODE_DIR/"
-ADD "./package.json" "$CODE_DIR/archivebox/"
+ADD "package.json" "package-lock.json" "$CODE_DIR/"
+RUN npm ci --prefer-offline --no-audit
+RUN "$NODE_MODULES/.bin/readability-extractor" --version
+
+######### Build Dependencies ####################################
+
+WORKDIR "$CODE_DIR"
+COPY --chown=root:root . "$CODE_DIR/"
+
+# Install Python Build dependencies & build ArchiveBox package
+# RUN apt-get update -qq \
+#     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+#         build-essential libssl-dev libldap2-dev libsasl2-dev \
+#     && pdm venv create \
+#     && pdm install --fail-fast --no-lock --group :all \
+#     && pdm build \
+#     && apt-get purge -y \
+#         build-essential libssl-dev libldap2-dev libsasl2-dev \
+#         # these are only needed to build CPython libs, we discard after build phase to shrink layer size
+#     && apt-get autoremove -y \
+#     && rm -rf /var/lib/apt/lists/*
+
+
+# Install ArchiveBox Python package from source
 RUN apt-get update -qq \
-    && apt-get install -qq -y --no-install-recommends \
-        build-essential python-dev python3-dev libldap2-dev libsasl2-dev \
-    && echo 'empty placeholder for setup.py to use' > "$CODE_DIR/archivebox/README.md" \
-    && python3 -c 'from distutils.core import run_setup; result = run_setup("./setup.py", stop_after="init"); print("\n".join(result.install_requires + result.extras_require["sonic"]))' > /tmp/requirements.txt \
-    && pip install -r /tmp/requirements.txt \
-    && pip install --upgrade youtube-dl yt-dlp \
-    && apt-get purge -y build-essential python-dev python3-dev libldap2-dev libsasl2-dev \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
+    && $GLOBAL_VENV/bin/pip install -e "$CODE_DIR"[sonic,ldap]
 
-# Install apt development dependencies
-# RUN apt-get install -qq \
-#     && apt-get install -qq -y --no-install-recommends \
-#         python3 python3-dev python3-pip python3-venv python3-all \
-#         dh-python debhelper devscripts dput software-properties-common \
-#         python3-distutils python3-setuptools python3-wheel python3-stdeb
-# RUN python3 -c 'from distutils.core import run_setup; result = run_setup("./setup.py", stop_after="init"); print("\n".join(result.extras_require["dev"]))' > /tmp/dev_requirements.txt \
-    # && pip install --quiet -r /tmp/dev_requirements.txt
-
-# Install ArchiveBox Python package and its dependencies
-WORKDIR "$CODE_DIR"
-ADD . "$CODE_DIR"
-RUN chown -R root:root . && chmod a+rX -R . && pip install -e .
+####################################################
 
 # Setup ArchiveBox runtime config
-WORKDIR "$DATA_DIR"
 ENV IN_DOCKER=True \
+    WGET_BINARY="wget" \
+    YOUTUBEDL_BINARY="yt-dlp" \
     CHROME_SANDBOX=False \
     CHROME_BINARY="/usr/bin/chromium-browser" \
     USE_SINGLEFILE=True \
-    SINGLEFILE_BINARY="$NODE_DIR/node_modules/.bin/single-file" \
+    SINGLEFILE_BINARY="$NODE_MODULES/.bin/single-file" \
     USE_READABILITY=True \
-    READABILITY_BINARY="$NODE_DIR/node_modules/.bin/readability-extractor" \
+    READABILITY_BINARY="$NODE_MODULES/.bin/readability-extractor" \
     USE_MERCURY=True \
-    MERCURY_BINARY="$NODE_DIR/node_modules/.bin/mercury-parser" \
-    YOUTUBEDL_BINARY="yt-dlp"
+    MERCURY_BINARY="$NODE_MODULES/.bin/postlight-parser"
 
 # Print version for nice docker finish summary
 # RUN archivebox version
-RUN /app/bin/docker_entrypoint.sh archivebox version
+RUN echo "[√] Finished Docker build succesfully. Saving build summary in: /version_info.txt" \
+    && uname -a | tee -a /version_info.txt \
+    && env --chdir="$NODE_DIR" npm version | tee -a /version_info.txt \
+    && env --chdir="$CODE_DIR" pdm info | tee -a /version_info.txt \
+    && "$CODE_DIR/bin/docker_entrypoint.sh" archivebox version 2>&1 | tee -a /version_info.txt
+
+####################################################
 
 # Open up the interfaces to the outside world
-VOLUME "$DATA_DIR"
+VOLUME "/data"
 EXPOSE 8000
 
 # Optional:
