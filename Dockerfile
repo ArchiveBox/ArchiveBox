@@ -116,12 +116,13 @@ RUN echo "[+] Installing extractor APT dependencies..." \
 ENV PLAYWRIGHT_BROWSERS_PATH="/browsers"
 RUN echo "[+] Installing extractor Chromium dependency..." \
     && apt-get update -qq \
-    && $GLOBAL_VENV/bin/pip install playwright || true \
-    && $GLOBAL_VENV/bin/playwright install --with-deps chromium || true \
-    && CHROME_BINARY="$($GLOBAL_VENV/bin/python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" || true \
+    && $GLOBAL_VENV/bin/pip install playwright \
+    && $GLOBAL_VENV/bin/playwright install --with-deps chromium \
+    && CHROME_BINARY="$($GLOBAL_VENV/bin/python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
     && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
-    && chown -R $ARCHIVEBOX_USER "/home/${ARCHIVEBOX_USER}/.config" \
+    && chown -R $ARCHIVEBOX_USER "/home/${ARCHIVEBOX_USER}/.config" š\
+    ; exit 0
 
 # Install Node dependencies
 WORKDIR "$CODE_DIR"
