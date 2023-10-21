@@ -121,8 +121,9 @@ RUN echo "[+] Installing extractor Chromium dependency..." \
     && CHROME_BINARY="$($GLOBAL_VENV/bin/python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
     && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
-    && chown -R $ARCHIVEBOX_USER "/home/${ARCHIVEBOX_USER}/.config" š\
-    ; exit 0
+    && chown -R $ARCHIVEBOX_USER "/home/${ARCHIVEBOX_USER}/.config" \
+    ; if [[ "$TARGETPLATFORM" == "linux/arm/v7" ]]; then $exit 0; else exit 1
+    # ignore failure for architectures where no playwright release is available yet
 
 # Install Node dependencies
 WORKDIR "$CODE_DIR"
