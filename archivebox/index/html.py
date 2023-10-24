@@ -143,7 +143,7 @@ def snapshot_icons(snapshot) -> str:
             "mercury": "🅼",
             "warc": "📦"
         }
-        exclude = ["favicon", "title", "headers", "archive_org"]
+        exclude = ["favicon", "title", "headers", "htmltotext", "archive_org"]
         # Missing specific entry for WARC
 
         extractor_outputs = defaultdict(lambda: None)

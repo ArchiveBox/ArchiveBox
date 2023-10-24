@@ -33,6 +33,7 @@ from .wget import should_save_wget, save_wget
 from .singlefile import should_save_singlefile, save_singlefile
 from .readability import should_save_readability, save_readability
 from .mercury import should_save_mercury, save_mercury
+from .htmltotext import should_save_htmltotext, save_htmltotext
 from .pdf import should_save_pdf, save_pdf
 from .screenshot import should_save_screenshot, save_screenshot
 from .dom import should_save_dom, save_dom
@@ -51,15 +52,24 @@ def get_default_archive_methods():
         ('screenshot', should_save_screenshot, save_screenshot),
         ('dom', should_save_dom, save_dom),
         ('wget', should_save_wget, save_wget),
-        ('title', should_save_title, save_title),                   # keep title and readability below wget and singlefile, as it depends on them
+        # keep title, readability, and htmltotext below wget and singlefile, as they depend on them
+        ('title', should_save_title, save_title),
         ('readability', should_save_readability, save_readability),
         ('mercury', should_save_mercury, save_mercury),
+        ('htmltotext', should_save_htmltotext, save_htmltotext),
         ('git', should_save_git, save_git),
         ('media', should_save_media, save_media),
         ('archive_org', should_save_archive_dot_org, save_archive_dot_org),
     ]
 
-ARCHIVE_METHODS_INDEXING_PRECEDENCE = [('readability', 1), ('singlefile', 2), ('dom', 3), ('wget', 4)]
+ARCHIVE_METHODS_INDEXING_PRECEDENCE = [
+    ('readability', 1),
+    ('mercury', 2),
+    ('htmltotext', 3),
+    ('singlefile', 4),
+    ('dom', 5),
+    ('wget', 6)
+]
 
 @enforce_types
 def ignore_methods(to_ignore: List[str]):
