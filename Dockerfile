@@ -122,7 +122,7 @@ RUN echo "[+] Installing extractor Chromium dependency..." \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
     && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
     && chown -R $ARCHIVEBOX_USER "/home/${ARCHIVEBOX_USER}/.config" \
-    ; if [[ "$TARGETPLATFORM" == "linux/arm/v7" ]]; then $exit 0; else exit 1
+    || if [[ "$TARGETPLATFORM" == "linux/arm/v7" ]]; then exit 0; else exit 1; fi
     # ignore failure for architectures where no playwright release is available yet
 
 # Install Node dependencies
