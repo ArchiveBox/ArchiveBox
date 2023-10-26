@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-latest, windows-latest]
-        python: [3.7]
+        python: [3.9]
 
     steps:
       - uses: actions/checkout@v2
