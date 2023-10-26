@@ -976,27 +976,30 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
             stderr(f'[X] Failed to install python packages: {e}', color='red')
             raise SystemExit(1)
 
-    stderr('\n    Installing CHROME_BINARY automatically using playwright...')
-    if CHROME_VERSION:
-        print(f'{CHROME_VERSION} is already installed', CHROME_BINARY)
+    if platform.machine() == 'armv7l':
+        stderr('\n    Skip the automatic installation of CHROME_BINARY because playwright is not available on armv7.')
     else:
-        try:
-            run_shell([
-                PYTHON_BINARY, '-m', 'pip',
-                'install',
-                '--upgrade',
-                '--no-cache-dir',
-                '--no-warn-script-location',
-                'playwright',
-            ], capture_output=False, cwd=out_dir)
-            run_shell([PYTHON_BINARY, '-m', 'playwright', 'install', 'chromium'], capture_output=False, cwd=out_dir)
-            proc = run_shell([PYTHON_BINARY, '-c', 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)'], capture_output=True, text=True, cwd=out_dir)
-            NEW_CHROME_BINARY = proc.stdout.decode().strip() if isinstance(proc.stdout, bytes) else proc.stdout.strip()
-            assert NEW_CHROME_BINARY and len(NEW_CHROME_BINARY), 'CHROME_BINARY must contain a path'
-            config(f'CHROME_BINARY={NEW_CHROME_BINARY}', set=True, out_dir=out_dir)
-        except BaseException as e:                                              # lgtm [py/catch-base-exception]
-            stderr(f'[X] Failed to install chromium using playwright: {e.__class__.__name__} {e}', color='red')
-            raise SystemExit(1)
+        stderr('\n    Installing CHROME_BINARY automatically using playwright...')
+        if CHROME_VERSION:
+            print(f'{CHROME_VERSION} is already installed', CHROME_BINARY)
+        else:
+            try:
+                run_shell([
+                    PYTHON_BINARY, '-m', 'pip',
+                    'install',
+                    '--upgrade',
+                    '--no-cache-dir',
+                    '--no-warn-script-location',
+                    'playwright',
+                ], capture_output=False, cwd=out_dir)
+                run_shell([PYTHON_BINARY, '-m', 'playwright', 'install', 'chromium'], capture_output=False, cwd=out_dir)
+                proc = run_shell([PYTHON_BINARY, '-c', 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)'], capture_output=True, text=True, cwd=out_dir)
+                NEW_CHROME_BINARY = proc.stdout.decode().strip() if isinstance(proc.stdout, bytes) else proc.stdout.strip()
+                assert NEW_CHROME_BINARY and len(NEW_CHROME_BINARY), 'CHROME_BINARY must contain a path'
+                config(f'CHROME_BINARY={NEW_CHROME_BINARY}', set=True, out_dir=out_dir)
+            except BaseException as e:                                              # lgtm [py/catch-base-exception]
+                stderr(f'[X] Failed to install chromium using playwright: {e.__class__.__name__} {e}', color='red')
+                raise SystemExit(1)
 
     stderr('\n    Installing SINGLEFILE_BINARY, READABILITY_BINARY, MERCURY_BINARY automatically using npm...')
     if not NODE_VERSION:
