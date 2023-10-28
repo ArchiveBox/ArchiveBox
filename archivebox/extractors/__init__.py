@@ -4,12 +4,16 @@ import os
 import sys
 from pathlib import Path
 
-from typing import Optional, List, Iterable, Union
+from typing import Callable, Optional, List, Iterable, Union
 from datetime import datetime, timezone
 from django.db.models import QuerySet
 
+from ..config import (
+    SAVE_ALLOWLIST_PTN,
+    SAVE_DENYLIST_PTN,
+)
 from ..core.settings import ERROR_LOG
-from ..index.schema import Link
+from ..index.schema import ArchiveResult, Link
 from ..index.sql import write_link_to_sql_index
 from ..index import (
     load_link_details,
@@ -43,7 +47,11 @@ from .archive_org import should_save_archive_dot_org, save_archive_dot_org
 from .headers import should_save_headers, save_headers
 
 
-def get_default_archive_methods():
+ShouldSaveFunction = Callable[[Link, Optional[Path], Optional[bool]], bool]
+SaveFunction = Callable[[Link, Optional[Path], int], ArchiveResult]
+ArchiveMethodEntry = tuple[str, ShouldSaveFunction, SaveFunction]
+
+def get_default_archive_methods() -> List[ArchiveMethodEntry]:
     return [
         ('favicon', should_save_favicon, save_favicon),
         ('headers', should_save_headers, save_headers),
@@ -71,12 +79,30 @@ ARCHIVE_METHODS_INDEXING_PRECEDENCE = [
     ('wget', 6)
 ]
 
+
 @enforce_types
-def ignore_methods(to_ignore: List[str]):
+def get_archive_methods_for_link(link: Link) -> Iterable[ArchiveMethodEntry]:
+    DEFAULT_METHODS = get_default_archive_methods()
+    allowed_methods = {
+        m for pat, methods in
+        SAVE_ALLOWLIST_PTN.items()
+        if pat.search(link.url)
+        for m in methods
+    } or { m[0] for m in DEFAULT_METHODS }
+    denied_methods = {
+        m for pat, methods in
+        SAVE_DENYLIST_PTN.items()
+        if pat.search(link.url)
+        for m in methods
+    }
+    allowed_methods -= denied_methods
+
+    return (m for m in DEFAULT_METHODS if m[0] in allowed_methods)
+
+@enforce_types
+def ignore_methods(to_ignore: List[str]) -> Iterable[str]:
     ARCHIVE_METHODS = get_default_archive_methods()
-    methods = filter(lambda x: x[0] not in to_ignore, ARCHIVE_METHODS)
-    methods = map(lambda x: x[0], methods)
-    return list(methods)
+    return [x[0] for x in ARCHIVE_METHODS if x[0] not in to_ignore]
 
 @enforce_types
 def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None) -> Link:
@@ -89,11 +115,11 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
     except Snapshot.DoesNotExist:
         snapshot = write_link_to_sql_index(link)
 
-    ARCHIVE_METHODS = get_default_archive_methods()
+    active_methods = get_archive_methods_for_link(link)
     
     if methods:
-        ARCHIVE_METHODS = [
-            method for method in ARCHIVE_METHODS
+        active_methods = [
+            method for method in active_methods
             if method[0] in methods
         ]
 
@@ -110,7 +136,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
         start_ts = datetime.now(timezone.utc)
 
-        for method_name, should_run, method_function in ARCHIVE_METHODS:
+        for method_name, should_run, method_function in active_methods:
             try:
                 if method_name not in link.history:
                     link.history[method_name] = []

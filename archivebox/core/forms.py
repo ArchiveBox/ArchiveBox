@@ -41,7 +41,7 @@ class AddLinkForm(forms.Form):
     #     label="Exclude patterns",
     #     min_length='1',
     #     required=False,
-    #     initial=URL_BLACKLIST,
+    #     initial=URL_DENYLIST,
     # )
     # timeout = forms.IntegerField(
     #     initial=TIMEOUT,

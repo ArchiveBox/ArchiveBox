@@ -90,8 +90,13 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
         'OUTPUT_PERMISSIONS':       {'type': str,   'default': '644'},
         'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},
-        'URL_BLACKLIST':            {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$'},  # to avoid downloading code assets as their own pages
-        'URL_WHITELIST':            {'type': str,   'default': None},
+
+        'URL_DENYLIST':             {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$', 'aliases': ('URL_BLACKLIST',)},  # to avoid downloading code assets as their own pages
+        'URL_ALLOWLIST':            {'type': str,   'default': None, 'aliases': ('URL_WHITELIST',)},
+
+        'ADMIN_USERNAME':           {'type': str,   'default': None},
+        'ADMIN_PASSWORD':           {'type': str,   'default': None},
+
         'ENFORCE_ATOMIC_WRITES':    {'type': bool,  'default': True},
         'TAG_SEPARATOR_PATTERN':    {'type': str,   'default': r'[,]'},
     },
@@ -143,6 +148,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SAVE_GIT':                 {'type': bool,  'default': True, 'aliases': ('FETCH_GIT',)},
         'SAVE_MEDIA':               {'type': bool,  'default': True, 'aliases': ('FETCH_MEDIA',)},
         'SAVE_ARCHIVE_DOT_ORG':     {'type': bool,  'default': True, 'aliases': ('SUBMIT_ARCHIVE_DOT_ORG',)},
+        'SAVE_ALLOWLIST':           {'type': dict,  'default': {},},
+        'SAVE_DENYLIST':            {'type': dict,  'default': {},},
     },
 
     'ARCHIVE_METHOD_OPTIONS': {
@@ -231,12 +238,11 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
 
         'CURL_BINARY':              {'type': str,   'default': 'curl'},
         'GIT_BINARY':               {'type': str,   'default': 'git'},
-        'WGET_BINARY':              {'type': str,   'default': 'wget'},
+        'WGET_BINARY':              {'type': str,   'default': 'wget'},     # also can accept wget2
         'SINGLEFILE_BINARY':        {'type': str,   'default': lambda c: bin_path('single-file')},
         'READABILITY_BINARY':       {'type': str,   'default': lambda c: bin_path('readability-extractor')},
-        'MERCURY_BINARY':           {'type': str,   'default': lambda c: bin_path('mercury-parser')},
-        #'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
-        'YOUTUBEDL_BINARY':         {'type': str,   'default': 'yt-dlp'},
+        'MERCURY_BINARY':           {'type': str,   'default': lambda c: bin_path('postlight-parser')},
+        'YOUTUBEDL_BINARY':         {'type': str,   'default': 'yt-dlp'},   # also can accept youtube-dl
         'NODE_BINARY':              {'type': str,   'default': 'node'},
         'RIPGREP_BINARY':           {'type': str,   'default': 'rg'},
         'CHROME_BINARY':            {'type': str,   'default': None},
@@ -374,6 +380,8 @@ def get_commit_hash(config):
 ############################## Derived Config ##################################
 
 
+ALLOWDENYLIST_REGEX_FLAGS: int = re.IGNORECASE | re.UNICODE | re.MULTILINE
+
 DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'TERM_WIDTH':               {'default': lambda c: lambda: shutil.get_terminal_size((100, 10)).columns},
     'USER':                     {'default': lambda c: SYSTEM_USER},
@@ -390,8 +398,8 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'CONFIG_FILE':              {'default': lambda c: Path(c['CONFIG_FILE']).resolve() if c['CONFIG_FILE'] else c['OUTPUT_DIR'] / CONFIG_FILENAME},
     'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and Path(c['COOKIES_FILE']).resolve()},
     'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (Path(c['CHROME_USER_DATA_DIR']).resolve() if c['CHROME_USER_DATA_DIR'] else None)},   # None means unset, so we autodetect it with find_chrome_Data_dir(), but emptystring '' means user manually set it to '', and we should store it as None
-    'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'] or '', re.IGNORECASE | re.UNICODE | re.MULTILINE)},
-    'URL_WHITELIST_PTN':        {'default': lambda c: c['URL_WHITELIST'] and re.compile(c['URL_WHITELIST'] or '', re.IGNORECASE | re.UNICODE | re.MULTILINE)},
+    'URL_DENYLIST_PTN':         {'default': lambda c: c['URL_DENYLIST'] and re.compile(c['URL_DENYLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
+    'URL_ALLOWLIST_PTN':        {'default': lambda c: c['URL_ALLOWLIST'] and re.compile(c['URL_ALLOWLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
     'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
@@ -435,7 +443,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'READABILITY_VERSION':      {'default': lambda c: bin_version(c['READABILITY_BINARY']) if c['USE_READABILITY'] else None},
 
     'USE_MERCURY':              {'default': lambda c: c['USE_MERCURY'] and c['SAVE_MERCURY']},
-    'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury is unversioned
+    'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury doesnt expose version info until this is merged https://github.com/postlight/parser/pull/750
 
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
@@ -465,8 +473,9 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'EXTERNAL_LOCATIONS':       {'default': lambda c: get_external_locations(c)},
     'DATA_LOCATIONS':           {'default': lambda c: get_data_locations(c)},
     'CHROME_OPTIONS':           {'default': lambda c: get_chrome_info(c)},
+    'SAVE_ALLOWLIST_PTN':       {'default': lambda c: c['SAVE_ALLOWLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_ALLOWLIST'].items()}},
+    'SAVE_DENYLIST_PTN':       {'default': lambda c: c['SAVE_DENYLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_DENYLIST'].items()}},
 }
-
 
 
 ################################### Helpers ####################################

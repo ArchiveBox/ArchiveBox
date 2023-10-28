@@ -41,7 +41,7 @@ class ConfigDict(BaseConfig, total=False):
     MEDIA_TIMEOUT: int
     OUTPUT_PERMISSIONS: str
     RESTRICT_FILE_NAMES: str
-    URL_BLACKLIST: str
+    URL_DENYLIST: str
 
     SECRET_KEY: Optional[str]
     BIND_ADDR: str

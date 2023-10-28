@@ -33,7 +33,7 @@
                     <br/>
                     <div class="loader"></div>
                     <br/>
-                    Check the server log or the <a href="/admin/core/archiveresult/?o=-1">Log</a> page for progress...
+                    Check the server log or the <a href="/admin/core/archiveresult/?o=-1">Log</a> page for detailed progress...
                 </center>
             </div>
             <form id="add-form" method="POST" class="p-form">{% csrf_token %}
@@ -46,19 +46,22 @@
             </form>
             <br/><br/><br/>
             <center id="delay-warning" style="display: none">
-                <small>(it's safe to leave this page, adding will continue in the background)</small>
+                <small>(you will be redirected to your <a href="/">Snapshot list</a> momentarily, its safe to close this page at any time)</small>
             </center>
             {% if absolute_add_path %}
-            <center id="bookmarklet">
+            <!-- <center id="bookmarklet">
               <p>Bookmark this link to quickly add to your archive:
                 <a href="javascript:void(window.open('{{ absolute_add_path }}?url='+encodeURIComponent(document.location.href)));">Add to ArchiveBox</a></p>
-            </center>
+            </center> -->
             {% endif %}
             <script>
                 document.getElementById('add-form').addEventListener('submit', function(event) {
                     document.getElementById('in-progress').style.display = 'block'
                     document.getElementById('add-form').style.display = 'none'
                     document.getElementById('delay-warning').style.display = 'block'
+                    setTimeout(function() {
+                        window.location = '/'
+                    }, 2000)
                     return true
                 })
             </script>

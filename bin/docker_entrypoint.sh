@@ -12,22 +12,26 @@ if [[ -n "$PGID" && "$PGID" != 0 ]]; then
     groupmod -g "$PGID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
 fi
 
+export PUID="$(id -u archivebox)"
+export PGID="$(id -g archivebox)"
 
-# Set the permissions of the data dir to match the archivebox user
+# Check the permissions of the data dir (or create if it doesn't exist)
 if [[ -d "$DATA_DIR/archive" ]]; then
-    # check data directory permissions
-    if [[ ! "$(stat -c %u $DATA_DIR/archive)" = "$(id -u archivebox)" ]]; then
-        echo "Change in ownership detected, please be patient while we chown existing files"
-        echo "This could take some time..."
-        chown $ARCHIVEBOX_USER:$ARCHIVEBOX_USER -R "$DATA_DIR"
+    if touch "$DATA_DIR/archive/.permissions_test_safe_to_delete"; then
+        # It's fine, we are able to write to the data directory
+        rm "$DATA_DIR/archive/.permissions_test_safe_to_delete"
+        # echo "[√] Permissions are correct"
+    else
+        echo "[X] Permissions Error: ArchiveBox is not able to write to your data dir. You need to fix the data dir ownership and retry:" >2
+        echo "    chown -R $PUID:$PGID data" >2
+        echo "    https://docs.linuxserver.io/general/understanding-puid-and-pgid" >2
+        exit 1
     fi
 else
     # create data directory
     mkdir -p "$DATA_DIR/logs"
-    chown -R $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR"
 fi
-chown $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR"
-
+chown $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR" "$DATA_DIR"/*
 
 # Drop permissions to run commands as the archivebox user
 if [[ "$1" == /* || "$1" == "echo" || "$1" == "archivebox" ]]; then

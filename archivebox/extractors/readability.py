@@ -71,7 +71,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
         result = run(cmd, cwd=out_dir, timeout=timeout)
         try:
             result_json = json.loads(result.stdout)
-            assert result_json and 'content' in result_json
+            assert result_json and 'content' in result_json, 'Readability output is not valid JSON'
         except json.JSONDecodeError:
             raise ArchiveError('Readability was not able to archive the page', result.stdout + result.stderr)
 
@@ -85,7 +85,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
         #  "Downloaded: 76 files, 4.0M in 1.6s (2.52 MB/s)"
         output_tail = [
             line.strip()
-            for line in (result.stdout + result.stderr).decode().rsplit('\n', 3)[-3:]
+            for line in (result.stdout + result.stderr).decode().rsplit('\n', 5)[-5:]
             if line.strip()
         ]
         hints = (

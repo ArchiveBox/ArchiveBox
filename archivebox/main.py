@@ -112,6 +112,8 @@ from .config import (
     load_all_config,
     CONFIG,
     USER_CONFIG,
+    ADMIN_USERNAME,
+    ADMIN_PASSWORD,
     get_real_name,
     setup_django,
 )
@@ -216,7 +218,7 @@ def version(quiet: bool=False,
     if not quiet:
         # 0.6.3
         # ArchiveBox v0.6.3 Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
-        # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 501:20 SEARCH_BACKEND=ripgrep
+        # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 FS_USER=501:20 SEARCH_BACKEND=ripgrep
         
         p = platform.uname()
         print(
@@ -236,7 +238,8 @@ def version(quiet: bool=False,
             #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
             f'FS_ATOMIC={ENFORCE_ATOMIC_WRITES}',
             f'FS_REMOTE={OUTPUT_IS_REMOTE_FS}',
-            f'FS_PERMS={OUTPUT_PERMISSIONS} {PUID}:{PGID}',
+            f'FS_USER={PUID}:{PGID}',
+            f'FS_PERMS={OUTPUT_PERMISSIONS}',
             f'SEARCH_BACKEND={SEARCH_BACKEND_ENGINE}',
         )
         print()
@@ -251,19 +254,19 @@ def version(quiet: bool=False,
         
         print()
         print('{white}[i] Source-code locations:{reset}'.format(**ANSI))
-        for name, folder in CODE_LOCATIONS.items():
-            print(printable_folder_status(name, folder))
+        for name, path in CODE_LOCATIONS.items():
+            print(printable_folder_status(name, path))
 
         print()
         print('{white}[i] Secrets locations:{reset}'.format(**ANSI))
-        for name, folder in EXTERNAL_LOCATIONS.items():
-            print(printable_folder_status(name, folder))
+        for name, path in EXTERNAL_LOCATIONS.items():
+            print(printable_folder_status(name, path))
 
         print()
         if DATA_LOCATIONS['OUTPUT_DIR']['is_valid']:
             print('{white}[i] Data locations:{reset}'.format(**ANSI))
-            for name, folder in DATA_LOCATIONS.items():
-                print(printable_folder_status(name, folder))
+            for name, path in DATA_LOCATIONS.items():
+                print(printable_folder_status(name, path))
         else:
             print()
             print('{white}[i] Data locations:{reset}'.format(**ANSI))
@@ -419,14 +422,16 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
         write_main_index(list(pending_links.values()), out_dir=out_dir)
 
     print('\n{green}----------------------------------------------------------------------{reset}'.format(**ANSI))
+
+    from django.contrib.auth.models import User
+
+    if (ADMIN_USERNAME and ADMIN_PASSWORD) and not User.objects.filter(username=ADMIN_USERNAME).exists():
+        print('{green}[+] Found ADMIN_USERNAME and ADMIN_PASSWORD configuration options, creating new admin user.{reset}'.format(**ANSI))
+        User.objects.create_superuser(username=ADMIN_USERNAME, password=ADMIN_PASSWORD)
+
     if existing_index:
         print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
     else:
-        # TODO: allow creating new supersuer via env vars on first init
-        # if config.HTTP_USER and config.HTTP_PASS:
-        #     from django.contrib.auth.models import User
-        #     User.objects.create_superuser(HTTP_USER, '', HTTP_PASS)
-
         print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links) + len(pending_links), **ANSI))
 
     json_index = out_dir / JSON_INDEX_FILENAME

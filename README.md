@@ -10,7 +10,7 @@
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a> |
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
-<pre lang="bash"><code style="white-space: pre-line">"Your own personal internet archive" (网站存档 / 爬虫)
+<pre lang="bash" align="center"><code style="white-space: pre-line; text-align: center" align="center">"Your own personal internet archive" (网站存档 / 爬虫)
 curl -sSL 'https://get.archivebox.io' | sh
 </code></pre>
 
@@ -588,7 +588,8 @@ Each snapshot subfolder `./archive/<timestamp>/` includes a static `index.json` 
 
 You can export the main index to browse it statically without needing to run a server.
 
-*Note about large exports: These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.*
+> **Note**
+> These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.
 
 ```bash
 # archivebox list --help
@@ -615,7 +616,7 @@ The paths in the static exports are relative, make sure to keep them next to you
 
 ### Archiving Private Content
 
-<a id="archiving-private-urls"/>
+<a id="archiving-private-urls"></a>
 
 If you're importing pages with private content or URLs containing secret tokens you don't want public (e.g Google Docs, paywalled content, unlisted videos, etc.), **you may want to disable some of the extractor methods to avoid leaking that content to 3rd party APIs or the public**.
 
@@ -985,6 +986,7 @@ archivebox init --setup
 <details><summary><i>Click to expand...</i></summary>
 
 Make sure to run this whenever you change things in `models.py`.
+
 ```bash
 cd archivebox/
 ./manage.py makemigrations
@@ -993,6 +995,7 @@ cd path/to/test/data/
 archivebox shell
 archivebox manage dbshell
 ```
+
 (uses `pytest -s`)  
 https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
 
@@ -1000,7 +1003,9 @@ https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-dj
 
 #### Contributing a new extractor
 
-<details><summary><i>Click to expand...</i></summary><br/><br/>
+<details><summary><i>Click to expand...</i></summary>
+
+<br/><br/>
 
 ArchiveBox [`extractors`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/extractors/media.py) are external binaries or Python/Node scripts that ArchiveBox runs to archive content on a page.
 
