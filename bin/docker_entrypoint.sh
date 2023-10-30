@@ -22,9 +22,9 @@ if [[ -d "$DATA_DIR/archive" ]]; then
         rm "$DATA_DIR/archive/.permissions_test_safe_to_delete"
         # echo "[√] Permissions are correct"
     else
-        echo "[X] Permissions Error: ArchiveBox is not able to write to your data dir. You need to fix the data dir ownership and retry:" >2
-        echo "    chown -R $PUID:$PGID data" >2
-        echo "    https://docs.linuxserver.io/general/understanding-puid-and-pgid" >2
+        echo "[X] Error: ArchiveBox (uid=$PUID) is not able to write to your ./data dir. Fix the permissions and retry:" >2
+        echo "    \$ chown -R $PUID:$PGID data" >2
+        echo "    You may need to pass PUID & PGID to the Docker container: https://docs.linuxserver.io/general/understanding-puid-and-pgid" >2
         exit 1
     fi
 else
@@ -34,7 +34,7 @@ fi
 chown $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR" "$DATA_DIR"/*
 
 # Drop permissions to run commands as the archivebox user
-if [[ "$1" == /* || "$1" == "echo" || "$1" == "archivebox" ]]; then
+if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == "archivebox" ]]; then
     # arg 1 is a binary, execute it verbatim
     # e.g. "archivebox init"
     #      "/bin/bash"
