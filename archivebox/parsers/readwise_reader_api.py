@@ -32,7 +32,7 @@ class ReadwiseReaderAPI:
     def get_archive(self):
         response = requests.get(
             url="https://readwise.io/api/v3/list/",
-            headers={"Authorization": "Token s71gNtiNDWquEvlJFFUyDU10ao8fn99lGyNryvyllQcDSnrd7X"},
+            headers={"Authorization": f"Token {self.api_token}"},
             params={
                 "location": "archive",
                 "pageCursor": self.cursor,
