@@ -214,14 +214,19 @@ WORKDIR "$CODE_DIR"
 COPY --chown=root:root --chmod=755 "./pyproject.toml" "./pdm.lock" "$CODE_DIR/"
 RUN echo "[+] Installing PIP ArchiveBox dependencies..." \
     && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        build-essential libssl-dev libldap2-dev libsasl2-dev \
-    && pdm use -f $GLOBAL_VENV \
-    && pdm sync --fail-fast --no-editable --group :all --no-self \
-    && apt-get purge -y \
-        build-essential libssl-dev libldap2-dev libsasl2-dev \
-        # these are only needed to build CPython libs, we discard after build phase to shrink layer size
-    && apt-get autoremove -y \
+    # && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+        # build-essential libssl-dev libldap2-dev libsasl2-dev \
+    && ln -s "$GLOBAL_VENV" "$APP_VENV" \
+    && pdm use --venv in-project \
+    && pdm run python -m ensurepip \
+    # && pdm sync --fail-fast --no-editable --group :all --no-self \
+    # && source "$GLOBAL_VENV/bin/activate" \
+    # && pdm export -o requirements.txt --without-hashes \
+    && $GLOBAL_VENV/bin/pip install --upgrade -r requirements.txt \
+    # && apt-get purge -y \
+    #     build-essential libssl-dev libldap2-dev libsasl2-dev \
+    #     # these are only needed to build CPython libs, we discard after build phase to shrink layer size
+    # && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ArchiveBox Python package from source
