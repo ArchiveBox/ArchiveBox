@@ -57,12 +57,12 @@ classifiers = [
 # pdm install -G:all
 [tool.pdm.dev-dependencies]
 build = [
-    "pdm",
-    "bottle",
     "setuptools",
-    "stdeb",
-    "twine",
     "wheel",
+    "pdm",
+    # "bottle",
+    # "stdeb",
+    # "twine",
 ]
 lint = [
     "flake8",

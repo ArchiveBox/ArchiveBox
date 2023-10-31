@@ -62,7 +62,7 @@ ENV APP_VENV=/app/.venv \
 
 # Build shell config
 ENV PATH="$PATH:$GLOBAL_VENV/bin:$APP_VENV/bin:$NODE_MODULES/.bin"
-SHELL ["/bin/bash", "-o", "pipefail", "-c"] 
+SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "errtrace", "-o", "nounset", "-c"] 
 
 ######### System Environment ####################################
 
@@ -87,7 +87,7 @@ RUN (echo "[i] Docker build for ArchiveBox $(cat /VERSION.txt) starting..." \
     ) | tee -a /VERSION.txt
 
 # Create non-privileged user for archivebox and chrome
-RUN echo "[*] Setting up $ARCHIVEBOX_USER user ${DEFAULT_PUID}..." \
+RUN echo "[*] Setting up $ARCHIVEBOX_USER user uid=${DEFAULT_PUID}..." \
     && groupadd --system $ARCHIVEBOX_USER \
     && useradd --system --create-home --gid $ARCHIVEBOX_USER --groups audio,video $ARCHIVEBOX_USER \
     && usermod -u "$DEFAULT_PUID" "$ARCHIVEBOX_USER" \
@@ -98,7 +98,7 @@ RUN echo "[*] Setting up $ARCHIVEBOX_USER user ${DEFAULT_PUID}..." \
     # https://docs.linuxserver.io/general/understanding-puid-and-pgid
 
 # Install system apt dependencies (adding backports to access more recent apt updates)
-RUN echo "[+] Installing system dependencies for $TARGETPLATFORM..." \
+RUN echo "[+] Installing APT base system dependencies for $TARGETPLATFORM..." \
     # && echo 'deb https://deb.debian.org/debian bookworm-backports main contrib non-free' >> /etc/apt/sources.list.d/backports.list \
     && mkdir -p /etc/apt/keyrings \
     && apt-get update -qq \
@@ -114,7 +114,7 @@ RUN echo "[+] Installing system dependencies for $TARGETPLATFORM..." \
 ######### Language Environments ####################################
 
 # Install Node environment
-RUN echo "[+] Installing Node $NODE_VERSION environment..." \
+RUN echo "[+] Installing Node $NODE_VERSION environment in $NODE_MODULES..." \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && apt-get update -qq \
@@ -131,18 +131,18 @@ RUN echo "[+] Installing Node $NODE_VERSION environment..." \
     ) | tee -a /VERSION.txt
 
 # Install Python environment
-RUN echo "[+] Installing Python $PYTHON_VERSION environment..." \
+RUN echo "[+] Installing Python $PYTHON_VERSION environment in $GLOBAL_VENV and $APP_VENV..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        python3 python3-pip python3-venv python3-setuptools python3-wheel python-dev-is-python3 \
-        python3-ldap libldap2-dev libsasl2-dev libssl-dev python3-msgpack \
+        python3 python3-pip python3-setuptools python3-wheel python3-venv python3-pdm python-dev-is-python3 \
+        #python3-ldap libldap2-dev libsasl2-dev libssl-dev python3-msgpack \
     && rm -rf /var/lib/apt/lists/* \
     # tell PDM to allow using global system python site packages
     && rm /usr/lib/python3*/EXTERNALLY-MANAGED \
     # create global virtual environment GLOBAL_VENV to use (better than using pip install --global)
     && python3 -m venv --system-site-packages --symlinks $GLOBAL_VENV \
     # install global dependencies / python build dependencies in GLOBAL_VENV
-    && $GLOBAL_VENV/bin/pip install --upgrade pip pdm setuptools wheel python-ldap \
+    && $GLOBAL_VENV/bin/pip install --break-system-packages --upgrade pip pdm setuptools wheel \
     # Save version info
     && ( \
         which python3 && python3 --version | grep " $PYTHON_VERSION" \
@@ -154,7 +154,7 @@ RUN echo "[+] Installing Python $PYTHON_VERSION environment..." \
 ######### Extractor Dependencies ##################################
 
 # Install apt dependencies
-RUN echo "[+] Installing APT extractor dependencies..." \
+RUN echo "[+] Installing APT extractor dependencies globally using apt..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
         curl wget git yt-dlp ffmpeg ripgrep \
@@ -173,7 +173,7 @@ RUN echo "[+] Installing APT extractor dependencies..." \
     ) | tee -a /VERSION.txt
 
 # Install chromium browser using playwright
-RUN echo "[+] Installing Browser binary dependencies for $TARGETPLATFORM..." \
+RUN echo "[+] Installing Browser binary dependencies to $PLAYWRIGHT_BROWSERS_PATH..." \
     && apt-get update -qq \
     && if [[ "$TARGETPLATFORM" == "linux/amd64" || "$TARGETPLATFORM" == "linux/arm64" ]]; then \
         # install Chromium using playwright
@@ -181,7 +181,7 @@ RUN echo "[+] Installing Browser binary dependencies for $TARGETPLATFORM..." \
         && $GLOBAL_VENV/bin/playwright install --with-deps chromium \
         && export CHROME_BINARY="$($GLOBAL_VENV/bin/python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')"; \
     else \
-        # install Chromium on platforms not supported by playwright (e.g. risc, ARMv7, etc.) 
+        # fall back to installing Chromium via apt-get on platforms not supported by playwright (e.g. risc, ARMv7, etc.) 
         apt-get install -qq -y -t bookworm-backports --no-install-recommends \
             chromium fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
         && export CHROME_BINARY="$(which chromium)"; \
@@ -199,7 +199,7 @@ RUN echo "[+] Installing Browser binary dependencies for $TARGETPLATFORM..." \
 # Install Node dependencies
 WORKDIR "$CODE_DIR"
 COPY --chown=root:root --chmod=755 "package.json" "package-lock.json" "$CODE_DIR/"
-RUN echo "[+] Installing NPM extractor dependencies..." \
+RUN echo "[+] Installing NPM extractor dependencies from package.json into $NODE_MODULES..." \
     && npm ci --prefer-offline --no-audit \
     && ( \
         which node && node --version \
@@ -212,21 +212,20 @@ RUN echo "[+] Installing NPM extractor dependencies..." \
 # Install ArchiveBox Python dependencies
 WORKDIR "$CODE_DIR"
 COPY --chown=root:root --chmod=755 "./pyproject.toml" "./pdm.lock" "requirements.txt" "$CODE_DIR/"
-RUN echo "[+] Installing PIP ArchiveBox dependencies..." \
+RUN echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt into $GLOBAL_VENV..." \
     && apt-get update -qq \
-    # && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        # build-essential libssl-dev libldap2-dev libsasl2-dev \
+    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+        build-essential libssl-dev libldap2-dev libsasl2-dev \
     && ln -s "$GLOBAL_VENV" "$APP_VENV" \
-    && pdm use --venv in-project \
-    && pdm run python -m ensurepip \
+    # && pdm use --venv in-project \
+    # && pdm run python -m ensurepip \
     # && pdm sync --fail-fast --no-editable --group :all --no-self \
-    # && source "$GLOBAL_VENV/bin/activate" \
     # && pdm export -o requirements.txt --without-hashes \
-    && $GLOBAL_VENV/bin/pip install --upgrade -r requirements.txt \
-    # && apt-get purge -y \
-    #     build-essential libssl-dev libldap2-dev libsasl2-dev \
-    #     # these are only needed to build CPython libs, we discard after build phase to shrink layer size
-    # && apt-get autoremove -y \
+    && $GLOBAL_VENV/bin/pip install -r requirements.txt \
+    && apt-get purge -y \
+        build-essential libssl-dev libldap2-dev libsasl2-dev \
+        # these are only needed to build CPython libs, we discard after build phase to shrink layer size
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ArchiveBox Python package from source
@@ -235,10 +234,12 @@ RUN echo "[*] Installing PIP ArchiveBox package from $CODE_DIR..." \
     && apt-get update -qq \
     # install C compiler to build deps on platforms that dont have 32-bit wheels available on pypi
     && if [[ "$TARGETPLATFORM" == "linux/arm/v7" ]]; then \
-        apt-get install -qq -y --no-install-recommends build-essential python3-regex; \
+        apt-get install -qq -y --no-install-recommends build-essential python3-regex procps; \
+    else \
+        apt-get install -qq -y --no-install-recommends procps; \
     fi \
     # INSTALL ARCHIVEBOX python package globally from CODE_DIR, with all optional dependencies
-    && $GLOBAL_VENV/bin/pip3 install -e "$CODE_DIR"[sonic,ldap] \
+    && $GLOBAL_VENV/bin/pip3 install --break-system-packages -e "$CODE_DIR"[sonic,ldap] \
     # save docker image size and always remove compilers / build tools after building is complete
     && apt-get purge -y build-essential \
     && apt-get autoremove -y \
