@@ -211,7 +211,7 @@ RUN echo "[+] Installing NPM extractor dependencies..." \
 
 # Install ArchiveBox Python dependencies
 WORKDIR "$CODE_DIR"
-COPY --chown=root:root --chmod=755 "./pyproject.toml" "./pdm.lock" "$CODE_DIR/"
+COPY --chown=root:root --chmod=755 "./pyproject.toml" "./pdm.lock" "requirements.txt" "$CODE_DIR/"
 RUN echo "[+] Installing PIP ArchiveBox dependencies..." \
     && apt-get update -qq \
     # && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
