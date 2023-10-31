@@ -1,19 +1,16 @@
 #!/bin/bash
 
-DATA_DIR="${DATA_DIR:-/data}"
-ARCHIVEBOX_USER="${ARCHIVEBOX_USER:-archivebox}"
-
+export DATA_DIR="${DATA_DIR:-/data}"
+export ARCHIVEBOX_USER="${ARCHIVEBOX_USER:-archivebox}"
 export PUID=${PUID:-911}
 export PGID=${PGID:-911}
 
 # Set the archivebox user UID & GID
-usermod -o -u "$PUID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
 groupmod -o -g "$PGID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
+usermod -o -u "$PUID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
 
 export PUID="$(id -u archivebox)"
 export PGID="$(id -g archivebox)"
-
-chown $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR"
 
 # Check the permissions of the data dir (or create if it doesn't exist)
 if [[ -d "$DATA_DIR/archive" ]]; then
@@ -36,7 +33,8 @@ fi
 
 # force set the ownership of the data dir contents to the archivebox user and group
 # this is needed because Docker Desktop often does not map user permissions from the host properly
-chown $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR"/*
+chown $PUID:$PGID "$DATA_DIR"
+chown $PUID:$PGID "$DATA_DIR"/*
 
 # Drop permissions to run commands as the archivebox user
 if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == "cat" || "$1" == "archivebox" ]]; then
@@ -44,11 +42,11 @@ if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == 
     # e.g. "docker run archivebox /venv/bin/archivebox-alt init"
     #      "docker run archivebox /bin/bash -c '...'"
     #      "docker run archivebox echo test"
-    exec gosu "$ARCHIVEBOX_USER" bash -c "$*"
+    exec gosu "$PUID" bash -c "$*"
 else
     # handle "docker run archivebox add ..." by running args as archivebox $subcommand
     # e.g. "docker run archivebox add https://example.com"
     #      "docker run archivebox manage createsupseruser"
     #      "docker run archivebox server 0.0.0.0:8000"
-    exec gosu "$ARCHIVEBOX_USER" bash -c "archivebox $*"
+    exec gosu "$PUID" bash -c "archivebox $*"
 fi
