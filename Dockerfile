@@ -15,8 +15,8 @@
 # Read more about [developing Archivebox](https://github.com/ArchiveBox/ArchiveBox#archivebox-development).
 
 
+# Use Debian 12 w/ faster package updates: https://packages.debian.org/bookworm-backports/
 FROM debian:bookworm-backports
-# Debian 12 w/ faster package updates: https://packages.debian.org/bookworm-backports/
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <dockerfile@archivebox.io>" \
@@ -212,7 +212,8 @@ RUN echo "[+] Installing NPM extractor dependencies from package.json into $NODE
 # Install ArchiveBox Python dependencies
 WORKDIR "$CODE_DIR"
 COPY --chown=root:root --chmod=755 "./pyproject.toml" "./pdm.lock" "requirements.txt" "$CODE_DIR/"
-RUN echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt into $GLOBAL_VENV..." \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    && echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt into $GLOBAL_VENV..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
         build-essential libssl-dev libldap2-dev libsasl2-dev \
@@ -221,7 +222,8 @@ RUN echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt into 
     # && pdm run python -m ensurepip \
     # && pdm sync --fail-fast --no-editable --group :all --no-self \
     # && pdm export -o requirements.txt --without-hashes \
-    && $GLOBAL_VENV/bin/pip install -r requirements.txt \
+    && source $GLOBAL_VENV/bin/activate \
+    && pip install -r requirements.txt \
     && apt-get purge -y \
         build-essential libssl-dev libldap2-dev libsasl2-dev \
         # these are only needed to build CPython libs, we discard after build phase to shrink layer size
