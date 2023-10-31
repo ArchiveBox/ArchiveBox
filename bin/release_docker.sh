@@ -15,10 +15,11 @@ VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
 SHORT_VERSION="$(echo "$VERSION" | perl -pe 's/(\d+)\.(\d+)\.(\d+)/$1.$2/g')"
 cd "$REPO_DIR"
 
+echo "[*] Logging in to Docker Hub & Github Container Registry"
+docker login --username=nikisweeting
+docker login docker.pkg.github.com --username=pirate
 
 echo "[^] Uploading docker image"
-# docker login --username=nikisweeting
-# docker login docker.pkg.github.com --username=pirate
 docker push archivebox/archivebox:$VERSION archivebox/archivebox:$SHORT_VERSION archivebox/archivebox:latest
 docker push docker.io/nikisweeting/archivebox
 docker push docker.io/archivebox/archivebox

@@ -39,6 +39,7 @@ ENV TZ=UTC \
     APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1 \
     PYTHONIOENCODING=UTF-8 \
     PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
     npm_config_loglevel=error
 
 # Version config
@@ -115,7 +116,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
 ######### Language Environments ####################################
 
 # Install Node environment
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.npm \
     echo "[+] Installing Node $NODE_VERSION environment in $NODE_MODULES..." \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
@@ -124,7 +125,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
         nodejs libatomic1 \
     && rm -rf /var/lib/apt/lists/* \
     # Update NPM to latest version
-    && npm i -g npm \
+    && npm i -g npm --cache /root/.npm \
     # Save version info
     && ( \
         which node && node --version \
@@ -133,13 +134,8 @@ RUN --mount=type=cache,target=/var/cache/apt \
     ) | tee -a /VERSION.txt
 
 # Install Python environment
-RUN --mount=type=cache,target=/root/.cache/pip --mount=type=cache,target=/var/cache/apt \
-    echo "[+] Installing Python $PYTHON_VERSION environment in $GLOBAL_VENV and $APP_VENV..." \
-    && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        python3 python3-pip python3-setuptools python3-wheel python3-venv python-dev-is-python3 \
-        #python3-ldap libldap2-dev libsasl2-dev libssl-dev python3-msgpack \
-    && rm -rf /var/lib/apt/lists/* \
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.cache/pip \
+    echo "[+] Setting up Python $PYTHON_VERSION runtime..." \
     # tell PDM to allow using global system python site packages
     # && rm /usr/lib/python3*/EXTERNALLY-MANAGED \
     # create global virtual environment GLOBAL_VENV to use (better than using pip install --global)
@@ -159,7 +155,7 @@ RUN --mount=type=cache,target=/root/.cache/pip --mount=type=cache,target=/var/ca
 ######### Extractor Dependencies ##################################
 
 # Install apt dependencies
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.cache/pip \
     echo "[+] Installing APT extractor dependencies globally using apt..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
@@ -179,14 +175,15 @@ RUN --mount=type=cache,target=/var/cache/apt \
     ) | tee -a /VERSION.txt
 
 # Install chromium browser using playwright
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.cache/pip --mount=type=cache,target=/root/.cache/ms-playwright \
     echo "[+] Installing Browser binary dependencies to $PLAYWRIGHT_BROWSERS_PATH..." \
     && apt-get update -qq \
-    && if [[ "$TARGETPLATFORM" == "linux/amd64" || "$TARGETPLATFORM" == "linux/arm64" ]]; then \
+    && if [[ "$TARGETPLATFORM" == "linux/amd64"* || "$TARGETPLATFORM" == "linux/arm64"* ]]; then \
         # install Chromium using playwright
         pip install playwright \
-        && $GLOBAL_VENV/bin/playwright install --with-deps chromium \
-        && export CHROME_BINARY="$($GLOBAL_VENV/bin/python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')"; \
+        && cp -r /root/.cache/ms-playwright "$PLAYWRIGHT_BROWSERS_PATH" \
+        && playwright install --with-deps chromium \
+        && export CHROME_BINARY="$(python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')"; \
     else \
         # fall back to installing Chromium via apt-get on platforms not supported by playwright (e.g. risc, ARMv7, etc.) 
         apt-get install -qq -y -t bookworm-backports --no-install-recommends \
@@ -220,11 +217,13 @@ RUN --mount=type=cache,target=/root/.npm \
 # Install ArchiveBox Python dependencies
 WORKDIR "$CODE_DIR"
 COPY --chown=root:root --chmod=755 "./pyproject.toml" "requirements.txt" "$CODE_DIR/"
-RUN --mount=type=cache,target=/root/.cache/pip --mount=type=cache,target=/var/cache/apt \
-    echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt into $GLOBAL_VENV..." \
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.cache/pip \
+    echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt for ${TARGETPLATFORM}..." \ 
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        build-essential libssl-dev libldap2-dev libsasl2-dev \
+        build-essential \
+        libssl-dev libldap2-dev libsasl2-dev \
+        python3-ldap python3-msgpack python3-mutagen python3-regex procps \
     # && ln -s "$GLOBAL_VENV" "$APP_VENV" \
     # && pdm use --venv in-project \
     # && pdm run python -m ensurepip \
@@ -233,26 +232,21 @@ RUN --mount=type=cache,target=/root/.cache/pip --mount=type=cache,target=/var/ca
     # && source $GLOBAL_VENV/bin/activate \
     && pip install -r requirements.txt \
     && apt-get purge -y \
-        build-essential libssl-dev libldap2-dev libsasl2-dev \
+        build-essential \
         # these are only needed to build CPython libs, we discard after build phase to shrink layer size
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ArchiveBox Python package from source
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
-RUN --mount=type=cache,target=/root/.cache/pip --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.cache/pip \
     echo "[*] Installing PIP ArchiveBox package from $CODE_DIR..." \
     && apt-get update -qq \
     # install C compiler to build deps on platforms that dont have 32-bit wheels available on pypi
-    && if [[ "$TARGETPLATFORM" == "linux/arm/v7" ]]; then \
-        apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-            build-essential python3-regex procps; \
-    else \
-        apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-            procps; \
-    fi \
+    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+        build-essential  \
     # INSTALL ARCHIVEBOX python package globally from CODE_DIR, with all optional dependencies
-    && pip install --break-system-packages -e "$CODE_DIR"[sonic,ldap] \
+    && pip install -e "$CODE_DIR"[sonic,ldap] \
     # save docker image size and always remove compilers / build tools after building is complete
     && apt-get purge -y build-essential \
     && apt-get autoremove -y \

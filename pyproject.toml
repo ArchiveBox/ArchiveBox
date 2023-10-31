@@ -6,7 +6,7 @@ authors = [
     {name = "Nick Sweeting", email = "setup.py@archivebox.io"},
 ]
 dependencies = [
-    "setuptools>=68.2.2",
+    # "setuptools>=68.2.2",
     "croniter>=0.3.34",
     "dateparser>=1.0.0",
     "django-extensions>=3.0.3",
@@ -91,6 +91,7 @@ sonic = [
 ]
 ldap = [
     # apt install libldap2-dev libsasl2-dev
+    "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
 ]
 
