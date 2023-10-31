@@ -33,9 +33,6 @@ jobs:
           version: latest
           install: true
           platforms: linux/amd64,linux/arm64,linux/arm/v7
-          config-inline: |
-            [worker.oci]
-            max-parallelism = 1
       
       - name: Builder instance name
         run: echo ${{ steps.buildx.outputs.name }}

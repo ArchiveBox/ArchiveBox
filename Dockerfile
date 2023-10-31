@@ -100,7 +100,7 @@ RUN echo "[*] Setting up $ARCHIVEBOX_USER user uid=${DEFAULT_PUID}..." \
     # https://docs.linuxserver.io/general/understanding-puid-and-pgid
 
 # Install system apt dependencies (adding backports to access more recent apt updates)
-RUN --mount=type=cache,target=/var/cache/apt \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     echo "[+] Installing APT base system dependencies for $TARGETPLATFORM..." \
     && echo 'deb https://deb.debian.org/debian bookworm-backports main contrib non-free' >> /etc/apt/sources.list.d/backports.list \
     && mkdir -p /etc/apt/keyrings \
@@ -117,7 +117,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
 ######### Language Environments ####################################
 
 # Install Node environment
-RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/root/.npm,sharing=locked \
     echo "[+] Installing Node $NODE_VERSION environment in $NODE_MODULES..." \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
@@ -135,7 +135,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.np
     ) | tee -a /VERSION.txt
 
 # Install Python environment
-RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.cache/pip \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     echo "[+] Setting up Python $PYTHON_VERSION runtime..." \
     # tell PDM to allow using global system python site packages
     # && rm /usr/lib/python3*/EXTERNALLY-MANAGED \
@@ -156,7 +156,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.ca
 ######### Extractor Dependencies ##################################
 
 # Install apt dependencies
-RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.cache/pip \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     echo "[+] Installing APT extractor dependencies globally using apt..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
@@ -176,7 +176,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.ca
     ) | tee -a /VERSION.txt
 
 # Install chromium browser using playwright
-RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.cache/pip --mount=type=cache,target=/root/.cache/ms-playwright \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/root/.cache/pip,sharing=locked --mount=type=cache,target=/root/.cache/ms-playwright \
     echo "[+] Installing Browser binary dependencies to $PLAYWRIGHT_BROWSERS_PATH..." \
     && apt-get update -qq \
     && if [[ "$TARGETPLATFORM" == *amd64* || "$TARGETPLATFORM" == *arm64* ]]; then \
@@ -204,7 +204,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.ca
 # Install Node dependencies
 WORKDIR "$CODE_DIR"
 COPY --chown=root:root --chmod=755 "package.json" "package-lock.json" "$CODE_DIR/"
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
     echo "[+] Installing NPM extractor dependencies from package.json into $NODE_MODULES..." \
     && npm ci --prefer-offline --no-audit --cache /root/.npm \
     && ( \
@@ -218,7 +218,7 @@ RUN --mount=type=cache,target=/root/.npm \
 # Install ArchiveBox Python dependencies
 WORKDIR "$CODE_DIR"
 COPY --chown=root:root --chmod=755 "./pyproject.toml" "requirements.txt" "$CODE_DIR/"
-RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.cache/pip \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt for ${TARGETPLATFORM}..." \ 
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
@@ -240,7 +240,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.ca
 
 # Install ArchiveBox Python package from source
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
-RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.cache/pip \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/root/.cache/pip,sharing=locked \
     echo "[*] Installing PIP ArchiveBox package from $CODE_DIR..." \
     && apt-get update -qq \
     # install C compiler to build deps on platforms that dont have 32-bit wheels available on pypi
