@@ -230,8 +230,9 @@ COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
 RUN echo "[*] Installing PIP ArchiveBox package from $CODE_DIR..." \
     && apt-get update -qq \
     # install C compiler to build deps on platforms that dont have 32-bit wheels available on pypi
-    && [[ "$TARGETPLATFORM" == "linux/arm/v7" ]] \
-        && apt-get install -qq -y --no-install-recommends build-essential python3-regex \
+    && if [[ "$TARGETPLATFORM" == "linux/arm/v7" ]]; then \
+        apt-get install -qq -y --no-install-recommends build-essential python3-regex; \
+    fi \
     # INSTALL ARCHIVEBOX python package globally from CODE_DIR, with all optional dependencies
     && $GLOBAL_VENV/bin/pip3 install -e "$CODE_DIR"[sonic,ldap] \
     # save docker image size and always remove compilers / build tools after building is complete
