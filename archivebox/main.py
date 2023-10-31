@@ -71,6 +71,7 @@ from .config import (
     IS_TTY,
     DEBUG,
     IN_DOCKER,
+    IN_QEMU,
     PUID,
     PGID,
     USER,
@@ -218,7 +219,7 @@ def version(quiet: bool=False,
     if not quiet:
         # 0.6.3
         # ArchiveBox v0.6.3 Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
-        # DEBUG=False IN_DOCKER=True IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 FS_USER=501:20 SEARCH_BACKEND=ripgrep
+        # DEBUG=False IN_DOCKER=True IN_QEMU=False IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 FS_USER=501:20 SEARCH_BACKEND=ripgrep
         
         p = platform.uname()
         print(
@@ -233,6 +234,7 @@ def version(quiet: bool=False,
         print(
             f'DEBUG={DEBUG}',
             f'IN_DOCKER={IN_DOCKER}',
+            f'IN_QEMU={IN_QEMU}',
             f'IS_TTY={IS_TTY}',
             f'TZ={TIMEZONE}',
             #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually

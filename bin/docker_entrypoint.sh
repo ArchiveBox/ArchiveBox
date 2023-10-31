@@ -41,6 +41,14 @@ fi
 chown $PUID:$PGID "$DATA_DIR"
 chown $PUID:$PGID "$DATA_DIR"/*
 
+
+export IN_QEMU="$(pmap 1 | grep qemu | wc -l | grep -E '^0$' >/dev/null && echo 'False' || echo 'True')"
+if [[ "$IN_QEMU" == 'True' ]]; then
+    echo -e "\n[!] Warning: Running $(uname -m) emulated container in QEMU, some things will break!" >&2
+    echo -e "    chromium (screenshot, pdf, dom), singlefile, and any dependencies that rely on inotify will not run in QEMU." >&2
+    echo -e "    See here for more info: https://github.com/microsoft/playwright/issues/17395#issuecomment-1250830493\n" >&2
+fi
+
 # Drop permissions to run commands as the archivebox user
 if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == "cat" || "$1" == "archivebox" ]]; then
     # handle "docker run archivebox /some/non-archivebox/command" by executing args as direct bash command
