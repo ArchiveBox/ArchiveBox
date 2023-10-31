@@ -14,7 +14,6 @@ django==3.1.14
 django-auth-ldap==4.1.0
 django-extensions==3.1.5
 executing==2.0.1
-greenlet==3.0.0
 idna==3.4
 ipython==8.17.2
 jedi==0.19.1
@@ -23,14 +22,12 @@ mutagen==1.47.0
 mypy-extensions==1.0.0
 parso==0.8.3
 pexpect==4.8.0
-playwright==1.39.0
 prompt-toolkit==3.0.39
 ptyprocess==0.7.0
 pure-eval==0.2.2
 pyasn1==0.5.0
 pyasn1-modules==0.3.0
 pycryptodomex==3.19.0
-pyee==11.0.1
 pygments==2.16.1
 python-crontab==3.0.0
 python-dateutil==2.8.2
@@ -43,7 +40,6 @@ sonic-client==1.0.0
 sqlparse==0.4.4
 stack-data==0.6.3
 traitlets==5.13.0
-typing-extensions==4.8.0
 tzlocal==5.2
 urllib3==2.0.7
 w3lib==2.1.2

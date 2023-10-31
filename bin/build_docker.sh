@@ -18,9 +18,7 @@ which docker > /dev/null || exit 1
 which jq > /dev/null || exit 1
 # which pdm > /dev/null || exit 1
 
-SUPPORTED_PLATFORMS="linux/arm64,linux/amd64,linux/arm/v7"
-
-
+SUPPORTED_PLATFORMS="linux/amd64,linux/arm64,linux/arm/v7"
 
 TAG_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"

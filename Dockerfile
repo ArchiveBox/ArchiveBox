@@ -71,6 +71,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "errtrace", "-o", "
 COPY --chown=root:root --chmod=755 package.json "$CODE_DIR/"
 RUN grep '"version": ' "${CODE_DIR}/package.json" | awk -F'"' '{print $4}' > /VERSION.txt
 
+
 # Print debug info about build and save it to disk
 RUN (echo "[i] Docker build for ArchiveBox $(cat /VERSION.txt) starting..." \
     && echo "PLATFORM=${TARGETPLATFORM} ARCH=$(uname -m) ($(uname -s) ${TARGETARCH} ${TARGETVARIANT})" \
@@ -106,7 +107,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
         # 1. packaging dependencies
-        apt-transport-https ca-certificates gnupg2 curl wget \
+        apt-transport-https ca-certificates apt-utils gnupg2 curl wget \
         # 2. docker and init system dependencies
         zlib1g-dev dumb-init gosu cron unzip grep \
         # 3. frivolous CLI helpers to make debugging failed archiving easier
@@ -122,7 +123,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.np
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        nodejs libatomic1 \
+        nodejs libatomic1 python3-minimal \
     && rm -rf /var/lib/apt/lists/* \
     # Update NPM to latest version
     && npm i -g npm --cache /root/.npm \
@@ -178,7 +179,7 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.ca
 RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/root/.cache/pip --mount=type=cache,target=/root/.cache/ms-playwright \
     echo "[+] Installing Browser binary dependencies to $PLAYWRIGHT_BROWSERS_PATH..." \
     && apt-get update -qq \
-    && if [[ "$TARGETPLATFORM" == "linux/amd64"* || "$TARGETPLATFORM" == "linux/arm64"* ]]; then \
+    && if [[ "$TARGETPLATFORM" == *amd64* || "$TARGETPLATFORM" == *arm64* ]]; then \
         # install Chromium using playwright
         pip install playwright \
         && cp -r /root/.cache/ms-playwright "$PLAYWRIGHT_BROWSERS_PATH" \
