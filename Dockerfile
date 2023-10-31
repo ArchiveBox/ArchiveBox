@@ -70,7 +70,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "errtrace", "-o", "
 # Detect ArchiveBox version number by reading package.json
 COPY --chown=root:root --chmod=755 package.json "$CODE_DIR/"
 RUN grep '"version": ' "${CODE_DIR}/package.json" | awk -F'"' '{print $4}' > /VERSION.txt
-
+RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
 # Print debug info about build and save it to disk
 RUN (echo "[i] Docker build for ArchiveBox $(cat /VERSION.txt) starting..." \
@@ -100,7 +100,7 @@ RUN echo "[*] Setting up $ARCHIVEBOX_USER user uid=${DEFAULT_PUID}..." \
     # https://docs.linuxserver.io/general/understanding-puid-and-pgid
 
 # Install system apt dependencies (adding backports to access more recent apt updates)
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=private \
     echo "[+] Installing APT base system dependencies for $TARGETPLATFORM..." \
     && echo 'deb https://deb.debian.org/debian bookworm-backports main contrib non-free' >> /etc/apt/sources.list.d/backports.list \
     && mkdir -p /etc/apt/keyrings \
@@ -117,7 +117,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 ######### Language Environments ####################################
 
 # Install Node environment
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/root/.npm,sharing=locked \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,target=/root/.npm,sharing=private \
     echo "[+] Installing Node $NODE_VERSION environment in $NODE_MODULES..." \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
@@ -135,7 +135,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
     ) | tee -a /VERSION.txt
 
 # Install Python environment
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,target=/root/.cache/pip,sharing=private \
     echo "[+] Setting up Python $PYTHON_VERSION runtime..." \
     # tell PDM to allow using global system python site packages
     # && rm /usr/lib/python3*/EXTERNALLY-MANAGED \
@@ -156,7 +156,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
 ######### Extractor Dependencies ##################################
 
 # Install apt dependencies
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,target=/root/.cache/pip,sharing=private \
     echo "[+] Installing APT extractor dependencies globally using apt..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
@@ -176,7 +176,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
     ) | tee -a /VERSION.txt
 
 # Install chromium browser using playwright
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/root/.cache/pip,sharing=locked --mount=type=cache,target=/root/.cache/ms-playwright \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,target=/root/.cache/pip,sharing=private --mount=type=cache,target=/root/.cache/ms-playwright \
     echo "[+] Installing Browser binary dependencies to $PLAYWRIGHT_BROWSERS_PATH..." \
     && apt-get update -qq \
     && if [[ "$TARGETPLATFORM" == *amd64* || "$TARGETPLATFORM" == *arm64* ]]; then \
@@ -204,7 +204,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
 # Install Node dependencies
 WORKDIR "$CODE_DIR"
 COPY --chown=root:root --chmod=755 "package.json" "package-lock.json" "$CODE_DIR/"
-RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+RUN --mount=type=cache,target=/root/.npm,sharing=private \
     echo "[+] Installing NPM extractor dependencies from package.json into $NODE_MODULES..." \
     && npm ci --prefer-offline --no-audit --cache /root/.npm \
     && ( \
@@ -218,13 +218,13 @@ RUN --mount=type=cache,target=/root/.npm,sharing=locked \
 # Install ArchiveBox Python dependencies
 WORKDIR "$CODE_DIR"
 COPY --chown=root:root --chmod=755 "./pyproject.toml" "requirements.txt" "$CODE_DIR/"
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,target=/root/.cache/pip,sharing=private \
     echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt for ${TARGETPLATFORM}..." \ 
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
         build-essential \
         libssl-dev libldap2-dev libsasl2-dev \
-        python3-ldap python3-msgpack python3-mutagen python3-regex procps \
+        python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps \
     # && ln -s "$GLOBAL_VENV" "$APP_VENV" \
     # && pdm use --venv in-project \
     # && pdm run python -m ensurepip \
@@ -240,7 +240,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
 
 # Install ArchiveBox Python package from source
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,target=/root/.cache/pip,sharing=private \
     echo "[*] Installing PIP ArchiveBox package from $CODE_DIR..." \
     && apt-get update -qq \
     # install C compiler to build deps on platforms that dont have 32-bit wheels available on pypi
