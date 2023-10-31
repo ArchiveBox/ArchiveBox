@@ -947,7 +947,14 @@ https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-dj
 
 <details><summary><i>Click to expand...</i></summary>
 
-```bash
+```bash|
+# docker-compose.yml:
+services:
+    archivebox:
+        image: archivebox/archivebox:dev
+        build: 'https://github.com/ArchiveBox/ArchiveBox.git#dev'
+        ...
+
 # docker:
 docker build -t archivebox:dev https://github.com/ArchiveBox/ArchiveBox.git#dev
 docker run -it -v $PWD:/data archivebox:dev init --setup
