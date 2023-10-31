@@ -3,17 +3,17 @@
 DATA_DIR="${DATA_DIR:-/data}"
 ARCHIVEBOX_USER="${ARCHIVEBOX_USER:-archivebox}"
 
+export PUID=${PUID:-911}
+export PGID=${PGID:-911}
 
 # Set the archivebox user UID & GID
-if [[ -n "$PUID" && "$PUID" != 0 ]]; then
-    usermod -u "$PUID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
-fi
-if [[ -n "$PGID" && "$PGID" != 0 ]]; then
-    groupmod -g "$PGID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
-fi
+usermod -o -u "$PUID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
+groupmod -o -g "$PGID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
 
 export PUID="$(id -u archivebox)"
 export PGID="$(id -g archivebox)"
+
+chown $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR"
 
 # Check the permissions of the data dir (or create if it doesn't exist)
 if [[ -d "$DATA_DIR/archive" ]]; then
@@ -22,9 +22,11 @@ if [[ -d "$DATA_DIR/archive" ]]; then
         rm "$DATA_DIR/archive/.permissions_test_safe_to_delete"
         # echo "[√] Permissions are correct"
     else
-        echo "[X] Error: ArchiveBox (uid=$PUID) is not able to write to your ./data dir. Fix the permissions and retry:" >&2
-        echo "    \$ chown -R $PUID:$PGID data" >&2
-        echo "    You may need to pass PUID & PGID to the Docker container: https://docs.linuxserver.io/general/understanding-puid-and-pgid" >&2
+        echo -e "\n[X] Error: archivebox user (PUID=$PUID) is not able to write to your ./data dir." >&2
+        echo -e "    Change ./data to be owned by PUID=$PUID PGID=$PGID on the host and retry:"
+        echo -e "       \$ chown -R $PUID:$PGID ./data\n" >&2
+        echo -e "    Configure the PUID & PGID environment variables to change the desired owner:" >&2
+        echo -e "       https://docs.linuxserver.io/general/understanding-puid-and-pgid\n" >&2
         exit 1
     fi
 else
@@ -34,19 +36,19 @@ fi
 
 # force set the ownership of the data dir contents to the archivebox user and group
 # this is needed because Docker Desktop often does not map user permissions from the host properly
-chown $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR" "$DATA_DIR"/*
+chown $ARCHIVEBOX_USER:$ARCHIVEBOX_USER "$DATA_DIR"/*
 
 # Drop permissions to run commands as the archivebox user
-if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == "archivebox" ]]; then
-    # arg 1 is a binary, execute it verbatim
-    # e.g. "archivebox init"
-    #      "/bin/bash"
-    #      "echo"
+if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == "cat" || "$1" == "archivebox" ]]; then
+    # handle "docker run archivebox /some/non-archivebox/command" by executing args as direct bash command
+    # e.g. "docker run archivebox /venv/bin/archivebox-alt init"
+    #      "docker run archivebox /bin/bash -c '...'"
+    #      "docker run archivebox echo test"
     exec gosu "$ARCHIVEBOX_USER" bash -c "$*"
 else
-    # no command given, assume args were meant to be passed to archivebox cmd
-    # e.g. "add https://example.com"
-    #      "manage createsupseruser"
-    #      "server 0.0.0.0:8000"
+    # handle "docker run archivebox add ..." by running args as archivebox $subcommand
+    # e.g. "docker run archivebox add https://example.com"
+    #      "docker run archivebox manage createsupseruser"
+    #      "docker run archivebox server 0.0.0.0:8000"
     exec gosu "$ARCHIVEBOX_USER" bash -c "archivebox $*"
 fi

@@ -63,6 +63,7 @@ build = [
     "stdeb",
     "twine",
     "wheel",
+    "regex=2021.9.30; platform_machine == 'armv7l'",
 ]
 lint = [
     "flake8",
