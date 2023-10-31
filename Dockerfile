@@ -102,7 +102,7 @@ RUN echo "[+] Installing APT base system dependencies for $TARGETPLATFORM..." \
     # && echo 'deb https://deb.debian.org/debian bookworm-backports main contrib non-free' >> /etc/apt/sources.list.d/backports.list \
     && mkdir -p /etc/apt/keyrings \
     && apt-get update -qq \
-    && apt-get install -qq -y --no-install-recommends \
+    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
         # 1. packaging dependencies
         apt-transport-https ca-certificates gnupg2 curl wget \
         # 2. docker and init system dependencies
@@ -234,9 +234,11 @@ RUN echo "[*] Installing PIP ArchiveBox package from $CODE_DIR..." \
     && apt-get update -qq \
     # install C compiler to build deps on platforms that dont have 32-bit wheels available on pypi
     && if [[ "$TARGETPLATFORM" == "linux/arm/v7" ]]; then \
-        apt-get install -qq -y --no-install-recommends build-essential python3-regex procps; \
+        apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+            build-essential python3-regex procps; \
     else \
-        apt-get install -qq -y --no-install-recommends procps; \
+        apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+            procps; \
     fi \
     # INSTALL ARCHIVEBOX python package globally from CODE_DIR, with all optional dependencies
     && $GLOBAL_VENV/bin/pip3 install --break-system-packages -e "$CODE_DIR"[sonic,ldap] \
