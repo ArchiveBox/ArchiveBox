@@ -217,7 +217,7 @@ RUN echo "[+] Installing PIP ArchiveBox dependencies..." \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
         build-essential libssl-dev libldap2-dev libsasl2-dev \
     && pdm use -f $GLOBAL_VENV \
-    && pdm install --fail-fast --no-lock --no-editable --group :all --no-self \
+    && pdm sync --fail-fast --no-lock --no-editable --group :all --no-self \
     && apt-get purge -y \
         build-essential libssl-dev libldap2-dev libsasl2-dev \
         # these are only needed to build CPython libs, we discard after build phase to shrink layer size
