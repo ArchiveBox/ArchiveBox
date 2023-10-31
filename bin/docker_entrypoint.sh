@@ -2,13 +2,18 @@
 
 export DATA_DIR="${DATA_DIR:-/data}"
 export ARCHIVEBOX_USER="${ARCHIVEBOX_USER:-archivebox}"
-export PUID=${PUID:-911}
-export PGID=${PGID:-911}
 
-# Set the archivebox user UID & GID
+# if data directory already exists, autodetect detect owner by looking at files within
+DETECTED_UID="$(stat -c '%u' "$DATA_DIR/logs/errors.log" 2>/dev/null || echo 911)"
+DETECTED_GID="$(stat -c '%g' "$DATA_DIR/logs/errors.log" 2>/dev/null || echo 911)"
+
+# prefer PUID and PGID passsed in explicitly as env vars to autodetected defaults
+export PUID=${PUID:-$DETECTED_UID}
+export PGID=${PGID:-$DETECTED_GID}
+
+# Set the archivebox user to use the configured UID & GID
 groupmod -o -g "$PGID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
 usermod -o -u "$PUID" "$ARCHIVEBOX_USER" > /dev/null 2>&1
-
 export PUID="$(id -u archivebox)"
 export PGID="$(id -g archivebox)"
 
