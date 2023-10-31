@@ -3,10 +3,9 @@
 
 [metadata]
 groups = ["default", "build", "debug", "doc", "ldap", "lint", "sonic", "test"]
-cross_platform = true
-static_urls = false
-lock_version = "4.3"
-content_hash = "sha256:ae301f566235b00b28cb62a560f1ff1e30f2e0f3e16b0ddae12e97502214b02c"
+strategy = ["cross_platform"]
+lock_version = "4.4"
+content_hash = "sha256:827692ea8b95a8d0033ad1ae915f475e8b5cc46bafd947499ca892d516125c68"
 
 [[package]]
 name = "alabaster"
@@ -2037,15 +2036,6 @@ summary = "A built-package format for Python"
 files = [
     {file = "wheel-0.41.2-py3-none-any.whl", hash = "sha256:75909db2664838d015e3d9139004ee16711748a52c8f336b52882266540215d8"},
     {file = "wheel-0.41.2.tar.gz", hash = "sha256:0c5ac5ff2afb79ac23ab82bab027a0be7b5dbcf2e54dc50efe4bf507de1f7985"},
-]
-
-[[package]]
-name = "youtube-dl"
-version = "2021.12.17"
-summary = "YouTube video downloader"
-files = [
-    {file = "youtube_dl-2021.12.17-py2.py3-none-any.whl", hash = "sha256:f1336d5de68647e0364a47b3c0712578e59ec76f02048ff5c50ef1c69d79cd55"},
-    {file = "youtube_dl-2021.12.17.tar.gz", hash = "sha256:bc59e86c5d15d887ac590454511f08ce2c47698d5a82c27bfe27b5d814bbaed2"},
 ]
 
 [[package]]
