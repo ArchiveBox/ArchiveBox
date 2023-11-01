@@ -103,7 +103,7 @@ RUN echo "[*] Setting up $ARCHIVEBOX_USER user uid=${DEFAULT_PUID}..." \
     # https://docs.linuxserver.io/general/understanding-puid-and-pgid
 
 # Install system apt dependencies (adding backports to access more recent apt updates)
-RUN --mount=type=cache,target=/var/cache/apt,sharing=private \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing APT base system dependencies for $TARGETPLATFORM..." \
     && echo 'deb https://deb.debian.org/debian bookworm-backports main contrib non-free' >> /etc/apt/sources.list.d/backports.list \
     && mkdir -p /etc/apt/keyrings \
@@ -120,7 +120,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=private \
 ######### Language Environments ####################################
 
 # Install Node environment
-RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,target=/root/.npm,sharing=private \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing Node $NODE_VERSION environment in $NODE_MODULES..." \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
@@ -138,7 +138,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,
     ) | tee -a /VERSION.txt
 
 # Install Python environment
-RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,target=/root/.cache/pip,sharing=private \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
     echo "[+] Setting up Python $PYTHON_VERSION runtime..." \
     # tell PDM to allow using global system python site packages
     # && rm /usr/lib/python3*/EXTERNALLY-MANAGED \
@@ -147,7 +147,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,
     # && python3 -m venv --system-site-packages $GLOBAL_VENV \
     # && python3 -m venv $GLOBAL_VENV \
     # install global dependencies / python build dependencies in GLOBAL_VENV
-    && pip install --upgrade pip setuptools wheel \
+    # && pip install --upgrade pip setuptools wheel \
     # Save version info
     && ( \
         which python3 && python3 --version | grep " $PYTHON_VERSION" \
@@ -159,7 +159,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,
 ######### Extractor Dependencies ##################################
 
 # Install apt dependencies
-RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,target=/root/.cache/pip,sharing=private \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing APT extractor dependencies globally using apt..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
@@ -179,7 +179,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,
     ) | tee -a /VERSION.txt
 
 # Install chromium browser using playwright
-RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,target=/root/.cache/pip,sharing=private --mount=type=cache,target=/root/.cache/ms-playwright \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing Browser binary dependencies to $PLAYWRIGHT_BROWSERS_PATH..." \
     && apt-get update -qq \
     && if [[ "$TARGETPLATFORM" == *amd64* || "$TARGETPLATFORM" == *arm64* ]]; then \
@@ -207,7 +207,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,
 # Install Node dependencies
 WORKDIR "$CODE_DIR"
 COPY --chown=root:root --chmod=755 "package.json" "package-lock.json" "$CODE_DIR/"
-RUN --mount=type=cache,target=/root/.npm,sharing=private \
+RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing NPM extractor dependencies from package.json into $NODE_MODULES..." \
     && npm ci --prefer-offline --no-audit --cache /root/.npm \
     && ( \
@@ -221,7 +221,7 @@ RUN --mount=type=cache,target=/root/.npm,sharing=private \
 # Install ArchiveBox Python dependencies
 WORKDIR "$CODE_DIR"
 COPY --chown=root:root --chmod=755 "./pyproject.toml" "requirements.txt" "$CODE_DIR/"
-RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,target=/root/.cache/pip,sharing=private \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt for ${TARGETPLATFORM}..." \ 
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
@@ -243,7 +243,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,
 
 # Install ArchiveBox Python package from source
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
-RUN --mount=type=cache,target=/var/cache/apt,sharing=private --mount=type=cache,target=/root/.cache/pip,sharing=private \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
     echo "[*] Installing PIP ArchiveBox package from $CODE_DIR..." \
     && apt-get update -qq \
     # install C compiler to build deps on platforms that dont have 32-bit wheels available on pypi
