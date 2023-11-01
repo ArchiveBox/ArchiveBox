@@ -25,6 +25,7 @@ LABEL name="archivebox" \
     documentation="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker"
 
 ARG TARGETPLATFORM
+ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
 
@@ -70,6 +71,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "errtrace", "-o", "
 # Detect ArchiveBox version number by reading package.json
 COPY --chown=root:root --chmod=755 package.json "$CODE_DIR/"
 RUN grep '"version": ' "${CODE_DIR}/package.json" | awk -F'"' '{print $4}' > /VERSION.txt
+
+# Force apt to leave downloaded binaries in /var/cache/apt (massively speeds up Docker builds)
 RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
 # Print debug info about build and save it to disk
