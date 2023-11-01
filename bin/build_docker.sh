@@ -23,14 +23,14 @@ SUPPORTED_PLATFORMS="linux/amd64,linux/arm64,linux/arm/v7"
 TAG_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
 SHORT_VERSION="$(echo "$VERSION" | perl -pe 's/(\d+)\.(\d+)\.(\d+)/$1.$2/g')"
-REQUIRED_PLATFORMS="${2:-$SUPPORTED_PLATFORMS}"
+SELECTED_PLATFORMS="${2:-$SUPPORTED_PLATFORMS}"
 
-echo "[+] Building Docker image: tag=$TAG_NAME version=$SHORT_VERSION arch=$REQUIRED_PLATFORMS"
+echo "[+] Building Docker image: tag=$TAG_NAME version=$SHORT_VERSION arch=$SELECTED_PLATFORMS"
 
 function check_platforms() {
     INSTALLED_PLATFORMS="$(docker buildx inspect | grep 'Platforms:' )"
 
-    for REQUIRED_PLATFORM in ${REQUIRED_PLATFORMS//,/$IFS}; do
+    for REQUIRED_PLATFORM in ${SELECTED_PLATFORMS//,/$IFS}; do
         echo "[+] Checking for: $REQUIRED_PLATFORM..."
         if ! (echo "$INSTALLED_PLATFORMS" | grep -q "$REQUIRED_PLATFORM"); then
             return 1
@@ -48,11 +48,11 @@ function remove_builder() {
 
 function create_builder() {
     docker buildx use xbuilder && return 0
-    echo "[+] Creating new xbuilder for: $REQUIRED_PLATFORMS"
+    echo "[+] Creating new xbuilder for: $SELECTED_PLATFORMS"
     echo
 
     # Switch to buildx builder if already present / previously created
-    docker buildx create --name xbuilder --driver docker-container --bootstrap --use --platform "$REQUIRED_PLATFORMS" || true
+    docker buildx create --name xbuilder --driver docker-container --bootstrap --use --platform "$SELECTED_PLATFORMS" || true
     docker buildx inspect --bootstrap || true
 }
 
@@ -77,18 +77,18 @@ pdm export --group=':all' --production --without-hashes -o requirements.txt
 echo "[+] Building archivebox:$VERSION docker image..."
 # docker builder prune
 # docker build . --no-cache -t archivebox-dev \
-docker buildx build --platform "$REQUIRED_PLATFORMS" --load . \
-               -t archivebox \
-               -t archivebox:$TAG_NAME \
-               -t archivebox:$VERSION \
-               -t archivebox:$SHORT_VERSION \
-               -t archivebox:latest \
-               -t docker.io/nikisweeting/archivebox:$TAG_NAME \
-               -t docker.io/nikisweeting/archivebox:$VERSION \
-               -t docker.io/nikisweeting/archivebox:$SHORT_VERSION \
-               -t docker.io/archivebox/archivebox:$TAG_NAME \
-               -t docker.io/archivebox/archivebox:$VERSION \
-               -t docker.io/archivebox/archivebox:$SHORT_VERSION \
-               -t docker.pkg.github.com/archivebox/archivebox/archivebox:$TAG_NAME \
-               -t docker.pkg.github.com/archivebox/archivebox/archivebox:$VERSION \
-               -t docker.pkg.github.com/archivebox/archivebox/archivebox:$SHORT_VERSION
+# replace --load with --push to deploy
+docker buildx build --platform "$SELECTED_PLATFORMS" --load . \
+               -t archivebox/archivebox \
+               -t archivebox/archivebox:$TAG_NAME \
+               -t archivebox/archivebox:$VERSION \
+               -t archivebox/archivebox:$SHORT_VERSION \
+               -t archivebox/archivebox:latest \
+               -t nikisweeting/archivebox \
+               -t nikisweeting/archivebox:$TAG_NAME \
+               -t nikisweeting/archivebox:$VERSION \
+               -t nikisweeting/archivebox:$SHORT_VERSION \
+               -t nikisweeting/archivebox:latest \
+               -t ghcr.io/archivebox/archivebox/archivebox:$TAG_NAME \
+               -t ghcr.io/archivebox/archivebox/archivebox:$VERSION \
+               -t ghcr.io/archivebox/archivebox/archivebox:$SHORT_VERSION
