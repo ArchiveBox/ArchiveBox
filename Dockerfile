@@ -75,7 +75,7 @@ RUN grep '"version": ' "${CODE_DIR}/package.json" | awk -F'"' '{print $4}' > /VE
 # Force apt to leave downloaded binaries in /var/cache/apt (massively speeds up Docker builds)
 RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
-# Print debug info about build and save it to disk
+# Print debug info about build and save it to disk, for human eyes only, not used by anything else
 RUN (echo "[i] Docker build for ArchiveBox $(cat /VERSION.txt) starting..." \
     && echo "PLATFORM=${TARGETPLATFORM} ARCH=$(uname -m) ($(uname -s) ${TARGETARCH} ${TARGETVARIANT})" \
     && echo "BUILD_START_TIME=$(date +"%Y-%m-%d %H:%M:%S %s") TZ=${TZ} LANG=${LANG}" \
