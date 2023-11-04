@@ -25,6 +25,9 @@ cd "$REPO_DIR"
 rm -Rf build dist
 
 echo "[+] Building sdist, bdist_wheel, and egg_info"
+rm -f archivebox/package.json
+cp package.json archivebox/package.json
+
 pdm self update
 pdm install
 pdm build

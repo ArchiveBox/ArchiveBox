@@ -40,6 +40,7 @@ from typing import Optional, Type, Tuple, Dict, Union, List
 from subprocess import run, PIPE, DEVNULL
 from configparser import ConfigParser
 from collections import defaultdict
+import importlib.metadata
 
 from .config_stubs import (
     SimpleConfigValueDict,
@@ -374,7 +375,7 @@ ALLOWED_IN_OUTPUT_DIR = {
 }
 
 def get_version(config):
-    return json.loads((Path(config['PACKAGE_DIR']) / 'package.json').read_text(encoding='utf-8').strip())['version']
+    return importlib.metadata.version(__package__ or 'archivebox')
 
 def get_commit_hash(config):
     try:
