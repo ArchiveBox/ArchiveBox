@@ -82,6 +82,14 @@ doc = [
     "sphinx",
     "sphinx-rtd-theme",
 ]
+dev = [
+    "homebrew-pypi-poet>=0.10.0",
+]
+
+[tool.pdm.scripts]
+lint = "./bin/lint.sh"
+test = "./bin/test.sh"
+# all = {composite = ["lint mypackage/", "test -v tests/"]}
 
 [project.optional-dependencies]
 sonic = [
@@ -101,11 +109,6 @@ ldap = [
 
 [project.scripts]
 archivebox = "archivebox.cli:main"
-
-[tool.pdm.scripts]
-lint = "./bin/lint.sh"
-test = "./bin/test.sh"
-# all = {composite = ["lint mypackage/", "test -v tests/"]}
 
 [build-system]
 requires = ["pdm-backend"]
