@@ -31,4 +31,9 @@ cp package.json archivebox/package.json
 pdm self update
 pdm install
 pdm build
-pdm export --without-hashes -o requirements.txt
+pdm export --without-hashes -o ./pip_dist/requirements.txt
+
+cp dist/* ./pip_dist/
+
+echo
+echo "[√] Finished. Don't forget to commit the new sdist and wheel files in ./pip_dist/"
