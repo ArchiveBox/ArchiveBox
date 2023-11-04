@@ -9,27 +9,33 @@ jobs:
   build:
     runs-on: ubuntu-22.04
 
+    permissions:
+      id-token: write
+
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 1
 
       - name: Set up Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.11
           architecture: x64
 
-      - name: Build Python Package
+      - uses: pdm-project/setup-pdm@v3
+
+      - name: Install dependencies
+        run: pdm install --fail-fast --no-lock --group :all --no-self
+
+      - name: Build package
         run: |
-          pip3 install --upgrade pip setuptools wheel
-          rm -Rf pip_dist/*.whl
-          python3 setup.py \
-            sdist --dist-dir=./pip_dist \
-            bdist_wheel --dist-dir=./pip_dist \
-            egg_info --egg-base=./pip_dist
-          pip install pip_dist/archivebox-*.whl
+          rm ./dist/archivebox-*.whl
+          pdm build
+
+      - name: Install from build
+        run: pip install ./dist/archivebox-*.whl
 
       - name: Add some links to test
         run: |
@@ -38,6 +44,9 @@ jobs:
           archivebox add 'https://example.com'
           archivebox version
           archivebox status
+
+      - name: Publish package distributions to PyPI
+        run: pdm publish --no-build
 
       # - name: Push build to PyPI
       #   run: |
