@@ -39,7 +39,7 @@ curl -sSL 'https://get.archivebox.io' | sh
 
 ---
 
-🏛️ ArchiveBox is for *[professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* alike, these are some use cases:
+🏛️ ArchiveBox is for *[professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* who want to save content off the web, for example:
 
 - **Individuals:**
   `preserving bookmarks or browsing history`, `backing up photos, videos, docs, etc.`  
