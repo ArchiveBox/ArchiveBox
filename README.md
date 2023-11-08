@@ -119,7 +119,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 *[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) if your non-profit institution/org wants to use ArchiveBox professionally.*
 
 - setup & support, team permissioning, hashing, audit logging, backups, custom archiving etc.  
-- for **journalists**, **librarians**, **lawyers**, **researchers**, and more...
+- for **individuals**, **NGOs**, **academia**, **governments**, **journalism**, **law**, and more...
 
 *All our work is open-source and geared towards non-profits.*  
 *Support/consulting pays for hosting and funds new ArchiveBox open-source development.*
