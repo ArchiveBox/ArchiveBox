@@ -21,27 +21,32 @@ services:
             # - ./etc/crontabs:/var/spool/cron/crontabs  # uncomment this and archivebox_scheduler below to set up automatic recurring archive jobs
             # - ./archivebox:/app/archivebox             # uncomment this to mount the ArchiveBox source code at runtime (for developers working on archivebox)
         # build: .                                       # uncomment this to build the image from source code at buildtime (for developers working on archivebox)
-        # dns:                                           # uncomment this and pihole container below for ad-blocking during archiving
-            # - pihole
+        
         environment:
             - ALLOWED_HOSTS=*                   # restrict this to only accept incoming traffic via specific domain name
+            # - PUBLIC_INDEX=True               # set to False to prevent anonymous users from viewing snapshot list
+            # - PUBLIC_SNAPSHOTS=True           # set to False to prevent anonymous users from viewing snapshot content
+            # - PUBLIC_ADD_VIEW=False           # set to True to allow anonymous users to submit new URLs to archive
+            # - ADMIN_USERNAME=admin            # create an admin user on first run with the given user/pass combo
+            # - ADMIN_PASSWORD=SomeSecretPassword
+            # - PUID=911                        # set to your host user's UID & GID if you encounter permissions issues
+            # - PGID=911
+            # - SEARCH_BACKEND_ENGINE=sonic     # uncomment these and sonic container below for better full-text search
+            # - SEARCH_BACKEND_HOST_NAME=sonic
+            # - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
             # - MEDIA_MAX_SIZE=750m             # increase this filesize limit to allow archiving larger audio/video files
             # - TIMEOUT=60                      # increase this number to 120+ seconds if you see many slow downloads timing out
             # - CHECK_SSL_VALIDITY=True         # set to False to disable strict SSL checking (allows saving URLs w/ broken certs)
             # - SAVE_ARCHIVE_DOT_ORG=True       # set to False to disable submitting all URLs to Archive.org when archiving
-            # - PUBLIC_INDEX=True               # set to False to prevent anonymous users from viewing snapshot list
-            # - PUBLIC_SNAPSHOTS=True           # set to False to prevent anonymous users from viewing snapshot content
-            # - PUBLIC_ADD_VIEW=False           # set to True to allow anonymous users to submit new URLs to archive
-            # - PUID=1000                       # set to your host user's UID & GID if you encounter permissions issues
-            # - PGID=1000
-            # - ADMIN_USERNAME=admin            # create an admin user on first run with the given user/pass combo
-            # - ADMIN_PASSWORD=SomeSecretPassword
-            # - SEARCH_BACKEND_ENGINE=sonic     # uncomment these and sonic container below for better full-text search
-            # - SEARCH_BACKEND_HOST_NAME=sonic
-            # - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
             # ...
             # add further configuration options from archivebox/config.py as needed (to apply them only to this container)
             # or set using `docker compose run archivebox config --set SOME_KEY=someval` (to persist config across all containers)
+        
+        # For ad-blocking during archiving, uncomment this section and pihole service section below 
+        # networks:
+        #   - dns
+        # dns:
+        #   - 172.20.0.53
 
 
     ######## Optional Addons: tweak examples below as needed for your specific use case ########
@@ -68,9 +73,16 @@ services:
     # pihole:
     #   image: pihole/pihole:latest
     #   ports:
-    #     - 8090:80       # uncomment to access the admin HTTP interface on http://localhost:8090
+    #     - 127.0.0.1:8090:80       # uncomment to access the admin HTTP interface on http://localhost:8090
     #   environment:
     #     - WEBPASSWORD=SET_THIS_TO_SOME_SECRET_PASSWORD_FOR_ADMIN_DASHBOARD
+    #     - DNSMASQ_LISTENING=all
+    #   dns:
+    #     - 127.0.0.1
+    #     - 1.1.1.1
+    #   networks:
+    #     dns:
+    #       ipv4_address: 172.20.0.53
     #   volumes:
     #     - ./etc/pihole:/etc/pihole
     #     - ./etc/dnsmasq:/etc/dnsmasq.d
@@ -140,3 +152,13 @@ services:
     #     volumes:
     #         - ./data:/archivebox
     #         - ./data/wayback:/webarchive
+
+
+networks:
+
+    # network needed for pihole container to offer :53 dns resolving on fixed ip for archivebox container
+    dns:
+        ipam:
+            driver: default
+            config:
+                - subnet: 172.20.0.0/24
