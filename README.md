@@ -12,6 +12,9 @@
 
 <pre lang="bash" align="center"><code style="white-space: pre-line; text-align: center" align="center">"Your own personal internet archive" (网站存档 / 爬虫)
 curl -sSL 'https://get.archivebox.io' | sh
+# or
+pip install archivebox
+archivebox setup
 </code></pre>
 
 <!--<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>-->
@@ -31,21 +34,18 @@ curl -sSL 'https://get.archivebox.io' | sh
 
 ➡️ Use ArchiveBox as a [command-line package](#quickstart), [self-hosted web app](#quickstart), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha), on Linux, macOS, and Windows (via Docker).
 
-```python3
-pip install archivebox
-```
-
 **You can feed it URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
 
 **It saves snapshots of the URLs you feed it in several formats:** HTML, PDF, PNG screenshots, WARC, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (social media, article text, PDFs/audio/video, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
 
 ---
 
-> ArchiveBox is for [professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and hobbyists alike:
-> **Journalists:** `collecting media snippets`, `preserving quotes`, `fact-checking`
-> **Lawyers:** `aggregating social media posts`, `extracting and tagging content`, `preserving evidence`, `documenting custody`
-> **Researchers:** `automating scheduled crawling`, `adding archive post-processing steps`, `feeding archives into training or analysis pipelines`
-> **Individuals:** `preserving browsing history`, `curating bookmarks`, `extracting content to common formats`
+🏛️ ArchiveBox is for *[professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and hobbyists* alike:
+
+> **Journalists:** `collecting media snippets`, `preserving quotes`, `fact-checking`  
+> **Lawyers:** `aggregating social media posts`, `extracting and tagging content`, `preserving evidence`, `documenting custody`  
+> **Researchers:** `automating scheduled crawling`, `adding archive post-processing steps`, `feeding archives into training or analysis pipelines`  
+> **Individuals:** `preserving browsing history`, `curating bookmarks`, `extracting content to common formats`  
 
 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
 
