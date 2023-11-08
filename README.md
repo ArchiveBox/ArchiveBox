@@ -339,12 +339,14 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 <summary><img src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" alt="paid" height="27px" align="top"/> Paid hosting solutions (cloud VPS)</summary>
 <br/>
 <ul>
+<li><a href="https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102">
+ <img src="https://img.shields.io/badge/Custom_Development-ArchiveBox.io-%231a1a1a.svg?style=flat" height="22px"/>
+</a> (<a href="https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102">get hosting, support, and feature customization directy from us</a>)</li>
 <li><a href="https://monadical.com">
- <img src="https://img.shields.io/badge/Custom_Managed_Solution-Monadical.com-%231a1a1a.svg?style=flat" height="22px"/>
-</a> (<a href="https://monadical.com/contact-us.html">for larger setups, get a quote</a>)</li>
+ <img src="https://img.shields.io/badge/General_Dev_Consulting-Monadical.com-%231a1a1a.svg?style=flat" height="22px"/>
+</a> (<a href="https://monadical.com/contact-us.html">for a generalist software consultancy that helps with ArchiveBox maintainance</a>)</li>
 <br/>
-None of these hosting providers are officially endorsed:<br/>
-<sub><i>(most still require manual setup or manual periodic updating using the methods above)</i></sub>
+Other providers of paid ArchiveBox hosting (not officially endorsed):<br/>
 <br/><br/>
 <li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-StellarHosted.com-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
 <li><a href="https://www.pikapods.com/pods?run=archivebox"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-PikaPods.com-%2343a047.svg?style=flat" height="22px"/></a> (from USD $2.6/mo)</li>
