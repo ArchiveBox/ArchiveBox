@@ -29,13 +29,13 @@ curl -sSL 'https://get.archivebox.io' | sh
 
 **ArchiveBox is a powerful, self-hosted internet archiving solution to collect, save, and view sites you want to preserve offline.**
 
-➡️ You can set it up as a [command-line tool](#quickstart), [web app](#quickstart), and [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha), on Linux, macOS, and Windows (WSL/Docker).
+➡️ Use ArchiveBox as a [command-line package](#quickstart), [self-hosted web app](#quickstart), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha), on Linux, macOS, and Windows (via Docker).
 
-**You can feed it URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
+📥 **You can feed it URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
 
-**It saves snapshots of the URLs you feed it in several formats:** HTML, PDF, PNG screenshots, WARC, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (social media, article text, PDFs/audio/video, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
+💾 **It saves snapshots of the URLs you feed it in several formats:** HTML, PDF, PNG screenshots, WARC, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (social media, article text, PDFs/audio/video, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
 
-The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
+📆 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
 
 🏛️ Whether you're a journalist collecting media snippets, a human rights lawyer reviewing vast social media feeds, or in any ony other role that needs better web preservation tools, ArchiveBox [can help](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102). 
 
