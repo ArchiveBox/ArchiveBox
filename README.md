@@ -213,12 +213,7 @@ See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as a
 <br/>
 <ol>
 <li>Add the ArchiveBox repository to your sources.<br/>
-<pre lang="bash"><code style="white-space: pre-line"># On Ubuntu == 20.04, add the sources automatically:
-sudo apt install software-properties-common
-sudo add-apt-repository -u ppa:archivebox/archivebox
-</code></pre>
-<pre lang="bash"><code style="white-space: pre-line"># On Ubuntu >= 20.10 or <= 19.10, or other Debian-style systems, add the sources manually:
-echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/archivebox.list
+<pre lang="bash"><code style="white-space: pre-line">echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/archivebox.list
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
 </code></pre>
