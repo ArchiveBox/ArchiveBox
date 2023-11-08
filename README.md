@@ -29,7 +29,7 @@ curl -sSL 'https://get.archivebox.io' | sh
 
 **ArchiveBox is a powerful, self-hosted internet archiving solution to collect, save, and view websites offline.**
 
-➡️ *Use ArchiveBox as a [command-line package](#quickstart) or [self-hosted web app](#quickstart) on Linux, macOS, & [Docker](#quickstart).*
+> ➡️ *Use ArchiveBox as a [command-line package](#quickstart) or [self-hosted web app](#quickstart) on Linux, macOS, & [Docker](#quickstart).*
 
 <br/>
 
