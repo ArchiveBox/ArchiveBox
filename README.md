@@ -275,7 +275,7 @@ See the <a href="https://github.com/ArchiveBox/homebrew-archivebox"><code>homebr
 <br/>
 <ol>
 
-<li>Install <a href="https://realpython.com/installing-python/">Python >= v3.7</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v14</a> on your system (if not already installed).</li>
+<li>Install <a href="https://realpython.com/installing-python/">Python >= v3.9</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v18</a> on your system (if not already installed).</li>
 <li>Install the ArchiveBox package using <code>pip3</code>.
 <pre lang="bash"><code style="white-space: pre-line">pip3 install archivebox
 </code></pre>
