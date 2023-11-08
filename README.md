@@ -39,9 +39,9 @@ curl -sSL 'https://get.archivebox.io' | sh
 
 🏛️ ArchiveBox is for *[professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and hobbyists* alike:
 
-> **Journalists:** `collecting media snippets`, `preserving quotes`, `fact-checking`  
-> **Lawyers:** `aggregating social media posts`, `auto-tagging & searching`, `preserving evidence & custody chain`
-> **Researchers:** `collecting training sets`, `feeding analysis pipelines`  
+> **Journalists:** `collecting web media`, `quoting social media posts`, `fact-checking`  
+> **Lawyers:** `evidence collecting`, `hashing`, `search, tagging, & review`
+> **Researchers:** `collecting AI training sets`, `feeding data analysis pipelines`  
 > **Individuals:** `preserving browsing history`, `curating bookmarks`, `extracting content to common formats`  
 
 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
