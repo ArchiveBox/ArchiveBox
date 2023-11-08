@@ -12,9 +12,6 @@
 
 <pre lang="bash" align="center"><code style="white-space: pre-line; text-align: center" align="center">"Your own personal internet archive" (网站存档 / 爬虫)
 curl -sSL 'https://get.archivebox.io' | sh
-# or
-pip install archivebox
-archivebox setup
 </code></pre>
 
 <!--<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>-->
@@ -43,8 +40,8 @@ archivebox setup
 🏛️ ArchiveBox is for *[professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and hobbyists* alike:
 
 > **Journalists:** `collecting media snippets`, `preserving quotes`, `fact-checking`  
-> **Lawyers:** `aggregating social media posts`, `extracting and tagging content`, `preserving evidence`, `documenting custody`  
-> **Researchers:** `automating scheduled crawling`, `adding archive post-processing steps`, `feeding archives into training or analysis pipelines`  
+> **Lawyers:** `aggregating social media posts`, `auto-tagging & searching`, `preserving evidence & custody chain`
+> **Researchers:** `collecting training sets`, `feeding analysis pipelines`  
 > **Individuals:** `preserving browsing history`, `curating bookmarks`, `extracting content to common formats`  
 
 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
