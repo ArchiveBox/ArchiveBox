@@ -121,7 +121,8 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 - setup & support, team permissioning, hashing, audit logging, backups, custom archiving etc.  
 - for **journalists**, **librarians**, **lawyers**, **researchers**, and more...
 
-*All our work is open-source and geared towards supporting non-profits. Support/consulting pays for hosting and funds new ArchiveBox open-source development.*
+*All our work is open-source and geared towards non-profits.*  
+*Support/consulting pays for hosting and funds new ArchiveBox open-source development.*
 
 <br/>
 
