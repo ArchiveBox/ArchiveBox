@@ -30,13 +30,13 @@ archivebox setup
 <hr/>
 </div>
 
-**ArchiveBox is a powerful, self-hosted internet archiving solution to collect, save, and view sites you want to preserve offline.**
+**ArchiveBox is a powerful, self-hosted internet archiving solution to collect, save, and view preserved web content offline.**
 
 ➡️ Use ArchiveBox as a [command-line package](#quickstart), [self-hosted web app](#quickstart), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (alpha), on Linux, macOS, and Windows (via Docker).
 
 **You can feed it URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
 
-**It saves snapshots of the URLs you feed it in several formats:** HTML, PDF, PNG screenshots, WARC, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (social media, article text, PDFs/audio/video, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
+**It saves snapshots of the URLs you feed it in several formats:** HTML, PDF, PNG screenshots, WARC, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (Photos/PDFs/MP3/MP4/ZIP, social media, article text, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
 
 ---
 
