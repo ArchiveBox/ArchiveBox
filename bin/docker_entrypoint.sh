@@ -13,8 +13,8 @@ export DETECTED_GID="$(stat -c '%g' "$DATA_DIR/logs/errors.log" 2>/dev/null || e
 
 # Set the archivebox user to use the configured UID & GID
 # prefers PUID and PGID env vars passsed in explicitly, falls back to autodetected defaults
-groupmod -o -g "${PUID:-$DETECTED_UID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
-usermod -o -u "${PGID:-$DETECTED_GID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
+usermod -o -u "${PUID:-$DETECTED_UID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
+groupmod -o -g "${PGID:-$DETECTED_GID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
 
 # re-set PUID and PGID to values reported by system instead of values we tried to set,
 # in case wonky filesystems or Docker setups try to play UID/GID remapping tricks on us
