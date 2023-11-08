@@ -97,14 +97,18 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 - Advanced users: support for archiving [content requiring login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (see wiki security caveats!)
 - Planned: support for running [JS during archiving](https://github.com/ArchiveBox/ArchiveBox/issues/51) to adblock, [autoscroll](https://github.com/ArchiveBox/ArchiveBox/issues/80), [modal-hide](https://github.com/ArchiveBox/ArchiveBox/issues/175), [thread-expand](https://github.com/ArchiveBox/ArchiveBox/issues/345
 
-#### 🤝 Professional Integration
+<br/>
+
+## 🤝 Professional Integration
 
 *[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) if your non-profit institution/org wants to use ArchiveBox professionally.*
 
 - setup & support, team permissioning, hashing, audit logging, backups, custom archiving etc.  
-- for **journalists**, **librarians**, **lawyers**, **researchers**, and more... 
+- for **journalists**, **librarians**, **lawyers**, **researchers**, and more...
 
-<br/><br/>
+*All our work is open-source and geared towards supporting non-profits. Support/consulting helps us pay for hosting and fund new ArchiveBox open-source development.*
+
+<br/>
 
 <div align="center">
 <br/>
