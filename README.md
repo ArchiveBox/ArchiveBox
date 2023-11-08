@@ -37,6 +37,8 @@ You can set it up as a [command-line tool](#quickstart), [web app](#quickstart),
 
 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
 
+Whether you're a journalist collecting media snippets, a human rights lawyer reviewing vast social media feeds, or in any ony other role that needs better web preservation tools, ArchiveBox [can help](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102). 
+
 <div align="center">
 <br/><br/>
 <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://i.imgur.com/asPNk8n.png" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic">
