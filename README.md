@@ -133,8 +133,8 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 # Quickstart
 
-**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker/WSL) &nbsp; **👾&nbsp; CPUs:** amd64, x86, arm8, arm7 <sup>(raspi>=3)</sup>
-<i>Note: On arm7, the `playwright` package, provides easy `chromium` management, is not yet available. Do it manually with alternative methods.</i>
+**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker) &nbsp; **👾&nbsp; CPUs:** `amd64` (`x86_64`), `arm64` (`arm8`), `arm7` <sup>(raspi>=3)</sup>
+<i>Note: On `arm7`, the `playwright` package, provides easy `chromium` management, is not yet available. Do it manually with alternative methods.</i>
 
 <br/>
 
