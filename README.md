@@ -10,7 +10,7 @@
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a> |
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
-<pre lang="bash" align="left"><code style="white-space: pre-line; text-align: left" align="center">"Your own personal internet archive" (网站存档 / 爬虫)
+<pre lang="bash" align="left"><code style="white-space: pre-line; text-align: left" align="left">"Your own personal internet archive" (网站存档 / 爬虫)
 $ curl -sSL 'https://get.archivebox.io' | sh
 </code></pre>
 
