@@ -96,7 +96,13 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 - [**Saves all pages to archive.org as well**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#save_archive_dot_org) by default for redundancy (can be [disabled](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) for local-only mode)
 - Advanced users: support for archiving [content requiring login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (see wiki security caveats!)
 - Planned: support for running [JS during archiving](https://github.com/ArchiveBox/ArchiveBox/issues/51) to adblock, [autoscroll](https://github.com/ArchiveBox/ArchiveBox/issues/80), [modal-hide](https://github.com/ArchiveBox/ArchiveBox/issues/175), [thread-expand](https://github.com/ArchiveBox/ArchiveBox/issues/345
-- Professional Integration: [contact us](https://zulip.archivebox.io) if your institution/org wants an internally-hosted ArchiveBox solution (w/ advanced user permissions, hashing/integrity checking, audit logging, backups etc. for a whole team)
+
+#### 🤝 Professional Integration
+
+*[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) if your non-profit institution/org wants to use ArchiveBox professionally.*
+
+- setup & support, team permissioning, hashing, audit logging, backups, custom archiving etc.  
+- for **journalists**, **librarians**, **lawyers**, **researchers**, and more... 
 
 <br/><br/>
 
