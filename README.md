@@ -31,6 +31,8 @@ curl -sSL 'https://get.archivebox.io' | sh
 
 ➡️ Use ArchiveBox as a [command-line package](#quickstart) or [self-hosted web app](#quickstart) on Linux, macOS, & [Docker](#quickstart).
 
+<br/>
+
 **You can feed it URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
 
 **It saves snapshots of the URLs you feed it in several formats:** HTML, PDF, PNG screenshots, WARC, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (Photos/PDFs/MP3/MP4/ZIP, social media, article text, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
