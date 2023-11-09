@@ -23,7 +23,6 @@ $ curl -sSL 'https://get.archivebox.io' | sh
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies"><img src="https://img.shields.io/badge/Chromium-orange.svg?logo=Google+Chrome&logoColor=orange"/></a>
 <a href="https://hub.docker.com/r/archivebox/archivebox"><img src="https://img.shields.io/badge/Docker-lightblue.svg?logo=docker&logoColor=lightblue"/></a>
 
-
 <hr/>
 </div>
 
@@ -1136,6 +1135,8 @@ This project is maintained mostly in <a href="https://nicksweeting.com/blog#Abou
 <br>
 <a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Donate_to_support_development-via_Patreon-%23DD5D76.svg?style=flat"/></a>
 <br/>
+
+<b><sub>(网站存档 / 爬虫)</sub></b>
 
 <a href="https://twitter.com/ArchiveBoxApp"><img src="https://img.shields.io/badge/Tweet-%40ArchiveBoxApp-blue.svg?style=flat"/></a>
 <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>
