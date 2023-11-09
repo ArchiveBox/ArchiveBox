@@ -2,6 +2,8 @@
 <em><img src="https://i.imgur.com/5B48E3N.png" height="90px"></em>
 <h1>ArchiveBox<br/><sub>Open-source self-hosted web archiving.</sub></h1>
 
+<br/>
+
 ▶️ <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> |
 <a href="https://demo.archivebox.io">Demo</a> |
 <a href="https://github.com/ArchiveBox/ArchiveBox">GitHub</a> |
@@ -10,7 +12,7 @@
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a> |
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
-<hr/>
+<br/>
 
 <!--<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>-->
 
@@ -22,9 +24,9 @@
 <a href="https://hub.docker.com/r/archivebox/archivebox"><img src="https://img.shields.io/badge/Docker-lightblue.svg?logo=docker&logoColor=lightblue"/></a>
 
 
-<pre lang="bash" align="left"><code style="white-space: pre-line; text-align: left" align="left">
+<!--<pre lang="bash" align="left"><code style="white-space: pre-line; text-align: left" align="left">
 curl -sSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instructions below)
-</code></pre>
+</code></pre>-->
 
 <hr/>
 </div>
@@ -37,7 +39,11 @@ curl -sSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instruct
 
 **You can feed it URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
 
-**It saves offline-viewable snapshots of the URLs you feed it (in a wide variety of formats: HTML, PDF, PNG, WARC, etc.). It also auto-detects the content featured *inside* each webpage and lets you extract it out to easy common file formats:** `YouTube/SoundCloud/etc. -> mp3/mp4`, `news articles -> article body text`, `github/gitlab/etc. links -> cloned source code`, and more). See <a href="#output-formats">output formats</a> for a full list.
+**It saves offline-viewable snapshots of the URLs you feed it in several redundant formats (HTML, PDF, PNG, WARC, etc.).** It also auto-detects the content featured *inside* each webpage extracts it out to common, easy file formats:
+- `YouTube/SoundCloud/etc. -> mp3/mp4`,
+- `news articles -> article body text`
+- `github/gitlab/etc. links -> cloned source code`
+- *[and more...](#output-formats)*
 
 ---
 
