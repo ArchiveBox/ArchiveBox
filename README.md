@@ -39,7 +39,10 @@ curl -sSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instruct
 
 **You can feed it URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
 
-**It saves offline-viewable snapshots of the URLs you feed it in several redundant formats (HTML, PDF, WARC, etc.).** It also auto-detects the content featured *inside* each webpage extracts it out to common, easy file formats:
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/90f1ce3c-75bb-401d-88ed-6297694b76ae" alt="snapshot detail page" align="right" width="190px"/>
+
+**It saves offline-viewable snapshots of the URLs you feed it in a few redundant formats (HTML, PDF, WARC, etc.).**  
+It also auto-detects the content featured *inside* each webpage extracts it out to common, easy file formats:
 - `YouTube/SoundCloud/etc. -> mp3/mp4`,
 - `news articles -> article body text`
 - `github/gitlab/etc. links -> cloned source code`
