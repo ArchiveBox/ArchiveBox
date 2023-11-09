@@ -35,7 +35,7 @@ curl -sSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instruct
 
 Without active preservation effort, everything on the internet eventually dissapears or gets taken down. Archive.org does a great job, but as a large public central archive they can't save anything that requires a login.
 
-*Whether you need to download old family photos off Flickr, preserve evidence for legal cases, backup an old Soundcloud mix, or snapshot scientific paper citations for academic research, ArchiveBox helps in a variety of situations.*
+*ArchiveBox helps you save web content offline for a variety of situations: download old family photos off Flickr, preserve evidence for legal cases, backup an old Soundcloud mix, snapshot papers for academic research, and more...*
 
 > ➡️ *Use ArchiveBox as a [command-line package](#quickstart) and/or [self-hosted web app](#quickstart) on Linux, macOS, or in [Docker](#quickstart).*
 
