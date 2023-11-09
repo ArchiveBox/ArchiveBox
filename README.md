@@ -39,7 +39,7 @@ Without active preservation effort, everything on the internet eventually dissap
 
 > ➡️ *Use ArchiveBox as a [command-line package](#quickstart) and/or [self-hosted web app](#quickstart) on Linux, macOS, or in [Docker](#quickstart).*
 
-<br/>
+<br/><br/>
 
 **You can feed ArchiveBox URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
 
@@ -55,6 +55,7 @@ It also auto-detects the content featured *inside* each webpage extracts it out 
 
 You get back simple folders containing all the content for each URL (with a CLI and web UI to browse and manage it).  
 
+---
 
 🏛️ ArchiveBox is used by many *[professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* who save content off the web, for example:
 
