@@ -33,7 +33,7 @@ curl -sSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instruct
 
 **ArchiveBox is a powerful, self-hosted internet archiving solution to collect, save, and view websites offline.**
 
-Without active preservation effort, everything on the internet eventually dissapears or gets taken down. ArchiveBox helps make it easier to save the content we care about, as big central archives like Archive.org are not always able to save everything.
+Without active preservation effort, everything on the internet eventually dissapears or gets taken down. Archive.org does a great job, but as a large public central archive they can't save anything that requires a login.
 
 *Whether you need to download old family photos off Flickr, preserve evidence for legal cases, backup an old Soundcloud mix, or snapshot scientific paper citations for academic research, ArchiveBox helps in a variety of situations.*
 
