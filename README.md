@@ -33,11 +33,14 @@ curl -sSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instruct
 
 **ArchiveBox is a powerful, self-hosted internet archiving solution to collect, save, and view websites offline.**
 
+Without active preservation effort, everything on the internet eventually dissapears or gets taken down. ArchiveBox helps make it easier to save the content we care about, as big central archives like Archive.org are not always able to save everything.
+Whether you need to download old family photos off Flickr, preserve evidence for legal cases, backup an old Soundcloud mix, or snapshot scientific paper citations for academic research, ArchiveBox helps in a variety of situations.
+
 > ➡️ *Use ArchiveBox as a [command-line package](#quickstart) and/or [self-hosted web app](#quickstart) on Linux, macOS, or in [Docker](#quickstart).*
 
 <br/>
 
-**You can feed it URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
+**You can feed ArchiveBox URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/90f1ce3c-75bb-401d-88ed-6297694b76ae" alt="snapshot detail page" align="right" width="190px"/>
 
@@ -50,9 +53,7 @@ It also auto-detects the content featured *inside* each webpage extracts it out 
 - *[and more...](#output-formats)*
 
 You get back simple folders containing all the content for each URL (with a CLI and web UI to browse and manage it).  
-  
-Without active preservation effort, everything on the internet eventually dissapears. ArchiveBox helps make it easier for everyone to preserve the content they care about individually, as big central archives like Archive.org are not able to save everything.
-Whether you need to save old family photos off Flickr, preserve evidence for legal cases, download an old Soundcloud mix before it dissapears, or snapshot scientific paper citations for research, ArchiveBox helps in a variety of situations.
+
 
 🏛️ ArchiveBox is used by many *[professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* who save content off the web, for example:
 
