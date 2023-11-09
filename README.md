@@ -23,8 +23,7 @@
 
 
 <pre lang="bash" align="left"><code style="white-space: pre-line; text-align: left" align="left">
-# Install ArchiveBox (or see pip/brew/Docker instructions below):
-curl -sSL 'https://get.archivebox.io' | sh
+curl -sSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instructions below)
 </code></pre>
 
 <hr/>
