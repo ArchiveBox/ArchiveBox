@@ -39,7 +39,7 @@ Without active preservation effort, everything on the internet eventually dissap
 
 > ➡️ *Use ArchiveBox as a [command-line package](#quickstart) and/or [self-hosted web app](#quickstart) on Linux, macOS, or in [Docker](#quickstart).*
 
-<br/>
+<hr/>
 
 📥 **You can feed ArchiveBox URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
 
