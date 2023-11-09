@@ -10,7 +10,7 @@
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a> |
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
-<pre lang="bash" align="left"><code style="white-space: pre-line; text-align: left" align="left">"Your own personal internet archive" (网站存档 / 爬虫)
+<pre lang="bash" align="left"><code style="white-space: pre-line; text-align: left" align="left">
 $ curl -sSL 'https://get.archivebox.io' | sh
 </code></pre>
 
@@ -35,14 +35,14 @@ $ curl -sSL 'https://get.archivebox.io' | sh
 
 **You can feed it URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
 
-**It saves snapshots of the URLs you feed it in several formats:** HTML, PDF, PNG screenshots, WARC, and more out-of-the-box, with a wide variety of content extracted and preserved automatically (Photos/PDFs/MP3/MP4/ZIP, social media, article text, git repos, etc.). See <a href="#output-formats">output formats</a> for a full list.
+**It saves offline-viewable snapshots of the URLs you feed it (in a wide variety of formats: HTML, PDF, PNG, WARC, etc.). It also auto-detects the content featured *inside* each webpage and lets you extract it out to easy common file formats:** `YouTube/SoundCloud/etc. -> mp3/mp4`, `news articles -> article body text`, `github/gitlab/etc. links -> cloned source code`, and more). See <a href="#output-formats">output formats</a> for a full list.
 
 ---
 
 🏛️ ArchiveBox is for *[professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* who want to save content off the web, for example:
 
 - **Individuals:**
-  `preserving bookmarks or browsing history`, `backing up photos, videos, docs, etc.`  
+  `backing up browser bookmarks/history`, `saving FB/Insta/etc. content`, `shopping lists`  
 - **Journalists:**
   `crawling and collecting research`, `preserving quoted material`, `fact-checking and review`  
 - **Lawyers:**
@@ -121,7 +121,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 - setup & support, team permissioning, hashing, audit logging, backups, custom archiving etc.  
 - for **individuals**, **NGOs**, **academia**, **governments**, **journalism**, **law**, and more...
 
-*All our work is open-source and geared towards non-profits.*  
+*All our work is open-source and primarily geared towards non-profits.*  
 *Support/consulting pays for hosting and funds new ArchiveBox open-source development.*
 
 <br/>
