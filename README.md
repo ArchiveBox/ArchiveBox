@@ -10,9 +10,7 @@
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a> |
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">Roadmap</a>
 
-<pre lang="bash" align="left"><code style="white-space: pre-line; text-align: left" align="left">
-$ curl -sSL 'https://get.archivebox.io' | sh
-</code></pre>
+<hr/>
 
 <!--<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>-->
 
@@ -22,6 +20,12 @@ $ curl -sSL 'https://get.archivebox.io' | sh
 <a href="https://pypi.org/project/archivebox/"><img src="https://img.shields.io/badge/Python-yellow.svg?logo=python&logoColor=yellow"/></a>
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies"><img src="https://img.shields.io/badge/Chromium-orange.svg?logo=Google+Chrome&logoColor=orange"/></a>
 <a href="https://hub.docker.com/r/archivebox/archivebox"><img src="https://img.shields.io/badge/Docker-lightblue.svg?logo=docker&logoColor=lightblue"/></a>
+
+
+<pre lang="bash" align="left"><code style="white-space: pre-line; text-align: left" align="left">
+# Install ArchiveBox (or see pip/brew/Docker instructions below):
+curl -sSL 'https://get.archivebox.io' | sh
+</code></pre>
 
 <hr/>
 </div>
