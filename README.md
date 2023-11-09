@@ -41,16 +41,20 @@ curl -sSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instruct
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/90f1ce3c-75bb-401d-88ed-6297694b76ae" alt="snapshot detail page" align="right" width="190px"/>
 
-**It saves offline-viewable snapshots of the URLs you feed it in a few redundant formats (HTML, PDF, WARC, etc.).**  
+**It saves offline-viewable snapshots of the URLs you feed it in a few redundant formats.**  
 It also auto-detects the content featured *inside* each webpage extracts it out to common, easy file formats:
+- `HTML/Generic Websites -> HTML/PDF/PNG/WARC`
 - `YouTube/SoundCloud/etc. -> mp3/mp4`,
 - `news articles -> article body text`
 - `github/gitlab/etc. links -> cloned source code`
 - *[and more...](#output-formats)*
 
----
+You get back simple folders containing all the content for each URL (with a CLI and web UI to browse and manage it).  
+  
+Without active preservation effort, everything on the internet eventually dissapears. ArchiveBox helps make it easier for everyone to preserve the content they care about individually, as big central archives like Archive.org are not able to save everything.
+Whether you need to save old family photos off Flickr, preserve evidence for legal cases, download an old Soundcloud mix before it dissapears, or snapshot scientific paper citations for research, ArchiveBox helps in a variety of situations.
 
-🏛️ ArchiveBox is for *[professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* who want to save content off the web, for example:
+🏛️ ArchiveBox is used by many *[professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* who save content off the web, for example:
 
 - **Individuals:**
   `backing up browser bookmarks/history`, `saving FB/Insta/etc. content`, `shopping lists`  
