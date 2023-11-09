@@ -45,15 +45,15 @@ Without active preservation effort, everything on the internet eventually dissap
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/90f1ce3c-75bb-401d-88ed-6297694b76ae" alt="snapshot detail page" align="right" width="190px"/>
 
-💾 **It saves offline-viewable snapshots of the URLs you feed it in a few redundant formats.**  
-It also auto-detects the content featured *inside* each webpage extracts it out to common, easy file formats:
+💾 **It saves snapshots of the URLs you feed it in several redundant formats.**  
+It also detects any content featured *inside* each webpage & extracts it out into a folder:
 - `HTML/Generic Websites -> HTML/PDF/PNG/WARC`
 - `YouTube/SoundCloud/etc. -> mp3/mp4`,
 - `news articles -> article body text`
 - `github/gitlab/etc. links -> cloned source code`
 - *[and more...](#output-formats)*
 
-You get back simple folders containing all the content for each URL (with a CLI and web UI to browse and manage it).  
+You get back folders on your filesystem containing all the content for each URL (with a CLI and web UI to browse and manage it).  
 
 ---
 
