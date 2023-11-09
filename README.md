@@ -33,19 +33,19 @@ curl -sSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instruct
 
 **ArchiveBox is a powerful, self-hosted internet archiving solution to collect, save, and view websites offline.**
 
-Without active preservation effort, everything on the internet eventually dissapears or gets taken down. Archive.org does a great job, but as a large public central archive they can't save anything that requires a login.
+Without active preservation effort, everything on the internet eventually dissapears or degrades. Archive.org does a great job as a free public central archive, but they can't save anything that requires a login.
 
 *ArchiveBox helps you save web content offline for a variety of situations: download old family photos off Flickr, preserve evidence for legal cases, backup an old Soundcloud mix, snapshot papers for academic research, and more...*
 
 > ➡️ *Use ArchiveBox as a [command-line package](#quickstart) and/or [self-hosted web app](#quickstart) on Linux, macOS, or in [Docker](#quickstart).*
 
-<br/><br/>
+<br/>
 
-**You can feed ArchiveBox URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
+📥 **You can feed ArchiveBox URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/90f1ce3c-75bb-401d-88ed-6297694b76ae" alt="snapshot detail page" align="right" width="190px"/>
 
-**It saves offline-viewable snapshots of the URLs you feed it in a few redundant formats.**  
+💾 **It saves offline-viewable snapshots of the URLs you feed it in a few redundant formats.**  
 It also auto-detects the content featured *inside* each webpage extracts it out to common, easy file formats:
 - `HTML/Generic Websites -> HTML/PDF/PNG/WARC`
 - `YouTube/SoundCloud/etc. -> mp3/mp4`,
