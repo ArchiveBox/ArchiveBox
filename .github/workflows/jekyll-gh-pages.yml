@@ -27,7 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 1
       - name: Setup Pages
         uses: actions/configure-pages@v3
       - name: Build with Jekyll
