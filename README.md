@@ -1,5 +1,5 @@
 <div align="center">
-<em><img src="https://i.imgur.com/5B48E3N.png" height="90px"></em>
+<em><img src="icon.png" height="90px"></em>
 <h1>ArchiveBox<br/><sub>Open-source self-hosted web archiving.</sub></h1>
 
 <br/>
