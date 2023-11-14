@@ -989,7 +989,7 @@ https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-dj
 
 <details><summary><i>Click to expand...</i></summary>
 
-```bash|
+```bash
 # docker-compose.yml:
 services:
     archivebox:

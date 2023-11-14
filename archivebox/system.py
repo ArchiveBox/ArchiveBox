@@ -185,17 +185,19 @@ def dedupe_cron_jobs(cron: CronTab) -> CronTab:
 
 
 class suppress_output(object):
-    '''
+    """
     A context manager for doing a "deep suppression" of stdout and stderr in 
     Python, i.e. will suppress all print, even if the print originates in a 
     compiled C/Fortran sub-function.
-       This will not suppress raised exceptions, since exceptions are printed
+    
+    This will not suppress raised exceptions, since exceptions are printed
     to stderr just before a script exits, and after the context manager has
     exited (at least, I think that is why it lets exceptions through).      
 
     with suppress_stdout_stderr():
         rogue_function()
-    '''
+    """
+    
     def __init__(self, stdout=True, stderr=True):
         # Open a pair of null files
         # Save the actual stdout (1) and stderr (2) file descriptors.

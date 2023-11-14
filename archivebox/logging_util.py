@@ -517,8 +517,8 @@ def log_shell_welcome_msg():
     from .cli import list_subcommands
 
     print('{green}# ArchiveBox Imports{reset}'.format(**ANSI))
-    print('{green}from core.models import Snapshot, User{reset}'.format(**ANSI))
-    print('{green}from archivebox import *\n    {}{reset}'.format("\n    ".join(list_subcommands().keys()), **ANSI))
+    print('{green}from archivebox.core.models import Snapshot, ArchiveResult, Tag, User{reset}'.format(**ANSI))
+    print('{green}from archivebox.cli import *\n    {}{reset}'.format("\n    ".join(list_subcommands().keys()), **ANSI))
     print()
     print('[i] Welcome to the ArchiveBox Shell!')
     print('    https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Shell-Usage')
