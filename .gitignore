@@ -15,6 +15,7 @@ node_modules/
 # Packaging artifacts
 .pdm-python
 .pdm-build
+requirements.txt
 archivebox.egg-info
 archivebox-*.tar.gz
 build/
