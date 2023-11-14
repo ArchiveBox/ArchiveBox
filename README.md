@@ -66,7 +66,7 @@ It uses normal filesystem folders to organize archives (no complicated proprieta
 - **Lawyers:**
   `evidence collection`, `hashing & integrity verifying`, `search, tagging, & review`  
 - **Researchers:**
-  `collecting AI training sets`, `feeding analysis / scientific pipelines`
+  `collecting AI training sets`, `feeding analysis / web crawling pipelines`
 
 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
 
