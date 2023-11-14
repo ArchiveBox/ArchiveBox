@@ -16,7 +16,7 @@ sphinx:
   # You can configure Sphinx to use a different builder, for instance use the dirhtml builder for simpler URLs
   # builder: "dirhtml"
 
-Optionally build your docs in additional formats such as PDF and ePub
+# Optionally build your docs in additional formats such as PDF and ePub
 formats:
   - pdf
   - epub
