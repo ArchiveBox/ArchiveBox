@@ -217,8 +217,8 @@ def version(quiet: bool=False,
     print(VERSION)
     
     if not quiet:
-        # 0.6.3
-        # ArchiveBox v0.6.3 Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
+        # 0.7.1
+        # ArchiveBox v0.7.1 Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
         # DEBUG=False IN_DOCKER=True IN_QEMU=False IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 FS_USER=501:20 SEARCH_BACKEND=ripgrep
         
         p = platform.uname()

@@ -377,7 +377,15 @@ ALLOWED_IN_OUTPUT_DIR = {
 }
 
 def get_version(config):
-    return importlib.metadata.version(__package__ or 'archivebox')
+    try:
+        return importlib.metadata.version(__package__ or 'archivebox')
+    except importlib.metadata.PackageNotFoundError:
+        pyproject_config = (config['PACKAGE_DIR'] / 'pyproject.toml').read_text()
+        for line in pyproject_config:
+            if line.startswith('version = '):
+                return line.split(' = ', 1)[-1].strip('"')
+
+    raise Exception('Failed to detect installed archivebox version!')
 
 def get_commit_hash(config):
     try:
