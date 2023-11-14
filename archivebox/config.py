@@ -380,10 +380,14 @@ def get_version(config):
     try:
         return importlib.metadata.version(__package__ or 'archivebox')
     except importlib.metadata.PackageNotFoundError:
-        pyproject_config = (config['PACKAGE_DIR'] / 'pyproject.toml').read_text()
-        for line in pyproject_config:
-            if line.startswith('version = '):
-                return line.split(' = ', 1)[-1].strip('"')
+        try:
+            pyproject_config = (config['PACKAGE_DIR'] / 'pyproject.toml').read_text()
+            for line in pyproject_config:
+                if line.startswith('version = '):
+                    return line.split(' = ', 1)[-1].strip('"')
+        except FileNotFoundError:
+            # building docs, pyproject.toml is not available
+            return 'dev'
 
     raise Exception('Failed to detect installed archivebox version!')
 
