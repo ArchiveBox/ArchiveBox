@@ -715,7 +715,7 @@ The <img src="https://user-images.githubusercontent.com/511499/115942091-73c0230
 
 Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today. **ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles**, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
 
-Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. **Don't store large collections on older filesystems like EXT3/FAT** as they may not be able to handle more than 50k directory entries in the `archive/` folder. **Try to keep the `index.sqlite3` file on local drive (not a network mount)** or SSD for maximum performance, however the `archive/` folder can be on a network mount or spinning HDD.
+Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. You can also deduplicate content with a tool like [fdupes](https://github.com/adrianlopezroche/fdupes) or [rdfind](https://github.com/pauldreik/rdfind). **Don't store large collections on older filesystems like EXT3/FAT** as they may not be able to handle more than 50k directory entries in the `archive/` folder. **Try to keep the `index.sqlite3` file on local drive (not a network mount)** or SSD for maximum performance, however the `archive/` folder can be on a network mount or slower HDD.
 
 <br/>
 
@@ -847,9 +847,9 @@ Whether you want to learn which organizations are the big players in the web arc
 
 **Need help building a custom archiving solution?**
 
-> ✨ **[Hire the team that helps build Archivebox](https://monadical.com) to work on your project.** ([@MonadicalSAS](https://twitter.com/MonadicalSAS))
+> ✨ **[Hire the team that built Archivebox](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) to work on your project.** ([@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp))
 
-<sup>(They also do general software consulting across many industries)</sup>
+<sup>(We also offer general software consulting across many industries)</sup>
 
 <br/>
 
@@ -1143,7 +1143,7 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" height="40px"/>
 <br/>
 <i><sub>
-This project is maintained mostly in <a href="https://nicksweeting.com/blog#About">my spare time</a> with the help from generous <a href="https://github.com/ArchiveBox/ArchiveBox/graphs/contributors">contributors</a> and <a href="https://monadical.com">Monadical</a> (✨  <a href="https://monadical.com">hire them</a> for dev work!).
+This project is maintained mostly in <a href="https://docs.sweeting.me/s/blog#About">my spare time</a> with the help from generous <a href="https://github.com/ArchiveBox/ArchiveBox/graphs/contributors">contributors</a> and <a href="https://monadical.com">Monadical Consulting</a>.
 </sub>
 </i>
 <br/><br/>
