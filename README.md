@@ -47,10 +47,10 @@ Without active preservation effort, everything on the internet eventually dissap
 
 💾 **It saves snapshots of the URLs you feed it in several redundant formats.**  
 It also detects any content featured *inside* each webpage & extracts it out into a folder:
-- `HTML/Generic Websites -> HTML/PDF/PNG/WARC`
-- `YouTube/SoundCloud/etc. -> mp3/mp4`,
-- `news articles -> article body text`
-- `github/gitlab/etc. links -> cloned source code`
+- `HTML/Generic Websites -> HTML, PDF, PNG, WARC, Singlefile`
+- `YouTube/SoundCloud/etc. -> MP3/MP4 + subtitles, description, thumbnail`
+- `news articles -> article body TXT + title, author, featured images`
+- `github/gitlab/etc. links -> git cloned source code`
 - *[and more...](#output-formats)*
 
 You get back folders on your filesystem containing all the content for each URL (with a CLI and web UI to browse and manage it).  
