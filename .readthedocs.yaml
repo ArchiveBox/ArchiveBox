@@ -3,6 +3,10 @@
 
 version: 2
 
+submodules:
+  include: all
+  recursive: true
+
 # Set the OS, Python version and other tools you might need
 build:
   os: ubuntu-22.04
