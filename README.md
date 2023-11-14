@@ -53,7 +53,7 @@ It also detects any content featured *inside* each webpage & extracts it out int
 - `github/gitlab/etc. links -> git cloned source code`
 - *[and more...](#output-formats)*
 
-It uses normal folders on your disk to organize archives (no proprietary complicated formats), and offers a CLI and web UI to browse and edit.  
+It uses normal filesystem folders to organize archives (no complicated proprietary formats), and offers a CLI + web UI.  
 
 ---
 
