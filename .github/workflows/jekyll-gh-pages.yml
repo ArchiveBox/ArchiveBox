@@ -1,5 +1,5 @@
 # Sample workflow for building and deploying a Jekyll site to GitHub Pages
-name: Deploy Jekyll with GitHub Pages dependencies preinstalled
+name: Build Jekyll GitHub Pages ArchiveBox.io Website
 
 on:
   # Runs on pushes targeting the default branch
@@ -31,6 +31,10 @@ jobs:
         with:
           submodules: true
           fetch-depth: 1
+      - name: Copy README.md into place
+        run: |
+          rm ./website/README.md
+          cp ./README.md ./website/README.md
       - name: Setup Pages
         uses: actions/configure-pages@v3
       - name: Build with Jekyll
