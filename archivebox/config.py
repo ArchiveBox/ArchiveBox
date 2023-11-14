@@ -786,6 +786,7 @@ def find_chrome_binary() -> Optional[str]:
     # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
     # make sure data dir finding precedence order always matches binary finding order
     default_executable_paths = (
+        # '~/Library/Caches/ms-playwright/chromium-*/chrome-mac/Chromium.app/Contents/MacOS/Chromium',
         'chromium-browser',
         'chromium',
         '/Applications/Chromium.app/Contents/MacOS/Chromium',

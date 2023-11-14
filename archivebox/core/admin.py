@@ -48,22 +48,23 @@ class TagInline(admin.TabularInline):
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import AutocompleteSelectMultiple
 
-class AutocompleteTags:
-    model = Tag
-    search_fields = ['name']
+# class AutocompleteTags:
+#     model = Tag
+#     search_fields = ['name']
+#     name = 'tags'
 
-class AutocompleteTagsAdminStub:
-    name = 'admin'
+# class AutocompleteTagsAdminStub:
+#     name = 'admin'
 
 
 class SnapshotActionForm(ActionForm):
     tags = forms.ModelMultipleChoiceField(
         queryset=Tag.objects.all(),
         required=False,
-        widget=AutocompleteSelectMultiple(
-            AutocompleteTags(),
-            AutocompleteTagsAdminStub(),
-        ),
+        # widget=AutocompleteSelectMultiple(
+        #     # AutocompleteTags(),
+        #     # AutocompleteTagsAdminStub(),
+        # ),
     )
 
     # TODO: allow selecting actions for specific extractors? is this useful?
