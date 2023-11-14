@@ -208,7 +208,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 # Install Node dependencies
 WORKDIR "$CODE_DIR"
-COPY --chown=root:root --chmod=755 "package.json" "package-lock.json" "$CODE_DIR/"
+COPY --chown=root:root --chmod=755 "package.json" "package-lock.json" "$CODE_DIR"/
 RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing NPM extractor dependencies from package.json into $NODE_MODULES..." \
     && npm ci --prefer-offline --no-audit --cache /root/.npm \
@@ -222,9 +222,9 @@ RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGE
 
 # Install ArchiveBox Python dependencies
 WORKDIR "$CODE_DIR"
-COPY --chown=root:root --chmod=755 "./pyproject.toml" "requirements.txt" "$CODE_DIR/"
+COPY --chown=root:root --chmod=755 "./pyproject.toml" "requirements.txt" "$CODE_DIR"/
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt for ${TARGETPLATFORM}..." \ 
+    echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt for ${TARGETPLATFORM}..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
         build-essential \
@@ -239,7 +239,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && pip install -r requirements.txt \
     && apt-get purge -y \
         build-essential \
-        # these are only needed to build CPython libs, we discard after build phase to shrink layer size
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
