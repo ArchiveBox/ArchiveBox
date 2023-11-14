@@ -7,11 +7,12 @@ __pycache__/
 .github/
 .git/
 .pdm-build/
-.pdm-python/
+.pdm-python
 .eggs/
 
 venv/
 .venv/
+.venv-old/
 .docker-venv/
 node_modules/
 
@@ -21,6 +22,7 @@ brew_dist/
 deb_dist/
 pip_dist/
 assets/
+docker/
 
 data/
 output/
