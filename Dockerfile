@@ -198,6 +198,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
     && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
     && chown -R $ARCHIVEBOX_USER "/home/${ARCHIVEBOX_USER}/.config" \
+    && mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
     && chown -R $ARCHIVEBOX_USER "$PLAYWRIGHT_BROWSERS_PATH" \
     # Save version info
     && ( \
