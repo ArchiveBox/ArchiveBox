@@ -171,10 +171,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     # Save version info
     && ( \
         which curl && curl --version | head -n1 \
-        && which wget && wget --version | head -n1 \
-        && which yt-dlp && yt-dlp --version | head -n1 \
-        && which git && git --version | head -n1 \
-        && which rg && rg --version | head -n1 \
+        && which wget && wget --version 2>&1 | head -n1 \
+        && which yt-dlp && yt-dlp --version 2>&1 | head -n1 \
+        && which git && git --version 2>&1 | head -n1 \
+        && which rg && rg --version 2>&1 | head -n1 \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
