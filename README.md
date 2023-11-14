@@ -53,7 +53,7 @@ It also detects any content featured *inside* each webpage & extracts it out int
 - `github/gitlab/etc. links -> git cloned source code`
 - *[and more...](#output-formats)*
 
-You get back folders on your filesystem containing all the content for each URL (with a CLI and web UI to browse and manage it).  
+It uses normal folders on your disk to organize archives (no proprietary complicated formats), and offers a CLI and web UI to browse and edit.  
 
 ---
 
