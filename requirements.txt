@@ -43,4 +43,4 @@ urllib3==2.1.0
 w3lib==2.1.2
 wcwidth==0.2.10
 websockets==12.0
-yt-dlp==2023.10.13
+yt-dlp==2023.11.14
