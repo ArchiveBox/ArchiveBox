@@ -320,6 +320,10 @@ See the <a href="https://github.com/ArchiveBox/pip-archivebox"><code>pip-archive
 <details>
 <summary><img src="https://user-images.githubusercontent.com/511499/118077361-f0616580-b381-11eb-973c-ee894a3349fb.png" alt="Arch" height="28px" align="top"/> <code>pacman</code> / <img src="https://user-images.githubusercontent.com/511499/118077946-29e6a080-b383-11eb-94f0-d4871da08c3f.png" alt="FreeBSD" height="28px" align="top"/> <code>pkg</code> / <img src="https://user-images.githubusercontent.com/511499/118077861-002d7980-b383-11eb-86a7-5936fad9190f.png" alt="Nix" height="28px" align="top"/> <code>nix</code> (Arch/FreeBSD/NixOS/more)</summary>
 <br/>
+
+> [!WARNING]  
+> *These are contributed by external volunteers and may lag behind the official `pip` channel.*
+
 <ul>
 <li>Arch: <a href="https://aur.archlinux.org/packages/archivebox/"><code>yay -S archivebox</code></a> (contributed by <a href="https://github.com/imlonghao"><code>@imlonghao</code></a>)</li>
 <li>FreeBSD: <a href="https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup"><code>curl -sSL 'https://get.archivebox.io' | sh</code></a> (uses <code>pkg</code> + <code>pip3</code> under-the-hood)</li>
