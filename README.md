@@ -1,5 +1,5 @@
 <div align="center">
-<em><img src="icon.png" height="90px"></em>
+<em><img src="https://archivebox.io/icon.png" height="90px"></em>
 <h1>ArchiveBox<br/><sub>Open-source self-hosted web archiving.</sub></h1>
 
 <br/>
@@ -370,6 +370,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 <br/>
 Other providers of paid ArchiveBox hosting (not officially endorsed):<br/>
 <br/><br/>
+<li><a href="https://elest.io/open-source/archivebox"><img src="https://img.shields.io/badge/Managed_Hosting-Elest.io-%23193f7e.svg?style=flat" height="22px"/></a></li>
 <li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-StellarHosted.com-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
 <li><a href="https://www.pikapods.com/pods?run=archivebox"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-PikaPods.com-%2343a047.svg?style=flat" height="22px"/></a> (from USD $2.6/mo)</li>
 <li><a href="https://m.do.co/c/cbc4c0c17840">
