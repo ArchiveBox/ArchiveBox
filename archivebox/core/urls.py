@@ -8,6 +8,7 @@ from django.views.generic.base import RedirectView
 
 from core.views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView
 
+from config import VERSION
 
 # print('DEBUG', settings.DEBUG)
 
@@ -30,7 +31,7 @@ urlpatterns = [
 
 
     path('accounts/', include('django.contrib.auth.urls')),
-    path('admin/', admin.site.urls),
+    path('admin/', admin.site.urls, {'extra_context': {'VERSION': VERSION}}),
 
     path('health/', HealthCheckView.as_view(), name='healthcheck'),
     path('error/', lambda _: 1/0),
