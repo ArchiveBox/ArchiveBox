@@ -30,6 +30,7 @@ import inspect
 import getpass
 import platform
 import shutil
+import requests
 import django
 from sqlite3 import dbapi2 as sqlite3
 
@@ -397,6 +398,55 @@ def get_commit_hash(config):
     except Exception:
         return None
 
+def get_version_releases(config):
+    """
+    returns a dictionary containing the GitHub release data for 
+    the recommended upgrade version and the currently installed version
+    """
+    github_releases_api = "https://api.github.com/repos/pirate/archivebox/releases"
+    response = requests.get(github_releases_api)
+    if response.status_code != 200:
+        stderr('Failed to get release data from GitHub', color='lightyellow', config=config)
+        return None
+
+    releases = response.json()
+    installed_version = config['VERSION']
+    installed_version_parts = parse_tag_name(installed_version)
+
+    # find current version or nearest older version (to link to)
+    current_version = None
+    for i, release in enumerate(releases):
+        release_parts = parse_tag_name(release["tag_name"])
+        if compare_versions(release["tag_name"], installed_version) <= 0:
+            current_version = release
+            break
+
+    current_version = current_version if current_version else releases[-1]
+
+    # find upgrade version
+    upgrade_version = None
+    smallest_version_diff = parse_tag_name(releases[0]["tag_name"])[1]
+    for i, release in enumerate(releases):
+        release_parts = parse_tag_name(release["tag_name"])
+        major_version_diff = release_parts[1] - installed_version_parts[1]
+        if major_version_diff < smallest_version_diff:
+            smallest_version_diff = major_version_diff
+            if smallest_version_diff < 1:
+                break
+            upgrade_version = release
+
+    upgrade_version = upgrade_version if upgrade_version else releases[0]
+
+    return {"upgrade_version": upgrade_version, "current_version": current_version}
+
+def can_upgrade(config):
+    if config['VERSION_RELEASES']:
+        upgrade_version_tag = config['VERSION_RELEASES']['upgrade_version']['tag_name']
+        current_version_tag = config['VERSION_RELEASES']['current_version']['tag_name']
+        return compare_versions(upgrade_version_tag, current_version_tag) == 1
+    return False
+
+
 ############################## Derived Config ##################################
 
 
@@ -424,6 +474,8 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
     'VERSION':                  {'default': lambda c: get_version(c)},
+    'VERSION_RELEASES':         {'default': lambda c: get_version_releases(c)},
+    'CAN_UPGRADE':              {'default': lambda c: can_upgrade(c)},
     'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},
     
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
@@ -695,6 +747,28 @@ def load_config(defaults: ConfigDefaultDict,
 # def write_config(config: ConfigDict):
 
 #     with open(os.path.join(config['OUTPUT_DIR'], CONFIG_FILENAME), 'w+') as f:
+
+def parse_tag_name(v):
+    """parses a version tag string formatted like 'vx.x.x'"""
+    v = re.sub(r"\+.*$", "", v) # in case version string ends with '+editable'
+    parts = re.sub(r"^v", "", v).split(".")
+    return [int(p) for p in parts]
+
+
+def compare_versions(v1, v2):
+    """
+    for two version strings v1 and v2, returns 1 if v1 is newer than v2,
+    0 if they're equivalent and -1 if v1 is older than v2.
+    """
+    v1Parts = parse_tag_name(v1)
+    v2Parts = parse_tag_name(v2)
+    for i in range(len(v1Parts)):
+        if v1Parts[i] < v2Parts[i]:
+            return -1
+
+        if v1Parts[i] > v2Parts[i]:
+            return 1
+    return 0
 
 
 # Logging Helpers

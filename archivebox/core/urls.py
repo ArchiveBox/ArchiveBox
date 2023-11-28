@@ -8,7 +8,7 @@ from django.views.generic.base import RedirectView
 
 from core.views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView
 
-from config import VERSION
+from config import VERSION, VERSION_RELEASES, CAN_UPGRADE
 
 # print('DEBUG', settings.DEBUG)
 
@@ -31,7 +31,7 @@ urlpatterns = [
 
 
     path('accounts/', include('django.contrib.auth.urls')),
-    path('admin/', admin.site.urls, {'extra_context': {'VERSION': VERSION}}),
+    path('admin/', admin.site.urls, {'extra_context': {'VERSION': VERSION, 'VERSION_RELEASES': VERSION_RELEASES, 'CAN_UPGRADE': CAN_UPGRADE}}),
 
     path('health/', HealthCheckView.as_view(), name='healthcheck'),
     path('error/', lambda _: 1/0),

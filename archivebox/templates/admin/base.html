@@ -12,7 +12,26 @@
         {% endblock %}
         
         <link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
-        {% block extrastyle %}{% endblock %}
+        {% block extrastyle %}
+        <style>
+            #upgrade-banner {
+                position: fixed;
+                right: 20px;
+                bottom: 20px;
+                background-color: #f8f8f8;
+                color: #333333;
+                border: 2px solid #772948;
+                padding: 10px 20px;
+                z-index: 1000;
+                text-align: center;
+            }
+            #dismiss-btn {
+                background: #aa1e55;
+                color: white;
+                cursor: pointer;
+            }
+        </style>
+        {% endblock %}
         
         {% if LANGUAGE_BIDI %}
             <link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}">
@@ -123,97 +142,37 @@
         </div>
 
         <script>
-            const installedVersion = "{{VERSION}}";
+            if ("{{CAN_UPGRADE}}" === "True" && !localStorage.getItem("bannerDismissed")) {
+                let upgradeVersionTag = "{{VERSION_RELEASES.upgrade_version.tag_name}}"
+                let upgradeVersionURL= "{{VERSION_RELEASES.upgrade_version.html_url}}"
+                let currentVersionTag = "{{VERSION}}"
+                let currentVersionURL = "{{VERSION_RELEASES.current_version.html_url}}"
 
-            // get versions from GitHub
-            const github_releases_api = "https://api.github.com/repos/pirate/archivebox/releases";
-
-            let release_data = fetch(github_releases_api)
-              .then(response => response.json())
-              .then(release_data => {
-                let upgradeVersion = findUpgradeVersion(installedVersion, release_data);
-                let currentVersion = findCurrentVersion(installedVersion, release_data);
-
-                const showBanner = localStorage.getItem("bannerDismissed") !== "true" && currentVersion.html_url !== upgradeVersion.html_url
-                if (showBanner) {
-                    createBanner(currentVersion, upgradeVersion);
-                }
-              })
-              .catch(error => {
-                console.error('Error fetching release data: ', error);
-              });
-
-            // finds the nearest stable version
-            function findCurrentVersion(currentVersionTagName, releaseData) {
-                for (let i = 0; i < releaseData.length; i++) {
-                    if (compareVersions(releaseData[i].tag_name, currentVersionTagName) <= 0) {
-                        return releaseData[i];
-                    }
-                }
-                return releaseData[releaseData.length - 1];
+                createBanner(currentVersionTag, currentVersionURL, upgradeVersionTag, upgradeVersionURL)
             }
 
-            function findUpgradeVersion(currentVersionTagName, releaseData) {
-                for (let i = 0; i < releaseData.length; i++) {
-                    if (majorVersionDiff(releaseData[i].tag_name, currentVersionTagName) === 1) {
-                        return releaseData[i];
-                    }
-                }
-                return releaseData[0];
-            }
-
-            function createBanner(currentVersion, upgradeVersion) {
+            function createBanner(currentVersionTag, currentVersionURL, upgradeVersionTag, upgradeVersionURL){
                 const banner = document.createElement('div');
                 banner.setAttribute('id', 'upgrade-banner');
                 banner.innerHTML = `
-                    There's a new version of ArchiveBox available!
-                    The next major version is <a href=${upgradeVersion.html_url}>${upgradeVersion.tag_name}</a>.
-                    Your current version is <a href=${currentVersion.html_url}>${installedVersion}</a>
+                    <p>There's a new version of ArchiveBox available!</p>
+                    Your version: <a href=${currentVersionURL}>${currentVersionTag}</a> | New version: <a href=${upgradeVersionURL}>${upgradeVersionTag}</a>
                     <p>
                     <a href=https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives>Upgrading</a> | <a href=https://github.com/ArchiveBox/ArchiveBox/releases>Changelog</a> | <a href=https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap>Roadmap</a> 
                     </p>
-                    <button>
-                        <a href="#" onclick="dismissBanner()">Dismiss</a>
-                    </button>
+                    <button id="dismiss-btn">Dismiss</button>
                 `
                 document.body.appendChild(banner);
+                let dismissButton = document.querySelector("#dismiss-btn")
+                if (dismissButton) {
+                    dismissButton.addEventListener("click", dismissBanner)
+                }
             }
 
-
-            // dismisses the version banner and stores a cookie to prevent it from showing again
             function dismissBanner() {
-                var banner = document.getElementById("version-banner");
+                var banner = document.getElementById("upgrade-banner");
                 banner.style.display = "none";
                 localStorage.setItem("bannerDismissed", "true");
-            }
-
-            function parseVersion(v) {
-                return v.replace(/^v/, '').split(".").map(Number);
-            }
-
-            // compares two version strings formatted like "vx.x.x" (where the x's are integers)
-            // and returns 1 if v1 is newer than v2, 0 if they're the same, and -1 
-            // if v1 is older than v2.
-            function compareVersions(v1, v2) {
-                let v1Parts = parseVersion(v1);
-                let v2Parts = parseVersion(v2);
-
-                for (let i = 0; i < 3; i++) {
-                    if (v1Parts[i] < v2Parts[i]) {
-                        return -1;
-                    }
-                    if (v1Parts[i] > v2Parts[i]) {
-                        return 1;
-                    }
-                }
-                return 0;
-            }
-
-            function majorVersionDiff(v1, v2) {
-                let v1Parts = parseVersion(v1);
-                let v2Parts = parseVersion(v2);
-
-                return v1Parts[1] - v2Parts[1];
             }
 
             $ = django.jQuery;
