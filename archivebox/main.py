@@ -97,6 +97,8 @@ from .config import (
     check_data_folder,
     write_config_file,
     VERSION,
+    VERSION_RELEASES,
+    CAN_UPGRADE,
     COMMIT_HASH,
     CODE_LOCATIONS,
     EXTERNAL_LOCATIONS,
@@ -680,6 +682,9 @@ def add(urls: Union[str, List[str]],
             snapshot.tags_str(nocache=True)
             snapshot.save()
         # print(f'    √ Tagged {len(imported_links)} Snapshots with {len(tags)} tags {tags_str}')
+
+    if CAN_UPGRADE:
+        hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSION_RELEASES['upgrade_version']['tag_name']} ({VERSION_RELEASES['upgrade_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
 
 
     return all_links
@@ -1269,6 +1274,9 @@ def schedule(add: bool=False,
             except KeyboardInterrupt:
                 print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
                 raise SystemExit(1)
+
+    if CAN_UPGRADE:
+        hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSION_RELEASES['upgrade_version']['tag_name']} ({VERSION_RELEASES['upgrade_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
 
     
 @enforce_types
