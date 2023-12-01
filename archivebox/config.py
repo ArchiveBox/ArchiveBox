@@ -417,7 +417,7 @@ def get_version_releases(config):
     current_version = None
     for release in releases:
         release_parts = parse_tag_name(release["tag_name"])
-        if compare_versions(release["tag_name"], installed_version) <= 0:
+        if release_parts <= installed_version_parts :
             current_version = release
             break
 
@@ -441,9 +441,9 @@ def get_version_releases(config):
 
 def can_upgrade(config):
     if config['VERSION_RELEASES']:
-        upgrade_version_tag = config['VERSION_RELEASES']['upgrade_version']['tag_name']
-        current_version_tag = config['VERSION_RELEASES']['current_version']['tag_name']
-        return compare_versions(upgrade_version_tag, current_version_tag) == 1
+        upgrade_version = parse_tag_name(config['VERSION_RELEASES']['upgrade_version']['tag_name'])
+        current_version = parse_tag_name(config['VERSION_RELEASES']['current_version']['tag_name'])
+        return upgrade_version > current_version
     return False
 
 
@@ -751,24 +751,7 @@ def load_config(defaults: ConfigDefaultDict,
 def parse_tag_name(v):
     """parses a version tag string formatted like 'vx.x.x'"""
     base = v.split('+')[0].split('v')[-1] # remove 'v' prefix and '+editable' suffix
-    int_parts = [int(part) for part in base.split('.')]
-    return int_parts
-
-
-def compare_versions(v1, v2):
-    """
-    for two version strings v1 and v2, returns 1 if v1 is newer than v2,
-    0 if they're equivalent and -1 if v1 is older than v2.
-    """
-    v1Parts = parse_tag_name(v1)
-    v2Parts = parse_tag_name(v2)
-    for i in range(len(v1Parts)):
-        if v1Parts[i] < v2Parts[i]:
-            return -1
-
-        if v1Parts[i] > v2Parts[i]:
-            return 1
-    return 0
+    return tuple(int(part) for part in base.split('.'))
 
 
 # Logging Helpers
