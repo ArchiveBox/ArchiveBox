@@ -426,7 +426,7 @@ def get_version_releases(config):
     # find upgrade version
     upgrade_version = None
     smallest_version_diff = parse_tag_name(releases[0]["tag_name"])[1]
-    for i, release in enumerate(releases):
+    for release in releases:
         release_parts = parse_tag_name(release["tag_name"])
         major_version_diff = release_parts[1] - installed_version_parts[1]
         if major_version_diff < smallest_version_diff:
@@ -750,9 +750,9 @@ def load_config(defaults: ConfigDefaultDict,
 
 def parse_tag_name(v):
     """parses a version tag string formatted like 'vx.x.x'"""
-    v = re.sub(r"\+.*$", "", v) # in case version string ends with '+editable'
-    parts = re.sub(r"^v", "", v).split(".")
-    return [int(p) for p in parts]
+    base = v.split('+')[0].split('v')[-1] # remove 'v' prefix and '+editable' suffix
+    int_parts = [int(part) for part in base.split('.')]
+    return int_parts
 
 
 def compare_versions(v1, v2):

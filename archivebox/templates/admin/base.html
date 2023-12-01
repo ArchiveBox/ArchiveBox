@@ -142,11 +142,12 @@
         </div>
 
         <script>
-            if ("{{CAN_UPGRADE}}" === "True" && !localStorage.getItem("bannerDismissed")) {
-                let upgradeVersionTag = "{{VERSION_RELEASES.upgrade_version.tag_name}}"
+            {% if user.is_authenticated and CAN_UPGRADE %}
+            if (!localStorage.getItem("bannerDismissed")) {
+                const upgradeVersionTag = "{{VERSION_RELEASES.upgrade_version.tag_name}}"
                 const upgradeVersionURL = "{{VERSION_RELEASES.upgrade_version.html_url}}"
-                let currentVersionTag = "{{VERSION}}"
-                let currentVersionURL = "{{VERSION_RELEASES.current_version.html_url}}"
+                const currentVersionTag = "{{VERSION}}"
+                const currentVersionURL = "{{VERSION_RELEASES.current_version.html_url}}"
 
                 createBanner(currentVersionTag, currentVersionURL, upgradeVersionTag, upgradeVersionURL)
             }
@@ -174,6 +175,7 @@
                 banner.style.display = "none"
                 localStorage.setItem("bannerDismissed", "true")
             }
+            {% endif %}
 
             $ = django.jQuery;
             $.fn.reverse = [].reverse;
