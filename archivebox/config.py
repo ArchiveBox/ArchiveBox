@@ -415,7 +415,7 @@ def get_version_releases(config):
 
     # find current version or nearest older version (to link to)
     current_version = None
-    for i, release in enumerate(releases):
+    for release in releases:
         release_parts = parse_tag_name(release["tag_name"])
         if compare_versions(release["tag_name"], installed_version) <= 0:
             current_version = release
