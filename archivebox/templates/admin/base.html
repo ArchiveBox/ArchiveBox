@@ -144,15 +144,15 @@
         <script>
             if ("{{CAN_UPGRADE}}" === "True" && !localStorage.getItem("bannerDismissed")) {
                 let upgradeVersionTag = "{{VERSION_RELEASES.upgrade_version.tag_name}}"
-                let upgradeVersionURL= "{{VERSION_RELEASES.upgrade_version.html_url}}"
+                const upgradeVersionURL = "{{VERSION_RELEASES.upgrade_version.html_url}}"
                 let currentVersionTag = "{{VERSION}}"
                 let currentVersionURL = "{{VERSION_RELEASES.current_version.html_url}}"
 
                 createBanner(currentVersionTag, currentVersionURL, upgradeVersionTag, upgradeVersionURL)
             }
 
-            function createBanner(currentVersionTag, currentVersionURL, upgradeVersionTag, upgradeVersionURL){
-                const banner = document.createElement('div');
+            function createBanner(currentVersionTag, currentVersionURL, upgradeVersionTag, upgradeVersionURL) {
+                const banner = document.createElement('div')
                 banner.setAttribute('id', 'upgrade-banner');
                 banner.innerHTML = `
                     <p>There's a new version of ArchiveBox available!</p>
@@ -163,16 +163,16 @@
                     <button id="dismiss-btn">Dismiss</button>
                 `
                 document.body.appendChild(banner);
-                let dismissButton = document.querySelector("#dismiss-btn")
+                const dismissButton = document.querySelector("#dismiss-btn")
                 if (dismissButton) {
                     dismissButton.addEventListener("click", dismissBanner)
                 }
             }
 
             function dismissBanner() {
-                var banner = document.getElementById("upgrade-banner");
-                banner.style.display = "none";
-                localStorage.setItem("bannerDismissed", "true");
+                const banner = document.getElementById("upgrade-banner")
+                banner.style.display = "none"
+                localStorage.setItem("bannerDismissed", "true")
             }
 
             $ = django.jQuery;

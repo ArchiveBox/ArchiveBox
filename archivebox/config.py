@@ -403,7 +403,7 @@ def get_version_releases(config):
     returns a dictionary containing the GitHub release data for 
     the recommended upgrade version and the currently installed version
     """
-    github_releases_api = "https://api.github.com/repos/pirate/archivebox/releases"
+    github_releases_api = "https://api.github.com/repos/ArchiveBox/ArchiveBox/releases"
     response = requests.get(github_releases_api)
     if response.status_code != 200:
         stderr('Failed to get release data from GitHub', color='lightyellow', config=config)
