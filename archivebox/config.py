@@ -391,11 +391,19 @@ def get_version(config):
 
     raise Exception('Failed to detect installed archivebox version!')
 
-def get_commit_hash(config):
+def get_commit_hash(config) -> Optional[str]:
     try:
         return list((config['PACKAGE_DIR'] / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
     except Exception:
         return None
+
+def get_build_time(config) -> str:
+    if config['IN_DOCKER']:
+        docker_build_end_time = Path('/VERSION.txt').read_text().rsplit('BUILD_END_TIME=')[-1].split('\n', 1)[0]
+        return docker_build_end_time
+
+    src_last_modified_unix_timestamp = (config['PACKAGE_DIR'] / 'config.py').stat().st_mtime
+    return datetime.fromtimestamp(src_last_modified_unix_timestamp).strftime('%Y-%m-%d %H:%M:%S %s')
 
 ############################## Derived Config ##################################
 
@@ -425,6 +433,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
     'VERSION':                  {'default': lambda c: get_version(c)},
     'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},
+    'BUILD_TIME':               {'default': lambda c: get_build_time(c)},
     
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
     'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},
