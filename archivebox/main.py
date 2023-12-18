@@ -214,7 +214,7 @@ def version(quiet: bool=False,
             out_dir: Path=OUTPUT_DIR) -> None:
     """Print the ArchiveBox version and dependency information"""
     
-    print(VERSION)
+    print(VERSION.split('+')[0])
     
     if not quiet:
         # 0.7.1
@@ -1005,9 +1005,9 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
 
     stderr('\n    Installing SINGLEFILE_BINARY, READABILITY_BINARY, MERCURY_BINARY automatically using npm...')
     if not NODE_VERSION:
-        stderr('[X] You must first install node using your system package manager', color='red')
+        stderr('[X] You must first install node & npm using your system package manager', color='red')
         hint([
-            'curl -sL https://deb.nodesource.com/setup_15.x | sudo -E bash -',
+            'https://github.com/nodesource/distributions#table-of-contents',
             'or to disable all node-based modules run: archivebox config --set USE_NODE=False',
         ])
         raise SystemExit(1)

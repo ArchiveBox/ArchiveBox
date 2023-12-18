@@ -81,7 +81,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'IN_QEMU':                  {'type': bool,  'default': False},
         'PUID':                     {'type': int,   'default': os.getuid()},
         'PGID':                     {'type': int,   'default': os.getgid()},
-        # TODO: 'SHOW_HINTS':       {'type:  bool,  'default': True},
+        # TODO: 'SHOW_HINTS':       {'type:  bool,  'default': True},   # hints are hidden automatically once collection contains >0 Snapshots, no need to configure
     },
 
     'GENERAL_CONFIG': {
