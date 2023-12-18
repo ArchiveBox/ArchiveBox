@@ -6,7 +6,6 @@
 # set -o xtrace
 set -o errexit
 set -o errtrace
-set -o nounset
 set -o pipefail
 IFS=$'\n'
 

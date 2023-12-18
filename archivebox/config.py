@@ -431,7 +431,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
-    'VERSION':                  {'default': lambda c: get_version(c)},
+    'VERSION':                  {'default': lambda c: get_version(c).split('+', 1)[0]},
     'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},
     'BUILD_TIME':               {'default': lambda c: get_build_time(c)},
     
@@ -1298,8 +1298,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
         with open(settings.ERROR_LOG, "a", encoding='utf-8') as f:
             command = ' '.join(sys.argv)
             ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
-            f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
-
+            f.write(f"\n> {command}; TS={ts} VERSION={config['VERSION']} IN_DOCKER={config['IN_DOCKER']} IS_TTY={config['IS_TTY']}\n")
 
         if check_db:
             # Enable WAL mode in sqlite3

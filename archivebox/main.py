@@ -94,6 +94,7 @@ from .config import (
     ALLOWED_IN_OUTPUT_DIR,
     SEARCH_BACKEND_ENGINE,
     LDAP,
+    get_version,
     check_dependencies,
     check_data_folder,
     write_config_file,
@@ -216,7 +217,7 @@ def version(quiet: bool=False,
             out_dir: Path=OUTPUT_DIR) -> None:
     """Print the ArchiveBox version and dependency information"""
     
-    print(VERSION.split('+')[0])
+    print(VERSION)
     
     if not quiet:
         # 0.7.1
@@ -227,7 +228,7 @@ def version(quiet: bool=False,
         
         p = platform.uname()
         print(
-            'ArchiveBox v{}'.format(VERSION),
+            'ArchiveBox v{}'.format(get_version(CONFIG)),
             *((f'COMMIT_HASH={COMMIT_HASH[:7]}',) if COMMIT_HASH else ()),
             f'BUILD_TIME={BUILD_TIME}',
         )

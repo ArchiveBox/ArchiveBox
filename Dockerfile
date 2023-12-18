@@ -279,7 +279,7 @@ RUN (echo -e "\n\n[√] Finished Docker build succesfully. Saving build summary 
     && echo -e "PLATFORM=${TARGETPLATFORM} ARCH=$(uname -m) ($(uname -s) ${TARGETARCH} ${TARGETVARIANT})\n" \
     && echo -e "BUILD_END_TIME=$(date +"%Y-%m-%d %H:%M:%S %s")\n\n" \
     ) | tee -a /VERSION.txt
-RUN "$CODE_DIR/bin/docker_entrypoint.sh" archivebox version 2>&1 | tee -a /VERSION.txt
+RUN "$CODE_DIR"/bin/docker_entrypoint.sh version 2>&1 | tee -a /VERSION.txt
 
 ####################################################
 
