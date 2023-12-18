@@ -71,10 +71,11 @@ fi
 chown $PUID:$PGID "$DATA_DIR"
 chown $PUID:$PGID "$DATA_DIR"/*
 
-# also chown BROWSERS_DIR because otherwise 'archivebox setup' wont be able to install chrome
+# also chown BROWSERS_DIR because otherwise 'archivebox setup' wont be able to install chrome at runtime
 PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/browsers}"
+mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"
 chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"
-chown $PUID:$PGID "${PLAYWRIGHT_BROWSERS_PATH}/*"
+chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/*
 
 # (this check is written in blood, QEMU silently breaks things in ways that are not obvious)
 export IN_QEMU="$(pmap 1 | grep qemu | wc -l | grep -E '^0$' >/dev/null && echo 'False' || echo 'True')"
