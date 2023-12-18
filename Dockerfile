@@ -276,11 +276,10 @@ ENV IN_DOCKER=True
 
 # Print version for nice docker finish summary
 RUN (echo -e "\n\n[√] Finished Docker build succesfully. Saving build summary in: /VERSION.txt" \
-    && echo -e "PLATFORM=${TARGETPLATFORM} ARCH=$(uname -m) ($(uname -s) ${TARGETARCH} ${TARGETVARIANT})" \
-    && echo -e "BUILD_END_TIME=$(date +"%Y-%m-%d %H:%M:%S %s") TZ=${TZ}\n\n" \
-    && "$CODE_DIR/bin/docker_entrypoint.sh" \
-        archivebox version 2>&1 \
+    && echo -e "PLATFORM=${TARGETPLATFORM} ARCH=$(uname -m) ($(uname -s) ${TARGETARCH} ${TARGETVARIANT})\n" \
+    && echo -e "BUILD_END_TIME=$(date +"%Y-%m-%d %H:%M:%S %s")\n\n" \
     ) | tee -a /VERSION.txt
+RUN "$CODE_DIR/bin/docker_entrypoint.sh" archivebox version 2>&1 | tee -a /VERSION.txt
 
 ####################################################
 
