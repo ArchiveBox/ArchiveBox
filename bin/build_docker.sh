@@ -23,6 +23,7 @@ SUPPORTED_PLATFORMS="linux/amd64,linux/arm64,linux/arm/v7"
 TAG_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
 SHORT_VERSION="$(echo "$VERSION" | perl -pe 's/(\d+)\.(\d+)\.(\d+)/$1.$2/g')"
+GIT_SHA=sha-"$(git rev-parse --short HEAD)"
 SELECTED_PLATFORMS="${2:-$SUPPORTED_PLATFORMS}"
 
 echo "[+] Building Docker image: tag=$TAG_NAME version=$SHORT_VERSION arch=$SELECTED_PLATFORMS"
@@ -83,12 +84,16 @@ docker buildx build --platform "$SELECTED_PLATFORMS" --load . \
                -t archivebox/archivebox:$TAG_NAME \
                -t archivebox/archivebox:$VERSION \
                -t archivebox/archivebox:$SHORT_VERSION \
+               -t archivebox/archivebox:$GIT_SHA \
                -t archivebox/archivebox:latest \
                -t nikisweeting/archivebox \
                -t nikisweeting/archivebox:$TAG_NAME \
                -t nikisweeting/archivebox:$VERSION \
                -t nikisweeting/archivebox:$SHORT_VERSION \
+               -t nikisweeting/archivebox:$GIT_SHA \
                -t nikisweeting/archivebox:latest \
                -t ghcr.io/archivebox/archivebox/archivebox:$TAG_NAME \
                -t ghcr.io/archivebox/archivebox/archivebox:$VERSION \
-               -t ghcr.io/archivebox/archivebox/archivebox:$SHORT_VERSION
+               -t ghcr.io/archivebox/archivebox/archivebox:$SHORT_VERSION \
+               -t ghcr.io/archivebox/archivebox/archivebox:$GIT_SHA \
+               -t ghcr.io/archivebox/archivebox/archivebox:latest

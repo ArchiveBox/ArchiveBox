@@ -27,7 +27,7 @@ SELECTED_PLATFORMS="${2:-$SUPPORTED_PLATFORMS}"
 # docker login ghcr.io --username=pirate
 
 echo "[^] Building docker image"
-./bin/build_docker.sh "$TAG_NAME" "$GIT_SHA" "$SELECTED_PLATFORMS"
+./bin/build_docker.sh "$TAG_NAME" "$SELECTED_PLATFORMS"
 
 echo "[^] Uploading docker image"
 docker buildx build --platform "$SELECTED_PLATFORMS" --push . \
