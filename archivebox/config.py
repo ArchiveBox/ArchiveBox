@@ -1113,6 +1113,15 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
         stderr('[!] ArchiveBox should never be run as root!', color='red')
         stderr('    For more information, see the security overview documentation:')
         stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
+        
+        if config['IN_DOCKER']:
+            attempted_command = " ".join(sys.argv[:3])
+            stderr('')
+            stderr('    {lightred}Hint{reset}: When using Docker, ArchiveBox commands should run with {green}docker run{reset} instead of {lightyellow}docker exec{reset}, e.g.:')
+            stderr(f'        docker compose run archivebox {attempted_command}')
+            stderr('        or')
+            stderr(f'        docker run -it -v ... -p ... archivebox/archivebox {attempted_command}')
+        
         raise SystemExit(2)
 
     ### Check Python environment
