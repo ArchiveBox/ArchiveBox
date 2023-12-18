@@ -203,7 +203,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && chown -R $ARCHIVEBOX_USER "$PLAYWRIGHT_BROWSERS_PATH" \
     # Save version info
     && ( \
-        which chromium-browser && /usr/bin/chromium-browser --version \
+        which chromium-browser && /usr/bin/chromium-browser --version || /usr/lib/chromium/chromium --version \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
