@@ -73,7 +73,8 @@ COPY --chown=root:root --chmod=755 package.json "$CODE_DIR/"
 RUN grep '"version": ' "${CODE_DIR}/package.json" | awk -F'"' '{print $4}' > /VERSION.txt
 
 # Force apt to leave downloaded binaries in /var/cache/apt (massively speeds up Docker builds)
-RUN rm -f /etc/apt/apt.conf.d/docker-clean; echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+RUN echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache \
+    && rm -f /etc/apt/apt.conf.d/docker-clean
 
 # Print debug info about build and save it to disk, for human eyes only, not used by anything else
 RUN (echo "[i] Docker build for ArchiveBox $(cat /VERSION.txt) starting..." \
@@ -123,7 +124,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing Node $NODE_VERSION environment in $NODE_MODULES..." \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && curl -fsSL "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key" | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
         nodejs libatomic1 python3-minimal \
@@ -246,15 +247,15 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
     echo "[*] Installing PIP ArchiveBox package from $CODE_DIR..." \
-    && apt-get update -qq \
+    # && apt-get update -qq \
     # install C compiler to build deps on platforms that dont have 32-bit wheels available on pypi
-    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        build-essential  \
+    # && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+    #     build-essential  \
     # INSTALL ARCHIVEBOX python package globally from CODE_DIR, with all optional dependencies
     && pip install -e "$CODE_DIR"[sonic,ldap] \
     # save docker image size and always remove compilers / build tools after building is complete
-    && apt-get purge -y build-essential \
-    && apt-get autoremove -y \
+    # && apt-get purge -y build-essential \
+    # && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 ####################################################
