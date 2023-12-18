@@ -1126,10 +1126,12 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
         if config['IN_DOCKER']:
             attempted_command = ' '.join(sys.argv[:3])
             stderr('')
-            stderr('    {lightred}Hint{reset}: When using Docker, you must run commands with {green}docker run{reset} instead of {lightyellow}docker exec{reset}, e.g.:')
+            stderr('    {lightred}Hint{reset}: When using Docker, you must run commands with {green}docker run{reset} instead of {lightyellow}docker exec{reset}, e.g.:'.format(**config['ANSI']))
             stderr(f'        docker compose run archivebox {attempted_command}')
+            stderr(f'        docker compose exec --user=archivebox archivebox {attempted_command}')
             stderr('        or')
             stderr(f'        docker run -it -v ... -p ... archivebox/archivebox {attempted_command}')
+            stderr(f'        docker exec -it --user=archivebox <container id> /bin/bash')
         
         raise SystemExit(2)
 
