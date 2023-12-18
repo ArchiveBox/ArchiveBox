@@ -1,20 +1,45 @@
 #!/bin/bash
 
+### Bash Environment Setup
+# http://redsymbol.net/articles/unofficial-bash-strict-mode/
+# https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
+# set -o xtrace
+set -o errexit
+set -o errtrace
+set -o nounset
+set -o pipefail
+IFS=$'\n'
+
+# Load global config (set by Dockerfile during image build time, not intended to be customized by users at runtime)
 export DATA_DIR="${DATA_DIR:-/data}"
 export ARCHIVEBOX_USER="${ARCHIVEBOX_USER:-archivebox}"
 
-# default PUID and PGID if data dir is empty and no PUID+PGID is set
+# Global default PUID and PGID if data dir is empty and no intended PUID+PGID is set manually by user
 export DEFAULT_PUID=911
 export DEFAULT_PGID=911
 
-# if data directory already exists, autodetect detect owner by looking at files within
-export DETECTED_UID="$(stat -c '%u' "$DATA_DIR/logs/errors.log" 2>/dev/null || echo "$DEFAULT_PUID")"
-export DETECTED_GID="$(stat -c '%g' "$DATA_DIR/logs/errors.log" 2>/dev/null || echo "$DEFAULT_PGID")"
+# If user tires to set PUID and PGID to root values manually, catch and reject because root is not allowed
+if [[ "$PUID" == "0" ]] || [[ "$PGID" == "0" ]]; then
+    echo -e "\n[X] Error: Got PUID=$PUID and PGID=$PGID but ArchiveBox is not allowed to be run as root, please change or unset PUID & PGID and try again." >&2
+    echo -e "    Hint: some NFS/SMB/FUSE/etc. filesystems force-remap all permissions, leave PUID/PGID blank" >&2
+    echo -e "          or set PUID/PGID to the same value as the user/group they remap to (e.g. $DEFAULT_PUID:$DEFAULT_PGID)." >&2
+    echo -e "    https://linux.die.net/man/8/mount.cifs#:~:text=does%20not%20provide%20unix%20ownership" >&2
+    exit 3
+fi
+
+# If data directory already exists, autodetect detect owner by looking at files within
+export DETECTED_PUID="$(stat -c '%u' "$DATA_DIR/logs/errors.log" 2>/dev/null || echo "$DEFAULT_PUID")"
+export DETECTED_PGID="$(stat -c '%g' "$DATA_DIR/logs/errors.log" 2>/dev/null || echo "$DEFAULT_PGID")"
+
+# If data directory exists but is owned by root, use defaults instead of root because root is not allowed
+[[ "$DETECTED_PUID" == "0" ]] && export DETECTED_PUID="$DEFAULT_PUID"
+[[ "$DETECTED_PGID" == "0" ]] && export DETECTED_PGID="$DEFAULT_PGID"
+
 
 # Set the archivebox user to use the configured UID & GID
-# prefers PUID and PGID env vars passsed in explicitly, falls back to autodetected defaults
-usermod -o -u "${PUID:-$DETECTED_UID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
-groupmod -o -g "${PGID:-$DETECTED_GID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
+# prefer PUID and PGID env vars passsed in explicitly, falls back to autodetected values or global defaults
+usermod -o -u "${PUID:-$DETECTED_PUID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
+groupmod -o -g "${PGID:-$DETECTED_PGID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
 
 # re-set PUID and PGID to values reported by system instead of values we tried to set,
 # in case wonky filesystems or Docker setups try to play UID/GID remapping tricks on us
@@ -29,12 +54,12 @@ if [[ -d "$DATA_DIR/archive" ]]; then
         # echo "[√] Permissions are correct"
     else
      # the only time this fails is if the host filesystem doesn't allow us to write as root (e.g. some NFS mapall/maproot problems, connection issues, drive dissapeared, etc.)
-        echo -e "\n[X] Error: archivebox user (PUID=$PUID) is not able to write to your ./data dir." >&2
-        echo -e "    Change ./data to be owned by PUID=$PUID PGID=$PGID on the host and retry:"
+        echo -e "\n[X] Error: archivebox user (PUID=$PUID) is not able to write to your ./data dir (currently owned by $(stat -c '%u' "$DATA_DIR"):$(stat -c '%g' "$DATA_DIR")." >&2
+        echo -e "    Change ./data to be owned by PUID=$PUID PGID=$PGID on the host and retry:" >&2
         echo -e "       \$ chown -R $PUID:$PGID ./data\n" >&2
         echo -e "    Configure the PUID & PGID environment variables to change the desired owner:" >&2
         echo -e "       https://docs.linuxserver.io/general/understanding-puid-and-pgid\n" >&2
-        exit 1
+        exit 3
     fi
 else
     # create data directory
