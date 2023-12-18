@@ -1125,7 +1125,7 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
         raise SystemExit(2)
 
     ### Check Python environment
-    if sys.version_info[:3] < (3, 6, 0):
+    if sys.version_info[:3] < (3, 7, 0):
         stderr(f'[X] Python version is not new enough: {config["PYTHON_VERSION"]} (>3.6 is required)', color='red')
         stderr('    See https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
         raise SystemExit(2)
