@@ -75,7 +75,8 @@ PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/browsers}"
 mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"
 chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"
 touch "$PLAYWRIGHT_BROWSERS_PATH"/.permissions_test_safe_to_delete
-chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/*
+chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/*.*
+rm -f "$PLAYWRIGHT_BROWSERS_PATH"/.permissions_test_safe_to_delete
 
 
 # (this check is written in blood, QEMU silently breaks things in ways that are not obvious)
@@ -85,6 +86,7 @@ if [[ "$IN_QEMU" == 'True' ]]; then
     echo -e "    chromium (screenshot, pdf, dom), singlefile, and any dependencies that rely on inotify will not run in QEMU." >&2
     echo -e "    See here for more info: https://github.com/microsoft/playwright/issues/17395#issuecomment-1250830493\n" >&2
 fi
+
 
 # Drop permissions to run commands as the archivebox user
 if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == "cat" || "$1" == "archivebox" ]]; then
