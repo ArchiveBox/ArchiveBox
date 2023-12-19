@@ -8,7 +8,7 @@ from django.views.generic.base import RedirectView
 
 from core.views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView
 
-from config import VERSION, VERSION_RELEASES, CAN_UPGRADE
+from config import VERSION, VERSIONS_AVAILABLE, CAN_UPGRADE
 
 # print('DEBUG', settings.DEBUG)
 
