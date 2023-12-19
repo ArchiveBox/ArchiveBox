@@ -144,10 +144,10 @@
         <script>
             {% if user.is_authenticated and CAN_UPGRADE %}
             if (!localStorage.getItem("bannerDismissed")) {
-                const upgradeVersionTag = "{{VERSION_RELEASES.upgrade_version.tag_name}}"
-                const upgradeVersionURL = "{{VERSION_RELEASES.upgrade_version.html_url}}"
+                const upgradeVersionTag = "{{VERSIONS_AVAILABLE.recommended_version.tag_name}}"
+                const upgradeVersionURL = "{{VERSIONS_AVAILABLE.recommended_version.html_url}}"
                 const currentVersionTag = "{{VERSION}}"
-                const currentVersionURL = "{{VERSION_RELEASES.current_version.html_url}}"
+                const currentVersionURL = "{{VERSIONS_AVAILABLE.recommended_version.html_url}}"
 
                 createBanner(currentVersionTag, currentVersionURL, upgradeVersionTag, upgradeVersionURL)
             }
@@ -159,7 +159,7 @@
                     <p>There's a new version of ArchiveBox available!</p>
                     Your version: <a href=${currentVersionURL}>${currentVersionTag}</a> | New version: <a href=${upgradeVersionURL}>${upgradeVersionTag}</a>
                     <p>
-                    <a href=https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives>Upgrading</a> | <a href=https://github.com/ArchiveBox/ArchiveBox/releases>Changelog</a> | <a href=https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap>Roadmap</a> 
+                    <a href=https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives>Upgrade Instructions</a> | <a href=https://github.com/ArchiveBox/ArchiveBox/releases>Changelog</a> | <a href=https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap>Roadmap</a> 
                     </p>
                     <button id="dismiss-btn">Dismiss</button>
                 `
