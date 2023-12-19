@@ -62,6 +62,7 @@ class SnapshotActionForm(ActionForm):
     tags = forms.ModelMultipleChoiceField(
         queryset=Tag.objects.all(),
         required=False,
+        # WIP: commented out because broken by Django 3.1.2 -> 4.0 migration
         # widget=AutocompleteSelectMultiple(
         #     # AutocompleteTags(),
         #     # AutocompleteTagsAdminStub(),
