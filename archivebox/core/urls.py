@@ -12,6 +12,8 @@ from config import VERSION, VERSION_RELEASES, CAN_UPGRADE
 
 # print('DEBUG', settings.DEBUG)
 
+GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': VERSIONS_AVAILABLE, 'CAN_UPGRADE': CAN_UPGRADE}
+
 urlpatterns = [
     path('public/', PublicIndexView.as_view(), name='public-index'),
 
@@ -31,7 +33,7 @@ urlpatterns = [
 
 
     path('accounts/', include('django.contrib.auth.urls')),
-    path('admin/', admin.site.urls, {'extra_context': {'VERSION': VERSION, 'VERSION_RELEASES': VERSION_RELEASES, 'CAN_UPGRADE': CAN_UPGRADE}}),
+    path('admin/', admin.site.urls, {'extra_context': GLOBAL_CONTEXT}),
 
     path('health/', HealthCheckView.as_view(), name='healthcheck'),
     path('error/', lambda _: 1/0),
