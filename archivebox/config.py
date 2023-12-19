@@ -398,7 +398,14 @@ def get_commit_hash(config) -> Optional[str]:
         commit_hash = git_dir.joinpath(ref).read_text().strip()
         return commit_hash
     except Exception:
-        return None
+        pass
+
+    try:
+        return list((config['PACKAGE_DIR'] / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
+    except Exception:
+        pass
+    
+    return None
 
 def get_build_time(config) -> str:
     if config['IN_DOCKER']:
