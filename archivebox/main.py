@@ -99,7 +99,7 @@ from .config import (
     check_data_folder,
     write_config_file,
     VERSION,
-    VERSION_RELEASES,
+    VERSIONS_AVAILABLE,
     CAN_UPGRADE,
     COMMIT_HASH,
     BUILD_TIME,
@@ -695,8 +695,7 @@ def add(urls: Union[str, List[str]],
         # print(f'    √ Tagged {len(imported_links)} Snapshots with {len(tags)} tags {tags_str}')
 
     if CAN_UPGRADE:
-        hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSION_RELEASES['upgrade_version']['tag_name']} ({VERSION_RELEASES['upgrade_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
-
+        hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSIONS_AVAILABLE['recommended_version']['tag_name']} ({VERSIONS_AVAILABLE['recommended_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
 
     return all_links
 
@@ -1287,7 +1286,7 @@ def schedule(add: bool=False,
                 raise SystemExit(1)
 
     if CAN_UPGRADE:
-        hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSION_RELEASES['upgrade_version']['tag_name']} ({VERSION_RELEASES['upgrade_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
+        hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSIONS_AVAILABLE['recommended_version']['tag_name']} ({VERSIONS_AVAILABLE['recommended_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
 
     
 @enforce_types
