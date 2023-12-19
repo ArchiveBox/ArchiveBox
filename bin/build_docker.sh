@@ -23,6 +23,7 @@ SUPPORTED_PLATFORMS="linux/amd64,linux/arm64,linux/arm/v7"
 TAG_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
 SHORT_VERSION="$(echo "$VERSION" | perl -pe 's/(\d+)\.(\d+)\.(\d+)/$1.$2/g')"
+GIT_SHA=sha-"$(git rev-parse --short HEAD)"
 SELECTED_PLATFORMS="${2:-$SUPPORTED_PLATFORMS}"
 
 echo "[+] Building Docker image: tag=$TAG_NAME version=$SHORT_VERSION arch=$SELECTED_PLATFORMS"
@@ -50,6 +51,7 @@ function create_builder() {
     docker buildx use xbuilder && return 0
     echo "[+] Creating new xbuilder for: $SELECTED_PLATFORMS"
     echo
+    docker pull 'moby/buildkit:buildx-stable-1'
 
     # Switch to buildx builder if already present / previously created
     docker buildx create --name xbuilder --driver docker-container --bootstrap --use --platform "$SELECTED_PLATFORMS" || true
@@ -74,6 +76,7 @@ echo "[+] Generating requirements.txt and pdm.lock from pyproject.toml..."
 pdm lock --group=':all' --strategy="cross_platform" --production
 pdm export --group=':all' --production --without-hashes -o requirements.txt
 
+
 echo "[+] Building archivebox:$VERSION docker image..."
 # docker builder prune
 # docker build . --no-cache -t archivebox-dev \
@@ -83,12 +86,16 @@ docker buildx build --platform "$SELECTED_PLATFORMS" --load . \
                -t archivebox/archivebox:$TAG_NAME \
                -t archivebox/archivebox:$VERSION \
                -t archivebox/archivebox:$SHORT_VERSION \
+               -t archivebox/archivebox:$GIT_SHA \
                -t archivebox/archivebox:latest \
                -t nikisweeting/archivebox \
                -t nikisweeting/archivebox:$TAG_NAME \
                -t nikisweeting/archivebox:$VERSION \
                -t nikisweeting/archivebox:$SHORT_VERSION \
+               -t nikisweeting/archivebox:$GIT_SHA \
                -t nikisweeting/archivebox:latest \
                -t ghcr.io/archivebox/archivebox/archivebox:$TAG_NAME \
                -t ghcr.io/archivebox/archivebox/archivebox:$VERSION \
-               -t ghcr.io/archivebox/archivebox/archivebox:$SHORT_VERSION
+               -t ghcr.io/archivebox/archivebox/archivebox:$SHORT_VERSION \
+               -t ghcr.io/archivebox/archivebox/archivebox:$GIT_SHA \
+               -t ghcr.io/archivebox/archivebox/archivebox:latest

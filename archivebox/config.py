@@ -54,6 +54,7 @@ from .config_stubs import (
 
 ### Pre-Fetch Minimal System Config
 
+TIMEZONE = 'UTC'
 SYSTEM_USER = getpass.getuser() or os.getlogin()
 
 try:
@@ -82,7 +83,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'IN_QEMU':                  {'type': bool,  'default': False},
         'PUID':                     {'type': int,   'default': os.getuid()},
         'PGID':                     {'type': int,   'default': os.getgid()},
-        # TODO: 'SHOW_HINTS':       {'type:  bool,  'default': True},
     },
 
     'GENERAL_CONFIG': {
@@ -377,7 +377,7 @@ ALLOWED_IN_OUTPUT_DIR = {
     'static_index.json',
 }
 
-def get_version(config):
+def get_version(config) -> str:
     try:
         return importlib.metadata.version(__package__ or 'archivebox')
     except importlib.metadata.PackageNotFoundError:
@@ -392,58 +392,76 @@ def get_version(config):
 
     raise Exception('Failed to detect installed archivebox version!')
 
-def get_commit_hash(config):
+def get_commit_hash(config) -> Optional[str]:
+    try:
+        git_dir = config['PACKAGE_DIR'] / '../'
+        ref = (git_dir / 'HEAD').read_text().strip().split(' ')[-1]
+        commit_hash = git_dir.joinpath(ref).read_text().strip()
+        return commit_hash
+    except Exception:
+        pass
+
     try:
         return list((config['PACKAGE_DIR'] / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
     except Exception:
-        return None
+        pass
+    
+    return None
 
-def get_version_releases(config):
+def get_build_time(config) -> str:
+    if config['IN_DOCKER']:
+        docker_build_end_time = Path('/VERSION.txt').read_text().rsplit('BUILD_END_TIME=')[-1].split('\n', 1)[0]
+        return docker_build_end_time
+
+    src_last_modified_unix_timestamp = (config['PACKAGE_DIR'] / 'config.py').stat().st_mtime
+    return datetime.fromtimestamp(src_last_modified_unix_timestamp).strftime('%Y-%m-%d %H:%M:%S %s')
+
+def get_versions_available_on_github(config):
     """
-    returns a dictionary containing the GitHub release data for 
+    returns a dictionary containing the ArchiveBox GitHub release info for
     the recommended upgrade version and the currently installed version
     """
+    
+    # we only want to perform the (relatively expensive) check for new versions
+    # when its most relevant, e.g. when the user runs a long-running command
+    subcommand_run_by_user = sys.argv[3]
+    long_running_commands = ('add', 'schedule', 'update', 'status', 'server')
+    if subcommand_run_by_user not in long_running_commands:
+        return None
+    
     github_releases_api = "https://api.github.com/repos/ArchiveBox/ArchiveBox/releases"
     response = requests.get(github_releases_api)
     if response.status_code != 200:
-        stderr('Failed to get release data from GitHub', color='lightyellow', config=config)
+        stderr(f'[!] Warning: GitHub API call to check for new ArchiveBox version failed! (status={response.status_code})', color='lightyellow', config=config)
         return None
+    all_releases = response.json()
 
-    releases = response.json()
-    installed_version = config['VERSION']
-    installed_version_parts = parse_tag_name(installed_version)
+    installed_version = parse_version_string(config['VERSION'])
 
     # find current version or nearest older version (to link to)
     current_version = None
-    for release in releases:
-        release_parts = parse_tag_name(release["tag_name"])
-        if release_parts <= installed_version_parts :
+    for idx, release in enumerate(all_releases):
+        release_version = parse_version_string(release["tag_name"])
+        if release_version <= installed_version:
             current_version = release
             break
 
-    current_version = current_version if current_version else releases[-1]
+    current_version = current_version or releases[-1]
+    
+    # recommended version is whatever comes after current_version in the release list
+    # (perhaps too conservative to only recommend upgrading one version at a time, but it's safest)
+    try:
+        recommended_version = all_releases[idx+1]
+    except IndexError:
+        recommended_version = None
 
-    # find upgrade version
-    upgrade_version = None
-    smallest_version_diff = parse_tag_name(releases[0]["tag_name"])[1]
-    for release in releases:
-        release_parts = parse_tag_name(release["tag_name"])
-        major_version_diff = release_parts[1] - installed_version_parts[1]
-        if major_version_diff < smallest_version_diff:
-            smallest_version_diff = major_version_diff
-            if smallest_version_diff < 1:
-                break
-            upgrade_version = release
-
-    upgrade_version = upgrade_version if upgrade_version else releases[0]
-
-    return {"upgrade_version": upgrade_version, "current_version": current_version}
+    return {"recommended_version": recommended_version, "current_version": current_version}
 
 def can_upgrade(config):
-    if config['VERSION_RELEASES']:
-        upgrade_version = parse_tag_name(config['VERSION_RELEASES']['upgrade_version']['tag_name'])
-        current_version = parse_tag_name(config['VERSION_RELEASES']['current_version']['tag_name'])
-        return upgrade_version > current_version
+    if config['VERSIONS_AVAILABLE'] and config['VERSIONS_AVAILABLE']['recommended_version']:
+        recommended_version = parse_version_string(config['VERSIONS_AVAILABLE']['recommended_version']['tag_name'])
+        current_version = parse_version_string(config['VERSIONS_AVAILABLE']['current_version']['tag_name'])
+        return recommended_version > current_version
     return False
 
 
@@ -473,11 +491,14 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
-    'VERSION':                  {'default': lambda c: get_version(c)},
-    'VERSION_RELEASES':         {'default': lambda c: get_version_releases(c)},
-    'CAN_UPGRADE':              {'default': lambda c: can_upgrade(c)},
+
+    'VERSION':                  {'default': lambda c: get_version(c).split('+', 1)[0]},
     'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},
+    'BUILD_TIME':               {'default': lambda c: get_build_time(c)},
     
+    'VERSIONS_AVAILABLE':       {'default': lambda c: get_versions_available_on_github(c)},
+    'CAN_UPGRADE':              {'default': lambda c: can_upgrade(c)},
+
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
     'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},
     'PYTHON_VERSION':           {'default': lambda c: '{}.{}.{}'.format(*sys.version_info[:3])},
@@ -487,7 +508,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     
     'SQLITE_BINARY':            {'default': lambda c: inspect.getfile(sqlite3)},
     'SQLITE_VERSION':           {'default': lambda c: sqlite3.version},
-    #'SQLITE_JOURNAL_MODE':      {'default': lambda c: 'wal'},         # set at runtime below, interesting but unused for now
+    #'SQLITE_JOURNAL_MODE':      {'default': lambda c: 'wal'},         # set at runtime below, interesting if changed later but unused for now because its always expected to be wal
     #'SQLITE_OPTIONS':           {'default': lambda c: ['JSON1']},     # set at runtime below
 
     'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
@@ -744,14 +765,11 @@ def load_config(defaults: ConfigDefaultDict,
 
     return extended_config
 
-# def write_config(config: ConfigDict):
 
-#     with open(os.path.join(config['OUTPUT_DIR'], CONFIG_FILENAME), 'w+') as f:
-
-def parse_tag_name(v):
-    """parses a version tag string formatted like 'vx.x.x'"""
+def parse_version_string(version: str) -> Tuple[int, int int]:
+    """parses a version tag string formatted like 'vx.x.x' into (major, minor, patch) ints"""
     base = v.split('+')[0].split('v')[-1] # remove 'v' prefix and '+editable' suffix
-    return tuple(int(part) for part in base.split('.'))
+    return tuple(int(part) for part in base.split('.'))[:3]
 
 
 # Logging Helpers
@@ -840,6 +858,7 @@ def find_chrome_binary() -> Optional[str]:
     # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
     # make sure data dir finding precedence order always matches binary finding order
     default_executable_paths = (
+        # '~/Library/Caches/ms-playwright/chromium-*/chrome-mac/Chromium.app/Contents/MacOS/Chromium',
         'chromium-browser',
         'chromium',
         '/Applications/Chromium.app/Contents/MacOS/Chromium',
@@ -1166,14 +1185,25 @@ if not CONFIG['CHECK_SSL_VALIDITY']:
 
 def check_system_config(config: ConfigDict=CONFIG) -> None:
     ### Check system environment
-    if config['USER'] == 'root':
+    if config['USER'] == 'root' or str(config['PUID']) == "0":
         stderr('[!] ArchiveBox should never be run as root!', color='red')
         stderr('    For more information, see the security overview documentation:')
         stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
+        
+        if config['IN_DOCKER']:
+            attempted_command = ' '.join(sys.argv[:3])
+            stderr('')
+            stderr('    {lightred}Hint{reset}: When using Docker, you must run commands with {green}docker run{reset} instead of {lightyellow}docker exec{reset}, e.g.:'.format(**config['ANSI']))
+            stderr(f'        docker compose run archivebox {attempted_command}')
+            stderr(f'        docker compose exec --user=archivebox archivebox {attempted_command}')
+            stderr('        or')
+            stderr(f'        docker run -it -v ... -p ... archivebox/archivebox {attempted_command}')
+            stderr(f'        docker exec -it --user=archivebox <container id> /bin/bash')
+        
         raise SystemExit(2)
 
     ### Check Python environment
-    if sys.version_info[:3] < (3, 6, 0):
+    if sys.version_info[:3] < (3, 7, 0):
         stderr(f'[X] Python version is not new enough: {config["PYTHON_VERSION"]} (>3.6 is required)', color='red')
         stderr('    See https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
         raise SystemExit(2)
@@ -1249,7 +1279,7 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
 
     if config['USE_YOUTUBEDL'] and config['MEDIA_TIMEOUT'] < 20:
         stderr(f'[!] Warning: MEDIA_TIMEOUT is set too low! (currently set to MEDIA_TIMEOUT={config["MEDIA_TIMEOUT"]} seconds)', color='red')
-        stderr('    Youtube-dl will fail to archive all media if set to less than ~20 seconds.')
+        stderr('    youtube-dl/yt-dlp will fail to archive any media if set to less than ~20 seconds.')
         stderr('    (Setting it somewhere over 60 seconds is recommended)')
         stderr()
         stderr('    If you want to disable media archiving entirely, set SAVE_MEDIA=False instead:')
@@ -1337,8 +1367,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
         with open(settings.ERROR_LOG, "a", encoding='utf-8') as f:
             command = ' '.join(sys.argv)
             ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
-            f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
-
+            f.write(f"\n> {command}; TS={ts} VERSION={config['VERSION']} IN_DOCKER={config['IN_DOCKER']} IS_TTY={config['IS_TTY']}\n")
 
         if check_db:
             # Enable WAL mode in sqlite3
