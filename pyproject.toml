@@ -3,10 +3,9 @@ name = "archivebox"
 version = "0.7.1"
 description = "Self-hosted internet archiving solution."
 authors = [
-    {name = "Nick Sweeting", email = "setup.py@archivebox.io"},
+    {name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"},
 ]
 dependencies = [
-    # "setuptools>=68.2.2",
     "croniter>=0.3.34",
     "dateparser>=1.0.0",
     "django-extensions>=3.0.3",
@@ -16,8 +15,7 @@ dependencies = [
     "python-crontab>=2.5.1",
     "requests>=2.24.0",
     "w3lib>=1.22.0",
-    # "youtube-dl>=2021.04.17",
-    "yt-dlp>=2021.4.11",
+    "yt-dlp>=2023.10.13",
     # "playwright>=1.39.0; platform_machine != 'armv7l'",
 ]
 requires-python = ">=3.9"
@@ -41,6 +39,9 @@ classifiers = [
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
     "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
@@ -56,34 +57,26 @@ classifiers = [
 # pdm lock -G:all
 # pdm install -G:all
 [tool.pdm.dev-dependencies]
-build = [
-    "setuptools",
+dev = [
+    # build
+    "setuptools>=68.2.2",
     "wheel",
     "pdm",
-    # "bottle",
-    # "stdeb",
-    # "twine",
-]
-lint = [
-    "flake8",
-    "mypy",
-    "django-stubs",
-]
-test = [
-    "pytest",
-]
-debug = [
-    "django-debug-toolbar",
-    "djdt_flamegraph",
-    "ipdb",
-]
-doc = [
+    "homebrew-pypi-poet>=0.10.0",
+    # docs
     "recommonmark",
     "sphinx",
     "sphinx-rtd-theme",
-]
-dev = [
-    "homebrew-pypi-poet>=0.10.0",
+    # debug
+    "django-debug-toolbar",
+    "djdt_flamegraph",
+    "ipdb",
+    # test
+    "pytest",
+    # lint
+    "flake8",
+    "mypy",
+    "django-stubs",
 ]
 
 [tool.pdm.scripts]

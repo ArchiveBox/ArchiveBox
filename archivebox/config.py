@@ -391,7 +391,7 @@ def get_version(config):
 
     raise Exception('Failed to detect installed archivebox version!')
 
-def get_commit_hash(config):
+def get_commit_hash(config) -> Optional[str]:
     try:
         git_dir = config['PACKAGE_DIR'] / '../'
         ref = (git_dir / 'HEAD').read_text().strip().split(' ')[-1]
@@ -399,6 +399,14 @@ def get_commit_hash(config):
         return commit_hash
     except Exception:
         return None
+
+def get_build_time(config) -> str:
+    if config['IN_DOCKER']:
+        docker_build_end_time = Path('/VERSION.txt').read_text().rsplit('BUILD_END_TIME=')[-1].split('\n', 1)[0]
+        return docker_build_end_time
+
+    src_last_modified_unix_timestamp = (config['PACKAGE_DIR'] / 'config.py').stat().st_mtime
+    return datetime.fromtimestamp(src_last_modified_unix_timestamp).strftime('%Y-%m-%d %H:%M:%S %s')
 
 ############################## Derived Config ##################################
 
@@ -426,8 +434,9 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
-    'VERSION':                  {'default': lambda c: get_version(c)},
+    'VERSION':                  {'default': lambda c: get_version(c).split('+', 1)[0]},
     'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},
+    'BUILD_TIME':               {'default': lambda c: get_build_time(c)},
     
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
     'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},
@@ -1113,14 +1122,25 @@ if not CONFIG['CHECK_SSL_VALIDITY']:
 
 def check_system_config(config: ConfigDict=CONFIG) -> None:
     ### Check system environment
-    if config['USER'] == 'root':
+    if config['USER'] == 'root' or str(config['PUID']) == "0":
         stderr('[!] ArchiveBox should never be run as root!', color='red')
         stderr('    For more information, see the security overview documentation:')
         stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
+        
+        if config['IN_DOCKER']:
+            attempted_command = ' '.join(sys.argv[:3])
+            stderr('')
+            stderr('    {lightred}Hint{reset}: When using Docker, you must run commands with {green}docker run{reset} instead of {lightyellow}docker exec{reset}, e.g.:'.format(**config['ANSI']))
+            stderr(f'        docker compose run archivebox {attempted_command}')
+            stderr(f'        docker compose exec --user=archivebox archivebox {attempted_command}')
+            stderr('        or')
+            stderr(f'        docker run -it -v ... -p ... archivebox/archivebox {attempted_command}')
+            stderr(f'        docker exec -it --user=archivebox <container id> /bin/bash')
+        
         raise SystemExit(2)
 
     ### Check Python environment
-    if sys.version_info[:3] < (3, 6, 0):
+    if sys.version_info[:3] < (3, 7, 0):
         stderr(f'[X] Python version is not new enough: {config["PYTHON_VERSION"]} (>3.6 is required)', color='red')
         stderr('    See https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
         raise SystemExit(2)
@@ -1284,8 +1304,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
         with open(settings.ERROR_LOG, "a", encoding='utf-8') as f:
             command = ' '.join(sys.argv)
             ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
-            f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
-
+            f.write(f"\n> {command}; TS={ts} VERSION={config['VERSION']} IN_DOCKER={config['IN_DOCKER']} IS_TTY={config['IS_TTY']}\n")
 
         if check_db:
             # Enable WAL mode in sqlite3
