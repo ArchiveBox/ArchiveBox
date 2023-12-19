@@ -393,7 +393,11 @@ def log_link_archiving_finished(link: "Link", link_dir: str, is_new: bool, stats
     else:
         _LAST_RUN_STATS.succeeded += 1
 
-    size = get_dir_size(link_dir)
+    try:
+        size = get_dir_size(link_dir)
+    except FileNotFoundError:
+        size = (0, None, '0')
+
     end_ts = datetime.now(timezone.utc)
     duration = str(end_ts - start_ts).split('.')[0]
     print('        {black}{} files ({}) in {}s {reset}'.format(size[2], printable_filesize(size[0]), duration, **ANSI))

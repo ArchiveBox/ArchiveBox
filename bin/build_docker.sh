@@ -51,6 +51,7 @@ function create_builder() {
     docker buildx use xbuilder && return 0
     echo "[+] Creating new xbuilder for: $SELECTED_PLATFORMS"
     echo
+    docker pull 'moby/buildkit:buildx-stable-1'
 
     # Switch to buildx builder if already present / previously created
     docker buildx create --name xbuilder --driver docker-container --bootstrap --use --platform "$SELECTED_PLATFORMS" || true
@@ -74,6 +75,7 @@ check_platforms || (recreate_builder && check_platforms) || exit 1
 echo "[+] Generating requirements.txt and pdm.lock from pyproject.toml..."
 pdm lock --group=':all' --strategy="cross_platform" --production
 pdm export --group=':all' --production --without-hashes -o requirements.txt
+
 
 echo "[+] Building archivebox:$VERSION docker image..."
 # docker builder prune

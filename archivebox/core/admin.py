@@ -48,22 +48,25 @@ class TagInline(admin.TabularInline):
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import AutocompleteSelectMultiple
 
-class AutocompleteTags:
-    model = Tag
-    search_fields = ['name']
+# WIP: commented out because broken by Django 3.1.2 -> 4.0 migration
+# class AutocompleteTags:
+#     model = Tag
+#     search_fields = ['name']
+#     name = 'tags'
 
-class AutocompleteTagsAdminStub:
-    name = 'admin'
+# class AutocompleteTagsAdminStub:
+#     name = 'admin'
 
 
 class SnapshotActionForm(ActionForm):
     tags = forms.ModelMultipleChoiceField(
         queryset=Tag.objects.all(),
         required=False,
-        widget=AutocompleteSelectMultiple(
-            AutocompleteTags(),
-            AutocompleteTagsAdminStub(),
-        ),
+        # WIP: commented out because broken by Django 3.1.2 -> 4.0 migration
+        # widget=AutocompleteSelectMultiple(
+        #     # AutocompleteTags(),
+        #     # AutocompleteTagsAdminStub(),
+        # ),
     )
 
     # TODO: allow selecting actions for specific extractors? is this useful?
