@@ -12,7 +12,26 @@
         {% endblock %}
         
         <link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
-        {% block extrastyle %}{% endblock %}
+        {% block extrastyle %}
+        <style>
+            #upgrade-banner {
+                position: fixed;
+                right: 20px;
+                bottom: 20px;
+                background-color: #f8f8f8;
+                color: #333333;
+                border: 2px solid #772948;
+                padding: 10px 20px;
+                z-index: 1000;
+                text-align: center;
+            }
+            #dismiss-btn {
+                background: #aa1e55;
+                color: white;
+                cursor: pointer;
+            }
+        </style>
+        {% endblock %}
         
         {% if LANGUAGE_BIDI %}
             <link rel="stylesheet" type="text/css" href="{% block stylesheet_rtl %}{% static "admin/css/rtl.css" %}{% endblock %}">
@@ -123,6 +142,41 @@
         </div>
 
         <script>
+            {% if user.is_authenticated and user.is_superuser and CAN_UPGRADE %}
+            if (!localStorage.getItem("bannerDismissed")) {
+                const upgradeVersionTag = "{{VERSIONS_AVAILABLE.recommended_version.tag_name}}"
+                const upgradeVersionURL = "{{VERSIONS_AVAILABLE.recommended_version.html_url}}"
+                const currentVersionTag = "{{VERSION}}"
+                const currentVersionURL = "{{VERSIONS_AVAILABLE.recommended_version.html_url}}"
+
+                createBanner(currentVersionTag, currentVersionURL, upgradeVersionTag, upgradeVersionURL)
+            }
+
+            function createBanner(currentVersionTag, currentVersionURL, upgradeVersionTag, upgradeVersionURL) {
+                const banner = document.createElement('div')
+                banner.setAttribute('id', 'upgrade-banner');
+                banner.innerHTML = `
+                    <p>There's a new version of ArchiveBox available!</p>
+                    Your version: <a href=${currentVersionURL}>${currentVersionTag}</a> | New version: <a href=${upgradeVersionURL}>${upgradeVersionTag}</a>
+                    <p>
+                    <a href=https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives>Upgrade Instructions</a> | <a href=https://github.com/ArchiveBox/ArchiveBox/releases>Changelog</a> | <a href=https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap>Roadmap</a> 
+                    </p>
+                    <button id="dismiss-btn">Dismiss</button>
+                `
+                document.body.appendChild(banner);
+                const dismissButton = document.querySelector("#dismiss-btn")
+                if (dismissButton) {
+                    dismissButton.addEventListener("click", dismissBanner)
+                }
+            }
+
+            function dismissBanner() {
+                const banner = document.getElementById("upgrade-banner")
+                banner.style.display = "none"
+                localStorage.setItem("bannerDismissed", "true")
+            }
+            {% endif %}
+
             $ = django.jQuery;
             $.fn.reverse = [].reverse;
 

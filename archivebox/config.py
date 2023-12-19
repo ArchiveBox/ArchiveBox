@@ -30,6 +30,7 @@ import inspect
 import getpass
 import platform
 import shutil
+import requests
 import django
 from sqlite3 import dbapi2 as sqlite3
 
@@ -376,7 +377,7 @@ ALLOWED_IN_OUTPUT_DIR = {
     'static_index.json',
 }
 
-def get_version(config):
+def get_version(config) -> str:
     try:
         return importlib.metadata.version(__package__ or 'archivebox')
     except importlib.metadata.PackageNotFoundError:
@@ -415,6 +416,55 @@ def get_build_time(config) -> str:
     src_last_modified_unix_timestamp = (config['PACKAGE_DIR'] / 'config.py').stat().st_mtime
     return datetime.fromtimestamp(src_last_modified_unix_timestamp).strftime('%Y-%m-%d %H:%M:%S %s')
 
+def get_versions_available_on_github(config):
+    """
+    returns a dictionary containing the ArchiveBox GitHub release info for
+    the recommended upgrade version and the currently installed version
+    """
+    
+    # we only want to perform the (relatively expensive) check for new versions
+    # when its most relevant, e.g. when the user runs a long-running command
+    subcommand_run_by_user = sys.argv[3]
+    long_running_commands = ('add', 'schedule', 'update', 'status', 'server')
+    if subcommand_run_by_user not in long_running_commands:
+        return None
+    
+    github_releases_api = "https://api.github.com/repos/ArchiveBox/ArchiveBox/releases"
+    response = requests.get(github_releases_api)
+    if response.status_code != 200:
+        stderr(f'[!] Warning: GitHub API call to check for new ArchiveBox version failed! (status={response.status_code})', color='lightyellow', config=config)
+        return None
+    all_releases = response.json()
+
+    installed_version = parse_version_string(config['VERSION'])
+
+    # find current version or nearest older version (to link to)
+    current_version = None
+    for idx, release in enumerate(all_releases):
+        release_version = parse_version_string(release["tag_name"])
+        if release_version <= installed_version:
+            current_version = release
+            break
+
+    current_version = current_version or releases[-1]
+    
+    # recommended version is whatever comes after current_version in the release list
+    # (perhaps too conservative to only recommend upgrading one version at a time, but it's safest)
+    try:
+        recommended_version = all_releases[idx+1]
+    except IndexError:
+        recommended_version = None
+
+    return {"recommended_version": recommended_version, "current_version": current_version}
+
+def can_upgrade(config):
+    if config['VERSIONS_AVAILABLE'] and config['VERSIONS_AVAILABLE']['recommended_version']:
+        recommended_version = parse_version_string(config['VERSIONS_AVAILABLE']['recommended_version']['tag_name'])
+        current_version = parse_version_string(config['VERSIONS_AVAILABLE']['current_version']['tag_name'])
+        return recommended_version > current_version
+    return False
+
+
 ############################## Derived Config ##################################
 
 
@@ -441,10 +491,14 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
+
     'VERSION':                  {'default': lambda c: get_version(c).split('+', 1)[0]},
     'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},
     'BUILD_TIME':               {'default': lambda c: get_build_time(c)},
     
+    'VERSIONS_AVAILABLE':       {'default': lambda c: get_versions_available_on_github(c)},
+    'CAN_UPGRADE':              {'default': lambda c: can_upgrade(c)},
+
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
     'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},
     'PYTHON_VERSION':           {'default': lambda c: '{}.{}.{}'.format(*sys.version_info[:3])},
@@ -454,7 +508,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     
     'SQLITE_BINARY':            {'default': lambda c: inspect.getfile(sqlite3)},
     'SQLITE_VERSION':           {'default': lambda c: sqlite3.version},
-    #'SQLITE_JOURNAL_MODE':      {'default': lambda c: 'wal'},         # set at runtime below, interesting but unused for now
+    #'SQLITE_JOURNAL_MODE':      {'default': lambda c: 'wal'},         # set at runtime below, interesting if changed later but unused for now because its always expected to be wal
     #'SQLITE_OPTIONS':           {'default': lambda c: ['JSON1']},     # set at runtime below
 
     'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
@@ -711,9 +765,11 @@ def load_config(defaults: ConfigDefaultDict,
 
     return extended_config
 
-# def write_config(config: ConfigDict):
 
-#     with open(os.path.join(config['OUTPUT_DIR'], CONFIG_FILENAME), 'w+') as f:
+def parse_version_string(version: str) -> Tuple[int, int int]:
+    """parses a version tag string formatted like 'vx.x.x' into (major, minor, patch) ints"""
+    base = v.split('+')[0].split('v')[-1] # remove 'v' prefix and '+editable' suffix
+    return tuple(int(part) for part in base.split('.'))[:3]
 
 
 # Logging Helpers
