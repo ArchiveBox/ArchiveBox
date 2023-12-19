@@ -470,6 +470,8 @@ def can_upgrade(config):
 
 ALLOWDENYLIST_REGEX_FLAGS: int = re.IGNORECASE | re.UNICODE | re.MULTILINE
 
+# These are derived/computed values calculated *after* all user-provided config values are ingested
+# they appear in `archivebox config` output and are intended to be read-only for the user
 DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'TERM_WIDTH':               {'default': lambda c: lambda: shutil.get_terminal_size((100, 10)).columns},
     'USER':                     {'default': lambda c: SYSTEM_USER},
@@ -488,13 +490,13 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (Path(c['CHROME_USER_DATA_DIR']).resolve() if c['CHROME_USER_DATA_DIR'] else None)},   # None means unset, so we autodetect it with find_chrome_Data_dir(), but emptystring '' means user manually set it to '', and we should store it as None
     'URL_DENYLIST_PTN':         {'default': lambda c: c['URL_DENYLIST'] and re.compile(c['URL_DENYLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
     'URL_ALLOWLIST_PTN':        {'default': lambda c: c['URL_ALLOWLIST'] and re.compile(c['URL_ALLOWLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
-    'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},
+    'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},  # exec is always needed to list directories
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
 
-    'VERSION':                  {'default': lambda c: get_version(c).split('+', 1)[0]},
-    'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},
-    'BUILD_TIME':               {'default': lambda c: get_build_time(c)},
+    'VERSION':                  {'default': lambda c: get_version(c).split('+', 1)[0]},     # remove +editable from user-displayed version string
+    'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},                  # short git commit hash of codebase HEAD commit
+    'BUILD_TIME':               {'default': lambda c: get_build_time(c)},                   # docker build completed time or python src last modified time
     
     'VERSIONS_AVAILABLE':       {'default': lambda c: get_versions_available_on_github(c)},
     'CAN_UPGRADE':              {'default': lambda c: can_upgrade(c)},
@@ -583,47 +585,60 @@ def load_config_val(key: str,
                     config_file_vars: Optional[Dict[str, str]]=None) -> ConfigValue:
     """parse bool, int, and str key=value pairs from env"""
 
+    assert isinstance(config, dict)
 
+    is_read_only = type is None
+    if is_read_only:
+        if callable(default):
+            return default(config)
+        return default
+
+    # get value from environment variables or config files
     config_keys_to_check = (key, *(aliases or ()))
+    val = None
     for key in config_keys_to_check:
         if env_vars:
             val = env_vars.get(key)
             if val:
                 break
+
         if config_file_vars:
             val = config_file_vars.get(key)
             if val:
                 break
 
-    if type is None or val is None:
+    is_unset = val is None
+    if is_unset:
         if callable(default):
-            assert isinstance(config, dict)
             return default(config)
-
         return default
 
-    elif type is bool:
-        if val.lower() in ('true', 'yes', '1'):
+    # calculate value based on expected type
+    BOOL_TRUEIES = ('true', 'yes', '1')
+    BOOL_FALSEIES = ('false', 'no', '0')
+
+    if type is bool:
+        if val.lower() in BOOL_TRUEIES:
             return True
-        elif val.lower() in ('false', 'no', '0'):
+        elif val.lower() in BOOL_FALSEIES:
             return False
         else:
             raise ValueError(f'Invalid configuration option {key}={val} (expected a boolean: True/False)')
 
     elif type is str:
-        if val.lower() in ('true', 'false', 'yes', 'no', '1', '0'):
-            raise ValueError(f'Invalid configuration option {key}={val} (expected a string)')
+        if val.lower() in (*BOOL_TRUEIES, *BOOL_FALSEIES):
+            raise ValueError(f'Invalid configuration option {key}={val} (expected a string, but value looks like a boolean)')
         return val.strip()
 
     elif type is int:
-        if not val.isdigit():
+        if not val.strip().isdigit():
             raise ValueError(f'Invalid configuration option {key}={val} (expected an integer)')
-        return int(val)
+        return int(val.strip())
 
     elif type is list or type is dict:
         return json.loads(val)
 
-    raise Exception('Config values can only be str, bool, int or json')
+    raise Exception('Config values can only be str, bool, int, or json')
 
 
 def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:

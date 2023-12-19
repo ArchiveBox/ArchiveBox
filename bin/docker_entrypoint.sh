@@ -33,9 +33,9 @@ export DEFAULT_PGID=911
 # If user tires to set PUID and PGID to root values manually, catch and reject because root is not allowed
 if [[ "$PUID" == "0" ]] || [[ "$PGID" == "0" ]]; then
     echo -e "\n[X] Error: Got PUID=$PUID and PGID=$PGID but ArchiveBox is not allowed to be run as root, please change or unset PUID & PGID and try again." > /dev/stderr
-    echo -e "    Hint: some NFS/SMB/FUSE/etc. filesystems force-remap all permissions, leave PUID/PGID blank" > /dev/stderr
-    echo -e "          or set PUID/PGID to the same value as the user/group they remap to (e.g. $DEFAULT_PUID:$DEFAULT_PGID)." > /dev/stderr
-    echo -e "    https://linux.die.net/man/8/mount.cifs#:~:text=does%20not%20provide%20unix%20ownership" > /dev/stderr
+    echo -e "    Hint: some NFS/SMB/FUSE/etc. filesystems force-remap/ignore all permissions," > /dev/stderr
+        echo -e "          leave PUID/PGID unset, or use values the filesystem prefers (defaults to $DEFAULT_PUID:$DEFAULT_PGID)" > /dev/stderr
+        echo -e "    https://linux.die.net/man/8/mount.cifs#:~:text=does%20not%20provide%20unix%20ownership" > /dev/stderr
     exit 3
 fi
 
@@ -69,6 +69,9 @@ if [[ -d "$DATA_DIR/archive" ]]; then
         echo -e "       \$ chown -R $PUID:$PGID ./data\n" > /dev/stderr
         echo -e "    Configure the PUID & PGID environment variables to change the desired owner:" > /dev/stderr
         echo -e "       https://docs.linuxserver.io/general/understanding-puid-and-pgid\n" > /dev/stderr
+        echo -e "    Hint: some NFS/SMB/FUSE/etc. filesystems force-remap/ignore all permissions," > /dev/stderr
+        echo -e "          leave PUID/PGID unset, or use values the filesystem prefers (defaults to $DEFAULT_PUID:$DEFAULT_PGID)" > /dev/stderr
+        echo -e "    https://linux.die.net/man/8/mount.cifs#:~:text=does%20not%20provide%20unix%20ownership" > /dev/stderr
         exit 3
     fi
 else
@@ -89,7 +92,7 @@ chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/*
 rm -Rf "$PLAYWRIGHT_BROWSERS_PATH/permissions_test_safe_to_delete"
 
 
-# (this check is written in blood, QEMU silently breaks things in ways that are not obvious)
+# (this check is written in blood in 2023, QEMU silently breaks things in ways that are not obvious)
 export IN_QEMU="$(pmap 1 | grep qemu >/dev/null && echo 'True' || echo 'False')"
 if [[ "$IN_QEMU" == "True" ]]; then
     echo -e "\n[!] Warning: Running $(uname -m) docker image using QEMU emulation, some things will break!" > /dev/stderr
@@ -100,9 +103,9 @@ fi
 
 # Drop permissions to run commands as the archivebox user
 if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == "cat" || "$1" == "archivebox" ]]; then
-    # handle "docker run archivebox /some/non-archivebox/command --with=some args" by passing args directly to bash -c
+    # handle "docker run archivebox /bin/somecommand --with=some args" by passing args directly to bash -c
     # e.g. "docker run archivebox archivebox init:
-    #      "docker run archivebox /venv/bin/archivebox-alt init"
+    #      "docker run archivebox /venv/bin/ipython3"
     #      "docker run archivebox /bin/bash -c '...'"
     #      "docker run archivebox cat /VERSION.txt"
     exec gosu "$PUID" bash -c "$*"
