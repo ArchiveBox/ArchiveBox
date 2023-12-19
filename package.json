@@ -7,7 +7,7 @@
   "license": "MIT",
   "dependencies": {
     "@postlight/parser": "^2.2.3",
-    "readability-extractor": "git+https://github.com/ArchiveBox/readability-extractor.git",
-    "single-file-cli": "^1.1.12"
+    "readability-extractor": "github:ArchiveBox/readability-extractor",
+    "single-file-cli": "^1.1.45"
   }
 }

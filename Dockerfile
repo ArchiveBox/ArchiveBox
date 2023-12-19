@@ -45,7 +45,7 @@ ENV TZ=UTC \
 
 # Version config
 ENV PYTHON_VERSION=3.11 \
-    NODE_VERSION=21
+    NODE_VERSION=20
 
 # User config
 ENV ARCHIVEBOX_USER="archivebox" \
