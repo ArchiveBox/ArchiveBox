@@ -48,6 +48,7 @@ class TagInline(admin.TabularInline):
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import AutocompleteSelectMultiple
 
+# WIP: commented out because broken by Django 3.1.2 -> 4.0 migration
 # class AutocompleteTags:
 #     model = Tag
 #     search_fields = ['name']
