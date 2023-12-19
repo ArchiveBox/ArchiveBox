@@ -47,10 +47,10 @@ Without active preservation effort, everything on the internet eventually dissap
 
 💾 **It saves snapshots of the URLs you feed it in several redundant formats.**  
 It also detects any content featured *inside* each webpage & extracts it out into a folder:
-- `HTML/Generic Websites -> HTML, PDF, PNG, WARC, Singlefile`
+- `HTML/Generic websites -> HTML, PDF, PNG, WARC, Singlefile`
 - `YouTube/SoundCloud/etc. -> MP3/MP4 + subtitles, description, thumbnail`
-- `news articles -> article body TXT + title, author, featured images`
-- `github/gitlab/etc. links -> git cloned source code`
+- `News articles -> article body TXT + title, author, featured images`
+- `Github/Gitlab/etc. links -> git cloned source code`
 - *[and more...](#output-formats)*
 
 It uses normal filesystem folders to organize archives (no complicated proprietary formats), and offers a CLI + web UI.  
@@ -151,7 +151,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 # Quickstart
 
-**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker) &nbsp; **👾&nbsp; CPUs:** `amd64` (`x86_64`), `arm64` (`arm8`), `arm7` <sup>(raspi>=3)</sup>
+**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker) &nbsp; **👾&nbsp; CPUs:** `amd64` (`x86_64`), `arm64` (`arm8`), `arm7` <sup>(raspi>=3)</sup><br/>
 <i>Note: On `arm7`, the `playwright` package, provides easy `chromium` management, is not yet available. Do it manually with alternative methods.</i>
 
 <br/>
