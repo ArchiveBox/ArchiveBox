@@ -142,7 +142,7 @@
         </div>
 
         <script>
-            {% if user.is_authenticated and CAN_UPGRADE %}
+            {% if user.is_authenticated and user.is_superuser and CAN_UPGRADE %}
             if (!localStorage.getItem("bannerDismissed")) {
                 const upgradeVersionTag = "{{VERSIONS_AVAILABLE.recommended_version.tag_name}}"
                 const upgradeVersionURL = "{{VERSIONS_AVAILABLE.recommended_version.html_url}}"
