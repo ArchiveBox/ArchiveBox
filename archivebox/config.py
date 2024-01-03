@@ -52,26 +52,6 @@ from .config_stubs import (
 )
 
 
-### Pre-Fetch Minimal System Config
-
-TIMEZONE = 'UTC'
-SYSTEM_USER = getpass.getuser() or os.getlogin()
-
-try:
-    import pwd
-    SYSTEM_USER = pwd.getpwuid(os.geteuid()).pw_name or SYSTEM_USER
-except KeyError:
-    # Process' UID might not map to a user in cases such as running the Docker image
-    # (where `archivebox` is 999) as a different UID.
-    pass
-except ModuleNotFoundError:
-    # pwd is only needed for some linux systems, doesn't exist on windows
-    pass
-except Exception:
-    # this should never happen, uncomment to debug
-    # raise
-    pass
-
 ############################### Config Schema ##################################
 
 CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
@@ -377,7 +357,32 @@ ALLOWED_IN_OUTPUT_DIR = {
     'static_index.json',
 }
 
-def get_version(config) -> str:
+
+ALLOWDENYLIST_REGEX_FLAGS: int = re.IGNORECASE | re.UNICODE | re.MULTILINE
+
+
+############################## Version Config ##################################
+
+def get_system_user():
+    SYSTEM_USER = getpass.getuser() or os.getlogin()
+    try:
+        import pwd
+        return pwd.getpwuid(os.geteuid()).pw_name or SYSTEM_USER
+    except KeyError:
+        # Process' UID might not map to a user in cases such as running the Docker image
+        # (where `archivebox` is 999) as a different UID.
+        pass
+    except ModuleNotFoundError:
+        # pwd doesn't exist on windows
+        pass
+    except Exception:
+        # this should never happen, uncomment to debug
+        # raise
+        pass
+
+    return SYSTEM_USER
+
+def get_version(config):
     try:
         return importlib.metadata.version(__package__ or 'archivebox')
     except importlib.metadata.PackageNotFoundError:
@@ -467,14 +472,11 @@ def can_upgrade(config):
 
 ############################## Derived Config ##################################
 
-
-ALLOWDENYLIST_REGEX_FLAGS: int = re.IGNORECASE | re.UNICODE | re.MULTILINE
-
 # These are derived/computed values calculated *after* all user-provided config values are ingested
 # they appear in `archivebox config` output and are intended to be read-only for the user
 DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'TERM_WIDTH':               {'default': lambda c: lambda: shutil.get_terminal_size((100, 10)).columns},
-    'USER':                     {'default': lambda c: SYSTEM_USER},
+    'USER':                     {'default': lambda c: get_system_user()},
     'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
 
     'PACKAGE_DIR':              {'default': lambda c: Path(__file__).resolve().parent},
