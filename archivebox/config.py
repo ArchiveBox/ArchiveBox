@@ -429,7 +429,7 @@ def get_versions_available_on_github(config):
     
     # we only want to perform the (relatively expensive) check for new versions
     # when its most relevant, e.g. when the user runs a long-running command
-    subcommand_run_by_user = sys.argv[3]
+    subcommand_run_by_user = sys.argv[3] if len(sys.argv) > 3 else 'help'
     long_running_commands = ('add', 'schedule', 'update', 'status', 'server')
     if subcommand_run_by_user not in long_running_commands:
         return None
@@ -446,7 +446,7 @@ def get_versions_available_on_github(config):
     # find current version or nearest older version (to link to)
     current_version = None
     for idx, release in enumerate(all_releases):
-        release_version = parse_version_string(release["tag_name"])
+        release_version = parse_version_string(release['tag_name'])
         if release_version <= installed_version:
             current_version = release
             break
@@ -460,7 +460,7 @@ def get_versions_available_on_github(config):
     except IndexError:
         recommended_version = None
 
-    return {"recommended_version": recommended_version, "current_version": current_version}
+    return {'recommended_version': recommended_version, 'current_version': current_version}
 
 def can_upgrade(config):
     if config['VERSIONS_AVAILABLE'] and config['VERSIONS_AVAILABLE']['recommended_version']:
@@ -783,7 +783,7 @@ def load_config(defaults: ConfigDefaultDict,
     return extended_config
 
 
-def parse_version_string(version: str) -> Tuple[int, int int]:
+def parse_version_string(version: str) -> Tuple[int, int, int]:
     """parses a version tag string formatted like 'vx.x.x' into (major, minor, patch) ints"""
     base = v.split('+')[0].split('v')[-1] # remove 'v' prefix and '+editable' suffix
     return tuple(int(part) for part in base.split('.'))[:3]
