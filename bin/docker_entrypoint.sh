@@ -31,7 +31,7 @@ export DEFAULT_PUID=911
 export DEFAULT_PGID=911
 
 # If user tires to set PUID and PGID to root values manually, catch and reject because root is not allowed
-if [[ "$PUID" == "0" ]] || [[ "$PGID" == "0" ]]; then
+if [[ "$PUID" == "0" ]]; then
     echo -e "\n[X] Error: Got PUID=$PUID and PGID=$PGID but ArchiveBox is not allowed to be run as root, please change or unset PUID & PGID and try again." > /dev/stderr
     echo -e "    Hint: some NFS/SMB/FUSE/etc. filesystems force-remap/ignore all permissions," > /dev/stderr
         echo -e "          leave PUID/PGID unset, or use values the filesystem prefers (defaults to $DEFAULT_PUID:$DEFAULT_PGID)" > /dev/stderr
@@ -45,7 +45,6 @@ export DETECTED_PGID="$(stat -c '%g' "$DATA_DIR/logs/errors.log" 2>/dev/null || 
 
 # If data directory exists but is owned by root, use defaults instead of root because root is not allowed
 [[ "$DETECTED_PUID" == "0" ]] && export DETECTED_PUID="$DEFAULT_PUID"
-[[ "$DETECTED_PGID" == "0" ]] && export DETECTED_PGID="$DEFAULT_PGID"
 
 # Set archivebox user and group ids to desired PUID/PGID
 usermod -o -u "${PUID:-$DETECTED_PUID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
