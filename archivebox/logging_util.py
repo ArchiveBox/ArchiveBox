@@ -448,12 +448,18 @@ def log_archive_method_finished(result: "ArchiveResult"):
                 for line in list(hints)[:5] if line.strip()
             )
 
+        docker_hints = ()
+        if IN_DOCKER:
+            docker_hints = (
+                '  docker run -it -v $PWD/data:/data archivebox/archivebox /bin/bash',
+            )
 
         # Collect and prefix output lines with indentation
         output_lines = [
             *hint_header,
             *hints,
             '{}Run to see full output:{}'.format(ANSI['lightred'], ANSI['reset']),
+            *docker_hints,
             *(['    cd {};'.format(result.pwd)] if result.pwd else []),
             '    {}'.format(quoted_cmd),
         ]
