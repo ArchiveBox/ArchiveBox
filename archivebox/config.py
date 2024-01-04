@@ -399,7 +399,7 @@ def get_version(config):
 
 def get_commit_hash(config) -> Optional[str]:
     try:
-        git_dir = config['PACKAGE_DIR'] / '../'
+        git_dir = config['PACKAGE_DIR'] / '../.git'
         ref = (git_dir / 'HEAD').read_text().strip().split(' ')[-1]
         commit_hash = git_dir.joinpath(ref).read_text().strip()
         return commit_hash
