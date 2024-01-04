@@ -1,13 +1,13 @@
 {
   "name": "archivebox",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "ArchiveBox: The self-hosted internet archive",
   "author": "Nick Sweeting <archivebox-npm@sweeting.me>",
   "repository": "github:ArchiveBox/ArchiveBox",
   "license": "MIT",
   "dependencies": {
     "@postlight/parser": "^2.2.3",
-    "readability-extractor": "git+https://github.com/ArchiveBox/readability-extractor.git",
-    "single-file-cli": "^1.1.12"
+    "readability-extractor": "github:ArchiveBox/readability-extractor",
+    "single-file-cli": "^1.1.46"
   }
 }
