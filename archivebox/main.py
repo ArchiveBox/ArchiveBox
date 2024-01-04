@@ -604,7 +604,7 @@ def add(urls: Union[str, List[str]],
         out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
-    from core.models import Tag
+    from core.models import Snapshot, Tag
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
 
@@ -648,6 +648,19 @@ def add(urls: Union[str, List[str]],
     write_main_index(links=new_links, out_dir=out_dir)
     all_links = load_main_index(out_dir=out_dir)
 
+    tags = [
+        Tag.objects.get_or_create(name=name.strip())[0]
+        for name in tag.split(',')
+        if name.strip()
+    ]
+    if tags:
+        for link in imported_links:
+            snapshot = Snapshot.objects.get(url=link.url)
+            snapshot.tags.add(*tags)
+            snapshot.tags_str(nocache=True)
+            snapshot.save()
+        # print(f'    √ Tagged {len(imported_links)} Snapshots with {len(tags)} tags {tags_str}')
+
     if index_only:
         # mock archive all the links using the fake index_only extractor method in order to update their state
         if overwrite:
@@ -678,21 +691,6 @@ def add(urls: Union[str, List[str]],
         elif new_links:
             stderr(f'[*] [{ts}] Archiving {len(new_links)}/{len(all_links)} URLs from added set...', color='green')
             archive_links(new_links, overwrite=False, **archive_kwargs)
-
-
-    # add any tags to imported links
-    tags = [
-        Tag.objects.get_or_create(name=name.strip())[0]
-        for name in tag.split(',')
-        if name.strip()
-    ]
-    if tags:
-        for link in imported_links:
-            snapshot = link.as_snapshot()
-            snapshot.tags.add(*tags)
-            snapshot.tags_str(nocache=True)
-            snapshot.save()
-        # print(f'    √ Tagged {len(imported_links)} Snapshots with {len(tags)} tags {tags_str}')
 
     if CAN_UPGRADE:
         hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSIONS_AVAILABLE['recommended_version']['tag_name']} ({VERSIONS_AVAILABLE['recommended_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")

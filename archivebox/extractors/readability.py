@@ -67,7 +67,6 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
             temp_doc.name,
             link.url,
         ]
-
         result = run(cmd, cwd=out_dir, timeout=timeout)
         try:
             result_json = json.loads(result.stdout)

@@ -109,11 +109,13 @@ def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
         snap = Snapshot.objects.get(url=link.url)
     except Snapshot.DoesNotExist:
         snap = write_link_to_sql_index(link)
+
     snap.title = link.title
 
-    tag_list = list(dict.fromkeys(
-        tag.strip() for tag in re.split(TAG_SEPARATOR_PATTERN, link.tags or '')
-    ))
+    tag_list = list(
+        {tag.strip() for tag in re.split(TAG_SEPARATOR_PATTERN, link.tags or '')}
+        | set(snap.tags.values_list('name', flat=True))
+    )
 
     snap.save()
     snap.save_tags(tag_list)
