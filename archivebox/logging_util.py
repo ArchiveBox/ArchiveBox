@@ -413,7 +413,7 @@ def log_archive_method_finished(result: "ArchiveResult"):
     """
     # Prettify CMD string and make it safe to copy-paste by quoting arguments
     quoted_cmd = ' '.join(
-        '"{}"'.format(arg) if ' ' in arg else arg
+        '"{}"'.format(arg) if (' ' in arg) or (':' in arg) else arg
         for arg in result.cmd
     )
 
