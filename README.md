@@ -72,7 +72,7 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 <div align="center">
 <br/><br/>
-<img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://i.imgur.com/asPNk8n.png" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://i.imgur.com/PAzXZE8.png" height="70px" alt="bookshelf graphic">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/b2765a33-0d1e-4019-a1db-920c7e00e20e" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" height="70px" alt="bookshelf graphic">
 <br/><br/>
 <small><a href="https://demo.archivebox.io">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></small>
 <br/>
@@ -110,10 +110,10 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 <div align="center">
 <br/><br/>
-<img src="https://i.imgur.com/njxgSbl.png" width="22%" alt="cli init screenshot" align="top">
-<img src="https://i.imgur.com/lUuicew.png" width="22%" alt="cli init screenshot" align="top">
-<img src="https://i.imgur.com/p6wK6KM.png" width="22%" alt="server snapshot admin screenshot" align="top">
-<img src="https://i.imgur.com/xHvQfon.png" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/8d67382c-e0ce-4286-89f7-7915f09b930c" width="22%" alt="cli init screenshot" align="top">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/dad2bc51-e7e5-484e-bb26-f956ed692d16" width="22%" alt="cli init screenshot" align="top">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e8e0b6f8-8fdf-4b7f-8124-c10d8699bdb2" width="22%" alt="server snapshot admin screenshot" align="top">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" width="28.6%" alt="server snapshot details page screenshot" align="top"/>
 <br/><br/>
 </div>
 
@@ -146,7 +146,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 <div align="center">
 <br/>
-<img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/><img src="https://i.imgur.com/T2UAGUD.png" width="49%" alt="grass"/>
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0db52ea7-4a2c-441d-b47f-5553a5d8fe96" width="49%" alt="grass"/><img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0db52ea7-4a2c-441d-b47f-5553a5d8fe96" width="49%" alt="grass"/>
 </div>
 
 # Quickstart
@@ -351,7 +351,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 </ul>
 </li>
 </ol>
-<img src="https://i.imgur.com/QPHUS5C.png" width="320px">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/575ef92f-bb3e-4a7c-a4ba-986c1fd76ecf" width="320px">
 <br/>
 <i>✨ Alpha (contributors wanted!)</i>: for more info, see the: <a href="https://github.com/ArchiveBox/electron-archivebox">Electron ArchiveBox</a> repo.
   <br/>
@@ -443,7 +443,7 @@ ls ./archive/*/index.html  # or inspect snapshots on the filesystem
 
 <br/>
 <div align="center">
-<img src="https://i.imgur.com/6AmOGJT.png" width="49%" alt="grass"/><img src="https://i.imgur.com/6AmOGJT.png" width="49%" alt="grass"/>
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/65f82532-18dd-49c5-86f1-02b1f3100e1e" width="49%" alt="grass"/><img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/65f82532-18dd-49c5-86f1-02b1f3100e1e" width="49%" alt="grass"/>
 </div>
 <br/>
 
@@ -460,7 +460,7 @@ ls ./archive/*/index.html  # or inspect snapshots on the filesystem
 ---
 
 <div align="center">
-<img src="https://i.imgur.com/OUmgdlH.png" width="96%" alt="lego">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ac1f897a-8baa-4f8b-8ee8-7443611f258b" width="96%" alt="lego">
 </div>
 
 <br/>
@@ -474,12 +474,12 @@ ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exp
 
 *Click these links for instructions on how to prepare your links from these sources:*
 
-- <img src="https://nicksweeting.com/images/rss.svg" height="22px"/> TXT, RSS, XML, JSON, CSV, SQL, HTML, Markdown, or [any other text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)
-- <img src="https://nicksweeting.com/images/bookmarks.png" height="22px"/> [Browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (see instructions for: [Chrome](https://support.google.com/chrome/answer/96816?hl=en), [Firefox](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari](http://i.imgur.com/AtcvUZA.png), [IE](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows), [Opera](http://help.opera.com/Windows/12.10/en/importexport.html), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive))
-- <img src="https://i.imgur.com/AQyHbu8.png" height="22px"/> Browser extension [`archivebox-exporter`](https://github.com/tjhorner/archivebox-exporter) (realtime archiving from Chrome/Chromium/Firefox)
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8" height="22px"/> TXT, RSS, XML, JSON, CSV, SQL, HTML, Markdown, or [any other text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34" height="22px"/> [Browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (see instructions for: [Chrome](https://support.google.com/chrome/answer/96816?hl=en), [Firefox](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari](https://github.com/ArchiveBox/ArchiveBox/assets/511499/24ad068e-0fa6-41f4-a7ff-4c26fc91f71a), [IE](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows), [Opera](https://help.opera.com/en/latest/features/#bookmarks:~:text=Click%20the%20import/-,export%20button,-on%20the%20bottom), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive))
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="22px"/> Browser extension [`archivebox-exporter`](https://github.com/tjhorner/archivebox-exporter) (realtime archiving from Chrome/Chromium/Firefox)
 - <img src="https://getpocket.com/favicon.ico" height="22px"/> [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Instapaper](https://www.instapaper.com/user), [Shaarli](https://shaarli.readthedocs.io/en/master/Usage/#importexport), [Delicious](https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/), [Reddit Saved](https://github.com/csu/export-saved-reddit), [Wallabag](https://doc.wallabag.org/en/user/import/wallabagv2.html), [Unmark.it](http://help.unmark.it/import-export), [OneTab](https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
 
-<img src="https://i.imgur.com/zM4z1aU.png" width="330px" align="right">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e1e5bd78-b0b6-45dc-914c-e1046fee4bc4" width="330px" align="right">
 
 
 ```bash
@@ -506,7 +506,7 @@ It also includes a built-in scheduled import feature with `archivebox schedule` 
 
 Inside each Snapshot folder, ArchiveBox saves these different types of extractor outputs as plain files:
 
-<img src="https://i.imgur.com/xHvQfon.png" width="330px" align="right">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" width="330px" align="right">
 
 `./archive/<timestamp>/*`
 
@@ -530,7 +530,7 @@ It does everything out-of-the-box by default, but you can disable or tweak [indi
 
 ## Configuration
 
-<img src="https://i.imgur.com/H08eaia.png" width="330px" align="right">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ea672e6b-4df5-49d8-b550-7f450951fd27" width="330px" align="right">
 
 ArchiveBox can be configured via environment variables, by using the `archivebox config` CLI, or by editing the `ArchiveBox.conf` config file directly.
 
@@ -572,9 +572,10 @@ PUBLIC_ADD_VIEW=False      # default: False whether anon users can add new URLs
 
 For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything pre-installed for the best experience.
 
-To achieve high-fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party tools and libraries that specialize in extracting different types of content. These optional dependencies used for archiving sites include:
+These optional dependencies used for archiving sites include:
 
-<img src="https://i.imgur.com/5vSBO2R.png" width="330px" align="right">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/62a02155-05d7-4f3e-8de5-75a50a145c4f" alt="archivebox --version CLI output screenshot showing dependencies installed" width="330px" align="right">
+
 
 - `chromium` / `chrome` (for screenshots, PDF, DOM HTML, and headless JS scripts)
 - `node` & `npm` (for readability, mercury, and singlefile)
@@ -731,36 +732,36 @@ Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS
 ## Screenshots
 
 <div align="center" width="80%">
-<img src="https://i.imgur.com/PVO88AZ.png" width="80%"/>
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0362bcd1-1dfd-43c6-b4ec-db5e78da07b2" width="80%"/>
 <table>
 <tbody>
 <tr>
 <td>
-<img src="https://i.imgur.com/npareKG.png" alt="brew install archivebox"><br/>
-<img src="https://i.imgur.com/5vSBO2R.png" alt="archivebox version">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e9fdcb16-344e-48c8-8be0-efa48ec155d5" alt="brew install archivebox"><br/>
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e235c9d8-fda9-499d-a6a5-59b0e6a0efce" alt="archivebox version">
 </td>
 <td>
-<img src="https://i.imgur.com/JXXxFzB.png" alt="archivebox init"><br/>
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0e3da0c7-d2c2-4a71-b096-6caedafd6ef7" alt="archivebox init"><br/>
 </td>
 <td>
-<img src="https://i.imgur.com/wNYtV3v.jpg" alt="archivebox add">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/31c47440-ec14-4a02-99a3-aae8a9078d46" alt="archivebox add">
 </td>
 <td>
-<img src="https://i.imgur.com/uZcIOn9.png" alt="archivebox data dir">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ebcdc21d-e2af-4bf8-ad4b-bc4f3151bbef" alt="archivebox data dir">
 </td>
 </tr>
 <tr>
 <td>
-<img src="https://i.imgur.com/H08eaia.png" alt="archivebox server">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ea672e6b-4df5-49d8-b550-7f450951fd27" alt="archivebox server">
 </td>
 <td>
-<img src="https://i.imgur.com/zM4z1aU.png" alt="archivebox server add">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e1e5bd78-b0b6-45dc-914c-e1046fee4bc4" alt="archivebox server add">
 </td>
 <td>
-<img src="https://i.imgur.com/p6wK6KM.png" alt="archivebox server list">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e8e0b6f8-8fdf-4b7f-8124-c10d8699bdb2" alt="archivebox server list">
 </td>
 <td>
-<img src="https://i.imgur.com/xHvQfon.png" alt="archivebox server detail">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" alt="archivebox server detail">
 </td>
 </tr>
 </tbody>
@@ -773,7 +774,7 @@ Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS
 <br/>
 
 <div align="center">
-<img src="https://i.imgur.com/ZSUm9mr.png" width="100%" alt="paisley graphic">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ca85432e-a2df-40c6-968f-51a1ef99b24e" width="100%" alt="paisley graphic">
 </div>
 
 # Background & Motivation
@@ -785,8 +786,8 @@ Vast treasure troves of knowledge are lost every day on the internet to link rot
 Whether it's to resist censorship by saving articles before they get taken down or edited, or just to save a collection of early 2010's flash games you love to play, having the tools to archive internet content enables to you save the stuff you care most about before it disappears.
 
 <div align="center">
-<img src="https://i.imgur.com/bC6eZcV.png" width="40%"/><br/>
- <sup><i>Image from <a href="https://digiday.com/media/wtf-link-rot/">WTF is Link Rot?</a>...</i><br/></sup>
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/71e36bc5-1c94-44e2-92b6-405fa898c734" width="40%"/><br/>
+ <sup><i>Image from <a href="https://perma.cc/">Perma.cc</a>...</i><br/></sup>
 </div>
 
 The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful. I don't think everything should be preserved in an automated fashion--making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
@@ -796,7 +797,7 @@ ArchiveBox archives the sites in **several different formats** beyond what publi
 
 ## Comparison to Other Projects
 
-<img src="https://i.imgur.com/4nkFjdv.png" width="5%" align="right" alt="comparison"/> 
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4cac62a9-e8fb-425b-85a3-ca644aa6dd42" width="5%" align="right" alt="comparison"/> 
 
 ▶ **Check out our [community page](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for an index of web archiving initiatives and projects.**
 
@@ -826,14 +827,14 @@ For more alternatives, see our [list here](https://github.com/ArchiveBox/Archive
 
 <div align="center">
 <br/>
-<img src="https://i.imgur.com/q0Oe36M.png" width="100%" alt="dependencies graphic">
+<img src="ttps://github.com/ArchiveBox/ArchiveBox/assets/511499/04808ac2-3133-44fd-8703-3387e06dc851" width="100%" alt="dependencies graphic">
 </div>
 
 ## Internet Archiving Ecosystem
 
 Whether you want to learn which organizations are the big players in the web archiving space, want to find a specific open-source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community. Check it out to learn about some of the coolest web archiving projects and communities on the web!
 
-<img src="https://i.imgur.com/0ZOmOvN.png" width="14%" align="right"/>
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/78d8a725-97f4-47f5-b983-1f62843ddc51" width="14%" align="right"/>
 
 - [Community Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
   - [The Master Lists](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#the-master-lists)  
@@ -861,7 +862,7 @@ Whether you want to learn which organizations are the big players in the web arc
 ---
 
 <div align="center">
-<img src="https://i.imgur.com/SMkGW0L.png" width="100%" alt="documentation graphic">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/897f7a88-1265-4aab-b80c-b1640afaad1f" width="100%" alt="documentation graphic">
 </div>
 
 # Documentation
@@ -907,7 +908,7 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 ---
 
 <div align="center">
-<img src="https://i.imgur.com/EGWjbD4.png" width="100%" alt="development">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e895e79f-5c7d-429b-ad8a-7df2cc183ca3" width="100%" alt="development">
 </div>
 
 # ArchiveBox Development
