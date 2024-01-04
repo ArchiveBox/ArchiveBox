@@ -99,20 +99,54 @@ if [[ "$IN_QEMU" == "True" ]]; then
     echo -e "    See here for more info: https://github.com/microsoft/playwright/issues/17395#issuecomment-1250830493\n" > /dev/stderr
 fi
 
+# check disk space free on / and /data, warn on >95% use, error on >99% use
+ROOT_USED_PCT="$(df --output=pcent / | tail -n 1 | xargs)"
+if [[ "${ROOT_USED_PCT//%/}" -ge 99 ]]; then
+    df -kh / > /dev/stderr
+    echo -e "\n[!] Warning: Docker root filesystem is completely out of space! ($ROOT_USED_PCT used on /)" > /dev/stderr
+    echo -e "    you need to free up space in your Docker VM to continue:" > /dev/stderr
+    echo -e "    \$ docker system prune\n" > /dev/stderr
+    exit 3
+elif [[ "${ROOT_USED_PCT//%/}" -gt 97 ]]; then
+    df -kh / > /dev/stderr
+    echo -e "\n[!] Warning: Docker root filesystem is running out of space! ($ROOT_USED_PCT used on /)" > /dev/stderr
+    echo -e "    you may need to free up space in your Docker VM soon:" > /dev/stderr
+    echo -e "    \$ docker system prune\n" > /dev/stderr
+fi
+
+DATA_USED_PCT="$(df --output=pcent /data | tail -n 1 | xargs)"
+if [[ "${DATA_USED_PCT//%/}" -ge 99 ]]; then
+    df -kh /data > /dev/stderr
+    echo -e "\n[!] Warning: Docker data volume is completely out of space! ($DATA_USED_PCT used on /data)" > /dev/stderr
+    echo -e "    you need to free up space on the drive holding your data directory" > /dev/stderr
+    echo -e "    \$ ncdu -x data\n" > /dev/stderr
+    sleep 5
+elif [[ "${DATA_USED_PCT//%/}" -gt 95 ]]; then
+    df -kh /data > /dev/stderr
+    echo -e "\n[!] Warning: Docker data volume is running out of space! ($DATA_USED_PCT used on /data)" > /dev/stderr
+    echo -e "    you may need to free up space on the drive holding your data directory soon" > /dev/stderr
+    echo -e "    \$ ncdu -x data\n" > /dev/stderr
+fi
+
+
+ARCHIVEBOX_BIN_PATH="$(which archivebox)"
 
 # Drop permissions to run commands as the archivebox user
-if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == "cat" || "$1" == "archivebox" ]]; then
+if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == "cat" || "$1" == "whoami" || "$1" == "archivebox" ]]; then
     # handle "docker run archivebox /bin/somecommand --with=some args" by passing args directly to bash -c
     # e.g. "docker run archivebox archivebox init:
     #      "docker run archivebox /venv/bin/ipython3"
     #      "docker run archivebox /bin/bash -c '...'"
     #      "docker run archivebox cat /VERSION.txt"
-    exec gosu "$PUID" bash -c "$(printf ' %q' "$@")"
+    exec gosu "$PUID" /bin/bash -c "exec $(printf ' %q' "$@")"
+    # printf requotes shell parameters properly https://stackoverflow.com/a/39463371/2156113
+    # gosu spawns an ephemeral bash process owned by archivebox user (bash wrapper is needed to load env vars, PATH, and setup terminal TTY)
+    # outermost exec hands over current process ID to inner bash process, inner exec hands over inner bash PID to user's command
 else
     # handle "docker run archivebox add some subcommand --with=args abc" by calling archivebox to run as args as CLI subcommand
     # e.g. "docker run archivebox help"
     #      "docker run archivebox add --depth=1 https://example.com"
     #      "docker run archivebox manage createsupseruser"
     #      "docker run archivebox server 0.0.0.0:8000"
-    exec gosu "$PUID" bash -c "archivebox $(printf ' %q' "$@")"
+    exec gosu "$PUID" "$ARCHIVEBOX_BIN_PATH" "$@"
 fi
