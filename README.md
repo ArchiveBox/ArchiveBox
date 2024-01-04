@@ -579,6 +579,7 @@ To achieve high-fidelity archives in as many situations as possible, ArchiveBox 
 <br/>
 <details>
 <summary><i>Expand to learn more about ArchiveBox's dependencies...</i></summary>
+<br/>
 
 For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything pre-installed for the best experience.
 
@@ -617,19 +618,27 @@ For detailed information about upgrading ArchiveBox and its dependencies, see: h
 
 ## Archive Layout
 
-All of ArchiveBox's state (including the index, snapshot data, and config file) is stored in a single folder called the "ArchiveBox data folder". All `archivebox` CLI commands must be run from inside this folder, and you first create it by running `archivebox init`.
+All of ArchiveBox's state (including the SQLite DB, archived assets, config, logs, etc.) is stored in a single folder called the "ArchiveBox Data Folder". Data folders can be created anywhere (`~/archivebox` or `$PWD/data` as seen in our examples), and you can create more than one for different collections.
 
 <br/>
 <details>
 <summary><i>Expand to learn more about the layout of Archivebox's data on-disk...</i></summary>
+<br/>
 
-The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard `index.sqlite3` database in the root of the data folder (it can also be exported as static JSON/HTML), and the archive snapshots are organized by date-added timestamp in the `./archive/` subfolder.
+All `archivebox` CLI commands are designed to be run from inside an ArchiveBox data folder, starting with `archivebox init` to initialize a new collection inside an empty directory.
+
+```bash
+mkdir ~/archivebox && cd ~/archivebox
+archivebox init
+```
+
+The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard `index.sqlite3` database in the root of the data folder (it can also be [exported as static JSON/HTML](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive#2-export-and-host-it-as-static-html)), and the archive snapshots are organized by date-added timestamp in the `./archive/` subfolder.
 
 <img src="https://user-images.githubusercontent.com/511499/117453293-c7b91600-af12-11eb-8a3f-aa48b0f9da3c.png" width="400px" align="right">
 
 
 ```bash
-./
+/data/
     index.sqlite3
     ArchiveBox.conf
     archive/
@@ -657,6 +666,7 @@ You can export the main index to browse it statically as plain HTML files in a f
 <br/>
 <details>
 <summary><i>Expand to learn how to export your ArchiveBox collection...</i></summary>
+<br/>
 
 > **Note**
 > These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.
@@ -672,6 +682,8 @@ archivebox list --csv=timestamp,url,title > index.csv  # export to csv spreadshe
 ```
 
 The paths in the static exports are relative, make sure to keep them next to your `./archive` folder when backing them up or viewing them.
+
+**Learn More Here:** [Publishing Your Archive: Export & Host as Static HTML](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive#2-export-and-host-it-as-static-html)
 
 </details>
 
