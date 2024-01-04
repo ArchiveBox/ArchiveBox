@@ -9,8 +9,7 @@
 <a href="https://github.com/ArchiveBox/ArchiveBox">GitHub</a> |
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Documentation</a> |
 <a href="#background--motivation">Info & Motivation</a> |
-<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a> |
-<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">Roadmap</a>
+<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a>
 
 <br/>
 
@@ -18,7 +17,7 @@
 
 <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE"><img src="https://img.shields.io/badge/Open_source-MIT-green.svg?logo=git&logoColor=green"/></a>
 <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?logo=github&label=Stars&logoColor=blue"/></a>
-<a href="https://github.com/ArchiveBox/ArchiveBox/commits/dev"><img src="https://img.shields.io/github/last-commit/ArchiveBox/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=active"/></a> &nbsp;
+<a href="https://github.com/ArchiveBox/ArchiveBox/commits/dev"><img src="https://img.shields.io/github/last-commit/ArchiveBox/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=Active"/></a> &nbsp;
 <a href="https://pypi.org/project/archivebox/"><img src="https://img.shields.io/badge/Python-yellow.svg?logo=python&logoColor=yellow"/></a>
 <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies"><img src="https://img.shields.io/badge/Chromium-orange.svg?logo=Google+Chrome&logoColor=orange"/></a>
 <a href="https://hub.docker.com/r/archivebox/archivebox"><img src="https://img.shields.io/badge/Docker-lightblue.svg?logo=docker&logoColor=lightblue"/></a>
@@ -798,6 +797,7 @@ For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) active
 <br/>
 <details>
 <summary><i>Click to expand...</i></summary>
+<br/>
 
 - Set [`CHROME_USER_AGENT`, `WGET_USER_AGENT`, `CURL_USER_AGENT`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#curl_user_agent) to impersonate a real browser (instead of an ArchiveBox bot)
 - Set up a logged-in browser session for archiving using [`CHROME_DATA_DIR` & `COOKIES_FILE`](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile)
@@ -818,6 +818,7 @@ ArchiveBox appends a hash with the current date `https://example.com#2020-10-24`
 <br/>
 <details>
 <summary><i>Click to expand...</i></summary>
+<br/>
 
 Because ArchiveBox uniquely identifies snapshots by URL, it must use a workaround to take multiple snapshots of the same URL (otherwise they would show up as a single Snapshot entry). It makes the URLs of repeated snapshots unique by adding a hash with the archive date at the end:
 
@@ -842,11 +843,13 @@ Improved support for saving multiple snapshots of a single URL without this hash
 
 ### Storage Requirements
 
-Because ArchiveBox is designed to ingest a large volume of URLs with multiple copies of each URL stored by different 3rd-party tools, it can be quite disk-space intensive. There also also some special requirements when using filesystems like NFS/SMB/FUSE.
+Because ArchiveBox is designed to ingest a large volume of URLs with multiple copies of each URL stored by different 3rd-party tools, it can be quite disk-space intensive.  
+There also also some special requirements when using filesystems like NFS/SMB/FUSE.
 
 <br/>
 <details>
 <summary><i>Click to expand...</i></summary>
+<br/>
 
 **ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles**, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
 
@@ -926,8 +929,8 @@ ArchiveBox aims to enable more of the internet to be saved from deterioration by
 
 <br/>
 <details>
-<summary><i>Click to expand...</i></summary>
-
+<summary><i>Click to read more...</i></summary>
+<br/>
 
 Vast treasure troves of knowledge are lost every day on the internet to link rot. As a society, we have an imperative to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
 
@@ -950,7 +953,9 @@ ArchiveBox archives the sites in **several different formats** beyond what publi
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4cac62a9-e8fb-425b-85a3-ca644aa6dd42" width="5%" align="right" alt="comparison"/> 
 
-▶ **Check out our [community page](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for an index of web archiving initiatives and projects.**
+
+> [!TIP]
+> **Check out our [community page](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for an index of web archiving initiatives and projects.**
 
 A variety of open and closed-source archiving projects exist, but few provide a nice UI and CLI to manage a large, high-fidelity archive collection over time.
 
@@ -966,9 +971,8 @@ By having each user store their own content locally, we can save much larger por
 
 ArchiveBox differentiates itself from [similar self-hosted projects](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by providing both a comprehensive CLI interface for managing your archive, a Web UI that can be used either independently or together with the CLI, and a simple on-disk data format that can be used without either.
 
-<br/>
 <details>
-<summary><i>Click to expand...</i></summary>
+<summary><i>Click to see the <b>officially recommended</b> alternatives to ArchiveBox...</i></summary>
 
 ArchiveBox is neither the highest fidelity nor the simplest tool available for self-hosted archiving, rather it's a jack-of-all-trades that tries to do most things well by default. It can be as simple or advanced as you want, and is designed to do everything out-of-the-box but be tuned to suit your needs.
 
@@ -986,7 +990,7 @@ For more alternatives, see our [list here](https://github.com/ArchiveBox/Archive
 
 <div align="center">
 <br/>
-<img src="ttps://github.com/ArchiveBox/ArchiveBox/assets/511499/04808ac2-3133-44fd-8703-3387e06dc851" width="100%" alt="dependencies graphic">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/04808ac2-3133-44fd-8703-3387e06dc851" width="100%" alt="dependencies graphic">
 </div>
 
 ## Internet Archiving Ecosystem
