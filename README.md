@@ -623,7 +623,8 @@ Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not offici
 
 ## Archive Layout
 
-All of ArchiveBox's state (including the SQLite DB, archived assets, config, logs, etc.) is stored in a single folder called the "ArchiveBox Data Folder". Data folders can be created anywhere (`~/archivebox` or `$PWD/data` as seen in our examples), and you can create more than one for different collections.
+All of ArchiveBox's state (including the SQLite DB, archived assets, config, logs, etc.) is stored in a single folder called the "ArchiveBox Data Folder".  
+Data folders can be created anywhere (`~/archivebox` or `$PWD/data` as seen in our examples), and you can create more than one for different collections.
 
 <br/>
 <details>
@@ -633,7 +634,7 @@ All of ArchiveBox's state (including the SQLite DB, archived assets, config, log
 All `archivebox` CLI commands are designed to be run from inside an ArchiveBox data folder, starting with `archivebox init` to initialize a new collection inside an empty directory.
 
 ```bash
-mkdir ~/archivebox && cd ~/archivebox
+mkdir ~/archivebox && cd ~/archivebox   # just an example, can be anywhere
 archivebox init
 ```
 
@@ -719,11 +720,12 @@ The paths in the static exports are relative, make sure to keep them next to you
 
 <a id="archiving-private-urls"></a>
 
+If you're importing pages with private content or URLs containing secret tokens you don't want public (e.g Google Docs, paywalled content, unlisted videos, etc.), **you may want to disable some of the extractor methods to avoid leaking that content to 3rd party APIs or the public**.
+
 <br/>
 <details>
 <summary><i>Click to expand...</i></summary>
 
-If you're importing pages with private content or URLs containing secret tokens you don't want public (e.g Google Docs, paywalled content, unlisted videos, etc.), **you may want to disable some of the extractor methods to avoid leaking that content to 3rd party APIs or the public**.
 
 ```bash
 # don't save private content to ArchiveBox, e.g.:
@@ -757,11 +759,12 @@ archivebox config --set CHROME_BINARY=chromium      # ensure it's using Chromium
 
 ### Security Risks of Viewing Archived JS
 
+Be aware that malicious archived JS can access the contents of other pages in your archive when viewed. Because the Web UI serves all viewed snapshots from a single domain, they share a request context and **typical CSRF/CORS/XSS/CSP protections do not work to prevent cross-site request attacks**. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page and [Issue #239](https://github.com/ArchiveBox/ArchiveBox/issues/239) for more details.
+
 <br/>
 <details>
 <summary><i>Click to expand...</i></summary>
 
-Be aware that malicious archived JS can access the contents of other pages in your archive when viewed. Because the Web UI serves all viewed snapshots from a single domain, they share a request context and **typical CSRF/CORS/XSS/CSP protections do not work to prevent cross-site request attacks**. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page and [Issue #239](https://github.com/ArchiveBox/ArchiveBox/issues/239) for more details.
 
 ```bash
 # visiting an archived page with malicious JS:
@@ -790,11 +793,11 @@ The admin UI is also served from the same origin as replayed JS, so malicious pa
 
 ### Working Around Sites that Block Archiving
 
+For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) actively block archiving or bots in general. There are a number of approaches to work around this.
+
 <br/>
 <details>
 <summary><i>Click to expand...</i></summary>
-
-For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) actively block archiving or bots in general. There are a number of approaches to work around this.
 
 - Set [`CHROME_USER_AGENT`, `WGET_USER_AGENT`, `CURL_USER_AGENT`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#curl_user_agent) to impersonate a real browser (instead of an ArchiveBox bot)
 - Set up a logged-in browser session for archiving using [`CHROME_DATA_DIR` & `COOKIES_FILE`](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile)
@@ -810,11 +813,13 @@ In the future we plan on adding support for running JS scripts during archiving 
 
 ### Saving Multiple Snapshots of a Single URL
 
+ArchiveBox appends a hash with the current date `https://example.com#2020-10-24` to differentiate when a single URL is archived multiple times.
+
 <br/>
 <details>
 <summary><i>Click to expand...</i></summary>
 
-First-class support for saving multiple snapshots of each site over time will be [added eventually](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now **ArchiveBox is designed to only archive each unique URL with each extractor type once**. The workaround to take multiple snapshots of the same URL is to make them slightly different by adding a hash:
+Because ArchiveBox uniquely identifies snapshots by URL, it must use a workaround to take multiple snapshots of the same URL (otherwise they would show up as a single Snapshot entry). It makes the URLs of repeated snapshots unique by adding a hash with the archive date at the end:
 
 ```bash
 archivebox add 'https://example.com#2020-10-24'
@@ -822,7 +827,9 @@ archivebox add 'https://example.com#2020-10-24'
 archivebox add 'https://example.com#2020-10-25'
 ```
 
-The <img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button" height="24px"/> button in the Admin UI is a shortcut for this hash-date workaround.
+The <img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button" height="24px"/> button in the Admin UI is a shortcut for this hash-date multi-snapshotting workaround.
+
+Improved support for saving multiple snapshots of a single URL without this hash-date workaround will be [added eventually](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs).
 
 #### Learn More
 
@@ -835,11 +842,13 @@ The <img src="https://user-images.githubusercontent.com/511499/115942091-73c0230
 
 ### Storage Requirements
 
+Because ArchiveBox is designed to ingest a large volume of URLs with multiple copies of each URL stored by different 3rd-party tools, it can be quite disk-space intensive. There also also some special requirements when using filesystems like NFS/SMB/FUSE.
+
 <br/>
 <details>
 <summary><i>Click to expand...</i></summary>
 
-Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today. **ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles**, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
+**ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles**, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
 
 Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. You can also deduplicate content with a tool like [fdupes](https://github.com/adrianlopezroche/fdupes) or [rdfind](https://github.com/pauldreik/rdfind). **Don't store large collections on older filesystems like EXT3/FAT** as they may not be able to handle more than 50k directory entries in the `archive/` folder. **Try to keep the `index.sqlite3` file on local drive (not a network mount)** or SSD for maximum performance, however the `archive/` folder can be on a network mount or slower HDD.
 
