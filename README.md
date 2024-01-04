@@ -564,11 +564,21 @@ MAX_MEDIA_SIZE=1500m       # default: 750m  raise/lower youtubedl output size
 PUBLIC_INDEX=True          # default: True  whether anon users can view index
 PUBLIC_SNAPSHOTS=True      # default: True  whether anon users can view pages
 PUBLIC_ADD_VIEW=False      # default: False whether anon users can add new URLs
+
+CHROME_USER_AGENT="Mozilla/5.0 ..."  # change these to get around bot blocking
+WGET_USER_AGENT="Mozilla/5.0 ..."
+CURL_USER_AGENT="Mozilla/5.0 ..."
 ```
 
 <br/>
 
 ## Dependencies
+
+To achieve high-fidelity archives in as many situations as possible, ArchiveBox depends on a variety of high-quality 3rd-party tools and libraries that specialize in extracting different types of content.
+
+<br/>
+<details>
+<summary><i>Expand to learn more about ArchiveBox's dependencies...</i></summary>
 
 For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything pre-installed for the best experience.
 
@@ -601,11 +611,17 @@ Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not offici
 
 For detailed information about upgrading ArchiveBox and its dependencies, see: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives
 
+</details>
+
 <br/>
 
 ## Archive Layout
 
 All of ArchiveBox's state (including the index, snapshot data, and config file) is stored in a single folder called the "ArchiveBox data folder". All `archivebox` CLI commands must be run from inside this folder, and you first create it by running `archivebox init`.
+
+<br/>
+<details>
+<summary><i>Expand to learn more about the layout of Archivebox's data on-disk...</i></summary>
 
 The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard `index.sqlite3` database in the root of the data folder (it can also be exported as static JSON/HTML), and the archive snapshots are organized by date-added timestamp in the `./archive/` subfolder.
 
@@ -630,12 +646,17 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
 
 Each snapshot subfolder `./archive/<timestamp>/` includes a static `index.json` and `index.html` describing its contents, and the snapshot extractor outputs are plain files within the folder.
 
+</details>
 
 <br/>
 
 ## Static Archive Exporting
 
-You can export the main index to browse it statically without needing to run a server.
+You can export the main index to browse it statically as plain HTML files in a folder (without needing to run a server).
+
+<br/>
+<details>
+<summary><i>Expand to learn how to export your ArchiveBox collection...</i></summary>
 
 > **Note**
 > These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.
@@ -652,6 +673,7 @@ archivebox list --csv=timestamp,url,title > index.csv  # export to csv spreadshe
 
 The paths in the static exports are relative, make sure to keep them next to your `./archive` folder when backing them up or viewing them.
 
+</details>
 
 <br/>
 
@@ -666,6 +688,10 @@ The paths in the static exports are relative, make sure to keep them next to you
 ### Archiving Private Content
 
 <a id="archiving-private-urls"></a>
+
+<br/>
+<details>
+<summary><i>Click to expand...</i></summary>
 
 If you're importing pages with private content or URLs containing secret tokens you don't want public (e.g Google Docs, paywalled content, unlisted videos, etc.), **you may want to disable some of the extractor methods to avoid leaking that content to 3rd party APIs or the public**.
 
@@ -687,7 +713,15 @@ archivebox config --set SAVE_FAVICON=False          # disable favicon fetching (
 archivebox config --set CHROME_BINARY=chromium      # ensure it's using Chromium instead of Chrome
 ```
 
+</details>
+<br/>
+
+
 ### Security Risks of Viewing Archived JS
+
+<br/>
+<details>
+<summary><i>Click to expand...</i></summary>
 
 Be aware that malicious archived JS can access the contents of other pages in your archive when viewed. Because the Web UI serves all viewed snapshots from a single domain, they share a request context and **typical CSRF/CORS/XSS/CSP protections do not work to prevent cross-site request attacks**. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page and [Issue #239](https://github.com/ArchiveBox/ArchiveBox/issues/239) for more details.
 
@@ -705,7 +739,14 @@ The admin UI is also served from the same origin as replayed JS, so malicious pa
 
 *Note: Only the `wget` & `dom` extractor methods execute archived JS when viewing snapshots, all other archive methods produce static output that does not execute JS on viewing. If you are worried about these issues ^ you should disable these extractors using `archivebox config --set SAVE_WGET=False SAVE_DOM=False`.*
 
+</details>
+<br/>
+
 ### Saving Multiple Snapshots of a Single URL
+
+<br/>
+<details>
+<summary><i>Click to expand...</i></summary>
 
 First-class support for saving multiple snapshots of each site over time will be [added eventually](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs). For now **ArchiveBox is designed to only archive each unique URL with each extractor type once**. The workaround to take multiple snapshots of the same URL is to make them slightly different by adding a hash:
 
@@ -717,12 +758,22 @@ archivebox add 'https://example.com#2020-10-25'
 
 The <img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button" height="24px"/> button in the Admin UI is a shortcut for this hash-date workaround.
 
+</details>
+<br/>
+
 ### Storage Requirements
+
+<br/>
+<details>
+<summary><i>Click to expand...</i></summary>
 
 Because ArchiveBox is designed to ingest a firehose of browser history and bookmark feeds to a local disk, it can be much more disk-space intensive than a centralized service like the Internet Archive or Archive.today. **ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles**, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
 
 Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. You can also deduplicate content with a tool like [fdupes](https://github.com/adrianlopezroche/fdupes) or [rdfind](https://github.com/pauldreik/rdfind). **Don't store large collections on older filesystems like EXT3/FAT** as they may not be able to handle more than 50k directory entries in the `archive/` folder. **Try to keep the `index.sqlite3` file on local drive (not a network mount)** or SSD for maximum performance, however the `archive/` folder can be on a network mount or slower HDD.
 
+If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to set [`PUID` & `PGID`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid) and [disable `root_squash`](https://github.com/ArchiveBox/ArchiveBox/issues/1304) on your fileshare server.
+
+</details>
 <br/>
 
 ---
