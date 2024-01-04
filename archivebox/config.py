@@ -451,7 +451,7 @@ def get_versions_available_on_github(config):
             current_version = release
             break
 
-    current_version = current_version or releases[-1]
+    current_version = current_version or all_releases[-1]
     
     # recommended version is whatever comes after current_version in the release list
     # (perhaps too conservative to only recommend upgrading one version at a time, but it's safest)
@@ -786,7 +786,7 @@ def load_config(defaults: ConfigDefaultDict,
 
 def parse_version_string(version: str) -> Tuple[int, int, int]:
     """parses a version tag string formatted like 'vx.x.x' into (major, minor, patch) ints"""
-    base = v.split('+')[0].split('v')[-1] # remove 'v' prefix and '+editable' suffix
+    base = version.split('+')[0].split('v')[-1] # remove 'v' prefix and '+editable' suffix
     return tuple(int(part) for part in base.split('.'))[:3]
 
 
@@ -1167,9 +1167,9 @@ globals().update(CONFIG)
 
 
 # Set timezone to UTC and umask to OUTPUT_PERMISSIONS
-assert TIMEZONE == 'UTC', 'The server timezone should always be set to UTC'  # we may allow this to change later
-os.environ["TZ"] = TIMEZONE
-os.umask(0o777 - int(DIR_OUTPUT_PERMISSIONS, base=8))  # noqa: F821
+assert TIMEZONE == 'UTC', 'The server timezone should always be set to UTC'  # noqa: F821
+os.environ["TZ"] = TIMEZONE                                                  # noqa: F821
+os.umask(0o777 - int(DIR_OUTPUT_PERMISSIONS, base=8))                        # noqa: F821
 
 # add ./node_modules/.bin to $PATH so we can use node scripts in extractors
 NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]).absolute() / 'node_modules' / '.bin'))
@@ -1186,7 +1186,6 @@ sys.path.append(NODE_BIN_PATH)
 # disable stderr "you really shouldnt disable ssl" warnings with library config
 if not CONFIG['CHECK_SSL_VALIDITY']:
     import urllib3
-    import requests
     requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -1213,10 +1212,10 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
             stderr('')
             stderr('    {lightred}Hint{reset}: When using Docker, you must run commands with {green}docker run{reset} instead of {lightyellow}docker exec{reset}, e.g.:'.format(**config['ANSI']))
             stderr(f'        docker compose run archivebox {attempted_command}')
-            stderr(f'        docker compose exec --user=archivebox archivebox {attempted_command}')
-            stderr('        or')
-            stderr(f'        docker run -it -v ... -p ... archivebox/archivebox {attempted_command}')
-            stderr(f'        docker exec -it --user=archivebox <container id> /bin/bash')
+            stderr(f'        docker run -it -v $PWD/data:/data archivebox/archivebox {attempted_command}')
+            stderr('        or:')
+            stderr(f'        docker compose exec --user=archivebox archivebox /bin/bash -c "archivebox {attempted_command}"')
+            stderr(f'        docker exec -it --user=archivebox <container id> /bin/bash -c "archivebox {attempted_command}"')
         
         raise SystemExit(2)
 
