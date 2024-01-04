@@ -107,12 +107,12 @@ if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == 
     #      "docker run archivebox /venv/bin/ipython3"
     #      "docker run archivebox /bin/bash -c '...'"
     #      "docker run archivebox cat /VERSION.txt"
-    exec gosu "$PUID" bash -c "$*"
+    exec gosu "$PUID" bash -c "$(printf ' %q' "$@")"
 else
     # handle "docker run archivebox add some subcommand --with=args abc" by calling archivebox to run as args as CLI subcommand
     # e.g. "docker run archivebox help"
     #      "docker run archivebox add --depth=1 https://example.com"
     #      "docker run archivebox manage createsupseruser"
     #      "docker run archivebox server 0.0.0.0:8000"
-    exec gosu "$PUID" bash -c "archivebox $*"
+    exec gosu "$PUID" bash -c "archivebox $(printf ' %q' "$@")"
 fi
