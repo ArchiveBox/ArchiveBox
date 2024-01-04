@@ -99,6 +99,8 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
     except (Exception, OSError) as err:
         status = 'failed'
         output = err
+
+        # prefer Chrome dom output to singlefile because singlefile often contains huge url(data:image/...base64) strings that make the html too long to parse with readability
         cmd = [cmd[0], './{dom,singlefile}.html']
     finally:
         timer.end()
