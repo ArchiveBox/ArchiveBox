@@ -47,10 +47,10 @@ Without active preservation effort, everything on the internet eventually dissap
 
 💾 **It saves snapshots of the URLs you feed it in several redundant formats.**  
 It also detects any content featured *inside* each webpage & extracts it out into a folder:
-- `HTML/Generic Websites -> HTML, PDF, PNG, WARC, Singlefile`
+- `HTML/Generic websites -> HTML, PDF, PNG, WARC, Singlefile`
 - `YouTube/SoundCloud/etc. -> MP3/MP4 + subtitles, description, thumbnail`
-- `news articles -> article body TXT + title, author, featured images`
-- `github/gitlab/etc. links -> git cloned source code`
+- `News articles -> article body TXT + title, author, featured images`
+- `Github/Gitlab/etc. links -> git cloned source code`
 - *[and more...](#output-formats)*
 
 It uses normal filesystem folders to organize archives (no complicated proprietary formats), and offers a CLI + web UI.  
@@ -151,8 +151,8 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 # Quickstart
 
-**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker) &nbsp; **👾&nbsp; CPUs:** `amd64` (`x86_64`), `arm64` (`arm8`), `arm7` <sup>(raspi>=3)</sup>
-<i>Note: On `arm7`, the `playwright` package, provides easy `chromium` management, is not yet available. Do it manually with alternative methods.</i>
+**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker) &nbsp; **👾&nbsp; CPUs:** `amd64` (`x86_64`), `arm64` (`arm8`), `arm7` <sup>(raspi>=3)</sup><br/>
+<sub>Note: On `arm7` the `playwright` package is not available, so `chromium` must be installed manually if needed.</sub>
 
 <br/>
 
@@ -161,7 +161,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 <details>
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker-compose</code></b>  (macOS/Linux/Windows) &nbsp; <b>👈&nbsp; recommended</b> &nbsp; <i>(click to expand)</i></summary>
 <br/>
-<i>👍 Docker Compose is recommended for the easiest install/update UX + best security + all the <a href="#dependencies">extras</a> working out-of-the-box.</i>
+<i>👍 Docker Compose is recommended for the easiest install/update UX + best security + all the <a href="#dependencies">extras</a> out-of-the-box.</i>
 <br/><br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> and <a href="https://docs.docker.com/compose/install/#install-using-pip">Docker Compose</a> on your system (if not already installed).</li>

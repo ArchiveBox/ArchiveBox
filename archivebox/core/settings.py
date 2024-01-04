@@ -124,6 +124,7 @@ if LDAP:
         }
 
         AUTHENTICATION_BACKENDS = [
+            'django.contrib.auth.backends.ModelBackend',
             'django_auth_ldap.backend.LDAPBackend',
         ]
     except ModuleNotFoundError:
