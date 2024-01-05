@@ -37,6 +37,9 @@ jobs:
 
       - name: Setup PDM
         uses: pdm-project/setup-pdm@v3
+        with:
+          python-version: '3.11'
+          cache: true
 
       ### Install Python & JS Dependencies
       - name: Get pip cache dir
