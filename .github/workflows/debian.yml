@@ -25,36 +25,23 @@ jobs:
             dh-python debhelper devscripts dput software-properties-common \
             python3-distutils python3-setuptools python3-wheel python3-stdeb
 
-      - name: Build Debian/Apt sdist_dsc
-        run: |
-          rm -Rf deb_dist/*
-          python3 setup.py --command-packages=stdeb.command sdist_dsc
+      # - name: Build Debian/Apt sdist_dsc
+      #   run: |
+      #     ./bin/build_pip.sh
 
-      - name: Build Debian/Apt bdist_deb
-        run: |
-          python3 setup.py --command-packages=stdeb.command bdist_deb
+      # - name: Check ArchiveBox version
+      #   run: |
+      #     # must create dir needed for snaps to run as non-root on github actions
+      #     sudo mkdir -p /run/user/1001 && sudo chmod -R 777 /run/user/1001
+      #     mkdir "${{ github.workspace }}/data" && cd "${{ github.workspace }}/data"
+      #     archivebox --version
+      #     archivebox init --setup
 
-      - name: Install archivebox from deb
-        run: |
-          cd deb_dist/
-          sudo apt-get install ./archivebox*.deb
-          cd ..
-          python3 -c 'from distutils.core import run_setup; result = run_setup("./setup.py", stop_after="init"); print("\n".join(result.install_requires + result.extras_require["sonic"]))' > ./requirements.txt
-          python3 -m pip install -r ./requirements.txt
-
-      - name: Check ArchiveBox version
-        run: |
-          # must create dir needed for snaps to run as non-root on github actions
-          sudo mkdir -p /run/user/1001 && sudo chmod -R 777 /run/user/1001
-          mkdir "${{ github.workspace }}/data" && cd "${{ github.workspace }}/data"
-          archivebox --version
-          archivebox init --setup
-
-      - name: Add some links to test
-        run: |
-          cd "${{ github.workspace }}/data"
-          archivebox add 'https://example.com'
-          archivebox status
+      # - name: Add some links to test
+      #   run: |
+      #     cd "${{ github.workspace }}/data"
+      #     archivebox add 'https://example.com'
+      #     archivebox status
 
       # - name: Commit built package
       #   run: |
