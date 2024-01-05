@@ -30,6 +30,9 @@ jobs:
           version: 1.0
 
       - uses: pdm-project/setup-pdm@v3
+        with:
+          python-version: '3.11'
+          cache: true
 
       - name: Install dependencies
         run: pdm install --fail-fast --no-lock --group :all --no-self
