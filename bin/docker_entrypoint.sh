@@ -64,9 +64,9 @@ if [[ -d "$DATA_DIR/archive" ]]; then
         # echo "[√] Permissions are correct"
     else
      # the only time this fails is if the host filesystem doesn't allow us to write as root (e.g. some NFS mapall/maproot problems, connection issues, drive dissapeared, etc.)
-        echo -e "\n[X] Error: archivebox user (PUID=$PUID) is not able to write to your ./data dir (currently owned by $(stat -c '%u' "$DATA_DIR"):$(stat -c '%g' "$DATA_DIR")." >&2
+        echo -e "\n[X] Error: archivebox user (PUID=$PUID) is not able to write to your ./data/archive dir (currently owned by $(stat -c '%u' "$DATA_DIR/archive"):$(stat -c '%g' "$DATA_DIR/archive")." >&2
         echo -e "    Change ./data to be owned by PUID=$PUID PGID=$PGID on the host and retry:" > /dev/stderr
-        echo -e "       \$ chown -R $PUID:$PGID ./data\n" > /dev/stderr
+        echo -e "       \$ chown -R $PUID:$PGID ./data/archive\n" > /dev/stderr
         echo -e "    Configure the PUID & PGID environment variables to change the desired owner:" > /dev/stderr
         echo -e "       https://docs.linuxserver.io/general/understanding-puid-and-pgid\n" > /dev/stderr
         echo -e "    Hint: some NFS/SMB/FUSE/etc. filesystems force-remap/ignore all permissions," > /dev/stderr
@@ -82,7 +82,8 @@ fi
 # force set the ownership of the data dir contents to the archivebox user and group
 # this is needed because Docker Desktop often does not map user permissions from the host properly
 chown $PUID:$PGID "$DATA_DIR"
-chown $PUID:$PGID "$DATA_DIR"/*
+find "$DATA_DIR" -type d -not -path "$DATA_DIR/archive*" -exec chown $PUID:$PGID {} \;
+find "$DATA_DIR" -type f -not -path "$DATA_DIR/archive/*" -exec chown $PUID:$PGID {} \;
 
 # also chown BROWSERS_DIR because otherwise 'archivebox setup' wont be able to install chrome at runtime
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/browsers}"
