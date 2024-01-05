@@ -36,7 +36,6 @@ jobs:
 
       - name: Build package
         run: |
-          rm ./dist/archivebox-*.whl
           pdm build
 
       - name: Install from build
