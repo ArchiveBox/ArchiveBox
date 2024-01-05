@@ -52,8 +52,8 @@ jobs:
           archivebox version
           archivebox status
 
-      - name: Publish package distributions to PyPI
-        run: pdm publish --no-build
+      #- name: Publish package distributions to PyPI
+      #  run: pdm publish --no-build
 
       # - name: Push build to PyPI
       #   run: |
