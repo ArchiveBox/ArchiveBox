@@ -23,6 +23,7 @@ from ..config import (
     PUBLIC_SNAPSHOTS,
     PUBLIC_ADD_VIEW,
     VERSION,
+    COMMIT_HASH,
     FOOTER_INFO,
     SNAPSHOTS_PER_PAGE,
 )
@@ -217,6 +218,7 @@ class PublicIndexView(ListView):
         return {
             **super().get_context_data(**kwargs),
             'VERSION': VERSION,
+            'COMMIT_HASH': COMMIT_HASH,
             'FOOTER_INFO': FOOTER_INFO,
         }
 

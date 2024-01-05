@@ -38,8 +38,11 @@
                     <br />
                     <center>
                         <small>
-                            Archive created using <a href="https://github.com/ArchiveBox/ArchiveBox" title="Github">ArchiveBox</a> version
-                            <a href="https://github.com/ArchiveBox/ArchiveBox/releases/tag/v{{VERSION}}" title="Releases">v{{VERSION}}</a>.
+                            Archive created using <a href="https://github.com/ArchiveBox/ArchiveBox" title="Github">ArchiveBox</a>
+                            <a href="https://github.com/ArchiveBox/ArchiveBox/releases/tag/v{{VERSION}}" title="Releases">v{{VERSION}}</a>
+                            {% if COMMIT_HASH %}
+                                (<a href="https://github.com/ArchiveBox/ArchiveBox/commit/{{COMMIT_HASH}}"><code>{{COMMIT_HASH|truncatechars:9}}</code></a>)
+                            {% endif %}.
                             <br/><br/>
                             {{FOOTER_INFO}}
                         </small>

@@ -48,9 +48,11 @@ class TagInline(admin.TabularInline):
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import AutocompleteSelectMultiple
 
+# WIP: broken by Django 3.1.2 -> 4.0 migration
 class AutocompleteTags:
     model = Tag
     search_fields = ['name']
+    name = 'tags'
 
 class AutocompleteTagsAdminStub:
     name = 'admin'
@@ -60,6 +62,7 @@ class SnapshotActionForm(ActionForm):
     tags = forms.ModelMultipleChoiceField(
         queryset=Tag.objects.all(),
         required=False,
+        # WIP: broken by Django 3.1.2 -> 4.0 migration
         widget=AutocompleteSelectMultiple(
             AutocompleteTags(),
             AutocompleteTagsAdminStub(),

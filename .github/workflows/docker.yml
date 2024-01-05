@@ -11,8 +11,7 @@ on:
 
 env:
   DOCKER_IMAGE: archivebox-ci
-
-
+      
 jobs:
   buildx:
     runs-on: ubuntu-latest
@@ -60,13 +59,12 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: archivebox/archivebox,nikisweeting/archivebox
-          flavor: |
-              latest=auto
           tags: |
               type=ref,event=branch
               type=semver,pattern={{version}}
               type=semver,pattern={{major}}.{{minor}}
               type=sha
+              type=raw,value=latest,enable={{is_default_branch}}
       
       - name: Build and push
         id: docker_build
@@ -78,8 +76,18 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.docker_meta.outputs.tags }}
           cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
           platforms: linux/amd64,linux/arm64,linux/arm/v7
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
+       
+      # This ugly bit is necessary if you don't want your cache to grow forever
+      # until it hits GitHub's limit of 5GB.
+      # Temp fix
+      # https://github.com/docker/build-push-action/issues/252
+      # https://github.com/moby/buildkit/issues/1896
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache

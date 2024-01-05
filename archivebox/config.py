@@ -30,6 +30,7 @@ import inspect
 import getpass
 import platform
 import shutil
+import requests
 import django
 from sqlite3 import dbapi2 as sqlite3
 
@@ -51,25 +52,6 @@ from .config_stubs import (
 )
 
 
-### Pre-Fetch Minimal System Config
-
-SYSTEM_USER = getpass.getuser() or os.getlogin()
-
-try:
-    import pwd
-    SYSTEM_USER = pwd.getpwuid(os.geteuid()).pw_name or SYSTEM_USER
-except KeyError:
-    # Process' UID might not map to a user in cases such as running the Docker image
-    # (where `archivebox` is 999) as a different UID.
-    pass
-except ModuleNotFoundError:
-    # pwd is only needed for some linux systems, doesn't exist on windows
-    pass
-except Exception:
-    # this should never happen, uncomment to debug
-    # raise
-    pass
-
 ############################### Config Schema ##################################
 
 CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
@@ -81,7 +63,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'IN_QEMU':                  {'type': bool,  'default': False},
         'PUID':                     {'type': int,   'default': os.getuid()},
         'PGID':                     {'type': int,   'default': os.getgid()},
-        # TODO: 'SHOW_HINTS':       {'type:  bool,  'default': True},
     },
 
     'GENERAL_CONFIG': {
@@ -257,7 +238,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'POCKET_CONSUMER_KEY':      {'type': str,   'default': None},
         'POCKET_ACCESS_TOKENS':     {'type': dict,  'default': {}},
 
-        'READWISE_READER_TOKENS':     {'type': dict,  'default': {}},
+        'READWISE_READER_TOKENS':   {'type': dict,  'default': {}},
     },
 }
 
@@ -376,23 +357,126 @@ ALLOWED_IN_OUTPUT_DIR = {
     'static_index.json',
 }
 
-def get_version(config):
-    return importlib.metadata.version(__package__ or 'archivebox')
-
-def get_commit_hash(config):
-    try:
-        return list((config['PACKAGE_DIR'] / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
-    except Exception:
-        return None
-
-############################## Derived Config ##################################
-
 
 ALLOWDENYLIST_REGEX_FLAGS: int = re.IGNORECASE | re.UNICODE | re.MULTILINE
 
+
+############################## Version Config ##################################
+
+def get_system_user():
+    SYSTEM_USER = getpass.getuser() or os.getlogin()
+    try:
+        import pwd
+        return pwd.getpwuid(os.geteuid()).pw_name or SYSTEM_USER
+    except KeyError:
+        # Process' UID might not map to a user in cases such as running the Docker image
+        # (where `archivebox` is 999) as a different UID.
+        pass
+    except ModuleNotFoundError:
+        # pwd doesn't exist on windows
+        pass
+    except Exception:
+        # this should never happen, uncomment to debug
+        # raise
+        pass
+
+    return SYSTEM_USER
+
+def get_version(config):
+    try:
+        return importlib.metadata.version(__package__ or 'archivebox')
+    except importlib.metadata.PackageNotFoundError:
+        try:
+            pyproject_config = (config['PACKAGE_DIR'] / 'pyproject.toml').read_text()
+            for line in pyproject_config:
+                if line.startswith('version = '):
+                    return line.split(' = ', 1)[-1].strip('"')
+        except FileNotFoundError:
+            # building docs, pyproject.toml is not available
+            return 'dev'
+
+    raise Exception('Failed to detect installed archivebox version!')
+
+def get_commit_hash(config) -> Optional[str]:
+    try:
+        git_dir = config['PACKAGE_DIR'] / '../.git'
+        ref = (git_dir / 'HEAD').read_text().strip().split(' ')[-1]
+        commit_hash = git_dir.joinpath(ref).read_text().strip()
+        return commit_hash
+    except Exception:
+        pass
+
+    try:
+        return list((config['PACKAGE_DIR'] / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
+    except Exception:
+        pass
+    
+    return None
+
+def get_build_time(config) -> str:
+    if config['IN_DOCKER']:
+        docker_build_end_time = Path('/VERSION.txt').read_text().rsplit('BUILD_END_TIME=')[-1].split('\n', 1)[0]
+        return docker_build_end_time
+
+    src_last_modified_unix_timestamp = (config['PACKAGE_DIR'] / 'config.py').stat().st_mtime
+    return datetime.fromtimestamp(src_last_modified_unix_timestamp).strftime('%Y-%m-%d %H:%M:%S %s')
+
+def get_versions_available_on_github(config):
+    """
+    returns a dictionary containing the ArchiveBox GitHub release info for
+    the recommended upgrade version and the currently installed version
+    """
+    
+    # we only want to perform the (relatively expensive) check for new versions
+    # when its most relevant, e.g. when the user runs a long-running command
+    subcommand_run_by_user = sys.argv[3] if len(sys.argv) > 3 else 'help'
+    long_running_commands = ('add', 'schedule', 'update', 'status', 'server')
+    if subcommand_run_by_user not in long_running_commands:
+        return None
+    
+    github_releases_api = "https://api.github.com/repos/ArchiveBox/ArchiveBox/releases"
+    response = requests.get(github_releases_api)
+    if response.status_code != 200:
+        stderr(f'[!] Warning: GitHub API call to check for new ArchiveBox version failed! (status={response.status_code})', color='lightyellow', config=config)
+        return None
+    all_releases = response.json()
+
+    installed_version = parse_version_string(config['VERSION'])
+
+    # find current version or nearest older version (to link to)
+    current_version = None
+    for idx, release in enumerate(all_releases):
+        release_version = parse_version_string(release['tag_name'])
+        if release_version <= installed_version:
+            current_version = release
+            break
+
+    current_version = current_version or all_releases[-1]
+    
+    # recommended version is whatever comes after current_version in the release list
+    # (perhaps too conservative to only recommend upgrading one version at a time, but it's safest)
+    try:
+        recommended_version = all_releases[idx+1]
+    except IndexError:
+        recommended_version = None
+
+    return {'recommended_version': recommended_version, 'current_version': current_version}
+
+def can_upgrade(config):
+    if config['VERSIONS_AVAILABLE'] and config['VERSIONS_AVAILABLE']['recommended_version']:
+        recommended_version = parse_version_string(config['VERSIONS_AVAILABLE']['recommended_version']['tag_name'])
+        current_version = parse_version_string(config['VERSIONS_AVAILABLE']['current_version']['tag_name'])
+        return recommended_version > current_version
+    return False
+
+
+############################## Derived Config ##################################
+
+# These are derived/computed values calculated *after* all user-provided config values are ingested
+# they appear in `archivebox config` output and are intended to be read-only for the user
 DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'TERM_WIDTH':               {'default': lambda c: lambda: shutil.get_terminal_size((100, 10)).columns},
-    'USER':                     {'default': lambda c: SYSTEM_USER},
+    'USER':                     {'default': lambda c: get_system_user()},
     'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
 
     'PACKAGE_DIR':              {'default': lambda c: Path(__file__).resolve().parent},
@@ -408,12 +492,17 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (Path(c['CHROME_USER_DATA_DIR']).resolve() if c['CHROME_USER_DATA_DIR'] else None)},   # None means unset, so we autodetect it with find_chrome_Data_dir(), but emptystring '' means user manually set it to '', and we should store it as None
     'URL_DENYLIST_PTN':         {'default': lambda c: c['URL_DENYLIST'] and re.compile(c['URL_DENYLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
     'URL_ALLOWLIST_PTN':        {'default': lambda c: c['URL_ALLOWLIST'] and re.compile(c['URL_ALLOWLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
-    'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},
+    'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},  # exec is always needed to list directories
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
-    'VERSION':                  {'default': lambda c: get_version(c)},
-    'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},
+
+    'VERSION':                  {'default': lambda c: get_version(c).split('+', 1)[0]},     # remove +editable from user-displayed version string
+    'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},                  # short git commit hash of codebase HEAD commit
+    'BUILD_TIME':               {'default': lambda c: get_build_time(c)},                   # docker build completed time or python src last modified time
     
+    'VERSIONS_AVAILABLE':       {'default': lambda c: get_versions_available_on_github(c)},
+    'CAN_UPGRADE':              {'default': lambda c: can_upgrade(c)},
+
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
     'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},
     'PYTHON_VERSION':           {'default': lambda c: '{}.{}.{}'.format(*sys.version_info[:3])},
@@ -423,7 +512,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     
     'SQLITE_BINARY':            {'default': lambda c: inspect.getfile(sqlite3)},
     'SQLITE_VERSION':           {'default': lambda c: sqlite3.version},
-    #'SQLITE_JOURNAL_MODE':      {'default': lambda c: 'wal'},         # set at runtime below, interesting but unused for now
+    #'SQLITE_JOURNAL_MODE':      {'default': lambda c: 'wal'},         # set at runtime below, interesting if changed later but unused for now because its always expected to be wal
     #'SQLITE_OPTIONS':           {'default': lambda c: ['JSON1']},     # set at runtime below
 
     'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
@@ -465,6 +554,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] or find_chrome_binary()},
     'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and c['CHROME_BINARY'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'] or c['SAVE_SINGLEFILE'])},
     'CHROME_VERSION':           {'default': lambda c: bin_version(c['CHROME_BINARY']) if c['USE_CHROME'] else None},
+    'CHROME_USER_AGENT':        {'default': lambda c: c['CHROME_USER_AGENT'].format(**c)},
 
     'SAVE_PDF':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_PDF']},
     'SAVE_SCREENSHOT':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SCREENSHOT']},
@@ -482,7 +572,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'DATA_LOCATIONS':           {'default': lambda c: get_data_locations(c)},
     'CHROME_OPTIONS':           {'default': lambda c: get_chrome_info(c)},
     'SAVE_ALLOWLIST_PTN':       {'default': lambda c: c['SAVE_ALLOWLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_ALLOWLIST'].items()}},
-    'SAVE_DENYLIST_PTN':       {'default': lambda c: c['SAVE_DENYLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_DENYLIST'].items()}},
+    'SAVE_DENYLIST_PTN':        {'default': lambda c: c['SAVE_DENYLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_DENYLIST'].items()}},
 }
 
 
@@ -498,47 +588,60 @@ def load_config_val(key: str,
                     config_file_vars: Optional[Dict[str, str]]=None) -> ConfigValue:
     """parse bool, int, and str key=value pairs from env"""
 
+    assert isinstance(config, dict)
 
+    is_read_only = type is None
+    if is_read_only:
+        if callable(default):
+            return default(config)
+        return default
+
+    # get value from environment variables or config files
     config_keys_to_check = (key, *(aliases or ()))
+    val = None
     for key in config_keys_to_check:
         if env_vars:
             val = env_vars.get(key)
             if val:
                 break
+
         if config_file_vars:
             val = config_file_vars.get(key)
             if val:
                 break
 
-    if type is None or val is None:
+    is_unset = val is None
+    if is_unset:
         if callable(default):
-            assert isinstance(config, dict)
             return default(config)
-
         return default
 
-    elif type is bool:
-        if val.lower() in ('true', 'yes', '1'):
+    # calculate value based on expected type
+    BOOL_TRUEIES = ('true', 'yes', '1')
+    BOOL_FALSEIES = ('false', 'no', '0')
+
+    if type is bool:
+        if val.lower() in BOOL_TRUEIES:
             return True
-        elif val.lower() in ('false', 'no', '0'):
+        elif val.lower() in BOOL_FALSEIES:
             return False
         else:
             raise ValueError(f'Invalid configuration option {key}={val} (expected a boolean: True/False)')
 
     elif type is str:
-        if val.lower() in ('true', 'false', 'yes', 'no', '1', '0'):
-            raise ValueError(f'Invalid configuration option {key}={val} (expected a string)')
+        if val.lower() in (*BOOL_TRUEIES, *BOOL_FALSEIES):
+            raise ValueError(f'Invalid configuration option {key}={val} (expected a string, but value looks like a boolean)')
         return val.strip()
 
     elif type is int:
-        if not val.isdigit():
+        if not val.strip().isdigit():
             raise ValueError(f'Invalid configuration option {key}={val} (expected an integer)')
-        return int(val)
+        return int(val.strip())
 
     elif type is list or type is dict:
         return json.loads(val)
 
-    raise Exception('Config values can only be str, bool, int or json')
+    raise Exception('Config values can only be str, bool, int, or json')
 
 
 def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
@@ -680,9 +783,11 @@ def load_config(defaults: ConfigDefaultDict,
 
     return extended_config
 
-# def write_config(config: ConfigDict):
 
-#     with open(os.path.join(config['OUTPUT_DIR'], CONFIG_FILENAME), 'w+') as f:
+def parse_version_string(version: str) -> Tuple[int, int, int]:
+    """parses a version tag string formatted like 'vx.x.x' into (major, minor, patch) ints"""
+    base = version.split('+')[0].split('v')[-1] # remove 'v' prefix and '+editable' suffix
+    return tuple(int(part) for part in base.split('.'))[:3]
 
 
 # Logging Helpers
@@ -771,6 +876,7 @@ def find_chrome_binary() -> Optional[str]:
     # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
     # make sure data dir finding precedence order always matches binary finding order
     default_executable_paths = (
+        # '~/Library/Caches/ms-playwright/chromium-*/chrome-mac/Chromium.app/Contents/MacOS/Chromium',
         'chromium-browser',
         'chromium',
         '/Applications/Chromium.app/Contents/MacOS/Chromium',
@@ -1061,9 +1167,9 @@ globals().update(CONFIG)
 
 
 # Set timezone to UTC and umask to OUTPUT_PERMISSIONS
-assert TIMEZONE == 'UTC', 'The server timezone should always be set to UTC'  # we may allow this to change later
-os.environ["TZ"] = TIMEZONE
-os.umask(0o777 - int(DIR_OUTPUT_PERMISSIONS, base=8))  # noqa: F821
+assert TIMEZONE == 'UTC', 'The server timezone should always be set to UTC'  # noqa: F821
+os.environ["TZ"] = TIMEZONE                                                  # noqa: F821
+os.umask(0o777 - int(DIR_OUTPUT_PERMISSIONS, base=8))                        # noqa: F821
 
 # add ./node_modules/.bin to $PATH so we can use node scripts in extractors
 NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]).absolute() / 'node_modules' / '.bin'))
@@ -1080,7 +1186,6 @@ sys.path.append(NODE_BIN_PATH)
 # disable stderr "you really shouldnt disable ssl" warnings with library config
 if not CONFIG['CHECK_SSL_VALIDITY']:
     import urllib3
-    import requests
     requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -1097,14 +1202,25 @@ if not CONFIG['CHECK_SSL_VALIDITY']:
 
 def check_system_config(config: ConfigDict=CONFIG) -> None:
     ### Check system environment
-    if config['USER'] == 'root':
+    if config['USER'] == 'root' or str(config['PUID']) == "0":
         stderr('[!] ArchiveBox should never be run as root!', color='red')
         stderr('    For more information, see the security overview documentation:')
         stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
+        
+        if config['IN_DOCKER']:
+            attempted_command = ' '.join(sys.argv[:3])
+            stderr('')
+            stderr('    {lightred}Hint{reset}: When using Docker, you must run commands with {green}docker run{reset} instead of {lightyellow}docker exec{reset}, e.g.:'.format(**config['ANSI']))
+            stderr(f'        docker compose run archivebox {attempted_command}')
+            stderr(f'        docker run -it -v $PWD/data:/data archivebox/archivebox {attempted_command}')
+            stderr('        or:')
+            stderr(f'        docker compose exec --user=archivebox archivebox /bin/bash -c "archivebox {attempted_command}"')
+            stderr(f'        docker exec -it --user=archivebox <container id> /bin/bash -c "archivebox {attempted_command}"')
+        
         raise SystemExit(2)
 
     ### Check Python environment
-    if sys.version_info[:3] < (3, 6, 0):
+    if sys.version_info[:3] < (3, 7, 0):
         stderr(f'[X] Python version is not new enough: {config["PYTHON_VERSION"]} (>3.6 is required)', color='red')
         stderr('    See https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
         raise SystemExit(2)
@@ -1180,7 +1296,7 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
 
     if config['USE_YOUTUBEDL'] and config['MEDIA_TIMEOUT'] < 20:
         stderr(f'[!] Warning: MEDIA_TIMEOUT is set too low! (currently set to MEDIA_TIMEOUT={config["MEDIA_TIMEOUT"]} seconds)', color='red')
-        stderr('    Youtube-dl will fail to archive all media if set to less than ~20 seconds.')
+        stderr('    youtube-dl/yt-dlp will fail to archive any media if set to less than ~20 seconds.')
         stderr('    (Setting it somewhere over 60 seconds is recommended)')
         stderr()
         stderr('    If you want to disable media archiving entirely, set SAVE_MEDIA=False instead:')
@@ -1268,8 +1384,7 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
         with open(settings.ERROR_LOG, "a", encoding='utf-8') as f:
             command = ' '.join(sys.argv)
             ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
-            f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
-
+            f.write(f"\n> {command}; TS={ts} VERSION={config['VERSION']} IN_DOCKER={config['IN_DOCKER']} IS_TTY={config['IS_TTY']}\n")
 
         if check_db:
             # Enable WAL mode in sqlite3

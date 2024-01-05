@@ -66,7 +66,9 @@ def get_html(link: Link, path: Path, timeout: int=TIMEOUT) -> str:
     """
     canonical = link.canonical_outputs()
     abs_path = path.absolute()
-    sources = [canonical["singlefile_path"], canonical["wget_path"], canonical["dom_path"]]
+
+    # prefer chrome-generated DOM dump to singlefile as singlefile output often includes HUGE url(data:image/...base64) strings that crash parsers
+    sources = [canonical["dom_path"], canonical["singlefile_path"], canonical["wget_path"]]
     document = None
     for source in sources:
         try:

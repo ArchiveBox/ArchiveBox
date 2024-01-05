@@ -5,10 +5,12 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 .github/
-.git/
 .pdm-build/
 .pdm-python
 .eggs/
+.git/
+!.git/HEAD
+!.git/refs/heads/*
 
 venv/
 .venv/
@@ -16,6 +18,7 @@ venv/
 .docker-venv/
 node_modules/
 
+docs/
 build/
 dist/
 brew_dist/

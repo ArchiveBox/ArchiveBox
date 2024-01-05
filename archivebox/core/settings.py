@@ -269,6 +269,8 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+# WIP: broken by Django 3.1.2 -> 4.0 migration
+DEFAULT_AUTO_FIELD = 'django.db.models.UUIDField'
 
 ################################################################################
 ### Shell Settings

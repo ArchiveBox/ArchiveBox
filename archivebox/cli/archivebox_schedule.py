@@ -40,6 +40,12 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help='Run ArchiveBox once every [timeperiod] (hour/day/month/year or cron format e.g. "0 0 * * *")',
     )
     parser.add_argument(
+        '--tag', '-t',
+        type=str,
+        default='',
+        help="Tag the added URLs with the provided tags e.g. --tag=tag1,tag2,tag3",
+    )
+    parser.add_argument(
         '--depth', # '-d',
         type=int,
         choices=[0, 1],
@@ -97,6 +103,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         run_all=command.run_all,
         quiet=command.quiet,
         every=command.every,
+        tag=command.tag,
         depth=command.depth,
         overwrite=command.overwrite,
         update=command.update,

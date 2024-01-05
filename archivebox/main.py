@@ -93,11 +93,16 @@ from .config import (
     SQL_INDEX_FILENAME,
     ALLOWED_IN_OUTPUT_DIR,
     SEARCH_BACKEND_ENGINE,
+    LDAP,
+    get_version,
     check_dependencies,
     check_data_folder,
     write_config_file,
     VERSION,
+    VERSIONS_AVAILABLE,
+    CAN_UPGRADE,
     COMMIT_HASH,
+    BUILD_TIME,
     CODE_LOCATIONS,
     EXTERNAL_LOCATIONS,
     DATA_LOCATIONS,
@@ -217,32 +222,40 @@ def version(quiet: bool=False,
     print(VERSION)
     
     if not quiet:
-        # 0.6.3
-        # ArchiveBox v0.6.3 Cpython Linux Linux-4.19.121-linuxkit-x86_64-with-glibc2.28 x86_64 (in Docker) (in TTY)
-        # DEBUG=False IN_DOCKER=True IN_QEMU=False IS_TTY=True TZ=UTC FS_ATOMIC=True FS_REMOTE=False FS_PERMS=644 FS_USER=501:20 SEARCH_BACKEND=ripgrep
+        # 0.7.1
+        # ArchiveBox v0.7.1+editable COMMIT_HASH=951bba5 BUILD_TIME=2023-12-17 16:46:05 1702860365
+        # IN_DOCKER=False IN_QEMU=False ARCH=arm64 OS=Darwin PLATFORM=macOS-14.2-arm64-arm-64bit PYTHON=Cpython
+        # FS_ATOMIC=True FS_REMOTE=False FS_USER=501:20 FS_PERMS=644
+        # DEBUG=False IS_TTY=True TZ=UTC SEARCH_BACKEND=ripgrep LDAP=False
         
         p = platform.uname()
         print(
-            'ArchiveBox v{}'.format(VERSION),
-            *((COMMIT_HASH[:7],) if COMMIT_HASH else ()),
-            sys.implementation.name.title(),
-            p.system,
-            platform.platform(),
-            p.machine,
+            'ArchiveBox v{}'.format(get_version(CONFIG)),
+            *((f'COMMIT_HASH={COMMIT_HASH[:7]}',) if COMMIT_HASH else ()),
+            f'BUILD_TIME={BUILD_TIME}',
+        )
+        print(
+            f'IN_DOCKER={IN_DOCKER}',
+            f'IN_QEMU={IN_QEMU}',
+            f'ARCH={p.machine}',
+            f'OS={p.system}',
+            f'PLATFORM={platform.platform()}',
+            f'PYTHON={sys.implementation.name.title()}',
         )
         OUTPUT_IS_REMOTE_FS = DATA_LOCATIONS['OUTPUT_DIR']['is_mount'] or DATA_LOCATIONS['ARCHIVE_DIR']['is_mount']
         print(
-            f'DEBUG={DEBUG}',
-            f'IN_DOCKER={IN_DOCKER}',
-            f'IN_QEMU={IN_QEMU}',
-            f'IS_TTY={IS_TTY}',
-            f'TZ={TIMEZONE}',
-            #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
             f'FS_ATOMIC={ENFORCE_ATOMIC_WRITES}',
             f'FS_REMOTE={OUTPUT_IS_REMOTE_FS}',
             f'FS_USER={PUID}:{PGID}',
             f'FS_PERMS={OUTPUT_PERMISSIONS}',
+        )
+        print(
+            f'DEBUG={DEBUG}',
+            f'IS_TTY={IS_TTY}',
+            f'TZ={TIMEZONE}',
             f'SEARCH_BACKEND={SEARCH_BACKEND_ENGINE}',
+            f'LDAP={LDAP}',
+            #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
         )
         print()
 
@@ -271,7 +284,7 @@ def version(quiet: bool=False,
                 print(printable_folder_status(name, path))
         else:
             print()
-            print('{white}[i] Data locations:{reset}'.format(**ANSI))
+            print('{white}[i] Data locations:{reset} (not in a data directory)'.format(**ANSI))
 
         print()
         check_dependencies()
@@ -591,7 +604,7 @@ def add(urls: Union[str, List[str]],
         out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
-    from core.models import Tag
+    from core.models import Snapshot, Tag
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
 
@@ -635,6 +648,19 @@ def add(urls: Union[str, List[str]],
     write_main_index(links=new_links, out_dir=out_dir)
     all_links = load_main_index(out_dir=out_dir)
 
+    tags = [
+        Tag.objects.get_or_create(name=name.strip())[0]
+        for name in tag.split(',')
+        if name.strip()
+    ]
+    if tags:
+        for link in imported_links:
+            snapshot = Snapshot.objects.get(url=link.url)
+            snapshot.tags.add(*tags)
+            snapshot.tags_str(nocache=True)
+            snapshot.save()
+        # print(f'    √ Tagged {len(imported_links)} Snapshots with {len(tags)} tags {tags_str}')
+
     if index_only:
         # mock archive all the links using the fake index_only extractor method in order to update their state
         if overwrite:
@@ -666,21 +692,8 @@ def add(urls: Union[str, List[str]],
             stderr(f'[*] [{ts}] Archiving {len(new_links)}/{len(all_links)} URLs from added set...', color='green')
             archive_links(new_links, overwrite=False, **archive_kwargs)
 
-
-    # add any tags to imported links
-    tags = [
-        Tag.objects.get_or_create(name=name.strip())[0]
-        for name in tag.split(',')
-        if name.strip()
-    ]
-    if tags:
-        for link in imported_links:
-            snapshot = link.as_snapshot()
-            snapshot.tags.add(*tags)
-            snapshot.tags_str(nocache=True)
-            snapshot.save()
-        # print(f'    √ Tagged {len(imported_links)} Snapshots with {len(tags)} tags {tags_str}')
-
+    if CAN_UPGRADE:
+        hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSIONS_AVAILABLE['recommended_version']['tag_name']} ({VERSIONS_AVAILABLE['recommended_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
 
     return all_links
 
@@ -1005,9 +1018,9 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
 
     stderr('\n    Installing SINGLEFILE_BINARY, READABILITY_BINARY, MERCURY_BINARY automatically using npm...')
     if not NODE_VERSION:
-        stderr('[X] You must first install node using your system package manager', color='red')
+        stderr('[X] You must first install node & npm using your system package manager', color='red')
         hint([
-            'curl -sL https://deb.nodesource.com/setup_15.x | sudo -E bash -',
+            'https://github.com/nodesource/distributions#table-of-contents',
             'or to disable all node-based modules run: archivebox config --set USE_NODE=False',
         ])
         raise SystemExit(1)
@@ -1155,6 +1168,7 @@ def schedule(add: bool=False,
              run_all: bool=False,
              quiet: bool=False,
              every: Optional[str]=None,
+             tag: str='',
              depth: int=0,
              overwrite: bool=False,
              update: bool=not ONLY_NEW,
@@ -1188,6 +1202,7 @@ def schedule(add: bool=False,
                 'add',
                 *(['--overwrite'] if overwrite else []),
                 *(['--update'] if update else []),
+                *([f'--tag={tag}'] if tag else []),
                 f'--depth={depth}',
                 f'"{import_path}"',
             ] if import_path else ['update']),
@@ -1269,6 +1284,9 @@ def schedule(add: bool=False,
             except KeyboardInterrupt:
                 print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
                 raise SystemExit(1)
+
+    if CAN_UPGRADE:
+        hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSIONS_AVAILABLE['recommended_version']['tag_name']} ({VERSIONS_AVAILABLE['recommended_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
 
     
 @enforce_types

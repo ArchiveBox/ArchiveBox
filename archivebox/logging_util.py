@@ -393,7 +393,11 @@ def log_link_archiving_finished(link: "Link", link_dir: str, is_new: bool, stats
     else:
         _LAST_RUN_STATS.succeeded += 1
 
-    size = get_dir_size(link_dir)
+    try:
+        size = get_dir_size(link_dir)
+    except FileNotFoundError:
+        size = (0, None, '0')
+
     end_ts = datetime.now(timezone.utc)
     duration = str(end_ts - start_ts).split('.')[0]
     print('        {black}{} files ({}) in {}s {reset}'.format(size[2], printable_filesize(size[0]), duration, **ANSI))
@@ -409,7 +413,7 @@ def log_archive_method_finished(result: "ArchiveResult"):
     """
     # Prettify CMD string and make it safe to copy-paste by quoting arguments
     quoted_cmd = ' '.join(
-        '"{}"'.format(arg) if ' ' in arg else arg
+        '"{}"'.format(arg) if (' ' in arg) or (':' in arg) else arg
         for arg in result.cmd
     )
 
@@ -444,12 +448,18 @@ def log_archive_method_finished(result: "ArchiveResult"):
                 for line in list(hints)[:5] if line.strip()
             )
 
+        docker_hints = ()
+        if IN_DOCKER:
+            docker_hints = (
+                '  docker run -it -v $PWD/data:/data archivebox/archivebox /bin/bash',
+            )
 
         # Collect and prefix output lines with indentation
         output_lines = [
             *hint_header,
             *hints,
             '{}Run to see full output:{}'.format(ANSI['lightred'], ANSI['reset']),
+            *docker_hints,
             *(['    cd {};'.format(result.pwd)] if result.pwd else []),
             '    {}'.format(quoted_cmd),
         ]
@@ -517,8 +527,8 @@ def log_shell_welcome_msg():
     from .cli import list_subcommands
 
     print('{green}# ArchiveBox Imports{reset}'.format(**ANSI))
-    print('{green}from core.models import Snapshot, User{reset}'.format(**ANSI))
-    print('{green}from archivebox import *\n    {}{reset}'.format("\n    ".join(list_subcommands().keys()), **ANSI))
+    print('{green}from archivebox.core.models import Snapshot, ArchiveResult, Tag, User{reset}'.format(**ANSI))
+    print('{green}from archivebox.cli import *\n    {}{reset}'.format("\n    ".join(list_subcommands().keys()), **ANSI))
     print()
     print('[i] Welcome to the ArchiveBox Shell!')
     print('    https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Shell-Usage')

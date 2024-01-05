@@ -13,11 +13,12 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-latest, windows-latest]
-        python: [3.9]
+        os: [ubuntu-22.04]
+        # os: [ubuntu-22.04, macos-latest, windows-latest]
+        python: [3.11]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 1
@@ -29,13 +30,16 @@ jobs:
           python-version: ${{ matrix.python }}
           architecture: x64
 
-      - name: Set up Node JS 14.7.0
-        uses: actions/setup-node@v3
+      - name: Set up Node JS
+        uses: actions/setup-node@v4
         with:
-          node-version: 18.12.0
+          node-version: 20.10.0
 
       - name: Setup PDM
         uses: pdm-project/setup-pdm@v3
+        with:
+          python-version: '3.11'
+          cache: true
 
       ### Install Python & JS Dependencies
       - name: Get pip cache dir
@@ -44,7 +48,7 @@ jobs:
           echo "::set-output name=dir::$(pip cache dir)"
 
       - name: Cache pip
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         id: cache-pip
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
@@ -52,11 +56,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-venv-
 
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 python3-minimal gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
+          version: 1.0
+
       - name: Install pip dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel pytest bottle build
-          ./bin/build_pip.sh
-          pdm install
+          python -m pip install -r requirements.txt
+          python -m pip install -e .[sonic,ldap]
 
       - name: Get npm cache dir
         id: npm-cache
@@ -64,7 +73,7 @@ jobs:
           echo "::set-output name=dir::$GITHUB_WORKSPACE/node_modules"
 
       - name: Cache npm
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         id: cache-npm
         with:
           path: ${{ steps.npm-cache.outputs.dir }}
@@ -99,7 +108,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 1
