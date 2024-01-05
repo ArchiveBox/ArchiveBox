@@ -55,15 +55,14 @@ jobs:
 
       - uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          # packages: ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 python3-minimal gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
-          packages: ripgrep curl wget
+          packages: ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 python3-minimal gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
           version: 1.0
 
       - name: Install pip dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel pytest bottle build
           python -m pip install -r requirements.txt
-          python -m pip install -e .
+          python -m pip install -e .[sonic,ldap]
 
       - name: Get npm cache dir
         id: npm-cache
