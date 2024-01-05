@@ -52,6 +52,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.python }}-venv-
 
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: libldap2-dev libsasl2-dev ripgrep
+          version: 1.0
+
       - name: Install pip dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel pytest bottle build
