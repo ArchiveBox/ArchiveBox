@@ -13,11 +13,11 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-latest, windows-latest]
-        python: [3.9]
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+        python: [3.11]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 1
@@ -29,10 +29,10 @@ jobs:
           python-version: ${{ matrix.python }}
           architecture: x64
 
-      - name: Set up Node JS 14.7.0
-        uses: actions/setup-node@v3
+      - name: Set up Node JS
+        uses: actions/setup-node@v4
         with:
-          node-version: 18.12.0
+          node-version: 20.10.0
 
       - name: Setup PDM
         uses: pdm-project/setup-pdm@v3
@@ -44,7 +44,7 @@ jobs:
           echo "::set-output name=dir::$(pip cache dir)"
 
       - name: Cache pip
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         id: cache-pip
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
@@ -56,7 +56,8 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel pytest bottle build
           ./bin/build_pip.sh
-          pdm install
+          pdm lock --group=':all'
+          pdm install --group=':all' --dev
 
       - name: Get npm cache dir
         id: npm-cache
@@ -64,7 +65,7 @@ jobs:
           echo "::set-output name=dir::$GITHUB_WORKSPACE/node_modules"
 
       - name: Cache npm
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         id: cache-npm
         with:
           path: ${{ steps.npm-cache.outputs.dir }}
@@ -99,7 +100,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 1
