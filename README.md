@@ -579,9 +579,8 @@ To achieve high-fidelity archives in as many situations as possible, ArchiveBox 
 <details>
 <summary><i>Expand to learn more about ArchiveBox's dependencies...</i></summary><br/>
 
-
-> [!TIP]
-> For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the [⭐️ official Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything pre-installed for the best experience.
+> *TIP: For better security, easier updating, and to avoid polluting your host system with extra dependencies,*
+> ***it is strongly recommended to use the [⭐️ official Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything pre-installed for the best experience.*
 
 These optional dependencies used for archiving sites include:
 
@@ -685,8 +684,8 @@ You can export the main index to browse it statically as plain HTML files in a f
 <summary><i>Expand to learn how to export your ArchiveBox collection...</i></summary>
 <br/>
 
-> [!NOTE]
-> These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.
+> *NOTE: These exports are not paginated, exporting many URLs or the entire archive at once may be slow.*
+> *Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.*
 
 ```bash
 # archivebox list --help
@@ -748,9 +747,8 @@ archivebox config --set SAVE_FAVICON=False          # disable favicon fetching (
 archivebox config --set CHROME_BINARY=chromium      # ensure it's using Chromium instead of Chrome
 ```
 
-> [!CAUTION]
-> Assume anyone *viewing* your archives will be able to see any cookies, session tokens, or private URLs passed to ArchiveBox during archiving.
-> Make sure to secure your ArchiveBox data and don't share snapshots with others without stripping out sensitive headers and content first.
+> *CAUTION: Assume anyone *viewing* your archives will be able to see any cookies, session tokens, or private URLs passed to ArchiveBox during archiving.*
+> *Make sure to secure your ArchiveBox data and don't share snapshots with others without stripping out sensitive headers and content first.*
 
 #### Learn More
 
@@ -785,9 +783,8 @@ https://127.0.0.1:8000/archive/*
 
 The admin UI is also served from the same origin as replayed JS, so malicious pages could also potentially use your ArchiveBox login cookies to perform admin actions (e.g. adding/removing links, running extractors, etc.). We are planning to fix this security shortcoming in a future version by using separate ports/origins to serve the Admin UI and archived content (see [Issue #239](https://github.com/ArchiveBox/ArchiveBox/issues/239)).
 
-> [!NOTE]
-> Only the `wget` & `dom` extractor methods execute archived JS when viewing snapshots, all other archive methods produce static output that does not execute JS on viewing.
-> If you are worried about these issues ^ you should disable these extractors using `archivebox config --set SAVE_WGET=False SAVE_DOM=False`.*
+> *NOTE: Only the `wget` & `dom` extractor methods execute archived JS when viewing snapshots, all other archive methods produce static output that does not execute JS on viewing.*
+> *If you are worried about these issues ^ you should disable these extractors using `archivebox config --set SAVE_WGET=False SAVE_DOM=False`.*
 
 #### Learn More
 
@@ -1007,10 +1004,14 @@ ArchiveBox is neither the highest fidelity nor the simplest tool available for s
 
 ## Internet Archiving Ecosystem
 
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/78d8a725-97f4-47f5-b983-1f62843ddc51" width="14%" align="right"/>
+
+
 Whether you want to learn which organizations are the big players in the web archiving space, want to find a specific open-source tool for your web archiving need, or just want to see where archivists hang out online, our Community Wiki page serves as an index of the broader web archiving community. Check it out to learn about some of the coolest web archiving projects and communities on the web!
 
-
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/78d8a725-97f4-47f5-b983-1f62843ddc51" width="14%" align="right"/>
+<details>
+<summary><i>Explore our index of web archiving software, blogs, and communities around the world...</i></summary>
+<br/>
 
 - [Community Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
   - [The Master Lists](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#the-master-lists)  
@@ -1025,6 +1026,7 @@ Whether you want to learn which organizations are the big players in the web arc
 - Learn why archiving the internet is important by reading the "[On the Importance of Web Archiving](https://items.ssrc.org/parameters/on-the-importance-of-web-archiving/)" blog post.
 - Reach out to me for questions and comments via [@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp) or [@theSquashSH](https://twitter.com/thesquashSH) on Twitter
 
+</details>
 
 <br/>
 
