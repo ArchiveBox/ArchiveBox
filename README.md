@@ -531,7 +531,7 @@ It does everything out-of-the-box by default, but you can disable or tweak [indi
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ea672e6b-4df5-49d8-b550-7f450951fd27" width="330px" align="right">
 
-ArchiveBox can be configured via environment variables, by using the `archivebox config` CLI, or by editing the `ArchiveBox.conf` config file directly.
+ArchiveBox can be configured via environment variables, by using the `archivebox config` CLI, or by editing `./ArchiveBox.conf` directly.
 
 ```bash
 archivebox config                               # view the entire config
@@ -573,14 +573,15 @@ CURL_USER_AGENT="Mozilla/5.0 ..."
 
 ## Dependencies
 
-To achieve high-fidelity archives in as many situations as possible, ArchiveBox depends on a variety of high-quality 3rd-party tools and libraries that specialize in extracting different types of content.
+To achieve high-fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party tools that specialize in extracting different types of content.
 
 <br/>
 <details>
 <summary><i>Expand to learn more about ArchiveBox's dependencies...</i></summary>
 <br/>
 
-For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the official [Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything pre-installed for the best experience.
+> [!TIP]
+> For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the [⭐️ official Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything pre-installed for the best experience.
 
 These optional dependencies used for archiving sites include:
 
@@ -591,8 +592,11 @@ These optional dependencies used for archiving sites include:
 - `node` & `npm` (for readability, mercury, and singlefile)
 - `wget` (for plain HTML, static files, and WARC saving)
 - `curl` (for fetching headers, favicon, and posting to Archive.org)
-- `youtube-dl` or `yt-dlp` (for audio, video, and subtitles)
+- `yt-dlp` or `youtube-dl` (for audio, video, and subtitles)
 - `git` (for cloning git repos)
+- `singlefile` (for saving into a self-contained html file)
+- `postlight/parser` (for discussion threads, forums, and articles)
+- `readability` (for articles and long text content)
 - and more as we grow...
 
 You don't need to install every dependency to use ArchiveBox. ArchiveBox will automatically disable extractors that rely on dependencies that aren't installed, based on what is configured and available in your `$PATH`.
@@ -681,7 +685,7 @@ You can export the main index to browse it statically as plain HTML files in a f
 <summary><i>Expand to learn how to export your ArchiveBox collection...</i></summary>
 <br/>
 
-> **Note**
+> [!NOTE]
 > These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.
 
 ```bash
@@ -744,6 +748,10 @@ archivebox config --set SAVE_FAVICON=False          # disable favicon fetching (
 archivebox config --set CHROME_BINARY=chromium      # ensure it's using Chromium instead of Chrome
 ```
 
+> [!CAUTION]
+> Assume anyone *viewing* your archives will be able to see any cookies, session tokens, or private URLs passed to ArchiveBox during archiving.
+> Make sure to secure your ArchiveBox data and don't share snapshots with others without stripping out sensitive headers and content first.
+
 #### Learn More
 
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive
@@ -777,7 +785,9 @@ https://127.0.0.1:8000/archive/*
 
 The admin UI is also served from the same origin as replayed JS, so malicious pages could also potentially use your ArchiveBox login cookies to perform admin actions (e.g. adding/removing links, running extractors, etc.). We are planning to fix this security shortcoming in a future version by using separate ports/origins to serve the Admin UI and archived content (see [Issue #239](https://github.com/ArchiveBox/ArchiveBox/issues/239)).
 
-*Note: Only the `wget` & `dom` extractor methods execute archived JS when viewing snapshots, all other archive methods produce static output that does not execute JS on viewing. If you are worried about these issues ^ you should disable these extractors using `archivebox config --set SAVE_WGET=False SAVE_DOM=False`.*
+> [!NOTE]
+> Only the `wget` & `dom` extractor methods execute archived JS when viewing snapshots, all other archive methods produce static output that does not execute JS on viewing.
+> If you are worried about these issues ^ you should disable these extractors using `archivebox config --set SAVE_WGET=False SAVE_DOM=False`.*
 
 #### Learn More
 
