@@ -35,7 +35,7 @@ export DEFAULT_PGID=911
 if [[ "$PUID" == "0" ]]; then
     echo -e "\n[X] Error: Got PUID=$PUID and PGID=$PGID but ArchiveBox is not allowed to be run as root, please change or unset PUID & PGID and try again." > /dev/stderr
     echo -e "    Hint: some NFS/SMB/FUSE/etc. filesystems force-remap/ignore all permissions," > /dev/stderr
-        echo -e "          leave PUID/PGID unset, or use values the filesystem prefers (defaults to $DEFAULT_PUID:$DEFAULT_PGID)" > /dev/stderr
+        echo -e "          leave PUID/PGID unset, disable root_squash, or use values the drive prefers (default is $DEFAULT_PUID:$DEFAULT_PGID)" > /dev/stderr
         echo -e "    https://linux.die.net/man/8/mount.cifs#:~:text=does%20not%20provide%20unix%20ownership" > /dev/stderr
     exit 3
 fi
@@ -46,6 +46,7 @@ export DETECTED_PGID="$(stat -c '%g' "$DATA_DIR/logs/errors.log" 2>/dev/null || 
 
 # If data directory exists but is owned by root, use defaults instead of root because root is not allowed
 [[ "$DETECTED_PUID" == "0" ]] && export DETECTED_PUID="$DEFAULT_PUID"
+# (GUID / DETECTED_GUID is allowed to be 0 though)
 
 # Set archivebox user and group ids to desired PUID/PGID
 usermod -o -u "${PUID:-$DETECTED_PUID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
@@ -64,25 +65,31 @@ if [[ -d "$DATA_DIR/archive" ]]; then
         # echo "[√] Permissions are correct"
     else
      # the only time this fails is if the host filesystem doesn't allow us to write as root (e.g. some NFS mapall/maproot problems, connection issues, drive dissapeared, etc.)
-        echo -e "\n[X] Error: archivebox user (PUID=$PUID) is not able to write to your ./data dir (currently owned by $(stat -c '%u' "$DATA_DIR"):$(stat -c '%g' "$DATA_DIR")." >&2
+        echo -e "\n[X] Error: archivebox user (PUID=$PUID) is not able to write to your ./data/archive dir (currently owned by $(stat -c '%u' "$DATA_DIR/archive"):$(stat -c '%g' "$DATA_DIR/archive")." > /dev/stderr
         echo -e "    Change ./data to be owned by PUID=$PUID PGID=$PGID on the host and retry:" > /dev/stderr
         echo -e "       \$ chown -R $PUID:$PGID ./data\n" > /dev/stderr
         echo -e "    Configure the PUID & PGID environment variables to change the desired owner:" > /dev/stderr
         echo -e "       https://docs.linuxserver.io/general/understanding-puid-and-pgid\n" > /dev/stderr
         echo -e "    Hint: some NFS/SMB/FUSE/etc. filesystems force-remap/ignore all permissions," > /dev/stderr
-        echo -e "          leave PUID/PGID unset, or use values the filesystem prefers (defaults to $DEFAULT_PUID:$DEFAULT_PGID)" > /dev/stderr
+        echo -e "          leave PUID/PGID unset, disable root_squash, or use values the drive prefers (default is $DEFAULT_PUID:$DEFAULT_PGID)" > /dev/stderr
         echo -e "    https://linux.die.net/man/8/mount.cifs#:~:text=does%20not%20provide%20unix%20ownership" > /dev/stderr
         exit 3
     fi
 else
-    # create data directory
+    # create data directory (and logs, since its the first dir ArchiveBox needs to write to)
     mkdir -p "$DATA_DIR/logs"
 fi
 
 # force set the ownership of the data dir contents to the archivebox user and group
 # this is needed because Docker Desktop often does not map user permissions from the host properly
 chown $PUID:$PGID "$DATA_DIR"
-chown $PUID:$PGID "$DATA_DIR"/*
+if ! chown $PUID:$PGID "$DATA_DIR"/* > /dev/null 2>&1; then
+    # users may store the ./data/archive folder on a network mount that prevents chmod/chown
+    # fallback to chowning everything else in ./data and leaving ./data/archive alone
+    find "$DATA_DIR" -type d -not -path "$DATA_DIR/archive*" -exec chown $PUID:$PGID {} \; > /dev/null 2>&1
+    find "$DATA_DIR" -type f -not -path "$DATA_DIR/archive/*" -exec chown $PUID:$PGID {} \; > /dev/null 2>&1
+fi
+    
 
 # also chown BROWSERS_DIR because otherwise 'archivebox setup' wont be able to install chrome at runtime
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/browsers}"
