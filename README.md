@@ -577,8 +577,8 @@ To achieve high-fidelity archives in as many situations as possible, ArchiveBox 
 
 <br/>
 <details>
-<summary><i>Expand to learn more about ArchiveBox's dependencies...</i></summary>
-<br/>
+<summary><i>Expand to learn more about ArchiveBox's dependencies...</i></summary><br/>
+
 
 > [!TIP]
 > For better security, easier updating, and to avoid polluting your host system with extra dependencies, **it is strongly recommended to use the [⭐️ official Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything pre-installed for the best experience.
