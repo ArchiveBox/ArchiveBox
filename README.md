@@ -620,8 +620,8 @@ Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not offici
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#installing
 
 </details>
-
 <br/>
+
 
 ## Archive Layout
 
@@ -632,6 +632,7 @@ Data folders can be created anywhere (`~/archivebox` or `$PWD/data` as seen in o
 <details>
 <summary><i>Expand to learn more about the layout of Archivebox's data on-disk...</i></summary>
 <br/>
+
 
 All `archivebox` CLI commands are designed to be run from inside an ArchiveBox data folder, starting with `archivebox init` to initialize a new collection inside an empty directory.
 
@@ -671,9 +672,10 @@ Each snapshot subfolder `./archive/<timestamp>/` includes a static `index.json` 
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives
 
-</details>
 
+</details>
 <br/>
+
 
 ## Static Archive Exporting
 
@@ -683,6 +685,7 @@ You can export the main index to browse it statically as plain HTML files in a f
 <details>
 <summary><i>Expand to learn how to export your ArchiveBox collection...</i></summary>
 <br/>
+
 
 > *NOTE: These exports are not paginated, exporting many URLs or the entire archive at once may be slow.*
 > *Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.*
@@ -707,14 +710,15 @@ The paths in the static exports are relative, make sure to keep them next to you
 
 
 </details>
-
 <br/>
+
 
 ---
 
 <div align="center">
 <img src="https://docs.monadical.com/uploads/upload_b6900afc422ae699bfefa2dcda3306f3.png" width="100%" alt="security graphic"/>
 </div>
+
 
 ## Caveats
 
@@ -758,6 +762,7 @@ archivebox config --set CHROME_BINARY=chromium      # ensure it's using Chromium
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#cookies_file
 
+
 </details>
 <br/>
 
@@ -765,6 +770,7 @@ archivebox config --set CHROME_BINARY=chromium      # ensure it's using Chromium
 ### Security Risks of Viewing Archived JS
 
 Be aware that malicious archived JS can access the contents of other pages in your archive when viewed. Because the Web UI serves all viewed snapshots from a single domain, they share a request context and **typical CSRF/CORS/XSS/CSP protections do not work to prevent cross-site request attacks**. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page and [Issue #239](https://github.com/ArchiveBox/ArchiveBox/issues/239) for more details.
+
 
 <br/>
 <details>
@@ -797,6 +803,7 @@ The admin UI is also served from the same origin as replayed JS, so malicious pa
 </details>
 <br/>
 
+
 ### Working Around Sites that Block Archiving
 
 For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) actively block archiving or bots in general. There are a number of approaches to work around this.
@@ -805,6 +812,7 @@ For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) active
 <details>
 <summary><i>Click to expand...</i></summary>
 <br/>
+
 
 - Set [`CHROME_USER_AGENT`, `WGET_USER_AGENT`, `CURL_USER_AGENT`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#curl_user_agent) to impersonate a real browser (instead of an ArchiveBox bot)
 - Set up a logged-in browser session for archiving using [`CHROME_DATA_DIR` & `COOKIES_FILE`](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile)
@@ -822,10 +830,12 @@ In the future we plan on adding support for running JS scripts during archiving 
 
 ArchiveBox appends a hash with the current date `https://example.com#2020-10-24` to differentiate when a single URL is archived multiple times.
 
+
 <br/>
 <details>
 <summary><i>Click to expand...</i></summary>
 <br/>
+
 
 Because ArchiveBox uniquely identifies snapshots by URL, it must use a workaround to take multiple snapshots of the same URL (otherwise they would show up as a single Snapshot entry). It makes the URLs of repeated snapshots unique by adding a hash with the archive date at the end:
 
@@ -848,6 +858,7 @@ Improved support for saving multiple snapshots of a single URL without this hash
 </details>
 <br/>
 
+
 ### Storage Requirements
 
 Because ArchiveBox is designed to ingest a large volume of URLs with multiple copies of each URL stored by different 3rd-party tools, it can be quite disk-space intensive.  
@@ -857,6 +868,7 @@ There also also some special requirements when using filesystems like NFS/SMB/FU
 <details>
 <summary><i>Click to expand...</i></summary>
 <br/>
+
 
 **ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles**, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
 
@@ -878,9 +890,12 @@ If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to 
 </details>
 <br/>
 
+
 ---
 
+
 <br/>
+
 
 ## Screenshots
 
@@ -922,22 +937,26 @@ If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to 
 </div>
 <br/>
 
+
 ---
 
-<br/>
 
+<br/>
 <div align="center">
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ca85432e-a2df-40c6-968f-51a1ef99b24e" width="100%" alt="paisley graphic">
 </div>
+
 
 # Background & Motivation
 
 ArchiveBox aims to enable more of the internet to be saved from deterioration by empowering people to self-host their own archives. The intent is for all the web content you care about to be viewable with common software in 50 - 100 years without needing to run ArchiveBox or other specialized software to replay it.
 
+
 <br/>
 <details>
 <summary><i>Click to read more...</i></summary>
 <br/>
+
 
 Vast treasure troves of knowledge are lost every day on the internet to link rot. As a society, we have an imperative to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
 
@@ -948,13 +967,16 @@ Whether it's to resist censorship by saving articles before they get taken down 
  <sup><i>Image from <a href="https://perma.cc/">Perma.cc</a>...</i><br/></sup>
 </div>
 
+
 The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful. I don't think everything should be preserved in an automated fashion--making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
 
 Because modern websites are complicated and often rely on dynamic content,
 ArchiveBox archives the sites in **several different formats** beyond what public archiving services like Archive.org/Archive.is save. Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats.
 
+
 </details>
 <br/>
+
 
 ## Comparison to Other Projects
 
