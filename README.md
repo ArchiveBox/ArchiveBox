@@ -1,5 +1,5 @@
-<div align="center" style="text-align: center; width: 100">
-<em><img src="https://archivebox.io/icon.png" height="90px"></em>
+<div align="center" style="text-align: center; width: 100%">
+<img src="https://archivebox.io/icon.png" height="90px"/>
 <h1>ArchiveBox<br/><sub>Open-source self-hosted web archiving.</sub></h1>
 
 <br/>
@@ -976,13 +976,13 @@ A variety of open and closed-source archiving projects exist, but few provide a 
 
 ArchiveBox tries to be a robust, set-and-forget archiving solution suitable for archiving RSS feeds, bookmarks, or your entire browsing history (beware, it may be too big to store), including private/authenticated content that you wouldn't otherwise share with a centralized service.
 
-### Comparison With Centralized Public Archives
+<h3>Comparison With Centralized Public Archives</h3>
 
 Not all content is suitable to be archived in a centralized collection, whether because it's private, copyrighted, too large, or too complex. ArchiveBox hopes to fill that gap.
 
 By having each user store their own content locally, we can save much larger portions of everyone's browsing history than a shared centralized service would be able to handle. The eventual goal is to work towards federated archiving where users can share portions of their collections with each other.
 
-### Comparison With Other Self-Hosted Archiving Options
+<h3>Comparison With Other Self-Hosted Archiving Options</h3>
 
 ArchiveBox differentiates itself from [similar self-hosted projects](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#Web-Archiving-Projects) by providing both a comprehensive CLI interface for managing your archive, a Web UI that can be used either independently or together with the CLI, and a simple on-disk data format that can be used without either.
 
