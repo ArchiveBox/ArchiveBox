@@ -630,8 +630,7 @@ Data folders can be created anywhere (`~/archivebox` or `$PWD/data` as seen in o
 
 <br/>
 <details>
-<summary><i>Expand to learn more about the layout of Archivebox's data on-disk...</i></summary>
-<br/>
+<summary><i>Expand to learn more about the layout of Archivebox's data on-disk...</i></summary><br/>
 
 
 All `archivebox` CLI commands are designed to be run from inside an ArchiveBox data folder, starting with `archivebox init` to initialize a new collection inside an empty directory.
@@ -664,7 +663,7 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
 
 Each snapshot subfolder `./archive/<timestamp>/` includes a static `index.json` and `index.html` describing its contents, and the snapshot extractor outputs are plain files within the folder.
 
-#### Learn More
+<h4>Learn More</h4>
 
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives
@@ -683,8 +682,7 @@ You can export the main index to browse it statically as plain HTML files in a f
 
 <br/>
 <details>
-<summary><i>Expand to learn how to export your ArchiveBox collection...</i></summary>
-<br/>
+<summary><i>Expand to learn how to export your ArchiveBox collection...</i></summary><br/>
 
 
 > *NOTE: These exports are not paginated, exporting many URLs or the entire archive at once may be slow.*
