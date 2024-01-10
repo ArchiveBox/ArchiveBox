@@ -633,20 +633,17 @@ Data folders can be created anywhere (`~/archivebox` or `$PWD/data` as seen in o
 <summary><i>Expand to learn more about the layout of Archivebox's data on-disk...</i></summary><br/>
 
 
-All `archivebox` CLI commands are designed to be run from inside an ArchiveBox data folder, starting with `archivebox init` to initialize a new collection inside an empty directory.
+All <code>archivebox</code> CLI commands are designed to be run from inside an ArchiveBox data folder, starting with <code>archivebox init</code> to initialize a new collection inside an empty directory.
 
-```bash
-mkdir ~/archivebox && cd ~/archivebox   # just an example, can be anywhere
-archivebox init
-```
+<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox   # just an example, can be anywhere
+archivebox init</code></pre>
 
-The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard `index.sqlite3` database in the root of the data folder (it can also be [exported as static JSON/HTML](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive#2-export-and-host-it-as-static-html)), and the archive snapshots are organized by date-added timestamp in the `./archive/` subfolder.
+The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard <code>index.sqlite3</code> database in the root of the data folder (it can also be <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive#2-export-and-host-it-as-static-html">exported as static JSON/HTML</a>), and the archive snapshots are organized by date-added timestamp in the <code>./archive/</code> subfolder.
 
 <img src="https://user-images.githubusercontent.com/511499/117453293-c7b91600-af12-11eb-8a3f-aa48b0f9da3c.png" width="400px" align="right">
 
 
-```bash
-/data/
+<pre lang="bash"><code style="white-space: pre-line">/data/
     index.sqlite3
     ArchiveBox.conf
     archive/
@@ -659,18 +656,18 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
             warc/1617687755.warc.gz
             git/somerepo.git
             ...
-```
+</code></pre>
 
-Each snapshot subfolder `./archive/<timestamp>/` includes a static `index.json` and `index.html` describing its contents, and the snapshot extractor outputs are plain files within the folder.
+Each snapshot subfolder <code>./archive/<timestamp>/</code> includes a static <code>index.json</code> and <code>index.html</code> describing its contents, and the snapshot extractor outputs are plain files within the folder.
 
 <h4>Learn More</h4>
-
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives
-
+<ul>
+<li>https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout</li>
+<li>https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives</li>
+<li>https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder</li>
+<li>https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive</li>
+<li>https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives</li>
+</ul>
 
 </details>
 <br/>
