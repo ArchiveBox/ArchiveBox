@@ -183,9 +183,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     echo "[+] Installing Browser binary dependencies to $PLAYWRIGHT_BROWSERS_PATH..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        libxss1 dbus dbus-x11 \
         fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-khmeros fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
-    && service dbus start \
+        # chrome can run without dbus/upower technically, it complains about missing dbus but should run ok anyway
+        # libxss1 dbus dbus-x11 upower \
+    # && service dbus start \
     && if [[ "$TARGETPLATFORM" == *amd64* || "$TARGETPLATFORM" == *arm64* ]]; then \
         # install Chromium using playwright
         pip install playwright \
@@ -265,9 +266,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 # Setup ArchiveBox runtime config
 WORKDIR "$DATA_DIR"
-ENV IN_DOCKER=True \
-    DBUS_SESSION_BUS_ADDRESS=autolaunch:
-    # needed to fix chrome headless dbus erros ^
+ENV IN_DOCKER=True
     ## No need to set explicitly, these values will be autodetected by archivebox in docker:
     # CHROME_SANDBOX=False \
     # WGET_BINARY="wget" \

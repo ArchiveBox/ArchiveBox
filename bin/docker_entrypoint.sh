@@ -140,6 +140,10 @@ elif [[ "$DATA_USED_PCT" -ge 99 ]] || [[ "$ROOT_AVAIL_KB" -lt 500000 ]]; then
     df -kh /data > /dev/stderr
 fi
 
+# set DBUS_SYSTEM_BUS_ADDRESS & DBUS_SESSION_BUS_ADDRESS (dbus is not technically needed, it just makes chrome log fewer warnings)
+# service dbus start >/dev/null 2>&1 &
+# export $(dbus-launch --close-stderr)
+
 
 export ARCHIVEBOX_BIN_PATH="$(which archivebox)"
 
