@@ -95,7 +95,9 @@ fi
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/browsers}"
 mkdir -p "$PLAYWRIGHT_BROWSERS_PATH/permissions_test_safe_to_delete"
 chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"
-chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/*.*
+chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/*
+chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/.*
+chown -h $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/.links/*
 rm -Rf "$PLAYWRIGHT_BROWSERS_PATH/permissions_test_safe_to_delete"
 
 
