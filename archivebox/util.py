@@ -221,6 +221,8 @@ def get_headers(url: str, timeout: int=None) -> str:
 def chrome_args(**options) -> List[str]:
     """helper to build up a chrome shell command with arguments"""
 
+    # Chrome CLI flag documentation: https://peter.sh/experiments/chromium-command-line-switches/
+
     from .config import CHROME_OPTIONS, CHROME_VERSION
 
     options = {**CHROME_OPTIONS, **options}
@@ -237,6 +239,8 @@ def chrome_args(**options) -> List[str]:
         else:
             cmd_args += ('--headless',)
 
+    WINDOW_SIZE_FLAG = '--window-size={}'.format(options['RESOLUTION'])
+
     if not options['CHROME_SANDBOX']:
         # assume this means we are running inside a docker container
         # in docker, GPU support is limited, sandboxing is unecessary,
@@ -248,12 +252,13 @@ def chrome_args(**options) -> List[str]:
             "--disable-software-rasterizer",
             "--run-all-compositor-stages-before-draw",
             "--hide-scrollbars",
-            "--window-size=1440,2000",
             "--autoplay-policy=no-user-gesture-required",
             "--no-first-run",
             "--use-fake-ui-for-media-stream",
             "--use-fake-device-for-media-stream",
             "--disable-sync",
+            # "--password-store=basic",
+            WINDOW_SIZE_FLAG,
         )
 
 
@@ -263,8 +268,8 @@ def chrome_args(**options) -> List[str]:
     if options['CHROME_USER_AGENT']:
         cmd_args += ('--user-agent={}'.format(options['CHROME_USER_AGENT']),)
 
-    if options['RESOLUTION']:
-        cmd_args += ('--window-size={}'.format(options['RESOLUTION']),)
+    if options['RESOLUTION'] and WINDOW_SIZE_FLAG not in cmd_args:
+        cmd_args += (WINDOW_SIZE_FLAG,)
 
     if options['CHROME_TIMEOUT']:
        cmd_args += ('--timeout={}'.format(options['CHROME_TIMEOUT'] * 1000),)
