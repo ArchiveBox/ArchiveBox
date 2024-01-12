@@ -128,36 +128,38 @@ elif [[ "$ROOT_USED_PCT" -ge 99 ]] || [[ "$ROOT_AVAIL_KB" -lt 500000 ]]; then
     df -kh / > /dev/stderr
 fi
 
-export DATA_USAGE="$(df --output=pcent,avail /data | tail -n 1 | xargs)"
+export DATA_USAGE="$(df --output=pcent,avail "$DATA_DIR" | tail -n 1 | xargs)"
 export DATA_USED_PCT="${DATA_USAGE%%%*}"
 export DATA_AVAIL_KB="$(echo "$DATA_USAGE" | awk '{print $2}')"
 if [[ "$DATA_AVAIL_KB" -lt 100000 ]]; then
-    echo -e "\n[!] Warning: Docker data volume is completely out of space! (${DATA_USED_PCT}% used on /data)" > /dev/stderr
+    echo -e "\n[!] Warning: Docker data volume is completely out of space! (${DATA_USED_PCT}% used on $DATA_DIR)" > /dev/stderr
     echo -e "    you need to free up at least 100Mb on the drive holding your data directory" > /dev/stderr
     echo -e "    \$ ncdu -x data\n" > /dev/stderr
-    df -kh /data > /dev/stderr
+    df -kh "$DATA_DIR" > /dev/stderr
     sleep 5
 elif [[ "$DATA_USED_PCT" -ge 99 ]] || [[ "$ROOT_AVAIL_KB" -lt 500000 ]]; then
-    echo -e "\n[!] Warning: Docker data volume is running out of space! (${DATA_USED_PCT}% used on /data)" > /dev/stderr
+    echo -e "\n[!] Warning: Docker data volume is running out of space! (${DATA_USED_PCT}% used on $DATA_DIR)" > /dev/stderr
     echo -e "    you may need to free up space on the drive holding your data directory soon" > /dev/stderr
     echo -e "    \$ ncdu -x data\n" > /dev/stderr
-    df -kh /data > /dev/stderr
+    df -kh "$DATA_DIR" > /dev/stderr
 else
-    # check data/archive separately even if data/ has space, because it might be on a network mount or external drive
-    export ARCHIVE_USAGE="$(df --output=pcent,avail /data/archive | tail -n 1 | xargs)"
-    export ARCHIVE_USED_PCT="${ARCHIVE_USAGE%%%*}"
-    export ARCHIVE_AVAIL_KB="$(echo "$ARCHIVE_USAGE" | awk '{print $2}')"
-    if [[ "$ARCHIVE_AVAIL_KB" -lt 100000 ]]; then
-        echo -e "\n[!] Warning: data/archive folder is completely out of space! (${ARCHIVE_USED_PCT}% used on /data/archive)" > /dev/stderr
-        echo -e "    you need to free up at least 100Mb on the drive holding your data directory" > /dev/stderr
-        echo -e "    \$ ncdu -x data/archive\n" > /dev/stderr
-        df -kh /data > /dev/stderr
-        sleep 5
-    elif [[ "$ARCHIVE_USED_PCT" -ge 99 ]] || [[ "$ROOT_AVAIL_KB" -lt 500000 ]]; then
-        echo -e "\n[!] Warning: data/archive folder is running out of space! (${ARCHIVE_USED_PCT}% used on /data/archive)" > /dev/stderr
-        echo -e "    you may need to free up space on the drive holding your data/archive directory soon" > /dev/stderr
-        echo -e "    \$ ncdu -x data/archive\n" > /dev/stderr
-        df -kh /data > /dev/stderr
+    # data/ has space available, but check data/archive separately, because it might be on a network mount or external drive
+    if [[ -d "$DATA_DIR/archive" ]]; then
+        export ARCHIVE_USAGE="$(df --output=pcent,avail "$DATA_DIR/archive" | tail -n 1 | xargs)"
+        export ARCHIVE_USED_PCT="${ARCHIVE_USAGE%%%*}"
+        export ARCHIVE_AVAIL_KB="$(echo "$ARCHIVE_USAGE" | awk '{print $2}')"
+        if [[ "$ARCHIVE_AVAIL_KB" -lt 100000 ]]; then
+            echo -e "\n[!] Warning: data/archive folder is completely out of space! (${ARCHIVE_USED_PCT}% used on $DATA_DIR/archive)" > /dev/stderr
+            echo -e "    you need to free up at least 100Mb on the drive holding your data/archive directory" > /dev/stderr
+            echo -e "    \$ ncdu -x data/archive\n" > /dev/stderr
+            df -kh "$DATA_DIR/archive" > /dev/stderr
+            sleep 5
+        elif [[ "$ARCHIVE_USED_PCT" -ge 99 ]] || [[ "$ROOT_AVAIL_KB" -lt 500000 ]]; then
+            echo -e "\n[!] Warning: data/archive folder is running out of space! (${ARCHIVE_USED_PCT}% used on $DATA_DIR/archive)" > /dev/stderr
+            echo -e "    you may need to free up space on the drive holding your data/archive directory soon" > /dev/stderr
+            echo -e "    \$ ncdu -x data/archive\n" > /dev/stderr
+            df -kh "$DATA_DIR/archive" > /dev/stderr
+        fi
     fi
 fi
 
