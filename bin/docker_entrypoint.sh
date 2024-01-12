@@ -91,14 +91,16 @@ if ! chown $PUID:$PGID "$DATA_DIR"/* > /dev/null 2>&1; then
 fi
     
 
-# also chown BROWSERS_DIR because otherwise 'archivebox setup' wont be able to install chrome at runtime
+# also chown BROWSERS_DIR because otherwise 'archivebox setup' wont be able to 'playwright install chromium' at runtime
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/browsers}"
 mkdir -p "$PLAYWRIGHT_BROWSERS_PATH/permissions_test_safe_to_delete"
-chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"
-chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/*
-chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/.*
-chown -h $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/.links/*
 rm -Rf "$PLAYWRIGHT_BROWSERS_PATH/permissions_test_safe_to_delete"
+chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"
+if [[ -d "$PLAYWRIGHT_BROWSERS_PATH/.links" ]]; then
+    chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/*
+    chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/.*
+    chown -h $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/.links/*
+fi
 
 
 # (this check is written in blood in 2023, QEMU silently breaks things in ways that are not obvious)
