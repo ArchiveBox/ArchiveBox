@@ -109,7 +109,7 @@ if [[ "$IN_QEMU" == "True" ]]; then
     echo -e "    See here for more info: https://github.com/microsoft/playwright/issues/17395#issuecomment-1250830493\n" > /dev/stderr
 fi
 
-# check disk space free on / and /data, warn on <500Mb free, error on <100Mb free
+# check disk space free on /, /data, and /data/archive, warn on <500Mb free, error on <100Mb free
 export ROOT_USAGE="$(df --output=pcent,avail / | tail -n 1 | xargs)"
 export ROOT_USED_PCT="${ROOT_USAGE%%%*}"
 export ROOT_AVAIL_KB="$(echo "$ROOT_USAGE" | awk '{print $2}')"
@@ -140,9 +140,28 @@ elif [[ "$DATA_USED_PCT" -ge 99 ]] || [[ "$ROOT_AVAIL_KB" -lt 500000 ]]; then
     echo -e "    you may need to free up space on the drive holding your data directory soon" > /dev/stderr
     echo -e "    \$ ncdu -x data\n" > /dev/stderr
     df -kh /data > /dev/stderr
+else
+    # check data/archive separately even if data/ has space, because it might be on a network mount or external drive
+    export ARCHIVE_USAGE="$(df --output=pcent,avail /data/archive | tail -n 1 | xargs)"
+    export ARCHIVE_USED_PCT="${ARCHIVE_USAGE%%%*}"
+    export ARCHIVE_AVAIL_KB="$(echo "$ARCHIVE_USAGE" | awk '{print $2}')"
+    if [[ "$ARCHIVE_AVAIL_KB" -lt 100000 ]]; then
+        echo -e "\n[!] Warning: data/archive folder is completely out of space! (${ARCHIVE_USED_PCT}% used on /data/archive)" > /dev/stderr
+        echo -e "    you need to free up at least 100Mb on the drive holding your data directory" > /dev/stderr
+        echo -e "    \$ ncdu -x data/archive\n" > /dev/stderr
+        df -kh /data > /dev/stderr
+        sleep 5
+    elif [[ "$ARCHIVE_USED_PCT" -ge 99 ]] || [[ "$ROOT_AVAIL_KB" -lt 500000 ]]; then
+        echo -e "\n[!] Warning: data/archive folder is running out of space! (${ARCHIVE_USED_PCT}% used on /data/archive)" > /dev/stderr
+        echo -e "    you may need to free up space on the drive holding your data/archive directory soon" > /dev/stderr
+        echo -e "    \$ ncdu -x data/archive\n" > /dev/stderr
+        df -kh /data > /dev/stderr
+    fi
 fi
 
-# set DBUS_SYSTEM_BUS_ADDRESS & DBUS_SESSION_BUS_ADDRESS (dbus is not technically needed, it just makes chrome log fewer warnings)
+
+# set DBUS_SYSTEM_BUS_ADDRESS & DBUS_SESSION_BUS_ADDRESS
+# (dbus is not actually needed, it makes chrome log fewer warnings but isn't worth making our docker images bigger)
 # service dbus start >/dev/null 2>&1 &
 # export $(dbus-launch --close-stderr)
 
