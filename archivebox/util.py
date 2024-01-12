@@ -239,8 +239,6 @@ def chrome_args(**options) -> List[str]:
         else:
             cmd_args += ('--headless',)
 
-    WINDOW_SIZE_FLAG = '--window-size={}'.format(options['RESOLUTION'])
-
     if not options['CHROME_SANDBOX']:
         # assume this means we are running inside a docker container
         # in docker, GPU support is limited, sandboxing is unecessary,
@@ -258,18 +256,19 @@ def chrome_args(**options) -> List[str]:
             "--use-fake-device-for-media-stream",
             "--disable-sync",
             # "--password-store=basic",
-            WINDOW_SIZE_FLAG,
         )
+    
+    # disable automatic updating when running headless, as there's no user to see the upgrade prompts
+    cmd_args += ("--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT'",)
 
+    # set window size for screenshot/pdf/etc. rendering
+    cmd_args += ('--window-size={}'.format(options['RESOLUTION']),)
 
     if not options['CHECK_SSL_VALIDITY']:
         cmd_args += ('--disable-web-security', '--ignore-certificate-errors')
 
     if options['CHROME_USER_AGENT']:
         cmd_args += ('--user-agent={}'.format(options['CHROME_USER_AGENT']),)
-
-    if options['RESOLUTION'] and WINDOW_SIZE_FLAG not in cmd_args:
-        cmd_args += (WINDOW_SIZE_FLAG,)
 
     if options['CHROME_TIMEOUT']:
        cmd_args += ('--timeout={}'.format(options['CHROME_TIMEOUT'] * 1000),)
