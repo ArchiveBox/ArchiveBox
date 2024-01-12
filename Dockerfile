@@ -167,7 +167,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         curl wget git yt-dlp ffmpeg ripgrep \
         # Packages we have also needed in the past:
         # youtube-dl wget2 aria2 python3-pyxattr rtmpdump libfribidi-bin mpv \
-        # fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/* \
     # Save version info
     && ( \
@@ -183,6 +182,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing Browser binary dependencies to $PLAYWRIGHT_BROWSERS_PATH..." \
     && apt-get update -qq \
+    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+        libxss1 dbus dbus-x11 \
+        fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-khmeros fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
+    && service dbus start \
     && if [[ "$TARGETPLATFORM" == *amd64* || "$TARGETPLATFORM" == *arm64* ]]; then \
         # install Chromium using playwright
         pip install playwright \
@@ -192,7 +195,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     else \
         # fall back to installing Chromium via apt-get on platforms not supported by playwright (e.g. risc, ARMv7, etc.) 
         apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-            chromium fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
+            chromium \
         && export CHROME_BINARY="$(which chromium)"; \
     fi \
     && rm -rf /var/lib/apt/lists/* \
@@ -262,7 +265,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 # Setup ArchiveBox runtime config
 WORKDIR "$DATA_DIR"
-ENV IN_DOCKER=True
+ENV IN_DOCKER=True \
+    DBUS_SESSION_BUS_ADDRESS=autolaunch:
+    # needed to fix chrome headless dbus erros ^
     ## No need to set explicitly, these values will be autodetected by archivebox in docker:
     # CHROME_SANDBOX=False \
     # WGET_BINARY="wget" \
