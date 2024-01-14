@@ -413,7 +413,7 @@ archivebox help
 #### 🖥&nbsp; Web UI Usage
 
 ```bash
-archivebox manage createsuperuser  # set an admin password
+archivebox manage createsuperuser  # create admin user via CLI (or use ADMIN_PASSWORD env variable)
 archivebox server 0.0.0.0:8000     # open http://127.0.0.1:8000 to view it
 
 # you can also configure whether or not login is required for most features
