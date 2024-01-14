@@ -75,10 +75,10 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 ```bash
 # Get ArchiveBox with Docker or Docker Compose (recommended)
-docker run -v $PWD/data:/data -it archivebox/archivebox:dev init --setup
+docker run -v $PWD/data:/data -p 8000:8000 -it archivebox/archivebox
 
 # Or install with your preferred package manager (see Quickstart below for apt, brew, and more)
-pip3 install archivebox
+pip install archivebox
 
 # Or use the optional auto setup script to install it
 curl -sSL 'https://get.archivebox.io' | sh
