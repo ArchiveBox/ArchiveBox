@@ -13,12 +13,14 @@ version: '3.9'
 services:
     archivebox:
         #image: ${DOCKER_IMAGE:-archivebox/archivebox:dev}
-        image: archivebox/archivebox:dev
+        image: archivebox:test
+        # image: archivebox/archivebox:dev
         command: server --quick-init 0.0.0.0:8000
         ports:
             - 8000:8000
         volumes:
             - ./data:/data
+            - /Volumes/OPT/browsertrix:/browsertrix:z
             # - ./etc/crontabs:/var/spool/cron/crontabs  # uncomment this and archivebox_scheduler below to set up automatic recurring archive jobs
             # - ./archivebox:/app/archivebox             # uncomment this to mount the ArchiveBox source code at runtime (for developers working on archivebox)
         # build: .                                       # uncomment this to build the image from source code at buildtime (for developers working on archivebox)
@@ -48,6 +50,14 @@ services:
         # dns:
         #   - 172.20.0.53
 
+    browsertrix:
+        image: webrecorder/browsertrix-crawler:latest
+        command: /bin/docker_ipc_listener.py
+        expose:
+            - 2222
+        volumes:
+            - /Volumes/OPT/browsertrix:/crawls:z
+            - ./bin/docker_ipc_listener.py:/bin/docker_ipc_listener.py
 
     ######## Optional Addons: tweak examples below as needed for your specific use case ########
 
