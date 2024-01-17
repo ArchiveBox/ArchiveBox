@@ -61,6 +61,12 @@ INSTALLED_APPS = [
     'django.contrib.admin',
 
     'core',
+    
+    # Plugins
+    'plugins.replaywebpage',
+    # ...
+    # someday we may have enough plugins to justify dynamic loading:
+    # *(path.parent.name for path in (Path(PACKAGE_DIR) / 'plugins').glob('*/apps.py')),,
 
     'django_extensions',
 ]
@@ -162,7 +168,7 @@ if DEBUG_TOOLBAR:
         'debug_toolbar.panels.request.RequestPanel',
         'debug_toolbar.panels.sql.SQLPanel',
         'debug_toolbar.panels.staticfiles.StaticFilesPanel',
-        # 'debug_toolbar.panels.templates.TemplatesPanel',
+        # 'debug_toolbar.panels.templates.TemplatesPanel',    # buggy/slow
         'debug_toolbar.panels.cache.CachePanel',
         'debug_toolbar.panels.signals.SignalsPanel',
         'debug_toolbar.panels.logging.LoggingPanel',
@@ -178,16 +184,35 @@ if DEBUG_TOOLBAR:
 
 STATIC_URL = '/static/'
 
+STATIC_ROOT = Path(PACKAGE_DIR) / 'collected_static'
+
 STATICFILES_DIRS = [
     *([str(CUSTOM_TEMPLATES_DIR / 'static')] if CUSTOM_TEMPLATES_DIR else []),
     str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'static'),
+
+    # Plugins
+    str(Path(PACKAGE_DIR) / 'plugins/replaywebpage/static'),
+    # ...
+    # someday if there are many more plugins / user-addable plugins:
+    # *(str(path) for path in (Path(PACKAGE_DIR) / 'plugins').glob('*/static')),
 ]
+
+MEDIA_URL = '/archive/'
+MEDIA_ROOT = OUTPUT_DIR / 'archive'
+
 
 TEMPLATE_DIRS = [
     *([str(CUSTOM_TEMPLATES_DIR)] if CUSTOM_TEMPLATES_DIR else []),
     str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'core'),
     str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'admin'),
     str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME),
+
+    # Plugins
+    str(Path(PACKAGE_DIR) / 'plugins/replaywebpage/templates')
+    # ...
+    #
+    # someday if there are many more plugins / user-addable plugins:
+    # *(str(path) for path in (Path(PACKAGE_DIR) / 'plugins').glob('*/templates')),
 ]
 
 TEMPLATES = [
