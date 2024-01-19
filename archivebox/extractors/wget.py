@@ -202,4 +202,9 @@ def wget_output_path(link: Link) -> Optional[str]:
     if search_dir.is_dir():
         return domain(link.url).replace(":", "+")
 
+    # fallback to just the domain dir without port
+    search_dir = Path(link.link_dir) / domain(link.url).split(":", 1)[0]
+    if search_dir.is_dir():
+        return domain(link.url).split(":", 1)[0]
+
     return None
