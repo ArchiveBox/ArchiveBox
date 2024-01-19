@@ -27,13 +27,15 @@
         </script>
 
         <style>
-            replay-web-page {
-                width: 100%;
-                height: 900px;
-            }
         </style>
         <script src="/static/ui.js"></script>
 
-        <replay-web-page style="height: 600px" embed="replay-with-info" replayBase="/static/" source="{% static 'test.wacz' %}" url="https://example.com/"></replay-web-page>
+        <replay-web-page
+            style="height: 600px"
+            embed="replay"
+            replayBase="/static/"
+            source="/static/test.wacz"
+            url="https://example.com/">
+        </replay-web-page>
     </body>
 </html>
