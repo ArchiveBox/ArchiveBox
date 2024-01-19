@@ -348,6 +348,27 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 </details>
 
 <details>
+<summary><img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0c46e949-00fe-49c8-a613-ee14501c014c" alt="Self-hosting Platforms" height="28px" align="top"/><b>TrueNAS / YunoHost / Cloudron / UNRAID / etc.</b> (self-hosting solutions)</summary>
+<br/>
+
+> [!WARNING]  
+> *These are contributed by external volunteers and may lag behind the official `pip` channel.*
+
+<ul>
+<li><a href="https://dev.to/finloop/setting-up-archivebox-on-truenas-scale-1788">TrueNAS</a></li>
+<li><a href="https://unraid.net/community/apps?q=archivebox#r">UnRaid</a></li>
+<li><a href="https://github.com/YunoHost-Apps/archivebox_ynh">Yunohost</a></li>
+<li><a href="https://www.cloudron.io/store/io.archivebox.cloudronapp.html">Cloudron</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/pull/922/files#diff-00f0606e18b2618c3cc1667ca7c2b703b537af690ca71eba1330633587dcb1ee">AppImage</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/issues/986">Umbrel</a> (need contributors...)</li>
+
+<li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distribution...!</i></a></li>
+</ul>
+See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
+<br/><br/>
+</details>
+
+<details>
 <summary><img src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" alt="paid" height="27px" align="top"/> Paid hosting solutions (cloud VPS)</summary>
 <br/>
 <ul>
