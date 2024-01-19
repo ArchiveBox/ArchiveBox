@@ -317,6 +317,19 @@ files = [
 ]
 
 [[package]]
+name = "django-solo"
+version = "2.0.0"
+requires_python = ">=3.6"
+summary = "Django Solo helps working with singletons"
+dependencies = [
+    "django>=2.2",
+]
+files = [
+    {file = "django-solo-2.0.0.tar.gz", hash = "sha256:7c6dbe04ae858a4645b580ec83a31a960a067ad4525d8227cca50b7fc5983a62"},
+    {file = "django_solo-2.0.0-py3-none-any.whl", hash = "sha256:9046eca738f2ed64dbef38c2107a02af1065a8899b4f9fabf61b06b8325de1b4"},
+]
+
+[[package]]
 name = "exceptiongroup"
 version = "1.2.0"
 requires_python = ">=3.7"
@@ -657,6 +670,16 @@ dependencies = [
 files = [
     {file = "requests-2.31.0-py3-none-any.whl", hash = "sha256:58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f"},
     {file = "requests-2.31.0.tar.gz", hash = "sha256:942c5a758f98d790eaed1a29cb6eefc7ffb0d1cf7af05c3d2791656dbd6ad1e1"},
+]
+
+[[package]]
+name = "setuptools"
+version = "69.0.3"
+requires_python = ">=3.8"
+summary = "Easily download, build, install, upgrade, and uninstall Python packages"
+files = [
+    {file = "setuptools-69.0.3-py3-none-any.whl", hash = "sha256:385eb4edd9c9d5c17540511303e39a147ce2fc04bc55289c322b9e5904fe2c05"},
+    {file = "setuptools-69.0.3.tar.gz", hash = "sha256:be1af57fc409f93647f2e8e4573a142ed38724b8cdd389706a867bb4efcf1e78"},
 ]
 
 [[package]]

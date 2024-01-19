@@ -22,6 +22,7 @@ dependencies = [
     "w3lib>=1.22.0",
     "yt-dlp>=2023.10.13",
     # "playwright>=1.39.0; platform_machine != 'armv7l'",
+    "django-solo>=2.0.0",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
