@@ -379,11 +379,15 @@ class Link:
 
         output_paths = (
             domain(self.url),
+            'output.html',
             'output.pdf',
             'screenshot.png',
-            'output.html',
+            'singlefile.html',
+            'readability/content.html',
+            'mercury/content.html',
+            'htmltotext.txt',
             'media',
-            'singlefile.html'
+            'git',
         )
 
         return any(
