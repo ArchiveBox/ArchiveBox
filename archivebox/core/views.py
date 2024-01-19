@@ -231,7 +231,7 @@ class PublicIndexView(ListView):
                 qs = qs | query_search_index(query)
             except Exception as err:
                 print(f'[!] Error while using search backend: {err.__class__.__name__} {err}')
-        return qs
+        return qs.distinct()
 
     def get(self, *args, **kwargs):
         if PUBLIC_INDEX or self.request.user.is_authenticated:
