@@ -5,6 +5,9 @@ class GalleryDLDependency(SingletonModel):
     GALLERYDL_ENABLED = models.BooleanField(default=True)
     GALLERYDL_BINARY = models.CharField(max_length=255, default='gallery-dl')
 
+    # GALLERYDL_WORKERS = models.IntegerField(default='{NUM_CORES}')
+
+
     def __str__(self):
         return "GalleryDL Dependency Configuration"
 
@@ -26,6 +29,20 @@ class GalleryDLDependency(SingletonModel):
     @cached_property
     def enabled(self):
         return self.GALLERYDL_ENABLED and self.is_valid
+
+
+    def run(args, pwd, timeout):
+        errors = None
+        timer = TimedProgress(timeout, prefix='      ')
+        try:
+            proc = run(cmd=[self.bin_path, *args]=True, pwd=pwd, timeout=timeout)run(cmd=[self.bin_path, *args]=True, pwd=pwd, timeout=timeout)
+
+        except Exception as err:
+            errors = err
+        finally:
+            timer.end()
+
+        return proc, timer, errors
 
 
     def pretty_version(self):
@@ -142,9 +159,8 @@ class GalleryDLExtractor(SingletonModel):
         ]
 
         status, stdout, stderr, output_path = 'failed', '', '', None
-        timer = TimedProgress(timeout, prefix='      ')
         try:
-            proc = run(cmd, cwd=extractor_dir, timeout=self.GALLERYDL_TIMEOUT, text=True)
+            proc, timer, errors = self.GALLERYDL_DEPENDENCY.run(cmd, cwd=extractor_dir, timeout=self.GALLERYDL_TIMEOUT)
             stdout, stderr = proc.stdout, proc.stderr
             
             if 'ERROR: Unsupported URL' in stderr:
@@ -154,11 +170,8 @@ class GalleryDLExtractor(SingletonModel):
             if proc.returncode == 0 and 'finished' in stdout:
                 output_path = extractor_dir / 'index.html'
                 status = 'succeeded'
-
         except Exception as err:
             stderr += err
-        finally:
-            timer.end()
 
         num_bytes, num_dirs, num_files = get_dir_size(extractor_dir)
 
