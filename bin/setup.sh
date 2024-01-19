@@ -26,24 +26,24 @@ if (which docker-compose > /dev/null && docker pull archivebox/archivebox:latest
     if [ -f "./index.sqlite3" ]; then
         mv ~/archivebox/* ~/archivebox/data/
     fi
-    curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/docker-compose.yml'
-    docker-compose run --rm archivebox init --setup
+    curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/main/docker-compose.yml'
+    docker compose run --rm archivebox init --setup
     echo
-    echo "[+] Starting ArchiveBox server using: docker-compose up -d..."
-    docker-compose up -d
+    echo "[+] Starting ArchiveBox server using: docker compose up -d..."
+    docker compose up -d
     sleep 7
     open http://127.0.0.1:8000 || true
     echo
     echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox/data. Usage:"
     echo "    cd ~/archivebox"
-    echo "    docker-compose ps"
-    echo "    docker-compose down"
-    echo "    docker-compose pull"
-    echo "    docker-compose up"
-    echo "    docker-compose run archivebox manage createsuperuser"
-    echo "    docker-compose run archivebox add 'https://example.com'"
-    echo "    docker-compose run archivebox list"
-    echo "    docker-compose run archivebox help"
+    echo "    docker compose ps"
+    echo "    docker compose down"
+    echo "    docker compose pull"
+    echo "    docker compose up"
+    echo "    docker compose run archivebox manage createsuperuser"
+    echo "    docker compose run archivebox add 'https://example.com'"
+    echo "    docker compose run archivebox list"
+    echo "    docker compose run archivebox help"
     exit 0
 elif (which docker > /dev/null && docker pull archivebox/archivebox:latest); then
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox using Docker..."
@@ -189,12 +189,12 @@ which open > /dev/null && open http://127.0.0.1:8000 || true
 
 echo
 echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox. Usage:"
-echo "    cd ~/archivebox"
-echo "    ps aux | grep archivebox"
-echo "    pkill -f archivebox"
-echo "    python3 -m pip install --upgrade archivebox"
-echo "    archivebox server --quick-init 0.0.0.0:8000"
-echo "    archivebox manage createsuperuser"
-echo "    archivebox add 'https://example.com'"
-echo "    archivebox list"
-echo "    archivebox help"
+echo "    cd ~/archivebox                                    # see your data dir"
+echo "    ps aux | grep archivebox                           # see server process pid"
+echo "    pkill -f archivebox                                # stop the server"
+echo "    archivebox server --quick-init 0.0.0.0:8000        # start server process"
+echo "    pip install --upgrade archivebox; archivebox init  # update versions"
+echo "    archivebox manage createsuperuser                  # add an admin user+pass"
+echo "    archivebox add 'https://example.com'"              # archive a new URL
+echo "    archivebox list                                    # see URLs archived"
+echo "    archivebox help                                    # see more help & examples"

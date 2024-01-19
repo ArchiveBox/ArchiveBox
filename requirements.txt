@@ -31,7 +31,7 @@ pure-eval==0.2.2
 pyasn1==0.5.1
 pyasn1-modules==0.3.0
 pycparser==2.21; implementation_name != "cpython"
-pycryptodomex==3.19.1
+pycryptodomex==3.20.0
 pygments==2.17.2
 python-crontab==3.0.0
 python-dateutil==2.8.2
@@ -49,6 +49,6 @@ tzdata==2023.4; platform_system == "Windows"
 tzlocal==5.2
 urllib3==2.1.0
 w3lib==2.1.2
-wcwidth==0.2.12
+wcwidth==0.2.13
 websockets==12.0
 yt-dlp==2023.12.30

@@ -1,11 +1,16 @@
 [project]
 name = "archivebox"
-version = "0.7.2"
+version = "0.7.3"
 description = "Self-hosted internet archiving solution."
 authors = [
     {name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"},
 ]
+license = {text = "MIT"}
+readme = "README.md"
+package-dir = "archivebox"
+requires-python = ">=3.9,<3.12"
 dependencies = [
+    # pdm update [--unconstrained] 
     "croniter>=0.3.34",
     "dateparser>=1.0.0",
     "django-extensions>=3.0.3",
@@ -18,9 +23,6 @@ dependencies = [
     "yt-dlp>=2023.10.13",
     # "playwright>=1.39.0; platform_machine != 'armv7l'",
 ]
-requires-python = ">=3.9,<3.12"
-readme = "README.md"
-license = {text = "MIT"}
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -54,26 +56,45 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-# pdm lock -G:all
-# pdm install -G:all
+[project.optional-dependencies]
+# pdm update [--group=':all'] [--unconstrained] 
+sonic = [
+    # echo "deb [signed-by=/usr/share/keyrings/valeriansaliou_sonic.gpg] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main" > /etc/apt/sources.list.d/valeriansaliou_sonic.list
+    # curl -fsSL https://packagecloud.io/valeriansaliou/sonic/gpgkey | gpg --dearmor -o /usr/share/keyrings/valeriansaliou_sonic.gpg
+    "sonic-client>=0.0.5",
+]
+ldap = [
+    # apt install libldap2-dev libsasl2-dev
+    "setuptools>=69.0.3",
+    "python-ldap>=3.4.3",
+    "django-auth-ldap>=4.1.0",
+]
+# playwright = [
+#     platform_machine isnt respected by pdm export -o requirements.txt, this breaks arm/v7
+#     "playwright>=1.39.0; platform_machine != 'armv7l'",
+# ]
+
+
+# pdm install -G:all --dev
+# pdm update --dev [--unconstrained] 
 [tool.pdm.dev-dependencies]
 dev = [
-    # build
+    # building
     "setuptools>=69.0.3",
     "wheel",
     "pdm",
     "homebrew-pypi-poet>=0.10.0",
-    # docs
+    # documentation
     "recommonmark",
     "sphinx",
     "sphinx-rtd-theme",
-    # debug
+    # debugging
     "django-debug-toolbar",
     "djdt_flamegraph",
     "ipdb",
-    # test
+    # testing
     "pytest",
-    # lint
+    # linting
     "flake8",
     "mypy",
     "django-stubs",
@@ -83,22 +104,6 @@ dev = [
 lint = "./bin/lint.sh"
 test = "./bin/test.sh"
 # all = {composite = ["lint mypackage/", "test -v tests/"]}
-
-[project.optional-dependencies]
-sonic = [
-    # echo "deb [signed-by=/usr/share/keyrings/valeriansaliou_sonic.gpg] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main" > /etc/apt/sources.list.d/valeriansaliou_sonic.list
-    # curl -fsSL https://packagecloud.io/valeriansaliou/sonic/gpgkey | gpg --dearmor -o /usr/share/keyrings/valeriansaliou_sonic.gpg
-    "sonic-client>=0.0.5",
-]
-ldap = [
-    # apt install libldap2-dev libsasl2-dev
-    "python-ldap>=3.4.3",
-    "django-auth-ldap>=4.1.0",
-]
-# playwright = [
-#     platform_machine isnt respected by pdm export -o requirements.txt, this breaks arm/v7
-#     "playwright>=1.39.0; platform_machine != 'armv7l'",
-# ]
 
 [project.scripts]
 archivebox = "archivebox.cli:main"

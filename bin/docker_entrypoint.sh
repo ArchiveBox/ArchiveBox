@@ -91,12 +91,16 @@ if ! chown $PUID:$PGID "$DATA_DIR"/* > /dev/null 2>&1; then
 fi
     
 
-# also chown BROWSERS_DIR because otherwise 'archivebox setup' wont be able to install chrome at runtime
+# also chown BROWSERS_DIR because otherwise 'archivebox setup' wont be able to 'playwright install chromium' at runtime
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/browsers}"
 mkdir -p "$PLAYWRIGHT_BROWSERS_PATH/permissions_test_safe_to_delete"
-chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"
-chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/*
 rm -Rf "$PLAYWRIGHT_BROWSERS_PATH/permissions_test_safe_to_delete"
+chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"
+if [[ -d "$PLAYWRIGHT_BROWSERS_PATH/.links" ]]; then
+    chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/*
+    chown $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/.*
+    chown -h $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/.links/*
+fi
 
 
 # (this check is written in blood in 2023, QEMU silently breaks things in ways that are not obvious)
@@ -107,7 +111,7 @@ if [[ "$IN_QEMU" == "True" ]]; then
     echo -e "    See here for more info: https://github.com/microsoft/playwright/issues/17395#issuecomment-1250830493\n" > /dev/stderr
 fi
 
-# check disk space free on / and /data, warn on <500Mb free, error on <100Mb free
+# check disk space free on /, /data, and /data/archive, warn on <500Mb free, error on <100Mb free
 export ROOT_USAGE="$(df --output=pcent,avail / | tail -n 1 | xargs)"
 export ROOT_USED_PCT="${ROOT_USAGE%%%*}"
 export ROOT_AVAIL_KB="$(echo "$ROOT_USAGE" | awk '{print $2}')"
@@ -124,21 +128,46 @@ elif [[ "$ROOT_USED_PCT" -ge 99 ]] || [[ "$ROOT_AVAIL_KB" -lt 500000 ]]; then
     df -kh / > /dev/stderr
 fi
 
-export DATA_USAGE="$(df --output=pcent,avail /data | tail -n 1 | xargs)"
+export DATA_USAGE="$(df --output=pcent,avail "$DATA_DIR" | tail -n 1 | xargs)"
 export DATA_USED_PCT="${DATA_USAGE%%%*}"
 export DATA_AVAIL_KB="$(echo "$DATA_USAGE" | awk '{print $2}')"
 if [[ "$DATA_AVAIL_KB" -lt 100000 ]]; then
-    echo -e "\n[!] Warning: Docker data volume is completely out of space! (${DATA_USED_PCT}% used on /data)" > /dev/stderr
+    echo -e "\n[!] Warning: Docker data volume is completely out of space! (${DATA_USED_PCT}% used on $DATA_DIR)" > /dev/stderr
     echo -e "    you need to free up at least 100Mb on the drive holding your data directory" > /dev/stderr
     echo -e "    \$ ncdu -x data\n" > /dev/stderr
-    df -kh /data > /dev/stderr
+    df -kh "$DATA_DIR" > /dev/stderr
     sleep 5
 elif [[ "$DATA_USED_PCT" -ge 99 ]] || [[ "$ROOT_AVAIL_KB" -lt 500000 ]]; then
-    echo -e "\n[!] Warning: Docker data volume is running out of space! (${DATA_USED_PCT}% used on /data)" > /dev/stderr
+    echo -e "\n[!] Warning: Docker data volume is running out of space! (${DATA_USED_PCT}% used on $DATA_DIR)" > /dev/stderr
     echo -e "    you may need to free up space on the drive holding your data directory soon" > /dev/stderr
     echo -e "    \$ ncdu -x data\n" > /dev/stderr
-    df -kh /data > /dev/stderr
+    df -kh "$DATA_DIR" > /dev/stderr
+else
+    # data/ has space available, but check data/archive separately, because it might be on a network mount or external drive
+    if [[ -d "$DATA_DIR/archive" ]]; then
+        export ARCHIVE_USAGE="$(df --output=pcent,avail "$DATA_DIR/archive" | tail -n 1 | xargs)"
+        export ARCHIVE_USED_PCT="${ARCHIVE_USAGE%%%*}"
+        export ARCHIVE_AVAIL_KB="$(echo "$ARCHIVE_USAGE" | awk '{print $2}')"
+        if [[ "$ARCHIVE_AVAIL_KB" -lt 100000 ]]; then
+            echo -e "\n[!] Warning: data/archive folder is completely out of space! (${ARCHIVE_USED_PCT}% used on $DATA_DIR/archive)" > /dev/stderr
+            echo -e "    you need to free up at least 100Mb on the drive holding your data/archive directory" > /dev/stderr
+            echo -e "    \$ ncdu -x data/archive\n" > /dev/stderr
+            df -kh "$DATA_DIR/archive" > /dev/stderr
+            sleep 5
+        elif [[ "$ARCHIVE_USED_PCT" -ge 99 ]] || [[ "$ROOT_AVAIL_KB" -lt 500000 ]]; then
+            echo -e "\n[!] Warning: data/archive folder is running out of space! (${ARCHIVE_USED_PCT}% used on $DATA_DIR/archive)" > /dev/stderr
+            echo -e "    you may need to free up space on the drive holding your data/archive directory soon" > /dev/stderr
+            echo -e "    \$ ncdu -x data/archive\n" > /dev/stderr
+            df -kh "$DATA_DIR/archive" > /dev/stderr
+        fi
+    fi
 fi
+
+
+# set DBUS_SYSTEM_BUS_ADDRESS & DBUS_SESSION_BUS_ADDRESS
+# (dbus is not actually needed, it makes chrome log fewer warnings but isn't worth making our docker images bigger)
+# service dbus start >/dev/null 2>&1 &
+# export $(dbus-launch --close-stderr)
 
 
 export ARCHIVEBOX_BIN_PATH="$(which archivebox)"
