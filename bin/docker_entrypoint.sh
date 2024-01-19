@@ -180,9 +180,11 @@ if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == 
     #      "docker run archivebox /bin/bash -c '...'"
     #      "docker run archivebox cat /VERSION.txt"
     exec gosu "$PUID" /bin/bash -c "exec $(printf ' %q' "$@")"
+    # WARNING: make sure to test extensively if you change this line, there are many edge-cases with nested quotes, special character, etc.
     # printf requotes shell parameters properly https://stackoverflow.com/a/39463371/2156113
     # gosu spawns an ephemeral bash process owned by archivebox user (bash wrapper is needed to load env vars, PATH, and setup terminal TTY)
     # outermost exec hands over current process ID to inner bash process, inner exec hands over inner bash PID to user's command
+    # - https://github.com/ArchiveBox/ArchiveBox/issues/1191
 else
     # handle "docker run archivebox add some subcommand --with=args abc" by calling archivebox to run as args as CLI subcommand
     # e.g. "docker run archivebox help"
