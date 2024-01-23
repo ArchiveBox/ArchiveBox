@@ -488,6 +488,8 @@ ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exp
 - <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34" height="22px"/> [Browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (see instructions for: [Chrome](https://support.google.com/chrome/answer/96816?hl=en), [Firefox](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari](https://github.com/ArchiveBox/ArchiveBox/assets/511499/24ad068e-0fa6-41f4-a7ff-4c26fc91f71a), [IE](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows), [Opera](https://help.opera.com/en/latest/features/#bookmarks:~:text=Click%20the%20import/-,export%20button,-on%20the%20bottom), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive))
 - <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="22px"/> Browser extension [`archivebox-exporter`](https://github.com/tjhorner/archivebox-exporter) (realtime archiving from Chrome/Chromium/Firefox)
 - <img src="https://getpocket.com/favicon.ico" height="22px"/> [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Instapaper](https://www.instapaper.com/user), [Shaarli](https://shaarli.readthedocs.io/en/master/Usage/#importexport), [Delicious](https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/), [Reddit Saved](https://github.com/csu/export-saved-reddit), [Wallabag](https://doc.wallabag.org/en/user/import/wallabagv2.html), [Unmark.it](http://help.unmark.it/import-export), [OneTab](https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/), [Firefox Sync](https://github.com/ArchiveBox/ArchiveBox/issues/648), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4f7bd318-265c-4235-ad25-38be89946b12" height="22px"/> Proxy archiving with [`archivebox-proxy`](https://codeberg.org/brunoschroeder/archivebox-proxy) ([realtime archiving](https://github.com/ArchiveBox/ArchiveBox/issues/577) of all traffic from any browser or device)
+
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e1e5bd78-b0b6-45dc-914c-e1046fee4bc4" width="330px" align="right" style="float: right"/>
 
@@ -498,7 +500,7 @@ archivebox add 'https://example.com/some/page'
 archivebox add < ~/Downloads/firefox_bookmarks_export.html
 archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
 echo 'http://example.com' | archivebox add
-echo 'any_text_with [urls](https://example.com) in it' | archivebox add
+echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox add
 
 # if using Docker, add -i when piping stdin:
 # echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox add
