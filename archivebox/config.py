@@ -152,6 +152,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'CHROME_HEADLESS':          {'type': bool,  'default': True},
         'CHROME_SANDBOX':           {'type': bool,  'default': lambda c: not c['IN_DOCKER']},
         'YOUTUBEDL_ARGS':           {'type': list,  'default': lambda c: [
+                                                                '--restrict-filenames',
+                                                                '--trim-filenames',
                                                                 '--write-description',
                                                                 '--write-info-json',
                                                                 '--write-annotations',
