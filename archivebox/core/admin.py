@@ -24,8 +24,16 @@ from core.mixins import SearchResultsAdminMixin
 from index.html import snapshot_icons
 from logging_util import printable_filesize
 from main import add, remove
-from config import OUTPUT_DIR, SNAPSHOTS_PER_PAGE
 from extractors import archive_links
+from config import (
+    OUTPUT_DIR,
+    SNAPSHOTS_PER_PAGE,
+    VERSION,
+    VERSIONS_AVAILABLE,
+    CAN_UPGRADE
+)
+
+GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': VERSIONS_AVAILABLE, 'CAN_UPGRADE': CAN_UPGRADE}
 
 # Admin URLs
 # /admin/
@@ -96,6 +104,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     list_per_page = SNAPSHOTS_PER_PAGE
 
     action_form = SnapshotActionForm
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
 
     def get_urls(self):
         urls = super().get_urls()

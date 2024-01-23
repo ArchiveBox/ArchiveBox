@@ -145,13 +145,13 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 #### ✳️&nbsp; Easy Setup
 
-<details>
+<details open>
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker-compose</code></b>  (macOS/Linux/Windows) &nbsp; <b>👈&nbsp; recommended</b> &nbsp; <i>(click to expand)</i></summary>
 <br/>
 <i>👍 Docker Compose is recommended for the easiest install/update UX + best security + all the <a href="#dependencies">extras</a> out-of-the-box.</i>
 <br/><br/>
 <ol>
-<li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> and <a href="https://docs.docker.com/compose/install/#install-using-pip">Docker Compose</a> on your system (if not already installed).</li>
+<li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
 <li>Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
 curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml'
@@ -159,10 +159,11 @@ curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-comp
 <li>Run the initial setup and create an admin user.
 <pre lang="bash"><code style="white-space: pre-line">docker compose run archivebox init --setup
 </code></pre></li>
-<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
+<li>Next steps: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker compose up
 # completely optional, CLI can always be used without running a server
 # docker compose run [-T] archivebox [subcommand] [--args]
+docker compose run archivebox add 'https://example.com'
 </code></pre></li>
 </ol>
 
