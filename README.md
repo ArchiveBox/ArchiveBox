@@ -426,6 +426,25 @@ cd ~/archivebox/data         # IMPORTANT: cd into the directory
 # archivebox [subcommand] [--args]
 ```
 
+> [!TIP]
+> Whether in Docker or not, ArchiveBox commands all work the same way, and can be used in tandem to access the same data directory.
+> For example, you can run the Web UI in Docker Compose, and run one-off commands on host with `pip`-installed ArchiveBox or in Docker interchangeably.
+
+<details>
+<summary><i>Expand to show examples...</i></summary><br/>
+
+<pre lang="bash"><code style="white-space: pre-line">
+docker compose up -d                                      # start the Web UI server in the background
+docker compose run archivebox add 'https://example.com'   # add a test URL to snapshot w/ Docker Compose
+
+archivebox list 'https://example.com'                     # fetch it with pip-installed archivebox on the host
+docker compose run archivebox list 'https://example.com'                       # or w/ Docker Compose
+docker run -it -v $PWD:/data archivebox/archivebox list 'https://example.com'  # or w/ Docker, all equivalent
+</code></pre>
+
+</details>
+<br/>
+
 ##### Bare Metal Usage (`pip`/`apt`/`brew`/etc.)
 
 <br/>
@@ -440,6 +459,7 @@ archivebox add --depth=1 'https://news.ycombinator.com'
 </code></pre>
 
 </details>
+<br/>
 
 ##### Docker Compose Usage
 
@@ -456,6 +476,7 @@ docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
 </code></pre>
 
 </details>
+<br/>
 
 ##### Docker Usage
 
@@ -470,6 +491,7 @@ docker run -v $PWD:/data -it archivebox/archivebox version
 </code></pre>
 
 </details>
+<br/>
 
 #### Next Steps
 
@@ -478,17 +500,6 @@ docker run -v $PWD:/data -it archivebox/archivebox version
 - `archivebox add/schedule/remove/update/list/shell/oneshot` to manage Snapshots in the archive
 - `archivebox schedule` to pull in fresh URLs regularly from [bookmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
 
-> [!TIP]
-> Whether in Docker or not, ArchiveBox commands all work the same way, and can be used in tandem to access the same data directory.
-> For example, you can run the Web UI in Docker Compose, and run one-off commands on host with `pip`-installed ArchiveBox or in Docker interchangeably.
-> <details><summary><i>Expand to show example...</i></summary><br/><pre lang="bash"><code style="white-space: pre-line">
-docker compose up -d                                      # start the Web UI server in the background
-docker compose run archivebox add 'https://example.com'   # add a test URL to snapshot w/ Docker Compose
-
-archivebox list 'https://example.com'                     # fetch it with pip-installed archivebox on the host
-docker compose run archivebox list 'https://example.com'                       # or w/ Docker Compose
-docker run -it -v $PWD:/data archivebox/archivebox list 'https://example.com'  # or w/ Docker, all equivalent
-</code></pre></details>
 
 #### 🖥&nbsp; Web UI Usage
 
