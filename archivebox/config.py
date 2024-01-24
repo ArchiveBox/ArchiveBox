@@ -112,6 +112,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'LDAP_FIRSTNAME_ATTR':       {'type': str,   'default': None},
         'LDAP_LASTNAME_ATTR':        {'type': str,   'default': None},
         'LDAP_EMAIL_ATTR':           {'type': str,   'default': None},
+        'LDAP_CREATE_SUPERUSER':      {'type': bool,  'default': False},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
