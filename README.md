@@ -426,26 +426,48 @@ cd ~/archivebox/data         # IMPORTANT: cd into the directory
 # archivebox [subcommand] [--args]
 ```
 
-#### Bare Metal Usage (`pip`/`apt`/`brew`/etc.)
-```bash
+##### Bare Metal Usage (`pip`/`apt`/`brew`/etc.)
+
+<br/>
+<details open>
+<summary><i>Click to expand...</i></summary>
+<br/>
+
+<pre lang="bash"><code style="white-space: pre-line">
 archivebox init --setup      # safe to run init multiple times (also how you update versions)
 archivebox version           # get archivebox version info and more
 archivebox add --depth=1 'https://news.ycombinator.com'
-```
+</code>
+
+</details>
 
 ##### Docker Compose Usage
-```bash
+
+<details>
+<summary><i>Click to expand...</i></summary>
+<br/>
+
+<pre lang="bash"><code style="white-space: pre-line">
 # make sure you have `docker-compose.yml` from the Quickstart instructions first
 docker compose run archivebox init --setup
 docker compose run archivebox version
 docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
-```
+</code></pre>
 
-#### Docker Usage
-```bash
+</details>
+
+##### Docker Usage
+
+<details>
+<summary><i>Click to expand...</i></summary>
+<br/>
+
+<pre lang="bash"><code style="white-space: pre-line">
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 docker run -v $PWD:/data -it archivebox/archivebox version
-```
+</code></pre>
+
+</details>
 
 #### Next Steps
 
@@ -458,14 +480,21 @@ docker run -v $PWD:/data -it archivebox/archivebox version
 > Whether in Docker or not, ArchiveBox commands all work the same way, and can be used in tandem to access the same data directory.
 > For example, you can run the Web UI in Docker Compose, and run one-off commands on host with `pip`-installed ArchiveBox or in Docker interchangeably.
 
-```bash
+<br/>
+<details>
+<summary><i>Expand to show example...</i></summary>
+<br/>
+
+<pre lang="bash"><code style="white-space: pre-line">
 docker compose up -d                                      # start the Web UI server in the background
 docker compose run archivebox add 'https://example.com'   # add a test URL to snapshot w/ Docker Compose
 
 archivebox list 'https://example.com'                     # fetch it with pip-installed archivebox on the host
 docker compose run archivebox list 'https://example.com'                       # or w/ Docker Compose
 docker run -it -v $PWD:/data archivebox/archivebox list 'https://example.com'  # or w/ Docker, all equivalent
-```
+</code></pre>
+
+</details>
 
 #### 🖥&nbsp; Web UI Usage
 
