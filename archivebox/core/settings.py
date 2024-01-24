@@ -59,12 +59,17 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admin',
+    'solo',
+
 
     'core',
     
     # Plugins
-    'plugins.replaywebpage',
-    'plugins.gallerydl',
+    
+    'plugins.defaults',
+    'plugins.system',
+    # 'plugins.replaywebpage',
+    # 'plugins.gallerydl',
     # 'plugins.browsertrix',
     # 'plugins.playwright',
     # ...
@@ -87,8 +92,9 @@ STATICFILES_DIRS = [
     str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'static'),
 
     # Plugins
-    str(Path(PACKAGE_DIR) / 'plugins/replaywebpage/static'),
-    str(Path(PACKAGE_DIR) / 'plugins/gallerydl/static'),
+    # str(Path(PACKAGE_DIR) / 'plugins/defaults/static'),
+    # str(Path(PACKAGE_DIR) / 'plugins/replaywebpage/static'),
+    # str(Path(PACKAGE_DIR) / 'plugins/gallerydl/static'),
     # str(Path(PACKAGE_DIR) / 'plugins/browsertrix/static'),
     # str(Path(PACKAGE_DIR) / 'plugins/playwright/static'),
     # ...
@@ -107,8 +113,10 @@ TEMPLATE_DIRS = [
     str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME),
 
     # Plugins
-    str(Path(PACKAGE_DIR) / 'plugins/replaywebpage/templates'),
-    str(Path(PACKAGE_DIR) / 'plugins/gallerydl/templates'),
+    # added by plugins.<PluginName>.apps.<AppName>.ready -> .settings.register_plugin_settings
+    # str(Path(PACKAGE_DIR) / 'plugins/defaults/templates'),
+    # str(Path(PACKAGE_DIR) / 'plugins/replaywebpage/templates'),
+    # str(Path(PACKAGE_DIR) / 'plugins/gallerydl/templates'),
     # str(Path(PACKAGE_DIR) / 'plugins/browsertrix/templates'),
     # str(Path(PACKAGE_DIR) / 'plugins/playwright/templates'),
     # ...

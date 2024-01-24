@@ -1,166 +1,93 @@
+from django.db import models
+from django.utils.functional import cached_property
+
 from solo.models import SingletonModel
 
-
-class GalleryDLDependency(SingletonModel):
-    GALLERYDL_ENABLED = models.BooleanField(default=True)
-    GALLERYDL_BINARY = models.CharField(max_length=255, default='gallery-dl')
-
-    # GALLERYDL_WORKERS = models.IntegerField(default='{NUM_CORES}')
-
-
-    def __str__(self):
-        return "GalleryDL Dependency Configuration"
-
-    class Meta:
-        verbose_name = "GalleryDL Dependency Configuration"
-
-    @cached_property
-    def bin_path(self):
-        return bin_path(self.GALLERYDL_BINARY)
-
-    @cached_property
-    def bin_version(self):
-        return bin_version(self.bin_path)
-
-    @cached_property
-    def is_valid(self):
-        return self.bin_path and self.bin_version
-
-    @cached_property
-    def enabled(self):
-        return self.GALLERYDL_ENABLED and self.is_valid
+from archivebox.plugins.defaults.models import (
+    ArchiveBoxDefaultDependency,
+    ArchiveBoxDefaultExtractor,
+    BashEnvironmentDependency,
+    PipEnvironmentDependency,
+)
 
 
-    def run(args, pwd, timeout):
-        errors = None
-        timer = TimedProgress(timeout, prefix='      ')
-        try:
-            proc = run(cmd=[self.bin_path, *args]=True, pwd=pwd, timeout=timeout)run(cmd=[self.bin_path, *args]=True, pwd=pwd, timeout=timeout)
+class GalleryDLDependency(ArchiveBoxDefaultDependency, SingletonModel):
+    NAME = 'GALLERYDL'
+    LABEL = "GalleryDL"
+    REQUIRED = False
 
-        except Exception as err:
-            errors = err
-        finally:
-            timer.end()
+    PARENT_DEPENDENCIES = [
+        BashEnvironmentDependency,
+        PipEnvironmentDependency,
+    ]
 
-        return proc, timer, errors
+    BIN_DEPENDENCIES = ['gallery-dl']
+    APT_DEPENDENCIES = []
+    BREW_DEPENDENCIES = []
+    PIP_PACKAGES = ['gallery-dl']
+    NPM_PACKAGES = []
 
+    DEFAULT_BINARY = 'gallery-dl'
+    DEFAULT_START_CMD = None
+    DEFAULT_ARGS = []
+    VERSION_CMD = '{BINARY} --version'
 
-    def pretty_version(self):
-        if self.enabled:
-            if self.is_valid:
-                color, symbol, note, version = 'green', '√', 'valid', ''
+    ENABLED = models.BooleanField(default=True)
+    BINARY = models.CharField(max_length=255, default='gallery-dl')
 
-                parsed_version_num = re.search(r'[\d\.]+', self.bin_version)
-                if parsed_version_num:
-                    version = f'v{parsed_version_num[0]}'
-
-            if not self.bin_version:
-                color, symbol, note, version = 'red', 'X', 'invalid', '?'
-        else:
-            color, symbol, note, version = 'lightyellow', '-', 'disabled', '-'
-
-        path = pretty_path(self.bin_path)
-
-        return ' '.join((
-            ANSI[color],
-            symbol,
-            ANSI['reset'],
-            name.ljust(21),
-            version.ljust(14),
-            ANSI[color],
-            note.ljust(8),
-            ANSI['reset'],
-            path.ljust(76),
-        ))
+    WORKERS = models.IntegerField(default='1')
 
 
+class GalleryDLExtractor(ArchiveBoxDefaultExtractor, SingletonModel):
+    NAME = 'GALLERYDL'
+    LABEL = 'gallery-dl'
 
-class GalleryDLExtractor(SingletonModel):
-    GALLERYDL_EXTRACTOR_NAME = 'gallerydl'
-
-    SAVE_GALLERYDL = models.BooleanField(default=True)
-
-    GALLERYDL_DEPENDENCY = GalleryDLDependency.get_solo()
+    DEPENDENCY = GalleryDLDependency.get_solo()
 
     # https://github.com/mikf/gallery-dl
-    GALLERYDL_ARGS = models.CSVField(max_length=255, default=[])
-    GALLERYDL_TIMEOUT = models.IntegerField(default=lambda c: c['TIMEOUT'])
-    GALLERYDL_USER_AGENT = models.CharField(max_length=255, default='{USER_AGENT}')
-    GALLERYDL_COOKIES_TXT = models.CharField(max_length=255, default='{COOKIES_TXT}')
+    DEFAULT_CMD = [
+        '{DEPENDENCY.BINARY}',
+        '{ARGS}'
+        '{url}',
+    ]
+    DEFAULT_ARGS = [
+        '--timeout', self.TIMEOUT.format(**config),
+        '--cookies', self.COOKIES_TXT.format(**config),
+        '--user-agent', self.COOKIES_TXT.format(**config),
+        '--verify', self.CHECK_SSL_VALIDITY.format(**config),
+    ]
 
-    ALIASES = {
-        'SAVE_GALLERYDL': ('USE_GALLERYDL', 'FETCH_GALLERYDL'),
-    }
+    ENABLED = models.BooleanField(default=True)
 
-    @cached_property
-    def enabled(self):
-        return self.SAVE_GALLERYDL and self.GALLERYDL_DEPENDENCY.is_valid
+    CMD = models.CharField(max_length=255, default=DEFAULT_CMD)
+    ARGS = models.CSVField(max_length=255, default=DEFAULT_ARGS)
+    
+    TIMEOUT = models.CharField(max_length=255, default='{TIMEOUT}')
+    USER_AGENT = models.CharField(max_length=255, default='{USER_AGENT}')
+    COOKIES_TXT = models.CharField(max_length=255, default='{COOKIES_TXT}')
+    CHECK_SSL_VALIDITY = models.CharField(default='{CHECK_SSL_VALIDITY}')
 
-
-    def __str__(self):
-        return "GalleryDL Extractor Configuration"
-
-    class Meta:
-        verbose_name = "GalleryDL Extractor Configuration"
-
-    def __json__(self):
-        return {
-            'SAVE_GALLERYDL': self.SAVE_GALLERYDL,
-            'GALLERYDL_DEPENDENCY': self.GALLERYDL_DEPENDENCY.__json__(),
-            'GALLERYDL_ARGS': self.GALLERYDL_ARGS,
-            'GALLERYDL_TIMEOUT': self.GALLERYDL_TIMEOUT,
-            'GALLERYDL_USER_AGENT': self.GALLERYDL_USER_AGENT,
-            'GALLERYDL_COOKIES_TXT': self.GALLERYDL_COOKIES_TXT,
-        }
-
-    def validate(self):
-        assert 5 < self.GALLERYDL_TIMEOUT, 'GALLERYDL_TIMEOUT must be at least 5 seconds'
-        # assert Path(self.GALLERYDL_COOKIES_TXT).exists()
-        # TODO: validate user agent with uaparser
-        # TODO: validate args, cookies.txt?
-
-
-    def save(self, *args, **kwargs):
-        self.validate()
-        with transaction.atomic():
-            result = super().save(*args, **kwargs)
-            emit_event({'type': 'GalleryDLExtractor.save', 'diff': self.__json__(), 'kwargs': kwargs})
-            # potential consumers of this event:
-            #    - event logger: write to events.log
-            #    - config file updater: writes to ArchiveBox.conf
-            #    - supervisor: restarts relevant dependencies/extractors
-            #    - etc...
-
-        return result
-
-
-    def create_extractor_directory(self, parent_dir: Path):
-        return subdir = (parent_dir / self.GALLERYDL_EXTRACTOR_NAME).mkdir(exist_ok=True)
-
-    def should_extract(self, parent_dir: Path):
-        existing_files = (parent_dir / self.GALLERYDL_EXTRACTOR_NAME).glob('*')
-        return not existing_files
-
-
-    def extract(self, url: str, out_dir: Path):
-        if not self.enabled:
+    # @task
+    # @requires_config('HOSTNAME', 'TIMEOUT', 'USER_AGENT', 'CHECK_SSL_VALIDITY')
+    def extract(self, url: str, out_dir: Path, config: ConfigDict):
+        if not self.ENABLED:
             return
 
         extractor_dir = self.create_extractor_directory(out_dir)
 
         cmd = [
-            self.GALLERYDL_DEPENDENCY.bin_path,
+            self.CMD,
             url,
-            '--timeout', GALLERYDL_TIMEOUT,
-            '--cookies', GALLERYDL_COOKIES_TXT,
-            '--user-agent', GALLERYDL_USER_AGENT,
-            '--verify', config.CHECK_SSL_VALIDITY
-            *self.GALLERYDL_ARGS,
+            '--timeout', self.TIMEOUT.format(**config),
+            '--cookies', self.COOKIES_TXT.format(**config),
+            '--user-agent', self.COOKIES_TXT.format(**config),
+            '--verify', self.CHECK_SSL_VALIDITY.format(**config),
+            *split_args(self.ARGS.format(**config)),
         ]
 
         status, stdout, stderr, output_path = 'failed', '', '', None
         try:
-            proc, timer, errors = self.GALLERYDL_DEPENDENCY.run(cmd, cwd=extractor_dir, timeout=self.GALLERYDL_TIMEOUT)
+            proc, timer, errors = self.DEPENDENCY.run(cmd, cwd=extractor_dir, timeout=self.GALLERYDL_TIMEOUT)
             stdout, stderr = proc.stdout, proc.stderr
             
             if 'ERROR: Unsupported URL' in stderr:
@@ -176,17 +103,16 @@ class GalleryDLExtractor(SingletonModel):
         num_bytes, num_dirs, num_files = get_dir_size(extractor_dir)
 
         return ArchiveResult(
-            status=status,
-
             cmd=cmd,
             pwd=str(out_dir),
-            cmd_version=self.GALLERYDL_DEPENDENCY.bin_version,
-            cmd_path=self.GALLERYDL_DEPENDENCY.bin_path,
+            cmd_version=self.DEPENDENCY.bin_version,
+            cmd_path=self.DEPENDENCY.bin_path,
             cmd_hostname=config.HOSTNAME,
 
             output_path=output_path,
             stdout=stdout,
             stderr=stderr,
+            status=status,
 
             num_bytes=num_bytes,
             num_files=num_files,
