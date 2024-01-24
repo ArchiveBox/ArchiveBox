@@ -8,11 +8,10 @@ from .models import (
 
 
 class DependencyAdmin(SingletonModelAdmin):
-	readonly_fields = ('REQUIRED', 'ENABLED', 'BINARY', 'ARGS', 'bin_path', 'bin_version', 'is_valid', 'is_enabled')
+	readonly_fields = ('id', 'NAME', 'LABEL', 'REQUIRED', 'bin_path', 'bin_version', 'is_valid', 'is_enabled')
 
 class ExtractorAdmin(SingletonModelAdmin):
-	# readonly_fields = ('REQUIRED', 'ENABLED', 'BINARY', 'ARGS', 'bin_path', 'bin_version', 'is_valid', 'is_enabled')
-	pass
+	readonly_fields = ('id', 'NAME', 'LABEL', 'DEFAULT_ENABLED', 'DEFAULT_CMD', 'CMD', 'ARGS', 'TIMEOUT', 'dependency', 'is_valid', 'is_enabled')
 
 print('DefaultsPluginConfig.admin')
 

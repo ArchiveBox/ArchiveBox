@@ -12,6 +12,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group, Permission
 from django import forms
 
 from ..util import htmldecode, urldecode, ansi_to_html
@@ -436,6 +437,8 @@ class ArchiveBoxAdmin(admin.AdminSite):
 
 admin.site = ArchiveBoxAdmin()
 admin.site.register(get_user_model())
+admin.site.register(Group)
+admin.site.register(Permission)
 admin.site.register(Snapshot, SnapshotAdmin)
 admin.site.register(Tag, TagAdmin)
 admin.site.register(ArchiveResult, ArchiveResultAdmin)

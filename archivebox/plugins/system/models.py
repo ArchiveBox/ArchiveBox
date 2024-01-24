@@ -6,7 +6,7 @@ import shutil
 import sys
 import inspect
 import django
-import sqlite3
+from sqlite3 import dbapi2 as sqlite3
 
 from pathlib import Path
 from typing import List, Dict, Any
@@ -16,12 +16,14 @@ from django.utils.functional import cached_property
 
 from solo.models import SingletonModel
 
-from plugins.defaults.models import ArchiveBoxBaseDependency, bin_path, bin_version
+from config import bin_path, bin_version, VERSION
+
+from plugins.defaults.models import ArchiveBoxBaseDependency
 
 ConfigDict = Dict[str, Any]
 
 
-class BashEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
+class BashEnvironmentDependency(ArchiveBoxBaseDependency):
     singleton_instance_id = 1
 
     id = models.AutoField(primary_key=True)
@@ -43,6 +45,53 @@ class BashEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
     DEFAULT_STOP_CMD = None
     DEFAULT_PID_FILE = None
     DEFAULT_ARGS = '-c'
+    
+    ENABLED = models.BooleanField(default=True, editable=not REQUIRED)
+    BINARY = models.CharField(max_length=255, default=DEFAULT_BINARY)
+    ARGS = models.CharField(max_length=255, default=DEFAULT_ARGS)
+
+    VERSION_CMD = models.CharField(max_length=255, default='{BINARY} --version')
+    
+    # START_CMD = models.CharField(max_length=255, default=DEFAULT_START_CMD)
+    # WORKERS = models.IntegerField(default=1)
+
+    class Meta:
+        abstract = False
+        app_label = 'system'
+        verbose_name = "Shell Environment: bash"
+        verbose_name_plural = "Shell Environments: bash"
+
+    # @task
+    def install_pkgs(self, os_pkgs=()):
+        assert self.is_valid, 'Bash environment is not available on this host'
+
+        for os_dependency in os_pkgs:
+            assert bin_path(os_dependency)
+
+        return True
+
+class PythonEnvironmentDependency(ArchiveBoxBaseDependency):
+    singleton_instance_id = 1
+
+    id = models.AutoField(primary_key=True)
+
+    NAME = 'PYTHON'
+    LABEL = "Python"
+    REQUIRED = True
+
+    PARENT_DEPENDENCIES = []
+
+    BIN_DEPENDENCIES = ['python3']
+    APT_DEPENDENCIES = []
+    BREW_DEPENDENCIES = []    
+    PIP_DEPENDENCIES = []
+    NPM_DEPENDENCIES = []
+
+    DEFAULT_BINARY = 'python3'
+    DEFAULT_START_CMD = None
+    DEFAULT_STOP_CMD = None
+    DEFAULT_PID_FILE = None
+    DEFAULT_ARGS = '-c'
     VERSION_CMD = '{BINARY} --version'
 
     ENABLED = models.BooleanField(default=True, editable=not REQUIRED)
@@ -55,15 +104,44 @@ class BashEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
     class Meta:
         abstract = False
         app_label = 'system'
+        verbose_name = "Shell Environment: python3"
 
-    # @task
-    def install_pkgs(self, os_pkgs=()):
-        assert self.is_valid, 'Bash environment is not available on this host'
+class NodeJSEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
+    singleton_instance_id = 1
 
-        for os_dependency in os_pkgs:
-            assert bin_path(os_dependency)
+    id = models.AutoField(primary_key=True)
 
-        return True
+    NAME = 'NODEJS'
+    LABEL = "NodeJS"
+    REQUIRED = True
+
+    PARENT_DEPENDENCIES = []
+
+    BIN_DEPENDENCIES = ['node']
+    APT_DEPENDENCIES = []
+    BREW_DEPENDENCIES = []    
+    PIP_DEPENDENCIES = []
+    NPM_DEPENDENCIES = []
+
+    DEFAULT_BINARY = 'node'
+    DEFAULT_START_CMD = None
+    DEFAULT_STOP_CMD = None
+    DEFAULT_PID_FILE = None
+    DEFAULT_ARGS = '-c'
+    VERSION_CMD = '{BINARY} --version'
+
+    ENABLED = models.BooleanField(default=True, editable=True)
+    BINARY = models.CharField(max_length=255, default=DEFAULT_BINARY)
+    ARGS = models.CharField(max_length=255, default=DEFAULT_ARGS)
+    
+    # START_CMD = models.CharField(max_length=255, default=DEFAULT_START_CMD)
+    # WORKERS = models.IntegerField(default=1)
+
+    class Meta:
+        abstract = False
+        app_label = 'system'
+        verbose_name = "Shell Environment: node"
+
 
 class AptEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
     singleton_instance_id = 1
@@ -95,6 +173,7 @@ class AptEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
     class Meta:
         abstract = False
         app_label = 'system'
+        verbose_name = "Package Manager: apt"
 
     # @task
     def install_pkgs(self, apt_pkgs=()):        
@@ -136,6 +215,7 @@ class BrewEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
     class Meta:
         abstract = False
         app_label = 'system'
+        verbose_name = "Package Manager: brew"
 
     # @task
     def install_pkgs(self, brew_pkgs=()):
@@ -182,6 +262,7 @@ class PipEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
     class Meta:
         abstract = False
         app_label = 'system'
+        verbose_name = "Package Manager: pip"
 
     # @task
     def install_pkgs(self, pip_pkgs=()):
@@ -224,6 +305,7 @@ class NPMEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
     class Meta:
         abstract = False
         app_label = 'system'
+        verbose_name = "Package Manager: npm"
 
     # @task
     def install_pkgs(self, npm_pkgs=()):
@@ -266,6 +348,7 @@ class DjangoDependency(ArchiveBoxBaseDependency, SingletonModel):
     class Meta:
         abstract = False
         app_label = 'system'
+        verbose_name = "Internal Dependency: django"
 
     @cached_property
     def bin_path(self):
@@ -273,7 +356,7 @@ class DjangoDependency(ArchiveBoxBaseDependency, SingletonModel):
 
     @cached_property
     def bin_version(self):
-        return django.VERSION
+        return '.'.join(str(v) for v in django.VERSION[:3])
 
 
 class SQLiteDependency(ArchiveBoxBaseDependency, SingletonModel):
@@ -307,6 +390,7 @@ class SQLiteDependency(ArchiveBoxBaseDependency, SingletonModel):
     class Meta:
         abstract = False
         app_label = 'system'
+        verbose_name = "Internal Dependency: sqlite3"
 
     @cached_property
     def bin_path(self):
@@ -316,7 +400,7 @@ class SQLiteDependency(ArchiveBoxBaseDependency, SingletonModel):
     def bin_version(self):
         return sqlite3.version
 
-class ArchiveBoxDependency(ArchiveBoxBaseDependency, SingletonModel):
+class ArchiveBoxDependency(ArchiveBoxBaseDependency):
     singleton_instance_id = 1
 
     id = models.AutoField(primary_key=True)
@@ -349,6 +433,7 @@ class ArchiveBoxDependency(ArchiveBoxBaseDependency, SingletonModel):
     class Meta:
         abstract = False
         app_label = 'system'
+        verbose_name = "Internal Dependency: archivebox"
 
     @cached_property
     def bin_path(self):
@@ -357,5 +442,5 @@ class ArchiveBoxDependency(ArchiveBoxBaseDependency, SingletonModel):
     @cached_property
     def bin_version(self):
         # return config['VERSION']
-        return '0.7.3+editable'
+        return VERSION
 

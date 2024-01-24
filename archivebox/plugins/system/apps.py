@@ -4,9 +4,10 @@
 from django.apps import AppConfig
 
 
-class SystemPluginConfig(AppConfig):
-    label = "ArchiveBox System"
-    name = "system"
+class SystemPluginAppConfig(AppConfig):
+    name = "plugins.system"
+    # label = "ArchiveBox System"
+    verbose_name = "Host System Configuration"
     
     default_auto_field = "django.db.models.AutoField"
 
@@ -15,7 +16,7 @@ class SystemPluginConfig(AppConfig):
 
         from django.conf import settings
 
-        from .settings import register_plugin_settings
+        from plugins.defaults.settings import register_plugin_settings
 
         register_plugin_settings(settings, name=self.name)
         

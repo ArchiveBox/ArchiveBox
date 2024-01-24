@@ -1,13 +1,15 @@
-__package__ = 'archivebox.plugins.defaults'
+# __package__ = 'archivebox.plugins.defaults'
 
 
 
 from django.apps import AppConfig
 
 
-class DefaultsPluginConfig(AppConfig):
-    label = "ArchiveBox Defaults"
-    name = "defaults"
+class DefaultsPluginAppConfig(AppConfig):
+    name = "plugins.defaults"
+
+    # label = "ArchiveBox Defaults"
+    verbose_name = "Plugin Configuration Defaults"
     
     default_auto_field = "django.db.models.AutoField"
 

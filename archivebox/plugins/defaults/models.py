@@ -10,17 +10,20 @@ from django.utils.functional import cached_property
 
 from solo.models import SingletonModel
 
+
+from config import bin_path, bin_version
+
 ConfigDict = Dict[str, Any]
 
 
-def bin_path(binary: str) -> str | None:
-    return shutil.which(str(Path(binary).expanduser())) or shutil.which(str(binary)) or binary
+# def bin_path(binary: str) -> str | None:
+#     return shutil.which(str(Path(binary).expanduser())) or shutil.which(str(binary)) or binary
 
-def bin_version(bin_path: str, cmd: str | None=None) -> str | None:
-    return '0.0.0'
+# def bin_version(bin_path: str, cmd: str | None=None) -> str | None:
+#     return '0.0.0'
 
 
-class ArchiveBoxBaseDependency(SingletonModel):
+class ArchiveBoxBaseDependency(models.Model):
     singleton_instance_id = 1
 
     id = models.AutoField(default=singleton_instance_id, primary_key=True)
@@ -37,11 +40,11 @@ class ArchiveBoxBaseDependency(SingletonModel):
     PIP_DEPENDENCIES = []
     NPM_DEPENDENCIES = []
 
-    DEFAULT_BINARY = '/bin/false'
-    DEFAULT_START_CMD = '/bin/false'
+    DEFAULT_BINARY = '/bin/bash'
+    DEFAULT_START_CMD = '/bin/bash -c "while true; do sleep 1; done"'
     DEFAULT_PID_FILE = 'logs/{NAME}_WORKER.pid'
     DEFAULT_STOP_CMD = 'kill "$(<{PID_FILE})"'
-    DEFAULT_VERSION_COMMAND = '{CMD} --version'
+    DEFAULT_VERSION_COMMAND = '{BINARY} --version'
     DEFAULT_ARGS = ''
 
     VERSION_CMD = '{BINARY} --version'
@@ -58,7 +61,7 @@ class ArchiveBoxBaseDependency(SingletonModel):
         app_label = 'defaults'
 
     def __str__(self):
-        return "{self.LABEL} Dependency Configuration"
+        return f"{self.LABEL} Dependency Configuration"
 
     def __json__(self):
         return {
@@ -79,7 +82,9 @@ class ArchiveBoxBaseDependency(SingletonModel):
 
     @cached_property
     def bin_version(self):
-        return bin_version(self.bin_path, cmd=self.VERSION_CMD)
+        print(f'ArchiveBoxBaseDependency.bin_version({self.bin_path}, cmd={self.VERSION_CMD.format(BINARY=self.BINARY)})')
+        return bin_version(self.bin_path, cmd=self.VERSION_CMD.format(BINARY=self.BINARY))
+        # return bin_version(self.bin_path, cmd=self.VERSION_CMD)
 
     @cached_property
     def is_valid(self):
@@ -157,12 +162,15 @@ class ArchiveBoxDefaultDependency(ArchiveBoxBaseDependency, SingletonModel):
 
     id = models.AutoField(default=singleton_instance_id, primary_key=True)
 
+    ENABLED = models.BooleanField(default=True, editable=True)
+
     class Meta:
         abstract = False
         app_label = 'defaults'
+        verbose_name = 'Default Configuration: Dependencies'
 
 
-class ArchiveBoxBaseExtractor(SingletonModel):
+class ArchiveBoxBaseExtractor(models.Model):
     singleton_instance_id = 1
 
     id = models.AutoField(default=singleton_instance_id, primary_key=True)
@@ -258,7 +266,7 @@ class ArchiveBoxBaseExtractor(SingletonModel):
 
 
     def save(self, *args, **kwargs):
-        assert self.is_valid
+        # assert self.is_valid
 
         with transaction.atomic():
             result = super().save(*args, **kwargs)
@@ -356,6 +364,11 @@ class ArchiveBoxDefaultExtractor(ArchiveBoxBaseExtractor, SingletonModel):
 
     id = models.AutoField(default=singleton_instance_id, primary_key=True)
 
+    DEPENDENCY = ArchiveBoxDefaultDependency
+
+    ENABLED = models.BooleanField(default=True, editable=True)
+
     class Meta:
         abstract = False
         app_label = 'defaults'
+        verbose_name = 'Default Configuration: Extractors'
