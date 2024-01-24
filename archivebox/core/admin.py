@@ -6,6 +6,7 @@ from contextlib import redirect_stdout
 from datetime import datetime, timezone
 
 from django.contrib import admin
+from django.db.models import Count
 from django.urls import path
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
@@ -23,8 +24,16 @@ from core.mixins import SearchResultsAdminMixin
 from index.html import snapshot_icons
 from logging_util import printable_filesize
 from main import add, remove
-from config import OUTPUT_DIR, SNAPSHOTS_PER_PAGE
 from extractors import archive_links
+from config import (
+    OUTPUT_DIR,
+    SNAPSHOTS_PER_PAGE,
+    VERSION,
+    VERSIONS_AVAILABLE,
+    CAN_UPGRADE
+)
+
+GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': VERSIONS_AVAILABLE, 'CAN_UPGRADE': CAN_UPGRADE}
 
 # Admin URLs
 # /admin/
@@ -96,6 +105,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
     action_form = SnapshotActionForm
 
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -105,7 +118,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
     def get_queryset(self, request):
         self.request = request
-        return super().get_queryset(request).prefetch_related('tags')
+        return super().get_queryset(request).prefetch_related('tags').annotate(archiveresult_count=Count('archiveresult'))
 
     def tag_list(self, obj):
         return ', '.join(obj.tags.values_list('name', flat=True))
@@ -187,7 +200,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     def files(self, obj):
         return snapshot_icons(obj)
 
-    files.admin_order_field = 'updated'
+    files.admin_order_field = 'archiveresult_count'
     files.short_description = 'Files Saved'
 
     def size(self, obj):
@@ -204,7 +217,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
             size_txt,
         )
 
-    size.admin_order_field = 'archiveresult__count'
+    size.admin_order_field = 'archiveresult_count'
 
     def url_str(self, obj):
         return format_html(
