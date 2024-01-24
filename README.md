@@ -417,31 +417,52 @@ For more discussion on managed and paid hosting options see here: <a href="https
 
 #### ⚡️&nbsp; CLI Usage
 
+ArchiveBox commands can be run in a terminal directly on your host, or via Docker/Docker Compose depending on how you installed it above.
+All methods behave the same, and can be used in tandem to access the same data directory.
+  
 ```bash
-# archivebox [subcommand] [--args]
-# docker-compose run archivebox [subcommand] [--args]
-# docker run -v $PWD:/data -it [subcommand] [--args]
+mkdir -p ~/archivebox/data   # create a new data dir anywhere
+cd ~/archivebox/data         # IMPORTANT: cd into the directory
+
+# These are all equivalent, use your preferred method:
+# archivebox [subcommand] [--args]         (e.g. archivebox add )
+# docker compose run archivebox [subcommand] [--args]
+# docker run -v $PWD:/data -it archivebox/archivebox [subcommand] [--args]
 
 archivebox init --setup      # safe to run init multiple times (also how you update versions)
-archivebox --version
-archivebox help
+# docker compose run archivebox init --setup
+# docker run -v $PWD:/data -it archivebox/archivebox init --setup
+
+archivebox version           # get archivebox version info and more
+# docker compose run archivebox version
+# docker run -v $PWD:/data -it archivebox/archivebox version
+
+archivebox add --depth=1 'https://news.ycombinator.com'
+# docker compose run archivebox add --depth=1 ...
+# docker run ... archivebox/archivebox add --depth=1 ...
 ```
 
+- `archivebox help/version` to see the list of available subcommands and currently installed version info
 - `archivebox setup/init/config/status/manage` to administer your collection
 - `archivebox add/schedule/remove/update/list/shell/oneshot` to manage Snapshots in the archive
 - `archivebox schedule` to pull in fresh URLs regularly from [bookmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
 
+*Docker hint:* Because ArchiveBox commands all work the same way, you can run the UI server 
+in Docker Compose, but run one-off commands on the host without needing Docker (just `cd data/; pip install archivebox; archivebox status`).
+
 #### 🖥&nbsp; Web UI Usage
 
 ```bash
-archivebox manage createsuperuser  # create admin user via CLI (or use ADMIN_PASSWORD env variable)
 archivebox server 0.0.0.0:8000     # open http://127.0.0.1:8000 to view it
 
-# you can also configure whether or not login is required for most features
-archivebox config --set PUBLIC_INDEX=False
-archivebox config --set PUBLIC_SNAPSHOTS=False
-archivebox config --set PUBLIC_ADD_VIEW=False
+# Optional:
+archivebox manage createsuperuser               # create new admin username & pass
+archivebox config --set PUBLIC_ADD_VIEW=False   # True = allow anyone to submit URLs
+archivebox config --set PUBLIC_SNAPSHOTS=False  # True = allow anyone to see snapshot content
+archivebox config --set PUBLIC_INDEX=False      # True = allow anyone to see list of all snapshots
+
 ```
+*Docker hint:* Set the [`ADMIN_USERNAME` & `ADMIN_PASSWORD`)](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#admin_username--admin_password) env variables to auto-create an admin user on first-run.
 
 #### 🗄&nbsp; SQL/Python/Filesystem Usage
 
