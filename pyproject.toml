@@ -98,8 +98,26 @@ dev = [
     # linting
     "flake8",
     "mypy",
-    "django-stubs",
+    "django-stubs[compatible-mypy]>=4.2.7",
+    "types-requests>=2.31.0.20240125",
 ]
+
+[tool.pyright]
+include = ["archivebox"]
+exclude = ["data", "data2", "data3", "data4", "data5", "pip_dist", "brew_dist", "dist", "vendor", "migrations", "tests"]
+
+[tool.mypy]
+mypy_path = "archivebox"
+explicit_package_bases = true
+check_untyped_defs = true
+plugins = ["mypy_django_plugin.main"]
+# TODO: remove this eventually https://github.com/hauntsaninja/no_implicit_optional
+implicit_optional = true
+
+[tool.django-stubs]
+django_settings_module = "core.settings"
+strict_settings = false
+
 
 [tool.pdm.scripts]
 lint = "./bin/lint.sh"

@@ -106,6 +106,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
     action_form = SnapshotActionForm
 
+
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
         return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)

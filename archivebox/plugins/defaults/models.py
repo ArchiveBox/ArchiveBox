@@ -8,7 +8,7 @@ from pathlib import Path
 from django.db import models, transaction
 from django.utils.functional import cached_property
 
-from solo.models import SingletonModel
+from solo.models import SingletonModel                        # type: ignore[import-untyped]
 
 
 from config import bin_path, bin_version
@@ -21,6 +21,14 @@ ConfigDict = Dict[str, Any]
 
 # def bin_version(bin_path: str, cmd: str | None=None) -> str | None:
 #     return '0.0.0'
+
+# def pretty_path(path: Path) -> str:
+#     """take a Path object and return the path as a string relative to the current directory"""
+
+#     if not path:
+#         return ''
+
+#     return str(path.expanduser().resolve().relative_to(Path.cwd().resolve()))
 
 
 class ArchiveBoxBaseDependency(models.Model):
@@ -96,7 +104,7 @@ class ArchiveBoxBaseDependency(models.Model):
 
     @cached_property
     def pretty_version(self):
-        if self.enabled:
+        if self.is_enabled:
             if self.is_valid:
                 color, symbol, note, version = 'green', '√', 'valid', ''
 

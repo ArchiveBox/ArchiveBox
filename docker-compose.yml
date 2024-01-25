@@ -8,6 +8,8 @@
 # Documentation:
 #     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
 
+---
+
 version: '3.9'
 
 services:
@@ -43,8 +45,8 @@ services:
             # ...
             # add further configuration options from archivebox/config.py as needed (to apply them only to this container)
             # or set using `docker compose run archivebox config --set SOME_KEY=someval` (to persist config across all containers)
-        
-        # For ad-blocking during archiving, uncomment this section and pihole service section below 
+
+        # For ad-blocking during archiving, uncomment this section and pihole service section below
         # networks:
         #   - dns
         # dns:
@@ -75,8 +77,8 @@ services:
     #    volumes:
     #        - ./sonic.cfg:/etc/sonic.cfg:ro
     #        - ./data/sonic:/var/lib/sonic/store
-    
-    
+
+
     ### Example: To run pihole in order to block ad/tracker requests during archiving,
     # uncomment this block and set up pihole using its admin interface
 
