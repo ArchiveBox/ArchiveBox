@@ -1,6 +1,8 @@
-# __package__ = 'archivebox.plugins.defaults'
+__package__ = 'archivebox.plugins.defaults'
 
-import shutil
+# import shutil
+
+import re
 
 from typing import List, Dict, Any
 from pathlib import Path

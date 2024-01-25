@@ -9,6 +9,8 @@ SimpleConfigValueDict = Dict[str, SimpleConfigValue]
 SimpleConfigValueGetter = Callable[[], SimpleConfigValue]
 ConfigValue = Union[SimpleConfigValue, SimpleConfigValueDict, SimpleConfigValueGetter]
 
+SHArgs = List[str]   # shell command args list e.g. ["--something=1", "--someotherarg"]
+
 
 class BaseConfig(TypedDict):
     pass

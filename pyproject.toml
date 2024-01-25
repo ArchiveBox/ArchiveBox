@@ -11,18 +11,19 @@ package-dir = "archivebox"
 requires-python = ">=3.9,<3.12"
 dependencies = [
     # pdm update [--unconstrained] 
+    "ipython>5.0.0",
+    "requests>=2.24.0",
     "croniter>=0.3.34",
     "dateparser>=1.0.0",
-    "django-extensions>=3.0.3",
-    "django>=3.1.3,<3.2",
-    "ipython>5.0.0",
-    "mypy-extensions>=0.4.3",
     "python-crontab>=2.5.1",
-    "requests>=2.24.0",
+    "django>=3.1.3,<3.2",
+    "django-extensions>=3.0.3",
+    "django-solo>=2.0.0",
     "w3lib>=1.22.0",
     "yt-dlp>=2023.10.13",
     # "playwright>=1.39.0; platform_machine != 'armv7l'",
-    "django-solo>=2.0.0",
+    "mypy-extensions>=0.4.3",
+    # "django-stubs-ext>=4.2.7",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
