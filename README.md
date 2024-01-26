@@ -70,31 +70,50 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 <br/>
 
-**📦&nbsp; Get ArchiveBox with `docker` / `apt` / `brew` / `pip3` / `nix` / etc. ([see Quickstart below](#quickstart)).**
+**📦&nbsp; Install ArchiveBox using your preferred method: `docker` / `apt` / `brew` / `pip3` / `nix` / etc. ([see Quickstart below](#quickstart)).**
 
-```bash
-# Get ArchiveBox with Docker or Docker Compose (recommended)
+<details>
+&nbsp; <summary><i>Quick reference</i> &nbsp; ⤵️</summary>
+<br/>
+<pre lang="bash"><code style="white-space: pre-line"># Get ArchiveBox with Docker Compose (recommended)
+curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml'
+docker compose up
+<br/>
+<br/># Or use it as a single Docker container
 docker run -v $PWD/data:/data -p 8000:8000 -it archivebox/archivebox
-
-# Or install with your preferred package manager (see Quickstart below for apt, brew, and more)
+<br/>
+<br/># Or install with your preferred package manager (see Quickstart below for apt, brew, and more)
 pip install archivebox
+<br/>
+<br/># Or use the optional auto setup script to install it
+curl -sSL 'https://get.archivebox.io' | sh</code></pre>
+</details>
+<br/>
 
-# Or use the optional auto setup script to install it
-curl -sSL 'https://get.archivebox.io' | sh
+**🔢 Create a new directory to hold your data**
+```bash
+mkdir ~/archivebox; cd ~/archivebox
+archivebox init --setup              # or: setup config via docker-compose.yml
+
 ```
 
-**🔢 Example usage: adding links to archive.**
+**🔢 Next steps: start the ArchiveBox server to use the Web UI**
+```bash
+archivebox server 0.0.0.0:8000       # or: docker compose up
+```
+<sup>Then open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see it ➡️</sup>
+
+**🔢 Or use the CLI to archive links & manage your collection**
 ```bash
 archivebox add 'https://example.com'                                   # add URLs one at a time
 archivebox add < ~/Downloads/bookmarks.json                            # or pipe in URLs in any text-based format
 archivebox schedule --every=day --depth=1 https://example.com/rss.xml  # or auto-import URLs regularly on a schedule
+# or: docker compose run archivebox add ... etc. ...
+
+archivebox list 'https://example.com'                                  # use the CLI commands (--help for more)
+ls ./archive/*/index.json                                              # or browse your Snapshots via the filesystem
 ```
-**🔢 Example usage: viewing the archived content.**
-```bash
-archivebox server 0.0.0.0:8000            # use the interactive web UI
-archivebox list 'https://example.com'     # use the CLI commands (--help for more)
-ls ./archive/*/index.json                 # or browse directly via the filesystem
-```
+
 
 <div align="center" style="text-align: center">
 <br/><br/>
@@ -214,6 +233,38 @@ See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as a
 #### 🛠&nbsp; Package Manager Setup
 
 <a name="Manual-Setup"></a>
+
+
+<details>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117447613-ba4c5d80-af0b-11eb-8f89-1d98e31b6a79.png" alt="Pip" height="28px" align="top"/> <code>pip</code></b> (macOS/Linux/BSD)</summary>
+<br/>
+<ol>
+
+<li>Install <a href="https://realpython.com/installing-python/">Python >= v3.10</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v18</a> on your system (if not already installed).</li>
+<li>Install the ArchiveBox package using <code>pip3</code>.
+<pre lang="bash"><code style="white-space: pre-line">pip3 install archivebox
+</code></pre>
+</li>
+<li>Create a new empty directory and initialize your collection (can be anywhere).
+<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
+archivebox init --setup
+# install any missing extras like wget/git/ripgrep/etc. manually as needed
+</code></pre>
+</li>
+<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
+<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
+# completely optional, CLI can always be used without running a server
+# archivebox [subcommand] [--args]
+</code></pre>
+</li>
+</ol>
+
+See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+See the <a href="https://github.com/ArchiveBox/pip-archivebox"><code>pip-archivebox</code></a> repo for more details about this distribution.
+<br/><br/>
+</details>
+
+
 <details>
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" alt="aptitude" height="28px" align="top"/> <code>apt</code></b> (Ubuntu/Debian)</summary>
 <br/>
@@ -277,35 +328,6 @@ See the <a href="https://github.com/ArchiveBox/homebrew-archivebox"><code>homebr
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447613-ba4c5d80-af0b-11eb-8f89-1d98e31b6a79.png" alt="Pip" height="28px" align="top"/> <code>pip</code></b> (macOS/Linux/BSD)</summary>
-<br/>
-<ol>
-
-<li>Install <a href="https://realpython.com/installing-python/">Python >= v3.9</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v18</a> on your system (if not already installed).</li>
-<li>Install the ArchiveBox package using <code>pip3</code>.
-<pre lang="bash"><code style="white-space: pre-line">pip3 install archivebox
-</code></pre>
-</li>
-<li>Create a new empty directory and initialize your collection (can be anywhere).
-<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
-archivebox init --setup
-# install any missing extras like wget/git/ripgrep/etc. manually as needed
-</code></pre>
-</li>
-<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
-<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
-# completely optional, CLI can always be used without running a server
-# archivebox [subcommand] [--args]
-</code></pre>
-</li>
-</ol>
-
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
-See the <a href="https://github.com/ArchiveBox/pip-archivebox"><code>pip-archivebox</code></a> repo for more details about this distribution.
-<br/><br/>
-</details>
-
-<details>
 <summary><img src="https://user-images.githubusercontent.com/511499/118077361-f0616580-b381-11eb-973c-ee894a3349fb.png" alt="Arch" height="28px" align="top"/> <code>pacman</code> / <img src="https://user-images.githubusercontent.com/511499/118077946-29e6a080-b383-11eb-94f0-d4871da08c3f.png" alt="FreeBSD" height="28px" align="top"/> <code>pkg</code> / <img src="https://user-images.githubusercontent.com/511499/118077861-002d7980-b383-11eb-86a7-5936fad9190f.png" alt="Nix" height="28px" align="top"/> <code>nix</code> (Arch/FreeBSD/NixOS/more)</summary>
 <br/>
 
@@ -343,7 +365,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/575ef92f-bb3e-4a7c-a4ba-986c1fd76ecf" width="320px">
 <br/>
 <i>✨ Alpha (contributors wanted!)</i>: for more info, see the: <a href="https://github.com/ArchiveBox/electron-archivebox">Electron ArchiveBox</a> repo.
-  <br/>
+<br/>
 </details>
 
 <details>
@@ -424,117 +446,118 @@ mkdir -p ~/archivebox/data   # create a new data dir anywhere
 cd ~/archivebox/data         # IMPORTANT: cd into the directory
 
 # archivebox [subcommand] [--args]
+archivebox help
+# or
+docker compose run archivebox help
 ```
+
+#### ArchiveBox Subcommands
+
+- `archivebox` `help`/`version` to see the list of available subcommands and currently installed version info
+- `archivebox` `setup`/`init`/`config`/`status`/`manage` to administer your collection
+- `archivebox` `add`/`schedule`/`remove`/`update`/`list`/`shell`/`oneshot` to manage Snapshots in the archive
+- `archivebox` `schedule` to pull in fresh URLs regularly from [bookmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
+
+<br/>
+<details open>
+<summary><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" height="22px" align="top"/> <b>CLI Usage Examples (non-Docker)</b></summary>
+<br/>
+<pre lang="bash"><code style="white-space: pre-line">
+archivebox init --setup      # safe to run init multiple times (also how you update versions)
+archivebox version           # get archivebox version info + check dependencies
+archivebox help              # get list of archivebox subcommands that can be run
+archivebox add --depth=1 'https://news.ycombinator.com'
+</code></pre>
+</details>
+
+<br/>
+
+<details>
+<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>Docker Compose CLI Usage Examples</b></summary>
+<br/>
+<pre lang="bash"><code style="white-space: pre-line">
+# make sure you have `docker-compose.yml` from the Quickstart instructions first
+docker compose run archivebox init --setup
+docker compose run archivebox version
+docker compose run archivebox help
+docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
+# to start webserver: docker compose up
+</code></pre>
+</details>
+
+<br/>
+
+<details>
+<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>Docker CLI Usage Examples</b></summary>
+<br/>
+<pre lang="bash"><code style="white-space: pre-line">
+docker run -v $PWD:/data -it archivebox/archivebox init --setup
+docker run -v $PWD:/data -it archivebox/archivebox version
+docker run -v $PWD:/data -it archivebox/archivebox help
+docker run -v $PWD:/data -it archivebox/archivebox add --depth=1 'https://news.ycombinator.com'
+# to start webserver: docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
+</code></pre>
+</details>
+
+<br/>
+
+<details>
+<summary><b>🗄&nbsp; SQL/Python/Filesystem Usage</b></summary>
+<pre lang="bash"><code style="white-space: pre-line">
+sqlite3 ./index.sqlite3    # run SQL queries on your index
+archivebox shell           # explore the Python API in a REPL
+ls ./archive/*/index.html  # or inspect snapshots on the filesystem
+</code></pre>
+</details>
+
+
+<br/>
+
+<details open>
+<summary><b>🖥&nbsp; Web UI Usage</b></summary>
+<pre lang="bash"><code style="white-space: pre-line">
+# Start the server on bare metal (pip/apt/brew/etc):
+archivebox manage createsuperuser              # create a new admin user via CLI
+archivebox server 0.0.0.0:8000                 # start the server
+<br/>
+# Or with Docker Compose:
+nano docker-compose.yml                        # setup initial ADMIN_USERNAME & ADMIN_PASSWORD
+docker compose up                              # start the server
+<br/>
+# Or with a Docker container:
+docker run -v $PWD:/data -it archivebox/archivebox archivebox manage createsuperuser
+docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
+</code></pre>
+
+<h5>Optional: Change permissions to allow non-logged-in users</h5>
+
+<pre lang="bash"><code style="white-space: pre-line">
+archivebox config --set PUBLIC_ADD_VIEW=True   # allow guests to submit URLs 
+archivebox config --set PUBLIC_SNAPSHOTS=True  # allow guests to see snapshot content
+archivebox config --set PUBLIC_INDEX=True      # allow guests to see list of all snapshots
+
+# restart the server to apply any config changes
+</code></pre>
+</details>
+
+<br/>
+<br/>
 
 > [!TIP]
 > Whether in Docker or not, ArchiveBox commands all work the same way, and can be used in tandem to access the same data directory.
 > For example, you can run the Web UI in Docker Compose, and run one-off commands on host with `pip`-installed ArchiveBox or in Docker interchangeably.
 
 <details>
-<summary><i>Expand to show examples...</i></summary><br/>
+<summary><i>Expand to show comparison...</i></summary><br/>
 
 <pre lang="bash"><code style="white-space: pre-line">
-docker compose up -d                                      # start the Web UI server in the background
-docker compose run archivebox add 'https://example.com'   # add a test URL to snapshot w/ Docker Compose
-
-archivebox list 'https://example.com'                     # fetch it with pip-installed archivebox on the host
-docker compose run archivebox list 'https://example.com'                       # or w/ Docker Compose
-docker run -it -v $PWD:/data archivebox/archivebox list 'https://example.com'  # or w/ Docker, all equivalent
+archivebox add --depth=1 'https://example.com'                     # add a URL with pip-installed archivebox on the host
+docker compose run archivebox add --depth=1 'https://example.com'                       # or w/ Docker Compose
+docker run -it -v $PWD:/data archivebox/archivebox add --depth=1 'https://example.com'  # or w/ Docker, all equivalent
 </code></pre>
 
 </details>
-<br/>
 
-##### Bare Metal Usage (`pip`/`apt`/`brew`/etc.)
-
-<br/>
-<details open>
-<summary><i>Click to expand...</i></summary>
-<br/>
-
-<pre lang="bash"><code style="white-space: pre-line">
-archivebox init --setup      # safe to run init multiple times (also how you update versions)
-archivebox version           # get archivebox version info and more
-archivebox add --depth=1 'https://news.ycombinator.com'
-</code></pre>
-
-</details>
-<br/>
-
-##### Docker Compose Usage
-
-<br/>
-<details>
-<summary><i>Click to expand...</i></summary>
-<br/>
-
-<pre lang="bash"><code style="white-space: pre-line">
-# make sure you have `docker-compose.yml` from the Quickstart instructions first
-docker compose run archivebox init --setup
-docker compose run archivebox version
-docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
-</code></pre>
-
-</details>
-<br/>
-
-##### Docker Usage
-
-<br/>
-<details>
-<summary><i>Click to expand...</i></summary>
-<br/>
-
-<pre lang="bash"><code style="white-space: pre-line">
-docker run -v $PWD:/data -it archivebox/archivebox init --setup
-docker run -v $PWD:/data -it archivebox/archivebox version
-</code></pre>
-
-</details>
-<br/>
-
-#### Next Steps
-
-- `archivebox help/version` to see the list of available subcommands and currently installed version info
-- `archivebox setup/init/config/status/manage` to administer your collection
-- `archivebox add/schedule/remove/update/list/shell/oneshot` to manage Snapshots in the archive
-- `archivebox schedule` to pull in fresh URLs regularly from [bookmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
-
-
-#### 🖥&nbsp; Web UI Usage
-
-##### Start the Web Server
-```bash
-# Bare metal (pip/apt/brew/etc):
-archivebox server 0.0.0.0:8000     # open http://127.0.0.1:8000 to view it
-
-# Docker Compose:
-docker compose up
-
-# Docker:
-docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
-```
-
-##### Allow Public Access or Create an Admin User
-```bash
-archivebox manage createsuperuser              # create a new admin username & pass
-# OR                                           # OR
-archivebox config --set PUBLIC_ADD_VIEW=True   # allow guests to submit URLs
-archivebox config --set PUBLIC_SNAPSHOTS=True  # allow guests to see snapshot content
-archivebox config --set PUBLIC_INDEX=True      # allow guests to see list of all snapshots
-
-# restart the server to apply any config changes
-```
-
-*Docker hint:* Set the [`ADMIN_USERNAME` & `ADMIN_PASSWORD`)](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#admin_username--admin_password) env variables to auto-create an admin user on first-run.
-
-#### 🗄&nbsp; SQL/Python/Filesystem Usage
-
-```bash
-sqlite3 ./index.sqlite3    # run SQL queries on your index
-archivebox shell           # explore the Python API in a REPL
-ls ./archive/*/index.html  # or inspect snapshots on the filesystem
-```
 
 <br/>
 <div align="center" style="text-align: center">
@@ -555,25 +578,28 @@ ls ./archive/*/index.html  # or inspect snapshots on the filesystem
 ---
 
 <div align="center" style="text-align: center">
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ac1f897a-8baa-4f8b-8ee8-7443611f258b" width="96%" alt="lego">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ac1f897a-8baa-4f8b-8ee8-7443611f258b" width="96%" alt="lego"/>
 </div>
 
 <br/>
 
 # Overview
 
-## Input Formats
+<a name="input-formats"></a>
 
-ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exports, Browser bookmarks, Browser history, plain text, HTML, markdown, and more!
+##  Input Formats: How to pass URLs into ArchiveBox for saving
 
 
-*Click these links for instructions on how to prepare your links from these sources:*
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="28px"/> <b>The official <a href="https://github.com/ArchiveBox/archivebox-extension">ArchiveBox Browser Extension</a> (provides realtime archiving from Chrome/Chromium/Firefox browsers)</b>
 
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8" height="22px"/> TXT, RSS, XML, JSON, CSV, SQL, HTML, Markdown, or [any other text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34" height="22px"/> [Browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (see instructions for: [Chrome](https://support.google.com/chrome/answer/96816?hl=en), [Firefox](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari](https://github.com/ArchiveBox/ArchiveBox/assets/511499/24ad068e-0fa6-41f4-a7ff-4c26fc91f71a), [IE](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows), [Opera](https://help.opera.com/en/latest/features/#bookmarks:~:text=Click%20the%20import/-,export%20button,-on%20the%20bottom), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive))
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="22px"/> Browser extension [`archivebox-exporter`](https://github.com/ArchiveBox/archivebox-extension) (realtime archiving from Chrome/Chromium/Firefox)
-- <img src="https://getpocket.com/favicon.ico" height="22px"/> [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Instapaper](https://www.instapaper.com/user), [Shaarli](https://shaarli.readthedocs.io/en/master/Usage/#importexport), [Delicious](https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/), [Reddit Saved](https://github.com/csu/export-saved-reddit), [Wallabag](https://doc.wallabag.org/en/user/import/wallabagv2.html), [Unmark.it](http://help.unmark.it/import-export), [OneTab](https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/), [Firefox Sync](https://github.com/ArchiveBox/ArchiveBox/issues/648), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4f7bd318-265c-4235-ad25-38be89946b12" height="22px"/> Proxy archiving with [`archivebox-proxy`](https://github.com/ArchiveBox/archivebox-proxy) ([realtime archiving](https://github.com/ArchiveBox/ArchiveBox/issues/577) of all traffic from any browser or device)
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8" height="22px"/> Manual imports of URLs from RSS, JSON, CSV, TXT, SQL, HTML, Markdown, or [any other text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)
+
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4f7bd318-265c-4235-ad25-38be89946b12" height="22px"/> [MITM Proxy](https://mitmproxy.org/) archiving with [`archivebox-proxy`](https://github.com/ArchiveBox/archivebox-proxy) ([realtime archiving](https://github.com/ArchiveBox/ArchiveBox/issues/577) of all traffic from any device going through the proxy)
+
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34" height="22px"/> Exported [browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (see instructions for: [Chrome](https://support.google.com/chrome/answer/96816?hl=en), [Firefox](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari](https://github.com/ArchiveBox/ArchiveBox/assets/511499/24ad068e-0fa6-41f4-a7ff-4c26fc91f71a), [IE](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows), [Opera](https://help.opera.com/en/latest/features/#bookmarks:~:text=Click%20the%20import/-,export%20button,-on%20the%20bottom), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive))
+
+- <img src="https://getpocket.com/favicon.ico" height="22px"/> Links from [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Instapaper](https://www.instapaper.com/user), [Shaarli](https://shaarli.readthedocs.io/en/master/Usage/#importexport), [Delicious](https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/), [Reddit Saved](https://github.com/csu/export-saved-reddit), [Wallabag](https://doc.wallabag.org/en/user/import/wallabagv2.html), [Unmark.it](http://help.unmark.it/import-export), [OneTab](https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/), [Firefox Sync](https://github.com/ArchiveBox/ArchiveBox/issues/648), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
+
 
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e1e5bd78-b0b6-45dc-914c-e1046fee4bc4" width="330px" align="right" style="float: right"/>
@@ -599,13 +625,17 @@ It also includes a built-in scheduled import feature with `archivebox schedule` 
 
 <br/>
 
-## Output Formats
+
+<a name="output-formats"></a>
+
+## Output Formats: What ArchiveBox saves for each URL
+
 
 Inside each Snapshot folder, ArchiveBox saves these different types of extractor outputs as plain files:
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" width="330px" align="right" style="float: right"/>
 
-`./archive/TIMESTAMP/*`
+`./archive/{Snapshot.id}/`
 
 - **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
 - **Title**, **Favicon**, **Headers** Response headers, site favicon, and parsed site title
@@ -644,29 +674,29 @@ env CHROME_BINARY=chromium archivebox ...       # run with a one-off config
 
 <sup>These methods also work the same way when run inside Docker, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration">Docker Configuration</a> wiki page for details.</sup>
 
-**The config loading logic with all the options defined is here: [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config.py).**
+The configuration is documented here: **[Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**, and loaded here: [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config.py).
 
-Most options are also documented on the **[Configuration Wiki page](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**.
-
-#### Most Common Options to Tweak
-
-```bash
+<a name="most-common-options-to-tweak"></a>
+<details>
+<summary><i>Expand to see the most common options to tweak...</i></summary>
+<pre lang="bash"><code style="white-space: pre-line">
 # e.g. archivebox config --set TIMEOUT=120
-
+# or   docker compose run archivebox config --set TIMEOUT=120
+<br/>
 TIMEOUT=120                # default: 60    add more seconds on slower networks
 CHECK_SSL_VALIDITY=True    # default: False True = allow saving URLs w/ bad SSL
 SAVE_ARCHIVE_DOT_ORG=False # default: True  False = disable Archive.org saving
 MAX_MEDIA_SIZE=1500m       # default: 750m  raise/lower youtubedl output size
-
+<br/>
 PUBLIC_INDEX=True          # default: True  whether anon users can view index
 PUBLIC_SNAPSHOTS=True      # default: True  whether anon users can view pages
 PUBLIC_ADD_VIEW=False      # default: False whether anon users can add new URLs
-
+<br/>
 CHROME_USER_AGENT="Mozilla/5.0 ..."  # change these to get around bot blocking
 WGET_USER_AGENT="Mozilla/5.0 ..."
 CURL_USER_AGENT="Mozilla/5.0 ..."
-```
-
+</code></pre>
+</details>
 <br/>
 
 ## Dependencies
@@ -772,7 +802,7 @@ Each snapshot subfolder <code>./archive/TIMESTAMP/</code> includes a static <cod
 
 ## Static Archive Exporting
 
-You can export the main index to browse it statically as plain HTML files in a folder (without needing to run a server).
+You can create one-off archives with `archivebox oneshot`, or export your index as static HTML with `archivebox list` (so you can view it without an ArchiveBox server).
 
 <br/>
 <details>
@@ -781,14 +811,17 @@ You can export the main index to browse it statically as plain HTML files in a f
 
 > *NOTE: These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.*
 
-```bash
+```bash|
+# do a one-off single URL archive wihout needing a data dir initialized
+archivebox oneshot 'https://example.com'
+
 # archivebox list --help
 archivebox list --html --with-headers > index.html     # export to static html table
 archivebox list --json --with-headers > index.json     # export to json blob
 archivebox list --csv=timestamp,url,title > index.csv  # export to csv spreadsheet
 
 # (if using Docker Compose, add the -T flag when piping)
-# docker compose run -T archivebox list --html --filter-type=search snozzberries > index.json
+# docker compose run -T archivebox list --html 'https://example.com' > index.json
 ```
 
 The paths in the static exports are relative, make sure to keep them next to your `./archive` folder when backing them up or viewing them.
