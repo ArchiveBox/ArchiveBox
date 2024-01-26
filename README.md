@@ -532,7 +532,6 @@ docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
 <h5>Optional: Change permissions to allow non-logged-in users</h5>
 
 <pre lang="bash"><code style="white-space: pre-line">
-# OPTIONAL
 archivebox config --set PUBLIC_ADD_VIEW=True   # allow guests to submit URLs 
 archivebox config --set PUBLIC_SNAPSHOTS=True  # allow guests to see snapshot content
 archivebox config --set PUBLIC_INDEX=True      # allow guests to see list of all snapshots
@@ -677,10 +676,12 @@ env CHROME_BINARY=chromium archivebox ...       # run with a one-off config
 
 The configuration is documented here: **[Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**, and loaded here: [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config.py).
 
+<a name="most-common-options-to-tweak"></a>
 <details>
-<summary><b>Most Common Options to Tweak</b></summary>
+<summary><i>Expand to see the most common options to tweak...</i></summary>
 <pre lang="bash"><code style="white-space: pre-line">
 # e.g. archivebox config --set TIMEOUT=120
+# or   docker compose run archivebox config --set TIMEOUT=120
 <br/>
 TIMEOUT=120                # default: 60    add more seconds on slower networks
 CHECK_SSL_VALIDITY=True    # default: False True = allow saving URLs w/ bad SSL
