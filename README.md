@@ -241,7 +241,7 @@ See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as a
 <ol>
 
 <li>Install <a href="https://realpython.com/installing-python/">Python >= v3.10</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v18</a> on your system (if not already installed).</li>
-<li>Install the ArchiveBox package using <code>pip3</code>.
+<li>Install the ArchiveBox package using <code>pip3</code> (or <a href="https://pipx.pypa.io"><code>pipx</code></a>).
 <pre lang="bash"><code style="white-space: pre-line">pip3 install archivebox
 </code></pre>
 </li>
