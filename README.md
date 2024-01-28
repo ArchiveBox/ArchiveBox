@@ -39,10 +39,11 @@ It also detects any content featured *inside* each webpage & extracts it out int
 - 🎥 **Social Media**/**News** ➡️ `post content TXT`, `comments`, `title`, `author`, `images`
 - 🎬 **YouTube**/**SoundCloud**/etc. ➡️ `MP3/MP4`s, `subtitles`, `metadata`, `thumbnail`, ...
 - 💾 **Github**/**Gitlab**/etc. links ➡️ `clone of GIT source code`, `README`, `images`, ...
-- ✨ *and more, see all [Output Formats](#output-formats) below...*
+- ✨ *and more, see [Output Formats](#output-formats) below...*
 
 It uses ordinary filesystem folders to organize archives (no complicated proprietary formats), and offers a CLI + web UI.  
-To power its functionality, ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install), [`wget`, `yt-dlp`, `readability`, etc.](#dependencies) internally, and its operation can be tuned, secured, and extended as-needed.
+  
+To power its functionality, ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install), [`wget`, `yt-dlp`, `readability`, etc.](#dependencies) internally, and operation can be tuned, secured, and extended as-needed for different applications.
 
 ---
 
