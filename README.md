@@ -103,6 +103,7 @@ archivebox init --setup
 <br/>
 # Or use the optional auto setup script to install it
 curl -sSL 'https://get.archivebox.io' | sh
+</code></pre>
 </details>
 <br/>
 
