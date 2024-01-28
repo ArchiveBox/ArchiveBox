@@ -691,8 +691,8 @@ echo CHROME_BINARY=chromium >> ArchiveBox.conf  # persist a config using file
 env CHROME_BINARY=chromium archivebox ...       # run with a one-off config
 </code></pre>
 <sub>These methods also work the same way when run inside Docker, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration">Docker Configuration</a> wiki page for details.</sub>
-</details>
-<br/>
+</details><br/>
+
 The configuration is documented here: **[Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**, and loaded here: [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config.py).
 
 <a name="most-common-options-to-tweak"></a>
