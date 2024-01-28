@@ -1164,7 +1164,7 @@ ArchiveBox is neither the highest fidelity nor the simplest tool available for s
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/78d8a725-97f4-47f5-b983-1f62843ddc51" width="14%" align="right" style="float: right"/>
 
 <details>
-<summary><i>Our <b><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community Wiki</a>a</b> tries to be a comprehensive index of the broader web archiving community...</i></summary>
+<summary><i>Our <b><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community Wiki</a></b> strives to be a comprehensive index of the broader web archiving community...</i></summary>
 <br/>
 
 - [Community Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
