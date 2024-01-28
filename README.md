@@ -168,9 +168,10 @@ curl -sSL 'https://get.archivebox.io' | sh
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
 <li>Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
-curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml'
+curl -sSL 'https://docker-compose.archivebox.io' > docker-compose.yml
+# points to https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml
 </code></pre></li>
-<li>Run the initial setup and create an admin user.
+<li>Run the initial setup to create an admin user (or set ADMIN_USER/PASS in docker-compose.yml)
 <pre lang="bash"><code style="white-space: pre-line">docker compose run archivebox init --setup
 </code></pre></li>
 <li>Next steps: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
