@@ -644,9 +644,9 @@ It also includes a built-in scheduled import feature with `archivebox schedule` 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" width="330px" align="right" style="float: right"/>
 
 
-For each URL added, ArchiveBox preserves its content as plain files within a folder (e.g. HTML, PDF, PNG, JSON, etc.).
+For each web page added, ArchiveBox creates a Snapshot folder and preserves its content as ordinary files inside the folder (e.g. HTML, PDF, PNG, JSON, etc.).
 
-It uses all methods out-of-the-box, but you can disable methods and fine-tune the [configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) as-needed.
+It uses all available methods out-of-the-box, but you can disable extractors and fine-tune the [configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) as-needed.
 
 <br/>
 <details>
