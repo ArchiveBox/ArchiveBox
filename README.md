@@ -42,8 +42,6 @@ It also detects any content featured *inside* each webpage & extracts it out int
 - ✨ *and more, see [Output Formats](#output-formats) below...*
 
 It uses ordinary filesystem folders to organize archives (no complicated proprietary formats), and offers a CLI + web UI.  
-  
-> Under-the-hood, ArchiveBox uses [Django](https://www.djangoproject.com/start/overview/) to power its [Web UI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#ui-usage) and [SQlite](https://www.sqlite.org/locrsf.html) + the filesystem to provide [fast & durable metadata storage](https://www.sqlite.org/locrsf.html) w/ [determinisitc upgrades](https://stackoverflow.com/a/39976321/2156113). ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install), [`wget`, `yt-dlp`, `readability`, etc.](#dependencies) internally, and its operation can be [tuned, secured, and extended](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) as-needed for many different applications.
 
 ---
 
@@ -710,11 +708,14 @@ CURL_USER_AGENT="Mozilla/5.0 ..."
 
 ## Dependencies
 
-To achieve high-fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party tools that specialize in extracting different types of content.
+To achieve high-fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party libraries and tools that specialize in extracting different types of content.
+
+> Under-the-hood, ArchiveBox uses [Django](https://www.djangoproject.com/start/overview/) to power its [Web UI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#ui-usage) and [SQlite](https://www.sqlite.org/locrsf.html) + the filesystem to provide [fast & durable metadata storage](https://www.sqlite.org/locrsf.html) w/ [determinisitc upgrades](https://stackoverflow.com/a/39976321/2156113). ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install), [`wget`, `yt-dlp`, `readability`, etc.](#dependencies) internally, and its operation can be [tuned, secured, and extended](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) as-needed for many different applications.
+
 
 <br/>
 <details>
-<summary><i>Expand to learn more about ArchiveBox's dependencies...</i></summary><br/>
+<summary><i>Expand to learn more about ArchiveBox's internals & dependencies...</i></summary><br/>
 
 > *TIP: For better security, easier updating, and to avoid polluting your host system with extra dependencies,**it is strongly recommended to use the [⭐️ official Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything pre-installed for the best experience.*
 
