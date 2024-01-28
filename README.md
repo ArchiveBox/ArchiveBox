@@ -520,7 +520,7 @@ ls ./archive/*/index.html  # or inspect snapshot data directly on the filesystem
 
 <br/>
 
-<details open>
+<details>
 <summary><b>🖥&nbsp; Web UI Usage</b></summary>
 <pre lang="bash"><code style="white-space: pre-line">
 # Start the server on bare metal (pip/apt/brew/etc):
@@ -678,20 +678,21 @@ It uses all available methods out-of-the-box, but you can disable extractors and
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ea672e6b-4df5-49d8-b550-7f450951fd27" width="330px" align="right" style="float: right"/>
 
 ArchiveBox can be configured via environment variables, by using the `archivebox config` CLI, or by editing `./ArchiveBox.conf` directly.
-
-```bash
-archivebox config                               # view the entire config
+<br/>
+<details>
+<summary><i>Expand to see examples...</i></summary>
+<pre lang="bash"><code style="white-space: pre-line">archivebox config                               # view the entire config
 archivebox config --get CHROME_BINARY           # view a specific value
-
+<br/>
 archivebox config --set CHROME_BINARY=chromium  # persist a config using CLI
 # OR
 echo CHROME_BINARY=chromium >> ArchiveBox.conf  # persist a config using file
 # OR
 env CHROME_BINARY=chromium archivebox ...       # run with a one-off config
-```
-
-<sup>These methods also work the same way when run inside Docker, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration">Docker Configuration</a> wiki page for details.</sup>
-
+</code></pre>
+<sub>These methods also work the same way when run inside Docker, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration">Docker Configuration</a> wiki page for details.</sub>
+</details>
+<br/>
 The configuration is documented here: **[Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**, and loaded here: [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config.py).
 
 <a name="most-common-options-to-tweak"></a>
