@@ -868,7 +868,7 @@ If you're importing pages with private content or URLs containing secret tokens 
 
 <br/>
 <details>
-<summary><i>Click to expand...</i></summary>
+<summary><i>Expand to learn about privacy, permissions, and user accounts...</i></summary>
 
 
 ```bash
@@ -883,6 +883,7 @@ archivebox config --set SAVE_ARCHIVE_DOT_ORG=False  # disable saving all URLs in
 archivebox config --set PUBLIC_INDEX=False
 archivebox config --set PUBLIC_SNAPSHOTS=False
 archivebox config --set PUBLIC_ADD_VIEW=False 
+archivebox manage createsuperuser
 
 # if extra paranoid or anti-Google:
 archivebox config --set SAVE_FAVICON=False          # disable favicon fetching (it calls a Google API passing the URL's domain part only)
@@ -912,7 +913,7 @@ Be aware that malicious archived JS can access the contents of other pages in yo
 
 <br/>
 <details>
-<summary><i>Click to expand...</i></summary>
+<summary><i>Expand to see risks and mitigations...</i></summary>
 
 
 ```bash
@@ -948,7 +949,7 @@ For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) active
 
 <br/>
 <details>
-<summary><i>Click to expand...</i></summary>
+<summary><i>Click to learn how to set up user agents, cookies, and site logins...</i></summary>
 <br/>
 
 
@@ -971,7 +972,7 @@ ArchiveBox appends a hash with the current date `https://example.com#2020-10-24`
 
 <br/>
 <details>
-<summary><i>Click to expand...</i></summary>
+<summary><i>Click to learn how the `Re-Snapshot` feature works...</i></summary>
 <br/>
 
 
@@ -999,12 +1000,11 @@ Improved support for saving multiple snapshots of a single URL without this hash
 
 ### Storage Requirements
 
-Because ArchiveBox is designed to ingest a large volume of URLs with multiple copies of each URL stored by different 3rd-party tools, it can be quite disk-space intensive.  
-There also also some special requirements when using filesystems like NFS/SMB/FUSE.
+Because ArchiveBox is designed to ingest a large volume of URLs with multiple copies of each URL stored by different 3rd-party tools, it can be quite disk-space intensive. There are also some special requirements when using filesystems like NFS/SMB/FUSE.
 
 <br/>
 <details>
-<summary><i>Click to expand...</i></summary>
+<summary><i>Click to learn more about ArchiveBox's filesystem and hosting requirements...</i></summary>
 <br/>
 
 
@@ -1179,10 +1179,10 @@ Our Community Wiki page serves as an index of the broader web archiving communit
 <br/>
 
 - [Community Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
+  - [Web Archiving Software](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#web-archiving-projects)  
+    _List of ArchiveBox alternatives and open source projects in the internet archiving space._
   - [The Master Lists](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#the-master-lists)  
     _Community-maintained indexes of archiving tools and institutions._
-  - [Web Archiving Software](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#web-archiving-projects)  
-    _Open source tools and projects in the internet archiving space._
   - [Reading List](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#reading-list)  
     _Articles, posts, and blogs relevant to ArchiveBox and web archiving in general._
   - [Communities](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#communities)  
@@ -1198,8 +1198,6 @@ Our Community Wiki page serves as an index of the broader web archiving communit
 **Need help building a custom archiving solution?**
 
 > ✨ **[Hire the team that built Archivebox](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) to work on your project.** ([@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp))
-
-<sup>(We also offer general software consulting across many industries)</sup>
 
 <br/>
 
