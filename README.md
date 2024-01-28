@@ -41,7 +41,7 @@ It also detects any content featured *inside* each webpage & extracts it out int
 - 💾 **Github**/**Gitlab**/etc. links ➡️ `clone of GIT source code`, `README`, `images`, ...
 - ✨ *and more, see [Output Formats](#output-formats) below...*
 
-It uses ordinary filesystem folders to organize archives (no complicated proprietary formats), and offers a CLI + web UI.  
+It uses [industry-standard tools](#dependencies) to create these archives, and stores them in ordinary [filesystem folders](#archive-layout) (no complicated proprietary formats).  
 
 ---
 
