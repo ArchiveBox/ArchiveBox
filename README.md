@@ -536,7 +536,9 @@ docker run -v $PWD:/data -it archivebox/archivebox archivebox manage createsuper
 docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
 </code></pre>
 
-<h5>Optional: Change permissions to allow non-logged-in users</h5>
+<sup>Open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see your server's Web UI ➡️</sup>
+<br/>
+<b>Optional: Change permissions to allow non-logged-in users</b>
 
 <pre lang="bash"><code style="white-space: pre-line">
 archivebox config --set PUBLIC_ADD_VIEW=True   # allow guests to submit URLs 
