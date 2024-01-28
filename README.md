@@ -1128,7 +1128,7 @@ A variety of open and closed-source archiving projects exist, but few provide a 
 
 <br/>
 <details>
-<summary><i>Click to read more...</i></summary><br/>
+<summary><i>Click to read about how we differ from other centralized archiving services and open source tools...</i></summary><br/>
 
 ArchiveBox tries to be a robust, set-and-forget archiving solution suitable for archiving RSS feeds, bookmarks, or your entire browsing history (beware, it may be too big to store), including private/authenticated content that you wouldn't otherwise share with a centralized service.
 
@@ -1157,10 +1157,7 @@ ArchiveBox is neither the highest fidelity nor the simplest tool available for s
 
 <br/>
 
-<div align="center" style="text-align: center">
-<br/>
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/04808ac2-3133-44fd-8703-3387e06dc851" width="100%" alt="dependencies graphic">
-</div>
+<!--<div align="center" style="text-align: center"><br/><img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/04808ac2-3133-44fd-8703-3387e06dc851" width="100%" alt="dependencies graphic"></div>-->
 
 ## Internet Archiving Ecosystem
 
@@ -1476,16 +1473,10 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" width="100px" align="right"/>
 
-- Home: [ArchiveBox.io](https://archivebox.io)
-- Demo: [Demo.ArchiveBox.io](https://demo.archivebox.io)
-- Docs: [Docs.ArchiveBox.io](https://docs.archivebox.io)
-- Releases: [Github.com/ArchiveBox/ArchiveBox/releases](https://github.com/ArchiveBox/ArchiveBox/releases)
-- Wiki: [Github.com/ArchiveBox/ArchiveBox/wiki](https://github.com/ArchiveBox/ArchiveBox/wiki)
-- Issues: [Github.com/ArchiveBox/ArchiveBox/issues](https://github.com/ArchiveBox/ArchiveBox/issues)
-- Discussions: [Github.com/ArchiveBox/ArchiveBox/discussions](https://github.com/ArchiveBox/ArchiveBox/discussions)
-- Community Chat: [Zulip Chat (preferred)](https://zulip.archivebox.io) or [Matrix Chat (old)](https://app.element.io/#/room/#archivebox:matrix.org)
+- [ArchiveBox.io Homepage](https://archivebox.io) / [Source Code (Github)](https://github.com/ArchiveBox/ArchiveBox) / [Demo Server](https://demo.archivebox.io)
+- [Documentation Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki) / [API Reference Docs](https://docs.archivebox.io) / [Changelog](https://github.com/ArchiveBox/ArchiveBox/releases)
+- [Bug Tracker](https://github.com/ArchiveBox/ArchiveBox/issues) / [Discussions](https://github.com/ArchiveBox/ArchiveBox/discussions) / [Community Chat Forum (Zulip)](https://zulip.archivebox.io)
 - Social Media: [Twitter](https://twitter.com/ArchiveBoxApp), [LinkedIn](https://www.linkedin.com/company/archivebox/), [YouTube](https://www.youtube.com/@ArchiveBoxApp), [Alternative.to](https://alternativeto.net/software/archivebox/about/), [Reddit](https://www.reddit.com/r/ArchiveBox/)
-- Donations: [Github.com/ArchiveBox/ArchiveBox/wiki/Donations](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations)
 
 ---
 
@@ -1496,6 +1487,8 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 <a href="https://hcb.hackclub.com/donations/start/archivebox"><img src="https://img.shields.io/badge/Donate-Directly-%13DE5D26.svg"/></a> &nbsp;
 <a href="https://github.com/sponsors/pirate"><img src="https://img.shields.io/badge/Donate-Github_Sponsors-%23B7CDFE.svg"/></a> &nbsp;
 <a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Donate-Patreon-%23DD5D76.svg"/></a>
+<a href="https://paypal.me/NicholasSweeting"><img src="https://img.shields.io/badge/Donate-Paypal-%23FFD141.svg"/></a>
+<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"><img src="https://img.shields.io/badge/Donate-Crypto-%231a1a1a.svg"/></a>
 <br/>
 <sup><i>ArchiveBox operates as a US 501(c)(3) nonprofit (sponsored by <a href="https://hackclub.com/hcb?ref=donation">HCB</a>), <a href="https://hcb.hackclub.com/donations/start/archivebox">donations</a> are tax-deductible.</i></sup>
 <br/><br/>
