@@ -466,7 +466,7 @@ docker compose run archivebox help
 - `archivebox` `schedule` to pull in fresh URLs regularly from [bookmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
 
 <br/>
-<details open>
+<details>
 <summary><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" height="22px" align="top"/> <b>CLI Usage Examples (non-Docker)</b></summary>
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
