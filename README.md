@@ -642,28 +642,34 @@ It also includes a built-in scheduled import feature with `archivebox schedule` 
 ## Output Formats: What ArchiveBox saves for each URL
 
 
-Inside each Snapshot folder, ArchiveBox saves these different types of extractor outputs as plain files:
-
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" width="330px" align="right" style="float: right"/>
-
-`./archive/{Snapshot.id}/`
-
-- **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
-- **Title**, **Favicon**, **Headers** Response headers, site favicon, and parsed site title
-- **SingleFile:** `singlefile.html` HTML snapshot rendered with headless Chrome using SingleFile
-- **Wget Clone:** `example.com/page-name.html` wget clone of the site with  `warc/TIMESTAMP.gz`
-- Chrome Headless
-  - **PDF:** `output.pdf` Printed PDF of site using headless chrome
-  - **Screenshot:** `screenshot.png` 1440x900 screenshot of site using headless chrome
-  - **DOM Dump:** `output.html` DOM Dump of the HTML after rendering using headless chrome
-- **Article Text:** `article.html/json` Article text extraction using Readability & Mercury
-- **Archive.org Permalink:** `archive.org.txt` A link to the saved site on archive.org
-- **Audio & Video:** `media/` all audio/video files + playlists, including subtitles & metadata with youtube-dl (or yt-dlp)
-- **Source Code:** `git/` clone of any repository found on GitHub, Bitbucket, or GitLab links
-- _More coming soon! See the [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap)..._
+Inside each Snapshot folder, ArchiveBox saves many different types of extractor outputs as plain files (e.g. HTML, PDF, PNG, JSON, WARC, etc.).
 
 It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) via environment variables / config.
 
+<br/>
+<details>
+<summary><i>Expand to see the full list of ways ArchiveBox saves each page...</i></summary>
+
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" width="330px" align="right" style="float: right"/>
+
+<code>./archive/{Snapshot.id}/</code><br/>
+<ul>
+<li><strong>Index:</strong> <code>index.html</code> &amp; <code>index.json</code> HTML and JSON index files containing metadata and details</li>
+<li><strong>Title</strong>, <strong>Favicon</strong>, <strong>Headers</strong> Response headers, site favicon, and parsed site title</li>
+<li><strong>SingleFile:</strong> <code>singlefile.html</code> HTML snapshot rendered with headless Chrome using SingleFile</li>
+<li><strong>Wget Clone:</strong> <code>example.com/page-name.html</code> wget clone of the site with  <code>warc/TIMESTAMP.gz</code></li>
+<li>Chrome Headless <ul>
+<li><strong>PDF:</strong> <code>output.pdf</code> Printed PDF of site using headless chrome</li>
+<li><strong>Screenshot:</strong> <code>screenshot.png</code> 1440x900 screenshot of site using headless chrome</li>
+<li><strong>DOM Dump:</strong> <code>output.html</code> DOM Dump of the HTML after rendering using headless chrome</li>
+</ul></li>
+<li><strong>Article Text:</strong> <code>article.html/json</code> Article text extraction using Readability &amp; Mercury</li>
+<li><strong>Archive.org Permalink:</strong> <code>archive.org.txt</code> A link to the saved site on archive.org</li>
+<li><strong>Audio &amp; Video:</strong> <code>media/</code> all audio/video files + playlists, including subtitles &amp; metadata with youtube-dl (or yt-dlp)</li>
+<li><strong>Source Code:</strong> <code>git/</code> clone of any repository found on GitHub, Bitbucket, or GitLab links</li>
+<li><em>More coming soon! See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">Roadmap</a>...</em></li>
+</ul>
+</details>
 <br/>
 
 ## Configuration
@@ -1075,10 +1081,6 @@ If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to 
 </div>
 <br/>
 
-
----
-
-
 <br/>
 <div align="center" style="text-align: center">
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ca85432e-a2df-40c6-968f-51a1ef99b24e" width="100%" alt="paisley graphic">
@@ -1201,7 +1203,6 @@ Our Community Wiki page serves as an index of the broader web archiving communit
 
 <br/>
 
----
 
 <div align="center" style="text-align: center">
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/897f7a88-1265-4aab-b80c-b1640afaad1f" width="100%" alt="documentation graphic">
