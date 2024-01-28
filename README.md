@@ -1508,11 +1508,7 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 <div align="center" style="text-align: center">
 <br/><br/>
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" height="40px"/>
-<br/>
-<i><sub>
-ArchiveBox was started by <a href="https://docs.sweeting.me/s/blog#About">Nick Sweeting</a> in 2017, and has grown slowly and steadily since then with help from our <a href="https://github.com/ArchiveBox/ArchiveBox/graphs/contributors">amazing contributors</a>.
-</sub>
-</i>
+
 <br/><br/>
 
 **🏛️ [Contact us for professional support](https://docs.sweeting.me/s/archivebox-consulting-services) 💬**
@@ -1524,15 +1520,18 @@ ArchiveBox was started by <a href="https://docs.sweeting.me/s/blog#About">Nick S
 <a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Patreon-%23DD5D76.svg"/></a>
 
 <br/>
-<sup>ArchiveBox operates as a US 501(c)(3) nonprofit, <a href="https://hcb.hackclub.com/donations/start/archivebox">donations</a> are tax-deductible.<br/>(fiscally sponsored by <a href="https://hackclub.com/hcb?ref=donation">HCB</a> <code>EIN: 81-2908499</code>)</sup><br/>
+<sup>ArchiveBox operates as a US 501(c)(3) nonprofit, <a href="https://hcb.hackclub.com/donations/start/archivebox">donations</a> are tax-deductible.<br/>(fiscally sponsored by <a href="https://hackclub.com/hcb?ref=donation">HCB</a>)</sup><br/>
 
-<b><sub>(网站存档 / 爬虫)</sub></b>
+<i><sub>
+ArchiveBox was started by <a href="https://docs.sweeting.me/s/blog#About">Nick Sweeting</a> in 2017, and has grown slowly and steadily since then with help from our <a href="https://github.com/ArchiveBox/ArchiveBox/graphs/contributors">amazing contributors</a>.
+</sub>
+</i>
 
 <a href="https://twitter.com/ArchiveBoxApp"><img src="https://img.shields.io/badge/Tweet-%40ArchiveBoxApp-blue.svg?style=flat"/></a>
 <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>
 
 <br/>
 <br/>
-<i>✨ Have spare CPU/disk/bandwidth and want to help the world?<br/>Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
+<i>✨ Have spare CPU/disk/bandwidth after all your 网站存档爬 and want to help the world?<br/>Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
 <br/>
 </div>
