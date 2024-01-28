@@ -641,16 +641,17 @@ It also includes a built-in scheduled import feature with `archivebox schedule` 
 
 ## Output Formats: What ArchiveBox saves for each URL
 
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" width="330px" align="right" style="float: right"/>
 
-Inside each Snapshot folder, ArchiveBox saves many different types of extractor outputs as plain files (e.g. HTML, PDF, PNG, JSON, WARC, etc.).
 
-It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) via environment variables / config.
+For each URL added, ArchiveBox preserves its content as plain files within a folder (e.g. HTML, PDF, PNG, JSON, etc.).
+
+It uses all methods out-of-the-box, but you can disable methods and fine-tune the [configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) as-needed.
 
 <br/>
 <details>
 <summary><i>Expand to see the full list of ways ArchiveBox saves each page...</i></summary>
 
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" width="330px" align="right" style="float: right"/>
 
 <code>./archive/{Snapshot.id}/</code><br/>
 <ul>
