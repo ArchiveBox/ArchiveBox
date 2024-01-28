@@ -442,7 +442,7 @@ For more discussion on managed and paid hosting options see here: <a href="https
 
 #### ⚡️&nbsp; CLI Usage
 
-ArchiveBox commands can be run in a terminal directly on your host, or via Docker/Docker Compose depending on how you installed it above.
+ArchiveBox commands can be run in a terminal directly on your host, or via Docker/Docker Compose (depending on install method).
 
 ```bash
 mkdir -p ~/archivebox/data   # create a new data dir anywhere
@@ -511,9 +511,9 @@ docker run -v $PWD:/data -it archivebox/archivebox add --depth=1 'https://news.y
 <details>
 <summary><b>🗄&nbsp; SQL/Python/Filesystem Usage</b></summary>
 <pre lang="bash"><code style="white-space: pre-line">
-sqlite3 ./index.sqlite3    # run SQL queries on your index
-archivebox shell           # explore the Python API in a REPL
-ls ./archive/*/index.html  # or inspect snapshots on the filesystem
+archivebox shell           # explore the Python library API in a REPL
+sqlite3 ./index.sqlite3    # run SQL queries directly on your index
+ls ./archive/*/index.html  # or inspect snapshot data directly on the filesystem
 </code></pre>
 </details>
 
@@ -542,6 +542,8 @@ docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
 archivebox config --set PUBLIC_ADD_VIEW=True   # allow guests to submit URLs 
 archivebox config --set PUBLIC_SNAPSHOTS=True  # allow guests to see snapshot content
 archivebox config --set PUBLIC_INDEX=True      # allow guests to see list of all snapshots
+# or
+docker compose run archivebox config --set ...
 
 # restart the server to apply any config changes
 </code></pre>
