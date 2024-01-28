@@ -125,7 +125,7 @@ curl -sSL 'https://get.archivebox.io' | sh
 
 ## 🤝 Professional Integration
 
-🏛️ ArchiveBox is free for everyone to self-host, but we also provide support, security review, and custom integrations to help NGOs and other organizations [run ArchiveBox professionally](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102):
+ArchiveBox is free for everyone to self-host, but we also provide support, security review, and custom integrations to help NGOs and other organizations [run ArchiveBox professionally](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102):
 
 - 🗞️ **Journalists:**
   `crawling and collecting research`, `preserving quoted material`, `fact-checking and review`  
@@ -141,7 +141,7 @@ curl -sSL 'https://get.archivebox.io' | sh
 > - setup & support, team permissioning, hashing, audit logging, backups, custom archiving etc.  
 > - for **individuals**, **NGOs**, **academia**, **governments**, **journalism**, **law**, and more...
 
-*We are a 501(c)(3) nonprofit and all our work goes towards supporting open-source development.* 
+*We are a 🏛️ 501(c)(3) nonprofit and all our work goes towards supporting open-source development.* 
 
 <br/>
 
