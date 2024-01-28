@@ -46,17 +46,6 @@ To power its functionality, ArchiveBox bundles industry-standard tools like [Goo
 
 ---
 
-🏛️ ArchiveBox is used by many *[professional organizations](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* who save content off the web, for example:
-
-- 👩🏽 **Individuals:**
-  `backing up browser bookmarks/history`, `saving FB/Insta/etc. content`, `shopping lists`  
-- 🗞️ **Journalists:**
-  `crawling and collecting research`, `preserving quoted material`, `fact-checking and review`  
-- ⚖️ **Lawyers:**
-  `evidence collection`, `hashing & integrity verifying`, `search, tagging, & review`  
-- 🔬 **Researchers:**
-  `collecting AI training sets`, `feeding analysis / web crawling pipelines`
-
 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
 
 <div align="center" style="text-align: center">
@@ -137,10 +126,21 @@ curl -sSL 'https://get.archivebox.io' | sh
 
 ## 🤝 Professional Integration
 
-*[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) if your institution/org wants to use ArchiveBox professionally.*
+🏛️ ArchiveBox is used by many *[professional organizations](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* who save content off the web, for example:
 
-- setup & support, team permissioning, hashing, audit logging, backups, custom archiving etc.  
-- for **individuals**, **NGOs**, **academia**, **governments**, **journalism**, **law**, and more...
+- 👩🏽 **Individuals:**
+  `backing up browser bookmarks/history`, `saving FB/Insta/etc. content`, `shopping lists`  
+- 🗞️ **Journalists:**
+  `crawling and collecting research`, `preserving quoted material`, `fact-checking and review`  
+- ⚖️ **Lawyers:**
+  `evidence collection`, `hashing & integrity verifying`, `search, tagging, & review`  
+- 🔬 **Researchers:**
+  `collecting AI training sets`, `feeding analysis / web crawling pipelines`
+
+> *[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) if your institution/org wants to use ArchiveBox professionally.*
+> 
+> - setup & support, team permissioning, hashing, audit logging, backups, custom archiving etc.  
+> - for **individuals**, **NGOs**, **academia**, **governments**, **journalism**, **law**, and more...
 
 *We are a 501(c)(3) nonprofit and all our work goes towards supporting open-source development.* 
 
