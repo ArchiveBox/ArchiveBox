@@ -447,8 +447,12 @@ cd ~/archivebox/data         # IMPORTANT: cd into the directory
 
 # archivebox [subcommand] [--args]
 archivebox help
-# or
+
+# equivalent: docker compose run archivebox [subcommand [--args]
 docker compose run archivebox help
+
+# equivalent: docker run -it -v $PWD:/data archivebox/archivebox [subcommand [--args]
+ docker run -it -v $PWD:/data archivebox/archivebox help
 ```
 
 #### ArchiveBox Subcommands
