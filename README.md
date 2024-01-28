@@ -1166,7 +1166,7 @@ ArchiveBox is neither the highest fidelity nor the simplest tool available for s
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/78d8a725-97f4-47f5-b983-1f62843ddc51" width="14%" align="right" style="float: right"/>
 
-
+<details>
 Our Community Wiki page serves as an index of the broader web archiving community.
 
 <ul>
@@ -1175,7 +1175,6 @@ Our Community Wiki page serves as an index of the broader web archiving communit
     <li>Learn which organizations are the big players in the web archiving space</li>
 </ul>
 
-<details>
 <summary><i>Explore our index of web archiving software, blogs, and communities around the world...</i></summary>
 <br/>
 
