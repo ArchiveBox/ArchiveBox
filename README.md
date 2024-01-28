@@ -125,18 +125,18 @@ curl -sSL 'https://get.archivebox.io' | sh
 
 ## 🤝 Professional Integration
 
-🏛️ ArchiveBox is used by many *[professional organizations](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* who save content off the web, for example:
+🏛️ ArchiveBox is free for everyone to self-host, but we also provide support, security review, and custom integrations to help NGOs and other organizations [run ArchiveBox professionally](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102):
 
-- 👩🏽 **Individuals:**
-  `backing up browser bookmarks/history`, `saving FB/Insta/etc. content`, `shopping lists`  
 - 🗞️ **Journalists:**
   `crawling and collecting research`, `preserving quoted material`, `fact-checking and review`  
 - ⚖️ **Lawyers:**
-  `evidence collection`, `hashing & integrity verifying`, `search, tagging, & review`  
+  `collecting & preserving evidence`, `hashing / integrity checking / chain-of-custody`, `tagging & review`  
 - 🔬 **Researchers:**
-  `collecting AI training sets`, `feeding analysis / web crawling pipelines`
+  `analyzing social media trends`, `collecting LLM training data`, `crawling to feed other pipelines`
+- 👩🏽 **Individuals:**
+  `saving legacy social media / memoirs`, `preserving portfolios / resume`, `backing up news articles`
 
-> *[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) if your institution/org wants to use ArchiveBox professionally.*
+> ***[Contact our team](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your institution/org wants to use ArchiveBox professionally.*
 > 
 > - setup & support, team permissioning, hashing, audit logging, backups, custom archiving etc.  
 > - for **individuals**, **NGOs**, **academia**, **governments**, **journalism**, **law**, and more...
