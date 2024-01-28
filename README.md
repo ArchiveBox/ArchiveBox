@@ -35,13 +35,14 @@ Without active preservation effort, everything on the internet eventually dissap
 
 💾 **It saves snapshots of the URLs you feed it in several redundant formats.**  
 It also detects any content featured *inside* each webpage & extracts it out into a folder:
-- `HTML/Generic websites -> HTML, PDF, PNG, WARC, Singlefile`
-- `YouTube/SoundCloud/etc. -> MP3/MP4 + subtitles, description, thumbnail`
-- `News articles -> article body TXT + title, author, featured images`
-- `Github/Gitlab/etc. links -> git cloned source code`
+- **HTML**/**Any websites** ➡️ `original HTML+CSS+JS`, `singlefile HTML`, `screenshot PNG`, `PDF`, `WARC`, ...
+- **Social Media**/**News** ➡️ `post content TXT`, `comments`, `title`, `author`, `images`
+- **YouTube**/**SoundCloud**/etc. ➡️ `MP3/MP4`s, `subtitles`, `metadata`, `thumbnail`, ...
+- **Github**/**Gitlab**/etc. links ➡️ `clone of GIT source code`, `README`, `images`, ...
 - *[and more...](#output-formats)*
 
 It uses normal filesystem folders to organize archives (no complicated proprietary formats), and offers a CLI + web UI.  
+ArchiveBox does the archiving using standard tools like [Google Chrome](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install), `wget`, `yt-dlp`, `readability`, [and more](#dependencies) internally.
 
 ---
 
