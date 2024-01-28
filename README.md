@@ -75,7 +75,7 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 
 <details>
-&nbsp; <summary><i>Quick reference</i> &nbsp; ⤵️</summary>
+&nbsp; <summary><i>Expand for quick copy-pastable install commands...</i> &nbsp; ⤵️</summary>
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox; cd ~/archivebox    # create a dir somewhere for your archivebox data
 <br/>
