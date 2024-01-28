@@ -1167,22 +1167,14 @@ ArchiveBox is neither the highest fidelity nor the simplest tool available for s
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/78d8a725-97f4-47f5-b983-1f62843ddc51" width="14%" align="right" style="float: right"/>
 
 <details>
-Our Community Wiki page serves as an index of the broader web archiving community.
-
-<ul>
-    <li>See where archivists hang out online</li>
-    <li>Explore other open-source tools for your web archiving needs</li>
-    <li>Learn which organizations are the big players in the web archiving space</li>
-</ul>
-
-<summary><i>Explore our index of web archiving software, blogs, and communities around the world...</i></summary>
+<summary><i>Our <b><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community Wiki</a>a</b> tries to be a comprehensive index of the broader web archiving community...</i></summary>
 <br/>
 
 - [Community Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
   - [Web Archiving Software](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#web-archiving-projects)  
     _List of ArchiveBox alternatives and open source projects in the internet archiving space._
-  - [The Master Lists](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#the-master-lists)  
-    _Community-maintained indexes of archiving tools and institutions._
+  - [Awesome-Web-Archiving Lists](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#the-master-lists)  
+    _Community-maintained indexes of archiving tools and institutions like `iipc/awesome-web-archiving`._
   - [Reading List](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#reading-list)  
     _Articles, posts, and blogs relevant to ArchiveBox and web archiving in general._
   - [Communities](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#communities)  
