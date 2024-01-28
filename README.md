@@ -72,47 +72,42 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 **📦&nbsp; Install ArchiveBox using your preferred method: `docker` / `apt` / `brew` / `pip3` / `nix` / etc. ([see Quickstart below](#quickstart)).**
 
+
 <details>
 &nbsp; <summary><i>Quick reference</i> &nbsp; ⤵️</summary>
 <br/>
-<pre lang="bash"><code style="white-space: pre-line"># Get ArchiveBox with Docker Compose (recommended)
-curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml'
-docker compose up
+<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox; cd ~/archivebox    # create a dir somewhere for your archivebox data
 <br/>
-<br/># Or use it as a single Docker container
-docker run -v $PWD/data:/data -p 8000:8000 -it archivebox/archivebox
+# Get ArchiveBox with Docker Compose (recommended):
+curl -sSL 'https://docker-compose.archivebox.io' > docker-compose.yml   # edit options in this file as-needed
+docker compose run archivebox init --setup
+# docker compose run archivebox add 'https://example.com'
+# docker compose run archivebox help
+# docker compose up
 <br/>
-<br/># Or install with your preferred package manager (see Quickstart below for apt, brew, and more)
+<br/>
+# Or use it as a plain Docker container:
+docker run -it -v $PWD:/data archivebox/archivebox init --setup
+# docker run -it -v $PWD:/data archivebox/archivebox add 'https://example.com'
+# docker run -it -v $PWD:/data archivebox/archivebox help
+# docker run -it -v $PWD:/data -p 8000:8000 archivebox/archivebox
+<br/>
+<br/>
+# Or install it with your preferred pkg manager (see Quickstart below for apt, brew, and more)
 pip install archivebox
+archivebox init --setup
+# archviebox add 'https://example.com'
+# archivebox help
+# archivebox server 0.0.0.0:8000
 <br/>
-<br/># Or use the optional auto setup script to install it
-curl -sSL 'https://get.archivebox.io' | sh</code></pre>
+<br/>
+# Or use the optional auto setup script to install it
+curl -sSL 'https://get.archivebox.io' | sh
 </details>
 <br/>
 
-**🔢 Create a new directory to hold your data**
-```bash
-mkdir ~/archivebox; cd ~/archivebox
-archivebox init --setup              # or: setup config via docker-compose.yml
+<sup>Open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see your server's Web UI ➡️</sup>
 
-```
-
-**🔢 Next steps: start the ArchiveBox server to use the Web UI**
-```bash
-archivebox server 0.0.0.0:8000       # or: docker compose up
-```
-<sup>Then open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see it ➡️</sup>
-
-**🔢 Or use the CLI to archive links & manage your collection**
-```bash
-archivebox add 'https://example.com'                                   # add URLs one at a time
-archivebox add < ~/Downloads/bookmarks.json                            # or pipe in URLs in any text-based format
-archivebox schedule --every=day --depth=1 https://example.com/rss.xml  # or auto-import URLs regularly on a schedule
-# or: docker compose run archivebox add ... etc. ...
-
-archivebox list 'https://example.com'                                  # use the CLI commands (--help for more)
-ls ./archive/*/index.json                                              # or browse your Snapshots via the filesystem
-```
 
 
 <div align="center" style="text-align: center">
@@ -131,7 +126,7 @@ ls ./archive/*/index.json                                              # or brow
 - [**Comprehensive documentation**](https://github.com/ArchiveBox/ArchiveBox/wiki), [active development](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap), and [rich community](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
 - [**Extracts a wide variety of content out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51): [media (yt-dlp), articles (readability), code (git), etc.](#output-formats)
 - [**Supports scheduled/realtime importing**](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from [many types of sources](#input-formats)
-- [**Uses standard, durable, long-term formats**](#saves-lots-of-useful-stuff-for-each-imported-link) like HTML, JSON, PDF, PNG, MP4, TXT, and WARC
+- [**Uses standard, durable, long-term formats**](#output-formats) like HTML, JSON, PDF, PNG, MP4, TXT, and WARC
 - [**Usable as a oneshot CLI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [**self-hosted web UI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [Python API](https://docs.archivebox.io/en/latest/modules.html) (BETA), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (ALPHA), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (ALPHA)
 - [**Saves all pages to archive.org as well**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#save_archive_dot_org) by default for redundancy (can be [disabled](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) for local-only mode)
 - Advanced users: support for archiving [content requiring login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (see wiki security caveats!)
@@ -183,6 +178,7 @@ curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-comp
 # completely optional, CLI can always be used without running a server
 # docker compose run [-T] archivebox [subcommand] [--args]
 docker compose run archivebox add 'https://example.com'
+docker compose run archivebox help
 </code></pre></li>
 </ol>
 
