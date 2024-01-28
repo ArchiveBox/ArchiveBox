@@ -1376,27 +1376,18 @@ archivebox init --setup
 
 </details>
 
-#### Run the linters
+#### Run the linters / tests
 
 <details><summary><i>Click to expand...</i></summary>
 
 ```bash
 ./bin/lint.sh
-```
-(uses `flake8` and `mypy`)
-
-</details>
-
-#### Run the integration tests
-
-<details><summary><i>Click to expand...</i></summary>
-
-```bash
 ./bin/test.sh
 ```
-(uses `pytest -s`)
+(uses `flake8`, `mypy`, and `pytest -s`)
 
 </details>
+
 
 #### Make migrations or enter a django shell
 
