@@ -775,13 +775,12 @@ Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not offici
 ## Archive Layout
 
 All of ArchiveBox's state (SQLite DB, archived assets, config, logs, etc.) is stored in a single folder called the "ArchiveBox Data Folder".  
-Data folders can be created anywhere (`~/archivebox` or `$PWD/data` as seen in our examples), and you can create as many data folders as you want to hold different collections.
 
 <br/>
 <details>
 <summary><i>Expand to learn more about the layout of Archivebox's data on-disk...</i></summary><br/>
 
-
+Data folders can be created anywhere (`~/archivebox` or `$PWD/data` as seen in our examples), and you can create as many data folders as you want to hold different collections.
 All <code>archivebox</code> CLI commands are designed to be run from inside an ArchiveBox data folder, starting with <code>archivebox init</code> to initialize a new collection inside an empty directory.
 
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox   # just an example, can be anywhere
