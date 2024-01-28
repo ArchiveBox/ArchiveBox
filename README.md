@@ -858,8 +858,6 @@ The paths in the static exports are relative, make sure to keep them next to you
 <br/>
 
 
----
-
 <div align="center" style="text-align: center">
 <img src="https://docs.monadical.com/uploads/upload_b6900afc422ae699bfefa2dcda3306f3.png" width="100%" alt="security graphic"/>
 </div>
