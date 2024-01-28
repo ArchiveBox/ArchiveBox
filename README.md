@@ -1485,10 +1485,10 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 <b><a href="https://docs.sweeting.me/s/archivebox-consulting-services">🏛️ Contact us for professional support 💬</a></b><br/>
 <br/><br/>
 <a href="https://hcb.hackclub.com/donations/start/archivebox"><img src="https://img.shields.io/badge/Donate-Directly-%13DE5D26.svg"/></a> &nbsp;
-<a href="https://github.com/sponsors/pirate"><img src="https://img.shields.io/badge/Donate-Github_Sponsors-%23B7CDFE.svg"/></a> &nbsp;
-<a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Donate-Patreon-%23DD5D76.svg"/></a>
-<a href="https://paypal.me/NicholasSweeting"><img src="https://img.shields.io/badge/Donate-Paypal-%23FFD141.svg"/></a>
-<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"><img src="https://img.shields.io/badge/Donate-Crypto-%231a1a1a.svg"/></a>
+<a href="https://github.com/sponsors/pirate"><img src="https://img.shields.io/badge/Github_Sponsors-%23B7CDFE.svg"/></a> &nbsp;
+<a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Patreon-%23DD5D76.svg"/></a> &nbsp;
+<a href="https://paypal.me/NicholasSweeting"><img src="https://img.shields.io/badge/Paypal-%23FFD141.svg"/></a> &nbsp;
+<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"><img src="https://img.shields.io/badge/BTC%5CETH-%231a1a1a.svg"/></a>
 <br/>
 <sup><i>ArchiveBox operates as a US 501(c)(3) nonprofit (sponsored by <a href="https://hackclub.com/hcb?ref=donation">HCB</a>), <a href="https://hcb.hackclub.com/donations/start/archivebox">donations</a> are tax-deductible.</i></sup>
 <br/><br/>
