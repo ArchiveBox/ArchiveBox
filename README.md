@@ -170,9 +170,9 @@ curl -sSL 'https://get.archivebox.io' | sh
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
 <li>Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory (can be anywhere).
-<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
+<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox   # can be anywhere
+# Read and edit docker-compose.yml options as-needed after downloading
 curl -sSL 'https://docker-compose.archivebox.io' > docker-compose.yml
-# points to https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml
 </code></pre></li>
 <li>Run the initial setup to create an admin user (or set ADMIN_USER/PASS in docker-compose.yml)
 <pre lang="bash"><code style="white-space: pre-line">docker compose run archivebox init --setup
@@ -204,6 +204,7 @@ docker run -v $PWD:/data -it archivebox/archivebox init --setup
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
 # completely optional, CLI can always be used without running a server
 # docker run -v $PWD:/data -it [subcommand] [--args]
+docker run -v $PWD:/data -it archivebox/archivebox help
 </code></pre>
 </li>
 </ol>
@@ -255,6 +256,7 @@ archivebox init --setup
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--args]
+archivebox help
 </code></pre>
 </li>
 </ol>
@@ -290,6 +292,7 @@ archivebox init --setup           # if any problems, install with pip instead
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--args]
+archivebox help
 </code></pre>
 </li>
 </ol>
@@ -318,6 +321,7 @@ archivebox init --setup         # if any problems, install with pip instead
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--args]
+archivebox help
 </code></pre>
 </li>
 </ol>
