@@ -1092,7 +1092,7 @@ ArchiveBox aims to enable more of the internet to be saved from deterioration by
 
 <br/>
 <details>
-<summary><i>Click to read more...</i></summary>
+<summary><i>Click to read more about why archiving is important and how to do it ethically...</i></summary>
 <br/>
 
 
