@@ -35,11 +35,11 @@ Without active preservation effort, everything on the internet eventually dissap
 
 💾 **It saves snapshots of the URLs you feed it in several redundant formats.**  
 It also detects any content featured *inside* each webpage & extracts it out into a folder:
-- **HTML**/**Any websites** ➡️ `original HTML+CSS+JS`, `singlefile HTML`, `screenshot PNG`, `PDF`, `WARC`, ...
-- **Social Media**/**News** ➡️ `post content TXT`, `comments`, `title`, `author`, `images`
-- **YouTube**/**SoundCloud**/etc. ➡️ `MP3/MP4`s, `subtitles`, `metadata`, `thumbnail`, ...
-- **Github**/**Gitlab**/etc. links ➡️ `clone of GIT source code`, `README`, `images`, ...
-- *[and more...](#output-formats)*
+- 🌐 **HTML**/**Any websites** ➡️ `original HTML+CSS+JS`, `singlefile HTML`, `screenshot PNG`, `PDF`, `WARC`, ...
+- 🎥 **Social Media**/**News** ➡️ `post content TXT`, `comments`, `title`, `author`, `images`
+- 🎬 **YouTube**/**SoundCloud**/etc. ➡️ `MP3/MP4`s, `subtitles`, `metadata`, `thumbnail`, ...
+- 💾 **Github**/**Gitlab**/etc. links ➡️ `clone of GIT source code`, `README`, `images`, ...
+- ✨ *[and more...](#output-formats)*
 
 It uses normal filesystem folders to organize archives (no complicated proprietary formats), and offers a CLI + web UI.  
 ArchiveBox does the archiving using standard tools like [Google Chrome](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install), `wget`, `yt-dlp`, `readability`, [and more](#dependencies) internally.
@@ -48,13 +48,13 @@ ArchiveBox does the archiving using standard tools like [Google Chrome](https://
 
 🏛️ ArchiveBox is used by many *[professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* who save content off the web, for example:
 
-- **Individuals:**
+- 👩🏽 **Individuals:**
   `backing up browser bookmarks/history`, `saving FB/Insta/etc. content`, `shopping lists`  
-- **Journalists:**
+- 🗞️ **Journalists:**
   `crawling and collecting research`, `preserving quoted material`, `fact-checking and review`  
-- **Lawyers:**
+- ⚖️ **Lawyers:**
   `evidence collection`, `hashing & integrity verifying`, `search, tagging, & review`  
-- **Researchers:**
+- 🔬 **Researchers:**
   `collecting AI training sets`, `feeding analysis / web crawling pipelines`
 
 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
