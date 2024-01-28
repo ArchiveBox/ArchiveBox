@@ -73,8 +73,9 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 **📦&nbsp; Get ArchiveBox with `docker` / `apt` / `brew` / `pip3` / `nix` / etc. ([see Quickstart below](#quickstart)).**
 
 ```bash
-# Get ArchiveBox with Docker or Docker Compose (recommended)
-docker run -v $PWD/data:/data -p 8000:8000 -it archivebox/archivebox
+# Get ArchiveBox with Docker Compose (recommended) or Docker
+curl -sSL 'https://docker-compose.archivebox.io' > docker-compose.yml
+docker pull archivebox/archivebox
 
 # Or install with your preferred package manager (see Quickstart below for apt, brew, and more)
 pip install archivebox
@@ -112,7 +113,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 - [**Comprehensive documentation**](https://github.com/ArchiveBox/ArchiveBox/wiki), [active development](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap), and [rich community](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
 - [**Extracts a wide variety of content out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51): [media (yt-dlp), articles (readability), code (git), etc.](#output-formats)
 - [**Supports scheduled/realtime importing**](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from [many types of sources](#input-formats)
-- [**Uses standard, durable, long-term formats**](#saves-lots-of-useful-stuff-for-each-imported-link) like HTML, JSON, PDF, PNG, MP4, TXT, and WARC
+- [**Uses standard, durable, long-term formats**](#output-formats) like HTML, JSON, PDF, PNG, MP4, TXT, and WARC
 - [**Usable as a oneshot CLI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [**self-hosted web UI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [Python API](https://docs.archivebox.io/en/latest/modules.html) (BETA), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (ALPHA), or [desktop app](https://github.com/ArchiveBox/electron-archivebox) (ALPHA)
 - [**Saves all pages to archive.org as well**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#save_archive_dot_org) by default for redundancy (can be [disabled](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) for local-only mode)
 - Advanced users: support for archiving [content requiring login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (see wiki security caveats!)
@@ -164,6 +165,7 @@ curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-comp
 # completely optional, CLI can always be used without running a server
 # docker compose run [-T] archivebox [subcommand] [--args]
 docker compose run archivebox add 'https://example.com'
+docker compose run archivebox help
 </code></pre></li>
 </ol>
 
