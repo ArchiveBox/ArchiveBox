@@ -9,8 +9,7 @@
 #     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
 
 ---
-
-version: '3.9'
+version: "3.9"
 
 services:
     archivebox:

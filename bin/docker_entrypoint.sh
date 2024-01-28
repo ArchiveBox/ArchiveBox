@@ -64,7 +64,7 @@ if [[ -d "$DATA_DIR/archive" ]]; then
         rm -f "$DATA_DIR/archive/.permissions_test_safe_to_delete"
         # echo "[√] Permissions are correct"
     else
-     # the only time this fails is if the host filesystem doesn't allow us to write as root (e.g. some NFS mapall/maproot problems, connection issues, drive dissapeared, etc.)
+        # the only time this fails is if the host filesystem doesn't allow us to write as root (e.g. some NFS mapall/maproot problems, connection issues, drive dissapeared, etc.)
         echo -e "\n[X] Error: archivebox user (PUID=$PUID) is not able to write to your ./data/archive dir (currently owned by $(stat -c '%u' "$DATA_DIR/archive"):$(stat -c '%g' "$DATA_DIR/archive")." > /dev/stderr
         echo -e "    Change ./data to be owned by PUID=$PUID PGID=$PGID on the host and retry:" > /dev/stderr
         echo -e "       \$ chown -R $PUID:$PGID ./data\n" > /dev/stderr

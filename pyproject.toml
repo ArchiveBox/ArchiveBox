@@ -101,6 +101,7 @@ dev = [
     "mypy",
     "django-stubs[compatible-mypy]>=4.2.7",
     "types-requests>=2.31.0.20240125",
+    "pudb>=2024.1",
 ]
 
 [tool.pyright]

@@ -87,25 +87,25 @@ class ArchiveBoxBaseDependency(models.Model):
         }
 
     @cached_property
-    def bin_path(self):
+    def bin_path(self) -> str:
         return bin_path(self.BINARY or self.DEFAULT_BINARY)
 
     @cached_property
-    def bin_version(self):
+    def bin_version(self) -> str | None:
         print(f'ArchiveBoxBaseDependency.bin_version({self.bin_path}, cmd={self.VERSION_CMD.format(BINARY=self.BINARY)})')
         return bin_version(self.bin_path, cmd=self.VERSION_CMD.format(BINARY=self.BINARY))
         # return bin_version(self.bin_path, cmd=self.VERSION_CMD)
 
     @cached_property
-    def is_valid(self):
+    def is_valid(self) -> bool:
         return bool(self.bin_path and self.bin_version)
 
     @cached_property
-    def is_enabled(self):
+    def is_enabled(self) -> bool:
         return bool(self.ENABLED and self.is_valid)
 
     @cached_property
-    def pretty_version(self):
+    def pretty_version(self) -> str:
         if self.is_enabled:
             if self.is_valid:
                 color, symbol, note, version = 'green', '√', 'valid', ''
@@ -142,7 +142,7 @@ class ArchiveBoxBaseDependency(models.Model):
 
     # @helper
     def install_self(self, config):
-        assert all(self.install_parents().values())
+        assert all(self.install_parents(config=config).values())
 
         BashEnvironmentDependency.get_solo().install_pkgs(self.BIN_DEPENDENCIES)
         AptEnvironmentDependency.get_solo().install_pkgs(self.APT_DEPENDENCIES)
@@ -174,7 +174,7 @@ class ArchiveBoxDefaultDependency(ArchiveBoxBaseDependency, SingletonModel):
 
     ENABLED = models.BooleanField(default=True, editable=True)
 
-    class Meta:
+    class Meta:                 # pyright: ignore [reportIncompatibleVariableOverride]
         abstract = False
         app_label = 'defaults'
         verbose_name = 'Default Configuration: Dependencies'
@@ -212,9 +212,9 @@ class ArchiveBoxBaseExtractor(models.Model):
     def __str__(self):
         return f"{self.LABEL} Extractor Configuration"
 
-    class Meta:
+    class Meta:             # pyright: ignore [reportIncompatibleVariableOverride]
         abstract = True
-        verbose_name = f"Default Extractor Configuration"
+        verbose_name = "Default Extractor Configuration"
         app_label = 'defaults'
 
     @cached_property

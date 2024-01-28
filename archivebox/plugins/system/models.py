@@ -179,6 +179,8 @@ class AptEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
     def install_pkgs(self, apt_pkgs=()):        
         assert self.is_valid, 'Apt environment is not available on this host'
 
+        # with huey.lock_task('apt-install'):
+
         run(cmd=[self.DEFAULT_BINARY, '-qq', 'update'])
         for apt_package in apt_pkgs:
             run(cmd=[self.DEFAULT_BINARY, 'install', '-y', apt_package])
