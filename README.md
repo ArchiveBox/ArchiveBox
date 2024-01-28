@@ -70,7 +70,7 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 <br/>
 
-**📦&nbsp; Install ArchiveBox using your preferred method: `docker` / `apt` / `brew` / `pip3` / `nix` / etc. ([see Quickstart below](#quickstart)).**
+**📦&nbsp; Install ArchiveBox using your preferred method: `docker` / `pip` / `apt` / `brew` / etc. ([see full Quickstart below](#quickstart)).**
 
 
 <details>
@@ -78,7 +78,7 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox; cd ~/archivebox    # create a dir somewhere for your archivebox data
 <br/>
-# Get ArchiveBox with Docker Compose (recommended):
+# Option A: Get ArchiveBox with Docker Compose (recommended):
 curl -sSL 'https://docker-compose.archivebox.io' > docker-compose.yml   # edit options in this file as-needed
 docker compose run archivebox init --setup
 # docker compose run archivebox add 'https://example.com'
@@ -86,14 +86,14 @@ docker compose run archivebox init --setup
 # docker compose up
 <br/>
 <br/>
-# Or use it as a plain Docker container:
+# Option B: Or use it as a plain Docker container:
 docker run -it -v $PWD:/data archivebox/archivebox init --setup
 # docker run -it -v $PWD:/data archivebox/archivebox add 'https://example.com'
 # docker run -it -v $PWD:/data archivebox/archivebox help
 # docker run -it -v $PWD:/data -p 8000:8000 archivebox/archivebox
 <br/>
 <br/>
-# Or install it with your preferred pkg manager (see Quickstart below for apt, brew, and more)
+# Option C: Or install it with your preferred pkg manager (see Quickstart below for apt, brew, and more)
 pip install archivebox
 archivebox init --setup
 # archviebox add 'https://example.com'
@@ -101,14 +101,13 @@ archivebox init --setup
 # archivebox server 0.0.0.0:8000
 <br/>
 <br/>
-# Or use the optional auto setup script to install it
+# Option D: Or use the optional auto setup script to install it
 curl -sSL 'https://get.archivebox.io' | sh
 </code></pre>
+<br/>
+<sub>Open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see your server's Web UI ➡️</sub>
 </details>
 <br/>
-
-<sup>Open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see your server's Web UI ➡️</sup>
-
 
 
 <div align="center" style="text-align: center">
