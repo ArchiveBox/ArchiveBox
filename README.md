@@ -46,7 +46,7 @@ To power its functionality, ArchiveBox bundles industry-standard tools like [Goo
 
 ---
 
-🏛️ ArchiveBox is used by many *[professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* who save content off the web, for example:
+🏛️ ArchiveBox is used by many *[professional organizations](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* who save content off the web, for example:
 
 - 👩🏽 **Individuals:**
   `backing up browser bookmarks/history`, `saving FB/Insta/etc. content`, `shopping lists`  
