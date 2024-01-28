@@ -89,7 +89,8 @@ if ! chown $PUID:$PGID "$DATA_DIR"/* > /dev/null 2>&1; then
     find "$DATA_DIR" -type d -not -path "$DATA_DIR/archive*" -exec chown $PUID:$PGID {} \; > /dev/null 2>&1
     find "$DATA_DIR" -type f -not -path "$DATA_DIR/archive/*" -exec chown $PUID:$PGID {} \; > /dev/null 2>&1
 fi
-    
+mkdir -p /var/spool/cron/crontabs
+chown -R $PUID:$PGID /var/spool/cron/crontabs > /dev/null 2>&1 &
 
 # also chown BROWSERS_DIR because otherwise 'archivebox setup' wont be able to 'playwright install chromium' at runtime
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/browsers}"
