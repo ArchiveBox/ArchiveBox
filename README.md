@@ -555,8 +555,8 @@ docker compose run archivebox config --set ...
 <br/>
 
 > [!TIP]
-> Whether in Docker or not, ArchiveBox commands all work the same way, and can be used in tandem to access the same data directory.
-> For example, you can run the Web UI in Docker Compose, and run one-off commands on host with `pip`-installed ArchiveBox or in Docker interchangeably.
+> Whether in Docker or not, ArchiveBox commands work the same way, and can be used to access the same data on-disk.
+> For example, you could run the Web UI in Docker Compose, and run one-off commands with `pip`-installed ArchiveBox.
 
 <details>
 <summary><i>Expand to show comparison...</i></summary><br/>
