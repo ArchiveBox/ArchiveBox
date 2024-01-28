@@ -170,7 +170,7 @@ curl -sSL 'https://get.archivebox.io' | sh
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
 <li>Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory (can be anywhere).
-<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox   # can be anywhere
+<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
 # Read and edit docker-compose.yml options as-needed after downloading
 curl -sSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 </code></pre></li>
