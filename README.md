@@ -1520,13 +1520,16 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 <a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Patreon-%23DD5D76.svg"/></a>
 
 <br/>
-<sup>ArchiveBox operates as a US 501(c)(3) nonprofit, <a href="https://hcb.hackclub.com/donations/start/archivebox">donations</a> are tax-deductible.<br/>(fiscally sponsored by <a href="https://hackclub.com/hcb?ref=donation">HCB</a>)</sup><br/>
-
+<sup>ArchiveBox operates as a US 501(c)(3) nonprofit (fiscally sponsored by <a href="https://hackclub.com/hcb?ref=donation">HCB</a>), <a href="https://hcb.hackclub.com/donations/start/archivebox">donations</a> are tax-deductible.<br/></sup><br/>
+<br/>
+<hr/>
+<br/>
 <i><sub>
 ArchiveBox was started by <a href="https://docs.sweeting.me/s/blog#About">Nick Sweeting</a> in 2017, and has grown slowly and steadily since then with help from our <a href="https://github.com/ArchiveBox/ArchiveBox/graphs/contributors">amazing contributors</a>.
 </sub>
 </i>
-
+<br/>
+<br/>
 <a href="https://twitter.com/ArchiveBoxApp"><img src="https://img.shields.io/badge/Tweet-%40ArchiveBoxApp-blue.svg?style=flat"/></a>
 <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>
 
