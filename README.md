@@ -33,7 +33,7 @@ Without active preservation effort, everything on the internet eventually dissap
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/90f1ce3c-75bb-401d-88ed-6297694b76ae" alt="snapshot detail page" align="right" width="190px" style="float: right"/>
 
-💾 **It saves snapshots of the URLs you feed it in several redundant formats.**  
+**It saves snapshots of the URLs you feed it in several redundant formats.**  
 It also detects any content featured *inside* each webpage & extracts it out into a folder:
 - 🌐 **HTML**/**Any websites** ➡️ `original HTML+CSS+JS`, `singlefile HTML`, `screenshot PNG`, `PDF`, `WARC`, ...
 - 🎥 **Social Media**/**News** ➡️ `post content TXT`, `comments`, `title`, `author`, `images`
