@@ -29,7 +29,7 @@ Without active preservation effort, everything on the internet eventually dissap
 
 <hr/>
 
-📥 **You can feed ArchiveBox URLs one at a time, or schedule regular imports** from the browser [extension](https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj), bookmarks or history, social media feeds or RSS, link-saving services like Pocket/Pinboard, and more. See <a href="#input-formats">Input Formats</a> for a full list.
+📥 **You can feed ArchiveBox URLs one at a time, or schedule regular imports** from your bookmarks or history, social media feeds or RSS, link-saving services like Pocket/Pinboard, our [Browser Extension](https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj), and more. See <a href="#input-formats">Input Formats</a> for a full list.
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/90f1ce3c-75bb-401d-88ed-6297694b76ae" alt="snapshot detail page" align="right" width="190px" style="float: right"/>
 
