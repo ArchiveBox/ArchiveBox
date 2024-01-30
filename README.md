@@ -44,11 +44,12 @@ It also detects any content featured *inside* pages & extracts it out into a fol
 - ✨ *and more, see [Output Formats](#output-formats) below...*
 
 It uses [standard tools](#dependencies) like Chrome, `wget`, & `yt-dlp`, and stores data in [ordinary files & folders](#archive-layout) and SQLite3.  
-*(no complex proprietary formats, accessible decades in the future without needing to run ArchiveBox)*
+*(no complex proprietary formats, all data is readable without needing to run ArchiveBox)*
+
+The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
 
 ---
 
-The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
 
 <div align="center" style="text-align: center">
 <br/><br/>
