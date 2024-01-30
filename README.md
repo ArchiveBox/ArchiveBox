@@ -25,12 +25,13 @@ Without active preservation effort, everything on the internet eventually dissap
 
 *ArchiveBox is an open source tool that lets organizations & individuals archive both public & private web content while retaining control over their data. It can be used to save copies of bookmarks, preserve evidence for legal cases, backup photos from FB/Insta/Flickr or media from YT/Soundcloud/etc., save research papers, and more...*
 
-> ➡️ *ArchiveBox is available on [Linux](#quickstart)/[macOS](#quickstart)/[Windows](#quickstart)/[Docker](#quickstart) as a [CLI tool](#usage), [self-hosted Web App](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive), [`pip` library](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage), or [one-off command](#static-archive-exporting).*
+> ➡️ *ArchiveBox is available on [Linux](#quickstart), [macOS](#quickstart), [Windows](#quickstart), and [Docker](#quickstart) and can be used as a  
+> [CLI tool](#usage), [self-hosted Web App](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive), [`pip` library](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage), or [one-off command](#static-archive-exporting).*
 
 <hr/>
 
 📥 **You can feed ArchiveBox URLs one at a time, or schedule regular imports** from your bookmarks or history, social media feeds or RSS, link-saving services like Pocket/Pinboard, our [Browser Extension](https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj), and more.  
-<i>See <a href="#input-formats">Input Formats</a> for a full list of supported input formats...</i>
+<sub>See <a href="#input-formats">Input Formats</a> for a full list of supported input formats...</sub>
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/90f1ce3c-75bb-401d-88ed-6297694b76ae" alt="snapshot detail page" align="right" width="190px" style="float: right"/>
 
