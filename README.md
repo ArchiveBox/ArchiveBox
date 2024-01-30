@@ -23,38 +23,27 @@ curl -sSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instruct
 
 Without active preservation effort, everything on the internet eventually dissapears or degrades. Archive.org does a great job as a free central archive, but they require all archives to be public, and they can't save every type of content.
 
-*ArchiveBox is an open source tool that helps you archive web content on your own (or privately within an organization): save copies of browser bookmarks, preserve evidence for legal cases, backup photos from FB / Insta / Flickr, download your media from YT / Soundcloud / etc., snapshot research papers & academic citations, and more...*
+*ArchiveBox is an open source tool that helps organizations and individuals archive web content and retain control over their data: save copies of browser bookmarks, preserve evidence for legal cases, backup photos from FB / Insta / Flickr, download your media from YT / Soundcloud / etc., snapshot research papers & academic citations, and more...*
 
-> ➡️ *Use ArchiveBox as a [command-line package](#quickstart) and/or [self-hosted web app](#quickstart) on Linux, macOS, or in [Docker](#quickstart).*
+> ➡️ *Use ArchiveBox on [Linux](#quickstart)/[macOS](#quickstart)/[Windows](#quickstart)/[Docker](#quickstart) as a [CLI tool](#usage), [self-hosted Web App](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive), [`pip` library](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage), or [one-off command](#static-archive-exporting).*
 
 <hr/>
 
-📥 **You can feed ArchiveBox URLs one at a time, or schedule regular imports** from browser bookmarks or history, feeds like RSS, bookmark services like Pocket/Pinboard, and more. See <a href="#input-formats">input formats</a> for a full list.
+📥 **You can feed ArchiveBox URLs one at a time, or schedule regular imports** from your bookmarks or history, social media feeds or RSS, link-saving services like Pocket/Pinboard, our [Browser Extension](https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj), and more. See <a href="#input-formats">Input Formats</a> for a full list.
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/90f1ce3c-75bb-401d-88ed-6297694b76ae" alt="snapshot detail page" align="right" width="190px" style="float: right"/>
 
-💾 **It saves snapshots of the URLs you feed it in several redundant formats.**  
+**It saves snapshots of the URLs you feed it in several redundant formats.**  
 It also detects any content featured *inside* each webpage & extracts it out into a folder:
-- `HTML/Generic websites -> HTML, PDF, PNG, WARC, Singlefile`
-- `YouTube/SoundCloud/etc. -> MP3/MP4 + subtitles, description, thumbnail`
-- `News articles -> article body TXT + title, author, featured images`
-- `Github/Gitlab/etc. links -> git cloned source code`
-- *[and more...](#output-formats)*
+- 🌐 **HTML**/**Any websites** ➡️ `original HTML+CSS+JS`, `singlefile HTML`, `screenshot PNG`, `PDF`, `WARC`, ...
+- 🎥 **Social Media**/**News** ➡️ `post content TXT`, `comments`, `title`, `author`, `images`
+- 🎬 **YouTube**/**SoundCloud**/etc. ➡️ `MP3/MP4`s, `subtitles`, `metadata`, `thumbnail`, ...
+- 💾 **Github**/**Gitlab**/etc. links ➡️ `clone of GIT source code`, `README`, `images`, ...
+- ✨ *and more, see [Output Formats](#output-formats) below...*
 
-It uses normal filesystem folders to organize archives (no complicated proprietary formats), and offers a CLI + web UI.  
+It uses [standard tools](#dependencies) like Chrome, `wget`, & `yt-dlp`, and stores data in ordinary [files & folders](#archive-layout) (no complex proprietary formats).  
 
 ---
-
-🏛️ ArchiveBox is used by many *[professionals](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) and [hobbyists](https://zulip.archivebox.io/#narrow/stream/158-development)* who save content off the web, for example:
-
-- **Individuals:**
-  `backing up browser bookmarks/history`, `saving FB/Insta/etc. content`, `shopping lists`  
-- **Journalists:**
-  `crawling and collecting research`, `preserving quoted material`, `fact-checking and review`  
-- **Lawyers:**
-  `evidence collection`, `hashing & integrity verifying`, `search, tagging, & review`  
-- **Researchers:**
-  `collecting AI training sets`, `feeding analysis / web crawling pipelines`
 
 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
 
@@ -70,32 +59,45 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 
 <br/>
 
-**📦&nbsp; Get ArchiveBox with `docker` / `apt` / `brew` / `pip3` / `nix` / etc. ([see Quickstart below](#quickstart)).**
+**📦&nbsp; Install ArchiveBox using your preferred method: `docker` / `pip` / `apt` / `brew` / etc. ([see full Quickstart below](#quickstart)).**
 
-```bash
-# Get ArchiveBox with Docker Compose (recommended) or Docker
-curl -sSL 'https://docker-compose.archivebox.io' > docker-compose.yml
-docker pull archivebox/archivebox
 
-# Or install with your preferred package manager (see Quickstart below for apt, brew, and more)
+<details>
+&nbsp; <summary><i>Expand for quick copy-pastable install commands...</i> &nbsp; ⤵️</summary>
+<br/>
+<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox; cd ~/archivebox    # create a dir somewhere for your archivebox data
+<br/>
+# Option A: Get ArchiveBox with Docker Compose (recommended):
+curl -sSL 'https://docker-compose.archivebox.io' > docker-compose.yml   # edit options in this file as-needed
+docker compose run archivebox init --setup
+# docker compose run archivebox add 'https://example.com'
+# docker compose run archivebox help
+# docker compose up
+<br/>
+<br/>
+# Option B: Or use it as a plain Docker container:
+docker run -it -v $PWD:/data archivebox/archivebox init --setup
+# docker run -it -v $PWD:/data archivebox/archivebox add 'https://example.com'
+# docker run -it -v $PWD:/data archivebox/archivebox help
+# docker run -it -v $PWD:/data -p 8000:8000 archivebox/archivebox
+<br/>
+<br/>
+# Option C: Or install it with your preferred pkg manager (see Quickstart below for apt, brew, and more)
 pip install archivebox
-
-# Or use the optional auto setup script to install it
+archivebox init --setup
+# archviebox add 'https://example.com'
+# archivebox help
+# archivebox server 0.0.0.0:8000
+<br/>
+<br/>
+# Option D: Or use the optional auto setup script to install it
 curl -sSL 'https://get.archivebox.io' | sh
-```
+</code></pre>
+<br/>
+<sub>Open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see your server's Web UI ➡️</sub>
+</details>
+<br/>
 
-**🔢 Example usage: adding links to archive.**
-```bash
-archivebox add 'https://example.com'                                   # add URLs one at a time
-archivebox add < ~/Downloads/bookmarks.json                            # or pipe in URLs in any text-based format
-archivebox schedule --every=day --depth=1 https://example.com/rss.xml  # or auto-import URLs regularly on a schedule
-```
-**🔢 Example usage: viewing the archived content.**
-```bash
-archivebox server 0.0.0.0:8000            # use the interactive web UI
-archivebox list 'https://example.com'     # use the CLI commands (--help for more)
-ls ./archive/*/index.json                 # or browse directly via the filesystem
-```
 
 <div align="center" style="text-align: center">
 <br/><br/>
@@ -123,12 +125,23 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 ## 🤝 Professional Integration
 
-*[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) if your institution/org wants to use ArchiveBox professionally.*
+ArchiveBox is free for everyone to self-host, but we also provide support, security review, and custom integrations to help NGOs, governments, and other organizations [run ArchiveBox professionally](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102):
 
-- setup & support, team permissioning, hashing, audit logging, backups, custom archiving etc.  
-- for **individuals**, **NGOs**, **academia**, **governments**, **journalism**, **law**, and more...
+- 🗞️ **Journalists:**
+  `crawling and collecting research`, `preserving quoted material`, `fact-checking and review`  
+- ⚖️ **Lawyers:**
+  `collecting & preserving evidence`, `hashing / integrity checking / chain-of-custody`, `tagging & review`  
+- 🔬 **Researchers:**
+  `analyzing social media trends`, `collecting LLM training data`, `crawling to feed other pipelines`
+- 👩🏽 **Individuals:**
+  `saving legacy social media / memoirs`, `preserving portfolios / resume`, `backing up news articles`
 
-*We are a 501(c)(3) nonprofit and all our work goes towards supporting open-source development.* 
+> ***[Contact our team](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your institution/org wants to use ArchiveBox professionally.*
+> 
+> - setup & support, team permissioning, hashing, audit logging, backups, custom archiving etc.  
+> - for **individuals**, **NGOs**, **academia**, **governments**, **journalism**, **law**, and more...
+
+*We are a 🏛️ 501(c)(3) nonprofit and all our work goes towards supporting open-source development.* 
 
 <br/>
 
@@ -136,6 +149,8 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 <br/>
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0db52ea7-4a2c-441d-b47f-5553a5d8fe96" width="49%" alt="grass"/><img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0db52ea7-4a2c-441d-b47f-5553a5d8fe96" width="49%" alt="grass"/>
 </div>
+
+<a name="install"></a>
 
 # Quickstart
 
@@ -146,7 +161,7 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 
 #### ✳️&nbsp; Easy Setup
 
-<details open>
+<details>
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker-compose</code></b>  (macOS/Linux/Windows) &nbsp; <b>👈&nbsp; recommended</b> &nbsp; <i>(click to expand)</i></summary>
 <br/>
 <i>👍 Docker Compose is recommended for the easiest install/update UX + best security + all the <a href="#dependencies">extras</a> out-of-the-box.</i>
@@ -155,9 +170,10 @@ ls ./archive/*/index.json                 # or browse directly via the filesyste
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
 <li>Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
-curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml'
+# Read and edit docker-compose.yml options as-needed after downloading
+curl -sSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 </code></pre></li>
-<li>Run the initial setup and create an admin user.
+<li>Run the initial setup to create an admin user (or set ADMIN_USER/PASS in docker-compose.yml)
 <pre lang="bash"><code style="white-space: pre-line">docker compose run archivebox init --setup
 </code></pre></li>
 <li>Next steps: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
@@ -187,6 +203,7 @@ docker run -v $PWD:/data -it archivebox/archivebox init --setup
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
 # completely optional, CLI can always be used without running a server
 # docker run -v $PWD:/data -it [subcommand] [--args]
+docker run -v $PWD:/data -it archivebox/archivebox help
 </code></pre>
 </li>
 </ol>
@@ -216,8 +233,41 @@ See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as a
 #### 🛠&nbsp; Package Manager Setup
 
 <a name="Manual-Setup"></a>
+
+
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" alt="aptitude" height="28px" align="top"/> <code>apt</code></b> (Ubuntu/Debian)</summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117447613-ba4c5d80-af0b-11eb-8f89-1d98e31b6a79.png" alt="Pip" height="28px" align="top"/> <code>pip</code></b> (macOS/Linux/BSD)</summary>
+<br/>
+<ol>
+
+<li>Install <a href="https://realpython.com/installing-python/">Python >= v3.10</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v18</a> on your system (if not already installed).</li>
+<li>Install the ArchiveBox package using <code>pip3</code> (or <a href="https://pipx.pypa.io"><code>pipx</code></a>).
+<pre lang="bash"><code style="white-space: pre-line">pip3 install archivebox
+</code></pre>
+</li>
+<li>Create a new empty directory and initialize your collection (can be anywhere).
+<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
+archivebox init --setup
+# install any missing extras like wget/git/ripgrep/etc. manually as needed
+</code></pre>
+</li>
+<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
+<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
+# completely optional, CLI can always be used without running a server
+# archivebox [subcommand] [--args]
+archivebox help
+</code></pre>
+</li>
+</ol>
+
+See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+See the <a href="https://github.com/ArchiveBox/pip-archivebox"><code>pip-archivebox</code></a> repo for more details about this distribution.
+<br/><br/>
+</details>
+
+
+<details>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" alt="aptitude" height="28px" align="top"/> <code>apt</code></b> (Ubuntu/Debian/etc.)</summary>
 <br/>
 <ol>
 <li>Add the ArchiveBox repository to your sources.<br/>
@@ -241,6 +291,7 @@ archivebox init --setup           # if any problems, install with pip instead
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--args]
+archivebox help
 </code></pre>
 </li>
 </ol>
@@ -251,7 +302,7 @@ See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-a
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447803-f2ec3700-af0b-11eb-87d3-671d114f011d.png" alt="homebrew" height="28px" align="top"/> <code>brew</code></b> (macOS)</summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117447803-f2ec3700-af0b-11eb-87d3-671d114f011d.png" alt="homebrew" height="28px" align="top"/> <code>brew</code></b> (macOS only)</summary>
 <br/>
 <ol>
 <li>Install <a href="https://brew.sh/#install">Homebrew</a> on your system (if not already installed).</li>
@@ -269,41 +320,13 @@ archivebox init --setup         # if any problems, install with pip instead
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--args]
+archivebox help
 </code></pre>
 </li>
 </ol>
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 See the <a href="https://github.com/ArchiveBox/homebrew-archivebox"><code>homebrew-archivebox</code></a> repo for more details about this distribution.
-<br/><br/>
-</details>
-
-<details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447613-ba4c5d80-af0b-11eb-8f89-1d98e31b6a79.png" alt="Pip" height="28px" align="top"/> <code>pip</code></b> (macOS/Linux/BSD)</summary>
-<br/>
-<ol>
-
-<li>Install <a href="https://realpython.com/installing-python/">Python >= v3.9</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v18</a> on your system (if not already installed).</li>
-<li>Install the ArchiveBox package using <code>pip3</code>.
-<pre lang="bash"><code style="white-space: pre-line">pip3 install archivebox
-</code></pre>
-</li>
-<li>Create a new empty directory and initialize your collection (can be anywhere).
-<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
-archivebox init --setup
-# install any missing extras like wget/git/ripgrep/etc. manually as needed
-</code></pre>
-</li>
-<li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
-<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
-# completely optional, CLI can always be used without running a server
-# archivebox [subcommand] [--args]
-</code></pre>
-</li>
-</ol>
-
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
-See the <a href="https://github.com/ArchiveBox/pip-archivebox"><code>pip-archivebox</code></a> repo for more details about this distribution.
 <br/><br/>
 </details>
 
@@ -345,7 +368,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/575ef92f-bb3e-4a7c-a4ba-986c1fd76ecf" width="320px">
 <br/>
 <i>✨ Alpha (contributors wanted!)</i>: for more info, see the: <a href="https://github.com/ArchiveBox/electron-archivebox">Electron ArchiveBox</a> repo.
-  <br/>
+<br/>
 </details>
 
 <details>
@@ -419,124 +442,133 @@ For more discussion on managed and paid hosting options see here: <a href="https
 
 #### ⚡️&nbsp; CLI Usage
 
-ArchiveBox commands can be run in a terminal directly on your host, or via Docker/Docker Compose depending on how you installed it above.
+ArchiveBox commands can be run in a terminal directly on your host, or via Docker/Docker Compose (depending on install method).
 
 ```bash
 mkdir -p ~/archivebox/data   # create a new data dir anywhere
 cd ~/archivebox/data         # IMPORTANT: cd into the directory
 
 # archivebox [subcommand] [--args]
+archivebox help
+
+# equivalent: docker compose run archivebox [subcommand [--args]
+docker compose run archivebox help
+
+# equivalent: docker run -it -v $PWD:/data archivebox/archivebox [subcommand [--args]
+ docker run -it -v $PWD:/data archivebox/archivebox help
 ```
 
-> [!TIP]
-> Whether in Docker or not, ArchiveBox commands all work the same way, and can be used in tandem to access the same data directory.
-> For example, you can run the Web UI in Docker Compose, and run one-off commands on host with `pip`-installed ArchiveBox or in Docker interchangeably.
+#### ArchiveBox Subcommands
 
+- `archivebox` `help`/`version` to see the list of available subcommands and currently installed version info
+- `archivebox` `setup`/`init`/`config`/`status`/`manage` to administer your collection
+- `archivebox` `add`/`schedule`/`remove`/`update`/`list`/`shell`/`oneshot` to manage Snapshots in the archive
+- `archivebox` `schedule` to pull in fresh URLs regularly from [bookmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
+
+<br/>
 <details>
-<summary><i>Expand to show examples...</i></summary><br/>
-
-<pre lang="bash"><code style="white-space: pre-line">
-docker compose up -d                                      # start the Web UI server in the background
-docker compose run archivebox add 'https://example.com'   # add a test URL to snapshot w/ Docker Compose
-
-archivebox list 'https://example.com'                     # fetch it with pip-installed archivebox on the host
-docker compose run archivebox list 'https://example.com'                       # or w/ Docker Compose
-docker run -it -v $PWD:/data archivebox/archivebox list 'https://example.com'  # or w/ Docker, all equivalent
-</code></pre>
-
-</details>
+<summary><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" height="22px" align="top"/> <b>CLI Usage Examples (non-Docker)</b></summary>
 <br/>
-
-##### Bare Metal Usage (`pip`/`apt`/`brew`/etc.)
-
-<br/>
-<details open>
-<summary><i>Click to expand...</i></summary>
-<br/>
-
 <pre lang="bash"><code style="white-space: pre-line">
 archivebox init --setup      # safe to run init multiple times (also how you update versions)
-archivebox version           # get archivebox version info and more
+archivebox version           # get archivebox version info + check dependencies
+archivebox help              # get list of archivebox subcommands that can be run
 archivebox add --depth=1 'https://news.ycombinator.com'
 </code></pre>
-
 </details>
-<br/>
-
-##### Docker Compose Usage
 
 <br/>
+
 <details>
-<summary><i>Click to expand...</i></summary>
+<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>Docker Compose CLI Usage Examples</b></summary>
 <br/>
-
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you have `docker-compose.yml` from the Quickstart instructions first
 docker compose run archivebox init --setup
 docker compose run archivebox version
+docker compose run archivebox help
 docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
+# to start webserver: docker compose up
 </code></pre>
-
 </details>
-<br/>
-
-##### Docker Usage
 
 <br/>
+
 <details>
-<summary><i>Click to expand...</i></summary>
+<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>Docker CLI Usage Examples</b></summary>
 <br/>
-
 <pre lang="bash"><code style="white-space: pre-line">
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 docker run -v $PWD:/data -it archivebox/archivebox version
+docker run -v $PWD:/data -it archivebox/archivebox help
+docker run -v $PWD:/data -it archivebox/archivebox add --depth=1 'https://news.ycombinator.com'
+# to start webserver: docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
+</code></pre>
+</details>
+
+<br/>
+
+<details>
+<summary><b>🗄&nbsp; SQL/Python/Filesystem Usage</b></summary>
+<pre lang="bash"><code style="white-space: pre-line">
+archivebox shell           # explore the Python library API in a REPL
+sqlite3 ./index.sqlite3    # run SQL queries directly on your index
+ls ./archive/*/index.html  # or inspect snapshot data directly on the filesystem
+</code></pre>
+</details>
+
+
+<br/>
+
+<details>
+<summary><b>🖥&nbsp; Web UI Usage</b></summary>
+<pre lang="bash"><code style="white-space: pre-line">
+# Start the server on bare metal (pip/apt/brew/etc):
+archivebox manage createsuperuser              # create a new admin user via CLI
+archivebox server 0.0.0.0:8000                 # start the server
+<br/>
+# Or with Docker Compose:
+nano docker-compose.yml                        # setup initial ADMIN_USERNAME & ADMIN_PASSWORD
+docker compose up                              # start the server
+<br/>
+# Or with a Docker container:
+docker run -v $PWD:/data -it archivebox/archivebox archivebox manage createsuperuser
+docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
+</code></pre>
+
+<sup>Open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see your server's Web UI ➡️</sup>
+<br/>
+<b>Optional: Change permissions to allow non-logged-in users</b>
+
+<pre lang="bash"><code style="white-space: pre-line">
+archivebox config --set PUBLIC_ADD_VIEW=True   # allow guests to submit URLs 
+archivebox config --set PUBLIC_SNAPSHOTS=True  # allow guests to see snapshot content
+archivebox config --set PUBLIC_INDEX=True      # allow guests to see list of all snapshots
+# or
+docker compose run archivebox config --set ...
+
+# restart the server to apply any config changes
+</code></pre>
+</details>
+
+<br/>
+<br/>
+
+> [!TIP]
+> Whether in Docker or not, ArchiveBox commands work the same way, and can be used to access the same data on-disk.
+> For example, you could run the Web UI in Docker Compose, and run one-off commands with `pip`-installed ArchiveBox.
+
+<details>
+<summary><i>Expand to show comparison...</i></summary><br/>
+
+<pre lang="bash"><code style="white-space: pre-line">
+archivebox add --depth=1 'https://example.com'                     # add a URL with pip-installed archivebox on the host
+docker compose run archivebox add --depth=1 'https://example.com'                       # or w/ Docker Compose
+docker run -it -v $PWD:/data archivebox/archivebox add --depth=1 'https://example.com'  # or w/ Docker, all equivalent
 </code></pre>
 
 </details>
-<br/>
 
-#### Next Steps
-
-- `archivebox help/version` to see the list of available subcommands and currently installed version info
-- `archivebox setup/init/config/status/manage` to administer your collection
-- `archivebox add/schedule/remove/update/list/shell/oneshot` to manage Snapshots in the archive
-- `archivebox schedule` to pull in fresh URLs regularly from [bookmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
-
-
-#### 🖥&nbsp; Web UI Usage
-
-##### Start the Web Server
-```bash
-# Bare metal (pip/apt/brew/etc):
-archivebox server 0.0.0.0:8000     # open http://127.0.0.1:8000 to view it
-
-# Docker Compose:
-docker compose up
-
-# Docker:
-docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
-```
-
-##### Allow Public Access or Create an Admin User
-```bash
-archivebox manage createsuperuser              # create a new admin username & pass
-# OR                                           # OR
-archivebox config --set PUBLIC_ADD_VIEW=True   # allow guests to submit URLs
-archivebox config --set PUBLIC_SNAPSHOTS=True  # allow guests to see snapshot content
-archivebox config --set PUBLIC_INDEX=True      # allow guests to see list of all snapshots
-
-# restart the server to apply any config changes
-```
-
-*Docker hint:* Set the [`ADMIN_USERNAME` & `ADMIN_PASSWORD`)](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#admin_username--admin_password) env variables to auto-create an admin user on first-run.
-
-#### 🗄&nbsp; SQL/Python/Filesystem Usage
-
-```bash
-sqlite3 ./index.sqlite3    # run SQL queries on your index
-archivebox shell           # explore the Python API in a REPL
-ls ./archive/*/index.html  # or inspect snapshots on the filesystem
-```
 
 <br/>
 <div align="center" style="text-align: center">
@@ -557,25 +589,28 @@ ls ./archive/*/index.html  # or inspect snapshots on the filesystem
 ---
 
 <div align="center" style="text-align: center">
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ac1f897a-8baa-4f8b-8ee8-7443611f258b" width="96%" alt="lego">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ac1f897a-8baa-4f8b-8ee8-7443611f258b" width="96%" alt="lego"/>
 </div>
 
 <br/>
 
 # Overview
 
-## Input Formats
+<a name="input-formats"></a>
 
-ArchiveBox supports many input formats for URLs, including Pocket & Pinboard exports, Browser bookmarks, Browser history, plain text, HTML, markdown, and more!
+##  Input Formats: How to pass URLs into ArchiveBox for saving
 
 
-*Click these links for instructions on how to prepare your links from these sources:*
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="28px"/> <b>The official <a href="https://github.com/ArchiveBox/archivebox-extension">ArchiveBox Browser Extension</a> (provides realtime archiving from Chrome/Chromium/Firefox browsers)</b>
 
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8" height="22px"/> TXT, RSS, XML, JSON, CSV, SQL, HTML, Markdown, or [any other text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34" height="22px"/> [Browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (see instructions for: [Chrome](https://support.google.com/chrome/answer/96816?hl=en), [Firefox](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari](https://github.com/ArchiveBox/ArchiveBox/assets/511499/24ad068e-0fa6-41f4-a7ff-4c26fc91f71a), [IE](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows), [Opera](https://help.opera.com/en/latest/features/#bookmarks:~:text=Click%20the%20import/-,export%20button,-on%20the%20bottom), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive))
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="22px"/> Browser extension [`archivebox-exporter`](https://github.com/ArchiveBox/archivebox-extension) (realtime archiving from Chrome/Chromium/Firefox)
-- <img src="https://getpocket.com/favicon.ico" height="22px"/> [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Instapaper](https://www.instapaper.com/user), [Shaarli](https://shaarli.readthedocs.io/en/master/Usage/#importexport), [Delicious](https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/), [Reddit Saved](https://github.com/csu/export-saved-reddit), [Wallabag](https://doc.wallabag.org/en/user/import/wallabagv2.html), [Unmark.it](http://help.unmark.it/import-export), [OneTab](https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/), [Firefox Sync](https://github.com/ArchiveBox/ArchiveBox/issues/648), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4f7bd318-265c-4235-ad25-38be89946b12" height="22px"/> Proxy archiving with [`archivebox-proxy`](https://github.com/ArchiveBox/archivebox-proxy) ([realtime archiving](https://github.com/ArchiveBox/ArchiveBox/issues/577) of all traffic from any browser or device)
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8" height="22px"/> Manual imports of URLs from RSS, JSON, CSV, TXT, SQL, HTML, Markdown, or [any other text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)
+
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4f7bd318-265c-4235-ad25-38be89946b12" height="22px"/> [MITM Proxy](https://mitmproxy.org/) archiving with [`archivebox-proxy`](https://github.com/ArchiveBox/archivebox-proxy) ([realtime archiving](https://github.com/ArchiveBox/ArchiveBox/issues/577) of all traffic from any device going through the proxy)
+
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34" height="22px"/> Exported [browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (see instructions for: [Chrome](https://support.google.com/chrome/answer/96816?hl=en), [Firefox](https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer), [Safari](https://github.com/ArchiveBox/ArchiveBox/assets/511499/24ad068e-0fa6-41f4-a7ff-4c26fc91f71a), [IE](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows), [Opera](https://help.opera.com/en/latest/features/#bookmarks:~:text=Click%20the%20import/-,export%20button,-on%20the%20bottom), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive))
+
+- <img src="https://getpocket.com/favicon.ico" height="22px"/> Links from [Pocket](https://getpocket.com/export), [Pinboard](https://pinboard.in/export/), [Instapaper](https://www.instapaper.com/user), [Shaarli](https://shaarli.readthedocs.io/en/master/Usage/#importexport), [Delicious](https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/), [Reddit Saved](https://github.com/csu/export-saved-reddit), [Wallabag](https://doc.wallabag.org/en/user/import/wallabagv2.html), [Unmark.it](http://help.unmark.it/import-export), [OneTab](https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/), [Firefox Sync](https://github.com/ArchiveBox/ArchiveBox/issues/648), [and more...](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
+
 
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e1e5bd78-b0b6-45dc-914c-e1046fee4bc4" width="330px" align="right" style="float: right"/>
@@ -601,30 +636,41 @@ It also includes a built-in scheduled import feature with `archivebox schedule` 
 
 <br/>
 
-## Output Formats
 
-Inside each Snapshot folder, ArchiveBox saves these different types of extractor outputs as plain files:
+<a name="output-formats"></a>
+
+## Output Formats: What ArchiveBox saves for each URL
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" width="330px" align="right" style="float: right"/>
 
-`./archive/TIMESTAMP/*`
 
-- **Index:** `index.html` & `index.json` HTML and JSON index files containing metadata and details
-- **Title**, **Favicon**, **Headers** Response headers, site favicon, and parsed site title
-- **SingleFile:** `singlefile.html` HTML snapshot rendered with headless Chrome using SingleFile
-- **Wget Clone:** `example.com/page-name.html` wget clone of the site with  `warc/TIMESTAMP.gz`
-- Chrome Headless
-  - **PDF:** `output.pdf` Printed PDF of site using headless chrome
-  - **Screenshot:** `screenshot.png` 1440x900 screenshot of site using headless chrome
-  - **DOM Dump:** `output.html` DOM Dump of the HTML after rendering using headless chrome
-- **Article Text:** `article.html/json` Article text extraction using Readability & Mercury
-- **Archive.org Permalink:** `archive.org.txt` A link to the saved site on archive.org
-- **Audio & Video:** `media/` all audio/video files + playlists, including subtitles & metadata with youtube-dl (or yt-dlp)
-- **Source Code:** `git/` clone of any repository found on GitHub, Bitbucket, or GitLab links
-- _More coming soon! See the [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap)..._
+For each web page added, ArchiveBox creates a Snapshot folder and preserves its content as ordinary files inside the folder (e.g. HTML, PDF, PNG, JSON, etc.).
 
-It does everything out-of-the-box by default, but you can disable or tweak [individual archive methods](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) via environment variables / config.
+It uses all available methods out-of-the-box, but you can disable extractors and fine-tune the [configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) as-needed.
 
+<br/>
+<details>
+<summary><i>Expand to see the full list of ways ArchiveBox saves each page...</i></summary>
+
+
+<code>./archive/{Snapshot.id}/</code><br/>
+<ul>
+<li><strong>Index:</strong> <code>index.html</code> &amp; <code>index.json</code> HTML and JSON index files containing metadata and details</li>
+<li><strong>Title</strong>, <strong>Favicon</strong>, <strong>Headers</strong> Response headers, site favicon, and parsed site title</li>
+<li><strong>SingleFile:</strong> <code>singlefile.html</code> HTML snapshot rendered with headless Chrome using SingleFile</li>
+<li><strong>Wget Clone:</strong> <code>example.com/page-name.html</code> wget clone of the site with  <code>warc/TIMESTAMP.gz</code></li>
+<li>Chrome Headless <ul>
+<li><strong>PDF:</strong> <code>output.pdf</code> Printed PDF of site using headless chrome</li>
+<li><strong>Screenshot:</strong> <code>screenshot.png</code> 1440x900 screenshot of site using headless chrome</li>
+<li><strong>DOM Dump:</strong> <code>output.html</code> DOM Dump of the HTML after rendering using headless chrome</li>
+</ul></li>
+<li><strong>Article Text:</strong> <code>article.html/json</code> Article text extraction using Readability &amp; Mercury</li>
+<li><strong>Archive.org Permalink:</strong> <code>archive.org.txt</code> A link to the saved site on archive.org</li>
+<li><strong>Audio &amp; Video:</strong> <code>media/</code> all audio/video files + playlists, including subtitles &amp; metadata with youtube-dl (or yt-dlp)</li>
+<li><strong>Source Code:</strong> <code>git/</code> clone of any repository found on GitHub, Bitbucket, or GitLab links</li>
+<li><em>More coming soon! See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">Roadmap</a>...</em></li>
+</ul>
+</details>
 <br/>
 
 ## Configuration
@@ -632,52 +678,56 @@ It does everything out-of-the-box by default, but you can disable or tweak [indi
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ea672e6b-4df5-49d8-b550-7f450951fd27" width="330px" align="right" style="float: right"/>
 
 ArchiveBox can be configured via environment variables, by using the `archivebox config` CLI, or by editing `./ArchiveBox.conf` directly.
-
-```bash
-archivebox config                               # view the entire config
+<br/>
+<details>
+<summary><i>Expand to see examples...</i></summary>
+<pre lang="bash"><code style="white-space: pre-line">archivebox config                               # view the entire config
 archivebox config --get CHROME_BINARY           # view a specific value
-
+<br/>
 archivebox config --set CHROME_BINARY=chromium  # persist a config using CLI
 # OR
 echo CHROME_BINARY=chromium >> ArchiveBox.conf  # persist a config using file
 # OR
 env CHROME_BINARY=chromium archivebox ...       # run with a one-off config
-```
+</code></pre>
+<sub>These methods also work the same way when run inside Docker, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration">Docker Configuration</a> wiki page for details.</sub>
+</details><br/>
 
-<sup>These methods also work the same way when run inside Docker, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration">Docker Configuration</a> wiki page for details.</sup>
+The configuration is documented here: **[Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**, and loaded here: [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config.py).
 
-**The config loading logic with all the options defined is here: [`archivebox/config.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config.py).**
-
-Most options are also documented on the **[Configuration Wiki page](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**.
-
-#### Most Common Options to Tweak
-
-```bash
+<a name="most-common-options-to-tweak"></a>
+<details>
+<summary><i>Expand to see the most common options to tweak...</i></summary>
+<pre lang="bash"><code style="white-space: pre-line">
 # e.g. archivebox config --set TIMEOUT=120
-
+# or   docker compose run archivebox config --set TIMEOUT=120
+<br/>
 TIMEOUT=120                # default: 60    add more seconds on slower networks
 CHECK_SSL_VALIDITY=True    # default: False True = allow saving URLs w/ bad SSL
 SAVE_ARCHIVE_DOT_ORG=False # default: True  False = disable Archive.org saving
 MAX_MEDIA_SIZE=1500m       # default: 750m  raise/lower youtubedl output size
-
+<br/>
 PUBLIC_INDEX=True          # default: True  whether anon users can view index
 PUBLIC_SNAPSHOTS=True      # default: True  whether anon users can view pages
 PUBLIC_ADD_VIEW=False      # default: False whether anon users can add new URLs
-
+<br/>
 CHROME_USER_AGENT="Mozilla/5.0 ..."  # change these to get around bot blocking
 WGET_USER_AGENT="Mozilla/5.0 ..."
 CURL_USER_AGENT="Mozilla/5.0 ..."
-```
-
+</code></pre>
+</details>
 <br/>
 
 ## Dependencies
 
-To achieve high-fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party tools that specialize in extracting different types of content.
+To achieve high-fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party libraries and tools that specialize in extracting different types of content.
+
+> Under-the-hood, ArchiveBox uses [Django](https://www.djangoproject.com/start/overview/) to power its [Web UI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#ui-usage) and [SQlite](https://www.sqlite.org/locrsf.html) + the filesystem to provide [fast & durable metadata storage](https://www.sqlite.org/locrsf.html) w/ [determinisitc upgrades](https://stackoverflow.com/a/39976321/2156113). ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install), [`wget`, `yt-dlp`, `readability`, etc.](#dependencies) internally, and its operation can be [tuned, secured, and extended](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) as-needed for many different applications.
+
 
 <br/>
 <details>
-<summary><i>Expand to learn more about ArchiveBox's dependencies...</i></summary><br/>
+<summary><i>Expand to learn more about ArchiveBox's internals & dependencies...</i></summary><br/>
 
 > *TIP: For better security, easier updating, and to avoid polluting your host system with extra dependencies,**it is strongly recommended to use the [⭐️ official Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything pre-installed for the best experience.*
 
@@ -724,14 +774,13 @@ Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not offici
 
 ## Archive Layout
 
-All of ArchiveBox's state (including the SQLite DB, archived assets, config, logs, etc.) is stored in a single folder called the "ArchiveBox Data Folder".  
-Data folders can be created anywhere (`~/archivebox` or `$PWD/data` as seen in our examples), and you can create more than one for different collections.
+All of ArchiveBox's state (SQLite DB, archived assets, config, logs, etc.) is stored in a single folder called the "ArchiveBox Data Folder".  
 
 <br/>
 <details>
 <summary><i>Expand to learn more about the layout of Archivebox's data on-disk...</i></summary><br/>
 
-
+Data folders can be created anywhere (`~/archivebox` or `$PWD/data` as seen in our examples), and you can create as many data folders as you want to hold different collections.
 All <code>archivebox</code> CLI commands are designed to be run from inside an ArchiveBox data folder, starting with <code>archivebox init</code> to initialize a new collection inside an empty directory.
 
 <pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox   # just an example, can be anywhere
@@ -774,7 +823,7 @@ Each snapshot subfolder <code>./archive/TIMESTAMP/</code> includes a static <cod
 
 ## Static Archive Exporting
 
-You can export the main index to browse it statically as plain HTML files in a folder (without needing to run a server).
+You can create one-off archives with `archivebox oneshot`, or export your index as static HTML with `archivebox list` (so you can view it without an ArchiveBox server).
 
 <br/>
 <details>
@@ -783,14 +832,17 @@ You can export the main index to browse it statically as plain HTML files in a f
 
 > *NOTE: These exports are not paginated, exporting many URLs or the entire archive at once may be slow. Use the filtering CLI flags on the `archivebox list` command to export specific Snapshots or ranges.*
 
-```bash
+```bash|
+# do a one-off single URL archive wihout needing a data dir initialized
+archivebox oneshot 'https://example.com'
+
 # archivebox list --help
 archivebox list --html --with-headers > index.html     # export to static html table
 archivebox list --json --with-headers > index.json     # export to json blob
 archivebox list --csv=timestamp,url,title > index.csv  # export to csv spreadsheet
 
 # (if using Docker Compose, add the -T flag when piping)
-# docker compose run -T archivebox list --html --filter-type=search snozzberries > index.json
+# docker compose run -T archivebox list --html 'https://example.com' > index.json
 ```
 
 The paths in the static exports are relative, make sure to keep them next to your `./archive` folder when backing them up or viewing them.
@@ -805,8 +857,6 @@ The paths in the static exports are relative, make sure to keep them next to you
 </details>
 <br/>
 
-
----
 
 <div align="center" style="text-align: center">
 <img src="https://docs.monadical.com/uploads/upload_b6900afc422ae699bfefa2dcda3306f3.png" width="100%" alt="security graphic"/>
@@ -823,7 +873,7 @@ If you're importing pages with private content or URLs containing secret tokens 
 
 <br/>
 <details>
-<summary><i>Click to expand...</i></summary>
+<summary><i>Expand to learn about privacy, permissions, and user accounts...</i></summary>
 
 
 ```bash
@@ -838,6 +888,7 @@ archivebox config --set SAVE_ARCHIVE_DOT_ORG=False  # disable saving all URLs in
 archivebox config --set PUBLIC_INDEX=False
 archivebox config --set PUBLIC_SNAPSHOTS=False
 archivebox config --set PUBLIC_ADD_VIEW=False 
+archivebox manage createsuperuser
 
 # if extra paranoid or anti-Google:
 archivebox config --set SAVE_FAVICON=False          # disable favicon fetching (it calls a Google API passing the URL's domain part only)
@@ -867,7 +918,7 @@ Be aware that malicious archived JS can access the contents of other pages in yo
 
 <br/>
 <details>
-<summary><i>Click to expand...</i></summary>
+<summary><i>Expand to see risks and mitigations...</i></summary>
 
 
 ```bash
@@ -903,7 +954,7 @@ For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) active
 
 <br/>
 <details>
-<summary><i>Click to expand...</i></summary>
+<summary><i>Click to learn how to set up user agents, cookies, and site logins...</i></summary>
 <br/>
 
 
@@ -926,7 +977,7 @@ ArchiveBox appends a hash with the current date `https://example.com#2020-10-24`
 
 <br/>
 <details>
-<summary><i>Click to expand...</i></summary>
+<summary><i>Click to learn how the `Re-Snapshot` feature works...</i></summary>
 <br/>
 
 
@@ -954,12 +1005,11 @@ Improved support for saving multiple snapshots of a single URL without this hash
 
 ### Storage Requirements
 
-Because ArchiveBox is designed to ingest a large volume of URLs with multiple copies of each URL stored by different 3rd-party tools, it can be quite disk-space intensive.  
-There also also some special requirements when using filesystems like NFS/SMB/FUSE.
+Because ArchiveBox is designed to ingest a large volume of URLs with multiple copies of each URL stored by different 3rd-party tools, it can be quite disk-space intensive. There are also some special requirements when using filesystems like NFS/SMB/FUSE.
 
 <br/>
 <details>
-<summary><i>Click to expand...</i></summary>
+<summary><i>Click to learn more about ArchiveBox's filesystem and hosting requirements...</i></summary>
 <br/>
 
 
@@ -1030,10 +1080,6 @@ If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to 
 </div>
 <br/>
 
-
----
-
-
 <br/>
 <div align="center" style="text-align: center">
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ca85432e-a2df-40c6-968f-51a1ef99b24e" width="100%" alt="paisley graphic">
@@ -1047,7 +1093,7 @@ ArchiveBox aims to enable more of the internet to be saved from deterioration by
 
 <br/>
 <details>
-<summary><i>Click to read more...</i></summary>
+<summary><i>Click to read more about why archiving is important and how to do it ethically...</i></summary>
 <br/>
 
 
@@ -1082,7 +1128,7 @@ A variety of open and closed-source archiving projects exist, but few provide a 
 
 <br/>
 <details>
-<summary><i>Click to read more...</i></summary><br/>
+<summary><i>Click to read about how we differ from other centralized archiving services and open source tools...</i></summary><br/>
 
 ArchiveBox tries to be a robust, set-and-forget archiving solution suitable for archiving RSS feeds, bookmarks, or your entire browsing history (beware, it may be too big to store), including private/authenticated content that you wouldn't otherwise share with a centralized service.
 
@@ -1111,33 +1157,21 @@ ArchiveBox is neither the highest fidelity nor the simplest tool available for s
 
 <br/>
 
-<div align="center" style="text-align: center">
-<br/>
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/04808ac2-3133-44fd-8703-3387e06dc851" width="100%" alt="dependencies graphic">
-</div>
+<!--<div align="center" style="text-align: center"><br/><img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/04808ac2-3133-44fd-8703-3387e06dc851" width="100%" alt="dependencies graphic"></div>-->
 
 ## Internet Archiving Ecosystem
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/78d8a725-97f4-47f5-b983-1f62843ddc51" width="14%" align="right" style="float: right"/>
 
-
-Our Community Wiki page serves as an index of the broader web archiving community.
-
-<ul>
-    <li>See where archivists hang out online</li>
-    <li>Explore other open-source tools for your web archiving needs</li>
-    <li>Learn which organizations are the big players in the web archiving space</li>
-</ul>
-
 <details>
-<summary><i>Explore our index of web archiving software, blogs, and communities around the world...</i></summary>
+<summary><i>Our <b><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community Wiki</a></b> strives to be a comprehensive index of the broader web archiving community...</i></summary>
 <br/>
 
 - [Community Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
-  - [The Master Lists](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#the-master-lists)  
-    _Community-maintained indexes of archiving tools and institutions._
   - [Web Archiving Software](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#web-archiving-projects)  
-    _Open source tools and projects in the internet archiving space._
+    _List of ArchiveBox alternatives and open source projects in the internet archiving space._
+  - [Awesome-Web-Archiving Lists](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#the-master-lists)  
+    _Community-maintained indexes of archiving tools and institutions like `iipc/awesome-web-archiving`._
   - [Reading List](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#reading-list)  
     _Articles, posts, and blogs relevant to ArchiveBox and web archiving in general._
   - [Communities](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#communities)  
@@ -1154,11 +1188,8 @@ Our Community Wiki page serves as an index of the broader web archiving communit
 
 > ✨ **[Hire the team that built Archivebox](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) to work on your project.** ([@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp))
 
-<sup>(We also offer general software consulting across many industries)</sup>
-
 <br/>
 
----
 
 <div align="center" style="text-align: center">
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/897f7a88-1265-4aab-b80c-b1640afaad1f" width="100%" alt="documentation graphic">
@@ -1333,27 +1364,18 @@ archivebox init --setup
 
 </details>
 
-#### Run the linters
+#### Run the linters / tests
 
 <details><summary><i>Click to expand...</i></summary>
 
 ```bash
 ./bin/lint.sh
-```
-(uses `flake8` and `mypy`)
-
-</details>
-
-#### Run the integration tests
-
-<details><summary><i>Click to expand...</i></summary>
-
-```bash
 ./bin/test.sh
 ```
-(uses `pytest -s`)
+(uses `flake8`, `mypy`, and `pytest -s`)
 
 </details>
+
 
 #### Make migrations or enter a django shell
 
@@ -1449,47 +1471,31 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 
 ## Further Reading
 
-- Home: [ArchiveBox.io](https://archivebox.io)
-- Demo: [Demo.ArchiveBox.io](https://demo.archivebox.io)
-- Docs: [Docs.ArchiveBox.io](https://docs.archivebox.io)
-- Releases: [Github.com/ArchiveBox/ArchiveBox/releases](https://github.com/ArchiveBox/ArchiveBox/releases)
-- Wiki: [Github.com/ArchiveBox/ArchiveBox/wiki](https://github.com/ArchiveBox/ArchiveBox/wiki)
-- Issues: [Github.com/ArchiveBox/ArchiveBox/issues](https://github.com/ArchiveBox/ArchiveBox/issues)
-- Discussions: [Github.com/ArchiveBox/ArchiveBox/discussions](https://github.com/ArchiveBox/ArchiveBox/discussions)
-- Community Chat: [Zulip Chat (preferred)](https://zulip.archivebox.io) or [Matrix Chat (old)](https://app.element.io/#/room/#archivebox:matrix.org)
+<img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" width="100px" align="right"/>
+
+- [ArchiveBox.io Homepage](https://archivebox.io) / [Source Code (Github)](https://github.com/ArchiveBox/ArchiveBox) / [Demo Server](https://demo.archivebox.io)
+- [Documentation Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki) / [API Reference Docs](https://docs.archivebox.io) / [Changelog](https://github.com/ArchiveBox/ArchiveBox/releases)
+- [Bug Tracker](https://github.com/ArchiveBox/ArchiveBox/issues) / [Discussions](https://github.com/ArchiveBox/ArchiveBox/discussions) / [Community Chat Forum (Zulip)](https://zulip.archivebox.io)
 - Social Media: [Twitter](https://twitter.com/ArchiveBoxApp), [LinkedIn](https://www.linkedin.com/company/archivebox/), [YouTube](https://www.youtube.com/@ArchiveBoxApp), [Alternative.to](https://alternativeto.net/software/archivebox/about/), [Reddit](https://www.reddit.com/r/ArchiveBox/)
-- Donations: [Github.com/ArchiveBox/ArchiveBox/wiki/Donations](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations)
 
 ---
 
+<br/>
 <div align="center" style="text-align: center">
+<b><a href="https://docs.sweeting.me/s/archivebox-consulting-services">🏛️ Contact us for professional support 💬</a></b><br/>
 <br/><br/>
-<img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" height="40px"/>
-<br/>
-<i><sub>
-This project is maintained mostly in <a href="https://docs.sweeting.me/s/blog#About">my spare time</a> with the help from generous <a href="https://github.com/ArchiveBox/ArchiveBox/graphs/contributors">contributors</a>.
-</sub>
-</i>
-<br/><br/>
-
-**🏛️ [Contact us for professional support](https://docs.sweeting.me/s/archivebox-consulting-services) 💬**
-
-<br/>
-
 <a href="https://hcb.hackclub.com/donations/start/archivebox"><img src="https://img.shields.io/badge/Donate-Directly-%13DE5D26.svg"/></a> &nbsp;
 <a href="https://github.com/sponsors/pirate"><img src="https://img.shields.io/badge/Github_Sponsors-%23B7CDFE.svg"/></a> &nbsp;
-<a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Patreon-%23DD5D76.svg"/></a>
-
+<a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Patreon-%23DD5D76.svg"/></a> &nbsp;
+<a href="https://paypal.me/NicholasSweeting"><img src="https://img.shields.io/badge/Paypal-%23FFD141.svg"/></a> &nbsp;
+<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"><img src="https://img.shields.io/badge/BTC%5CETH-%231a1a1a.svg"/></a>
 <br/>
-<sup>ArchiveBox operates as a US 501(c)(3) nonprofit, <a href="https://hcb.hackclub.com/donations/start/archivebox">donations</a> are tax-deductible.<br/>(fiscally sponsored by <a href="https://hackclub.com/hcb?ref=donation">HCB</a> <code>EIN: 81-2908499</code>)</sup><br/>
-
-<b><sub>(网站存档 / 爬虫)</sub></b>
-
-<a href="https://twitter.com/ArchiveBoxApp"><img src="https://img.shields.io/badge/Tweet-%40ArchiveBoxApp-blue.svg?style=flat"/></a>
-<a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>
-
-<br/>
-<br/>
-<i>✨ Have spare CPU/disk/bandwidth and want to help the world?<br/>Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
-<br/>
+<sup><i>ArchiveBox operates as a US 501(c)(3) nonprofit (sponsored by <a href="https://hackclub.com/hcb?ref=donation">HCB</a>), <a href="https://hcb.hackclub.com/donations/start/archivebox">donations</a> are tax-deductible.</i></sup>
+<br/><br/>
+<a href="https://twitter.com/ArchiveBoxApp"><img src="https://img.shields.io/badge/Tweet-%40ArchiveBoxApp-blue.svg?style=flat"/></a>&nbsp;
+<a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>&nbsp;
+<a href="https://zulip.archivebox.io/"><img src="https://img.shields.io/badge/Join_Our_Community-Zulip_Forum-%23B7EDFE.svg"/></a><br/>
+<sup>ArchiveBox was started by <a href="https://docs.sweeting.me/s/blog#About">Nick Sweeting</a> in 2017, and has grown steadily with help from our <a href="https://github.com/ArchiveBox/ArchiveBox/graphs/contributors">amazing contributors</a>.</sup>
+<hr/>
+<i>✨ Have spare CPU/disk/bandwidth after all your 网站存档爬 and want to help the world?<br/>Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
 </div>
