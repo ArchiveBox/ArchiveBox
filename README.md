@@ -38,13 +38,13 @@ Without active preservation effort, everything on the internet eventually dissap
 **It saves snapshots of the URLs you feed it in several redundant formats.**  
 It also detects any content featured *inside* pages & extracts it out into a folder:
 - 🌐 **HTML**/**Any websites** ➡️ `original HTML+CSS+JS`, `singlefile HTML`, `screenshot PNG`, `PDF`, `WARC`, `title`, `article text`, `favicon`, `headers`, ...
-- 🎥 **Social Media**/**News** ➡️ `post content TXT`, `comments`, `title`, `author`, `images`
+- 🎥 **Social Media**/**News** ➡️ `post content TXT`, `comments`, `title`, `author`, `images`, ...
 - 🎬 **YouTube**/**SoundCloud**/etc. ➡️ `MP3/MP4`s, `subtitles`, `metadata`, `thumbnail`, ...
 - 💾 **Github**/**Gitlab**/etc. links ➡️ `clone of GIT source code`, `README`, `images`, ...
 - ✨ *and more, see [Output Formats](#output-formats) below...*
 
-It uses [standard tools](#dependencies) like Chrome, `wget`, & `yt-dlp`, and stores data in ordinary [files & folders](#archive-layout).  
-*(no complex proprietary formats)*
+It uses [standard tools](#dependencies) like Chrome, `wget`, & `yt-dlp`, and stores data in [ordinary files & folders](#archive-layout) and SQLite3.  
+*(no complex proprietary formats, accessible decades in the future without needing to run ArchiveBox)*
 
 ---
 
