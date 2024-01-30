@@ -142,7 +142,7 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 
 > ***[Contact our team](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your institution/org wants to use ArchiveBox professionally.*
 > 
-> - setup & support, team permissioning, hashing, audit logging, backups, custom archiving etc.  
+> - setup & support, custom features, hashing & audit logging, backups, chain-of-custody setup, etc.  
 > - for **individuals**, **NGOs**, **academia**, **governments**, **journalism**, **law**, and more...
 
 *We are a 🏛️ 501(c)(3) nonprofit and all our work goes towards supporting open-source development.* 
