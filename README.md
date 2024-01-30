@@ -1035,7 +1035,11 @@ Because ArchiveBox is designed to ingest a large volume of URLs with multiple co
 
 **ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles**, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
 
-Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. You can also deduplicate content with a tool like [fdupes](https://github.com/adrianlopezroche/fdupes) or [rdfind](https://github.com/pauldreik/rdfind). **Don't store large collections on older filesystems like EXT3/FAT** as they may not be able to handle more than 50k directory entries in the `archive/` folder. **Try to keep the `index.sqlite3` file on local drive (not a network mount)** or SSD for maximum performance, however the `archive/` folder can be on a network mount or slower HDD.
+Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. You can also deduplicate content with a tool like [fdupes](https://github.com/adrianlopezroche/fdupes) or [rdfind](https://github.com/pauldreik/rdfind).  
+
+**Don't store large collections on older filesystems like EXT3/FAT** as they may not be able to handle more than 50k directory entries in the `archive/` folder.
+
+**Try to keep the `index.sqlite3` file on local drive (not a network mount)** or SSD for maximum performance, however the `archive/` folder can be on a network mount or slower HDD.
 
 If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to set [`PUID` & `PGID`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid) and [disable `root_squash`](https://github.com/ArchiveBox/ArchiveBox/issues/1304) on your fileshare server.
 
@@ -1124,7 +1128,7 @@ Whether it's to resist censorship by saving articles before they get taken down 
 
 <div align="center" style="text-align: center">
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/71e36bc5-1c94-44e2-92b6-405fa898c734" width="40%"/><br/>
- <sup><i>Image from <a href="https://perma.cc/">Perma.cc</a>...</i><br/></sup>
+<sup><i>Image from <a href="https://perma.cc/">Perma.cc</a>...</i><br/></sup>
 </div>
 
 
