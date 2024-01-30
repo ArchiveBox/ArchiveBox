@@ -55,17 +55,17 @@ It also detects any content featured *inside* pages & extracts it out into a fol
 <hr/>
 <br/>
 
-🛠️ It uses [standard tools](#dependencies) like Chrome, `wget`, & `yt-dlp`, and stores data in [ordinary files & folders](#archive-layout) and SQLite3.  
+🛠️ ArchiveBox uses [standard tools](#dependencies) like Chrome, `wget`, & `yt-dlp`, and stores data in [ordinary files & folders](#archive-layout).  
 *(no complex proprietary formats, all data is readable without needing to run ArchiveBox)*
 
 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
 
-<br/>
+
 <hr/>
 <br/>
 
 
-**📦&nbsp; Install ArchiveBox using your preferred method: `docker` / `pip` / `apt` / etc. ([see full Quickstart](#quickstart)).**
+**📦&nbsp; Install ArchiveBox using your preferred method: `docker` / `pip` / `apt` / etc. ([see full Quickstart below](#quickstart)).**
 
 
 <details>
