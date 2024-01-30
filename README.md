@@ -463,10 +463,10 @@ docker compose run archivebox help
 
 #### ArchiveBox Subcommands
 
-- `archivebox` `help`/`version` to see the list of available subcommands and currently installed version info
-- `archivebox` `setup`/`init`/`config`/`status`/`manage` to administer your collection
-- `archivebox` `add`/`schedule`/`remove`/`update`/`list`/`shell`/`oneshot` to manage Snapshots in the archive
-- `archivebox` `schedule` to pull in fresh URLs regularly from [bookmarks/history/Pocket/Pinboard/RSS/etc.](#input-formats)
+- `archivebox` `help`/`version` to see the list of available subcommands / currently installed version info
+- `archivebox` `setup`/`init`/`config`/`status`/`shell`/`manage` to administer your collection
+- `archivebox` `add`/`oneshot`/`schedule` to pull in fresh URLs from [bookmarks/history/RSS/etc.](#input-formats)
+- `archivebox` `list`/`update`/`remove` to manage existing Snapshots in your collection
 
 <br/>
 <details>
