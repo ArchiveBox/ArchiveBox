@@ -611,19 +611,19 @@ docker run -it -v $PWD:/data archivebox/archivebox add --depth=1 'https://exampl
 
 
 - <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="28px"/> <b>The official <a href="https://github.com/ArchiveBox/archivebox-extension">ArchiveBox Browser Extension</a></b>  
-  <i>Provides realtime archiving of all browsing history or selected pages only from Chrome/Chromium/Firefox browsers</i>
+  <i>Provides realtime archiving of browsing history or selected pages from Chrome/Chromium/Firefox browsers</i>
 
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8" height="22px"/> Manual imports of URLs from RSS, JSON, CSV, TXT, SQL, HTML, Markdown  
-  <i>ArchiveBox supports injecting URLs in [any other text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)</i>
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8" height="22px"/> Manual imports of URLs from RSS, JSON, CSV, TXT, SQL, HTML, Markdown, etc. files  
+  <i>ArchiveBox supports injesting URLs in [any text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)</i>
 
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34" height="22px"/> Exported [browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) from any browser  
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34" height="22px"/> Manually exported [browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) from any browser  
   <i>See instructions for: <a href="https://support.google.com/chrome/answer/96816?hl=en">Chrome</a>, <a href="https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer">Firefox</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/assets/511499/24ad068e-0fa6-41f4-a7ff-4c26fc91f71a">Safari</a>, <a href="https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows">IE</a>, <a href="https://help.opera.com/en/latest/features/#bookmarks:~:text=Click%20the%20import/-,export%20button,-on%20the%20bottom">Opera</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">and more...</a></i>
-
-- <img src="https://getpocket.com/favicon.ico" height="22px"/> Links exported from bookmarking services or social media sites (e.g. Twitter bookmarks, Reddit saved posts, etc.)  
-  <i>See instructions for: <a href="https://getpocket.com/export">Pocket</a>, <a href="https://pinboard.in/export/">Pinboard</a>, <a href="https://www.instapaper.com/user">Instapaper</a>, <a href="https://shaarli.readthedocs.io/en/master/Usage/#importexport">Shaarli</a>, <a href="https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/">Delicious</a>, <a href="https://github.com/csu/export-saved-reddit">Reddit Saved</a>, <a href="https://doc.wallabag.org/en/user/import/wallabagv2.html">Wallabag</a>, <a href="http://help.unmark.it/import-export">Unmark.it</a>, <a href="https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/">OneTab</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/issues/648">Firefox Sync</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">and more...</a></i>
 
 - <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4f7bd318-265c-4235-ad25-38be89946b12" height="22px"/> [MITM Proxy](https://mitmproxy.org/) archiving with [`archivebox-proxy`](https://github.com/ArchiveBox/archivebox-proxy)  
   <i>Provides [realtime archiving](https://github.com/ArchiveBox/ArchiveBox/issues/577) of all traffic from any device going through the proxy.</i>
+
+- <img src="https://getpocket.com/favicon.ico" height="22px"/> Links from bookmarking services or social media (e.g. Twitter bookmarks, Reddit saved posts, etc.)  
+  <i>See instructions for: <a href="https://getpocket.com/export">Pocket</a>, <a href="https://pinboard.in/export/">Pinboard</a>, <a href="https://www.instapaper.com/user">Instapaper</a>, <a href="https://shaarli.readthedocs.io/en/master/Usage/#importexport">Shaarli</a>, <a href="https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/">Delicious</a>, <a href="https://github.com/csu/export-saved-reddit">Reddit Saved</a>, <a href="https://doc.wallabag.org/en/user/import/wallabagv2.html">Wallabag</a>, <a href="http://help.unmark.it/import-export">Unmark.it</a>, <a href="https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/">OneTab</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/issues/648">Firefox Sync</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">and more...</a></i>
 
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e1e5bd78-b0b6-45dc-914c-e1046fee4bc4" width="330px" align="right" style="float: right"/>
@@ -679,7 +679,7 @@ It uses all available methods out-of-the-box, but you can disable extractors and
 </ul></li>
 <li><strong>Article Text:</strong> <code>article.html/json</code> Article text extraction using Readability &amp; Mercury</li>
 <li><strong>Archive.org Permalink:</strong> <code>archive.org.txt</code> A link to the saved site on archive.org</li>
-<li><strong>Audio &amp; Video:</strong> <code>media/</code> all audio/video files + playlists, including subtitles &amp; metadata with youtube-dl (or yt-dlp)</li>
+<li><strong>Audio &amp; Video:</strong> <code>media/</code> all audio/video files + playlists, including subtitles &amp; metadata w/ <code>yt-dlp</code></li>
 <li><strong>Source Code:</strong> <code>git/</code> clone of any repository found on GitHub, Bitbucket, or GitLab links</li>
 <li><em>More coming soon! See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">Roadmap</a>...</em></li>
 </ul>
@@ -737,7 +737,7 @@ To achieve high-fidelity archives in as many situations as possible, ArchiveBox 
 
 > Under-the-hood, ArchiveBox uses [Django](https://www.djangoproject.com/start/overview/) to power its [Web UI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#ui-usage) and [SQlite](https://www.sqlite.org/locrsf.html) + the filesystem to provide [fast & durable metadata storage](https://www.sqlite.org/locrsf.html) w/ [determinisitc upgrades](https://stackoverflow.com/a/39976321/2156113).
 
-For the actual archiving, ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install), [`wget`, `yt-dlp`, `readability`, etc.](#dependencies) internally, and its operation can be [tuned, secured, and extended](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) as-needed for many different applications.
+ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install), [`wget`, `yt-dlp`, `readability`, etc.](#dependencies) internally, and its operation can be [tuned, secured, and extended](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) as-needed for many different applications.
 
 <br/>
 <details>
@@ -788,7 +788,7 @@ Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not offici
 
 ## Archive Layout
 
-All of ArchiveBox's state (SQLite DB, archived assets, config, logs, etc.) is stored in a single folder (`data/`).
+All of ArchiveBox's state (SQLite DB, content, config, logs, etc.) is stored in a single folder per collection.
 
 <br/>
 <details>
@@ -824,11 +824,11 @@ Each snapshot subfolder <code>./archive/TIMESTAMP/</code> includes a static <cod
 
 <h4>Learn More</h4>
 <ul>
-<li>https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout</li>
-<li>https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives</li>
-<li>https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder</li>
-<li>https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive</li>
-<li>https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives</li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout">Wiki: Usage (Disk Layout)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives">Wiki: Usage (Large Archives)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder">Wiki: Security Overview (Output Folder)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive">Wiki: Publishing Your Archive</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives">Wiki: Upgrading or Merging Archives</a></li>
 </ul>
 
 </details>
@@ -864,9 +864,9 @@ The paths in the static exports are relative, make sure to keep them next to you
 <h4>Learn More</h4>
 
 <ul>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive#2-export-and-host-it-as-static-html">https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive#2-export-and-host-it-as-static-html</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#publishing">https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#publishing</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#public_index--public_snapshots--public_add_view">https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#public_index--public_snapshots--public_add_view</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive#2-export-and-host-it-as-static-html">Wiki: Publishing Your Archive (Exporting as Static HTML)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#publishing">Wiki: Security Overview (Publishing)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#public_index--public_snapshots--public_add_view">Wiki: Configuration (<code>PUBLIC_INDEX</code>, <code>PUBLIC_SNAPSHOTS</code>, <code>PUBLIC_ADD_VIEW</code>)</a></li>
 </ul>
 
 </details>
@@ -917,11 +917,11 @@ archivebox config --set CHROME_BINARY=chromium      # ensure it's using Chromium
 <h4>Learn More</h4>
 
 <ul>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive">https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview">https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile">https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir">https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#cookies_file">https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#cookies_file</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive">Wiki: Publishing Your Archive</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview">Wiki: Security Overview</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile">Wiki: Chromium Install (Setting Up a User Profile)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir">Wiki: Configuration (<code>CHROME_USER_DATA_DIR</code>)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#cookies_file">Wiki: Configuration (<code>COOKIES_FILE</code>)</a></li>
 </ul>
 
 </details>
@@ -954,10 +954,10 @@ https://127.0.0.1:8000/archive/*
 
 <h4>Learn More</h4>
 <ul>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview">https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/issues/239">https://github.com/ArchiveBox/ArchiveBox/issues/239</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/security/advisories/GHSA-cr45-98w9-gwqx">https://github.com/ArchiveBox/ArchiveBox/security/advisories/GHSA-cr45-98w9-gwqx</a> (<code>CVE-2023-45815</code>)</li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#publishing">https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#publishing</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview">Wiki: Security Overview</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/issues/239">ArchiveBox Github Issue: #239</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/security/advisories/GHSA-cr45-98w9-gwqx">Security Advisory: <code>CVE-2023-45815</code></a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#publishing">Wiki: Security Overview (Publishing)</a></li>
 </ul>
 
 </details>
@@ -975,7 +975,7 @@ For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) active
 
 
 <ul>
-<li>Set <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#curl_user_agent"><code>CHROME_USER_AGENT</code>, <code>WGET_USER_AGENT</code>, <code>CURL_USER_AGENT</code></a> to impersonate a real browser (instead of an ArchiveBox bot)</li>
+<li>Set <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#curl_user_agent"><code>CHROME_USER_AGENT</code>, <code>WGET_USER_AGENT</code>, <code>CURL_USER_AGENT</code></a> to impersonate a real browser (by default, ArchiveBox reveals that it's a bot when using the default user agent settings)</li>
 <li>Set up a logged-in browser session for archiving using <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile"><code>CHROME_DATA_DIR</code> &amp; <code>COOKIES_FILE</code></a></li>
 <li>Rewrite your URLs before archiving to swap in an alternative frontend thats more bot-friendly e.g.<br>
 <code>reddit.com/some/url</code> -&gt; <code>teddit.net/some/url</code>: <a href="https://github.com/mendel5/alternative-front-ends">https://github.com/mendel5/alternative-front-ends</a></li>
@@ -994,7 +994,7 @@ ArchiveBox appends a hash with the current date `https://example.com#2020-10-24`
 
 <br/>
 <details>
-<summary><i>Click to learn how the `Re-Snapshot` feature works...</i></summary>
+<summary><i>Click to learn how the <code>Re-Snapshot</code> feature works...</i></summary>
 <br/>
 
 
