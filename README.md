@@ -36,7 +36,7 @@ Without active preservation effort, everything on the internet eventually dissap
 
 **It saves snapshots of the URLs you feed it in several redundant formats.**  
 It also detects any content featured *inside* pages & extracts it out into a folder:
-- 🌐 **HTML**/**Any websites** ➡️ `original HTML+CSS+JS`, `singlefile HTML`, `screenshot PNG`, `PDF`, `WARC`, `article text MD`, `headers JSON`, `title`, `favicon`, ...
+- 🌐 **HTML**/**Any websites** ➡️ `original HTML+CSS+JS`, `singlefile HTML`, `screenshot PNG`, `PDF`, `WARC`, `title`, `article text`, `favicon`, `headers`, ...
 - 🎥 **Social Media**/**News** ➡️ `post content TXT`, `comments`, `title`, `author`, `images`
 - 🎬 **YouTube**/**SoundCloud**/etc. ➡️ `MP3/MP4`s, `subtitles`, `metadata`, `thumbnail`, ...
 - 💾 **Github**/**Gitlab**/etc. links ➡️ `clone of GIT source code`, `README`, `images`, ...
@@ -134,7 +134,7 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 - ⚖️ **Lawyers:**
   `collecting & preserving evidence`, `detecting changes`, `tagging & review`  
 - 🔬 **Researchers:**
-  `analyzing social media trends`, `getting LLM training sets`, `crawling pipelines`
+  `analyzing social media trends`, `getting LLM training data`, `crawling pipelines`
 - 👩🏽 **Individuals:**
   `saving bookmarks`, `preserving portfolio content`, `legacy / memoirs archival`
 
@@ -471,8 +471,8 @@ docker compose run archivebox help
 <summary><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" height="22px" align="top"/> <b>CLI Usage Examples (non-Docker)</b></summary>
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
-# make sure you have pip-installed ArchiveBox and it's available in your $PATH first
-
+# make sure you have pip-installed ArchiveBox and it's available in your $PATH first  
+<br/>
 # archivebox [subcommand] [--args]
 archivebox init --setup      # safe to run init multiple times (also how you update versions)
 archivebox version           # get archivebox version info + check dependencies
@@ -488,7 +488,7 @@ archivebox add --depth=1 'https://news.ycombinator.com'
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you have `docker-compose.yml` from the Quickstart instructions first
-
+<br/>
 # docker compose run archivebox [subcommand [--args]
 docker compose run archivebox init --setup
 docker compose run archivebox version
@@ -505,7 +505,7 @@ docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you create and cd into in a new empty directory first  
-
+<br/>
 # docker run -it -v $PWD:/data archivebox/archivebox [subcommand [--args]
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 docker run -v $PWD:/data -it archivebox/archivebox version
@@ -610,19 +610,19 @@ docker run -it -v $PWD:/data archivebox/archivebox add --depth=1 'https://exampl
 ##  Input Formats: How to pass URLs into ArchiveBox for saving
 
 
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="28px"/> <b>The official <a href="https://github.com/ArchiveBox/archivebox-extension">ArchiveBox Browser Extension</a></b>  
-  <i>Provides realtime archiving of browsing history or selected pages from Chrome/Chromium/Firefox browsers</i>
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="28px"/> <b>From the official <a href="https://github.com/ArchiveBox/archivebox-extension">ArchiveBox Browser Extension</a></b>  
+  <i>Provides realtime archiving of browsing history or selected pages from Chrome/Chromium/Firefox browsers.</i>
 
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8" height="22px"/> Manual imports of URLs from RSS, JSON, CSV, TXT, SQL, HTML, Markdown, etc. files  
-  <i>ArchiveBox supports injesting URLs in [any text-based format...](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file)</i>
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8" height="22px"/> From manual imports of URLs from RSS, JSON, CSV, TXT, SQL, HTML, Markdown, etc. files  
+  <i>ArchiveBox supports injesting URLs in [any text-based format](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file).</i>
 
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34" height="22px"/> Manually exported [browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) from any browser  
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34" height="22px"/> From manually exported [browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (in Netscape format)  
   <i>See instructions for: <a href="https://support.google.com/chrome/answer/96816?hl=en">Chrome</a>, <a href="https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer">Firefox</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/assets/511499/24ad068e-0fa6-41f4-a7ff-4c26fc91f71a">Safari</a>, <a href="https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows">IE</a>, <a href="https://help.opera.com/en/latest/features/#bookmarks:~:text=Click%20the%20import/-,export%20button,-on%20the%20bottom">Opera</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">and more...</a></i>
 
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4f7bd318-265c-4235-ad25-38be89946b12" height="22px"/> [MITM Proxy](https://mitmproxy.org/) archiving with [`archivebox-proxy`](https://github.com/ArchiveBox/archivebox-proxy)  
+- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4f7bd318-265c-4235-ad25-38be89946b12" height="22px"/> From URLs visited through a [MITM Proxy](https://mitmproxy.org/) with [`archivebox-proxy`](https://github.com/ArchiveBox/archivebox-proxy)  
   <i>Provides [realtime archiving](https://github.com/ArchiveBox/ArchiveBox/issues/577) of all traffic from any device going through the proxy.</i>
 
-- <img src="https://getpocket.com/favicon.ico" height="22px"/> Links from bookmarking services or social media (e.g. Twitter bookmarks, Reddit saved posts, etc.)  
+- <img src="https://getpocket.com/favicon.ico" height="22px"/> From bookmarking services or social media (e.g. Twitter bookmarks, Reddit saved posts, etc.)  
   <i>See instructions for: <a href="https://getpocket.com/export">Pocket</a>, <a href="https://pinboard.in/export/">Pinboard</a>, <a href="https://www.instapaper.com/user">Instapaper</a>, <a href="https://shaarli.readthedocs.io/en/master/Usage/#importexport">Shaarli</a>, <a href="https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/">Delicious</a>, <a href="https://github.com/csu/export-saved-reddit">Reddit Saved</a>, <a href="https://doc.wallabag.org/en/user/import/wallabagv2.html">Wallabag</a>, <a href="http://help.unmark.it/import-export">Unmark.it</a>, <a href="https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/">OneTab</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/issues/648">Firefox Sync</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">and more...</a></i>
 
 
@@ -743,44 +743,47 @@ ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.c
 <details>
 <summary><i>Expand to learn more about ArchiveBox's internals & dependencies...</i></summary><br/>
 
-> *TIP: For better security, easier updating, and to avoid polluting your host system with extra dependencies,**it is strongly recommended to use the [⭐️ official Docker image](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker)** with everything pre-installed for the best experience.*
+<blockquote>
+<p><em>TIP: For better security, easier updating, and to avoid polluting your host system with extra dependencies,<strong>it is strongly recommended to use the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker">⭐️ official Docker image</a></strong> with everything pre-installed for the best experience.</em></p>
+</blockquote>
 
 These optional dependencies used for archiving sites include:
 
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/62a02155-05d7-4f3e-8de5-75a50a145c4f" alt="archivebox --version CLI output screenshot showing dependencies installed" width="330px" align="right" style="float: right"/>
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/62a02155-05d7-4f3e-8de5-75a50a145c4f" alt="archivebox --version CLI output screenshot showing dependencies installed" width="330px" align="right" style="max-width: 100%;">
 
+<ul>
+<li><code>chromium</code> / <code>chrome</code> (for screenshots, PDF, DOM HTML, and headless JS scripts)</li>
+<li><code>node</code> &amp; <code>npm</code> (for readability, mercury, and singlefile)</li>
+<li><code>wget</code> (for plain HTML, static files, and WARC saving)</li>
+<li><code>curl</code> (for fetching headers, favicon, and posting to Archive.org)</li>
+<li><code>yt-dlp</code> or <code>youtube-dl</code> (for audio, video, and subtitles)</li>
+<li><code>git</code> (for cloning git repos)</li>
+<li><code>singlefile</code> (for saving into a self-contained html file)</li>
+<li><code>postlight/parser</code> (for discussion threads, forums, and articles)</li>
+<li><code>readability</code> (for articles and long text content)</li>
+<li>and more as we grow...</li>
+</ul>
 
-- `chromium` / `chrome` (for screenshots, PDF, DOM HTML, and headless JS scripts)
-- `node` & `npm` (for readability, mercury, and singlefile)
-- `wget` (for plain HTML, static files, and WARC saving)
-- `curl` (for fetching headers, favicon, and posting to Archive.org)
-- `yt-dlp` or `youtube-dl` (for audio, video, and subtitles)
-- `git` (for cloning git repos)
-- `singlefile` (for saving into a self-contained html file)
-- `postlight/parser` (for discussion threads, forums, and articles)
-- `readability` (for articles and long text content)
-- and more as we grow...
-
-You don't need to install every dependency to use ArchiveBox. ArchiveBox will automatically disable extractors that rely on dependencies that aren't installed, based on what is configured and available in your `$PATH`.
-
+You don't need to install every dependency to use ArchiveBox. ArchiveBox will automatically disable extractors that rely on dependencies that aren't installed, based on what is configured and available in your <code>$PATH</code>.
+  
 If not using Docker, make sure to keep the dependencies up-to-date yourself and check that ArchiveBox isn't reporting any incompatibility with the versions you install.
 
-```bash
-# install python3 and archivebox with your system package manager
+<pre lang="bash"><code style="white-space: pre-line">#install python3 and archivebox with your system package manager
 # apt/brew/pip/etc install ... (see Quickstart instructions above)
-
+<br/>
 archivebox setup       # auto install all the extractors and extras
 archivebox --version   # see info and check validity of installed dependencies
-```
+</code></pre>
+  
+Installing directly on <strong>Windows without Docker or WSL/WSL2/Cygwin is not officially supported</strong> (I cannot respond to Windows support tickets), but some advanced users have reported getting it working.
 
-Installing directly on **Windows without Docker or WSL/WSL2/Cygwin is not officially supported** (I cannot respond to Windows support tickets), but some advanced users have reported getting it working.
-
-#### Learn More
-
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#installing
+<h4>Learn More</h4>
+<ul>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#dependencies">Wiki: Install (Dependencies)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install">Wiki: Chromium Install</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives">Wiki: Upgrading or Merging Archives</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#installing">Wiki: Troubleshooting (Installing)</a></li>
+</ul>
 
 </details>
 <br/>
@@ -948,8 +951,8 @@ https://127.0.0.1:8000/archive/*
 </code></pre>
 
 <blockquote>
-<p><em>NOTE: Only the <code>wget</code> &amp; <code>dom</code> extractor methods execute archived JS when viewing snapshots, all other archive methods produce static output that does not execute JS on viewing.</em>
-<em>If you are worried about these issues ^ you should disable these extractors using <code>archivebox config --set SAVE_WGET=False SAVE_DOM=False</code>.</em></p>
+<p><em>NOTE: Only the <code>wget</code> &amp; <code>dom</code> extractor methods execute archived JS when viewing snapshots, all other archive methods produce static output that does not execute JS on viewing.</em><br/>
+<em>If you are worried about these issues ^ you should disable these extractors using:<br/> <code>archivebox config --set SAVE_WGET=False SAVE_DOM=False</code>.</em></p>
 </blockquote>
 
 <h4>Learn More</h4>
@@ -1007,13 +1010,14 @@ archivebox add 'https://example.com#2020-10-25'
 
 The <img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button" height="24px"/> button in the Admin UI is a shortcut for this hash-date multi-snapshotting workaround.
 
-Improved support for saving multiple snapshots of a single URL without this hash-date workaround will be [added eventually](https://github.com/ArchiveBox/ArchiveBox/issues/179) (along with the ability to view diffs of the changes between runs).
+Improved support for saving multiple snapshots of a single URL without this hash-date workaround will be <a href="https://github.com/ArchiveBox/ArchiveBox/issues/179">added eventually</a> (along with the ability to view diffs of the changes between runs).
 
-#### Learn More
+<h4>Learn More</h4>
 
-- https://github.com/ArchiveBox/ArchiveBox/issues/179
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#explanation-of-buttons-in-the-web-ui---admin-snapshots-list
-
+<ul>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/issues/179">ArchiveBox Issues: #179</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#explanation-of-buttons-in-the-web-ui---admin-snapshots-list">Wiki: Usage (Explanation of Web UI Buttons)</a></li>
+</ul>
 
 </details>
 <br/>
@@ -1036,14 +1040,15 @@ Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS
 If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to set [`PUID` & `PGID`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid) and [disable `root_squash`](https://github.com/ArchiveBox/ArchiveBox/issues/1304) on your fileshare server.
 
 
-#### Learn More
+<h4>Learn More</h4>
 
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root
-
+<ul>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout">Wiki: Usage (Disk Layout)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder">Wiki: Security Overview (Output-Folder)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives">Wiki: Usage (Large Archives)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid">Wiki: Configuration (<code>PUID</code> & <code>GUID</code>)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root">Wiki: Security Overview (Do Not Run as Root)</a></li>
+</ul>
 
 
 </details>
