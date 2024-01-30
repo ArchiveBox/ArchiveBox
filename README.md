@@ -28,10 +28,14 @@ Without active preservation effort, everything on the internet eventually dissap
 > ➡️ Get ArchiveBox with `pip install archivebox` on [Linux](#quickstart), [macOS](#quickstart), and [Windows](#quickstart) (WSL2), or via **[Docker](#quickstart)** ⭐️.  
 > *Once installed, it can be used as a [CLI tool](#usage), [self-hosted Web App](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive), [Python library](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage), or [one-off command](#static-archive-exporting).*
 
+<br/>
 <hr/>
+<br/>
 
 📥 **You can feed ArchiveBox URLs one at a time, or schedule regular imports** from your bookmarks or history, social media feeds or RSS, link-saving services like Pocket/Pinboard, our [Browser Extension](https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj), and more.  
 <sub>See <a href="#input-formats">Input Formats</a> for a full list of supported input formats...</sub>
+
+<br/>
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/90f1ce3c-75bb-401d-88ed-6297694b76ae" alt="snapshot detail page" align="right" width="190px" style="float: right"/>
 
@@ -42,6 +46,8 @@ It also detects any content featured *inside* pages & extracts it out into a fol
 - 🎬 **YouTube**/**SoundCloud**/etc. ➡️ `MP3/MP4`s, `subtitles`, `metadata`, `thumbnail`, ...
 - 💾 **Github**/**Gitlab**/etc. links ➡️ `clone of GIT source code`, `README`, `images`, ...
 - ✨ *and more, see [Output Formats](#output-formats) below...*
+
+---
 
 It uses [standard tools](#dependencies) like Chrome, `wget`, & `yt-dlp`, and stores data in [ordinary files & folders](#archive-layout) and SQLite3.  
 *(no complex proprietary formats, all data is readable without needing to run ArchiveBox)*
