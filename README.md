@@ -21,9 +21,9 @@ curl -sSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instruct
 
 **ArchiveBox is a powerful, self-hosted internet archiving solution to collect, save, and view websites offline.**
 
-Without active preservation effort, everything on the internet eventually dissapears or degrades. Archive.org does a great job as a free central archive, but they require all archives to be public, and they can't save every type of content.
+Without active preservation effort, everything on the internet eventually dissapears or degrades. Archive.org does a great job as a centralized service, but they require all saved URLs to be public, and they can't save every type of content.
 
-*ArchiveBox is an open source tool that helps organizations and individuals archive web content and retain control over their data: save copies of browser bookmarks, preserve evidence for legal cases, backup photos from FB / Insta / Flickr, download your media from YT / Soundcloud / etc., snapshot research papers & academic citations, and more...*
+*ArchiveBox is an open source tool that helps organizations & individuals archive web content and retain control over their data: save copies of your bookmarks, preserve evidence for legal cases, backup photos from FB/Insta/Flickr, download media from YT/Soundcloud/etc., snapshot research papers, and more...*
 
 > ➡️ *ArchiveBox is available on [Linux](#quickstart)/[macOS](#quickstart)/[Windows](#quickstart)/[Docker](#quickstart) as a [CLI tool](#usage), [self-hosted Web App](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive), [`pip` library](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage), or [one-off command](#static-archive-exporting).*
 
