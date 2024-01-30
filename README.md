@@ -53,7 +53,6 @@ It also detects any content featured *inside* pages & extracts it out into a fol
 
 <br/>
 <hr/>
-<br/>
 
 🛠️ ArchiveBox uses [standard tools](#dependencies) like Chrome, `wget`, & `yt-dlp`, and stores data in [ordinary files & folders](#archive-layout).  
 *(no complex proprietary formats, all data is readable without needing to run ArchiveBox)*
