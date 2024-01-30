@@ -1069,31 +1069,31 @@ If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to 
 <tbody>
 <tr>
 <td>
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e9fdcb16-344e-48c8-8be0-efa48ec155d5" alt="brew install archivebox"><br/>
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e235c9d8-fda9-499d-a6a5-59b0e6a0efce" alt="archivebox version">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e9fdcb16-344e-48c8-8be0-efa48ec155d5" alt="brew install archivebox" width="210px"><br/>
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e235c9d8-fda9-499d-a6a5-59b0e6a0efce" alt="archivebox version" width="210px">
 </td>
 <td>
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0e3da0c7-d2c2-4a71-b096-6caedafd6ef7" alt="archivebox init"><br/>
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0e3da0c7-d2c2-4a71-b096-6caedafd6ef7" alt="archivebox init" width="210px"><br/>
 </td>
 <td>
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/31c47440-ec14-4a02-99a3-aae8a9078d46" alt="archivebox add">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/31c47440-ec14-4a02-99a3-aae8a9078d46" alt="archivebox add" width="210px">
 </td>
 <td>
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ebcdc21d-e2af-4bf8-ad4b-bc4f3151bbef" alt="archivebox data dir">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ebcdc21d-e2af-4bf8-ad4b-bc4f3151bbef" alt="archivebox data dir" width="210px">
 </td>
 </tr>
 <tr>
 <td>
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ea672e6b-4df5-49d8-b550-7f450951fd27" alt="archivebox server">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ea672e6b-4df5-49d8-b550-7f450951fd27" alt="archivebox server" width="210px">
 </td>
 <td>
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e1e5bd78-b0b6-45dc-914c-e1046fee4bc4" alt="archivebox server add">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e1e5bd78-b0b6-45dc-914c-e1046fee4bc4" alt="archivebox server add" width="210px">
 </td>
 <td>
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e8e0b6f8-8fdf-4b7f-8124-c10d8699bdb2" alt="archivebox server list">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e8e0b6f8-8fdf-4b7f-8124-c10d8699bdb2" alt="archivebox server list" width="210px">
 </td>
 <td>
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" alt="archivebox server detail">
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" alt="archivebox server detail" width="210px">
 </td>
 </tr>
 </tbody>
