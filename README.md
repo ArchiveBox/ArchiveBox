@@ -51,18 +51,6 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 ---
 
 
-<div align="center" style="text-align: center">
-<br/><br/>
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/b2765a33-0d1e-4019-a1db-920c7e00e20e" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" height="70px" alt="bookshelf graphic">
-<br/><br/>
-<small><a href="https://demo.archivebox.io">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></small>
-<br/>
-<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
-<br/><br/>
-</div>
-
-<br/>
-
 **📦&nbsp; Install ArchiveBox using your preferred method: `docker` / `pip` / `apt` / etc. ([see full Quickstart](#quickstart)).**
 
 
@@ -104,6 +92,12 @@ curl -sSL 'https://get.archivebox.io' | sh
 
 
 <div align="center" style="text-align: center">
+<br/><br/>
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/b2765a33-0d1e-4019-a1db-920c7e00e20e" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" height="70px" alt="bookshelf graphic">
+<br/><br/>
+<small><a href="https://demo.archivebox.io">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></small>
+<br/>
+<sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/><br/>
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/8d67382c-e0ce-4286-89f7-7915f09b930c" width="22%" alt="cli init screenshot" align="top">
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/dad2bc51-e7e5-484e-bb26-f956ed692d16" width="22%" alt="cli init screenshot" align="top">
