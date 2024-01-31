@@ -190,7 +190,7 @@ curl -sSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 <li>Next steps: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker compose up
 # completely optional, CLI can always be used without running a server
-# docker compose run [-T] archivebox [subcommand] [--args]
+# docker compose run [-T] archivebox [subcommand] [--help]
 docker compose run archivebox add 'https://example.com'
 docker compose run archivebox help
 </code></pre></li>
@@ -213,7 +213,7 @@ docker run -v $PWD:/data -it archivebox/archivebox init --setup
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
 # completely optional, CLI can always be used without running a server
-# docker run -v $PWD:/data -it [subcommand] [--args]
+# docker run -v $PWD:/data -it [subcommand] [--help]
 docker run -v $PWD:/data -it archivebox/archivebox help
 </code></pre>
 </li>
@@ -265,7 +265,7 @@ archivebox init --setup
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
-# archivebox [subcommand] [--args]
+# archivebox [subcommand] [--help]
 archivebox help
 </code></pre>
 </li>
@@ -301,7 +301,7 @@ archivebox init --setup           # if any problems, install with pip instead
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
-# archivebox [subcommand] [--args]
+# archivebox [subcommand] [--help]
 archivebox help
 </code></pre>
 </li>
@@ -330,7 +330,7 @@ archivebox init --setup         # if any problems, install with pip instead
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
-# archivebox [subcommand] [--args]
+# archivebox [subcommand] [--help]
 archivebox help
 </code></pre>
 </li>
@@ -458,13 +458,13 @@ ArchiveBox commands can be run in a terminal directly on your host, or via Docke
 mkdir -p ~/archivebox/data   # create a new data dir anywhere
 cd ~/archivebox/data         # IMPORTANT: cd into the directory
 
-# archivebox [subcommand] [--args]
+# archivebox [subcommand] [--help]
 archivebox help
 
-# equivalent: docker compose run archivebox [subcommand [--args]
+# equivalent: docker compose run archivebox [subcommand [--help]
 docker compose run archivebox help
 
-# equivalent: docker run -it -v $PWD:/data archivebox/archivebox [subcommand [--args]
+# equivalent: docker run -it -v $PWD:/data archivebox/archivebox [subcommand [--help]
  docker run -it -v $PWD:/data archivebox/archivebox help
 ```
 
@@ -482,7 +482,7 @@ docker compose run archivebox help
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you have pip-installed ArchiveBox and it's available in your $PATH first  
 <br/>
-# archivebox [subcommand] [--args]
+# archivebox [subcommand] [--help]
 archivebox init --setup      # safe to run init multiple times (also how you update versions)
 archivebox version           # get archivebox version info + check dependencies
 archivebox help              # get list of archivebox subcommands that can be run
@@ -498,7 +498,7 @@ archivebox add --depth=1 'https://news.ycombinator.com'
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you have `docker-compose.yml` from the Quickstart instructions first
 <br/>
-# docker compose run archivebox [subcommand [--args]
+# docker compose run archivebox [subcommand [--help]
 docker compose run archivebox init --setup
 docker compose run archivebox version
 docker compose run archivebox help
@@ -515,7 +515,7 @@ docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you create and cd into in a new empty directory first  
 <br/>
-# docker run -it -v $PWD:/data archivebox/archivebox [subcommand [--args]
+# docker run -it -v $PWD:/data archivebox/archivebox [subcommand [--help]
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 docker run -v $PWD:/data -it archivebox/archivebox version
 docker run -v $PWD:/data -it archivebox/archivebox help
