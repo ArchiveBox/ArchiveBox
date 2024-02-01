@@ -461,10 +461,10 @@ cd ~/archivebox/data         # IMPORTANT: cd into the directory
 # archivebox [subcommand] [--help]
 archivebox help
 
-# equivalent: docker compose run archivebox [subcommand [--help]
+# equivalent: docker compose run archivebox [subcommand] [--help]
 docker compose run archivebox help
 
-# equivalent: docker run -it -v $PWD:/data archivebox/archivebox [subcommand [--help]
+# equivalent: docker run -it -v $PWD:/data archivebox/archivebox [subcommand] [--help]
  docker run -it -v $PWD:/data archivebox/archivebox help
 ```
 
@@ -498,7 +498,7 @@ archivebox add --depth=1 'https://news.ycombinator.com'
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you have `docker-compose.yml` from the Quickstart instructions first
 <br/>
-# docker compose run archivebox [subcommand [--help]
+# docker compose run archivebox [subcommand] [--help]
 docker compose run archivebox init --setup
 docker compose run archivebox version
 docker compose run archivebox help
@@ -515,7 +515,7 @@ docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you create and cd into in a new empty directory first  
 <br/>
-# docker run -it -v $PWD:/data archivebox/archivebox [subcommand [--help]
+# docker run -it -v $PWD:/data archivebox/archivebox [subcommand] [--help]
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 docker run -v $PWD:/data -it archivebox/archivebox version
 docker run -v $PWD:/data -it archivebox/archivebox help
