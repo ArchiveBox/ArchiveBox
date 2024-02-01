@@ -25,7 +25,6 @@ curl -sSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instruct
 Without active preservation effort, everything on the internet eventually dissapears or degrades. Archive.org does a great job as a centralized service, but saved URLs have to be public, and they can't save every type of content.
 
 *ArchiveBox is an open source tool that lets organizations & individuals archive both public & private web content while retaining control over their data. It can be used to save copies of bookmarks, preserve evidence for legal cases, backup photos from FB/Insta/Flickr or media from YT/Soundcloud/etc., save research papers, and more...*
-
 <br/>
 
 > ➡️ Get ArchiveBox with `pip install archivebox` on [Linux](#quickstart), [macOS](#quickstart), and [Windows](#quickstart) (WSL2), or via **[Docker](#quickstart)** ⭐️.  
@@ -51,10 +50,13 @@ It also detects any content featured *inside* pages & extracts it out into a fol
 - 💾 **Github**/**Gitlab**/etc. links ➡️ `clone of GIT source code`, `README`, `images`, ...
 - ✨ *and more, see [Output Formats](#output-formats) below...*
 
+You can run ArchiveBox as a Docker web app to manage these snapshots, or continue accessing the same collection using the `pip`-installed CLI, Python API, and SQLite3 APIs. 
+All the ways of using it are equivalent, and provide matching features like adding tags, scheduling regular crawls, viewing logs, and more...
+
 <br/>
 <hr/>
 
-🛠️ ArchiveBox uses [standard tools](#dependencies) like Chrome, `wget`, & `yt-dlp`, and stores data in [ordinary files & folders](#archive-layout).  
+🛠️ ArchiveBox uses [standard tools](#dependencies) like Chrome, [`wget`](https://www.gnu.org/software/wget/), & [`yt-dlp`](https://github.com/yt-dlp/yt-dlp), and stores data in [ordinary files & folders](#archive-layout).  
 *(no complex proprietary formats, all data is readable without needing to run ArchiveBox)*
 
 The goal is to sleep soundly knowing the part of the internet you care about will be automatically preserved in durable, easily accessible formats [for decades](#background--motivation) after it goes down.
