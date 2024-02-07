@@ -12,7 +12,7 @@ colorama==0.4.6; sys_platform == "win32"
 croniter==2.0.1
 dateparser==1.2.0
 decorator==5.1.1
-django==3.1.14
+django==3.2.24
 django-auth-ldap==4.1.0
 django-extensions==3.1.5
 exceptiongroup==1.2.0; python_version < "3.11"
