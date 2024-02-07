@@ -27,3 +27,4 @@ output/
 
 # vim
 *.sw?
+.vscode/
