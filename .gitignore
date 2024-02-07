@@ -22,9 +22,7 @@ dist/
 
 # Data folders
 data/
-data1/
-data2/
-data3/
+data*/
 output/
 
 # vim
