@@ -15,8 +15,8 @@
 # Read more about [developing Archivebox](https://github.com/ArchiveBox/ArchiveBox#archivebox-development).
 
 
-# Use Debian 12 w/ faster package updates: https://packages.debian.org/bookworm-backports/
 FROM python:3.11-slim-bookworm
+# Uses Debian 12 w/ faster-updating apt-lists added below: https://packages.debian.org/bookworm-backports/
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <dockerfile@archivebox.io>" \

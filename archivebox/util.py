@@ -210,7 +210,11 @@ def get_headers(url: str, timeout: int=None) -> str:
     
     return pyjson.dumps(
         {
+            'URL': url,
             'Status-Code': response.status_code,
+            'Elapsed': response.elapsed,
+            'Encoding': response.encoding,
+            'Apparent-Encoding': response.apparent_encoding,
             **dict(response.headers),
         },
         indent=4,
