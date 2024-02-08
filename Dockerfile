@@ -266,7 +266,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 # Setup ArchiveBox runtime config
 WORKDIR "$DATA_DIR"
-ENV IN_DOCKER=True
+ENV IN_DOCKER=True \
+    CUSTOM_TEMPLATES_DIR=/data/templates \
     ## No need to set explicitly, these values will be autodetected by archivebox in docker:
     # CHROME_SANDBOX=False \
     # WGET_BINARY="wget" \

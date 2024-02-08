@@ -73,10 +73,10 @@ INSTALLED_APPS = [
     
     'plugins.defaults',
     'plugins.system',
-    # 'plugins.replaywebpage',
-    # 'plugins.gallerydl',
-    # 'plugins.browsertrix',
-    # 'plugins.playwright',
+    # 'plugins.replaywebpage',           # provides UI to view WARC files
+    # 'plugins.gallerydl',               # provides gallerydl dependency + extractor
+    # 'plugins.browsertrix',             # provides browsertrix dependency + extractor
+    # 'plugins.playwright',              # provides playwright dependency
     # ...
     # someday we may have enough plugins to justify dynamic loading:
     # *(path.parent.name for path in (Path(PACKAGE_DIR) / 'plugins').glob('*/apps.py')),,
