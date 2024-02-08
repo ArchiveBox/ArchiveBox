@@ -20,6 +20,7 @@ urlpatterns = [
 
     path('archive/', RedirectView.as_view(url='/')),
     path('archive/<path:path>', SnapshotView.as_view(), name='Snapshot'),
+    path('web/<path:path>', SnapshotView.as_view()),   # support archive.org-style URLs
 
     path('plugins/replaywebpage/', include('plugins.replaywebpage.urls')),
     # ... dynamic load these someday if there are more of them
