@@ -1,4 +1,4 @@
-# __package__ = 'archivebox.plugins.system'
+__package__ = 'archivebox.plugins.system'
 
 
 from django.apps import AppConfig
@@ -6,7 +6,6 @@ from django.apps import AppConfig
 
 class SystemPluginAppConfig(AppConfig):
     name = "plugins.system"
-    # label = "ArchiveBox System"
     verbose_name = "Host System Configuration"
     
     default_auto_field = "django.db.models.AutoField"

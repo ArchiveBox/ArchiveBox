@@ -42,20 +42,20 @@ class ArchiveBoxBaseDependency(models.Model):
     LABEL = "Default"
     REQUIRED = False
 
-    PARENT_DEPENDENCIES = []
+    PARENT_DEPENDENCIES: List[str] = []
 
-    BIN_DEPENDENCIES = []
-    APT_DEPENDENCIES = []
-    BREW_DEPENDENCIES = []
-    PIP_DEPENDENCIES = []
-    NPM_DEPENDENCIES = []
+    BIN_DEPENDENCIES: List[str] = []
+    APT_DEPENDENCIES: List[str] = []
+    BREW_DEPENDENCIES: List[str] = []
+    PIP_DEPENDENCIES: List[str] = []
+    NPM_DEPENDENCIES: List[str] = []
 
-    DEFAULT_BINARY = '/bin/bash'
-    DEFAULT_START_CMD = '/bin/bash -c "while true; do sleep 1; done"'
-    DEFAULT_PID_FILE = 'logs/{NAME}_WORKER.pid'
-    DEFAULT_STOP_CMD = 'kill "$(<{PID_FILE})"'
-    DEFAULT_VERSION_COMMAND = '{BINARY} --version'
-    DEFAULT_ARGS = ''
+    DEFAULT_BINARY: str | None              = '/bin/bash'
+    DEFAULT_START_CMD: str | None           = '/bin/bash -c "while true; do sleep 1; done"'
+    DEFAULT_PID_FILE: str | None            = 'logs/{NAME}_WORKER.pid'
+    DEFAULT_STOP_CMD: str | None            = 'kill "$(<{PID_FILE})"'
+    DEFAULT_VERSION_COMMAND: str | None     = '{BINARY} --version'
+    DEFAULT_ARGS: str | None                = ''
 
     VERSION_CMD = '{BINARY} --version'
 
@@ -136,7 +136,8 @@ class ArchiveBoxBaseDependency(models.Model):
     # @helper
     def install_parents(self, config):
         return {
-            parent_dependency.NAME: parent_dependency.get_solo().install_self()
+            # parent_dependency.NAME: parent_dependency.get_solo().install_self()
+            parent_dependency: parent_dependency
             for parent_dependency in self.PARENT_DEPENDENCIES
         }
 

@@ -34,11 +34,11 @@ class BashEnvironmentDependency(ArchiveBoxBaseDependency):
 
     PARENT_DEPENDENCIES = []
 
-    BIN_DEPENDENCIES = ['bash']
-    APT_DEPENDENCIES = []
-    BREW_DEPENDENCIES = []    
-    PIP_DEPENDENCIES = []
-    NPM_DEPENDENCIES = []
+    BIN_DEPENDENCIES: List[str] = ['bash']
+    APT_DEPENDENCIES: List[str] = []
+    BREW_DEPENDENCIES: List[str] = []    
+    PIP_DEPENDENCIES: List[str] = []
+    NPM_DEPENDENCIES: List[str] = []
 
     DEFAULT_BINARY = 'bash'
     DEFAULT_START_CMD = None
@@ -152,7 +152,7 @@ class AptEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
     LABEL = "apt"
     REQUIRED = False
 
-    PARENT_DEPENDENCIES = [BashEnvironmentDependency]
+    PARENT_DEPENDENCIES = ['BashEnvironmentDependency']
 
     BIN_DEPENDENCIES = ['apt-get']
     APT_DEPENDENCIES = []
@@ -196,7 +196,7 @@ class BrewEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
     LABEL = "homebrew"
     REQUIRED = False
 
-    PARENT_DEPENDENCIES = [BashEnvironmentDependency]
+    PARENT_DEPENDENCIES = ['BashEnvironmentDependency']
 
     BIN_DEPENDENCIES = ['brew']
     APT_DEPENDENCIES = []
@@ -242,7 +242,7 @@ class PipEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
     LABEL = "pip"
     REQUIRED = False
 
-    PARENT_DEPENDENCIES = [BashEnvironmentDependency]
+    PARENT_DEPENDENCIES = ['BashEnvironmentDependency']
 
     BIN_DEPENDENCIES = ['python3', 'pip3']
     APT_DEPENDENCIES = ['python3.11', 'pip3', 'pipx']
@@ -285,7 +285,7 @@ class NPMEnvironmentDependency(ArchiveBoxBaseDependency, SingletonModel):
     LABEL = "NodeJS"
     REQUIRED = False
 
-    PARENT_DEPENDENCIES = [BashEnvironmentDependency]
+    PARENT_DEPENDENCIES = ['BashEnvironmentDependency']
 
     BIN_DEPENDENCIES = ['node', 'npm']
     APT_DEPENDENCIES = ['node', 'npm']
@@ -412,9 +412,9 @@ class ArchiveBoxDependency(ArchiveBoxBaseDependency):
     REQUIRED = True
 
     PARENT_DEPENDENCIES = [
-        PipEnvironmentDependency,
-        DjangoDependency,
-        SQLiteDependency,
+        'PipEnvironmentDependency',
+        'DjangoDependency',
+        'SQLiteDependency',
     ]
 
     BIN_DEPENDENCIES = ['archivebox']
