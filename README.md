@@ -13,7 +13,7 @@
 <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE"><img src="https://img.shields.io/badge/Open_source-MIT-green.svg?logo=git&logoColor=green"/></a> <a href="https://github.com/ArchiveBox/ArchiveBox/commits/dev"><img src="https://img.shields.io/github/last-commit/ArchiveBox/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=Active"/></a> &nbsp; <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?logo=github&label=Stars&logoColor=blue"/></a> &nbsp; <a href="https://pypi.org/project/archivebox/"><img src="https://img.shields.io/pypi/dm/archivebox?label=PyPI%20Installs&color=%235f7dae"/></a> <a href="https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj"><img src="https://img.shields.io/chrome-web-store/users/habonpimjphpdnmcfkaockjnffodikoj?label=Chrome%20Web%20Store&color=%231973e8"/></a> <a href="https://hub.docker.com/r/archivebox/archivebox"><img src="https://img.shields.io/docker/pulls/archivebox/archivebox.svg?label=Docker+Pulls"/></a>
 
 <!--<pre lang="bash" align="left"><code style="white-space: pre-line; text-align: left" align="left">
-curl -sSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instructions below)
+curl -fsSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instructions below)
 </code></pre>-->
 
 </div>
@@ -72,10 +72,9 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 <details>
 &nbsp; <summary><i>Expand for quick copy-pastable install commands...</i> &nbsp; ⤵️</summary>
 <br/>
-<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox; cd ~/archivebox    # create a dir somewhere for your archivebox data
-<br/>
-# Option A: Get ArchiveBox with Docker Compose (recommended):
-curl -sSL 'https://docker-compose.archivebox.io' > docker-compose.yml   # edit options in this file as-needed
+<pre lang="bash"><code style="white-space: pre-line"># Option A: Get ArchiveBox with Docker Compose (recommended):
+mkdir -p ~/archivebox/data && cd ~/archivebox
+curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml   # edit options in this file as-needed
 docker compose run archivebox init --setup
 # docker compose run archivebox add 'https://example.com'
 # docker compose run archivebox help
@@ -83,6 +82,7 @@ docker compose run archivebox init --setup
 <br/>
 <br/>
 # Option B: Or use it as a plain Docker container:
+mkdir -p ~/archivebox/data && cd ~/archivebox/data
 docker run -it -v $PWD:/data archivebox/archivebox init --setup
 # docker run -it -v $PWD:/data archivebox/archivebox add 'https://example.com'
 # docker run -it -v $PWD:/data archivebox/archivebox help
@@ -91,6 +91,7 @@ docker run -it -v $PWD:/data archivebox/archivebox init --setup
 <br/>
 # Option C: Or install it with your preferred pkg manager (see Quickstart below for apt, brew, and more)
 pip install archivebox
+mkdir -p ~/archivebox/data && cd ~/archivebox/data
 archivebox init --setup
 # archviebox add 'https://example.com'
 # archivebox help
@@ -98,7 +99,7 @@ archivebox init --setup
 <br/>
 <br/>
 # Option D: Or use the optional auto setup script to install it
-curl -sSL 'https://get.archivebox.io' | sh
+curl -fsSL 'https://get.archivebox.io' | sh
 </code></pre>
 <br/>
 <sub>Open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see your server's Web UI ➡️</sub>
@@ -182,9 +183,9 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
 <li>Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory (can be anywhere).
-<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
+<pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox
 # Read and edit docker-compose.yml options as-needed after downloading
-curl -sSL 'https://docker-compose.archivebox.io' > docker-compose.yml
+curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 </code></pre></li>
 <li>Run the initial setup to create an admin user (or set ADMIN_USER/PASS in docker-compose.yml)
 <pre lang="bash"><code style="white-space: pre-line">docker compose run archivebox init --setup
@@ -208,7 +209,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
-<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
+<pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 </code></pre>
 </li>
@@ -231,7 +232,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (optional, highly recommended but not required).</li>
 <li>Run the automatic setup script.
-<pre lang="bash"><code style="white-space: pre-line">curl -sSL 'https://get.archivebox.io' | sh</code></pre>
+<pre lang="bash"><code style="white-space: pre-line">curl -fsSL 'https://get.archivebox.io' | sh</code></pre>
 </li>
 </ol>
 
@@ -256,12 +257,16 @@ See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as a
 <li>Install <a href="https://realpython.com/installing-python/">Python >= v3.10</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v18</a> on your system (if not already installed).</li>
 <li>Install the ArchiveBox package using <code>pip3</code> (or <a href="https://pipx.pypa.io"><code>pipx</code></a>).
 <pre lang="bash"><code style="white-space: pre-line">pip3 install archivebox
+archivebox version
+# install any missing extras shown using apt/brew/pkg/etc.
+#    python@3.10 node curl wget git ripgrep ...
 </code></pre>
+<i>See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install">Install: Bare Metal</a> Wiki for full install instructions for each OS...</i>
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
-<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
-archivebox init --setup
-# install any missing extras like wget/git/ripgrep/etc. manually as needed
+<pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data   # for example
+archivebox init --setup   # instantialize a new collection
+# (--setup auto-installs and link JS dependencies: singlefile, readability, etc.)
 </code></pre>
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
@@ -274,7 +279,8 @@ archivebox help
 </ol>
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
-See the <a href="https://github.com/ArchiveBox/pip-archivebox"><code>pip-archivebox</code></a> repo for more details about this distribution.
+<br/>
+<small>See the <a href="https://github.com/ArchiveBox/pip-archivebox"><code>pip-archivebox</code></a> repo for more details about this distribution.</small>
 <br/><br/>
 </details>
 
@@ -295,10 +301,10 @@ sudo python3 -m pip install --upgrade --ignore-installed archivebox   # pip need
 </code></pre>
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
-<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
+<pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
 archivebox init --setup           # if any problems, install with pip instead
 </code></pre>
-<i>Note: If you encounter issues with NPM/NodeJS, <a href="https://github.com/nodesource/distributions#debinstall">install a more recent version</a>.</i><br/><br/>
+<i>Note: If you encounter issues or want more granular instructions, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup">Install: Bare Metal</a> Wiki.</i><br/><br/>
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
@@ -323,9 +329,10 @@ See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-a
 <pre lang="bash"><code style="white-space: pre-line">brew tap archivebox/archivebox
 brew install archivebox
 </code></pre>
+<i>See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup">Install: Bare Metal</a> Wiki for more granular instructions for macOS... ➡️</i>
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
-<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox
+<pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
 archivebox init --setup         # if any problems, install with pip instead
 </code></pre>
 </li>
@@ -334,7 +341,7 @@ archivebox init --setup         # if any problems, install with pip instead
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
 archivebox help
-</code></pre>
+</code></pre><br/>
 </li>
 </ol>
 
@@ -351,7 +358,7 @@ See the <a href="https://github.com/ArchiveBox/homebrew-archivebox"><code>homebr
 
 <ul>
 <li>Arch: <a href="https://aur.archlinux.org/packages/archivebox/"><code>yay -S archivebox</code></a> (contributed by <a href="https://github.com/imlonghao"><code>@imlonghao</code></a>)</li>
-<li>FreeBSD: <a href="https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup"><code>curl -sSL 'https://get.archivebox.io' | sh</code></a> (uses <code>pkg</code> + <code>pip3</code> under-the-hood)</li>
+<li>FreeBSD: <a href="https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup"><code>curl -fsSL 'https://get.archivebox.io' | sh</code></a> (uses <code>pkg</code> + <code>pip3</code> under-the-hood)</li>
 <li>Nix: <a href="https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/archivebox/default.nix"><code>nix-env --install archivebox</code></a> (contributed by <a href="https://github.com/siraben"><code>@siraben</code></a>)</li>
 <li>Guix: <a href="https://packages.guix.gnu.org/packages/archivebox/"><code>guix install archivebox</code></a> (contributed by <a href="https://github.com/rakino"><code>@rakino</code></a>)</li>
 <li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distribution...!</i></a></li>
@@ -461,13 +468,14 @@ mkdir -p ~/archivebox/data   # create a new data dir anywhere
 cd ~/archivebox/data         # IMPORTANT: cd into the directory
 
 # archivebox [subcommand] [--help]
+archivebox version
 archivebox help
 
 # equivalent: docker compose run archivebox [subcommand] [--help]
 docker compose run archivebox help
 
 # equivalent: docker run -it -v $PWD:/data archivebox/archivebox [subcommand] [--help]
- docker run -it -v $PWD:/data archivebox/archivebox help
+docker run -it -v $PWD:/data archivebox/archivebox help
 ```
 
 #### ArchiveBox Subcommands
@@ -677,7 +685,7 @@ It uses all available methods out-of-the-box, but you can disable extractors and
 <summary><i>Expand to see the full list of ways it saves each page...</i></summary>
 
 
-<code>./archive/{Snapshot.id}/</code><br/>
+<code>data/archive/{Snapshot.id}/</code><br/>
 <ul>
 <li><strong>Index:</strong> <code>index.html</code> &amp; <code>index.json</code> HTML and JSON index files containing metadata and details</li>
 <li><strong>Title</strong>, <strong>Favicon</strong>, <strong>Headers</strong> Response headers, site favicon, and parsed site title</li>
@@ -808,18 +816,18 @@ All of ArchiveBox's state (SQLite DB, content, config, logs, etc.) is stored in 
 <details>
 <summary><i>Expand to learn more about the layout of Archivebox's data on-disk...</i></summary><br/>
 
-Data folders can be created anywhere (`~/archivebox` or `$PWD/data` as seen in our examples), and you can create as many data folders as you want to hold different collections.
+Data folders can be created anywhere (`~/archivebox/data` or `$PWD/data` as seen in our examples), and you can create as many data folders as you want to hold different collections.
 All <code>archivebox</code> CLI commands are designed to be run from inside an ArchiveBox data folder, starting with <code>archivebox init</code> to initialize a new collection inside an empty directory.
 
-<pre lang="bash"><code style="white-space: pre-line">mkdir ~/archivebox && cd ~/archivebox   # just an example, can be anywhere
+<pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data   # just an example, can be anywhere
 archivebox init</code></pre>
 
-The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard <code>index.sqlite3</code> database in the root of the data folder (it can also be <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive#2-export-and-host-it-as-static-html">exported as static JSON/HTML</a>), and the archive snapshots are organized by date-added timestamp in the <code>./archive/</code> subfolder.
+The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard <code>index.sqlite3</code> database in the root of the data folder (it can also be <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive#2-export-and-host-it-as-static-html">exported as static JSON/HTML</a>), and the archive snapshots are organized by date-added timestamp in the <code>data/archive/</code> subfolder.
 
 <img src="https://user-images.githubusercontent.com/511499/117453293-c7b91600-af12-11eb-8a3f-aa48b0f9da3c.png" width="400px" align="right" style="float: right"/>
 
 
-<pre lang="bash"><code style="white-space: pre-line">/data/
+<pre lang="bash"><code style="white-space: pre-line">data/
     index.sqlite3
     ArchiveBox.conf
     archive/
@@ -834,7 +842,7 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
             ...
 </code></pre>
 
-Each snapshot subfolder <code>./archive/TIMESTAMP/</code> includes a static <code>index.json</code> and <code>index.html</code> describing its contents, and the snapshot extractor outputs are plain files within the folder.
+Each snapshot subfolder <code>data/archive/TIMESTAMP/</code> includes a static <code>index.json</code> and <code>index.html</code> describing its contents, and the snapshot extractor outputs are plain files within the folder.
 
 <h4>Learn More</h4>
 <ul>
@@ -1048,9 +1056,9 @@ Because ArchiveBox is designed to ingest a large volume of URLs with multiple co
 
 Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. You can also deduplicate content with a tool like [fdupes](https://github.com/adrianlopezroche/fdupes) or [rdfind](https://github.com/pauldreik/rdfind).  
 
-**Don't store large collections on older filesystems like EXT3/FAT** as they may not be able to handle more than 50k directory entries in the `archive/` folder.
+**Don't store large collections on older filesystems like EXT3/FAT** as they may not be able to handle more than 50k directory entries in the `data/archive/` folder.
 
-**Try to keep the `index.sqlite3` file on local drive (not a network mount)** or SSD for maximum performance, however the `archive/` folder can be on a network mount or slower HDD.
+**Try to keep the `data/index.sqlite3` file on local drive (not a network mount)** or SSD for maximum performance, however the `data/archive/` folder can be on a network mount or slower HDD.
 
 If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to set [`PUID` & `PGID`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid) and [disable `root_squash`](https://github.com/ArchiveBox/ArchiveBox/issues/1304) on your fileshare server.
 
@@ -1441,7 +1449,7 @@ https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-dj
 
 ArchiveBox [`extractors`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/extractors/media.py) are external binaries or Python/Node scripts that ArchiveBox runs to archive content on a page.
 
-Extractors take the URL of a page to archive, write their output to the filesystem `archive/TIMESTAMP/EXTRACTOR/...`, and return an [`ArchiveResult`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models.py#:~:text=return%20qs-,class%20ArchiveResult,-(models.Model)%3A) entry which is saved to the database (visible on the `Log` page in the UI).
+Extractors take the URL of a page to archive, write their output to the filesystem `data/archive/TIMESTAMP/EXTRACTOR/...`, and return an [`ArchiveResult`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models.py#:~:text=return%20qs-,class%20ArchiveResult,-(models.Model)%3A) entry which is saved to the database (visible on the `Log` page in the UI).
 
 *Check out how we added **[`archivebox/extractors/singlefile.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/extractors/singlefile.py)** as an example of the process: [Issue #399](https://github.com/ArchiveBox/ArchiveBox/issues/399) + [PR #403](https://github.com/ArchiveBox/ArchiveBox/pull/403).*
 
