@@ -30,8 +30,7 @@ def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, 
 
     if capture_output:
         if ('stdout' in kwargs) or ('stderr' in kwargs):
-            raise ValueError('stdout and stderr arguments may not be used '
-                             'with capture_output.')
+            raise ValueError('stdout and stderr arguments may not be used with capture_output.')
         kwargs['stdout'] = PIPE
         kwargs['stderr'] = PIPE
 
@@ -175,7 +174,7 @@ def dedupe_cron_jobs(cron: CronTab) -> CronTab:
     deduped: Set[Tuple[str, str]] = set()
 
     for job in list(cron):
-        unique_tuple = (str(job.slices), job.command)
+        unique_tuple = (str(job.slices), str(job.command))
         if unique_tuple not in deduped:
             deduped.add(unique_tuple)
         cron.remove(job)
