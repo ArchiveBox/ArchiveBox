@@ -154,7 +154,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'CHROME_SANDBOX':           {'type': bool,  'default': lambda c: not c['IN_DOCKER']},
         'YOUTUBEDL_ARGS':           {'type': list,  'default': lambda c: [
                                                                 '--restrict-filenames',
-                                                                '--trim-filenames',
+                                                                '--trim-filenames', '128',
                                                                 '--write-description',
                                                                 '--write-info-json',
                                                                 '--write-annotations',
@@ -366,24 +366,32 @@ ALLOWDENYLIST_REGEX_FLAGS: int = re.IGNORECASE | re.UNICODE | re.MULTILINE
 
 ############################## Version Config ##################################
 
-def get_system_user():
-    SYSTEM_USER = getpass.getuser() or os.getlogin()
+def get_system_user() -> str:
+    # some host OS's are unable to provide a username (k3s, Windows), making this complicated
+    # uid 999 is especially problematic and breaks many attempts
+    SYSTEM_USER = None
+    FALLBACK_USER_PLACHOLDER = f'user_{os.getuid()}'
+
+    # Option 1
     try:
         import pwd
-        return pwd.getpwuid(os.geteuid()).pw_name or SYSTEM_USER
-    except KeyError:
-        # Process' UID might not map to a user in cases such as running the Docker image
-        # (where `archivebox` is 999) as a different UID.
-        pass
-    except ModuleNotFoundError:
-        # pwd doesn't exist on windows
-        pass
-    except Exception:
-        # this should never happen, uncomment to debug
-        # raise
+        SYSTEM_USER = SYSTEM_USER or pwd.getpwuid(os.geteuid()).pw_name
+    except (ModuleNotFoundError, Exception):
         pass
 
-    return SYSTEM_USER
+    # Option 2
+    try:
+        SYSTEM_USER = SYSTEM_USER or getpass.getuser()
+    except Exception:
+        pass
+
+    # Option 3
+    try:
+        SYSTEM_USER = SYSTEM_USER or os.getlogin()
+    except Exception:
+        pass
+
+    return SYSTEM_USER or FALLBACK_USER_PLACHOLDER
 
 def get_version(config):
     try:
