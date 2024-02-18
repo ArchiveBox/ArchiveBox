@@ -501,6 +501,7 @@ archivebox version           # get archivebox version info + check dependencies
 archivebox help              # get list of archivebox subcommands that can be run
 archivebox add --depth=1 'https://news.ycombinator.com'
 </code></pre>
+<i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage">Usage: CLI Usage</a> wiki. ➡️</i>
 </details>
 
 <br/>
@@ -518,6 +519,7 @@ docker compose run archivebox help
 docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
 # to start webserver: docker compose up
 </code></pre>
+<i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage">Usage: Docker Compose CLI</a> wiki. ➡️</i>
 </details>
 
 <br/>
@@ -535,6 +537,7 @@ docker run -v $PWD:/data -it archivebox/archivebox help
 docker run -v $PWD:/data -it archivebox/archivebox add --depth=1 'https://news.ycombinator.com'
 # to start webserver: docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
 </code></pre>
+<i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage-1">Usage: Docker CLI</a> wiki. ➡️</i>
 </details>
 
 <br/>
@@ -546,6 +549,7 @@ archivebox shell           # explore the Python library API in a REPL
 sqlite3 ./index.sqlite3    # run SQL queries directly on your index
 ls ./archive/*/index.html  # or inspect snapshot data directly on the filesystem
 </code></pre>
+<i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage">Python Shell</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">SQL API</a>, and <a href="https://github.com/ArchiveBox/ArchiveBox#archive-layout">Disk Layout</a> wikis. ➡️</i>
 </details>
 
 
@@ -568,6 +572,8 @@ docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
 </code></pre>
 
 <sup>Open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see your server's Web UI ➡️</sup>
+<br/>
+<i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#ui-usage">Usage: Web UI</a> wiki. ➡️</i>
 <br/>
 <b>Optional: Change permissions to allow non-logged-in users</b>
 
@@ -597,6 +603,8 @@ archivebox add --depth=1 'https://example.com'                     # add a URL w
 docker compose run archivebox add --depth=1 'https://example.com'                       # or w/ Docker Compose
 docker run -it -v $PWD:/data archivebox/archivebox add --depth=1 'https://example.com'  # or w/ Docker, all equivalent
 </code></pre>
+
+<i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker">Docker</a> wiki. ➡️</i>
 
 </details>
 
