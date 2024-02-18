@@ -793,6 +793,7 @@ If not using Docker, make sure to keep the dependencies up-to-date yourself and 
 <pre lang="bash"><code style="white-space: pre-line">#install python3 and archivebox with your system package manager
 # apt/brew/pip/etc install ... (see Quickstart instructions above)
 <br/>
+which -a archivebox    # see where you have installed archivebox
 archivebox setup       # auto install all the extractors and extras
 archivebox --version   # see info and check validity of installed dependencies
 </code></pre>
