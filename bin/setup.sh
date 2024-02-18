@@ -9,14 +9,14 @@
 clear
 
 if [ $(id -u) -eq 0 ]; then
-    echo ""
+    echo
     echo "[X] You cannot run this script as root. You must run it as a non-root user with sudo ability."
     echo "    Create a new non-privileged user 'archivebox' if necessary."
     echo "      adduser archivebox && usermod -a archivebox -G sudo && su archivebox"
     echo "    https://www.digitalocean.com/community/tutorials/how-to-create-a-new-sudo-enabled-user-on-ubuntu-20-04-quickstart"
     echo "    https://www.vultr.com/docs/create-a-sudo-user-on-freebsd"
     echo "    Then re-run this script as the non-root user."
-    echo ""
+    echo
     exit 2
 fi
 
@@ -76,37 +76,37 @@ elif (which docker > /dev/null && docker pull archivebox/archivebox:latest); the
     exit 0
 fi
 
-echo ""
+echo
 echo "[!] It's highly recommended to use ArchiveBox with Docker, but Docker wasn't found."
-echo ""
+echo
 echo "    ⚠️ If you want to use Docker, press [Ctrl-C] to cancel now. ⚠️"
 echo "        Get Docker: https://docs.docker.com/get-docker/"
 echo "        After you've installed Docker, run this script again."
-echo ""
+echo
 echo "Otherwise, install will continue with apt/brew/pip in 12s... (press [Ctrl+C] to cancel)"
-echo ""
+echo
 sleep 12 || exit 1
 echo "Proceeding with system package manager..."
-echo ""
+echo
 
 echo "[i] ArchiveBox Setup Script 📦"
-echo ""
+echo
 echo "    This is a helper script which installs the ArchiveBox dependencies on your system using brew/apt/pip3."
 echo "    You may be prompted for a sudo password in order to install the following:"
-echo ""
+echo
 echo "        - archivebox"
 echo "        - python3, pip, nodejs, npm            (languages used by ArchiveBox, and its extractor modules)"
 echo "        - curl, wget, git, youtube-dl, yt-dlp  (used for extracting title, favicon, git, media, and more)"
 echo "        - chromium                             (skips this if any Chrome/Chromium version is already installed)"
-echo ""
+echo
 echo "    If you'd rather install these manually as-needed, you can find detailed documentation here:"
 echo "        https://github.com/ArchiveBox/ArchiveBox/wiki/Install"
-echo ""
+echo
 echo "Continuing in 12s... (press [Ctrl+C] to cancel)"
-echo ""
+echo
 sleep 12 || exit 1
 echo "Proceeding to install dependencies..."
-echo ""
+echo
 
 # On Linux:
 if which apt-get > /dev/null; then
@@ -123,7 +123,7 @@ if which apt-get > /dev/null; then
     sudo apt-get install -y libgtk2.0-0 libgtk-3-0 libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb libgbm-dev || sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser || true
     sudo apt-get install -y archivebox
     sudo apt-get --only-upgrade install -y archivebox
-    echo ""
+    echo
     echo "[+] Installing ArchiveBox python dependencies using pip3..."
     sudo python3 -m pip install --upgrade --ignore-installed archivebox yt-dlp playwright
 # On Mac:
@@ -133,28 +133,28 @@ elif which brew > /dev/null; then
     brew update
     brew install python3 node git wget curl yt-dlp ripgrep
     brew install --fetch-HEAD -f archivebox
-    echo ""
+    echo
     echo "[+] Installing ArchiveBox python dependencies using pip3..."
     python3 -m pip install --upgrade --ignore-installed archivebox yt-dlp playwright
 elif which pkg > /dev/null; then
     echo "[+] Installing ArchiveBox system dependencies using pkg and pip (python3.9)..."
     sudo pkg install -y python3 py39-pip py39-sqlite3 npm wget curl youtube_dl ffmpeg git ripgrep
     sudo pkg install -y chromium
-    echo ""
+    echo
     echo "[+] Installing ArchiveBox python dependencies using pip..."
     # don't use sudo here so that pip installs in $HOME/.local instead of into /usr/local
     python3 -m pip install --upgrade --ignore-installed archivebox yt-dlp playwright
 else
     echo "[!] Warning: Could not find aptitude/homebrew/pkg! May not be able to install all dependencies automatically."
-    echo ""
+    echo
     echo "    If you're on macOS, make sure you have homebrew installed:     https://brew.sh/"
     echo "    If you're on Linux, only Ubuntu/Debian/BSD systems are officially supported with this script."
     echo "    If you're on Windows, this script is not officially supported (Docker is recommeded instead)."
-    echo ""
+    echo
     echo "See the README.md for Manual Setup & Troubleshooting instructions if you you're unable to run ArchiveBox after this script completes."
 fi
 
-echo ""
+echo
 
 if ! (python3 --version && python3 -m pip --version && python3 -m django --version); then
     echo "[X] Python 3 pip was not found on your system!"
@@ -168,14 +168,19 @@ fi
 if ! (python3 -m django --version && python3 -m archivebox version --quiet); then
     echo "[X] Django and ArchiveBox were not found after installing!"
     echo "    Check to see if a previous step failed."
-    echo ""
+    echo
     exit 1
 fi
 
-# echo ""
+# echo
 # echo "[+] Upgrading npm and pip..."
 # sudo npm i -g npm || true
 # sudo python3 -m pip install --upgrade pip setuptools || true
+
+echo
+echo "[+] Installing Chromium binary using playwright..."
+playwright install --with-deps chromium
+echo
 
 echo
 echo "[+] Initializing ArchiveBox data folder at ~/archivebox/data..."
