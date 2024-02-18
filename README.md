@@ -168,8 +168,7 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 
 # Quickstart
 
-**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker) &nbsp; **👾&nbsp; CPUs:** `amd64` (`x86_64`), `arm64`, `arm7` <sup>(raspi>=3)</sup><br/>
-<sub>Note: On `arm7` the `playwright` package is not available, so `chromium` must be installed manually if needed.</sub>
+**🖥&nbsp; [Supported OSs](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#supported-systems):** Linux/BSD, macOS, Windows (Docker) &nbsp; **👾&nbsp; CPUs:** `amd64` (`x86_64`), `arm64`, `arm7` <sup>(raspi>=3)</sup><br/>
 
 <br/>
 
@@ -196,10 +195,12 @@ curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 # docker compose run [-T] archivebox [subcommand] [--help]
 docker compose run archivebox add 'https://example.com'
 docker compose run archivebox help
-</code></pre></li>
+</code></pre>
+<i>For more info, see <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-a-docker--docker-compose-setup-%EF%B8%8F">Install: Docker Compose</a> in the Wiki. ➡️</i>
+</li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
+See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">filesystem/SQL/Python</a> to manage your archive.
 <br/><br/>
 </details>
 
@@ -212,6 +213,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
 docker run -v $PWD:/data -it archivebox/archivebox init --setup
 </code></pre>
+<i>For more info, see <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-a-docker--docker-compose-setup-%EF%B8%8F">Install: Docker</a> in the Wiki. ➡️</i>
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox
