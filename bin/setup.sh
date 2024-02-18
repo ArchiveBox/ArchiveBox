@@ -165,7 +165,7 @@ if ! (python3 --version && python3 -m pip --version && python3 -m django --versi
     exit 1
 fi
 
-if ! (python3 -m django --version && (: | python3 -m archivebox version --quiet)); then
+if ! (python3 -m django --version && which -a archivebox && (: | archivebox version --quiet)); then
     echo "[X] Django and ArchiveBox were not found after installing!"
     echo "    Check to see if a previous step failed."
     echo
@@ -191,7 +191,7 @@ if [ -f "./index.sqlite3" ]; then
 fi
 cd ./data
 : | python3 -m archivebox init --setup || true   # pipe in empty command to make sure stdin is closed
-
+: | python3 -m archivebox version
 echo
 echo "[+] Starting ArchiveBox server using: nohup archivebox server &..."
 nohup python3 -m archivebox server 0.0.0.0:8000 > ./logs/server.log 2>&1 &
