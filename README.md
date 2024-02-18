@@ -10,7 +10,7 @@
 
 <!--<a href="http://webchat.freenode.net?channels=ArchiveBox&uio=d4"><img src="https://img.shields.io/badge/Community_chat-IRC-%2328A745.svg"/></a>-->
 
-<a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE"><img src="https://img.shields.io/badge/Open_source-MIT-green.svg?logo=git&logoColor=green"/></a> <a href="https://github.com/ArchiveBox/ArchiveBox/commits/dev"><img src="https://img.shields.io/github/last-commit/ArchiveBox/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=Active"/></a> &nbsp; <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?logo=github&label=Stars&logoColor=blue"/></a> &nbsp; <a href="https://pypi.org/project/archivebox/"><img src="https://img.shields.io/pypi/dm/archivebox?label=PyPI%20Installs&color=%235f7dae"/></a> <a href="https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj"><img src="https://img.shields.io/chrome-web-store/users/habonpimjphpdnmcfkaockjnffodikoj?label=Chrome%20Web%20Store&color=%231973e8"/></a> <a href="https://hub.docker.com/r/archivebox/archivebox"><img src="https://img.shields.io/docker/pulls/archivebox/archivebox.svg?label=Docker+Pulls"/></a>
+<a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE"><img src="https://img.shields.io/badge/Open_source-MIT-green.svg?logo=git&logoColor=green"/></a> <a href="https://github.com/ArchiveBox/ArchiveBox/commits/dev"><img src="https://img.shields.io/github/last-commit/ArchiveBox/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=Active"/></a> &nbsp; <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?logo=github&label=Stars&logoColor=blue"/></a> &nbsp; <a href="https://hub.docker.com/r/archivebox/archivebox"><img src="https://img.shields.io/docker/pulls/archivebox/archivebox.svg?label=Docker+Pulls"/></a> <a href="https://pypi.org/project/archivebox/"><img src="https://img.shields.io/pypi/dm/archivebox?label=PyPI%20Installs&color=%235f7dae"/></a> <a href="https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj"><img src="https://img.shields.io/chrome-web-store/users/habonpimjphpdnmcfkaockjnffodikoj?label=Chrome%20Store&color=%231973e8"/></a>
 
 <!--<pre lang="bash" align="left"><code style="white-space: pre-line; text-align: left" align="left">
 curl -fsSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instructions below)
@@ -168,8 +168,7 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 
 # Quickstart
 
-**🖥&nbsp; Supported OSs:** Linux/BSD, macOS, Windows (Docker) &nbsp; **👾&nbsp; CPUs:** `amd64` (`x86_64`), `arm64`, `arm7` <sup>(raspi>=3)</sup><br/>
-<sub>Note: On `arm7` the `playwright` package is not available, so `chromium` must be installed manually if needed.</sub>
+**🖥&nbsp; [Supported OSs](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#supported-systems):** Linux/BSD, macOS, Windows (Docker) &nbsp; **👾&nbsp; CPUs:** `amd64` (`x86_64`), `arm64`, `arm7` <sup>(raspi>=3)</sup><br/>
 
 <br/>
 
@@ -196,10 +195,12 @@ curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 # docker compose run [-T] archivebox [subcommand] [--help]
 docker compose run archivebox add 'https://example.com'
 docker compose run archivebox help
-</code></pre></li>
+</code></pre>
+<i>For more info, see <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-a-docker--docker-compose-setup-%EF%B8%8F">Install: Docker Compose</a> in the Wiki. ➡️</i>
+</li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
+See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">filesystem/SQL/Python</a> to manage your archive.
 <br/><br/>
 </details>
 
@@ -219,6 +220,7 @@ docker run -v $PWD:/data -it archivebox/archivebox init --setup
 # docker run -v $PWD:/data -it [subcommand] [--help]
 docker run -v $PWD:/data -it archivebox/archivebox help
 </code></pre>
+<i>For more info, see <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-a-docker--docker-compose-setup-%EF%B8%8F">Install: Docker Compose</a> in the Wiki. ➡️</i>
 </li>
 </ol>
 
@@ -233,6 +235,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (optional, highly recommended but not required).</li>
 <li>Run the automatic setup script.
 <pre lang="bash"><code style="white-space: pre-line">curl -fsSL 'https://get.archivebox.io' | sh</code></pre>
+<i>For more info, see <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-b-automatic-setup-script">Install: Bare Metal</a> in the Wiki. ➡️</i>
 </li>
 </ol>
 
@@ -280,7 +283,7 @@ archivebox help
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 <br/>
-<small>See the <a href="https://github.com/ArchiveBox/pip-archivebox"><code>pip-archivebox</code></a> repo for more details about this distribution.</small>
+<sub>See the <a href="https://github.com/ArchiveBox/pip-archivebox"><code>pip-archivebox</code></a> repo for more details about this distribution.</sub>
 <br/><br/>
 </details>
 
@@ -297,12 +300,13 @@ sudo apt update
 </li>
 <li>Install the ArchiveBox package using <code>apt</code>.
 <pre lang="bash"><code style="white-space: pre-line">sudo apt install archivebox
-sudo python3 -m pip install --upgrade --ignore-installed archivebox   # pip needed because apt only provides a broken older version of Django
+# update to newest version with pip (sometimes apt package is outdated)
+pip install --upgrade --ignore-installed archivebox
 </code></pre>
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
-archivebox init --setup           # if any problems, install with pip instead
+archivebox init --setup
 </code></pre>
 <i>Note: If you encounter issues or want more granular instructions, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup">Install: Bare Metal</a> Wiki.</i><br/><br/>
 </li>
@@ -316,7 +320,7 @@ archivebox help
 </ol>
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
-See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-archivebox</code></a> repo for more details about this distribution.
+<sub>See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-archivebox</code></a> repo for more details about this distribution.</sub>
 <br/><br/>
 </details>
 
@@ -328,12 +332,14 @@ See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-a
 <li>Install the ArchiveBox package using <code>brew</code>.
 <pre lang="bash"><code style="white-space: pre-line">brew tap archivebox/archivebox
 brew install archivebox
+# update to newest version with pip (sometimes brew package is outdated)
+pip install --upgrade --ignore-installed archivebox
 </code></pre>
 <i>See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup">Install: Bare Metal</a> Wiki for more granular instructions for macOS... ➡️</i>
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
-archivebox init --setup         # if any problems, install with pip instead
+archivebox init --setup
 </code></pre>
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
@@ -346,7 +352,7 @@ archivebox help
 </ol>
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
-See the <a href="https://github.com/ArchiveBox/homebrew-archivebox"><code>homebrew-archivebox</code></a> repo for more details about this distribution.
+<sub>See the <a href="https://github.com/ArchiveBox/homebrew-archivebox"><code>homebrew-archivebox</code></a> repo for more details about this distribution.</sub>
 <br/><br/>
 </details>
 
@@ -458,9 +464,9 @@ For more discussion on managed and paid hosting options see here: <a href="https
 
 ### Usage
 
-#### ⚡️&nbsp; CLI Usage
+#### ⚡️&nbsp; <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage">CLI Usage</a>
 
-ArchiveBox commands can be run in a terminal directly on your host, or via Docker/Docker Compose.  
+ArchiveBox commands can be run in a terminal [directly on your host](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage), or via [Docker](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage-1)/[Docker Compose](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage).  
 <sup>(depending on how you chose to install it above)</sup>
 
 ```bash
@@ -498,6 +504,7 @@ archivebox version           # get archivebox version info + check dependencies
 archivebox help              # get list of archivebox subcommands that can be run
 archivebox add --depth=1 'https://news.ycombinator.com'
 </code></pre>
+<i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage">Usage: CLI Usage</a> wiki. ➡️</i>
 </details>
 
 <br/>
@@ -515,6 +522,7 @@ docker compose run archivebox help
 docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
 # to start webserver: docker compose up
 </code></pre>
+<i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage">Usage: Docker Compose CLI</a> wiki. ➡️</i>
 </details>
 
 <br/>
@@ -532,6 +540,7 @@ docker run -v $PWD:/data -it archivebox/archivebox help
 docker run -v $PWD:/data -it archivebox/archivebox add --depth=1 'https://news.ycombinator.com'
 # to start webserver: docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
 </code></pre>
+<i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage-1">Usage: Docker CLI</a> wiki. ➡️</i>
 </details>
 
 <br/>
@@ -543,6 +552,7 @@ archivebox shell           # explore the Python library API in a REPL
 sqlite3 ./index.sqlite3    # run SQL queries directly on your index
 ls ./archive/*/index.html  # or inspect snapshot data directly on the filesystem
 </code></pre>
+<i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage">Python Shell</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">SQL API</a>, and <a href="https://github.com/ArchiveBox/ArchiveBox#archive-layout">Disk Layout</a> wikis. ➡️</i>
 </details>
 
 
@@ -565,7 +575,9 @@ docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
 </code></pre>
 
 <sup>Open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see your server's Web UI ➡️</sup>
-<br/>
+<br/><br/>
+<i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#ui-usage">Usage: Web UI</a> wiki. ➡️</i>
+<br/><br/>
 <b>Optional: Change permissions to allow non-logged-in users</b>
 
 <pre lang="bash"><code style="white-space: pre-line">
@@ -594,6 +606,8 @@ archivebox add --depth=1 'https://example.com'                     # add a URL w
 docker compose run archivebox add --depth=1 'https://example.com'                       # or w/ Docker Compose
 docker run -it -v $PWD:/data archivebox/archivebox add --depth=1 'https://example.com'  # or w/ Docker, all equivalent
 </code></pre>
+
+<i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker">Docker</a> wiki. ➡️</i>
 
 </details>
 
@@ -790,6 +804,7 @@ If not using Docker, make sure to keep the dependencies up-to-date yourself and 
 <pre lang="bash"><code style="white-space: pre-line">#install python3 and archivebox with your system package manager
 # apt/brew/pip/etc install ... (see Quickstart instructions above)
 <br/>
+which -a archivebox    # see where you have installed archivebox
 archivebox setup       # auto install all the extractors and extras
 archivebox --version   # see info and check validity of installed dependencies
 </code></pre>
