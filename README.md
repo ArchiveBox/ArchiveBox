@@ -461,9 +461,9 @@ For more discussion on managed and paid hosting options see here: <a href="https
 
 ### Usage
 
-#### ⚡️&nbsp; CLI Usage
+#### ⚡️&nbsp; <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage">CLI Usage</a>
 
-ArchiveBox commands can be run in a terminal directly on your host, or via Docker/Docker Compose.  
+ArchiveBox commands can be run in a terminal [directly on your host](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage), or via [Docker](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage-1)/[Docker Compose](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage).  
 <sup>(depending on how you chose to install it above)</sup>
 
 ```bash
