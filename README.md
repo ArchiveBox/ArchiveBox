@@ -572,9 +572,9 @@ docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox
 </code></pre>
 
 <sup>Open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see your server's Web UI ➡️</sup>
-<br/>
+<br/><br/>
 <i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#ui-usage">Usage: Web UI</a> wiki. ➡️</i>
-<br/>
+<br/><br/>
 <b>Optional: Change permissions to allow non-logged-in users</b>
 
 <pre lang="bash"><code style="white-space: pre-line">
