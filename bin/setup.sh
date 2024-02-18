@@ -1,8 +1,10 @@
 #!/usr/bin/env sh
-# ArchiveBox Setup Script: https://github.com/ArchiveBox/ArchiveBox
-# Supported Platforms: Ubuntu/Debian/FreeBSD/macOS
-# Usage:
-#    curl -sSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | sh
+# ArchiveBox Setup Script (Ubuntu/Debian/FreeBSD/macOS)
+#   - Project Homepage: https://github.com/ArchiveBox/ArchiveBox
+#   - Install Documentation: https://github.com/ArchiveBox/ArchiveBox/wiki/Install
+# Script Usage:
+#    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | sh
+#           (aka https://docker-compose.archivebox.io)
 
 clear
 
@@ -20,19 +22,20 @@ fi
 
 if (which docker-compose > /dev/null && docker pull archivebox/archivebox:latest); then
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker Compose..."
-    mkdir -p ~/archivebox
+    mkdir -p ~/archivebox/data
     cd ~/archivebox
-    mkdir -p data
     if [ -f "./index.sqlite3" ]; then
-        mv ~/archivebox/* ~/archivebox/data/
+        mv -i ~/archivebox/* ~/archivebox/data/
     fi
-    curl -O 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/main/docker-compose.yml'
+    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/main/docker-compose.yml' > docker-compose.yml
+    mkdir -p ./etc
+    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/main/etc/sonic.cfg' > ./etc/sonic.cfg
     docker compose run --rm archivebox init --setup
     echo
     echo "[+] Starting ArchiveBox server using: docker compose up -d..."
     docker compose up -d
     sleep 7
-    open http://127.0.0.1:8000 || true
+    which open > /dev/null && open "http://127.0.0.1:8000" || true
     echo
     echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox/data. Usage:"
     echo "    cd ~/archivebox"
@@ -46,21 +49,22 @@ if (which docker-compose > /dev/null && docker pull archivebox/archivebox:latest
     echo "    docker compose run archivebox help"
     exit 0
 elif (which docker > /dev/null && docker pull archivebox/archivebox:latest); then
-    echo "[+] Initializing an ArchiveBox data folder at ~/archivebox using Docker..."
-    mkdir -p ~/archivebox
+    echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker..."
+    mkdir -p ~/archivebox/data
     cd ~/archivebox
-    if [ -f "./data/index.sqlite3" ]; then
-        cd ./data
+    if [ -f "./index.sqlite3" ]; then
+        mv -i ~/archivebox/* ~/archivebox/data/
     fi
+    cd ./data
     docker run -v "$PWD":/data -it --rm archivebox/archivebox:latest init --setup
     echo
     echo "[+] Starting ArchiveBox server using: docker run -d archivebox/archivebox..."
     docker run -v "$PWD":/data -it -d -p 8000:8000 --name=archivebox archivebox/archivebox:latest
     sleep 7
-    open http://127.0.0.1:8000 || true
+    which open > /dev/null && open "http://127.0.0.1:8000" || true
     echo
-    echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox. Usage:"
-    echo "    cd ~/archivebox"
+    echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox/data. Usage:"
+    echo "    cd ~/archivebox/data"
     echo "    docker ps --filter name=archivebox"
     echo "    docker kill archivebox"
     echo "    docker pull archivebox/archivebox"
@@ -115,22 +119,23 @@ if which apt-get > /dev/null; then
     fi
     echo
     echo "[+] Installing ArchiveBox system dependencies using apt..."
-    sudo apt-get install -y git python3 python3-pip python3-distutils wget curl youtube-dl yt-dlp ffmpeg git nodejs npm ripgrep
+    sudo apt-get install -y git python3 python3-pip python3-distutils wget curl yt-dlp ffmpeg git nodejs npm ripgrep
     sudo apt-get install -y libgtk2.0-0 libgtk-3-0 libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb libgbm-dev || sudo apt-get install -y chromium || sudo apt-get install -y chromium-browser || true
     sudo apt-get install -y archivebox
     sudo apt-get --only-upgrade install -y archivebox
     echo ""
     echo "[+] Installing ArchiveBox python dependencies using pip3..."
-    sudo python3 -m pip install --upgrade --ignore-installed archivebox
+    sudo python3 -m pip install --upgrade --ignore-installed archivebox yt-dlp playwright
 # On Mac:
 elif which brew > /dev/null; then
     echo "[+] Installing ArchiveBox system dependencies using brew..."
     brew tap archivebox/archivebox
     brew update
+    brew install python3 node git wget curl yt-dlp ripgrep
     brew install --fetch-HEAD -f archivebox
     echo ""
     echo "[+] Installing ArchiveBox python dependencies using pip3..."
-    python3 -m pip install --upgrade --ignore-installed archivebox
+    python3 -m pip install --upgrade --ignore-installed archivebox yt-dlp playwright
 elif which pkg > /dev/null; then
     echo "[+] Installing ArchiveBox system dependencies using pkg and pip (python3.9)..."
     sudo pkg install -y python3 py39-pip py39-sqlite3 npm wget curl youtube_dl ffmpeg git ripgrep
@@ -138,7 +143,7 @@ elif which pkg > /dev/null; then
     echo ""
     echo "[+] Installing ArchiveBox python dependencies using pip..."
     # don't use sudo here so that pip installs in $HOME/.local instead of into /usr/local
-    python3 -m pip install --upgrade --ignore-installed archivebox
+    python3 -m pip install --upgrade --ignore-installed archivebox yt-dlp playwright
 else
     echo "[!] Warning: Could not find aptitude/homebrew/pkg! May not be able to install all dependencies automatically."
     echo ""
@@ -173,23 +178,23 @@ fi
 # sudo python3 -m pip install --upgrade pip setuptools || true
 
 echo
-echo "[+] Initializing ArchiveBox data folder at ~/archivebox..."
-mkdir -p ~/archivebox
+echo "[+] Initializing ArchiveBox data folder at ~/archivebox/data..."
+mkdir -p ~/archivebox/data
 cd ~/archivebox
-if [ -f "./data/index.sqlite3" ]; then
-    cd ./data
+if [ -f "./index.sqlite3" ]; then
+    mv -i ~/archivebox/* ~/archivebox/data/
 fi
+cd ./data
 : | python3 -m archivebox init --setup || true   # pipe in empty command to make sure stdin is closed
 
 echo
 echo "[+] Starting ArchiveBox server using: nohup archivebox server &..."
 nohup python3 -m archivebox server 0.0.0.0:8000 > ./logs/server.log 2>&1 &
 sleep 7
-which open > /dev/null && open http://127.0.0.1:8000 || true
-
+which open > /dev/null && open "http://127.0.0.1:8000" || true
 echo
-echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox. Usage:"
-echo "    cd ~/archivebox                                    # see your data dir"
+echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox/data. Usage:"
+echo "    cd ~/archivebox/data                               # see your data dir"
 echo "    ps aux | grep archivebox                           # see server process pid"
 echo "    pkill -f archivebox                                # stop the server"
 echo "    archivebox server --quick-init 0.0.0.0:8000        # start server process"
