@@ -83,7 +83,7 @@ echo "    ⚠️ If you want to use Docker, press [Ctrl-C] to cancel now. ⚠️
 echo "        Get Docker: https://docs.docker.com/get-docker/"
 echo "        After you've installed Docker, run this script again."
 echo
-echo "Otherwise, install will continue with apt/brew/pip in 12s... (press [Ctrl+C] to cancel)"
+echo "Otherwise, install will continue with apt/brew/pkg + pip in 12s... (press [Ctrl+C] to cancel)"
 echo
 sleep 12 || exit 1
 echo "Proceeding with system package manager..."
@@ -165,7 +165,7 @@ if ! (python3 --version && python3 -m pip --version && python3 -m django --versi
     exit 1
 fi
 
-if ! (python3 -m django --version && python3 -m archivebox version --quiet); then
+if ! (python3 -m django --version && (: | python3 -m archivebox version --quiet)); then
     echo "[X] Django and ArchiveBox were not found after installing!"
     echo "    Check to see if a previous step failed."
     echo
