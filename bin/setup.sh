@@ -179,7 +179,7 @@ fi
 
 echo
 echo "[+] Installing Chromium binary using playwright..."
-playwright install --with-deps chromium
+python3 -m playwright install --with-deps chromium || true
 echo
 
 echo
@@ -191,7 +191,7 @@ if [ -f "./index.sqlite3" ]; then
 fi
 cd ./data
 : | python3 -m archivebox init --setup || true   # pipe in empty command to make sure stdin is closed
-: | python3 -m archivebox version
+# init shows version output at the end too
 echo
 echo "[+] Starting ArchiveBox server using: nohup archivebox server &..."
 nohup python3 -m archivebox server 0.0.0.0:8000 > ./logs/server.log 2>&1 &
@@ -200,11 +200,11 @@ which open > /dev/null && open "http://127.0.0.1:8000" || true
 echo
 echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox/data. Usage:"
 echo "    cd ~/archivebox/data                               # see your data dir"
+echo "    archivebox server --quick-init 0.0.0.0:8000        # start server process"
+echo "    archivebox manage createsuperuser                  # add an admin user+pass"
 echo "    ps aux | grep archivebox                           # see server process pid"
 echo "    pkill -f archivebox                                # stop the server"
-echo "    archivebox server --quick-init 0.0.0.0:8000        # start server process"
 echo "    pip install --upgrade archivebox; archivebox init  # update versions"
-echo "    archivebox manage createsuperuser                  # add an admin user+pass"
 echo "    archivebox add 'https://example.com'"              # archive a new URL
 echo "    archivebox list                                    # see URLs archived"
 echo "    archivebox help                                    # see more help & examples"
