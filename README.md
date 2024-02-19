@@ -302,7 +302,9 @@ sudo apt update
 <li>Install the ArchiveBox package using <code>apt</code>.
 <pre lang="bash"><code style="white-space: pre-line">sudo apt install archivebox
 # update to newest version with pip (sometimes apt package is outdated)
-pip install --upgrade --ignore-installed archivebox
+pip install --upgrade --ignore-installed archivebox yt-dlp playwright
+playwright install --with-deps chromium    # install chromium and its system dependencies
+archivebox version                         # make sure all dependencies are installed
 </code></pre>
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
