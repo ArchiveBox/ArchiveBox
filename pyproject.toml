@@ -8,7 +8,7 @@ authors = [
 license = {text = "MIT"}
 readme = "README.md"
 package-dir = "archivebox"
-requires-python = ">=3.9,<3.12"
+requires-python = ">=3.10,<3.12"
 dependencies = [
     # pdm update [--unconstrained] 
     "croniter>=0.3.34",
@@ -21,8 +21,10 @@ dependencies = [
     "requests>=2.24.0",
     "w3lib>=1.22.0",
     "yt-dlp>=2023.10.13",
+    #  dont add playwright becuase packages without sdists cause trouble on many build systems that refuse to install wheel-only packages
     # "playwright>=1.39.0; platform_machine != 'armv7l'",
 ]
+
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -64,7 +66,7 @@ sonic = [
     "sonic-client>=0.0.5",
 ]
 ldap = [
-    # apt install libldap2-dev libsasl2-dev
+    # apt install libldap2-dev libsasl2-dev python3-ldap
     "setuptools>=69.0.3",
     "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
@@ -104,6 +106,7 @@ dev = [
 lint = "./bin/lint.sh"
 test = "./bin/test.sh"
 # all = {composite = ["lint mypackage/", "test -v tests/"]}
+
 
 [project.scripts]
 archivebox = "archivebox.cli:main"
