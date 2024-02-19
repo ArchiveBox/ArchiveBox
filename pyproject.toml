@@ -16,10 +16,9 @@ dependencies = [
     "requests>=2.24.0",
     "w3lib>=1.22.0",
     "yt-dlp>=2023.10.13",
-    #  dont add playwright becuase packages without sdists cause trouble on many build systems that refuse to install wheel-only packages
     # "playwright>=1.39.0; platform_machine != 'armv7l'",
 ]
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.9,<3.12"
 readme = "README.md"
 license = {text = "MIT"}
 classifiers = [
@@ -92,7 +91,7 @@ sonic = [
     "sonic-client>=0.0.5",
 ]
 ldap = [
-    # apt install libldap2-dev libsasl2-dev python3-ldap
+    # apt install libldap2-dev libsasl2-dev
     "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
 ]
