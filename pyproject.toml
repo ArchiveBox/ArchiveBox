@@ -8,7 +8,7 @@ authors = [
 license = {text = "MIT"}
 readme = "README.md"
 package-dir = "archivebox"
-requires-python = ">=3.9,<3.12"
+requires-python = ">=3.10,<3.12"
 dependencies = [
     # pdm update [--unconstrained] 
     "ipython>5.0.0",
@@ -21,10 +21,12 @@ dependencies = [
     "django-solo>=2.0.0",
     "w3lib>=1.22.0",
     "yt-dlp>=2023.10.13",
+    #  dont add playwright becuase packages without sdists cause trouble on many build systems that refuse to install wheel-only packages
     # "playwright>=1.39.0; platform_machine != 'armv7l'",
     "mypy-extensions>=0.4.3",
     # "django-stubs-ext>=4.2.7",
 ]
+
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -66,7 +68,7 @@ sonic = [
     "sonic-client>=0.0.5",
 ]
 ldap = [
-    # apt install libldap2-dev libsasl2-dev
+    # apt install libldap2-dev libsasl2-dev python3-ldap
     "setuptools>=69.0.3",
     "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
