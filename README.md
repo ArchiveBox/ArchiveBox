@@ -336,7 +336,9 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <pre lang="bash"><code style="white-space: pre-line">brew tap archivebox/archivebox
 brew install archivebox
 # update to newest version with pip (sometimes brew package is outdated)
-pip install --upgrade --ignore-installed archivebox
+pip install --upgrade --ignore-installed archivebox yt-dlp playwright
+playwright install --with-deps chromium    # install chromium and its system dependencies
+archivebox version                         # make sure all dependencies are installed
 </code></pre>
 <i>See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup">Install: Bare Metal</a> Wiki for more granular instructions for macOS... ➡️</i>
 </li>
