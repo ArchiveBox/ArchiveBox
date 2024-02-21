@@ -259,9 +259,10 @@ See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as a
 
 <li>Install <a href="https://realpython.com/installing-python/">Python >= v3.10</a> and <a href="https://nodejs.org/en/download/package-manager/">Node >= v18</a> on your system (if not already installed).</li>
 <li>Install the ArchiveBox package using <code>pip3</code> (or <a href="https://pipx.pypa.io"><code>pipx</code></a>).
-<pre lang="bash"><code style="white-space: pre-line">pip3 install archivebox
+<pre lang="bash"><code style="white-space: pre-line">pip3 install --upgrade archivebox yt-dlp playwright
+playwright install --with-deps chromium
 archivebox version
-# install any missing extras shown using apt/brew/pkg/etc.
+# install any missing extras shown using apt/brew/pkg/etc. see Wiki for instructions
 #    python@3.10 node curl wget git ripgrep ...
 </code></pre>
 <i>See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install">Install: Bare Metal</a> Wiki for full install instructions for each OS...</i>
@@ -269,7 +270,7 @@ archivebox version
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data   # for example
 archivebox init --setup   # instantialize a new collection
-# (--setup auto-installs and link JS dependencies: singlefile, readability, etc.)
+# (--setup auto-installs and link JS dependencies: singlefile, readability, mercury, etc.)
 </code></pre>
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
@@ -301,7 +302,9 @@ sudo apt update
 <li>Install the ArchiveBox package using <code>apt</code>.
 <pre lang="bash"><code style="white-space: pre-line">sudo apt install archivebox
 # update to newest version with pip (sometimes apt package is outdated)
-pip install --upgrade --ignore-installed archivebox
+pip install --upgrade --ignore-installed archivebox yt-dlp playwright
+playwright install --with-deps chromium    # install chromium and its system dependencies
+archivebox version                         # make sure all dependencies are installed
 </code></pre>
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
@@ -333,7 +336,9 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <pre lang="bash"><code style="white-space: pre-line">brew tap archivebox/archivebox
 brew install archivebox
 # update to newest version with pip (sometimes brew package is outdated)
-pip install --upgrade --ignore-installed archivebox
+pip install --upgrade --ignore-installed archivebox yt-dlp playwright
+playwright install --with-deps chromium    # install chromium and its system dependencies
+archivebox version                         # make sure all dependencies are installed
 </code></pre>
 <i>See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup">Install: Bare Metal</a> Wiki for more granular instructions for macOS... ➡️</i>
 </li>
