@@ -187,12 +187,15 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--no-parent',
                                                                 '-e', 'robots=off',
                                                                 ]},
+        'WGET_EXTRA_ARGS':          {'type': list,  'default': None},
         'CURL_ARGS':                {'type': list,  'default': ['--silent',
                                                                 '--location',
                                                                 '--compressed'
                                                                ]},
+        'CURL_EXTRA_ARGS':          {'type': list,  'default': None},
         'GIT_ARGS':                 {'type': list,  'default': ['--recursive']},
-        'SINGLEFILE_ARGS':          {'type': list,  'default' : None},
+        'SINGLEFILE_ARGS':          {'type': list,  'default': None},
+        'SINGLEFILE_EXTRA_ARGS':    {'type': list,  'default': None},
         'FAVICON_PROVIDER':         {'type': str,   'default': 'https://www.google.com/s2/favicons?domain={}'},
     },
 
@@ -530,6 +533,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'CURL_VERSION':             {'default': lambda c: bin_version(c['CURL_BINARY']) if c['USE_CURL'] else None},
     'CURL_USER_AGENT':          {'default': lambda c: c['CURL_USER_AGENT'].format(**c)},
     'CURL_ARGS':                {'default': lambda c: c['CURL_ARGS'] or []},
+    'CURL_EXTRA_ARGS':          {'default': lambda c: c['CURL_EXTRA_ARGS'] or []},
     'SAVE_FAVICON':             {'default': lambda c: c['USE_CURL'] and c['SAVE_FAVICON']},
     'SAVE_ARCHIVE_DOT_ORG':     {'default': lambda c: c['USE_CURL'] and c['SAVE_ARCHIVE_DOT_ORG']},
 
@@ -540,12 +544,14 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'SAVE_WGET':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WGET']},
     'SAVE_WARC':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WARC']},
     'WGET_ARGS':                {'default': lambda c: c['WGET_ARGS'] or []},
+    'WGET_EXTRA_ARGS':          {'default': lambda c: c['WGET_EXTRA_ARGS'] or []},
 
     'RIPGREP_VERSION':          {'default': lambda c: bin_version(c['RIPGREP_BINARY']) if c['USE_RIPGREP'] else None},
 
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
     'SINGLEFILE_ARGS':          {'default': lambda c: c['SINGLEFILE_ARGS'] or []},
+    'SINGLEFILE_EXTRA_ARGS':    {'default': lambda c: c['SINGLEFILE_EXTRA_ARGS'] or []},
 
     'USE_READABILITY':          {'default': lambda c: c['USE_READABILITY'] and c['SAVE_READABILITY']},
     'READABILITY_VERSION':      {'default': lambda c: bin_version(c['READABILITY_BINARY']) if c['USE_READABILITY'] else None},

@@ -317,6 +317,23 @@ def ansi_to_html(text):
     return COLOR_REGEX.sub(single_sub, text)
 
 
+@enforce_types
+def dedupe(*options: List[str]) -> List[str]:
+    """
+    Deduplicates the given options. Options that come earlier in the list clobber
+    later conflicting options.
+    """
+    seen_option_names = []
+    def test_seen(argument):
+        option_name = argument.split("=")[0]
+        if option_name in seen_option_names:
+            return False
+        else:
+            seen_option_names.append(option_name)
+            return True
+    return list(filter(test_seen, options))
+
+
 class AttributeDict(dict):
     """Helper to allow accessing dict values via Example.key or Example['key']"""
 

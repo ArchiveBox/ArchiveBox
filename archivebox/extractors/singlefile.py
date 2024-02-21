@@ -11,6 +11,7 @@ from ..util import (
     enforce_types,
     is_static_file,
     chrome_args,
+    dedupe,
 )
 from ..config import (
     TIMEOUT,
@@ -18,6 +19,7 @@ from ..config import (
     DEPENDENCIES,
     SINGLEFILE_VERSION,
     SINGLEFILE_ARGS,
+    SINGLEFILE_EXTRA_ARGS,
     CHROME_BINARY,
 )
 from ..logging_util import TimedProgress
@@ -46,11 +48,6 @@ def save_singlefile(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
 
     # SingleFile CLI Docs: https://github.com/gildas-lormeau/SingleFile/tree/master/cli
     browser_args = '--browser-args={}'.format(json.dumps(browser_args[1:]))
-    options = [
-        *SINGLEFILE_ARGS,
-        '--browser-executable-path={}'.format(CHROME_BINARY),
-        browser_args,
-    ]
 
     # Deduplicate options (single-file doesn't like when you use the same option two times)
     #
@@ -58,19 +55,15 @@ def save_singlefile(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
     # My logic is SINGLEFILE_ARGS is the option that affects the singlefile command with most 
     # specificity, therefore the user sets it with a lot intent, therefore it should take precedence 
     # kind of like the ergonomic principle of lexical scope in programming languages.
-    seen_option_names = []
-    def test_seen(argument):
-        option_name = argument.split("=")[0]
-        if option_name in seen_option_names:
-            return False
-        else:
-            seen_option_names.append(option_name)
-            return True
-    deduped_options = list(filter(test_seen, options))
-
+    options = [
+        '--browser-executable-path={}'.format(CHROME_BINARY),
+        browser_args,
+        *SINGLEFILE_EXTRA_ARGS,
+        *SINGLEFILE_ARGS,
+    ]
     cmd = [
         DEPENDENCIES['SINGLEFILE_BINARY']['path'],
-        *deduped_options,
+        *dedupe(*options),
         link.url,
         output,
     ]
