@@ -1441,7 +1441,7 @@ archivebox init --setup
 </details>
 
 
-#### Make migrations or enter a django shell
+#### Make DB migrations, enter Django shell, or view ORM models graph
 
 <details><summary><i>Click to expand...</i></summary>
 
@@ -1454,9 +1454,16 @@ cd archivebox/
 cd path/to/test/data/
 archivebox shell
 archivebox manage dbshell
+
+# generate a graph of the ORM models
+brew install graphviz
+pip install pydot graphviz
+archivebox manage graph_models -a -o orm.png
+open orm.png
 ```
 
-(uses `pytest -s`)  
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/dc3e9f8c-9544-46e0-a7f0-30f571b72022" width="600px" alt="ArchiveBox ORM models relatinoship graph"/>
+
 https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
 
 </details>
