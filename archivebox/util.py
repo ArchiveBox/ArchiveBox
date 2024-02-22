@@ -179,7 +179,11 @@ def download_url(url: str, timeout: int=None) -> str:
     if encoding is not None:
         response.encoding = encoding
 
-    return response.text
+    try:
+        return response.text
+    except UnicodeDecodeError:
+        # if response is non-test (e.g. image or other binary files), just return the filename instead
+        return url.rsplit('/', 1)[-1]
 
 @enforce_types
 def get_headers(url: str, timeout: int=None) -> str:

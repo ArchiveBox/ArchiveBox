@@ -75,7 +75,7 @@ def get_html(link: Link, path: Path, timeout: int=TIMEOUT) -> str:
             with open(abs_path / source, "r", encoding="utf-8") as f:
                 document = f.read()
                 break
-        except (FileNotFoundError, TypeError):
+        except (FileNotFoundError, TypeError, UnicodeDecodeError):
             continue
     if document is None:
         return download_url(link.url, timeout=timeout)

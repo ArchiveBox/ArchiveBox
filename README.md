@@ -408,7 +408,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 > *Warning: These are contributed by external volunteers and may lag behind the official `pip` channel.*
 
 <ul>
-<li><a href="https://dev.to/finloop/setting-up-archivebox-on-truenas-scale-1788">TrueNAS</a></li>
+<li>TrueNAS: <a href="https://truecharts.org/charts/incubator/archivebox/">Official ArchiveBox TrueChart</a> / <a href="https://dev.to/finloop/setting-up-archivebox-on-truenas-scale-1788">Custom App Guide</a></li>
 <li><a href="https://unraid.net/community/apps?q=archivebox#r">UnRaid</a></li>
 <li><a href="https://github.com/YunoHost-Apps/archivebox_ynh">Yunohost</a></li>
 <li><a href="https://www.cloudron.io/store/io.archivebox.cloudronapp.html">Cloudron</a></li>
@@ -1441,23 +1441,62 @@ archivebox init --setup
 </details>
 
 
-#### Make migrations or enter a django shell
+#### Make DB migrations, enter Django shell, other dev helper commands
 
 <details><summary><i>Click to expand...</i></summary>
 
-Make sure to run this whenever you change things in `models.py`.
-
 ```bash
+# generate the database migrations after changes to models.py
 cd archivebox/
 ./manage.py makemigrations
 
+# enter a python shell or a SQL shell
 cd path/to/test/data/
 archivebox shell
 archivebox manage dbshell
+
+# generate a graph of the ORM models
+brew install graphviz
+pip install pydot graphviz
+archivebox manage graph_models -a -o orm.png
+open orm.png
+
+# list all models with field db info and methods
+archivebox manage list_model_info --all --signature --db-type --field-class
+
+# print all django settings
+archivebox manage print_settings
+archivebox manage print_settings --format=yaml    # pip install pyyaml
+
+# autogenerate an admin.py from given app models
+archivebox manage admin_generator core > core/admin.py
+
+# dump db data to a script that re-populates it
+archivebox manage dumpscript core > scripts/testdata.py
+archivebox manage reset core
+archivebox manage runscript testdata
+
+# resetdb and clear all data!
+archivebox manage reset_db
+
+# use django-tui to interactively explore commands
+pip install django-tui
+# ensure django-tui is in INSTALLED_APPS: core/settings.py
+archivebox manage tui
+
+# show python and JS package dependency trees
+pdm list --tree
+npm ls --all
 ```
 
-(uses `pytest -s`)  
-https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
+<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/dc3e9f8c-9544-46e0-a7f0-30f571b72022" width="600px" alt="ArchiveBox ORM models relatinoship graph"/>
+
+- https://django-extensions.readthedocs.io/en/latest/command_extensions.html
+- https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
+- https://github.com/anze3db/django-tui (explore `manage.py` commands as TUI)
+- https://github.com/bloomberg/memray (advanced python profiler)
+- https://github.com/laixintao/flameshow (display flamegraphs in terminal)
+- https://github.com/taliraj/django-migrations-tui (explore migrations as TUI)
 
 </details>
 
