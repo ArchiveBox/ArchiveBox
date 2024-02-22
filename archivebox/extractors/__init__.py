@@ -186,6 +186,13 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                         ts
                     ) + "\n" + str(e) + "\n"))
                     #f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
+               
+                # print(f'        ERROR: {method_name} {e.__class__.__name__}: {e} {getattr(e, "hints", "")}', ts, link.url, command)
+                raise Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
+                    method_name,
+                    link.url,
+                )) from e
+
 
         # print('    ', stats)
 
@@ -218,7 +225,7 @@ def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=Fa
 
     if type(all_links) is QuerySet:
         num_links: int = all_links.count()
-        get_link = lambda x: x.as_link()
+        get_link = lambda x: x.as_link_with_details()
         all_links = all_links.iterator()
     else:
         num_links: int = len(all_links)

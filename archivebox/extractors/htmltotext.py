@@ -121,9 +121,11 @@ def save_htmltotext(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
 
     out_dir = Path(out_dir or link.link_dir)
     output = "htmltotext.txt"
+    cmd = ['(internal) archivebox.extractors.htmltotext', './{singlefile,dom}.html']
 
     timer = TimedProgress(timeout, prefix='      ')
     extracted_text = None
+    status = 'failed'
     try:
         extractor = HTMLTextExtractor()
         document = get_html(link, out_dir)
@@ -136,10 +138,9 @@ def save_htmltotext(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
         extracted_text = str(extractor)
 
         atomic_write(str(out_dir / output), extracted_text)
+        status = 'succeeded'
     except (Exception, OSError) as err:
-        status = 'failed'
         output = err
-        cmd = ['(internal) archivebox.extractors.htmltotext', './{singlefile,dom}.html']
     finally:
         timer.end()
 
