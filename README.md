@@ -1483,6 +1483,10 @@ archivebox manage reset_db
 pip install django-tui
 # ensure django-tui is in INSTALLED_APPS: core/settings.py
 archivebox manage tui
+
+# show python and JS package dependency trees
+pdm list --tree
+npm ls --all
 ```
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/dc3e9f8c-9544-46e0-a7f0-30f571b72022" width="600px" alt="ArchiveBox ORM models relatinoship graph"/>
