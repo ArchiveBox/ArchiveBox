@@ -131,7 +131,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 
         link = load_link_details(link, out_dir=out_dir)
         write_link_details(link, out_dir=out_dir, skip_sql_index=False)
-        log_link_archiving_started(link, out_dir, is_new)
+        log_link_archiving_started(link, str(out_dir), is_new)
         link = link.overwrite(updated=datetime.now(timezone.utc))
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
         start_ts = datetime.now(timezone.utc)
@@ -165,16 +165,6 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                     # print('{black}      X {}{reset}'.format(method_name, **ANSI))
                     stats['skipped'] += 1
             except Exception as e:
-                # Disabled until https://github.com/ArchiveBox/ArchiveBox/issues/984
-                # and https://github.com/ArchiveBox/ArchiveBox/issues/1014
-                # are fixed.
-                """
-                raise Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
-                    method_name,
-                    link.url,
-                )) from e
-                """
-                # Instead, use the kludgy workaround from
                 # https://github.com/ArchiveBox/ArchiveBox/issues/984#issuecomment-1150541627
                 with open(ERROR_LOG, "a", encoding='utf-8') as f:
                     command = ' '.join(sys.argv)
