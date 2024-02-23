@@ -150,7 +150,7 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 - **Individuals:**
   `saving bookmarks`, `preserving portfolio content`, `legacy / memoirs archival`
 - **Governments:**  
-  `snapshoting public records / govt sites`, `recordkeeping compliance`, `libraries`
+  `snapshoting public service sites`, `recordkeeping compliance`, `libraries`
 
 > ***[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your org wants help using ArchiveBox professionally. We offer services such as:*
 > 
