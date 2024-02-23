@@ -149,15 +149,12 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
   `analyzing social media trends`, `getting LLM training data`, `crawling pipelines`
 - **Individuals:**
   `saving bookmarks`, `preserving portfolio content`, `legacy / memoirs archival`
-- **Governments:**  
-  `snapshoting public service sites`, `recordkeeping compliance`, `libraries`
+- **Governments:**
+  `snapshoting public service sites`, `recordkeeping compliance`
 
-> ***[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your org wants help using ArchiveBox professionally. We offer services such as:*
-> 
-> - setup & support, hosting, custom features, security, hashing & audit logging for chain-of-custody, etc.  
-> - for **individuals**, **NGOs**, **academia**, **governments**, **journalism**, **law**, and more...
-
-*ArchiveBox has 🏛️ 501(c)(3) [nonprofit status](https://hackclub.com/hcb/) and all our work goes towards supporting open-source development.* 
+> ***[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your org wants help using ArchiveBox professionally.*  
+> We offer: setup & support, hosting, custom features, security, hashing & audit logging for chain-of-custody, etc.  
+> *ArchiveBox has 🏛️ 501(c)(3) [nonprofit status](https://hackclub.com/hcb/) and all our work goes towards supporting open-source development.* 
 
 <br/>
 
