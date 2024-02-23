@@ -141,21 +141,23 @@ curl -fsSL 'https://get.archivebox.io' | sh
 
 ArchiveBox is free for everyone to self-host, but we also provide support, security review, and custom integrations to help NGOs, governments, and other organizations [run ArchiveBox professionally](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102):
 
-- 🗞️ **Journalists:**
+- **Journalists:**
   `crawling during research`, `preserving cited pages`, `fact-checking & review`  
-- ⚖️ **Lawyers:**
+- **Lawyers:**
   `collecting & preserving evidence`, `detecting changes`, `tagging & review`  
-- 🔬 **Researchers:**
+- **Researchers:**
   `analyzing social media trends`, `getting LLM training data`, `crawling pipelines`
-- 👩🏽 **Individuals:**
+- **Individuals:**
   `saving bookmarks`, `preserving portfolio content`, `legacy / memoirs archival`
+- **Governments:**  
+  `snapshoting public records / govt sites`, `recordkeeping compliance`, `libraries`
 
-> ***[Contact our team](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your institution/org wants to use ArchiveBox professionally. We offer services such as:*
+> ***[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your org wants help using ArchiveBox professionally. We offer services such as:*
 > 
 > - setup & support, hosting, custom features, security, hashing & audit logging for chain-of-custody, etc.  
 > - for **individuals**, **NGOs**, **academia**, **governments**, **journalism**, **law**, and more...
 
-*We are a 🏛️ 501(c)(3) nonprofit and all our work goes towards supporting open-source development.* 
+*ArchiveBox has 🏛️ 501(c)(3) [nonprofit status](https://hackclub.com/hcb/) and all our work goes towards supporting open-source development.* 
 
 <br/>
 
