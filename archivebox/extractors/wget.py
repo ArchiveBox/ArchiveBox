@@ -69,7 +69,7 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
         *([] if SAVE_WARC else ['--timestamping']),
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate', '--no-hsts']),
         # '--server-response',  # print headers for better error parsing
-        *WGET_EXTRA_ARGS, 
+        *WGET_EXTRA_ARGS,
         *WGET_ARGS,
     ]
     cmd = [
