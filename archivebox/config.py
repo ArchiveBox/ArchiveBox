@@ -152,6 +152,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'CHROME_TIMEOUT':           {'type': int,   'default': 0},
         'CHROME_HEADLESS':          {'type': bool,  'default': True},
         'CHROME_SANDBOX':           {'type': bool,  'default': lambda c: not c['IN_DOCKER']},
+        'CHROME_EXTRA_ARGS':        {'type': list,  'default': None},
+
         'YOUTUBEDL_ARGS':           {'type': list,  'default': lambda c: [
                                                                 '--restrict-filenames',
                                                                 '--trim-filenames', '128',
@@ -568,6 +570,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'YOUTUBEDL_VERSION':        {'default': lambda c: bin_version(c['YOUTUBEDL_BINARY']) if c['USE_YOUTUBEDL'] else None},
     'SAVE_MEDIA':               {'default': lambda c: c['USE_YOUTUBEDL'] and c['SAVE_MEDIA']},
     'YOUTUBEDL_ARGS':           {'default': lambda c: c['YOUTUBEDL_ARGS'] or []},
+    'YOUTUBEDL_EXTRA_ARGS':     {'default': lambda c: c['YOUTUBEDL_EXTRA_ARGS'] or []},
 
     'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] or find_chrome_binary()},
     'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and c['CHROME_BINARY'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'] or c['SAVE_SINGLEFILE'])},
@@ -589,6 +592,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'EXTERNAL_LOCATIONS':       {'default': lambda c: get_external_locations(c)},
     'DATA_LOCATIONS':           {'default': lambda c: get_data_locations(c)},
     'CHROME_OPTIONS':           {'default': lambda c: get_chrome_info(c)},
+    'CHROME_EXTRA_ARGS':        {'default': lambda c: c['CHROME_EXTRA_ARGS'] or []},
     'SAVE_ALLOWLIST_PTN':       {'default': lambda c: c['SAVE_ALLOWLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_ALLOWLIST'].items()}},
     'SAVE_DENYLIST_PTN':        {'default': lambda c: c['SAVE_DENYLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_DENYLIST'].items()}},
 }

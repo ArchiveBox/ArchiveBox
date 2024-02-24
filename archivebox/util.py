@@ -227,7 +227,11 @@ def chrome_args(**options) -> List[str]:
 
     # Chrome CLI flag documentation: https://peter.sh/experiments/chromium-command-line-switches/
 
-    from .config import CHROME_OPTIONS, CHROME_VERSION
+    from .config import (
+        CHROME_OPTIONS,
+        CHROME_VERSION,
+        CHROME_EXTRA_ARGS,
+    )
 
     options = {**CHROME_OPTIONS, **options}
 
@@ -279,8 +283,10 @@ def chrome_args(**options) -> List[str]:
 
     if options['CHROME_USER_DATA_DIR']:
         cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
-    
-    return cmd_args
+
+    cmd_args += CHROME_EXTRA_ARGS
+
+    return dedupe(*cmd_args)
 
 def chrome_cleanup():
     """
