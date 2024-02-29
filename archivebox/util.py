@@ -174,7 +174,7 @@ def download_url(url: str, timeout: int=None) -> str:
     timeout = timeout or TIMEOUT
 
     cookie_jar = http.cookiejar.MozillaCookieJar()
-    if COOKIES_FILE is not None:
+    if COOKIES_FILE and Path(COOKIES_FILE).is_file():
         cookie_jar.load(COOKIES_FILE, ignore_discard=True, ignore_expires=True)
     else:
         cookie_jar = None
