@@ -66,9 +66,14 @@ def parse_generic_json_export(json_file: IO[str], **_kwargs) -> Iterable[Link]:
             elif link.get('name'):
                 title = link['name'].strip()
 
-            tags = ''
-            if link.get('tags'):
-                tags = link.get('tags').replace(' ',',')
+            # if we have a list, join it with commas
+            tags = link.get('tags')
+            if type(tags) == list:
+                tags = ','.join(tags)
+            elif type(tags) == str:
+                # if there's no comma, assume it was space-separated
+                if ',' not in tags:
+                    tags = tags.replace(' ', ',')
 
             yield Link(
                 url=htmldecode(url),
