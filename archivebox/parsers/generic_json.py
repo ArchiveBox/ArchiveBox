@@ -18,9 +18,16 @@ def parse_generic_json_export(json_file: IO[str], **_kwargs) -> Iterable[Link]:
 
     json_file.seek(0)
 
-    # sometimes the first line is a comment or filepath, so we get everything after the first {
-    json_file_json_str = '{' + json_file.read().split('{', 1)[-1]
-    links = json.loads(json_file_json_str)
+    try:
+        links = json.load(json_file)
+    except json.decoder.JSONDecodeError:
+        # sometimes the first line is a comment or other junk, so try without
+        json_file.seek(0)
+        first_line = json_file.readline()
+        #print('      > Trying JSON parser without first line: "', first_line.strip(), '"', sep= '')
+        links = json.load(json_file)
+        # we may fail again, which means we really don't know what to do
+
     json_date = lambda s: datetime.strptime(s, '%Y-%m-%dT%H:%M:%S%z')
 
     for link in links:
@@ -59,11 +66,20 @@ def parse_generic_json_export(json_file: IO[str], **_kwargs) -> Iterable[Link]:
             elif link.get('name'):
                 title = link['name'].strip()
 
+            # if we have a list, join it with commas
+            tags = link.get('tags')
+            if type(tags) == list:
+                tags = ','.join(tags)
+            elif type(tags) == str:
+                # if there's no comma, assume it was space-separated
+                if ',' not in tags:
+                    tags = tags.replace(' ', ',')
+
             yield Link(
                 url=htmldecode(url),
                 timestamp=ts_str,
                 title=htmldecode(title) or None,
-                tags=htmldecode(link.get('tags')) or '',
+                tags=htmldecode(tags),
                 sources=[json_file.name],
             )
 
