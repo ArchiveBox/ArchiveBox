@@ -240,6 +240,8 @@ def chrome_args(**options) -> List[str]:
 
     cmd_args = [options['CHROME_BINARY']]
 
+    cmd_args += CHROME_EXTRA_ARGS
+
     if options['CHROME_HEADLESS']:
         chrome_major_version = int(re.search(r'\s(\d+)\.\d', CHROME_VERSION)[1])
         if chrome_major_version >= 111:
@@ -284,7 +286,6 @@ def chrome_args(**options) -> List[str]:
     if options['CHROME_USER_DATA_DIR']:
         cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
 
-    cmd_args += CHROME_EXTRA_ARGS
 
     return dedupe(*cmd_args)
 
@@ -324,20 +325,17 @@ def ansi_to_html(text):
 
 
 @enforce_types
-def dedupe(*options: List[str]) -> List[str]:
+def dedupe(*options: str) -> List[str]:
     """
-    Deduplicates the given options. Options that come earlier in the list clobber
-    later conflicting options.
+    Deduplicates the given options. Options that come later clobber earlier
+    conflicting options.
     """
-    seen_option_names = []
-    def test_seen(argument):
-        option_name = argument.split("=")[0]
-        if option_name in seen_option_names:
-            return False
-        else:
-            seen_option_names.append(option_name)
-            return True
-    return list(filter(test_seen, options))
+    deduped = {}
+
+    for option in options:
+        deduped[option.split('=')[0]] = option
+
+    return list(deduped.values())
 
 
 class AttributeDict(dict):

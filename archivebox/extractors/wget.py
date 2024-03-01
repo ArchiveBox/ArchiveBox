@@ -57,8 +57,10 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
 
     # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
     output: ArchiveOutput = None
-    # earlier options take precedence
+    # later options take precedence
     options = [
+        *WGET_ARGS,
+        *WGET_EXTRA_ARGS,
         '--timeout={}'.format(timeout),
         *(['--restrict-file-names={}'.format(RESTRICT_FILE_NAMES)] if RESTRICT_FILE_NAMES else []),
         *(['--warc-file={}'.format(str(warc_path))] if SAVE_WARC else []),
@@ -69,8 +71,6 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
         *([] if SAVE_WARC else ['--timestamping']),
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate', '--no-hsts']),
         # '--server-response',  # print headers for better error parsing
-        *WGET_EXTRA_ARGS,
-        *WGET_ARGS,
     ]
     cmd = [
         WGET_BINARY,

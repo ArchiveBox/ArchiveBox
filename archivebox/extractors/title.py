@@ -104,13 +104,13 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
     from core.models import Snapshot
 
     output: ArchiveOutput = None
-    # earlier options take precedence
+    # later options take precedence
     options = [
+        *CURL_ARGS,
+        *CURL_EXTRA_ARGS,
         '--max-time', str(timeout),
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
-        *CURL_EXTRA_ARGS,
-        *CURL_ARGS,
     ]
     cmd = [
         CURL_BINARY,

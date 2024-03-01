@@ -42,14 +42,14 @@ def save_headers(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
 
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
-    # earlier options take precedence
+    # later options take precedence
     options = [
+        *CURL_ARGS,
+        *CURL_EXTRA_ARGS,
         '--head',
         '--max-time', str(timeout),
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
-        *CURL_EXTRA_ARGS,
-        *CURL_ARGS,
     ]
     cmd = [
         CURL_BINARY,

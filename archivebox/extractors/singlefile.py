@@ -48,18 +48,12 @@ def save_singlefile(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
 
     # SingleFile CLI Docs: https://github.com/gildas-lormeau/SingleFile/tree/master/cli
     browser_args = '--browser-args={}'.format(json.dumps(browser_args[1:]))
-
-    # Deduplicate options (single-file doesn't like when you use the same option two times)
-    #
-    # NOTE: Options names that come first clobber conflicting names that come later
-    # My logic is SINGLEFILE_ARGS is the option that affects the singlefile command with most 
-    # specificity, therefore the user sets it with a lot intent, therefore it should take precedence 
-    # kind of like the ergonomic principle of lexical scope in programming languages.
+    # later options take precedence
     options = [
-        '--browser-executable-path={}'.format(CHROME_BINARY),
-        browser_args,
-        *SINGLEFILE_EXTRA_ARGS,
         *SINGLEFILE_ARGS,
+        *SINGLEFILE_EXTRA_ARGS,
+        browser_args,
+        '--browser-executable-path={}'.format(CHROME_BINARY),
     ]
     cmd = [
         DEPENDENCIES['SINGLEFILE_BINARY']['path'],
