@@ -107,6 +107,8 @@ lint = "./bin/lint.sh"
 test = "./bin/test.sh"
 # all = {composite = ["lint mypackage/", "test -v tests/"]}
 
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]
 
 [project.scripts]
 archivebox = "archivebox.cli:main"
