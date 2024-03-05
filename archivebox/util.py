@@ -166,25 +166,25 @@ def parse_date(date: Any) -> Optional[datetime]:
 def download_url(url: str, timeout: int=None) -> str:
     """Download the contents of a remote url and return the text"""
     from .config import (
-         TIMEOUT,
-         CHECK_SSL_VALIDITY,
-         WGET_USER_AGENT,
-         COOKIES_FILE,
+        TIMEOUT,
+        CHECK_SSL_VALIDITY,
+        WGET_USER_AGENT,
+        COOKIES_FILE,
     )
     timeout = timeout or TIMEOUT
+    session = requests.Session()
 
-    cookie_jar = http.cookiejar.MozillaCookieJar()
-    if COOKIES_FILE is not None:
-        cookie_jar.load(COOKIES_FILE, ignore_discard=True, ignore_expires=True)
-    else:
-        cookie_jar = None
+    if COOKIES_FILE and Path(COOKIES_FILE).is_file():
+        cookie_jar = http.cookiejar.MozillaCookieJar(COOKIES_FILE)
+        cookie_jar.load(ignore_discard=True, ignore_expires=True)
+        for cookie in cookie_jar:
+            session.cookies.set(cookie.name, cookie.value, domain=cookie.domain, path=cookie.path)
 
-    response = requests.get(
+    response = session.get(
         url,
         headers={'User-Agent': WGET_USER_AGENT},
         verify=CHECK_SSL_VALIDITY,
         timeout=timeout,
-        cookies=cookie_jar,
     )
 
     content_type = response.headers.get('Content-Type', '')
