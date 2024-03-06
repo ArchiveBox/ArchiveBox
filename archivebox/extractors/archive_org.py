@@ -57,7 +57,7 @@ def save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, timeout: int=
     ]
     cmd = [
         CURL_BINARY,
-        *dedupe(*options),
+        *dedupe(options),
         submit_url,
     ]
     status = 'succeeded'

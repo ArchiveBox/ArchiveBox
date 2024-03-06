@@ -50,7 +50,7 @@ def save_favicon(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
     ]
     cmd = [
         CURL_BINARY,
-        *dedupe(*options),
+        *dedupe(options),
         FAVICON_PROVIDER.format(domain(link.url)),
     ]
     status = 'failed'

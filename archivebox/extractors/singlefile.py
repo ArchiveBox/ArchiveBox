@@ -57,7 +57,7 @@ def save_singlefile(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
     ]
     cmd = [
         DEPENDENCIES['SINGLEFILE_BINARY']['path'],
-        *dedupe(*options),
+        *dedupe(options),
         link.url,
         output,
     ]

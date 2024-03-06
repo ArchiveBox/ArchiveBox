@@ -50,7 +50,7 @@ def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIME
     ]
     cmd = [
         YOUTUBEDL_BINARY,
-        *dedupe(*options),
+        *dedupe(options),
         link.url,
     ]
     status = 'succeeded'

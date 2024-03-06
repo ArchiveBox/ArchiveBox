@@ -53,7 +53,7 @@ def save_headers(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) 
     ]
     cmd = [
         CURL_BINARY,
-        *dedupe(*options),
+        *dedupe(options),
         link.url,
     ]
     try:

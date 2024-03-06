@@ -114,7 +114,7 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
     ]
     cmd = [
         CURL_BINARY,
-        *dedupe(*options),
+        *dedupe(options),
         link.url,
     ]
     status = 'succeeded'

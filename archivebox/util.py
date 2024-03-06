@@ -287,7 +287,7 @@ def chrome_args(**options) -> List[str]:
         cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
 
 
-    return dedupe(*cmd_args)
+    return dedupe(cmd_args)
 
 def chrome_cleanup():
     """
@@ -325,7 +325,7 @@ def ansi_to_html(text):
 
 
 @enforce_types
-def dedupe(*options: str) -> List[str]:
+def dedupe(options: List[str]) -> List[str]:
     """
     Deduplicates the given options. Options that come later clobber earlier
     conflicting options.

@@ -74,7 +74,7 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
     ]
     cmd = [
         WGET_BINARY,
-        *dedupe(*options),
+        *dedupe(options),
         link.url,
     ]
 
