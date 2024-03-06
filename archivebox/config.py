@@ -199,6 +199,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'GIT_ARGS':                 {'type': list,  'default': ['--recursive']},
         'SINGLEFILE_ARGS':          {'type': list,  'default': None},
         'SINGLEFILE_EXTRA_ARGS':    {'type': list,  'default': None},
+        'MERCURY_ARGS':             {'type': list,  'default': ['--format=text']},
+        'MERCURY_EXTRA_ARGS':       {'type': list,  'default': None},
         'FAVICON_PROVIDER':         {'type': str,   'default': 'https://www.google.com/s2/favicons?domain={}'},
     },
 
@@ -561,6 +563,8 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
 
     'USE_MERCURY':              {'default': lambda c: c['USE_MERCURY'] and c['SAVE_MERCURY']},
     'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury doesnt expose version info until this is merged https://github.com/postlight/parser/pull/750
+    'MERCURY_ARGS':             {'default': lambda c: c['MERCURY_ARGS'] or []},
+    'MERCURY_EXTRA_ARGS':       {'default': lambda c: c['MERCURY_EXTRA_ARGS'] or []},
 
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
