@@ -35,7 +35,7 @@ Without active preservation effort, everything on the internet eventually dissap
 <hr/>
 <br/>
 
-📥 **You can feed ArchiveBox URLs one at a time, or schedule regular imports** from your bookmarks or history, social media feeds or RSS, link-saving services like Pocket/Pinboard, our [Browser Extension](https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj), and more.  
+📥 **You can feed ArchiveBox URLs one at a time, or schedule regular imports** from your bookmarks or history, social media feeds or RSS, link-saving services like Pocket/Pinboard, our [Browser Extension](https://github.com/ArchiveBox/archivebox-browser-extension), and more.  
 <sub>See <a href="#input-formats">Input Formats</a> for a full list of supported input formats...</sub>
 
 <br/>
