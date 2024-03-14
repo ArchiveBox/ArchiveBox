@@ -148,3 +148,71 @@ def test_json_with_leading_garbage(tmp_path, process, disable_extractors_dict):
     tags = list(map(lambda x: x[0], tags))
     assert "Tag1" in tags
     assert "Tag2" in tags
+
+def test_generic_rss(tmp_path, process, disable_extractors_dict):
+    with open('../../mock_server/templates/example.rss', 'r', encoding='utf-8') as f:
+        arg_process = subprocess.run(
+            ["archivebox", "add", "--index-only", "--parser=rss"],
+            stdin=f,
+            capture_output=True,
+            env=disable_extractors_dict,
+        )
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    urls = c.execute("SELECT url from core_snapshot").fetchall()
+    tags = c.execute("SELECT name from core_tag").fetchall()
+    conn.commit()
+    conn.close()
+
+    urls = list(map(lambda x: x[0], urls))
+    assert "http://127.0.0.1:8080/static/example.com.html" in urls
+    # if the following URL appears, we must have fallen back to another parser
+    assert not "http://purl.org/dc/elements/1.1/" in urls
+
+    tags = list(map(lambda x: x[0], tags))
+    assert "Tag1 Tag2" in tags
+
+def test_pinboard_rss(tmp_path, process, disable_extractors_dict):
+    with open('../../mock_server/templates/example.rss', 'r', encoding='utf-8') as f:
+        arg_process = subprocess.run(
+            ["archivebox", "add", "--index-only", "--parser=pinboard_rss"],
+            stdin=f,
+            capture_output=True,
+            env=disable_extractors_dict,
+        )
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    tags = c.execute("SELECT name from core_tag").fetchall()
+    conn.commit()
+    conn.close()
+
+    tags = list(map(lambda x: x[0], tags))
+    assert "Tag1" in tags
+    assert "Tag2" in tags
+
+def test_atom(tmp_path, process, disable_extractors_dict):
+    with open('../../mock_server/templates/example.atom', 'r', encoding='utf-8') as f:
+        arg_process = subprocess.run(
+            ["archivebox", "add", "--index-only", "--parser=rss"],
+            stdin=f,
+            capture_output=True,
+            env=disable_extractors_dict,
+        )
+
+    conn = sqlite3.connect("index.sqlite3")
+    c = conn.cursor()
+    urls = c.execute("SELECT url from core_snapshot").fetchall()
+    tags = c.execute("SELECT name from core_tag").fetchall()
+    conn.commit()
+    conn.close()
+
+    urls = list(map(lambda x: x[0], urls))
+    assert "http://127.0.0.1:8080/static/example.com.html" in urls
+    # if the following URL appears, we must have fallen back to another parser
+    assert not "http://www.w3.org/2005/Atom" in urls
+
+    tags = list(map(lambda x: x[0], tags))
+    assert "Tag1" in tags
+    assert "Tag2" in tags
