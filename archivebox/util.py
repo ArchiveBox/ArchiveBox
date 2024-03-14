@@ -3,6 +3,7 @@ __package__ = 'archivebox'
 import re
 import requests
 import json as pyjson
+import http.cookiejar
 
 from typing import List, Optional, Any
 from pathlib import Path
@@ -164,9 +165,22 @@ def parse_date(date: Any) -> Optional[datetime]:
 @enforce_types
 def download_url(url: str, timeout: int=None) -> str:
     """Download the contents of a remote url and return the text"""
-    from .config import TIMEOUT, CHECK_SSL_VALIDITY, WGET_USER_AGENT
+    from .config import (
+        TIMEOUT,
+        CHECK_SSL_VALIDITY,
+        WGET_USER_AGENT,
+        COOKIES_FILE,
+    )
     timeout = timeout or TIMEOUT
-    response = requests.get(
+    session = requests.Session()
+
+    if COOKIES_FILE and Path(COOKIES_FILE).is_file():
+        cookie_jar = http.cookiejar.MozillaCookieJar(COOKIES_FILE)
+        cookie_jar.load(ignore_discard=True, ignore_expires=True)
+        for cookie in cookie_jar:
+            session.cookies.set(cookie.name, cookie.value, domain=cookie.domain, path=cookie.path)
+
+    response = session.get(
         url,
         headers={'User-Agent': WGET_USER_AGENT},
         verify=CHECK_SSL_VALIDITY,
