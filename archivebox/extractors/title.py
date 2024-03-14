@@ -10,6 +10,7 @@ from ..util import (
     enforce_types,
     download_url,
     htmldecode,
+    dedupe,
 )
 from ..config import (
     TIMEOUT,
@@ -17,6 +18,7 @@ from ..config import (
     SAVE_TITLE,
     CURL_BINARY,
     CURL_ARGS,
+    CURL_EXTRA_ARGS,
     CURL_VERSION,
     CURL_USER_AGENT,
 )
@@ -102,12 +104,17 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
     from core.models import Snapshot
 
     output: ArchiveOutput = None
-    cmd = [
-        CURL_BINARY,
+    # later options take precedence
+    options = [
         *CURL_ARGS,
+        *CURL_EXTRA_ARGS,
         '--max-time', str(timeout),
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
+    ]
+    cmd = [
+        CURL_BINARY,
+        *dedupe(options),
         link.url,
     ]
     status = 'succeeded'
