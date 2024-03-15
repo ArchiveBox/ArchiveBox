@@ -20,7 +20,7 @@ dependencies = [
     "django-extensions>=3.0.3",
     "django-solo>=2.0.0",
     "w3lib>=1.22.0",
-    "yt-dlp>=2023.10.13",
+    "yt-dlp>=2024.3.10",
     #  dont add playwright becuase packages without sdists cause trouble on many build systems that refuse to install wheel-only packages
     # "playwright>=1.39.0; platform_machine != 'armv7l'",
     "mypy-extensions>=0.4.3",
@@ -128,6 +128,8 @@ lint = "./bin/lint.sh"
 test = "./bin/test.sh"
 # all = {composite = ["lint mypackage/", "test -v tests/"]}
 
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]
 
 [project.scripts]
 archivebox = "archivebox.cli:main"

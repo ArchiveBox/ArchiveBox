@@ -152,6 +152,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'CHROME_TIMEOUT':           {'type': int,   'default': 0},
         'CHROME_HEADLESS':          {'type': bool,  'default': True},
         'CHROME_SANDBOX':           {'type': bool,  'default': lambda c: not c['IN_DOCKER']},
+        'CHROME_EXTRA_ARGS':        {'type': list,  'default': None},
+
         'YOUTUBEDL_ARGS':           {'type': list,  'default': lambda c: [
                                                                 '--restrict-filenames',
                                                                 '--trim-filenames', '128',
@@ -176,6 +178,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--add-metadata',
                                                                 '--format=(bv*+ba/b)[filesize<={}][filesize_approx<=?{}]/(bv*+ba/b)'.format(c['MEDIA_MAX_SIZE'], c['MEDIA_MAX_SIZE']),
                                                                 ]},
+        'YOUTUBEDL_EXTRA_ARGS':     {'type': list,  'default': None},
 
 
         'WGET_ARGS':                {'type': list,  'default': ['--no-verbose',
@@ -187,12 +190,17 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--no-parent',
                                                                 '-e', 'robots=off',
                                                                 ]},
+        'WGET_EXTRA_ARGS':          {'type': list,  'default': None},
         'CURL_ARGS':                {'type': list,  'default': ['--silent',
                                                                 '--location',
                                                                 '--compressed'
                                                                ]},
+        'CURL_EXTRA_ARGS':          {'type': list,  'default': None},
         'GIT_ARGS':                 {'type': list,  'default': ['--recursive']},
-        'SINGLEFILE_ARGS':          {'type': list,  'default' : None},
+        'SINGLEFILE_ARGS':          {'type': list,  'default': None},
+        'SINGLEFILE_EXTRA_ARGS':    {'type': list,  'default': None},
+        'MERCURY_ARGS':             {'type': list,  'default': ['--format=text']},
+        'MERCURY_EXTRA_ARGS':       {'type': list,  'default': None},
         'FAVICON_PROVIDER':         {'type': str,   'default': 'https://www.google.com/s2/favicons?domain={}'},
     },
 
@@ -500,7 +508,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'LOGS_DIR':                 {'default': lambda c: c['OUTPUT_DIR'] / LOGS_DIR_NAME},
     'CONFIG_FILE':              {'default': lambda c: Path(c['CONFIG_FILE']).resolve() if c['CONFIG_FILE'] else c['OUTPUT_DIR'] / CONFIG_FILENAME},
     'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and Path(c['COOKIES_FILE']).resolve()},
-    'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (Path(c['CHROME_USER_DATA_DIR']).resolve() if c['CHROME_USER_DATA_DIR'] else None)},   # None means unset, so we autodetect it with find_chrome_Data_dir(), but emptystring '' means user manually set it to '', and we should store it as None
+    'CHROME_USER_DATA_DIR':     {'default': lambda c: Path(c['CHROME_USER_DATA_DIR']).resolve() if c['CHROME_USER_DATA_DIR'] else None},
     'URL_DENYLIST_PTN':         {'default': lambda c: c['URL_DENYLIST'] and re.compile(c['URL_DENYLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
     'URL_ALLOWLIST_PTN':        {'default': lambda c: c['URL_ALLOWLIST'] and re.compile(c['URL_ALLOWLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
     'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},  # exec is always needed to list directories
@@ -530,6 +538,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'CURL_VERSION':             {'default': lambda c: bin_version(c['CURL_BINARY']) if c['USE_CURL'] else None},
     'CURL_USER_AGENT':          {'default': lambda c: c['CURL_USER_AGENT'].format(**c)},
     'CURL_ARGS':                {'default': lambda c: c['CURL_ARGS'] or []},
+    'CURL_EXTRA_ARGS':          {'default': lambda c: c['CURL_EXTRA_ARGS'] or []},
     'SAVE_FAVICON':             {'default': lambda c: c['USE_CURL'] and c['SAVE_FAVICON']},
     'SAVE_ARCHIVE_DOT_ORG':     {'default': lambda c: c['USE_CURL'] and c['SAVE_ARCHIVE_DOT_ORG']},
 
@@ -540,18 +549,22 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'SAVE_WGET':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WGET']},
     'SAVE_WARC':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WARC']},
     'WGET_ARGS':                {'default': lambda c: c['WGET_ARGS'] or []},
+    'WGET_EXTRA_ARGS':          {'default': lambda c: c['WGET_EXTRA_ARGS'] or []},
 
     'RIPGREP_VERSION':          {'default': lambda c: bin_version(c['RIPGREP_BINARY']) if c['USE_RIPGREP'] else None},
 
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
     'SINGLEFILE_ARGS':          {'default': lambda c: c['SINGLEFILE_ARGS'] or []},
+    'SINGLEFILE_EXTRA_ARGS':    {'default': lambda c: c['SINGLEFILE_EXTRA_ARGS'] or []},
 
     'USE_READABILITY':          {'default': lambda c: c['USE_READABILITY'] and c['SAVE_READABILITY']},
     'READABILITY_VERSION':      {'default': lambda c: bin_version(c['READABILITY_BINARY']) if c['USE_READABILITY'] else None},
 
     'USE_MERCURY':              {'default': lambda c: c['USE_MERCURY'] and c['SAVE_MERCURY']},
     'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury doesnt expose version info until this is merged https://github.com/postlight/parser/pull/750
+    'MERCURY_ARGS':             {'default': lambda c: c['MERCURY_ARGS'] or []},
+    'MERCURY_EXTRA_ARGS':       {'default': lambda c: c['MERCURY_EXTRA_ARGS'] or []},
 
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
@@ -561,6 +574,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'YOUTUBEDL_VERSION':        {'default': lambda c: bin_version(c['YOUTUBEDL_BINARY']) if c['USE_YOUTUBEDL'] else None},
     'SAVE_MEDIA':               {'default': lambda c: c['USE_YOUTUBEDL'] and c['SAVE_MEDIA']},
     'YOUTUBEDL_ARGS':           {'default': lambda c: c['YOUTUBEDL_ARGS'] or []},
+    'YOUTUBEDL_EXTRA_ARGS':     {'default': lambda c: c['YOUTUBEDL_EXTRA_ARGS'] or []},
 
     'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] or find_chrome_binary()},
     'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and c['CHROME_BINARY'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'] or c['SAVE_SINGLEFILE'])},
@@ -582,6 +596,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'EXTERNAL_LOCATIONS':       {'default': lambda c: get_external_locations(c)},
     'DATA_LOCATIONS':           {'default': lambda c: get_data_locations(c)},
     'CHROME_OPTIONS':           {'default': lambda c: get_chrome_info(c)},
+    'CHROME_EXTRA_ARGS':        {'default': lambda c: c['CHROME_EXTRA_ARGS'] or []},
     'SAVE_ALLOWLIST_PTN':       {'default': lambda c: c['SAVE_ALLOWLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_ALLOWLIST'].items()}},
     'SAVE_DENYLIST_PTN':        {'default': lambda c: c['SAVE_DENYLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_DENYLIST'].items()}},
 }
@@ -920,27 +935,36 @@ def find_chrome_binary() -> Optional[str]:
 
 def find_chrome_data_dir() -> Optional[str]:
     """find any installed chrome user data directories in the default locations"""
-    # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
-    # make sure data dir finding precedence order always matches binary finding order
-    default_profile_paths = (
-        '~/.config/chromium',
-        '~/Library/Application Support/Chromium',
-        '~/AppData/Local/Chromium/User Data',
-        '~/.config/chrome',
-        '~/.config/google-chrome',
-        '~/Library/Application Support/Google/Chrome',
-        '~/AppData/Local/Google/Chrome/User Data',
-        '~/.config/google-chrome-stable',
-        '~/.config/google-chrome-beta',
-        '~/Library/Application Support/Google/Chrome Canary',
-        '~/AppData/Local/Google/Chrome SxS/User Data',
-        '~/.config/google-chrome-unstable',
-        '~/.config/google-chrome-dev',
-    )
-    for path in default_profile_paths:
-        full_path = Path(path).resolve()
-        if full_path.exists():
-            return full_path
+    # deprecated because this is DANGEROUS, do not re-implement/uncomment this behavior.
+
+    # Going forward we want to discourage people from using their main chrome profile for archiving.
+    # Session tokens, personal data, and cookies are often returned in server responses,
+    # when they get archived, they are essentially burned as anyone who can view the archive
+    # can use that data to masquerade as the logged-in user that did the archiving.
+    # For this reason users should always create dedicated burner profiles for archiving and not use
+    # their daily driver main accounts.
+
+    # # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
+    # # make sure data dir finding precedence order always matches binary finding order
+    # default_profile_paths = (
+    #     '~/.config/chromium',
+    #     '~/Library/Application Support/Chromium',
+    #     '~/AppData/Local/Chromium/User Data',
+    #     '~/.config/chrome',
+    #     '~/.config/google-chrome',
+    #     '~/Library/Application Support/Google/Chrome',
+    #     '~/AppData/Local/Google/Chrome/User Data',
+    #     '~/.config/google-chrome-stable',
+    #     '~/.config/google-chrome-beta',
+    #     '~/Library/Application Support/Google/Chrome Canary',
+    #     '~/AppData/Local/Google/Chrome SxS/User Data',
+    #     '~/.config/google-chrome-unstable',
+    #     '~/.config/google-chrome-dev',
+    # )
+    # for path in default_profile_paths:
+    #     full_path = Path(path).resolve()
+    #     if full_path.exists():
+    #         return full_path
     return None
 
 def wget_supports_compression(config):

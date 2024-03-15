@@ -3,6 +3,7 @@ __package__ = 'archivebox'
 import re
 import requests
 import json as pyjson
+import http.cookiejar
 
 from typing import List, Optional, Any
 from pathlib import Path
@@ -164,9 +165,22 @@ def parse_date(date: Any) -> Optional[datetime]:
 @enforce_types
 def download_url(url: str, timeout: int=None) -> str:
     """Download the contents of a remote url and return the text"""
-    from .config import TIMEOUT, CHECK_SSL_VALIDITY, WGET_USER_AGENT
+    from .config import (
+        TIMEOUT,
+        CHECK_SSL_VALIDITY,
+        WGET_USER_AGENT,
+        COOKIES_FILE,
+    )
     timeout = timeout or TIMEOUT
-    response = requests.get(
+    session = requests.Session()
+
+    if COOKIES_FILE and Path(COOKIES_FILE).is_file():
+        cookie_jar = http.cookiejar.MozillaCookieJar(COOKIES_FILE)
+        cookie_jar.load(ignore_discard=True, ignore_expires=True)
+        for cookie in cookie_jar:
+            session.cookies.set(cookie.name, cookie.value, domain=cookie.domain, path=cookie.path)
+
+    response = session.get(
         url,
         headers={'User-Agent': WGET_USER_AGENT},
         verify=CHECK_SSL_VALIDITY,
@@ -231,7 +245,11 @@ def chrome_args(**options) -> List[str]:
 
     # Chrome CLI flag documentation: https://peter.sh/experiments/chromium-command-line-switches/
 
-    from .config import CHROME_OPTIONS, CHROME_VERSION
+    from .config import (
+        CHROME_OPTIONS,
+        CHROME_VERSION,
+        CHROME_EXTRA_ARGS,
+    )
 
     options = {**CHROME_OPTIONS, **options}
 
@@ -239,6 +257,8 @@ def chrome_args(**options) -> List[str]:
         raise Exception('Could not find any CHROME_BINARY installed on your system')
 
     cmd_args = [options['CHROME_BINARY']]
+
+    cmd_args += CHROME_EXTRA_ARGS
 
     if options['CHROME_HEADLESS']:
         chrome_major_version = int(re.search(r'\s(\d+)\.\d', CHROME_VERSION)[1])
@@ -283,8 +303,9 @@ def chrome_args(**options) -> List[str]:
 
     if options['CHROME_USER_DATA_DIR']:
         cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
-    
-    return cmd_args
+
+
+    return dedupe(cmd_args)
 
 def chrome_cleanup():
     """
@@ -319,6 +340,20 @@ def ansi_to_html(text):
         return TEMPLATE.format(COLOR_DICT[color][0])
 
     return COLOR_REGEX.sub(single_sub, text)
+
+
+@enforce_types
+def dedupe(options: List[str]) -> List[str]:
+    """
+    Deduplicates the given options. Options that come later clobber earlier
+    conflicting options.
+    """
+    deduped = {}
+
+    for option in options:
+        deduped[option.split('=')[0]] = option
+
+    return list(deduped.values())
 
 
 class AttributeDict(dict):
