@@ -124,6 +124,21 @@ services:
     #         - ./data:/var/www
 
 
+    ### Example: Watch the ArchiveBox browser in realtime as it archives things,
+    # or remote control it to set up logins and credentials for sites you want to archive.
+    # https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile
+
+    novnc:
+        image: theasp/novnc:latest
+        environment:
+            - DISPLAY_WIDTH=1920
+            - DISPLAY_HEIGHT=1080
+            - RUN_XTERM=no
+        ports:
+            # to view/control ArchiveBox's browser, visit: http://localhost:8080/vnc.html
+            - "8080:8080"
+
+
     ### Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel
 
     # wireguard:
