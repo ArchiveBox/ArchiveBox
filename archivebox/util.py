@@ -303,9 +303,10 @@ def chrome_args(**options) -> List[str]:
 
     if options['CHROME_USER_DATA_DIR']:
         cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
-
+        cmd_args.append('--profile-directory=Default')
 
     return dedupe(cmd_args)
+
 
 def chrome_cleanup():
     """

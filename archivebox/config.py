@@ -142,9 +142,10 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'CHECK_SSL_VALIDITY':       {'type': bool,  'default': True},
         'MEDIA_MAX_SIZE':           {'type': str,   'default': '750m'},
 
-        'CURL_USER_AGENT':          {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) curl/{CURL_VERSION}'},
-        'WGET_USER_AGENT':          {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) wget/{WGET_VERSION}'},
-        'CHROME_USER_AGENT':        {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)'},
+        'USER_AGENT':               {'type': str,   'default': None},
+        'CURL_USER_AGENT':          {'type': str,   'default': lambda c: c['USER_AGENT'] or 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) curl/{CURL_VERSION}'},
+        'WGET_USER_AGENT':          {'type': str,   'default': lambda c: c['USER_AGENT'] or 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) wget/{WGET_VERSION}'},
+        'CHROME_USER_AGENT':        {'type': str,   'default': lambda c: c['USER_AGENT'] or 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)'},
 
         'COOKIES_FILE':             {'type': str,   'default': None},
         'CHROME_USER_DATA_DIR':     {'type': str,   'default': None},
@@ -280,6 +281,7 @@ TEMPLATES_DIR_NAME = 'templates'
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
 LOGS_DIR_NAME = 'logs'
+PERSONAS_DIR_NAME = 'personas'
 SQL_INDEX_FILENAME = 'index.sqlite3'
 JSON_INDEX_FILENAME = 'index.json'
 HTML_INDEX_FILENAME = 'index.html'
@@ -356,6 +358,7 @@ ALLOWED_IN_OUTPUT_DIR = {
     ARCHIVE_DIR_NAME,
     SOURCES_DIR_NAME,
     LOGS_DIR_NAME,
+    PERSONAS_DIR_NAME,
     SQL_INDEX_FILENAME,
     f'{SQL_INDEX_FILENAME}-wal',
     f'{SQL_INDEX_FILENAME}-shm',
@@ -506,6 +509,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'ARCHIVE_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / ARCHIVE_DIR_NAME},
     'SOURCES_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / SOURCES_DIR_NAME},
     'LOGS_DIR':                 {'default': lambda c: c['OUTPUT_DIR'] / LOGS_DIR_NAME},
+    'PERSONAS_DIR':             {'default': lambda c: c['OUTPUT_DIR'] / PERSONAS_DIR_NAME},
     'CONFIG_FILE':              {'default': lambda c: Path(c['CONFIG_FILE']).resolve() if c['CONFIG_FILE'] else c['OUTPUT_DIR'] / CONFIG_FILENAME},
     'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and Path(c['COOKIES_FILE']).resolve()},
     'CHROME_USER_DATA_DIR':     {'default': lambda c: Path(c['CHROME_USER_DATA_DIR']).resolve() if c['CHROME_USER_DATA_DIR'] else None},
@@ -1035,6 +1039,11 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'enabled': True,
             'is_valid': config['LOGS_DIR'].exists(),
         },
+        'PERSONAS': {
+            'path': config['PERSONAS'].resolve(),
+            'enabled': True,
+            'is_valid': config['PERSONAS'].exists(),
+        },
         'ARCHIVE_DIR': {
             'path': config['ARCHIVE_DIR'].resolve(),
             'enabled': True,
@@ -1382,6 +1391,8 @@ def check_migrations(out_dir: Union[str, Path, None]=None, config: ConfigDict=CO
 
     (Path(output_dir) / SOURCES_DIR_NAME).mkdir(exist_ok=True)
     (Path(output_dir) / LOGS_DIR_NAME).mkdir(exist_ok=True)
+    (Path(output_dir) / PERSONAS_DIR_NAME).mkdir(exist_ok=True)
+    (Path(output_dir) / PERSONAS_DIR_NAME / 'Default').mkdir(exist_ok=True)
 
 
 
