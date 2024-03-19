@@ -1060,7 +1060,6 @@ Improved support for saving multiple snapshots of a single URL without this hash
 </details>
 <br/>
 
-
 ### Storage Requirements
 
 Because ArchiveBox is designed to ingest a large volume of URLs with multiple copies of each URL stored by different 3rd-party tools, it can be quite disk-space intensive. There are also some special requirements when using filesystems like NFS/SMB/FUSE.
@@ -1070,17 +1069,16 @@ Because ArchiveBox is designed to ingest a large volume of URLs with multiple co
 <summary><i>Click to learn more about ArchiveBox's filesystem and hosting requirements...</i></summary>
 <br/>
 
-
-**ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles**, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
-
-Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. You can also deduplicate content with a tool like [fdupes](https://github.com/adrianlopezroche/fdupes) or [rdfind](https://github.com/pauldreik/rdfind).  
-
-**Don't store large collections on older filesystems like EXT3/FAT** as they may not be able to handle more than 50k directory entries in the `data/archive/` folder.
-
-**Try to keep the `data/index.sqlite3` file on local drive (not a network mount)** or SSD for maximum performance, however the `data/archive/` folder can be on a network mount or slower HDD.
-
-If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to set [`PUID` & `PGID`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid) and [disable `root_squash`](https://github.com/ArchiveBox/ArchiveBox/issues/1304) on your fileshare server.
-
+<ul>
+<li><strong>ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles</strong>, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.</li>
+<li>Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. You can also deduplicate content with a tool like [fdupes](https://github.com/adrianlopezroche/fdupes) or [rdfind](https://github.com/pauldreik/rdfind).  
+</li>
+<li><strong>Don't store large collections on older filesystems like EXT3/FAT</strong> as they may not be able to handle more than 50k directory entries in the `data/archive/` folder.
+</li>
+<li><strong>Try to keep the `data/index.sqlite3` file on local drive (not a network mount)</strong> or SSD for maximum performance, however the `data/archive/` folder can be on a network mount or slower HDD.</li>
+<li>If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to set [`PUID` & `PGID`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid) and [disable `root_squash`](https://github.com/ArchiveBox/ArchiveBox/issues/1304) on your fileshare server.
+</li>
+</ul>
 
 <h4>Learn More</h4>
 
