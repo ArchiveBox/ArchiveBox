@@ -497,7 +497,7 @@ docker run -it -v $PWD:/data archivebox/archivebox help
 
 <br/>
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" height="22px" align="top"/> <b>CLI Usage Examples (non-Docker)</b></summary>
+<summary><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" height="22px" align="top"/> <b>CLI Usage Examples: non-Docker</b></summary>
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you have pip-installed ArchiveBox and it's available in your $PATH first  
@@ -514,7 +514,7 @@ archivebox add --depth=1 'https://news.ycombinator.com'
 <br/>
 
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>Docker Compose CLI Usage Examples</b></summary>
+<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>CLI Usage Examples: Docker Compose</b></summary>
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you have `docker-compose.yml` from the Quickstart instructions first
@@ -532,7 +532,7 @@ docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
 <br/>
 
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>Docker CLI Usage Examples</b></summary>
+<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>CLI Usage Examples: Docker</b></summary>
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you create and cd into in a new empty directory first  
