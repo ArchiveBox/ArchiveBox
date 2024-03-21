@@ -1160,19 +1160,18 @@ ArchiveBox aims to enable more of the internet to be saved from deterioration by
 
 Vast treasure troves of knowledge are lost every day on the internet to link rot. As a society, we have an imperative to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
 
-Whether it's to resist censorship by saving articles before they get taken down or edited, or just to save a collection of early 2010's flash games you love to play, having the tools to archive internet content enables to you save the stuff you care most about before it disappears.
+Whether it's to resist censorship by saving news articles before they get taken down or edited, or just to save a collection of early 2010's flash games you loved to play, having the tools to archive internet content enables to you save the stuff you care most about before it disappears.
 
 <div align="center" style="text-align: center">
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/71e36bc5-1c94-44e2-92b6-405fa898c734" width="40%"/><br/>
 <sup><i>Image from <a href="https://perma.cc/">Perma.cc</a>...</i><br/></sup>
 </div>
 
+The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful. I don't think everything should be preserved in an automated fashion--making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about, just like libraries do. Without the work of archivists saving physical books, manuscrips, and paintings we wouldn't have any knowledge of our ancestors' history. We believe archiving the web is just as important to provide the same benefit to future generations.
 
-The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful. I don't think everything should be preserved in an automated fashion--making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
+We believe duplication of other people's content is only ethical if it a: A. doesn't deprive the original creators of revenue and B. is responsibly curated. In the U.S., <a href="https://guides.library.oregonstate.edu/copyright/libraries">libraries, researchers, and archivists</a> are allowed to duplicate copyrighted materials under <a href="https://libguides.ala.org/copyright/fairuse">"fair use"</a> for <a href="https://guides.cuny.edu/cunyfairuse/librarians#:~:text=One%20of%20these%20specified%20conditions,may%20be%20liable%20for%20copyright">private study, scholarship, or research. Archive.org's preservation work is covered under this excemption, as they are as a non-profit providing public service, and they respond to DMCA removal requests. 
 
-Because modern websites are complicated and often rely on dynamic content,
-ArchiveBox archives the sites in **several different formats** beyond what public archiving services like Archive.org/Archive.is save. Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats.
-
+As long as you A. don't try to profit off pirating copyrighted content and B. have processes in place to respond to removal requests, many countries allow you to use sofware like ArchiveBox to ethically and responsibly archive any web content you can view. That being said, ArchiveBox is not liable for how you choose to operate the software. You must research your own local laws and regulations, and get proper legal council if you plan to host a public instance (start by putting your DMCA contact email in <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#footer_info"><code>FOOTER_INFO</code></a> and changing your instance's branding using <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#custom_templates_dir"><code>CUSTOM_TEMPLATES_DIR</code></a>).
 
 </details>
 <br/>
