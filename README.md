@@ -1189,7 +1189,7 @@ As long as you A. don't try to profit off pirating copyrighted content and B. ha
 
 > **Check out our [community wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for a list of web archiving tools and orgs.**
 
-A variety of open and closed-source archiving projects exist, but few provide a nice UI and CLI to manage a large, high-fidelity archive collection over time.
+A variety of open and closed-source archiving projects exist, but few provide a nice UI and CLI to manage a large, high-fidelity collection over time.
 
 <br/>
 <details>
