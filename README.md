@@ -1070,8 +1070,8 @@ Because ArchiveBox is designed to ingest a large volume of URLs with multiple co
 <br/>
 
 <ul>
-<li><strong>ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles</strong>, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.</li>
-<li>Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. You can also deduplicate content with a tool like [fdupes](https://github.com/adrianlopezroche/fdupes) or [rdfind](https://github.com/pauldreik/rdfind).  
+<li><strong>ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles</strong>, mostly dependent on whether you're saving audio & video using <code>SAVE_MEDIA=True</code> and whether you lower <code>MEDIA_MAX_SIZE=750mb</code>.</li>
+<li>Disk usage can be reduced by using a compressed/[deduplicated](https://www.ixsystems.com/blog/ixsystems-and-klara-systems-celebrate-valentines-day-with-a-heartfelt-donation-of-fast-dedupe-to-openzfs-and-truenas/) filesystem like <a href="https://www.reddit.com/r/zfs/comments/t9cexx/a_simple_real_world_zfs_compression_speed_an/">ZFS</a>/BTRFS, or by turning off extractors methods you don't need. You can also deduplicate content with a tool like <a href="https://github.com/adrianlopezroche/fdupes">fdupes</a> or <a href="https://github.com/pauldreik/rdfind">rdfind</a>.  
 </li>
 <li><strong>Don't store large collections on older filesystems like EXT3/FAT</strong> as they may not be able to handle more than 50k directory entries in the `data/archive/` folder.
 </li>
