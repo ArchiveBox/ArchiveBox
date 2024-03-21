@@ -1577,7 +1577,7 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" width="100px" align="right"/>
 
-- [ArchiveBox.io Homepage](https://archivebox.io) / [Source Code (Github)](https://github.com/ArchiveBox/ArchiveBox) / [Demo Server](https://demo.archivebox.io)
+- [ArchiveBox.io Website](https://archivebox.io) / [ArchiveBox Github (Source Code)](https://github.com/ArchiveBox/ArchiveBox) / [ArchiveBox Demo Server](https://demo.archivebox.io)
 - [Documentation Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki) / [API Reference Docs](https://docs.archivebox.io) / [Changelog](https://github.com/ArchiveBox/ArchiveBox/releases)
 - [Bug Tracker](https://github.com/ArchiveBox/ArchiveBox/issues) / [Discussions](https://github.com/ArchiveBox/ArchiveBox/discussions) / [Community Chat Forum (Zulip)](https://zulip.archivebox.io)
 - Find us on social media: [Twitter](https://twitter.com/ArchiveBoxApp), [LinkedIn](https://www.linkedin.com/company/archivebox/), [YouTube](https://www.youtube.com/@ArchiveBoxApp), [SaaSHub](https://www.saashub.com/archivebox), [Alternative.to](https://alternativeto.net/software/archivebox/about/), [Reddit](https://www.reddit.com/r/ArchiveBox/)
