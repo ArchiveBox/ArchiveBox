@@ -50,7 +50,7 @@ class Tag(models.Model):
 
     class Meta:
         verbose_name = "Tag"
-        verbose_name_plural = "Tags"
+        verbose_name_plural = "🏷️ Tags"
 
     def __str__(self):
         return self.name
@@ -97,6 +97,10 @@ class Snapshot(models.Model):
     tags = models.ManyToManyField(Tag, blank=True)
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
+
+    class Meta:
+        verbose_name = "Snapshot"
+        verbose_name_plural = "⭐️ Archived Webpages (Snapshots)"
 
     def __repr__(self) -> str:
         title = self.title or '-'
@@ -281,6 +285,10 @@ class ArchiveResult(models.Model):
     status = models.CharField(max_length=16, choices=STATUS_CHOICES)
 
     objects = ArchiveResultManager()
+
+    class Meta:
+        verbose_name = "ArchiveResult"
+        verbose_name_plural = "📑 Logs (ArchiveResults)"
 
     def __str__(self):
         return self.extractor

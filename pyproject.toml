@@ -11,20 +11,33 @@ package-dir = "archivebox"
 requires-python = ">=3.10,<3.12"
 dependencies = [
     # pdm update [--unconstrained] 
+    "ipython>5.0.0",
+    "requests>=2.24.0",
     "croniter>=0.3.34",
     "dateparser>=1.0.0",
+<<<<<<< HEAD
+=======
     "django-extensions>=3.2.3",
     "django>=4.2.0,<5.0",
     "setuptools>=69.0.3",
     "feedparser>=6.0.11",
     "ipython>5.0.0",
     "mypy-extensions>=0.4.3",
+>>>>>>> dev
     "python-crontab>=2.5.1",
-    "requests>=2.24.0",
+    "django>=3.1.3,<3.2",
+    "django-extensions>=3.0.3",
+    "django-solo>=2.0.0",
     "w3lib>=1.22.0",
     "yt-dlp>=2024.3.10",
     #  dont add playwright becuase packages without sdists cause trouble on many build systems that refuse to install wheel-only packages
+<<<<<<< HEAD
+    # "playwright>=1.39.0; platform_machine != 'armv7l'",
+    "mypy-extensions>=0.4.3",
+    # "django-stubs-ext>=4.2.7",
+=======
     "playwright>=1.39.0; platform_machine != 'armv7l'",
+>>>>>>> dev
 ]
 
 classifiers = [
@@ -100,8 +113,27 @@ dev = [
     # linting
     "flake8",
     "mypy",
-    "django-stubs",
+    "django-stubs[compatible-mypy]>=4.2.7",
+    "types-requests>=2.31.0.20240125",
+    "pudb>=2024.1",
 ]
+
+[tool.pyright]
+include = ["archivebox"]
+exclude = ["data", "data2", "data3", "data4", "data5", "pip_dist", "brew_dist", "dist", "vendor", "migrations", "tests"]
+
+[tool.mypy]
+mypy_path = "archivebox"
+explicit_package_bases = true
+check_untyped_defs = true
+plugins = ["mypy_django_plugin.main"]
+# TODO: remove this eventually https://github.com/hauntsaninja/no_implicit_optional
+implicit_optional = true
+
+[tool.django-stubs]
+django_settings_module = "core.settings"
+strict_settings = false
+
 
 [tool.pdm.scripts]
 lint = "./bin/lint.sh"

@@ -1,0 +1,40 @@
+{% load tz core_tags static %}
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>{{title}}</title>
+        <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+      
+        </style>
+        <style>
+            html, body {
+                width: 100%;
+                height: 100%;
+                background-color: #ddd;
+            }
+        </style>
+    </head>
+    <body>
+        ReplayWeb.page for: {{snapshot.url}} ({{timestamp}}) /{{warc_filename}}
+
+        {{snapshot}}
+
+        <script>
+            // https://cdn.jsdelivr.net/npm/replaywebpage@1.8.14/sw.min.js
+            // https://cdn.jsdelivr.net/npm/replaywebpage@1.8.14/ui.min.js
+        </script>
+
+        <style>
+        </style>
+        <script src="/static/ui.js"></script>
+
+        <replay-web-page
+            style="height: 600px"
+            embed="replay"
+            replayBase="/static/"
+            source="/static/test.wacz"
+            url="https://example.com/">
+        </replay-web-page>
+    </body>
+</html>

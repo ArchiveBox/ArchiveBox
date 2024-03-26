@@ -15,8 +15,8 @@
 # Read more about [developing Archivebox](https://github.com/ArchiveBox/ArchiveBox#archivebox-development).
 
 
-# Use Debian 12 w/ faster package updates: https://packages.debian.org/bookworm-backports/
 FROM python:3.11-slim-bookworm
+# Uses Debian 12 w/ faster-updating apt-lists added below: https://packages.debian.org/bookworm-backports/
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <dockerfile@archivebox.io>" \
@@ -113,9 +113,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         # 1. packaging dependencies
         apt-transport-https ca-certificates apt-utils gnupg2 curl wget \
         # 2. docker and init system dependencies
-        zlib1g-dev dumb-init gosu cron unzip grep \
+        zlib1g-dev dumb-init gosu cron unzip grep ncat \
         # 3. frivolous CLI helpers to make debugging failed archiving easier
-        # nano iputils-ping dnsutils htop procps jq yq
+        # nano iputils-ping dnsutils htop procps jq yq \
     && rm -rf /var/lib/apt/lists/*
 
 ######### Language Environments ####################################

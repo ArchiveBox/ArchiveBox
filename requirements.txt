@@ -13,8 +13,8 @@ croniter==2.0.1
 dateparser==1.2.0
 decorator==5.1.1
 django==3.1.14
-django-auth-ldap==4.1.0
 django-extensions==3.1.5
+django-solo==2.0.0
 exceptiongroup==1.2.0; python_version < "3.11"
 executing==2.0.1
 idna==3.6
@@ -35,10 +35,10 @@ pycryptodomex==3.19.1
 pygments==2.17.2
 python-crontab==3.0.0
 python-dateutil==2.8.2
-python-ldap==3.4.4
 pytz==2023.3.post1
 regex==2023.12.25
 requests==2.31.0
+setuptools==69.0.3
 six==1.16.0
 sonic-client==1.0.0
 sqlparse==0.4.4

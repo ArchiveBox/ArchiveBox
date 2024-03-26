@@ -1,5 +1,7 @@
-import os
-from django.conf import settings
+__package__ = 'archivebox.core'
+
+
+
 from ..config import (
     LDAP
 )

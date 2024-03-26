@@ -35,13 +35,11 @@ services:
             # ...
             # add further configuration options from archivebox/config.py as needed (to apply them only to this container)
             # or set using `docker compose run archivebox config --set SOME_KEY=someval` (to persist config across all containers)
-        
         # For ad-blocking during archiving, uncomment this section and pihole service section below
         # networks:
         #   - dns
         # dns:
         #   - 172.20.0.53
-
 
     ######## Optional Addons: tweak examples below as needed for your specific use case ########
 
@@ -151,6 +149,13 @@ services:
     #     - /lib/modules:/lib/modules
     #     - ./wireguard.conf:/config/wg0.conf:ro
 
+
+    ### Example: Run browsertrix in parallel with ArchiveBox
+
+    # browsertrix:
+    #     image: webrecorder/browsertrix-crawler:latest
+    #     volumes:
+    #         - ./browsertrix:/crawls:z
 
     ### Example: Run PYWB in parallel and auto-import WARCs from ArchiveBox
 
