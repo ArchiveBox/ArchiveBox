@@ -35,7 +35,7 @@ Without active preservation effort, everything on the internet eventually dissap
 <hr/>
 <br/>
 
-📥 **You can feed ArchiveBox URLs one at a time, or schedule regular imports** from your bookmarks or history, social media feeds or RSS, link-saving services like Pocket/Pinboard, our [Browser Extension](https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj), and more.  
+📥 **You can feed ArchiveBox URLs one at a time, or schedule regular imports** from your bookmarks or history, social media feeds or RSS, link-saving services like Pocket/Pinboard, our [Browser Extension](https://github.com/ArchiveBox/archivebox-browser-extension), and more.  
 <sub>See <a href="#input-formats">Input Formats</a> for a full list of supported input formats...</sub>
 
 <br/>
@@ -141,21 +141,20 @@ curl -fsSL 'https://get.archivebox.io' | sh
 
 ArchiveBox is free for everyone to self-host, but we also provide support, security review, and custom integrations to help NGOs, governments, and other organizations [run ArchiveBox professionally](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102):
 
-- 🗞️ **Journalists:**
+- **Journalists:**
   `crawling during research`, `preserving cited pages`, `fact-checking & review`  
-- ⚖️ **Lawyers:**
+- **Lawyers:**
   `collecting & preserving evidence`, `detecting changes`, `tagging & review`  
-- 🔬 **Researchers:**
+- **Researchers:**
   `analyzing social media trends`, `getting LLM training data`, `crawling pipelines`
-- 👩🏽 **Individuals:**
+- **Individuals:**
   `saving bookmarks`, `preserving portfolio content`, `legacy / memoirs archival`
+- **Governments:**
+  `snapshoting public service sites`, `recordkeeping compliance`
 
-> ***[Contact our team](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your institution/org wants to use ArchiveBox professionally. We offer services such as:*
-> 
-> - setup & support, hosting, custom features, security, hashing & audit logging for chain-of-custody, etc.  
-> - for **individuals**, **NGOs**, **academia**, **governments**, **journalism**, **law**, and more...
-
-*We are a 🏛️ 501(c)(3) nonprofit and all our work goes towards supporting open-source development.* 
+> ***[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your org wants help using ArchiveBox professionally.*  
+> We offer: setup & support, hosting, custom features, security, hashing & audit logging/chain-of-custody, etc.  
+> *ArchiveBox has 🏛️ 501(c)(3) [nonprofit status](https://hackclub.com/hcb/) and all our work supports open-source development.* 
 
 <br/>
 
@@ -498,7 +497,7 @@ docker run -it -v $PWD:/data archivebox/archivebox help
 
 <br/>
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" height="22px" align="top"/> <b>CLI Usage Examples (non-Docker)</b></summary>
+<summary><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" height="22px" align="top"/> <b>CLI Usage Examples: non-Docker</b></summary>
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you have pip-installed ArchiveBox and it's available in your $PATH first  
@@ -515,7 +514,7 @@ archivebox add --depth=1 'https://news.ycombinator.com'
 <br/>
 
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>Docker Compose CLI Usage Examples</b></summary>
+<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>CLI Usage Examples: Docker Compose</b></summary>
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you have `docker-compose.yml` from the Quickstart instructions first
@@ -533,7 +532,7 @@ docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
 <br/>
 
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>Docker CLI Usage Examples</b></summary>
+<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>CLI Usage Examples: Docker</b></summary>
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you create and cd into in a new empty directory first  
@@ -655,13 +654,13 @@ docker run -it -v $PWD:/data archivebox/archivebox add --depth=1 'https://exampl
   <i>ArchiveBox supports injesting URLs in [any text-based format](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file).</i>
 
 - <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34" height="22px"/> From manually exported [browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (in Netscape format)  
-  <i>See instructions for: <a href="https://support.google.com/chrome/answer/96816?hl=en">Chrome</a>, <a href="https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer">Firefox</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/assets/511499/24ad068e-0fa6-41f4-a7ff-4c26fc91f71a">Safari</a>, <a href="https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows">IE</a>, <a href="https://help.opera.com/en/latest/features/#bookmarks:~:text=Click%20the%20import/-,export%20button,-on%20the%20bottom">Opera</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">and more...</a></i>
+  <i>Instructions: <a href="https://support.google.com/chrome/answer/96816?hl=en">Chrome</a>, <a href="https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer">Firefox</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/assets/511499/24ad068e-0fa6-41f4-a7ff-4c26fc91f71a">Safari</a>, <a href="https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows">IE</a>, <a href="https://help.opera.com/en/latest/features/#bookmarks:~:text=Click%20the%20import/-,export%20button,-on%20the%20bottom">Opera</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">and more...</a></i>
 
 - <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4f7bd318-265c-4235-ad25-38be89946b12" height="22px"/> From URLs visited through a [MITM Proxy](https://mitmproxy.org/) with [`archivebox-proxy`](https://github.com/ArchiveBox/archivebox-proxy)  
   <i>Provides [realtime archiving](https://github.com/ArchiveBox/ArchiveBox/issues/577) of all traffic from any device going through the proxy.</i>
 
 - <img src="https://getpocket.com/favicon.ico" height="22px"/> From bookmarking services or social media (e.g. Twitter bookmarks, Reddit saved posts, etc.)  
-  <i>See instructions for: <a href="https://getpocket.com/export">Pocket</a>, <a href="https://pinboard.in/export/">Pinboard</a>, <a href="https://www.instapaper.com/user">Instapaper</a>, <a href="https://shaarli.readthedocs.io/en/master/Usage/#importexport">Shaarli</a>, <a href="https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/">Delicious</a>, <a href="https://github.com/csu/export-saved-reddit">Reddit Saved</a>, <a href="https://doc.wallabag.org/en/user/import/wallabagv2.html">Wallabag</a>, <a href="http://help.unmark.it/import-export">Unmark.it</a>, <a href="https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/">OneTab</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/issues/648">Firefox Sync</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">and more...</a></i>
+  <i>Instructions: <a href="https://getpocket.com/export">Pocket</a>, <a href="https://pinboard.in/export/">Pinboard</a>, <a href="https://www.instapaper.com/user">Instapaper</a>, <a href="https://shaarli.readthedocs.io/en/master/Usage/#importexport">Shaarli</a>, <a href="https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/">Delicious</a>, <a href="https://github.com/csu/export-saved-reddit">Reddit Saved</a>, <a href="https://doc.wallabag.org/en/user/import/wallabagv2.html">Wallabag</a>, <a href="http://help.unmark.it/import-export">Unmark.it</a>, <a href="https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/">OneTab</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/issues/648">Firefox Sync</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">and more...</a></i>
 
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e1e5bd78-b0b6-45dc-914c-e1046fee4bc4" width="330px" align="right" style="float: right"/>
@@ -1018,7 +1017,7 @@ For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) active
 
 <ul>
 <li>Set <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#curl_user_agent"><code>CHROME_USER_AGENT</code>, <code>WGET_USER_AGENT</code>, <code>CURL_USER_AGENT</code></a> to impersonate a real browser (by default, ArchiveBox reveals that it's a bot when using the default user agent settings)</li>
-<li>Set up a logged-in browser session for archiving using <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile"><code>CHROME_DATA_DIR</code> &amp; <code>COOKIES_FILE</code></a></li>
+<li>Set up a logged-in browser session for archiving using <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile"><code>CHROME_USER_DATA_DIR</code> &amp; <code>COOKIES_FILE</code></a></li>
 <li>Rewrite your URLs before archiving to swap in an alternative frontend thats more bot-friendly e.g.<br>
 <code>reddit.com/some/url</code> -&gt; <code>teddit.net/some/url</code>: <a href="https://github.com/mendel5/alternative-front-ends">https://github.com/mendel5/alternative-front-ends</a></li>
 </ul>
@@ -1061,7 +1060,6 @@ Improved support for saving multiple snapshots of a single URL without this hash
 </details>
 <br/>
 
-
 ### Storage Requirements
 
 Because ArchiveBox is designed to ingest a large volume of URLs with multiple copies of each URL stored by different 3rd-party tools, it can be quite disk-space intensive. There are also some special requirements when using filesystems like NFS/SMB/FUSE.
@@ -1071,17 +1069,16 @@ Because ArchiveBox is designed to ingest a large volume of URLs with multiple co
 <summary><i>Click to learn more about ArchiveBox's filesystem and hosting requirements...</i></summary>
 <br/>
 
-
-**ArchiveBox can use anywhere from ~1gb per 1000 articles, to ~50gb per 1000 articles**, mostly dependent on whether you're saving audio & video using `SAVE_MEDIA=True` and whether you lower `MEDIA_MAX_SIZE=750mb`.
-
-Disk usage can be reduced by using a compressed/deduplicated filesystem like ZFS/BTRFS, or by turning off extractors methods you don't need. You can also deduplicate content with a tool like [fdupes](https://github.com/adrianlopezroche/fdupes) or [rdfind](https://github.com/pauldreik/rdfind).  
-
-**Don't store large collections on older filesystems like EXT3/FAT** as they may not be able to handle more than 50k directory entries in the `data/archive/` folder.
-
-**Try to keep the `data/index.sqlite3` file on local drive (not a network mount)** or SSD for maximum performance, however the `data/archive/` folder can be on a network mount or slower HDD.
-
-If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to set [`PUID` & `PGID`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid) and [disable `root_squash`](https://github.com/ArchiveBox/ArchiveBox/issues/1304) on your fileshare server.
-
+<ul>
+<li><strong>ArchiveBox can use anywhere from ~1gb per 1000 Snapshots, to ~50gb per 1000 Snapshots</strong>, mostly dependent on whether you're saving audio & video using <code>SAVE_MEDIA=True</code> and whether you lower <code>MEDIA_MAX_SIZE=750mb</code>.</li>
+<li>Disk usage can be reduced by using a compressed/<a href="https://www.ixsystems.com/blog/ixsystems-and-klara-systems-celebrate-valentines-day-with-a-heartfelt-donation-of-fast-dedupe-to-openzfs-and-truenas/">deduplicated</a> filesystem like <a href="https://www.reddit.com/r/zfs/comments/t9cexx/a_simple_real_world_zfs_compression_speed_an/">ZFS</a>/BTRFS, or by turning off extractors methods you don't need. You can also deduplicate content with a tool like <a href="https://github.com/adrianlopezroche/fdupes"><code>fdupes</code></a> or <a href="https://github.com/pauldreik/rdfind"><code>rdfind</code></a>.  
+</li>
+<li><strong>Don't store large collections on older filesystems like EXT3/FAT</strong> as they may not be able to handle more than 50k directory entries in the <code>data/archive/</code> folder.
+</li>
+<li><strong>Try to keep the <code>data/index.sqlite3</code> file on local drive (not a network mount)</strong> or SSD for maximum performance, however the <code>data/archive/</code> folder can be on a network mount or slower HDD.</li>
+<li>If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to set <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid"><code>PUID</code> & <code>PGID</code></a> and <a href="https://github.com/ArchiveBox/ArchiveBox/issues/1304">disable <code>root_squash</code></a> on your fileshare server.
+</li>
+</ul>
 
 <h4>Learn More</h4>
 
@@ -1163,19 +1160,23 @@ ArchiveBox aims to enable more of the internet to be saved from deterioration by
 
 Vast treasure troves of knowledge are lost every day on the internet to link rot. As a society, we have an imperative to preserve some important parts of that treasure, just like we preserve our books, paintings, and music in physical libraries long after the originals go out of print or fade into obscurity.
 
-Whether it's to resist censorship by saving articles before they get taken down or edited, or just to save a collection of early 2010's flash games you love to play, having the tools to archive internet content enables to you save the stuff you care most about before it disappears.
+Whether it's to resist censorship by saving news articles before they get taken down or edited, or just to save a collection of early 2010's flash games you loved to play, having the tools to archive internet content enables to you save the stuff you care most about before it disappears.
 
 <div align="center" style="text-align: center">
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/71e36bc5-1c94-44e2-92b6-405fa898c734" width="40%"/><br/>
 <sup><i>Image from <a href="https://perma.cc/">Perma.cc</a>...</i><br/></sup>
 </div>
 
+The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful. I don't think everything should be preserved in an automated fashion--making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about, just like libraries do. Without the work of archivists saving physical books, manuscrips, and paintings we wouldn't have any knowledge of our ancestors' history. I believe archiving the web is just as important to provide the same benefit to future generations.
 
-The balance between the permanence and ephemeral nature of content on the internet is part of what makes it beautiful. I don't think everything should be preserved in an automated fashion--making all content permanent and never removable, but I do think people should be able to decide for themselves and effectively archive specific content that they care about.
+ArchiveBox's stance is that duplication of other people's content is only ethical if it:
 
-Because modern websites are complicated and often rely on dynamic content,
-ArchiveBox archives the sites in **several different formats** beyond what public archiving services like Archive.org/Archive.is save. Using multiple methods and the market-dominant browser to execute JS ensures we can save even the most complex, finicky websites in at least a few high-quality, long-term data formats.
+- A. doesn't deprive the original creators of revenue and
+- B. is responsibly curated by an individual/institution.
 
+In the U.S., <a href="https://guides.library.oregonstate.edu/copyright/libraries">libraries, researchers, and archivists</a> are allowed to duplicate copyrighted materials under <a href="https://libguides.ala.org/copyright/fairuse">"fair use"</a> for <a href="https://guides.cuny.edu/cunyfairuse/librarians#:~:text=One%20of%20these%20specified%20conditions,may%20be%20liable%20for%20copyright">private study, scholarship, or research</a>. Archive.org's preservation work is covered under this exemption, as they are as a non-profit providing public service, and they respond to <a href="https://cardozoaelj.com/2015/03/20/use-of-copyright-law-to-take-down-revenge-porn/">unethical content</a>/<a href="https://help.archive.org/help/rights/">DMCA</a>/<a href="https://gdpr.eu/right-to-be-forgotten/#:~:text=An%20individual%20has%20the%20right,that%20individual%20withdraws%20their%20consent.">GDPR</a> removal requests.
+
+As long as you A. don't try to profit off pirating copyrighted content and B. have processes in place to respond to removal requests, many countries allow you to use sofware like ArchiveBox to ethically and responsibly archive any web content you can view. That being said, ArchiveBox is not liable for how you choose to operate the software. You must research your own local laws and regulations, and get proper legal council if you plan to host a public instance (start by putting your DMCA/GDPR contact info in <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#footer_info"><code>FOOTER_INFO</code></a> and changing your instance's branding using <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#custom_templates_dir"><code>CUSTOM_TEMPLATES_DIR</code></a>).
 
 </details>
 <br/>
@@ -1188,7 +1189,7 @@ ArchiveBox archives the sites in **several different formats** beyond what publi
 
 > **Check out our [community wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for a list of web archiving tools and orgs.**
 
-A variety of open and closed-source archiving projects exist, but few provide a nice UI and CLI to manage a large, high-fidelity archive collection over time.
+A variety of open and closed-source archiving projects exist, but few provide a nice UI and CLI to manage a large, high-fidelity collection over time.
 
 <br/>
 <details>
@@ -1576,10 +1577,10 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" width="100px" align="right"/>
 
-- [ArchiveBox.io Homepage](https://archivebox.io) / [Source Code (Github)](https://github.com/ArchiveBox/ArchiveBox) / [Demo Server](https://demo.archivebox.io)
-- [Documentation Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki) / [API Reference Docs](https://docs.archivebox.io) / [Changelog](https://github.com/ArchiveBox/ArchiveBox/releases)
-- [Bug Tracker](https://github.com/ArchiveBox/ArchiveBox/issues) / [Discussions](https://github.com/ArchiveBox/ArchiveBox/discussions) / [Community Chat Forum (Zulip)](https://zulip.archivebox.io)
-- Find us on social media: [Twitter](https://twitter.com/ArchiveBoxApp), [LinkedIn](https://www.linkedin.com/company/archivebox/), [YouTube](https://www.youtube.com/@ArchiveBoxApp), [SaaSHub](https://www.saashub.com/archivebox), [Alternative.to](https://alternativeto.net/software/archivebox/about/), [Reddit](https://www.reddit.com/r/ArchiveBox/)
+- [ArchiveBox.io Website](https://archivebox.io) / [ArchiveBox Github (Source Code)](https://github.com/ArchiveBox/ArchiveBox) / [ArchiveBox Demo Server](https://demo.archivebox.io)
+- [Documentation (Github Wiki)](https://github.com/ArchiveBox/ArchiveBox/wiki) / [API Reference Docs (ReadTheDocs)](https://docs.archivebox.io) / [Roadmap](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap) / [Changelog](https://github.com/ArchiveBox/ArchiveBox/releases)
+- [Bug Tracker (Github Issues)](https://github.com/ArchiveBox/ArchiveBox/issues) / [Discussions (Github Discussions)](https://github.com/ArchiveBox/ArchiveBox/discussions) / [Community Chat Forum (Zulip)](https://zulip.archivebox.io)
+- Find us on social media: [Twitter `@ArchiveBoxApp`](https://twitter.com/ArchiveBoxApp), [LinkedIn](https://www.linkedin.com/company/archivebox/), [YouTube](https://www.youtube.com/@ArchiveBoxApp), [SaaSHub](https://www.saashub.com/archivebox), [Alternative.to](https://alternativeto.net/software/archivebox/about/), [Reddit](https://www.reddit.com/r/ArchiveBox/)
 
 ---
 
@@ -1598,7 +1599,7 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 <a href="https://twitter.com/ArchiveBoxApp"><img src="https://img.shields.io/badge/Tweet-%40ArchiveBoxApp-blue.svg?style=flat"/></a>&nbsp;
 <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>&nbsp;
 <a href="https://zulip.archivebox.io/"><img src="https://img.shields.io/badge/Join_Our_Community-Zulip_Forum-%23B7EDFE.svg"/></a><br/>
-<sup>ArchiveBox was started by <a href="https://docs.sweeting.me/s/blog#About">Nick Sweeting</a> in 2017, and has grown steadily with help from our <a href="https://github.com/ArchiveBox/ArchiveBox/graphs/contributors">amazing contributors</a>.</sup>
+<sup>ArchiveBox was started by <a href="https://docs.sweeting.me/s/blog#About">Nick Sweeting</a> in 2017, and has <a href="https://star-history.com/#archivebox/archivebox&Date">grown steadily</a> with help from our <a href="https://github.com/ArchiveBox/ArchiveBox/graphs/contributors">amazing contributors</a>.</sup>
 <hr/>
 <i>✨ Have spare CPU/disk/bandwidth after all your 网站存档爬 and want to help the world?<br/>Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
 </div>

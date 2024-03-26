@@ -21,6 +21,7 @@ from ..config import (
     SINGLEFILE_ARGS,
     SINGLEFILE_EXTRA_ARGS,
     CHROME_BINARY,
+    COOKIES_FILE,
 )
 from ..logging_util import TimedProgress
 
@@ -50,10 +51,11 @@ def save_singlefile(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
     browser_args = '--browser-args={}'.format(json.dumps(browser_args[1:]))
     # later options take precedence
     options = [
+        '--browser-executable-path={}'.format(CHROME_BINARY),
+        *(["--browser-cookies-file={}".format(COOKIES_FILE)] if COOKIES_FILE else []),
+        browser_args,
         *SINGLEFILE_ARGS,
         *SINGLEFILE_EXTRA_ARGS,
-        browser_args,
-        '--browser-executable-path={}'.format(CHROME_BINARY),
     ]
     cmd = [
         DEPENDENCIES['SINGLEFILE_BINARY']['path'],
