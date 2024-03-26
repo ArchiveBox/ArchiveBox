@@ -250,7 +250,7 @@ def load_main_index(out_dir: Path=OUTPUT_DIR, warn: bool=True) -> List[Link]:
     """parse and load existing index with any new links from import_path merged in"""
     from core.models import Snapshot
     try:
-        return Snapshot.objects.all()
+        return Snapshot.objects.all().only('id')
 
     except (KeyboardInterrupt, SystemExit):
         raise SystemExit(0)

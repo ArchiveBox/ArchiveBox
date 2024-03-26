@@ -1,4 +1,4 @@
-from django.contrib import admin
+from .admin import archivebox_admin
 
 from django.urls import path, include
 from django.views import static
@@ -33,7 +33,7 @@ urlpatterns = [
 
 
     path('accounts/', include('django.contrib.auth.urls')),
-    path('admin/', admin.site.urls),
+    path('admin/', archivebox_admin.urls),
     
     path('health/', HealthCheckView.as_view(), name='healthcheck'),
     path('error/', lambda _: 1/0),

@@ -9,6 +9,6 @@
     {
         "@postlight/parser": "^2.2.3",
         "readability-extractor": "github:ArchiveBox/readability-extractor",
-        "single-file-cli": "^1.1.46"
+        "single-file-cli": "^1.1.54"
     }
 }

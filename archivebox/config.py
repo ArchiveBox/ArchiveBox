@@ -355,6 +355,7 @@ ALLOWED_IN_OUTPUT_DIR = {
     'static',
     'sonic',
     'search.sqlite3',
+    'crontabs',
     ARCHIVE_DIR_NAME,
     SOURCES_DIR_NAME,
     LOGS_DIR_NAME,
@@ -1039,10 +1040,10 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'enabled': True,
             'is_valid': config['LOGS_DIR'].exists(),
         },
-        'PERSONAS': {
-            'path': config['PERSONAS'].resolve(),
+        'PERSONAS_DIR': {
+            'path': config['PERSONAS_DIR'].resolve(),
             'enabled': True,
-            'is_valid': config['PERSONAS'].exists(),
+            'is_valid': config['PERSONAS_DIR'].exists(),
         },
         'ARCHIVE_DIR': {
             'path': config['ARCHIVE_DIR'].resolve(),
