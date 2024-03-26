@@ -163,6 +163,17 @@ else
     fi
 fi
 
+# symlink etc crontabs into place
+mkdir -p "$DATA_DIR/crontabs"
+if ! test -L /var/spool/cron/crontabs; then
+    # copy files from old location into new data dir location
+    for file in $(ls /var/spool/cron/crontabs); do
+        cp /var/spool/cron/crontabs/"$file" "$DATA_DIR/crontabs"
+    done
+    # replace old system path with symlink to data dir location
+    rm -Rf /var/spool/cron/crontabs
+    ln -s "$DATA_DIR/crontabs" /var/spool/cron/crontabs
+fi
 
 # set DBUS_SYSTEM_BUS_ADDRESS & DBUS_SESSION_BUS_ADDRESS
 # (dbus is not actually needed, it makes chrome log fewer warnings but isn't worth making our docker images bigger)

@@ -11,23 +11,23 @@
 
 services:
     archivebox:
-        image: archivebox/archivebox
+        image: archivebox/archivebox:latest
         ports:
             - 8000:8000
         volumes:
             - ./data:/data
         environment:
-            - ALLOWED_HOSTS=*                   # restrict this to only accept incoming traffic via specific domain name
             # - ADMIN_USERNAME=admin            # create an admin user on first run with the given user/pass combo
             # - ADMIN_PASSWORD=SomeSecretPassword
-            # - PUID=911                        # set to your host user's UID & GID if you encounter permissions issues
-            # - PGID=911
-            # - PUBLIC_INDEX=True               # set to False to prevent anonymous users from viewing snapshot list
-            # - PUBLIC_SNAPSHOTS=True           # set to False to prevent anonymous users from viewing snapshot content
-            # - PUBLIC_ADD_VIEW=False           # set to True to allow anonymous users to submit new URLs to archive
-            - SEARCH_BACKEND_ENGINE=sonic     # uncomment these and sonic container below for better full-text search
+            - ALLOWED_HOSTS=*                   # restrict this to only accept incoming traffic via specific domain name
+            - PUBLIC_INDEX=True                 # set to False to prevent anonymous users from viewing snapshot list
+            - PUBLIC_SNAPSHOTS=True             # set to False to prevent anonymous users from viewing snapshot content
+            - PUBLIC_ADD_VIEW=False             # set to True to allow anonymous users to submit new URLs to archive
+            - SEARCH_BACKEND_ENGINE=sonic       # uncomment these and sonic container below for better full-text search
             - SEARCH_BACKEND_HOST_NAME=sonic
             - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
+            # - PUID=911                        # set to your host user's UID & GID if you encounter permissions issues
+            # - PGID=911
             # - MEDIA_MAX_SIZE=750m             # increase this filesize limit to allow archiving larger audio/video files
             # - TIMEOUT=60                      # increase this number to 120+ seconds if you see many slow downloads timing out
             # - CHECK_SSL_VALIDITY=True         # set to False to disable strict SSL checking (allows saving URLs w/ broken certs)
@@ -45,13 +45,35 @@ services:
 
     ######## Optional Addons: tweak examples below as needed for your specific use case ########
 
+    ### Enable ability to run regularly scheduled archiving tasks by uncommenting this container
+    #   $ docker compose run archivebox schedule --every=day --depth=1 'https://example.com/some/rss/feed.xml'
+    # then restart the scheduler container to apply the changes to the schedule
+    #   $ docker compose restart archivebox_scheduler
+
+    archivebox_scheduler:
+       image: archivebox/archivebox:latest
+       command: schedule --foreground
+       environment:
+           - TIMEOUT=120                       # increase if you see timeouts often during archiving / on slow networks
+           - ONLY_NEW=True                     # set to False to retry previously failed URLs when re-adding instead of skipping them
+           # - PUID=502                        # set to your host user's UID & GID if you encounter permissions issues
+           # - PGID=20
+       volumes:
+           - ./data:/data
+       # cpus: 2                               # uncomment / edit these values to limit container resource consumption
+       # mem_limit: 2048m
+       # shm_size: 1024m
+
+
     ### Runs the Sonic full-text search backend, config file is auto-downloaded into sonic.cfg:
     #   After starting, backfill any existing Snapshots into the full-text index:
     #   $ docker-compose run archivebox update --index-only
 
     sonic:
-        image: valeriansaliou/sonic
+        image: valeriansaliou/sonic:latest
         build:
+            # custom build just auto-downloads archivebox's default sonic.cfg as a convenience
+            # not needed if you have already have /etc/sonic.cfg
             dockerfile_inline: |
                 FROM quay.io/curl/curl:latest AS setup
                 RUN curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/main/etc/sonic.cfg' > /tmp/sonic.cfg
@@ -64,6 +86,34 @@ services:
         volumes:
             - ./etc/sonic.cfg:/etc/sonic.cfg
             - ./data/sonic:/var/lib/sonic/store
+
+
+    ### Example: Watch the ArchiveBox browser in realtime as it archives things,
+    # or remote control it to set up logins and credentials for sites you want to archive.
+    # https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile
+
+    novnc:
+        image: theasp/novnc:latest
+        environment:
+            - DISPLAY_WIDTH=1920
+            - DISPLAY_HEIGHT=1080
+            - RUN_XTERM=no
+        ports:
+            # to view/control ArchiveBox's browser, visit: http://localhost:8080/vnc.html
+            - "8080:8080"
+
+    
+    ### Example: Put Nginx in front of the ArchiveBox server for SSL termination
+
+    # nginx:
+    #     image: nginx:alpine
+    #     ports:
+    #         - 443:443
+    #         - 80:80
+    #     volumes:
+    #         - ./etc/nginx.conf:/etc/nginx/nginx.conf
+    #         - ./data:/var/www
+
 
     ### Example: To run pihole in order to block ad/tracker requests during archiving,
     # uncomment this block and set up pihole using its admin interface
@@ -84,57 +134,6 @@ services:
     #   volumes:
     #     - ./etc/pihole:/etc/pihole
     #     - ./etc/dnsmasq:/etc/dnsmasq.d
-
-
-    ### Example: Enable ability to run regularly scheduled archiving tasks by uncommenting this container
-    #   $ docker compose run archivebox schedule --every=day --depth=1 'https://example.com/some/rss/feed.xml'
-    # then restart the scheduler container to apply the changes to the schedule
-    #   $ docker compose restart archivebox_scheduler
-
-    # archivebox_scheduler:
-    #    image: ${DOCKER_IMAGE:-archivebox/archivebox:dev}
-    #    command: schedule --foreground
-    #    environment:
-    #        - MEDIA_MAX_SIZE=750m               # increase this number to allow archiving larger audio/video files
-    #        # - TIMEOUT=60                      # increase if you see timeouts often during archiving / on slow networks
-    #        # - ONLY_NEW=True                   # set to False to retry previously failed URLs when re-adding instead of skipping them
-    #        # - CHECK_SSL_VALIDITY=True         # set to False to allow saving URLs w/ broken SSL certs
-    #        # - SAVE_ARCHIVE_DOT_ORG=True       # set to False to disable submitting URLs to Archive.org when archiving
-    #        # - PUID=502                        # set to your host user's UID & GID if you encounter permissions issues
-    #        # - PGID=20
-    #    volumes:
-    #        - ./data:/data
-    #        - ./etc/crontabs:/var/spool/cron/crontabs
-    #    # cpus: 2                               # uncomment / edit these values to limit container resource consumption
-    #    # mem_limit: 2048m
-    #    # shm_size: 1024m
-
-
-    ### Example: Put Nginx in front of the ArchiveBox server for SSL termination
-
-    # nginx:
-    #     image: nginx:alpine
-    #     ports:
-    #         - 443:443
-    #         - 80:80
-    #     volumes:
-    #         - ./etc/nginx.conf:/etc/nginx/nginx.conf
-    #         - ./data:/var/www
-
-
-    ### Example: Watch the ArchiveBox browser in realtime as it archives things,
-    # or remote control it to set up logins and credentials for sites you want to archive.
-    # https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile
-
-    novnc:
-        image: theasp/novnc:latest
-        environment:
-            - DISPLAY_WIDTH=1920
-            - DISPLAY_HEIGHT=1080
-            - RUN_XTERM=no
-        ports:
-            # to view/control ArchiveBox's browser, visit: http://localhost:8080/vnc.html
-            - "8080:8080"
 
 
     ### Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel

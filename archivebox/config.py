@@ -355,6 +355,7 @@ ALLOWED_IN_OUTPUT_DIR = {
     'static',
     'sonic',
     'search.sqlite3',
+    'crontabs',
     ARCHIVE_DIR_NAME,
     SOURCES_DIR_NAME,
     LOGS_DIR_NAME,
