@@ -10,7 +10,7 @@
 #     docker run -v "$PWD/data":/data -p 8000:8000 archivebox server
 # Multi-arch build:
 #     docker buildx create --use
-#     docker buildx build . --platform=linux/amd64,linux/arm64,linux/arm/v7 --push -t archivebox/archivebox:latest -t archivebox/archivebox:dev
+#     docker buildx build . --platform=linux/amd64,linux/arm64--push -t archivebox/archivebox:latest -t archivebox/archivebox:dev
 #
 # Read more about [developing Archivebox](https://github.com/ArchiveBox/ArchiveBox#archivebox-development).
 
@@ -194,10 +194,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         && playwright install --with-deps chromium \
         && export CHROME_BINARY="$(python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')"; \
     else \
-        # fall back to installing Chromium via apt-get on platforms not supported by playwright (e.g. risc, ARMv7, etc.) 
-        apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-            chromium \
-        && export CHROME_BINARY="$(which chromium)"; \
+        # fall back to installing Chromium via apt-get on platforms not supported by playwright (e.g. risc, ARMv7, etc.)
+        # apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+        #     chromium \
+        # && export CHROME_BINARY="$(which chromium)"; \
+        echo 'armv7 no longer supported in versions after v0.7.3' \
+        exit 1; \
     fi \
     && rm -rf /var/lib/apt/lists/* \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
@@ -275,7 +277,6 @@ ENV IN_DOCKER=True \
     GOOGLE_DEFAULT_CLIENT_SECRET=no \
     ALLOWED_HOSTS=*
     ## No need to set explicitly, these values will be autodetected by archivebox in docker:
-    # CHROME_SANDBOX=False \
     # WGET_BINARY="wget" \
     # YOUTUBEDL_BINARY="yt-dlp" \
     # CHROME_BINARY="/usr/bin/chromium-browser" \

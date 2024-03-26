@@ -8,32 +8,26 @@
 # Documentation:
 #     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
 
-version: '3.9'
 
 services:
     archivebox:
-        #image: ${DOCKER_IMAGE:-archivebox/archivebox:dev}
-        image: archivebox/archivebox:dev
-        command: server --quick-init 0.0.0.0:8000
+        image: archivebox/archivebox
         ports:
             - 8000:8000
         volumes:
             - ./data:/data
-            # - ./etc/crontabs:/var/spool/cron/crontabs  # uncomment this and archivebox_scheduler below to set up automatic recurring archive jobs
-            # - ./archivebox:/app/archivebox             # uncomment this to mount the ArchiveBox source code at runtime (for developers working on archivebox)
-        # build: .                                       # uncomment this to build the image from source code at buildtime (for developers working on archivebox)
         environment:
             - ALLOWED_HOSTS=*                   # restrict this to only accept incoming traffic via specific domain name
-            # - PUBLIC_INDEX=True               # set to False to prevent anonymous users from viewing snapshot list
-            # - PUBLIC_SNAPSHOTS=True           # set to False to prevent anonymous users from viewing snapshot content
-            # - PUBLIC_ADD_VIEW=False           # set to True to allow anonymous users to submit new URLs to archive
             # - ADMIN_USERNAME=admin            # create an admin user on first run with the given user/pass combo
             # - ADMIN_PASSWORD=SomeSecretPassword
             # - PUID=911                        # set to your host user's UID & GID if you encounter permissions issues
             # - PGID=911
-            # - SEARCH_BACKEND_ENGINE=sonic     # uncomment these and sonic container below for better full-text search
-            # - SEARCH_BACKEND_HOST_NAME=sonic
-            # - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
+            # - PUBLIC_INDEX=True               # set to False to prevent anonymous users from viewing snapshot list
+            # - PUBLIC_SNAPSHOTS=True           # set to False to prevent anonymous users from viewing snapshot content
+            # - PUBLIC_ADD_VIEW=False           # set to True to allow anonymous users to submit new URLs to archive
+            - SEARCH_BACKEND_ENGINE=sonic     # uncomment these and sonic container below for better full-text search
+            - SEARCH_BACKEND_HOST_NAME=sonic
+            - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
             # - MEDIA_MAX_SIZE=750m             # increase this filesize limit to allow archiving larger audio/video files
             # - TIMEOUT=60                      # increase this number to 120+ seconds if you see many slow downloads timing out
             # - CHECK_SSL_VALIDITY=True         # set to False to disable strict SSL checking (allows saving URLs w/ broken certs)
@@ -42,7 +36,7 @@ services:
             # add further configuration options from archivebox/config.py as needed (to apply them only to this container)
             # or set using `docker compose run archivebox config --set SOME_KEY=someval` (to persist config across all containers)
         
-        # For ad-blocking during archiving, uncomment this section and pihole service section below 
+        # For ad-blocking during archiving, uncomment this section and pihole service section below
         # networks:
         #   - dns
         # dns:
@@ -51,22 +45,26 @@ services:
 
     ######## Optional Addons: tweak examples below as needed for your specific use case ########
 
-    ### Example: To run the Sonic full-text search backend, first download the config file to sonic.cfg
-    #   $ curl -O https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/master/etc/sonic.cfg
-    # After starting, backfill any existing Snapshots into the full-text index:
+    ### Runs the Sonic full-text search backend, config file is auto-downloaded into sonic.cfg:
+    #   After starting, backfill any existing Snapshots into the full-text index:
     #   $ docker-compose run archivebox update --index-only
 
-    # sonic:
-    #    image: valeriansaliou/sonic:latest
-    #    expose:
-    #        - 1491
-    #    environment:
-    #        - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
-    #    volumes:
-    #        - ./sonic.cfg:/etc/sonic.cfg:ro
-    #        - ./data/sonic:/var/lib/sonic/store
-    
-    
+    sonic:
+        image: valeriansaliou/sonic
+        build:
+            dockerfile_inline: |
+                FROM quay.io/curl/curl:latest AS setup
+                RUN curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/main/etc/sonic.cfg' > /tmp/sonic.cfg
+                FROM valeriansaliou/sonic:latest
+                COPY --from=setup /tmp/sonic.cfg /etc/sonic.cfg
+        expose:
+            - 1491
+        environment:
+            - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
+        volumes:
+            - ./etc/sonic.cfg:/etc/sonic.cfg
+            - ./data/sonic:/var/lib/sonic/store
+
     ### Example: To run pihole in order to block ad/tracker requests during archiving,
     # uncomment this block and set up pihole using its admin interface
 

@@ -15,15 +15,16 @@ dependencies = [
     "dateparser>=1.0.0",
     "django-extensions>=3.2.3",
     "django>=4.2.0,<5.0",
+    "setuptools>=69.0.3",
     "feedparser>=6.0.11",
     "ipython>5.0.0",
     "mypy-extensions>=0.4.3",
     "python-crontab>=2.5.1",
     "requests>=2.24.0",
     "w3lib>=1.22.0",
-    "yt-dlp>=2023.10.13",
+    "yt-dlp>=2024.3.10",
     #  dont add playwright becuase packages without sdists cause trouble on many build systems that refuse to install wheel-only packages
-    # "playwright>=1.39.0; platform_machine != 'armv7l'",
+    "playwright>=1.39.0; platform_machine != 'armv7l'",
 ]
 
 classifiers = [
@@ -64,11 +65,11 @@ classifiers = [
 sonic = [
     # echo "deb [signed-by=/usr/share/keyrings/valeriansaliou_sonic.gpg] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main" > /etc/apt/sources.list.d/valeriansaliou_sonic.list
     # curl -fsSL https://packagecloud.io/valeriansaliou/sonic/gpgkey | gpg --dearmor -o /usr/share/keyrings/valeriansaliou_sonic.gpg
+    # apt install sonic
     "sonic-client>=0.0.5",
 ]
 ldap = [
     # apt install libldap2-dev libsasl2-dev python3-ldap
-    "setuptools>=69.0.3",
     "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
 ]
@@ -83,7 +84,6 @@ ldap = [
 [tool.pdm.dev-dependencies]
 dev = [
     # building
-    "setuptools>=69.0.3",
     "wheel",
     "pdm",
     "homebrew-pypi-poet>=0.10.0",
