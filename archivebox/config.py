@@ -26,22 +26,16 @@ import io
 import re
 import sys
 import json
-import inspect
 import getpass
-import platform
 import shutil
-import requests
 import django
-from sqlite3 import dbapi2 as sqlite3
 
 from hashlib import md5
 from pathlib import Path
-from datetime import datetime, timezone
 from typing import Optional, Type, Tuple, Dict, Union, List
 from subprocess import run, PIPE, DEVNULL
 from configparser import ConfigParser
 from collections import defaultdict
-import importlib.metadata
 
 from .config_stubs import (
     SimpleConfigValueDict,
@@ -51,18 +45,15 @@ from .config_stubs import (
     ConfigDefaultDict,
 )
 
-
 ############################### Config Schema ##################################
 
 CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
     'SHELL_CONFIG': {
         'IS_TTY':                   {'type': bool,  'default': lambda _: sys.stdout.isatty()},
         'USE_COLOR':                {'type': bool,  'default': lambda c: c['IS_TTY']},
-        'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: (c['IS_TTY'] and platform.system() != 'Darwin')},  # progress bars are buggy on mac, disable for now
+        'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: c['IS_TTY']},
         'IN_DOCKER':                {'type': bool,  'default': False},
-        'IN_QEMU':                  {'type': bool,  'default': False},
-        'PUID':                     {'type': int,   'default': os.getuid()},
-        'PGID':                     {'type': int,   'default': os.getgid()},
+        # TODO: 'SHOW_HINTS':       {'type:  bool,  'default': True},
     },
 
     'GENERAL_CONFIG': {
@@ -71,47 +62,21 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'ONLY_NEW':                 {'type': bool,  'default': True},
         'TIMEOUT':                  {'type': int,   'default': 60},
         'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
-        'OUTPUT_PERMISSIONS':       {'type': str,   'default': '644'},
+        'OUTPUT_PERMISSIONS':       {'type': str,   'default': '755'},
         'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},
-
-        'URL_DENYLIST':             {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$', 'aliases': ('URL_BLACKLIST',)},  # to avoid downloading code assets as their own pages
-        'URL_ALLOWLIST':            {'type': str,   'default': None, 'aliases': ('URL_WHITELIST',)},
-
-        'ADMIN_USERNAME':           {'type': str,   'default': None},
-        'ADMIN_PASSWORD':           {'type': str,   'default': None},
-
-        'ENFORCE_ATOMIC_WRITES':    {'type': bool,  'default': True},
-        'TAG_SEPARATOR_PATTERN':    {'type': str,   'default': r'[,]'},
+        'URL_BLACKLIST':            {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$'},  # to avoid downloading code assets as their own pages
     },
 
     'SERVER_CONFIG': {
-        'SECRET_KEY':                {'type': str,   'default': None},
-        'BIND_ADDR':                 {'type': str,   'default': lambda c: ['127.0.0.1:8000', '0.0.0.0:8000'][c['IN_DOCKER']]},
-        'ALLOWED_HOSTS':             {'type': str,   'default': '*'},
-        'DEBUG':                     {'type': bool,  'default': False},
-        'PUBLIC_INDEX':              {'type': bool,  'default': True},
-        'PUBLIC_SNAPSHOTS':          {'type': bool,  'default': True},
-        'PUBLIC_ADD_VIEW':           {'type': bool,  'default': False},
-        'FOOTER_INFO':               {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
-        'SNAPSHOTS_PER_PAGE':        {'type': int,   'default': 40},
-        'CUSTOM_TEMPLATES_DIR':      {'type': str,   'default': None},
-        'TIME_ZONE':                 {'type': str,   'default': 'UTC'},
-        'TIMEZONE':                  {'type': str,   'default': 'UTC'},
-        'REVERSE_PROXY_USER_HEADER': {'type': str,   'default': 'Remote-User'},
-        'REVERSE_PROXY_WHITELIST':   {'type': str,   'default': ''},
-        'LOGOUT_REDIRECT_URL':       {'type': str,   'default': '/'},
-        'PREVIEW_ORIGINALS':         {'type': bool,  'default': True},
-
-        'LDAP':                      {'type': bool,  'default': False},
-        'LDAP_SERVER_URI':           {'type': str,   'default': None},
-        'LDAP_BIND_DN':              {'type': str,   'default': None},
-        'LDAP_BIND_PASSWORD':        {'type': str,   'default': None},
-        'LDAP_USER_BASE':            {'type': str,   'default': None},
-        'LDAP_USER_FILTER':          {'type': str,   'default': None},
-        'LDAP_USERNAME_ATTR':        {'type': str,   'default': None},
-        'LDAP_FIRSTNAME_ATTR':       {'type': str,   'default': None},
-        'LDAP_LASTNAME_ATTR':        {'type': str,   'default': None},
-        'LDAP_EMAIL_ATTR':           {'type': str,   'default': None},
+        'SECRET_KEY':               {'type': str,   'default': None},
+        'BIND_ADDR':                {'type': str,   'default': lambda c: ['127.0.0.1:8000', '0.0.0.0:8000'][c['IN_DOCKER']]},
+        'ALLOWED_HOSTS':            {'type': str,   'default': '*'},
+        'DEBUG':                    {'type': bool,  'default': False},
+        'PUBLIC_INDEX':             {'type': bool,  'default': True},
+        'PUBLIC_SNAPSHOTS':         {'type': bool,  'default': True},
+        'PUBLIC_ADD_VIEW':          {'type': bool,  'default': False},
+        'FOOTER_INFO':              {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
+        'ACTIVE_THEME':             {'type': str,   'default': 'default'},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
@@ -122,7 +87,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SAVE_SINGLEFILE':          {'type': bool,  'default': True, 'aliases': ('FETCH_SINGLEFILE',)},
         'SAVE_READABILITY':         {'type': bool,  'default': True, 'aliases': ('FETCH_READABILITY',)},
         'SAVE_MERCURY':             {'type': bool,  'default': True, 'aliases': ('FETCH_MERCURY',)},
-        'SAVE_HTMLTOTEXT':          {'type': bool,  'default': True, 'aliases': ('FETCH_HTMLTOTEXT',)},
         'SAVE_PDF':                 {'type': bool,  'default': True, 'aliases': ('FETCH_PDF',)},
         'SAVE_SCREENSHOT':          {'type': bool,  'default': True, 'aliases': ('FETCH_SCREENSHOT',)},
         'SAVE_DOM':                 {'type': bool,  'default': True, 'aliases': ('FETCH_DOM',)},
@@ -131,49 +95,37 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SAVE_GIT':                 {'type': bool,  'default': True, 'aliases': ('FETCH_GIT',)},
         'SAVE_MEDIA':               {'type': bool,  'default': True, 'aliases': ('FETCH_MEDIA',)},
         'SAVE_ARCHIVE_DOT_ORG':     {'type': bool,  'default': True, 'aliases': ('SUBMIT_ARCHIVE_DOT_ORG',)},
-        'SAVE_ALLOWLIST':           {'type': dict,  'default': {},},
-        'SAVE_DENYLIST':            {'type': dict,  'default': {},},
     },
 
     'ARCHIVE_METHOD_OPTIONS': {
         'RESOLUTION':               {'type': str,   'default': '1440,2000', 'aliases': ('SCREENSHOT_RESOLUTION',)},
-        'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com,gist.github.com'},
+        'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com'},
         'CHECK_SSL_VALIDITY':       {'type': bool,  'default': True},
-        'MEDIA_MAX_SIZE':           {'type': str,   'default': '750m'},
 
-        'CURL_USER_AGENT':          {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) curl/{CURL_VERSION}'},
-        'WGET_USER_AGENT':          {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) wget/{WGET_VERSION}'},
-        'CHROME_USER_AGENT':        {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)'},
+        'CURL_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) curl/{CURL_VERSION}'},
+        'WGET_USER_AGENT':          {'type': str,   'default': 'ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) wget/{WGET_VERSION}'},
+        'CHROME_USER_AGENT':        {'type': str,   'default': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36'},
 
         'COOKIES_FILE':             {'type': str,   'default': None},
         'CHROME_USER_DATA_DIR':     {'type': str,   'default': None},
 
-        'CHROME_TIMEOUT':           {'type': int,   'default': 0},
         'CHROME_HEADLESS':          {'type': bool,  'default': True},
         'CHROME_SANDBOX':           {'type': bool,  'default': lambda c: not c['IN_DOCKER']},
-        'YOUTUBEDL_ARGS':           {'type': list,  'default': lambda c: [
-                                                                '--write-description',
+        'YOUTUBEDL_ARGS':           {'type': list,  'default': ['--write-description',
                                                                 '--write-info-json',
                                                                 '--write-annotations',
                                                                 '--write-thumbnail',
                                                                 '--no-call-home',
-                                                                '--write-sub',
-                                                                '--write-auto-subs',
-                                                                '--convert-subs=srt',
-                                                                '--yes-playlist',
-                                                                '--continue',
-                                                                # This flag doesn't exist in youtube-dl
-                                                                # only in yt-dlp
-                                                                '--no-abort-on-error',
-                                                                # --ignore-errors must come AFTER
-                                                                # --no-abort-on-error
-                                                                # https://github.com/yt-dlp/yt-dlp/issues/4914
+                                                                '--user-agent',
+                                                                '--all-subs',
+                                                                '--extract-audio',
+                                                                '--keep-video',
                                                                 '--ignore-errors',
                                                                 '--geo-bypass',
-                                                                '--add-metadata',
-                                                                '--format=(bv*+ba/b)[filesize<={}][filesize_approx<=?{}]/(bv*+ba/b)'.format(c['MEDIA_MAX_SIZE'], c['MEDIA_MAX_SIZE']),
-                                                                ]},
-
+                                                                '--audio-format', 'mp3',
+                                                                '--audio-quality', '320K',
+                                                                '--embed-thumbnail',
+                                                                '--add-metadata']},
 
         'WGET_ARGS':                {'type': list,  'default': ['--no-verbose',
                                                                 '--adjust-extension',
@@ -189,8 +141,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--compressed'
                                                                ]},
         'GIT_ARGS':                 {'type': list,  'default': ['--recursive']},
-        'SINGLEFILE_ARGS':          {'type': list,  'default' : None},
-        'FAVICON_PROVIDER':         {'type': str,   'default': 'https://www.google.com/s2/favicons?domain={}'},
     },
 
     'SEARCH_BACKEND_CONFIG' : {
@@ -200,16 +150,9 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SEARCH_BACKEND_HOST_NAME': {'type': str,   'default': 'localhost'},
         'SEARCH_BACKEND_PORT':      {'type': int,   'default': 1491},
         'SEARCH_BACKEND_PASSWORD':  {'type': str,   'default': 'SecretPassword'},
-        'SEARCH_PROCESS_HTML':      {'type': bool,  'default': True},
         # SONIC
         'SONIC_COLLECTION':         {'type': str,   'default': 'archivebox'},
         'SONIC_BUCKET':             {'type': str,   'default': 'snapshots'},
-        'SEARCH_BACKEND_TIMEOUT':   {'type': int,   'default': 90},
-        # SQLite3 FTS5
-        'FTS_SEPARATE_DATABASE':    {'type': bool,  'default': True},
-        'FTS_TOKENIZERS':           {'type': str,   'default': 'porter unicode61 remove_diacritics 2'},
-        # Default from https://www.sqlite.org/limits.html#max_length
-        'FTS_SQLITE_MAX_LENGTH':    {'type': int,   'default': int(1e9)},
     },
 
     'DEPENDENCY_CONFIG': {
@@ -223,22 +166,20 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'USE_NODE':                 {'type': bool,  'default': True},
         'USE_YOUTUBEDL':            {'type': bool,  'default': True},
         'USE_RIPGREP':              {'type': bool,  'default': True},
-
+        
         'CURL_BINARY':              {'type': str,   'default': 'curl'},
         'GIT_BINARY':               {'type': str,   'default': 'git'},
-        'WGET_BINARY':              {'type': str,   'default': 'wget'},     # also can accept wget2
-        'SINGLEFILE_BINARY':        {'type': str,   'default': lambda c: bin_path('single-file')},
-        'READABILITY_BINARY':       {'type': str,   'default': lambda c: bin_path('readability-extractor')},
-        'MERCURY_BINARY':           {'type': str,   'default': lambda c: bin_path('postlight-parser')},
-        'YOUTUBEDL_BINARY':         {'type': str,   'default': 'yt-dlp'},   # also can accept youtube-dl
+        'WGET_BINARY':              {'type': str,   'default': 'wget'},
+        'SINGLEFILE_BINARY':        {'type': str,   'default': 'single-file'},
+        'READABILITY_BINARY':       {'type': str,   'default': 'readability-extractor'},
+        'MERCURY_BINARY':           {'type': str,   'default': 'mercury-parser'},
+        'YOUTUBEDL_BINARY':         {'type': str,   'default': 'youtube-dl'},
         'NODE_BINARY':              {'type': str,   'default': 'node'},
         'RIPGREP_BINARY':           {'type': str,   'default': 'rg'},
         'CHROME_BINARY':            {'type': str,   'default': None},
 
         'POCKET_CONSUMER_KEY':      {'type': str,   'default': None},
         'POCKET_ACCESS_TOKENS':     {'type': dict,  'default': {}},
-
-        'READWISE_READER_TOKENS':   {'type': dict,  'default': {}},
     },
 }
 
@@ -264,11 +205,12 @@ def get_real_name(key: str) -> str:
 ################################ Constants #####################################
 
 PACKAGE_DIR_NAME = 'archivebox'
-TEMPLATES_DIR_NAME = 'templates'
+TEMPLATES_DIR_NAME = 'themes'
 
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
 LOGS_DIR_NAME = 'logs'
+STATIC_DIR_NAME = 'static'
 SQL_INDEX_FILENAME = 'index.sqlite3'
 JSON_INDEX_FILENAME = 'index.json'
 HTML_INDEX_FILENAME = 'index.html'
@@ -306,7 +248,7 @@ STATICFILE_EXTENSIONS = {
     # that can be downloaded as-is, not html pages that need to be rendered
     'gif', 'jpeg', 'jpg', 'png', 'tif', 'tiff', 'wbmp', 'ico', 'jng', 'bmp',
     'svg', 'svgz', 'webp', 'ps', 'eps', 'ai',
-    'mp3', 'mp4', 'm4a', 'mpeg', 'mpg', 'mkv', 'mov', 'webm', 'm4v',
+    'mp3', 'mp4', 'm4a', 'mpeg', 'mpg', 'mkv', 'mov', 'webm', 'm4v', 
     'flv', 'wmv', 'avi', 'ogg', 'ts', 'm3u8',
     'pdf', 'txt', 'rtf', 'rtfd', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
     'atom', 'rss', 'css', 'js', 'json',
@@ -315,7 +257,7 @@ STATICFILE_EXTENSIONS = {
 
     # Less common extensions to consider adding later
     # jar, swf, bin, com, exe, dll, deb
-    # ear, hqx, eot, wmlc, kml, kmz, cco, jardiff, jnlp, run, msi, msp, msm,
+    # ear, hqx, eot, wmlc, kml, kmz, cco, jardiff, jnlp, run, msi, msp, msm, 
     # pl pm, prc pdb, rar, rpm, sea, sit, tcl tk, der, pem, crt, xpi, xspf,
     # ra, mng, asx, asf, 3gpp, 3gp, mid, midi, kar, jad, wml, htc, mml
 
@@ -323,165 +265,18 @@ STATICFILE_EXTENSIONS = {
     # html, htm, shtml, xhtml, xml, aspx, php, cgi
 }
 
-# When initializing archivebox in a new directory, we check to make sure the dir is
-# actually empty so that we dont clobber someone's home directory or desktop by accident.
-# These files are exceptions to the is_empty check when we're trying to init a new dir,
-# as they could be from a previous archivebox version, system artifacts, dependencies, etc.
-ALLOWED_IN_OUTPUT_DIR = {
-    '.gitignore',
-    'lost+found',
-    '.DS_Store',
-    '.venv',
-    'venv',
-    'virtualenv',
-    '.virtualenv',
-    'node_modules',
-    'package.json',
-    'package-lock.json',
-    'yarn.lock',
-    'static',
-    'sonic',
-    'search.sqlite3',
-    ARCHIVE_DIR_NAME,
-    SOURCES_DIR_NAME,
-    LOGS_DIR_NAME,
-    SQL_INDEX_FILENAME,
-    f'{SQL_INDEX_FILENAME}-wal',
-    f'{SQL_INDEX_FILENAME}-shm',
-    JSON_INDEX_FILENAME,
-    HTML_INDEX_FILENAME,
-    ROBOTS_TXT_FILENAME,
-    FAVICON_FILENAME,
-    CONFIG_FILENAME,
-    f'{CONFIG_FILENAME}.bak',
-    'static_index.json',
-}
-
-
-ALLOWDENYLIST_REGEX_FLAGS: int = re.IGNORECASE | re.UNICODE | re.MULTILINE
-
-
-############################## Version Config ##################################
-
-def get_system_user():
-    SYSTEM_USER = getpass.getuser() or os.getlogin()
-    try:
-        import pwd
-        return pwd.getpwuid(os.geteuid()).pw_name or SYSTEM_USER
-    except KeyError:
-        # Process' UID might not map to a user in cases such as running the Docker image
-        # (where `archivebox` is 999) as a different UID.
-        pass
-    except ModuleNotFoundError:
-        # pwd doesn't exist on windows
-        pass
-    except Exception:
-        # this should never happen, uncomment to debug
-        # raise
-        pass
-
-    return SYSTEM_USER
-
-def get_version(config):
-    try:
-        return importlib.metadata.version(__package__ or 'archivebox')
-    except importlib.metadata.PackageNotFoundError:
-        try:
-            pyproject_config = (config['PACKAGE_DIR'] / 'pyproject.toml').read_text()
-            for line in pyproject_config:
-                if line.startswith('version = '):
-                    return line.split(' = ', 1)[-1].strip('"')
-        except FileNotFoundError:
-            # building docs, pyproject.toml is not available
-            return 'dev'
-
-    raise Exception('Failed to detect installed archivebox version!')
-
-def get_commit_hash(config) -> Optional[str]:
-    try:
-        git_dir = config['PACKAGE_DIR'] / '../.git'
-        ref = (git_dir / 'HEAD').read_text().strip().split(' ')[-1]
-        commit_hash = git_dir.joinpath(ref).read_text().strip()
-        return commit_hash
-    except Exception:
-        pass
-
-    try:
-        return list((config['PACKAGE_DIR'] / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
-    except Exception:
-        pass
-    
-    return None
-
-def get_build_time(config) -> str:
-    if config['IN_DOCKER']:
-        docker_build_end_time = Path('/VERSION.txt').read_text().rsplit('BUILD_END_TIME=')[-1].split('\n', 1)[0]
-        return docker_build_end_time
-
-    src_last_modified_unix_timestamp = (config['PACKAGE_DIR'] / 'config.py').stat().st_mtime
-    return datetime.fromtimestamp(src_last_modified_unix_timestamp).strftime('%Y-%m-%d %H:%M:%S %s')
-
-def get_versions_available_on_github(config):
-    """
-    returns a dictionary containing the ArchiveBox GitHub release info for
-    the recommended upgrade version and the currently installed version
-    """
-    
-    # we only want to perform the (relatively expensive) check for new versions
-    # when its most relevant, e.g. when the user runs a long-running command
-    subcommand_run_by_user = sys.argv[3] if len(sys.argv) > 3 else 'help'
-    long_running_commands = ('add', 'schedule', 'update', 'status', 'server')
-    if subcommand_run_by_user not in long_running_commands:
-        return None
-    
-    github_releases_api = "https://api.github.com/repos/ArchiveBox/ArchiveBox/releases"
-    response = requests.get(github_releases_api)
-    if response.status_code != 200:
-        stderr(f'[!] Warning: GitHub API call to check for new ArchiveBox version failed! (status={response.status_code})', color='lightyellow', config=config)
-        return None
-    all_releases = response.json()
-
-    installed_version = parse_version_string(config['VERSION'])
-
-    # find current version or nearest older version (to link to)
-    current_version = None
-    for idx, release in enumerate(all_releases):
-        release_version = parse_version_string(release['tag_name'])
-        if release_version <= installed_version:
-            current_version = release
-            break
-
-    current_version = current_version or all_releases[-1]
-    
-    # recommended version is whatever comes after current_version in the release list
-    # (perhaps too conservative to only recommend upgrading one version at a time, but it's safest)
-    try:
-        recommended_version = all_releases[idx+1]
-    except IndexError:
-        recommended_version = None
-
-    return {'recommended_version': recommended_version, 'current_version': current_version}
-
-def can_upgrade(config):
-    if config['VERSIONS_AVAILABLE'] and config['VERSIONS_AVAILABLE']['recommended_version']:
-        recommended_version = parse_version_string(config['VERSIONS_AVAILABLE']['recommended_version']['tag_name'])
-        current_version = parse_version_string(config['VERSIONS_AVAILABLE']['current_version']['tag_name'])
-        return recommended_version > current_version
-    return False
 
 
 ############################## Derived Config ##################################
 
-# These are derived/computed values calculated *after* all user-provided config values are ingested
-# they appear in `archivebox config` output and are intended to be read-only for the user
+
 DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'TERM_WIDTH':               {'default': lambda c: lambda: shutil.get_terminal_size((100, 10)).columns},
-    'USER':                     {'default': lambda c: get_system_user()},
+    'USER':                     {'default': lambda c: getpass.getuser() or os.getlogin()},
     'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
 
     'PACKAGE_DIR':              {'default': lambda c: Path(__file__).resolve().parent},
     'TEMPLATES_DIR':            {'default': lambda c: c['PACKAGE_DIR'] / TEMPLATES_DIR_NAME},
-    'CUSTOM_TEMPLATES_DIR':     {'default': lambda c: c['CUSTOM_TEMPLATES_DIR'] and Path(c['CUSTOM_TEMPLATES_DIR'])},
 
     'OUTPUT_DIR':               {'default': lambda c: Path(c['OUTPUT_DIR']).resolve() if c['OUTPUT_DIR'] else Path(os.curdir).resolve()},
     'ARCHIVE_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / ARCHIVE_DIR_NAME},
@@ -490,30 +285,18 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'CONFIG_FILE':              {'default': lambda c: Path(c['CONFIG_FILE']).resolve() if c['CONFIG_FILE'] else c['OUTPUT_DIR'] / CONFIG_FILENAME},
     'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and Path(c['COOKIES_FILE']).resolve()},
     'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (Path(c['CHROME_USER_DATA_DIR']).resolve() if c['CHROME_USER_DATA_DIR'] else None)},   # None means unset, so we autodetect it with find_chrome_Data_dir(), but emptystring '' means user manually set it to '', and we should store it as None
-    'URL_DENYLIST_PTN':         {'default': lambda c: c['URL_DENYLIST'] and re.compile(c['URL_DENYLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
-    'URL_ALLOWLIST_PTN':        {'default': lambda c: c['URL_ALLOWLIST'] and re.compile(c['URL_ALLOWLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
-    'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},  # exec is always needed to list directories
+    'URL_BLACKLIST_PTN':        {'default': lambda c: c['URL_BLACKLIST'] and re.compile(c['URL_BLACKLIST'] or '', re.IGNORECASE | re.UNICODE | re.MULTILINE)},
 
-    'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
-
-    'VERSION':                  {'default': lambda c: get_version(c).split('+', 1)[0]},     # remove +editable from user-displayed version string
-    'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},                  # short git commit hash of codebase HEAD commit
-    'BUILD_TIME':               {'default': lambda c: get_build_time(c)},                   # docker build completed time or python src last modified time
-    
-    'VERSIONS_AVAILABLE':       {'default': lambda c: get_versions_available_on_github(c)},
-    'CAN_UPGRADE':              {'default': lambda c: can_upgrade(c)},
+    'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0]},
+    'VERSION':                  {'default': lambda c: json.loads((Path(c['PACKAGE_DIR']) / 'package.json').read_text().strip())['version']},
+    'GIT_SHA':                  {'default': lambda c: c['VERSION'].split('+')[-1] or 'unknown'},
 
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
     'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},
     'PYTHON_VERSION':           {'default': lambda c: '{}.{}.{}'.format(*sys.version_info[:3])},
 
-    'DJANGO_BINARY':            {'default': lambda c: inspect.getfile(django)},
+    'DJANGO_BINARY':            {'default': lambda c: django.__file__.replace('__init__.py', 'bin/django-admin.py')},
     'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{} {} ({})'.format(*django.VERSION)},
-    
-    'SQLITE_BINARY':            {'default': lambda c: inspect.getfile(sqlite3)},
-    'SQLITE_VERSION':           {'default': lambda c: sqlite3.version},
-    #'SQLITE_JOURNAL_MODE':      {'default': lambda c: 'wal'},         # set at runtime below, interesting if changed later but unused for now because its always expected to be wal
-    #'SQLITE_OPTIONS':           {'default': lambda c: ['JSON1']},     # set at runtime below
 
     'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
     'CURL_VERSION':             {'default': lambda c: bin_version(c['CURL_BINARY']) if c['USE_CURL'] else None},
@@ -534,13 +317,12 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
 
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
-    'SINGLEFILE_ARGS':          {'default': lambda c: c['SINGLEFILE_ARGS'] or []},
 
     'USE_READABILITY':          {'default': lambda c: c['USE_READABILITY'] and c['SAVE_READABILITY']},
     'READABILITY_VERSION':      {'default': lambda c: bin_version(c['READABILITY_BINARY']) if c['USE_READABILITY'] else None},
 
     'USE_MERCURY':              {'default': lambda c: c['USE_MERCURY'] and c['SAVE_MERCURY']},
-    'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury doesnt expose version info until this is merged https://github.com/postlight/parser/pull/750
+    'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury is unversioned
 
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
@@ -551,18 +333,17 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'SAVE_MEDIA':               {'default': lambda c: c['USE_YOUTUBEDL'] and c['SAVE_MEDIA']},
     'YOUTUBEDL_ARGS':           {'default': lambda c: c['YOUTUBEDL_ARGS'] or []},
 
-    'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] or find_chrome_binary()},
-    'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and c['CHROME_BINARY'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'] or c['SAVE_SINGLEFILE'])},
+    'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'] or c['SAVE_SINGLEFILE'])},
+    'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] if c['CHROME_BINARY'] else find_chrome_binary()},
     'CHROME_VERSION':           {'default': lambda c: bin_version(c['CHROME_BINARY']) if c['USE_CHROME'] else None},
-    'CHROME_USER_AGENT':        {'default': lambda c: c['CHROME_USER_AGENT'].format(**c)},
-
+    
     'SAVE_PDF':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_PDF']},
     'SAVE_SCREENSHOT':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SCREENSHOT']},
     'SAVE_DOM':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_DOM']},
     'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SINGLEFILE'] and c['USE_NODE']},
     'SAVE_READABILITY':         {'default': lambda c: c['USE_READABILITY'] and c['USE_NODE']},
     'SAVE_MERCURY':             {'default': lambda c: c['USE_MERCURY'] and c['USE_NODE']},
-
+    
     'USE_NODE':                 {'default': lambda c: c['USE_NODE'] and (c['SAVE_READABILITY'] or c['SAVE_SINGLEFILE'] or c['SAVE_MERCURY'])},
     'NODE_VERSION':             {'default': lambda c: bin_version(c['NODE_BINARY']) if c['USE_NODE'] else None},
 
@@ -571,9 +352,8 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'EXTERNAL_LOCATIONS':       {'default': lambda c: get_external_locations(c)},
     'DATA_LOCATIONS':           {'default': lambda c: get_data_locations(c)},
     'CHROME_OPTIONS':           {'default': lambda c: get_chrome_info(c)},
-    'SAVE_ALLOWLIST_PTN':       {'default': lambda c: c['SAVE_ALLOWLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_ALLOWLIST'].items()}},
-    'SAVE_DENYLIST_PTN':        {'default': lambda c: c['SAVE_DENYLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_DENYLIST'].items()}},
 }
+
 
 
 ################################### Helpers ####################################
@@ -588,60 +368,47 @@ def load_config_val(key: str,
                     config_file_vars: Optional[Dict[str, str]]=None) -> ConfigValue:
     """parse bool, int, and str key=value pairs from env"""
 
-    assert isinstance(config, dict)
 
-    is_read_only = type is None
-    if is_read_only:
-        if callable(default):
-            return default(config)
-        return default
-
-    # get value from environment variables or config files
     config_keys_to_check = (key, *(aliases or ()))
-    val = None
     for key in config_keys_to_check:
         if env_vars:
             val = env_vars.get(key)
             if val:
                 break
-
         if config_file_vars:
             val = config_file_vars.get(key)
             if val:
                 break
 
-    is_unset = val is None
-    if is_unset:
+    if type is None or val is None:
         if callable(default):
+            assert isinstance(config, dict)
             return default(config)
+
         return default
 
-    # calculate value based on expected type
-    BOOL_TRUEIES = ('true', 'yes', '1')
-    BOOL_FALSEIES = ('false', 'no', '0')
-
-    if type is bool:
-        if val.lower() in BOOL_TRUEIES:
+    elif type is bool:
+        if val.lower() in ('true', 'yes', '1'):
             return True
-        elif val.lower() in BOOL_FALSEIES:
+        elif val.lower() in ('false', 'no', '0'):
             return False
         else:
-            raise ValueError(f'Invalid configuration option {key}={val} (expected a boolean: True/False)')
+            raise ValueError(f'Invalid configuration option {key}={val} (expected a boolean: True/False)') 
 
     elif type is str:
-        if val.lower() in (*BOOL_TRUEIES, *BOOL_FALSEIES):
-            raise ValueError(f'Invalid configuration option {key}={val} (expected a string, but value looks like a boolean)')
+        if val.lower() in ('true', 'false', 'yes', 'no', '1', '0'):
+            raise ValueError(f'Invalid configuration option {key}={val} (expected a string)')
         return val.strip()
 
     elif type is int:
-        if not val.strip().isdigit():
+        if not val.isdigit():
             raise ValueError(f'Invalid configuration option {key}={val} (expected an integer)')
-        return int(val.strip())
+        return int(val)
 
     elif type is list or type is dict:
         return json.loads(val)
 
-    raise Exception('Config values can only be str, bool, int, or json')
+    raise Exception('Config values can only be str, bool, int or json')
 
 
 def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
@@ -651,7 +418,7 @@ def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
     config_path = Path(out_dir) / CONFIG_FILENAME
     if config_path.exists():
         config_file = ConfigParser()
-        config_file.optionxform = str
+        config_file.optionxform = str 
         config_file.read(config_path)
         # flatten into one namespace
         config_file_vars = {
@@ -675,7 +442,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
     #
     # You can add options here manually in INI format, or automatically by running:
     #    archivebox config --set KEY=VALUE
-    #
+    # 
     # If you modify this file manually, make sure to update your archive after by running:
     #    archivebox init
     #
@@ -686,7 +453,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
 
     out_dir = out_dir or Path(os.getenv('OUTPUT_DIR', '.')).resolve()
     config_path = Path(out_dir) /  CONFIG_FILENAME
-
+    
     if not config_path.exists():
         atomic_write(config_path, CONFIG_HEADER)
 
@@ -694,7 +461,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
     config_file.optionxform = str
     config_file.read(config_path)
 
-    with open(config_path, 'r', encoding='utf-8') as old:
+    with open(config_path, 'r') as old:
         atomic_write(f'{config_path}.bak', old.read())
 
     find_section = lambda key: [name for name, opts in CONFIG_SCHEMA.items() if key in opts][0]
@@ -715,42 +482,41 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
 
     if (not existing_secret_key) or ('not a valid secret' in existing_secret_key):
         from django.utils.crypto import get_random_string
-        chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'
+        chars = 'abcdefghijklmnopqrstuvwxyz0123456789-_+!.'
         random_secret_key = get_random_string(50, chars)
         if 'SERVER_CONFIG' in config_file:
             config_file['SERVER_CONFIG']['SECRET_KEY'] = random_secret_key
         else:
             config_file['SERVER_CONFIG'] = {'SECRET_KEY': random_secret_key}
 
-    with open(config_path, 'w+', encoding='utf-8') as new:
+    with open(config_path, 'w+') as new:
         config_file.write(new)
-
+    
     try:
         # validate the config by attempting to re-parse it
         CONFIG = load_all_config()
-    except BaseException:                                                       # lgtm [py/catch-base-exception]
+        return {
+            key.upper(): CONFIG.get(key.upper())
+            for key in config.keys()
+        }
+    except:
         # something went horribly wrong, rever to the previous version
-        with open(f'{config_path}.bak', 'r', encoding='utf-8') as old:
+        with open(f'{config_path}.bak', 'r') as old:
             atomic_write(config_path, old.read())
-
-        raise
 
     if Path(f'{config_path}.bak').exists():
         os.remove(f'{config_path}.bak')
 
-    return {
-        key.upper(): CONFIG.get(key.upper())
-        for key in config.keys()
-    }
+    return {}
 
-
+   
 
 def load_config(defaults: ConfigDefaultDict,
                 config: Optional[ConfigDict]=None,
                 out_dir: Optional[str]=None,
                 env_vars: Optional[os._Environ]=None,
                 config_file_vars: Optional[Dict[str, str]]=None) -> ConfigDict:
-
+    
     env_vars = env_vars or os.environ
     config_file_vars = config_file_vars or load_config_file(out_dir=out_dir)
 
@@ -778,16 +544,14 @@ def load_config(defaults: ConfigDefaultDict,
             stderr('    For config documentation and examples see:')
             stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration')
             stderr()
-            # raise
+            raise
             raise SystemExit(2)
-
+    
     return extended_config
 
+# def write_config(config: ConfigDict):
 
-def parse_version_string(version: str) -> Tuple[int, int, int]:
-    """parses a version tag string formatted like 'vx.x.x' into (major, minor, patch) ints"""
-    base = version.split('+')[0].split('v')[-1] # remove 'v' prefix and '+editable' suffix
-    return tuple(int(part) for part in base.split('.'))[:3]
+#     with open(os.path.join(config['OUTPUT_DIR'], CONFIG_FILENAME), 'w+') as f:
 
 
 # Logging Helpers
@@ -831,10 +595,7 @@ def bin_version(binary: Optional[str]) -> Optional[str]:
         return None
 
     try:
-        bin_env = os.environ | {'LANG': 'C'}
-        version_str = run([abspath, "--version"], stdout=PIPE, env=bin_env).stdout.strip().decode()
-        if not version_str:
-            version_str = run([abspath, "--version"], stdout=PIPE).stdout.strip().decode()
+        version_str = run([abspath, "--version"], stdout=PIPE).stdout.strip().decode()
         # take first 3 columns of first line of version info
         return ' '.join(version_str.split('\n')[0].strip().split()[:3])
     except OSError:
@@ -868,7 +629,7 @@ def bin_hash(binary: Optional[str]) -> Optional[str]:
     with io.open(abs_path, mode='rb') as f:
         for chunk in iter(lambda: f.read(io.DEFAULT_BUFFER_SIZE), b''):
             file_hash.update(chunk)
-
+            
     return f'md5:{file_hash.hexdigest()}'
 
 def find_chrome_binary() -> Optional[str]:
@@ -876,7 +637,6 @@ def find_chrome_binary() -> Optional[str]:
     # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
     # make sure data dir finding precedence order always matches binary finding order
     default_executable_paths = (
-        # '~/Library/Caches/ms-playwright/chromium-*/chrome-mac/Chromium.app/Contents/MacOS/Chromium',
         'chromium-browser',
         'chromium',
         '/Applications/Chromium.app/Contents/MacOS/Chromium',
@@ -894,7 +654,7 @@ def find_chrome_binary() -> Optional[str]:
         full_path_exists = shutil.which(name)
         if full_path_exists:
             return name
-
+    
     return None
 
 def find_chrome_data_dir() -> Optional[str]:
@@ -943,12 +703,7 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
         'TEMPLATES_DIR': {
             'path': (config['TEMPLATES_DIR']).resolve(),
             'enabled': True,
-            'is_valid': (config['TEMPLATES_DIR'] / 'static').exists(),
-        },
-        'CUSTOM_TEMPLATES_DIR': {
-            'path': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).resolve(),
-            'enabled': bool(config['CUSTOM_TEMPLATES_DIR']),
-            'is_valid': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).exists(),
+            'is_valid': (config['TEMPLATES_DIR'] / config['ACTIVE_THEME'] / 'static').exists(),
         },
         # 'NODE_MODULES_DIR': {
         #     'path': ,
@@ -978,7 +733,6 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'path': config['OUTPUT_DIR'].resolve(),
             'enabled': True,
             'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
-            'is_mount': os.path.ismount(config['OUTPUT_DIR'].resolve()),
         },
         'SOURCES_DIR': {
             'path': config['SOURCES_DIR'].resolve(),
@@ -994,7 +748,6 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'path': config['ARCHIVE_DIR'].resolve(),
             'enabled': True,
             'is_valid': config['ARCHIVE_DIR'].exists(),
-            'is_mount': os.path.ismount(config['ARCHIVE_DIR'].resolve()),
         },
         'CONFIG_FILE': {
             'path': config['CONFIG_FILE'].resolve(),
@@ -1005,25 +758,24 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'path': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).resolve(),
             'enabled': True,
             'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
-            'is_mount': os.path.ismount((config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).resolve()),
         },
     }
 
 def get_dependency_info(config: ConfigDict) -> ConfigValue:
     return {
+        'ARCHIVEBOX_BINARY': {
+            'path': bin_path(config['ARCHIVEBOX_BINARY']),
+            'version': config['VERSION'],
+            'hash': bin_hash(config['ARCHIVEBOX_BINARY']),
+            'enabled': True,
+            'is_valid': True,
+        },
         'PYTHON_BINARY': {
             'path': bin_path(config['PYTHON_BINARY']),
             'version': config['PYTHON_VERSION'],
             'hash': bin_hash(config['PYTHON_BINARY']),
             'enabled': True,
-            'is_valid': bool(config['PYTHON_VERSION']),
-        },
-        'SQLITE_BINARY': {
-            'path': bin_path(config['SQLITE_BINARY']),
-            'version': config['SQLITE_VERSION'],
-            'hash': bin_hash(config['SQLITE_BINARY']),
-            'enabled': True,
-            'is_valid': bool(config['SQLITE_VERSION']),
+            'is_valid': bool(config['DJANGO_VERSION']),
         },
         'DJANGO_BINARY': {
             'path': bin_path(config['DJANGO_BINARY']),
@@ -1032,18 +784,10 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'enabled': True,
             'is_valid': bool(config['DJANGO_VERSION']),
         },
-        'ARCHIVEBOX_BINARY': {
-            'path': bin_path(config['ARCHIVEBOX_BINARY']),
-            'version': config['VERSION'],
-            'hash': bin_hash(config['ARCHIVEBOX_BINARY']),
-            'enabled': True,
-            'is_valid': True,
-        },
-        
         'CURL_BINARY': {
             'path': bin_path(config['CURL_BINARY']),
             'version': config['CURL_VERSION'],
-            'hash': bin_hash(config['CURL_BINARY']),
+            'hash': bin_hash(config['PYTHON_BINARY']),
             'enabled': config['USE_CURL'],
             'is_valid': bool(config['CURL_VERSION']),
         },
@@ -1059,7 +803,7 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'version': config['NODE_VERSION'],
             'hash': bin_hash(config['NODE_BINARY']),
             'enabled': config['USE_NODE'],
-            'is_valid': bool(config['NODE_VERSION']),
+            'is_valid': bool(config['SINGLEFILE_VERSION']),
         },
         'SINGLEFILE_BINARY': {
             'path': bin_path(config['SINGLEFILE_BINARY']),
@@ -1125,8 +869,7 @@ def get_chrome_info(config: ConfigDict) -> ConfigValue:
         'TIMEOUT': config['TIMEOUT'],
         'RESOLUTION': config['RESOLUTION'],
         'CHECK_SSL_VALIDITY': config['CHECK_SSL_VALIDITY'],
-        'CHROME_BINARY': bin_path(config['CHROME_BINARY']),
-        'CHROME_TIMEOUT': config['CHROME_TIMEOUT'],
+        'CHROME_BINARY': config['CHROME_BINARY'],
         'CHROME_HEADLESS': config['CHROME_HEADLESS'],
         'CHROME_SANDBOX': config['CHROME_SANDBOX'],
         'CHROME_USER_AGENT': config['CHROME_USER_AGENT'],
@@ -1167,67 +910,31 @@ globals().update(CONFIG)
 
 
 # Set timezone to UTC and umask to OUTPUT_PERMISSIONS
-assert TIMEZONE == 'UTC', 'The server timezone should always be set to UTC'  # noqa: F821
-os.environ["TZ"] = TIMEZONE                                                  # noqa: F821
-os.umask(0o777 - int(DIR_OUTPUT_PERMISSIONS, base=8))                        # noqa: F821
+os.environ["TZ"] = 'UTC'
+os.umask(0o777 - int(OUTPUT_PERMISSIONS, base=8))  # noqa: F821
 
 # add ./node_modules/.bin to $PATH so we can use node scripts in extractors
 NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]).absolute() / 'node_modules' / '.bin'))
 sys.path.append(NODE_BIN_PATH)
 
-# OPTIONAL: also look around the host system for node modules to use
-#   avoid enabling this unless absolutely needed,
-#   having overlapping potential sources of libs is a big source of bugs/confusing to users
-# DEV_NODE_BIN_PATH = str((Path(CONFIG["PACKAGE_DIR"]).absolute() / '..' / 'node_modules' / '.bin'))
-# sys.path.append(DEV_NODE_BIN_PATH)
-# USER_NODE_BIN_PATH = str(Path('~/.node_modules/.bin').resolve())
-# sys.path.append(USER_NODE_BIN_PATH)
 
-# disable stderr "you really shouldnt disable ssl" warnings with library config
-if not CONFIG['CHECK_SSL_VALIDITY']:
-    import urllib3
-    requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# get SQLite database version, compile options, and runtime options
-# TODO: make this a less hacky proper assertion checker helper function in somewhere like setup_django
-#cursor = sqlite3.connect(':memory:').cursor()
-#DYNAMIC_CONFIG_SCHEMA['SQLITE_VERSION'] = lambda c: cursor.execute("SELECT sqlite_version();").fetchone()[0]
-#DYNAMIC_CONFIG_SCHEMA['SQLITE_JOURNAL_MODE'] = lambda c: cursor.execute('PRAGMA journal_mode;').fetchone()[0]
-#DYNAMIC_CONFIG_SCHEMA['SQLITE_OPTIONS'] = lambda c: [option[0] for option in cursor.execute('PRAGMA compile_options;').fetchall()]
-#cursor.close()
 
 ########################### Config Validity Checkers ###########################
 
 
 def check_system_config(config: ConfigDict=CONFIG) -> None:
     ### Check system environment
-    if config['USER'] == 'root' or str(config['PUID']) == "0":
+    if config['USER'] == 'root':
         stderr('[!] ArchiveBox should never be run as root!', color='red')
         stderr('    For more information, see the security overview documentation:')
         stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
-        
-        if config['IN_DOCKER']:
-            attempted_command = ' '.join(sys.argv[:3])
-            stderr('')
-            stderr('    {lightred}Hint{reset}: When using Docker, you must run commands with {green}docker run{reset} instead of {lightyellow}docker exec{reset}, e.g.:'.format(**config['ANSI']))
-            stderr(f'        docker compose run archivebox {attempted_command}')
-            stderr(f'        docker run -it -v $PWD/data:/data archivebox/archivebox {attempted_command}')
-            stderr('        or:')
-            stderr(f'        docker compose exec --user=archivebox archivebox /bin/bash -c "archivebox {attempted_command}"')
-            stderr(f'        docker exec -it --user=archivebox <container id> /bin/bash -c "archivebox {attempted_command}"')
-        
         raise SystemExit(2)
 
     ### Check Python environment
-    if sys.version_info[:3] < (3, 7, 0):
+    if sys.version_info[:3] < (3, 6, 0):
         stderr(f'[X] Python version is not new enough: {config["PYTHON_VERSION"]} (>3.6 is required)', color='red')
         stderr('    See https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
-        raise SystemExit(2)
-
-    if int(CONFIG['DJANGO_VERSION'].split('.')[0]) < 3:
-        stderr(f'[X] Django version is not new enough: {config["DJANGO_VERSION"]} (>3.0 is required)', color='red')
-        stderr('    Upgrade django using pip or your system package manager: pip3 install --upgrade django')
         raise SystemExit(2)
 
     if config['PYTHON_ENCODING'] not in ('UTF-8', 'UTF8'):
@@ -1270,9 +977,9 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
                     info['version'] or 'unable to detect version',
                 )
             )
-            if dependency in ('YOUTUBEDL_BINARY', 'CHROME_BINARY', 'SINGLEFILE_BINARY', 'READABILITY_BINARY', 'MERCURY_BINARY'):
-                hint(('To install all packages automatically run: archivebox setup',
-                    f'or to disable it and silence this warning: archivebox config --set SAVE_{dependency.rsplit("_", 1)[0]}=False',
+            if dependency in ('SINGLEFILE_BINARY', 'READABILITY_BINARY', 'MERCURY_BINARY'):
+                hint(('npm install --prefix . "git+https://github.com/ArchiveBox/ArchiveBox.git"',
+                    f'or archivebox config --set SAVE_{dependency.rsplit("_", 1)[0]}=False to silence this warning',
                     ''), prefix='      ')
         stderr('')
 
@@ -1296,20 +1003,19 @@ def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
 
     if config['USE_YOUTUBEDL'] and config['MEDIA_TIMEOUT'] < 20:
         stderr(f'[!] Warning: MEDIA_TIMEOUT is set too low! (currently set to MEDIA_TIMEOUT={config["MEDIA_TIMEOUT"]} seconds)', color='red')
-        stderr('    youtube-dl/yt-dlp will fail to archive any media if set to less than ~20 seconds.')
+        stderr('    Youtube-dl will fail to archive all media if set to less than ~20 seconds.')
         stderr('    (Setting it somewhere over 60 seconds is recommended)')
         stderr()
         stderr('    If you want to disable media archiving entirely, set SAVE_MEDIA=False instead:')
         stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#save_media')
         stderr()
-
         
 def check_data_folder(out_dir: Union[str, Path, None]=None, config: ConfigDict=CONFIG) -> None:
     output_dir = out_dir or config['OUTPUT_DIR']
     assert isinstance(output_dir, (str, Path))
 
-    archive_dir_exists = (Path(output_dir) / ARCHIVE_DIR_NAME).exists()
-    if not archive_dir_exists:
+    sql_index_exists = (Path(output_dir) / SQL_INDEX_FILENAME).exists()
+    if not sql_index_exists:
         stderr('[X] No archivebox index found in the current directory.', color='red')
         stderr(f'    {output_dir}', color='lightyellow')
         stderr()
@@ -1321,103 +1027,55 @@ def check_data_folder(out_dir: Union[str, Path, None]=None, config: ConfigDict=C
         stderr('        archivebox init')
         raise SystemExit(2)
 
-def check_migrations(out_dir: Union[str, Path, None]=None, config: ConfigDict=CONFIG):
-    output_dir = out_dir or config['OUTPUT_DIR']
     from .index.sql import list_migrations
 
     pending_migrations = [name for status, name in list_migrations() if not status]
 
-    if pending_migrations:
+    if (not sql_index_exists) or pending_migrations:
+        if sql_index_exists:
+            pending_operation = f'apply the {len(pending_migrations)} pending migrations'
+        else:
+            pending_operation = 'generate the new SQL main index'
+
         stderr('[X] This collection was created with an older version of ArchiveBox and must be upgraded first.', color='lightyellow')
         stderr(f'    {output_dir}')
         stderr()
-        stderr(f'    To upgrade it to the latest version and apply the {len(pending_migrations)} pending migrations, run:')
+        stderr(f'    To upgrade it to the latest version and {pending_operation} run:')
         stderr('        archivebox init')
         raise SystemExit(3)
 
-    (Path(output_dir) / SOURCES_DIR_NAME).mkdir(exist_ok=True)
-    (Path(output_dir) / LOGS_DIR_NAME).mkdir(exist_ok=True)
+    sources_dir = Path(output_dir) / SOURCES_DIR_NAME
+    if not sources_dir.exists():
+        sources_dir.mkdir()
 
 
 
 def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, in_memory_db=False) -> None:
     check_system_config()
-
+    
     output_dir = out_dir or Path(config['OUTPUT_DIR'])
 
     assert isinstance(output_dir, Path) and isinstance(config['PACKAGE_DIR'], Path)
 
     try:
-        from django.core.management import call_command
-
+        import django
         sys.path.append(str(config['PACKAGE_DIR']))
         os.environ.setdefault('OUTPUT_DIR', str(output_dir))
         assert (config['PACKAGE_DIR'] / 'core' / 'settings.py').exists(), 'settings.py was not found at archivebox/core/settings.py'
         os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 
-        # Check to make sure JSON extension is available in our Sqlite3 instance
-        try:
-            cursor = sqlite3.connect(':memory:').cursor()
-            cursor.execute('SELECT JSON(\'{"a": "b"}\')')
-        except sqlite3.OperationalError as exc:
-            stderr(f'[X] Your SQLite3 version is missing the required JSON1 extension: {exc}', color='red')
-            hint([
-                'Upgrade your Python version or install the extension manually:',
-                'https://code.djangoproject.com/wiki/JSON1Extension'
-            ])
-
         if in_memory_db:
-            # some commands (e.g. oneshot) dont store a long-lived sqlite3 db file on disk.
-            # in those cases we create a temporary in-memory db and run the migrations
-            # immediately to get a usable in-memory-database at startup
+            # Put the db in memory and run migrations in case any command requires it
+            from django.core.management import call_command
             os.environ.setdefault("ARCHIVEBOX_DATABASE_NAME", ":memory:")
             django.setup()
             call_command("migrate", interactive=False, verbosity=0)
         else:
-            # Otherwise use default sqlite3 file-based database and initialize django
-            # without running migrations automatically (user runs them manually by calling init)
             django.setup()
 
-        from django.conf import settings
-
-        # log startup message to the error log
-        with open(settings.ERROR_LOG, "a", encoding='utf-8') as f:
-            command = ' '.join(sys.argv)
-            ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
-            f.write(f"\n> {command}; TS={ts} VERSION={config['VERSION']} IN_DOCKER={config['IN_DOCKER']} IS_TTY={config['IS_TTY']}\n")
-
         if check_db:
-            # Enable WAL mode in sqlite3
-            from django.db import connection
-            with connection.cursor() as cursor:
-
-                # Set Journal mode to WAL to allow for multiple writers
-                current_mode = cursor.execute("PRAGMA journal_mode")
-                if current_mode != 'wal':
-                    cursor.execute("PRAGMA journal_mode=wal;")
-
-                # Set max blocking delay for concurrent writes and write sync mode
-                # https://litestream.io/tips/#busy-timeout
-                cursor.execute("PRAGMA busy_timeout = 5000;")
-                cursor.execute("PRAGMA synchronous = NORMAL;")
-
-            # Create cache table in DB if needed
-            try:
-                from django.core.cache import cache
-                cache.get('test', None)
-            except django.db.utils.OperationalError:
-                call_command("createcachetable", verbosity=0)
-
-            # if archivebox gets imported multiple times, we have to close
-            # the sqlite3 whenever we init from scratch to avoid multiple threads
-            # sharing the same connection by accident
-            from django.db import connections
-            for conn in connections.all():
-                conn.close_if_unusable_or_obsolete()
-
             sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
             assert sql_index_path.exists(), (
-                f'No database file {SQL_INDEX_FILENAME} found in: {config["OUTPUT_DIR"]} (Are you in an ArchiveBox collection directory?)')
-
+                f'No database file {SQL_INDEX_FILENAME} found in OUTPUT_DIR: {config["OUTPUT_DIR"]}')
     except KeyboardInterrupt:
         raise SystemExit(2)
