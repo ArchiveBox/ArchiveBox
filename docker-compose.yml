@@ -1,13 +1,11 @@
 # Usage:
-#     docker compose run archivebox init --setup
 #     docker compose up
-#     echo "https://example.com" | docker compose run archivebox archivebox add
-#     docker compose run archivebox add --depth=1 https://example.com/some/feed.rss
-#     docker compose run archivebox config --set MEDIA_MAX_SIZE=750m
+#     echo 'https://example.com' | docker compose run -T archivebox add
+#     docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
+#     docker compose run archivebox config --set SAVE_ARCHIVE_DOT_ORG=False
 #     docker compose run archivebox help
 # Documentation:
 #     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
-
 
 services:
     archivebox:
@@ -23,11 +21,11 @@ services:
             - PUBLIC_INDEX=True                 # set to False to prevent anonymous users from viewing snapshot list
             - PUBLIC_SNAPSHOTS=True             # set to False to prevent anonymous users from viewing snapshot content
             - PUBLIC_ADD_VIEW=False             # set to True to allow anonymous users to submit new URLs to archive
-            - SEARCH_BACKEND_ENGINE=sonic       # uncomment these and sonic container below for better full-text search
+            - SEARCH_BACKEND_ENGINE=sonic       # tells ArchiveBox to use sonic container below for fast full-text search
             - SEARCH_BACKEND_HOST_NAME=sonic
             - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
             # - PUID=911                        # set to your host user's UID & GID if you encounter permissions issues
-            # - PGID=911
+            # - PGID=911                        # UID/GIDs <500 may clash with existing users and are not recommended
             # - MEDIA_MAX_SIZE=750m             # increase this filesize limit to allow archiving larger audio/video files
             # - TIMEOUT=60                      # increase this number to 120+ seconds if you see many slow downloads timing out
             # - CHECK_SSL_VALIDITY=True         # set to False to disable strict SSL checking (allows saving URLs w/ broken certs)
@@ -35,7 +33,6 @@ services:
             # ...
             # add further configuration options from archivebox/config.py as needed (to apply them only to this container)
             # or set using `docker compose run archivebox config --set SOME_KEY=someval` (to persist config across all containers)
-        
         # For ad-blocking during archiving, uncomment this section and pihole service section below
         # networks:
         #   - dns
@@ -45,51 +42,50 @@ services:
 
     ######## Optional Addons: tweak examples below as needed for your specific use case ########
 
-    ### Enable ability to run regularly scheduled archiving tasks by uncommenting this container
-    #   $ docker compose run archivebox schedule --every=day --depth=1 'https://example.com/some/rss/feed.xml'
-    # then restart the scheduler container to apply the changes to the schedule
+    ### This optional container runs any scheduled tasks in the background, add new tasks like so:
+    #   $ docker compose run archivebox schedule --add --every=day --depth=1 'https://example.com/some/rss/feed.xml'
+    # then restart the scheduler container to apply any changes to the scheduled task list:
     #   $ docker compose restart archivebox_scheduler
 
     archivebox_scheduler:
        image: archivebox/archivebox:latest
-       command: schedule --foreground
+       command: schedule --foreground --update --every=day
        environment:
-           - TIMEOUT=120                       # increase if you see timeouts often during archiving / on slow networks
-           - ONLY_NEW=True                     # set to False to retry previously failed URLs when re-adding instead of skipping them
+           - TIMEOUT=120                       # use a higher timeout than the main container to give slow tasks more time when retrying
            # - PUID=502                        # set to your host user's UID & GID if you encounter permissions issues
            # - PGID=20
        volumes:
            - ./data:/data
-       # cpus: 2                               # uncomment / edit these values to limit container resource consumption
+       # cpus: 2                               # uncomment / edit these values to limit scheduler container resource consumption
        # mem_limit: 2048m
-       # shm_size: 1024m
+       # restart: always
 
 
-    ### Runs the Sonic full-text search backend, config file is auto-downloaded into sonic.cfg:
-    #   After starting, backfill any existing Snapshots into the full-text index:
+    ### This runs the optional Sonic full-text search backend (much faster than default rg backend).
+    # If Sonic is ever started after not running for a while, update its full-text index by running:
     #   $ docker-compose run archivebox update --index-only
 
     sonic:
         image: valeriansaliou/sonic:latest
         build:
             # custom build just auto-downloads archivebox's default sonic.cfg as a convenience
-            # not needed if you have already have /etc/sonic.cfg
+            # not needed after first run / if you have already have ./etc/sonic.cfg present
             dockerfile_inline: |
-                FROM quay.io/curl/curl:latest AS setup
+                FROM quay.io/curl/curl:latest AS config_downloader
                 RUN curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/main/etc/sonic.cfg' > /tmp/sonic.cfg
                 FROM valeriansaliou/sonic:latest
-                COPY --from=setup /tmp/sonic.cfg /etc/sonic.cfg
+                COPY --from=config_downloader /tmp/sonic.cfg /etc/sonic.cfg
         expose:
             - 1491
         environment:
             - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
         volumes:
-            - ./etc/sonic.cfg:/etc/sonic.cfg
+            - ./sonic.cfg:/etc/sonic.cfg
             - ./data/sonic:/var/lib/sonic/store
 
 
-    ### Example: Watch the ArchiveBox browser in realtime as it archives things,
-    # or remote control it to set up logins and credentials for sites you want to archive.
+    ### This container runs xvfb+noVNC so you can watch the ArchiveBox browser as it archives things,
+    # or remote control it to set up a chrome profile w/ login credentials for sites you want to archive.
     # https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile
 
     novnc:
@@ -99,11 +95,13 @@ services:
             - DISPLAY_HEIGHT=1080
             - RUN_XTERM=no
         ports:
-            # to view/control ArchiveBox's browser, visit: http://localhost:8080/vnc.html
-            - "8080:8080"
+            # to view/control ArchiveBox's browser, visit: http://127.0.0.1:8080/vnc.html
+            # restricted to access from localhost by default because it has no authentication
+            - 127.0.0.1:8080:8080
 
     
-    ### Example: Put Nginx in front of the ArchiveBox server for SSL termination
+    ### Example: Put Nginx in front of the ArchiveBox server for SSL termination and static file serving.
+    # You can also any other ingress provider for SSL like Apache, Caddy, Traefik, Cloudflare Tunnels, etc.
 
     # nginx:
     #     image: nginx:alpine
@@ -121,7 +119,8 @@ services:
     # pihole:
     #   image: pihole/pihole:latest
     #   ports:
-    #     - 127.0.0.1:8090:80       # uncomment to access the admin HTTP interface on http://localhost:8090
+    #     # access the admin HTTP interface on http://localhost:8090
+    #     - 127.0.0.1:8090:80
     #   environment:
     #     - WEBPASSWORD=SET_THIS_TO_SOME_SECRET_PASSWORD_FOR_ADMIN_DASHBOARD
     #     - DNSMASQ_LISTENING=all
@@ -136,7 +135,8 @@ services:
     #     - ./etc/dnsmasq:/etc/dnsmasq.d
 
 
-    ### Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel
+    ### Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel to avoid IP blocks.
+    # You can also use any other VPN that works at the docker IP level, e.g. Tailscale, OpenVPN, etc.
 
     # wireguard:
     #   image: linuxserver/wireguard:latest
@@ -167,8 +167,7 @@ services:
 
 
 networks:
-
-    # network needed for pihole container to offer :53 dns resolving on fixed ip for archivebox container
+    # network just used for pihole container to offer :53 dns resolving on fixed ip for archivebox container
     dns:
         ipam:
             driver: default
