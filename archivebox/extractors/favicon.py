@@ -6,13 +6,18 @@ from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput
 from ..system import chmod_file, run
-from ..util import enforce_types, domain
+from ..util import (
+    enforce_types,
+     domain,
+     dedupe,
+)
 from ..config import (
     TIMEOUT,
     SAVE_FAVICON,
     FAVICON_PROVIDER,
     CURL_BINARY,
     CURL_ARGS,
+    CURL_EXTRA_ARGS,
     CURL_VERSION,
     CHECK_SSL_VALIDITY,
     CURL_USER_AGENT,
@@ -34,13 +39,18 @@ def save_favicon(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
 
     out_dir = out_dir or link.link_dir
     output: ArchiveOutput = 'favicon.ico'
-    cmd = [
-        CURL_BINARY,
+    # later options take precedence
+    options = [
         *CURL_ARGS,
+        *CURL_EXTRA_ARGS,
         '--max-time', str(timeout),
         '--output', str(output),
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
+    ]
+    cmd = [
+        CURL_BINARY,
+        *dedupe(options),
         FAVICON_PROVIDER.format(domain(link.url)),
     ]
     status = 'failed'

@@ -6,6 +6,7 @@ from contextlib import redirect_stdout
 from datetime import datetime, timezone
 
 from django.contrib import admin
+from django.db.models import Count
 from django.urls import path
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
@@ -23,8 +24,16 @@ from core.mixins import SearchResultsAdminMixin
 from index.html import snapshot_icons
 from logging_util import printable_filesize
 from main import add, remove
-from config import OUTPUT_DIR, SNAPSHOTS_PER_PAGE
 from extractors import archive_links
+from config import (
+    OUTPUT_DIR,
+    SNAPSHOTS_PER_PAGE,
+    VERSION,
+    VERSIONS_AVAILABLE,
+    CAN_UPGRADE
+)
+
+GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': VERSIONS_AVAILABLE, 'CAN_UPGRADE': CAN_UPGRADE}
 
 # Admin URLs
 # /admin/
@@ -39,6 +48,60 @@ from extractors import archive_links
 # TODO: https://stackoverflow.com/questions/40760880/add-custom-button-to-django-admin-panel
 
 
+class ArchiveBoxAdmin(admin.AdminSite):
+    site_header = 'ArchiveBox'
+    index_title = 'Links'
+    site_title = 'Index'
+    namespace = 'admin'
+
+    def get_urls(self):
+        return [
+            path('core/snapshot/add/', self.add_view, name='Add'),
+        ] + super().get_urls()
+
+    def add_view(self, request):
+        if not request.user.is_authenticated:
+            return redirect(f'/admin/login/?next={request.path}')
+
+        request.current_app = self.name
+        context = {
+            **self.each_context(request),
+            'title': 'Add URLs',
+        }
+
+        if request.method == 'GET':
+            context['form'] = AddLinkForm()
+
+        elif request.method == 'POST':
+            form = AddLinkForm(request.POST)
+            if form.is_valid():
+                url = form.cleaned_data["url"]
+                print(f'[+] Adding URL: {url}')
+                depth = 0 if form.cleaned_data["depth"] == "0" else 1
+                input_kwargs = {
+                    "urls": url,
+                    "depth": depth,
+                    "update_all": False,
+                    "out_dir": OUTPUT_DIR,
+                }
+                add_stdout = StringIO()
+                with redirect_stdout(add_stdout):
+                   add(**input_kwargs)
+                print(add_stdout.getvalue())
+
+                context.update({
+                    "stdout": ansi_to_html(add_stdout.getvalue().strip()),
+                    "form": AddLinkForm()
+                })
+            else:
+                context["form"] = form
+
+        return render(template_name='add.html', request=request, context=context)
+
+archivebox_admin = ArchiveBoxAdmin()
+archivebox_admin.register(get_user_model())
+archivebox_admin.disable_action('delete_selected')
+
 class ArchiveResultInline(admin.TabularInline):
     model = ArchiveResult
 
@@ -48,11 +111,11 @@ class TagInline(admin.TabularInline):
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import AutocompleteSelectMultiple
 
-# WIP: broken by Django 3.1.2 -> 4.0 migration
 class AutocompleteTags:
     model = Tag
     search_fields = ['name']
     name = 'tags'
+    remote_field = TagInline
 
 class AutocompleteTagsAdminStub:
     name = 'admin'
@@ -62,7 +125,6 @@ class SnapshotActionForm(ActionForm):
     tags = forms.ModelMultipleChoiceField(
         queryset=Tag.objects.all(),
         required=False,
-        # WIP: broken by Django 3.1.2 -> 4.0 migration
         widget=AutocompleteSelectMultiple(
             AutocompleteTags(),
             AutocompleteTagsAdminStub(),
@@ -81,6 +143,7 @@ class SnapshotActionForm(ActionForm):
     # )
 
 
+@admin.register(Snapshot, site=archivebox_admin)
 class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     list_display = ('added', 'title_str', 'files', 'size', 'url_str')
     sort_fields = ('title_str', 'url_str', 'added', 'files')
@@ -96,6 +159,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
     action_form = SnapshotActionForm
 
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
+
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
@@ -105,7 +172,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
     def get_queryset(self, request):
         self.request = request
-        return super().get_queryset(request).prefetch_related('tags')
+        return super().get_queryset(request).prefetch_related('tags').annotate(archiveresult_count=Count('archiveresult'))
 
     def tag_list(self, obj):
         return ', '.join(obj.tags.values_list('name', flat=True))
@@ -163,6 +230,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
             obj.id,
         )
 
+    @admin.display(
+        description='Title',
+        ordering='title',
+    )
     def title_str(self, obj):
         canon = obj.as_link().canonical_outputs()
         tags = ''.join(
@@ -184,12 +255,17 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
             urldecode(htmldecode(obj.latest_title or obj.title or ''))[:128] or 'Pending...'
         ) + mark_safe(f' <span class="tags">{tags}</span>')
 
+    @admin.display(
+        description='Files Saved',
+        ordering='archiveresult_count',
+    )
     def files(self, obj):
         return snapshot_icons(obj)
 
-    files.admin_order_field = 'updated'
-    files.short_description = 'Files Saved'
 
+    @admin.display(
+        ordering='archiveresult_count'
+    )
     def size(self, obj):
         archive_size = (Path(obj.link_dir) / 'index.html').exists() and obj.archive_size
         if archive_size:
@@ -204,8 +280,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
             size_txt,
         )
 
-    size.admin_order_field = 'archiveresult__count'
 
+    @admin.display(
+        description='Original URL',
+        ordering='url',
+    )
     def url_str(self, obj):
         return format_html(
             '<a href="{}"><code style="user-select: all;">{}</code></a>',
@@ -242,65 +321,76 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     #     print('[*] Got request', request.method, request.POST)
     #     return super().changelist_view(request, extra_context=None)
 
+    @admin.action(
+        description="Pull"
+    )
     def update_snapshots(self, request, queryset):
         archive_links([
             snapshot.as_link()
             for snapshot in queryset
         ], out_dir=OUTPUT_DIR)
-    update_snapshots.short_description = "Pull"
 
+    @admin.action(
+        description="⬇️ Title"
+    )
     def update_titles(self, request, queryset):
         archive_links([
             snapshot.as_link()
             for snapshot in queryset
         ], overwrite=True, methods=('title','favicon'), out_dir=OUTPUT_DIR)
-    update_titles.short_description = "⬇️ Title"
 
+    @admin.action(
+        description="Re-Snapshot"
+    )
     def resnapshot_snapshot(self, request, queryset):
         for snapshot in queryset:
             timestamp = datetime.now(timezone.utc).isoformat('T', 'seconds')
             new_url = snapshot.url.split('#')[0] + f'#{timestamp}'
             add(new_url, tag=snapshot.tags_str())
-    resnapshot_snapshot.short_description = "Re-Snapshot"
 
+    @admin.action(
+        description="Reset"
+    )
     def overwrite_snapshots(self, request, queryset):
         archive_links([
             snapshot.as_link()
             for snapshot in queryset
         ], overwrite=True, out_dir=OUTPUT_DIR)
-    overwrite_snapshots.short_description = "Reset"
 
+    @admin.action(
+        description="Delete"
+    )
     def delete_snapshots(self, request, queryset):
         remove(snapshots=queryset, yes=True, delete=True, out_dir=OUTPUT_DIR)
 
-    delete_snapshots.short_description = "Delete"
 
+    @admin.action(
+        description="+"
+    )
     def add_tags(self, request, queryset):
         tags = request.POST.getlist('tags')
         print('[+] Adding tags', tags, 'to Snapshots', queryset)
         for obj in queryset:
             obj.tags.add(*tags)
 
-    add_tags.short_description = "+"
 
+    @admin.action(
+        description="–"
+    )
     def remove_tags(self, request, queryset):
         tags = request.POST.getlist('tags')
         print('[-] Removing tags', tags, 'to Snapshots', queryset)
         for obj in queryset:
             obj.tags.remove(*tags)
 
-    remove_tags.short_description = "–"
 
         
 
-    title_str.short_description = 'Title'
-    url_str.short_description = 'Original URL'
-
-    title_str.admin_order_field = 'title'
-    url_str.admin_order_field = 'url'
 
 
 
+
+@admin.register(Tag, site=archivebox_admin)
 class TagAdmin(admin.ModelAdmin):
     list_display = ('slug', 'name', 'num_snapshots', 'snapshots', 'id')
     sort_fields = ('id', 'name', 'slug')
@@ -331,6 +421,7 @@ class TagAdmin(admin.ModelAdmin):
         ) + (f'<br/><a href="/admin/core/snapshot/?tags__id__exact={obj.id}">and {total_count-10} more...<a>' if obj.snapshot_set.count() > 10 else ''))
 
 
+@admin.register(ArchiveResult, site=archivebox_admin)
 class ArchiveResultAdmin(admin.ModelAdmin):
     list_display = ('id', 'start_ts', 'extractor', 'snapshot_str', 'tags_str', 'cmd_str', 'status', 'output_str')
     sort_fields = ('start_ts', 'extractor', 'status')
@@ -343,6 +434,9 @@ class ArchiveResultAdmin(admin.ModelAdmin):
     ordering = ['-start_ts']
     list_per_page = SNAPSHOTS_PER_PAGE
 
+    @admin.display(
+        description='snapshot'
+    )
     def snapshot_str(self, obj):
         return format_html(
             '<a href="/archive/{}/index.html"><b><code>[{}]</code></b></a><br/>'
@@ -352,6 +446,9 @@ class ArchiveResultAdmin(admin.ModelAdmin):
             obj.snapshot.url[:128],
         )
 
+    @admin.display(
+        description='tags'
+    )
     def tags_str(self, obj):
         return obj.snapshot.tags_str()
 
@@ -368,62 +465,3 @@ class ArchiveResultAdmin(admin.ModelAdmin):
             obj.output if (obj.status == 'succeeded') and obj.extractor not in ('title', 'archive_org') else 'index.html',
             obj.output,
         )
-
-    tags_str.short_description = 'tags'
-    snapshot_str.short_description = 'snapshot'
-
-class ArchiveBoxAdmin(admin.AdminSite):
-    site_header = 'ArchiveBox'
-    index_title = 'Links'
-    site_title = 'Index'
-
-    def get_urls(self):
-        return [
-            path('core/snapshot/add/', self.add_view, name='Add'),
-        ] + super().get_urls()
-
-    def add_view(self, request):
-        if not request.user.is_authenticated:
-            return redirect(f'/admin/login/?next={request.path}')
-
-        request.current_app = self.name
-        context = {
-            **self.each_context(request),
-            'title': 'Add URLs',
-        }
-
-        if request.method == 'GET':
-            context['form'] = AddLinkForm()
-
-        elif request.method == 'POST':
-            form = AddLinkForm(request.POST)
-            if form.is_valid():
-                url = form.cleaned_data["url"]
-                print(f'[+] Adding URL: {url}')
-                depth = 0 if form.cleaned_data["depth"] == "0" else 1
-                input_kwargs = {
-                    "urls": url,
-                    "depth": depth,
-                    "update_all": False,
-                    "out_dir": OUTPUT_DIR,
-                }
-                add_stdout = StringIO()
-                with redirect_stdout(add_stdout):
-                   add(**input_kwargs)
-                print(add_stdout.getvalue())
-
-                context.update({
-                    "stdout": ansi_to_html(add_stdout.getvalue().strip()),
-                    "form": AddLinkForm()
-                })
-            else:
-                context["form"] = form
-
-        return render(template_name='add.html', request=request, context=context)
-
-admin.site = ArchiveBoxAdmin()
-admin.site.register(get_user_model())
-admin.site.register(Snapshot, SnapshotAdmin)
-admin.site.register(Tag, TagAdmin)
-admin.site.register(ArchiveResult, ArchiveResultAdmin)
-admin.site.disable_action('delete_selected')

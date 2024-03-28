@@ -28,4 +28,5 @@ assets/
 docker/
 
 data/
+data*/
 output/

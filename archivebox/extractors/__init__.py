@@ -131,7 +131,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 
         link = load_link_details(link, out_dir=out_dir)
         write_link_details(link, out_dir=out_dir, skip_sql_index=False)
-        log_link_archiving_started(link, out_dir, is_new)
+        log_link_archiving_started(link, str(out_dir), is_new)
         link = link.overwrite(updated=datetime.now(timezone.utc))
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
         start_ts = datetime.now(timezone.utc)
@@ -165,16 +165,6 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                     # print('{black}      X {}{reset}'.format(method_name, **ANSI))
                     stats['skipped'] += 1
             except Exception as e:
-                # Disabled until https://github.com/ArchiveBox/ArchiveBox/issues/984
-                # and https://github.com/ArchiveBox/ArchiveBox/issues/1014
-                # are fixed.
-                """
-                raise Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
-                    method_name,
-                    link.url,
-                )) from e
-                """
-                # Instead, use the kludgy workaround from
                 # https://github.com/ArchiveBox/ArchiveBox/issues/984#issuecomment-1150541627
                 with open(ERROR_LOG, "a", encoding='utf-8') as f:
                     command = ' '.join(sys.argv)
@@ -186,6 +176,13 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                         ts
                     ) + "\n" + str(e) + "\n"))
                     #f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
+               
+                # print(f'        ERROR: {method_name} {e.__class__.__name__}: {e} {getattr(e, "hints", "")}', ts, link.url, command)
+                raise Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
+                    method_name,
+                    link.url,
+                )) from e
+
 
         # print('    ', stats)
 
@@ -218,7 +215,7 @@ def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=Fa
 
     if type(all_links) is QuerySet:
         num_links: int = all_links.count()
-        get_link = lambda x: x.as_link()
+        get_link = lambda x: x.as_link_with_details()
         all_links = all_links.iterator()
     else:
         num_links: int = len(all_links)

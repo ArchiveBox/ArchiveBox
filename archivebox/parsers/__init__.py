@@ -44,6 +44,7 @@ from . import medium_rss
 from . import netscape_html
 from . import generic_rss
 from . import generic_json
+from . import generic_jsonl
 from . import generic_html
 from . import generic_txt
 from . import url_list
@@ -63,6 +64,7 @@ PARSERS = {
     netscape_html.KEY:  (netscape_html.NAME,    netscape_html.PARSER),
     generic_rss.KEY:    (generic_rss.NAME,      generic_rss.PARSER),
     generic_json.KEY:   (generic_json.NAME,     generic_json.PARSER),
+    generic_jsonl.KEY:  (generic_jsonl.NAME,    generic_jsonl.PARSER),
     generic_html.KEY:   (generic_html.NAME,     generic_html.PARSER),
 
     # Catchall fallback parser

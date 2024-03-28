@@ -14,4 +14,4 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 
 source "$DIR/.venv/bin/activate"
 
-pytest -s --basetemp=tests/out --ignore=archivebox/vendor --ignore=deb_dist --ignore=pip_dist --ignore=brew_dist
+pytest -s --basetemp=tests/out "$@"

@@ -791,6 +791,8 @@ def update(resume: Optional[float]=None,
            out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Import any new links from subscriptions and retry any previously failed/skipped links"""
 
+    from core.models import ArchiveResult
+
     check_data_folder(out_dir=out_dir)
     check_dependencies()
     new_links: List[Link] = [] # TODO: Remove input argument: only_new
@@ -798,19 +800,23 @@ def update(resume: Optional[float]=None,
     extractors = extractors.split(",") if extractors else []
 
     # Step 1: Filter for selected_links
+    print('[*] Finding matching Snapshots to update...')
+    print(f'    - Filtering by {" ".join(filter_patterns)} ({filter_type}) {before=} {after=} {status=}...')
     matching_snapshots = list_links(
         filter_patterns=filter_patterns,
         filter_type=filter_type,
         before=before,
         after=after,
     )
-
+    print(f'    - Checking {matching_snapshots.count()} snapshot folders for existing data with {status=}...')
     matching_folders = list_folders(
         links=matching_snapshots,
         status=status,
         out_dir=out_dir,
     )
-    all_links = [link for link in matching_folders.values() if link]
+    all_links = (link for link in matching_folders.values() if link)
+    print('    - Sorting by most unfinished -> least unfinished + date archived...')
+    all_links = sorted(all_links, key=lambda link: (ArchiveResult.objects.filter(snapshot__url=link.url).count(), link.timestamp))
 
     if index_only:
         for link in all_links:
@@ -835,6 +841,7 @@ def update(resume: Optional[float]=None,
     }
     if extractors:
         archive_kwargs["methods"] = extractors
+
 
     archive_links(to_archive, overwrite=overwrite, **archive_kwargs)
 

@@ -10,7 +10,7 @@ set -o nounset
 set -o pipefail
 IFS=$'\n'
 
-REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
+REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null 2>&1 && cd .. && pwd )"
 
 
 CURRENT_PLAFORM="$(uname)"
@@ -45,7 +45,7 @@ pip3 uninstall yt-dlp || true
 # brew untap archivebox/archivebox || true
 
 echo
-echo "[+] Installing and building hombrew bottle from https://Github.com/ArchiveBox/homebrew-archivebox#main"
+echo "[+] Installing and building hombrew bottle from https://github.com/ArchiveBox/homebrew-archivebox#main"
 brew tap archivebox/archivebox
 brew install --build-bottle archivebox
 brew bottle archivebox

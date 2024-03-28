@@ -165,7 +165,7 @@ if ! (python3 --version && python3 -m pip --version && python3 -m django --versi
     exit 1
 fi
 
-if ! (python3 -m django --version && which -a archivebox); then
+if ! (python3 -m django --version && python3 -m pip show archivebox && which -a archivebox); then
     echo "[X] Django and ArchiveBox were not found after installing!"
     echo "    Check to see if a previous step failed."
     echo

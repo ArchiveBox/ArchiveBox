@@ -8,11 +8,13 @@ from ..system import run, chmod_file
 from ..util import (
     enforce_types,
     is_static_file,
+    dedupe,
 )
 from ..config import (
     MEDIA_TIMEOUT,
     SAVE_MEDIA,
     YOUTUBEDL_ARGS,
+    YOUTUBEDL_EXTRA_ARGS,
     YOUTUBEDL_BINARY,
     YOUTUBEDL_VERSION,
     CHECK_SSL_VALIDITY
@@ -39,11 +41,16 @@ def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIME
     output: ArchiveOutput = 'media'
     output_path = out_dir / output
     output_path.mkdir(exist_ok=True)
-    cmd = [
-        YOUTUBEDL_BINARY,
+    # later options take precedence
+    options = [
         *YOUTUBEDL_ARGS,
+        *YOUTUBEDL_EXTRA_ARGS,
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate']),
         # TODO: add --cookies-from-browser={CHROME_USER_DATA_DIR}
+    ]
+    cmd = [
+        YOUTUBEDL_BINARY,
+        *dedupe(options),
         link.url,
     ]
     status = 'succeeded'

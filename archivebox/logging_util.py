@@ -432,12 +432,14 @@ def log_archive_method_finished(result: "ArchiveResult"):
                     **ANSI,
                 ),
             ]
+        
+        # import pudb; pudb.set_trace()
 
         # Prettify error output hints string and limit to five lines
         hints = getattr(result.output, 'hints', None) or ()
         if hints:
             if isinstance(hints, (list, tuple, type(_ for _ in ()))):
-                hints = [hint.decode() for hint in hints if isinstance(hint, bytes)]
+                hints = [hint.decode() if isinstance(hint, bytes) else str(hint) for hint in hints]
             else:
                 if isinstance(hints, bytes):
                     hints = hints.decode()

@@ -269,9 +269,6 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# WIP: broken by Django 3.1.2 -> 4.0 migration
-DEFAULT_AUTO_FIELD = 'django.db.models.UUIDField'
-
 ################################################################################
 ### Shell Settings
 ################################################################################
@@ -290,7 +287,6 @@ if IS_SHELL:
 
 LANGUAGE_CODE = 'en-us'
 USE_I18N = True
-USE_L10N = True
 USE_TZ = True
 DATETIME_FORMAT = 'Y-m-d g:iA'
 SHORT_DATETIME_FORMAT = 'Y-m-d h:iA'

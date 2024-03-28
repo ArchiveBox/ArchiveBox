@@ -50,4 +50,4 @@ def redirect_to_static(filename):
 
 
 def start():
-    run(host='localhost', port=8080)
+    run(host='localhost', port=8080, quiet=True)

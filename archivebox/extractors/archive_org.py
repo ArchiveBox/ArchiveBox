@@ -10,10 +10,12 @@ from ..system import run, chmod_file
 from ..util import (
     enforce_types,
     is_static_file,
+    dedupe,
 )
 from ..config import (
     TIMEOUT,
     CURL_ARGS,
+    CURL_EXTRA_ARGS,
     CHECK_SSL_VALIDITY,
     SAVE_ARCHIVE_DOT_ORG,
     CURL_BINARY,
@@ -44,13 +46,18 @@ def save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, timeout: int=
     output: ArchiveOutput = 'archive.org.txt'
     archive_org_url = None
     submit_url = 'https://web.archive.org/save/{}'.format(link.url)
-    cmd = [
-        CURL_BINARY,
+    # later options take precedence
+    options = [
         *CURL_ARGS,
+        *CURL_EXTRA_ARGS,
         '--head',
         '--max-time', str(timeout),
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
+    ]
+    cmd = [
+        CURL_BINARY,
+        *dedupe(options),
         submit_url,
     ]
     status = 'succeeded'

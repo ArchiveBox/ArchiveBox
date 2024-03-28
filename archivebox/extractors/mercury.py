@@ -11,13 +11,15 @@ from ..system import run, atomic_write
 from ..util import (
     enforce_types,
     is_static_file,
-
+    dedupe,
 )
 from ..config import (
     TIMEOUT,
     SAVE_MERCURY,
     DEPENDENCIES,
     MERCURY_VERSION,
+    MERCURY_ARGS,
+    MERCURY_EXTRA_ARGS,
 )
 from ..logging_util import TimedProgress
 
@@ -60,12 +62,16 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
     timer = TimedProgress(timeout, prefix='      ')
     try:
         output_folder.mkdir(exist_ok=True)
-
-        # Get plain text version of article
+        # later options take precedence
+        options = [
+            *MERCURY_ARGS,
+            *MERCURY_EXTRA_ARGS,
+        ]
+        # By default, get plain text version of article
         cmd = [
             DEPENDENCIES['MERCURY_BINARY']['path'],
             link.url,
-            "--format=text"
+            *dedupe(options)
         ]
         result = run(cmd, cwd=out_dir, timeout=timeout)
         try:

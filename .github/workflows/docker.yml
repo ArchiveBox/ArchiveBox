@@ -81,6 +81,13 @@ jobs:
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
+
+      - name: Update README
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          repository: archivebox/archivebox
        
       # This ugly bit is necessary if you don't want your cache to grow forever
       # until it hits GitHub's limit of 5GB.

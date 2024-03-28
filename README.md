@@ -1076,7 +1076,7 @@ Because ArchiveBox is designed to ingest a large volume of URLs with multiple co
 <li><strong>Don't store large collections on older filesystems like EXT3/FAT</strong> as they may not be able to handle more than 50k directory entries in the <code>data/archive/</code> folder.
 </li>
 <li><strong>Try to keep the <code>data/index.sqlite3</code> file on local drive (not a network mount)</strong> or SSD for maximum performance, however the <code>data/archive/</code> folder can be on a network mount or slower HDD.</li>
-<li>If using Docker or NFS/SMB/FUSE for the `data/archive/` folder, you may need to set <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid"><code>PUID</code> & <code>PGID</code></a> and <a href="https://github.com/ArchiveBox/ArchiveBox/issues/1304">disable <code>root_squash</code></a> on your fileshare server.
+<li>If using Docker or NFS/SMB/FUSE for the <code>data/archive/</code> folder, you may need to set <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid"><code>PUID</code> & <code>PGID</code></a> and <a href="https://github.com/ArchiveBox/ArchiveBox/issues/1304">disable <code>root_squash</code></a> on your fileshare server.
 </li>
 </ul>
 
