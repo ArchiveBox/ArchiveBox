@@ -56,16 +56,15 @@ short_ts = lambda ts: str(parse_date(ts).timestamp()).split('.')[0]
 ts_to_date_str = lambda ts: ts and parse_date(ts).strftime('%Y-%m-%d %H:%M')
 ts_to_iso = lambda ts: ts and parse_date(ts).isoformat()
 
-
 URL_REGEX = re.compile(
     r'(?=('
-    r'http[s]?://'                    # start matching from allowed schemes
-    r'(?:[a-zA-Z]|[0-9]'              # followed by allowed alphanum characters
-    r'|[-_$@.&+!*\(\),]'           #    or allowed symbols (keep hyphen first to match literal hyphen)
-    r'|(?:%[0-9a-fA-F][0-9a-fA-F]))'  #    or allowed unicode bytes
-    r'[^\]\[\(\)<>"\'\s]+'          # stop parsing at these symbols
+    r'https?://'                        #match schemes http and https,but can't match ftp
+    r'(?:[A-Za-z0-9-]+\.)+[A-Za-z0-9-]+'#match domain
+    r'(?::\d+)?'                        #match port,mabey not occur
+    r'(?:/[^\\#\f\n\r\t\v]*)?'          #match path and query,maybe not occur
+##    r'(?:#[^\]\[\(\)<>"\'\s]*){0,1}'  #match fragment,but we don't need it actually 
     r'))',
-    re.IGNORECASE,
+##    re.IGNORECASE,                    #don't need to consider case problem
 )
 
 COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
