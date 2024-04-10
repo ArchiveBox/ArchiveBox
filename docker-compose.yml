@@ -173,3 +173,24 @@ networks:
             driver: default
             config:
                 - subnet: 172.20.0.0/24
+
+
+# To use remote storage for your ./data/archive (e.g. Amazon S3, Backblaze B2, Google Drive, OneDrive, SFTP, etc.)
+#   Follow the steps here to set up the Docker RClone Plugin https://rclone.org/docker/
+#     $ docker plugin install rclone/docker-volume-rclone:amd64 --grant-all-permissions --alias rclone
+#     $ nano /var/lib/docker-plugins/rclone/config/rclone.conf
+#     [examplegdrive]
+#     type = drive
+#     scope = drive
+#     drive_id = 1234567...
+#     root_folder_id = 0Abcd...
+#     token = {"access_token":...}
+
+# volumes:
+#     archive:
+#         driver: rclone
+#         driver_opts:
+#             remote: 'examplegdrive:archivebox'
+#             allow_other: 'true'
+#             vfs_cache_mode: full
+#             poll_interval: 0
