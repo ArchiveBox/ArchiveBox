@@ -865,6 +865,7 @@ Each snapshot subfolder <code>data/archive/TIMESTAMP/</code> includes a static <
 
 <h4>Learn More</h4>
 <ul>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-Up-Storage">Wiki: Setting Up Storage (SMB, NFS, S3, B2, Google Drive, etc.)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout">Wiki: Usage (Disk Layout)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives">Wiki: Usage (Large Archives)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder">Wiki: Security Overview (Output Folder)</a></li>
