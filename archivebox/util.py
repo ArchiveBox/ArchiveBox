@@ -59,12 +59,11 @@ ts_to_iso = lambda ts: ts and parse_date(ts).isoformat()
 URL_REGEX = re.compile(
     r'(?=('
     r'https?://'                        #match schemes http and https,but can't match ftp
-    r'(?:[A-Za-z0-9-]+\.)+[A-Za-z0-9-]+'#match domain
-    r'(?::\d+)?'                        #match port,mabey not occur
-    r'(?:/[^\\#\f\n\r\t\v]*)?'          #match path and query,maybe not occur
-##    r'(?:#[^\]\[\(\)<>"\'\s]*){0,1}'  #match fragment,but we don't need it actually 
+    r'(?:[A-Za-z0-9-]+\.)*[A-Za-z0-9-]+'#match domain
+    r'[^\\#\f\n\r\t\v?&]*'              #exclude '#' because don't need fragment,
+                                        #exclude '?' and '&' because url is invalid when '&' appear before '?'
+    r'(?:\?[^\\#\f\n\r\t\v]*)*'  
     r'))',
-##    re.IGNORECASE,                    #don't need to consider case problem
 )
 
 COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
