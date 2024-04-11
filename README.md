@@ -669,7 +669,7 @@ docker run -it -v $PWD:/data archivebox/archivebox add --depth=1 'https://exampl
 ```bash
 # archivebox add --help
 archivebox add 'https://example.com/some/page'
-archivebox add < ~/Downloads/firefox_bookmarks_export.html
+archivebox add --parser=generic_rss < ~/Downloads/some_feed.xml
 archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
 echo 'http://example.com' | archivebox add
 echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox add
