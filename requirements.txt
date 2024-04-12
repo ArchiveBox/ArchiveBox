@@ -29,7 +29,7 @@ prompt-toolkit==3.0.43
 ptyprocess==0.7.0; sys_platform != "win32"
 pure-eval==0.2.2
 pyasn1==0.5.1
-pyasn1-modules==0.3.0
+pyasn1-modules==0.4.0
 pycparser==2.21; implementation_name != "cpython"
 pycryptodomex==3.19.1
 pygments==2.17.2
