@@ -12,12 +12,12 @@ colorama==0.4.6; sys_platform == "win32"
 croniter==2.0.1
 dateparser==1.2.0
 decorator==5.1.1
-django==3.1.14
+django==3.2.25
 django-auth-ldap==4.1.0
 django-extensions==3.1.5
 exceptiongroup==1.2.0; python_version < "3.11"
 executing==2.0.1
-idna==3.6
+idna==3.7
 ipython==8.18.1
 jedi==0.19.1
 matplotlib-inline==0.1.6
@@ -51,4 +51,4 @@ urllib3==2.1.0
 w3lib==2.1.2
 wcwidth==0.2.12
 websockets==12.0
-yt-dlp==2023.12.30
+yt-dlp==2024.4.9
