@@ -47,7 +47,7 @@ traitlets==5.14.1
 typing-extensions==4.9.0; python_version < "3.11"
 tzdata==2023.4; platform_system == "Windows"
 tzlocal==5.2
-urllib3==2.1.0
+urllib3==2.2.1
 w3lib==2.1.2
 wcwidth==0.2.12
 websockets==12.0
