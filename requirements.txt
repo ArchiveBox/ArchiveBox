@@ -14,7 +14,7 @@ dateparser==1.2.0
 decorator==5.1.1
 django==3.1.14
 django-auth-ldap==4.1.0
-django-extensions==3.1.5
+django-extensions==3.2.3
 exceptiongroup==1.2.0; python_version < "3.11"
 executing==2.0.1
 idna==3.6
