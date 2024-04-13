@@ -9,7 +9,7 @@ certifi==2023.11.17
 cffi==1.16.0; implementation_name != "cpython"
 charset-normalizer==3.3.2
 colorama==0.4.6; sys_platform == "win32"
-croniter==2.0.1
+croniter==2.0.3
 dateparser==1.2.0
 decorator==5.1.1
 django==3.1.14
