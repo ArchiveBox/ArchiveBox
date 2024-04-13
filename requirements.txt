@@ -17,7 +17,7 @@ django-auth-ldap==4.1.0
 django-extensions==3.1.5
 exceptiongroup==1.2.0; python_version < "3.11"
 executing==2.0.1
-idna==3.6
+idna==3.7
 ipython==8.18.1
 jedi==0.19.1
 matplotlib-inline==0.1.6
