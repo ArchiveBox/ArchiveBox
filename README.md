@@ -124,8 +124,8 @@ curl -fsSL 'https://get.archivebox.io' | sh
 
 ## Key Features
 
-- [**Free & open source**](https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE), doesn't require signing up online, stores all data locally
-- [**Powerful, intuitive command line interface**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) with [modular optional dependencies](#dependencies) 
+- [**Free & open source**](https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE), own your own data & maintain your privacy by self-hosting
+- [**Powerful command line interface**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) with [modular dependencies](#dependencies) and [support for Google Drive/NFS/SMB/S3/B2/etc.](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-Up-Storage)
 - [**Comprehensive documentation**](https://github.com/ArchiveBox/ArchiveBox/wiki), [active development](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap), and [rich community](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
 - [**Extracts a wide variety of content out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51): [media (yt-dlp), articles (readability), code (git), etc.](#output-formats)
 - [**Supports scheduled/realtime importing**](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from [many types of sources](#input-formats)
@@ -669,7 +669,7 @@ docker run -it -v $PWD:/data archivebox/archivebox add --depth=1 'https://exampl
 ```bash
 # archivebox add --help
 archivebox add 'https://example.com/some/page'
-archivebox add < ~/Downloads/firefox_bookmarks_export.html
+archivebox add --parser=generic_rss < ~/Downloads/some_feed.xml
 archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
 echo 'http://example.com' | archivebox add
 echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox add
@@ -865,6 +865,7 @@ Each snapshot subfolder <code>data/archive/TIMESTAMP/</code> includes a static <
 
 <h4>Learn More</h4>
 <ul>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-Up-Storage">Wiki: Setting Up Storage (SMB, NFS, S3, B2, Google Drive, etc.)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout">Wiki: Usage (Disk Layout)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives">Wiki: Usage (Large Archives)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder">Wiki: Security Overview (Output Folder)</a></li>

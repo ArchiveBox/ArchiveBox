@@ -20,10 +20,24 @@ FROM python:3.11-slim-bookworm
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <dockerfile@archivebox.io>" \
-    description="All-in-one personal internet archiving container" \
+    description="All-in-one self-hosted internet archiving solution" \
     homepage="https://github.com/ArchiveBox/ArchiveBox" \
-    documentation="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker"
-
+    documentation="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker" \
+    org.opencontainers.image.title="ArchiveBox" \
+    org.opencontainers.image.vendor="ArchiveBox" \
+    org.opencontainers.image.description="All-in-one self-hosted internet archiving solution" \
+    org.opencontainers.image.source="https://github.com/ArchiveBox/ArchiveBox" \
+    com.docker.image.source.entrypoint="Dockerfile" \
+    # TODO: release ArchiveBox as a Docker Desktop extension (requires these labels):
+    # https://docs.docker.com/desktop/extensions-sdk/architecture/metadata/
+    com.docker.desktop.extension.api.version=">= 1.4.7" \
+    com.docker.desktop.extension.icon="https://archivebox.io/icon.png" \
+    com.docker.extension.publisher-url="https://archivebox.io" \
+    com.docker.extension.screenshots='[{"alt": "Screenshot of Admin UI", "url": "https://github.com/ArchiveBox/ArchiveBox/assets/511499/e8e0b6f8-8fdf-4b7f-8124-c10d8699bdb2"}]' \
+    com.docker.extension.detailed-description='See here for detailed documentation: https://wiki.archivebox.io' \
+    com.docker.extension.changelog='See here for release notes: https://github.com/ArchiveBox/ArchiveBox/releases' \
+    com.docker.extension.categories='database,utility-tools'
+    
 ARG TARGETPLATFORM
 ARG TARGETOS
 ARG TARGETARCH

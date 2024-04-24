@@ -8,6 +8,18 @@ from django.views.generic.base import RedirectView
 
 from core.views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView
 
+from ninja import NinjaAPI
+from api.auth import GlobalAuth
+
+api = NinjaAPI(auth=GlobalAuth())
+api.add_router("/auth/", "api.auth.router")
+api.add_router("/archive/", "api.archive.router")
+
+# GLOBAL_CONTEXT doesn't work as-is, disabled for now: https://github.com/ArchiveBox/ArchiveBox/discussions/1306
+# from config import VERSION, VERSIONS_AVAILABLE, CAN_UPGRADE
+# GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': VERSIONS_AVAILABLE, 'CAN_UPGRADE': CAN_UPGRADE}
+
+
 # print('DEBUG', settings.DEBUG)
 
 urlpatterns = [
@@ -35,6 +47,8 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('admin/', archivebox_admin.urls),
     
+    path("api/", api.urls),
+
     path('health/', HealthCheckView.as_view(), name='healthcheck'),
     path('error/', lambda _: 1/0),
 

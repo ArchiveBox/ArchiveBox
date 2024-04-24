@@ -12,6 +12,10 @@ venv/
 .docker-venv/
 node_modules/
 
+# Ignore dev lockfiles (should always be built fresh)
+requirements-dev.txt
+pdm.dev.lock
+
 # Packaging artifacts
 .pdm-python
 .pdm-build
