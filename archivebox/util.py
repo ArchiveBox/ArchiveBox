@@ -57,19 +57,55 @@ short_ts = lambda ts: str(parse_date(ts).timestamp()).split('.')[0]
 ts_to_date_str = lambda ts: ts and parse_date(ts).strftime('%Y-%m-%d %H:%M')
 ts_to_iso = lambda ts: ts and parse_date(ts).isoformat()
 
+COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
 
 URL_REGEX = re.compile(
-    r'(?=('
-    r'http[s]?://'                    # start matching from allowed schemes
-    r'(?:[a-zA-Z]|[0-9]'              # followed by allowed alphanum characters
-    r'|[-_$@.&+!*\(\),]'           #    or allowed symbols (keep hyphen first to match literal hyphen)
-    r'|(?:%[0-9a-fA-F][0-9a-fA-F]))'  #    or allowed unicode bytes
-    r'[^\]\[\(\)<>"\'\s]+'          # stop parsing at these symbols
+    r'(?=('                           +
+    r'http[s]?://'                    +  # start matching from allowed schemes
+    r'(?:[a-zA-Z]|[0-9]'              +  # followed by allowed alphanum characters
+    r'|[-_$@.&+!*\(\),]'              +  #   or allowed symbols (keep hyphen first to match literal hyphen)
+    r'|[^\u0000-\u007F])+'            +  #   or allowed unicode bytes
+    r'[^\]\[<>"\'\s]+'                +  # stop parsing at these symbols
     r'))',
-    re.IGNORECASE,
+    re.IGNORECASE | re.UNICODE,
 )
 
-COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
+def parens_are_matched(string: str, open_char='(', close_char=')'):
+    """check that all parentheses in a string are balanced and nested properly"""
+    count = 0
+    for c in string:
+        if c == open_char:
+            count += 1
+        elif c == close_char:
+            count -= 1
+        if count < 0:
+            return False
+    return count == 0
+
+def fix_url_from_markdown(url_str: str) -> str:
+    """
+    cleanup a regex-parsed url that may contain dangling trailing parens from markdown link syntax
+    helpful to fix URLs parsed from markdown e.g.
+      input:  https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def).somemoretext
+      result: https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def
+    """
+    trimmed_url = url_str
+
+    # cut off one trailing character at a time
+    # until parens are balanced e.g. /a(b)c).x(y)z -> /a(b)c
+    while not parens_are_matched(trimmed_url):
+        trimmed_url = trimmed_url[:-1]
+    
+    # make sure trimmed url is still valid
+    if re.findall(URL_REGEX, trimmed_url):
+        return trimmed_url
+    
+    return url_str
+
+def find_all_urls(urls_str: str):
+    for url in re.findall(URL_REGEX, urls_str):
+        yield fix_url_from_markdown(url)
+
 
 def is_static_file(url: str):
     # TODO: the proper way is with MIME type detection + ext, not only extension
@@ -399,3 +435,48 @@ class ExtendedEncoder(pyjson.JSONEncoder):
 
         return pyjson.JSONEncoder.default(self, obj)
 
+
+### URL PARSING TESTS / ASSERTIONS
+# they run at runtime because I like having them inline in this file,
+# I like the peace of mind knowing it's enforced at runtime across all OS's (in case the regex engine ever has any weird locale-specific quirks),
+# and these assertions are basically instant, so not a big performance cost to do it on startup
+
+assert fix_url_from_markdown('/a(b)c).x(y)z') == '/a(b)c'
+assert fix_url_from_markdown('https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def).link(with)_trailingtext') == 'https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def'
+
+URL_REGEX_TESTS = [
+    ('https://example.com', ['https://example.com']),
+    ('http://abc-file234example.com/abc?def=abc&23423=sdfsdf#abc=234&234=a234', ['http://abc-file234example.com/abc?def=abc&23423=sdfsdf#abc=234&234=a234']),
+
+    ('https://twitter.com/share?url=https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ abc', ['https://twitter.com/share?url=https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ', 'https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ']),
+    ('<a href="https://twitter.com/share#url=https://akaao.success-corp.co.jp&text=ア@サ!ト?hashtags=ア%オ,元+ア&abc=.ア-オ_イ*シ$ロ"> abc', ['https://twitter.com/share#url=https://akaao.success-corp.co.jp&text=ア@サ!ト?hashtags=ア%オ,元+ア&abc=.ア-オ_イ*シ$ロ', 'https://akaao.success-corp.co.jp&text=ア@サ!ト?hashtags=ア%オ,元+ア&abc=.ア-オ_イ*シ$ロ']),
+
+    ('///a',                                                []),
+    ('http://',                                             []),
+    ('http://../',                                          ['http://../']),
+    ('http://-error-.invalid/',                             ['http://-error-.invalid/']),
+    ('https://a(b)c+1#2?3&4/',                              ['https://a(b)c+1#2?3&4/']),
+    ('http://उदाहरण.परीक्षा',                                   ['http://उदाहरण.परीक्षा']),
+    ('http://例子.测试',                                     ['http://例子.测试']),
+    ('http://➡.ws/䨹 htps://abc.1243?234',                  ['http://➡.ws/䨹']),
+    ('http://⌘.ws">https://exa+mple.com//:abc ',            ['http://⌘.ws', 'https://exa+mple.com//:abc']),
+    ('http://مثال.إختبار/abc?def=ت&ب=abc#abc=234',          ['http://مثال.إختبار/abc?def=ت&ب=abc#abc=234']),
+    ('http://-.~_!$&()*+,;=:%40:80%2f::::::@example.c\'om', ['http://-.~_!$&()*+,;=:%40:80%2f::::::@example.c']),
+    
+    ('http://us:pa@ex.co:42/http://ex.co:19/a?_d=4#-a=2.3', ['http://us:pa@ex.co:42/http://ex.co:19/a?_d=4#-a=2.3', 'http://ex.co:19/a?_d=4#-a=2.3']),
+    ('http://code.google.com/events/#&product=browser',     ['http://code.google.com/events/#&product=browser']),
+    ('http://foo.bar?q=Spaces should be encoded',           ['http://foo.bar?q=Spaces']),
+    ('http://foo.com/blah_(wikipedia)#c(i)t[e]-1',          ['http://foo.com/blah_(wikipedia)#c(i)t']),
+    ('http://foo.com/(something)?after=parens',             ['http://foo.com/(something)?after=parens']),
+    ('http://foo.com/unicode_(✪)_in_parens) abc',           ['http://foo.com/unicode_(✪)_in_parens']),
+    ('http://foo.bar/?q=Test%20URL-encoded%20stuff',        ['http://foo.bar/?q=Test%20URL-encoded%20stuff']),
+
+    ('[xyz](http://a.b/?q=(Test)%20U)RL-encoded%20stuff',   ['http://a.b/?q=(Test)%20U']),
+    ('[xyz](http://a.b/?q=(Test)%20U)-ab https://abc+123',  ['http://a.b/?q=(Test)%20U', 'https://abc+123']),
+    ('[xyz](http://a.b/?q=(Test)%20U) https://a(b)c+12)3',  ['http://a.b/?q=(Test)%20U', 'https://a(b)c+12']),
+    ('[xyz](http://a.b/?q=(Test)a\nabchttps://a(b)c+12)3',  ['http://a.b/?q=(Test)a', 'https://a(b)c+12']),
+    ('http://foo.bar/?q=Test%20URL-encoded%20stuff',        ['http://foo.bar/?q=Test%20URL-encoded%20stuff']),
+]
+for urls_str, expected_url_matches in URL_REGEX_TESTS:
+    url_matches = list(find_all_urls(urls_str))
+    assert url_matches == expected_url_matches, 'FAILED URL_REGEX CHECK!'
