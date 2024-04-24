@@ -1,4 +1,4 @@
-from django.contrib import admin
+from .admin import archivebox_admin
 
 from django.urls import path, include
 from django.views import static
@@ -7,6 +7,13 @@ from django.conf import settings
 from django.views.generic.base import RedirectView
 
 from core.views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView
+
+from ninja import NinjaAPI
+from api.auth import GlobalAuth
+
+api = NinjaAPI(auth=GlobalAuth())
+api.add_router("/auth/", "api.auth.router")
+api.add_router("/archive/", "api.archive.router")
 
 # GLOBAL_CONTEXT doesn't work as-is, disabled for now: https://github.com/ArchiveBox/ArchiveBox/discussions/1306
 # from config import VERSION, VERSIONS_AVAILABLE, CAN_UPGRADE
@@ -34,10 +41,9 @@ urlpatterns = [
 
 
     path('accounts/', include('django.contrib.auth.urls')),
-    path('admin/', admin.site.urls),
+    path('admin/', archivebox_admin.urls),
     
-    # do not add extra_context like this as not all admin views (e.g. ModelAdmin.autocomplete_view accept extra kwargs)
-    # path('admin/', admin.site.urls, {'extra_context': GLOBAL_CONTEXT}),
+    path("api/", api.urls),
 
     path('health/', HealthCheckView.as_view(), name='healthcheck'),
     path('error/', lambda _: 1/0),

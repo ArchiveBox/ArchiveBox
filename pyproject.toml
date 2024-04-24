@@ -1,28 +1,49 @@
 [project]
 name = "archivebox"
-version = "0.7.3"
+version = "0.8.0"
+package-dir = "archivebox"
+requires-python = ">=3.10,<3.13"
+platform = "py3-none-any"
 description = "Self-hosted internet archiving solution."
-authors = [
-    {name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"},
-]
+authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
 license = {text = "MIT"}
 readme = "README.md"
-package-dir = "archivebox"
-requires-python = ">=3.9,<3.12"
+
+# pdm install
+# pdm update --unconstrained
 dependencies = [
-    # pdm update [--unconstrained] 
-    "croniter>=0.3.34",
+    # Base Framework and Language Dependencies
+    "setuptools>=69.5.1",
+    "django>=4.2.0,<5.0",
+    "django-ninja>=1.1.0",
+    "django-extensions>=3.2.3",
+    "mypy-extensions>=1.0.0",
+
+    # Python Helper Libraries
+    "requests>=2.31.0",
     "dateparser>=1.0.0",
-    "django-extensions>=3.0.3",
-    "django>=3.1.3,<3.2",
-    "ipython>5.0.0",
-    "mypy-extensions>=0.4.3",
-    "python-crontab>=2.5.1",
-    "requests>=2.24.0",
+    "feedparser>=6.0.11",
     "w3lib>=1.22.0",
-    "yt-dlp>=2023.10.13",
-    # "playwright>=1.39.0; platform_machine != 'armv7l'",
+
+    # Feature-Specific Dependencies
+    "python-crontab>=2.5.1",          # for: archivebox schedule
+    "croniter>=0.3.34",               # for: archivebox schedule
+    "ipython>5.0.0",                  # for: archivebox shell
+
+    # Extractor Dependencies
+    "yt-dlp>=2024.4.9",               # for: media
+    "playwright>=1.43.0; platform_machine != 'armv7l'",  # WARNING: playwright doesn't have any sdist, causes trouble on build systems that refuse to install wheel-only packages
+    
+    # TODO: add more extractors
+    #  - gallery-dl
+    #  - scihubdl
+    #  - See Github issues for more...
 ]
+
+homepage = "https://github.com/ArchiveBox/ArchiveBox"
+repository = "https://github.com/ArchiveBox/ArchiveBox"
+documentation = "https://github.com/ArchiveBox/ArchiveBox/wiki"
+keywords = ["internet archiving", "web archiving", "digipres", "warc", "preservation", "backups", "archiving", "web", "bookmarks", "puppeteer", "browser", "download"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -55,62 +76,84 @@ classifiers = [
     "Topic :: Utilities",
     "Typing :: Typed",
 ]
+# dynamic = ["version"]  # TODO: programatticaly fetch version from package.json at build time
 
+# pdm lock --group=':all' 
+# pdm install -G:all
+# pdm update --group=':all' --unconstrained
 [project.optional-dependencies]
-# pdm update [--group=':all'] [--unconstrained] 
 sonic = [
     # echo "deb [signed-by=/usr/share/keyrings/valeriansaliou_sonic.gpg] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main" > /etc/apt/sources.list.d/valeriansaliou_sonic.list
     # curl -fsSL https://packagecloud.io/valeriansaliou/sonic/gpgkey | gpg --dearmor -o /usr/share/keyrings/valeriansaliou_sonic.gpg
-    "sonic-client>=0.0.5",
+    # apt install sonic
+    "sonic-client>=1.0.0",
 ]
 ldap = [
-    # apt install libldap2-dev libsasl2-dev
-    "setuptools>=69.0.3",
+    # apt install libldap2-dev libsasl2-dev python3-ldap
     "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
 ]
-# playwright = [
-#     platform_machine isnt respected by pdm export -o requirements.txt, this breaks arm/v7
-#     "playwright>=1.39.0; platform_machine != 'armv7l'",
-# ]
 
 
+# pdm lock --group=':all' --dev
 # pdm install -G:all --dev
-# pdm update --dev [--unconstrained] 
+# pdm update --dev --unconstrained
 [tool.pdm.dev-dependencies]
-dev = [
-    # building
-    "setuptools>=69.0.3",
+build = [
+    "setuptools>=69.5.1",
+    "pip",
     "wheel",
     "pdm",
-    "homebrew-pypi-poet>=0.10.0",
-    # documentation
+    "homebrew-pypi-poet>=0.10.0",      # for: generating archivebox.rb brewfile list of python packages
+]
+docs = [
     "recommonmark",
     "sphinx",
     "sphinx-rtd-theme",
-    # debugging
+]
+debug = [
     "django-debug-toolbar",
     "djdt_flamegraph",
     "ipdb",
-    # testing
+]
+test = [
+    "pdm[pytest]",
     "pytest",
-    # linting
+]
+lint = [
     "flake8",
     "mypy",
     "django-stubs",
 ]
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[project.scripts]
+archivebox = "archivebox.cli:main"
+
 
 [tool.pdm.scripts]
 lint = "./bin/lint.sh"
 test = "./bin/test.sh"
 # all = {composite = ["lint mypackage/", "test -v tests/"]}
 
-[project.scripts]
-archivebox = "archivebox.cli:main"
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]
 
-[build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
+[tool.mypy]
+mypy_path = "archivebox"
+namespace_packages = true
+explicit_package_bases = true
+# follow_imports = "silent"
+# ignore_missing_imports = true
+# disallow_incomplete_defs = true
+# disallow_untyped_defs = true
+# disallow_untyped_decorators = true
+# exclude = "pdm/(pep582/|models/in_process/.+\\.py)"
+plugins = ["mypy_django_plugin.main"]
+
 
 
 [project.urls]

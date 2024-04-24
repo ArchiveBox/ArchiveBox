@@ -3,6 +3,7 @@ __package__ = 'archivebox'
 import re
 import requests
 import json as pyjson
+import http.cookiejar
 
 from typing import List, Optional, Any
 from pathlib import Path
@@ -56,19 +57,57 @@ short_ts = lambda ts: str(parse_date(ts).timestamp()).split('.')[0]
 ts_to_date_str = lambda ts: ts and parse_date(ts).strftime('%Y-%m-%d %H:%M')
 ts_to_iso = lambda ts: ts and parse_date(ts).isoformat()
 
+COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
 
+
+# https://mathiasbynens.be/demo/url-regex
 URL_REGEX = re.compile(
-    r'(?=('
-    r'http[s]?://'                    # start matching from allowed schemes
-    r'(?:[a-zA-Z]|[0-9]'              # followed by allowed alphanum characters
-    r'|[-_$@.&+!*\(\),]'           #    or allowed symbols (keep hyphen first to match literal hyphen)
-    r'|(?:%[0-9a-fA-F][0-9a-fA-F]))'  #    or allowed unicode bytes
-    r'[^\]\[\(\)<>"\'\s]+'          # stop parsing at these symbols
+    r'(?=('                           +
+    r'http[s]?://'                    +  # start matching from allowed schemes
+    r'(?:[a-zA-Z]|[0-9]'              +  # followed by allowed alphanum characters
+    r'|[-_$@.&+!*\(\),]'              +  #   or allowed symbols (keep hyphen first to match literal hyphen)
+    r'|[^\u0000-\u007F])+'            +  #   or allowed unicode bytes
+    r'[^\]\[<>"\'\s]+'                +  # stop parsing at these symbols
     r'))',
-    re.IGNORECASE,
+    re.IGNORECASE | re.UNICODE,
 )
 
-COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
+def parens_are_matched(string: str, open_char='(', close_char=')'):
+    """check that all parentheses in a string are balanced and nested properly"""
+    count = 0
+    for c in string:
+        if c == open_char:
+            count += 1
+        elif c == close_char:
+            count -= 1
+        if count < 0:
+            return False
+    return count == 0
+
+def fix_url_from_markdown(url_str: str) -> str:
+    """
+    cleanup a regex-parsed url that may contain dangling trailing parens from markdown link syntax
+    helpful to fix URLs parsed from markdown e.g.
+      input:  https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def).somemoretext
+      result: https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def
+    """
+    trimmed_url = url_str
+
+    # cut off one trailing character at a time
+    # until parens are balanced e.g. /a(b)c).x(y)z -> /a(b)c
+    while not parens_are_matched(trimmed_url):
+        trimmed_url = trimmed_url[:-1]
+    
+    # make sure trimmed url is still valid
+    if re.findall(URL_REGEX, trimmed_url):
+        return trimmed_url
+    
+    return url_str
+
+def find_all_urls(urls_str: str):
+    for url in re.findall(URL_REGEX, urls_str):
+        yield fix_url_from_markdown(url)
+
 
 def is_static_file(url: str):
     # TODO: the proper way is with MIME type detection + ext, not only extension
@@ -164,9 +203,22 @@ def parse_date(date: Any) -> Optional[datetime]:
 @enforce_types
 def download_url(url: str, timeout: int=None) -> str:
     """Download the contents of a remote url and return the text"""
-    from .config import TIMEOUT, CHECK_SSL_VALIDITY, WGET_USER_AGENT
+    from .config import (
+        TIMEOUT,
+        CHECK_SSL_VALIDITY,
+        WGET_USER_AGENT,
+        COOKIES_FILE,
+    )
     timeout = timeout or TIMEOUT
-    response = requests.get(
+    session = requests.Session()
+
+    if COOKIES_FILE and Path(COOKIES_FILE).is_file():
+        cookie_jar = http.cookiejar.MozillaCookieJar(COOKIES_FILE)
+        cookie_jar.load(ignore_discard=True, ignore_expires=True)
+        for cookie in cookie_jar:
+            session.cookies.set(cookie.name, cookie.value, domain=cookie.domain, path=cookie.path)
+
+    response = session.get(
         url,
         headers={'User-Agent': WGET_USER_AGENT},
         verify=CHECK_SSL_VALIDITY,
@@ -179,7 +231,11 @@ def download_url(url: str, timeout: int=None) -> str:
     if encoding is not None:
         response.encoding = encoding
 
-    return response.text
+    try:
+        return response.text
+    except UnicodeDecodeError:
+        # if response is non-test (e.g. image or other binary files), just return the filename instead
+        return url.rsplit('/', 1)[-1]
 
 @enforce_types
 def get_headers(url: str, timeout: int=None) -> str:
@@ -223,7 +279,11 @@ def chrome_args(**options) -> List[str]:
 
     # Chrome CLI flag documentation: https://peter.sh/experiments/chromium-command-line-switches/
 
-    from .config import CHROME_OPTIONS, CHROME_VERSION
+    from .config import (
+        CHROME_OPTIONS,
+        CHROME_VERSION,
+        CHROME_EXTRA_ARGS,
+    )
 
     options = {**CHROME_OPTIONS, **options}
 
@@ -231,6 +291,8 @@ def chrome_args(**options) -> List[str]:
         raise Exception('Could not find any CHROME_BINARY installed on your system')
 
     cmd_args = [options['CHROME_BINARY']]
+
+    cmd_args += CHROME_EXTRA_ARGS
 
     if options['CHROME_HEADLESS']:
         chrome_major_version = int(re.search(r'\s(\d+)\.\d', CHROME_VERSION)[1])
@@ -275,8 +337,10 @@ def chrome_args(**options) -> List[str]:
 
     if options['CHROME_USER_DATA_DIR']:
         cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
-    
-    return cmd_args
+        cmd_args.append('--profile-directory=Default')
+
+    return dedupe(cmd_args)
+
 
 def chrome_cleanup():
     """
@@ -311,6 +375,20 @@ def ansi_to_html(text):
         return TEMPLATE.format(COLOR_DICT[color][0])
 
     return COLOR_REGEX.sub(single_sub, text)
+
+
+@enforce_types
+def dedupe(options: List[str]) -> List[str]:
+    """
+    Deduplicates the given options. Options that come later clobber earlier
+    conflicting options.
+    """
+    deduped = {}
+
+    for option in options:
+        deduped[option.split('=')[0]] = option
+
+    return list(deduped.values())
 
 
 class AttributeDict(dict):
@@ -359,3 +437,48 @@ class ExtendedEncoder(pyjson.JSONEncoder):
 
         return pyjson.JSONEncoder.default(self, obj)
 
+
+### URL PARSING TESTS / ASSERTIONS
+# they run at runtime because I like having them inline in this file,
+# I like the peace of mind knowing it's enforced at runtime across all OS's (in case the regex engine ever has any weird locale-specific quirks),
+# and these assertions are basically instant, so not a big performance cost to do it on startup
+
+assert fix_url_from_markdown('/a(b)c).x(y)z') == '/a(b)c'
+assert fix_url_from_markdown('https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def).link(with)_trailingtext') == 'https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def'
+
+URL_REGEX_TESTS = [
+    ('https://example.com', ['https://example.com']),
+    ('http://abc-file234example.com/abc?def=abc&23423=sdfsdf#abc=234&234=a234', ['http://abc-file234example.com/abc?def=abc&23423=sdfsdf#abc=234&234=a234']),
+
+    ('https://twitter.com/share?url=https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ abc', ['https://twitter.com/share?url=https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ', 'https://akaao.success-corp.co.jp&text=ア@サ!ト&hashtags=ア%オ,元+ア.ア-オ_イ*シ$ロ']),
+    ('<a href="https://twitter.com/share#url=https://akaao.success-corp.co.jp&text=ア@サ!ト?hashtags=ア%オ,元+ア&abc=.ア-オ_イ*シ$ロ"> abc', ['https://twitter.com/share#url=https://akaao.success-corp.co.jp&text=ア@サ!ト?hashtags=ア%オ,元+ア&abc=.ア-オ_イ*シ$ロ', 'https://akaao.success-corp.co.jp&text=ア@サ!ト?hashtags=ア%オ,元+ア&abc=.ア-オ_イ*シ$ロ']),
+
+    ('///a',                                                []),
+    ('http://',                                             []),
+    ('http://../',                                          ['http://../']),
+    ('http://-error-.invalid/',                             ['http://-error-.invalid/']),
+    ('https://a(b)c+1#2?3&4/',                              ['https://a(b)c+1#2?3&4/']),
+    ('http://उदाहरण.परीक्षा',                                   ['http://उदाहरण.परीक्षा']),
+    ('http://例子.测试',                                     ['http://例子.测试']),
+    ('http://➡.ws/䨹 htps://abc.1243?234',                  ['http://➡.ws/䨹']),
+    ('http://⌘.ws">https://exa+mple.com//:abc ',            ['http://⌘.ws', 'https://exa+mple.com//:abc']),
+    ('http://مثال.إختبار/abc?def=ت&ب=abc#abc=234',          ['http://مثال.إختبار/abc?def=ت&ب=abc#abc=234']),
+    ('http://-.~_!$&()*+,;=:%40:80%2f::::::@example.c\'om', ['http://-.~_!$&()*+,;=:%40:80%2f::::::@example.c']),
+    
+    ('http://us:pa@ex.co:42/http://ex.co:19/a?_d=4#-a=2.3', ['http://us:pa@ex.co:42/http://ex.co:19/a?_d=4#-a=2.3', 'http://ex.co:19/a?_d=4#-a=2.3']),
+    ('http://code.google.com/events/#&product=browser',     ['http://code.google.com/events/#&product=browser']),
+    ('http://foo.bar?q=Spaces should be encoded',           ['http://foo.bar?q=Spaces']),
+    ('http://foo.com/blah_(wikipedia)#c(i)t[e]-1',          ['http://foo.com/blah_(wikipedia)#c(i)t']),
+    ('http://foo.com/(something)?after=parens',             ['http://foo.com/(something)?after=parens']),
+    ('http://foo.com/unicode_(✪)_in_parens) abc',           ['http://foo.com/unicode_(✪)_in_parens']),
+    ('http://foo.bar/?q=Test%20URL-encoded%20stuff',        ['http://foo.bar/?q=Test%20URL-encoded%20stuff']),
+
+    ('[xyz](http://a.b/?q=(Test)%20U)RL-encoded%20stuff',   ['http://a.b/?q=(Test)%20U']),
+    ('[xyz](http://a.b/?q=(Test)%20U)-ab https://abc+123',  ['http://a.b/?q=(Test)%20U', 'https://abc+123']),
+    ('[xyz](http://a.b/?q=(Test)%20U) https://a(b)c+12)3',  ['http://a.b/?q=(Test)%20U', 'https://a(b)c+12']),
+    ('[xyz](http://a.b/?q=(Test)a\nabchttps://a(b)c+12)3',  ['http://a.b/?q=(Test)a', 'https://a(b)c+12']),
+    ('http://foo.bar/?q=Test%20URL-encoded%20stuff',        ['http://foo.bar/?q=Test%20URL-encoded%20stuff']),
+]
+for urls_str, expected_url_matches in URL_REGEX_TESTS:
+    url_matches = list(find_all_urls(urls_str))
+    assert url_matches == expected_url_matches, 'FAILED URL_REGEX CHECK!'

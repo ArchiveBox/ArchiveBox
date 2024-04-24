@@ -12,6 +12,10 @@ venv/
 .docker-venv/
 node_modules/
 
+# Ignore dev lockfiles (should always be built fresh)
+requirements-dev.txt
+pdm.dev.lock
+
 # Packaging artifacts
 .pdm-python
 .pdm-build
@@ -25,6 +29,7 @@ data/
 data1/
 data2/
 data3/
+data*/
 output/
 
 # vim
