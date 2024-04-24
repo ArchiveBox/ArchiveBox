@@ -12,8 +12,7 @@ version: '3.9'
 
 services:
     archivebox:
-        #image: ${DOCKER_IMAGE:-archivebox/archivebox:dev}
-        image: archivebox/archivebox:dev
+        image: archivebox/archivebox:latest
         command: server --quick-init 0.0.0.0:8000
         ports:
             - 8000:8000
@@ -94,7 +93,7 @@ services:
     #   $ docker compose restart archivebox_scheduler
 
     # archivebox_scheduler:
-    #    image: ${DOCKER_IMAGE:-archivebox/archivebox:dev}
+    #    image: archivebox/archivebox:latest
     #    command: schedule --foreground
     #    environment:
     #        - MEDIA_MAX_SIZE=750m               # increase this number to allow archiving larger audio/video files
