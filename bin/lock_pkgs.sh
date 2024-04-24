@@ -30,6 +30,7 @@ echo
 echo
 
 echo "[*] Cleaning up old lockfiles and build files"
+deactivate 2>/dev/null || true
 rm -Rf build dist
 rm -f pdm.lock
 rm -f pdm.dev.lock

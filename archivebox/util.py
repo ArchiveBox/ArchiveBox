@@ -59,6 +59,8 @@ ts_to_iso = lambda ts: ts and parse_date(ts).isoformat()
 
 COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m')
 
+
+# https://mathiasbynens.be/demo/url-regex
 URL_REGEX = re.compile(
     r'(?=('                           +
     r'http[s]?://'                    +  # start matching from allowed schemes
