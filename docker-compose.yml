@@ -48,17 +48,17 @@ services:
     #   $ docker compose restart archivebox_scheduler
 
     archivebox_scheduler:
-       image: archivebox/archivebox:latest
-       command: schedule --foreground --update --every=day
-       environment:
-           - TIMEOUT=120                       # use a higher timeout than the main container to give slow tasks more time when retrying
-           # - PUID=502                        # set to your host user's UID & GID if you encounter permissions issues
-           # - PGID=20
-       volumes:
-           - ./data:/data
-       # cpus: 2                               # uncomment / edit these values to limit scheduler container resource consumption
-       # mem_limit: 2048m
-       # restart: always
+        image: archivebox/archivebox:latest
+        command: schedule --foreground --update --every=day
+        environment:
+            - TIMEOUT=120                       # use a higher timeout than the main container to give slow tasks more time when retrying
+            # - PUID=502                        # set to your host user's UID & GID if you encounter permissions issues
+            # - PGID=20
+        volumes:
+            - ./data:/data
+        # cpus: 2                               # uncomment / edit these values to limit scheduler container resource consumption
+        # mem_limit: 2048m
+        # restart: always
 
 
     ### This runs the optional Sonic full-text search backend (much faster than default rg backend).
@@ -72,7 +72,7 @@ services:
             # not needed after first run / if you have already have ./etc/sonic.cfg present
             dockerfile_inline: |
                 FROM quay.io/curl/curl:latest AS config_downloader
-                RUN curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/main/etc/sonic.cfg' > /tmp/sonic.cfg
+                RUN curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/stable/etc/sonic.cfg' > /tmp/sonic.cfg
                 FROM valeriansaliou/sonic:latest
                 COPY --from=config_downloader /tmp/sonic.cfg /etc/sonic.cfg
         expose:
@@ -99,7 +99,7 @@ services:
             # restricted to access from localhost by default because it has no authentication
             - 127.0.0.1:8080:8080
 
-    
+
     ### Example: Put Nginx in front of the ArchiveBox server for SSL termination and static file serving.
     # You can also any other ingress provider for SSL like Apache, Caddy, Traefik, Cloudflare Tunnels, etc.
 
@@ -173,7 +173,7 @@ services:
 
     ### Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel to avoid IP blocks.
     # You can also use any other VPN that works at the docker IP level, e.g. Tailscale, OpenVPN, etc.
-    
+
     # wireguard:
     #   image: linuxserver/wireguard:latest
     #   network_mode: 'service:archivebox'
