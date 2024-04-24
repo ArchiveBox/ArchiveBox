@@ -15,9 +15,11 @@ from ..util import (
     path,
     domain,
     urldecode,
+    dedupe,
 )
 from ..config import (
     WGET_ARGS,
+    WGET_EXTRA_ARGS,
     TIMEOUT,
     SAVE_WGET,
     SAVE_WARC,
@@ -55,10 +57,10 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
 
     # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
     output: ArchiveOutput = None
-    cmd = [
-        WGET_BINARY,
-        # '--server-response',  # print headers for better error parsing
+    # later options take precedence
+    options = [
         *WGET_ARGS,
+        *WGET_EXTRA_ARGS,
         '--timeout={}'.format(timeout),
         *(['--restrict-file-names={}'.format(RESTRICT_FILE_NAMES)] if RESTRICT_FILE_NAMES else []),
         *(['--warc-file={}'.format(str(warc_path))] if SAVE_WARC else []),
@@ -68,6 +70,11 @@ def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) ->
         *(['--compression=auto'] if WGET_AUTO_COMPRESSION else []),
         *([] if SAVE_WARC else ['--timestamping']),
         *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate', '--no-hsts']),
+        # '--server-response',  # print headers for better error parsing
+    ]
+    cmd = [
+        WGET_BINARY,
+        *dedupe(options),
         link.url,
     ]
 
@@ -201,5 +208,10 @@ def wget_output_path(link: Link) -> Optional[str]:
     search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+")
     if search_dir.is_dir():
         return domain(link.url).replace(":", "+")
+
+    # fallback to just the domain dir without port
+    search_dir = Path(link.link_dir) / domain(link.url).split(":", 1)[0]
+    if search_dir.is_dir():
+        return domain(link.url).split(":", 1)[0]
 
     return None

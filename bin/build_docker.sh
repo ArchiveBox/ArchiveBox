@@ -71,10 +71,8 @@ docker buildx use xbuilder 2>&1 >/dev/null || create_builder
 check_platforms || (recreate_builder && check_platforms) || exit 1
 
 
-# Build python package lists
-echo "[+] Generating requirements.txt and pdm.lock from pyproject.toml..."
-pdm lock --group=':all' --strategy="cross_platform" --production
-pdm export --group=':all' --production --without-hashes -o requirements.txt
+# Make sure pyproject.toml, pdm{.dev}.lock, requirements{-dev}.txt, package{-lock}.json are all up-to-date
+bash ./bin/lock_pkgs.sh
 
 
 echo "[+] Building archivebox:$VERSION docker image..."

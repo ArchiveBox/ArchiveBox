@@ -35,7 +35,7 @@ jobs:
           cache: true
 
       - name: Install dependencies
-        run: pdm install --fail-fast --no-lock --group :all --no-self
+        run: pdm install --fail-fast --no-lock --dev --group=':all' --no-self
 
       - name: Build package
         run: |

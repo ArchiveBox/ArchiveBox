@@ -10,7 +10,7 @@
 #     docker run -v "$PWD/data":/data -p 8000:8000 archivebox server
 # Multi-arch build:
 #     docker buildx create --use
-#     docker buildx build . --platform=linux/amd64,linux/arm64,linux/arm/v7 --push -t archivebox/archivebox:latest -t archivebox/archivebox:dev
+#     docker buildx build . --platform=linux/amd64,linux/arm64--push -t archivebox/archivebox:latest -t archivebox/archivebox:dev
 #
 # Read more about [developing Archivebox](https://github.com/ArchiveBox/ArchiveBox#archivebox-development).
 
@@ -20,10 +20,24 @@ FROM python:3.11-slim-bookworm
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <dockerfile@archivebox.io>" \
-    description="All-in-one personal internet archiving container" \
+    description="All-in-one self-hosted internet archiving solution" \
     homepage="https://github.com/ArchiveBox/ArchiveBox" \
-    documentation="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker"
-
+    documentation="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker" \
+    org.opencontainers.image.title="ArchiveBox" \
+    org.opencontainers.image.vendor="ArchiveBox" \
+    org.opencontainers.image.description="All-in-one self-hosted internet archiving solution" \
+    org.opencontainers.image.source="https://github.com/ArchiveBox/ArchiveBox" \
+    com.docker.image.source.entrypoint="Dockerfile" \
+    # TODO: release ArchiveBox as a Docker Desktop extension (requires these labels):
+    # https://docs.docker.com/desktop/extensions-sdk/architecture/metadata/
+    com.docker.desktop.extension.api.version=">= 1.4.7" \
+    com.docker.desktop.extension.icon="https://archivebox.io/icon.png" \
+    com.docker.extension.publisher-url="https://archivebox.io" \
+    com.docker.extension.screenshots='[{"alt": "Screenshot of Admin UI", "url": "https://github.com/ArchiveBox/ArchiveBox/assets/511499/e8e0b6f8-8fdf-4b7f-8124-c10d8699bdb2"}]' \
+    com.docker.extension.detailed-description='See here for detailed documentation: https://wiki.archivebox.io' \
+    com.docker.extension.changelog='See here for release notes: https://github.com/ArchiveBox/ArchiveBox/releases' \
+    com.docker.extension.categories='database,utility-tools'
+    
 ARG TARGETPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
@@ -167,7 +181,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         curl wget git yt-dlp ffmpeg ripgrep \
         # Packages we have also needed in the past:
         # youtube-dl wget2 aria2 python3-pyxattr rtmpdump libfribidi-bin mpv \
-        # fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/* \
     # Save version info
     && ( \
@@ -183,6 +196,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing Browser binary dependencies to $PLAYWRIGHT_BROWSERS_PATH..." \
     && apt-get update -qq \
+    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+        fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-khmeros fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
+        # chrome can run without dbus/upower technically, it complains about missing dbus but should run ok anyway
+        # libxss1 dbus dbus-x11 upower \
+    # && service dbus start \
     && if [[ "$TARGETPLATFORM" == *amd64* || "$TARGETPLATFORM" == *arm64* ]]; then \
         # install Chromium using playwright
         pip install playwright \
@@ -190,10 +208,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         && playwright install --with-deps chromium \
         && export CHROME_BINARY="$(python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')"; \
     else \
-        # fall back to installing Chromium via apt-get on platforms not supported by playwright (e.g. risc, ARMv7, etc.) 
-        apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-            chromium fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
-        && export CHROME_BINARY="$(which chromium)"; \
+        # fall back to installing Chromium via apt-get on platforms not supported by playwright (e.g. risc, ARMv7, etc.)
+        # apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+        #     chromium \
+        # && export CHROME_BINARY="$(which chromium)"; \
+        echo 'armv7 no longer supported in versions after v0.7.3' \
+        exit 1; \
     fi \
     && rm -rf /var/lib/apt/lists/* \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
@@ -262,9 +282,15 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 # Setup ArchiveBox runtime config
 WORKDIR "$DATA_DIR"
-ENV IN_DOCKER=True
+ENV IN_DOCKER=True \
+    DISPLAY=novnc:0.0 \
+    CUSTOM_TEMPLATES_DIR=/data/templates \
+    CHROME_USER_DATA_DIR=/data/personas/Default/chromium \
+    GOOGLE_API_KEY=no \
+    GOOGLE_DEFAULT_CLIENT_ID=no \
+    GOOGLE_DEFAULT_CLIENT_SECRET=no \
+    ALLOWED_HOSTS=*
     ## No need to set explicitly, these values will be autodetected by archivebox in docker:
-    # CHROME_SANDBOX=False \
     # WGET_BINARY="wget" \
     # YOUTUBEDL_BINARY="yt-dlp" \
     # CHROME_BINARY="/usr/bin/chromium-browser" \
@@ -289,9 +315,8 @@ WORKDIR "$DATA_DIR"
 VOLUME "$DATA_DIR"
 EXPOSE 8000
 
-# Optional:
-# HEALTHCHECK --interval=30s --timeout=20s --retries=15 \
-#     CMD curl --silent 'http://localhost:8000/admin/login/' || exit 1
+HEALTHCHECK --interval=30s --timeout=20s --retries=15 \
+    CMD curl --silent 'http://localhost:8000/health/' | grep -q 'OK'
 
 ENTRYPOINT ["dumb-init", "--", "/app/bin/docker_entrypoint.sh"]
 CMD ["archivebox", "server", "--quick-init", "0.0.0.0:8000"]

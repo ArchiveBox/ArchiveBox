@@ -432,12 +432,14 @@ def log_archive_method_finished(result: "ArchiveResult"):
                     **ANSI,
                 ),
             ]
+        
+        # import pudb; pudb.set_trace()
 
         # Prettify error output hints string and limit to five lines
         hints = getattr(result.output, 'hints', None) or ()
         if hints:
             if isinstance(hints, (list, tuple, type(_ for _ in ()))):
-                hints = [hint.decode() for hint in hints if isinstance(hint, bytes)]
+                hints = [hint.decode() if isinstance(hint, bytes) else str(hint) for hint in hints]
             else:
                 if isinstance(hints, bytes):
                     hints = hints.decode()
@@ -492,12 +494,12 @@ def log_removal_started(links: List["Link"], yes: bool, delete: bool):
     if delete:
         file_counts = [link.num_outputs for link in links if Path(link.link_dir).exists()]
         print(
-            f'    {len(links)} Links will be de-listed from the main index, and their archived content folders will be deleted from disk.\n'
+            f'    {len(links)} Links will be de-listed from the main index, and their archived content folders will be deleted from disk.\n' +
             f'    ({len(file_counts)} data folders with {sum(file_counts)} archived files will be deleted!)'
         )
     else:
         print(
-            '    Matching links will be de-listed from the main index, but their archived content folders will remain in place on disk.\n'
+            '    Matching links will be de-listed from the main index, but their archived content folders will remain in place on disk.\n' +
             '    (Pass --delete if you also want to permanently delete the data folders)'
         )
 
@@ -636,17 +638,15 @@ def printable_folder_status(name: str, folder: Dict) -> str:
 
 @enforce_types
 def printable_dependency_version(name: str, dependency: Dict) -> str:
-    version = None
+    color, symbol, note, version = 'red', 'X', 'invalid', '?'
+
     if dependency['enabled']:
         if dependency['is_valid']:
-            color, symbol, note, version = 'green', '√', 'valid', ''
+            color, symbol, note = 'green', '√', 'valid'
 
             parsed_version_num = re.search(r'[\d\.]+', dependency['version'])
             if parsed_version_num:
                 version = f'v{parsed_version_num[0]}'
-
-        if not version:
-            color, symbol, note, version = 'red', 'X', 'invalid', '?'
     else:
         color, symbol, note, version = 'lightyellow', '-', 'disabled', '-'
 
