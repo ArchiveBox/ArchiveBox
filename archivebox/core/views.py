@@ -56,11 +56,17 @@ class SnapshotView(View):
             slug, archivefile = path.split('/', 1)[0], 'index.html'
 
         # slug is a timestamp
-        if slug.replace('.','').isdigit():
+        if slug.replace('.', '').isdigit():
 
             # missing trailing slash -> redirect to index
             if '/' not in path:
                 return redirect(f'{path}/index.html')
+
+            # TODO: add support for archive.org-style URLs where timestamp may be a human-readable date
+            # https://web.archivebox.io / web / 2022-01 / https://example.com
+            # https://web.archivebox.io / web / 20220505103616 / https://example.com
+            # https://web.archivebox.io / web / 2022-05-05__0:36:16 / https://example.com
+            # use archivebox.util.parse_date (supports unix timestamps, iso date strings, and lots more etc.)
 
             try:
                 try:

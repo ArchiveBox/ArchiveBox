@@ -12,6 +12,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group, Permission
 from django import forms
 
 from ..util import htmldecode, urldecode, ansi_to_html
@@ -158,6 +159,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     list_per_page = SNAPSHOTS_PER_PAGE
 
     action_form = SnapshotActionForm
+
 
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}

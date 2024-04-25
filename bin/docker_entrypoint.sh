@@ -64,7 +64,7 @@ if [[ -d "$DATA_DIR/archive" ]]; then
         rm -f "$DATA_DIR/archive/.permissions_test_safe_to_delete"
         # echo "[√] Permissions are correct"
     else
-     # the only time this fails is if the host filesystem doesn't allow us to write as root (e.g. some NFS mapall/maproot problems, connection issues, drive dissapeared, etc.)
+        # the only time this fails is if the host filesystem doesn't allow us to write as root (e.g. some NFS mapall/maproot problems, connection issues, drive dissapeared, etc.)
         echo -e "\n[X] Error: archivebox user (PUID=$PUID) is not able to write to your ./data/archive dir (currently owned by $(stat -c '%u' "$DATA_DIR/archive"):$(stat -c '%g' "$DATA_DIR/archive")." > /dev/stderr
         echo -e "    Change ./data to be owned by PUID=$PUID PGID=$PGID on the host and retry:" > /dev/stderr
         echo -e "       \$ chown -R $PUID:$PGID ./data\n" > /dev/stderr
@@ -89,7 +89,8 @@ if ! chown $PUID:$PGID "$DATA_DIR"/* > /dev/null 2>&1; then
     find "$DATA_DIR" -type d -not -path "$DATA_DIR/archive*" -exec chown $PUID:$PGID {} \; > /dev/null 2>&1
     find "$DATA_DIR" -type f -not -path "$DATA_DIR/archive/*" -exec chown $PUID:$PGID {} \; > /dev/null 2>&1
 fi
-    
+mkdir -p /var/spool/cron/crontabs
+chown -R $PUID:$PGID /var/spool/cron/crontabs > /dev/null 2>&1 &
 
 # also chown BROWSERS_DIR because otherwise 'archivebox setup' wont be able to 'playwright install chromium' at runtime
 export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/browsers}"
@@ -191,9 +192,11 @@ if [[ "$1" == /* || "$1" == "bash" || "$1" == "sh" || "$1" == "echo" || "$1" == 
     #      "docker run archivebox /bin/bash -c '...'"
     #      "docker run archivebox cat /VERSION.txt"
     exec gosu "$PUID" /bin/bash -c "exec $(printf ' %q' "$@")"
+    # WARNING: make sure to test extensively if you change this line, there are many edge-cases with nested quotes, special character, etc.
     # printf requotes shell parameters properly https://stackoverflow.com/a/39463371/2156113
     # gosu spawns an ephemeral bash process owned by archivebox user (bash wrapper is needed to load env vars, PATH, and setup terminal TTY)
     # outermost exec hands over current process ID to inner bash process, inner exec hands over inner bash PID to user's command
+    # - https://github.com/ArchiveBox/ArchiveBox/issues/1191
 else
     # handle "docker run archivebox add some subcommand --with=args abc" by calling archivebox to run as args as CLI subcommand
     # e.g. "docker run archivebox help"

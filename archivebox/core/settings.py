@@ -1,5 +1,10 @@
 __package__ = 'archivebox.core'
 
+# TODO: add this after we upgrade to Django >=3.2
+# https://github.com/typeddjango/django-stubs
+# import django_stubs_ext
+# django_stubs_ext.monkeypatch()
+
 import os
 import sys
 import re
@@ -59,13 +64,88 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admin',
+    'solo',
+
 
     'core',
     'api',
+    
+    # Plugins
+    
+    'plugins.defaults',
+    'plugins.system',
+    # 'plugins.replaywebpage',           # provides UI to view WARC files
+    # 'plugins.gallerydl',               # provides gallerydl dependency + extractor
+    # 'plugins.browsertrix',             # provides browsertrix dependency + extractor
+    # 'plugins.playwright',              # provides playwright dependency
+    # ...
+    # someday we may have enough plugins to justify dynamic loading:
+    # *(path.parent.name for path in (Path(PACKAGE_DIR) / 'plugins').glob('*/apps.py')),,
 
     'django_extensions',
 ]
 
+################################################################################
+### Staticfile and Template Settings
+################################################################################
+
+STATIC_URL = '/static/'
+
+STATIC_ROOT = Path(PACKAGE_DIR) / 'collected_static'
+
+STATICFILES_DIRS = [
+    *([str(CUSTOM_TEMPLATES_DIR / 'static')] if CUSTOM_TEMPLATES_DIR else []),
+    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'static'),
+
+    # Plugins
+    # str(Path(PACKAGE_DIR) / 'plugins/defaults/static'),
+    # str(Path(PACKAGE_DIR) / 'plugins/replaywebpage/static'),
+    # str(Path(PACKAGE_DIR) / 'plugins/gallerydl/static'),
+    # str(Path(PACKAGE_DIR) / 'plugins/browsertrix/static'),
+    # str(Path(PACKAGE_DIR) / 'plugins/playwright/static'),
+    # ...
+    # someday if there are many more plugins / user-addable plugins:
+    # *(str(path) for path in (Path(PACKAGE_DIR) / 'plugins').glob('*/static')),
+]
+
+MEDIA_URL = '/archive/'
+MEDIA_ROOT = OUTPUT_DIR / 'archive'
+
+
+TEMPLATE_DIRS = [
+    *([str(CUSTOM_TEMPLATES_DIR)] if CUSTOM_TEMPLATES_DIR else []),
+    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'core'),
+    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'admin'),
+    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME),
+
+    # Plugins
+    # added by plugins.<PluginName>.apps.<AppName>.ready -> .settings.register_plugin_settings
+    # str(Path(PACKAGE_DIR) / 'plugins/defaults/templates'),
+    # str(Path(PACKAGE_DIR) / 'plugins/replaywebpage/templates'),
+    # str(Path(PACKAGE_DIR) / 'plugins/gallerydl/templates'),
+    # str(Path(PACKAGE_DIR) / 'plugins/browsertrix/templates'),
+    # str(Path(PACKAGE_DIR) / 'plugins/playwright/templates'),
+    # ...
+    #
+    # someday if there are many more plugins / user-addable plugins:
+    # *(str(path) for path in (Path(PACKAGE_DIR) / 'plugins').glob('*/templates')),
+]
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': TEMPLATE_DIRS,
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
 
 # For usage with https://www.jetadmin.io/integrations/django
 # INSTALLED_APPS += ['jet_django']
@@ -163,7 +243,7 @@ if DEBUG_TOOLBAR:
         'debug_toolbar.panels.request.RequestPanel',
         'debug_toolbar.panels.sql.SQLPanel',
         'debug_toolbar.panels.staticfiles.StaticFilesPanel',
-        # 'debug_toolbar.panels.templates.TemplatesPanel',
+        # 'debug_toolbar.panels.templates.TemplatesPanel',    # buggy/slow
         'debug_toolbar.panels.cache.CachePanel',
         'debug_toolbar.panels.signals.SignalsPanel',
         'debug_toolbar.panels.logging.LoggingPanel',
@@ -173,39 +253,6 @@ if DEBUG_TOOLBAR:
     ]
     MIDDLEWARE = [*MIDDLEWARE, 'debug_toolbar.middleware.DebugToolbarMiddleware']
 
-################################################################################
-### Staticfile and Template Settings
-################################################################################
-
-STATIC_URL = '/static/'
-
-STATICFILES_DIRS = [
-    *([str(CUSTOM_TEMPLATES_DIR / 'static')] if CUSTOM_TEMPLATES_DIR else []),
-    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'static'),
-]
-
-TEMPLATE_DIRS = [
-    *([str(CUSTOM_TEMPLATES_DIR)] if CUSTOM_TEMPLATES_DIR else []),
-    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'core'),
-    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'admin'),
-    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME),
-]
-
-TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': TEMPLATE_DIRS,
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
-        },
-    },
-]
 
 
 ################################################################################
@@ -312,21 +359,21 @@ IGNORABLE_404_URLS = [
 ]
 
 class NoisyRequestsFilter(logging.Filter):
-    def filter(self, record):
+    def filter(self, record) -> bool:
         logline = record.getMessage()
 
         # ignore harmless 404s for the patterns in IGNORABLE_404_URLS
         for ignorable_url_pattern in IGNORABLE_404_URLS:
             ignorable_log_pattern = re.compile(f'^"GET /.*/?{ignorable_url_pattern.pattern[:-1]} HTTP/.*" (200|30.|404) .+$', re.I | re.M)
             if ignorable_log_pattern.match(logline):
-                return 0
+                return False
 
         # ignore staticfile requests that 200 or 30*
         ignoreable_200_log_pattern = re.compile(r'"GET /static/.* HTTP/.*" (200|30.) .+', re.I | re.M)
         if ignoreable_200_log_pattern.match(logline):
-            return 0
+            return False
 
-        return 1
+        return True
 
 if LOGS_DIR.exists():
     ERROR_LOG = (LOGS_DIR / 'errors.log')

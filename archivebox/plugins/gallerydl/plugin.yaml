@@ -1,0 +1,59 @@
+dependencies:
+	GalleryDLDependency:
+		ID: gallerydl
+		LABEL: GalleryDL
+		REQUIRED: false
+
+		PARENT_DEPENDENCIES:
+			- BashEnvironmentDependency
+			- PipEnvironmentDependency
+
+		PIP_DEPENDENCIES:
+			- gallery-dl
+
+		USER_CONFIG:
+			ENABLED: models.BooleanField(max_length=255, default={DEFAULT_CONFIG.ENABLED})
+			BINARY: models.CharField(max_length=255, default={DEFAULT_CONFIG.BINARY})
+
+		DEFAULT_CONFIG:
+			ENABLED: true
+			BINARY: 'gallery-dl'
+
+		CONFIG_ALIASES:
+			- SAVE_GALLERYDL: ENABLED
+			- USE_GALLERYDL: ENABLED
+			- GALLERYDL_ENABLED: ENABLED
+			- GALLERYDL_BINARY: BINARY
+
+		TASKS:
+			# plugins.GalleryDLDependency
+			run_dependency: plugins.gallerydl.models.GalleryDLDependency.run_dependency
+
+
+extractors:
+	GalleryDLExtractor:
+		ID: GALLERYDL
+		LABEL: GalleryDL
+		ENABLED: true
+
+		DEPENDENCY: GalleryDLDependency
+
+		CONFIG:
+			ENABLED: models.BooleanField(default={DEFAULT_CONFIG.ENABLED})
+			CMD: models.CharField(max_length=255, default={DEFAULT_CONFIG.CMD})
+			ARGS: models.CharField(max_length=255, default={DEFAULT_CONFIG.ARGS})
+			USER_AGENT: models.CharField(max_length=255, default={DEFAULT_CONFIG.USER_AGENT})
+			CHECK_SSL_VALIDITY: models.CharField(max_length=255, default={DEFAULT_CONFIG.CHECK_SSL_VALIDITY})
+
+		DEFAULT_CONFIG:
+			ENABLED: true
+			CMD: gallery-dl {args} {url}
+			ARGS: --user-agent={USER_AGENT} --check-ssl={CHECK_SSL_VALIDITY}
+      CHECK_SSL_VALIDITY: {CHECK_SSL_VALIDITY}
+      USER_AGENT: {USER_AGENT}
+
+
+		TASKS:
+			CREATE_OUT_DIR: plugins.gallerydl.tasks.create_out_dir
+			SHOULD_EXTRACT: plugins.gallerydl.tasks.should_extract
+			EXTRACT: plugins.gallerydl.tasks.extract
