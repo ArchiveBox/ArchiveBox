@@ -5,7 +5,7 @@
 groups = ["default", "ldap", "sonic"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.1"
-content_hash = "sha256:b7dd7f385f9511475f0778131d62b1405e3f4ea2732be447036e6f7e03199596"
+content_hash = "sha256:680d048f6c24c4b822829a9a4bd5d4ce235bfde2f8c58fd531cd434e4cf3ee13"
 
 [[package]]
 name = "annotated-types"
@@ -301,18 +301,18 @@ files = [
 
 [[package]]
 name = "django"
-version = "4.2.11"
-requires_python = ">=3.8"
+version = "5.0.4"
+requires_python = ">=3.10"
 summary = "A high-level Python web framework that encourages rapid development and clean, pragmatic design."
 groups = ["default", "ldap"]
 dependencies = [
-    "asgiref<4,>=3.6.0",
+    "asgiref<4,>=3.7.0",
     "sqlparse>=0.3.1",
     "tzdata; sys_platform == \"win32\"",
 ]
 files = [
-    {file = "Django-4.2.11-py3-none-any.whl", hash = "sha256:ddc24a0a8280a0430baa37aff11f28574720af05888c62b7cfe71d219f4599d3"},
-    {file = "Django-4.2.11.tar.gz", hash = "sha256:6e6ff3db2d8dd0c986b4eec8554c8e4f919b5c1ff62a5b4390c17aff2ed6e5c4"},
+    {file = "Django-5.0.4-py3-none-any.whl", hash = "sha256:916423499d75d62da7aa038d19aef23d23498d8df229775eb0a6309ee1013775"},
+    {file = "Django-5.0.4.tar.gz", hash = "sha256:4bd01a8c830bb77a8a3b0e7d8b25b887e536ad17a81ba2dce5476135c73312bd"},
 ]
 
 [[package]]

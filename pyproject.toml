@@ -12,9 +12,10 @@ readme = "README.md"
 # pdm install
 # pdm update --unconstrained
 dependencies = [
+    # Last Bumped: 2024-04-25
     # Base Framework and Language Dependencies
     "setuptools>=69.5.1",
-    "django>=4.2.0,<5.0",
+    "django>=5.0.4,<6.0",
     "django-ninja>=1.1.0",
     "django-extensions>=3.2.3",
     "mypy-extensions>=1.0.0",
@@ -22,11 +23,11 @@ dependencies = [
     "requests>=2.31.0",
     "dateparser>=1.0.0",
     "feedparser>=6.0.11",
-    "w3lib>=1.22.0",
+    "w3lib>=2.1.2",
     # Feature-Specific Dependencies
-    "python-crontab>=2.5.1",          # for: archivebox schedule
-    "croniter>=0.3.34",               # for: archivebox schedule
-    "ipython>5.0.0",                  # for: archivebox shell
+    "python-crontab>=3.0.0",          # for: archivebox schedule
+    "croniter>=2.0.5",                # for: archivebox schedule
+    "ipython>=8.23.0",                 # for: archivebox shell
     # Extractor Dependencies
     "yt-dlp>=2024.4.9",               # for: media
     "playwright>=1.43.0; platform_machine != 'armv7l'",  # WARNING: playwright doesn't have any sdist, causes trouble on build systems that refuse to install wheel-only packages
@@ -55,9 +56,6 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -96,10 +94,10 @@ ldap = [
 # pdm update --dev --unconstrained
 [tool.pdm.dev-dependencies]
 build = [
+    # "pdm",                           # usually installed by apt/brew, dont double-install with pip
     "setuptools>=69.5.1",
     "pip",
     "wheel",
-    "pdm",
     "homebrew-pypi-poet>=0.10.0",      # for: generating archivebox.rb brewfile list of python packages
 ]
 docs = [
@@ -113,7 +111,6 @@ debug = [
     "ipdb",
 ]
 test = [
-    "pdm[pytest]",
     "pytest",
 ]
 lint = [
