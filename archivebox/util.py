@@ -90,6 +90,11 @@ def fix_url_from_markdown(url_str: str) -> str:
     helpful to fix URLs parsed from markdown e.g.
       input:  https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def).somemoretext
       result: https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def
+
+    IMPORTANT ASSUMPTION: valid urls wont have unbalanced or incorrectly nested parentheses
+    e.g. this will fail the user actually wants to ingest a url like 'https://example.com/some_wei)(rd_url'
+         in that case it will return https://example.com/some_wei (truncated up to the first unbalanced paren)
+    This assumption is true 99.9999% of the time, and for the rare edge case the user can use url_list parser.
     """
     trimmed_url = url_str
 
