@@ -451,7 +451,7 @@ class ExtendedEncoder(pyjson.JSONEncoder):
 #   the consequences of bad URL parsing could be disastrous and lead to many
 #   incorrect/badly parsed links being added to the archive, so this is worth the cost of checking
 
-assert fix_url_from_markdown('/a(b)c).x(y)z') == '/a(b)c'
+assert fix_url_from_markdown('http://example.com/a(b)c).x(y)z') == 'http://example.com/a(b)c'
 assert fix_url_from_markdown('https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def).link(with)_trailingtext') == 'https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def'
 
 URL_REGEX_TESTS = [
