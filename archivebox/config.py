@@ -1366,6 +1366,7 @@ def check_data_folder(out_dir: Union[str, Path, None]=None, config: ConfigDict=C
         stderr('        archivebox init')
         raise SystemExit(2)
 
+
 def check_migrations(out_dir: Union[str, Path, None]=None, config: ConfigDict=CONFIG):
     output_dir = out_dir or config['OUTPUT_DIR']
     from .index.sql import list_migrations

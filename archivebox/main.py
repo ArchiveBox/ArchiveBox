@@ -695,7 +695,7 @@ def add(urls: Union[str, List[str]],
     if CAN_UPGRADE:
         hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSIONS_AVAILABLE['recommended_version']['tag_name']} ({VERSIONS_AVAILABLE['recommended_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
 
-    return all_links
+    return new_links
 
 @enforce_types
 def remove(filter_str: Optional[str]=None,

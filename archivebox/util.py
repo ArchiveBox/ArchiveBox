@@ -358,7 +358,8 @@ def chrome_cleanup():
     if IN_DOCKER and lexists("/home/archivebox/.config/chromium/SingletonLock"):
         remove_file("/home/archivebox/.config/chromium/SingletonLock")
 
-def ansi_to_html(text):
+@enforce_types
+def ansi_to_html(text: str) -> str:
     """
     Based on: https://stackoverflow.com/questions/19212665/python-converting-ansi-color-codes-to-html
     """

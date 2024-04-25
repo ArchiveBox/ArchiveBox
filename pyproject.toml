@@ -18,22 +18,18 @@ dependencies = [
     "django-ninja>=1.1.0",
     "django-extensions>=3.2.3",
     "mypy-extensions>=1.0.0",
-
     # Python Helper Libraries
     "requests>=2.31.0",
     "dateparser>=1.0.0",
     "feedparser>=6.0.11",
     "w3lib>=1.22.0",
-
     # Feature-Specific Dependencies
     "python-crontab>=2.5.1",          # for: archivebox schedule
     "croniter>=0.3.34",               # for: archivebox schedule
     "ipython>5.0.0",                  # for: archivebox shell
-
     # Extractor Dependencies
     "yt-dlp>=2024.4.9",               # for: media
     "playwright>=1.43.0; platform_machine != 'armv7l'",  # WARNING: playwright doesn't have any sdist, causes trouble on build systems that refuse to install wheel-only packages
-    
     # TODO: add more extractors
     #  - gallery-dl
     #  - scihubdl

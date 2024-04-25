@@ -20,6 +20,7 @@ from core.models import Snapshot, ArchiveResult, Tag
 from core.forms import AddLinkForm
 
 from core.mixins import SearchResultsAdminMixin
+from api.models import APIToken
 
 from index.html import snapshot_icons
 from logging_util import printable_filesize
@@ -100,6 +101,7 @@ class ArchiveBoxAdmin(admin.AdminSite):
 
 archivebox_admin = ArchiveBoxAdmin()
 archivebox_admin.register(get_user_model())
+archivebox_admin.register(APIToken)
 archivebox_admin.disable_action('delete_selected')
 
 class ArchiveResultInline(admin.TabularInline):
