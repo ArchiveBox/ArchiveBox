@@ -3,8 +3,6 @@ __package__ = 'archivebox.api'
 from typing import List, Dict, Any, Optional
 from enum import Enum
 
-# from pydantic import BaseModel
-from archivebox.api.routes_core import paginate
 from ninja import Router, Schema
 
 from ..main import (
