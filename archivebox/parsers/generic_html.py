@@ -10,7 +10,7 @@ from ..index.schema import Link
 from ..util import (
     htmldecode,
     enforce_types,
-    URL_REGEX,
+    find_all_urls,
 )
 from html.parser import HTMLParser
 from urllib.parse import urljoin
@@ -42,8 +42,9 @@ def parse_generic_html_export(html_file: IO[str], root_url: Optional[str]=None, 
             if root_url:
                 # resolve relative urls /home.html -> https://example.com/home.html
                 url = urljoin(root_url, url)
-            
-            for archivable_url in re.findall(URL_REGEX, url):
+                # TODO: fix double // getting stripped by urljoin bug https://github.com/python/cpython/issues/96015
+
+            for archivable_url in find_all_urls(url):
                 yield Link(
                     url=htmldecode(archivable_url),
                     timestamp=str(datetime.now(timezone.utc).timestamp()),

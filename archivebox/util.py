@@ -439,9 +439,12 @@ class ExtendedEncoder(pyjson.JSONEncoder):
 
 
 ### URL PARSING TESTS / ASSERTIONS
-# they run at runtime because I like having them inline in this file,
-# I like the peace of mind knowing it's enforced at runtime across all OS's (in case the regex engine ever has any weird locale-specific quirks),
-# and these assertions are basically instant, so not a big performance cost to do it on startup
+
+# Check that plain text regex URL parsing works as expected
+#   this is last-line-of-defense to make sure the URL_REGEX isn't
+#   misbehaving due to some OS-level or environment level quirks (e.g. regex engine / cpython / locale differences)
+#   the consequences of bad URL parsing could be disastrous and lead to many
+#   incorrect/badly parsed links being added to the archive, so this is worth the cost of checking
 
 assert fix_url_from_markdown('/a(b)c).x(y)z') == '/a(b)c'
 assert fix_url_from_markdown('https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def).link(with)_trailingtext') == 'https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def'
@@ -482,3 +485,50 @@ URL_REGEX_TESTS = [
 for urls_str, expected_url_matches in URL_REGEX_TESTS:
     url_matches = list(find_all_urls(urls_str))
     assert url_matches == expected_url_matches, 'FAILED URL_REGEX CHECK!'
+
+
+# More test cases
+_test_url_strs = {
+    'example.com': 0,
+    '/example.com': 0,
+    '//example.com': 0,
+    ':/example.com': 0,
+    '://example.com': 0,
+    'htt://example8.com': 0,
+    '/htt://example.com': 0,
+    'https://example': 1,
+    'https://localhost/2345': 1,
+    'https://localhost:1234/123': 1,
+    '://': 0,
+    'https://': 0,
+    'http://': 0,
+    'ftp://': 0,
+    'ftp://example.com': 0,
+    'https://example.com': 1,
+    'https://example.com/': 1,
+    'https://a.example.com': 1,
+    'https://a.example.com/': 1,
+    'https://a.example.com/what/is/happening.html': 1,
+    'https://a.example.com/what/ís/happening.html': 1,
+    'https://a.example.com/what/is/happening.html?what=1&2%20b#höw-about-this=1a': 1,
+    'https://a.example.com/what/is/happéning/?what=1&2%20b#how-aboüt-this=1a': 1,
+    'HTtpS://a.example.com/what/is/happening/?what=1&2%20b#how-about-this=1af&2f%20b': 1,
+    'https://example.com/?what=1#how-about-this=1&2%20baf': 1,
+    'https://example.com?what=1#how-about-this=1&2%20baf': 1,
+    '<test>http://example7.com</test>': 1,
+    'https://<test>': 0,
+    'https://[test]': 0,
+    'http://"test"': 0,
+    'http://\'test\'': 0,
+    '[https://example8.com/what/is/this.php?what=1]': 1,
+    '[and http://example9.com?what=1&other=3#and-thing=2]': 1,
+    '<what>https://example10.com#and-thing=2 "</about>': 1,
+    'abc<this["https://example11.com/what/is#and-thing=2?whoami=23&where=1"]that>def': 1,
+    'sdflkf[what](https://example12.com/who/what.php?whoami=1#whatami=2)?am=hi': 1,
+    '<or>http://examplehttp://15.badc</that>': 2,
+    'https://a.example.com/one.html?url=http://example.com/inside/of/another?=http://': 2,
+    '[https://a.example.com/one.html?url=http://example.com/inside/of/another?=](http://a.example.com)': 3,
+}
+for url_str, num_urls in _test_url_strs.items():
+    assert len(list(find_all_urls(url_str))) == num_urls, (
+        f'{url_str} does not contain {num_urls} urls')
