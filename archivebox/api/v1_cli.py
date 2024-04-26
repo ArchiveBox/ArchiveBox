@@ -157,7 +157,7 @@ def cli_update(request, args: UpdateCommandSchema):
 
 
 @router.post("/schedule", response=CLICommandResponseSchema, summary='archivebox schedule [args] [import_path]')
-def cli_add(request, args: ScheduleCommandSchema):
+def cli_schedule(request, args: ScheduleCommandSchema):
     result = schedule(
         import_path=args.import_path,
         add=args.add,

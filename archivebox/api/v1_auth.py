@@ -2,7 +2,6 @@ __package__ = 'archivebox.api'
 
 from typing import Optional
 
-from django.contrib.auth import authenticate
 from ninja import Router, Schema
 
 from api.models import APIToken

@@ -7,7 +7,6 @@ For examples of supported import formats see tests/.
 
 __package__ = 'archivebox.parsers'
 
-import re
 from io import StringIO
 
 from typing import IO, Tuple, List, Optional
@@ -28,7 +27,6 @@ from ..util import (
     htmldecode,
     download_url,
     enforce_types,
-    find_all_urls,
 )
 from ..index.schema import Link
 from ..logging_util import TimedProgress, log_source_saved

@@ -72,21 +72,13 @@ def parse_generic_json_export(json_file: IO[str], **_kwargs) -> Iterable[Link]:
 
     json_file.seek(0)
 
-    try:
-        links = json.load(json_file)
-        if type(links) != list:
-            raise Exception('JSON parser expects list of objects, maybe this is JSONL?')
-    except json.decoder.JSONDecodeError:
-        # sometimes the first line is a comment or other junk, so try without
-        json_file.seek(0)
-        first_line = json_file.readline()
-        #print('      > Trying JSON parser without first line: "', first_line.strip(), '"', sep= '')
-        links = json.load(json_file)
-        # we may fail again, which means we really don't know what to do
-
+    links = json.load(json_file)
+    if type(links) != list:
+        raise Exception('JSON parser expects list of objects, maybe this is JSONL?')
+    
     for link in links:
         if link:
-            yield jsonObjectToLink(link,json_file.name)
+            yield jsonObjectToLink(link, json_file.name)
 
 KEY = 'json'
 NAME = 'Generic JSON'

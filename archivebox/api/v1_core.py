@@ -1,7 +1,7 @@
 __package__ = 'archivebox.api'
 
 from uuid import UUID
-from typing import List, Optional, Union
+from typing import List, Optional
 from datetime import datetime
 
 from django.shortcuts import get_object_or_404

@@ -62,12 +62,12 @@ COLOR_REGEX = re.compile(r'\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m
 
 # https://mathiasbynens.be/demo/url-regex
 URL_REGEX = re.compile(
-    r'(?=('                           +
-    r'http[s]?://'                    +  # start matching from allowed schemes
-    r'(?:[a-zA-Z]|[0-9]'              +  # followed by allowed alphanum characters
-    r'|[-_$@.&+!*\(\),]'              +  #   or allowed symbols (keep hyphen first to match literal hyphen)
-    r'|[^\u0000-\u007F])+'            +  #   or allowed unicode bytes
-    r'[^\]\[<>"\'\s]+'                +  # stop parsing at these symbols
+    r'(?=('                          
+    r'http[s]?://'                     # start matching from allowed schemes
+    r'(?:[a-zA-Z]|[0-9]'               # followed by allowed alphanum characters
+    r'|[-_$@.&+!*\(\),]'               #   or allowed symbols (keep hyphen first to match literal hyphen)
+    r'|[^\u0000-\u007F])+'             #   or allowed unicode bytes
+    r'[^\]\[<>"\'\s]+'                 # stop parsing at these symbols
     r'))',
     re.IGNORECASE | re.UNICODE,
 )

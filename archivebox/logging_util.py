@@ -494,12 +494,12 @@ def log_removal_started(links: List["Link"], yes: bool, delete: bool):
     if delete:
         file_counts = [link.num_outputs for link in links if Path(link.link_dir).exists()]
         print(
-            f'    {len(links)} Links will be de-listed from the main index, and their archived content folders will be deleted from disk.\n' +
+            f'    {len(links)} Links will be de-listed from the main index, and their archived content folders will be deleted from disk.\n'
             f'    ({len(file_counts)} data folders with {sum(file_counts)} archived files will be deleted!)'
         )
     else:
         print(
-            '    Matching links will be de-listed from the main index, but their archived content folders will remain in place on disk.\n' +
+            '    Matching links will be de-listed from the main index, but their archived content folders will remain in place on disk.\n'
             '    (Pass --delete if you also want to permanently delete the data folders)'
         )
 

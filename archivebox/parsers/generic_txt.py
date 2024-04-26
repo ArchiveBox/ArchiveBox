@@ -1,8 +1,6 @@
 __package__ = 'archivebox.parsers'
 __description__ = 'Plain Text'
 
-import re
-
 from typing import IO, Iterable
 from datetime import datetime, timezone
 from pathlib import Path
