@@ -52,10 +52,10 @@ urlpatterns = [
 urlpatterns += staticfiles_urlpatterns()
 
 if settings.DEBUG_TOOLBAR:
-    import debug_toolbar
-    urlpatterns += [
-        path('__debug__/', include(debug_toolbar.urls)),
-    ]
+    urlpatterns += [path('__debug__/', include("debug_toolbar.urls"))]
+
+if settings.DEBUG_REQUESTS_TRACKER:
+    urlpatterns += [path("__requests_tracker__/", include("requests_tracker.urls"))]
 
 
 # # Proposed FUTURE URLs spec

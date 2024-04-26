@@ -173,6 +173,17 @@ if DEBUG_TOOLBAR:
     ]
     MIDDLEWARE = [*MIDDLEWARE, 'debug_toolbar.middleware.DebugToolbarMiddleware']
 
+
+# https://github.com/bensi94/Django-Requests-Tracker (improved version of django-debug-toolbar)
+# Must delete archivebox/templates/admin to use because it relies on some things we override
+# visit /__requests_tracker__/ to access
+DEBUG_REQUESTS_TRACKER = False
+if DEBUG_REQUESTS_TRACKER:
+    INSTALLED_APPS += ["requests_tracker"]
+    MIDDLEWARE += ["requests_tracker.middleware.requests_tracker_middleware"]
+    INTERNAL_IPS = ["127.0.0.1", "10.0.2.2", "0.0.0.0", "*"]
+
+
 ################################################################################
 ### Staticfile and Template Settings
 ################################################################################

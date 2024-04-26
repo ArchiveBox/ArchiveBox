@@ -109,6 +109,7 @@ debug = [
     "django-debug-toolbar",
     "djdt_flamegraph",
     "ipdb",
+    "requests-tracker>=0.3.3",
 ]
 test = [
     "pytest",
@@ -119,6 +120,12 @@ lint = [
     "django-stubs",
 ]
 
+[tool.pdm.scripts]
+lint = "./bin/lint.sh"
+test = "./bin/test.sh"
+# all = {composite = ["lint mypackage/", "test -v tests/"]}
+
+
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
@@ -126,11 +133,6 @@ build-backend = "pdm.backend"
 [project.scripts]
 archivebox = "archivebox.cli:main"
 
-
-[tool.pdm.scripts]
-lint = "./bin/lint.sh"
-test = "./bin/test.sh"
-# all = {composite = ["lint mypackage/", "test -v tests/"]}
 
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]

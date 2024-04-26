@@ -5,7 +5,7 @@
 groups = ["default", "ldap", "sonic"]
 strategy = ["cross_platform", "inherit_metadata"]
 lock_version = "4.4.1"
-content_hash = "sha256:680d048f6c24c4b822829a9a4bd5d4ce235bfde2f8c58fd531cd434e4cf3ee13"
+content_hash = "sha256:0d6b1cd72f1893512e04c3b47f81666243bd4f91afe46fabc15b303284a3cc74"
 
 [[package]]
 name = "annotated-types"
