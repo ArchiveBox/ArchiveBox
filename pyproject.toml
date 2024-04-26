@@ -113,6 +113,7 @@ debug = [
 ]
 test = [
     "pytest",
+    "bottle",
 ]
 lint = [
     "flake8",
