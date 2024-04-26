@@ -104,7 +104,6 @@ from .config import (
     COMMIT_HASH,
     BUILD_TIME,
     CODE_LOCATIONS,
-    EXTERNAL_LOCATIONS,
     DATA_LOCATIONS,
     DEPENDENCIES,
     CHROME_BINARY,
@@ -270,11 +269,6 @@ def version(quiet: bool=False,
         print()
         print('{white}[i] Source-code locations:{reset}'.format(**ANSI))
         for name, path in CODE_LOCATIONS.items():
-            print(printable_folder_status(name, path))
-
-        print()
-        print('{white}[i] Secrets locations:{reset}'.format(**ANSI))
-        for name, path in EXTERNAL_LOCATIONS.items():
             print(printable_folder_status(name, path))
 
         print()

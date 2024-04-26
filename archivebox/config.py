@@ -282,6 +282,7 @@ ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
 LOGS_DIR_NAME = 'logs'
 PERSONAS_DIR_NAME = 'personas'
+CRONTABS_DIR_NAME = 'crontabs'
 SQL_INDEX_FILENAME = 'index.sqlite3'
 JSON_INDEX_FILENAME = 'index.json'
 HTML_INDEX_FILENAME = 'index.html'
@@ -355,7 +356,7 @@ ALLOWED_IN_OUTPUT_DIR = {
     'static',
     'sonic',
     'search.sqlite3',
-    'crontabs',
+    CRONTABS_DIR_NAME,
     ARCHIVE_DIR_NAME,
     SOURCES_DIR_NAME,
     LOGS_DIR_NAME,
@@ -598,7 +599,6 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
 
     'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
     'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
-    'EXTERNAL_LOCATIONS':       {'default': lambda c: get_external_locations(c)},
     'DATA_LOCATIONS':           {'default': lambda c: get_data_locations(c)},
     'CHROME_OPTIONS':           {'default': lambda c: get_chrome_info(c)},
     'CHROME_EXTRA_ARGS':        {'default': lambda c: c['CHROME_EXTRA_ARGS'] or []},
@@ -985,11 +985,6 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
             'enabled': True,
             'is_valid': (config['TEMPLATES_DIR'] / 'static').exists(),
         },
-        'CUSTOM_TEMPLATES_DIR': {
-            'path': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).resolve(),
-            'enabled': bool(config['CUSTOM_TEMPLATES_DIR']),
-            'is_valid': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).exists(),
-        },
         # 'NODE_MODULES_DIR': {
         #     'path': ,
         #     'enabled': ,
@@ -997,49 +992,24 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
         # },
     }
 
-def get_external_locations(config: ConfigDict) -> ConfigValue:
-    abspath = lambda path: None if path is None else Path(path).resolve()
-    return {
-        'CHROME_USER_DATA_DIR': {
-            'path': abspath(config['CHROME_USER_DATA_DIR']),
-            'enabled': config['USE_CHROME'] and config['CHROME_USER_DATA_DIR'],
-            'is_valid': False if config['CHROME_USER_DATA_DIR'] is None else (Path(config['CHROME_USER_DATA_DIR']) / 'Default').exists(),
-        },
-        'COOKIES_FILE': {
-            'path': abspath(config['COOKIES_FILE']),
-            'enabled': config['USE_WGET'] and config['COOKIES_FILE'],
-            'is_valid': False if config['COOKIES_FILE'] is None else Path(config['COOKIES_FILE']).exists(),
-        },
-    }
-
 def get_data_locations(config: ConfigDict) -> ConfigValue:
     return {
+        # OLD: migrating to personas
+        # 'CHROME_USER_DATA_DIR': {
+        #     'path': os.path.abspath(config['CHROME_USER_DATA_DIR']),
+        #     'enabled': config['USE_CHROME'] and config['CHROME_USER_DATA_DIR'],
+        #     'is_valid': False if config['CHROME_USER_DATA_DIR'] is None else (Path(config['CHROME_USER_DATA_DIR']) / 'Default').exists(),
+        # },
+        # 'COOKIES_FILE': {
+        #     'path': os.path.abspath(config['COOKIES_FILE']),
+        #     'enabled': config['USE_WGET'] and config['COOKIES_FILE'],
+        #     'is_valid': False if config['COOKIES_FILE'] is None else Path(config['COOKIES_FILE']).exists(),
+        # },
         'OUTPUT_DIR': {
             'path': config['OUTPUT_DIR'].resolve(),
             'enabled': True,
             'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
             'is_mount': os.path.ismount(config['OUTPUT_DIR'].resolve()),
-        },
-        'SOURCES_DIR': {
-            'path': config['SOURCES_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': config['SOURCES_DIR'].exists(),
-        },
-        'LOGS_DIR': {
-            'path': config['LOGS_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': config['LOGS_DIR'].exists(),
-        },
-        'PERSONAS_DIR': {
-            'path': config['PERSONAS_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': config['PERSONAS_DIR'].exists(),
-        },
-        'ARCHIVE_DIR': {
-            'path': config['ARCHIVE_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': config['ARCHIVE_DIR'].exists(),
-            'is_mount': os.path.ismount(config['ARCHIVE_DIR'].resolve()),
         },
         'CONFIG_FILE': {
             'path': config['CONFIG_FILE'].resolve(),
@@ -1052,6 +1022,38 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
             'is_mount': os.path.ismount((config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).resolve()),
         },
+        'ARCHIVE_DIR': {
+            'path': config['ARCHIVE_DIR'].resolve(),
+            'enabled': True,
+            'is_valid': config['ARCHIVE_DIR'].exists(),
+            'is_mount': os.path.ismount(config['ARCHIVE_DIR'].resolve()),
+        },
+        'SOURCES_DIR': {
+            'path': config['SOURCES_DIR'].resolve(),
+            'enabled': True,
+            'is_valid': config['SOURCES_DIR'].exists(),
+        },
+        'LOGS_DIR': {
+            'path': config['LOGS_DIR'].resolve(),
+            'enabled': True,
+            'is_valid': config['LOGS_DIR'].exists(),
+        },
+        'CUSTOM_TEMPLATES_DIR': {
+            'path': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).resolve(),
+            'enabled': bool(config['CUSTOM_TEMPLATES_DIR']),
+            'is_valid': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).exists(),
+        },
+        'PERSONAS_DIR': {
+            'path': config['PERSONAS_DIR'].resolve(),
+            'enabled': True,
+            'is_valid': config['PERSONAS_DIR'].exists(),
+        },
+        # managed by bin/docker_entrypoint.sh and python-crontab:
+        # 'CRONTABS_DIR': {
+        #     'path': config['CRONTABS_DIR'].resolve(),
+        #     'enabled': True,
+        #     'is_valid': config['CRONTABS_DIR'].exists(),
+        # },
     }
 
 def get_dependency_info(config: ConfigDict) -> ConfigValue:
