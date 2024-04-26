@@ -27,10 +27,10 @@ dependencies = [
     # Feature-Specific Dependencies
     "python-crontab>=3.0.0",          # for: archivebox schedule
     "croniter>=2.0.5",                # for: archivebox schedule
-    "ipython>=8.23.0",                 # for: archivebox shell
+    "ipython>=8.23.0",                # for: archivebox shell
     # Extractor Dependencies
     "yt-dlp>=2024.4.9",               # for: media
-    "playwright>=1.43.0; platform_machine != 'armv7l'",  # WARNING: playwright doesn't have any sdist, causes trouble on build systems that refuse to install wheel-only packages
+    # "playwright>=1.43.0; platform_machine != 'armv7l'",  # WARNING: playwright doesn't have any sdist, causes trouble on build systems that refuse to install wheel-only packages
     # TODO: add more extractors
     #  - gallery-dl
     #  - scihubdl

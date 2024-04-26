@@ -18,6 +18,7 @@
 # https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
 # set -o xtrace
 # set -o nounset
+shopt -s nullglob
 set -o errexit
 set -o errtrace
 set -o pipefail
