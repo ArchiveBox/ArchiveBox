@@ -16,6 +16,8 @@ from api.auth import API_AUTH_METHODS
 from ..config import VERSION, COMMIT_HASH
 
 
+COMMIT_HASH = COMMIT_HASH or 'unknown'
+
 html_description=f'''
 <h3>Welcome to your ArchiveBox server's REST API <code>[v1 ALPHA]</code> homepage!</h3>
 <br/>

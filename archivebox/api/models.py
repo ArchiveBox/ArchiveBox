@@ -8,6 +8,7 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from django_stubs_ext.db.models import TypedModelMeta
 
 
 def generate_secret_token() -> str:
@@ -24,7 +25,7 @@ class APIToken(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     expires = models.DateTimeField(null=True, blank=True)
 
-    class Meta:
+    class Meta(TypedModelMeta):
         verbose_name = "API Key"
         verbose_name_plural = "API Keys"
 
