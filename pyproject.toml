@@ -150,6 +150,8 @@ explicit_package_bases = true
 # exclude = "pdm/(pep582/|models/in_process/.+\\.py)"
 plugins = ["mypy_django_plugin.main"]
 
+[tool.django-stubs]
+django_settings_module = "core.settings"
 
 
 [project.urls]
