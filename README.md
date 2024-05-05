@@ -407,7 +407,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 > *Warning: These are contributed by external volunteers and may lag behind the official `pip` channel.*
 
 <ul>
-<li>TrueNAS: <a href="https://truecharts.org/charts/incubator/archivebox/">Official ArchiveBox TrueChart</a> / <a href="https://dev.to/finloop/setting-up-archivebox-on-truenas-scale-1788">Custom App Guide</a></li>
+<li>TrueNAS: <a href="https://truecharts.org/charts/stable/archivebox/">Official ArchiveBox TrueChart</a> / <a href="https://dev.to/finloop/setting-up-archivebox-on-truenas-scale-1788">Custom App Guide</a></li>
 <li><a href="https://unraid.net/community/apps?q=archivebox#r">UnRaid</a></li>
 <li><a href="https://github.com/YunoHost-Apps/archivebox_ynh">Yunohost</a></li>
 <li><a href="https://www.cloudron.io/store/io.archivebox.cloudronapp.html">Cloudron</a></li>
