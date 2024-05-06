@@ -64,6 +64,8 @@ INSTALLED_APPS = [
     'core',
     'api',
 
+    'admin_data_views',
+
     'signal_webhooks',
     'django_extensions',
 ]
@@ -415,4 +417,21 @@ SIGNAL_WEBHOOKS = {
         "core.models.Tag": ...,
         "api.models.APIToken": ...,
     },
+}
+
+
+ADMIN_DATA_VIEWS = {
+    "NAME": "configuration",
+    "URLS": [
+        {
+            "route": "live/",
+            "view": "core.views.live_config_list_view",
+            "name": "live",
+            "items": {
+                "route": "<str:key>/",
+                "view": "core.views.live_config_value_view",
+                "name": "live_config_value",
+            },
+        },
+    ],
 }
