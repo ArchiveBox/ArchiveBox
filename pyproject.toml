@@ -36,6 +36,7 @@ dependencies = [
     #  - scihubdl
     #  - See Github issues for more...
     "django-signal-webhooks>=0.3.0",
+    "django-admin-data-views>=0.3.1",
 ]
 
 homepage = "https://github.com/ArchiveBox/ArchiveBox"

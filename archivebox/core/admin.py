@@ -13,9 +13,11 @@ from django.utils.safestring import mark_safe
 from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
 from django import forms
-# monkey patch django-signals-webhooks to change how it shows up in Admin UI
+
+
 from signal_webhooks.apps import DjangoSignalWebhooksConfig
 from signal_webhooks.admin import WebhookAdmin, WebhookModel
+
 from ..util import htmldecode, urldecode, ansi_to_html
 
 from core.models import Snapshot, ArchiveResult, Tag
@@ -116,6 +118,16 @@ archivebox_admin.register(get_user_model())
 archivebox_admin.register(APIToken)
 archivebox_admin.register(WebhookModel, WebhookAdmin)
 archivebox_admin.disable_action('delete_selected')
+
+
+# patch admin with methods to add data views
+from admin_data_views.admin import get_app_list, admin_data_index_view, get_admin_data_urls, get_urls
+
+archivebox_admin.get_app_list = get_app_list.__get__(archivebox_admin, ArchiveBoxAdmin)
+archivebox_admin.admin_data_index_view = admin_data_index_view.__get__(archivebox_admin, ArchiveBoxAdmin)
+archivebox_admin.get_admin_data_urls = get_admin_data_urls.__get__(archivebox_admin, ArchiveBoxAdmin)
+archivebox_admin.get_urls = get_urls(archivebox_admin.get_urls).__get__(archivebox_admin, ArchiveBoxAdmin)
+
 
 class ArchiveResultInline(admin.TabularInline):
     model = ArchiveResult
