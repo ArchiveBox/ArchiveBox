@@ -230,7 +230,7 @@ def version(quiet: bool=False,
         p = platform.uname()
         print(
             'ArchiveBox v{}'.format(get_version(CONFIG)),
-            f'COMMIT_HASH={COMMIT_HASH[:7] if COMMIT_HASH else 'unknown'}',
+            f'COMMIT_HASH={COMMIT_HASH[:7] if COMMIT_HASH else "unknown"}',
             f'BUILD_TIME={BUILD_TIME}',
         )
         print(
