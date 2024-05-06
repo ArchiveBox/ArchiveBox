@@ -404,9 +404,9 @@ LOGGING = {
 SIGNAL_WEBHOOKS = {
     "HOOKS": {
         "django.contrib.auth.models.User": ...,
-        "core.models.Snapshot": "...",
-        "core.models.ArchiveResult": "...",
-        "core.models.Tag": "...",
-        "api.models.APIToken": "...",
+        "core.models.Snapshot": ...,
+        "core.models.ArchiveResult": ...,
+        "core.models.Tag": ...,
+        "api.models.APIToken": ...,
     },
 }
