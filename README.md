@@ -445,6 +445,9 @@ Other providers of paid ArchiveBox hosting (not officially endorsed):<br/>
 <li><a href="https://fly.io/">
  <img src="https://img.shields.io/badge/Unmanaged_App-Fly.io-%239a2de6.svg?style=flat" height="22px"/>
 </a> (USD $10-50+/mo, <a href="https://fly.io/docs/hands-on/start/">instructions</a>)</li>
+<li><a href="https://railway.app/template/2Vvhmy">
+ <img src="https://img.shields.io/badge/Unmanaged_App-Railway-%23A11BE6.svg?style=flat" height="22px"/>
+</a> (USD $0-5+/mo)</li>
 <li><a href="https://aws.amazon.com/marketplace/pp/Linnovate-Open-Source-Innovation-Support-For-Archi/B08RVW6MJ2"><img src="https://img.shields.io/badge/Unmanaged_VPS-AWS-%23ee8135.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
 <li><a href="https://azuremarketplace.microsoft.com/en-us/marketplace/apps/meanio.archivebox?ocid=gtmrewards_whatsnewblog_archivebox_vol118"><img src="https://img.shields.io/badge/Unmanaged_VPS-Azure-%237cb300.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
 <br/>
