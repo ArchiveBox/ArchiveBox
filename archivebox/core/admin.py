@@ -14,6 +14,8 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
 from django import forms
 
+from signal_webhooks.admin import WebhookAdmin, WebhookModel
+
 from ..util import htmldecode, urldecode, ansi_to_html
 
 from core.models import Snapshot, ArchiveResult, Tag
@@ -102,6 +104,7 @@ class ArchiveBoxAdmin(admin.AdminSite):
 archivebox_admin = ArchiveBoxAdmin()
 archivebox_admin.register(get_user_model())
 archivebox_admin.register(APIToken)
+archivebox_admin.register(WebhookModel, WebhookAdmin)
 archivebox_admin.disable_action('delete_selected')
 
 class ArchiveResultInline(admin.TabularInline):

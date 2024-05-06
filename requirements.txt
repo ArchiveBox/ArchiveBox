@@ -2,26 +2,33 @@
 # Please do not edit it manually.
 
 annotated-types==0.6.0
+anyio==4.3.0
 asgiref==3.8.1
 asttokens==2.4.1
 brotli==1.1.0; implementation_name == "cpython"
 brotlicffi==1.1.0.0; implementation_name != "cpython"
 certifi==2024.2.2
-cffi==1.16.0; implementation_name != "cpython"
+cffi==1.16.0; platform_python_implementation != "PyPy" or implementation_name != "cpython"
 charset-normalizer==3.3.2
 colorama==0.4.6; sys_platform == "win32"
 croniter==2.0.5
+cryptography==42.0.6
 dateparser==1.2.0
 decorator==5.1.1
 django==5.0.4
 django-auth-ldap==4.8.0
 django-extensions==3.2.3
 django-ninja==1.1.0
+django-settings-holder==0.1.2
+django-signal-webhooks==0.3.0
 exceptiongroup==1.2.1; python_version < "3.11"
 executing==2.0.1
 feedparser==6.0.11
+h11==0.14.0
+httpcore==1.0.5
+httpx==0.27.0
 idna==3.7
-ipython==8.23.0
+ipython==8.24.0
 jedi==0.19.1
 matplotlib-inline==0.1.7
 mutagen==1.47.0
@@ -33,20 +40,21 @@ ptyprocess==0.7.0; sys_platform != "win32" and sys_platform != "emscripten"
 pure-eval==0.2.2
 pyasn1==0.6.0
 pyasn1-modules==0.4.0
-pycparser==2.22; implementation_name != "cpython"
+pycparser==2.22; platform_python_implementation != "PyPy" or implementation_name != "cpython"
 pycryptodomex==3.20.0
 pydantic==2.7.1
 pydantic-core==2.18.2
-pygments==2.17.2
+pygments==2.18.0
 python-crontab==3.0.0
 python-dateutil==2.9.0.post0
 python-ldap==3.4.4
 pytz==2024.1
-regex==2024.4.16
+regex==2024.4.28
 requests==2.31.0
 setuptools==69.5.1
 sgmllib3k==1.0.0
 six==1.16.0
+sniffio==1.3.1
 sonic-client==1.0.0
 sqlparse==0.5.0
 stack-data==0.6.3

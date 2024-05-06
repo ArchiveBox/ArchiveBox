@@ -18,6 +18,7 @@ from ..config import (
     CUSTOM_TEMPLATES_DIR,
     SQL_INDEX_FILENAME,
     OUTPUT_DIR,
+    ARCHIVE_DIR,
     LOGS_DIR,
     TIMEZONE,
 
@@ -63,6 +64,7 @@ INSTALLED_APPS = [
     'core',
     'api',
 
+    'signal_webhooks',
     'django_extensions',
 ]
 
@@ -253,6 +255,29 @@ CACHES = {
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+    "archive": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {
+            "base_url": "/archive/",
+            "location": ARCHIVE_DIR,
+        },
+    },
+    # "personas": {
+    #     "BACKEND": "django.core.files.storage.FileSystemStorage",
+    #     "OPTIONS": {
+    #         "base_url": "/personas/",
+    #         "location": PERSONAS_DIR,
+    #     },
+    # },
+}
+
 ################################################################################
 ### Security Settings
 ################################################################################
@@ -377,5 +402,17 @@ LOGGING = {
             'level': 'INFO',
             'filters': ['noisyrequestsfilter'],
         }
+    },
+}
+
+
+# Add default webhook configuration to the User model
+SIGNAL_WEBHOOKS = {
+    "HOOKS": {
+        "django.contrib.auth.models.User": ...,
+        "core.models.Snapshot": ...,
+        "core.models.ArchiveResult": ...,
+        "core.models.Tag": ...,
+        "api.models.APIToken": ...,
     },
 }

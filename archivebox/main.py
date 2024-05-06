@@ -230,7 +230,7 @@ def version(quiet: bool=False,
         p = platform.uname()
         print(
             'ArchiveBox v{}'.format(get_version(CONFIG)),
-            *((f'COMMIT_HASH={COMMIT_HASH[:7]}',) if COMMIT_HASH else ()),
+            f'COMMIT_HASH={COMMIT_HASH[:7] if COMMIT_HASH else 'unknown'}',
             f'BUILD_TIME={BUILD_TIME}',
         )
         print(
@@ -1356,7 +1356,7 @@ def manage(args: Optional[List[str]]=None, out_dir: Path=OUTPUT_DIR) -> None:
     if (args and "createsuperuser" in args) and (IN_DOCKER and not IS_TTY):
         stderr('[!] Warning: you need to pass -it to use interactive commands in docker', color='lightyellow')
         stderr('    docker run -it archivebox manage {}'.format(' '.join(args or ['...'])), color='lightyellow')
-        stderr()
+        stderr('')
 
     execute_from_command_line([f'{ARCHIVEBOX_BINARY} manage', *(args or ['help'])])
 
