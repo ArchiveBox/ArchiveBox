@@ -12,7 +12,7 @@ cffi==1.16.0; platform_python_implementation != "PyPy" or implementation_name !=
 charset-normalizer==3.3.2
 colorama==0.4.6; sys_platform == "win32"
 croniter==2.0.5
-cryptography==42.0.6
+cryptography==42.0.7
 dateparser==1.2.0
 decorator==5.1.1
 django==5.0.4
