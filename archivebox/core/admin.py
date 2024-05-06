@@ -13,9 +13,9 @@ from django.utils.safestring import mark_safe
 from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
 from django import forms
-
+# monkey patch django-signals-webhooks to change how it shows up in Admin UI
+from signal_webhooks.apps import DjangoSignalWebhooksConfig
 from signal_webhooks.admin import WebhookAdmin, WebhookModel
-
 from ..util import htmldecode, urldecode, ansi_to_html
 
 from core.models import Snapshot, ArchiveResult, Tag
@@ -100,6 +100,16 @@ class ArchiveBoxAdmin(admin.AdminSite):
                 context["form"] = form
 
         return render(template_name='add.html', request=request, context=context)
+
+
+# monkey patch django-signals-webhooks to change how it shows up in Admin UI
+DjangoSignalWebhooksConfig.verbose_name = 'API'
+WebhookModel._meta.get_field('name').help_text = 'Give your webhook a descriptive name (e.g. Notify ACME Slack channel of any new ArchiveResults).'
+WebhookModel._meta.get_field('signal').help_text = 'The type of event the webhook should fire for (e.g. Create, Update, Delete).'
+WebhookModel._meta.get_field('ref').help_text = 'Dot import notation of the model the webhook should fire for (e.g. core.models.Snapshot or core.models.ArchiveResult).'
+WebhookModel._meta.get_field('endpoint').help_text = 'External URL to POST the webhook notification to (e.g. https://someapp.example.com/webhook/some-webhook-receiver).'
+WebhookModel._meta.app_label = 'api'
+
 
 archivebox_admin = ArchiveBoxAdmin()
 archivebox_admin.register(get_user_model())
