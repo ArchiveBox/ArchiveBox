@@ -15,7 +15,8 @@ croniter==2.0.5
 cryptography==42.0.7
 dateparser==1.2.0
 decorator==5.1.1
-django==5.0.4
+django==5.0.5
+django-admin-data-views==0.3.1
 django-auth-ldap==4.8.0
 django-extensions==3.2.3
 django-ninja==1.1.0

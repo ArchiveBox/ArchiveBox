@@ -174,13 +174,12 @@ def unsafe_wget_output_path(link: Link) -> Optional[str]:
 
     # check for literally any file present that isnt an empty folder
     domain_dir = Path(domain(link.url).replace(":", "+"))
-    files_within = list((Path(link.link_dir) / domain_dir).glob('**/*.*'))
+    files_within = [path for path in (Path(link.link_dir) / domain_dir).glob('**/*.*') if not str(path).endswith('.orig')]
     if files_within:
         return str((domain_dir / files_within[-1]).relative_to(link.link_dir))
 
     # abandon all hope, wget either never downloaded, or it produced an output path so horribly mutilated
     # that it's better we just pretend it doesnt exist
-
     # this is why ArchiveBox's specializes in REDUNDANTLY saving copies of sites with multiple different tools
     return None
 
@@ -243,26 +242,24 @@ def wget_output_path(link: Link) -> Optional[str]:
     try:
         output_path = unsafe_wget_output_path(link)
     except Exception as err:
-        # print(err)
         pass           # better to pretend it just failed to download than expose gnarly OSErrors to users
 
-    
     # check for unprintable unicode characters
     # https://github.com/ArchiveBox/ArchiveBox/issues/1373
     if output_path:
         safe_path = output_path.encode('utf-8', 'replace').decode()
-        
         if output_path != safe_path:
             # contains unprintable unicode characters that will break other parts of archivebox
             # better to pretend it doesnt exist and fallback to parent dir than crash archivebox
             output_path = None
-
 
     # check for a path that is just too long to safely handle across different OS's
     # https://github.com/ArchiveBox/ArchiveBox/issues/549
     if output_path and len(output_path) > 250:
         output_path = None
 
+    if output_path:
+        return output_path
 
     # fallback to just the domain dir
     search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+")
@@ -274,5 +271,4 @@ def wget_output_path(link: Link) -> Optional[str]:
     if search_dir.is_dir():
         return domain(link.url).split(":", 1)[0]
 
-   
     return None
