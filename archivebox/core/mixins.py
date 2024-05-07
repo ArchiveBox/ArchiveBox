@@ -10,7 +10,7 @@ class SearchResultsAdminMixin:
 
         search_term = search_term.strip()
         if not search_term:
-            return qs, use_distinct
+            return qs.distinct(), use_distinct
         try:
             qsearch = query_search_index(search_term)
             qs = qs | qsearch
