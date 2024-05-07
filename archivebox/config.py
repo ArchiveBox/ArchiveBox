@@ -72,7 +72,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'TIMEOUT':                  {'type': int,   'default': 60},
         'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
         'OUTPUT_PERMISSIONS':       {'type': str,   'default': '644'},
-        'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'ascii'},  # TODO: move this to be a default WGET_ARGS
+        'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},  # TODO: move this to be a default WGET_ARGS
 
         'URL_DENYLIST':             {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$', 'aliases': ('URL_BLACKLIST',)},  # to avoid downloading code assets as their own pages
         'URL_ALLOWLIST':            {'type': str,   'default': None, 'aliases': ('URL_WHITELIST',)},
