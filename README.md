@@ -407,7 +407,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 > *Warning: These are contributed by external volunteers and may lag behind the official `pip` channel.*
 
 <ul>
-<li>TrueNAS: <a href="https://truecharts.org/charts/incubator/archivebox/">Official ArchiveBox TrueChart</a> / <a href="https://dev.to/finloop/setting-up-archivebox-on-truenas-scale-1788">Custom App Guide</a></li>
+<li>TrueNAS: <a href="https://truecharts.org/charts/stable/archivebox/">Official ArchiveBox TrueChart</a> / <a href="https://dev.to/finloop/setting-up-archivebox-on-truenas-scale-1788">Custom App Guide</a></li>
 <li><a href="https://unraid.net/community/apps?q=archivebox#r">UnRaid</a></li>
 <li><a href="https://github.com/YunoHost-Apps/archivebox_ynh">Yunohost</a></li>
 <li><a href="https://www.cloudron.io/store/io.archivebox.cloudronapp.html">Cloudron</a></li>
@@ -445,6 +445,9 @@ Other providers of paid ArchiveBox hosting (not officially endorsed):<br/>
 <li><a href="https://fly.io/">
  <img src="https://img.shields.io/badge/Unmanaged_App-Fly.io-%239a2de6.svg?style=flat" height="22px"/>
 </a> (USD $10-50+/mo, <a href="https://fly.io/docs/hands-on/start/">instructions</a>)</li>
+<li><a href="https://railway.app/template/2Vvhmy">
+ <img src="https://img.shields.io/badge/Unmanaged_App-Railway-%23A11BE6.svg?style=flat" height="22px"/>
+</a> (USD $0-5+/mo)</li>
 <li><a href="https://aws.amazon.com/marketplace/pp/Linnovate-Open-Source-Innovation-Support-For-Archi/B08RVW6MJ2"><img src="https://img.shields.io/badge/Unmanaged_VPS-AWS-%23ee8135.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
 <li><a href="https://azuremarketplace.microsoft.com/en-us/marketplace/apps/meanio.archivebox?ocid=gtmrewards_whatsnewblog_archivebox_vol118"><img src="https://img.shields.io/badge/Unmanaged_VPS-Azure-%237cb300.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
 <br/>

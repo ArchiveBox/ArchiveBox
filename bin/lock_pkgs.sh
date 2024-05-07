@@ -48,7 +48,7 @@ echo
 
 echo "[+] Generating dev & prod requirements.txt & pdm.lock from pyproject.toml..."
 pip install --upgrade pip setuptools
-pdm self update
+pdm self update >/dev/null 2>&1 || true
 pdm venv create 3.12
 echo
 echo "pyproject.toml:    archivebox $(grep 'version = ' pyproject.toml | awk '{print $3}' | jq -r)"
@@ -73,7 +73,7 @@ cp ./pdm.dev.lock ./pip_dist/
 cp ./requirements-dev.txt ./pip_dist/
 
 echo
-echo "[+]] Generating package-lock.json from package.json..."
+echo "[+] Generating package-lock.json from package.json..."
 npm install -g npm
 echo
 echo "package.json:    archivebox $(jq -r '.version' package.json)"

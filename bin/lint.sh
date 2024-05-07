@@ -15,7 +15,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 source "$DIR/.venv/bin/activate"
 
 echo "[*] Running flake8..."
-cd archivebox
+cd "$DIR/archivebox"
 flake8 . && echo "√ No errors found."
 
 echo

@@ -1,10 +1,12 @@
 __package__ = 'archivebox.core'
 
+from typing import Callable
+
 from io import StringIO
 from contextlib import redirect_stdout
 
 from django.shortcuts import render, redirect
-from django.http import HttpResponse, Http404
+from django.http import HttpRequest, HttpResponse, Http404
 from django.utils.html import format_html, mark_safe
 from django.views import View, static
 from django.views.generic.list import ListView
@@ -13,6 +15,10 @@ from django.db.models import Q
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+
+from admin_data_views.typing import TableContext, ItemContext
+from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
+
 
 from core.models import Snapshot
 from core.forms import AddLinkForm
@@ -26,6 +32,10 @@ from ..config import (
     COMMIT_HASH,
     FOOTER_INFO,
     SNAPSHOTS_PER_PAGE,
+    CONFIG,
+    CONFIG_SCHEMA,
+    DYNAMIC_CONFIG_SCHEMA,
+    USER_CONFIG,
 )
 from ..main import add
 from ..util import base_url, ansi_to_html
@@ -124,9 +134,9 @@ class SnapshotView(View):
                             '<center><br/><br/><br/>'
                             f'Snapshot <a href="/archive/{snapshot.timestamp}/index.html" target="_top"><b><code>[{snapshot.timestamp}]</code></b></a> exists in DB, but resource <b><code>{snapshot.timestamp}/'
                             '{}'
-                            f'</code></b> does not exist in <a href="/archive/{snapshot.timestamp}/" target="_top">snapshot dir</a> yet.<br/><br/>'
-                            'Maybe this resource type is not availabe for this Snapshot,<br/>or the archiving process has not completed yet?<br/>'
-                            f'<pre><code># run this cmd to finish archiving this Snapshot<br/>archivebox update -t timestamp {snapshot.timestamp}</code></pre><br/><br/>'
+                            f'</code></b> does not exist in the <a href="/archive/{snapshot.timestamp}/" target="_top">snapshot dir</a> yet.<br/><br/>'
+                            'It\'s possible that this resource type is not available for the Snapshot,<br/>or that the archiving process has not completed yet.<br/>'
+                            f'<pre><code># if interrupted, run this cmd to finish archiving this Snapshot<br/>archivebox update -t timestamp {snapshot.timestamp}</code></pre><br/><br/>'
                             '<div class="text-align: left; width: 100%; max-width: 400px">'
                             '<i><b>Next steps:</i></b><br/>'
                             f'- list all the <a href="/archive/{snapshot.timestamp}/" target="_top">Snapshot files <code>.*</code></a><br/>'
@@ -312,3 +322,124 @@ class HealthCheckView(View):
             content_type='text/plain',
             status=200
         )
+
+
+def find_config_section(key: str) -> str:
+    matching_sections = [
+        name for name, opts in CONFIG_SCHEMA.items() if key in opts
+    ]
+    section = matching_sections[0] if matching_sections else 'DYNAMIC'
+    return section
+
+def find_config_default(key: str) -> str:
+    default_val = USER_CONFIG.get(key, {}).get('default', lambda: None)
+    if isinstance(default_val, Callable):
+        return None
+    else:
+        default_val = repr(default_val)
+    return default_val
+
+def find_config_type(key: str) -> str:
+    if key in USER_CONFIG:
+        return USER_CONFIG[key]['type'].__name__
+    elif key in DYNAMIC_CONFIG_SCHEMA:
+        return type(CONFIG[key]).__name__
+    return 'str'
+
+def key_is_safe(key: str) -> bool:
+    for term in ('key', 'password', 'secret', 'token'):
+        if term in key.lower():
+            return False
+    return True
+
+@render_with_table_view
+def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
+
+    assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
+
+    rows = {
+        "Section": [],
+        "Key": [],
+        "Type": [],
+        "Value": [],
+        "Default": [],
+        # "Documentation": [],
+        "Aliases": [],
+    }
+
+    for section in CONFIG_SCHEMA.keys():
+        for key in CONFIG_SCHEMA[section].keys():
+            rows['Section'].append(section.replace('_', ' ').title().replace(' Config', ''))
+            rows['Key'].append(ItemLink(key, key=key))
+            rows['Type'].append(mark_safe(f'<code>{find_config_type(key)}</code>'))
+            rows['Value'].append(mark_safe(f'<code>{CONFIG[key]}</code>') if key_is_safe(key) else '******** (redacted)')
+            rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code"><code style="text-decoration: underline">{find_config_default(key) or 'See here...'}</code></a>'))
+            # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
+            rows['Aliases'].append(', '.join(CONFIG_SCHEMA[section][key].get('aliases', [])))
+
+    section = 'DYNAMIC'
+    for key in DYNAMIC_CONFIG_SCHEMA.keys():
+        rows['Section'].append(section.replace('_', ' ').title().replace(' Config', ''))
+        rows['Key'].append(ItemLink(key, key=key))
+        rows['Type'].append(mark_safe(f'<code>{find_config_type(key)}</code>'))
+        rows['Value'].append(mark_safe(f'<code>{CONFIG[key]}</code>') if key_is_safe(key) else '******** (redacted)')
+        rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code"><code style="text-decoration: underline">{find_config_default(key) or 'See here...'}</code></a>'))
+        # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
+        rows['Aliases'].append(ItemLink(key, key=key) if key in USER_CONFIG else '')
+
+    return TableContext(
+        title="Computed Configuration Values",
+        table=rows,
+    )
+
+@render_with_item_view
+def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
+
+    assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
+
+    aliases = USER_CONFIG.get(key, {}).get("aliases", [])
+
+    return ItemContext(
+        slug=key,
+        title=key,
+        data=[
+            {
+                "name": mark_safe(f'data / ArchiveBox.conf &nbsp; [{find_config_section(key)}]  &nbsp; <b><code style="color: lightgray">{key}</code></b>' if key in USER_CONFIG else f'[DYNAMIC CONFIG]   &nbsp; <b><code style="color: lightgray">{key}</code></b> &nbsp; <small>(calculated at runtime)</small>'),
+                "description": None,
+                "fields": {
+                    'Key': key,
+                    'Type': find_config_type(key),
+                    'Value': CONFIG[key] if key_is_safe(key) else '********',
+                },
+                "help_texts": {
+                    'Key': mark_safe(f'''
+                        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">Documentation</a>  &nbsp;
+                        <span style="display: {"inline" if aliases else "none"}">
+                            Aliases: {", ".join(aliases)}
+                        </span>
+                    '''),
+                    'Type': mark_safe(f'''
+                        <a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code">
+                            See full definition in <code>archivebox/config.py</code>...
+                        </a>
+                    '''),
+                    'Value': mark_safe(f'''
+                        {'<b style="color: red">Value is redacted for your security. (Passwords, secrets, API tokens, etc. cannot be viewed in the Web UI)</b><br/><br/>' if not key_is_safe(key) else ''}
+                        Default: <a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code">
+                            <code>{find_config_default(key) or 'See 1here...'}</code>
+                        </a>
+                        <br/><br/>
+                        <p style="display: {"block" if key in USER_CONFIG else "none"}">
+                            <i>To change this value, edit <code>data/ArchiveBox.conf</code> or run:</i>
+                            <br/><br/>
+                            <code>archivebox config --set {key}="{
+                                val.strip("'")
+                                if (val := find_config_default(key)) else
+                                (repr(CONFIG[key] if key_is_safe(key) else '********')).strip("'")
+                            }"</code>
+                        </p>
+                    '''),
+                },
+            },
+        ],
+    )

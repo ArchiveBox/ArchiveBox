@@ -3,11 +3,9 @@ __package__ = 'archivebox.parsers'
 import json
 
 from typing import IO, Iterable
-from datetime import datetime, timezone
 
 from ..index.schema import Link
 from ..util import (
-    htmldecode,
     enforce_types,
 )
 

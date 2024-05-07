@@ -12,32 +12,31 @@ readme = "README.md"
 # pdm install
 # pdm update --unconstrained
 dependencies = [
+    # Last Bumped: 2024-04-25
     # Base Framework and Language Dependencies
     "setuptools>=69.5.1",
-    "django>=4.2.0,<5.0",
+    "django>=5.0.4,<6.0",
     "django-ninja>=1.1.0",
     "django-extensions>=3.2.3",
     "mypy-extensions>=1.0.0",
-
     # Python Helper Libraries
     "requests>=2.31.0",
     "dateparser>=1.0.0",
     "feedparser>=6.0.11",
-    "w3lib>=1.22.0",
-
+    "w3lib>=2.1.2",
     # Feature-Specific Dependencies
-    "python-crontab>=2.5.1",          # for: archivebox schedule
-    "croniter>=0.3.34",               # for: archivebox schedule
-    "ipython>5.0.0",                  # for: archivebox shell
-
+    "python-crontab>=3.0.0",          # for: archivebox schedule
+    "croniter>=2.0.5",                # for: archivebox schedule
+    "ipython>=8.23.0",                # for: archivebox shell
     # Extractor Dependencies
     "yt-dlp>=2024.4.9",               # for: media
-    "playwright>=1.43.0; platform_machine != 'armv7l'",  # WARNING: playwright doesn't have any sdist, causes trouble on build systems that refuse to install wheel-only packages
-    
+    # "playwright>=1.43.0; platform_machine != 'armv7l'",  # WARNING: playwright doesn't have any sdist, causes trouble on build systems that refuse to install wheel-only packages
     # TODO: add more extractors
     #  - gallery-dl
     #  - scihubdl
     #  - See Github issues for more...
+    "django-signal-webhooks>=0.3.0",
+    "django-admin-data-views>=0.3.1",
 ]
 
 homepage = "https://github.com/ArchiveBox/ArchiveBox"
@@ -59,9 +58,6 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -100,10 +96,10 @@ ldap = [
 # pdm update --dev --unconstrained
 [tool.pdm.dev-dependencies]
 build = [
+    # "pdm",                           # usually installed by apt/brew, dont double-install with pip
     "setuptools>=69.5.1",
     "pip",
     "wheel",
-    "pdm",
     "homebrew-pypi-poet>=0.10.0",      # for: generating archivebox.rb brewfile list of python packages
 ]
 docs = [
@@ -115,16 +111,23 @@ debug = [
     "django-debug-toolbar",
     "djdt_flamegraph",
     "ipdb",
+    "requests-tracker>=0.3.3",
 ]
 test = [
-    "pdm[pytest]",
     "pytest",
+    "bottle",
 ]
 lint = [
     "flake8",
     "mypy",
     "django-stubs",
 ]
+
+[tool.pdm.scripts]
+lint = "./bin/lint.sh"
+test = "./bin/test.sh"
+# all = {composite = ["lint mypackage/", "test -v tests/"]}
+
 
 [build-system]
 requires = ["pdm-backend"]
@@ -133,11 +136,6 @@ build-backend = "pdm.backend"
 [project.scripts]
 archivebox = "archivebox.cli:main"
 
-
-[tool.pdm.scripts]
-lint = "./bin/lint.sh"
-test = "./bin/test.sh"
-# all = {composite = ["lint mypackage/", "test -v tests/"]}
 
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]
@@ -154,6 +152,8 @@ explicit_package_bases = true
 # exclude = "pdm/(pep582/|models/in_process/.+\\.py)"
 plugins = ["mypy_django_plugin.main"]
 
+[tool.django-stubs]
+django_settings_module = "core.settings"
 
 
 [project.urls]

@@ -104,7 +104,6 @@ from .config import (
     COMMIT_HASH,
     BUILD_TIME,
     CODE_LOCATIONS,
-    EXTERNAL_LOCATIONS,
     DATA_LOCATIONS,
     DEPENDENCIES,
     CHROME_BINARY,
@@ -231,7 +230,7 @@ def version(quiet: bool=False,
         p = platform.uname()
         print(
             'ArchiveBox v{}'.format(get_version(CONFIG)),
-            *((f'COMMIT_HASH={COMMIT_HASH[:7]}',) if COMMIT_HASH else ()),
+            f'COMMIT_HASH={COMMIT_HASH[:7] if COMMIT_HASH else "unknown"}',
             f'BUILD_TIME={BUILD_TIME}',
         )
         print(
@@ -270,11 +269,6 @@ def version(quiet: bool=False,
         print()
         print('{white}[i] Source-code locations:{reset}'.format(**ANSI))
         for name, path in CODE_LOCATIONS.items():
-            print(printable_folder_status(name, path))
-
-        print()
-        print('{white}[i] Secrets locations:{reset}'.format(**ANSI))
-        for name, path in EXTERNAL_LOCATIONS.items():
             print(printable_folder_status(name, path))
 
         print()
@@ -695,7 +689,7 @@ def add(urls: Union[str, List[str]],
     if CAN_UPGRADE:
         hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSIONS_AVAILABLE['recommended_version']['tag_name']} ({VERSIONS_AVAILABLE['recommended_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
 
-    return all_links
+    return new_links
 
 @enforce_types
 def remove(filter_str: Optional[str]=None,
@@ -1362,7 +1356,7 @@ def manage(args: Optional[List[str]]=None, out_dir: Path=OUTPUT_DIR) -> None:
     if (args and "createsuperuser" in args) and (IN_DOCKER and not IS_TTY):
         stderr('[!] Warning: you need to pass -it to use interactive commands in docker', color='lightyellow')
         stderr('    docker run -it archivebox manage {}'.format(' '.join(args or ['...'])), color='lightyellow')
-        stderr()
+        stderr('')
 
     execute_from_command_line([f'{ARCHIVEBOX_BINARY} manage', *(args or ['help'])])
 

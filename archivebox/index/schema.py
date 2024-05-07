@@ -4,6 +4,7 @@ WARNING: THIS FILE IS ALL LEGACY CODE TO BE REMOVED.
 
 DO NOT ADD ANY NEW FEATURES TO THIS FILE, NEW CODE GOES HERE: core/models.py
 
+These are the old types we used to use before ArchiveBox v0.4 (before we switched to Django).
 """
 
 __package__ = 'archivebox.index'

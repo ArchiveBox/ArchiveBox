@@ -13,8 +13,9 @@ venv/
 node_modules/
 
 # Ignore dev lockfiles (should always be built fresh)
-requirements-dev.txt
+pdm.lock
 pdm.dev.lock
+requirements-dev.txt
 
 # Packaging artifacts
 .pdm-python
@@ -26,9 +27,6 @@ dist/
 
 # Data folders
 data/
-data1/
-data2/
-data3/
 data*/
 output/
 

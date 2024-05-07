@@ -18,7 +18,7 @@ which docker > /dev/null || exit 1
 which jq > /dev/null || exit 1
 # which pdm > /dev/null || exit 1
 
-SUPPORTED_PLATFORMS="linux/amd64,linux/arm64,linux/arm/v7"
+SUPPORTED_PLATFORMS="linux/amd64,linux/arm64"
 
 TAG_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
@@ -80,20 +80,20 @@ echo "[+] Building archivebox:$VERSION docker image..."
 # docker build . --no-cache -t archivebox-dev \
 # replace --load with --push to deploy
 docker buildx build --platform "$SELECTED_PLATFORMS" --load . \
-               -t archivebox/archivebox \
+               # -t archivebox/archivebox \
                -t archivebox/archivebox:$TAG_NAME \
-               -t archivebox/archivebox:$VERSION \
-               -t archivebox/archivebox:$SHORT_VERSION \
+               # -t archivebox/archivebox:$VERSION \
+               # -t archivebox/archivebox:$SHORT_VERSION \
                -t archivebox/archivebox:$GIT_SHA \
-               -t archivebox/archivebox:latest \
-               -t nikisweeting/archivebox \
+               # -t archivebox/archivebox:latest \
+               # -t nikisweeting/archivebox \
                -t nikisweeting/archivebox:$TAG_NAME \
-               -t nikisweeting/archivebox:$VERSION \
-               -t nikisweeting/archivebox:$SHORT_VERSION \
+               # -t nikisweeting/archivebox:$VERSION \
+               # -t nikisweeting/archivebox:$SHORT_VERSION \
                -t nikisweeting/archivebox:$GIT_SHA \
-               -t nikisweeting/archivebox:latest \
+               # -t nikisweeting/archivebox:latest \
                -t ghcr.io/archivebox/archivebox/archivebox:$TAG_NAME \
-               -t ghcr.io/archivebox/archivebox/archivebox:$VERSION \
-               -t ghcr.io/archivebox/archivebox/archivebox:$SHORT_VERSION \
+               # -t ghcr.io/archivebox/archivebox/archivebox:$VERSION \
+               # -t ghcr.io/archivebox/archivebox/archivebox:$SHORT_VERSION \
                -t ghcr.io/archivebox/archivebox/archivebox:$GIT_SHA \
-               -t ghcr.io/archivebox/archivebox/archivebox:latest
+               # -t ghcr.io/archivebox/archivebox/archivebox:latest

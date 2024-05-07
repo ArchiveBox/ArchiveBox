@@ -18,6 +18,7 @@ from ..config import (
     CUSTOM_TEMPLATES_DIR,
     SQL_INDEX_FILENAME,
     OUTPUT_DIR,
+    ARCHIVE_DIR,
     LOGS_DIR,
     TIMEZONE,
 
@@ -63,6 +64,9 @@ INSTALLED_APPS = [
     'core',
     'api',
 
+    'admin_data_views',
+
+    'signal_webhooks',
     'django_extensions',
 ]
 
@@ -173,6 +177,17 @@ if DEBUG_TOOLBAR:
     ]
     MIDDLEWARE = [*MIDDLEWARE, 'debug_toolbar.middleware.DebugToolbarMiddleware']
 
+
+# https://github.com/bensi94/Django-Requests-Tracker (improved version of django-debug-toolbar)
+# Must delete archivebox/templates/admin to use because it relies on some things we override
+# visit /__requests_tracker__/ to access
+DEBUG_REQUESTS_TRACKER = False
+if DEBUG_REQUESTS_TRACKER:
+    INSTALLED_APPS += ["requests_tracker"]
+    MIDDLEWARE += ["requests_tracker.middleware.requests_tracker_middleware"]
+    INTERNAL_IPS = ["127.0.0.1", "10.0.2.2", "0.0.0.0", "*"]
+
+
 ################################################################################
 ### Staticfile and Template Settings
 ################################################################################
@@ -241,6 +256,29 @@ CACHES = {
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+    "archive": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {
+            "base_url": "/archive/",
+            "location": ARCHIVE_DIR,
+        },
+    },
+    # "personas": {
+    #     "BACKEND": "django.core.files.storage.FileSystemStorage",
+    #     "OPTIONS": {
+    #         "base_url": "/personas/",
+    #         "location": PERSONAS_DIR,
+    #     },
+    # },
+}
 
 ################################################################################
 ### Security Settings
@@ -367,4 +405,33 @@ LOGGING = {
             'filters': ['noisyrequestsfilter'],
         }
     },
+}
+
+
+# Add default webhook configuration to the User model
+SIGNAL_WEBHOOKS = {
+    "HOOKS": {
+        "django.contrib.auth.models.User": ...,
+        "core.models.Snapshot": ...,
+        "core.models.ArchiveResult": ...,
+        "core.models.Tag": ...,
+        "api.models.APIToken": ...,
+    },
+}
+
+
+ADMIN_DATA_VIEWS = {
+    "NAME": "configuration",
+    "URLS": [
+        {
+            "route": "live/",
+            "view": "core.views.live_config_list_view",
+            "name": "live",
+            "items": {
+                "route": "<str:key>/",
+                "view": "core.views.live_config_value_view",
+                "name": "live_config_value",
+            },
+        },
+    ],
 }

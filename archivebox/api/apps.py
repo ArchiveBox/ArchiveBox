@@ -1,3 +1,5 @@
+__package__ = 'archivebox.api'
+
 from django.apps import AppConfig
 
 
