@@ -1273,7 +1273,7 @@ ArchiveBox is neither the highest fidelity nor the simplest tool available for s
 
 <img src="https://read-the-docs-guidelines.readthedocs-hosted.com/_images/logo-dark.png" width="13%" align="right" style="float: right"/>
 
-We use the [GitHub wiki system](https://github.com/ArchiveBox/ArchiveBox/wiki) and [Read the Docs](https://archivebox.readthedocs.io/en/latest/) (WIP) for documentation.
+We use the [GitHub wiki system](https://github.com/ArchiveBox/ArchiveBox/wiki) and [Read the Docs](https://archivebox.readthedocs.io/en/latest/) <sup>(WIP)</sup> for documentation.
 
 You can also access the docs locally by looking in the [`ArchiveBox/docs/`](https://github.com/ArchiveBox/ArchiveBox/wiki/Home) folder.
 
