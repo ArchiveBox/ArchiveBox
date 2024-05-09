@@ -1194,7 +1194,7 @@ As long as you A. don't try to profit off pirating copyrighted content and B. ha
 
 > **Check out our [community wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for a list of alternative web archiving tools and orgs.**
 
-ArchiveBox gained momentum in the archiving software industry because it uniquely combines these features:
+ArchiveBox gained momentum in the internet archiving industry because it uniquely combines 3 things:
 
 - **it's distributed:** users own their data instead of entrusting it to one big central provider
 - **it's future-proof:** saving in *multiple formats* and extracting out raw TXT, PNG, PDF, MP4, etc. files
