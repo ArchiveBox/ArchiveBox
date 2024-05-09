@@ -1277,7 +1277,7 @@ We use the [ArchiveBox GitHub Wiki](https://github.com/ArchiveBox/ArchiveBox/wik
 
 <sub>There is also a mirror available on <a href="https://archivebox.readthedocs.io/en/latest/">Read the Docs</a> (though it's sometimes outdated).</sub>
 
-You can submit docs changes and suggestions over in our dedicated repo [`ArchiveBox/docs`](https://github.com/ArchiveBox/docs).
+> ✏️ You can submit docs changes and suggestions over in our dedicated repo [`ArchiveBox/docs`](https://github.com/ArchiveBox/docs).
 
 ## Getting Started
 
