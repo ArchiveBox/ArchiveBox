@@ -1197,8 +1197,8 @@ As long as you A. don't try to profit off pirating copyrighted content and B. ha
 A wide range of open and closed-source archiving software exists, but ArchiveBox occupies a niche that no other tools cover:
 
 - **it's distributed:** users own their data instead of entrusting it to one big central provider
-- **it's future-proof:** everything is saved in *multiple formats* and content is extracted out into simple TXT, PNG, PDF, MP4, etc. files
-- **it's extensible:** it has powerful APIs, flexible storage options, and an active community constantly adding new extractors & integrations
+- **it's future-proof:** saving in *multiple formats* and extracting out raw TXT, PNG, PDF, MP4, etc. files
+- **it's extensible:** with powerful APIs, flexible storage, and a big community adding new extractors regularly
 
 <br/>
 <details>
