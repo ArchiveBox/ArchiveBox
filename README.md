@@ -1194,7 +1194,7 @@ As long as you A. don't try to profit off pirating copyrighted content and B. ha
 
 > **Check out our [community wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for a list of alternative web archiving tools and orgs.**
 
-A wide range of open and closed-source archiving software exists, but ArchiveBox occupies a niche that no other tools cover:
+ArchiveBox gained momentum within the archiving software industry because it uniquely combines these features:
 
 - **it's distributed:** users own their data instead of entrusting it to one big central provider
 - **it's future-proof:** saving in *multiple formats* and extracting out raw TXT, PNG, PDF, MP4, etc. files
