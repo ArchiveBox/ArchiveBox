@@ -1260,7 +1260,7 @@ ArchiveBox is neither the highest fidelity nor the simplest tool available for s
 
 **Need help building a custom archiving solution?**
 
-> ✨ **[Hire the team that built Archivebox](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) to work on your project.** ([@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp))
+> ✨ **[Hire the team that built Archivebox](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) to solve archiving for your org.** ([@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp))
 
 <br/>
 
