@@ -1202,7 +1202,7 @@ ArchiveBox gained momentum in the internet archiving industry because it uniquel
 
 <br/>
 <details>
-<summary><i>Click to read about how we differ from other centralized archiving services and open source tools...</i></summary><br/>
+<summary><i>Expand for a more direct comparison to Archive.org and specific open-source alternatives...</i></summary><br/>
 
 ArchiveBox tries to be a robust, set-and-forget archiving solution suitable for archiving RSS feeds, bookmarks, or your entire browsing history (beware, it may be too big to store), including private/authenticated content that you wouldn't otherwise share with a centralized service.
 
