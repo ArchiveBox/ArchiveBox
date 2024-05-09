@@ -79,29 +79,29 @@ class UserPassAuthCheck:
 
 ### Django-Ninja-Provided Auth Methods
 
-class UsernameAndPasswordAuth(UserPassAuthCheck, HttpBasicAuth):
-    """Allow authenticating by passing username & password via HTTP Basic Authentication (not recommended)"""
+class HeaderTokenAuth(APITokenAuthCheck, APIKeyHeader):
+    """Allow authenticating by passing X-API-Key=xyz as a request header"""
+    param_name = "X-ArchiveBox-API-Key"
+
+class BearerTokenAuth(APITokenAuthCheck, HttpBearer):
+    """Allow authenticating by passing Bearer=xyz as a request header"""
     pass
 
 class QueryParamTokenAuth(APITokenAuthCheck, APIKeyQuery):
     """Allow authenticating by passing api_key=xyz as a GET/POST query parameter"""
     param_name = "api_key"
 
-class HeaderTokenAuth(APITokenAuthCheck, APIKeyHeader):
-    """Allow authenticating by passing X-API-Key=xyz as a request header"""
-    param_name = "X-API-Key"
-
-class BearerTokenAuth(APITokenAuthCheck, HttpBearer):
-    """Allow authenticating by passing Bearer=xyz as a request header"""
+class UsernameAndPasswordAuth(UserPassAuthCheck, HttpBasicAuth):
+    """Allow authenticating by passing username & password via HTTP Basic Authentication (not recommended)"""
     pass
 
 
 ### Enabled Auth Methods
 
 API_AUTH_METHODS = [
-    QueryParamTokenAuth(), 
     HeaderTokenAuth(),
     BearerTokenAuth(),
+    QueryParamTokenAuth(), 
     django_auth_superuser,
     UsernameAndPasswordAuth(),
 ]
