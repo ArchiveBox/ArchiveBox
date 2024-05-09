@@ -1023,7 +1023,7 @@ For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) active
 <ul>
 <li>Set <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#curl_user_agent"><code>CHROME_USER_AGENT</code>, <code>WGET_USER_AGENT</code>, <code>CURL_USER_AGENT</code></a> to impersonate a real browser (by default, ArchiveBox reveals that it's a bot when using the default user agent settings)</li>
 <li>Set up a logged-in browser session for archiving using <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile"><code>CHROME_USER_DATA_DIR</code> &amp; <code>COOKIES_FILE</code></a></li>
-<li>Rewrite your URLs before archiving to swap in an alternative frontend thats more bot-friendly e.g.<br>
+<li>Rewrite your URLs before archiving to swap in alternative frontends that are more bot-friendly e.g.<br>
 <code>reddit.com/some/url</code> -&gt; <code>teddit.net/some/url</code>: <a href="https://github.com/mendel5/alternative-front-ends">https://github.com/mendel5/alternative-front-ends</a></li>
 </ul>
 
