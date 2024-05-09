@@ -1208,7 +1208,7 @@ ArchiveBox tries to be a robust, set-and-forget archiving solution suitable for 
 
 <h3>Comparison With Centralized Public Archives</h3>
 
-Not all content is suitable to be archived on a centralized, publicly accessible platform. Archive.org doesn't offer the ability to save things behind login walls, and much of the content behind logins is private for gooe reason. ArchiveBox exists to fill that gap by letting everyone save what they have access to on an individual basis, and to encourage decentralized archiving that's less succeptible to censorship or natural disasters.
+Not all content is suitable to be archived on a centralized, publicly accessible platform. Archive.org doesn't offer the ability to save things behind login walls for good reason, as the content may not have been intended for a public audience. ArchiveBox exists to fill that gap by letting everyone save what they have access to on an individual basis, and to encourage decentralized archiving that's less succeptible to censorship or natural disasters.
 
 By having users store their content locally or within their organizations, we can also save much larger portions of the internet than a centralized service has the disk capcity handle. The eventual goal is to work towards federated archiving where users can share portions of their collections with each other, and with central archives on a case-by-case basis.
 
