@@ -1192,9 +1192,13 @@ As long as you A. don't try to profit off pirating copyrighted content and B. ha
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4cac62a9-e8fb-425b-85a3-ca644aa6dd42" width="5%" align="right" alt="comparison" style="float: right"/> 
 
 
-> **Check out our [community wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for a list of web archiving tools and orgs.**
+> **Check out our [community wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for a list of alternative web archiving tools and orgs.**
 
-A variety of open and closed-source archiving projects exist, but few provide a nice UI and CLI to manage a large, high-fidelity collection over time.
+A wide range of open and closed-source archiving software exists, but ArchiveBox occupies a niche that no other tools cover:
+
+- **it's distributed:** users own their data instead of entrusting it to one big central provider
+- **it's future-proof:** everything is saved in *multiple formats* and content is extracted out into simple TXT, PNG, PDF, MP4, etc. files
+- **it's extensible:** it has powerful APIs, flexible storage options, and an active community constantly adding new extractors & integrations
 
 <br/>
 <details>
