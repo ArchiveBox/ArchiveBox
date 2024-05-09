@@ -1293,12 +1293,12 @@ We use the [ArchiveBox GitHub Wiki](https://github.com/ArchiveBox/ArchiveBox/wik
 ## Advanced
 
 - [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview)
-- [Cookies & Sessions Setup](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile)
-- [Setting up Search](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Search) (ripgrep, Sonic, or FTS5)
-- [Setting up Storage](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Storage) (S3/B2/Google Drive/SMB/NFS/etc.)
-- [Setting up Authentication](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Authentication) (SSO/LDAP/OAuth/etc.)
-- [Publishing Your Archive](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive)
-- [Chromium Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install)
+- [Cookies & Sessions Setup](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile) (archiving sites that require logins)
+- [Setting up the Search Backends](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Search) (choosing ripgrep, Sonic, or FTS5)
+- [Setting up Local/Remote Storages](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Storage) (S3/B2/Google Drive/SMB/NFS/etc.)
+- [Setting up Authentication & Permissions](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Authentication) (SSO/LDAP/OAuth/API Keys/etc.)
+- [Publishing Your Archive](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive) (sharing your archive server with others)
+- [Chromium Install Options](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install) (installing and configuring ArchiveBox's Chrome)
 - [Upgrading or Merging Archives](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives)
 - [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
 
