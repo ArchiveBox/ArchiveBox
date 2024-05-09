@@ -1204,13 +1204,13 @@ ArchiveBox gained momentum in the internet archiving industry because it uniquel
 <details>
 <summary><i>Expand for a more direct comparison to Archive.org and specific open-source alternatives...</i></summary><br/>
 
-ArchiveBox tries to be a robust, set-and-forget archiving solution suitable for archiving RSS feeds, bookmarks, or your entire browsing history (beware, it may be too big to store), including private/authenticated content that you wouldn't otherwise share with a centralized service.
+ArchiveBox tries to be a robust, set-and-forget archiving solution suitable for archiving RSS feeds, bookmarks, or your entire browsing history (beware, it may be too big to store), including private/authenticated content that you wouldn't otherwise share with a centralized service like Archive.org.
 
 <h3>Comparison With Centralized Public Archives</h3>
 
-Not all content is suitable to be archived in a centralized collection, whether because it's private, copyrighted, too large, or too complex. ArchiveBox hopes to fill that gap.
+Not all content is suitable to be archived on a centralized, publicly accessible platform. Archive.org doesn't offer the ability to save things behind login walls, and much of the content behind logins is private for gooe reason. ArchiveBox exists to fill that gap by letting everyone save what they have access to on an individual basis, and to encourage decentralized archiving that's less succeptible to censorship or natural disasters.
 
-By having each user store their own content locally, we can save much larger portions of everyone's browsing history than a shared centralized service would be able to handle. The eventual goal is to work towards federated archiving where users can share portions of their collections with each other.
+By having users store their content locally or within their organizations, we can also save much larger portions of the internet than a centralized service has the disk capcity handle. The eventual goal is to work towards federated archiving where users can share portions of their collections with each other, and with central archives on a case-by-case basis.
 
 <h3>Comparison With Other Self-Hosted Archiving Options</h3>
 
