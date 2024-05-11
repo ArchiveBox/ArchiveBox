@@ -49,7 +49,7 @@ echo
 echo "[+] Generating dev & prod requirements.txt & pdm.lock from pyproject.toml..."
 pip install --upgrade pip setuptools
 pdm self update >/dev/null 2>&1 || true
-pdm venv create 3.12
+pdm venv create 3.10
 echo
 echo "pyproject.toml:    archivebox $(grep 'version = ' pyproject.toml | awk '{print $3}' | jq -r)"
 echo "$(which python):   $(python --version | head -n 1)"

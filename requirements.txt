@@ -15,7 +15,7 @@ croniter==2.0.5
 cryptography==42.0.7
 dateparser==1.2.0
 decorator==5.1.1
-django==5.0.5
+django==5.0.6
 django-admin-data-views==0.3.1
 django-auth-ldap==4.8.0
 django-extensions==3.2.3
@@ -50,7 +50,7 @@ python-crontab==3.0.0
 python-dateutil==2.9.0.post0
 python-ldap==3.4.4
 pytz==2024.1
-regex==2024.4.28
+regex==2024.5.10
 requests==2.31.0
 setuptools==69.5.1
 sgmllib3k==1.0.0
