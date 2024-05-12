@@ -21,7 +21,7 @@ from django.contrib.auth.models import User   # noqa
 
 from ..config import ARCHIVE_DIR, ARCHIVE_DIR_NAME
 from ..system import get_dir_size
-from ..util import parse_date, base_url, hashurl
+from ..util import parse_date, base_url, hashurl, domain
 from ..index.schema import Link
 from ..index.html import snapshot_icons
 from ..extractors import get_default_archive_methods, ARCHIVE_METHODS_INDEXING_PRECEDENCE, EXTRACTORS
@@ -206,9 +206,7 @@ class Snapshot(models.Model):
     @cached_property
     def url_hash(self):
         # return hashurl(self.url)
-        url_hash = hashlib.new('sha256')
-        url_hash.update(self.url.encode('utf-8'))
-        return url_hash.hexdigest()[:16]
+        return hashlib.sha256(self.url.encode('utf-8')).hexdigest()[:16].upper()
 
     @cached_property
     def base_url(self):
@@ -300,6 +298,31 @@ class Snapshot(models.Model):
         self.tags.clear()
         self.tags.add(*tags_id)
 
+
+    def get_storage_dir(self, create=True, symlink=True) -> Path:
+        date_str = self.added.strftime('%Y%m%d')
+        domain_str = domain(self.url)
+        abs_storage_dir = Path(ARCHIVE_DIR) / 'snapshots' / date_str / domain_str / str(self.ulid)
+
+        if create and not abs_storage_dir.is_dir():
+            abs_storage_dir.mkdir(parents=True, exist_ok=True)
+
+        if symlink:
+            LINK_PATHS = [
+                Path(ARCHIVE_DIR).parent / 'index' / 'all_by_id' / str(self.ulid),
+                Path(ARCHIVE_DIR).parent / 'index' / 'snapshots_by_id' / str(self.ulid),
+                Path(ARCHIVE_DIR).parent / 'index' / 'snapshots_by_domain' / domain_str / date_str / str(self.ulid),
+                Path(ARCHIVE_DIR).parent / 'index' / 'snapshots_by_date' / date_str / domain_str / str(self.ulid),
+            ]
+            for link_path in LINK_PATHS:
+                link_path.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    link_path.symlink_to(abs_storage_dir)
+                except FileExistsError:
+                    link_path.unlink()
+                    link_path.symlink_to(abs_storage_dir)
+
+        return abs_storage_dir
 
 class ArchiveResultManager(models.Manager):
     def indexable(self, sorted: bool = True):
@@ -397,3 +420,33 @@ class ArchiveResult(models.Model):
 
     def output_exists(self) -> bool:
         return Path(self.output_path()).exists()
+
+
+    def get_storage_dir(self, create=True, symlink=True):
+        date_str = self.snapshot.added.strftime('%Y%m%d')
+        domain_str = domain(self.snapshot.url)
+        abs_storage_dir = Path(ARCHIVE_DIR) / 'results' / date_str / domain_str / str(self.ulid)
+
+        if create and not abs_storage_dir.is_dir():
+            abs_storage_dir.mkdir(parents=True, exist_ok=True)
+
+        if symlink:
+            LINK_PATHS = [
+                Path(ARCHIVE_DIR).parent / 'index' / 'all_by_id' / str(self.ulid),
+                Path(ARCHIVE_DIR).parent / 'index' / 'results_by_id' / str(self.ulid),
+                Path(ARCHIVE_DIR).parent / 'index' / 'results_by_date' / date_str / domain_str / self.extractor / str(self.ulid),
+                Path(ARCHIVE_DIR).parent / 'index' / 'results_by_domain' / domain_str / date_str / self.extractor / str(self.ulid),
+                Path(ARCHIVE_DIR).parent / 'index' / 'results_by_type' / self.extractor / date_str / domain_str / str(self.ulid),
+            ]
+            for link_path in LINK_PATHS:
+                link_path.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    link_path.symlink_to(abs_storage_dir)
+                except FileExistsError:
+                    link_path.unlink()
+                    link_path.symlink_to(abs_storage_dir)
+
+        return abs_storage_dir
+
+    def symlink_index(self, create=True):
+        abs_result_dir = self.get_storage_dir(create=create)
