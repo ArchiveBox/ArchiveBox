@@ -263,7 +263,7 @@ CACHES = {
     'default': {'BACKEND': 'django.core.cache.backends.db.DatabaseCache', 'LOCATION': 'cache'},
     'dummy': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'},
     'locmem': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'},
-    # 'filebased': {"BACKEND": "django.core.cache.backends.filebased.FileBasedCache", "LOCATION": CACHE_DIR / 'cache_filebased'},
+    'filebased': {"BACKEND": "django.core.cache.backends.filebased.FileBasedCache", "LOCATION": CACHE_DIR / 'cache_filebased'},
 }
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

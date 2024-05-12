@@ -2,10 +2,13 @@ __package__ = 'archivebox.core'
 
 
 import uuid
+import ulid
 import json
+import hashlib
+from typeid import TypeID
 
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, NamedTuple
 from importlib import import_module
 
 from django.db import models
@@ -35,6 +38,13 @@ try:
 except AttributeError:
     import jsonfield
     JSONField = jsonfield.JSONField
+
+
+class ULIDParts(NamedTuple):
+    timestamp: str
+    url: str
+    subtype: str
+    randomness: str
 
 
 class Tag(models.Model):
@@ -98,6 +108,38 @@ class Snapshot(models.Model):
     tags = models.ManyToManyField(Tag, blank=True)
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
+
+    @property
+    def ulid_from_timestamp(self):
+        return str(ulid.from_timestamp(self.added))[:10]
+
+    @property
+    def ulid_from_urlhash(self):
+        return str(ulid.from_randomness(self.url_hash))[10:18]
+
+    @property
+    def ulid_from_type(self):
+        return '00'
+
+    @property
+    def ulid_from_randomness(self):
+        return str(ulid.from_uuid(self.id))[20:]
+
+    @property
+    def ulid_tuple(self) -> ULIDParts:
+        return ULIDParts(self.ulid_from_timestamp, self.ulid_from_urlhash, self.ulid_from_type, self.ulid_from_randomness)
+
+    @property
+    def ulid(self):
+        return ulid.parse(''.join(self.ulid_tuple))
+
+    @property
+    def uuid(self):
+        return self.ulid.uuid
+
+    @property
+    def typeid(self):
+        return TypeID.from_uuid(prefix='snapshot', suffix=self.ulid.uuid)
 
     def __repr__(self) -> str:
         title = self.title or '-'
@@ -163,7 +205,10 @@ class Snapshot(models.Model):
 
     @cached_property
     def url_hash(self):
-        return hashurl(self.url)
+        # return hashurl(self.url)
+        url_hash = hashlib.new('sha256')
+        url_hash.update(self.url.encode('utf-8'))
+        return url_hash.hexdigest()[:16]
 
     @cached_property
     def base_url(self):
@@ -271,7 +316,7 @@ class ArchiveResult(models.Model):
     EXTRACTOR_CHOICES = EXTRACTOR_CHOICES
 
     id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(default=uuid.uuid4, editable=True)
 
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
     extractor = models.CharField(choices=EXTRACTOR_CHOICES, max_length=32)
@@ -292,6 +337,40 @@ class ArchiveResult(models.Model):
     def snapshot_dir(self):
         return Path(self.snapshot.link_dir)
 
+    @property
+    def ulid_from_timestamp(self):
+        return self.snapshot.ulid_from_timestamp
+
+    @property
+    def ulid_from_urlhash(self):
+        return self.snapshot.ulid_from_urlhash
+
+    @property
+    def ulid_from_snapshot(self):
+        return str(self.snapshot.ulid)[:18]
+
+    @property
+    def ulid_from_type(self):
+        return hashlib.sha256(self.extractor.encode('utf-8')).hexdigest()[:2]
+
+    @property
+    def ulid_from_randomness(self):
+        return str(ulid.from_uuid(self.uuid))[20:]
+
+    @property
+    def ulid_tuple(self) -> ULIDParts:
+        return ULIDParts(self.ulid_from_timestamp, self.ulid_from_urlhash, self.ulid_from_type, self.ulid_from_randomness)
+
+    @property
+    def ulid(self):
+        final_ulid = ulid.parse(''.join(self.ulid_tuple))
+        # TODO: migrate self.uuid to match this new uuid
+        # self.uuid = final_ulid.uuid
+        return final_ulid
+
+    @property
+    def typeid(self):
+        return TypeID.from_uuid(prefix='result', suffix=self.ulid.uuid)
 
     @property
     def extractor_module(self):
