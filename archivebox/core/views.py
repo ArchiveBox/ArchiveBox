@@ -464,7 +464,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
             rows['Key'].append(ItemLink(key, key=key))
             rows['Type'].append(mark_safe(f'<code>{find_config_type(key)}</code>'))
             rows['Value'].append(mark_safe(f'<code>{CONFIG[key]}</code>') if key_is_safe(key) else '******** (redacted)')
-            rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code"><code style="text-decoration: underline">{find_config_default(key) or 'See here...'}</code></a>'))
+            rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code"><code style="text-decoration: underline">{find_config_default(key) or "See here..."}</code></a>'))
             # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
             rows['Aliases'].append(', '.join(CONFIG_SCHEMA[section][key].get('aliases', [])))
 
@@ -474,7 +474,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
         rows['Key'].append(ItemLink(key, key=key))
         rows['Type'].append(mark_safe(f'<code>{find_config_type(key)}</code>'))
         rows['Value'].append(mark_safe(f'<code>{CONFIG[key]}</code>') if key_is_safe(key) else '******** (redacted)')
-        rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code"><code style="text-decoration: underline">{find_config_default(key) or 'See here...'}</code></a>'))
+        rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code"><code style="text-decoration: underline">{find_config_default(key) or "See here..."}</code></a>'))
         # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
         rows['Aliases'].append(ItemLink(key, key=key) if key in USER_CONFIG else '')
 
