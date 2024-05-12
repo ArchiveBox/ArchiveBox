@@ -20,6 +20,7 @@ from ..config import (
     OUTPUT_DIR,
     ARCHIVE_DIR,
     LOGS_DIR,
+    CACHE_DIR,
     TIMEZONE,
 
     LDAP,
@@ -227,6 +228,11 @@ TEMPLATES = [
 ### External Service Settings
 ################################################################################
 
+
+CACHE_DB_FILENAME = 'cache.sqlite3'
+CACHE_DB_PATH = CACHE_DIR / CACHE_DB_FILENAME
+CACHE_DB_TABLE = 'django_cache'
+
 DATABASE_FILE = Path(OUTPUT_DIR) / SQL_INDEX_FILENAME
 DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(DATABASE_FILE))
 
@@ -240,18 +246,24 @@ DATABASES = {
         },
         'TIME_ZONE': TIMEZONE,
         # DB setup is sometimes modified at runtime by setup_django() in config.py
-    }
+    },
+    'cache': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': CACHE_DB_PATH,
+        'OPTIONS': {
+            'timeout': 60,
+            'check_same_thread': False,
+        },
+        'TIME_ZONE': TIMEZONE,
+    },
 }
 
-CACHE_BACKEND = 'django.core.cache.backends.locmem.LocMemCache'
-# CACHE_BACKEND = 'django.core.cache.backends.db.DatabaseCache'
-# CACHE_BACKEND = 'django.core.cache.backends.dummy.DummyCache'
 
 CACHES = {
-    'default': {
-        'BACKEND': CACHE_BACKEND,
-        'LOCATION': 'django_cache_default',
-    }
+    'default': {'BACKEND': 'django.core.cache.backends.db.DatabaseCache', 'LOCATION': 'cache'},
+    'dummy': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'},
+    'locmem': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'},
+    # 'filebased': {"BACKEND": "django.core.cache.backends.filebased.FileBasedCache", "LOCATION": CACHE_DIR / 'cache_filebased'},
 }
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

@@ -281,6 +281,7 @@ TEMPLATES_DIR_NAME = 'templates'
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
 LOGS_DIR_NAME = 'logs'
+CACHE_DIR_NAME = 'cache'
 PERSONAS_DIR_NAME = 'personas'
 CRONTABS_DIR_NAME = 'crontabs'
 SQL_INDEX_FILENAME = 'index.sqlite3'
@@ -360,6 +361,7 @@ ALLOWED_IN_OUTPUT_DIR = {
     ARCHIVE_DIR_NAME,
     SOURCES_DIR_NAME,
     LOGS_DIR_NAME,
+    CACHE_DIR_NAME,
     PERSONAS_DIR_NAME,
     SQL_INDEX_FILENAME,
     f'{SQL_INDEX_FILENAME}-wal',
@@ -511,6 +513,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'ARCHIVE_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / ARCHIVE_DIR_NAME},
     'SOURCES_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / SOURCES_DIR_NAME},
     'LOGS_DIR':                 {'default': lambda c: c['OUTPUT_DIR'] / LOGS_DIR_NAME},
+    'CACHE_DIR':                {'default': lambda c: c['OUTPUT_DIR'] / CACHE_DIR_NAME},
     'PERSONAS_DIR':             {'default': lambda c: c['OUTPUT_DIR'] / PERSONAS_DIR_NAME},
     'CONFIG_FILE':              {'default': lambda c: Path(c['CONFIG_FILE']).resolve() if c['CONFIG_FILE'] else c['OUTPUT_DIR'] / CONFIG_FILENAME},
     'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and Path(c['COOKIES_FILE']).resolve()},
@@ -1038,6 +1041,11 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'enabled': True,
             'is_valid': config['LOGS_DIR'].exists(),
         },
+        'CACHE_DIR': {
+            'path': config['CACHE_DIR'].resolve(),
+            'enabled': True,
+            'is_valid': config['CACHE_DIR'].exists(),
+        },
         'CUSTOM_TEMPLATES_DIR': {
             'path': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).resolve(),
             'enabled': bool(config['CUSTOM_TEMPLATES_DIR']),
@@ -1388,6 +1396,7 @@ def check_migrations(out_dir: Union[str, Path, None]=None, config: ConfigDict=CO
 
     (Path(output_dir) / SOURCES_DIR_NAME).mkdir(exist_ok=True)
     (Path(output_dir) / LOGS_DIR_NAME).mkdir(exist_ok=True)
+    (Path(output_dir) / CACHE_DIR_NAME).mkdir(exist_ok=True)
     (Path(output_dir) / PERSONAS_DIR_NAME).mkdir(exist_ok=True)
     (Path(output_dir) / PERSONAS_DIR_NAME / 'Default').mkdir(exist_ok=True)
 
