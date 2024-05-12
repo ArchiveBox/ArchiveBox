@@ -211,16 +211,22 @@ class SnapshotView(View):
                     status=404,
                 )
             except Http404:
+                assert snapshot     # (Snapshot.DoesNotExist is already handled above)
+
                 # Snapshot dir exists but file within does not e.g. 124235.324234/screenshot.png
                 return HttpResponse(
                     format_html(
                         (
                             '<center><br/><br/><br/>'
-                            f'Snapshot <a href="/archive/{snapshot.timestamp}/index.html" target="_top"><b><code>[{snapshot.timestamp}]</code></b></a> exists in DB, but resource <b><code>{snapshot.timestamp}/'
+                            f'Snapshot <a href="/archive/{snapshot.timestamp}/index.html" target="_top"><b><code>[{snapshot.timestamp}]</code></b></a>: <a href="{snapshot.url}" target="_blank" rel="noreferrer">{snapshot.url}</a><br/>'
+                            f'was queued on {str(snapshot.added).split(".")[0]}, '
+                            f'but no files have been saved yet in:<br/><b><a href="/archive/{snapshot.timestamp}/" target="_top"><code>{snapshot.timestamp}</code></a><code>/'
                             '{}'
-                            f'</code></b> does not exist in the <a href="/archive/{snapshot.timestamp}/" target="_top">snapshot dir</a> yet.<br/><br/>'
-                            'It\'s possible that this resource type is not available for the Snapshot,<br/>or that the archiving process has not completed yet.<br/>'
-                            f'<pre><code># if interrupted, run this cmd to finish archiving this Snapshot<br/>archivebox update -t timestamp {snapshot.timestamp}</code></pre><br/><br/>'
+                            f'</code></b><br/><br/>'
+                            'It\'s possible {} '
+                            f'during the last capture on {str(snapshot.added).split(".")[0]},<br/>or that the archiving process has not completed yet.<br/>'
+                            f'<pre><code># run this cmd to finish/retry archiving this Snapshot</code><br/>'
+                            f'<code style="user-select: all; color: #333">archivebox update -t timestamp {snapshot.timestamp}</code></pre><br/><br/>'
                             '<div class="text-align: left; width: 100%; max-width: 400px">'
                             '<i><b>Next steps:</i></b><br/>'
                             f'- list all the <a href="/archive/{snapshot.timestamp}/" target="_top">Snapshot files <code>.*</code></a><br/>'
@@ -230,7 +236,8 @@ class SnapshotView(View):
                             '- or return to <a href="/" target="_top">the main index...</a></div>'
                             '</center>'
                         ),
-                        archivefile,
+                        archivefile if str(archivefile) != 'None' else '',
+                        f'the {archivefile} resource could not be fetched' if str(archivefile) != 'None' else 'the original site was not available',
                     ),
                     content_type="text/html",
                     status=404,
