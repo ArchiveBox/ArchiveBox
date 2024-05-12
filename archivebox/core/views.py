@@ -113,11 +113,6 @@ class SnapshotView(View):
                 link.title
                 or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
             ),
-            'url_str': htmlencode(urldecode(link.base_url)),
-            'archive_url': urlencode(
-                wget_output_path(link)
-                or (link.domain if link.is_archived else '')
-            ) or 'about:blank',
             'extension': link.extension or 'html',
             'tags': link.tags or 'untagged',
             'size': printable_filesize(link.archive_size) if link.archive_size else 'pending',
