@@ -6,6 +6,7 @@ import json
 
 from pathlib import Path
 from typing import Optional, List
+from importlib import import_module
 
 from django.db import models
 from django.utils.functional import cached_property
@@ -20,9 +21,9 @@ from ..system import get_dir_size
 from ..util import parse_date, base_url, hashurl
 from ..index.schema import Link
 from ..index.html import snapshot_icons
-from ..extractors import get_default_archive_methods, ARCHIVE_METHODS_INDEXING_PRECEDENCE
+from ..extractors import get_default_archive_methods, ARCHIVE_METHODS_INDEXING_PRECEDENCE, EXTRACTORS
 
-EXTRACTORS = [(extractor[0], extractor[0]) for extractor in get_default_archive_methods()]
+EXTRACTOR_CHOICES = [(extractor_name, extractor_name) for extractor_name in EXTRACTORS.keys()]
 STATUS_CHOICES = [
     ("succeeded", "succeeded"),
     ("failed", "failed"),
@@ -267,11 +268,13 @@ class ArchiveResultManager(models.Manager):
 
 
 class ArchiveResult(models.Model):
+    EXTRACTOR_CHOICES = EXTRACTOR_CHOICES
+
     id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
 
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
-    extractor = models.CharField(choices=EXTRACTORS, max_length=32)
+    extractor = models.CharField(choices=EXTRACTOR_CHOICES, max_length=32)
     cmd = JSONField()
     pwd = models.CharField(max_length=256)
     cmd_version = models.CharField(max_length=128, default=None, null=True, blank=True)
@@ -284,3 +287,34 @@ class ArchiveResult(models.Model):
 
     def __str__(self):
         return self.extractor
+
+    @cached_property
+    def snapshot_dir(self):
+        return Path(self.snapshot.link_dir)
+
+
+    @property
+    def extractor_module(self):
+        return EXTRACTORS[self.extractor]
+
+    def output_path(self) -> str:
+        """return the canonical output filename or directory name within the snapshot dir"""
+        return self.extractor_module.get_output_path()
+
+    def embed_path(self) -> str:
+        """
+        return the actual runtime-calculated path to the file on-disk that
+        should be used for user-facing iframe embeds of this result
+        """
+
+        if hasattr(self.extractor_module, 'get_embed_path'):
+            return self.extractor_module.get_embed_path(self)
+
+        return self.extractor_module.get_output_path()
+
+    def legacy_output_path(self):
+        link = self.snapshot.as_link()
+        return link.canonical_outputs().get(f'{self.extractor}_path')
+
+    def output_exists(self) -> bool:
+        return Path(self.output_path()).exists()

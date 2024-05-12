@@ -8,8 +8,8 @@ from ..index.schema import Link, ArchiveResult, ArchiveOutput
 from ..system import chmod_file, run
 from ..util import (
     enforce_types,
-     domain,
-     dedupe,
+    domain,
+    dedupe,
 )
 from ..config import (
     TIMEOUT,
@@ -32,6 +32,11 @@ def should_save_favicon(link: Link, out_dir: Optional[str]=None, overwrite: Opti
         return False
 
     return SAVE_FAVICON
+
+@enforce_types
+def get_output_path():
+    return 'favicon.ico'
+
 
 @enforce_types
 def save_favicon(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:

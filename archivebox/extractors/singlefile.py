@@ -26,13 +26,17 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 
+def get_output_path():
+    return 'singlefile.html'
+
+
 @enforce_types
 def should_save_singlefile(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
     if is_static_file(link.url):
         return False
 
     out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'singlefile.html').exists():
+    if not overwrite and (out_dir / get_output_path()).exists():
         return False
 
     return SAVE_SINGLEFILE
@@ -43,7 +47,7 @@ def save_singlefile(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
     """download full site using single-file"""
 
     out_dir = out_dir or Path(link.link_dir)
-    output = "singlefile.html"
+    output = get_output_path()
 
     browser_args = chrome_args(CHROME_TIMEOUT=0)
 

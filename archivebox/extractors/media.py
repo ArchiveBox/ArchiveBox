@@ -22,13 +22,27 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 
+def get_output_path():
+    return 'media/'
+
+def get_embed_path(archiveresult=None):
+    if not archiveresult:
+        return get_output_path()
+
+    out_dir = archiveresult.snapshot_dir / get_output_path()
+    try:
+        return get_output_path() + list(out_dir.glob('*.mp4'))[0].name
+    except IndexError:
+        return get_output_path()
+
+
 @enforce_types
 def should_save_media(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
     if is_static_file(link.url):
         return False
 
     out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'media').exists():
+    if not overwrite and (out_dir / get_output_path()).exists():
         return False
 
     return SAVE_MEDIA
@@ -38,7 +52,7 @@ def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIME
     """Download playlists or individual video, audio, and subtitles using youtube-dl or yt-dlp"""
 
     out_dir = out_dir or Path(link.link_dir)
-    output: ArchiveOutput = 'media'
+    output: ArchiveOutput = get_output_path()
     output_path = out_dir / output
     output_path.mkdir(exist_ok=True)
     # later options take precedence

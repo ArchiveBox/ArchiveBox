@@ -24,6 +24,12 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 
+def get_output_path():
+    return 'mercury/'
+
+def get_embed_path(archiveresult=None):
+    return get_output_path() + 'content.html'
+
 
 @enforce_types
 def ShellError(cmd: List[str], result: CompletedProcess, lines: int=20) -> ArchiveError:
@@ -44,7 +50,7 @@ def should_save_mercury(link: Link, out_dir: Optional[str]=None, overwrite: Opti
         return False
 
     out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'mercury').exists():
+    if not overwrite and (out_dir / get_output_path()).exists():
         return False
 
     return SAVE_MERCURY
@@ -55,8 +61,8 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
     """download reader friendly version using @postlight/mercury-parser"""
 
     out_dir = Path(out_dir or link.link_dir)
-    output_folder = out_dir.absolute() / "mercury"
-    output = "mercury"
+    output_folder = out_dir.absolute() / get_output_path()
+    output = get_output_path()
 
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')

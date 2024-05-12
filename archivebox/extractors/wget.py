@@ -35,6 +35,18 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 
+def get_output_path():
+    # TODO: actually save output into this folder, instead of do {domain}/**/index.html
+    return 'wget/'
+
+def get_embed_path(archiveresult=None):
+    if not archiveresult:
+        return get_output_path()
+
+    link = archiveresult.snapshot.as_link()
+    return wget_output_path(link)
+
+
 @enforce_types
 def should_save_wget(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
     output_path = wget_output_path(link)
