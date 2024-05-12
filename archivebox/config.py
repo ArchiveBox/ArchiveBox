@@ -1299,7 +1299,10 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
                 stderr()
                 stderr('    Try removing /Default from the end e.g.:')
                 stderr('        CHROME_USER_DATA_DIR="{}"'.format(config['CHROME_USER_DATA_DIR'].split('/Default')[0]))
-            raise SystemExit(2)
+            
+            # hard error is too annoying here, instead just set it to nothing
+            # raise SystemExit(2)
+            config['CHROME_USER_DATA_DIR'] = None
 
 
 def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
