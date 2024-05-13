@@ -39,6 +39,7 @@ dependencies = [
     "django-admin-data-views>=0.3.1",
     "ulid-py>=1.1.0",
     "typeid-python>=0.3.0",
+    "django-charid-field>=0.4",
 ]
 
 homepage = "https://github.com/ArchiveBox/ArchiveBox"

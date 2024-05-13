@@ -12,14 +12,16 @@ from signal_webhooks.models import WebhookBase
 
 from django_stubs_ext.db.models import TypedModelMeta
 
+from abid_utils.models import ABIDModel
+
 
 def generate_secret_token() -> str:
     # returns cryptographically secure string with len() == 32
     return secrets.token_hex(16)
 
 
-class APIToken(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+class APIToken(ABIDModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     token = models.CharField(max_length=32, default=generate_secret_token, unique=True)

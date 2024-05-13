@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.admin',
 
+    'abid_utils',
     'core',
     'api',
 
@@ -257,6 +258,9 @@ DATABASES = {
         'TIME_ZONE': TIMEZONE,
     },
 }
+
+# as much as I'd love this to be a UUID or ULID field, it's not supported yet as of Django 5.0
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 CACHES = {
