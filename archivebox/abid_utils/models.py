@@ -1,14 +1,16 @@
-from typing import Any, Dict, Union, List, Set, cast
+from typing import Any, Dict, Union, List, Set, NamedTuple, cast
 
-import ulid
-from uuid import UUID
+from ulid import ULID
+from uuid import uuid4, UUID
 from typeid import TypeID            # type: ignore[import-untyped]
 from datetime import datetime
 from functools import partial
 from charidfield import CharIDField  # type: ignore[import-untyped]
 
+from django.conf import settings
 from django.db import models
 from django.db.utils import OperationalError
+from django.contrib.auth import get_user_model
 
 from django_stubs_ext.db.models import TypedModelMeta
 
@@ -37,6 +39,19 @@ ABIDField = partial(
     unique=True,
 )
 
+def get_or_create_system_user_pk(username='system'):
+    """Get or create a system user with is_superuser=True to be the default owner for new DB rows"""
+
+    User = get_user_model()
+
+    # if only one user exists total, return that user
+    if User.objects.filter(is_superuser=True).count() == 1:
+        return User.objects.filter(is_superuser=True).values_list('pk', flat=True)[0]
+
+    # otherwise, create a dedicated "system" user
+    user, created = User.objects.get_or_create(username=username, is_staff=True, is_superuser=True, defaults={'email': '', 'password': ''})
+    return user.pk
+
 
 class ABIDModel(models.Model):
     abid_prefix: str = DEFAULT_ABID_PREFIX  # e.g. 'tag_'
@@ -45,11 +60,13 @@ class ABIDModel(models.Model):
     abid_subtype_src = 'None'               # e.g. 'self.extractor'
     abid_rand_src = 'None'                  # e.g. 'self.uuid' or 'self.id'
 
-    # abid = ABIDField(prefix=abid_prefix, db_index=True, unique=True, null=True, blank=True, editable=True)
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=True)
+    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    abid = ABIDField(prefix=abid_prefix)
 
-    # created = models.DateTimeField(auto_now_add=True, blank=True, null=True, db_index=True)
-    # modified = models.DateTimeField(auto_now=True, blank=True, null=True, db_index=True)
-    # created_by = models.ForeignKeyField(get_user_model(), blank=True, null=True, db_index=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk)
+    created = models.DateTimeField(auto_now_add=True)
+    modified = models.DateTimeField(auto_now=True)
 
     class Meta(TypedModelMeta):
         abstract = True
@@ -64,15 +81,21 @@ class ABIDModel(models.Model):
         
         super().save(*args, **kwargs)
 
-    def calculate_abid(self) -> ABID:
+    @property
+    def abid_values(self) -> Dict[str, Any]:
+        return {
+            'prefix': self.abid_prefix,
+            'ts': eval(self.abid_ts_src),
+            'uri': eval(self.abid_uri_src),
+            'subtype': eval(self.abid_subtype_src),
+            'rand': eval(self.abid_rand_src),
+        }
+
+    def get_abid(self) -> ABID:
         """
         Return a freshly derived ABID (assembled from attrs defined in ABIDModel.abid_*_src).
         """
-        prefix = self.abid_prefix
-        ts = eval(self.abid_ts_src)
-        uri = eval(self.abid_uri_src)
-        subtype = eval(self.abid_subtype_src)
-        rand = eval(self.abid_rand_src)
+        prefix, ts, uri, subtype, rand = self.abid_values.values()
 
         if (not prefix) or prefix == DEFAULT_ABID_PREFIX:
             suggested_abid = self.__class__.__name__[:3].lower()
@@ -112,7 +135,7 @@ class ABIDModel(models.Model):
         return ABID.parse(self.abid) if getattr(self, 'abid', None) else self.calculate_abid()
 
     @property
-    def ULID(self) -> ulid.ULID:
+    def ULID(self) -> ULID:
         """
         Get a ulid.ULID representation of the object's ABID.
         """

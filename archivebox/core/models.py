@@ -53,19 +53,20 @@ class Tag(ABIDModel):
     Based on django-taggit model
     """
     abid_prefix = 'tag_'
-    abid_ts_src = 'None'          # TODO: add created/modified time
+    abid_ts_src = 'self.created'          # TODO: add created/modified time
     abid_uri_src = 'self.name'
     abid_subtype_src = '"03"'
     abid_rand_src = 'self.id'
 
+    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
     id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
+    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
-    # no uuid on Tags
+
 
     name = models.CharField(unique=True, blank=False, max_length=100)
-
-    # slug is autoset on save from name, never set it manually
     slug = models.SlugField(unique=True, blank=True, max_length=100)
+    # slug is autoset on save from name, never set it manually
 
 
     class Meta(TypedModelMeta):
@@ -325,8 +326,9 @@ class ArchiveResult(ABIDModel):
     abid_rand_src = 'self.uuid'
     EXTRACTOR_CHOICES = EXTRACTOR_CHOICES
 
+    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')   # legacy pk
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)      # legacy uuid
+    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
