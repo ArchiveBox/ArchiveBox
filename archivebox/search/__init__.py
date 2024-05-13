@@ -39,7 +39,7 @@ def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: 
         backend = import_backend()
         if snap:
             try:
-                backend.index(snapshot_id=str(snap.id), texts=texts)
+                backend.index(snapshot_id=str(snap.pk), texts=texts)
             except Exception as err:
                 stderr()
                 stderr(
@@ -54,7 +54,7 @@ def query_search_index(query: str, out_dir: Path=OUTPUT_DIR) -> QuerySet:
     if search_backend_enabled():
         backend = import_backend()
         try:
-            snapshot_ids = backend.search(query)
+            snapshot_pks = backend.search(query)
         except Exception as err:
             stderr()
             stderr(
@@ -64,7 +64,7 @@ def query_search_index(query: str, out_dir: Path=OUTPUT_DIR) -> QuerySet:
             raise
         else:
             # TODO preserve ordering from backend
-            qsearch = Snapshot.objects.filter(pk__in=snapshot_ids)
+            qsearch = Snapshot.objects.filter(pk__in=snapshot_pks)
             return qsearch
     
     return Snapshot.objects.none()
@@ -74,9 +74,9 @@ def flush_search_index(snapshots: QuerySet):
     if not indexing_enabled() or not snapshots:
         return
     backend = import_backend()
-    snapshot_ids=(str(pk) for pk in snapshots.values_list('pk',flat=True))
+    snapshot_pks = (str(pk) for pk in snapshots.values_list('pk', flat=True))
     try:
-        backend.flush(snapshot_ids)
+        backend.flush(snapshot_pks)
     except Exception as err:
         stderr()
         stderr(

@@ -12,7 +12,7 @@ from signal_webhooks.models import WebhookBase
 
 from django_stubs_ext.db.models import TypedModelMeta
 
-from abid_utils.models import ABIDModel
+from abid_utils.models import ABIDModel, ABIDField
 
 
 def generate_secret_token() -> str:
@@ -21,7 +21,15 @@ def generate_secret_token() -> str:
 
 
 class APIToken(ABIDModel):
+    abid_prefix = 'apt'
+    abid_ts_src = 'self.created'
+    abid_uri_src = 'self.token'
+    abid_subtype_src = 'self.user_id'
+    abid_rand_src = 'self.id'
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
+    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    abid = ABIDField(prefix=abid_prefix)
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     token = models.CharField(max_length=32, default=generate_secret_token, unique=True)
@@ -42,7 +50,8 @@ class APIToken(ABIDModel):
     def __json__(self) -> dict:
         return {
             "TYPE":             "APIToken",    
-            "id":               str(self.id),
+            "uuid":             str(self.id),
+            "abid":             str(self.calculate_abid()),
             "user_id":          str(self.user.id),
             "user_username":    self.user.username,
             "token":            self.token,
@@ -77,9 +86,14 @@ class OutboundWebhook(ABIDModel, WebhookBase):
     Model used in place of (extending) signals_webhooks.models.WebhookModel. Swapped using:
         settings.SIGNAL_WEBHOOKS_CUSTOM_MODEL = 'api.models.OutboundWebhook'
     """
-    ID_PREFIX = 'whk'
+    abid_prefix = 'whk'
+    abid_ts_src = 'self.created'
+    abid_uri_src = 'self.endpoint'
+    abid_subtype_src = 'self.ref'
+    abid_rand_src = 'self.id'
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
+    abid = ABIDField(prefix=abid_prefix)
 
     WebhookBase._meta.get_field('name').help_text = (
         'Give your webhook a descriptive name (e.g. Notify ACME Slack channel of any new ArchiveResults).')
@@ -92,3 +106,4 @@ class OutboundWebhook(ABIDModel, WebhookBase):
 
     class Meta(WebhookBase.Meta):
         verbose_name = 'API Outbound Webhook'
+

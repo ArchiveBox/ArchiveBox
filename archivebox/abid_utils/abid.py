@@ -48,6 +48,8 @@ class ABID(NamedTuple):
 
     @classmethod
     def parse(cls, buffer: Union[str, UUID, ulid.ULID, TypeID, 'ABID'], prefix=DEFAULT_ABID_PREFIX) -> 'ABID':
+        assert buffer, f'Attempted to create ABID from null value {buffer}'
+
         buffer = str(buffer)
         if '_' in buffer:
             prefix, suffix = buffer.split('_')
@@ -55,7 +57,7 @@ class ABID(NamedTuple):
             prefix, suffix = prefix.strip('_'), buffer
 
         assert len(prefix) == ABID_PREFIX_LEN - 1   # length without trailing _
-        assert len(suffix) == ABID_SUFFIX_LEN
+        assert len(suffix) == ABID_SUFFIX_LEN, f'Suffix {suffix} from {buffer} was not {ABID_SUFFIX_LEN} chars long'
 
         return cls(
             prefix=abid_part_from_prefix(prefix),
@@ -118,6 +120,7 @@ def abid_part_from_uri(uri: str) -> str:
     """
     'E4A5CCD9'     # takes first 8 characters of sha256(url)
     """
+    uri = str(uri)
     return uri_hash(uri)[:ABID_URI_LEN]
 
 def abid_part_from_ts(ts: Optional[datetime]) -> str:
@@ -131,10 +134,11 @@ def abid_part_from_subtype(subtype: str) -> str:
     Snapshots have 01 type, other objects have other subtypes like wget/media/etc.
     Also allows us to change the ulid spec later by putting special sigil values here.
     """
+    subtype = str(subtype)
     if len(subtype) == ABID_SUBTYPE_LEN:
         return subtype
 
-    return hashlib.sha256(subtype.encode('utf-8')).hexdigest()[:ABID_SUBTYPE_LEN]
+    return hashlib.sha256(subtype.encode('utf-8')).hexdigest()[:ABID_SUBTYPE_LEN].upper()
 
 def abid_part_from_rand(rand: Union[str, UUID, None, int]) -> str:
     """
@@ -146,16 +150,15 @@ def abid_part_from_rand(rand: Union[str, UUID, None, int]) -> str:
     elif isinstance(rand, UUID):
         # if it's a uuid we take the last 6 characters of the ULID represation of it
         return str(ulid.from_uuid(rand))[-ABID_RAND_LEN:]
-    elif isinstance(rand, str):
-        # if it's a string we take the last 6 characters of it verbatim
-        return rand[-ABID_RAND_LEN:]
     elif isinstance(rand, int):
         # if it's a BigAutoInteger field we convert it from an int to a 0-padded string
         rand_str = str(rand)[-ABID_RAND_LEN:]
         padding_needed = ABID_RAND_LEN - len(rand_str)
         rand_str = ('0'*padding_needed) + rand_str
         return rand_str
-    raise NotImplementedError('Random component of an ABID can only be computed from a str or UUID')
+
+    # otherwise treat it as a string, take the last 6 characters of it verbatim
+    return str(rand)[-ABID_RAND_LEN:].upper()
 
 
 def abid_from_values(prefix, ts, uri, subtype, rand) -> ABID:

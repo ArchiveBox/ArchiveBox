@@ -6,6 +6,7 @@ from django_stubs_ext.db.models import TypedModelMeta
 
 import json
 
+import uuid
 from uuid import uuid4
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from django.urls import reverse
 from django.db.models import Case, When, Value, IntegerField
 from django.contrib.auth.models import User   # noqa
 
-from abid_utils.models import ABIDModel
+from abid_utils.models import ABIDModel, ABIDField
 
 from ..config import ARCHIVE_DIR, ARCHIVE_DIR_NAME
 from ..system import get_dir_size
@@ -58,6 +59,8 @@ class Tag(ABIDModel):
     abid_rand_src = 'self.id'
 
     id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
+    abid = ABIDField(prefix=abid_prefix)
+    # no uuid on Tags
 
     name = models.CharField(unique=True, blank=False, max_length=100)
 
@@ -108,9 +111,9 @@ class Snapshot(ABIDModel):
     abid_subtype_src = '"01"'
     abid_rand_src = 'self.id'
 
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=True)
-
-    # ulid = models.CharField(max_length=26, null=True, blank=True, db_index=True, unique=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)  # legacy pk
+    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    abid = ABIDField(prefix=abid_prefix)
 
     url = models.URLField(unique=True, db_index=True)
     timestamp = models.CharField(max_length=32, unique=True, db_index=True)
@@ -153,7 +156,7 @@ class Snapshot(ABIDModel):
         return load_link_details(self.as_link())
 
     def tags_str(self, nocache=True) -> str | None:
-        cache_key = f'{self.id}-{(self.updated or self.added).timestamp()}-tags'
+        cache_key = f'{self.pk}-{(self.updated or self.added).timestamp()}-tags'
         calc_tags_str = lambda: ','.join(self.tags.order_by('name').values_list('name', flat=True))
         if nocache:
             tags_str = calc_tags_str()
@@ -200,7 +203,7 @@ class Snapshot(ABIDModel):
 
     @cached_property
     def archive_size(self):
-        cache_key = f'{str(self.id)[:12]}-{(self.updated or self.added).timestamp()}-size'
+        cache_key = f'{str(self.pk)[:12]}-{(self.updated or self.added).timestamp()}-size'
 
         def calc_dir_size():
             try:
@@ -272,7 +275,7 @@ class Snapshot(ABIDModel):
         tags_id = []
         for tag in tags:
             if tag.strip():
-                tags_id.append(Tag.objects.get_or_create(name=tag)[0].id)
+                tags_id.append(Tag.objects.get_or_create(name=tag)[0].pk)
         self.tags.clear()
         self.tags.add(*tags_id)
 
@@ -322,9 +325,9 @@ class ArchiveResult(ABIDModel):
     abid_rand_src = 'self.uuid'
     EXTRACTOR_CHOICES = EXTRACTOR_CHOICES
 
-    id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
-    uuid = models.UUIDField(default=uuid4, editable=True)
-    # ulid = models.CharField(max_length=26, null=True, blank=True, db_index=True, unique=True)
+    id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')   # legacy pk
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)      # legacy uuid
+    abid = ABIDField(prefix=abid_prefix)
 
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
     extractor = models.CharField(choices=EXTRACTOR_CHOICES, max_length=32)

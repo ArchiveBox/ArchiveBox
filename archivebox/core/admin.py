@@ -164,7 +164,7 @@ class SnapshotActionForm(ActionForm):
 class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     list_display = ('added', 'title_str', 'files', 'size', 'url_str')
     sort_fields = ('title_str', 'url_str', 'added', 'files')
-    readonly_fields = ('info', 'bookmarked', 'added', 'updated')
+    readonly_fields = ('info', 'pk', 'uuid', 'abid', 'calculate_abid', 'bookmarked', 'added', 'updated')
     search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
     fields = ('timestamp', 'url', 'title', 'tags', *readonly_fields)
     list_filter = ('added', 'updated', 'tags', 'archiveresult__status')
@@ -213,12 +213,14 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     #             </form>
     #         ''',
     #         csrf.get_token(self.request),
-    #         obj.id,
+    #         obj.pk,
     #     )
 
     def info(self, obj):
         return format_html(
             '''
+            PK: <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;
+            ABID: <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;
             UUID: <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;
             Timestamp: <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;
             URL Hash: <code style="font-size: 10px; user-select: all">{}</code><br/>
@@ -230,9 +232,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
             Extension: {} &nbsp; &nbsp;
             <br/><br/>
             <a href="/archive/{}">View Snapshot index ➡️</a> &nbsp; &nbsp;
-            <a href="/admin/core/snapshot/?id__exact={}">View actions ⚙️</a>
+            <a href="/admin/core/snapshot/?uuid__exact={}">View actions ⚙️</a>
             ''',
-            obj.id,
+            obj.pk,
+            obj.ABID,
+            obj.uuid,
             obj.timestamp,
             obj.url_hash,
             '✅' if obj.is_archived else '❌',
@@ -244,7 +248,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
             obj.headers and obj.headers.get('Content-Type') or '?',
             obj.extension or '?',
             obj.timestamp,
-            obj.id,
+            obj.uuid,
         )
 
     @admin.display(
@@ -411,38 +415,38 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 class TagAdmin(admin.ModelAdmin):
     list_display = ('slug', 'name', 'num_snapshots', 'snapshots', 'id')
     sort_fields = ('id', 'name', 'slug')
-    readonly_fields = ('id', 'num_snapshots', 'snapshots')
+    readonly_fields = ('id', 'pk', 'abid', 'calculate_abid', 'num_snapshots', 'snapshots')
     search_fields = ('id', 'name', 'slug')
     fields = (*readonly_fields, 'name', 'slug')
     actions = ['delete_selected']
     ordering = ['-id']
 
-    def num_snapshots(self, obj):
+    def num_snapshots(self, tag):
         return format_html(
             '<a href="/admin/core/snapshot/?tags__id__exact={}">{} total</a>',
-            obj.id,
-            obj.snapshot_set.count(),
+            tag.id,
+            tag.snapshot_set.count(),
         )
 
-    def snapshots(self, obj):
-        total_count = obj.snapshot_set.count()
+    def snapshots(self, tag):
+        total_count = tag.snapshot_set.count()
         return mark_safe('<br/>'.join(
             format_html(
                 '{} <code><a href="/admin/core/snapshot/{}/change"><b>[{}]</b></a> {}</code>',
                 snap.updated.strftime('%Y-%m-%d %H:%M') if snap.updated else 'pending...',
-                snap.id,
-                snap.timestamp,
+                snap.pk,
+                snap.abid,
                 snap.url,
             )
-            for snap in obj.snapshot_set.order_by('-updated')[:10]
-        ) + (f'<br/><a href="/admin/core/snapshot/?tags__id__exact={obj.id}">and {total_count-10} more...<a>' if obj.snapshot_set.count() > 10 else ''))
+            for snap in tag.snapshot_set.order_by('-updated')[:10]
+        ) + (f'<br/><a href="/admin/core/snapshot/?tags__id__exact={tag.id}">and {total_count-10} more...<a>' if tag.snapshot_set.count() > 10 else ''))
 
 
 @admin.register(ArchiveResult, site=archivebox_admin)
 class ArchiveResultAdmin(admin.ModelAdmin):
     list_display = ('id', 'start_ts', 'extractor', 'snapshot_str', 'tags_str', 'cmd_str', 'status', 'output_str')
     sort_fields = ('start_ts', 'extractor', 'status')
-    readonly_fields = ('id', 'uuid', 'snapshot_str', 'tags_str')
+    readonly_fields = ('id', 'ABID', 'snapshot_str', 'tags_str')
     search_fields = ('id', 'uuid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
     fields = (*readonly_fields, 'snapshot', 'extractor', 'status', 'start_ts', 'end_ts', 'output', 'pwd', 'cmd', 'cmd_version')
     autocomplete_fields = ['snapshot']
@@ -454,31 +458,31 @@ class ArchiveResultAdmin(admin.ModelAdmin):
     @admin.display(
         description='snapshot'
     )
-    def snapshot_str(self, obj):
+    def snapshot_str(self, result):
         return format_html(
             '<a href="/archive/{}/index.html"><b><code>[{}]</code></b></a><br/>'
             '<small>{}</small>',
-            obj.snapshot.timestamp,
-            obj.snapshot.timestamp,
-            obj.snapshot.url[:128],
+            result.snapshot.timestamp,
+            result.snapshot.timestamp,
+            result.snapshot.url[:128],
         )
 
     @admin.display(
         description='tags'
     )
-    def tags_str(self, obj):
-        return obj.snapshot.tags_str()
+    def tags_str(self, result):
+        return result.snapshot.tags_str()
 
-    def cmd_str(self, obj):
+    def cmd_str(self, result):
         return format_html(
             '<pre>{}</pre>',
-            ' '.join(obj.cmd) if isinstance(obj.cmd, list) else str(obj.cmd),
+            ' '.join(result.cmd) if isinstance(result.cmd, list) else str(result.cmd),
         )
 
-    def output_str(self, obj):
+    def output_str(self, result):
         return format_html(
             '<a href="/archive/{}/{}" class="output-link">↗️</a><pre>{}</pre>',
-            obj.snapshot.timestamp,
-            obj.output if (obj.status == 'succeeded') and obj.extractor not in ('title', 'archive_org') else 'index.html',
-            obj.output,
+            result.snapshot.timestamp,
+            result.output if (result.status == 'succeeded') and result.extractor not in ('title', 'archive_org') else 'index.html',
+            result.output,
         )

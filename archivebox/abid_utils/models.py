@@ -28,12 +28,14 @@ from .abid import (
 # Database Field for typeid/ulid style IDs with a prefix, e.g. snp_01BJQMF54D093DXEAWZ6JYRPAQ
 ABIDField = partial(
     CharIDField,
-    default=ulid.new,
     max_length=ABID_LEN,
-    help_text="ABID-format identifier for this entity (e.g. snp_01BJQMF54D093DXEAWZ6JYRPAQ)"
+    help_text="ABID-format identifier for this entity (e.g. snp_01BJQMF54D093DXEAWZ6JYRPAQ)",
+    default=None,
+    null=True,
+    blank=True,
+    db_index=True,
+    unique=True,
 )
-
-
 
 
 class ABIDModel(models.Model):
@@ -54,7 +56,8 @@ class ABIDModel(models.Model):
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         if hasattr(self, 'abid'):
-            self.abid: ABID = self.abid or self.calculate_abid()
+            # self.abid = ABID.parse(self.abid) if self.abid else self.calculate_abid()
+            self.abid = self.calculate_abid()
         else:
             print(f'[!] WARNING: {self.__class__.__name__}.abid is not a DB field so ABID will not be persisted!')
             self.abid = self.calculate_abid()
@@ -106,7 +109,7 @@ class ABIDModel(models.Model):
         """
         ULIDParts(timestamp='01HX9FPYTR', url='E4A5CCD9', subtype='00', randomness='ZYEBQE')
         """
-        return ABID.parse(self.abid) if self.abid else self.calculate_abid()
+        return ABID.parse(self.abid) if getattr(self, 'abid', None) else self.calculate_abid()
 
     @property
     def ULID(self) -> ulid.ULID:

@@ -62,13 +62,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.admin',
 
+    'signal_webhooks',
     'abid_utils',
     'core',
     'api',
 
     'admin_data_views',
 
-    'signal_webhooks',
     'django_extensions',
 ]
 
@@ -248,26 +248,27 @@ DATABASES = {
         'TIME_ZONE': TIMEZONE,
         # DB setup is sometimes modified at runtime by setup_django() in config.py
     },
-    'cache': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': CACHE_DB_PATH,
-        'OPTIONS': {
-            'timeout': 60,
-            'check_same_thread': False,
-        },
-        'TIME_ZONE': TIMEZONE,
-    },
+    # 'cache': {
+    #     'ENGINE': 'django.db.backends.sqlite3',
+    #     'NAME': CACHE_DB_PATH,
+    #     'OPTIONS': {
+    #         'timeout': 60,
+    #         'check_same_thread': False,
+    #     },
+    #     'TIME_ZONE': TIMEZONE,
+    # },
 }
+MIGRATION_MODULES = {'signal_webhooks': None}
 
 # as much as I'd love this to be a UUID or ULID field, it's not supported yet as of Django 5.0
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 CACHES = {
-    'default': {'BACKEND': 'django.core.cache.backends.db.DatabaseCache', 'LOCATION': 'cache'},
-    'dummy': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'},
-    'locmem': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'},
-    'filebased': {"BACKEND": "django.core.cache.backends.filebased.FileBasedCache", "LOCATION": CACHE_DIR / 'cache_filebased'},
+    'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'},
+    # 'sqlite': {'BACKEND': 'django.core.cache.backends.db.DatabaseCache', 'LOCATION': 'cache'},
+    # 'dummy': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'},
+    # 'filebased': {"BACKEND": "django.core.cache.backends.filebased.FileBasedCache", "LOCATION": CACHE_DIR / 'cache_filebased'},
 }
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

@@ -10,7 +10,7 @@ from ninja import Router, Schema, FilterSchema, Field, Query
 from ninja.pagination import paginate
 
 from core.models import Snapshot, ArchiveResult, Tag
-
+from abid_utils.abid import ABID
 
 router = Router(tags=['Core Models'])
 
@@ -20,9 +20,12 @@ router = Router(tags=['Core Models'])
 ### ArchiveResult #########################################################################
 
 class ArchiveResultSchema(Schema):
-    id: UUID
+    pk: str
+    uuid: UUID
+    abid: str
 
-    snapshot_id: UUID
+    snapshot_abid: str
+
     snapshot_url: str
     snapshot_tags: str
 
@@ -36,8 +39,16 @@ class ArchiveResultSchema(Schema):
     created: datetime
 
     @staticmethod
-    def resolve_id(obj):
-        return obj.uuid
+    def resolve_pk(obj):
+        return str(obj.pk)
+
+    @staticmethod
+    def resolve_uuid(obj):
+        return str(obj.uuid)
+
+    @staticmethod
+    def resolve_abid(obj):
+        return str(obj.ABID)
 
     @staticmethod
     def resolve_created(obj):
@@ -48,15 +59,20 @@ class ArchiveResultSchema(Schema):
         return obj.snapshot.url
 
     @staticmethod
+    def resolve_snapshot_abid(obj):
+        return str(obj.snapshot.ABID)
+
+    @staticmethod
     def resolve_snapshot_tags(obj):
         return obj.snapshot.tags_str()
 
 
 class ArchiveResultFilterSchema(FilterSchema):
-    id: Optional[UUID] = Field(None, q='uuid')
+    uuid: Optional[UUID] = Field(None, q='uuid')
+    # abid: Optional[str] = Field(None, q='abid')
 
     search: Optional[str] = Field(None, q=['snapshot__url__icontains', 'snapshot__title__icontains', 'snapshot__tags__name__icontains', 'extractor', 'output__icontains'])
-    snapshot_id: Optional[UUID] = Field(None, q='snapshot_id')
+    snapshot_uuid: Optional[UUID] = Field(None, q='snapshot_uuid')
     snapshot_url: Optional[str] = Field(None, q='snapshot__url')
     snapshot_tag: Optional[str] = Field(None, q='snapshot__tags__name')
     
@@ -115,7 +131,9 @@ def get_archiveresult(request, archiveresult_id: str):
 
 
 class SnapshotSchema(Schema):
-    id: UUID
+    pk: str
+    uuid: UUID
+    abid: str
 
     url: str
     tags: str
@@ -128,9 +146,17 @@ class SnapshotSchema(Schema):
 
     archiveresults: List[ArchiveResultSchema]
 
-    # @staticmethod
-    # def resolve_id(obj):
-    #     return str(obj.id)
+    @staticmethod
+    def resolve_pk(obj):
+        return str(obj.pk)
+
+    @staticmethod
+    def resolve_uuid(obj):
+        return str(obj.uuid)
+
+    @staticmethod
+    def resolve_abid(obj):
+        return str(obj.ABID)
 
     @staticmethod
     def resolve_tags(obj):
@@ -167,10 +193,10 @@ def list_snapshots(request, filters: SnapshotFilterSchema = Query(...), with_arc
     results = filters.filter(qs)
     return results
 
-@router.get("/snapshot/{snapshot_id}", response=SnapshotSchema)
-def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
+@router.get("/snapshot/{snapshot_uuid}", response=SnapshotSchema)
+def get_snapshot(request, snapshot_uuid: str, with_archiveresults: bool=True):
     request.with_archiveresults = with_archiveresults
-    snapshot = get_object_or_404(Snapshot, id=snapshot_id)
+    snapshot = get_object_or_404(Snapshot, uuid=snapshot_uuid)
     return snapshot
 
 
@@ -179,9 +205,9 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
 #     snapshot = Snapshot.objects.create(**payload.dict())
 #     return snapshot
 #
-# @router.put("/snapshot/{snapshot_id}", response=SnapshotSchema)
-# def update_snapshot(request, snapshot_id: str, payload: SnapshotSchema):
-#     snapshot = get_object_or_404(Snapshot, id=snapshot_id)
+# @router.put("/snapshot/{snapshot_uuid}", response=SnapshotSchema)
+# def update_snapshot(request, snapshot_uuid: str, payload: SnapshotSchema):
+#     snapshot = get_object_or_404(Snapshot, uuid=snapshot_uuid)
 #
 #     for attr, value in payload.dict().items():
 #         setattr(snapshot, attr, value)
@@ -189,9 +215,9 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
 #
 #     return snapshot
 #
-# @router.delete("/snapshot/{snapshot_id}")
-# def delete_snapshot(request, snapshot_id: str):
-#     snapshot = get_object_or_404(Snapshot, id=snapshot_id)
+# @router.delete("/snapshot/{snapshot_uuid}")
+# def delete_snapshot(request, snapshot_uuid: str):
+#     snapshot = get_object_or_404(Snapshot, uuid=snapshot_uuid)
 #     snapshot.delete()
 #     return {"success": True}
 
