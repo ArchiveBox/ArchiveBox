@@ -15,8 +15,7 @@ from django.contrib.auth import get_user_model
 from django import forms
 
 
-from signal_webhooks.apps import DjangoSignalWebhooksConfig
-from signal_webhooks.admin import WebhookAdmin, WebhookModel
+from signal_webhooks.admin import WebhookAdmin, get_webhook_model
 
 from ..util import htmldecode, urldecode, ansi_to_html
 
@@ -104,23 +103,14 @@ class ArchiveBoxAdmin(admin.AdminSite):
         return render(template_name='add.html', request=request, context=context)
 
 
-# monkey patch django-signals-webhooks to change how it shows up in Admin UI
-DjangoSignalWebhooksConfig.verbose_name = 'API'
-WebhookModel._meta.get_field('name').help_text = 'Give your webhook a descriptive name (e.g. Notify ACME Slack channel of any new ArchiveResults).'
-WebhookModel._meta.get_field('signal').help_text = 'The type of event the webhook should fire for (e.g. Create, Update, Delete).'
-WebhookModel._meta.get_field('ref').help_text = 'Dot import notation of the model the webhook should fire for (e.g. core.models.Snapshot or core.models.ArchiveResult).'
-WebhookModel._meta.get_field('endpoint').help_text = 'External URL to POST the webhook notification to (e.g. https://someapp.example.com/webhook/some-webhook-receiver).'
-WebhookModel._meta.app_label = 'api'
-
-
 archivebox_admin = ArchiveBoxAdmin()
 archivebox_admin.register(get_user_model())
 archivebox_admin.register(APIToken)
-archivebox_admin.register(WebhookModel, WebhookAdmin)
+archivebox_admin.register(get_webhook_model(), WebhookAdmin)
 archivebox_admin.disable_action('delete_selected')
 
 
-# patch admin with methods to add data views
+# patch admin with methods to add data views (implemented by admin_data_views package)
 from admin_data_views.admin import get_app_list, admin_data_index_view, get_admin_data_urls, get_urls
 
 archivebox_admin.get_app_list = get_app_list.__get__(archivebox_admin, ArchiveBoxAdmin)

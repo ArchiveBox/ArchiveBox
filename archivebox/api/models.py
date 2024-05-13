@@ -8,6 +8,8 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from signal_webhooks.models import WebhookBase
+
 from django_stubs_ext.db.models import TypedModelMeta
 
 
@@ -61,3 +63,30 @@ class APIToken(models.Model):
 
         return True
 
+
+
+
+
+
+# monkey patch django-signals-webhooks to change how it shows up in Admin UI
+
+class OutboundWebhook(ABIDModel, WebhookBase):
+    """
+    Model used in place of (extending) signals_webhooks.models.WebhookModel. Swapped using:
+        settings.SIGNAL_WEBHOOKS_CUSTOM_MODEL = 'api.models.OutboundWebhook'
+    """
+    ID_PREFIX = 'whk'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
+
+    WebhookBase._meta.get_field('name').help_text = (
+        'Give your webhook a descriptive name (e.g. Notify ACME Slack channel of any new ArchiveResults).')
+    WebhookBase._meta.get_field('signal').help_text = (
+        'The type of event the webhook should fire for (e.g. Create, Update, Delete).')
+    WebhookBase._meta.get_field('ref').help_text = (
+        'Dot import notation of the model the webhook should fire for (e.g. core.models.Snapshot or core.models.ArchiveResult).')
+    WebhookBase._meta.get_field('endpoint').help_text = (
+        'External URL to POST the webhook notification to (e.g. https://someapp.example.com/webhook/some-webhook-receiver).')
+
+    class Meta(WebhookBase.Meta):
+        verbose_name = 'API Outbound Webhook'
