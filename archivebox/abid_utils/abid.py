@@ -3,6 +3,7 @@ from typing import NamedTuple, Any, Union, Optional
 import ulid
 import uuid6
 import hashlib
+from urllib.parse import urlparse
 
 from uuid import UUID
 from typeid import TypeID            # type: ignore[import-untyped]
@@ -100,10 +101,20 @@ def uri_hash(uri: Union[str, bytes]) -> str:
     """
     'E4A5CCD9AF4ED2A6E0954DF19FD274E9CDDB4853051F033FD518BFC90AA1AC25'
     """
-    if isinstance(uri, str):
-        uri = uri.encode('utf-8')
+    if isinstance(uri, bytes):
+        uri_str: str = uri.decode()
+    else:
+        uri_str = uri
 
-    return hashlib.sha256(uri).hexdigest().upper()
+    # only hash the domain part of URLs
+    if '://' in uri_str:
+        domain = urlparse(uri_str).host
+        if domain:
+            url_str = domain
+    
+    uri_bytes = uri_str.encode('utf-8')
+
+    return hashlib.sha256(uri_bytes).hexdigest().upper()
 
 def abid_part_from_prefix(prefix: Optional[str]) -> str:
     """
