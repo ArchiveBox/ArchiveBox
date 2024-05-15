@@ -1,3 +1,9 @@
+"""
+This file provides the Django ABIDField and ABIDModel base model to inherit from.
+
+It implements the ArchiveBox ID (ABID) interfaces including abid_values, get_abid, .abid, .uuid, .id.
+"""
+
 from typing import Any, Dict, Union, List, Set, NamedTuple, cast
 
 from ulid import ULID
@@ -54,6 +60,9 @@ def get_or_create_system_user_pk(username='system'):
 
 
 class ABIDModel(models.Model):
+    """
+    Abstract Base Model for other models to depend on. Provides ArchiveBox ID (ABID) interface.
+    """
     abid_prefix: str = DEFAULT_ABID_PREFIX  # e.g. 'tag_'
     abid_ts_src = 'None'                    # e.g. 'self.created'
     abid_uri_src = 'None'                   # e.g. 'self.uri'

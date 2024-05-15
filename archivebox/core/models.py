@@ -50,7 +50,7 @@ STATUS_CHOICES = [
 
 class Tag(ABIDModel):
     """
-    Based on django-taggit model
+    Based on django-taggit model + ABID base.
     """
     abid_prefix = 'tag_'
     abid_ts_src = 'self.created'          # TODO: add created/modified time
