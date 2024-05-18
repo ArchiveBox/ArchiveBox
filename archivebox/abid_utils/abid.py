@@ -108,9 +108,12 @@ def uri_hash(uri: Union[str, bytes]) -> str:
 
     # only hash the domain part of URLs
     if '://' in uri_str:
-        domain = urlparse(uri_str).host
-        if domain:
-            url_str = domain
+        try:
+            domain = urlparse(uri_str).netloc
+            if domain:
+                uri_str = domain
+        except AttributeError:
+            pass
     
     uri_bytes = uri_str.encode('utf-8')
 

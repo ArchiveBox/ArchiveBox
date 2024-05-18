@@ -56,7 +56,7 @@ class APIToken(ABIDModel):
         return {
             "TYPE":             "APIToken",    
             "uuid":             str(self.id),
-            "abid":             str(self.calculate_abid()),
+            "abid":             str(self.get_abid()),
             "user_id":          str(self.user.id),
             "user_username":    self.user.username,
             "token":            self.token,

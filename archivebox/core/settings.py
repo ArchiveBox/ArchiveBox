@@ -10,6 +10,7 @@ from pathlib import Path
 from django.utils.crypto import get_random_string
 
 from ..config import (
+    CONFIG,
     DEBUG,
     SECRET_KEY,
     ALLOWED_HOSTS,

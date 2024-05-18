@@ -82,11 +82,11 @@ class ABIDModel(models.Model):
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         if hasattr(self, 'abid'):
-            # self.abid = ABID.parse(self.abid) if self.abid else self.calculate_abid()
-            self.abid = self.calculate_abid()
+            # self.abid = ABID.parse(self.abid) if self.abid else self.get_abid()
+            self.abid = self.get_abid()
         else:
             print(f'[!] WARNING: {self.__class__.__name__}.abid is not a DB field so ABID will not be persisted!')
-            self.abid = self.calculate_abid()
+            self.abid = self.get_abid()
         
         super().save(*args, **kwargs)
 
@@ -141,7 +141,7 @@ class ABIDModel(models.Model):
         """
         ULIDParts(timestamp='01HX9FPYTR', url='E4A5CCD9', subtype='00', randomness='ZYEBQE')
         """
-        return ABID.parse(self.abid) if getattr(self, 'abid', None) else self.calculate_abid()
+        return ABID.parse(self.abid) if getattr(self, 'abid', None) else self.get_abid()
 
     @property
     def ULID(self) -> ULID:
@@ -274,7 +274,7 @@ def find_obj_from_abid_rand(rand: Union[ABID, str], model=None) -> List[ABIDMode
                 )
 
             for obj in qs:
-                if obj.calculate_abid() == abid:
+                if obj.get_abid() == abid:
                     # found exact match, no need to keep iterating
                     return [obj]
                 partial_matches.append(obj)
