@@ -94,7 +94,8 @@ def save_singlefile(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
         status = 'failed'
         # TODO: Make this prettier. This is necessary to run the command (escape JSON internal quotes).
         cmd[2] = browser_args.replace('"', "\\\"")
-        err.hints = (result.stdout + result.stderr).decode().split('\n')
+        if result:
+            err.hints = (result.stdout + result.stderr).decode().split('\n')
         output = err
     finally:
         timer.end()

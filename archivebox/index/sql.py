@@ -143,7 +143,7 @@ def list_migrations(out_dir: Path=OUTPUT_DIR) -> List[Tuple[bool, str]]:
 def apply_migrations(out_dir: Path=OUTPUT_DIR) -> List[str]:
     from django.core.management import call_command
     null, out = StringIO(), StringIO()
-    # call_command("makemigrations", interactive=False, stdout=null)
+    call_command("makemigrations", interactive=False, stdout=null)
     call_command("migrate", interactive=False, stdout=out)
     out.seek(0)
 
