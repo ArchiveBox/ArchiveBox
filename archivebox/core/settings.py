@@ -55,6 +55,26 @@ APPEND_SLASH = True
 
 DEBUG = DEBUG or ('--debug' in sys.argv)
 
+
+# add plugins folders to system path, and load plugins in installed_apps
+BUILTIN_PLUGINS_DIR = PACKAGE_DIR / 'plugins'
+USER_PLUGINS_DIR = OUTPUT_DIR / 'plugins'
+sys.path.insert(0, str(BUILTIN_PLUGINS_DIR))
+sys.path.insert(0, str(USER_PLUGINS_DIR))
+
+def find_plugins(plugins_dir):
+    return {
+        # plugin_entrypoint.parent.name: import_module(plugin_entrypoint.parent.name).METADATA
+        plugin_entrypoint.parent.name: plugin_entrypoint.parent
+        for plugin_entrypoint in plugins_dir.glob('*/apps.py')
+    }
+
+INSTALLED_PLUGINS = {
+    **find_plugins(BUILTIN_PLUGINS_DIR),
+    **find_plugins(USER_PLUGINS_DIR),
+}
+
+
 INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -69,6 +89,8 @@ INSTALLED_APPS = [
     'plugantic',
     'core',
     'api',
+
+    *INSTALLED_PLUGINS.keys(),
 
     'admin_data_views',
 
