@@ -192,7 +192,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     list_display = ('added', 'title_str', 'files', 'size', 'url_str')
     sort_fields = ('title_str', 'url_str', 'added', 'files')
     readonly_fields = ('admin_actions', 'status_info', 'bookmarked', 'added', 'updated', 'created', 'modified', 'identifiers')
-    search_fields = ('id', 'url', 'timestamp', 'title', 'tags__name')
+    search_fields = ('id', 'url', 'abid', 'uuid', 'timestamp', 'title', 'tags__name')
     fields = ('url', 'timestamp', 'created_by', 'tags', 'title', *readonly_fields)
     list_filter = ('added', 'updated', 'tags', 'archiveresult__status', 'created_by')
     ordering = ['-added']
@@ -247,9 +247,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
         return format_html(
             # URL Hash: <code style="font-size: 10px; user-select: all">{}</code><br/>
             '''
-            <a class="btn" style="font-size: 15px; display: inline-block; border-radius: 10px; border: 2px solid #eee; padding: 4px 8px" href="/archive/{}">Summary page ➡️</a> &nbsp; &nbsp;
-            <a class="btn" style="font-size: 15px; display: inline-block; border-radius: 10px; border: 2px solid #eee; padding: 4px 8px" href="/archive/{}/index.html#all">Result files 📑</a> &nbsp; &nbsp;
-            <a class="btn" style="font-size: 15px; display: inline-block; border-radius: 10px; border: 2px solid #eee; padding: 4px 8px" href="/admin/core/snapshot/?id__exact={}">Admin actions ⚙️</a>
+            <a class="btn" style="font-size: 18px; display: inline-block; border-radius: 10px; border: 3px solid #eee; padding: 4px 8px" href="/archive/{}">Summary page ➡️</a> &nbsp; &nbsp;
+            <a class="btn" style="font-size: 18px; display: inline-block; border-radius: 10px; border: 3px solid #eee; padding: 4px 8px" href="/archive/{}/index.html#all">Result files 📑</a> &nbsp; &nbsp;
+            <a class="btn" style="font-size: 18px; display: inline-block; border-radius: 10px; border: 3px solid #eee; padding: 4px 8px" href="/admin/core/snapshot/?id__exact={}">Admin actions ⚙️</a>
             ''',
             obj.timestamp,
             obj.timestamp,
@@ -269,12 +269,12 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
             ''',
             '✅' if obj.is_archived else '❌',
             obj.num_outputs,
-            self.size(obj),
+            self.size(obj) or '0kb',
             f'/archive/{obj.timestamp}/favicon.ico',
-            obj.status_code or '?',
-            obj.headers and obj.headers.get('Server') or '?',
-            obj.headers and obj.headers.get('Content-Type') or '?',
-            obj.extension or '?',
+            obj.status_code or '-',
+            obj.headers and obj.headers.get('Server') or '-',
+            obj.headers and obj.headers.get('Content-Type') or '-',
+            obj.extension or '-',
         )
 
     def identifiers(self, obj):
@@ -479,7 +479,7 @@ class ArchiveResultAdmin(admin.ModelAdmin):
     list_display = ('start_ts', 'snapshot_info', 'tags_str', 'extractor', 'cmd_str', 'status', 'output_str')
     sort_fields = ('start_ts', 'extractor', 'status')
     readonly_fields = ('snapshot_info', 'tags_str', 'created_by', 'created', 'modified', 'identifiers')
-    search_fields = ('id', 'uuid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
+    search_fields = ('id', 'uuid', 'abid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
     fields = ('snapshot', 'extractor', 'status', 'output', 'pwd', 'cmd',  'start_ts', 'end_ts', 'cmd_version', *readonly_fields)
     autocomplete_fields = ['snapshot']
 
