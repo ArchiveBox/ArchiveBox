@@ -405,7 +405,7 @@
                                     </a>
                                     <!--<a href="{{result.path}}" target="preview"><h4 class="card-title">{{result.name}}</h4></a>-->
                                 </div>
-                                <iframe class="card-img-top" src="{{result.path}}" sandbox="allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
+                                <iframe class="card-img-top" src="{{result.path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                             </div>
                         </div>
                     {% endfor %}
@@ -463,7 +463,7 @@
                     if (target.endsWith('.pdf')) {
                         jQuery('#main-frame')[0].removeAttribute('sandbox')
                     } else {
-                        jQuery('#main-frame')[0].sandbox = "allow-scripts allow-forms allow-top-navigation-by-user-activation"
+                        jQuery('#main-frame')[0].sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
                     }
                     window.location.hash = getPreviewTypeFromPath(event.currentTarget.querySelector('a'))
 
