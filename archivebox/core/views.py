@@ -455,7 +455,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     for section in CONFIG_SCHEMA.keys():
         for key in CONFIG_SCHEMA[section].keys():
-            rows['Section'].append(section.replace('_', ' ').title().replace(' Config', ''))
+            rows['Section'].append(section)   # section.replace('_', ' ').title().replace(' Config', '')
             rows['Key'].append(ItemLink(key, key=key))
             rows['Type'].append(mark_safe(f'<code>{find_config_type(key)}</code>'))
             rows['Value'].append(mark_safe(f'<code>{CONFIG[key]}</code>') if key_is_safe(key) else '******** (redacted)')
@@ -465,7 +465,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     section = 'DYNAMIC'
     for key in DYNAMIC_CONFIG_SCHEMA.keys():
-        rows['Section'].append(section.replace('_', ' ').title().replace(' Config', ''))
+        rows['Section'].append(section)   # section.replace('_', ' ').title().replace(' Config', '')
         rows['Key'].append(ItemLink(key, key=key))
         rows['Type'].append(mark_safe(f'<code>{find_config_type(key)}</code>'))
         rows['Value'].append(mark_safe(f'<code>{CONFIG[key]}</code>') if key_is_safe(key) else '******** (redacted)')
