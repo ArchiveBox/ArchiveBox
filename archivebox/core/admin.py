@@ -16,6 +16,7 @@ from django import forms
 
 
 from signal_webhooks.admin import WebhookAdmin, get_webhook_model
+# from plugantic.admin import CustomPlugin
 
 from ..util import htmldecode, urldecode, ansi_to_html
 
@@ -36,6 +37,7 @@ from config import (
     VERSIONS_AVAILABLE,
     CAN_UPGRADE
 )
+
 
 GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': VERSIONS_AVAILABLE, 'CAN_UPGRADE': CAN_UPGRADE}
 
@@ -109,8 +111,10 @@ archivebox_admin.register(APIToken)
 archivebox_admin.register(get_webhook_model(), WebhookAdmin)
 archivebox_admin.disable_action('delete_selected')
 
+# archivebox_admin.register(CustomPlugin)
 
 # patch admin with methods to add data views (implemented by admin_data_views package)
+############### Additional sections are defined in settings.ADMIN_DATA_VIEWS #########
 from admin_data_views.admin import get_app_list, admin_data_index_view, get_admin_data_urls, get_urls
 
 archivebox_admin.get_app_list = get_app_list.__get__(archivebox_admin, ArchiveBoxAdmin)

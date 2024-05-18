@@ -62,9 +62,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admin',
+    'django_jsonform',
 
     'signal_webhooks',
     'abid_utils',
+    'plugantic',
     'core',
     'api',
 
@@ -441,16 +443,36 @@ SIGNAL_WEBHOOKS = {
 
 
 ADMIN_DATA_VIEWS = {
-    "NAME": "configuration",
+    "NAME": "Environment",
     "URLS": [
         {
-            "route": "live/",
+            "route": "config/",
             "view": "core.views.live_config_list_view",
-            "name": "live",
+            "name": "Configuration",
             "items": {
                 "route": "<str:key>/",
                 "view": "core.views.live_config_value_view",
-                "name": "live_config_value",
+                "name": "config_val",
+            },
+        },
+        {
+            "route": "binaries/",
+            "view": "plugantic.views.binaries_list_view",
+            "name": "Binaries",
+            "items": {
+                "route": "<str:key>/",
+                "view": "plugantic.views.binary_detail_view",
+                "name": "binary",
+            },
+        },
+        {
+            "route": "plugins/",
+            "view": "plugantic.views.plugins_list_view",
+            "name": "Plugins",
+            "items": {
+                "route": "<str:key>/",
+                "view": "plugantic.views.plugin_detail_view",
+                "name": "plugin",
             },
         },
     ],
