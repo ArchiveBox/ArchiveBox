@@ -93,7 +93,7 @@ docker run -it -v $PWD:/data archivebox/archivebox init --setup
 pip install archivebox
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
 archivebox init --setup
-# archviebox add 'https://example.com'
+# archivebox add 'https://example.com'
 # archivebox help
 # archivebox server 0.0.0.0:8000
 <br/>
