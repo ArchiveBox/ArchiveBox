@@ -401,13 +401,13 @@
                         <div class="col-lg-2">
                             <div class="card {% if forloop.first %}selected-card{% endif %}">
                                 <div class="card-body">
-                                    <a href="{{result.path}}" target="preview" title="./{{result.path}} (downloaded {{result.ts}})">
-                                        <h4>{{result.name}} <small>({{result.size|filesizeformat}})</small></h4>
+                                    <a href="{{result.path|urlencode}}" target="preview" title="./{{result.path}} (downloaded {{result.ts}})">
+                                        <h4>{{result.name|truncatechars:24}} <small>({{result.size|filesizeformat}})</small></h4>
                                         <!-- <p class="card-text" ><code>./{{result.path|truncatechars:30}}</code></p> -->
                                     </a>
                                     <!--<a href="{{result.path}}" target="preview"><h4 class="card-title">{{result.name}}</h4></a>-->
                                 </div>
-                                <iframe class="card-img-top" src="{{result.path}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
+                                <iframe class="card-img-top" src="{{result.path|urlencode}}?autoplay=0" allow="autoplay 'none'; fullscreen 'none'; navigation-override 'none'; " sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                             </div>
                         </div>
                     {% endfor %}
@@ -419,7 +419,7 @@
                                 <a href="./" target="preview">
                                     <h4>Headers, JSON, etc.</h4>
                                 </a>
-                                <!--<a href="{{result.path}}" target="preview"><h4 class="card-title">{{result.name}}</h4></a>-->
+                                <!--<a href="{{result.path|urlencode}}" target="preview"><h4 class="card-title">{{result.name}}</h4></a>-->
                             </div>
                             <iframe class="card-img-top" src="./" sandbox="" scrolling="no" loading="lazy"></iframe>
                         </div>
@@ -430,7 +430,7 @@
 
 
 
-        <iframe id="main-frame" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{best_result.path}}" name="preview"></iframe>
+        <iframe id="main-frame" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{best_result.path|urlencode}}" name="preview"></iframe>
     
 
 
@@ -444,9 +444,9 @@
                     this.src = this.src + '#toolbar=0'
                 }
                 this.onload = function() {
-                    if (this.src.endsWith('.pdf')) {
+                    if (this.src.includes('.pdf')) {
                         this.removeAttribute('sandbox')
-                        this.src = this.src + '#toolbar=0'
+                        this.src = this.src.split('?autoplay=')[0] + '#toolbar=0'
                     }
                     try {
                         // doesnt work if frame origin rules prevent accessing its DOM via JS

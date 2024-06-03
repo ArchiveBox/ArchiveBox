@@ -90,7 +90,7 @@ class SnapshotView(View):
                 archiveresults[result.extractor] = result_info
 
         existing_files = {result['path'] for result in archiveresults.values()}
-        min_size_threshold = 128  # bytes
+        min_size_threshold = 10_000  # bytes
         allowed_extensions = {
             'txt',
             'html',
@@ -108,12 +108,14 @@ class SnapshotView(View):
             'md',
         }
 
+
         # iterate through all the files in the snapshot dir and add the biggest ones to the result list
-        for result_file in Path(snapshot.link_dir).glob('*/*/*'):
+        snap_dir = Path(snapshot.link_dir)
+        for result_file in (*snap_dir.glob('*'), *snap_dir.glob('*/*')):
             extension = result_file.suffix.lstrip('.').lower()
             if result_file.is_dir() or result_file.name.startswith('.') or extension not in allowed_extensions:
                 continue
-            if result_file.name in existing_files:
+            if result_file.name in existing_files or result_file.name == 'index.html':
                 continue
 
             file_size = result_file.stat().st_size or 0
@@ -121,7 +123,7 @@ class SnapshotView(View):
             if file_size > min_size_threshold:
                 archiveresults[result_file.name] = {
                     'name': result_file.stem,
-                    'path': result_file.relative_to(snapshot.link_dir),
+                    'path': result_file.relative_to(snap_dir),
                     'ts': ts_to_date_str(result_file.stat().st_mtime or 0),
                     'size': file_size,
                 }
@@ -140,7 +142,7 @@ class SnapshotView(View):
         link_info = link._asdict(extended=True)
 
         try:
-            warc_path = 'warc/' + list(Path(snapshot.link_dir).glob('warc/*.warc.*'))[0].name
+            warc_path = 'warc/' + list(Path(snap_dir).glob('warc/*.warc.*'))[0].name
         except IndexError:
             warc_path = 'warc/'
 
@@ -160,7 +162,7 @@ class SnapshotView(View):
             'warc_path': warc_path,
             'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
             'PREVIEW_ORIGINALS': PREVIEW_ORIGINALS,
-            'archiveresults': sorted(archiveresults.values(), key=lambda r: all_types.index(r['name'])),
+            'archiveresults': sorted(archiveresults.values(), key=lambda r: all_types.index(r['name']) if r['name'] in all_types else -r['size']),
             'best_result': best_result,
             # 'tags_str': 'somealskejrewlkrjwer,werlmwrwlekrjewlkrjwer324m532l,4m32,23m324234',
         }

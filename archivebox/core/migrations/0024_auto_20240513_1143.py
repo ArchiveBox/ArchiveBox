@@ -47,12 +47,14 @@ def calculate_abid(self):
 
 
 def copy_snapshot_uuids(apps, schema_editor):
+    print('   Copying snapshot.id -> snapshot.uuid...')
     Snapshot = apps.get_model("core", "Snapshot")
     for snapshot in Snapshot.objects.all():
         snapshot.uuid = snapshot.id
         snapshot.save(update_fields=["uuid"])
 
 def generate_snapshot_abids(apps, schema_editor):
+    print('   Generating snapshot.abid values...')
     Snapshot = apps.get_model("core", "Snapshot")
     for snapshot in Snapshot.objects.all():
         snapshot.abid_prefix = 'snp_'
@@ -65,6 +67,7 @@ def generate_snapshot_abids(apps, schema_editor):
         snapshot.save(update_fields=["abid"])
 
 def generate_archiveresult_abids(apps, schema_editor):
+    print('   Generating ArchiveResult.abid values... (may take an hour or longer for large collections...)')
     ArchiveResult = apps.get_model("core", "ArchiveResult")
     Snapshot = apps.get_model("core", "Snapshot")
     for result in ArchiveResult.objects.all():
