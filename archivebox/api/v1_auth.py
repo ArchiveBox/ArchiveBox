@@ -47,6 +47,6 @@ def check_api_token(request, token_data: TokenAuthSchema):
         request=request,
     )
     if user:
-        return {"success": True, "user_id": str(user.id)}
+        return {"success": True, "user_id": str(user.pk)}
     
     return {"success": False, "user_id": None}

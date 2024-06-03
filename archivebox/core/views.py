@@ -226,8 +226,8 @@ class SnapshotView(View):
                             '<i><b>Next steps:</i></b><br/>'
                             f'- list all the <a href="/archive/{snapshot.timestamp}/" target="_top">Snapshot files <code>.*</code></a><br/>'
                             f'- view the <a href="/archive/{snapshot.timestamp}/index.html" target="_top">Snapshot <code>./index.html</code></a><br/>'
-                            f'- go to the <a href="/admin/core/snapshot/{snapshot.id}/change/" target="_top">Snapshot admin</a> to edit<br/>'
-                            f'- go to the <a href="/admin/core/snapshot/?id__startswith={snapshot.id}" target="_top">Snapshot actions</a> to re-archive<br/>'
+                            f'- go to the <a href="/admin/core/snapshot/{snapshot.pk}/change/" target="_top">Snapshot admin</a> to edit<br/>'
+                            f'- go to the <a href="/admin/core/snapshot/?uuid__startswith={snapshot.uuid}" target="_top">Snapshot actions</a> to re-archive<br/>'
                             '- or return to <a href="/" target="_top">the main index...</a></div>'
                             '</center>'
                         ),
@@ -455,7 +455,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     for section in CONFIG_SCHEMA.keys():
         for key in CONFIG_SCHEMA[section].keys():
-            rows['Section'].append(section.replace('_', ' ').title().replace(' Config', ''))
+            rows['Section'].append(section)   # section.replace('_', ' ').title().replace(' Config', '')
             rows['Key'].append(ItemLink(key, key=key))
             rows['Type'].append(mark_safe(f'<code>{find_config_type(key)}</code>'))
             rows['Value'].append(mark_safe(f'<code>{CONFIG[key]}</code>') if key_is_safe(key) else '******** (redacted)')
@@ -465,7 +465,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     section = 'DYNAMIC'
     for key in DYNAMIC_CONFIG_SCHEMA.keys():
-        rows['Section'].append(section.replace('_', ' ').title().replace(' Config', ''))
+        rows['Section'].append(section)   # section.replace('_', ' ').title().replace(' Config', '')
         rows['Key'].append(ItemLink(key, key=key))
         rows['Type'].append(mark_safe(f'<code>{find_config_type(key)}</code>'))
         rows['Value'].append(mark_safe(f'<code>{CONFIG[key]}</code>') if key_is_safe(key) else '******** (redacted)')

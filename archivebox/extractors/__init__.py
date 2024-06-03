@@ -160,7 +160,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                     # bump the updated time on the main Snapshot here, this is critical
                     # to be able to cache summaries of the ArchiveResults for a given
                     # snapshot without having to load all the results from the DB each time.
-                    # (we use {Snapshot.id}-{Snapshot.updated} as the cache key and assume
+                    # (we use {Snapshot.pk}-{Snapshot.updated} as the cache key and assume
                     # ArchiveResults are unchanged as long as the updated timestamp is unchanged)
                     snapshot.save()
                 else:

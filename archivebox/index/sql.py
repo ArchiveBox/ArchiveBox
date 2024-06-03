@@ -45,7 +45,8 @@ def write_link_to_sql_index(link: Link):
     info.pop('tags')
 
     try:
-        info["timestamp"] = Snapshot.objects.get(url=link.url).timestamp
+        snapshot = Snapshot.objects.get(url=link.url)
+        info["timestamp"] = snapshot.timestamp
     except Snapshot.DoesNotExist:
         while Snapshot.objects.filter(timestamp=info["timestamp"]).exists():
             info["timestamp"] = str(float(info["timestamp"]) + 1.0)
@@ -57,7 +58,7 @@ def write_link_to_sql_index(link: Link):
         for entry in entries:
             if isinstance(entry, dict):
                 result, _ = ArchiveResult.objects.get_or_create(
-                    snapshot_id=snapshot.id,
+                    snapshot_id=snapshot.pk,
                     extractor=extractor,
                     start_ts=parse_date(entry['start_ts']),
                     defaults={
@@ -71,7 +72,7 @@ def write_link_to_sql_index(link: Link):
                 )
             else:
                 result, _ = ArchiveResult.objects.update_or_create(
-                    snapshot_id=snapshot.id,
+                    snapshot_id=snapshot.pk,
                     extractor=extractor,
                     start_ts=parse_date(entry.start_ts),
                     defaults={

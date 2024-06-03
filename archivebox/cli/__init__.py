@@ -37,7 +37,10 @@ is_valid_cli_module = lambda module, subcommand: (
 )
 
 
-def wait_for_bg_threads_to_exit(thread_names: Iterable[str]=(), ignore_names: Iterable[str]=('MainThread', 'ThreadPoolExecutor'), timeout: int=60) -> int:
+IGNORED_BG_THREADS = ('MainThread', 'ThreadPoolExecutor', 'IPythonHistorySavingThread')  # threads we dont have to wait for before exiting
+
+
+def wait_for_bg_threads_to_exit(thread_names: Iterable[str]=(), ignore_names: Iterable[str]=IGNORED_BG_THREADS, timeout: int=60) -> int:
     """
     Block until the specified threads exit. e.g. pass thread_names=('default_hook_handler',) to wait for webhooks.
     Useful for waiting for signal handlers, webhooks, etc. to finish running after a mgmt command completes.
