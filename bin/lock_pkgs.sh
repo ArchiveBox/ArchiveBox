@@ -63,14 +63,15 @@ echo
 pdm lock --group=':all' --production --lockfile pdm.lock --strategy="cross_platform"
 pdm sync --group=':all' --production --lockfile pdm.lock --clean
 pdm export --group=':all' --production --lockfile pdm.lock --without-hashes -o requirements.txt
-cp ./pdm.lock ./pip_dist/
-cp ./requirements.txt ./pip_dist/
+# cp ./pdm.lock ./pip_dist/
+# cp ./requirements.txt ./pip_dist/
+
 # dev
 pdm lock --group=':all' --dev --lockfile pdm.dev.lock --strategy="cross_platform" 
 pdm sync --group=':all' --dev --lockfile pdm.dev.lock --clean
 pdm export --group=':all' --dev --lockfile pdm.dev.lock --without-hashes -o requirements-dev.txt
-cp ./pdm.dev.lock ./pip_dist/
-cp ./requirements-dev.txt ./pip_dist/
+# cp ./pdm.dev.lock ./pip_dist/
+# cp ./requirements-dev.txt ./pip_dist/
 
 echo
 echo "[+] Generating package-lock.json from package.json..."
