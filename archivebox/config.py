@@ -1306,7 +1306,7 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
             if '/Default' in str(config['CHROME_USER_DATA_DIR']):
                 stderr()
                 stderr('    Try removing /Default from the end e.g.:')
-                stderr('        CHROME_USER_DATA_DIR="{}"'.format(config['CHROME_USER_DATA_DIR'].split('/Default')[0]))
+                stderr('        CHROME_USER_DATA_DIR="{}"'.format(str(config['CHROME_USER_DATA_DIR']).split('/Default')[0]))
             
             # hard error is too annoying here, instead just set it to nothing
             # raise SystemExit(2)
