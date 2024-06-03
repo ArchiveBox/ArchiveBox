@@ -435,12 +435,14 @@
                     this.src = this.src + '#toolbar=0'
                 }
                 this.onload = function() {
-                    this.contentWindow.scrollTo(0, 0);
-                    // this.src = this.src
                     if (this.src.endsWith('.pdf')) {
                         this.removeAttribute('sandbox')
                         this.src = this.src + '#toolbar=0'
                     }
+                    try {
+                        // doesnt work if frame origin rules prevent accessing its DOM via JS
+                        this.contentWindow.scrollTo(0, 0);
+                    } catch(err) {}
                 }
             })
 
