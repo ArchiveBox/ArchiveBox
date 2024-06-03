@@ -290,7 +290,6 @@ WORKDIR "$DATA_DIR"
 ENV IN_DOCKER=True \
     DISPLAY=novnc:0.0 \
     CUSTOM_TEMPLATES_DIR=/data/templates \
-    CHROME_USER_DATA_DIR=/data/personas/Default/chromium \
     GOOGLE_API_KEY=no \
     GOOGLE_DEFAULT_CLIENT_ID=no \
     GOOGLE_DEFAULT_CLIENT_SECRET=no \

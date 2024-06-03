@@ -1296,7 +1296,7 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
 
     # stderr('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
     # stderr('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
-    if config['CHROME_USER_DATA_DIR'] is not None:
+    if config['CHROME_USER_DATA_DIR'] is not None and Path(config['CHROME_USER_DATA_DIR']).exists():
         if not (Path(config['CHROME_USER_DATA_DIR']) / 'Default').exists():
             stderr('[X] Could not find profile "Default" in CHROME_USER_DATA_DIR.', color='red')
             stderr(f'    {config["CHROME_USER_DATA_DIR"]}')
@@ -1311,6 +1311,8 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
             # hard error is too annoying here, instead just set it to nothing
             # raise SystemExit(2)
             config['CHROME_USER_DATA_DIR'] = None
+    else:
+        config['CHROME_USER_DATA_DIR'] = None
 
 
 def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
