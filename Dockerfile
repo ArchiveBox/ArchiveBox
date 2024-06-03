@@ -253,7 +253,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt for ${TARGETPLATFORM}..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports \
-        # build-essential \
+        build-essential \
         libssl-dev libldap2-dev libsasl2-dev \
         python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps \
     # && ln -s "$GLOBAL_VENV" "$APP_VENV" \
@@ -263,8 +263,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     # && pdm export -o requirements.txt --without-hashes \
     # && source $GLOBAL_VENV/bin/activate \
     && pip install -r requirements.txt \
-    # && apt-get purge -y \
-        # build-essential \
+    && apt-get purge -y \
+        build-essential \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
@@ -275,7 +275,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     # && apt-get update -qq \
     # install C compiler to build deps on platforms that dont have 32-bit wheels available on pypi
     # && apt-get install -qq -y -t bookworm-backports \
-    #     build-essential  \
+        # build-essential  \
     # INSTALL ARCHIVEBOX python package globally from CODE_DIR, with all optional dependencies
     && pip install -e "$CODE_DIR"[sonic,ldap] \
     # save docker image size and always remove compilers / build tools after building is complete

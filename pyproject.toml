@@ -42,6 +42,7 @@ dependencies = [
     "django-charid-field>=0.4",
     "django-pydantic-field>=0.3.9",
     "django-jsonform>=2.22.0",
+    "django-stubs>=5.0.2",
 ]
 
 homepage = "https://github.com/ArchiveBox/ArchiveBox"
@@ -125,7 +126,6 @@ test = [
 lint = [
     "flake8",
     "mypy",
-    "django-stubs",
 ]
 
 [tool.pdm.scripts]
