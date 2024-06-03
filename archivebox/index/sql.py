@@ -143,7 +143,12 @@ def list_migrations(out_dir: Path=OUTPUT_DIR) -> List[Tuple[bool, str]]:
 def apply_migrations(out_dir: Path=OUTPUT_DIR) -> List[str]:
     from django.core.management import call_command
     null, out = StringIO(), StringIO()
-    call_command("makemigrations", interactive=False, stdout=null)
+    try:
+        call_command("makemigrations", interactive=False, stdout=null)
+    except Exception as e:
+        print('[!] Failed to create some migrations. Please open an issue and copy paste this output for help: {}'.format(e))
+        print()
+    
     call_command("migrate", interactive=False, stdout=out)
     out.seek(0)
 
