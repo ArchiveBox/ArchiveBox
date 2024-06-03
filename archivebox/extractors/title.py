@@ -60,6 +60,7 @@ class TitleParser(HTMLParser):
         if tag.lower() == "title":
             self.inside_title_tag = False
 
+
 @enforce_types
 def get_html(link: Link, path: Path, timeout: int=TIMEOUT) -> str:
     """
@@ -83,6 +84,13 @@ def get_html(link: Link, path: Path, timeout: int=TIMEOUT) -> str:
         return download_url(link.url, timeout=timeout)
     else:
         return document
+
+
+def get_output_path():
+    # TODO: actually save title to this file
+    # (currently only saved in ArchiveResult.output as charfield value, not saved to filesystem)
+    return 'title.json'
+
 
 @enforce_types
 def should_save_title(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:

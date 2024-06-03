@@ -1,11 +1,13 @@
 __package__ = 'archivebox.extractors'
 
+from typing import Callable, Optional, Dict, List, Iterable, Union, Protocol, cast
+
 import os
 import sys
 from pathlib import Path
-
-from typing import Callable, Optional, List, Iterable, Union
+from importlib import import_module
 from datetime import datetime, timezone
+
 from django.db.models import QuerySet
 
 from ..config import (
@@ -158,7 +160,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                     # bump the updated time on the main Snapshot here, this is critical
                     # to be able to cache summaries of the ArchiveResults for a given
                     # snapshot without having to load all the results from the DB each time.
-                    # (we use {Snapshot.id}-{Snapshot.updated} as the cache key and assume
+                    # (we use {Snapshot.pk}-{Snapshot.updated} as the cache key and assume
                     # ArchiveResults are unchanged as long as the updated timestamp is unchanged)
                     snapshot.save()
                 else:
@@ -240,3 +242,37 @@ def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=Fa
 
     log_archiving_finished(num_links)
     return all_links
+
+
+
+EXTRACTORS_DIR = Path(__file__).parent
+
+class ExtractorModuleProtocol(Protocol):
+    """Type interface for an Extractor Module (WIP)"""
+    
+    get_output_path: Callable
+    
+    # TODO:
+    # get_embed_path: Callable | None
+    # should_extract(Snapshot)
+    # extract(Snapshot)
+
+
+def get_extractors(dir: Path=EXTRACTORS_DIR) -> Dict[str, ExtractorModuleProtocol]:
+    """iterate through archivebox/extractors/*.py and load extractor modules"""
+    EXTRACTORS = {}
+
+    for filename in EXTRACTORS_DIR.glob('*.py'):
+        if filename.name.startswith('__'):
+            continue
+
+        extractor_name = filename.name.replace('.py', '')
+
+        extractor_module = cast(ExtractorModuleProtocol, import_module(f'.{extractor_name}', package=__package__))
+
+        assert getattr(extractor_module, 'get_output_path')
+        EXTRACTORS[extractor_name] = extractor_module
+
+    return EXTRACTORS
+
+EXTRACTORS = get_extractors(EXTRACTORS_DIR)

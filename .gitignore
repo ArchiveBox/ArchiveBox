@@ -29,6 +29,7 @@ dist/
 data/
 data*/
 output/
+index.sqlite3
 
 # vim
 *.sw?

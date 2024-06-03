@@ -3,6 +3,7 @@ __package__ = 'archivebox.core'
 from typing import Callable
 
 from io import StringIO
+from pathlib import Path
 from contextlib import redirect_stdout
 
 from django.shortcuts import render, redirect
@@ -36,10 +37,14 @@ from ..config import (
     CONFIG_SCHEMA,
     DYNAMIC_CONFIG_SCHEMA,
     USER_CONFIG,
+    SAVE_ARCHIVE_DOT_ORG,
+    PREVIEW_ORIGINALS,
 )
+from ..logging_util import printable_filesize
 from ..main import add
-from ..util import base_url, ansi_to_html
+from ..util import base_url, ansi_to_html, htmlencode, urldecode, urlencode, ts_to_date_str
 from ..search import query_search_index
+from ..extractors.wget import wget_output_path
 
 
 class HomepageView(View):
@@ -56,9 +61,79 @@ class HomepageView(View):
 class SnapshotView(View):
     # render static html index from filesystem archive/<timestamp>/index.html
 
+    @staticmethod
+    def render_live_index(request, snapshot):
+        TITLE_LOADING_MSG = 'Not yet archived...'
+        HIDDEN_RESULTS = ('favicon', 'headers', 'title', 'htmltotext', 'warc', 'archive_org')
+
+        archiveresults = {}
+
+        results = snapshot.archiveresult_set.all()
+
+        for result in results:
+            embed_path = result.embed_path()
+            abs_path = result.snapshot_dir / (embed_path or 'None')
+
+            if (result.status == 'succeeded'
+                and (result.extractor not in HIDDEN_RESULTS)
+                and embed_path
+                and abs_path.exists()):
+                if abs_path.is_dir() and not any(abs_path.glob('*.*')):
+                    continue
+
+                result_info = {
+                    'name': result.extractor,
+                    'path': embed_path,
+                    'ts': ts_to_date_str(result.end_ts),
+                }
+                archiveresults[result.extractor] = result_info
+
+        preferred_types = ('singlefile', 'wget', 'screenshot', 'dom', 'media', 'pdf', 'readability', 'mercury')
+        all_types = preferred_types + tuple(result_type for result_type in archiveresults.keys() if result_type not in preferred_types)
+
+        best_result = {'path': 'None'}
+        for result_type in preferred_types:
+            if result_type in archiveresults:
+                best_result = archiveresults[result_type]
+                break
+
+        link = snapshot.as_link()
+
+        link_info = link._asdict(extended=True)
+
+        try:
+            warc_path = 'warc/' + list(Path(snapshot.link_dir).glob('warc/*.warc.*'))[0].name
+        except IndexError:
+            warc_path = 'warc/'
+
+        context = {
+            **link_info,
+            **link_info['canonical'],
+            'title': htmlencode(
+                link.title
+                or (link.base_url if link.is_archived else TITLE_LOADING_MSG)
+            ),
+            'extension': link.extension or 'html',
+            'tags': link.tags or 'untagged',
+            'size': printable_filesize(link.archive_size) if link.archive_size else 'pending',
+            'status': 'archived' if link.is_archived else 'not yet archived',
+            'status_color': 'success' if link.is_archived else 'danger',
+            'oldest_archive_date': ts_to_date_str(link.oldest_archive_date),
+            'warc_path': warc_path,
+            'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
+            'PREVIEW_ORIGINALS': PREVIEW_ORIGINALS,
+            'archiveresults': sorted(archiveresults.values(), key=lambda r: all_types.index(r['name'])),
+            'best_result': best_result,
+            # 'tags_str': 'somealskejrewlkrjwer,werlmwrwlekrjewlkrjwer324m532l,4m32,23m324234',
+        }
+        return render(template_name='core/snapshot_live.html', request=request, context=context)
+
+
     def get(self, request, path):
         if not request.user.is_authenticated and not PUBLIC_SNAPSHOTS:
             return redirect(f'/admin/login/?next={request.path}')
+
+        snapshot = None
 
         try:
             slug, archivefile = path.split('/', 1)
@@ -75,7 +150,11 @@ class SnapshotView(View):
             try:
                 try:
                     snapshot = Snapshot.objects.get(Q(timestamp=slug) | Q(id__startswith=slug))
-                    response = static.serve(request, archivefile, document_root=snapshot.link_dir, show_indexes=True)
+                    if archivefile == 'index.html':
+                        # if they requested snapshot index, serve live rendered template instead of static html
+                        response = self.render_live_index(request, snapshot)
+                    else:
+                        response = static.serve(request, archivefile, document_root=snapshot.link_dir, show_indexes=True)
                     response["Link"] = f'<{snapshot.url}>; rel="canonical"'
                     return response
                 except Snapshot.DoesNotExist:
@@ -127,26 +206,33 @@ class SnapshotView(View):
                     status=404,
                 )
             except Http404:
+                assert snapshot     # (Snapshot.DoesNotExist is already handled above)
+
                 # Snapshot dir exists but file within does not e.g. 124235.324234/screenshot.png
                 return HttpResponse(
                     format_html(
                         (
                             '<center><br/><br/><br/>'
-                            f'Snapshot <a href="/archive/{snapshot.timestamp}/index.html" target="_top"><b><code>[{snapshot.timestamp}]</code></b></a> exists in DB, but resource <b><code>{snapshot.timestamp}/'
+                            f'Snapshot <a href="/archive/{snapshot.timestamp}/index.html" target="_top"><b><code>[{snapshot.timestamp}]</code></b></a>: <a href="{snapshot.url}" target="_blank" rel="noreferrer">{snapshot.url}</a><br/>'
+                            f'was queued on {str(snapshot.added).split(".")[0]}, '
+                            f'but no files have been saved yet in:<br/><b><a href="/archive/{snapshot.timestamp}/" target="_top"><code>{snapshot.timestamp}</code></a><code>/'
                             '{}'
-                            f'</code></b> does not exist in the <a href="/archive/{snapshot.timestamp}/" target="_top">snapshot dir</a> yet.<br/><br/>'
-                            'It\'s possible that this resource type is not available for the Snapshot,<br/>or that the archiving process has not completed yet.<br/>'
-                            f'<pre><code># if interrupted, run this cmd to finish archiving this Snapshot<br/>archivebox update -t timestamp {snapshot.timestamp}</code></pre><br/><br/>'
+                            f'</code></b><br/><br/>'
+                            'It\'s possible {} '
+                            f'during the last capture on {str(snapshot.added).split(".")[0]},<br/>or that the archiving process has not completed yet.<br/>'
+                            f'<pre><code># run this cmd to finish/retry archiving this Snapshot</code><br/>'
+                            f'<code style="user-select: all; color: #333">archivebox update -t timestamp {snapshot.timestamp}</code></pre><br/><br/>'
                             '<div class="text-align: left; width: 100%; max-width: 400px">'
                             '<i><b>Next steps:</i></b><br/>'
                             f'- list all the <a href="/archive/{snapshot.timestamp}/" target="_top">Snapshot files <code>.*</code></a><br/>'
                             f'- view the <a href="/archive/{snapshot.timestamp}/index.html" target="_top">Snapshot <code>./index.html</code></a><br/>'
-                            f'- go to the <a href="/admin/core/snapshot/{snapshot.id}/change/" target="_top">Snapshot admin</a> to edit<br/>'
-                            f'- go to the <a href="/admin/core/snapshot/?id__startswith={snapshot.id}" target="_top">Snapshot actions</a> to re-archive<br/>'
+                            f'- go to the <a href="/admin/core/snapshot/{snapshot.pk}/change/" target="_top">Snapshot admin</a> to edit<br/>'
+                            f'- go to the <a href="/admin/core/snapshot/?uuid__startswith={snapshot.uuid}" target="_top">Snapshot actions</a> to re-archive<br/>'
                             '- or return to <a href="/" target="_top">the main index...</a></div>'
                             '</center>'
                         ),
-                        archivefile,
+                        archivefile if str(archivefile) != 'None' else '',
+                        f'the {archivefile} resource could not be fetched' if str(archivefile) != 'None' else 'the original site was not available',
                     ),
                     content_type="text/html",
                     status=404,
@@ -369,21 +455,21 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     for section in CONFIG_SCHEMA.keys():
         for key in CONFIG_SCHEMA[section].keys():
-            rows['Section'].append(section.replace('_', ' ').title().replace(' Config', ''))
+            rows['Section'].append(section)   # section.replace('_', ' ').title().replace(' Config', '')
             rows['Key'].append(ItemLink(key, key=key))
             rows['Type'].append(mark_safe(f'<code>{find_config_type(key)}</code>'))
             rows['Value'].append(mark_safe(f'<code>{CONFIG[key]}</code>') if key_is_safe(key) else '******** (redacted)')
-            rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code"><code style="text-decoration: underline">{find_config_default(key) or 'See here...'}</code></a>'))
+            rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code"><code style="text-decoration: underline">{find_config_default(key) or "See here..."}</code></a>'))
             # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
             rows['Aliases'].append(', '.join(CONFIG_SCHEMA[section][key].get('aliases', [])))
 
     section = 'DYNAMIC'
     for key in DYNAMIC_CONFIG_SCHEMA.keys():
-        rows['Section'].append(section.replace('_', ' ').title().replace(' Config', ''))
+        rows['Section'].append(section)   # section.replace('_', ' ').title().replace(' Config', '')
         rows['Key'].append(ItemLink(key, key=key))
         rows['Type'].append(mark_safe(f'<code>{find_config_type(key)}</code>'))
         rows['Value'].append(mark_safe(f'<code>{CONFIG[key]}</code>') if key_is_safe(key) else '******** (redacted)')
-        rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code"><code style="text-decoration: underline">{find_config_default(key) or 'See here...'}</code></a>'))
+        rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code"><code style="text-decoration: underline">{find_config_default(key) or "See here..."}</code></a>'))
         # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
         rows['Aliases'].append(ItemLink(key, key=key) if key in USER_CONFIG else '')
 
