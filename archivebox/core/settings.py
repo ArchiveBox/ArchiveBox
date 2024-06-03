@@ -55,6 +55,26 @@ APPEND_SLASH = True
 
 DEBUG = DEBUG or ('--debug' in sys.argv)
 
+
+# add plugins folders to system path, and load plugins in installed_apps
+BUILTIN_PLUGINS_DIR = PACKAGE_DIR / 'plugins'
+USER_PLUGINS_DIR = OUTPUT_DIR / 'plugins'
+sys.path.insert(0, str(BUILTIN_PLUGINS_DIR))
+sys.path.insert(0, str(USER_PLUGINS_DIR))
+
+def find_plugins(plugins_dir):
+    return {
+        # plugin_entrypoint.parent.name: import_module(plugin_entrypoint.parent.name).METADATA
+        plugin_entrypoint.parent.name: plugin_entrypoint.parent
+        for plugin_entrypoint in plugins_dir.glob('*/apps.py')
+    }
+
+INSTALLED_PLUGINS = {
+    **find_plugins(BUILTIN_PLUGINS_DIR),
+    **find_plugins(USER_PLUGINS_DIR),
+}
+
+
 INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -62,11 +82,15 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admin',
+    'django_jsonform',
 
     'signal_webhooks',
     'abid_utils',
+    'plugantic',
     'core',
     'api',
+
+    *INSTALLED_PLUGINS.keys(),
 
     'admin_data_views',
 
@@ -441,16 +465,36 @@ SIGNAL_WEBHOOKS = {
 
 
 ADMIN_DATA_VIEWS = {
-    "NAME": "configuration",
+    "NAME": "Environment",
     "URLS": [
         {
-            "route": "live/",
+            "route": "config/",
             "view": "core.views.live_config_list_view",
-            "name": "live",
+            "name": "Configuration",
             "items": {
                 "route": "<str:key>/",
                 "view": "core.views.live_config_value_view",
-                "name": "live_config_value",
+                "name": "config_val",
+            },
+        },
+        {
+            "route": "binaries/",
+            "view": "plugantic.views.binaries_list_view",
+            "name": "Binaries",
+            "items": {
+                "route": "<str:key>/",
+                "view": "plugantic.views.binary_detail_view",
+                "name": "binary",
+            },
+        },
+        {
+            "route": "plugins/",
+            "view": "plugantic.views.plugins_list_view",
+            "name": "Plugins",
+            "items": {
+                "route": "<str:key>/",
+                "view": "plugantic.views.plugin_detail_view",
+                "name": "plugin",
             },
         },
     ],
