@@ -395,12 +395,14 @@
             </div>
             <div class="header-bottom container-fluid">
                 <div class="row header-bottom-frames">
+                    
+                    
                     {% for result in archiveresults %}
                         <div class="col-lg-2">
                             <div class="card {% if forloop.first %}selected-card{% endif %}">
                                 <div class="card-body">
                                     <a href="{{result.path}}" target="preview" title="./{{result.path}} (downloaded {{result.ts}})">
-                                        <h4>{{result.name}}</h4>
+                                        <h4>{{result.name}} <small>({{result.size|filesizeformat}})</small></h4>
                                         <!-- <p class="card-text" ><code>./{{result.path|truncatechars:30}}</code></p> -->
                                     </a>
                                     <!--<a href="{{result.path}}" target="preview"><h4 class="card-title">{{result.name}}</h4></a>-->
@@ -409,6 +411,8 @@
                             </div>
                         </div>
                     {% endfor %}
+
+
                     <div class="col-lg-2">
                         <div class="card">
                             <div class="card-body">
@@ -423,8 +427,13 @@
                 </div>
             </div>
         </header>
+
+
+
         <iframe id="main-frame" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" class="full-page-iframe" src="{{best_result.path}}" name="preview"></iframe>
     
+
+
         <script src="{% static 'jquery.min.js' %}" type="text/javascript"></script>
 
         <script>

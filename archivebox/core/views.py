@@ -85,8 +85,46 @@ class SnapshotView(View):
                     'name': result.extractor,
                     'path': embed_path,
                     'ts': ts_to_date_str(result.end_ts),
+                    'size': abs_path.stat().st_size or '?',
                 }
                 archiveresults[result.extractor] = result_info
+
+        existing_files = {result['path'] for result in archiveresults.values()}
+        min_size_threshold = 128  # bytes
+        allowed_extensions = {
+            'txt',
+            'html',
+            'htm',
+            'png',
+            'jpg',
+            'jpeg',
+            'gif',
+            'webp'
+            'svg',
+            'webm',
+            'mp4',
+            'mp3',
+            'pdf',
+            'md',
+        }
+
+        # iterate through all the files in the snapshot dir and add the biggest ones to the result list
+        for result_file in Path(snapshot.link_dir).glob('*/*/*'):
+            extension = result_file.suffix.lstrip('.').lower()
+            if result_file.is_dir() or result_file.name.startswith('.') or extension not in allowed_extensions:
+                continue
+            if result_file.name in existing_files:
+                continue
+
+            file_size = result_file.stat().st_size or 0
+
+            if file_size > min_size_threshold:
+                archiveresults[result_file.name] = {
+                    'name': result_file.stem,
+                    'path': result_file.relative_to(snapshot.link_dir),
+                    'ts': ts_to_date_str(result_file.stat().st_mtime or 0),
+                    'size': file_size,
+                }
 
         preferred_types = ('singlefile', 'wget', 'screenshot', 'dom', 'media', 'pdf', 'readability', 'mercury')
         all_types = preferred_types + tuple(result_type for result_type in archiveresults.keys() if result_type not in preferred_types)
