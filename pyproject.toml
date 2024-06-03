@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.8.0"
+version = "0.8.1"
 package-dir = "archivebox"
 requires-python = ">=3.10,<3.13"
 platform = "py3-none-any"
