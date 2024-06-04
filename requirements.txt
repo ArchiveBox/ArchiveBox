@@ -48,7 +48,7 @@ pyasn1==0.6.0
 pyasn1-modules==0.4.0
 pycparser==2.22; platform_python_implementation != "PyPy" or implementation_name != "cpython"
 pycryptodomex==3.20.0
-pydantic==2.7.2
+pydantic==2.7.3
 pydantic-core==2.18.4
 pygments==2.18.0
 python-crontab==3.1.0
