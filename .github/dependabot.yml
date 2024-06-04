@@ -5,8 +5,21 @@
 
 version: 2
 updates:
-  - package-ecosystem: "pip" # See documentation for possible values
+  - package-ecosystem: "pip"
     directory: "/"
     target-branch: "dev"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      pip:
+        patterns:
+          - "*"
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "dev"
+    schedule:
+      interval: "monthly"
+    groups:
+      npm:
+        patterns:
+          - "*"
