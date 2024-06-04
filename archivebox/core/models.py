@@ -1,11 +1,14 @@
 __package__ = 'archivebox.core'
 
 
-import uuid
+from typing import Optional, List, Dict
+from django_stubs_ext.db.models import TypedModelMeta
+
 import json
 
+import uuid
+from uuid import uuid4
 from pathlib import Path
-from typing import Optional, List
 
 from django.db import models
 from django.utils.functional import cached_property
@@ -15,40 +18,58 @@ from django.urls import reverse
 from django.db.models import Case, When, Value, IntegerField
 from django.contrib.auth.models import User   # noqa
 
+from abid_utils.models import ABIDModel, ABIDField
+
 from ..config import ARCHIVE_DIR, ARCHIVE_DIR_NAME
 from ..system import get_dir_size
-from ..util import parse_date, base_url, hashurl
+from ..util import parse_date, base_url
 from ..index.schema import Link
 from ..index.html import snapshot_icons
-from ..extractors import get_default_archive_methods, ARCHIVE_METHODS_INDEXING_PRECEDENCE
+from ..extractors import ARCHIVE_METHODS_INDEXING_PRECEDENCE, EXTRACTORS
 
-EXTRACTORS = [(extractor[0], extractor[0]) for extractor in get_default_archive_methods()]
+
+EXTRACTOR_CHOICES = [(extractor_name, extractor_name) for extractor_name in EXTRACTORS.keys()]
 STATUS_CHOICES = [
     ("succeeded", "succeeded"),
     ("failed", "failed"),
     ("skipped", "skipped")
 ]
 
-try:
-    JSONField = models.JSONField
-except AttributeError:
-    import jsonfield
-    JSONField = jsonfield.JSONField
 
 
-class Tag(models.Model):
+# class BaseModel(models.Model):
+#     # TODO: migrate all models to a shared base class with all our standard fields and helpers:
+#     #       ulid/created/modified/owner/is_deleted/as_json/from_json/etc.
+#     #
+#     # id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
+#     # ulid = models.CharField(max_length=26, null=True, blank=True, db_index=True, unique=True)
+
+#     class Meta(TypedModelMeta):
+#         abstract = True
+
+
+class Tag(ABIDModel):
     """
-    Based on django-taggit model
+    Based on django-taggit model + ABID base.
     """
+    abid_prefix = 'tag_'
+    abid_ts_src = 'self.created'          # TODO: add created/modified time
+    abid_uri_src = 'self.name'
+    abid_subtype_src = '"03"'
+    abid_rand_src = 'self.id'
+
+    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
     id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
+    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    abid = ABIDField(prefix=abid_prefix)
+
 
     name = models.CharField(unique=True, blank=False, max_length=100)
-
-    # slug is autoset on save from name, never set it manually
     slug = models.SlugField(unique=True, blank=True, max_length=100)
+    # slug is autoset on save from name, never set it manually
 
 
-    class Meta:
+    class Meta(TypedModelMeta):
         verbose_name = "Tag"
         verbose_name_plural = "Tags"
 
@@ -84,8 +105,16 @@ class Tag(models.Model):
             return super().save(*args, **kwargs)
 
 
-class Snapshot(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+class Snapshot(ABIDModel):
+    abid_prefix = 'snp_'
+    abid_ts_src = 'self.added'
+    abid_uri_src = 'self.url'
+    abid_subtype_src = '"01"'
+    abid_rand_src = 'self.id'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)  # legacy pk
+    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    abid = ABIDField(prefix=abid_prefix)
 
     url = models.URLField(unique=True, db_index=True)
     timestamp = models.CharField(max_length=32, unique=True, db_index=True)
@@ -97,6 +126,7 @@ class Snapshot(models.Model):
     tags = models.ManyToManyField(Tag, blank=True)
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
+
 
     def __repr__(self) -> str:
         title = self.title or '-'
@@ -126,8 +156,8 @@ class Snapshot(models.Model):
         from ..index import load_link_details
         return load_link_details(self.as_link())
 
-    def tags_str(self, nocache=True) -> str:
-        cache_key = f'{self.id}-{(self.updated or self.added).timestamp()}-tags'
+    def tags_str(self, nocache=True) -> str | None:
+        cache_key = f'{self.pk}-{(self.updated or self.added).timestamp()}-tags'
         calc_tags_str = lambda: ','.join(self.tags.order_by('name').values_list('name', flat=True))
         if nocache:
             tags_str = calc_tags_str()
@@ -157,12 +187,8 @@ class Snapshot(models.Model):
         return self.as_link().is_archived
 
     @cached_property
-    def num_outputs(self):
+    def num_outputs(self) -> int:
         return self.archiveresult_set.filter(status='succeeded').count()
-
-    @cached_property
-    def url_hash(self):
-        return hashurl(self.url)
 
     @cached_property
     def base_url(self):
@@ -178,7 +204,7 @@ class Snapshot(models.Model):
 
     @cached_property
     def archive_size(self):
-        cache_key = f'{str(self.id)[:12]}-{(self.updated or self.added).timestamp()}-size'
+        cache_key = f'{str(self.pk)[:12]}-{(self.updated or self.added).timestamp()}-size'
 
         def calc_dir_size():
             try:
@@ -199,7 +225,7 @@ class Snapshot(models.Model):
         return None
 
     @cached_property
-    def headers(self) -> Optional[dict]:
+    def headers(self) -> Optional[Dict[str, str]]:
         try:
             return json.loads((Path(self.link_dir) / 'headers.json').read_text(encoding='utf-8').strip())
         except Exception:
@@ -250,9 +276,35 @@ class Snapshot(models.Model):
         tags_id = []
         for tag in tags:
             if tag.strip():
-                tags_id.append(Tag.objects.get_or_create(name=tag)[0].id)
+                tags_id.append(Tag.objects.get_or_create(name=tag)[0].pk)
         self.tags.clear()
         self.tags.add(*tags_id)
+
+
+    # def get_storage_dir(self, create=True, symlink=True) -> Path:
+    #     date_str = self.added.strftime('%Y%m%d')
+    #     domain_str = domain(self.url)
+    #     abs_storage_dir = Path(ARCHIVE_DIR) / 'snapshots' / date_str / domain_str / str(self.ulid)
+
+    #     if create and not abs_storage_dir.is_dir():
+    #         abs_storage_dir.mkdir(parents=True, exist_ok=True)
+
+    #     if symlink:
+    #         LINK_PATHS = [
+    #             Path(ARCHIVE_DIR).parent / 'index' / 'all_by_id' / str(self.ulid),
+    #             # Path(ARCHIVE_DIR).parent / 'index' / 'snapshots_by_id' / str(self.ulid),
+    #             Path(ARCHIVE_DIR).parent / 'index' / 'snapshots_by_date' / date_str / domain_str / str(self.ulid),
+    #             Path(ARCHIVE_DIR).parent / 'index' / 'snapshots_by_domain' / domain_str / date_str / str(self.ulid),
+    #         ]
+    #         for link_path in LINK_PATHS:
+    #             link_path.parent.mkdir(parents=True, exist_ok=True)
+    #             try:
+    #                 link_path.symlink_to(abs_storage_dir)
+    #             except FileExistsError:
+    #                 link_path.unlink()
+    #                 link_path.symlink_to(abs_storage_dir)
+
+    #     return abs_storage_dir
 
 
 class ArchiveResultManager(models.Manager):
@@ -266,13 +318,22 @@ class ArchiveResultManager(models.Manager):
         return qs
 
 
-class ArchiveResult(models.Model):
-    id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
+class ArchiveResult(ABIDModel):
+    abid_prefix = 'res_'
+    abid_ts_src = 'self.snapshot.added'
+    abid_uri_src = 'self.snapshot.url'
+    abid_subtype_src = 'self.extractor'
+    abid_rand_src = 'self.uuid'
+    EXTRACTOR_CHOICES = EXTRACTOR_CHOICES
+
+    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')   # legacy pk
+    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    abid = ABIDField(prefix=abid_prefix)
 
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
-    extractor = models.CharField(choices=EXTRACTORS, max_length=32)
-    cmd = JSONField()
+    extractor = models.CharField(choices=EXTRACTOR_CHOICES, max_length=32)
+    cmd = models.JSONField()
     pwd = models.CharField(max_length=256)
     cmd_version = models.CharField(max_length=128, default=None, null=True, blank=True)
     output = models.CharField(max_length=1024)
@@ -282,5 +343,69 @@ class ArchiveResult(models.Model):
 
     objects = ArchiveResultManager()
 
+    class Meta(TypedModelMeta):
+        verbose_name = 'Result'
+
     def __str__(self):
         return self.extractor
+
+    @cached_property
+    def snapshot_dir(self):
+        return Path(self.snapshot.link_dir)
+
+
+    @property
+    def extractor_module(self):
+        return EXTRACTORS[self.extractor]
+
+    def output_path(self) -> str:
+        """return the canonical output filename or directory name within the snapshot dir"""
+        return self.extractor_module.get_output_path()
+
+    def embed_path(self) -> str:
+        """
+        return the actual runtime-calculated path to the file on-disk that
+        should be used for user-facing iframe embeds of this result
+        """
+
+        if hasattr(self.extractor_module, 'get_embed_path'):
+            return self.extractor_module.get_embed_path(self)
+
+        return self.extractor_module.get_output_path()
+
+    def legacy_output_path(self):
+        link = self.snapshot.as_link()
+        return link.canonical_outputs().get(f'{self.extractor}_path')
+
+    def output_exists(self) -> bool:
+        return Path(self.output_path()).exists()
+
+
+    # def get_storage_dir(self, create=True, symlink=True):
+    #     date_str = self.snapshot.added.strftime('%Y%m%d')
+    #     domain_str = domain(self.snapshot.url)
+    #     abs_storage_dir = Path(ARCHIVE_DIR) / 'results' / date_str / domain_str / self.extractor / str(self.ulid)
+
+    #     if create and not abs_storage_dir.is_dir():
+    #         abs_storage_dir.mkdir(parents=True, exist_ok=True)
+
+    #     if symlink:
+    #         LINK_PATHS = [
+    #             Path(ARCHIVE_DIR).parent / 'index' / 'all_by_id' / str(self.ulid),
+    #             # Path(ARCHIVE_DIR).parent / 'index' / 'results_by_id' / str(self.ulid),
+    #             # Path(ARCHIVE_DIR).parent / 'index' / 'results_by_date' / date_str / domain_str / self.extractor / str(self.ulid),
+    #             Path(ARCHIVE_DIR).parent / 'index' / 'results_by_domain' / domain_str / date_str / self.extractor / str(self.ulid),
+    #             Path(ARCHIVE_DIR).parent / 'index' / 'results_by_type' / self.extractor / date_str / domain_str / str(self.ulid),
+    #         ]
+    #         for link_path in LINK_PATHS:
+    #             link_path.parent.mkdir(parents=True, exist_ok=True)
+    #             try:
+    #                 link_path.symlink_to(abs_storage_dir)
+    #             except FileExistsError:
+    #                 link_path.unlink()
+    #                 link_path.symlink_to(abs_storage_dir)
+
+    #     return abs_storage_dir
+
+    # def symlink_index(self, create=True):
+    #     abs_result_dir = self.get_storage_dir(create=create)

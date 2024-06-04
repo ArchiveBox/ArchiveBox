@@ -4,6 +4,7 @@ WARNING: THIS FILE IS ALL LEGACY CODE TO BE REMOVED.
 
 DO NOT ADD ANY NEW FEATURES TO THIS FILE, NEW CODE GOES HERE: core/models.py
 
+These are the old types we used to use before ArchiveBox v0.4 (before we switched to Django).
 """
 
 __package__ = 'archivebox.index'
@@ -191,6 +192,9 @@ class Link:
         if extended:
             info.update({
                 'snapshot_id': self.snapshot_id,
+                'snapshot_uuid': self.snapshot_uuid,
+                'snapshot_abid': self.snapshot_abid,
+
                 'link_dir': self.link_dir,
                 'archive_path': self.archive_path,
                 
@@ -260,9 +264,21 @@ class Link:
         return to_csv(self, cols=cols or self.field_names(), separator=separator, ljust=ljust)
 
     @cached_property
-    def snapshot_id(self):
+    def snapshot(self):
         from core.models import Snapshot
-        return str(Snapshot.objects.only('id').get(url=self.url).id)
+        return Snapshot.objects.only('uuid').get(url=self.url)
+
+    @cached_property
+    def snapshot_id(self):
+        return str(self.snapshot.pk)
+
+    @cached_property
+    def snapshot_uuid(self):
+        return str(self.snapshot.uuid)
+
+    @cached_property
+    def snapshot_abid(self):
+        return str(self.snapshot.ABID)
 
     @classmethod
     def field_names(cls):
@@ -379,11 +395,15 @@ class Link:
 
         output_paths = (
             domain(self.url),
+            'output.html',
             'output.pdf',
             'screenshot.png',
-            'output.html',
+            'singlefile.html',
+            'readability/content.html',
+            'mercury/content.html',
+            'htmltotext.txt',
             'media',
-            'singlefile.html'
+            'git',
         )
 
         return any(

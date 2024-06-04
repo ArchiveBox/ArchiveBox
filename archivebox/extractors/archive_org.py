@@ -10,10 +10,12 @@ from ..system import run, chmod_file
 from ..util import (
     enforce_types,
     is_static_file,
+    dedupe,
 )
 from ..config import (
     TIMEOUT,
     CURL_ARGS,
+    CURL_EXTRA_ARGS,
     CHECK_SSL_VALIDITY,
     SAVE_ARCHIVE_DOT_ORG,
     CURL_BINARY,
@@ -22,6 +24,8 @@ from ..config import (
 )
 from ..logging_util import TimedProgress
 
+def get_output_path():
+    return 'archive.org.txt'
 
 
 @enforce_types
@@ -30,7 +34,7 @@ def should_save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, overwr
         return False
 
     out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'archive.org.txt').exists():
+    if not overwrite and (out_dir / get_output_path()).exists():
         # if open(path, 'r', encoding='utf-8').read().strip() != 'None':
         return False
 
@@ -41,16 +45,21 @@ def save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, timeout: int=
     """submit site to archive.org for archiving via their service, save returned archive url"""
 
     out_dir = out_dir or Path(link.link_dir)
-    output: ArchiveOutput = 'archive.org.txt'
+    output: ArchiveOutput = get_output_path()
     archive_org_url = None
     submit_url = 'https://web.archive.org/save/{}'.format(link.url)
-    cmd = [
-        CURL_BINARY,
+    # later options take precedence
+    options = [
         *CURL_ARGS,
+        *CURL_EXTRA_ARGS,
         '--head',
         '--max-time', str(timeout),
         *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
         *([] if CHECK_SSL_VALIDITY else ['--insecure']),
+    ]
+    cmd = [
+        CURL_BINARY,
+        *dedupe(options),
         submit_url,
     ]
     status = 'succeeded'
@@ -81,7 +90,7 @@ def save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, timeout: int=
         archive_org_url = archive_org_url or submit_url
         with open(str(out_dir / output), 'w', encoding='utf-8') as f:
             f.write(archive_org_url)
-        chmod_file('archive.org.txt', cwd=str(out_dir))
+        chmod_file(str(out_dir / output), cwd=str(out_dir))
         output = archive_org_url
 
     return ArchiveResult(

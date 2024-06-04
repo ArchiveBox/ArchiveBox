@@ -1,11 +1,13 @@
 __package__ = 'archivebox.extractors'
 
+from typing import Callable, Optional, Dict, List, Iterable, Union, Protocol, cast
+
 import os
 import sys
 from pathlib import Path
-
-from typing import Callable, Optional, List, Iterable, Union
+from importlib import import_module
 from datetime import datetime, timezone
+
 from django.db.models import QuerySet
 
 from ..config import (
@@ -131,7 +133,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
 
         link = load_link_details(link, out_dir=out_dir)
         write_link_details(link, out_dir=out_dir, skip_sql_index=False)
-        log_link_archiving_started(link, out_dir, is_new)
+        log_link_archiving_started(link, str(out_dir), is_new)
         link = link.overwrite(updated=datetime.now(timezone.utc))
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
         start_ts = datetime.now(timezone.utc)
@@ -158,23 +160,13 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                     # bump the updated time on the main Snapshot here, this is critical
                     # to be able to cache summaries of the ArchiveResults for a given
                     # snapshot without having to load all the results from the DB each time.
-                    # (we use {Snapshot.id}-{Snapshot.updated} as the cache key and assume
+                    # (we use {Snapshot.pk}-{Snapshot.updated} as the cache key and assume
                     # ArchiveResults are unchanged as long as the updated timestamp is unchanged)
                     snapshot.save()
                 else:
                     # print('{black}      X {}{reset}'.format(method_name, **ANSI))
                     stats['skipped'] += 1
             except Exception as e:
-                # Disabled until https://github.com/ArchiveBox/ArchiveBox/issues/984
-                # and https://github.com/ArchiveBox/ArchiveBox/issues/1014
-                # are fixed.
-                """
-                raise Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
-                    method_name,
-                    link.url,
-                )) from e
-                """
-                # Instead, use the kludgy workaround from
                 # https://github.com/ArchiveBox/ArchiveBox/issues/984#issuecomment-1150541627
                 with open(ERROR_LOG, "a", encoding='utf-8') as f:
                     command = ' '.join(sys.argv)
@@ -186,6 +178,13 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                         ts
                     ) + "\n" + str(e) + "\n"))
                     #f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
+               
+                # print(f'        ERROR: {method_name} {e.__class__.__name__}: {e} {getattr(e, "hints", "")}', ts, link.url, command)
+                raise Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
+                    method_name,
+                    link.url,
+                )) from e
+
 
         # print('    ', stats)
 
@@ -218,7 +217,7 @@ def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=Fa
 
     if type(all_links) is QuerySet:
         num_links: int = all_links.count()
-        get_link = lambda x: x.as_link()
+        get_link = lambda x: x.as_link_with_details()
         all_links = all_links.iterator()
     else:
         num_links: int = len(all_links)
@@ -243,3 +242,37 @@ def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=Fa
 
     log_archiving_finished(num_links)
     return all_links
+
+
+
+EXTRACTORS_DIR = Path(__file__).parent
+
+class ExtractorModuleProtocol(Protocol):
+    """Type interface for an Extractor Module (WIP)"""
+    
+    get_output_path: Callable
+    
+    # TODO:
+    # get_embed_path: Callable | None
+    # should_extract(Snapshot)
+    # extract(Snapshot)
+
+
+def get_extractors(dir: Path=EXTRACTORS_DIR) -> Dict[str, ExtractorModuleProtocol]:
+    """iterate through archivebox/extractors/*.py and load extractor modules"""
+    EXTRACTORS = {}
+
+    for filename in EXTRACTORS_DIR.glob('*.py'):
+        if filename.name.startswith('__'):
+            continue
+
+        extractor_name = filename.name.replace('.py', '')
+
+        extractor_module = cast(ExtractorModuleProtocol, import_module(f'.{extractor_name}', package=__package__))
+
+        assert getattr(extractor_module, 'get_output_path')
+        EXTRACTORS[extractor_name] = extractor_module
+
+    return EXTRACTORS
+
+EXTRACTORS = get_extractors(EXTRACTORS_DIR)

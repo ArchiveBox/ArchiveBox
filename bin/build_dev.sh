@@ -21,6 +21,20 @@ VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
 SHORT_VERSION="$(echo "$VERSION" | perl -pe 's/(\d+)\.(\d+)\.(\d+)/$1.$2/g')"
 REQUIRED_PLATFORMS="${2:-"linux/arm64,linux/amd64,linux/arm/v7"}"
 
+
+# Build python package lists
+# https://pdm-project.org/latest/usage/lockfile/
+echo "[+] Generating requirements.txt and pdm.lock from pyproject.toml..."
+pdm lock --group=':all' --production --lockfile pdm.lock --strategy="cross_platform"
+pdm sync --group=':all' --production --lockfile pdm.lock --clean || pdm sync --group=':all' --production --lockfile pdm.lock --clean
+pdm export --group=':all' --production --lockfile pdm.lock --without-hashes -o requirements.txt
+
+pdm lock --group=':all' --dev --lockfile pdm.dev.lock --strategy="cross_platform" 
+pdm sync --group=':all' --dev --lockfile pdm.dev.lock --clean || pdm sync --group=':all' --dev --lockfile pdm.dev.lock --clean
+pdm export --group=':all' --dev --lockfile pdm.dev.lock --without-hashes -o requirements-dev.txt
+
+
+
 echo "[+] Building Docker image: tag=$TAG_NAME version=$SHORT_VERSION arch=$REQUIRED_PLATFORMS"
 
 

@@ -17,6 +17,11 @@ venv/
 .venv-old/
 .docker-venv/
 node_modules/
+chrome/
+chromeprofile/
+
+pdm.dev.lock
+pdm.lock
 
 docs/
 build/
@@ -28,4 +33,7 @@ assets/
 docker/
 
 data/
+data*/
 output/
+index.sqlite3
+index.sqlite3-wal

@@ -37,7 +37,7 @@ from sqlite3 import dbapi2 as sqlite3
 from hashlib import md5
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Optional, Type, Tuple, Dict, Union, List
+from typing import Optional, Type, Tuple, Dict, Union, List, Any
 from subprocess import run, PIPE, DEVNULL
 from configparser import ConfigParser
 from collections import defaultdict
@@ -72,7 +72,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'TIMEOUT':                  {'type': int,   'default': 60},
         'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
         'OUTPUT_PERMISSIONS':       {'type': str,   'default': '644'},
-        'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},
+        'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},  # TODO: move this to be a default WGET_ARGS
 
         'URL_DENYLIST':             {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$', 'aliases': ('URL_BLACKLIST',)},  # to avoid downloading code assets as their own pages
         'URL_ALLOWLIST':            {'type': str,   'default': None, 'aliases': ('URL_WHITELIST',)},
@@ -112,6 +112,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'LDAP_FIRSTNAME_ATTR':       {'type': str,   'default': None},
         'LDAP_LASTNAME_ATTR':        {'type': str,   'default': None},
         'LDAP_EMAIL_ATTR':           {'type': str,   'default': None},
+        'LDAP_CREATE_SUPERUSER':     {'type': bool,  'default': False},
     },
 
     'ARCHIVE_METHOD_TOGGLES': {
@@ -136,14 +137,15 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
     },
 
     'ARCHIVE_METHOD_OPTIONS': {
-        'RESOLUTION':               {'type': str,   'default': '1440,2000', 'aliases': ('SCREENSHOT_RESOLUTION',)},
-        'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com,gist.github.com'},
+        'RESOLUTION':               {'type': str,   'default': '1440,2000', 'aliases': ('SCREENSHOT_RESOLUTION','WINDOW_SIZE')},
+        'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com,gist.github.com,codeberg.org,gitea.com,git.sr.ht'},
         'CHECK_SSL_VALIDITY':       {'type': bool,  'default': True},
         'MEDIA_MAX_SIZE':           {'type': str,   'default': '750m'},
 
-        'CURL_USER_AGENT':          {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) curl/{CURL_VERSION}'},
-        'WGET_USER_AGENT':          {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) wget/{WGET_VERSION}'},
-        'CHROME_USER_AGENT':        {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)'},
+        'USER_AGENT':               {'type': str,   'default': None},
+        'CURL_USER_AGENT':          {'type': str,   'default': lambda c: c['USER_AGENT'] or 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) curl/{CURL_VERSION}'},
+        'WGET_USER_AGENT':          {'type': str,   'default': lambda c: c['USER_AGENT'] or 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/) wget/{WGET_VERSION}'},
+        'CHROME_USER_AGENT':        {'type': str,   'default': lambda c: c['USER_AGENT'] or 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)'},
 
         'COOKIES_FILE':             {'type': str,   'default': None},
         'CHROME_USER_DATA_DIR':     {'type': str,   'default': None},
@@ -151,7 +153,11 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'CHROME_TIMEOUT':           {'type': int,   'default': 0},
         'CHROME_HEADLESS':          {'type': bool,  'default': True},
         'CHROME_SANDBOX':           {'type': bool,  'default': lambda c: not c['IN_DOCKER']},
+        'CHROME_EXTRA_ARGS':        {'type': list,  'default': None},
+
         'YOUTUBEDL_ARGS':           {'type': list,  'default': lambda c: [
+                                                                '--restrict-filenames',
+                                                                '--trim-filenames', '128',
                                                                 '--write-description',
                                                                 '--write-info-json',
                                                                 '--write-annotations',
@@ -173,6 +179,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--add-metadata',
                                                                 '--format=(bv*+ba/b)[filesize<={}][filesize_approx<=?{}]/(bv*+ba/b)'.format(c['MEDIA_MAX_SIZE'], c['MEDIA_MAX_SIZE']),
                                                                 ]},
+        'YOUTUBEDL_EXTRA_ARGS':     {'type': list,  'default': None},
 
 
         'WGET_ARGS':                {'type': list,  'default': ['--no-verbose',
@@ -184,12 +191,17 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 '--no-parent',
                                                                 '-e', 'robots=off',
                                                                 ]},
+        'WGET_EXTRA_ARGS':          {'type': list,  'default': None},
         'CURL_ARGS':                {'type': list,  'default': ['--silent',
                                                                 '--location',
                                                                 '--compressed'
                                                                ]},
+        'CURL_EXTRA_ARGS':          {'type': list,  'default': None},
         'GIT_ARGS':                 {'type': list,  'default': ['--recursive']},
-        'SINGLEFILE_ARGS':          {'type': list,  'default' : None},
+        'SINGLEFILE_ARGS':          {'type': list,  'default': None},
+        'SINGLEFILE_EXTRA_ARGS':    {'type': list,  'default': None},
+        'MERCURY_ARGS':             {'type': list,  'default': ['--format=text']},
+        'MERCURY_EXTRA_ARGS':       {'type': list,  'default': None},
         'FAVICON_PROVIDER':         {'type': str,   'default': 'https://www.google.com/s2/favicons?domain={}'},
     },
 
@@ -253,7 +265,7 @@ CONFIG_ALIASES = {
         for key, default in section.items()
             for alias in default.get('aliases', ())
 }
-USER_CONFIG = {key for section in CONFIG_SCHEMA.values() for key in section.keys()}
+USER_CONFIG = {key: section[key] for section in CONFIG_SCHEMA.values() for key in section.keys()}
 
 def get_real_name(key: str) -> str:
     """get the current canonical name for a given deprecated config key"""
@@ -269,6 +281,9 @@ TEMPLATES_DIR_NAME = 'templates'
 ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
 LOGS_DIR_NAME = 'logs'
+CACHE_DIR_NAME = 'cache'
+PERSONAS_DIR_NAME = 'personas'
+CRONTABS_DIR_NAME = 'crontabs'
 SQL_INDEX_FILENAME = 'index.sqlite3'
 JSON_INDEX_FILENAME = 'index.json'
 HTML_INDEX_FILENAME = 'index.html'
@@ -342,9 +357,12 @@ ALLOWED_IN_OUTPUT_DIR = {
     'static',
     'sonic',
     'search.sqlite3',
+    CRONTABS_DIR_NAME,
     ARCHIVE_DIR_NAME,
     SOURCES_DIR_NAME,
     LOGS_DIR_NAME,
+    CACHE_DIR_NAME,
+    PERSONAS_DIR_NAME,
     SQL_INDEX_FILENAME,
     f'{SQL_INDEX_FILENAME}-wal',
     f'{SQL_INDEX_FILENAME}-shm',
@@ -363,24 +381,32 @@ ALLOWDENYLIST_REGEX_FLAGS: int = re.IGNORECASE | re.UNICODE | re.MULTILINE
 
 ############################## Version Config ##################################
 
-def get_system_user():
-    SYSTEM_USER = getpass.getuser() or os.getlogin()
+def get_system_user() -> str:
+    # some host OS's are unable to provide a username (k3s, Windows), making this complicated
+    # uid 999 is especially problematic and breaks many attempts
+    SYSTEM_USER = None
+    FALLBACK_USER_PLACHOLDER = f'user_{os.getuid()}'
+
+    # Option 1
     try:
         import pwd
-        return pwd.getpwuid(os.geteuid()).pw_name or SYSTEM_USER
-    except KeyError:
-        # Process' UID might not map to a user in cases such as running the Docker image
-        # (where `archivebox` is 999) as a different UID.
-        pass
-    except ModuleNotFoundError:
-        # pwd doesn't exist on windows
-        pass
-    except Exception:
-        # this should never happen, uncomment to debug
-        # raise
+        SYSTEM_USER = SYSTEM_USER or pwd.getpwuid(os.geteuid()).pw_name
+    except (ModuleNotFoundError, Exception):
         pass
 
-    return SYSTEM_USER
+    # Option 2
+    try:
+        SYSTEM_USER = SYSTEM_USER or getpass.getuser()
+    except Exception:
+        pass
+
+    # Option 3
+    try:
+        SYSTEM_USER = SYSTEM_USER or os.getlogin()
+    except Exception:
+        pass
+
+    return SYSTEM_USER or FALLBACK_USER_PLACHOLDER
 
 def get_version(config):
     try:
@@ -487,9 +513,11 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'ARCHIVE_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / ARCHIVE_DIR_NAME},
     'SOURCES_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / SOURCES_DIR_NAME},
     'LOGS_DIR':                 {'default': lambda c: c['OUTPUT_DIR'] / LOGS_DIR_NAME},
+    'CACHE_DIR':                {'default': lambda c: c['OUTPUT_DIR'] / CACHE_DIR_NAME},
+    'PERSONAS_DIR':             {'default': lambda c: c['OUTPUT_DIR'] / PERSONAS_DIR_NAME},
     'CONFIG_FILE':              {'default': lambda c: Path(c['CONFIG_FILE']).resolve() if c['CONFIG_FILE'] else c['OUTPUT_DIR'] / CONFIG_FILENAME},
     'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and Path(c['COOKIES_FILE']).resolve()},
-    'CHROME_USER_DATA_DIR':     {'default': lambda c: find_chrome_data_dir() if c['CHROME_USER_DATA_DIR'] is None else (Path(c['CHROME_USER_DATA_DIR']).resolve() if c['CHROME_USER_DATA_DIR'] else None)},   # None means unset, so we autodetect it with find_chrome_Data_dir(), but emptystring '' means user manually set it to '', and we should store it as None
+    'CHROME_USER_DATA_DIR':     {'default': lambda c: Path(c['CHROME_USER_DATA_DIR']).resolve() if c['CHROME_USER_DATA_DIR'] else None},
     'URL_DENYLIST_PTN':         {'default': lambda c: c['URL_DENYLIST'] and re.compile(c['URL_DENYLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
     'URL_ALLOWLIST_PTN':        {'default': lambda c: c['URL_ALLOWLIST'] and re.compile(c['URL_ALLOWLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
     'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},  # exec is always needed to list directories
@@ -519,6 +547,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'CURL_VERSION':             {'default': lambda c: bin_version(c['CURL_BINARY']) if c['USE_CURL'] else None},
     'CURL_USER_AGENT':          {'default': lambda c: c['CURL_USER_AGENT'].format(**c)},
     'CURL_ARGS':                {'default': lambda c: c['CURL_ARGS'] or []},
+    'CURL_EXTRA_ARGS':          {'default': lambda c: c['CURL_EXTRA_ARGS'] or []},
     'SAVE_FAVICON':             {'default': lambda c: c['USE_CURL'] and c['SAVE_FAVICON']},
     'SAVE_ARCHIVE_DOT_ORG':     {'default': lambda c: c['USE_CURL'] and c['SAVE_ARCHIVE_DOT_ORG']},
 
@@ -529,18 +558,22 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'SAVE_WGET':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WGET']},
     'SAVE_WARC':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WARC']},
     'WGET_ARGS':                {'default': lambda c: c['WGET_ARGS'] or []},
+    'WGET_EXTRA_ARGS':          {'default': lambda c: c['WGET_EXTRA_ARGS'] or []},
 
     'RIPGREP_VERSION':          {'default': lambda c: bin_version(c['RIPGREP_BINARY']) if c['USE_RIPGREP'] else None},
 
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
     'SINGLEFILE_ARGS':          {'default': lambda c: c['SINGLEFILE_ARGS'] or []},
+    'SINGLEFILE_EXTRA_ARGS':    {'default': lambda c: c['SINGLEFILE_EXTRA_ARGS'] or []},
 
     'USE_READABILITY':          {'default': lambda c: c['USE_READABILITY'] and c['SAVE_READABILITY']},
     'READABILITY_VERSION':      {'default': lambda c: bin_version(c['READABILITY_BINARY']) if c['USE_READABILITY'] else None},
 
     'USE_MERCURY':              {'default': lambda c: c['USE_MERCURY'] and c['SAVE_MERCURY']},
     'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury doesnt expose version info until this is merged https://github.com/postlight/parser/pull/750
+    'MERCURY_ARGS':             {'default': lambda c: c['MERCURY_ARGS'] or []},
+    'MERCURY_EXTRA_ARGS':       {'default': lambda c: c['MERCURY_EXTRA_ARGS'] or []},
 
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
@@ -550,6 +583,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'YOUTUBEDL_VERSION':        {'default': lambda c: bin_version(c['YOUTUBEDL_BINARY']) if c['USE_YOUTUBEDL'] else None},
     'SAVE_MEDIA':               {'default': lambda c: c['USE_YOUTUBEDL'] and c['SAVE_MEDIA']},
     'YOUTUBEDL_ARGS':           {'default': lambda c: c['YOUTUBEDL_ARGS'] or []},
+    'YOUTUBEDL_EXTRA_ARGS':     {'default': lambda c: c['YOUTUBEDL_EXTRA_ARGS'] or []},
 
     'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] or find_chrome_binary()},
     'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and c['CHROME_BINARY'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'] or c['SAVE_SINGLEFILE'])},
@@ -568,9 +602,9 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
 
     'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
     'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
-    'EXTERNAL_LOCATIONS':       {'default': lambda c: get_external_locations(c)},
     'DATA_LOCATIONS':           {'default': lambda c: get_data_locations(c)},
     'CHROME_OPTIONS':           {'default': lambda c: get_chrome_info(c)},
+    'CHROME_EXTRA_ARGS':        {'default': lambda c: c['CHROME_EXTRA_ARGS'] or []},
     'SAVE_ALLOWLIST_PTN':       {'default': lambda c: c['SAVE_ALLOWLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_ALLOWLIST'].items()}},
     'SAVE_DENYLIST_PTN':        {'default': lambda c: c['SAVE_DENYLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_DENYLIST'].items()}},
 }
@@ -899,27 +933,36 @@ def find_chrome_binary() -> Optional[str]:
 
 def find_chrome_data_dir() -> Optional[str]:
     """find any installed chrome user data directories in the default locations"""
-    # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
-    # make sure data dir finding precedence order always matches binary finding order
-    default_profile_paths = (
-        '~/.config/chromium',
-        '~/Library/Application Support/Chromium',
-        '~/AppData/Local/Chromium/User Data',
-        '~/.config/chrome',
-        '~/.config/google-chrome',
-        '~/Library/Application Support/Google/Chrome',
-        '~/AppData/Local/Google/Chrome/User Data',
-        '~/.config/google-chrome-stable',
-        '~/.config/google-chrome-beta',
-        '~/Library/Application Support/Google/Chrome Canary',
-        '~/AppData/Local/Google/Chrome SxS/User Data',
-        '~/.config/google-chrome-unstable',
-        '~/.config/google-chrome-dev',
-    )
-    for path in default_profile_paths:
-        full_path = Path(path).resolve()
-        if full_path.exists():
-            return full_path
+    # deprecated because this is DANGEROUS, do not re-implement/uncomment this behavior.
+
+    # Going forward we want to discourage people from using their main chrome profile for archiving.
+    # Session tokens, personal data, and cookies are often returned in server responses,
+    # when they get archived, they are essentially burned as anyone who can view the archive
+    # can use that data to masquerade as the logged-in user that did the archiving.
+    # For this reason users should always create dedicated burner profiles for archiving and not use
+    # their daily driver main accounts.
+
+    # # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
+    # # make sure data dir finding precedence order always matches binary finding order
+    # default_profile_paths = (
+    #     '~/.config/chromium',
+    #     '~/Library/Application Support/Chromium',
+    #     '~/AppData/Local/Chromium/User Data',
+    #     '~/.config/chrome',
+    #     '~/.config/google-chrome',
+    #     '~/Library/Application Support/Google/Chrome',
+    #     '~/AppData/Local/Google/Chrome/User Data',
+    #     '~/.config/google-chrome-stable',
+    #     '~/.config/google-chrome-beta',
+    #     '~/Library/Application Support/Google/Chrome Canary',
+    #     '~/AppData/Local/Google/Chrome SxS/User Data',
+    #     '~/.config/google-chrome-unstable',
+    #     '~/.config/google-chrome-dev',
+    # )
+    # for path in default_profile_paths:
+    #     full_path = Path(path).resolve()
+    #     if full_path.exists():
+    #         return full_path
     return None
 
 def wget_supports_compression(config):
@@ -945,11 +988,6 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
             'enabled': True,
             'is_valid': (config['TEMPLATES_DIR'] / 'static').exists(),
         },
-        'CUSTOM_TEMPLATES_DIR': {
-            'path': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).resolve(),
-            'enabled': bool(config['CUSTOM_TEMPLATES_DIR']),
-            'is_valid': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).exists(),
-        },
         # 'NODE_MODULES_DIR': {
         #     'path': ,
         #     'enabled': ,
@@ -957,44 +995,24 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
         # },
     }
 
-def get_external_locations(config: ConfigDict) -> ConfigValue:
-    abspath = lambda path: None if path is None else Path(path).resolve()
-    return {
-        'CHROME_USER_DATA_DIR': {
-            'path': abspath(config['CHROME_USER_DATA_DIR']),
-            'enabled': config['USE_CHROME'] and config['CHROME_USER_DATA_DIR'],
-            'is_valid': False if config['CHROME_USER_DATA_DIR'] is None else (Path(config['CHROME_USER_DATA_DIR']) / 'Default').exists(),
-        },
-        'COOKIES_FILE': {
-            'path': abspath(config['COOKIES_FILE']),
-            'enabled': config['USE_WGET'] and config['COOKIES_FILE'],
-            'is_valid': False if config['COOKIES_FILE'] is None else Path(config['COOKIES_FILE']).exists(),
-        },
-    }
-
 def get_data_locations(config: ConfigDict) -> ConfigValue:
     return {
+        # OLD: migrating to personas
+        # 'CHROME_USER_DATA_DIR': {
+        #     'path': os.path.abspath(config['CHROME_USER_DATA_DIR']),
+        #     'enabled': config['USE_CHROME'] and config['CHROME_USER_DATA_DIR'],
+        #     'is_valid': False if config['CHROME_USER_DATA_DIR'] is None else (Path(config['CHROME_USER_DATA_DIR']) / 'Default').exists(),
+        # },
+        # 'COOKIES_FILE': {
+        #     'path': os.path.abspath(config['COOKIES_FILE']),
+        #     'enabled': config['USE_WGET'] and config['COOKIES_FILE'],
+        #     'is_valid': False if config['COOKIES_FILE'] is None else Path(config['COOKIES_FILE']).exists(),
+        # },
         'OUTPUT_DIR': {
             'path': config['OUTPUT_DIR'].resolve(),
             'enabled': True,
             'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
             'is_mount': os.path.ismount(config['OUTPUT_DIR'].resolve()),
-        },
-        'SOURCES_DIR': {
-            'path': config['SOURCES_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': config['SOURCES_DIR'].exists(),
-        },
-        'LOGS_DIR': {
-            'path': config['LOGS_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': config['LOGS_DIR'].exists(),
-        },
-        'ARCHIVE_DIR': {
-            'path': config['ARCHIVE_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': config['ARCHIVE_DIR'].exists(),
-            'is_mount': os.path.ismount(config['ARCHIVE_DIR'].resolve()),
         },
         'CONFIG_FILE': {
             'path': config['CONFIG_FILE'].resolve(),
@@ -1007,6 +1025,43 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
             'is_mount': os.path.ismount((config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).resolve()),
         },
+        'ARCHIVE_DIR': {
+            'path': config['ARCHIVE_DIR'].resolve(),
+            'enabled': True,
+            'is_valid': config['ARCHIVE_DIR'].exists(),
+            'is_mount': os.path.ismount(config['ARCHIVE_DIR'].resolve()),
+        },
+        'SOURCES_DIR': {
+            'path': config['SOURCES_DIR'].resolve(),
+            'enabled': True,
+            'is_valid': config['SOURCES_DIR'].exists(),
+        },
+        'LOGS_DIR': {
+            'path': config['LOGS_DIR'].resolve(),
+            'enabled': True,
+            'is_valid': config['LOGS_DIR'].exists(),
+        },
+        'CACHE_DIR': {
+            'path': config['CACHE_DIR'].resolve(),
+            'enabled': True,
+            'is_valid': config['CACHE_DIR'].exists(),
+        },
+        'CUSTOM_TEMPLATES_DIR': {
+            'path': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).resolve(),
+            'enabled': bool(config['CUSTOM_TEMPLATES_DIR']),
+            'is_valid': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).exists(),
+        },
+        'PERSONAS_DIR': {
+            'path': config['PERSONAS_DIR'].resolve(),
+            'enabled': True,
+            'is_valid': config['PERSONAS_DIR'].exists(),
+        },
+        # managed by bin/docker_entrypoint.sh and python-crontab:
+        # 'CRONTABS_DIR': {
+        #     'path': config['CRONTABS_DIR'].resolve(),
+        #     'enabled': True,
+        #     'is_valid': config['CRONTABS_DIR'].exists(),
+        # },
     }
 
 def get_dependency_info(config: ConfigDict) -> ConfigValue:
@@ -1241,7 +1296,7 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
 
     # stderr('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
     # stderr('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
-    if config['CHROME_USER_DATA_DIR'] is not None:
+    if config['CHROME_USER_DATA_DIR'] is not None and Path(config['CHROME_USER_DATA_DIR']).exists():
         if not (Path(config['CHROME_USER_DATA_DIR']) / 'Default').exists():
             stderr('[X] Could not find profile "Default" in CHROME_USER_DATA_DIR.', color='red')
             stderr(f'    {config["CHROME_USER_DATA_DIR"]}')
@@ -1251,8 +1306,13 @@ def check_system_config(config: ConfigDict=CONFIG) -> None:
             if '/Default' in str(config['CHROME_USER_DATA_DIR']):
                 stderr()
                 stderr('    Try removing /Default from the end e.g.:')
-                stderr('        CHROME_USER_DATA_DIR="{}"'.format(config['CHROME_USER_DATA_DIR'].split('/Default')[0]))
-            raise SystemExit(2)
+                stderr('        CHROME_USER_DATA_DIR="{}"'.format(str(config['CHROME_USER_DATA_DIR']).split('/Default')[0]))
+            
+            # hard error is too annoying here, instead just set it to nothing
+            # raise SystemExit(2)
+            config['CHROME_USER_DATA_DIR'] = None
+    else:
+        config['CHROME_USER_DATA_DIR'] = None
 
 
 def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
@@ -1321,6 +1381,7 @@ def check_data_folder(out_dir: Union[str, Path, None]=None, config: ConfigDict=C
         stderr('        archivebox init')
         raise SystemExit(2)
 
+
 def check_migrations(out_dir: Union[str, Path, None]=None, config: ConfigDict=CONFIG):
     output_dir = out_dir or config['OUTPUT_DIR']
     from .index.sql import list_migrations
@@ -1337,6 +1398,9 @@ def check_migrations(out_dir: Union[str, Path, None]=None, config: ConfigDict=CO
 
     (Path(output_dir) / SOURCES_DIR_NAME).mkdir(exist_ok=True)
     (Path(output_dir) / LOGS_DIR_NAME).mkdir(exist_ok=True)
+    (Path(output_dir) / CACHE_DIR_NAME).mkdir(exist_ok=True)
+    (Path(output_dir) / PERSONAS_DIR_NAME).mkdir(exist_ok=True)
+    (Path(output_dir) / PERSONAS_DIR_NAME / 'Default').mkdir(exist_ok=True)
 
 
 

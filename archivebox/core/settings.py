@@ -10,6 +10,7 @@ from pathlib import Path
 from django.utils.crypto import get_random_string
 
 from ..config import (
+    CONFIG,
     DEBUG,
     SECRET_KEY,
     ALLOWED_HOSTS,
@@ -18,7 +19,9 @@ from ..config import (
     CUSTOM_TEMPLATES_DIR,
     SQL_INDEX_FILENAME,
     OUTPUT_DIR,
+    ARCHIVE_DIR,
     LOGS_DIR,
+    CACHE_DIR,
     TIMEZONE,
 
     LDAP,
@@ -52,6 +55,26 @@ APPEND_SLASH = True
 
 DEBUG = DEBUG or ('--debug' in sys.argv)
 
+
+# add plugins folders to system path, and load plugins in installed_apps
+BUILTIN_PLUGINS_DIR = PACKAGE_DIR / 'plugins'
+USER_PLUGINS_DIR = OUTPUT_DIR / 'plugins'
+sys.path.insert(0, str(BUILTIN_PLUGINS_DIR))
+sys.path.insert(0, str(USER_PLUGINS_DIR))
+
+def find_plugins(plugins_dir):
+    return {
+        # plugin_entrypoint.parent.name: import_module(plugin_entrypoint.parent.name).METADATA
+        plugin_entrypoint.parent.name: plugin_entrypoint.parent
+        for plugin_entrypoint in plugins_dir.glob('*/apps.py')
+    }
+
+INSTALLED_PLUGINS = {
+    **find_plugins(BUILTIN_PLUGINS_DIR),
+    **find_plugins(USER_PLUGINS_DIR),
+}
+
+
 INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -59,8 +82,17 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admin',
+    'django_jsonform',
 
+    'signal_webhooks',
+    'abid_utils',
+    'plugantic',
     'core',
+    'api',
+
+    *INSTALLED_PLUGINS.keys(),
+
+    'admin_data_views',
 
     'django_extensions',
 ]
@@ -172,6 +204,17 @@ if DEBUG_TOOLBAR:
     ]
     MIDDLEWARE = [*MIDDLEWARE, 'debug_toolbar.middleware.DebugToolbarMiddleware']
 
+
+# https://github.com/bensi94/Django-Requests-Tracker (improved version of django-debug-toolbar)
+# Must delete archivebox/templates/admin to use because it relies on some things we override
+# visit /__requests_tracker__/ to access
+DEBUG_REQUESTS_TRACKER = False
+if DEBUG_REQUESTS_TRACKER:
+    INSTALLED_APPS += ["requests_tracker"]
+    MIDDLEWARE += ["requests_tracker.middleware.requests_tracker_middleware"]
+    INTERNAL_IPS = ["127.0.0.1", "10.0.2.2", "0.0.0.0", "*"]
+
+
 ################################################################################
 ### Staticfile and Template Settings
 ################################################################################
@@ -211,6 +254,11 @@ TEMPLATES = [
 ### External Service Settings
 ################################################################################
 
+
+CACHE_DB_FILENAME = 'cache.sqlite3'
+CACHE_DB_PATH = CACHE_DIR / CACHE_DB_FILENAME
+CACHE_DB_TABLE = 'django_cache'
+
 DATABASE_FILE = Path(OUTPUT_DIR) / SQL_INDEX_FILENAME
 DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(DATABASE_FILE))
 
@@ -224,22 +272,55 @@ DATABASES = {
         },
         'TIME_ZONE': TIMEZONE,
         # DB setup is sometimes modified at runtime by setup_django() in config.py
-    }
+    },
+    # 'cache': {
+    #     'ENGINE': 'django.db.backends.sqlite3',
+    #     'NAME': CACHE_DB_PATH,
+    #     'OPTIONS': {
+    #         'timeout': 60,
+    #         'check_same_thread': False,
+    #     },
+    #     'TIME_ZONE': TIMEZONE,
+    # },
 }
+MIGRATION_MODULES = {'signal_webhooks': None}
 
-CACHE_BACKEND = 'django.core.cache.backends.locmem.LocMemCache'
-# CACHE_BACKEND = 'django.core.cache.backends.db.DatabaseCache'
-# CACHE_BACKEND = 'django.core.cache.backends.dummy.DummyCache'
+# as much as I'd love this to be a UUID or ULID field, it's not supported yet as of Django 5.0
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 
 CACHES = {
-    'default': {
-        'BACKEND': CACHE_BACKEND,
-        'LOCATION': 'django_cache_default',
-    }
+    'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'},
+    # 'sqlite': {'BACKEND': 'django.core.cache.backends.db.DatabaseCache', 'LOCATION': 'cache'},
+    # 'dummy': {'BACKEND': 'django.core.cache.backends.dummy.DummyCache'},
+    # 'filebased': {"BACKEND": "django.core.cache.backends.filebased.FileBasedCache", "LOCATION": CACHE_DIR / 'cache_filebased'},
 }
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+    "archive": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {
+            "base_url": "/archive/",
+            "location": ARCHIVE_DIR,
+        },
+    },
+    # "personas": {
+    #     "BACKEND": "django.core.files.storage.FileSystemStorage",
+    #     "OPTIONS": {
+    #         "base_url": "/personas/",
+    #         "location": PERSONAS_DIR,
+    #     },
+    # },
+}
 
 ################################################################################
 ### Security Settings
@@ -269,9 +350,6 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# WIP: broken by Django 3.1.2 -> 4.0 migration
-DEFAULT_AUTO_FIELD = 'django.db.models.UUIDField'
-
 ################################################################################
 ### Shell Settings
 ################################################################################
@@ -290,7 +368,6 @@ if IS_SHELL:
 
 LANGUAGE_CODE = 'en-us'
 USE_I18N = True
-USE_L10N = True
 USE_TZ = True
 DATETIME_FORMAT = 'Y-m-d g:iA'
 SHORT_DATETIME_FORMAT = 'Y-m-d h:iA'
@@ -370,4 +447,55 @@ LOGGING = {
             'filters': ['noisyrequestsfilter'],
         }
     },
+}
+
+
+# Add default webhook configuration to the User model
+SIGNAL_WEBHOOKS_CUSTOM_MODEL = 'api.models.OutboundWebhook'
+SIGNAL_WEBHOOKS = {
+    "HOOKS": {
+        # ... is a special sigil value that means "use the default autogenerated hooks"
+        "django.contrib.auth.models.User": ...,
+        "core.models.Snapshot": ...,
+        "core.models.ArchiveResult": ...,
+        "core.models.Tag": ...,
+        "api.models.APIToken": ...,
+    },
+}
+
+
+ADMIN_DATA_VIEWS = {
+    "NAME": "Environment",
+    "URLS": [
+        {
+            "route": "config/",
+            "view": "core.views.live_config_list_view",
+            "name": "Configuration",
+            "items": {
+                "route": "<str:key>/",
+                "view": "core.views.live_config_value_view",
+                "name": "config_val",
+            },
+        },
+        {
+            "route": "binaries/",
+            "view": "plugantic.views.binaries_list_view",
+            "name": "Binaries",
+            "items": {
+                "route": "<str:key>/",
+                "view": "plugantic.views.binary_detail_view",
+                "name": "binary",
+            },
+        },
+        {
+            "route": "plugins/",
+            "view": "plugantic.views.plugins_list_view",
+            "name": "Plugins",
+            "items": {
+                "route": "<str:key>/",
+                "view": "plugantic.views.plugin_detail_view",
+                "name": "plugin",
+            },
+        },
+    ],
 }

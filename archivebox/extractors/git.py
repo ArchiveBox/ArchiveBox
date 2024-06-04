@@ -26,6 +26,19 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 
+def get_output_path():
+    return 'git/'
+
+def get_embed_path(archiveresult=None):
+    if not archiveresult:
+        return get_output_path()
+
+    try:
+        return get_output_path() + list((archiveresult.snapshot_dir / get_output_path()).glob('*'))[0].name + '/'
+    except IndexError:
+        pass
+
+    return get_output_path()
 
 @enforce_types
 def should_save_git(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
@@ -33,7 +46,7 @@ def should_save_git(link: Link, out_dir: Optional[Path]=None, overwrite: Optiona
         return False
 
     out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'git').exists():
+    if not overwrite and (out_dir / get_output_path()).exists():
         return False
 
     is_clonable_url = (
@@ -51,7 +64,7 @@ def save_git(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> 
     """download full site using git"""
 
     out_dir = out_dir or Path(link.link_dir)
-    output: ArchiveOutput = 'git'
+    output: ArchiveOutput = get_output_path()
     output_path = out_dir / output
     output_path.mkdir(exist_ok=True)
     cmd = [

@@ -19,6 +19,9 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 
+def get_output_path():
+    return 'output.html'
+
 
 @enforce_types
 def should_save_dom(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
@@ -26,8 +29,8 @@ def should_save_dom(link: Link, out_dir: Optional[Path]=None, overwrite: Optiona
         return False
 
     out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'output.html').exists():
-        if (out_dir / 'output.html').stat().st_size > 1:
+    if not overwrite and (out_dir / get_output_path()).exists():
+        if (out_dir / get_output_path()).stat().st_size > 1:
             return False
 
     return SAVE_DOM
@@ -37,7 +40,7 @@ def save_dom(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> 
     """print HTML of site to file using chrome --dump-html"""
 
     out_dir = out_dir or Path(link.link_dir)
-    output: ArchiveOutput = 'output.html'
+    output: ArchiveOutput = get_output_path()
     output_path = out_dir / output
     cmd = [
         *chrome_args(),

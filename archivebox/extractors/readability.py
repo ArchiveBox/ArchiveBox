@@ -22,6 +22,12 @@ from ..config import (
 from ..logging_util import TimedProgress
 from .title import get_html
 
+def get_output_path():
+    return 'readability/'
+
+def get_embed_path(archiveresult=None):
+    return get_output_path() + 'content.html'
+
 
 @enforce_types
 def should_save_readability(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:
@@ -29,7 +35,7 @@ def should_save_readability(link: Link, out_dir: Optional[str]=None, overwrite: 
         return False
 
     out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'readability').exists():
+    if not overwrite and (out_dir / get_output_path()).exists():
         return False
 
     return SAVE_READABILITY
@@ -40,8 +46,8 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
     """download reader friendly version using @mozilla/readability"""
 
     out_dir = Path(out_dir or link.link_dir)
-    output_folder = out_dir.absolute() / "readability"
-    output = "readability"
+    output_folder = out_dir.absolute() / get_output_path()
+    output = get_output_path()
 
     # Readability Docs: https://github.com/mozilla/readability
 

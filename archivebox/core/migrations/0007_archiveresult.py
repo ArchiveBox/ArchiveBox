@@ -17,8 +17,6 @@ except AttributeError:
 
 
 def forwards_func(apps, schema_editor):
-    from core.models import EXTRACTORS
-
     Snapshot = apps.get_model("core", "Snapshot")
     ArchiveResult = apps.get_model("core", "ArchiveResult")
 

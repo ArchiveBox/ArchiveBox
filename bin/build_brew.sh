@@ -10,7 +10,7 @@ set -o nounset
 set -o pipefail
 IFS=$'\n'
 
-REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
+REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null 2>&1 && cd .. && pwd )"
 
 
 CURRENT_PLAFORM="$(uname)"
@@ -30,6 +30,14 @@ echo
 echo "[+] Uninstalling any exisitng archivebox versions..."
 brew uninstall archivebox || true
 brew untap archivebox/archivebox || true
+brew uninstall --ignore-dependencies yt-dlp || true
+brew uninstall python-mutagen || true
+brew uninstall python-brotli || true
+
+pip3 uninstall archivebox || true
+pip3 uninstall mutagen || true
+pip3 uninstall brotli || true
+pip3 uninstall yt-dlp || true
 
 # echo "[*] Running Formula linters and test build..."
 # brew test-bot --tap=ArchiveBox/homebrew-archivebox archivebox/archivebox/archivebox || true
@@ -37,7 +45,7 @@ brew untap archivebox/archivebox || true
 # brew untap archivebox/archivebox || true
 
 echo
-echo "[+] Installing and building hombrew bottle from https://Github.com/ArchiveBox/homebrew-archivebox#main"
+echo "[+] Installing and building hombrew bottle from https://github.com/ArchiveBox/homebrew-archivebox#main"
 brew tap archivebox/archivebox
 brew install --build-bottle archivebox
 brew bottle archivebox

@@ -31,6 +31,20 @@ else
     echo "[!] Warning: No virtualenv presesnt in $REPO_DIR.venv"
 fi
 
+
+# Build python package lists
+# https://pdm-project.org/latest/usage/lockfile/
+echo "[+] Generating requirements.txt and pdm.lock from pyproject.toml..."
+pdm lock --group=':all' --production --lockfile pdm.lock --strategy="cross_platform"
+pdm sync --group=':all' --production --lockfile pdm.lock --clean || pdm sync --group=':all' --production --lockfile pdm.lock --clean
+pdm export --group=':all' --production --lockfile pdm.lock --without-hashes -o requirements.txt
+
+pdm lock --group=':all' --dev --lockfile pdm.dev.lock --strategy="cross_platform" 
+pdm sync --group=':all' --dev --lockfile pdm.dev.lock --clean || pdm sync --group=':all' --dev --lockfile pdm.dev.lock --clean
+pdm export --group=':all' --dev --lockfile pdm.dev.lock --without-hashes -o requirements-dev.txt
+
+
+
 # cleanup build artifacts
 rm -Rf build deb_dist dist archivebox-*.tar.gz
 

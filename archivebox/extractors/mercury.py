@@ -11,16 +11,24 @@ from ..system import run, atomic_write
 from ..util import (
     enforce_types,
     is_static_file,
-
+    dedupe,
 )
 from ..config import (
     TIMEOUT,
     SAVE_MERCURY,
     DEPENDENCIES,
     MERCURY_VERSION,
+    MERCURY_ARGS,
+    MERCURY_EXTRA_ARGS,
 )
 from ..logging_util import TimedProgress
 
+
+def get_output_path():
+    return 'mercury/'
+
+def get_embed_path(archiveresult=None):
+    return get_output_path() + 'content.html'
 
 
 @enforce_types
@@ -42,7 +50,7 @@ def should_save_mercury(link: Link, out_dir: Optional[str]=None, overwrite: Opti
         return False
 
     out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'mercury').exists():
+    if not overwrite and (out_dir / get_output_path()).exists():
         return False
 
     return SAVE_MERCURY
@@ -53,19 +61,23 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
     """download reader friendly version using @postlight/mercury-parser"""
 
     out_dir = Path(out_dir or link.link_dir)
-    output_folder = out_dir.absolute() / "mercury"
-    output = "mercury"
+    output_folder = out_dir.absolute() / get_output_path()
+    output = get_output_path()
 
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
         output_folder.mkdir(exist_ok=True)
-
-        # Get plain text version of article
+        # later options take precedence
+        options = [
+            *MERCURY_ARGS,
+            *MERCURY_EXTRA_ARGS,
+        ]
+        # By default, get plain text version of article
         cmd = [
             DEPENDENCIES['MERCURY_BINARY']['path'],
             link.url,
-            "--format=text"
+            *dedupe(options)
         ]
         result = run(cmd, cwd=out_dir, timeout=timeout)
         try:

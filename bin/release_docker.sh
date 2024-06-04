@@ -13,7 +13,7 @@ IFS=$'\n'
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 cd "$REPO_DIR"
 
-SUPPORTED_PLATFORMS="linux/amd64,linux/arm64,linux/arm/v7"
+SUPPORTED_PLATFORMS="linux/amd64,linux/arm64"   # no longer supported: linux/arm/v7
 
 TAG_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
@@ -31,20 +31,20 @@ echo "[^] Building docker image"
 
 echo "[^] Uploading docker image"
 docker buildx build --platform "$SELECTED_PLATFORMS" --push . \
-               -t archivebox/archivebox \
                -t archivebox/archivebox:$TAG_NAME \
-               -t archivebox/archivebox:$VERSION \
-               -t archivebox/archivebox:$SHORT_VERSION \
                -t archivebox/archivebox:$GIT_SHA \
-               -t archivebox/archivebox:latest \
-               -t nikisweeting/archivebox \
                -t nikisweeting/archivebox:$TAG_NAME \
-               -t nikisweeting/archivebox:$VERSION \
-               -t nikisweeting/archivebox:$SHORT_VERSION \
                -t nikisweeting/archivebox:$GIT_SHA \
-               -t nikisweeting/archivebox:latest \
-               -t ghcr.io/archivebox/archivebox/archivebox:$TAG_NAME \
-               -t ghcr.io/archivebox/archivebox/archivebox:$VERSION \
-               -t ghcr.io/archivebox/archivebox/archivebox:$SHORT_VERSION \
-               -t ghcr.io/archivebox/archivebox/archivebox:$GIT_SHA
+               -t ghcr.io/archivebox/archivebox:$TAG_NAME \
+               -t ghcr.io/archivebox/archivebox:$GIT_SHA
+            #    -t archivebox/archivebox \
+            #    -t archivebox/archivebox:$VERSION \
+            #    -t archivebox/archivebox:$SHORT_VERSION \
+            #    -t archivebox/archivebox:latest \
+            #    -t nikisweeting/archivebox \
+            #    -t nikisweeting/archivebox:$VERSION \
+            #    -t nikisweeting/archivebox:$SHORT_VERSION \
+            #    -t nikisweeting/archivebox:latest \
+            #    -t ghcr.io/archivebox/archivebox:$VERSION \
+            #    -t ghcr.io/archivebox/archivebox:$SHORT_VERSION \
 

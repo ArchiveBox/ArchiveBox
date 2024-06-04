@@ -19,6 +19,9 @@ from ..config import (
 from ..logging_util import TimedProgress
 
 
+def get_output_path():
+    return 'screenshot.png'
+
 
 @enforce_types
 def should_save_screenshot(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
@@ -26,7 +29,7 @@ def should_save_screenshot(link: Link, out_dir: Optional[Path]=None, overwrite: 
         return False
 
     out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'screenshot.png').exists():
+    if not overwrite and (out_dir / get_output_path()).exists():
         return False
 
     return SAVE_SCREENSHOT
@@ -36,7 +39,7 @@ def save_screenshot(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
     """take screenshot of site using chrome --headless"""
     
     out_dir = out_dir or Path(link.link_dir)
-    output: ArchiveOutput = 'screenshot.png'
+    output: ArchiveOutput = get_output_path()
     cmd = [
         *chrome_args(),
         '--screenshot',

@@ -147,7 +147,7 @@
     {% for obj in results %}
       <div class="card">
           <div class="card-info">
-            <a href="{% url 'admin:core_snapshot_change' obj.id %}">
+            <a href="{% url 'admin:core_snapshot_change' obj.pk %}">
               <span class="timestamp">{{obj.added}}</span>
             </a>
             <label>
