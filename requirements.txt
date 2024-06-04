@@ -73,7 +73,7 @@ tzdata==2024.1; sys_platform == "win32" or platform_system == "Windows"
 tzlocal==5.2
 ulid-py==1.1.0
 urllib3==2.2.1
-uuid6==2023.5.2
+uuid6==2024.1.12
 w3lib==2.1.2
 wcwidth==0.2.13
 websockets==12.0
