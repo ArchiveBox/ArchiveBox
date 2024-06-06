@@ -277,10 +277,22 @@
                         $(this).parents('.card').removeClass('selected-card')
                 })
             };
+            function selectSnapshotIfHotlinked() {
+                // if we arrive at the index with a url like ??id__startswith=...
+                // we were hotlinked here with the intention of making it easy for the user to perform some
+                // actions on the given snapshot. therefore we should preselect the snapshot to save them a click
+                if (window.location.search.startsWith('?id__startswith=') || window.location.search.startsWith('?id__exact=')) {
+                    const result_checkboxes = [...document.querySelectorAll('#result_list .action-checkbox input[type=checkbox]')]
+                    if (result_checkboxes.length === 1) {
+                        result_checkboxes[0].click()
+                    }
+                }
+            }
             $(document).ready(function() {
                 fix_actions()
                 setupSnapshotGridListToggle()
                 setTimeOffset()
+                selectSnapshotIfHotlinked()
             })
         </script>
     </body>

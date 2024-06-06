@@ -93,7 +93,7 @@ docker run -it -v $PWD:/data archivebox/archivebox init --setup
 pip install archivebox
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
 archivebox init --setup
-# archviebox add 'https://example.com'
+# archivebox add 'https://example.com'
 # archivebox help
 # archivebox server 0.0.0.0:8000
 <br/>
@@ -124,8 +124,8 @@ curl -fsSL 'https://get.archivebox.io' | sh
 
 ## Key Features
 
-- [**Free & open source**](https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE), doesn't require signing up online, stores all data locally
-- [**Powerful, intuitive command line interface**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) with [modular optional dependencies](#dependencies) 
+- [**Free & open source**](https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE), own your own data & maintain your privacy by self-hosting
+- [**Powerful CLI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) with [modular dependencies](#dependencies) and [support for Google Drive/NFS/SMB/S3/B2/etc.](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-Up-Storage)
 - [**Comprehensive documentation**](https://github.com/ArchiveBox/ArchiveBox/wiki), [active development](https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap), and [rich community](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community)
 - [**Extracts a wide variety of content out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51): [media (yt-dlp), articles (readability), code (git), etc.](#output-formats)
 - [**Supports scheduled/realtime importing**](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from [many types of sources](#input-formats)
@@ -152,8 +152,8 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 - **Governments:**
   `snapshoting public service sites`, `recordkeeping compliance`
 
-> ***[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your org wants help using ArchiveBox professionally.*  
-> We offer: setup & support, hosting, custom features, security, hashing & audit logging/chain-of-custody, etc.  
+> ***[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your org wants help using ArchiveBox professionally.*  (we are also seeking [grant funding](https://github.com/ArchiveBox/ArchiveBox/issues/1126#issuecomment-1487431394))  
+> We offer: setup & support, CAPTCHA/ratelimit unblocking, SSO, audit logging/chain-of-custody, and more  
 > *ArchiveBox has 🏛️ 501(c)(3) [nonprofit status](https://hackclub.com/hcb/) and all our work supports open-source development.* 
 
 <br/>
@@ -407,11 +407,12 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 > *Warning: These are contributed by external volunteers and may lag behind the official `pip` channel.*
 
 <ul>
-<li>TrueNAS: <a href="https://truecharts.org/charts/incubator/archivebox/">Official ArchiveBox TrueChart</a> / <a href="https://dev.to/finloop/setting-up-archivebox-on-truenas-scale-1788">Custom App Guide</a></li>
+<li>TrueNAS: <a href="https://truecharts.org/charts/stable/archivebox/">Official ArchiveBox TrueChart</a> / <a href="https://dev.to/finloop/setting-up-archivebox-on-truenas-scale-1788">Custom App Guide</a></li>
 <li><a href="https://unraid.net/community/apps?q=archivebox#r">UnRaid</a></li>
 <li><a href="https://github.com/YunoHost-Apps/archivebox_ynh">Yunohost</a></li>
 <li><a href="https://www.cloudron.io/store/io.archivebox.cloudronapp.html">Cloudron</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/pull/922/files#diff-00f0606e18b2618c3cc1667ca7c2b703b537af690ca71eba1330633587dcb1ee">AppImage</a></li>
+<li><a href="https://runtipi.io/docs/apps-available#:~:text=for%20AI%20Chats.-,ArchiveBox,Open%20source%20self%2Dhosted%20web%20archiving.,-Atuin%20Server">Runtipi</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/issues/986">Umbrel</a> (need contributors...)</li>
 
 <li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distribution...!</i></a></li>
@@ -445,6 +446,9 @@ Other providers of paid ArchiveBox hosting (not officially endorsed):<br/>
 <li><a href="https://fly.io/">
  <img src="https://img.shields.io/badge/Unmanaged_App-Fly.io-%239a2de6.svg?style=flat" height="22px"/>
 </a> (USD $10-50+/mo, <a href="https://fly.io/docs/hands-on/start/">instructions</a>)</li>
+<li><a href="https://railway.app/template/2Vvhmy">
+ <img src="https://img.shields.io/badge/Unmanaged_App-Railway-%23A11BE6.svg?style=flat" height="22px"/>
+</a> (USD $0-5+/mo)</li>
 <li><a href="https://aws.amazon.com/marketplace/pp/Linnovate-Open-Source-Innovation-Support-For-Archi/B08RVW6MJ2"><img src="https://img.shields.io/badge/Unmanaged_VPS-AWS-%23ee8135.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
 <li><a href="https://azuremarketplace.microsoft.com/en-us/marketplace/apps/meanio.archivebox?ocid=gtmrewards_whatsnewblog_archivebox_vol118"><img src="https://img.shields.io/badge/Unmanaged_VPS-Azure-%237cb300.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
 <br/>
@@ -669,7 +673,7 @@ docker run -it -v $PWD:/data archivebox/archivebox add --depth=1 'https://exampl
 ```bash
 # archivebox add --help
 archivebox add 'https://example.com/some/page'
-archivebox add < ~/Downloads/firefox_bookmarks_export.html
+archivebox add --parser=generic_rss < ~/Downloads/some_feed.xml
 archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
 echo 'http://example.com' | archivebox add
 echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox add
@@ -865,6 +869,7 @@ Each snapshot subfolder <code>data/archive/TIMESTAMP/</code> includes a static <
 
 <h4>Learn More</h4>
 <ul>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-Up-Storage">Wiki: Setting Up Storage (SMB, NFS, S3, B2, Google Drive, etc.)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout">Wiki: Usage (Disk Layout)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives">Wiki: Usage (Large Archives)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder">Wiki: Security Overview (Output Folder)</a></li>
@@ -1007,7 +1012,7 @@ https://127.0.0.1:8000/archive/*
 
 ### Working Around Sites that Block Archiving
 
-For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) actively block archiving or bots in general. There are a number of approaches to work around this.
+For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) actively block archiving or bots in general. There are a number of approaches to work around this, and we also provide <a href="https://docs.monadical.com/s/archivebox-consulting-services">consulting services</a> to help here.
 
 <br/>
 <details>
@@ -1018,7 +1023,7 @@ For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) active
 <ul>
 <li>Set <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#curl_user_agent"><code>CHROME_USER_AGENT</code>, <code>WGET_USER_AGENT</code>, <code>CURL_USER_AGENT</code></a> to impersonate a real browser (by default, ArchiveBox reveals that it's a bot when using the default user agent settings)</li>
 <li>Set up a logged-in browser session for archiving using <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile"><code>CHROME_USER_DATA_DIR</code> &amp; <code>COOKIES_FILE</code></a></li>
-<li>Rewrite your URLs before archiving to swap in an alternative frontend thats more bot-friendly e.g.<br>
+<li>Rewrite your URLs before archiving to swap in alternative frontends that are more bot-friendly e.g.<br>
 <code>reddit.com/some/url</code> -&gt; <code>teddit.net/some/url</code>: <a href="https://github.com/mendel5/alternative-front-ends">https://github.com/mendel5/alternative-front-ends</a></li>
 </ul>
 
@@ -1174,7 +1179,7 @@ ArchiveBox's stance is that duplication of other people's content is only ethica
 - A. doesn't deprive the original creators of revenue and
 - B. is responsibly curated by an individual/institution.
 
-In the U.S., <a href="https://guides.library.oregonstate.edu/copyright/libraries">libraries, researchers, and archivists</a> are allowed to duplicate copyrighted materials under <a href="https://libguides.ala.org/copyright/fairuse">"fair use"</a> for <a href="https://guides.cuny.edu/cunyfairuse/librarians#:~:text=One%20of%20these%20specified%20conditions,may%20be%20liable%20for%20copyright">private study, scholarship, or research</a>. Archive.org's preservation work is covered under this exemption, as they are as a non-profit providing public service, and they respond to <a href="https://cardozoaelj.com/2015/03/20/use-of-copyright-law-to-take-down-revenge-porn/">unethical content</a>/<a href="https://help.archive.org/help/rights/">DMCA</a>/<a href="https://gdpr.eu/right-to-be-forgotten/#:~:text=An%20individual%20has%20the%20right,that%20individual%20withdraws%20their%20consent.">GDPR</a> removal requests.
+In the U.S., <a href="https://guides.library.oregonstate.edu/copyright/libraries">libraries, researchers, and archivists</a> are allowed to duplicate copyrighted materials under <a href="https://libguides.ala.org/copyright/fairuse">"fair use"</a> for <a href="https://guides.cuny.edu/cunyfairuse/librarians#:~:text=One%20of%20these%20specified%20conditions,may%20be%20liable%20for%20copyright">private study, scholarship, or research</a>. Archive.org's non-profit preservation work is <a href="https://blog.archive.org/2024/03/01/fair-use-in-action-at-the-internet-archive/">covered under fair use</a> in the US, and they properly handle <a href="https://cardozoaelj.com/2015/03/20/use-of-copyright-law-to-take-down-revenge-porn/">unethical content</a>/<a href="https://help.archive.org/help/rights/">DMCA</a>/<a href="https://gdpr.eu/right-to-be-forgotten/#:~:text=An%20individual%20has%20the%20right,that%20individual%20withdraws%20their%20consent.">GDPR</a> removal requests to maintain good standing in the eyes of the law.
 
 As long as you A. don't try to profit off pirating copyrighted content and B. have processes in place to respond to removal requests, many countries allow you to use sofware like ArchiveBox to ethically and responsibly archive any web content you can view. That being said, ArchiveBox is not liable for how you choose to operate the software. You must research your own local laws and regulations, and get proper legal council if you plan to host a public instance (start by putting your DMCA/GDPR contact info in <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#footer_info"><code>FOOTER_INFO</code></a> and changing your instance's branding using <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#custom_templates_dir"><code>CUSTOM_TEMPLATES_DIR</code></a>).
 
@@ -1187,21 +1192,25 @@ As long as you A. don't try to profit off pirating copyrighted content and B. ha
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4cac62a9-e8fb-425b-85a3-ca644aa6dd42" width="5%" align="right" alt="comparison" style="float: right"/> 
 
 
-> **Check out our [community wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for a list of web archiving tools and orgs.**
+> **Check out our [community wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community) for a list of alternative web archiving tools and orgs.**
 
-A variety of open and closed-source archiving projects exist, but few provide a nice UI and CLI to manage a large, high-fidelity collection over time.
+ArchiveBox gained momentum in the internet archiving industry because it uniquely combines 3 things:
+
+- **it's distributed:** users own their data instead of entrusting it to one big central provider
+- **it's future-proof:** saving in *multiple formats* and extracting out raw TXT, PNG, PDF, MP4, etc. files
+- **it's extensible:** with powerful APIs, flexible storage, and a big community adding new extractors regularly
 
 <br/>
 <details>
-<summary><i>Click to read about how we differ from other centralized archiving services and open source tools...</i></summary><br/>
+<summary><i>Expand for a more direct comparison to Archive.org and specific open-source alternatives...</i></summary><br/>
 
-ArchiveBox tries to be a robust, set-and-forget archiving solution suitable for archiving RSS feeds, bookmarks, or your entire browsing history (beware, it may be too big to store), including private/authenticated content that you wouldn't otherwise share with a centralized service.
+ArchiveBox tries to be a robust, set-and-forget archiving solution suitable for archiving RSS feeds, bookmarks, or your entire browsing history (beware, it may be too big to store), including private/authenticated content that you wouldn't otherwise share with a centralized service like Archive.org.
 
 <h3>Comparison With Centralized Public Archives</h3>
 
-Not all content is suitable to be archived in a centralized collection, whether because it's private, copyrighted, too large, or too complex. ArchiveBox hopes to fill that gap.
+Not all content is suitable to be archived on a centralized, publicly accessible platform. Archive.org doesn't offer the ability to save things behind login walls for good reason, as the content may not have been intended for a public audience. ArchiveBox exists to fill that gap by letting everyone save what they have access to on an individual basis, and to encourage decentralized archiving that's less succeptible to censorship or natural disasters.
 
-By having each user store their own content locally, we can save much larger portions of everyone's browsing history than a shared centralized service would be able to handle. The eventual goal is to work towards federated archiving where users can share portions of their collections with each other.
+By having users store their content locally or within their organizations, we can also save much larger portions of the internet than a centralized service has the disk capcity handle. The eventual goal is to work towards federated archiving where users can share portions of their collections with each other, and with central archives on a case-by-case basis.
 
 <h3>Comparison With Other Self-Hosted Archiving Options</h3>
 
@@ -1251,7 +1260,7 @@ ArchiveBox is neither the highest fidelity nor the simplest tool available for s
 
 **Need help building a custom archiving solution?**
 
-> ✨ **[Hire the team that built Archivebox](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) to work on your project.** ([@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp))
+> ✨ **[Hire the team that built Archivebox](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) to solve archiving for your org.** ([@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp))
 
 <br/>
 
@@ -1264,9 +1273,11 @@ ArchiveBox is neither the highest fidelity nor the simplest tool available for s
 
 <img src="https://read-the-docs-guidelines.readthedocs-hosted.com/_images/logo-dark.png" width="13%" align="right" style="float: right"/>
 
-We use the [GitHub wiki system](https://github.com/ArchiveBox/ArchiveBox/wiki) and [Read the Docs](https://archivebox.readthedocs.io/en/latest/) (WIP) for documentation.
+We use the [ArchiveBox GitHub Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki) for documentation.
 
-You can also access the docs locally by looking in the [`ArchiveBox/docs/`](https://github.com/ArchiveBox/ArchiveBox/wiki/Home) folder.
+<sub>There is also a mirror available on <a href="https://archivebox.readthedocs.io/en/latest/">Read the Docs</a> (though it's sometimes outdated).</sub>
+
+> ✏️ You can submit docs changes & suggestions in our dedicated repo [`ArchiveBox/docs`](https://github.com/ArchiveBox/docs).
 
 ## Getting Started
 
@@ -1277,16 +1288,19 @@ You can also access the docs locally by looking in the [`ArchiveBox/docs/`](http
 - [Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)
 - [Supported Sources](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive)
 - [Supported Outputs](https://github.com/ArchiveBox/ArchiveBox/wiki#can-save-these-things-for-each-site)
+- [Scheduled Archiving](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving)
 
 ## Advanced
 
-- [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
-- [Scheduled Archiving](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving)
-- [Publishing Your Archive](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive)
-- [Chromium Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install)
-- [Cookies & Sessions Setup](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile)
 - [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview)
+- [Cookies & Sessions Setup](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile) (archiving sites that require logins)
+- [Setting up the Search Backends](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Search) (choosing ripgrep, Sonic, or FTS5)
+- [Setting up Local/Remote Storages](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Storage) (S3/B2/Google Drive/SMB/NFS/etc.)
+- [Setting up Authentication & Permissions](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Authentication) (SSO/LDAP/OAuth/API Keys/etc.)
+- [Publishing Your Archive](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive) (sharing your archive server with others)
+- [Chromium Install Options](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install) (installing and configuring ArchiveBox's Chrome)
 - [Upgrading or Merging Archives](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives)
+- [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
 
 ## Developers
 

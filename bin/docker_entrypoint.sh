@@ -18,6 +18,7 @@
 # https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
 # set -o xtrace
 # set -o nounset
+shopt -s nullglob
 set -o errexit
 set -o errtrace
 set -o pipefail
@@ -166,13 +167,13 @@ fi
 # symlink etc crontabs into place
 mkdir -p "$DATA_DIR/crontabs"
 if ! test -L /var/spool/cron/crontabs; then
-    # copy files from old location into new data dir location
-    for file in $(ls /var/spool/cron/crontabs); do
-        cp /var/spool/cron/crontabs/"$file" "$DATA_DIR/crontabs"
+    # move files from old location into new data dir location
+    for existing_file in /var/spool/cron/crontabs/*; do
+        mv "$existing_file" "$DATA_DIR/crontabs/"
     done
     # replace old system path with symlink to data dir location
     rm -Rf /var/spool/cron/crontabs
-    ln -s "$DATA_DIR/crontabs" /var/spool/cron/crontabs
+    ln -sf "$DATA_DIR/crontabs" /var/spool/cron/crontabs
 fi
 
 # set DBUS_SYSTEM_BUS_ADDRESS & DBUS_SESSION_BUS_ADDRESS

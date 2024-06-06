@@ -27,9 +27,9 @@ if (which docker-compose > /dev/null && docker pull archivebox/archivebox:latest
     if [ -f "./index.sqlite3" ]; then
         mv -i ~/archivebox/* ~/archivebox/data/
     fi
-    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/main/docker-compose.yml' > docker-compose.yml
+    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/stable/docker-compose.yml' > docker-compose.yml
     mkdir -p ./etc
-    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/main/etc/sonic.cfg' > ./etc/sonic.cfg
+    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/stable/etc/sonic.cfg' > ./etc/sonic.cfg
     docker compose run --rm archivebox init --setup
     echo
     echo "[+] Starting ArchiveBox server using: docker compose up -d..."

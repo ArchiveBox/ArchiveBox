@@ -20,9 +20,23 @@ FROM python:3.11-slim-bookworm
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <dockerfile@archivebox.io>" \
-    description="All-in-one personal internet archiving container" \
+    description="All-in-one self-hosted internet archiving solution" \
     homepage="https://github.com/ArchiveBox/ArchiveBox" \
-    documentation="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker"
+    documentation="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker" \
+    org.opencontainers.image.title="ArchiveBox" \
+    org.opencontainers.image.vendor="ArchiveBox" \
+    org.opencontainers.image.description="All-in-one self-hosted internet archiving solution" \
+    org.opencontainers.image.source="https://github.com/ArchiveBox/ArchiveBox" \
+    com.docker.image.source.entrypoint="Dockerfile" \
+    # TODO: release ArchiveBox as a Docker Desktop extension (requires these labels):
+    # https://docs.docker.com/desktop/extensions-sdk/architecture/metadata/
+    com.docker.desktop.extension.api.version=">= 1.4.7" \
+    com.docker.desktop.extension.icon="https://archivebox.io/icon.png" \
+    com.docker.extension.publisher-url="https://archivebox.io" \
+    com.docker.extension.screenshots='[{"alt": "Screenshot of Admin UI", "url": "https://github.com/ArchiveBox/ArchiveBox/assets/511499/e8e0b6f8-8fdf-4b7f-8124-c10d8699bdb2"}]' \
+    com.docker.extension.detailed-description='See here for detailed documentation: https://wiki.archivebox.io' \
+    com.docker.extension.changelog='See here for release notes: https://github.com/ArchiveBox/ArchiveBox/releases' \
+    com.docker.extension.categories='database,utility-tools'
 
 ARG TARGETPLATFORM
 ARG TARGETOS
@@ -73,7 +87,9 @@ COPY --chown=root:root --chmod=755 package.json "$CODE_DIR/"
 RUN grep '"version": ' "${CODE_DIR}/package.json" | awk -F'"' '{print $4}' > /VERSION.txt
 
 # Force apt to leave downloaded binaries in /var/cache/apt (massively speeds up Docker builds)
-RUN echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache \
+RUN echo 'Binary::apt::APT::Keep-Downloaded-Packages "1";' > /etc/apt/apt.conf.d/99keep-cache \
+    && echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/99no-intall-recommends \
+    && echo 'APT::Install-Suggests "0";' > /etc/apt/apt.conf.d/99no-intall-suggests \
     && rm -f /etc/apt/apt.conf.d/docker-clean
 
 # Print debug info about build and save it to disk, for human eyes only, not used by anything else
@@ -106,10 +122,10 @@ RUN echo "[*] Setting up $ARCHIVEBOX_USER user uid=${DEFAULT_PUID}..." \
 # Install system apt dependencies (adding backports to access more recent apt updates)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing APT base system dependencies for $TARGETPLATFORM..." \
-    && echo 'deb https://deb.debian.org/debian bookworm-backports main contrib non-free' >> /etc/apt/sources.list.d/backports.list \
+    && echo 'deb https://deb.debian.org/debian bookworm-backports main contrib non-free' > /etc/apt/sources.list.d/backports.list \
     && mkdir -p /etc/apt/keyrings \
     && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+    && apt-get install -qq -y -t bookworm-backports \
         # 1. packaging dependencies
         apt-transport-https ca-certificates apt-utils gnupg2 curl wget \
         # 2. docker and init system dependencies
@@ -120,27 +136,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 ######### Language Environments ####################################
 
-# Install Node environment
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing Node $NODE_VERSION environment in $NODE_MODULES..." \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
-    && curl -fsSL "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key" | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        nodejs libatomic1 python3-minimal \
-    && rm -rf /var/lib/apt/lists/* \
-    # Update NPM to latest version
-    && npm i -g npm --cache /root/.npm \
-    # Save version info
-    && ( \
-        which node && node --version \
-        && which npm && npm --version \
-        && echo -e '\n\n' \
-    ) | tee -a /VERSION.txt
-
 # Install Python environment
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
     echo "[+] Setting up Python $PYTHON_VERSION runtime..." \
+    # && apt-get update -qq \
+    # && apt-get install -qq -y -t bookworm-backports --no-upgrade \
+    #     python${PYTHON_VERSION} python${PYTHON_VERSION}-minimal python3-pip \
+    # && rm -rf /var/lib/apt/lists/* \
     # tell PDM to allow using global system python site packages
     # && rm /usr/lib/python3*/EXTERNALLY-MANAGED \
     # create global virtual environment GLOBAL_VENV to use (better than using pip install --global)
@@ -157,13 +159,34 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
+
+# Install Node environment
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
+    echo "[+] Installing Node $NODE_VERSION environment in $NODE_MODULES..." \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
+    && curl -fsSL "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key" | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && apt-get update -qq \
+    && apt-get install -qq -y -t bookworm-backports --no-upgrade libatomic1 \
+    && apt-get install -y -t bookworm-backports --no-upgrade \
+        nodejs \
+    && rm -rf /var/lib/apt/lists/* \
+    # Update NPM to latest version
+    && npm i -g npm --cache /root/.npm \
+    # Save version info
+    && ( \
+        which node && node --version \
+        && which npm && npm --version \
+        && echo -e '\n\n' \
+    ) | tee -a /VERSION.txt
+
+
 ######### Extractor Dependencies ##################################
 
 # Install apt dependencies
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing APT extractor dependencies globally using apt..." \
     && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+    && apt-get install -qq -y -t bookworm-backports \
         curl wget git yt-dlp ffmpeg ripgrep \
         # Packages we have also needed in the past:
         # youtube-dl wget2 aria2 python3-pyxattr rtmpdump libfribidi-bin mpv \
@@ -182,25 +205,21 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing Browser binary dependencies to $PLAYWRIGHT_BROWSERS_PATH..." \
     && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+    && apt-get install -qq -y -t bookworm-backports \
         fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-khmeros fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
+        at-spi2-common fonts-liberation fonts-noto-color-emoji fonts-tlwg-loma-otf fonts-unifont libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 libavahi-client3 \
+        libavahi-common-data libavahi-common3 libcups2 libfontenc1 libice6 libnspr4 libnss3 libsm6 libunwind8 \
+        libxaw7 libxcomposite1 libxdamage1 libxfont2 \
+        libxkbfile1 libxmu6 libxpm4 libxt6 x11-xkb-utils xfonts-encodings \
+        # xfonts-scalable xfonts-utils xserver-common xvfb \
         # chrome can run without dbus/upower technically, it complains about missing dbus but should run ok anyway
         # libxss1 dbus dbus-x11 upower \
     # && service dbus start \
-    && if [[ "$TARGETPLATFORM" == *amd64* || "$TARGETPLATFORM" == *arm64* ]]; then \
-        # install Chromium using playwright
-        pip install playwright \
-        && cp -r /root/.cache/ms-playwright "$PLAYWRIGHT_BROWSERS_PATH" \
-        && playwright install --with-deps chromium \
-        && export CHROME_BINARY="$(python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')"; \
-    else \
-        # fall back to installing Chromium via apt-get on platforms not supported by playwright (e.g. risc, ARMv7, etc.)
-        # apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        #     chromium \
-        # && export CHROME_BINARY="$(which chromium)"; \
-        echo 'armv7 no longer supported in versions after v0.7.3' \
-        exit 1; \
-    fi \
+    # install Chromium using playwright
+    && pip install playwright \
+    && cp -r /root/.cache/ms-playwright "$PLAYWRIGHT_BROWSERS_PATH" \
+    && playwright install chromium \
+    && export CHROME_BINARY="$(python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')" \
     && rm -rf /var/lib/apt/lists/* \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
     && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
@@ -233,7 +252,7 @@ COPY --chown=root:root --chmod=755 "./pyproject.toml" "requirements.txt" "$CODE_
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt for ${TARGETPLATFORM}..." \
     && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
+    && apt-get install -qq -y -t bookworm-backports \
         build-essential \
         libssl-dev libldap2-dev libsasl2-dev \
         python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps \
@@ -255,8 +274,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     echo "[*] Installing PIP ArchiveBox package from $CODE_DIR..." \
     # && apt-get update -qq \
     # install C compiler to build deps on platforms that dont have 32-bit wheels available on pypi
-    # && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-    #     build-essential  \
+    # && apt-get install -qq -y -t bookworm-backports \
+        # build-essential  \
     # INSTALL ARCHIVEBOX python package globally from CODE_DIR, with all optional dependencies
     && pip install -e "$CODE_DIR"[sonic,ldap] \
     # save docker image size and always remove compilers / build tools after building is complete
@@ -271,7 +290,6 @@ WORKDIR "$DATA_DIR"
 ENV IN_DOCKER=True \
     DISPLAY=novnc:0.0 \
     CUSTOM_TEMPLATES_DIR=/data/templates \
-    CHROME_USER_DATA_DIR=/data/personas/Default/chromium \
     GOOGLE_API_KEY=no \
     GOOGLE_DEFAULT_CLIENT_ID=no \
     GOOGLE_DEFAULT_CLIENT_SECRET=no \

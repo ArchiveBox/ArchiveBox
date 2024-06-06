@@ -638,17 +638,15 @@ def printable_folder_status(name: str, folder: Dict) -> str:
 
 @enforce_types
 def printable_dependency_version(name: str, dependency: Dict) -> str:
-    version = None
+    color, symbol, note, version = 'red', 'X', 'invalid', '?'
+
     if dependency['enabled']:
         if dependency['is_valid']:
-            color, symbol, note, version = 'green', '√', 'valid', ''
+            color, symbol, note = 'green', '√', 'valid'
 
             parsed_version_num = re.search(r'[\d\.]+', dependency['version'])
             if parsed_version_num:
                 version = f'v{parsed_version_num[0]}'
-
-        if not version:
-            color, symbol, note, version = 'red', 'X', 'invalid', '?'
     else:
         color, symbol, note, version = 'lightyellow', '-', 'disabled', '-'
 

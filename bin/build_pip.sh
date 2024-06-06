@@ -20,19 +20,12 @@ else
 fi
 cd "$REPO_DIR"
 
-echo "[*] Cleaning up build dirs"
-cd "$REPO_DIR"
-rm -Rf build dist
+# Generate pdm.lock, requirements.txt, and package-lock.json
+bash ./bin/lock_pkgs.sh
 
 echo "[+] Building sdist, bdist_wheel, and egg_info"
-rm -f archivebox/package.json
-cp package.json archivebox/package.json
-
-pdm self update
-pdm install
+rm -Rf build dist
 pdm build
-pdm export --without-hashes -o ./pip_dist/requirements.txt
-
 cp dist/* ./pip_dist/
 
 echo
