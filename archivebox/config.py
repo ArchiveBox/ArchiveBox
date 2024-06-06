@@ -593,7 +593,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
 
     'USE_PAPERSDL':            {'default': lambda c: c['USE_PAPERSDL'] and c['SAVE_PAPERS']},
     'PAPERSDL_VERSION':        {'default': lambda c: bin_version(c['PAPERSDL_BINARY']) if c['USE_PAPERSDL'] else None},
-    'SAVE_PAPERS':               {'default': lambda c: c['USE_PAPERSDL'] and c['SAVE_PAPERS']},
+    'SAVE_PAPERS':             {'default': lambda c: c['USE_PAPERSDL'] and c['SAVE_PAPERS']},
     'PAPERSDL_ARGS':           {'default': lambda c: c['PAPERSDL_ARGS'] or []},
     'PAPERSDL_EXTRA_ARGS':     {'default': lambda c: c['PAPERSDL_EXTRA_ARGS'] or []},
 

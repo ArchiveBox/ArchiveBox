@@ -18,6 +18,8 @@ from ..config import (
 from ..logging_util import TimedProgress
 from .title import get_html
 
+def get_output_path():
+    return 'papers_dl/'
 
 @enforce_types
 def should_save_papers(
@@ -33,7 +35,7 @@ def should_save_papers(
     # Those URLs usually have other unique identifiers in the HTML, so we
     # can look for those to see if it's a URL worth trying to fetch
 
-    # if identifier (link.url?) looks like a url, then try to look at the html
+    # if identifier looks like a url, then try to look at the html
     # and see if we can find a more reliable identifier inside
     cmd = [
         DEPENDENCIES["PAPERSDL_BINARY"]["path"],

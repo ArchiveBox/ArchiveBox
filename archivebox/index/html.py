@@ -142,7 +142,7 @@ def snapshot_icons(snapshot) -> str:
             "readability": "🆁",
             "mercury": "🅼",
             "warc": "📦",
-            "papers": "🔬"
+            "papers_dl": "🔬"
         }
         exclude = ["favicon", "title", "headers", "htmltotext", "archive_org"]
         # Missing specific entry for WARC

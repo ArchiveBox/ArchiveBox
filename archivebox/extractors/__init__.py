@@ -70,7 +70,7 @@ def get_default_archive_methods() -> List[ArchiveMethodEntry]:
         ('htmltotext', should_save_htmltotext, save_htmltotext),
         ('git', should_save_git, save_git),
         ('media', should_save_media, save_media),
-        ('papers', should_save_papers, save_papers),
+        ('papers_dl', should_save_papers, save_papers),
         ('archive_org', should_save_archive_dot_org, save_archive_dot_org),
     ]
 
