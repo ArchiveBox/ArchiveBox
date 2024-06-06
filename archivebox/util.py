@@ -64,7 +64,11 @@ URL_REGEX = re.compile(
     r'(?:[a-zA-Z]|[0-9]'              # followed by allowed alphanum characters
     r'|[-_$@.&+!*\(\),]'           #    or allowed symbols (keep hyphen first to match literal hyphen)
     r'|(?:%[0-9a-fA-F][0-9a-fA-F]))'  #    or allowed unicode bytes
-    r'[^\]\[\(\)<>"\'\s]+'          # stop parsing at these symbols
+    # NOTE(ben): stopping at brackets disqualifies, for example, 
+    # "https://www.cell.com/current-biology/fulltext/S0960-9822(19)31469-1"
+    # which is the URL for a scientific paper
+    r'[^<>"\'\s]+'          # stop parsing at these symbols
+
     r'))',
     re.IGNORECASE,
 )

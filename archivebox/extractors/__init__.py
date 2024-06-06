@@ -43,6 +43,7 @@ from .screenshot import should_save_screenshot, save_screenshot
 from .dom import should_save_dom, save_dom
 from .git import should_save_git, save_git
 from .media import should_save_media, save_media
+from .papers_dl import should_save_papers, save_papers
 from .archive_org import should_save_archive_dot_org, save_archive_dot_org
 from .headers import should_save_headers, save_headers
 
@@ -67,6 +68,7 @@ def get_default_archive_methods() -> List[ArchiveMethodEntry]:
         ('htmltotext', should_save_htmltotext, save_htmltotext),
         ('git', should_save_git, save_git),
         ('media', should_save_media, save_media),
+        ('papers', should_save_papers, save_papers),
         ('archive_org', should_save_archive_dot_org, save_archive_dot_org),
     ]
 
