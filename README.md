@@ -1617,3 +1617,9 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 <hr/>
 <i>✨ Have spare CPU/disk/bandwidth after all your 网站存档爬 and want to help the world?<br/>Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
 </div>
+
+### Infrastructure model
+![Infrastructure main model](.infragenie/infrastructure_main_model.svg)
+- [archivebox component model](.infragenie/archivebox_component_model.svg)
+
+---
