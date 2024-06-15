@@ -312,6 +312,11 @@ RUN (echo -e "\n\n[√] Finished Docker build succesfully. Saving build summary 
     ) | tee -a /VERSION.txt
 RUN "$CODE_DIR"/bin/docker_entrypoint.sh version 2>&1 | tee -a /VERSION.txt
 
+# HACK: pdf2doi attempts to write to and read from this directory on startup,
+# which leads to permission errors. A better solution would be to open a pull
+# request upstream that makes this behavior configurable
+RUN chmod 644 /usr/local/lib/python3.11/site-packages/pdf2doi/
+
 ####################################################
 
 # Open up the interfaces to the outside world
