@@ -79,7 +79,7 @@ def save_papers(
     ]
     cmd = [
         DEPENDENCIES["PAPERSDL_BINARY"]["path"],
-        "-v"
+        "-v",
         "fetch",
         "-o",
         str(output_folder),
