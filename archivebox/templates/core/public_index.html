@@ -6,6 +6,15 @@
         <form id="changelist-search" action="{% url 'public-index' %}" method="get">
             <div>
                 <label for="searchbar"><img src="/static/admin/img/search.svg" alt="Search"></label>
+                <select name="query_type" id="query_type">
+                    <option value="all" selected>All</option>
+                    <option value="fulltext">Content</option>
+                    <option value="meta">Metadata</option>
+                    <option value="url">URL</option>
+                    <option value="title">Title</option>
+                    <option value="timestamp">Timestamp</option>
+                    <option value="tags">Tags</option>
+                </select>
                 <input type="text" size="40" name="q" value="" id="searchbar" autofocus placeholder="Title, URL, tags, timestamp, or content...".>
                 <input type="submit" value="Search" style="height: 36px; padding-top: 6px; margin: 8px"/>
                 <input type="button"
