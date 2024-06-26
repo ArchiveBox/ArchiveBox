@@ -83,6 +83,8 @@ def save_papers(
         "fetch",
         "-o",
         str(output_folder),
+        "-p",
+        "scihub",
         *dedupe(options),
         link.url,
     ]
