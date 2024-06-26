@@ -393,6 +393,17 @@
                     </div>
                     <div class="col-lg-2">
                         <div class="card">
+                            <img class="card-img-top" src="{{papers_path}}" onerror="this.style.opacity=0.2"/>
+                            <div class="card-body">
+                                <a href="{{papers_path}}" title="Open in new tab..." target="_blank" rel="noopener">
+                                    <p class="card-text"><code>./papers.png</code></p>
+                                </a>
+                                <a href="{{papers_path}}" target="preview"><h4 class="card-title">Chrome &gt; papers</h4></a>
+                          </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-2">
+                        <div class="card">
                           <iframe class="card-img-top" src="{{archive_url}}" sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy"></iframe>
                           <div class="card-body">
                                 <a href="{{archive_url}}" title="Open in new tab..." target="_blank" rel="noopener">

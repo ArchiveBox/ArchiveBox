@@ -24,6 +24,7 @@ def disable_extractors_dict():
         "SAVE_HEADERS": "false",
         "USE_GIT": "false",
         "SAVE_MEDIA": "false",
-        "SAVE_ARCHIVE_DOT_ORG": "false"
+        "SAVE_ARCHIVE_DOT_ORG": "false",
+        "SAVE_PAPERS": "false"
     })
     return env
