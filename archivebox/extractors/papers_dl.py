@@ -29,37 +29,27 @@ def should_save_papers(
         return False
 
     out_dir = out_dir or Path(link.link_dir)
-    # Since most links that ArchiveBox sees aren't papers, we try to avoid
-    # unnecessary searches by skipping things that look like a URL.
-    # But some URLs are accessible with SciHub and we don't want to miss those.
-    # Those URLs usually have other unique identifiers in the HTML, so we
-    # can look for those to see if it's a URL worth trying to fetch
+    if not overwrite and (out_dir / "papers_dl").exists():
+        return False
 
-    # if identifier looks like a url, then try to look at the html
-    # and see if we can find a more reliable identifier inside
     cmd = [
         DEPENDENCIES["PAPERSDL_BINARY"]["path"],
         "parse",
     ]
 
-    if URL_REGEX.match(link.url):
-        document = get_html(link, out_dir)
+    def check_for_ids(input):
+        result = run(cmd, input=input.encode("utf-8"))
+        return result.returncode == 0 and result.stdout.strip()
 
-        result = run(cmd, input=document.encode("utf-8"))
-        output = result.stdout.strip()
-    else:
-        # check if it looks like a valid id
-        result = run(cmd, input=link.url.encode("utf-8"))
-        output = result.stdout.strip()
+    if check_for_ids(link.url):
+        return SAVE_PAPERS
 
-    # we didn't get a valid result, so we shouldn't search for it
-    if len(output) == 0:
-        return False
+    # pages containing identifiers are more likely to be fetch-able
+    document = get_html(link, out_dir)
+    if check_for_ids(document):
+        return SAVE_PAPERS
 
-    if not overwrite and (out_dir / "papers_dl").exists():
-        return False
-
-    return SAVE_PAPERS
+    return False
 
 
 @enforce_types
@@ -83,8 +73,6 @@ def save_papers(
         "fetch",
         "-o",
         str(output_folder),
-        "-p",
-        "scihub",
         *dedupe(options),
         link.url,
     ]
