@@ -786,7 +786,7 @@ ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.c
 <summary><i>Expand to learn more about ArchiveBox's internals & dependencies...</i></summary><br/>
 
 <blockquote>
-<p><em>TIP: For better security, easier updating, and to avoid polluting your host system with extra dependencies,<strong>it is strongly recommended to use the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker">⭐️ official Docker image</a></strong> with everything pre-installed for the best experience.</em></p>
+<p><em>TIP: For better security while running ArchiveBox, and to avoid polluting your host system with a bunch of sub-dependencies that you need to keep up-to-date,<strong>it is strongly recommended to use the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker">⭐️ official Docker image</a></strong> which provides everything in an easy container with simple one-liner upgrades.</em></p>
 </blockquote>
 
 These optional dependencies used for archiving sites include:
