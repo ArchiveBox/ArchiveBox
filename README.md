@@ -568,7 +568,7 @@ ls ./archive/*/index.html  # or inspect snapshot data directly on the filesystem
 <br/>
 
 <details>
-<summary><b>🖥&nbsp; Web UI Usage</b></summary>
+<summary><b>🖥&nbsp; Web UI & API Usage</b></summary>
 <pre lang="bash"><code style="white-space: pre-line">
 # Start the server on bare metal (pip/apt/brew/etc):
 archivebox manage createsuperuser              # create a new admin user via CLI
