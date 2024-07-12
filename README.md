@@ -757,8 +757,8 @@ The configuration is documented here: **[Configuration Wiki](https://github.com/
 # e.g. archivebox config --set TIMEOUT=120
 # or   docker compose run archivebox config --set TIMEOUT=120
 <br/>
-TIMEOUT=120                # default: 60    add more seconds on slower networks
-CHECK_SSL_VALIDITY=True    # default: False True = allow saving URLs w/ bad SSL
+TIMEOUT=240                # default: 60    add more seconds on slower networks
+CHECK_SSL_VALIDITY=False   # default: True  False = allow saving URLs w/ bad SSL
 SAVE_ARCHIVE_DOT_ORG=False # default: True  False = disable Archive.org saving
 MAX_MEDIA_SIZE=1500m       # default: 750m  raise/lower youtubedl output size
 <br/>
