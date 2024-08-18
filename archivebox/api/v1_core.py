@@ -289,3 +289,7 @@ class TagSchema(Schema):
 @router.get("/tags", response=List[TagSchema], url_name="get_tags")
 def get_tags(request):
     return Tag.objects.all()
+
+@router.get("/tag/{tag_id}", response=TagSchema, url_name="get_tag")
+def get_tag(request, tag_id: str):
+    return Tag.objects.get(id=tag_id)
