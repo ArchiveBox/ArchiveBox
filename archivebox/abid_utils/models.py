@@ -69,8 +69,8 @@ class ABIDModel(models.Model):
     abid_subtype_src = 'None'               # e.g. 'self.extractor'
     abid_rand_src = 'None'                  # e.g. 'self.uuid' or 'self.id'
 
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=True)
-    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    # id = models.UUIDField(primary_key=True, default=uuid4, editable=True)
+    # uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk)

@@ -185,8 +185,8 @@ def get_abid_info(self, obj):
         </div>
         ''',
         obj.pk,
-        obj.id,
-        obj.uuid,
+        getattr(obj, 'id', str(getattr(obj, 'old_id', '')) + ' (.old_id)'),
+        getattr(obj, 'uuid', str(getattr(obj, 'id', '')) +' (.id)'),
         *obj.abid.split('_', 1), obj.api_url, obj.api_docs_url,
         obj.ABID.ts, obj.abid_values['ts'].isoformat() if isinstance(obj.abid_values['ts'], datetime) else obj.abid_values['ts'],
         obj.ABID.uri, str(obj.abid_values['uri']),
@@ -204,8 +204,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     sort_fields = ('title_str', 'url_str', 'added', 'files')
     readonly_fields = ('admin_actions', 'status_info', 'bookmarked', 'added', 'updated', 'created', 'modified', 'identifiers')
     search_fields = ('id', 'url', 'abid', 'uuid', 'timestamp', 'title', 'tags__name')
-    fields = ('url', 'timestamp', 'created_by', 'tags', 'title', *readonly_fields)
     list_filter = ('added', 'updated', 'tags', 'archiveresult__status', 'created_by')
+    fields = ('url', 'timestamp', 'created_by', 'tags', 'title', *readonly_fields)
     ordering = ['-added']
     actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
     autocomplete_fields = ['tags']

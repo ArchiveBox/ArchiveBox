@@ -5,6 +5,7 @@ from typing import Optional, List, Dict
 from django_stubs_ext.db.models import TypedModelMeta
 
 import json
+import random
 
 import uuid
 from uuid import uuid4
@@ -60,7 +61,7 @@ class Tag(ABIDModel):
 
     # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
     id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
-    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    uuid = models.UUIDField(default=uuid.uuid4, editable=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
 
@@ -122,7 +123,7 @@ class Snapshot(ABIDModel):
     abid_rand_src = 'self.id'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)  # legacy pk
-    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    uuid = models.UUIDField(default=uuid.uuid4, editable=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
     url = models.URLField(unique=True, db_index=True)
@@ -335,18 +336,19 @@ class ArchiveResultManager(models.Manager):
             qs = qs.annotate(indexing_precedence=Case(*precedence, default=Value(1000),output_field=IntegerField())).order_by('indexing_precedence')
         return qs
 
+def rand_int_id():
+    return random.getrandbits(32)
 
 class ArchiveResult(ABIDModel):
     abid_prefix = 'res_'
     abid_ts_src = 'self.snapshot.added'
     abid_uri_src = 'self.snapshot.url'
     abid_subtype_src = 'self.extractor'
-    abid_rand_src = 'self.uuid'
+    abid_rand_src = 'self.id'
     EXTRACTOR_CHOICES = EXTRACTOR_CHOICES
 
-    id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')   # legacy pk TODO: move to UUIDField
-    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    old_id = models.BigIntegerField(default=rand_int_id, serialize=False, verbose_name='ID')
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
@@ -363,9 +365,14 @@ class ArchiveResult(ABIDModel):
 
     class Meta(TypedModelMeta):
         verbose_name = 'Result'
+        
 
     def __str__(self):
         return self.extractor
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        assert str(self.id) == str(self.abid.uuid)
 
     @cached_property
     def snapshot_dir(self):
