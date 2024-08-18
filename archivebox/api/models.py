@@ -56,6 +56,7 @@ class APIToken(ABIDModel):
         return {
             "TYPE":             "APIToken",    
             "uuid":             str(self.id),
+            "ulid":             str(self.ulid),
             "abid":             str(self.get_abid()),
             "user_id":          str(self.user.id),
             "user_username":    self.user.username,
@@ -63,6 +64,10 @@ class APIToken(ABIDModel):
             "created":          self.created.isoformat(),
             "expires":          self.expires_as_iso8601,
         }
+
+    @property
+    def ulid(self):
+        return self.get_abid().ulid
 
     @property
     def expires_as_iso8601(self):

@@ -326,8 +326,8 @@ class ArchiveResult(ABIDModel):
     abid_rand_src = 'self.uuid'
     EXTRACTOR_CHOICES = EXTRACTOR_CHOICES
 
+    id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')   # legacy pk TODO: move to UUIDField
     # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')   # legacy pk
     uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 

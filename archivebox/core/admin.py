@@ -168,26 +168,30 @@ def get_abid_info(self, obj):
     return format_html(
         # URL Hash: <code style="font-size: 10px; user-select: all">{}</code><br/>
         '''
-        &nbsp; &nbsp; ABID:&nbsp; <code style="font-size: 16px; user-select: all"><b>{}</b></code><br/>
-        &nbsp; &nbsp; TS: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})<br/>
-        &nbsp; &nbsp; URI: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})<br/>
-        &nbsp; &nbsp; SUBTYPE: &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})<br/>
-        &nbsp; &nbsp; RAND: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})<br/><br/>
-        &nbsp; &nbsp; ABID AS UUID:&nbsp; <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;<br/><br/>
-
-        &nbsp; &nbsp; .uuid: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;<br/>
-        &nbsp; &nbsp; .id: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;<br/>
-        &nbsp; &nbsp; .pk: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;<br/><br/>
+        &nbsp; &nbsp; DB ID:&nbsp; &nbsp; &nbsp; <code style="font-size: 16px; user-select: all; border-radius: 8px; background-color: #fdd; padding: 1px 4px; border: 1px solid #aaa; margin-bottom: 14px;"><b>{}</b></code><br/>
+        &nbsp; &nbsp; &nbsp; &nbsp;.id: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;<br/>
+        &nbsp; &nbsp; &nbsp; &nbsp;.uuid: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;<br/>
+        <br/>
+        <div style="opacity: 0.8">
+        &nbsp; &nbsp; ABID: &nbsp; &nbsp; &nbsp; <code style="font-size: 16px; user-select: all; border-radius: 8px; background-color: #fdd; padding: 1px 4px; border: 1px solid #aaa; margin-bottom: 14px;"><b>{}</b></code><br/>
+        &nbsp; &nbsp; &nbsp; &nbsp; TS: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})<br/>
+        &nbsp; &nbsp; &nbsp; &nbsp; URI: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})<br/>
+        &nbsp; &nbsp; &nbsp; &nbsp; SUBTYPE: &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})  &nbsp; &nbsp; 
+        &nbsp; &nbsp; &nbsp; &nbsp; RAND: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})<br/><hr/>
+        &nbsp; &nbsp; &nbsp; &nbsp; <small style="opacity: 0.8">as ULID: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all">{}</code></small><br/>
+        &nbsp; &nbsp; &nbsp; &nbsp; <small style="opacity: 0.8">as UUID: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all">{}</code></small><br/><br/>
+        </div>
         ''',
+        obj.pk,
+        obj.id,
+        obj.uuid,
         obj.abid,
         obj.ABID.ts, obj.abid_values['ts'].isoformat() if isinstance(obj.abid_values['ts'], datetime) else obj.abid_values['ts'],
         obj.ABID.uri, str(obj.abid_values['uri']),
         obj.ABID.subtype, str(obj.abid_values['subtype']),
         obj.ABID.rand, str(obj.abid_values['rand'])[-7:],
+        obj.ABID.ulid,
         obj.ABID.uuid,
-        obj.uuid,
-        obj.id,
-        obj.pk,
     )
 
 
