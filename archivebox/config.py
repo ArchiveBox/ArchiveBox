@@ -1036,6 +1036,11 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'enabled': True,
             'is_valid': config['SOURCES_DIR'].exists(),
         },
+        'PERSONAS_DIR': {
+            'path': config['PERSONAS_DIR'].resolve(),
+            'enabled': True,
+            'is_valid': config['PERSONAS_DIR'].exists(),
+        },
         'LOGS_DIR': {
             'path': config['LOGS_DIR'].resolve(),
             'enabled': True,
@@ -1050,11 +1055,6 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
             'path': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).resolve(),
             'enabled': bool(config['CUSTOM_TEMPLATES_DIR']),
             'is_valid': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).exists(),
-        },
-        'PERSONAS_DIR': {
-            'path': config['PERSONAS_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': config['PERSONAS_DIR'].exists(),
         },
         # managed by bin/docker_entrypoint.sh and python-crontab:
         # 'CRONTABS_DIR': {
