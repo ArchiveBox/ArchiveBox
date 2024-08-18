@@ -104,12 +104,13 @@ class SnapshotView(View):
             'webm',
             'mp4',
             'mp3',
+            'opus',
             'pdf',
             'md',
         }
 
 
-        # iterate through all the files in the snapshot dir and add the biggest ones to the result list
+        # iterate through all the files in the snapshot dir and add the biggest ones to1 the result list
         snap_dir = Path(snapshot.link_dir)
         for result_file in (*snap_dir.glob('*'), *snap_dir.glob('*/*')):
             extension = result_file.suffix.lstrip('.').lower()
@@ -128,7 +129,7 @@ class SnapshotView(View):
                     'size': file_size,
                 }
 
-        preferred_types = ('singlefile', 'wget', 'screenshot', 'dom', 'media', 'pdf', 'readability', 'mercury')
+        preferred_types = ('singlefile', 'screenshot', 'wget', 'dom', 'media', 'pdf', 'readability', 'mercury')
         all_types = preferred_types + tuple(result_type for result_type in archiveresults.keys() if result_type not in preferred_types)
 
         best_result = {'path': 'None'}
