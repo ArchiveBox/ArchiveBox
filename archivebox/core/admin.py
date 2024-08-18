@@ -20,7 +20,7 @@ from signal_webhooks.admin import WebhookAdmin, get_webhook_model
 
 from ..util import htmldecode, urldecode, ansi_to_html
 
-from core.models import Snapshot, ArchiveResult, Tag
+from core.models import Snapshot, ArchiveResult, Tag, SnapshotTag
 from core.forms import AddLinkForm
 
 from core.mixins import SearchResultsAdminMixin
@@ -125,9 +125,14 @@ archivebox_admin.get_urls = get_urls(archivebox_admin.get_urls).__get__(archiveb
 
 class ArchiveResultInline(admin.TabularInline):
     model = ArchiveResult
+    fk_name = 'snapshot'
 
 class TagInline(admin.TabularInline):
     model = Snapshot.tags.through
+    # fk_name = 'snapshottag'
+
+    def identifiers(self, obj):
+        return '-'
 
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import AutocompleteSelectMultiple
@@ -449,6 +454,17 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
 
 
+# @admin.register(SnapshotTag, site=archivebox_admin)
+# class SnapshotTagAdmin(admin.ModelAdmin):
+#     list_display = ('id', 'snapshot', 'tag')
+#     sort_fields = ('id', 'snapshot', 'tag')
+#     search_fields = ('id', 'snapshot_id', 'tag_id')
+#     fields = ('snapshot', 'id')
+#     actions = ['delete_selected']
+#     ordering = ['-id']
+
+#     def identifiers(self, obj):
+#         return get_abid_info(self, obj)
 
 
 @admin.register(Tag, site=archivebox_admin)

@@ -266,7 +266,7 @@ class Link:
     @cached_property
     def snapshot(self):
         from core.models import Snapshot
-        return Snapshot.objects.only('uuid').get(url=self.url)
+        return Snapshot.objects.only('id').get(url=self.url)
 
     @cached_property
     def snapshot_id(self):

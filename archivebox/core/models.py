@@ -114,16 +114,19 @@ class Tag(ABIDModel):
     def api_docs_url(self) -> str:
         return f'/api/v1/docs#/Core%20Models/api_v1_core_get_tag'
 
+class SnapshotTag(models.Model):
+    snapshot = models.OneToOneField('Snapshot', primary_key=True, on_delete=models.CASCADE, to_field='id')
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, to_field='id')
 
 class Snapshot(ABIDModel):
     abid_prefix = 'snp_'
     abid_ts_src = 'self.added'
     abid_uri_src = 'self.url'
     abid_subtype_src = '"01"'
-    abid_rand_src = 'self.id'
+    abid_rand_src = 'self.old_id'
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)  # legacy pk
-    uuid = models.UUIDField(default=uuid.uuid4, editable=True, unique=True)
+    old_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)  # legacy pk
+    id = models.UUIDField(default=uuid.uuid4, editable=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
     url = models.URLField(unique=True, db_index=True)
@@ -351,7 +354,8 @@ class ArchiveResult(ABIDModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
-    snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
+    snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE, to_field='id')
+
     extractor = models.CharField(choices=EXTRACTOR_CHOICES, max_length=32)
     cmd = models.JSONField()
     pwd = models.CharField(max_length=256)
