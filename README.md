@@ -291,8 +291,9 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <details>
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" alt="aptitude" height="28px" align="top"/> <code>apt</code></b> (Ubuntu/Debian/etc.)</summary>
 <br/>
-<ol>
-<li><!--Add the ArchiveBox repository to your sources.<br/>
+See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup">Install: Bare Metal</a> Wiki for instructions. ➡️
+<!--<ol>
+<li>Add the ArchiveBox repository to your sources.<br/>
 <pre lang="bash"><code style="white-space: pre-line">echo "deb http://ppa.launchpad.net/archivebox/archivebox/ubuntu focal main" | sudo tee /etc/apt/sources.list.d/archivebox.list
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C258F79DCC02E369
 sudo apt update
@@ -309,9 +310,8 @@ archivebox version                         # make sure all dependencies are inst
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
 archivebox init --setup
-</code></pre>-->
+</code></pre>
 <br/>
-<i>See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup">Install: Bare Metal</a> Wiki for instructions.</i> ➡️<br/><br/>
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
@@ -321,9 +321,8 @@ archivebox help
 </code></pre>
 </li>
 </ol>
-
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
-<sub>See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-archivebox</code></a> repo for more details about this distribution.</sub>
+<sub>See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-archivebox</code></a> repo for more details about this distribution.</sub>-->
 <br/><br/>
 </details>
 
