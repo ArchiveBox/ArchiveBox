@@ -21,6 +21,11 @@ ABID_RAND_LEN = 6
 
 DEFAULT_ABID_PREFIX = 'obj_'
 
+# allows people to keep their uris secret on a per-instance basis by changing the salt.
+# the default means everyone can share the same namespace for URI hashes,
+# meaning anyone who has a URI and wants to check if you have it can guess the ABID
+DEFAULT_ABID_URI_SALT = '687c2fff14e3a7780faa5a40c237b19b5b51b089'
+
 
 class ABID(NamedTuple):
     """
@@ -97,7 +102,7 @@ class ABID(NamedTuple):
 ####################################################
 
 
-def uri_hash(uri: Union[str, bytes]) -> str:
+def uri_hash(uri: Union[str, bytes], salt: str=DEFAULT_ABID_URI_SALT) -> str:
     """
     'E4A5CCD9AF4ED2A6E0954DF19FD274E9CDDB4853051F033FD518BFC90AA1AC25'
     """
@@ -115,7 +120,7 @@ def uri_hash(uri: Union[str, bytes]) -> str:
         except AttributeError:
             pass
     
-    uri_bytes = uri_str.encode('utf-8')
+    uri_bytes = uri_str.encode('utf-8') + salt.encode('utf-8')
 
     return hashlib.sha256(uri_bytes).hexdigest().upper()
 
@@ -130,12 +135,12 @@ def abid_part_from_prefix(prefix: Optional[str]) -> str:
     assert len(prefix) == 3
     return prefix + '_'
 
-def abid_part_from_uri(uri: str) -> str:
+def abid_part_from_uri(uri: str, salt: str=DEFAULT_ABID_URI_SALT) -> str:
     """
     'E4A5CCD9'     # takes first 8 characters of sha256(url)
     """
     uri = str(uri)
-    return uri_hash(uri)[:ABID_URI_LEN]
+    return uri_hash(uri, salt=salt)[:ABID_URI_LEN]
 
 def abid_part_from_ts(ts: Optional[datetime]) -> str:
     """
