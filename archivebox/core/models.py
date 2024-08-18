@@ -140,6 +140,9 @@ class Snapshot(ABIDModel):
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
 
+    @property
+    def uuid(self):
+        return self.id
 
     def __repr__(self) -> str:
         title = self.title or '-'
@@ -354,7 +357,7 @@ class ArchiveResult(ABIDModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
-    snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE, to_field='id')
+    snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE, to_field='id', db_column='snapshot_id')
 
     extractor = models.CharField(choices=EXTRACTOR_CHOICES, max_length=32)
     cmd = models.JSONField()

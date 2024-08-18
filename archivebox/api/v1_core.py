@@ -77,7 +77,7 @@ class ArchiveResultFilterSchema(FilterSchema):
     id: Optional[UUID] = Field(None, q='id')
 
     search: Optional[str] = Field(None, q=['snapshot__url__icontains', 'snapshot__title__icontains', 'snapshot__tags__name__icontains', 'extractor', 'output__icontains'])
-    snapshot_uuid: Optional[UUID] = Field(None, q='snapshot_uuid__icontains')
+    snapshot_id: Optional[UUID] = Field(None, q='snapshot_id__icontains')
     snapshot_url: Optional[str] = Field(None, q='snapshot__url__icontains')
     snapshot_tag: Optional[str] = Field(None, q='snapshot__tags__name__icontains')
     
@@ -227,7 +227,7 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
     request.with_archiveresults = with_archiveresults
     snapshot = None
     try:
-        snapshot = Snapshot.objects.get(Q(uuid__startswith=snapshot_id) | Q(abid__startswith=snapshot_id)| Q(pk__startswith=snapshot_id))
+        snapshot = Snapshot.objects.get(Q(abid__startswith=snapshot_id)| Q(pk__startswith=snapshot_id))
     except Snapshot.DoesNotExist:
         pass
 
@@ -237,7 +237,7 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
         pass
 
     try:
-        snapshot = snapshot or Snapshot.objects.get(Q(uuid__icontains=snapshot_id) | Q(abid__icontains=snapshot_id))
+        snapshot = snapshot or Snapshot.objects.get(Q(pk__icontains=snapshot_id) | Q(abid__icontains=snapshot_id))
     except Snapshot.DoesNotExist:
         pass
 

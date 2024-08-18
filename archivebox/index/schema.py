@@ -274,7 +274,7 @@ class Link:
 
     @cached_property
     def snapshot_uuid(self):
-        return str(self.snapshot.uuid)
+        return str(self.snapshot.id)
 
     @cached_property
     def snapshot_abid(self):

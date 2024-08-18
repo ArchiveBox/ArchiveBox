@@ -294,7 +294,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
         )
 
     def identifiers(self, obj):
-        return get_abid_info(self, obj)
+        try:
+            return get_abid_info(self, obj)
+        except Exception as e:
+            return str(e)
 
     @admin.display(
         description='Title',
