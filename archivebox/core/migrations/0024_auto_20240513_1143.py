@@ -64,7 +64,9 @@ def generate_snapshot_abids(apps, schema_editor):
         snapshot.abid_rand_src = 'self.uuid'
 
         snapshot.abid = calculate_abid(snapshot)
-        snapshot.save(update_fields=["abid"])
+        snapshot.uuid = snapshot.abid.uuid
+        snapshot.id = snapshot.abid.uuid
+        snapshot.save(update_fields=["abid", "uuid", "id"])
 
 def generate_archiveresult_abids(apps, schema_editor):
     print('   Generating ArchiveResult.abid values... (may take an hour or longer for large collections...)')
