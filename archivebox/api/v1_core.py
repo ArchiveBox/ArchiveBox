@@ -22,8 +22,9 @@ router = Router(tags=['Core Models'])
 
 class ArchiveResultSchema(Schema):
     abid: str
-    uuid: UUID
-    pk: str
+    id: UUID
+    # old_id: int
+
     modified: datetime
     created: datetime
     created_by_id: str
@@ -73,8 +74,7 @@ class ArchiveResultSchema(Schema):
 
 
 class ArchiveResultFilterSchema(FilterSchema):
-    uuid: Optional[UUID] = Field(None, q='uuid')
-    # abid: Optional[str] = Field(None, q='abid')
+    id: Optional[UUID] = Field(None, q='id')
 
     search: Optional[str] = Field(None, q=['snapshot__url__icontains', 'snapshot__title__icontains', 'snapshot__tags__name__icontains', 'extractor', 'output__icontains'])
     snapshot_uuid: Optional[UUID] = Field(None, q='snapshot_uuid__icontains')
@@ -104,8 +104,8 @@ def get_archiveresults(request, filters: ArchiveResultFilterSchema = Query(...))
 
 @router.get("/archiveresult/{archiveresult_id}", response=ArchiveResultSchema, url_name="get_archiveresult")
 def get_archiveresult(request, archiveresult_id: str):
-    """Get a specific ArchiveResult by abid, uuid, or pk."""
-    return ArchiveResult.objects.get(Q(pk__icontains=archiveresult_id) | Q(abid__icontains=archiveresult_id) | Q(uuid__icontains=archiveresult_id))
+    """Get a specific ArchiveResult by pk, abid, or old_id."""
+    return ArchiveResult.objects.get(Q(pk__icontains=archiveresult_id) | Q(abid__icontains=archiveresult_id) | Q(old_id__icontains=archiveresult_id))
 
 
 # @router.post("/archiveresult", response=ArchiveResultSchema)

@@ -347,8 +347,8 @@ class ArchiveResult(ABIDModel):
     abid_rand_src = 'self.id'
     EXTRACTOR_CHOICES = EXTRACTOR_CHOICES
 
-    old_id = models.BigIntegerField(default=rand_int_id, serialize=False, verbose_name='ID')
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True, unique=True)
+    old_id = models.BigIntegerField(default=rand_int_id, serialize=False, verbose_name='Old ID')
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
