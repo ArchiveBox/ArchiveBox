@@ -33,7 +33,7 @@ class ArchiveResultSchema(Schema):
     snapshot_tags: str
 
     extractor: str
-    cmd_version: str
+    cmd_version: Optional[str]
     cmd: List[str]
     pwd: str
     status: str
@@ -93,16 +93,16 @@ class ArchiveResultFilterSchema(FilterSchema):
     created__lt: Optional[datetime] = Field(None, q='updated__lt')
 
 
-@router.get("/archiveresults", response=List[ArchiveResultSchema])
+@router.get("/archiveresults", response=List[ArchiveResultSchema], url_name="get_archiveresult")
 @paginate
-def list_archiveresults(request, filters: ArchiveResultFilterSchema = Query(...)):
+def get_archiveresults(request, filters: ArchiveResultFilterSchema = Query(...)):
     """List all ArchiveResult entries matching these filters."""
     qs = ArchiveResult.objects.all()
     results = filters.filter(qs)
     return results
 
 
-@router.get("/archiveresult/{archiveresult_id}", response=ArchiveResultSchema)
+@router.get("/archiveresult/{archiveresult_id}", response=ArchiveResultSchema, url_name="get_archiveresult")
 def get_archiveresult(request, archiveresult_id: str):
     """Get a specific ArchiveResult by abid, uuid, or pk."""
     return ArchiveResult.objects.get(Q(pk__icontains=archiveresult_id) | Q(abid__icontains=archiveresult_id) | Q(uuid__icontains=archiveresult_id))
@@ -211,9 +211,9 @@ class SnapshotFilterSchema(FilterSchema):
 
 
 
-@router.get("/snapshots", response=List[SnapshotSchema])
+@router.get("/snapshots", response=List[SnapshotSchema], url_name="get_snapshots")
 @paginate
-def list_snapshots(request, filters: SnapshotFilterSchema = Query(...), with_archiveresults: bool=True):
+def get_snapshots(request, filters: SnapshotFilterSchema = Query(...), with_archiveresults: bool=True):
     """List all Snapshot entries matching these filters."""
     request.with_archiveresults = with_archiveresults
 
@@ -221,7 +221,7 @@ def list_snapshots(request, filters: SnapshotFilterSchema = Query(...), with_arc
     results = filters.filter(qs)
     return results
 
-@router.get("/snapshot/{snapshot_id}", response=SnapshotSchema)
+@router.get("/snapshot/{snapshot_id}", response=SnapshotSchema, url_name="get_snapshot")
 def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
     """Get a specific Snapshot by abid, uuid, or pk."""
     request.with_archiveresults = with_archiveresults
@@ -286,6 +286,6 @@ class TagSchema(Schema):
     def resolve_created_by_id(obj):
         return str(obj.created_by_id)
 
-@router.get("/tags", response=List[TagSchema])
-def list_tags(request):
+@router.get("/tags", response=List[TagSchema], url_name="get_tags")
+def get_tags(request):
     return Tag.objects.all()

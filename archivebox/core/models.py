@@ -14,7 +14,7 @@ from django.db import models
 from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.core.cache import cache
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.db.models import Case, When, Value, IntegerField
 from django.contrib.auth.models import User   # noqa
 
@@ -103,6 +103,15 @@ class Tag(ABIDModel):
                 i = 1 if i is None else i+1
         else:
             return super().save(*args, **kwargs)
+        
+    @property
+    def api_url(self) -> str:
+        # /api/v1/core/snapshot/{uulid}
+        return reverse_lazy('api-1:get_tag', args=[self.abid])
+
+    @property
+    def api_docs_url(self) -> str:
+        return f'/api/v1/docs#/Core%20Models/api_v1_core_get_tag'
 
 
 class Snapshot(ABIDModel):
@@ -167,6 +176,15 @@ class Snapshot(ABIDModel):
 
     def icons(self) -> str:
         return snapshot_icons(self)
+    
+    @property
+    def api_url(self) -> str:
+        # /api/v1/core/snapshot/{uulid}
+        return reverse_lazy('api-1:get_snapshot', args=[self.abid])
+    
+    @property
+    def api_docs_url(self) -> str:
+        return f'/api/v1/docs#/Core%20Models/api_v1_core_get_snapshot'
 
     @cached_property
     def extension(self) -> str:
@@ -353,6 +371,14 @@ class ArchiveResult(ABIDModel):
     def snapshot_dir(self):
         return Path(self.snapshot.link_dir)
 
+    @property
+    def api_url(self) -> str:
+        # /api/v1/core/archiveresult/{uulid}
+        return reverse_lazy('api-1:get_archiveresult', args=[self.abid])
+    
+    @property
+    def api_docs_url(self) -> str:
+        return f'/api/v1/docs#/Core%20Models/api_v1_core_get_archiveresult'
 
     @property
     def extractor_module(self):

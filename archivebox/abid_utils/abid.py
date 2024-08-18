@@ -72,6 +72,10 @@ class ABID(NamedTuple):
             subtype=suffix[18:20].upper(),
             rand=suffix[20:26].upper(),
         )
+    
+    @property
+    def uri_salt(self) -> str:
+        return DEFAULT_ABID_URI_SALT
 
     @property
     def suffix(self):
