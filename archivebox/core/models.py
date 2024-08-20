@@ -163,6 +163,10 @@ class Snapshot(ABIDModel):
         title = self.title or '-'
         return f'[{self.timestamp}] {self.url[:64]} ({title[:64]})'
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        assert str(self.id) == str(self.abid.uuid) == str(self.uuid)
+
     @classmethod
     def from_json(cls, info: dict):
         info = {k: v for k, v in info.items() if k in cls.keys}
@@ -391,7 +395,7 @@ class ArchiveResult(ABIDModel):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        assert str(self.id) == str(self.abid.uuid)
+        assert str(self.id) == str(self.abid.uuid) == str(self.uuid)
 
     @property
     def uuid(self):

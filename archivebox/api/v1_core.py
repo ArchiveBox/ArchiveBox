@@ -21,9 +21,9 @@ router = Router(tags=['Core Models'])
 ### ArchiveResult #########################################################################
 
 class ArchiveResultSchema(Schema):
-    abid: str
     id: UUID
-    # old_id: int
+    old_id: int
+    abid: str
 
     modified: datetime
     created: datetime
@@ -105,7 +105,7 @@ def get_archiveresults(request, filters: ArchiveResultFilterSchema = Query(...))
 @router.get("/archiveresult/{archiveresult_id}", response=ArchiveResultSchema, url_name="get_archiveresult")
 def get_archiveresult(request, archiveresult_id: str):
     """Get a specific ArchiveResult by pk, abid, or old_id."""
-    return ArchiveResult.objects.get(Q(pk__icontains=archiveresult_id) | Q(abid__icontains=archiveresult_id) | Q(old_id__icontains=archiveresult_id))
+    return ArchiveResult.objects.get(Q(id__icontains=archiveresult_id) | Q(abid__icontains=archiveresult_id) | Q(old_id__icontains=archiveresult_id))
 
 
 # @router.post("/archiveresult", response=ArchiveResultSchema)
@@ -137,9 +137,10 @@ def get_archiveresult(request, archiveresult_id: str):
 
 
 class SnapshotSchema(Schema):
+    id: UUID
+    old_id: UUID
     abid: str
-    uuid: UUID
-    pk: str
+
     modified: datetime
     created: datetime
     created_by_id: str
@@ -189,10 +190,12 @@ class SnapshotSchema(Schema):
 
 
 class SnapshotFilterSchema(FilterSchema):
+    id: Optional[str] = Field(None, q='id__icontains')
+    old_id: Optional[str] = Field(None, q='old_id__icontains')
     abid: Optional[str] = Field(None, q='abid__icontains')
-    uuid: Optional[str] = Field(None, q='uuid__icontains')
-    pk: Optional[str] = Field(None, q='pk__icontains')
+
     created_by_id: str = Field(None, q='created_by_id__icontains')
+
     created__gte: datetime = Field(None, q='created__gte')
     created__lt: datetime = Field(None, q='created__lt')
     created: datetime = Field(None, q='created')
@@ -200,7 +203,7 @@ class SnapshotFilterSchema(FilterSchema):
     modified__gte: datetime = Field(None, q='modified__gte')
     modified__lt: datetime = Field(None, q='modified__lt')
 
-    search: Optional[str] = Field(None, q=['url__icontains', 'title__icontains', 'tags__name__icontains', 'abid__icontains', 'uuid__icontains'])
+    search: Optional[str] = Field(None, q=['url__icontains', 'title__icontains', 'tags__name__icontains', 'id__icontains', 'abid__icontains', 'old_id__icontains'])
     url: Optional[str] = Field(None, q='url')
     tag: Optional[str] = Field(None, q='tags__name')
     title: Optional[str] = Field(None, q='title__icontains')
@@ -227,7 +230,7 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
     request.with_archiveresults = with_archiveresults
     snapshot = None
     try:
-        snapshot = Snapshot.objects.get(Q(abid__startswith=snapshot_id)| Q(pk__startswith=snapshot_id))
+        snapshot = Snapshot.objects.get(Q(abid__startswith=snapshot_id) | Q(id__startswith=snapshot_id) | Q(old_id__startswith=snapshot_id))
     except Snapshot.DoesNotExist:
         pass
 
@@ -237,7 +240,7 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
         pass
 
     try:
-        snapshot = snapshot or Snapshot.objects.get(Q(pk__icontains=snapshot_id) | Q(abid__icontains=snapshot_id))
+        snapshot = snapshot or Snapshot.objects.get(Q(abid__icontains=snapshot_id) | Q(id__icontains=snapshot_id) | Q(old_id__icontains=snapshot_id))
     except Snapshot.DoesNotExist:
         pass
 
