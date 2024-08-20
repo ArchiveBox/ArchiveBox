@@ -63,7 +63,7 @@ api = NinjaAPIWithIOCapture(
     version='1.0.0',
     csrf=False,
     auth=API_AUTH_METHODS,
-    urls_namespace="api",
+    urls_namespace="api-1",
     docs=Swagger(settings={"persistAuthorization": True}),
     # docs_decorator=login_required,
     # renderer=ORJSONRenderer(),

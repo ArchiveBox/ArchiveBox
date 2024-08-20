@@ -2,7 +2,7 @@
 
 from django.db import migrations
 from datetime import datetime
-from abid_utils.abid import abid_from_values
+from abid_utils.abid import abid_from_values, DEFAULT_ABID_URI_SALT
 
 
 def calculate_abid(self):
@@ -41,18 +41,21 @@ def calculate_abid(self):
         uri=uri,
         subtype=subtype,
         rand=rand,
+        salt=DEFAULT_ABID_URI_SALT,
     )
     assert abid.ulid and abid.uuid and abid.typeid, f'Failed to calculate {prefix}_ABID for {self.__class__.__name__}'
     return abid
 
 
 def copy_snapshot_uuids(apps, schema_editor):
+    print('   Copying snapshot.id -> snapshot.uuid...')
     Snapshot = apps.get_model("core", "Snapshot")
     for snapshot in Snapshot.objects.all():
         snapshot.uuid = snapshot.id
         snapshot.save(update_fields=["uuid"])
 
 def generate_snapshot_abids(apps, schema_editor):
+    print('   Generating snapshot.abid values...')
     Snapshot = apps.get_model("core", "Snapshot")
     for snapshot in Snapshot.objects.all():
         snapshot.abid_prefix = 'snp_'
@@ -62,9 +65,11 @@ def generate_snapshot_abids(apps, schema_editor):
         snapshot.abid_rand_src = 'self.uuid'
 
         snapshot.abid = calculate_abid(snapshot)
-        snapshot.save(update_fields=["abid"])
+        snapshot.uuid = snapshot.abid.uuid
+        snapshot.save(update_fields=["abid", "uuid"])
 
 def generate_archiveresult_abids(apps, schema_editor):
+    print('   Generating ArchiveResult.abid values... (may take an hour or longer for large collections...)')
     ArchiveResult = apps.get_model("core", "ArchiveResult")
     Snapshot = apps.get_model("core", "Snapshot")
     for result in ArchiveResult.objects.all():

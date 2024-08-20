@@ -26,6 +26,7 @@ from .abid import (
     ABID_RAND_LEN,
     ABID_SUFFIX_LEN,
     DEFAULT_ABID_PREFIX,
+    DEFAULT_ABID_URI_SALT,
     abid_part_from_prefix,
     abid_from_values
 )
@@ -69,8 +70,8 @@ class ABIDModel(models.Model):
     abid_subtype_src = 'None'               # e.g. 'self.extractor'
     abid_rand_src = 'None'                  # e.g. 'self.uuid' or 'self.id'
 
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=True)
-    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    # id = models.UUIDField(primary_key=True, default=uuid4, editable=True)
+    # uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk)
@@ -132,6 +133,7 @@ class ABIDModel(models.Model):
             uri=uri,
             subtype=subtype,
             rand=rand,
+            salt=DEFAULT_ABID_URI_SALT,
         )
         assert abid.ulid and abid.uuid and abid.typeid, f'Failed to calculate {prefix}_ABID for {self.__class__.__name__}'
         return abid

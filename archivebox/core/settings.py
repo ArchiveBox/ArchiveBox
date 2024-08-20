@@ -83,7 +83,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.admin',
     'django_jsonform',
-
+    
     'signal_webhooks',
     'abid_utils',
     'plugantic',
@@ -119,6 +119,8 @@ MIDDLEWARE = [
 ################################################################################
 ### Authentication Settings
 ################################################################################
+
+# AUTH_USER_MODEL = 'auth.User'   # cannot be easily changed unfortunately
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.RemoteUserBackend',
@@ -463,6 +465,7 @@ SIGNAL_WEBHOOKS = {
     },
 }
 
+DATA_UPLOAD_MAX_NUMBER_FIELDS = None
 
 ADMIN_DATA_VIEWS = {
     "NAME": "Environment",

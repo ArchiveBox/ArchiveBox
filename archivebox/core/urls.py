@@ -38,7 +38,7 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('admin/', archivebox_admin.urls),
     
-    path("api/",      include('api.urls')),
+    path("api/",      include('api.urls'), name='api'),
 
     path('health/', HealthCheckView.as_view(), name='healthcheck'),
     path('error/', lambda *_: 1/0),

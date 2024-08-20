@@ -116,7 +116,6 @@ body.model-snapshot.change-list #content .object-tools {
     margin-right: 0px;
     width: auto;
     max-height: 40px;
-    overflow: hidden;
     display: block;
 }
 @media (max-width: 1000px) {
@@ -166,14 +165,14 @@ body.model-snapshot.change-list #content .object-tools {
     margin-right: 25px;
 }
 
-#content #changelist .actions .select2-selection {
+#content #changelist .actions > label {
     max-height: 25px;
 }
-#content #changelist .actions .select2-container--admin-autocomplete.select2-container {
+#content #changelist .actions > label {
     width: auto !important;
     min-width: 90px;
 }
-#content #changelist .actions .select2-selection__rendered .select2-selection__choice {
+#content #changelist .actions > label > select {
     margin-top: 3px;
 }
 

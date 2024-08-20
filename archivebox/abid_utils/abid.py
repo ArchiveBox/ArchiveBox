@@ -21,6 +21,11 @@ ABID_RAND_LEN = 6
 
 DEFAULT_ABID_PREFIX = 'obj_'
 
+# allows people to keep their uris secret on a per-instance basis by changing the salt.
+# the default means everyone can share the same namespace for URI hashes,
+# meaning anyone who has a URI and wants to check if you have it can guess the ABID
+DEFAULT_ABID_URI_SALT = '687c2fff14e3a7780faa5a40c237b19b5b51b089'
+
 
 class ABID(NamedTuple):
     """
@@ -31,6 +36,8 @@ class ABID(NamedTuple):
     uri: str               # e.g. E4A5CCD9
     subtype: str           # e.g. 01
     rand: str              # e.g. ZYEBQE
+    
+    # salt: str = DEFAULT_ABID_URI_SALT
 
     def __getattr__(self, attr: str) -> Any:
         return getattr(self.ulid, attr)
@@ -67,6 +74,10 @@ class ABID(NamedTuple):
             subtype=suffix[18:20].upper(),
             rand=suffix[20:26].upper(),
         )
+    
+    @property
+    def uri_salt(self) -> str:
+        return DEFAULT_ABID_URI_SALT
 
     @property
     def suffix(self):
@@ -97,7 +108,7 @@ class ABID(NamedTuple):
 ####################################################
 
 
-def uri_hash(uri: Union[str, bytes]) -> str:
+def uri_hash(uri: Union[str, bytes], salt: str=DEFAULT_ABID_URI_SALT) -> str:
     """
     'E4A5CCD9AF4ED2A6E0954DF19FD274E9CDDB4853051F033FD518BFC90AA1AC25'
     """
@@ -115,7 +126,7 @@ def uri_hash(uri: Union[str, bytes]) -> str:
         except AttributeError:
             pass
     
-    uri_bytes = uri_str.encode('utf-8')
+    uri_bytes = uri_str.encode('utf-8') + salt.encode('utf-8')
 
     return hashlib.sha256(uri_bytes).hexdigest().upper()
 
@@ -130,12 +141,12 @@ def abid_part_from_prefix(prefix: Optional[str]) -> str:
     assert len(prefix) == 3
     return prefix + '_'
 
-def abid_part_from_uri(uri: str) -> str:
+def abid_part_from_uri(uri: str, salt: str=DEFAULT_ABID_URI_SALT) -> str:
     """
     'E4A5CCD9'     # takes first 8 characters of sha256(url)
     """
     uri = str(uri)
-    return uri_hash(uri)[:ABID_URI_LEN]
+    return uri_hash(uri, salt=salt)[:ABID_URI_LEN]
 
 def abid_part_from_ts(ts: Optional[datetime]) -> str:
     """
@@ -175,7 +186,7 @@ def abid_part_from_rand(rand: Union[str, UUID, None, int]) -> str:
     return str(rand)[-ABID_RAND_LEN:].upper()
 
 
-def abid_from_values(prefix, ts, uri, subtype, rand) -> ABID:
+def abid_from_values(prefix, ts, uri, subtype, rand, salt=DEFAULT_ABID_URI_SALT) -> ABID:
     """
     Return a freshly derived ABID (assembled from attrs defined in ABIDModel.abid_*_src).
     """
@@ -183,7 +194,7 @@ def abid_from_values(prefix, ts, uri, subtype, rand) -> ABID:
     abid = ABID(
         prefix=abid_part_from_prefix(prefix),
         ts=abid_part_from_ts(ts),
-        uri=abid_part_from_uri(uri),
+        uri=abid_part_from_uri(uri, salt=salt),
         subtype=abid_part_from_subtype(subtype),
         rand=abid_part_from_rand(rand),
     )

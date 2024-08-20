@@ -90,7 +90,7 @@ class SnapshotView(View):
                 archiveresults[result.extractor] = result_info
 
         existing_files = {result['path'] for result in archiveresults.values()}
-        min_size_threshold = 128  # bytes
+        min_size_threshold = 10_000  # bytes
         allowed_extensions = {
             'txt',
             'html',
@@ -104,16 +104,19 @@ class SnapshotView(View):
             'webm',
             'mp4',
             'mp3',
+            'opus',
             'pdf',
             'md',
         }
 
-        # iterate through all the files in the snapshot dir and add the biggest ones to the result list
-        for result_file in Path(snapshot.link_dir).glob('*/*/*'):
+
+        # iterate through all the files in the snapshot dir and add the biggest ones to1 the result list
+        snap_dir = Path(snapshot.link_dir)
+        for result_file in (*snap_dir.glob('*'), *snap_dir.glob('*/*')):
             extension = result_file.suffix.lstrip('.').lower()
             if result_file.is_dir() or result_file.name.startswith('.') or extension not in allowed_extensions:
                 continue
-            if result_file.name in existing_files:
+            if result_file.name in existing_files or result_file.name == 'index.html':
                 continue
 
             file_size = result_file.stat().st_size or 0
@@ -121,12 +124,12 @@ class SnapshotView(View):
             if file_size > min_size_threshold:
                 archiveresults[result_file.name] = {
                     'name': result_file.stem,
-                    'path': result_file.relative_to(snapshot.link_dir),
+                    'path': result_file.relative_to(snap_dir),
                     'ts': ts_to_date_str(result_file.stat().st_mtime or 0),
                     'size': file_size,
                 }
 
-        preferred_types = ('singlefile', 'wget', 'screenshot', 'dom', 'media', 'pdf', 'readability', 'mercury')
+        preferred_types = ('singlefile', 'screenshot', 'wget', 'dom', 'media', 'pdf', 'readability', 'mercury')
         all_types = preferred_types + tuple(result_type for result_type in archiveresults.keys() if result_type not in preferred_types)
 
         best_result = {'path': 'None'}
@@ -140,7 +143,7 @@ class SnapshotView(View):
         link_info = link._asdict(extended=True)
 
         try:
-            warc_path = 'warc/' + list(Path(snapshot.link_dir).glob('warc/*.warc.*'))[0].name
+            warc_path = 'warc/' + list(Path(snap_dir).glob('warc/*.warc.*'))[0].name
         except IndexError:
             warc_path = 'warc/'
 
@@ -160,7 +163,7 @@ class SnapshotView(View):
             'warc_path': warc_path,
             'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
             'PREVIEW_ORIGINALS': PREVIEW_ORIGINALS,
-            'archiveresults': sorted(archiveresults.values(), key=lambda r: all_types.index(r['name'])),
+            'archiveresults': sorted(archiveresults.values(), key=lambda r: all_types.index(r['name']) if r['name'] in all_types else -r['size']),
             'best_result': best_result,
             # 'tags_str': 'somealskejrewlkrjwer,werlmwrwlekrjewlkrjwer324m532l,4m32,23m324234',
         }
@@ -177,6 +180,7 @@ class SnapshotView(View):
             slug, archivefile = path.split('/', 1)
         except (IndexError, ValueError):
             slug, archivefile = path.split('/', 1)[0], 'index.html'
+
 
         # slug is a timestamp
         if slug.replace('.','').isdigit():
@@ -224,7 +228,7 @@ class SnapshotView(View):
                         snap.timestamp,
                         snap.timestamp,
                         snap.url,
-                        snap.title or '',
+                        snap.title_stripped[:64] or '',
                     )
                     for snap in Snapshot.objects.filter(timestamp__startswith=slug).only('url', 'timestamp', 'title', 'added').order_by('-added')
                 )
@@ -275,12 +279,35 @@ class SnapshotView(View):
                     content_type="text/html",
                     status=404,
                 )
+            
+        # # slud is an ID
+        # ulid = slug.split('_', 1)[-1]
+        # try:
+        #     try:
+        #         snapshot = snapshot or Snapshot.objects.get(Q(abid=ulid) | Q(id=ulid) | Q(old_id=ulid))
+        #     except Snapshot.DoesNotExist:
+        #         pass
+
+        #     try:
+        #         snapshot = Snapshot.objects.get(Q(abid__startswith=slug) | Q(abid__startswith=Snapshot.abid_prefix + slug) | Q(id__startswith=slug) | Q(old_id__startswith=slug))
+        #     except (Snapshot.DoesNotExist, Snapshot.MultipleObjectsReturned):
+        #         pass
+
+        #     try:
+        #         snapshot = snapshot or Snapshot.objects.get(Q(abid__icontains=snapshot_id) | Q(id__icontains=snapshot_id) | Q(old_id__icontains=snapshot_id))
+        #     except Snapshot.DoesNotExist:
+        #         pass
+        #     return redirect(f'/archive/{snapshot.timestamp}/index.html')
+        # except Snapshot.DoesNotExist:
+        #     pass
+
         # slug is a URL
         try:
             try:
-                # try exact match on full url first
+                # try exact match on full url / ABID first
                 snapshot = Snapshot.objects.get(
                     Q(url='http://' + path) | Q(url='https://' + path) | Q(id__startswith=path)
+                    | Q(abid__icontains=path) | Q(id__icontains=path) | Q(old_id__icontains=path)
                 )
             except Snapshot.DoesNotExist:
                 # fall back to match on exact base_url
@@ -314,15 +341,17 @@ class SnapshotView(View):
         except Snapshot.MultipleObjectsReturned:
             snapshot_hrefs = mark_safe('<br/>').join(
                 format_html(
-                    '{} <a href="/archive/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
+                    '{} <code style="font-size: 0.8em">{}</code> <a href="/archive/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
                     snap.added.strftime('%Y-%m-%d %H:%M:%S'),
+                    snap.abid,
                     snap.timestamp,
                     snap.timestamp,
                     snap.url,
-                    snap.title or '',
+                    snap.title_stripped[:64] or '',
                 )
                 for snap in Snapshot.objects.filter(
                     Q(url__startswith='http://' + base_url(path)) | Q(url__startswith='https://' + base_url(path))
+                    | Q(abid__icontains=path) | Q(id__icontains=path) | Q(old_id__icontains=path)
                 ).only('url', 'timestamp', 'title', 'added').order_by('-added')
             )
             return HttpResponse(

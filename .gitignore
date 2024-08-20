@@ -13,7 +13,6 @@ venv/
 node_modules/
 
 # Ignore dev lockfiles (should always be built fresh)
-pdm.lock
 pdm.dev.lock
 requirements-dev.txt
 
@@ -30,6 +29,9 @@ data/
 data*/
 output/
 index.sqlite3
+*.sqlite*
+data.*
 
 # vim
 *.sw?
+.vscode

@@ -35,3 +35,5 @@ docker/
 data/
 data*/
 output/
+index.sqlite3
+index.sqlite3-wal
