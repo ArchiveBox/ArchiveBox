@@ -214,10 +214,10 @@ def get_abid_info(self, obj):
 class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     list_display = ('added', 'title_str', 'files', 'size', 'url_str')
     sort_fields = ('title_str', 'url_str', 'added', 'files')
-    readonly_fields = ('tags', 'admin_actions', 'status_info', 'bookmarked', 'added', 'updated', 'created', 'modified', 'identifiers')
+    readonly_fields = ('tags', 'timestamp', 'admin_actions', 'status_info', 'bookmarked', 'added', 'updated', 'created', 'modified', 'identifiers')
     search_fields = ('id', 'url', 'abid', 'old_id', 'timestamp', 'title', 'tags__name')
     list_filter = ('added', 'updated', 'archiveresult__status', 'created_by', 'tags')
-    fields = ('url', 'timestamp', 'created_by', 'title', *readonly_fields)
+    fields = ('url', 'created_by', 'title', *readonly_fields)
     ordering = ['-added']
     actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
     autocomplete_fields = ['tags']
