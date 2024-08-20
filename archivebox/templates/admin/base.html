@@ -265,7 +265,11 @@
                 })
                 console.log('Converted', buttons.children().length, 'admin actions from dropdown to buttons')
             }
-            
+            function fixInlineAddRow() {
+                $('#id_snapshottag-MAX_NUM_FORMS').val('1000')
+                $('.add-row').show()
+            }
+
             function setupSnapshotGridListToggle() {
                 $("#snapshot-view-list").click(selectSnapshotListView)
                 $("#snapshot-view-grid").click(selectSnapshotGridView)
@@ -290,6 +294,7 @@
             }
             $(document).ready(function() {
                 fix_actions()
+                fixInlineAddRow()
                 setupSnapshotGridListToggle()
                 setTimeOffset()
                 selectSnapshotIfHotlinked()
