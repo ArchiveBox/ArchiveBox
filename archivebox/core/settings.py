@@ -463,6 +463,7 @@ SIGNAL_WEBHOOKS = {
     },
 }
 
+DATA_UPLOAD_MAX_NUMBER_FIELDS = None
 
 ADMIN_DATA_VIEWS = {
     "NAME": "Environment",
