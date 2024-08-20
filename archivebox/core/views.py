@@ -387,13 +387,37 @@ class PublicIndexView(ListView):
 
     def get_queryset(self, **kwargs):
         qs = super().get_queryset(**kwargs)
-        query = self.request.GET.get('q')
-        if query and query.strip():
+        query = self.request.GET.get('q', default = '').strip()
+
+        if not query:
+            return qs.distinct()
+
+        query_type = self.request.GET.get('query_type')
+
+        if not query_type or query_type == 'all':
             qs = qs.filter(Q(title__icontains=query) | Q(url__icontains=query) | Q(timestamp__icontains=query) | Q(tags__name__icontains=query))
             try:
                 qs = qs | query_search_index(query)
             except Exception as err:
                 print(f'[!] Error while using search backend: {err.__class__.__name__} {err}')
+        elif query_type == 'fulltext':
+            try:
+                qs = qs | query_search_index(query)
+            except Exception as err:
+                print(f'[!] Error while using search backend: {err.__class__.__name__} {err}')
+        elif query_type == 'meta':
+            qs = qs.filter(Q(title__icontains=query) | Q(url__icontains=query) | Q(timestamp__icontains=query) | Q(tags__name__icontains=query))
+        elif query_type == 'url':
+            qs = qs.filter(Q(url__icontains=query))
+        elif query_type == 'title':
+            qs = qs.filter(Q(title__icontains=query))
+        elif query_type == 'timestamp':
+            qs = qs.filter(Q(timestamp__icontains=query))
+        elif query_type == 'tags':
+            qs = qs.filter(Q(tags__name__icontains=query))
+        else:
+            print(f'[!] Unknown value for query_type: "{query_type}"')
+
         return qs.distinct()
 
     def get(self, *args, **kwargs):
