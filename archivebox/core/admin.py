@@ -126,13 +126,18 @@ archivebox_admin.get_urls = get_urls(archivebox_admin.get_urls).__get__(archiveb
 class ArchiveResultInline(admin.TabularInline):
     model = ArchiveResult
     fk_name = 'snapshot'
+    extra = 1
 
-class TagInline(admin.TabularInline):
-    model = Snapshot.tags.through
-    # fk_name = 'snapshottag'
-
-    def identifiers(self, obj):
-        return '-'
+class TagInline(admin.StackedInline):
+    model = SnapshotTag
+    # fk_name = 'snapshot'
+    fields = ('id', 'tag')
+    extra = 1
+    # min_num = 1
+    max_num = 1000
+    autocomplete_fields = (
+        'tag',
+    )
 
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import AutocompleteSelectMultiple
@@ -173,7 +178,8 @@ def get_abid_info(self, obj):
     return format_html(
         # URL Hash: <code style="font-size: 10px; user-select: all">{}</code><br/>
         '''
-        &nbsp; &nbsp; DB ID:&nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; <code style="font-size: 16px; user-select: all; border-radius: 8px; background-color: #fdd; padding: 1px 4px; border: 1px solid #aaa; margin-bottom: 8px; display: inline-block; vertical-align: top;"><b>{}</b></code><br/>
+        &nbsp; &nbsp; DB PK:&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 16px; user-select: all; border-radius: 8px; background-color: #fdd; padding: 1px 4px; border: 1px solid #aaa; margin-bottom: 8px; display: inline-block; vertical-align: top;"><b>{}</b></code><br/>
+        &nbsp; &nbsp; &nbsp; &nbsp;.old_id: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;<br/>
         &nbsp; &nbsp; &nbsp; &nbsp;.id: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;<br/>
         &nbsp; &nbsp; &nbsp; &nbsp;.uuid: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;<br/>
         <br/>
@@ -190,8 +196,9 @@ def get_abid_info(self, obj):
         </div>
         ''',
         obj.pk,
-        getattr(obj, 'id', str(getattr(obj, 'old_id', '')) + ' (.old_id)'),
-        getattr(obj, 'uuid', str(getattr(obj, 'id', '')) +' (.id)'),
+        getattr(obj, 'old_id', ''),
+        getattr(obj, 'id', ''),
+        getattr(obj, 'uuid', ''),
         *obj.abid.split('_', 1), obj.api_url, obj.api_docs_url,
         obj.ABID.ts, obj.abid_values['ts'].isoformat() if isinstance(obj.abid_values['ts'], datetime) else obj.abid_values['ts'],
         obj.ABID.uri, str(obj.abid_values['uri']),
@@ -207,21 +214,28 @@ def get_abid_info(self, obj):
 class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     list_display = ('added', 'title_str', 'files', 'size', 'url_str')
     sort_fields = ('title_str', 'url_str', 'added', 'files')
-    readonly_fields = ('admin_actions', 'status_info', 'bookmarked', 'added', 'updated', 'created', 'modified', 'identifiers')
-    search_fields = ('id', 'url', 'abid', 'uuid', 'timestamp', 'title', 'tags__name')
-    list_filter = ('added', 'updated', 'tags', 'archiveresult__status', 'created_by')
-    fields = ('url', 'timestamp', 'created_by', 'tags', 'title', *readonly_fields)
+    readonly_fields = ('tags', 'admin_actions', 'status_info', 'bookmarked', 'added', 'updated', 'created', 'modified', 'identifiers')
+    search_fields = ('id', 'url', 'abid', 'old_id', 'timestamp', 'title', 'tags__name')
+    list_filter = ('added', 'updated', 'archiveresult__status', 'created_by', 'tags')
+    fields = ('url', 'timestamp', 'created_by', 'title', *readonly_fields)
     ordering = ['-added']
     actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
     autocomplete_fields = ['tags']
+    # inlines = [TagInline, ArchiveResultInline]
     inlines = [ArchiveResultInline]
     list_per_page = SNAPSHOTS_PER_PAGE
 
     action_form = SnapshotActionForm
 
+    save_on_top = True
+
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
-        return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
+        try:
+            return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
+        except Exception as e:
+            self.message_user(request, f'Error occurred while loading the page: {str(e)} {request.GET} {request.POST}')
+            return super().changelist_view(request, GLOBAL_CONTEXT)
 
     def get_urls(self):
         urls = super().get_urls()
@@ -472,11 +486,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
 @admin.register(Tag, site=archivebox_admin)
 class TagAdmin(admin.ModelAdmin):
-    list_display = ('slug', 'name', 'num_snapshots', 'snapshots', 'abid')
+    list_display = ('slug', 'name', 'num_snapshots', 'snapshots', 'abid', 'id')
     sort_fields = ('id', 'name', 'slug', 'abid')
-    readonly_fields = ('created', 'modified', 'identifiers', 'num_snapshots', 'snapshots')
+    readonly_fields = ('id', 'uuid', 'abid', 'created', 'modified', 'identifiers', 'num_snapshots', 'snapshots')
     search_fields = ('id', 'abid', 'uuid', 'name', 'slug')
-    fields = ('name', 'slug', 'created_by', *readonly_fields, )
+    fields = ('name', 'slug', 'created_by', *readonly_fields)
     actions = ['delete_selected']
     ordering = ['-id']
 
@@ -508,9 +522,9 @@ class TagAdmin(admin.ModelAdmin):
 class ArchiveResultAdmin(admin.ModelAdmin):
     list_display = ('start_ts', 'snapshot_info', 'tags_str', 'extractor', 'cmd_str', 'status', 'output_str')
     sort_fields = ('start_ts', 'extractor', 'status')
-    readonly_fields = ('snapshot_info', 'tags_str', 'created_by', 'created', 'modified', 'identifiers')
+    readonly_fields = ('snapshot_info', 'tags_str', 'created', 'modified', 'identifiers')
     search_fields = ('id', 'uuid', 'abid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
-    fields = ('snapshot', 'extractor', 'status', 'output', 'pwd', 'cmd',  'start_ts', 'end_ts', 'cmd_version', *readonly_fields)
+    fields = ('snapshot', 'extractor', 'status', 'output', 'pwd', 'cmd',  'start_ts', 'end_ts', 'created_by', 'cmd_version', *readonly_fields)
     autocomplete_fields = ['snapshot']
 
     list_filter = ('status', 'extractor', 'start_ts', 'cmd_version')
