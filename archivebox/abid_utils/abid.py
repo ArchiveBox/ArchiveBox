@@ -184,7 +184,7 @@ def abid_part_from_rand(rand: Union[str, UUID, None, int]) -> str:
     return str(rand)[-ABID_RAND_LEN:].upper()
 
 
-def abid_from_values(prefix, ts, uri, subtype, rand) -> ABID:
+def abid_from_values(prefix, ts, uri, subtype, rand, salt=DEFAULT_ABID_URI_SALT) -> ABID:
     """
     Return a freshly derived ABID (assembled from attrs defined in ABIDModel.abid_*_src).
     """
@@ -192,7 +192,7 @@ def abid_from_values(prefix, ts, uri, subtype, rand) -> ABID:
     abid = ABID(
         prefix=abid_part_from_prefix(prefix),
         ts=abid_part_from_ts(ts),
-        uri=abid_part_from_uri(uri),
+        uri=abid_part_from_uri(uri, salt=salt),
         subtype=abid_part_from_subtype(subtype),
         rand=abid_part_from_rand(rand),
     )
