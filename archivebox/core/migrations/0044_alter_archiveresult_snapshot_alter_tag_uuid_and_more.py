@@ -22,7 +22,7 @@ class Migration(migrations.Migration):
                     name='SnapshotTag',
                     fields=[
                         ('id', models.AutoField(primary_key=True, serialize=False)),
-                        ('snapshot', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to='core.snapshot')),
+                        ('snapshot', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='core.snapshot')),
                         ('tag', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='core.tag')),
                     ],
                     options={

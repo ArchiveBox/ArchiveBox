@@ -121,8 +121,8 @@ class Tag(ABIDModel):
 class SnapshotTag(models.Model):
     id = models.AutoField(primary_key=True)
 
-    snapshot = models.OneToOneField('Snapshot', on_delete=models.CASCADE, to_field='old_id')
-    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, to_field='id')
+    snapshot = models.ForeignKey('Snapshot', db_column='snapshot_id', on_delete=models.CASCADE, to_field='id')
+    tag = models.ForeignKey(Tag, db_column='tag_id', on_delete=models.CASCADE, to_field='id')
 
     class Meta:
         db_table = 'core_snapshot_tags'
@@ -135,12 +135,12 @@ class Snapshot(ABIDModel):
     abid_subtype_src = '"01"'
     abid_rand_src = 'self.old_id'
 
-    old_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)  # legacy pk
-    id = models.UUIDField(default=uuid.uuid4, editable=True, unique=True)
+    old_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)  # legacy pk
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
     url = models.URLField(unique=True, db_index=True)
-    timestamp = models.CharField(max_length=32, unique=True, db_index=True)
+    timestamp = models.CharField(max_length=32, unique=True, db_index=True, editable=False)
 
     title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
     
@@ -365,6 +365,7 @@ class ArchiveResult(ABIDModel):
     EXTRACTOR_CHOICES = EXTRACTOR_CHOICES
 
     old_id = models.BigIntegerField(default=rand_int_id, serialize=False, verbose_name='Old ID')
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
@@ -391,6 +392,10 @@ class ArchiveResult(ABIDModel):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         assert str(self.id) == str(self.abid.uuid)
+
+    @property
+    def uuid(self):
+        return self.id
 
     @cached_property
     def snapshot_dir(self):
