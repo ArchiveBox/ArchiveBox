@@ -55,11 +55,9 @@ class APIToken(ABIDModel):
     def __json__(self) -> dict:
         return {
             "TYPE":             "APIToken",    
-            "uuid":             str(self.id),
-            "ulid":             str(self.ulid),
-            "abid":             str(self.get_abid()),
-            "user_id":          str(self.user.id),
-            "user_username":    self.user.username,
+            "id":               str(self.pk),
+            "abid":             str(self.ABID),
+            "created_by_id":    str(self.created_by_id),
             "token":            self.token,
             "created":          self.created.isoformat(),
             "expires":          self.expires_as_iso8601,

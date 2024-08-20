@@ -372,7 +372,7 @@ class ArchiveResult(ABIDModel):
     abid_ts_src = 'self.snapshot.added'
     abid_uri_src = 'self.snapshot.url'
     abid_subtype_src = 'self.extractor'
-    abid_rand_src = 'self.id'
+    abid_rand_src = 'self.old_id'
     EXTRACTOR_CHOICES = EXTRACTOR_CHOICES
 
     old_id = models.BigIntegerField(default=rand_int_id, serialize=False, verbose_name='Old ID')

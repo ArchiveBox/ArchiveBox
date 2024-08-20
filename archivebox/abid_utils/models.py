@@ -1,7 +1,7 @@
 """
 This file provides the Django ABIDField and ABIDModel base model to inherit from.
 
-It implements the ArchiveBox ID (ABID) interfaces including abid_values, get_abid, .abid, .uuid, .id.
+It implements the ArchiveBox ID (ABID) interfaces including abid_values, generate_abid, .abid, .uuid, .id.
 """
 
 from typing import Any, Dict, Union, List, Set, NamedTuple, cast
@@ -82,14 +82,17 @@ class ABIDModel(models.Model):
         abstract = True
 
     def save(self, *args: Any, **kwargs: Any) -> None:
-        if hasattr(self, 'abid'):
-            # self.abid = ABID.parse(self.abid) if self.abid else self.get_abid()
-            self.abid = self.get_abid()
-        else:
-            print(f'[!] WARNING: {self.__class__.__name__}.abid is not a DB field so ABID will not be persisted!')
-            self.abid = self.get_abid()
-        
+        # when first creating a row, self.ABID is the source of truth
+        # overwrite default prefilled self.id & self.abid with generated self.ABID value
+        if self._state.adding or not self.id:
+            self.id = self.ABID.uuid
+        if self._state.adding or not self.abid:
+            self.abid = str(self.ABID)
+
         super().save(*args, **kwargs)
+        assert str(self.id) == str(self.ABID.uuid), f'self.id {self.id} does not match self.ABID {self.ABID.uuid}'
+        assert str(self.abid) == str(self.ABID), f'self.abid {self.id} does not match self.ABID {self.ABID.uuid}'
+        
 
     @property
     def abid_values(self) -> Dict[str, Any]:
@@ -101,7 +104,7 @@ class ABIDModel(models.Model):
             'rand': eval(self.abid_rand_src),
         }
 
-    def get_abid(self) -> ABID:
+    def generate_abid(self) -> ABID:
         """
         Return a freshly derived ABID (assembled from attrs defined in ABIDModel.abid_*_src).
         """
@@ -143,7 +146,30 @@ class ABIDModel(models.Model):
         """
         ULIDParts(timestamp='01HX9FPYTR', url='E4A5CCD9', subtype='00', randomness='ZYEBQE')
         """
-        return ABID.parse(self.abid) if getattr(self, 'abid', None) else self.get_abid()
+        abid = None
+        try:
+            abid = abid or ABID.parse(self.pk)
+        except Exception:
+            pass
+
+        try:
+            abid = abid or ABID.parse(self.id)
+        except Exception:
+            pass
+
+        try:
+            abid = abid or ABID.parse(self.uuid)
+        except Exception:
+            pass
+
+        try:
+            abid = abid or ABID.parse(self.abid)
+        except Exception:
+            pass
+
+        abid = abid or self.generate_abid()
+
+        return abid
 
     @property
     def ULID(self) -> ULID:
@@ -276,7 +302,7 @@ def find_obj_from_abid_rand(rand: Union[ABID, str], model=None) -> List[ABIDMode
                 )
 
             for obj in qs:
-                if obj.get_abid() == abid:
+                if obj.generate_abid() == abid:
                     # found exact match, no need to keep iterating
                     return [obj]
                 partial_matches.append(obj)

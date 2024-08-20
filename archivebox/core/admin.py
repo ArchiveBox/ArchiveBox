@@ -1,6 +1,8 @@
 __package__ = 'archivebox.core'
 
+import os
 import json
+
 from io import StringIO
 from pathlib import Path
 from contextlib import redirect_stdout
@@ -197,28 +199,29 @@ def get_abid_info(self, obj):
         <a href="{}" style="font-size: 16px; font-family: monospace; user-select: all; border-radius: 8px; background-color: #ddf; padding: 3px 5px; border: 1px solid #aaa; margin-bottom: 8px; display: inline-block; vertical-align: top;">{}</a> &nbsp; &nbsp; <a href="{}" style="color: limegreen; font-size: 0.9em; vertical-align: 1px; font-family: monospace;">📖 API DOCS</a>
         <br/><hr/>
         <div style="opacity: 0.8">
-        &nbsp; &nbsp; TS: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all"><b>{}</b></code> &nbsp; &nbsp; &nbsp;&nbsp; ({})<br/>
-        &nbsp; &nbsp; URI: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; (<span style="display:inline-block; vertical-align: -4px; user-select: all; width: 230px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{}</span>)<br/>
-        &nbsp; &nbsp; SUBTYPE: &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})  &nbsp; &nbsp; 
-        &nbsp; RAND: &nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> ({}) &nbsp; &nbsp;
-        &nbsp; SALT: &nbsp; <code style="font-size: 10px; user-select: all"><b style="display:inline-block; user-select: all; width: 50px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{}</b></code>
-        <br/><hr/>
         &nbsp; &nbsp; <small style="opacity: 0.8">.abid: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all">{}</code></small><br/>
         &nbsp; &nbsp; <small style="opacity: 0.8">.abid.uuid: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all">{}</code></small><br/>
         &nbsp; &nbsp; <small style="opacity: 0.8">.id: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all">{}</code></small><br/>
+        <hr/>
+        &nbsp; &nbsp; TS: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px;"><b style="user-select: all">{}</b> &nbsp; {}</code> &nbsp; &nbsp; &nbsp;&nbsp; {}: <code style="user-select: all">{}</code><br/>
+        &nbsp; &nbsp; URI: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; "><b style="user-select: all">{}</b> &nbsp; &nbsp; {}</code> &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; <span style="display:inline-block; vertical-align: -4px; width: 290px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{}: <code style="user-select: all">{}</code></span>
+        &nbsp; SALT: &nbsp; <code style="font-size: 10px;"><b style="display:inline-block; user-select: all; width: 50px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{}</b></code><br/>
+        &nbsp; &nbsp; SUBTYPE: &nbsp; &nbsp; &nbsp; <code style="font-size: 10px;"><b style="user-select: all">{}</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; {}</code> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; {}: <code style="user-select: all">{}</code><br/>
+        &nbsp; &nbsp; RAND: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px;"><b style="user-select: all">{}</b> &nbsp; &nbsp; &nbsp; {}</code> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;  {}: <code style="user-select: all">{}</code>
+        <br/><hr/>
         &nbsp; &nbsp; <small style="opacity: 0.5">.old_id: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all">{}</code></small><br/>
         </div>
         ''',
         obj.api_url, obj.api_url, obj.api_docs_url,
-        obj.ABID.ts, obj.abid_values['ts'].isoformat() if isinstance(obj.abid_values['ts'], datetime) else obj.abid_values['ts'],
-        obj.ABID.uri, str(obj.abid_values['uri']),
-        obj.ABID.subtype, str(obj.abid_values['subtype']),
-        obj.ABID.rand, str(obj.abid_values['rand'])[-7:],
-        obj.ABID.uri_salt,
         str(obj.abid),
         str(obj.ABID.uuid),
-        obj.id,
-        getattr(obj, 'old_id', ''),
+        str(obj.id),
+        obj.ABID.ts, str(obj.ABID.uuid)[0:14], obj.abid_ts_src, obj.abid_values['ts'].isoformat() if isinstance(obj.abid_values['ts'], datetime) else obj.abid_values['ts'],
+        obj.ABID.uri, str(obj.ABID.uuid)[14:26], obj.abid_uri_src, str(obj.abid_values['uri']),
+        obj.ABID.uri_salt,
+        obj.ABID.subtype, str(obj.ABID.uuid)[26:28], obj.abid_subtype_src, str(obj.abid_values['subtype']),
+        obj.ABID.rand, str(obj.ABID.uuid)[28:36], obj.abid_rand_src, str(obj.abid_values['rand'])[-7:],
+        str(getattr(obj, 'old_id', '')),
     )
 
 
@@ -568,9 +571,9 @@ class TagAdmin(admin.ModelAdmin):
 class ArchiveResultAdmin(admin.ModelAdmin):
     list_display = ('start_ts', 'snapshot_info', 'tags_str', 'extractor', 'cmd_str', 'status', 'output_str')
     sort_fields = ('start_ts', 'extractor', 'status')
-    readonly_fields = ('snapshot_info', 'tags_str', 'created', 'modified', 'API')
+    readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created', 'modified', 'API', 'output_summary')
     search_fields = ('id', 'old_id', 'abid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
-    fields = ('snapshot', 'extractor', 'status', 'output', 'pwd', 'cmd',  'start_ts', 'end_ts', 'created_by', 'cmd_version', *readonly_fields)
+    fields = ('snapshot', 'extractor', 'status', 'output', 'pwd', 'start_ts', 'end_ts', 'created_by', 'cmd_version', 'cmd', *readonly_fields)
     autocomplete_fields = ['snapshot']
 
     list_filter = ('status', 'extractor', 'start_ts', 'cmd_version')
@@ -593,6 +596,7 @@ class ArchiveResultAdmin(admin.ModelAdmin):
         try:
             return get_abid_info(self, obj)
         except Exception as e:
+            raise e
             return str(e)
 
     @admin.display(
@@ -606,7 +610,7 @@ class ArchiveResultAdmin(admin.ModelAdmin):
             '<pre>{}</pre>',
             ' '.join(result.cmd) if isinstance(result.cmd, list) else str(result.cmd),
         )
-
+    
     def output_str(self, result):
         return format_html(
             '<a href="/archive/{}/{}" class="output-link">↗️</a><pre>{}</pre>',
@@ -614,3 +618,33 @@ class ArchiveResultAdmin(admin.ModelAdmin):
             result.output if (result.status == 'succeeded') and result.extractor not in ('title', 'archive_org') else 'index.html',
             result.output,
         )
+
+    def output_summary(self, result):
+        snapshot_dir = Path(OUTPUT_DIR) / str(result.pwd).split('data/', 1)[-1]
+        output_str = format_html(
+            '<pre style="display: inline-block">{}</pre><br/>',
+            result.output,
+        )
+        output_str += format_html('<a href="/archive/{}/index.html#all">See result files ...</a><br/><pre><code>', str(result.snapshot.timestamp))
+        path_from_output_str = (snapshot_dir / result.output)
+        output_str += format_html('<i style="padding: 1px">{}</i><b style="padding-right: 20px">/</b><i>{}</i><br/><hr/>', str(snapshot_dir), str(result.output))
+        if path_from_output_str.exists():
+            root_dir = str(path_from_output_str)
+        else:
+            root_dir = str(snapshot_dir)
+
+
+        # print(root_dir, str(list(os.walk(root_dir))))
+
+        for root, dirs, files in os.walk(root_dir):
+            depth = root.replace(root_dir, '').count(os.sep) + 1
+            if depth > 2:
+                continue
+            indent = ' ' * 4 * (depth)
+            output_str += format_html('<b style="padding: 1px">{}{}/</b><br/>', indent, os.path.basename(root))
+            indentation_str = ' ' * 4 * (depth + 1)
+            for filename in sorted(files):
+                is_hidden = filename.startswith('.')
+                output_str += format_html('<span style="opacity: {}.2">{}{}</span><br/>', int(not is_hidden), indentation_str, filename.strip())
+
+        return output_str + format_html('</code></pre>')
