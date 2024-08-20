@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.8.1"
+version = "0.8.2"
 package-dir = "archivebox"
 requires-python = ">=3.10,<3.13"
 platform = "py3-none-any"
@@ -12,7 +12,7 @@ readme = "README.md"
 # pdm install
 # pdm update --unconstrained
 dependencies = [
-    # Last Bumped: 2024-04-25
+    # Last Bumped: 2024-08-20
     # Base Framework and Language Dependencies
     "setuptools>=69.5.1",
     "django>=5.0.4,<6.0",
