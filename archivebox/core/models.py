@@ -61,7 +61,7 @@ class Tag(ABIDModel):
 
     # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
     id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
-    uuid = models.UUIDField(default=uuid.uuid4, editable=True, unique=True)
+    uuid = models.UUIDField(default=uuid.uuid4, null=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
 
@@ -76,6 +76,10 @@ class Tag(ABIDModel):
 
     def __str__(self):
         return self.name
+
+    @property
+    def old_id(self):
+        return self.id
 
     def slugify(self, tag, i=None):
         slug = slugify(tag)
@@ -115,8 +119,14 @@ class Tag(ABIDModel):
         return f'/api/v1/docs#/Core%20Models/api_v1_core_get_tag'
 
 class SnapshotTag(models.Model):
-    snapshot = models.OneToOneField('Snapshot', primary_key=True, on_delete=models.CASCADE, to_field='id')
+    id = models.AutoField(primary_key=True)
+
+    snapshot = models.OneToOneField('Snapshot', on_delete=models.CASCADE, to_field='old_id')
     tag = models.ForeignKey(Tag, on_delete=models.CASCADE, to_field='id')
+
+    class Meta:
+        db_table = 'core_snapshot_tags'
+        unique_together = [('snapshot', 'tag')]
 
 class Snapshot(ABIDModel):
     abid_prefix = 'snp_'
@@ -133,10 +143,11 @@ class Snapshot(ABIDModel):
     timestamp = models.CharField(max_length=32, unique=True, db_index=True)
 
     title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
+    
+    tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name='snapshot_set', through_fields=('snapshot', 'tag'))
 
     added = models.DateTimeField(auto_now_add=True, db_index=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True, db_index=True)
-    tags = models.ManyToManyField(Tag, blank=True)
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
 
