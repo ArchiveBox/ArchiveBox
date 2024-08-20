@@ -1,8 +1,8 @@
-* {
+/* * {
     -webkit-box-sizing: border-box;
     -moz-box-sizing: border-box;
     box-sizing: border-box;
-}
+} */
 
 #logo {
     height: 30px;
@@ -317,7 +317,7 @@ body.model-snapshot.change-list #content .object-tools {
 }
 
 .inline-group .tabular td.original p {
-    margin-top: -33px;
+    margin-top: -28px;
 }
 
 tbody .output-link {

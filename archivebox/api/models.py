@@ -28,11 +28,11 @@ class APIToken(ABIDModel):
     abid_prefix = 'apt_'
     abid_ts_src = 'self.created'
     abid_uri_src = 'self.token'
-    abid_subtype_src = 'self.user_id'
+    abid_subtype_src = 'self.created_by_id'
     abid_rand_src = 'self.id'
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
-    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(blank=True, null=True, editable=False, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
