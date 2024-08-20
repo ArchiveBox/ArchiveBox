@@ -36,6 +36,8 @@ class ABID(NamedTuple):
     uri: str               # e.g. E4A5CCD9
     subtype: str           # e.g. 01
     rand: str              # e.g. ZYEBQE
+    
+    # salt: str = DEFAULT_ABID_URI_SALT
 
     def __getattr__(self, attr: str) -> Any:
         return getattr(self.ulid, attr)
@@ -72,6 +74,10 @@ class ABID(NamedTuple):
             subtype=suffix[18:20].upper(),
             rand=suffix[20:26].upper(),
         )
+    
+    @property
+    def uri_salt(self) -> str:
+        return DEFAULT_ABID_URI_SALT
 
     @property
     def suffix(self):
@@ -180,7 +186,7 @@ def abid_part_from_rand(rand: Union[str, UUID, None, int]) -> str:
     return str(rand)[-ABID_RAND_LEN:].upper()
 
 
-def abid_from_values(prefix, ts, uri, subtype, rand) -> ABID:
+def abid_from_values(prefix, ts, uri, subtype, rand, salt=DEFAULT_ABID_URI_SALT) -> ABID:
     """
     Return a freshly derived ABID (assembled from attrs defined in ABIDModel.abid_*_src).
     """
@@ -188,7 +194,7 @@ def abid_from_values(prefix, ts, uri, subtype, rand) -> ABID:
     abid = ABID(
         prefix=abid_part_from_prefix(prefix),
         ts=abid_part_from_ts(ts),
-        uri=abid_part_from_uri(uri),
+        uri=abid_part_from_uri(uri, salt=salt),
         subtype=abid_part_from_subtype(subtype),
         rand=abid_part_from_rand(rand),
     )

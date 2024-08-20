@@ -1,14 +1,17 @@
 __package__ = 'archivebox.api'
 
+import math
 from uuid import UUID
-from typing import List, Optional
+from typing import List, Optional, Union, Any
 from datetime import datetime
 
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.core.exceptions import ValidationError
+from django.contrib.auth import get_user_model
 
 from ninja import Router, Schema, FilterSchema, Field, Query
-from ninja.pagination import paginate
+from ninja.pagination import paginate, PaginationBase
 
 from core.models import Snapshot, ArchiveResult, Tag
 from abid_utils.abid import ABID
@@ -17,23 +20,61 @@ router = Router(tags=['Core Models'])
 
 
 
+class CustomPagination(PaginationBase):
+    class Input(Schema):
+        limit: int = 200
+        offset: int = 0
+        page: int = 0
+
+
+    class Output(Schema):
+        total_items: int
+        total_pages: int
+        page: int
+        limit: int
+        offset: int
+        num_items: int
+        items: List[Any]
+
+    def paginate_queryset(self, queryset, pagination: Input, **params):
+        limit = min(pagination.limit, 500)
+        offset = pagination.offset or (pagination.page * limit)
+        total = queryset.count()
+        total_pages = math.ceil(total / limit)
+        current_page = math.ceil(offset / (limit + 1))
+        items = queryset[offset : offset + limit]
+        return {
+            'total_items': total,
+            'total_pages': total_pages,
+            'page': current_page,
+            'limit': limit,
+            'offset': offset,
+            'num_items': len(items),
+            'items': items,
+        }
+
 
 ### ArchiveResult #########################################################################
 
 class ArchiveResultSchema(Schema):
+    TYPE: str = 'core.models.ArchiveResult'
+
+    id: UUID
+    old_id: int
     abid: str
-    uuid: UUID
-    pk: str
+
     modified: datetime
     created: datetime
     created_by_id: str
+    created_by_username: str
 
     snapshot_abid: str
+    snapshot_timestamp: str
     snapshot_url: str
     snapshot_tags: str
 
     extractor: str
-    cmd_version: str
+    cmd_version: Optional[str]
     cmd: List[str]
     pwd: str
     status: str
@@ -42,6 +83,11 @@ class ArchiveResultSchema(Schema):
     @staticmethod
     def resolve_created_by_id(obj):
         return str(obj.created_by_id)
+    
+    @staticmethod
+    def resolve_created_by_username(obj):
+        User = get_user_model()
+        return User.objects.get(id=obj.created_by_id).username
 
     @staticmethod
     def resolve_pk(obj):
@@ -60,6 +106,10 @@ class ArchiveResultSchema(Schema):
         return obj.start_ts
 
     @staticmethod
+    def resolve_snapshot_timestamp(obj):
+        return obj.snapshot.timestamp
+    
+    @staticmethod
     def resolve_snapshot_url(obj):
         return obj.snapshot.url
 
@@ -73,11 +123,10 @@ class ArchiveResultSchema(Schema):
 
 
 class ArchiveResultFilterSchema(FilterSchema):
-    uuid: Optional[UUID] = Field(None, q='uuid')
-    # abid: Optional[str] = Field(None, q='abid')
+    id: Optional[str] = Field(None, q=['id__startswith', 'abid__icontains', 'old_id__startswith', 'snapshot__id__startswith', 'snapshot__abid__icontains', 'snapshot__timestamp__startswith'])
 
-    search: Optional[str] = Field(None, q=['snapshot__url__icontains', 'snapshot__title__icontains', 'snapshot__tags__name__icontains', 'extractor', 'output__icontains'])
-    snapshot_uuid: Optional[UUID] = Field(None, q='snapshot_uuid__icontains')
+    search: Optional[str] = Field(None, q=['snapshot__url__icontains', 'snapshot__title__icontains', 'snapshot__tags__name__icontains', 'extractor', 'output__icontains', 'id__startswith', 'abid__icontains', 'old_id__startswith', 'snapshot__id__startswith', 'snapshot__abid__icontains', 'snapshot__timestamp__startswith'])
+    snapshot_id: Optional[str] = Field(None, q=['snapshot__id__startswith', 'snapshot__abid__icontains', 'snapshot__timestamp__startswith'])
     snapshot_url: Optional[str] = Field(None, q='snapshot__url__icontains')
     snapshot_tag: Optional[str] = Field(None, q='snapshot__tags__name__icontains')
     
@@ -93,19 +142,19 @@ class ArchiveResultFilterSchema(FilterSchema):
     created__lt: Optional[datetime] = Field(None, q='updated__lt')
 
 
-@router.get("/archiveresults", response=List[ArchiveResultSchema])
-@paginate
-def list_archiveresults(request, filters: ArchiveResultFilterSchema = Query(...)):
+@router.get("/archiveresults", response=List[ArchiveResultSchema], url_name="get_archiveresult")
+@paginate(CustomPagination)
+def get_archiveresults(request, filters: ArchiveResultFilterSchema = Query(...)):
     """List all ArchiveResult entries matching these filters."""
     qs = ArchiveResult.objects.all()
-    results = filters.filter(qs)
+    results = filters.filter(qs).distinct()
     return results
 
 
-@router.get("/archiveresult/{archiveresult_id}", response=ArchiveResultSchema)
+@router.get("/archiveresult/{archiveresult_id}", response=ArchiveResultSchema, url_name="get_archiveresult")
 def get_archiveresult(request, archiveresult_id: str):
-    """Get a specific ArchiveResult by abid, uuid, or pk."""
-    return ArchiveResult.objects.get(Q(pk__icontains=archiveresult_id) | Q(abid__icontains=archiveresult_id) | Q(uuid__icontains=archiveresult_id))
+    """Get a specific ArchiveResult by pk, abid, or old_id."""
+    return ArchiveResult.objects.get(Q(id__icontains=archiveresult_id) | Q(abid__icontains=archiveresult_id) | Q(old_id__icontains=archiveresult_id))
 
 
 # @router.post("/archiveresult", response=ArchiveResultSchema)
@@ -137,12 +186,16 @@ def get_archiveresult(request, archiveresult_id: str):
 
 
 class SnapshotSchema(Schema):
+    TYPE: str = 'core.models.Snapshot'
+
+    id: UUID
+    old_id: UUID
     abid: str
-    uuid: UUID
-    pk: str
+
     modified: datetime
     created: datetime
     created_by_id: str
+    created_by_username: str
 
     url: str
     tags: str
@@ -160,6 +213,11 @@ class SnapshotSchema(Schema):
     @staticmethod
     def resolve_created_by_id(obj):
         return str(obj.created_by_id)
+    
+    @staticmethod
+    def resolve_created_by_username(obj):
+        User = get_user_model()
+        return User.objects.get(id=obj.created_by_id).username
 
     @staticmethod
     def resolve_pk(obj):
@@ -189,10 +247,14 @@ class SnapshotSchema(Schema):
 
 
 class SnapshotFilterSchema(FilterSchema):
+    id: Optional[str] = Field(None, q=['id__icontains', 'abid__icontains', 'old_id__icontains', 'timestamp__startswith'])
+
+    old_id: Optional[str] = Field(None, q='old_id__icontains')
     abid: Optional[str] = Field(None, q='abid__icontains')
-    uuid: Optional[str] = Field(None, q='uuid__icontains')
-    pk: Optional[str] = Field(None, q='pk__icontains')
-    created_by_id: str = Field(None, q='created_by_id__icontains')
+
+    created_by_id: str = Field(None, q='created_by_id')
+    created_by_username: str = Field(None, q='created_by__username__icontains')
+
     created__gte: datetime = Field(None, q='created__gte')
     created__lt: datetime = Field(None, q='created__lt')
     created: datetime = Field(None, q='created')
@@ -200,7 +262,7 @@ class SnapshotFilterSchema(FilterSchema):
     modified__gte: datetime = Field(None, q='modified__gte')
     modified__lt: datetime = Field(None, q='modified__lt')
 
-    search: Optional[str] = Field(None, q=['url__icontains', 'title__icontains', 'tags__name__icontains', 'abid__icontains', 'uuid__icontains'])
+    search: Optional[str] = Field(None, q=['url__icontains', 'title__icontains', 'tags__name__icontains', 'id__icontains', 'abid__icontains', 'old_id__icontains', 'timestamp__startswith'])
     url: Optional[str] = Field(None, q='url')
     tag: Optional[str] = Field(None, q='tags__name')
     title: Optional[str] = Field(None, q='title__icontains')
@@ -211,35 +273,33 @@ class SnapshotFilterSchema(FilterSchema):
 
 
 
-@router.get("/snapshots", response=List[SnapshotSchema])
-@paginate
-def list_snapshots(request, filters: SnapshotFilterSchema = Query(...), with_archiveresults: bool=True):
+@router.get("/snapshots", response=List[SnapshotSchema], url_name="get_snapshots")
+@paginate(CustomPagination)
+def get_snapshots(request, filters: SnapshotFilterSchema = Query(...), with_archiveresults: bool=False):
     """List all Snapshot entries matching these filters."""
     request.with_archiveresults = with_archiveresults
 
     qs = Snapshot.objects.all()
-    results = filters.filter(qs)
+    results = filters.filter(qs).distinct()
     return results
 
-@router.get("/snapshot/{snapshot_id}", response=SnapshotSchema)
+@router.get("/snapshot/{snapshot_id}", response=SnapshotSchema, url_name="get_snapshot")
 def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
     """Get a specific Snapshot by abid, uuid, or pk."""
     request.with_archiveresults = with_archiveresults
     snapshot = None
     try:
-        snapshot = Snapshot.objects.get(Q(uuid__startswith=snapshot_id) | Q(abid__startswith=snapshot_id)| Q(pk__startswith=snapshot_id))
+        snapshot = Snapshot.objects.get(Q(abid__startswith=snapshot_id) | Q(id__startswith=snapshot_id) | Q(old_id__startswith=snapshot_id) | Q(timestamp__startswith=snapshot_id))
     except Snapshot.DoesNotExist:
         pass
 
     try:
-        snapshot = snapshot or Snapshot.objects.get()
+        snapshot = snapshot or Snapshot.objects.get(Q(abid__icontains=snapshot_id) | Q(id__icontains=snapshot_id) | Q(old_id__icontains=snapshot_id))
     except Snapshot.DoesNotExist:
         pass
 
-    try:
-        snapshot = snapshot or Snapshot.objects.get(Q(uuid__icontains=snapshot_id) | Q(abid__icontains=snapshot_id))
-    except Snapshot.DoesNotExist:
-        pass
+    if not snapshot:
+        raise Snapshot.DoesNotExist
 
     return snapshot
 
@@ -271,21 +331,94 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
 
 
 class TagSchema(Schema):
-    abid: Optional[UUID] = Field(None, q='abid')
-    uuid: Optional[UUID] = Field(None, q='uuid')
-    pk: Optional[UUID] = Field(None, q='pk')
+    TYPE: str = 'core.models.Tag'
+
+    id: UUID
+    old_id: str
+    abid: str
+
     modified: datetime
     created: datetime
     created_by_id: str
+    created_by_username: str
 
     name: str
     slug: str
+    num_snapshots: int
+    snapshots: List[SnapshotSchema]
 
+    @staticmethod
+    def resolve_old_id(obj):
+        return str(obj.old_id)
 
     @staticmethod
     def resolve_created_by_id(obj):
         return str(obj.created_by_id)
+    
+    @staticmethod
+    def resolve_created_by_username(obj):
+        User = get_user_model()
+        return User.objects.get(id=obj.created_by_id).username
+    
+    @staticmethod
+    def resolve_num_snapshots(obj, context):
+        return obj.snapshot_set.all().distinct().count()
 
-@router.get("/tags", response=List[TagSchema])
-def list_tags(request):
-    return Tag.objects.all()
+    @staticmethod
+    def resolve_snapshots(obj, context):
+        if context['request'].with_snapshots:
+            return obj.snapshot_set.all().distinct()
+        return Snapshot.objects.none()
+
+@router.get("/tags", response=List[TagSchema], url_name="get_tags")
+@paginate(CustomPagination)
+def get_tags(request):
+    request.with_snapshots = False
+    request.with_archiveresults = False
+    return Tag.objects.all().distinct()
+
+@router.get("/tag/{tag_id}", response=TagSchema, url_name="get_tag")
+def get_tag(request, tag_id: str, with_snapshots: bool=True):
+    request.with_snapshots = with_snapshots
+    request.with_archiveresults = False
+    tag = None
+    try:
+        tag = tag or Tag.objects.get(old_id__icontains=tag_id)
+    except (Tag.DoesNotExist, ValidationError, ValueError):
+        pass
+
+    try:
+        tag = Tag.objects.get(abid__icontains=tag_id)
+    except (Tag.DoesNotExist, ValidationError):
+        pass
+
+    try:
+        tag = tag or Tag.objects.get(id__icontains=tag_id)
+    except (Tag.DoesNotExist, ValidationError):
+        pass
+    return tag
+
+
+
+@router.get("/any/{abid}", response=Union[SnapshotSchema, ArchiveResultSchema, TagSchema], url_name="get_any")
+def get_any(request, abid: str):
+    request.with_snapshots = False
+    request.with_archiveresults = False
+
+    response = None
+    try:
+        response = response or get_snapshot(request, abid)
+    except Exception:
+        pass
+
+    try:
+        response = response or get_archiveresult(request, abid)
+    except Exception:
+        pass
+
+    try:
+        response = response or get_tag(request, abid)
+    except Exception:
+        pass
+
+    return response

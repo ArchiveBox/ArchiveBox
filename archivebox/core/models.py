@@ -5,6 +5,7 @@ from typing import Optional, List, Dict
 from django_stubs_ext.db.models import TypedModelMeta
 
 import json
+import random
 
 import uuid
 from uuid import uuid4
@@ -14,9 +15,8 @@ from django.db import models
 from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.core.cache import cache
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.db.models import Case, When, Value, IntegerField
-from django.contrib.auth.models import User   # noqa
 
 from abid_utils.models import ABIDModel, ABIDField
 
@@ -35,6 +35,8 @@ STATUS_CHOICES = [
     ("skipped", "skipped")
 ]
 
+def rand_int_id():
+    return random.getrandbits(32)
 
 
 # class BaseModel(models.Model):
@@ -48,24 +50,26 @@ STATUS_CHOICES = [
 #         abstract = True
 
 
+
+
 class Tag(ABIDModel):
     """
     Based on django-taggit model + ABID base.
     """
     abid_prefix = 'tag_'
     abid_ts_src = 'self.created'          # TODO: add created/modified time
-    abid_uri_src = 'self.name'
+    abid_uri_src = 'self.slug'
     abid_subtype_src = '"03"'
-    abid_rand_src = 'self.id'
+    abid_rand_src = 'self.old_id'
 
-    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
-    id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
-    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    old_id = models.BigIntegerField(unique=True, default=rand_int_id, serialize=False, verbose_name='Old ID')  # legacy PK
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
 
     name = models.CharField(unique=True, blank=False, max_length=100)
-    slug = models.SlugField(unique=True, blank=True, max_length=100)
+    slug = models.SlugField(unique=True, blank=False, max_length=100, editable=False)
     # slug is autoset on save from name, never set it manually
 
 
@@ -75,6 +79,10 @@ class Tag(ABIDModel):
 
     def __str__(self):
         return self.name
+
+    # @property
+    # def old_id(self):
+    #     return self.id
 
     def slugify(self, tag, i=None):
         slug = slugify(tag)
@@ -103,38 +111,67 @@ class Tag(ABIDModel):
                 i = 1 if i is None else i+1
         else:
             return super().save(*args, **kwargs)
+        
+    @property
+    def api_url(self) -> str:
+        # /api/v1/core/snapshot/{uulid}
+        return reverse_lazy('api-1:get_tag', args=[self.abid])
 
+    @property
+    def api_docs_url(self) -> str:
+        return f'/api/v1/docs#/Core%20Models/api_v1_core_get_tag'
+
+class SnapshotTag(models.Model):
+    id = models.AutoField(primary_key=True)
+
+    snapshot = models.ForeignKey('Snapshot', db_column='snapshot_id', on_delete=models.CASCADE, to_field='id')
+    tag = models.ForeignKey(Tag, db_column='tag_id', on_delete=models.CASCADE, to_field='id')
+
+    class Meta:
+        db_table = 'core_snapshot_tags'
+        unique_together = [('snapshot', 'tag')]
 
 class Snapshot(ABIDModel):
     abid_prefix = 'snp_'
     abid_ts_src = 'self.added'
     abid_uri_src = 'self.url'
     abid_subtype_src = '"01"'
-    abid_rand_src = 'self.id'
+    abid_rand_src = 'self.old_id'
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)  # legacy pk
-    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    old_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)  # legacy pk
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
     url = models.URLField(unique=True, db_index=True)
-    timestamp = models.CharField(max_length=32, unique=True, db_index=True)
+    timestamp = models.CharField(max_length=32, unique=True, db_index=True, editable=False)
 
     title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
+    
+    tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name='snapshot_set', through_fields=('snapshot', 'tag'))
 
     added = models.DateTimeField(auto_now_add=True, db_index=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True, db_index=True)
-    tags = models.ManyToManyField(Tag, blank=True)
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
 
+    @property
+    def uuid(self):
+        return self.id
 
     def __repr__(self) -> str:
-        title = self.title or '-'
-        return f'[{self.timestamp}] {self.url[:64]} ({title[:64]})'
+        title = (self.title_stripped or '-')[:64]
+        return f'[{self.timestamp}] {self.url[:64]} ({title})'
 
     def __str__(self) -> str:
-        title = self.title or '-'
-        return f'[{self.timestamp}] {self.url[:64]} ({title[:64]})'
+        title = (self.title_stripped or '-')[:64]
+        return f'[{self.timestamp}] {self.url[:64]} ({title})'
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        try:
+            assert str(self.id) == str(self.ABID.uuid) == str(self.uuid), f'Snapshot.id ({self.id}) does not match .ABID.uuid ({self.ABID.uuid})'
+        except AssertionError as e:
+            print(e)
 
     @classmethod
     def from_json(cls, info: dict):
@@ -167,6 +204,19 @@ class Snapshot(ABIDModel):
 
     def icons(self) -> str:
         return snapshot_icons(self)
+    
+    @property
+    def api_url(self) -> str:
+        # /api/v1/core/snapshot/{uulid}
+        return reverse_lazy('api-1:get_snapshot', args=[self.abid])
+    
+    @property
+    def api_docs_url(self) -> str:
+        return f'/api/v1/docs#/Core%20Models/api_v1_core_get_snapshot'
+    
+    @cached_property
+    def title_stripped(self) -> str:
+        return (self.title or '').replace("\n", " ").replace("\r", "")
 
     @cached_property
     def extension(self) -> str:
@@ -317,21 +367,21 @@ class ArchiveResultManager(models.Manager):
             qs = qs.annotate(indexing_precedence=Case(*precedence, default=Value(1000),output_field=IntegerField())).order_by('indexing_precedence')
         return qs
 
-
 class ArchiveResult(ABIDModel):
     abid_prefix = 'res_'
     abid_ts_src = 'self.snapshot.added'
     abid_uri_src = 'self.snapshot.url'
     abid_subtype_src = 'self.extractor'
-    abid_rand_src = 'self.uuid'
+    abid_rand_src = 'self.id'
     EXTRACTOR_CHOICES = EXTRACTOR_CHOICES
 
-    id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')   # legacy pk TODO: move to UUIDField
-    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
+    old_id = models.BigIntegerField(default=rand_int_id, serialize=False, verbose_name='Old ID')
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
-    snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE)
+    snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE, to_field='id', db_column='snapshot_id')
+
     extractor = models.CharField(choices=EXTRACTOR_CHOICES, max_length=32)
     cmd = models.JSONField()
     pwd = models.CharField(max_length=256)
@@ -344,15 +394,36 @@ class ArchiveResult(ABIDModel):
     objects = ArchiveResultManager()
 
     class Meta(TypedModelMeta):
-        verbose_name = 'Result'
+        verbose_name = 'Archive Result'
+        verbose_name_plural = 'Archive Results Log'
+        
 
     def __str__(self):
         return self.extractor
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        try:
+            assert str(self.id) == str(self.ABID.uuid) == str(self.uuid), f'ArchiveResult.id ({self.id}) does not match .ABID.uuid ({self.ABID.uuid})'
+        except AssertionError as e:
+            print(e)
+
+    @property
+    def uuid(self):
+        return self.id
 
     @cached_property
     def snapshot_dir(self):
         return Path(self.snapshot.link_dir)
 
+    @property
+    def api_url(self) -> str:
+        # /api/v1/core/archiveresult/{uulid}
+        return reverse_lazy('api-1:get_archiveresult', args=[self.abid])
+    
+    @property
+    def api_docs_url(self) -> str:
+        return f'/api/v1/docs#/Core%20Models/api_v1_core_get_archiveresult'
 
     @property
     def extractor_module(self):

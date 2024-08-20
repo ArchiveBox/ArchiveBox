@@ -1,17 +1,19 @@
 __package__ = 'archivebox.core'
 
+import json
 from io import StringIO
 from pathlib import Path
 from contextlib import redirect_stdout
 from datetime import datetime, timezone
 
 from django.contrib import admin
-from django.db.models import Count
-from django.urls import path
+from django.db.models import Count, Q
+from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django import forms
 
 
@@ -20,7 +22,7 @@ from signal_webhooks.admin import WebhookAdmin, get_webhook_model
 
 from ..util import htmldecode, urldecode, ansi_to_html
 
-from core.models import Snapshot, ArchiveResult, Tag
+from core.models import Snapshot, ArchiveResult, Tag, SnapshotTag
 from core.forms import AddLinkForm
 
 from core.mixins import SearchResultsAdminMixin
@@ -124,31 +126,55 @@ archivebox_admin.get_urls = get_urls(archivebox_admin.get_urls).__get__(archiveb
 
 
 class ArchiveResultInline(admin.TabularInline):
+    name = 'Archive Results Log'
     model = ArchiveResult
+    # fk_name = 'snapshot'
+    extra = 1
+    readonly_fields = ('result_id', 'start_ts', 'end_ts', 'extractor', 'command', 'cmd_version')
+    fields = ('id', *readonly_fields, 'status', 'output')
+    show_change_link = True
+    # # classes = ['collapse']
+    # # list_display_links = ['abid']
+
+    def result_id(self, obj):
+        return format_html('<a href="{}"><small><code>[{}]</code></small></a>', reverse('admin:core_archiveresult_change', args=(obj.id,)), obj.abid)
+    
+    def command(self, obj):
+        return format_html('<small><code>{}</code></small>', " ".join(obj.cmd or []))
+
 
 class TagInline(admin.TabularInline):
-    model = Snapshot.tags.through
+    model = Tag.snapshot_set.through
+    # fk_name = 'snapshot'
+    fields = ('id', 'tag')
+    extra = 1
+    # min_num = 1
+    max_num = 1000
+    autocomplete_fields = (
+        'tag',
+    )
 
 from django.contrib.admin.helpers import ActionForm
-from django.contrib.admin.widgets import AutocompleteSelectMultiple
+from django.contrib.admin.widgets import FilteredSelectMultiple
 
-class AutocompleteTags:
-    model = Tag
-    search_fields = ['name']
-    name = 'tags'
-    remote_field = TagInline
+# class AutocompleteTags:
+#     model = Tag
+#     search_fields = ['name']
+#     name = 'name'
+#     # source_field = 'name'
+#     remote_field = Tag._meta.get_field('name')
 
-class AutocompleteTagsAdminStub:
-    name = 'admin'
+# class AutocompleteTagsAdminStub:
+#     name = 'admin'
 
 
 class SnapshotActionForm(ActionForm):
     tags = forms.ModelMultipleChoiceField(
         queryset=Tag.objects.all(),
         required=False,
-        widget=AutocompleteSelectMultiple(
-            AutocompleteTags(),
-            AutocompleteTagsAdminStub(),
+        widget=FilteredSelectMultiple(
+            'core_tag__name',
+            False,
         ),
     )
 
@@ -168,52 +194,92 @@ def get_abid_info(self, obj):
     return format_html(
         # URL Hash: <code style="font-size: 10px; user-select: all">{}</code><br/>
         '''
-        &nbsp; &nbsp; DB ID:&nbsp; &nbsp; &nbsp; <code style="font-size: 16px; user-select: all; border-radius: 8px; background-color: #fdd; padding: 1px 4px; border: 1px solid #aaa; margin-bottom: 14px;"><b>{}</b></code><br/>
-        &nbsp; &nbsp; &nbsp; &nbsp;.id: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;<br/>
-        &nbsp; &nbsp; &nbsp; &nbsp;.uuid: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp;<br/>
-        <br/>
+        <a href="{}" style="font-size: 16px; font-family: monospace; user-select: all; border-radius: 8px; background-color: #ddf; padding: 3px 5px; border: 1px solid #aaa; margin-bottom: 8px; display: inline-block; vertical-align: top;">{}</a> &nbsp; &nbsp; <a href="{}" style="color: limegreen; font-size: 0.9em; vertical-align: 1px; font-family: monospace;">📖 API DOCS</a>
+        <br/><hr/>
         <div style="opacity: 0.8">
-        &nbsp; &nbsp; ABID: &nbsp; &nbsp; &nbsp; <code style="font-size: 16px; user-select: all; border-radius: 8px; background-color: #fdd; padding: 1px 4px; border: 1px solid #aaa; margin-bottom: 14px;"><b>{}</b></code><br/>
-        &nbsp; &nbsp; &nbsp; &nbsp; TS: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})<br/>
-        &nbsp; &nbsp; &nbsp; &nbsp; URI: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})<br/>
-        &nbsp; &nbsp; &nbsp; &nbsp; SUBTYPE: &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})  &nbsp; &nbsp; 
-        &nbsp; &nbsp; &nbsp; &nbsp; RAND: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})<br/><hr/>
-        &nbsp; &nbsp; &nbsp; &nbsp; <small style="opacity: 0.8">as ULID: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all">{}</code></small><br/>
-        &nbsp; &nbsp; &nbsp; &nbsp; <small style="opacity: 0.8">as UUID: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all">{}</code></small><br/><br/>
+        &nbsp; &nbsp; TS: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all"><b>{}</b></code> &nbsp; &nbsp; &nbsp;&nbsp; ({})<br/>
+        &nbsp; &nbsp; URI: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; (<span style="display:inline-block; vertical-align: -4px; user-select: all; width: 230px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{}</span>)<br/>
+        &nbsp; &nbsp; SUBTYPE: &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> ({})  &nbsp; &nbsp; 
+        &nbsp; RAND: &nbsp; <code style="font-size: 10px; user-select: all"><b>{}</b></code> ({}) &nbsp; &nbsp;
+        &nbsp; SALT: &nbsp; <code style="font-size: 10px; user-select: all"><b style="display:inline-block; user-select: all; width: 50px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{}</b></code>
+        <br/><hr/>
+        &nbsp; &nbsp; <small style="opacity: 0.8">.abid: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all">{}</code></small><br/>
+        &nbsp; &nbsp; <small style="opacity: 0.8">.abid.uuid: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all">{}</code></small><br/>
+        &nbsp; &nbsp; <small style="opacity: 0.8">.id: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all">{}</code></small><br/>
+        &nbsp; &nbsp; <small style="opacity: 0.5">.old_id: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all">{}</code></small><br/>
         </div>
         ''',
-        obj.pk,
-        obj.id,
-        obj.uuid,
-        obj.abid,
+        obj.api_url, obj.api_url, obj.api_docs_url,
         obj.ABID.ts, obj.abid_values['ts'].isoformat() if isinstance(obj.abid_values['ts'], datetime) else obj.abid_values['ts'],
         obj.ABID.uri, str(obj.abid_values['uri']),
         obj.ABID.subtype, str(obj.abid_values['subtype']),
         obj.ABID.rand, str(obj.abid_values['rand'])[-7:],
-        obj.ABID.ulid,
-        obj.ABID.uuid,
+        obj.ABID.uri_salt,
+        str(obj.abid),
+        str(obj.ABID.uuid),
+        obj.id,
+        getattr(obj, 'old_id', ''),
     )
 
 
 @admin.register(Snapshot, site=archivebox_admin)
 class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
+    class Meta:
+        model = Snapshot
+
     list_display = ('added', 'title_str', 'files', 'size', 'url_str')
+    # list_editable = ('title',)
     sort_fields = ('title_str', 'url_str', 'added', 'files')
-    readonly_fields = ('admin_actions', 'status_info', 'bookmarked', 'added', 'updated', 'created', 'modified', 'identifiers')
-    search_fields = ('id', 'url', 'abid', 'uuid', 'timestamp', 'title', 'tags__name')
-    fields = ('url', 'timestamp', 'created_by', 'tags', 'title', *readonly_fields)
-    list_filter = ('added', 'updated', 'tags', 'archiveresult__status', 'created_by')
+    readonly_fields = ('tags', 'timestamp', 'admin_actions', 'status_info', 'bookmarked', 'added', 'updated', 'created', 'modified', 'API', 'link_dir')
+    search_fields = ('id', 'url', 'abid', 'old_id', 'timestamp', 'title', 'tags__name')
+    list_filter = ('added', 'updated', 'archiveresult__status', 'created_by', 'tags')
+    fields = ('url', 'created_by', 'title', *readonly_fields)
     ordering = ['-added']
     actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
     autocomplete_fields = ['tags']
-    inlines = [ArchiveResultInline]
+    inlines = [TagInline, ArchiveResultInline]
     list_per_page = SNAPSHOTS_PER_PAGE
 
     action_form = SnapshotActionForm
 
+    save_on_top = True
+
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
-        return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
+        try:
+            return super().changelist_view(request, extra_context | GLOBAL_CONTEXT)
+        except Exception as e:
+            self.message_user(request, f'Error occurred while loading the page: {str(e)} {request.GET} {request.POST}')
+            return super().changelist_view(request, GLOBAL_CONTEXT)
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        snapshot = None
+
+        try:
+            snapshot = snapshot or Snapshot.objects.get(id=object_id)
+        except (Snapshot.DoesNotExist, Snapshot.MultipleObjectsReturned, ValidationError):
+            pass
+        
+        try:
+            snapshot = snapshot or Snapshot.objects.get(abid=Snapshot.abid_prefix + object_id.split('_', 1)[-1])
+        except (Snapshot.DoesNotExist, ValidationError):
+            pass
+
+
+        try:
+            snapshot = snapshot or Snapshot.objects.get(old_id=object_id)
+        except (Snapshot.DoesNotExist, Snapshot.MultipleObjectsReturned, ValidationError):
+            pass
+
+        if snapshot:
+            object_id = str(snapshot.id)
+
+        return super().change_view(
+            request,
+            object_id,
+            form_url,
+            extra_context=extra_context,
+        )
 
     def get_urls(self):
         urls = super().get_urls()
@@ -224,7 +290,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
     def get_queryset(self, request):
         self.request = request
-        return super().get_queryset(request).prefetch_related('tags').annotate(archiveresult_count=Count('archiveresult'))
+        return super().get_queryset(request).prefetch_related('tags', 'archiveresult_set').annotate(archiveresult_count=Count('archiveresult'))
 
     def tag_list(self, obj):
         return ', '.join(obj.tags.values_list('name', flat=True))
@@ -285,8 +351,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
             obj.extension or '-',
         )
 
-    def identifiers(self, obj):
-        return get_abid_info(self, obj)
+    def API(self, obj):
+        try:
+            return get_abid_info(self, obj)
+        except Exception as e:
+            return str(e)
 
     @admin.display(
         description='Title',
@@ -446,20 +515,34 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
 
 
+# @admin.register(SnapshotTag, site=archivebox_admin)
+# class SnapshotTagAdmin(admin.ModelAdmin):
+#     list_display = ('id', 'snapshot', 'tag')
+#     sort_fields = ('id', 'snapshot', 'tag')
+#     search_fields = ('id', 'snapshot_id', 'tag_id')
+#     fields = ('snapshot', 'id')
+#     actions = ['delete_selected']
+#     ordering = ['-id']
+
+#     def API(self, obj):
+#         return get_abid_info(self, obj)
 
 
 @admin.register(Tag, site=archivebox_admin)
 class TagAdmin(admin.ModelAdmin):
-    list_display = ('slug', 'name', 'num_snapshots', 'snapshots', 'abid')
-    sort_fields = ('id', 'name', 'slug', 'abid')
-    readonly_fields = ('created', 'modified', 'identifiers', 'num_snapshots', 'snapshots')
-    search_fields = ('id', 'abid', 'uuid', 'name', 'slug')
-    fields = ('name', 'slug', 'created_by', *readonly_fields, )
+    list_display = ('abid', 'name', 'created', 'created_by', 'num_snapshots', 'snapshots')
+    sort_fields = ('name', 'slug', 'abid', 'created_by', 'created')
+    readonly_fields = ('slug', 'abid', 'created', 'modified', 'API', 'num_snapshots', 'snapshots')
+    search_fields = ('abid', 'name', 'slug')
+    fields = ('name', 'created_by', *readonly_fields)
     actions = ['delete_selected']
-    ordering = ['-id']
+    ordering = ['-created']
 
-    def identifiers(self, obj):
-        return get_abid_info(self, obj)
+    def API(self, obj):
+        try:
+            return get_abid_info(self, obj)
+        except Exception as e:
+            return str(e)
 
     def num_snapshots(self, tag):
         return format_html(
@@ -472,11 +555,10 @@ class TagAdmin(admin.ModelAdmin):
         total_count = tag.snapshot_set.count()
         return mark_safe('<br/>'.join(
             format_html(
-                '{} <code><a href="/admin/core/snapshot/{}/change"><b>[{}]</b></a> {}</code>',
-                snap.updated.strftime('%Y-%m-%d %H:%M') if snap.updated else 'pending...',
+                '<code><a href="/admin/core/snapshot/{}/change"><b>[{}]</b></a></code> {}',
                 snap.pk,
-                snap.abid,
-                snap.url,
+                snap.updated.strftime('%Y-%m-%d %H:%M') if snap.updated else 'pending...',
+                snap.url[:64],
             )
             for snap in tag.snapshot_set.order_by('-updated')[:10]
         ) + (f'<br/><a href="/admin/core/snapshot/?tags__id__exact={tag.id}">and {total_count-10} more...<a>' if tag.snapshot_set.count() > 10 else ''))
@@ -486,9 +568,9 @@ class TagAdmin(admin.ModelAdmin):
 class ArchiveResultAdmin(admin.ModelAdmin):
     list_display = ('start_ts', 'snapshot_info', 'tags_str', 'extractor', 'cmd_str', 'status', 'output_str')
     sort_fields = ('start_ts', 'extractor', 'status')
-    readonly_fields = ('snapshot_info', 'tags_str', 'created_by', 'created', 'modified', 'identifiers')
-    search_fields = ('id', 'uuid', 'abid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
-    fields = ('snapshot', 'extractor', 'status', 'output', 'pwd', 'cmd',  'start_ts', 'end_ts', 'cmd_version', *readonly_fields)
+    readonly_fields = ('snapshot_info', 'tags_str', 'created', 'modified', 'API')
+    search_fields = ('id', 'old_id', 'abid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
+    fields = ('snapshot', 'extractor', 'status', 'output', 'pwd', 'cmd',  'start_ts', 'end_ts', 'created_by', 'cmd_version', *readonly_fields)
     autocomplete_fields = ['snapshot']
 
     list_filter = ('status', 'extractor', 'start_ts', 'cmd_version')
@@ -507,8 +589,11 @@ class ArchiveResultAdmin(admin.ModelAdmin):
             result.snapshot.url[:128],
         )
 
-    def identifiers(self, obj):
-        return get_abid_info(self, obj)
+    def API(self, obj):
+        try:
+            return get_abid_info(self, obj)
+        except Exception as e:
+            return str(e)
 
     @admin.display(
         description='Snapshot Tags'
