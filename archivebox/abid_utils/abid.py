@@ -36,6 +36,8 @@ class ABID(NamedTuple):
     uri: str               # e.g. E4A5CCD9
     subtype: str           # e.g. 01
     rand: str              # e.g. ZYEBQE
+    
+    # salt: str = DEFAULT_ABID_URI_SALT
 
     def __getattr__(self, attr: str) -> Any:
         return getattr(self.ulid, attr)

@@ -26,6 +26,7 @@ from .abid import (
     ABID_RAND_LEN,
     ABID_SUFFIX_LEN,
     DEFAULT_ABID_PREFIX,
+    DEFAULT_ABID_URI_SALT,
     abid_part_from_prefix,
     abid_from_values
 )
@@ -132,6 +133,7 @@ class ABIDModel(models.Model):
             uri=uri,
             subtype=subtype,
             rand=rand,
+            salt=DEFAULT_ABID_URI_SALT,
         )
         assert abid.ulid and abid.uuid and abid.typeid, f'Failed to calculate {prefix}_ABID for {self.__class__.__name__}'
         return abid
