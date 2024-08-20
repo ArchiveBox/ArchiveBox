@@ -155,25 +155,26 @@ class TagInline(admin.TabularInline):
     )
 
 from django.contrib.admin.helpers import ActionForm
-from django.contrib.admin.widgets import AutocompleteSelectMultiple
+from django.contrib.admin.widgets import FilteredSelectMultiple
 
-class AutocompleteTags:
-    model = Tag
-    search_fields = ['name']
-    name = 'tags'
-    remote_field = TagInline
+# class AutocompleteTags:
+#     model = Tag
+#     search_fields = ['name']
+#     name = 'name'
+#     # source_field = 'name'
+#     remote_field = Tag._meta.get_field('name')
 
-class AutocompleteTagsAdminStub:
-    name = 'admin'
+# class AutocompleteTagsAdminStub:
+#     name = 'admin'
 
 
 class SnapshotActionForm(ActionForm):
     tags = forms.ModelMultipleChoiceField(
         queryset=Tag.objects.all(),
         required=False,
-        widget=AutocompleteSelectMultiple(
-            AutocompleteTags(),
-            AutocompleteTagsAdminStub(),
+        widget=FilteredSelectMultiple(
+            'core_tag__name',
+            False,
         ),
     )
 
@@ -235,9 +236,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     fields = ('url', 'created_by', 'title', *readonly_fields)
     ordering = ['-added']
     actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
-    # autocomplete_fields = ['tags']
+    autocomplete_fields = ['tags']
     inlines = [TagInline, ArchiveResultInline]
-    # inlines = [ArchiveResultInline]
     list_per_page = SNAPSHOTS_PER_PAGE
 
     action_form = SnapshotActionForm

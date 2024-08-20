@@ -45,6 +45,13 @@
             {% endif %}
         {% endblock %}
         
+        <script
+            src="https://code.jquery.com/jquery-3.7.1.slim.min.js"
+            integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8="
+            crossorigin="anonymous"></script>
+        <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
         <link rel="stylesheet" type="text/css" href="{% static "admin.css" %}">
         
         <script>
@@ -264,6 +271,7 @@
                         .appendTo(buttons)
                 })
                 console.log('Converted', buttons.children().length, 'admin actions from dropdown to buttons')
+                jQuery('select[multiple]').select2();
             }
             function fixInlineAddRow() {
                 $('#id_snapshottag-MAX_NUM_FORMS').val('1000')
