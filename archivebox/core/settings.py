@@ -120,6 +120,8 @@ MIDDLEWARE = [
 ### Authentication Settings
 ################################################################################
 
+# AUTH_USER_MODEL = 'auth.User'   # cannot be easily changed unfortunately
+
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.RemoteUserBackend',
     'django.contrib.auth.backends.ModelBackend',

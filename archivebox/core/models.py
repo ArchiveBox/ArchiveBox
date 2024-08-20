@@ -213,6 +213,10 @@ class Snapshot(ABIDModel):
     @property
     def api_docs_url(self) -> str:
         return f'/api/v1/docs#/Core%20Models/api_v1_core_get_snapshot'
+    
+    @cached_property
+    def title_stripped(self) -> str:
+        return (self.title or '').replace("\n", " ").replace("\r", "")
 
     @cached_property
     def extension(self) -> str:

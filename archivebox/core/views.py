@@ -228,7 +228,7 @@ class SnapshotView(View):
                         snap.timestamp,
                         snap.timestamp,
                         snap.url,
-                        snap.title or '',
+                        snap.title_stripped[:64] or '',
                     )
                     for snap in Snapshot.objects.filter(timestamp__startswith=slug).only('url', 'timestamp', 'title', 'added').order_by('-added')
                 )
@@ -279,12 +279,35 @@ class SnapshotView(View):
                     content_type="text/html",
                     status=404,
                 )
+            
+        # # slud is an ID
+        # ulid = slug.split('_', 1)[-1]
+        # try:
+        #     try:
+        #         snapshot = snapshot or Snapshot.objects.get(Q(abid=ulid) | Q(id=ulid) | Q(old_id=ulid))
+        #     except Snapshot.DoesNotExist:
+        #         pass
+
+        #     try:
+        #         snapshot = Snapshot.objects.get(Q(abid__startswith=slug) | Q(abid__startswith=Snapshot.abid_prefix + slug) | Q(id__startswith=slug) | Q(old_id__startswith=slug))
+        #     except (Snapshot.DoesNotExist, Snapshot.MultipleObjectsReturned):
+        #         pass
+
+        #     try:
+        #         snapshot = snapshot or Snapshot.objects.get(Q(abid__icontains=snapshot_id) | Q(id__icontains=snapshot_id) | Q(old_id__icontains=snapshot_id))
+        #     except Snapshot.DoesNotExist:
+        #         pass
+        #     return redirect(f'/archive/{snapshot.timestamp}/index.html')
+        # except Snapshot.DoesNotExist:
+        #     pass
+
         # slug is a URL
         try:
             try:
-                # try exact match on full url first
+                # try exact match on full url / ABID first
                 snapshot = Snapshot.objects.get(
                     Q(url='http://' + path) | Q(url='https://' + path) | Q(id__startswith=path)
+                    | Q(abid__icontains=path) | Q(id__icontains=path) | Q(old_id__icontains=path)
                 )
             except Snapshot.DoesNotExist:
                 # fall back to match on exact base_url
@@ -318,15 +341,17 @@ class SnapshotView(View):
         except Snapshot.MultipleObjectsReturned:
             snapshot_hrefs = mark_safe('<br/>').join(
                 format_html(
-                    '{} <a href="/archive/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
+                    '{} <code style="font-size: 0.8em">{}</code> <a href="/archive/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
                     snap.added.strftime('%Y-%m-%d %H:%M:%S'),
+                    snap.abid,
                     snap.timestamp,
                     snap.timestamp,
                     snap.url,
-                    snap.title or '',
+                    snap.title_stripped[:64] or '',
                 )
                 for snap in Snapshot.objects.filter(
                     Q(url__startswith='http://' + base_url(path)) | Q(url__startswith='https://' + base_url(path))
+                    | Q(abid__icontains=path) | Q(id__icontains=path) | Q(old_id__icontains=path)
                 ).only('url', 'timestamp', 'title', 'added').order_by('-added')
             )
             return HttpResponse(
