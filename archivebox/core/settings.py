@@ -83,7 +83,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.admin',
     'django_jsonform',
-
+    
     'signal_webhooks',
     'abid_utils',
     'plugantic',

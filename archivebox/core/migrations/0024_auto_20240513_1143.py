@@ -2,7 +2,7 @@
 
 from django.db import migrations
 from datetime import datetime
-from abid_utils.abid import abid_from_values
+from abid_utils.abid import abid_from_values, DEFAULT_ABID_URI_SALT
 
 
 def calculate_abid(self):
@@ -41,6 +41,7 @@ def calculate_abid(self):
         uri=uri,
         subtype=subtype,
         rand=rand,
+        salt=DEFAULT_ABID_URI_SALT,
     )
     assert abid.ulid and abid.uuid and abid.typeid, f'Failed to calculate {prefix}_ABID for {self.__class__.__name__}'
     return abid
@@ -65,8 +66,7 @@ def generate_snapshot_abids(apps, schema_editor):
 
         snapshot.abid = calculate_abid(snapshot)
         snapshot.uuid = snapshot.abid.uuid
-        snapshot.id = snapshot.abid.uuid
-        snapshot.save(update_fields=["abid", "uuid", "id"])
+        snapshot.save(update_fields=["abid", "uuid"])
 
 def generate_archiveresult_abids(apps, schema_editor):
     print('   Generating ArchiveResult.abid values... (may take an hour or longer for large collections...)')

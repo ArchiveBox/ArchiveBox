@@ -181,6 +181,7 @@ class SnapshotView(View):
         except (IndexError, ValueError):
             slug, archivefile = path.split('/', 1)[0], 'index.html'
 
+
         # slug is a timestamp
         if slug.replace('.','').isdigit():
 

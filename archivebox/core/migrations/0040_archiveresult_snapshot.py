@@ -8,9 +8,9 @@ def update_archiveresult_snapshot_ids(apps, schema_editor):
     Snapshot = apps.get_model("core", "Snapshot")
     num_total = ArchiveResult.objects.all().count()
     print(f'   Updating {num_total} ArchiveResult.snapshot_id values in place... (may take an hour or longer for large collections...)')
-    for idx, result in enumerate(ArchiveResult.objects.all().only('snapshot_old_id').iterator()):
+    for idx, result in enumerate(ArchiveResult.objects.all().only('snapshot_old_id').iterator(chunk_size=5000)):
         assert result.snapshot_old_id
-        snapshot = Snapshot.objects.get(old_id=result.snapshot_old_id)
+        snapshot = Snapshot.objects.only('id').get(old_id=result.snapshot_old_id)
         result.snapshot_id = snapshot.id
         result.save(update_fields=["snapshot_id"])
         assert str(result.snapshot_id) == str(snapshot.id)

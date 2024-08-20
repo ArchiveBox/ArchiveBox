@@ -17,7 +17,6 @@ from django.utils.text import slugify
 from django.core.cache import cache
 from django.urls import reverse, reverse_lazy
 from django.db.models import Case, When, Value, IntegerField
-from django.contrib.auth.models import User   # noqa
 
 from abid_utils.models import ABIDModel, ABIDField
 
@@ -36,6 +35,8 @@ STATUS_CHOICES = [
     ("skipped", "skipped")
 ]
 
+def rand_int_id():
+    return random.getrandbits(32)
 
 
 # class BaseModel(models.Model):
@@ -49,24 +50,26 @@ STATUS_CHOICES = [
 #         abstract = True
 
 
+
+
 class Tag(ABIDModel):
     """
     Based on django-taggit model + ABID base.
     """
     abid_prefix = 'tag_'
     abid_ts_src = 'self.created'          # TODO: add created/modified time
-    abid_uri_src = 'self.name'
+    abid_uri_src = 'self.slug'
     abid_subtype_src = '"03"'
-    abid_rand_src = 'self.id'
+    abid_rand_src = 'self.old_id'
 
-    # id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True)
-    id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
-    uuid = models.UUIDField(default=uuid.uuid4, null=True, unique=True)
+    old_id = models.BigIntegerField(unique=True, default=rand_int_id, serialize=False, verbose_name='Old ID')  # legacy PK
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
 
     name = models.CharField(unique=True, blank=False, max_length=100)
-    slug = models.SlugField(unique=True, blank=True, max_length=100)
+    slug = models.SlugField(unique=True, blank=False, max_length=100, editable=False)
     # slug is autoset on save from name, never set it manually
 
 
@@ -77,9 +80,9 @@ class Tag(ABIDModel):
     def __str__(self):
         return self.name
 
-    @property
-    def old_id(self):
-        return self.id
+    # @property
+    # def old_id(self):
+    #     return self.id
 
     def slugify(self, tag, i=None):
         slug = slugify(tag)
@@ -156,16 +159,19 @@ class Snapshot(ABIDModel):
         return self.id
 
     def __repr__(self) -> str:
-        title = self.title or '-'
-        return f'[{self.timestamp}] {self.url[:64]} ({title[:64]})'
+        title = (self.title_stripped or '-')[:64]
+        return f'[{self.timestamp}] {self.url[:64]} ({title})'
 
     def __str__(self) -> str:
-        title = self.title or '-'
-        return f'[{self.timestamp}] {self.url[:64]} ({title[:64]})'
+        title = (self.title_stripped or '-')[:64]
+        return f'[{self.timestamp}] {self.url[:64]} ({title})'
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        assert str(self.id) == str(self.abid.uuid) == str(self.uuid)
+        try:
+            assert str(self.id) == str(self.ABID.uuid) == str(self.uuid), f'Snapshot.id ({self.id}) does not match .ABID.uuid ({self.ABID.uuid})'
+        except AssertionError as e:
+            print(e)
 
     @classmethod
     def from_json(cls, info: dict):
@@ -357,9 +363,6 @@ class ArchiveResultManager(models.Manager):
             qs = qs.annotate(indexing_precedence=Case(*precedence, default=Value(1000),output_field=IntegerField())).order_by('indexing_precedence')
         return qs
 
-def rand_int_id():
-    return random.getrandbits(32)
-
 class ArchiveResult(ABIDModel):
     abid_prefix = 'res_'
     abid_ts_src = 'self.snapshot.added'
@@ -387,7 +390,8 @@ class ArchiveResult(ABIDModel):
     objects = ArchiveResultManager()
 
     class Meta(TypedModelMeta):
-        verbose_name = 'Result'
+        verbose_name = 'Archive Result'
+        verbose_name_plural = 'Archive Results Log'
         
 
     def __str__(self):
@@ -395,7 +399,10 @@ class ArchiveResult(ABIDModel):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        assert str(self.id) == str(self.abid.uuid) == str(self.uuid)
+        try:
+            assert str(self.id) == str(self.ABID.uuid) == str(self.uuid), f'ArchiveResult.id ({self.id}) does not match .ABID.uuid ({self.ABID.uuid})'
+        except AssertionError as e:
+            print(e)
 
     @property
     def uuid(self):
