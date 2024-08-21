@@ -39,6 +39,7 @@ from ..config import (
     USER_CONFIG,
     SAVE_ARCHIVE_DOT_ORG,
     PREVIEW_ORIGINALS,
+    CONSTANTS,
 )
 from ..logging_util import printable_filesize
 from ..main import add
@@ -502,6 +503,8 @@ class HealthCheckView(View):
 
 
 def find_config_section(key: str) -> str:
+    if key in CONSTANTS:
+        return 'CONSTANT'
     matching_sections = [
         name for name, opts in CONFIG_SCHEMA.items() if key in opts
     ]
@@ -550,19 +553,32 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
             rows['Key'].append(ItemLink(key, key=key))
             rows['Type'].append(mark_safe(f'<code>{find_config_type(key)}</code>'))
             rows['Value'].append(mark_safe(f'<code>{CONFIG[key]}</code>') if key_is_safe(key) else '******** (redacted)')
-            rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code"><code style="text-decoration: underline">{find_config_default(key) or "See here..."}</code></a>'))
+            rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+{key}&type=code"><code style="text-decoration: underline">{find_config_default(key) or "See here..."}</code></a>'))
             # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
             rows['Aliases'].append(', '.join(CONFIG_SCHEMA[section][key].get('aliases', [])))
 
     section = 'DYNAMIC'
     for key in DYNAMIC_CONFIG_SCHEMA.keys():
+        if key in CONSTANTS:
+            continue
         rows['Section'].append(section)   # section.replace('_', ' ').title().replace(' Config', '')
         rows['Key'].append(ItemLink(key, key=key))
         rows['Type'].append(mark_safe(f'<code>{find_config_type(key)}</code>'))
         rows['Value'].append(mark_safe(f'<code>{CONFIG[key]}</code>') if key_is_safe(key) else '******** (redacted)')
-        rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code"><code style="text-decoration: underline">{find_config_default(key) or "See here..."}</code></a>'))
+        rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+{key}&type=code"><code style="text-decoration: underline">{find_config_default(key) or "See here..."}</code></a>'))
         # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
         rows['Aliases'].append(ItemLink(key, key=key) if key in USER_CONFIG else '')
+
+    section = 'CONSTANT'
+    for key in CONSTANTS.keys():
+        rows['Section'].append(section)   # section.replace('_', ' ').title().replace(' Config', '')
+        rows['Key'].append(ItemLink(key, key=key))
+        rows['Type'].append(mark_safe(f'<code>{find_config_type(key)}</code>'))
+        rows['Value'].append(mark_safe(f'<code>{CONFIG[key]}</code>') if key_is_safe(key) else '******** (redacted)')
+        rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+{key}&type=code"><code style="text-decoration: underline">{find_config_default(key) or "See here..."}</code></a>'))
+        # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
+        rows['Aliases'].append(ItemLink(key, key=key) if key in USER_CONFIG else '')
+
 
     return TableContext(
         title="Computed Configuration Values",
@@ -576,12 +592,20 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
 
     aliases = USER_CONFIG.get(key, {}).get("aliases", [])
 
+    if key in CONSTANTS:
+        section_header = mark_safe(f'[CONSTANTS]   &nbsp; <b><code style="color: lightgray">{key}</code></b> &nbsp; <small>(read-only, hardcoded by ArchiveBox)</small>')
+    elif key in USER_CONFIG:
+        section_header = mark_safe(f'data / ArchiveBox.conf &nbsp; [{find_config_section(key)}]  &nbsp; <b><code style="color: lightgray">{key}</code></b>')
+    else:
+        section_header = mark_safe(f'[DYNAMIC CONFIG]   &nbsp; <b><code style="color: lightgray">{key}</code></b> &nbsp; <small>(read-only, calculated at runtime)</small>')
+
+
     return ItemContext(
         slug=key,
         title=key,
         data=[
             {
-                "name": mark_safe(f'data / ArchiveBox.conf &nbsp; [{find_config_section(key)}]  &nbsp; <b><code style="color: lightgray">{key}</code></b>' if key in USER_CONFIG else f'[DYNAMIC CONFIG]   &nbsp; <b><code style="color: lightgray">{key}</code></b> &nbsp; <small>(calculated at runtime)</small>'),
+                "name": section_header,
                 "description": None,
                 "fields": {
                     'Key': key,
@@ -596,14 +620,16 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                         </span>
                     '''),
                     'Type': mark_safe(f'''
-                        <a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code">
+                        <a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+{key}&type=code">
                             See full definition in <code>archivebox/config.py</code>...
                         </a>
                     '''),
                     'Value': mark_safe(f'''
                         {'<b style="color: red">Value is redacted for your security. (Passwords, secrets, API tokens, etc. cannot be viewed in the Web UI)</b><br/><br/>' if not key_is_safe(key) else ''}
-                        Default: <a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+%27{key}%27&type=code">
-                            <code>{find_config_default(key) or 'See 1here...'}</code>
+                        <br/><hr/><br/>
+                        Default: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; 
+                        <a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig.py+{key}&type=code">
+                            <code>{find_config_default(key) or '↗️ See in ArchiveBox source code...'}</code>
                         </a>
                         <br/><br/>
                         <p style="display: {"block" if key in USER_CONFIG else "none"}">
