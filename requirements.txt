@@ -57,7 +57,7 @@ python-ldap==3.4.4
 pytz==2024.1
 regex==2024.7.24
 requests==2.32.3
-setuptools==73.0.0
+setuptools==73.0.1
 sgmllib3k==1.0.0
 six==1.16.0
 sniffio==1.3.1
@@ -76,5 +76,5 @@ urllib3==2.2.2
 uuid6==2024.7.10
 w3lib==2.2.1
 wcwidth==0.2.13
-websockets==12.0
+websockets==13.0
 yt-dlp==2024.8.6

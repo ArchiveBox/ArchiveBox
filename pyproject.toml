@@ -100,6 +100,57 @@ ldap = [
 # pdm lock --group=':all' --dev
 # pdm install -G:all --dev
 # pdm update --dev --unconstrained
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[project.scripts]
+archivebox = "archivebox.cli:main"
+
+
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]
+
+[tool.mypy]
+mypy_path = "archivebox,archivebox/typings"
+namespace_packages = true
+explicit_package_bases = true
+# follow_imports = "silent"
+# ignore_missing_imports = true
+# disallow_incomplete_defs = true
+# disallow_untyped_defs = true
+# disallow_untyped_decorators = true
+# exclude = "pdm/(pep582/|models/in_process/.+\\.py)"
+plugins = ["mypy_django_plugin.main"]
+
+[tool.django-stubs]
+django_settings_module = "core.settings"
+
+[tool.pyright]
+include = [
+    "archivebox",
+]
+exclude = [
+    ".venv",
+    "**/*.pyi",
+    "**/__init__.pyi",
+    "**/node_modules",
+    "**/__pycache__",
+    "**/migrations",
+    "archivebox/vendor",
+]
+stubPath = "./typings"
+venvPath = "."
+venv = ".venv"
+# ignore = ["src/oldstuff"]
+# defineConstant = { DEBUG = true }
+reportMissingImports = true
+reportMissingTypeStubs = false
+pythonVersion = "3.10"
+pythonPlatform = "Linux"
+
+
+
 [tool.pdm.dev-dependencies]
 build = [
     # "pdm",                           # usually installed by apt/brew, dont double-install with pip
@@ -127,54 +178,14 @@ lint = [
     "flake8",
     "mypy",
 ]
+dev = [
+    "django-autotyping>=0.5.1",
+]
 
 [tool.pdm.scripts]
 lint = "./bin/lint.sh"
 test = "./bin/test.sh"
 # all = {composite = ["lint mypackage/", "test -v tests/"]}
-
-
-[build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
-
-[project.scripts]
-archivebox = "archivebox.cli:main"
-
-
-[tool.pytest.ini_options]
-testpaths = [ "tests" ]
-
-[tool.mypy]
-mypy_path = "archivebox"
-namespace_packages = true
-explicit_package_bases = true
-# follow_imports = "silent"
-# ignore_missing_imports = true
-# disallow_incomplete_defs = true
-# disallow_untyped_defs = true
-# disallow_untyped_decorators = true
-# exclude = "pdm/(pep582/|models/in_process/.+\\.py)"
-plugins = ["mypy_django_plugin.main"]
-
-[tool.django-stubs]
-django_settings_module = "core.settings"
-
-[tool.pyright]
-include = ["archivebox"]
-exclude = ["**/node_modules",
-    "**/__pycache__",
-    "**/migrations",
-    "archivebox/vendor",
-]
-# ignore = ["src/oldstuff"]
-# defineConstant = { DEBUG = true }
-
-reportMissingImports = true
-reportMissingTypeStubs = false
-pythonVersion = "3.10"
-pythonPlatform = "Linux"
-
 
 
 [project.urls]
