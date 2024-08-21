@@ -49,7 +49,7 @@ class APIToken(ABIDModel):
         return self.token
 
     def __repr__(self) -> str:
-        return f'<APIToken user={self.created_by.username} token=************{self.token[-4:]}>'
+        return f'<APIToken user={self.created_by.username} token={self.token_redacted}>'
 
     def __json__(self) -> dict:
         return {
@@ -68,6 +68,10 @@ class APIToken(ABIDModel):
         expiry_date = self.expires or (timezone.now() + timedelta(days=365 * 100))
 
         return expiry_date.isoformat()
+    
+    @property
+    def token_redacted(self):
+        return f'************{self.token[-4:]}'
 
     def is_valid(self, for_date=None):
         for_date = for_date or timezone.now()
