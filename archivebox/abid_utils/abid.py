@@ -115,7 +115,7 @@ def uri_hash(uri: Union[str, bytes], salt: str=DEFAULT_ABID_URI_SALT) -> str:
     if isinstance(uri, bytes):
         uri_str: str = uri.decode()
     else:
-        uri_str = uri
+        uri_str = str(uri)
 
     # only hash the domain part of URLs
     if '://' in uri_str:

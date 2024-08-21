@@ -7,6 +7,7 @@ from io import StringIO
 from pathlib import Path
 from contextlib import redirect_stdout
 from datetime import datetime, timezone
+from typing import Dict, Any
 
 from django.contrib import admin
 from django.db.models import Count, Q
@@ -16,10 +17,12 @@ from django.utils.safestring import mark_safe
 from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.conf import settings
 from django import forms
 
 
-from signal_webhooks.admin import WebhookAdmin, get_webhook_model
+from signal_webhooks.admin import WebhookAdmin
+from signal_webhooks.utils import get_webhook_model
 # from plugantic.admin import CustomPlugin
 
 from ..util import htmldecode, urldecode, ansi_to_html
@@ -34,16 +37,11 @@ from index.html import snapshot_icons
 from logging_util import printable_filesize
 from main import add, remove
 from extractors import archive_links
-from config import (
-    OUTPUT_DIR,
-    SNAPSHOTS_PER_PAGE,
-    VERSION,
-    VERSIONS_AVAILABLE,
-    CAN_UPGRADE
-)
 
 
-GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': VERSIONS_AVAILABLE, 'CAN_UPGRADE': CAN_UPGRADE}
+CONFIG = settings.CONFIG
+
+GLOBAL_CONTEXT = {'VERSION': CONFIG.VERSION, 'VERSIONS_AVAILABLE': CONFIG.VERSIONS_AVAILABLE, 'CAN_UPGRADE': CONFIG.CAN_UPGRADE}
 
 # Admin URLs
 # /admin/
@@ -74,7 +72,7 @@ class ArchiveBoxAdmin(admin.AdminSite):
             return redirect(f'/admin/login/?next={request.path}')
 
         request.current_app = self.name
-        context = {
+        context: Dict[str, Any] = {
             **self.each_context(request),
             'title': 'Add URLs',
         }
@@ -92,7 +90,7 @@ class ArchiveBoxAdmin(admin.AdminSite):
                     "urls": url,
                     "depth": depth,
                     "update_all": False,
-                    "out_dir": OUTPUT_DIR,
+                    "out_dir": CONFIG.OUTPUT_DIR,
                 }
                 add_stdout = StringIO()
                 with redirect_stdout(add_stdout):
@@ -101,7 +99,7 @@ class ArchiveBoxAdmin(admin.AdminSite):
 
                 context.update({
                     "stdout": ansi_to_html(add_stdout.getvalue().strip()),
-                    "form": AddLinkForm()
+                    "form": AddLinkForm(),
                 })
             else:
                 context["form"] = form
@@ -118,12 +116,14 @@ archivebox_admin.disable_action('delete_selected')
 # archivebox_admin.register(CustomPlugin)
 
 # patch admin with methods to add data views (implemented by admin_data_views package)
+# https://github.com/MrThearMan/django-admin-data-views
+# https://mrthearman.github.io/django-admin-data-views/setup/
 ############### Additional sections are defined in settings.ADMIN_DATA_VIEWS #########
 from admin_data_views.admin import get_app_list, admin_data_index_view, get_admin_data_urls, get_urls
 
 archivebox_admin.get_app_list = get_app_list.__get__(archivebox_admin, ArchiveBoxAdmin)
-archivebox_admin.admin_data_index_view = admin_data_index_view.__get__(archivebox_admin, ArchiveBoxAdmin)
-archivebox_admin.get_admin_data_urls = get_admin_data_urls.__get__(archivebox_admin, ArchiveBoxAdmin)
+archivebox_admin.admin_data_index_view = admin_data_index_view.__get__(archivebox_admin, ArchiveBoxAdmin)       # type: ignore
+archivebox_admin.get_admin_data_urls = get_admin_data_urls.__get__(archivebox_admin, ArchiveBoxAdmin)           # type: ignore
 archivebox_admin.get_urls = get_urls(archivebox_admin.get_urls).__get__(archivebox_admin, ArchiveBoxAdmin)
 
 
@@ -146,7 +146,7 @@ class ArchiveResultInline(admin.TabularInline):
 
 
 class TagInline(admin.TabularInline):
-    model = Tag.snapshot_set.through
+    model = Tag.snapshot_set.through       # type: ignore
     # fk_name = 'snapshot'
     fields = ('id', 'tag')
     extra = 1
@@ -241,7 +241,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
     actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
     autocomplete_fields = ['tags']
     inlines = [TagInline, ArchiveResultInline]
-    list_per_page = SNAPSHOTS_PER_PAGE
+    list_per_page = CONFIG.SNAPSHOTS_PER_PAGE
 
     action_form = SnapshotActionForm
 
@@ -433,7 +433,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
         # Monkey patch here plus core_tags.py
         self.change_list_template = 'private_index_grid.html'
-        self.list_per_page = SNAPSHOTS_PER_PAGE
+        self.list_per_page = CONFIG.SNAPSHOTS_PER_PAGE
         self.list_max_show_all = self.list_per_page
 
         # Call monkey patched view
@@ -458,7 +458,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
         archive_links([
             snapshot.as_link()
             for snapshot in queryset
-        ], out_dir=OUTPUT_DIR)
+        ], out_dir=CONFIG.OUTPUT_DIR)
 
     @admin.action(
         description="⬇️ Title"
@@ -467,7 +467,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
         archive_links([
             snapshot.as_link()
             for snapshot in queryset
-        ], overwrite=True, methods=('title','favicon'), out_dir=OUTPUT_DIR)
+        ], overwrite=True, methods=('title','favicon'), out_dir=CONFIG.OUTPUT_DIR)
 
     @admin.action(
         description="Re-Snapshot"
@@ -485,13 +485,13 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
         archive_links([
             snapshot.as_link()
             for snapshot in queryset
-        ], overwrite=True, out_dir=OUTPUT_DIR)
+        ], overwrite=True, out_dir=CONFIG.OUTPUT_DIR)
 
     @admin.action(
         description="Delete"
     )
     def delete_snapshots(self, request, queryset):
-        remove(snapshots=queryset, yes=True, delete=True, out_dir=OUTPUT_DIR)
+        remove(snapshots=queryset, yes=True, delete=True, out_dir=CONFIG.OUTPUT_DIR)
 
 
     @admin.action(
@@ -578,7 +578,7 @@ class ArchiveResultAdmin(admin.ModelAdmin):
 
     list_filter = ('status', 'extractor', 'start_ts', 'cmd_version')
     ordering = ['-start_ts']
-    list_per_page = SNAPSHOTS_PER_PAGE
+    list_per_page = CONFIG.SNAPSHOTS_PER_PAGE
 
     @admin.display(
         description='Snapshot Info'
@@ -620,7 +620,7 @@ class ArchiveResultAdmin(admin.ModelAdmin):
         )
 
     def output_summary(self, result):
-        snapshot_dir = Path(OUTPUT_DIR) / str(result.pwd).split('data/', 1)[-1]
+        snapshot_dir = Path(CONFIG.OUTPUT_DIR) / str(result.pwd).split('data/', 1)[-1]
         output_str = format_html(
             '<pre style="display: inline-block">{}</pre><br/>',
             result.output,

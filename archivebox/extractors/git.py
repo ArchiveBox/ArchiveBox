@@ -14,15 +14,7 @@ from ..util import (
     without_query,
     without_fragment,
 )
-from ..config import (
-    TIMEOUT,
-    SAVE_GIT,
-    GIT_BINARY,
-    GIT_ARGS,
-    GIT_VERSION,
-    GIT_DOMAINS,
-    CHECK_SSL_VALIDITY
-)
+from ..config import CONFIG
 from ..logging_util import TimedProgress
 
 
@@ -50,17 +42,17 @@ def should_save_git(link: Link, out_dir: Optional[Path]=None, overwrite: Optiona
         return False
 
     is_clonable_url = (
-        (domain(link.url) in GIT_DOMAINS)
+        (domain(link.url) in CONFIG.GIT_DOMAINS)
         or (extension(link.url) == 'git')
     )
     if not is_clonable_url:
         return False
 
-    return SAVE_GIT
+    return CONFIG.SAVE_GIT
 
 
 @enforce_types
-def save_git(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_git(link: Link, out_dir: Optional[Path]=None, timeout: int=CONFIG.TIMEOUT) -> ArchiveResult:
     """download full site using git"""
 
     out_dir = out_dir or Path(link.link_dir)
@@ -68,10 +60,10 @@ def save_git(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> 
     output_path = out_dir / output
     output_path.mkdir(exist_ok=True)
     cmd = [
-        GIT_BINARY,
+        CONFIG.GIT_BINARY,
         'clone',
-        *GIT_ARGS,
-        *([] if CHECK_SSL_VALIDITY else ['-c', 'http.sslVerify=false']),
+        *CONFIG.GIT_ARGS,
+        *([] if CONFIG.CHECK_SSL_VALIDITY else ['-c', 'http.sslVerify=false']),
         without_query(without_fragment(link.url)),
     ]
     status = 'succeeded'
@@ -96,7 +88,7 @@ def save_git(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> 
     return ArchiveResult(
         cmd=cmd,
         pwd=str(out_dir),
-        cmd_version=GIT_VERSION,
+        cmd_version=CONFIG.GIT_VERSION,
         output=output,
         status=status,
         **timer.stats,

@@ -9,32 +9,9 @@ import tempfile
 from pathlib import Path
 from django.utils.crypto import get_random_string
 
-from ..config import (
-    CONFIG,
-    DEBUG,
-    SECRET_KEY,
-    ALLOWED_HOSTS,
-    PACKAGE_DIR,
-    TEMPLATES_DIR_NAME,
-    CUSTOM_TEMPLATES_DIR,
-    SQL_INDEX_FILENAME,
-    OUTPUT_DIR,
-    ARCHIVE_DIR,
-    LOGS_DIR,
-    CACHE_DIR,
-    TIMEZONE,
-
-    LDAP,
-    LDAP_SERVER_URI,
-    LDAP_BIND_DN,
-    LDAP_BIND_PASSWORD,
-    LDAP_USER_BASE,
-    LDAP_USER_FILTER,
-    LDAP_USERNAME_ATTR,
-    LDAP_FIRSTNAME_ATTR,
-    LDAP_LASTNAME_ATTR,
-    LDAP_EMAIL_ATTR,
-)
+from ..config import CONFIG
+from ..config_stubs import AttrDict
+assert isinstance(CONFIG, AttrDict)
 
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
 IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
@@ -53,12 +30,12 @@ LOGOUT_REDIRECT_URL = os.environ.get('LOGOUT_REDIRECT_URL', '/')
 PASSWORD_RESET_URL = '/accounts/password_reset/'
 APPEND_SLASH = True
 
-DEBUG = DEBUG or ('--debug' in sys.argv)
+DEBUG = CONFIG.DEBUG or ('--debug' in sys.argv)
 
 
 # add plugins folders to system path, and load plugins in installed_apps
-BUILTIN_PLUGINS_DIR = PACKAGE_DIR / 'plugins'
-USER_PLUGINS_DIR = OUTPUT_DIR / 'plugins'
+BUILTIN_PLUGINS_DIR = CONFIG.PACKAGE_DIR / 'plugins'
+USER_PLUGINS_DIR = CONFIG.OUTPUT_DIR / 'plugins'
 sys.path.insert(0, str(BUILTIN_PLUGINS_DIR))
 sys.path.insert(0, str(USER_PLUGINS_DIR))
 
@@ -127,7 +104,7 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-if LDAP:
+if CONFIG.LDAP:
     try:
         import ldap
         from django_auth_ldap.config import LDAPSearch
@@ -138,23 +115,23 @@ if LDAP:
         global AUTH_LDAP_USER_SEARCH
         global AUTH_LDAP_USER_ATTR_MAP
 
-        AUTH_LDAP_SERVER_URI = LDAP_SERVER_URI
-        AUTH_LDAP_BIND_DN = LDAP_BIND_DN
-        AUTH_LDAP_BIND_PASSWORD = LDAP_BIND_PASSWORD
+        AUTH_LDAP_SERVER_URI = CONFIG.LDAP_SERVER_URI
+        AUTH_LDAP_BIND_DN = CONFIG.LDAP_BIND_DN
+        AUTH_LDAP_BIND_PASSWORD = CONFIG.LDAP_BIND_PASSWORD
 
-        assert AUTH_LDAP_SERVER_URI and LDAP_USERNAME_ATTR and LDAP_USER_FILTER, 'LDAP_* config options must all be set if LDAP=True'
+        assert AUTH_LDAP_SERVER_URI and CONFIG.LDAP_USERNAME_ATTR and CONFIG.LDAP_USER_FILTER, 'LDAP_* config options must all be set if LDAP=True'
 
         AUTH_LDAP_USER_SEARCH = LDAPSearch(
-            LDAP_USER_BASE,
+            CONFIG.LDAP_USER_BASE,
             ldap.SCOPE_SUBTREE,
-            '(&(' + LDAP_USERNAME_ATTR + '=%(user)s)' + LDAP_USER_FILTER + ')',
+            '(&(' + CONFIG.LDAP_USERNAME_ATTR + '=%(user)s)' + CONFIG.LDAP_USER_FILTER + ')',
         )
 
         AUTH_LDAP_USER_ATTR_MAP = {
-            'username': LDAP_USERNAME_ATTR,
-            'first_name': LDAP_FIRSTNAME_ATTR,
-            'last_name': LDAP_LASTNAME_ATTR,
-            'email': LDAP_EMAIL_ATTR,
+            'username': CONFIG.LDAP_USERNAME_ATTR,
+            'first_name': CONFIG.LDAP_FIRSTNAME_ATTR,
+            'last_name': CONFIG.LDAP_LASTNAME_ATTR,
+            'email': CONFIG.LDAP_EMAIL_ATTR,
         }
 
         AUTHENTICATION_BACKENDS = [
@@ -206,6 +183,15 @@ if DEBUG_TOOLBAR:
     ]
     MIDDLEWARE = [*MIDDLEWARE, 'debug_toolbar.middleware.DebugToolbarMiddleware']
 
+if DEBUG:
+    from django_autotyping.typing import AutotypingSettingsDict
+
+    INSTALLED_APPS += ['django_autotyping']
+    AUTOTYPING: AutotypingSettingsDict = {
+        "STUBS_GENERATION": {
+            "LOCAL_STUBS_DIR": Path(CONFIG.PACKAGE_DIR) / "typings",
+        }
+    }
 
 # https://github.com/bensi94/Django-Requests-Tracker (improved version of django-debug-toolbar)
 # Must delete archivebox/templates/admin to use because it relies on some things we override
@@ -224,15 +210,15 @@ if DEBUG_REQUESTS_TRACKER:
 STATIC_URL = '/static/'
 
 STATICFILES_DIRS = [
-    *([str(CUSTOM_TEMPLATES_DIR / 'static')] if CUSTOM_TEMPLATES_DIR else []),
-    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'static'),
+    *([str(CONFIG.CUSTOM_TEMPLATES_DIR / 'static')] if CONFIG.CUSTOM_TEMPLATES_DIR else []),
+    str(Path(CONFIG.PACKAGE_DIR) / CONFIG.TEMPLATES_DIR_NAME / 'static'),
 ]
 
 TEMPLATE_DIRS = [
-    *([str(CUSTOM_TEMPLATES_DIR)] if CUSTOM_TEMPLATES_DIR else []),
-    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'core'),
-    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME / 'admin'),
-    str(Path(PACKAGE_DIR) / TEMPLATES_DIR_NAME),
+    *([str(CONFIG.CUSTOM_TEMPLATES_DIR)] if CONFIG.CUSTOM_TEMPLATES_DIR else []),
+    str(Path(CONFIG.PACKAGE_DIR) / CONFIG.TEMPLATES_DIR_NAME / 'core'),
+    str(Path(CONFIG.PACKAGE_DIR) / CONFIG.TEMPLATES_DIR_NAME / 'admin'),
+    str(Path(CONFIG.PACKAGE_DIR) / CONFIG.TEMPLATES_DIR_NAME),
 ]
 
 TEMPLATES = [
@@ -258,10 +244,10 @@ TEMPLATES = [
 
 
 CACHE_DB_FILENAME = 'cache.sqlite3'
-CACHE_DB_PATH = CACHE_DIR / CACHE_DB_FILENAME
+CACHE_DB_PATH = CONFIG.CACHE_DIR / CACHE_DB_FILENAME
 CACHE_DB_TABLE = 'django_cache'
 
-DATABASE_FILE = Path(OUTPUT_DIR) / SQL_INDEX_FILENAME
+DATABASE_FILE = Path(CONFIG.OUTPUT_DIR) / CONFIG.SQL_INDEX_FILENAME
 DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(DATABASE_FILE))
 
 DATABASES = {
@@ -272,7 +258,7 @@ DATABASES = {
             'timeout': 60,
             'check_same_thread': False,
         },
-        'TIME_ZONE': TIMEZONE,
+        'TIME_ZONE': CONFIG.TIMEZONE,
         # DB setup is sometimes modified at runtime by setup_django() in config.py
     },
     # 'cache': {
@@ -282,7 +268,7 @@ DATABASES = {
     #         'timeout': 60,
     #         'check_same_thread': False,
     #     },
-    #     'TIME_ZONE': TIMEZONE,
+    #     'TIME_ZONE': CONFIG.TIMEZONE,
     # },
 }
 MIGRATION_MODULES = {'signal_webhooks': None}
@@ -312,7 +298,7 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
         "OPTIONS": {
             "base_url": "/archive/",
-            "location": ARCHIVE_DIR,
+            "location": CONFIG.ARCHIVE_DIR,
         },
     },
     # "personas": {
@@ -328,9 +314,9 @@ STORAGES = {
 ### Security Settings
 ################################################################################
 
-SECRET_KEY = SECRET_KEY or get_random_string(50, 'abcdefghijklmnopqrstuvwxyz0123456789_')
+SECRET_KEY = CONFIG.SECRET_KEY or get_random_string(50, 'abcdefghijklmnopqrstuvwxyz0123456789_')
 
-ALLOWED_HOSTS = ALLOWED_HOSTS.split(',')
+ALLOWED_HOSTS = CONFIG.ALLOWED_HOSTS.split(',')
 
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -361,7 +347,7 @@ SHELL_PLUS_PRINT_SQL = False
 IPYTHON_ARGUMENTS = ['--no-confirm-exit', '--no-banner']
 IPYTHON_KERNEL_DISPLAY_NAME = 'ArchiveBox Django Shell'
 if IS_SHELL:
-    os.environ['PYTHONSTARTUP'] = str(Path(PACKAGE_DIR) / 'core' / 'welcome_message.py')
+    os.environ['PYTHONSTARTUP'] = str(Path(CONFIG.PACKAGE_DIR) / 'core' / 'welcome_message.py')
 
 
 ################################################################################
@@ -373,10 +359,10 @@ USE_I18N = True
 USE_TZ = True
 DATETIME_FORMAT = 'Y-m-d g:iA'
 SHORT_DATETIME_FORMAT = 'Y-m-d h:iA'
-TIME_ZONE = TIMEZONE        # django convention is TIME_ZONE, archivebox config uses TIMEZONE, they are equivalent
+TIME_ZONE = CONFIG.TIMEZONE        # django convention is TIME_ZONE, archivebox config uses TIMEZONE, they are equivalent
 
 
-from django.conf.locale.en import formats as en_formats
+from django.conf.locale.en import formats as en_formats    # type: ignore
 
 en_formats.DATETIME_FORMAT = DATETIME_FORMAT
 en_formats.SHORT_DATETIME_FORMAT = SHORT_DATETIME_FORMAT
@@ -410,8 +396,8 @@ class NoisyRequestsFilter(logging.Filter):
 
         return 1
 
-if LOGS_DIR.exists():
-    ERROR_LOG = (LOGS_DIR / 'errors.log')
+if CONFIG.LOGS_DIR.exists():
+    ERROR_LOG = (CONFIG.LOGS_DIR / 'errors.log')
 else:
     # historically too many edge cases here around creating log dir w/ correct permissions early on
     # if there's an issue on startup, we trash the log and let user figure it out via stdout/stderr

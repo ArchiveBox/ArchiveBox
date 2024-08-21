@@ -309,9 +309,9 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
 #     snapshot = Snapshot.objects.create(**payload.dict())
 #     return snapshot
 #
-# @router.put("/snapshot/{snapshot_uuid}", response=SnapshotSchema)
-# def update_snapshot(request, snapshot_uuid: str, payload: SnapshotSchema):
-#     snapshot = get_object_or_404(Snapshot, uuid=snapshot_uuid)
+# @router.put("/snapshot/{snapshot_id}", response=SnapshotSchema)
+# def update_snapshot(request, snapshot_id: str, payload: SnapshotSchema):
+#     snapshot = get_object_or_404(Snapshot, uuid=snapshot_id)
 #
 #     for attr, value in payload.dict().items():
 #         setattr(snapshot, attr, value)
@@ -319,9 +319,9 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
 #
 #     return snapshot
 #
-# @router.delete("/snapshot/{snapshot_uuid}")
-# def delete_snapshot(request, snapshot_uuid: str):
-#     snapshot = get_object_or_404(Snapshot, uuid=snapshot_uuid)
+# @router.delete("/snapshot/{snapshot_id}")
+# def delete_snapshot(request, snapshot_id: str):
+#     snapshot = get_object_or_404(Snapshot, uuid=snapshot_id)
 #     snapshot.delete()
 #     return {"success": True}
 

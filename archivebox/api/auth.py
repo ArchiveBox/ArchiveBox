@@ -1,6 +1,6 @@
 __package__ = 'archivebox.api'
 
-from typing import Optional
+from typing import Optional, cast
 
 from django.http import HttpRequest
 from django.contrib.auth import login
@@ -18,12 +18,13 @@ def auth_using_token(token, request: Optional[HttpRequest]=None) -> Optional[Abs
 
     submitted_empty_form = token in ('string', '', None)
     if submitted_empty_form:
+        assert request is not None, 'No request provided for API key authentication'
         user = request.user       # see if user is authed via django session and use that as the default
     else:
         try:
             token = APIToken.objects.get(token=token)
             if token.is_valid():
-                user = token.user
+                user = token.created_by
         except APIToken.DoesNotExist:
             pass
 
@@ -38,6 +39,7 @@ def auth_using_password(username, password, request: Optional[HttpRequest]=None)
     
     submitted_empty_form = (username, password) in (('string', 'string'), ('', ''), (None, None))
     if submitted_empty_form:
+        assert request is not None, 'No request provided for API key authentication'
         user = request.user       # see if user is authed via django session and use that as the default
     else:
         user = authenticate(
@@ -47,8 +49,9 @@ def auth_using_password(username, password, request: Optional[HttpRequest]=None)
 
     if not user:
         print('[❌] Failed to authenticate API user using API Key:', request)
+        user = None
 
-    return user
+    return cast(AbstractBaseUser | None, user)
 
 
 ### Base Auth Types

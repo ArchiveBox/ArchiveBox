@@ -1,7 +1,7 @@
 __package__ = 'archivebox.core'
 
 
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Iterable
 from django_stubs_ext.db.models import TypedModelMeta
 
 import json
@@ -17,10 +17,10 @@ from django.utils.text import slugify
 from django.core.cache import cache
 from django.urls import reverse, reverse_lazy
 from django.db.models import Case, When, Value, IntegerField
+from django.conf import settings
 
 from abid_utils.models import ABIDModel, ABIDField
 
-from ..config import ARCHIVE_DIR, ARCHIVE_DIR_NAME
 from ..system import get_dir_size
 from ..util import parse_date, base_url
 from ..index.schema import Link
@@ -72,6 +72,7 @@ class Tag(ABIDModel):
     slug = models.SlugField(unique=True, blank=False, max_length=100, editable=False)
     # slug is autoset on save from name, never set it manually
 
+    snapshot_set: models.Manager['Snapshot']
 
     class Meta(TypedModelMeta):
         verbose_name = "Tag"
@@ -153,6 +154,8 @@ class Snapshot(ABIDModel):
     updated = models.DateTimeField(auto_now=True, blank=True, null=True, db_index=True)
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
+
+    archiveresult_set: models.Manager['ArchiveResult']
 
     @property
     def uuid(self):
@@ -246,11 +249,11 @@ class Snapshot(ABIDModel):
 
     @cached_property
     def link_dir(self):
-        return str(ARCHIVE_DIR / self.timestamp)
+        return str(settings.CONFIG.ARCHIVE_DIR / self.timestamp)
 
     @cached_property
     def archive_path(self):
-        return '{}/{}'.format(ARCHIVE_DIR_NAME, self.timestamp)
+        return '{}/{}'.format(settings.CONFIG.ARCHIVE_DIR_NAME, self.timestamp)
 
     @cached_property
     def archive_size(self):
@@ -284,7 +287,7 @@ class Snapshot(ABIDModel):
 
     @cached_property
     def status_code(self) -> Optional[str]:
-        return self.headers and self.headers.get('Status-Code')
+        return self.headers.get('Status-Code') if self.headers else None
 
     @cached_property
     def history(self) -> dict:
@@ -322,7 +325,7 @@ class Snapshot(ABIDModel):
 
         return None
 
-    def save_tags(self, tags: List[str]=()) -> None:
+    def save_tags(self, tags: Iterable[str]=()) -> None:
         tags_id = []
         for tag in tags:
             if tag.strip():
@@ -334,17 +337,17 @@ class Snapshot(ABIDModel):
     # def get_storage_dir(self, create=True, symlink=True) -> Path:
     #     date_str = self.added.strftime('%Y%m%d')
     #     domain_str = domain(self.url)
-    #     abs_storage_dir = Path(ARCHIVE_DIR) / 'snapshots' / date_str / domain_str / str(self.ulid)
+    #     abs_storage_dir = Path(settings.CONFIG.ARCHIVE_DIR) / 'snapshots' / date_str / domain_str / str(self.ulid)
 
     #     if create and not abs_storage_dir.is_dir():
     #         abs_storage_dir.mkdir(parents=True, exist_ok=True)
 
     #     if symlink:
     #         LINK_PATHS = [
-    #             Path(ARCHIVE_DIR).parent / 'index' / 'all_by_id' / str(self.ulid),
-    #             # Path(ARCHIVE_DIR).parent / 'index' / 'snapshots_by_id' / str(self.ulid),
-    #             Path(ARCHIVE_DIR).parent / 'index' / 'snapshots_by_date' / date_str / domain_str / str(self.ulid),
-    #             Path(ARCHIVE_DIR).parent / 'index' / 'snapshots_by_domain' / domain_str / date_str / str(self.ulid),
+    #             Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'all_by_id' / str(self.ulid),
+    #             # Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'snapshots_by_id' / str(self.ulid),
+    #             Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'snapshots_by_date' / date_str / domain_str / str(self.ulid),
+    #             Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'snapshots_by_domain' / domain_str / date_str / str(self.ulid),
     #         ]
     #         for link_path in LINK_PATHS:
     #             link_path.parent.mkdir(parents=True, exist_ok=True)
@@ -439,8 +442,8 @@ class ArchiveResult(ABIDModel):
         should be used for user-facing iframe embeds of this result
         """
 
-        if hasattr(self.extractor_module, 'get_embed_path'):
-            return self.extractor_module.get_embed_path(self)
+        if get_embed_path_func := getattr(self.extractor_module, 'get_embed_path', None):
+            return get_embed_path_func(self)
 
         return self.extractor_module.get_output_path()
 
@@ -455,18 +458,18 @@ class ArchiveResult(ABIDModel):
     # def get_storage_dir(self, create=True, symlink=True):
     #     date_str = self.snapshot.added.strftime('%Y%m%d')
     #     domain_str = domain(self.snapshot.url)
-    #     abs_storage_dir = Path(ARCHIVE_DIR) / 'results' / date_str / domain_str / self.extractor / str(self.ulid)
+    #     abs_storage_dir = Path(settings.CONFIG.ARCHIVE_DIR) / 'results' / date_str / domain_str / self.extractor / str(self.ulid)
 
     #     if create and not abs_storage_dir.is_dir():
     #         abs_storage_dir.mkdir(parents=True, exist_ok=True)
 
     #     if symlink:
     #         LINK_PATHS = [
-    #             Path(ARCHIVE_DIR).parent / 'index' / 'all_by_id' / str(self.ulid),
-    #             # Path(ARCHIVE_DIR).parent / 'index' / 'results_by_id' / str(self.ulid),
-    #             # Path(ARCHIVE_DIR).parent / 'index' / 'results_by_date' / date_str / domain_str / self.extractor / str(self.ulid),
-    #             Path(ARCHIVE_DIR).parent / 'index' / 'results_by_domain' / domain_str / date_str / self.extractor / str(self.ulid),
-    #             Path(ARCHIVE_DIR).parent / 'index' / 'results_by_type' / self.extractor / date_str / domain_str / str(self.ulid),
+    #             Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'all_by_id' / str(self.ulid),
+    #             # Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'results_by_id' / str(self.ulid),
+    #             # Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'results_by_date' / date_str / domain_str / self.extractor / str(self.ulid),
+    #             Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'results_by_domain' / domain_str / date_str / self.extractor / str(self.ulid),
+    #             Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'results_by_type' / self.extractor / date_str / domain_str / str(self.ulid),
     #         ]
     #         for link_path in LINK_PATHS:
     #             link_path.parent.mkdir(parents=True, exist_ok=True)

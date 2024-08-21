@@ -192,12 +192,12 @@ class Link:
         if extended:
             info.update({
                 'snapshot_id': self.snapshot_id,
-                'snapshot_uuid': self.snapshot_uuid,
+                'snapshot_old_id': self.snapshot_old_id,
                 'snapshot_abid': self.snapshot_abid,
 
                 'link_dir': self.link_dir,
                 'archive_path': self.archive_path,
-                
+
                 'hash': self.url_hash,
                 'base_url': self.base_url,
                 'scheme': self.scheme,
@@ -206,7 +206,7 @@ class Link:
                 'basename': self.basename,
                 'extension': self.extension,
                 'is_static': self.is_static,
-                
+
                 'tags_str': (self.tags or '').strip(','),   # only used to render static index in index/html.py, remove if no longer needed there
                 'icons': None,           # only used to render static index in index/html.py, remove if no longer needed there
 
@@ -266,15 +266,15 @@ class Link:
     @cached_property
     def snapshot(self):
         from core.models import Snapshot
-        return Snapshot.objects.only('id').get(url=self.url)
+        return Snapshot.objects.only('id', 'old_id', 'abid').get(url=self.url)
 
     @cached_property
     def snapshot_id(self):
         return str(self.snapshot.pk)
 
     @cached_property
-    def snapshot_uuid(self):
-        return str(self.snapshot.id)
+    def snapshot_old_id(self):
+        return str(self.snapshot.old_id)
 
     @cached_property
     def snapshot_abid(self):

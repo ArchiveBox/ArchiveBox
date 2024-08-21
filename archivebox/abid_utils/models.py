@@ -15,6 +15,7 @@ from charidfield import CharIDField  # type: ignore[import-untyped]
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from django.db.utils import OperationalError
 from django.contrib.auth import get_user_model
 
@@ -115,7 +116,8 @@ class ABIDModel(models.Model):
             raise Exception(f'{self.__class__.__name__}.abid_prefix must be defined to calculate ABIDs (suggested: {suggested_abid})')
 
         if not ts:
-            ts = datetime.utcfromtimestamp(0)
+            # default to unix epoch with 00:00:00 UTC
+            ts = datetime.fromtimestamp(0, timezone.utc)     # equivalent to: ts = datetime.utcfromtimestamp(0)
             print(f'[!] WARNING: Generating ABID with ts=0000000000 placeholder because {self.__class__.__name__}.abid_ts_src={self.abid_ts_src} is unset!', ts.isoformat())
 
         if not uri:
@@ -146,7 +148,13 @@ class ABIDModel(models.Model):
         """
         ULIDParts(timestamp='01HX9FPYTR', url='E4A5CCD9', subtype='00', randomness='ZYEBQE')
         """
-        abid = None
+        
+        # if object is not yet saved to DB, always generate fresh ABID from values
+        if self._state.adding:
+            return self.generate_abid()
+        
+        # otherwise DB is single source of truth, load ABID from existing db pk
+        abid: ABID | None = None
         try:
             abid = abid or ABID.parse(self.pk)
         except Exception:
@@ -158,12 +166,7 @@ class ABIDModel(models.Model):
             pass
 
         try:
-            abid = abid or ABID.parse(self.uuid)
-        except Exception:
-            pass
-
-        try:
-            abid = abid or ABID.parse(self.abid)
+            abid = abid or ABID.parse(cast(str, self.abid))
         except Exception:
             pass
 

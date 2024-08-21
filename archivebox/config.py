@@ -44,6 +44,7 @@ from collections import defaultdict
 import importlib.metadata
 
 from .config_stubs import (
+    AttrDict,
     SimpleConfigValueDict,
     ConfigValue,
     ConfigDict,
@@ -379,6 +380,29 @@ ALLOWED_IN_OUTPUT_DIR = {
 ALLOWDENYLIST_REGEX_FLAGS: int = re.IGNORECASE | re.UNICODE | re.MULTILINE
 
 
+CONSTANTS = {
+    "PACKAGE_DIR_NAME":             {'default': lambda c: PACKAGE_DIR_NAME},
+    "TEMPLATES_DIR_NAME":           {'default': lambda c: TEMPLATES_DIR_NAME},
+    "ARCHIVE_DIR_NAME":             {'default': lambda c: ARCHIVE_DIR_NAME},
+    "SOURCES_DIR_NAME":             {'default': lambda c: SOURCES_DIR_NAME},
+    "LOGS_DIR_NAME":                {'default': lambda c: LOGS_DIR_NAME},
+    "CACHE_DIR_NAME":               {'default': lambda c: CACHE_DIR_NAME},
+    "PERSONAS_DIR_NAME":            {'default': lambda c: PERSONAS_DIR_NAME},
+    "CRONTABS_DIR_NAME":            {'default': lambda c: CRONTABS_DIR_NAME},
+    "SQL_INDEX_FILENAME":           {'default': lambda c: SQL_INDEX_FILENAME},
+    "JSON_INDEX_FILENAME":          {'default': lambda c: JSON_INDEX_FILENAME},
+    "HTML_INDEX_FILENAME":          {'default': lambda c: HTML_INDEX_FILENAME},
+    "ROBOTS_TXT_FILENAME":          {'default': lambda c: ROBOTS_TXT_FILENAME},
+    "FAVICON_FILENAME":             {'default': lambda c: FAVICON_FILENAME},
+    "CONFIG_FILENAME":              {'default': lambda c: CONFIG_FILENAME},
+    "DEFAULT_CLI_COLORS":           {'default': lambda c: DEFAULT_CLI_COLORS},
+    "ANSI":                         {'default': lambda c: ANSI},
+    "COLOR_DICT":                   {'default': lambda c: COLOR_DICT},
+    "STATICFILE_EXTENSIONS":        {'default': lambda c: STATICFILE_EXTENSIONS},
+    "ALLOWED_IN_OUTPUT_DIR":        {'default': lambda c: ALLOWED_IN_OUTPUT_DIR},
+    "ALLOWDENYLIST_REGEX_FLAGS":    {'default': lambda c: ALLOWDENYLIST_REGEX_FLAGS},
+}
+
 ############################## Version Config ##################################
 
 def get_system_user() -> str:
@@ -498,9 +522,13 @@ def can_upgrade(config):
 
 ############################## Derived Config ##################################
 
+
+
 # These are derived/computed values calculated *after* all user-provided config values are ingested
 # they appear in `archivebox config` output and are intended to be read-only for the user
 DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
+    **CONSTANTS,
+
     'TERM_WIDTH':               {'default': lambda c: lambda: shutil.get_terminal_size((100, 10)).columns},
     'USER':                     {'default': lambda c: get_system_user()},
     'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
@@ -678,28 +706,29 @@ def load_config_val(key: str,
     raise Exception('Config values can only be str, bool, int, or json')
 
 
-def load_config_file(out_dir: str=None) -> Optional[Dict[str, str]]:
+def load_config_file(out_dir: str | None=None) -> Optional[ConfigDict]:
     """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
 
     out_dir = out_dir or Path(os.getenv('OUTPUT_DIR', '.')).resolve()
+    assert out_dir and out_dir.is_dir()
     config_path = Path(out_dir) / CONFIG_FILENAME
     if config_path.exists():
         config_file = ConfigParser()
         config_file.optionxform = str
         config_file.read(config_path)
         # flatten into one namespace
-        config_file_vars = {
+        config_file_vars = ConfigDict({
             key.upper(): val
             for section, options in config_file.items()
                 for key, val in options.items()
-        }
+        })
         # print('[i] Loaded config file', os.path.abspath(config_path))
         # print(config_file_vars)
         return config_file_vars
     return None
 
 
-def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
+def write_config_file(config: Dict[str, str], out_dir: str | None=None) -> ConfigDict:
     """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
 
     from .system import atomic_write
@@ -740,7 +769,7 @@ def write_config_file(config: Dict[str, str], out_dir: str=None) -> ConfigDict:
             existing_config = dict(config_file[section])
         else:
             existing_config = {}
-        config_file[section] = {**existing_config, key: val}
+        config_file[section] = ConfigDict({**existing_config, key: val})
 
     # always make sure there's a SECRET_KEY defined for Django
     existing_secret_key = None
@@ -815,7 +844,7 @@ def load_config(defaults: ConfigDefaultDict,
             # raise
             raise SystemExit(2)
 
-    return extended_config
+    return AttrDict(extended_config)
 
 
 def parse_version_string(version: str) -> Tuple[int, int, int]:
@@ -1198,14 +1227,14 @@ def get_chrome_info(config: ConfigDict) -> ConfigValue:
 
 
 def load_all_config():
-    CONFIG: ConfigDict = {}
+    CONFIG: ConfigDict = ConfigDict()
     for section_name, section_config in CONFIG_SCHEMA.items():
         CONFIG = load_config(section_config, CONFIG)
 
     return load_config(DYNAMIC_CONFIG_SCHEMA, CONFIG)
 
 # add all final config values in CONFIG to globals in this file
-CONFIG = load_all_config()
+CONFIG: ConfigDict = load_all_config()
 globals().update(CONFIG)
 # this lets us do:  from .config import DEBUG, MEDIA_TIMEOUT, ...
 

@@ -46,7 +46,7 @@ urlpatterns = [
     # path('jet_api/', include('jet_django.urls')),  Enable to use https://www.jetadmin.io/integrations/django
 
     path('index.html', RedirectView.as_view(url='/')),
-    path('index.json', static.serve, {'document_root': settings.OUTPUT_DIR, 'path': 'index.json'}),
+    path('index.json', static.serve, {'document_root': settings.CONFIG.OUTPUT_DIR, 'path': 'index.json'}),
     path('', HomepageView.as_view(), name='Home'),
 ]
 urlpatterns += staticfiles_urlpatterns()

@@ -9,11 +9,15 @@ SimpleConfigValueDict = Dict[str, SimpleConfigValue]
 SimpleConfigValueGetter = Callable[[], SimpleConfigValue]
 ConfigValue = Union[SimpleConfigValue, SimpleConfigValueDict, SimpleConfigValueGetter]
 
+class AttrDict(dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__dict__ = self
 
 class BaseConfig(TypedDict):
     pass
 
-class ConfigDict(BaseConfig, total=False):
+class ConfigDict(BaseConfig, AttrDict, total=False):
     """
     # Regenerate by pasting this quine into `archivebox shell` 🥚
     from archivebox.config import ConfigDict, CONFIG_DEFAULTS
@@ -28,6 +32,7 @@ class ConfigDict(BaseConfig, total=False):
                 print(f'    {key}: {Type.__name__}')
         print()
     """
+
     IS_TTY: bool
     USE_COLOR: bool
     SHOW_PROGRESS: bool
