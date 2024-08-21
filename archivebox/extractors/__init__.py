@@ -107,7 +107,7 @@ def ignore_methods(to_ignore: List[str]) -> Iterable[str]:
     return [x[0] for x in ARCHIVE_METHODS if x[0] not in to_ignore]
 
 @enforce_types
-def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None) -> Link:
+def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None, created_by_id: int | None=None) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
     # TODO: Remove when the input is changed to be a snapshot. Suboptimal approach.
@@ -115,7 +115,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
     try:
         snapshot = Snapshot.objects.get(url=link.url) # TODO: This will be unnecessary once everything is a snapshot
     except Snapshot.DoesNotExist:
-        snapshot = write_link_to_sql_index(link)
+        snapshot = write_link_to_sql_index(link, created_by_id=created_by_id)
 
     active_methods = get_archive_methods_for_link(link)
     
@@ -154,7 +154,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                     log_archive_method_finished(result)
                     write_search_index(link=link, texts=result.index_texts)
                     ArchiveResult.objects.create(snapshot=snapshot, extractor=method_name, cmd=result.cmd, cmd_version=result.cmd_version,
-                                                 output=result.output, pwd=result.pwd, start_ts=result.start_ts, end_ts=result.end_ts, status=result.status)
+                                                 output=result.output, pwd=result.pwd, start_ts=result.start_ts, end_ts=result.end_ts, status=result.status, created_by_id=snapshot.created_by_id)
 
 
                     # bump the updated time on the main Snapshot here, this is critical
@@ -213,7 +213,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
     return link
 
 @enforce_types
-def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None) -> List[Link]:
+def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None, created_by_id: int | None=None) -> List[Link]:
 
     if type(all_links) is QuerySet:
         num_links: int = all_links.count()
@@ -232,7 +232,7 @@ def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=Fa
         for link in all_links:
             idx += 1
             to_archive = get_link(link)
-            archive_link(to_archive, overwrite=overwrite, methods=methods, out_dir=Path(link.link_dir))
+            archive_link(to_archive, overwrite=overwrite, methods=methods, out_dir=Path(link.link_dir), created_by_id=created_by_id)
     except KeyboardInterrupt:
         log_archiving_paused(num_links, idx, link.timestamp)
         raise SystemExit(0)

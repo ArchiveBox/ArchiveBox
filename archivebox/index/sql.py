@@ -70,7 +70,7 @@ def write_link_to_sql_index(link: Link, created_by_id: int | None=None):
                         'cmd_version': entry.get('cmd_version') or 'unknown',
                         'pwd': entry['pwd'],
                         'status': entry['status'],
-                        'created_by_id': created_by_id,
+                        'created_by_id': snapshot.created_by_id,
                     }
                 )
             else:
@@ -85,7 +85,7 @@ def write_link_to_sql_index(link: Link, created_by_id: int | None=None):
                         'cmd_version': entry.cmd_version or 'unknown',
                         'pwd': entry.pwd,
                         'status': entry.status,
-                        'created_by_id': created_by_id,
+                        'created_by_id': snapshot.created_by_id,
                     }
                 )
 

@@ -532,7 +532,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
 
 @admin.register(Tag, site=archivebox_admin)
 class TagAdmin(ABIDModelAdmin):
-    list_display = ('abid', 'name', 'created', 'created_by', 'num_snapshots', 'snapshots')
+    list_display = ('created', 'created_by', 'abid', 'name', 'num_snapshots', 'snapshots')
     sort_fields = ('name', 'slug', 'abid', 'created_by', 'created')
     readonly_fields = ('slug', 'abid', 'created', 'modified', 'API', 'num_snapshots', 'snapshots')
     search_fields = ('abid', 'name', 'slug')

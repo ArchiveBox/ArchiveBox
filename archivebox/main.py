@@ -566,7 +566,7 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
 
 
 @enforce_types
-def oneshot(url: str, extractors: str="", out_dir: Path=OUTPUT_DIR):
+def oneshot(url: str, extractors: str="", out_dir: Path=OUTPUT_DIR, created_by_id: int | None=None) -> List[Link]:
     """
     Create a single URL archive folder with an index.json and index.html, and all the archive method outputs.
     You can run this to archive single pages without needing to create a whole collection with archivebox init.
@@ -580,7 +580,7 @@ def oneshot(url: str, extractors: str="", out_dir: Path=OUTPUT_DIR):
         raise SystemExit(2)
 
     methods = extractors.split(",") if extractors else ignore_methods(['title'])
-    archive_link(oneshot_link[0], out_dir=out_dir, methods=methods)
+    archive_link(oneshot_link[0], out_dir=out_dir, methods=methods, created_by_id=created_by_id)
     return oneshot_link
 
 @enforce_types
@@ -659,13 +659,14 @@ def add(urls: Union[str, List[str]],
     if index_only:
         # mock archive all the links using the fake index_only extractor method in order to update their state
         if overwrite:
-            archive_links(imported_links, overwrite=overwrite, methods=['index_only'], out_dir=out_dir)
+            archive_links(imported_links, overwrite=overwrite, methods=['index_only'], out_dir=out_dir, created_by_id=created_by_id)
         else:
-            archive_links(new_links, overwrite=False, methods=['index_only'], out_dir=out_dir)
+            archive_links(new_links, overwrite=False, methods=['index_only'], out_dir=out_dir, created_by_id=created_by_id)
     else:
         # fully run the archive extractor methods for each link
         archive_kwargs = {
             "out_dir": out_dir,
+            "created_by_id": created_by_id,
         }
         if extractors:
             archive_kwargs["methods"] = extractors
