@@ -29,9 +29,10 @@ from ..util import htmldecode, urldecode, ansi_to_html
 
 from core.models import Snapshot, ArchiveResult, Tag, SnapshotTag
 from core.forms import AddLinkForm
-
 from core.mixins import SearchResultsAdminMixin
 from api.models import APIToken
+from abid_utils.models import get_or_create_system_user_pk
+from abid_utils.admin import ABIDModelAdmin
 
 from index.html import snapshot_icons
 from logging_util import printable_filesize
@@ -109,8 +110,6 @@ class ArchiveBoxAdmin(admin.AdminSite):
 
 archivebox_admin = ArchiveBoxAdmin()
 archivebox_admin.register(get_user_model())
-archivebox_admin.register(APIToken)
-archivebox_admin.register(get_webhook_model(), WebhookAdmin)
 archivebox_admin.disable_action('delete_selected')
 
 # archivebox_admin.register(CustomPlugin)
@@ -226,7 +225,7 @@ def get_abid_info(self, obj):
 
 
 @admin.register(Snapshot, site=archivebox_admin)
-class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
+class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
     class Meta:
         model = Snapshot
 
@@ -519,7 +518,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
 
 # @admin.register(SnapshotTag, site=archivebox_admin)
-# class SnapshotTagAdmin(admin.ModelAdmin):
+# class SnapshotTagAdmin(ABIDModelAdmin):
 #     list_display = ('id', 'snapshot', 'tag')
 #     sort_fields = ('id', 'snapshot', 'tag')
 #     search_fields = ('id', 'snapshot_id', 'tag_id')
@@ -532,7 +531,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, admin.ModelAdmin):
 
 
 @admin.register(Tag, site=archivebox_admin)
-class TagAdmin(admin.ModelAdmin):
+class TagAdmin(ABIDModelAdmin):
     list_display = ('abid', 'name', 'created', 'created_by', 'num_snapshots', 'snapshots')
     sort_fields = ('name', 'slug', 'abid', 'created_by', 'created')
     readonly_fields = ('slug', 'abid', 'created', 'modified', 'API', 'num_snapshots', 'snapshots')
@@ -568,7 +567,7 @@ class TagAdmin(admin.ModelAdmin):
 
 
 @admin.register(ArchiveResult, site=archivebox_admin)
-class ArchiveResultAdmin(admin.ModelAdmin):
+class ArchiveResultAdmin(ABIDModelAdmin):
     list_display = ('start_ts', 'snapshot_info', 'tags_str', 'extractor', 'cmd_str', 'status', 'output_str')
     sort_fields = ('start_ts', 'extractor', 'status')
     readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created', 'modified', 'API', 'output_summary')
@@ -648,3 +647,23 @@ class ArchiveResultAdmin(admin.ModelAdmin):
                 output_str += format_html('<span style="opacity: {}.2">{}{}</span><br/>', int(not is_hidden), indentation_str, filename.strip())
 
         return output_str + format_html('</code></pre>')
+
+
+
+@admin.register(APIToken, site=archivebox_admin)
+class APITokenAdmin(ABIDModelAdmin):
+    list_display = ('created', 'abid', 'created_by', 'token_redacted', 'expires')
+    sort_fields = ('abid', 'created', 'created_by', 'expires')
+    readonly_fields = ('abid', 'created')
+    search_fields = ('id', 'abid', 'created_by__username', 'token')
+    fields = ('created_by', 'token', 'expires', *readonly_fields)
+
+    list_filter = ('created_by',)
+    ordering = ['-created']
+    list_per_page = 100
+
+@admin.register(get_webhook_model(), site=archivebox_admin)
+class CustomWebhookAdmin(WebhookAdmin, ABIDModelAdmin):
+    list_display = ('created', 'created_by', 'abid', *WebhookAdmin.list_display)
+    sort_fields = ('created', 'created_by', 'abid', 'referenced_model', 'endpoint', 'last_success', 'last_error')
+    readonly_fields = ('abid', 'created', *WebhookAdmin.readonly_fields)

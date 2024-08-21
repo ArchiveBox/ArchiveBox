@@ -93,7 +93,6 @@ class ABIDModel(models.Model):
         super().save(*args, **kwargs)
         assert str(self.id) == str(self.ABID.uuid), f'self.id {self.id} does not match self.ABID {self.ABID.uuid}'
         assert str(self.abid) == str(self.ABID), f'self.abid {self.id} does not match self.ABID {self.ABID.uuid}'
-        
 
     @property
     def abid_values(self) -> Dict[str, Any]:
