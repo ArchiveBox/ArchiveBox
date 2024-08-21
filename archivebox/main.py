@@ -595,6 +595,7 @@ def add(urls: Union[str, List[str]],
         init: bool=False,
         extractors: str="",
         parser: str="auto",
+        created_by_id: int | None=None,
         out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
@@ -639,11 +640,11 @@ def add(urls: Union[str, List[str]],
     
     new_links = dedupe_links(all_links, imported_links)
 
-    write_main_index(links=new_links, out_dir=out_dir)
+    write_main_index(links=new_links, out_dir=out_dir, created_by_id=created_by_id)
     all_links = load_main_index(out_dir=out_dir)
 
     tags = [
-        Tag.objects.get_or_create(name=name.strip())[0]
+        Tag.objects.get_or_create(name=name.strip(), defaults={'created_by_id': created_by_id})[0]
         for name in tag.split(',')
         if name.strip()
     ]

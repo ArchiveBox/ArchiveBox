@@ -225,21 +225,21 @@ def timed_index_update(out_path: Path):
 
 
 @enforce_types
-def write_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
+def write_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR, created_by_id: int | None=None) -> None:
     """Writes links to sqlite3 file for a given list of links"""
 
     log_indexing_process_started(len(links))
 
     try:
         with timed_index_update(out_dir / SQL_INDEX_FILENAME):
-            write_sql_main_index(links, out_dir=out_dir)
+            write_sql_main_index(links, out_dir=out_dir, created_by_id=created_by_id)
             os.chmod(out_dir / SQL_INDEX_FILENAME, int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
 
     except (KeyboardInterrupt, SystemExit):
         stderr('[!] Warning: Still writing index to disk...', color='lightyellow')
         stderr('    Run archivebox init to fix any inconsistencies from an ungraceful exit.')
         with timed_index_update(out_dir / SQL_INDEX_FILENAME):
-            write_sql_main_index(links, out_dir=out_dir)
+            write_sql_main_index(links, out_dir=out_dir, created_by_id=created_by_id)
             os.chmod(out_dir / SQL_INDEX_FILENAME, int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
         raise SystemExit(0)
 
@@ -268,7 +268,7 @@ def load_main_index_meta(out_dir: Path=OUTPUT_DIR) -> Optional[dict]:
 
 
 @enforce_types
-def parse_links_from_source(source_path: str, root_url: Optional[str]=None, parser: str="auto") -> Tuple[List[Link], List[Link]]:
+def parse_links_from_source(source_path: str, root_url: Optional[str]=None, parser: str="auto") -> List[Link]:
 
     from ..parsers import parse_links
 

@@ -470,6 +470,7 @@ class AddView(UserPassesTestMixin, FormView):
             "parser": parser,
             "update_all": False,
             "out_dir": OUTPUT_DIR,
+            "created_by_id": self.request.user.pk,
         }
         if extractors:
             input_kwargs.update({"extractors": extractors})

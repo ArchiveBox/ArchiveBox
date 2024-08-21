@@ -35,9 +35,11 @@ def remove_from_sql_main_index(snapshots: QuerySet, atomic: bool=False, out_dir:
     return snapshots.delete()
 
 @enforce_types
-def write_link_to_sql_index(link: Link):
+def write_link_to_sql_index(link: Link, created_by_id: int | None=None):
     from core.models import Snapshot, ArchiveResult
     info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
+
+    info['created_by_id'] = created_by_id
 
     tag_list = list(dict.fromkeys(
         tag.strip() for tag in re.split(TAG_SEPARATOR_PATTERN, link.tags or '')
@@ -68,6 +70,7 @@ def write_link_to_sql_index(link: Link):
                         'cmd_version': entry.get('cmd_version') or 'unknown',
                         'pwd': entry['pwd'],
                         'status': entry['status'],
+                        'created_by_id': created_by_id,
                     }
                 )
             else:
@@ -82,6 +85,7 @@ def write_link_to_sql_index(link: Link):
                         'cmd_version': entry.cmd_version or 'unknown',
                         'pwd': entry.pwd,
                         'status': entry.status,
+                        'created_by_id': created_by_id,
                     }
                 )
 
@@ -89,15 +93,15 @@ def write_link_to_sql_index(link: Link):
 
 
 @enforce_types
-def write_sql_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR) -> None:
+def write_sql_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR, created_by_id: int | None=None) -> None:
     for link in links:
         # with transaction.atomic():
             # write_link_to_sql_index(link)
-        write_link_to_sql_index(link)
+        write_link_to_sql_index(link, created_by_id=created_by_id)
             
 
 @enforce_types
-def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
+def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR, created_by_id: int | None=None) -> None:
     from core.models import Snapshot
 
     # with transaction.atomic():
@@ -109,7 +113,7 @@ def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR) -> None:
     try:
         snap = Snapshot.objects.get(url=link.url)
     except Snapshot.DoesNotExist:
-        snap = write_link_to_sql_index(link)
+        snap = write_link_to_sql_index(link, created_by_id=created_by_id)
 
     snap.title = link.title
 
