@@ -7,6 +7,27 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def updated_created_by_ids(apps, schema_editor):
+    """Get or create a system user with is_superuser=True to be the default owner for new DB rows"""
+
+    User = apps.get_model("auth", "User")
+    ArchiveResult = apps.get_model("core", "ArchiveResult")
+    Snapshot = apps.get_model("core", "Snapshot")
+    Tag = apps.get_model("core", "Tag")
+
+    # if only one user exists total, return that user
+    if User.objects.filter(is_superuser=True).count() == 1:
+        user_id = User.objects.filter(is_superuser=True).values_list('pk', flat=True)[0]
+
+    # otherwise, create a dedicated "system" user
+    user_id = User.objects.get_or_create(username='system', is_staff=True, is_superuser=True, defaults={'email': '', 'password': ''})[0].pk
+    
+    ArchiveResult.objects.all().update(created_by_id=user_id)
+    Snapshot.objects.all().update(created_by_id=user_id)
+    Tag.objects.all().update(created_by_id=user_id)
+
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -24,7 +45,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='archiveresult',
             name='created_by',
-            field=models.ForeignKey(default=abid_utils.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(null=True, default=abid_utils.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
         ),
         migrations.AddField(
             model_name='archiveresult',
@@ -40,7 +61,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='snapshot',
             name='created_by',
-            field=models.ForeignKey(default=abid_utils.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(null=True, default=abid_utils.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
         ),
         migrations.AddField(
             model_name='snapshot',
@@ -56,7 +77,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='tag',
             name='created_by',
-            field=models.ForeignKey(default=abid_utils.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(null=True, default=abid_utils.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
         ),
         migrations.AddField(
             model_name='tag',
@@ -72,5 +93,24 @@ class Migration(migrations.Migration):
             model_name='archiveresult',
             name='uuid',
             field=models.UUIDField(blank=True, null=True, unique=True),
+        ),
+
+
+        migrations.RunPython(updated_created_by_ids, reverse_code=migrations.RunPython.noop),
+
+        migrations.AddField(
+            model_name='snapshot',
+            name='created_by',
+            field=models.ForeignKey(default=abid_utils.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
+        ),
+        migrations.AlterField(
+            model_name='archiveresult',
+            name='created_by',
+            field=models.ForeignKey(default=abid_utils.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
+        ),
+        migrations.AddField(
+            model_name='tag',
+            name='created_by',
+            field=models.ForeignKey(default=abid_utils.models.get_or_create_system_user_pk, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
         ),
     ]
