@@ -50,7 +50,7 @@ def update_archiveresult_ids(apps, schema_editor):
     num_total = Tag.objects.all().count()
     print(f'   Updating {num_total} Tag.id, ArchiveResult.uuid values in place...')
     for idx, tag in enumerate(Tag.objects.all().iterator()):
-        assert tag.name
+        assert tag.slug, f'Tag.slug must be defined! You have a Tag(id={tag.pk}) missing a slug!'
         tag.abid_prefix = 'tag_'
         tag.abid_ts_src = 'self.created'
         tag.abid_uri_src = 'self.slug'
