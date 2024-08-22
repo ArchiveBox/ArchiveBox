@@ -38,6 +38,21 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='archiveresult',
             name='extractor',
-            field=models.CharField(choices=[('htmltotext', 'htmltotext'), ('git', 'git'), ('singlefile', 'singlefile'), ('media', 'media'), ('archive_org', 'archive_org'), ('readability', 'readability'), ('mercury', 'mercury'), ('favicon', 'favicon'), ('pdf', 'pdf'), ('headers', 'headers'), ('screenshot', 'screenshot'), ('dom', 'dom'), ('title', 'title'), ('wget', 'wget')], max_length=32),
+            field=models.CharField(choices=(
+                ('htmltotext', 'htmltotext'),
+                ('git', 'git'),
+                ('singlefile', 'singlefile'),
+                ('media', 'media'),
+                ('archive_org', 'archive_org'),
+                ('readability', 'readability'),
+                ('mercury', 'mercury'),
+                ('favicon', 'favicon'),
+                ('pdf', 'pdf'),
+                ('headers', 'headers'),
+                ('screenshot', 'screenshot'),
+                ('dom', 'dom'),
+                ('title', 'title'),
+                ('wget', 'wget'),
+            ), max_length=32),
         ),
     ]

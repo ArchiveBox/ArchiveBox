@@ -28,13 +28,6 @@ from ..index.html import snapshot_icons
 from ..extractors import ARCHIVE_METHODS_INDEXING_PRECEDENCE, EXTRACTORS
 
 
-EXTRACTOR_CHOICES = [(extractor_name, extractor_name) for extractor_name in EXTRACTORS.keys()]
-STATUS_CHOICES = [
-    ("succeeded", "succeeded"),
-    ("failed", "failed"),
-    ("skipped", "skipped")
-]
-
 def rand_int_id():
     return random.getrandbits(32)
 
@@ -376,7 +369,28 @@ class ArchiveResult(ABIDModel):
     abid_uri_src = 'self.snapshot.url'
     abid_subtype_src = 'self.extractor'
     abid_rand_src = 'self.old_id'
-    EXTRACTOR_CHOICES = EXTRACTOR_CHOICES
+
+    EXTRACTOR_CHOICES = (
+        ('htmltotext', 'htmltotext'),
+        ('git', 'git'),
+        ('singlefile', 'singlefile'),
+        ('media', 'media'),
+        ('archive_org', 'archive_org'),
+        ('readability', 'readability'),
+        ('mercury', 'mercury'),
+        ('favicon', 'favicon'),
+        ('pdf', 'pdf'),
+        ('headers', 'headers'),
+        ('screenshot', 'screenshot'),
+        ('dom', 'dom'),
+        ('title', 'title'),
+        ('wget', 'wget'),
+    )
+    STATUS_CHOICES = [
+        ("succeeded", "succeeded"),
+        ("failed", "failed"),
+        ("skipped", "skipped")
+    ]
 
     old_id = models.BigIntegerField(default=rand_int_id, serialize=False, verbose_name='Old ID')
 

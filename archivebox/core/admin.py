@@ -180,12 +180,8 @@ class SnapshotActionForm(ActionForm):
     )
 
     # TODO: allow selecting actions for specific extractors? is this useful?
-    # EXTRACTOR_CHOICES = [
-    #     (name, name.title())
-    #     for name, _, _ in get_default_archive_methods()
-    # ]
     # extractor = forms.ChoiceField(
-    #     choices=EXTRACTOR_CHOICES,
+    #     choices=ArchiveResult.EXTRACTOR_CHOICES,
     #     required=False,
     #     widget=forms.MultileChoiceField(attrs={'class': "form-control"})
     # )
