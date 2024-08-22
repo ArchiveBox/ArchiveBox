@@ -135,30 +135,6 @@ services:
     #     - ./etc/dnsmasq:/etc/dnsmasq.d
 
 
-    ### Example: Enable ability to run regularly scheduled archiving tasks by uncommenting this container
-    #   $ docker compose run archivebox schedule --every=day --depth=1 'https://example.com/some/rss/feed.xml'
-    # then restart the scheduler container to apply the changes to the schedule
-    #   $ docker compose restart archivebox_scheduler
-
-    # archivebox_scheduler:
-    #    image: archivebox/archivebox:latest
-    #    command: schedule --foreground
-    #    environment:
-    #        - MEDIA_MAX_SIZE=750m               # increase this number to allow archiving larger audio/video files
-    #        # - TIMEOUT=60                      # increase if you see timeouts often during archiving / on slow networks
-    #        # - ONLY_NEW=True                   # set to False to retry previously failed URLs when re-adding instead of skipping them
-    #        # - CHECK_SSL_VALIDITY=True         # set to False to allow saving URLs w/ broken SSL certs
-    #        # - SAVE_ARCHIVE_DOT_ORG=True       # set to False to disable submitting URLs to Archive.org when archiving
-    #        # - PUID=502                        # set to your host user's UID & GID if you encounter permissions issues
-    #        # - PGID=20
-    #    volumes:
-    #        - ./data:/data
-    #        - ./etc/crontabs:/var/spool/cron/crontabs
-    #    # cpus: 2                               # uncomment / edit these values to limit container resource consumption
-    #    # mem_limit: 2048m
-    #    # shm_size: 1024m
-
-
     ### Example: Put Nginx in front of the ArchiveBox server for SSL termination
 
     # nginx:
@@ -186,6 +162,15 @@ services:
     #   volumes:
     #     - /lib/modules:/lib/modules
     #     - ./wireguard.conf:/config/wg0.conf:ro
+
+    ### Example: Run ChangeDetection.io to watch for changes to websites, then trigger ArchiveBox to archive them
+    # Documentation: https://github.com/dgtlmoon/changedetection.io
+    # More info: https://github.com/dgtlmoon/changedetection.io/blob/master/docker-compose.yml
+
+    # changedetection:
+    #     image: ghcr.io/dgtlmoon/changedetection.io
+    #     volumes:
+    #         - ./data-changedetection:/datastore
 
 
     ### Example: Run PYWB in parallel and auto-import WARCs from ArchiveBox
