@@ -27,7 +27,7 @@ def get_api_token(request, auth_data: PasswordAuthSchema):
 
     if user:
         # TODO: support multiple tokens in the future, for now we just have one per user
-        api_token, created = APIToken.objects.get_or_create(user=user)
+        api_token, created = APIToken.objects.get_or_create(created_by_id=user.pk)
 
         return api_token.__json__()
     
