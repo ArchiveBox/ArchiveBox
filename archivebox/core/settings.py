@@ -317,6 +317,13 @@ STORAGES = {
 SECRET_KEY = CONFIG.SECRET_KEY or get_random_string(50, 'abcdefghijklmnopqrstuvwxyz0123456789_')
 
 ALLOWED_HOSTS = CONFIG.ALLOWED_HOSTS.split(',')
+CSRF_TRUSTED_ORIGINS = CONFIG.CSRF_TRUSTED_ORIGINS.split(',')
+
+# automatically fix case when user sets ALLOWED_HOSTS (e.g. to archivebox.example.com)
+# but forgets to add https://archivebox.example.com to CSRF_TRUSTED_ORIGINS
+if CONFIG.ALLOWED_HOSTS != '*' and (not CSRF_TRUSTED_ORIGINS):
+    for hostname in ALLOWED_HOSTS:
+        CSRF_TRUSTED_ORIGINS.append(f'https://{hostname}')
 
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
