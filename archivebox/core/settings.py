@@ -34,22 +34,20 @@ APPEND_SLASH = True
 DEBUG = CONFIG.DEBUG or ('--debug' in sys.argv)
 
 
-# add plugins folders to system path, and load plugins in installed_apps
-BUILTIN_PLUGINS_DIR = CONFIG.PACKAGE_DIR / 'plugins'
-USER_PLUGINS_DIR = CONFIG.OUTPUT_DIR / 'plugins'
-sys.path.insert(0, str(BUILTIN_PLUGINS_DIR))
-sys.path.insert(0, str(USER_PLUGINS_DIR))
+BUILTIN_PLUGINS_DIR = CONFIG.PACKAGE_DIR / 'builtin_plugins'
+USER_PLUGINS_DIR = CONFIG.OUTPUT_DIR / 'user_plugins'
 
-def find_plugins(plugins_dir):
-    return {
-        # plugin_entrypoint.parent.name: import_module(plugin_entrypoint.parent.name).METADATA
-        plugin_entrypoint.parent.name: plugin_entrypoint.parent
+def find_plugins(plugins_dir, prefix: str) -> Dict[str, Any]:
+    plugins = {
+        f'{prefix}.{plugin_entrypoint.parent.name}': plugin_entrypoint.parent
         for plugin_entrypoint in plugins_dir.glob('*/apps.py')
     }
+    # print(f'Found {prefix} plugins:\n', '\n    '.join(plugins.keys()))
+    return plugins
 
 INSTALLED_PLUGINS = {
-    **find_plugins(BUILTIN_PLUGINS_DIR),
-    **find_plugins(USER_PLUGINS_DIR),
+    **find_plugins(BUILTIN_PLUGINS_DIR, prefix='builtin_plugins'),
+    **find_plugins(USER_PLUGINS_DIR, prefix='user_plugins'),
 }
 
 
@@ -67,11 +65,11 @@ INSTALLED_APPS = [
     'plugantic',
     'core',
     'api',
+    'pkgs',
 
     *INSTALLED_PLUGINS.keys(),
 
     'admin_data_views',
-
     'django_extensions',
 ]
 

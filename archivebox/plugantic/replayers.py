@@ -22,5 +22,4 @@ class Replayer(BaseModel):
     # thumbnail_view: LazyImportStr = 'plugins.generic_replayer.views.get_icon'
 
 
-GENERIC_REPLAYER = Replayer(name='generic')
 MEDIA_REPLAYER = Replayer(name='media')

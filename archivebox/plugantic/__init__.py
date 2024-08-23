@@ -1,6 +1,5 @@
 __package__ = 'archivebox.plugantic'
 
-from .binproviders import BinProvider
 from .binaries import Binary
 from .extractors import Extractor
 from .replayers import Replayer

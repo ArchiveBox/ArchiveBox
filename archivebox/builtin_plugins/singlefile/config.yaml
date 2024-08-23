@@ -1,0 +1,66 @@
+name: singlefile
+plugin_version: '0.0.1'
+plugin_spec: '0.0.1'
+
+binaries:
+    singlefile:
+        providers:
+            - env
+            - npm
+
+commands:
+    - singlefile.exec
+    - singlefile.extract
+    - singlefile.should_extract
+    - singlefile.get_output_path
+
+extractors:
+    singlefile:
+        binary: singlefile
+        test: singlefile.should_extract
+        extract: singlefile.extract
+        output_files:
+            - singlefile.html
+
+configs:
+    ARCHIVE_METHOD_TOGGLES:
+        SAVE_SINGLEFILE:
+            type: bool
+            default: true
+
+    DEPENDENCY_CONFIG:
+        SINGLEFILE_BINARY:
+            type: str
+            default: wget
+        SINGLEFILE_ARGS:
+            type: Optional[List[str]]
+            default: null
+        SINGLEFILE_EXTRA_ARGS:
+            type: List[str]
+            default: []
+        SINGLEFILE_DEFAULT_ARGS:
+            type: List[str]
+            default: 
+            - "--timeout={TIMEOUT-10}"
+
+    ARCHIVE_METHOD_OPTIONS:
+        SINGLEFILE_USER_AGENT:
+            type: str
+            default: ""
+            alias: USER_AGENT
+        SINGLEFILE_TIMEOUT:
+            type: int
+            default: 60
+            alias: TIMEOUT
+        SINGLEFILE_CHECK_SSL_VALIDITY:
+            type: bool
+            default: true
+            alias: CHECK_SSL_VALIDITY
+        SINGLEFILE_RESTRICT_FILE_NAMES:
+            type: str
+            default: windows
+            alias: RESTRICT_FILE_NAMES
+        SINGLEFILE_COOKIES_FILE:
+            type: Optional[Path]
+            default: null
+            alias: COOKIES_FILE
