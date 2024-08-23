@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from dateparser import parse as dateparser
 from requests.exceptions import RequestException, ReadTimeout
 
-from .vendor.base32_crockford import encode as base32_encode                            # type: ignore
+from base32_crockford import encode as base32_encode                            # type: ignore
 from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
 from os.path import lexists
 from os import remove as remove_file

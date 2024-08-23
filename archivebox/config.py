@@ -52,6 +52,11 @@ from .config_stubs import (
     ConfigDefaultDict,
 )
 
+# load fallback libraries from vendor dir
+from .vendor import load_vendored_libs
+load_vendored_libs()
+
+
 
 ############################### Config Schema ##################################
 
