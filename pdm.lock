@@ -5,7 +5,7 @@
 groups = ["default", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:f2f7ca01f2e18a1ef07d59b7a8985d89785a4b8a2a4e66452f1f9e8e8ad529ad"
+content_hash = "sha256:03053ff03bfbdff2dbe3b39957cdeee5e530f350a8c31efe11fe9fb98c4fd8ec"
 
 [[metadata.targets]]
 requires_python = "==3.10.*"
@@ -737,6 +737,23 @@ files = [
     {file = "pydantic_core-2.20.1-pp310-pypy310_pp73-macosx_11_0_arm64.whl", hash = "sha256:d02a72df14dfdbaf228424573a07af10637bd490f0901cee872c4f434a735b94"},
     {file = "pydantic_core-2.20.1-pp310-pypy310_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:084659fac3c83fd674596612aeff6041a18402f1e1bc19ca39e417d554468482"},
     {file = "pydantic_core-2.20.1.tar.gz", hash = "sha256:26ca695eeee5f9f1aeeb211ffc12f10bcb6f71e2989988fda61dabd65db878d4"},
+]
+
+[[package]]
+name = "pydantic-pkgr"
+version = "0.1.4"
+requires_python = ">=3.10"
+summary = "System package manager APIs in strongly typed Python"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "pydantic-core>=2.18.2",
+    "pydantic>=2.7.1",
+    "typing-extensions>=4.11.0",
+]
+files = [
+    {file = "pydantic_pkgr-0.1.4-py3-none-any.whl", hash = "sha256:bd9ddfa8eeb4d361257c4d3d8d36ba44a72515b497ee52cf0763240c66006417"},
+    {file = "pydantic_pkgr-0.1.4.tar.gz", hash = "sha256:e0422022dd83341f1e869a54da9aca903a6407a983ece0735f69493841b0fbb8"},
 ]
 
 [[package]]
