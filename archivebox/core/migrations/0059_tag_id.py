@@ -50,7 +50,15 @@ def update_archiveresult_ids(apps, schema_editor):
     num_total = Tag.objects.all().count()
     print(f'   Updating {num_total} Tag.id, ArchiveResult.uuid values in place...')
     for idx, tag in enumerate(Tag.objects.all().iterator()):
-        assert tag.slug, f'Tag.slug must be defined! You have a Tag(id={tag.pk}) missing a slug!'
+        if not tag.slug:
+            tag.slug = tag.name.lower().replace(' ', '_')
+        if not tag.name:
+            tag.name = tag.slug
+        if not (tag.name or tag.slug):
+            tag.delete()
+            continue
+
+        assert tag.slug or tag.name, f'Tag.slug must be defined! You have a Tag(id={tag.pk}) missing a slug!'
         tag.abid_prefix = 'tag_'
         tag.abid_ts_src = 'self.created'
         tag.abid_uri_src = 'self.slug'
@@ -58,7 +66,7 @@ def update_archiveresult_ids(apps, schema_editor):
         tag.abid_rand_src = 'self.old_id'
         tag.abid = calculate_abid(tag)
         tag.id = tag.abid.uuid
-        tag.save(update_fields=["abid", "id"])
+        tag.save(update_fields=["abid", "id", "name", "slug"])
         assert str(ABID.parse(tag.abid).uuid) == str(tag.id)
         if idx % 10 == 0:
             print(f'Migrated {idx}/{num_total} Tag objects...')
