@@ -97,7 +97,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SECRET_KEY':                {'type': str,   'default': None},
         'BIND_ADDR':                 {'type': str,   'default': lambda c: ['127.0.0.1:8000', '0.0.0.0:8000'][c['IN_DOCKER']]},
         'ALLOWED_HOSTS':             {'type': str,   'default': '*'},     # e.g. archivebox.example.com,archivebox2.example.com
-        'CSRF_TRUSTED_ORIGINS':      {'type': str,   'default': ''},      # e.g. https://archivebox.example.com,https://archivebox2.example.com:8080
+        'CSRF_TRUSTED_ORIGINS':      {'type': str,   'default': lambda c: 'http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000,http://{}'.format(c['BIND_ADDR'])},   # e.g. https://archivebox.example.com,https://archivebox2.example.com:8080
         'DEBUG':                     {'type': bool,  'default': False},
         'PUBLIC_INDEX':              {'type': bool,  'default': True},
         'PUBLIC_SNAPSHOTS':          {'type': bool,  'default': True},
