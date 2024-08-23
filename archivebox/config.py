@@ -38,7 +38,7 @@ from hashlib import md5
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, Type, Tuple, Dict, Union, List, Any
-from subprocess import run, PIPE, DEVNULL
+from subprocess import run, PIPE, DEVNULL, STDOUT
 from configparser import ConfigParser
 from collections import defaultdict
 import importlib.metadata
