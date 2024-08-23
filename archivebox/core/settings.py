@@ -380,21 +380,21 @@ IGNORABLE_404_URLS = [
 ]
 
 class NoisyRequestsFilter(logging.Filter):
-    def filter(self, record):
+    def filter(self, record) -> bool:
         logline = record.getMessage()
 
         # ignore harmless 404s for the patterns in IGNORABLE_404_URLS
         for ignorable_url_pattern in IGNORABLE_404_URLS:
             ignorable_log_pattern = re.compile(f'^"GET /.*/?{ignorable_url_pattern.pattern[:-1]} HTTP/.*" (200|30.|404) .+$', re.I | re.M)
             if ignorable_log_pattern.match(logline):
-                return 0
+                return False
 
         # ignore staticfile requests that 200 or 30*
         ignoreable_200_log_pattern = re.compile(r'"GET /static/.* HTTP/.*" (200|30.) .+', re.I | re.M)
         if ignoreable_200_log_pattern.match(logline):
-            return 0
+            return False
 
-        return 1
+        return True
 
 if CONFIG.LOGS_DIR.exists():
     ERROR_LOG = (CONFIG.LOGS_DIR / 'errors.log')

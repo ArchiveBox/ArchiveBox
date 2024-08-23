@@ -886,7 +886,7 @@ def hint(text: Union[Tuple[str, ...], List[str], str], prefix='    ', config: Op
 
 
 # Dependency Metadata Helpers
-def bin_version(binary: Optional[str]) -> Optional[str]:
+def bin_version(binary: Optional[str], cmd: Optional[str]=None) -> Optional[str]:
     """check the presence and return valid version line of a specified binary"""
 
     abspath = bin_path(binary)
@@ -895,11 +895,22 @@ def bin_version(binary: Optional[str]) -> Optional[str]:
 
     try:
         bin_env = os.environ | {'LANG': 'C'}
-        version_str = run([abspath, "--version"], stdout=PIPE, env=bin_env).stdout.strip().decode()
+        is_cmd_str = cmd and isinstance(cmd, str)
+        version_str = run(cmd or [abspath, "--version"], shell=is_cmd_str, stdout=PIPE, stderr=STDOUT, env=bin_env).stdout.strip().decode()
         if not version_str:
-            version_str = run([abspath, "--version"], stdout=PIPE).stdout.strip().decode()
+            version_str = run(cmd or [abspath, "--version"], shell=is_cmd_str, stdout=PIPE, stderr=STDOUT).stdout.strip().decode()
+        
         # take first 3 columns of first line of version info
-        return ' '.join(version_str.split('\n')[0].strip().split()[:3])
+        version_ptn = re.compile(r"\d+?\.\d+?\.?\d*", re.MULTILINE)
+        try:
+            version_nums = version_ptn.findall(version_str.split('\n')[0])[0]
+            if version_nums:
+                return version_nums
+            else:
+                raise IndexError
+        except IndexError:
+            # take first 3 columns of first line of version info
+            return ' '.join(version_str.split('\n')[0].strip().split()[:3])
     except OSError:
         pass
         # stderr(f'[X] Unable to find working version of dependency: {binary}', color='red')
