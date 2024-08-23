@@ -31,8 +31,6 @@ import getpass
 import platform
 import shutil
 import requests
-import django
-from sqlite3 import dbapi2 as sqlite3
 
 from hashlib import md5
 from pathlib import Path
@@ -42,6 +40,11 @@ from subprocess import run, PIPE, DEVNULL, STDOUT
 from configparser import ConfigParser
 from collections import defaultdict
 import importlib.metadata
+
+from pydantic_pkgr import SemVer
+
+import django
+from django.db.backends.sqlite3.base import Database as sqlite3
 
 from .config_stubs import (
     AttrDict,
@@ -570,7 +573,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'PYTHON_VERSION':           {'default': lambda c: '{}.{}.{}'.format(*sys.version_info[:3])},
 
     'DJANGO_BINARY':            {'default': lambda c: inspect.getfile(django)},
-    'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{} {} ({})'.format(*django.VERSION)},
+    'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{}'.format(*django.VERSION[:3])},
     
     'SQLITE_BINARY':            {'default': lambda c: inspect.getfile(sqlite3)},
     'SQLITE_VERSION':           {'default': lambda c: sqlite3.version},
@@ -907,16 +910,9 @@ def bin_version(binary: Optional[str], cmd: Optional[str]=None) -> Optional[str]
             version_str = run(cmd or [abspath, "--version"], shell=is_cmd_str, stdout=PIPE, stderr=STDOUT).stdout.strip().decode()
         
         # take first 3 columns of first line of version info
-        version_ptn = re.compile(r"\d+?\.\d+?\.?\d*", re.MULTILINE)
-        try:
-            version_nums = version_ptn.findall(version_str.split('\n')[0])[0]
-            if version_nums:
-                return version_nums
-            else:
-                raise IndexError
-        except IndexError:
-            # take first 3 columns of first line of version info
-            return ' '.join(version_str.split('\n')[0].strip().split()[:3])
+        semver = SemVer.parse(version_str)
+        if semver:
+            return str(semver)
     except OSError:
         pass
         # stderr(f'[X] Unable to find working version of dependency: {binary}', color='red')
