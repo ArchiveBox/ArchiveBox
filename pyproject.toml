@@ -45,7 +45,7 @@ dependencies = [
     # archivebox will automatically load fallback vendored copies bundled via archivebox/vendor/__init__.py
     "pydantic-pkgr>=0.1.4",
     "atomicwrites==1.4.0",
-    "pocket==0.3.7",
+    "git+https://github.com/tapanpandita/pocket.git@v0.3.7",
     "django-taggit==1.3.0",
     "base32-crockford==0.3.0",
 ]
