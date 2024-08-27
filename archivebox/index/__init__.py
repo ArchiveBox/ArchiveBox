@@ -407,7 +407,7 @@ def snapshot_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type
 
 def get_indexed_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """indexed links without checking archive status or data directory validity"""
-    links = (snapshot.as_link() for snapshot in snapshots.iterator())
+    links = (snapshot.as_link() for snapshot in snapshots.iterator(chunk_size=500))
     return {
         link.link_dir: link
         for link in links
@@ -415,7 +415,7 @@ def get_indexed_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Option
 
 def get_archived_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """indexed links that are archived with a valid data directory"""
-    links = (snapshot.as_link() for snapshot in snapshots.iterator())
+    links = (snapshot.as_link() for snapshot in snapshots.iterator(chunk_size=500))
     return {
         link.link_dir: link
         for link in filter(is_archived, links)
@@ -423,7 +423,7 @@ def get_archived_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optio
 
 def get_unarchived_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """indexed links that are unarchived with no data directory or an empty data directory"""
-    links = (snapshot.as_link() for snapshot in snapshots.iterator())
+    links = (snapshot.as_link() for snapshot in snapshots.iterator(chunk_size=500))
     return {
         link.link_dir: link
         for link in filter(is_unarchived, links)
@@ -448,7 +448,7 @@ def get_present_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Option
 
 def get_valid_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """dirs with a valid index matched to the main index and archived content"""
-    links = [snapshot.as_link_with_details() for snapshot in snapshots.iterator()]
+    links = [snapshot.as_link_with_details() for snapshot in snapshots.iterator(chunk_size=500)]
     return {
         link.link_dir: link
         for link in filter(is_valid, links)
@@ -475,7 +475,7 @@ def get_duplicate_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Opti
             if entry.is_dir() and not snapshots.filter(timestamp=entry.name).exists()
     )
 
-    for path in chain(snapshots.iterator(), data_folders):
+    for path in chain(snapshots.iterator(chunk_size=500), data_folders):
         link = None
         if type(path) is not str:
             path = path.as_link().link_dir
@@ -518,7 +518,7 @@ def get_orphaned_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optio
 def get_corrupted_folders(snapshots, out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     """dirs that don't contain a valid index and aren't listed in the main index"""
     corrupted = {}
-    for snapshot in snapshots.iterator():
+    for snapshot in snapshots.iterator(chunk_size=500):
         link = snapshot.as_link()
         if is_corrupt(link):
             corrupted[link.link_dir] = link
