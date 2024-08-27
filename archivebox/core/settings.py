@@ -465,7 +465,7 @@ ADMIN_DATA_VIEWS = {
 ################################################################################
 
 # only enable debug toolbar when in DEBUG mode with --nothreading (it doesnt work in multithreaded mode)
-DEBUG_TOOLBAR = True
+DEBUG_TOOLBAR = False
 DEBUG_TOOLBAR = DEBUG_TOOLBAR and DEBUG and ('--nothreading' in sys.argv) and ('--reload' not in sys.argv)
 if DEBUG_TOOLBAR:
     try:
@@ -514,6 +514,7 @@ if DEBUG:
 # Must delete archivebox/templates/admin to use because it relies on some things we override
 # visit /__requests_tracker__/ to access
 DEBUG_REQUESTS_TRACKER = True
+DEBUG_REQUESTS_TRACKER = DEBUG_REQUESTS_TRACKER and DEBUG
 if DEBUG_REQUESTS_TRACKER:
     import requests_tracker
 
