@@ -273,8 +273,8 @@ def get_headers(url: str, timeout: int=None) -> str:
         {
             'URL': url,
             'Status-Code': response.status_code,
-            'Elapsed': response.elapsed,
-            'Encoding': response.encoding,
+            'Elapsed': response.elapsed.total_seconds()*1000,
+            'Encoding': str(response.encoding),
             'Apparent-Encoding': response.apparent_encoding,
             **dict(response.headers),
         },
