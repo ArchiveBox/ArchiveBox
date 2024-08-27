@@ -4,6 +4,7 @@ import os
 import sys
 import re
 import logging
+import inspect
 import tempfile
 from typing import Any, Dict
 
@@ -142,64 +143,6 @@ if CONFIG.LDAP:
         # dont hard exit here. in case the user is just running "archivebox version" or "archivebox help", we still want those to work despite broken ldap
         # sys.exit(1)
 
-
-################################################################################
-### Debug Settings
-################################################################################
-
-# only enable debug toolbar when in DEBUG mode with --nothreading (it doesnt work in multithreaded mode)
-DEBUG_TOOLBAR = DEBUG and ('--nothreading' in sys.argv) and ('--reload' not in sys.argv)
-if DEBUG_TOOLBAR:
-    try:
-        import debug_toolbar   # noqa
-        DEBUG_TOOLBAR = True
-    except ImportError:
-        DEBUG_TOOLBAR = False
-
-if DEBUG_TOOLBAR:
-    INSTALLED_APPS = [*INSTALLED_APPS, 'debug_toolbar']
-    INTERNAL_IPS = ['0.0.0.0', '127.0.0.1', '*']
-    DEBUG_TOOLBAR_CONFIG = {
-        "SHOW_TOOLBAR_CALLBACK": lambda request: True,
-        "RENDER_PANELS": True,
-    }
-    DEBUG_TOOLBAR_PANELS = [
-        'debug_toolbar.panels.history.HistoryPanel',
-        'debug_toolbar.panels.versions.VersionsPanel',
-        'debug_toolbar.panels.timer.TimerPanel',
-        'debug_toolbar.panels.settings.SettingsPanel',
-        'debug_toolbar.panels.headers.HeadersPanel',
-        'debug_toolbar.panels.request.RequestPanel',
-        'debug_toolbar.panels.sql.SQLPanel',
-        'debug_toolbar.panels.staticfiles.StaticFilesPanel',
-        # 'debug_toolbar.panels.templates.TemplatesPanel',
-        'debug_toolbar.panels.cache.CachePanel',
-        'debug_toolbar.panels.signals.SignalsPanel',
-        'debug_toolbar.panels.logging.LoggingPanel',
-        'debug_toolbar.panels.redirects.RedirectsPanel',
-        'debug_toolbar.panels.profiling.ProfilingPanel',
-        'djdt_flamegraph.FlamegraphPanel',
-    ]
-    MIDDLEWARE = [*MIDDLEWARE, 'debug_toolbar.middleware.DebugToolbarMiddleware']
-
-if DEBUG:
-    from django_autotyping.typing import AutotypingSettingsDict
-
-    INSTALLED_APPS += ['django_autotyping']
-    AUTOTYPING: AutotypingSettingsDict = {
-        "STUBS_GENERATION": {
-            "LOCAL_STUBS_DIR": Path(CONFIG.PACKAGE_DIR) / "typings",
-        }
-    }
-
-# https://github.com/bensi94/Django-Requests-Tracker (improved version of django-debug-toolbar)
-# Must delete archivebox/templates/admin to use because it relies on some things we override
-# visit /__requests_tracker__/ to access
-DEBUG_REQUESTS_TRACKER = False
-if DEBUG_REQUESTS_TRACKER:
-    INSTALLED_APPS += ["requests_tracker"]
-    MIDDLEWARE += ["requests_tracker.middleware.requests_tracker_middleware"]
-    INTERNAL_IPS = ["127.0.0.1", "10.0.2.2", "0.0.0.0", "*"]
 
 
 ################################################################################
@@ -346,6 +289,8 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+DATA_UPLOAD_MAX_NUMBER_FIELDS = None
+
 ################################################################################
 ### Shell Settings
 ################################################################################
@@ -386,6 +331,10 @@ IGNORABLE_404_URLS = [
     re.compile(r'robots\.txt$'),
     re.compile(r'.*\.(css|js)\.map$'),
 ]
+IGNORABLE_200_URLS = [
+    re.compile(r'^"GET /static/.* HTTP/.*" (200|30.) .+', re.I | re.M),
+    re.compile(r'^"GET /admin/jsi18n/ HTTP/.*" (200|30.) .+', re.I | re.M),
+]
 
 class NoisyRequestsFilter(logging.Filter):
     def filter(self, record) -> bool:
@@ -397,19 +346,26 @@ class NoisyRequestsFilter(logging.Filter):
             if ignorable_log_pattern.match(logline):
                 return False
 
-        # ignore staticfile requests that 200 or 30*
-        ignoreable_200_log_pattern = re.compile(r'"GET /static/.* HTTP/.*" (200|30.) .+', re.I | re.M)
-        if ignoreable_200_log_pattern.match(logline):
-            return False
+            ignorable_log_pattern = re.compile(f'^Not Found: /.*/?{ignorable_url_pattern.pattern}', re.I | re.M)
+            if ignorable_log_pattern.match(logline):
+                return False
 
+        # ignore staticfile requests that 200 or 30*
+        for ignorable_url_pattern in IGNORABLE_200_URLS:
+            if ignorable_log_pattern.match(logline):
+                return False
+            
         return True
+
+
+ERROR_LOG = tempfile.NamedTemporaryFile().name
 
 if CONFIG.LOGS_DIR.exists():
     ERROR_LOG = (CONFIG.LOGS_DIR / 'errors.log')
 else:
     # historically too many edge cases here around creating log dir w/ correct permissions early on
     # if there's an issue on startup, we trash the log and let user figure it out via stdout/stderr
-    ERROR_LOG = tempfile.NamedTemporaryFile().name
+    print(f'[!] WARNING: data/logs dir does not exist. Logging to temp file: {ERROR_LOG}')
 
 LOGGING = {
     'version': 1,
@@ -446,6 +402,10 @@ LOGGING = {
 }
 
 
+################################################################################
+### REST API Outbound Webhooks settings
+################################################################################
+
 # Add default webhook configuration to the User model
 SIGNAL_WEBHOOKS_CUSTOM_MODEL = 'api.models.OutboundWebhook'
 SIGNAL_WEBHOOKS = {
@@ -459,7 +419,9 @@ SIGNAL_WEBHOOKS = {
     },
 }
 
-DATA_UPLOAD_MAX_NUMBER_FIELDS = None
+################################################################################
+### Admin Data View Settings
+################################################################################
 
 ADMIN_DATA_VIEWS = {
     "NAME": "Environment",
@@ -496,3 +458,85 @@ ADMIN_DATA_VIEWS = {
         },
     ],
 }
+
+
+################################################################################
+### Debug Settings
+################################################################################
+
+# only enable debug toolbar when in DEBUG mode with --nothreading (it doesnt work in multithreaded mode)
+DEBUG_TOOLBAR = True
+DEBUG_TOOLBAR = DEBUG_TOOLBAR and DEBUG and ('--nothreading' in sys.argv) and ('--reload' not in sys.argv)
+if DEBUG_TOOLBAR:
+    try:
+        import debug_toolbar   # noqa
+        DEBUG_TOOLBAR = True
+    except ImportError:
+        DEBUG_TOOLBAR = False
+
+if DEBUG_TOOLBAR:
+    INSTALLED_APPS = [*INSTALLED_APPS, 'debug_toolbar']
+    INTERNAL_IPS = ['0.0.0.0', '127.0.0.1', '*']
+    DEBUG_TOOLBAR_CONFIG = {
+        "SHOW_TOOLBAR_CALLBACK": lambda request: True,
+        "RENDER_PANELS": True,
+    }
+    DEBUG_TOOLBAR_PANELS = [
+        'debug_toolbar.panels.history.HistoryPanel',
+        'debug_toolbar.panels.versions.VersionsPanel',
+        'debug_toolbar.panels.timer.TimerPanel',
+        'debug_toolbar.panels.settings.SettingsPanel',
+        'debug_toolbar.panels.headers.HeadersPanel',
+        'debug_toolbar.panels.request.RequestPanel',
+        'debug_toolbar.panels.sql.SQLPanel',
+        'debug_toolbar.panels.staticfiles.StaticFilesPanel',
+        # 'debug_toolbar.panels.templates.TemplatesPanel',
+        'debug_toolbar.panels.cache.CachePanel',
+        'debug_toolbar.panels.signals.SignalsPanel',
+        'debug_toolbar.panels.logging.LoggingPanel',
+        'debug_toolbar.panels.redirects.RedirectsPanel',
+        'debug_toolbar.panels.profiling.ProfilingPanel',
+        'djdt_flamegraph.FlamegraphPanel',
+    ]
+    MIDDLEWARE = [*MIDDLEWARE, 'debug_toolbar.middleware.DebugToolbarMiddleware']
+
+if DEBUG:
+    from django_autotyping.typing import AutotypingSettingsDict
+
+    INSTALLED_APPS += ['django_autotyping']
+    AUTOTYPING: AutotypingSettingsDict = {
+        "STUBS_GENERATION": {
+            "LOCAL_STUBS_DIR": Path(CONFIG.PACKAGE_DIR) / "typings",
+        }
+    }
+
+# https://github.com/bensi94/Django-Requests-Tracker (improved version of django-debug-toolbar)
+# Must delete archivebox/templates/admin to use because it relies on some things we override
+# visit /__requests_tracker__/ to access
+DEBUG_REQUESTS_TRACKER = True
+if DEBUG_REQUESTS_TRACKER:
+    import requests_tracker
+
+    INSTALLED_APPS += ["requests_tracker"]
+    MIDDLEWARE += ["requests_tracker.middleware.requests_tracker_middleware"]
+    INTERNAL_IPS = ["127.0.0.1", "10.0.2.2", "0.0.0.0", "*"]
+
+    TEMPLATE_DIRS.insert(0, str(Path(inspect.getfile(requests_tracker)).parent / "templates"))
+
+    REQUESTS_TRACKER_CONFIG = {
+        "TRACK_SQL": True,
+        "ENABLE_STACKTRACES": False,
+        "IGNORE_PATHS_PATTERNS": (
+            r".*/favicon\.ico",
+            r".*\.png",
+            r"/admin/jsi18n/",
+        ),
+        "IGNORE_SQL_PATTERNS": (
+            r"^SELECT .* FROM django_migrations WHERE app = 'requests_tracker'",
+            r"^SELECT .* FROM django_migrations WHERE app = 'auth'",
+        ),
+    }
+
+# https://docs.pydantic.dev/logfire/integrations/django/ (similar to DataDog / NewRelic / etc.)
+DEBUG_LOGFIRE = False
+DEBUG_LOGFIRE = DEBUG_LOGFIRE and (Path(CONFIG.OUTPUT_DIR) / '.logfire').is_dir()

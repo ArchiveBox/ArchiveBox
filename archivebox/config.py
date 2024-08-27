@@ -1525,5 +1525,17 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             assert sql_index_path.exists(), (
                 f'No database file {SQL_INDEX_FILENAME} found in: {config["OUTPUT_DIR"]} (Are you in an ArchiveBox collection directory?)')
 
+
+            # https://docs.pydantic.dev/logfire/integrations/django/ Logfire Debugging
+            if settings.DEBUG_LOGFIRE:
+                from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
+                SQLite3Instrumentor().instrument()
+
+                import logfire
+
+                logfire.configure()
+                logfire.instrument_django(is_sql_commentor_enabled=True)
+                logfire.info(f'Started ArchiveBox v{CONFIG.VERSION}', argv=sys.argv)
+
     except KeyboardInterrupt:
         raise SystemExit(2)
