@@ -700,17 +700,23 @@ class ArchiveResultAdmin(ABIDModelAdmin):
     def output_summary(self, result):
         snapshot_dir = Path(CONFIG.OUTPUT_DIR) / str(result.pwd).split('data/', 1)[-1]
         output_str = format_html(
-            '<pre style="display: inline-block">{}</pre><br/>',
+            '<pre style="display: block; max-width: 75vw; white-space: pre-line;">{}</pre><br/>',
             result.output,
         )
         output_str += format_html('<a href="/archive/{}/index.html#all">See result files ...</a><br/><pre><code>', str(result.snapshot.timestamp))
         path_from_output_str = (snapshot_dir / result.output)
         output_str += format_html('<i style="padding: 1px">{}</i><b style="padding-right: 20px">/</b><i>{}</i><br/><hr/>', str(snapshot_dir), str(result.output))
-        if path_from_output_str.exists():
+        
+        path_exists = False
+        try:
+            path_exists = path_from_output_str.exists()
+        except OSError:
+            pass
+
+        if path_exists:
             root_dir = str(path_from_output_str)
         else:
             root_dir = str(snapshot_dir)
-
 
         # print(root_dir, str(list(os.walk(root_dir))))
 
