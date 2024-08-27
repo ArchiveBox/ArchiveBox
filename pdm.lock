@@ -5,7 +5,7 @@
 groups = ["default", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:03053ff03bfbdff2dbe3b39957cdeee5e530f350a8c31efe11fe9fb98c4fd8ec"
+content_hash = "sha256:c6aa1f436032d18d079a4c2e9d9b95a5110579eb96a449751bfaf4d472eba401"
 
 [[metadata.targets]]
 requires_python = "==3.10.*"
@@ -76,6 +76,29 @@ dependencies = [
 files = [
     {file = "asttokens-2.4.1-py2.py3-none-any.whl", hash = "sha256:051ed49c3dcae8913ea7cd08e46a606dba30b79993209636c4875bc1d637bc24"},
     {file = "asttokens-2.4.1.tar.gz", hash = "sha256:b03869718ba9a6eb027e134bfdf69f38a236d681c83c160d510768af11254ba0"},
+]
+
+[[package]]
+name = "atomicwrites"
+version = "1.4.0"
+requires_python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+summary = "Atomic file writes."
+groups = ["default"]
+marker = "python_version == \"3.10\""
+files = [
+    {file = "atomicwrites-1.4.0-py2.py3-none-any.whl", hash = "sha256:6d1784dea7c0c8d4a5172b6c620f40b6e4cbfdf96d783691f2e1302a7b88e197"},
+    {file = "atomicwrites-1.4.0.tar.gz", hash = "sha256:ae70396ad1a434f9c7046fd2dd196fc04b12f9e91ffb859164193be8b6168a7a"},
+]
+
+[[package]]
+name = "base32-crockford"
+version = "0.3.0"
+summary = "A Python implementation of Douglas Crockford's base32 encoding scheme"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+files = [
+    {file = "base32-crockford-0.3.0.tar.gz", hash = "sha256:115f5bd32ae32b724035cb02eb65069a8824ea08c08851eb80c8b9f63443a969"},
+    {file = "base32_crockford-0.3.0-py2.py3-none-any.whl", hash = "sha256:295ef5ffbf6ed96b6e739ffd36be98fa7e90a206dd18c39acefb15777eedfe6e"},
 ]
 
 [[package]]
@@ -408,6 +431,21 @@ files = [
 ]
 
 [[package]]
+name = "django-taggit"
+version = "1.3.0"
+requires_python = ">=3.5"
+summary = "django-taggit is a reusable Django application for simple tagging."
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "Django>=1.11",
+]
+files = [
+    {file = "django-taggit-1.3.0.tar.gz", hash = "sha256:4a833bf71f4c2deddd9745924eee53be1c075d7f0020a06f12e29fa3d752732d"},
+    {file = "django_taggit-1.3.0-py3-none-any.whl", hash = "sha256:609b0223d8a652f3fae088b7fd29f294fdadaca2d7931d45c27d6c59b02fdf31"},
+]
+
+[[package]]
 name = "exceptiongroup"
 version = "1.2.2"
 requires_python = ">=3.7"
@@ -498,14 +536,14 @@ files = [
 
 [[package]]
 name = "idna"
-version = "3.7"
-requires_python = ">=3.5"
+version = "3.8"
+requires_python = ">=3.6"
 summary = "Internationalized Domain Names in Applications (IDNA)"
 groups = ["default"]
 marker = "python_version == \"3.10\""
 files = [
-    {file = "idna-3.7-py3-none-any.whl", hash = "sha256:82fee1fc78add43492d3a1898bfa6d8a904cc97d8427f683ed8e798d07761aa0"},
-    {file = "idna-3.7.tar.gz", hash = "sha256:028ff3aadf0609c1fd278d8ea3089299412a7a8b9bd005dd08b9f8285bcb5cfc"},
+    {file = "idna-3.8-py3-none-any.whl", hash = "sha256:050b4e5baadcd44d760cedbd2b8e639f2ff89bbc7a5730fcc662954303377aac"},
+    {file = "idna-3.8.tar.gz", hash = "sha256:d838c2c0ed6fced7693d5e8ab8e734d5f8fda53a039c0164afb0b82e771e3603"},
 ]
 
 [[package]]
@@ -611,6 +649,32 @@ dependencies = [
 files = [
     {file = "pexpect-4.9.0-py2.py3-none-any.whl", hash = "sha256:7236d1e080e4936be2dc3e326cec0af72acf9212a7e1d060210e70a47e253523"},
     {file = "pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f"},
+]
+
+[[package]]
+name = "pocket"
+version = "0.3.7"
+git = "https://github.com/tapanpandita/pocket.git"
+ref = "v0.3.7"
+revision = "5a144438cc89bfc0ec94db960718ccf1f76468c1"
+summary = "api wrapper for getpocket.com"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "requests",
+]
+
+[[package]]
+name = "pocket"
+version = "0.3.7"
+git = "https://github.com/tapanpandita/pocket.git"
+ref = "v0.3.7"
+revision = "5a144438cc89bfc0ec94db960718ccf1f76468c1"
+summary = "api wrapper for getpocket.com"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "requests",
 ]
 
 [[package]]
