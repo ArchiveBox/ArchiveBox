@@ -197,7 +197,7 @@ def unsafe_wget_output_path(link: Link) -> Optional[str]:
 
 
 @enforce_types
-def wget_output_path(link: Link) -> Optional[str]:
+def wget_output_path(link: Link, nocache: bool=False) -> Optional[str]:
     """calculate the path to the wgetted .html file, since wget may
     adjust some paths to be different than the base_url path.
 
@@ -245,6 +245,15 @@ def wget_output_path(link: Link) -> Optional[str]:
     #    https://example.com/abc/test/?v=zzVa_tX1OiI
     #       > example.com/abc/test/index.html@v=zzVa_tX1OiI.html
 
+    cache_key = f'{link.url_hash}:{link.timestamp}-{link.updated and link.updated.timestamp()}-wget-output-path'
+    
+    if not nocache:
+        from django.core.cache import cache
+        cached_result = cache.get(cache_key)
+        if cached_result:
+            return cached_result
+
+
     # There's also lots of complexity around how the urlencoding and renaming
     # is done for pages with query and hash fragments, extensions like shtml / htm / php / etc,
     # unicode escape sequences, punycode domain names, unicode double-width characters, extensions longer than
@@ -271,6 +280,8 @@ def wget_output_path(link: Link) -> Optional[str]:
         output_path = None
 
     if output_path:
+        if not nocache:
+            cache.set(cache_key, output_path)
         return output_path
 
     # fallback to just the domain dir

@@ -103,7 +103,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'PUBLIC_SNAPSHOTS':          {'type': bool,  'default': True},
         'PUBLIC_ADD_VIEW':           {'type': bool,  'default': False},
         'FOOTER_INFO':               {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
-        'SNAPSHOTS_PER_PAGE':        {'type': int,   'default': 40},
+        'SNAPSHOTS_PER_PAGE':        {'type': int,   'default': 100},
         'CUSTOM_TEMPLATES_DIR':      {'type': str,   'default': None},
         'TIME_ZONE':                 {'type': str,   'default': 'UTC'},
         'TIMEZONE':                  {'type': str,   'default': 'UTC'},

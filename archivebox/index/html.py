@@ -124,7 +124,15 @@ def snapshot_icons(snapshot) -> str:
         from core.models import ArchiveResult
         # start = datetime.now(timezone.utc)
 
-        archive_results = snapshot.archiveresult_set.filter(status="succeeded", output__isnull=False)
+        if hasattr(snapshot, '_prefetched_objects_cache') and 'archiveresult_set' in snapshot._prefetched_objects_cache:
+            archive_results = [
+                result
+                for result in snapshot.archiveresult_set.all()
+                if result.status == "succeeded" and result.output
+            ]
+        else:
+            archive_results = snapshot.archiveresult_set.filter(status="succeeded", output__isnull=False)
+
         link = snapshot.as_link()
         path = link.archive_path
         canon = link.canonical_outputs()

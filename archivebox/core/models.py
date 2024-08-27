@@ -125,6 +125,12 @@ class SnapshotTag(models.Model):
         db_table = 'core_snapshot_tags'
         unique_together = [('snapshot', 'tag')]
 
+
+class SnapshotManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().prefetch_related('tags', 'archiveresult_set')  # .annotate(archiveresult_count=models.Count('archiveresult')).distinct()
+
+
 class Snapshot(ABIDModel):
     abid_prefix = 'snp_'
     abid_ts_src = 'self.added'
@@ -149,6 +155,8 @@ class Snapshot(ABIDModel):
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
 
     archiveresult_set: models.Manager['ArchiveResult']
+
+    objects = SnapshotManager()
 
     @property
     def uuid(self):
@@ -177,8 +185,7 @@ class Snapshot(ABIDModel):
     def as_json(self, *args) -> dict:
         args = args or self.keys
         return {
-            key: getattr(self, key)
-            if key != 'tags' else self.tags_str()
+            key: getattr(self, key) if key != 'tags' else self.tags_str(nocache=False)
             for key in args
         }
 
@@ -190,8 +197,14 @@ class Snapshot(ABIDModel):
         return load_link_details(self.as_link())
 
     def tags_str(self, nocache=True) -> str | None:
+        calc_tags_str = lambda: ','.join(sorted(tag.name for tag in self.tags.all()))
         cache_key = f'{self.pk}-{(self.updated or self.added).timestamp()}-tags'
-        calc_tags_str = lambda: ','.join(self.tags.order_by('name').values_list('name', flat=True))
+        
+        if hasattr(self, '_prefetched_objects_cache') and 'tags' in self._prefetched_objects_cache:
+            # tags are pre-fetched already, use them directly (best because db is always freshest)
+            tags_str = calc_tags_str()
+            return tags_str
+        
         if nocache:
             tags_str = calc_tags_str()
             cache.set(cache_key, tags_str)
@@ -234,7 +247,10 @@ class Snapshot(ABIDModel):
 
     @cached_property
     def num_outputs(self) -> int:
-        return self.archiveresult_set.filter(status='succeeded').count()
+        # DONT DO THIS: it will trigger a separate query for every snapshot
+        # return self.archiveresult_set.filter(status='succeeded').count()
+        # this is better:
+        return sum((1 for result in self.archiveresult_set.all() if result.status == 'succeeded'))
 
     @cached_property
     def base_url(self):
@@ -262,10 +278,21 @@ class Snapshot(ABIDModel):
 
     @cached_property
     def thumbnail_url(self) -> Optional[str]:
-        result = self.archiveresult_set.filter(
-            extractor='screenshot',
-            status='succeeded'
-        ).only('output').last()
+        if hasattr(self, '_prefetched_objects_cache') and 'archiveresult_set' in self._prefetched_objects_cache:
+            result = (sorted(
+                (
+                    result
+                    for result in self.archiveresult_set.all()
+                    if result.extractor == 'screenshot' and result.status =='succeeded' and result.output
+                ),
+                key=lambda result: result.created,
+            ) or [None])[-1]
+        else:
+            result = self.archiveresult_set.filter(
+                extractor='screenshot',
+                status='succeeded'
+            ).only('output').last()
+
         if result:
             return reverse('Snapshot', args=[f'{str(self.timestamp)}/{result.output}'])
         return None
@@ -292,6 +319,21 @@ class Snapshot(ABIDModel):
         if self.title:
             return self.title   # whoopdedoo that was easy
         
+        # check if ArchiveResult set has already been prefetched, if so use it instead of fetching it from db again
+        if hasattr(self, '_prefetched_objects_cache') and 'archiveresult_set' in self._prefetched_objects_cache:
+            try:
+                return (sorted(
+                    (
+                        result.output.strip()
+                        for result in self.archiveresult_set.all()
+                        if result.extractor == 'title' and result.status =='succeeded' and result.output
+                    ),
+                    key=lambda title: len(title),
+                ) or [None])[-1]
+            except IndexError:
+                pass
+        
+
         try:
             # take longest successful title from ArchiveResult db history
             return sorted(
@@ -355,12 +397,23 @@ class Snapshot(ABIDModel):
 
 class ArchiveResultManager(models.Manager):
     def indexable(self, sorted: bool = True):
+        """Return only ArchiveResults containing text suitable for full-text search (sorted in order of typical result quality)"""
+        
         INDEXABLE_METHODS = [ r[0] for r in ARCHIVE_METHODS_INDEXING_PRECEDENCE ]
-        qs = self.get_queryset().filter(extractor__in=INDEXABLE_METHODS,status='succeeded')
+        qs = self.get_queryset().filter(extractor__in=INDEXABLE_METHODS, status='succeeded')
 
         if sorted:
-            precedence = [ When(extractor=method, then=Value(precedence)) for method, precedence in ARCHIVE_METHODS_INDEXING_PRECEDENCE ]
-            qs = qs.annotate(indexing_precedence=Case(*precedence, default=Value(1000),output_field=IntegerField())).order_by('indexing_precedence')
+            precedence = [
+                When(extractor=method, then=Value(precedence))
+                for method, precedence in ARCHIVE_METHODS_INDEXING_PRECEDENCE
+            ]
+            qs = qs.annotate(
+                indexing_precedence=Case(
+                    *precedence,
+                    default=Value(1000),
+                    output_field=IntegerField()
+                )
+            ).order_by('indexing_precedence')
         return qs
 
 class ArchiveResult(ABIDModel):
