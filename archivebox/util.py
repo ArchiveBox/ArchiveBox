@@ -304,11 +304,7 @@ def chrome_args(**options) -> List[str]:
     cmd_args += CHROME_EXTRA_ARGS
 
     if options['CHROME_HEADLESS']:
-        chrome_major_version = int(re.search(r'\s(\d+)\.\d', CHROME_VERSION)[1])
-        if chrome_major_version >= 111:
-            cmd_args += ("--headless=new",)
-        else:
-            cmd_args += ('--headless',)
+        cmd_args += ("--headless=new",)   # expects chrome version >= 111
 
     if not options['CHROME_SANDBOX']:
         # assume this means we are running inside a docker container
