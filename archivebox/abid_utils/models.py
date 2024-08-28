@@ -61,6 +61,11 @@ def get_or_create_system_user_pk(username='system'):
     return user.pk
 
 
+class AutoDateTimeField(models.DateTimeField):
+    def pre_save(self, model_instance, add):
+        return timezone.now()
+
+
 class ABIDModel(models.Model):
     """
     Abstract Base Model for other models to depend on. Provides ArchiveBox ID (ABID) interface.
@@ -76,13 +81,16 @@ class ABIDModel(models.Model):
     abid = ABIDField(prefix=abid_prefix)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk)
-    created = models.DateTimeField(auto_now_add=True)
+    created = AutoDateTimeField(default=timezone.now, db_index=True)
     modified = models.DateTimeField(auto_now=True)
 
     class Meta(TypedModelMeta):
         abstract = True
 
     def save(self, *args: Any, **kwargs: Any) -> None:
+        if self._state.adding or not self.created:
+            self.created = timezone.now()
+
         # when first creating a row, self.ABID is the source of truth
         # overwrite default prefilled self.id & self.abid with generated self.ABID value
         if self._state.adding or not self.id:

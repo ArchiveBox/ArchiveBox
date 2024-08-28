@@ -12,6 +12,7 @@ from uuid import uuid4
 from pathlib import Path
 
 from django.db import models
+from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.core.cache import cache
@@ -19,7 +20,7 @@ from django.urls import reverse, reverse_lazy
 from django.db.models import Case, When, Value, IntegerField
 from django.conf import settings
 
-from abid_utils.models import ABIDModel, ABIDField
+from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
 
 from ..system import get_dir_size
 from ..util import parse_date, base_url
@@ -50,7 +51,7 @@ class Tag(ABIDModel):
     Based on django-taggit model + ABID base.
     """
     abid_prefix = 'tag_'
-    abid_ts_src = 'self.created'          # TODO: add created/modified time
+    abid_ts_src = 'self.created'
     abid_uri_src = 'self.slug'
     abid_subtype_src = '"03"'
     abid_rand_src = 'self.old_id'
@@ -59,7 +60,6 @@ class Tag(ABIDModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
     abid = ABIDField(prefix=abid_prefix)
-
 
     name = models.CharField(unique=True, blank=False, max_length=100)
     slug = models.SlugField(unique=True, blank=False, max_length=100, editable=False)
@@ -149,7 +149,7 @@ class Snapshot(ABIDModel):
     
     tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name='snapshot_set', through_fields=('snapshot', 'tag'))
 
-    added = models.DateTimeField(auto_now_add=True, db_index=True)
+    added = AutoDateTimeField(default=timezone.now, db_index=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True, db_index=True)
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
