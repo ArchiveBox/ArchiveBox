@@ -49,7 +49,7 @@ def update_archiveresult_ids(apps, schema_editor):
     Tag = apps.get_model("core", "Tag")
     num_total = Tag.objects.all().count()
     print(f'   Updating {num_total} Tag.id, ArchiveResult.uuid values in place...')
-    for idx, tag in enumerate(Tag.objects.all().iterator()):
+    for idx, tag in enumerate(Tag.objects.all().iterator(chunk_size=500)):
         if not tag.slug:
             tag.slug = tag.name.lower().replace(' ', '_')
         if not tag.name:

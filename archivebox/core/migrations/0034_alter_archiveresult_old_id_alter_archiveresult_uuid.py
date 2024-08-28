@@ -11,7 +11,7 @@ def update_archiveresult_ids(apps, schema_editor):
     ArchiveResult = apps.get_model("core", "ArchiveResult")
     num_total = ArchiveResult.objects.all().count()
     print(f'   Updating {num_total} ArchiveResult.id, ArchiveResult.uuid values in place... (may take an hour or longer for large collections...)')
-    for idx, result in enumerate(ArchiveResult.objects.all().only('abid').iterator()):
+    for idx, result in enumerate(ArchiveResult.objects.all().only('abid').iterator(chunk_size=500)):
         assert result.abid
         result.uuid = ABID.parse(result.abid).uuid
         result.save(update_fields=["uuid"])
