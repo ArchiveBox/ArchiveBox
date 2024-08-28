@@ -31,7 +31,7 @@ def no_empty_args(args: List[str]) -> List[str]:
     assert all(len(arg) for arg in args)
     return args
 
-ExtractorName = Literal['wget', 'warc', 'media']
+ExtractorName = Literal['wget', 'warc', 'media', 'singlefile'] | str
 
 HandlerFuncStr = Annotated[str, AfterValidator(lambda s: s.startswith('self.'))]
 CmdArgsList = Annotated[List[str], AfterValidator(no_empty_args)]
