@@ -13,7 +13,7 @@ version: '3.9'
 services:
     archivebox:
         #image: ${DOCKER_IMAGE:-archivebox/archivebox:dev}
-        image: archivebox/archivebox:sha-bc0b030
+        image: archivebox/archivebox:main
         command: server --quick-init 0.0.0.0:8000
         ports:
             - 8000:8000
