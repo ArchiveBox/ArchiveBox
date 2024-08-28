@@ -23,7 +23,7 @@ services:
             # - ./archivebox:/app/archivebox             # uncomment this to mount the ArchiveBox source code at runtime (for developers working on archivebox)
         # build: .                                       # uncomment this to build the image from source code at buildtime (for developers working on archivebox)
         environment:
-            - ALLOWED_HOSTS=*                   # restrict this to only accept incoming traffic via specific domain name
+         #   - ALLOWED_HOSTS=*                   # restrict this to only accept incoming traffic via specific domain name
             # - PUBLIC_INDEX=True               # set to False to prevent anonymous users from viewing snapshot list
             # - PUBLIC_SNAPSHOTS=True           # set to False to prevent anonymous users from viewing snapshot content
             # - PUBLIC_ADD_VIEW=False           # set to True to allow anonymous users to submit new URLs to archive
