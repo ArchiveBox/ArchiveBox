@@ -1,5 +1,6 @@
 __package__ = 'archivebox.pkgs'
 
+import os
 import sys
 import shutil
 import inspect
@@ -12,8 +13,9 @@ from django.db.backends.sqlite3.base import Database as sqlite3
 from pydantic_pkgr import Binary, BinProvider, BrewProvider, EnvProvider, SemVer
 from pydantic_pkgr.binprovider import bin_abspath
 
+from ..config import NODE_BIN_PATH, bin_path
 
-env = EnvProvider()
+env = EnvProvider(PATH=NODE_BIN_PATH + ':' + os.environ.get('PATH', '/bin'))
 
 
 LOADED_DEPENDENCIES = {}
@@ -51,6 +53,13 @@ for bin_key, dependency in settings.CONFIG.DEPENDENCIES.items():
                 'version': lambda: settings.CONFIG.VERSION,
             }
         })
+    elif bin_name.endswith('postlight/parser/cli.js'):
+        binary_spec = Binary(name='postlight-parser', providers=[env], provider_overrides={
+            'env': {
+                'abspath': lambda: bin_path('postlight-parser'),
+                'version': lambda: SemVer('1.0.0'),
+            }
+        })
     else:
         binary_spec = Binary(name=bin_name, providers=[env])
     
@@ -67,10 +76,10 @@ for bin_key, dependency in settings.CONFIG.DEPENDENCIES.items():
         assert str(binary.loaded_respath) == str(bin_abspath(dependency['path']).resolve()), f"Expected {bin_name} abspath {bin_abspath(dependency['path']).resolve()}, got {binary.loaded_respath}"
         assert binary.is_valid == dependency['is_valid'], f"Expected {bin_name} is_valid={dependency['is_valid']}, got {binary.is_valid}"
     except Exception as e:
-        print(f"Assertion error for {bin_name}: {e}")
-        import ipdb; ipdb.set_trace()
+        print(f"WARNING: Error loading {bin_name}: {e}")
+        # import ipdb; ipdb.set_trace()
     
-    print(f"- ✅ Binary {bin_name} loaded successfully")
+    # print(f"- ✅ Binary {bin_name} loaded successfully")
     LOADED_DEPENDENCIES[bin_key] = binary
 
 
