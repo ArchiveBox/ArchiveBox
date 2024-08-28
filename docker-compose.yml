@@ -16,7 +16,7 @@ services:
         image: archivebox/archivebox:sha-bc0b030
         command: server --quick-init 0.0.0.0:8000
         ports:
-            - 8000:8000
+            - 8000
         volumes:
             - ./data:/data
             # - ./etc/crontabs:/var/spool/cron/crontabs  # uncomment this and archivebox_scheduler below to set up automatic recurring archive jobs
