@@ -960,7 +960,8 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
         run_subcommand('init', stdin=None, pwd=out_dir)
 
     setup_django(out_dir=out_dir, check_db=True)
-    from core.models import User
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
 
     if not User.objects.filter(is_superuser=True).exists():
         stderr('\n[+] Creating new admin user for the Web UI...', color='green')
