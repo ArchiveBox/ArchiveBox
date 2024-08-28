@@ -12,11 +12,13 @@ version: '3.9'
 
 services:
     archivebox:
-        #image: ${DOCKER_IMAGE:-archivebox/archivebox:dev}
-        image: archivebox/archivebox:sha-9ecc2ff9
-        command: server --quick-init 0.0.0.0:8000
-        ports:
-            - 8000:8000
+      build:
+        context: .
+        dockerfile_inline: |
+          FROM archivebox/archivebox:sha-9c35f3dd
+          RUN echo 'CSRF_TRUSTED_ORIGINS = ["https://archivemain.techblognow.com"]' >> /app/archivebox/core/settings.py
+      command: server --quick-init 0.0.0.0:8000
+      container_name: archivebox
         volumes:
             - ./data:/data
             # - ./etc/crontabs:/var/spool/cron/crontabs  # uncomment this and archivebox_scheduler below to set up automatic recurring archive jobs
