@@ -144,7 +144,7 @@ exclude = [
     "**/migrations",
     "archivebox/vendor",
 ]
-stubPath = "./typings"
+stubPath = "./archivebox/typings"
 venvPath = "."
 venv = ".venv"
 # ignore = ["src/oldstuff"]
