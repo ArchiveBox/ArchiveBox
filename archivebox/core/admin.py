@@ -138,7 +138,7 @@ class AccelleratedPaginator(Paginator):
 
     @cached_property
     def count(self):
-        if self.object_list._has_filters():
+        if self.object_list._has_filters():                             # type: ignore
             # fallback to normal count method on filtered queryset
             return super().count
         else:
