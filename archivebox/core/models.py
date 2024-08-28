@@ -158,9 +158,6 @@ class Snapshot(ABIDModel):
 
     objects = SnapshotManager()
 
-    @property
-    def uuid(self):
-        return self.id
 
     def __repr__(self) -> str:
         title = (self.title_stripped or '-')[:64]
@@ -169,13 +166,6 @@ class Snapshot(ABIDModel):
     def __str__(self) -> str:
         title = (self.title_stripped or '-')[:64]
         return f'[{self.timestamp}] {self.url[:64]} ({title})'
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        try:
-            assert str(self.id) == str(self.ABID.uuid) == str(self.uuid), f'Snapshot.id ({self.id}) does not match .ABID.uuid ({self.ABID.uuid})'
-        except AssertionError as e:
-            print(e)
 
     @classmethod
     def from_json(cls, info: dict):
@@ -470,17 +460,6 @@ class ArchiveResult(ABIDModel):
 
     def __str__(self):
         return self.extractor
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        try:
-            assert str(self.id) == str(self.ABID.uuid) == str(self.uuid), f'ArchiveResult.id ({self.id}) does not match .ABID.uuid ({self.ABID.uuid})'
-        except AssertionError as e:
-            print(e)
-
-    @property
-    def uuid(self):
-        return self.id
 
     @cached_property
     def snapshot_dir(self):

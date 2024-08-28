@@ -91,4 +91,5 @@ class SinglefileConfig(AppConfig):
     verbose_name = 'SingleFile'
 
     def ready(self):
-        print('Loaded singlefile plugin')
+        pass
+        # print('Loaded singlefile plugin')
