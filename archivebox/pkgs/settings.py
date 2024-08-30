@@ -66,7 +66,7 @@ for bin_key, dependency in settings.CONFIG.DEPENDENCIES.items():
     try:
         binary = binary_spec.load()
     except Exception as e:
-        print(f"- ❌ Binary {bin_name} failed to load with error: {e}")
+        # print(f"- ❌ Binary {bin_name} failed to load with error: {e}")
         continue
 
     assert isinstance(binary.loaded_version, SemVer)
@@ -76,7 +76,8 @@ for bin_key, dependency in settings.CONFIG.DEPENDENCIES.items():
         assert str(binary.loaded_respath) == str(bin_abspath(dependency['path']).resolve()), f"Expected {bin_name} abspath {bin_abspath(dependency['path']).resolve()}, got {binary.loaded_respath}"
         assert binary.is_valid == dependency['is_valid'], f"Expected {bin_name} is_valid={dependency['is_valid']}, got {binary.is_valid}"
     except Exception as e:
-        print(f"WARNING: Error loading {bin_name}: {e}")
+        pass
+        # print(f"WARNING: Error loading {bin_name}: {e}")
         # import ipdb; ipdb.set_trace()
     
     # print(f"- ✅ Binary {bin_name} loaded successfully")

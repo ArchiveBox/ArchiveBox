@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pathlib import Path
 
 from django.apps import AppConfig
@@ -10,10 +10,14 @@ from pydantic import (
 )
 
 from pydantic_pkgr import BinProvider, BinName, Binary, EnvProvider, NpmProvider
+from pydantic_pkgr.binprovider import bin_abspath
+from pydantic_pkgr.binary import BinProviderName, ProviderLookupDict
 
 from plugantic.extractors import Extractor, ExtractorName
 from plugantic.plugins import Plugin
 from plugantic.configs import ConfigSet, ConfigSectionName
+
+from pkgs.settings import env
 
 
 ###################### Config ##########################
@@ -58,9 +62,23 @@ PLUGIN_CONFIG = [
 
 ###################### Binaries ############################
 
+min_version: str = "1.1.54"
+max_version: str = "2.0.0"
+
 class SinglefileBinary(Binary):
     name: BinName = 'single-file'
-    providers_supported: List[BinProvider] = [EnvProvider(), NpmProvider()]
+    providers_supported: List[BinProvider] = [NpmProvider()]
+
+
+    provider_overrides: Dict[BinProviderName, ProviderLookupDict] ={
+        'env': {
+            'abspath': lambda: bin_abspath('single-file-node.js', PATH=env.PATH) or bin_abspath('single-file', PATH=env.PATH),
+        },
+        'npm': {
+            # 'abspath': lambda: bin_abspath('single-file', PATH=NpmProvider().PATH) or bin_abspath('single-file', PATH=env.PATH),
+            'subdeps': lambda: f'single-file-cli@>={min_version} <{max_version}',
+        },
+    }
 
 
 ###################### Extractors ##########################

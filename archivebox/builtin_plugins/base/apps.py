@@ -13,7 +13,7 @@ from pydantic import (
     SerializeAsAny,
 )
 
-from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName, Binary, EnvProvider, NpmProvider
+from pydantic_pkgr import SemVer, BinProvider, BinProviderName, ProviderLookupDict, BinName, Binary, EnvProvider, NpmProvider
 
 from plugantic.extractors import Extractor, ExtractorName
 from plugantic.plugins import Plugin
@@ -42,11 +42,12 @@ class SqliteBinary(Binary):
     provider_overrides:  Dict[BinProviderName, ProviderLookupDict] = {
         'env': {
             'abspath': \
-                lambda: inspect.getfile(sqlite3),
+                lambda: Path(inspect.getfile(sqlite3)),
             'version': \
-                lambda: sqlite3.version,
+                lambda: SemVer(sqlite3.version),
         },
     }
+
 
 class DjangoBinary(Binary):
     name: BinName = 'django'
