@@ -66,7 +66,7 @@ INSTALLED_APPS = [
     'plugantic',
     'core',
     'api',
-    'pkgs',
+    'pkg',
 
     *INSTALLED_PLUGINS.keys(),
 

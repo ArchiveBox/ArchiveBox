@@ -1,11 +1,11 @@
-__package__ = 'archivebox.pkgs'
+__package__ = 'archivebox.pkg'
 
 from django.apps import AppConfig
 
 
 class PkgsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'pkgs'
+    name = 'pkg'
 
     def ready(self):
         from .settings import LOADED_DEPENDENCIES

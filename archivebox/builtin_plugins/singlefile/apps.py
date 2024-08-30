@@ -17,7 +17,7 @@ from plugantic.extractors import Extractor, ExtractorName
 from plugantic.plugins import Plugin
 from plugantic.configs import ConfigSet, ConfigSectionName
 
-from pkgs.settings import env
+from pkg.settings import env
 
 
 ###################### Config ##########################

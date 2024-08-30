@@ -1,4 +1,4 @@
-__package__ = 'archivebox.pkgs'
+__package__ = 'archivebox.pkg'
 
 import os
 import sys
