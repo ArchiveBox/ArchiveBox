@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from dateparser import parse as dateparser
 from requests.exceptions import RequestException, ReadTimeout
 
-from .vendor.base32_crockford import encode as base32_encode                            # type: ignore
+from base32_crockford import encode as base32_encode                            # type: ignore
 from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
 from os.path import lexists
 from os import remove as remove_file
@@ -273,8 +273,8 @@ def get_headers(url: str, timeout: int=None) -> str:
         {
             'URL': url,
             'Status-Code': response.status_code,
-            'Elapsed': response.elapsed,
-            'Encoding': response.encoding,
+            'Elapsed': response.elapsed.total_seconds()*1000,
+            'Encoding': str(response.encoding),
             'Apparent-Encoding': response.apparent_encoding,
             **dict(response.headers),
         },
@@ -304,11 +304,7 @@ def chrome_args(**options) -> List[str]:
     cmd_args += CHROME_EXTRA_ARGS
 
     if options['CHROME_HEADLESS']:
-        chrome_major_version = int(re.search(r'\s(\d+)\.\d', CHROME_VERSION)[1])
-        if chrome_major_version >= 111:
-            cmd_args += ("--headless=new",)
-        else:
-            cmd_args += ('--headless',)
+        cmd_args += ("--headless=new",)   # expects chrome version >= 111
 
     if not options['CHROME_SANDBOX']:
         # assume this means we are running inside a docker container

@@ -10,12 +10,15 @@ from datetime import datetime, timezone
 from typing import Dict, Any
 
 from django.contrib import admin
-from django.db.models import Count, Q
-from django.urls import path, reverse
+from django.db.models import Count, Q, Prefetch
+from django.urls import path, reverse, resolve
+from django.utils import timezone
+from django.utils.functional import cached_property
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
+from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django import forms
@@ -126,22 +129,99 @@ archivebox_admin.get_admin_data_urls = get_admin_data_urls.__get__(archivebox_ad
 archivebox_admin.get_urls = get_urls(archivebox_admin.get_urls).__get__(archivebox_admin, ArchiveBoxAdmin)
 
 
+class AccelleratedPaginator(Paginator):
+    """
+    Accellerated Pagniator ignores DISTINCT when counting total number of rows.
+    Speeds up SELECT Count(*) on Admin views by >20x.
+    https://hakibenita.com/optimizing-the-django-admin-paginator
+    """
+
+    @cached_property
+    def count(self):
+        if self.object_list._has_filters():                             # type: ignore
+            # fallback to normal count method on filtered queryset
+            return super().count
+        else:
+            # otherwise count total rows in a separate fast query
+            return self.object_list.model.objects.count()
+    
+        # Alternative approach for PostgreSQL: fallback count takes > 200ms
+        # from django.db import connection, transaction, OperationalError
+        # with transaction.atomic(), connection.cursor() as cursor:
+        #     cursor.execute('SET LOCAL statement_timeout TO 200;')
+        #     try:
+        #         return super().count
+        #     except OperationalError:
+        #         return 9999999999999
+
+
 class ArchiveResultInline(admin.TabularInline):
     name = 'Archive Results Log'
     model = ArchiveResult
+    parent_model = Snapshot
     # fk_name = 'snapshot'
-    extra = 1
-    readonly_fields = ('result_id', 'start_ts', 'end_ts', 'extractor', 'command', 'cmd_version')
-    fields = ('id', *readonly_fields, 'status', 'output')
+    extra = 0
+    sort_fields = ('end_ts', 'extractor', 'output', 'status', 'cmd_version')
+    readonly_fields = ('result_id', 'completed', 'extractor', 'command', 'version')
+    fields = ('id', 'start_ts', 'end_ts', *readonly_fields, 'cmd', 'cmd_version', 'pwd', 'created_by', 'status', 'output')
+    # exclude = ('id',)
+    ordering = ('end_ts',)
     show_change_link = True
     # # classes = ['collapse']
     # # list_display_links = ['abid']
 
+    def get_parent_object_from_request(self, request):
+        resolved = resolve(request.path_info)
+        return self.parent_model.objects.get(pk=resolved.kwargs['object_id'])
+
+    @admin.display(
+        description='Completed',
+        ordering='end_ts',
+    )
+    def completed(self, obj):
+        return format_html('<p style="white-space: nowrap">{}</p>', obj.end_ts.strftime('%Y-%m-%d %H:%M:%S'))
+
     def result_id(self, obj):
-        return format_html('<a href="{}"><small><code>[{}]</code></small></a>', reverse('admin:core_archiveresult_change', args=(obj.id,)), obj.abid)
+        return format_html('<a href="{}"><code style="font-size: 10px">[{}]</code></a>', reverse('admin:core_archiveresult_change', args=(obj.id,)), obj.abid)
     
     def command(self, obj):
         return format_html('<small><code>{}</code></small>', " ".join(obj.cmd or []))
+    
+    def version(self, obj):
+        return format_html('<small><code>{}</code></small>', obj.cmd_version or '-')
+    
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        snapshot = self.get_parent_object_from_request(request)
+
+        # import ipdb; ipdb.set_trace()
+        formset.form.base_fields['id'].widget = formset.form.base_fields['id'].hidden_widget()
+        
+        # default values for new entries
+        formset.form.base_fields['status'].initial = 'succeeded'
+        formset.form.base_fields['start_ts'].initial = timezone.now()
+        formset.form.base_fields['end_ts'].initial = timezone.now()
+        formset.form.base_fields['cmd_version'].initial = '-'
+        formset.form.base_fields['pwd'].initial = str(snapshot.link_dir)
+        formset.form.base_fields['created_by'].initial = request.user
+        formset.form.base_fields['cmd'] = forms.JSONField(initial=['-'])
+        formset.form.base_fields['output'].initial = 'Manually recorded cmd output...'
+        
+        if obj is not None:
+            # hidden values for existing entries and new entries
+            formset.form.base_fields['start_ts'].widget = formset.form.base_fields['start_ts'].hidden_widget()
+            formset.form.base_fields['end_ts'].widget = formset.form.base_fields['end_ts'].hidden_widget()
+            formset.form.base_fields['cmd'].widget = formset.form.base_fields['cmd'].hidden_widget()
+            formset.form.base_fields['pwd'].widget = formset.form.base_fields['pwd'].hidden_widget()
+            formset.form.base_fields['created_by'].widget = formset.form.base_fields['created_by'].hidden_widget()
+            formset.form.base_fields['cmd_version'].widget = formset.form.base_fields['cmd_version'].hidden_widget()
+        return formset
+    
+    def get_readonly_fields(self, request, obj=None):
+        if obj is not None:
+            return self.readonly_fields
+        else:
+            return []
 
 
 class TagInline(admin.TabularInline):
@@ -222,25 +302,22 @@ def get_abid_info(self, obj):
 
 @admin.register(Snapshot, site=archivebox_admin)
 class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
-    class Meta:
-        model = Snapshot
-
     list_display = ('added', 'title_str', 'files', 'size', 'url_str')
-    # list_editable = ('title',)
     sort_fields = ('title_str', 'url_str', 'added', 'files')
-    readonly_fields = ('tags', 'timestamp', 'admin_actions', 'status_info', 'bookmarked', 'added', 'updated', 'created', 'modified', 'API', 'link_dir')
+    readonly_fields = ('tags_str', 'timestamp', 'admin_actions', 'status_info', 'bookmarked', 'added', 'updated', 'created', 'modified', 'API', 'link_dir')
     search_fields = ('id', 'url', 'abid', 'old_id', 'timestamp', 'title', 'tags__name')
-    list_filter = ('added', 'updated', 'archiveresult__status', 'created_by', 'tags')
+    list_filter = ('added', 'updated', 'archiveresult__status', 'created_by', 'tags__name')
     fields = ('url', 'created_by', 'title', *readonly_fields)
     ordering = ['-added']
     actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
-    autocomplete_fields = ['tags']
     inlines = [TagInline, ArchiveResultInline]
-    list_per_page = CONFIG.SNAPSHOTS_PER_PAGE
+    list_per_page = min(max(5, CONFIG.SNAPSHOTS_PER_PAGE), 5000)
 
     action_form = SnapshotActionForm
+    paginator = AccelleratedPaginator
 
     save_on_top = True
+    show_full_result_count = False
 
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
@@ -286,12 +363,15 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
         ]
         return custom_urls + urls
 
-    def get_queryset(self, request):
-        self.request = request
-        return super().get_queryset(request).prefetch_related('tags', 'archiveresult_set').annotate(archiveresult_count=Count('archiveresult'))
+    # def get_queryset(self, request):
+    #     # tags_qs = SnapshotTag.objects.all().select_related('tag')
+    #     # prefetch = Prefetch('snapshottag_set', queryset=tags_qs)
+
+    #     self.request = request
+    #     return super().get_queryset(request).prefetch_related('archiveresult_set').distinct()  # .annotate(archiveresult_count=Count('archiveresult'))
 
     def tag_list(self, obj):
-        return ', '.join(obj.tags.values_list('name', flat=True))
+        return ', '.join(tag.name for tag in obj.tags.all())
 
     # TODO: figure out a different way to do this, you cant nest forms so this doenst work
     # def action(self, obj):
@@ -360,21 +440,20 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
         ordering='title',
     )
     def title_str(self, obj):
-        canon = obj.as_link().canonical_outputs()
         tags = ''.join(
-            format_html('<a href="/admin/core/snapshot/?tags__id__exact={}"><span class="tag">{}</span></a> ', tag.id, tag)
+            format_html('<a href="/admin/core/snapshot/?tags__id__exact={}"><span class="tag">{}</span></a> ', tag.pk, tag.name)
             for tag in obj.tags.all()
-            if str(tag).strip()
+            if str(tag.name).strip()
         )
         return format_html(
             '<a href="/{}">'
-                '<img src="/{}/{}" class="favicon" onerror="this.remove()">'
+                '<img src="/{}/favicon.ico" class="favicon" onerror="this.remove()">'
             '</a>'
             '<a href="/{}/index.html">'
                 '<b class="status-{}">{}</b>'
             '</a>',
             obj.archive_path,
-            obj.archive_path, canon['favicon_path'],
+            obj.archive_path,
             obj.archive_path,
             'fetched' if obj.latest_title or obj.title else 'pending',
             urldecode(htmldecode(obj.latest_title or obj.title or ''))[:128] or 'Pending...'
@@ -382,14 +461,14 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
 
     @admin.display(
         description='Files Saved',
-        ordering='archiveresult_count',
+        # ordering='archiveresult_count',
     )
     def files(self, obj):
         return snapshot_icons(obj)
 
 
     @admin.display(
-        ordering='archiveresult_count'
+        # ordering='archiveresult_count'
     )
     def size(self, obj):
         archive_size = (Path(obj.link_dir) / 'index.html').exists() and obj.archive_size
@@ -536,6 +615,8 @@ class TagAdmin(ABIDModelAdmin):
     actions = ['delete_selected']
     ordering = ['-created']
 
+    paginator = AccelleratedPaginator
+
     def API(self, obj):
         try:
             return get_abid_info(self, obj)
@@ -574,6 +655,8 @@ class ArchiveResultAdmin(ABIDModelAdmin):
     list_filter = ('status', 'extractor', 'start_ts', 'cmd_version')
     ordering = ['-start_ts']
     list_per_page = CONFIG.SNAPSHOTS_PER_PAGE
+    
+    paginator = AccelleratedPaginator
 
     @admin.display(
         description='Snapshot Info'

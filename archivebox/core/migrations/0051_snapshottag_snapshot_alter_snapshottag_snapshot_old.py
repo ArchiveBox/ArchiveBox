@@ -9,7 +9,7 @@ def update_snapshottag_ids(apps, schema_editor):
     SnapshotTag = apps.get_model("core", "SnapshotTag")
     num_total = SnapshotTag.objects.all().count()
     print(f'   Updating {num_total} SnapshotTag.snapshot_id values in place... (may take an hour or longer for large collections...)')
-    for idx, snapshottag in enumerate(SnapshotTag.objects.all().only('snapshot_old_id').iterator()):
+    for idx, snapshottag in enumerate(SnapshotTag.objects.all().only('snapshot_old_id').iterator(chunk_size=500)):
         assert snapshottag.snapshot_old_id
         snapshot = Snapshot.objects.get(old_id=snapshottag.snapshot_old_id)
         snapshottag.snapshot_id = snapshot.id

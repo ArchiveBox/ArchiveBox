@@ -4,7 +4,7 @@ from django import forms
 
 from ..util import URL_REGEX
 from ..parsers import PARSERS
-from ..vendor.taggit_utils import edit_string_for_tags, parse_tags
+from taggit.utils import edit_string_for_tags, parse_tags
 
 PARSER_CHOICES = [
     (parser_key, parser[0])

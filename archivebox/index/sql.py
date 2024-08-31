@@ -37,9 +37,11 @@ def remove_from_sql_main_index(snapshots: QuerySet, atomic: bool=False, out_dir:
 @enforce_types
 def write_link_to_sql_index(link: Link, created_by_id: int | None=None):
     from core.models import Snapshot, ArchiveResult
+    from abid_utils.models import get_or_create_system_user_pk
+
     info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
 
-    info['created_by_id'] = created_by_id
+    info['created_by_id'] = created_by_id or get_or_create_system_user_pk()
 
     tag_list = list(dict.fromkeys(
         tag.strip() for tag in re.split(TAG_SEPARATOR_PATTERN, link.tags or '')

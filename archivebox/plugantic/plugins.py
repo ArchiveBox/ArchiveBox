@@ -14,9 +14,6 @@ from pydantic import (
 
 from .binaries import (
     Binary,
-    PythonBinary,
-    SqliteBinary,
-    DjangoBinary,
     WgetBinary,
     YtdlpBinary,
 )
@@ -28,7 +25,6 @@ from .extractors import (
 )
 from .replayers import (
     Replayer,
-    GENERIC_REPLAYER,
     MEDIA_REPLAYER,
 )
 from .configs import (
@@ -80,12 +76,6 @@ class Plugin(BaseModel):
         })
 
 
-class CorePlugin(Plugin):
-    name: str = 'core'
-    configs: List[SerializeAsAny[ConfigSet]] = []
-    binaries: List[SerializeAsAny[Binary]] = [PythonBinary(), SqliteBinary(), DjangoBinary()]
-    extractors: List[SerializeAsAny[Extractor]] = []
-    replayers: List[SerializeAsAny[Replayer]] = [GENERIC_REPLAYER]
 
 class YtdlpPlugin(Plugin):
     name: str = 'ytdlp'
@@ -101,11 +91,9 @@ class WgetPlugin(Plugin):
     extractors: List[SerializeAsAny[Extractor]] = [WgetExtractor(), WarcExtractor()]
 
 
-CORE_PLUGIN = CorePlugin()
 YTDLP_PLUGIN = YtdlpPlugin()
 WGET_PLUGIN = WgetPlugin()
 PLUGINS = [
-    CORE_PLUGIN,
     YTDLP_PLUGIN,
     WGET_PLUGIN,
 ]

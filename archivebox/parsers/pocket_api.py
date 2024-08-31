@@ -7,7 +7,7 @@ from typing import IO, Iterable, Optional
 from configparser import ConfigParser
 
 from pathlib import Path
-from ..vendor.pocket import Pocket
+from pocket import Pocket
 
 from ..index.schema import Link
 from ..util import enforce_types

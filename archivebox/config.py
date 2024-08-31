@@ -31,8 +31,6 @@ import getpass
 import platform
 import shutil
 import requests
-import django
-from sqlite3 import dbapi2 as sqlite3
 
 from hashlib import md5
 from pathlib import Path
@@ -43,6 +41,11 @@ from configparser import ConfigParser
 from collections import defaultdict
 import importlib.metadata
 
+from pydantic_pkgr import SemVer
+
+import django
+from django.db.backends.sqlite3.base import Database as sqlite3
+
 from .config_stubs import (
     AttrDict,
     SimpleConfigValueDict,
@@ -51,6 +54,11 @@ from .config_stubs import (
     ConfigDefaultValue,
     ConfigDefaultDict,
 )
+
+# load fallback libraries from vendor dir
+from .vendor import load_vendored_libs
+load_vendored_libs()
+
 
 
 ############################### Config Schema ##################################
@@ -89,13 +97,13 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SECRET_KEY':                {'type': str,   'default': None},
         'BIND_ADDR':                 {'type': str,   'default': lambda c: ['127.0.0.1:8000', '0.0.0.0:8000'][c['IN_DOCKER']]},
         'ALLOWED_HOSTS':             {'type': str,   'default': '*'},     # e.g. archivebox.example.com,archivebox2.example.com
-        'CSRF_TRUSTED_ORIGINS':      {'type': str,   'default': ''},      # e.g. https://archivebox.example.com,https://archivebox2.example.com:8080
+        'CSRF_TRUSTED_ORIGINS':      {'type': str,   'default': lambda c: 'http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000,http://{}'.format(c['BIND_ADDR'])},   # e.g. https://archivebox.example.com,https://archivebox2.example.com:8080
         'DEBUG':                     {'type': bool,  'default': False},
         'PUBLIC_INDEX':              {'type': bool,  'default': True},
         'PUBLIC_SNAPSHOTS':          {'type': bool,  'default': True},
         'PUBLIC_ADD_VIEW':           {'type': bool,  'default': False},
         'FOOTER_INFO':               {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
-        'SNAPSHOTS_PER_PAGE':        {'type': int,   'default': 40},
+        'SNAPSHOTS_PER_PAGE':        {'type': int,   'default': 100},
         'CUSTOM_TEMPLATES_DIR':      {'type': str,   'default': None},
         'TIME_ZONE':                 {'type': str,   'default': 'UTC'},
         'TIMEZONE':                  {'type': str,   'default': 'UTC'},
@@ -565,7 +573,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'PYTHON_VERSION':           {'default': lambda c: '{}.{}.{}'.format(*sys.version_info[:3])},
 
     'DJANGO_BINARY':            {'default': lambda c: inspect.getfile(django)},
-    'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{} {} ({})'.format(*django.VERSION)},
+    'DJANGO_VERSION':           {'default': lambda c: '{}.{}.{}'.format(*django.VERSION[:3])},
     
     'SQLITE_BINARY':            {'default': lambda c: inspect.getfile(sqlite3)},
     'SQLITE_VERSION':           {'default': lambda c: sqlite3.version},
@@ -902,16 +910,9 @@ def bin_version(binary: Optional[str], cmd: Optional[str]=None) -> Optional[str]
             version_str = run(cmd or [abspath, "--version"], shell=is_cmd_str, stdout=PIPE, stderr=STDOUT).stdout.strip().decode()
         
         # take first 3 columns of first line of version info
-        version_ptn = re.compile(r"\d+?\.\d+?\.?\d*", re.MULTILINE)
-        try:
-            version_nums = version_ptn.findall(version_str.split('\n')[0])[0]
-            if version_nums:
-                return version_nums
-            else:
-                raise IndexError
-        except IndexError:
-            # take first 3 columns of first line of version info
-            return ' '.join(version_str.split('\n')[0].strip().split()[:3])
+        semver = SemVer.parse(version_str)
+        if semver:
+            return str(semver)
     except OSError:
         pass
         # stderr(f'[X] Unable to find working version of dependency: {binary}', color='red')
@@ -1523,6 +1524,18 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
             sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
             assert sql_index_path.exists(), (
                 f'No database file {SQL_INDEX_FILENAME} found in: {config["OUTPUT_DIR"]} (Are you in an ArchiveBox collection directory?)')
+
+
+            # https://docs.pydantic.dev/logfire/integrations/django/ Logfire Debugging
+            if settings.DEBUG_LOGFIRE:
+                from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
+                SQLite3Instrumentor().instrument()
+
+                import logfire
+
+                logfire.configure()
+                logfire.instrument_django(is_sql_commentor_enabled=True)
+                logfire.info(f'Started ArchiveBox v{CONFIG.VERSION}', argv=sys.argv)
 
     except KeyboardInterrupt:
         raise SystemExit(2)

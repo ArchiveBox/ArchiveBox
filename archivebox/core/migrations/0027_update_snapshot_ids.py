@@ -52,7 +52,7 @@ def update_snapshot_ids(apps, schema_editor):
     Snapshot = apps.get_model("core", "Snapshot")
     num_total = Snapshot.objects.all().count()
     print(f'   Updating {num_total} Snapshot.id, Snapshot.uuid values in place...')
-    for idx, snapshot in enumerate(Snapshot.objects.all().only('abid').iterator()):
+    for idx, snapshot in enumerate(Snapshot.objects.all().only('abid').iterator(chunk_size=500)):
         assert snapshot.abid
         snapshot.abid_prefix = 'snp_'
         snapshot.abid_ts_src = 'self.added'
@@ -72,7 +72,7 @@ def update_archiveresult_ids(apps, schema_editor):
     ArchiveResult = apps.get_model("core", "ArchiveResult")
     num_total = ArchiveResult.objects.all().count()
     print(f'   Updating {num_total} ArchiveResult.id, ArchiveResult.uuid values in place... (may take an hour or longer for large collections...)')
-    for idx, result in enumerate(ArchiveResult.objects.all().only('abid', 'snapshot_id').iterator()):
+    for idx, result in enumerate(ArchiveResult.objects.all().only('abid', 'snapshot_id').iterator(chunk_size=500)):
         assert result.abid
         result.abid_prefix = 'res_'
         result.snapshot = Snapshot.objects.get(pk=result.snapshot_id)

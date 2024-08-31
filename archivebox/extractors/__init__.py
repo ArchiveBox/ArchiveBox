@@ -218,7 +218,7 @@ def archive_links(all_links: Union[Iterable[Link], QuerySet], overwrite: bool=Fa
     if type(all_links) is QuerySet:
         num_links: int = all_links.count()
         get_link = lambda x: x.as_link_with_details()
-        all_links = all_links.iterator()
+        all_links = all_links.iterator(chunk_size=500)
     else:
         num_links: int = len(all_links)
         get_link = lambda x: x

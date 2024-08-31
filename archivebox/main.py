@@ -960,7 +960,8 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
         run_subcommand('init', stdin=None, pwd=out_dir)
 
     setup_django(out_dir=out_dir, check_db=True)
-    from core.models import User
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
 
     if not User.objects.filter(is_superuser=True).exists():
         stderr('\n[+] Creating new admin user for the Web UI...', color='green')
@@ -979,16 +980,16 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
                 '--upgrade',
                 '--no-cache-dir',
                 '--no-warn-script-location',
-                'youtube_dl',
+                'yt-dlp',
             ], capture_output=False, cwd=out_dir)
             pkg_path = run_shell([
                 PYTHON_BINARY, '-m', 'pip',
                 'show',
-                'youtube_dl',
+                'yt-dlp',
             ], capture_output=True, text=True, cwd=out_dir).stdout.decode().split('Location: ')[-1].split('\n', 1)[0]
-            NEW_YOUTUBEDL_BINARY = Path(pkg_path) / 'youtube_dl' / '__main__.py'
+            NEW_YOUTUBEDL_BINARY = Path(pkg_path) / 'yt-dlp' / '__main__.py'
             os.chmod(NEW_YOUTUBEDL_BINARY, 0o777)
-            assert NEW_YOUTUBEDL_BINARY.exists(), f'youtube_dl must exist inside {pkg_path}'
+            assert NEW_YOUTUBEDL_BINARY.exists(), f'yt-dlp must exist inside {pkg_path}'
             config(f'YOUTUBEDL_BINARY={NEW_YOUTUBEDL_BINARY}', set=True, out_dir=out_dir)
         except BaseException as e:                                              # lgtm [py/catch-base-exception]
             stderr(f'[X] Failed to install python packages: {e}', color='red')

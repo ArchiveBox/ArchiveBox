@@ -5,7 +5,7 @@
 groups = ["default", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:f2f7ca01f2e18a1ef07d59b7a8985d89785a4b8a2a4e66452f1f9e8e8ad529ad"
+content_hash = "sha256:c6aa1f436032d18d079a4c2e9d9b95a5110579eb96a449751bfaf4d472eba401"
 
 [[metadata.targets]]
 requires_python = "==3.10.*"
@@ -76,6 +76,29 @@ dependencies = [
 files = [
     {file = "asttokens-2.4.1-py2.py3-none-any.whl", hash = "sha256:051ed49c3dcae8913ea7cd08e46a606dba30b79993209636c4875bc1d637bc24"},
     {file = "asttokens-2.4.1.tar.gz", hash = "sha256:b03869718ba9a6eb027e134bfdf69f38a236d681c83c160d510768af11254ba0"},
+]
+
+[[package]]
+name = "atomicwrites"
+version = "1.4.0"
+requires_python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+summary = "Atomic file writes."
+groups = ["default"]
+marker = "python_version == \"3.10\""
+files = [
+    {file = "atomicwrites-1.4.0-py2.py3-none-any.whl", hash = "sha256:6d1784dea7c0c8d4a5172b6c620f40b6e4cbfdf96d783691f2e1302a7b88e197"},
+    {file = "atomicwrites-1.4.0.tar.gz", hash = "sha256:ae70396ad1a434f9c7046fd2dd196fc04b12f9e91ffb859164193be8b6168a7a"},
+]
+
+[[package]]
+name = "base32-crockford"
+version = "0.3.0"
+summary = "A Python implementation of Douglas Crockford's base32 encoding scheme"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+files = [
+    {file = "base32-crockford-0.3.0.tar.gz", hash = "sha256:115f5bd32ae32b724035cb02eb65069a8824ea08c08851eb80c8b9f63443a969"},
+    {file = "base32_crockford-0.3.0-py2.py3-none-any.whl", hash = "sha256:295ef5ffbf6ed96b6e739ffd36be98fa7e90a206dd18c39acefb15777eedfe6e"},
 ]
 
 [[package]]
@@ -408,6 +431,21 @@ files = [
 ]
 
 [[package]]
+name = "django-taggit"
+version = "1.3.0"
+requires_python = ">=3.5"
+summary = "django-taggit is a reusable Django application for simple tagging."
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "Django>=1.11",
+]
+files = [
+    {file = "django-taggit-1.3.0.tar.gz", hash = "sha256:4a833bf71f4c2deddd9745924eee53be1c075d7f0020a06f12e29fa3d752732d"},
+    {file = "django_taggit-1.3.0-py3-none-any.whl", hash = "sha256:609b0223d8a652f3fae088b7fd29f294fdadaca2d7931d45c27d6c59b02fdf31"},
+]
+
+[[package]]
 name = "exceptiongroup"
 version = "1.2.2"
 requires_python = ">=3.7"
@@ -479,7 +517,7 @@ files = [
 
 [[package]]
 name = "httpx"
-version = "0.27.0"
+version = "0.27.2"
 requires_python = ">=3.8"
 summary = "The next generation HTTP client."
 groups = ["default"]
@@ -492,20 +530,20 @@ dependencies = [
     "sniffio",
 ]
 files = [
-    {file = "httpx-0.27.0-py3-none-any.whl", hash = "sha256:71d5465162c13681bff01ad59b2cc68dd838ea1f10e51574bac27103f00c91a5"},
-    {file = "httpx-0.27.0.tar.gz", hash = "sha256:a0cb88a46f32dc874e04ee956e4c2764aba2aa228f650b06788ba6bda2962ab5"},
+    {file = "httpx-0.27.2-py3-none-any.whl", hash = "sha256:7bb2708e112d8fdd7829cd4243970f0c223274051cb35ee80c03301ee29a3df0"},
+    {file = "httpx-0.27.2.tar.gz", hash = "sha256:f7c2be1d2f3c3c3160d441802406b206c2b76f5947b11115e6df10c6c65e66c2"},
 ]
 
 [[package]]
 name = "idna"
-version = "3.7"
-requires_python = ">=3.5"
+version = "3.8"
+requires_python = ">=3.6"
 summary = "Internationalized Domain Names in Applications (IDNA)"
 groups = ["default"]
 marker = "python_version == \"3.10\""
 files = [
-    {file = "idna-3.7-py3-none-any.whl", hash = "sha256:82fee1fc78add43492d3a1898bfa6d8a904cc97d8427f683ed8e798d07761aa0"},
-    {file = "idna-3.7.tar.gz", hash = "sha256:028ff3aadf0609c1fd278d8ea3089299412a7a8b9bd005dd08b9f8285bcb5cfc"},
+    {file = "idna-3.8-py3-none-any.whl", hash = "sha256:050b4e5baadcd44d760cedbd2b8e639f2ff89bbc7a5730fcc662954303377aac"},
+    {file = "idna-3.8.tar.gz", hash = "sha256:d838c2c0ed6fced7693d5e8ab8e734d5f8fda53a039c0164afb0b82e771e3603"},
 ]
 
 [[package]]
@@ -611,6 +649,32 @@ dependencies = [
 files = [
     {file = "pexpect-4.9.0-py2.py3-none-any.whl", hash = "sha256:7236d1e080e4936be2dc3e326cec0af72acf9212a7e1d060210e70a47e253523"},
     {file = "pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f"},
+]
+
+[[package]]
+name = "pocket"
+version = "0.3.7"
+git = "https://github.com/tapanpandita/pocket.git"
+ref = "v0.3.7"
+revision = "5a144438cc89bfc0ec94db960718ccf1f76468c1"
+summary = "api wrapper for getpocket.com"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "requests",
+]
+
+[[package]]
+name = "pocket"
+version = "0.3.7"
+git = "https://github.com/tapanpandita/pocket.git"
+ref = "v0.3.7"
+revision = "5a144438cc89bfc0ec94db960718ccf1f76468c1"
+summary = "api wrapper for getpocket.com"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "requests",
 ]
 
 [[package]]
@@ -740,6 +804,23 @@ files = [
 ]
 
 [[package]]
+name = "pydantic-pkgr"
+version = "0.1.4"
+requires_python = ">=3.10"
+summary = "System package manager APIs in strongly typed Python"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "pydantic-core>=2.18.2",
+    "pydantic>=2.7.1",
+    "typing-extensions>=4.11.0",
+]
+files = [
+    {file = "pydantic_pkgr-0.1.4-py3-none-any.whl", hash = "sha256:bd9ddfa8eeb4d361257c4d3d8d36ba44a72515b497ee52cf0763240c66006417"},
+    {file = "pydantic_pkgr-0.1.4.tar.gz", hash = "sha256:e0422022dd83341f1e869a54da9aca903a6407a983ece0735f69493841b0fbb8"},
+]
+
+[[package]]
 name = "pygments"
 version = "2.18.0"
 requires_python = ">=3.8"
@@ -841,14 +922,14 @@ files = [
 
 [[package]]
 name = "setuptools"
-version = "73.0.1"
+version = "74.0.0"
 requires_python = ">=3.8"
 summary = "Easily download, build, install, upgrade, and uninstall Python packages"
 groups = ["default"]
 marker = "python_version == \"3.10\""
 files = [
-    {file = "setuptools-73.0.1-py3-none-any.whl", hash = "sha256:b208925fcb9f7af924ed2dc04708ea89791e24bde0d3020b27df0e116088b34e"},
-    {file = "setuptools-73.0.1.tar.gz", hash = "sha256:d59a3e788ab7e012ab2c4baed1b376da6366883ee20d7a5fc426816e3d7b1193"},
+    {file = "setuptools-74.0.0-py3-none-any.whl", hash = "sha256:0274581a0037b638b9fc1c6883cc71c0210865aaa76073f7882376b641b84e8f"},
+    {file = "setuptools-74.0.0.tar.gz", hash = "sha256:a85e96b8be2b906f3e3e789adec6a9323abf79758ecfa3065bd740d81158b11e"},
 ]
 
 [[package]]

@@ -1,5 +1,8 @@
 __package__ = 'archivebox.plugantic'
 
+import inspect
+from typing import Any
+
 from django.http import HttpRequest
 from django.utils.html import format_html, mark_safe
 
@@ -10,6 +13,44 @@ from admin_data_views.utils import render_with_table_view, render_with_item_view
 from plugantic.plugins import LOADED_PLUGINS
 from django.conf import settings
 
+def obj_to_yaml(obj: Any, indent: int=0) -> str:
+    indent_str = "  " * indent
+    
+    if isinstance(obj, dict):
+        if not obj:
+            return "{}"
+        result = "\n"
+        for key, value in obj.items():
+            result += f"{indent_str}{key}:{obj_to_yaml(value, indent + 1)}\n"
+        return result
+    
+    elif isinstance(obj, list):
+        if not obj:
+            return "[]"
+        result = "\n"
+        for item in obj:
+            result += f"{indent_str}- {obj_to_yaml(item, indent + 1).lstrip()}\n"
+        return result.rstrip()
+    
+    elif isinstance(obj, str):
+        if "\n" in obj:
+            return f" |\n{indent_str}  " + obj.replace("\n", f"\n{indent_str}  ")
+        else:
+            return f" {obj}"
+    
+    elif isinstance(obj, (int, float, bool)):
+        return f" {str(obj)}"
+    
+    elif callable(obj):
+        source = '\n'.join(
+            '' if 'def ' in line else line
+            for line in inspect.getsource(obj).split('\n')
+            if line.strip()
+        ).split('lambda: ')[-1].rstrip(',')
+        return f" {indent_str}  " + source.replace("\n", f"\n{indent_str}  ")
+    
+    else:
+        return f" {str(obj)}"
 
 @render_with_table_view
 def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
@@ -18,13 +59,13 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     rows = {
         "Binary": [],
-        "From Plugin": [],
         "Found Version": [],
+        "From Plugin": [],
         "Provided By": [],
         "Found Abspath": [],
         "Related Configuration": [],
         "Overrides": [],
-        "Description": [],
+        # "Description": [],
     }
 
     relevant_configs = {
@@ -38,8 +79,8 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
             binary = binary.load_or_install()
 
             rows['Binary'].append(ItemLink(binary.name, key=binary.name))
-            rows['From Plugin'].append(plugin.name)
             rows['Found Version'].append(binary.loaded_version)
+            rows['From Plugin'].append(plugin.name)
             rows['Provided By'].append(binary.loaded_provider)
             rows['Found Abspath'].append(binary.loaded_abspath)
             rows['Related Configuration'].append(mark_safe(', '.join(
@@ -48,8 +89,8 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
                     if binary.name.lower().replace('-', '').replace('_', '').replace('ytdlp', 'youtubedl') in config_key.lower()
                     # or binary.name.lower().replace('-', '').replace('_', '') in str(config_value).lower()
             )))
-            rows['Overrides'].append(str(binary.provider_overrides))
-            rows['Description'].append(binary.description)
+            rows['Overrides'].append(obj_to_yaml(binary.provider_overrides))
+            # rows['Description'].append(binary.description)
 
     return TableContext(
         title="Binaries",
@@ -85,8 +126,8 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
                     'binprovider': binary.loaded_provider,
                     'abspath': binary.loaded_abspath,
                     'version': binary.loaded_version,
-                    'overrides': str(binary.provider_overrides),
-                    'providers': str(binary.providers_supported),
+                    'overrides': obj_to_yaml(binary.provider_overrides),
+                    'providers': obj_to_yaml(binary.providers_supported),
                 },
                 "help_texts": {
                     # TODO
