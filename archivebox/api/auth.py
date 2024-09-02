@@ -105,6 +105,6 @@ API_AUTH_METHODS = [
     HeaderTokenAuth(),
     BearerTokenAuth(),
     QueryParamTokenAuth(), 
-    django_auth_superuser,
+    # django_auth_superuser,       # django admin cookie auth, not secure to use with csrf=False
     UsernameAndPasswordAuth(),
 ]
