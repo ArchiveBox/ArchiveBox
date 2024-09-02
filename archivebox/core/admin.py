@@ -251,6 +251,7 @@ from django.contrib.admin.widgets import FilteredSelectMultiple
 
 class SnapshotActionForm(ActionForm):
     tags = forms.ModelMultipleChoiceField(
+        label='Edit tags',
         queryset=Tag.objects.all(),
         required=False,
         widget=FilteredSelectMultiple(
@@ -526,16 +527,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
     #     return super().changelist_view(request, extra_context=None)
 
     @admin.action(
-        description="Pull"
-    )
-    def update_snapshots(self, request, queryset):
-        archive_links([
-            snapshot.as_link()
-            for snapshot in queryset
-        ], out_dir=CONFIG.OUTPUT_DIR)
-
-    @admin.action(
-        description="⬇️ Title"
+        description="ℹ️ Get Title"
     )
     def update_titles(self, request, queryset):
         archive_links([
@@ -544,7 +536,17 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
         ], overwrite=True, methods=('title','favicon'), out_dir=CONFIG.OUTPUT_DIR)
 
     @admin.action(
-        description="Re-Snapshot"
+        description="⬇️ Get Missing"
+    )
+    def update_snapshots(self, request, queryset):
+        archive_links([
+            snapshot.as_link()
+            for snapshot in queryset
+        ], out_dir=CONFIG.OUTPUT_DIR)
+
+
+    @admin.action(
+        description="📑 Archive again"
     )
     def resnapshot_snapshot(self, request, queryset):
         for snapshot in queryset:
@@ -553,7 +555,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
             add(new_url, tag=snapshot.tags_str())
 
     @admin.action(
-        description="Reset"
+        description="♲ Redo"
     )
     def overwrite_snapshots(self, request, queryset):
         archive_links([
@@ -562,7 +564,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
         ], overwrite=True, out_dir=CONFIG.OUTPUT_DIR)
 
     @admin.action(
-        description="Delete"
+        description="☠️ Delete"
     )
     def delete_snapshots(self, request, queryset):
         remove(snapshots=queryset, yes=True, delete=True, out_dir=CONFIG.OUTPUT_DIR)

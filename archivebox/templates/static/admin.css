@@ -143,11 +143,11 @@ body.model-snapshot.change-list #content .object-tools {
     color: #333;
 }
 #content #changelist .actions .button[name=update_snapshots] {
-    background-color:lightseagreen;
+    background-color: #9ee54b;
     color: #333;
 }
 #content #changelist .actions .button[name=resnapshot_snapshot] {
-    background-color: #9ee54b;
+    background-color:lightseagreen;
     color: #333;
 }
 #content #changelist .actions .button[name=overwrite_snapshots] {
