@@ -4,8 +4,10 @@ from django.apps import AppConfig
 
 
 class PkgsConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
     name = 'pkg'
+    verbose_name = 'Package Management'
+    
+    default_auto_field = 'django.db.models.BigAutoField'
 
     def ready(self):
         from .settings import LOADED_DEPENDENCIES
