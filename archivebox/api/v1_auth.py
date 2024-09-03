@@ -3,6 +3,8 @@ __package__ = 'archivebox.api'
 from typing import Optional
 
 from ninja import Router, Schema
+from django.utils import timezone
+from datetime import timedelta
 
 from api.models import APIToken
 from api.auth import auth_using_token, auth_using_password
@@ -25,9 +27,14 @@ def get_api_token(request, auth_data: PasswordAuthSchema):
         request=request,
     )
 
-    if user:
-        # TODO: support multiple tokens in the future, for now we just have one per user
-        api_token, created = APIToken.objects.get_or_create(created_by_id=user.pk)
+    if user and user.is_superuser:
+        api_tokens = APIToken.objects.filter(created_by_id=user.pk, expires__gt=timezone.now())
+        if api_tokens.exists():
+            api_token = api_tokens.last()
+        else:
+            api_token = APIToken.objects.create(created_by_id=user.pk, expires=timezone.now() + timedelta(days=30))
+        
+        assert api_token.is_valid(), f"API token is not valid {api_token.abid}"
 
         return api_token.__json__()
     

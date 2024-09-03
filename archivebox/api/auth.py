@@ -30,8 +30,8 @@ def auth_using_token(token, request: Optional[HttpRequest]=None) -> Optional[Abs
 
     if not user:
         print('[❌] Failed to authenticate API user using API Key:', request)
-
-    return None
+        return None
+    return cast(AbstractBaseUser, user)
 
 def auth_using_password(username, password, request: Optional[HttpRequest]=None) -> Optional[AbstractBaseUser]:
     """Given a username and password, check if they are valid and return the corresponding user"""
