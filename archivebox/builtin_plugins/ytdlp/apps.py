@@ -1,4 +1,5 @@
 import sys
+import shutil
 from pathlib import Path
 from typing import List, Dict, Optional
 from subprocess import run, PIPE, CompletedProcess
@@ -31,21 +32,24 @@ YTDLP_CONFIG = YtdlpDependencyConfigs(**DEFAULT_GLOBAL_CONFIG)
 
 class YtdlpBinary(BaseBinary):
     name: BinName = YTDLP_CONFIG.YTDLP_BINARY
-    binproviders_supported: List[InstanceOf[BinProvider]] = [env, pip, apt, brew]
+    binproviders_supported: List[InstanceOf[BinProvider]] = [pip, apt, brew, env]
 
 class FfmpegBinary(BaseBinary):
     name: BinName = 'ffmpeg'
-    binproviders_supported: List[InstanceOf[BinProvider]] = [env, apt, brew]
+    binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
 
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
         'env': {
-            'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout,
+            # 'abspath': lambda: shutil.which('ffmpeg', PATH=env.PATH),
+            # 'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout,
         },
         'apt': {
-            'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout,
+            # 'abspath': lambda: shutil.which('ffmpeg', PATH=apt.PATH),
+            'version': lambda: run(['apt', 'show', 'ffmpeg'], stdout=PIPE, stderr=PIPE, text=True).stdout,
         },
         'brew': {
-            'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout,
+            # 'abspath': lambda: shutil.which('ffmpeg', PATH=brew.PATH),
+            'version': lambda: run(['brew', 'info', 'ffmpeg', '--quiet'], stdout=PIPE, stderr=PIPE, text=True).stdout,
         },
     }
 

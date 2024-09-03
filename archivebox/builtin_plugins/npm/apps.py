@@ -40,10 +40,17 @@ npm = NpmProvider(PATH=str(CONFIG.NODE_BIN_PATH))
 
 class NpmBinary(BaseBinary):
     name: BinName = 'npm'
-    binproviders_supported: List[InstanceOf[BinProvider]] = [env, apt, brew]
+    binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
 
 
 NPM_BINARY = NpmBinary()
+
+class NodeBinary(BaseBinary):
+    name: BinName = 'node'
+    binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
+
+
+NODE_BINARY = NodeBinary()
 
 
 
@@ -54,7 +61,7 @@ class NpmPlugin(BasePlugin):
 
     configs: List[InstanceOf[BaseConfigSet]] = [NPM_CONFIG]
     binproviders: List[InstanceOf[BaseBinProvider]] = [npm]
-    binaries: List[InstanceOf[BaseBinary]] = [NPM_BINARY]
+    binaries: List[InstanceOf[BaseBinary]] = [NODE_BINARY, NPM_BINARY]
 
 
 PLUGIN = NpmPlugin()

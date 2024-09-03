@@ -71,7 +71,7 @@ def get_singlefile_abspath() -> Optional[Path]:
 
 class SinglefileBinary(BaseBinary):
     name: BinName = 'single-file'
-    binproviders_supported: List[InstanceOf[BinProvider]] = [env, npm]
+    binproviders_supported: List[InstanceOf[BinProvider]] = [npm, env]
 
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] ={
         # 'env': {
