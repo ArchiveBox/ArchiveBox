@@ -50,6 +50,11 @@ class FfmpegBinary(BaseBinary):
 YTDLP_BINARY = YtdlpBinary()
 FFMPEG_BINARY = FfmpegBinary()
 
+# class YtdlpExtractor(BaseExtractor):
+#     name: str = 'ytdlp'
+#     binary: str = 'ytdlp'
+
+
 
 class YtdlpPlugin(BasePlugin):
     name: str = 'builtin_plugins.ytdlp'
