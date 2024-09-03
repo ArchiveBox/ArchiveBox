@@ -16,8 +16,10 @@ from ..util import ansi_to_html
 from ..config import ONLY_NEW
 
 
+from .auth import API_AUTH_METHODS
+
 # router for API that exposes archivebox cli subcommands as REST endpoints
-router = Router(tags=['ArchiveBox CLI Sub-Commands'])
+router = Router(tags=['ArchiveBox CLI Sub-Commands'], auth=API_AUTH_METHODS)
 
 
 # Schemas

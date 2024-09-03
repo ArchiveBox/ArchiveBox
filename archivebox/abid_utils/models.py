@@ -18,6 +18,7 @@ from django.db import models
 from django.utils import timezone
 from django.db.utils import OperationalError
 from django.contrib.auth import get_user_model
+from django.urls import reverse_lazy
 
 from django_stubs_ext.db.models import TypedModelMeta
 
@@ -210,6 +211,15 @@ class ABIDModel(models.Model):
         Get a typeid.TypeID (stripe-style) representation of the object's ABID.
         """
         return self.ABID.typeid
+    
+    @property
+    def api_url(self) -> str:
+        # /api/v1/core/any/{abid}
+        return reverse_lazy('api-1:get_any', args=[self.abid])
+
+    @property
+    def api_docs_url(self) -> str:
+        return f'/api/v1/docs#/{self._meta.app_label.title()}%20Models/api_v1_{self._meta.app_label}_get_{self._meta.db_table}'
 
 
 

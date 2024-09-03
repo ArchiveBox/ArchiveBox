@@ -53,7 +53,26 @@ class NinjaAPIWithIOCapture(NinjaAPI):
 
                 response = super().create_temporal_response(request)
 
-        print('RESPONDING NOW', response)
+        # Diable caching of API responses entirely
+        response['Cache-Control'] = 'no-store'
+
+        # Add debug stdout and stderr headers to response
+        response['X-ArchiveBox-Stdout'] = str(request.stdout)[200:]
+        response['X-ArchiveBox-Stderr'] = str(request.stderr)[200:]
+        # response['X-ArchiveBox-View'] = self.get_openapi_operation_id(request) or 'Unknown'
+
+        # Add Auth Headers to response
+        api_token = getattr(request, '_api_token', None)
+        token_expiry = api_token.expires.isoformat() if api_token else 'Never'
+
+        response['X-ArchiveBox-Auth-Method'] = getattr(request, '_api_auth_method', None) or 'None'
+        response['X-ArchiveBox-Auth-Expires'] = token_expiry
+        response['X-ArchiveBox-Auth-Token-Id'] = api_token.abid if api_token else 'None'
+        response['X-ArchiveBox-Auth-User-Id'] = request.user.pk if request.user.pk else 'None'
+        response['X-ArchiveBox-Auth-User-Username'] = request.user.username if request.user.pk else 'None'
+
+        # import ipdb; ipdb.set_trace()
+        # print('RESPONDING NOW', response)
 
         return response
 

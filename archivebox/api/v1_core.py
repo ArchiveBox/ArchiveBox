@@ -12,11 +12,15 @@ from django.contrib.auth import get_user_model
 
 from ninja import Router, Schema, FilterSchema, Field, Query
 from ninja.pagination import paginate, PaginationBase
+from ninja.errors import HttpError
 
 from core.models import Snapshot, ArchiveResult, Tag
+from api.models import APIToken, OutboundWebhook
 from abid_utils.abid import ABID
 
-router = Router(tags=['Core Models'])
+from .auth import API_AUTH_METHODS
+
+router = Router(tags=['Core Models'], auth=API_AUTH_METHODS)
 
 
 
@@ -421,4 +425,10 @@ def get_any(request, abid: str):
     except Exception:
         pass
 
-    return response
+    if abid.startswith(APIToken.abid_prefix):
+        raise HttpError(403, 'APIToken objects are not accessible via REST API')
+    
+    if abid.startswith(OutboundWebhook.abid_prefix):
+        raise HttpError(403, 'OutboundWebhook objects are not accessible via REST API')
+
+    raise HttpError(404, 'Object with given ABID not found')
