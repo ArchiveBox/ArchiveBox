@@ -356,8 +356,8 @@ IGNORABLE_404_URLS = [
     re.compile(r'.*\.(css|js)\.map$'),
 ]
 IGNORABLE_200_URLS = [
-    re.compile(r'^"GET /static/.* HTTP/.*" (200|30.) .+', re.I | re.M),
-    re.compile(r'^"GET /admin/jsi18n/ HTTP/.*" (200|30.) .+', re.I | re.M),
+    re.compile(r'.*"GET /static/.* HTTP/.*" 2|3.+', re.I | re.M),
+    re.compile(r'.*"GET /admin/jsi18n/ HTTP/1.1" 200 .+', re.I | re.M),
 ]
 
 class NoisyRequestsFilter(logging.Filter):
@@ -366,11 +366,11 @@ class NoisyRequestsFilter(logging.Filter):
 
         # ignore harmless 404s for the patterns in IGNORABLE_404_URLS
         for ignorable_url_pattern in IGNORABLE_404_URLS:
-            ignorable_log_pattern = re.compile(f'^"GET /.*/?{ignorable_url_pattern.pattern[:-1]} HTTP/.*" (200|30.|404) .+$', re.I | re.M)
+            ignorable_log_pattern = re.compile(f'"GET /.*/?{ignorable_url_pattern.pattern[:-1]} HTTP/.*" (200|30.|404) .+$', re.I | re.M)
             if ignorable_log_pattern.match(logline):
                 return False
 
-            ignorable_log_pattern = re.compile(f'^Not Found: /.*/?{ignorable_url_pattern.pattern}', re.I | re.M)
+            ignorable_log_pattern = re.compile(f'Not Found: /.*/?{ignorable_url_pattern.pattern}', re.I | re.M)
             if ignorable_log_pattern.match(logline):
                 return False
 
@@ -400,6 +400,7 @@ LOGGING = {
             "filters": [],
             'formatter': 'simple',
             "class": "logging.StreamHandler",
+            'filters': ['noisyrequestsfilter'],
         },
         'logfile': {
             'level': 'ERROR',
@@ -408,6 +409,7 @@ LOGGING = {
             'maxBytes': 1024 * 1024 * 25,  # 25 MB
             'backupCount': 10,
             'formatter': 'verbose',
+            'filters': ['noisyrequestsfilter'],
         },
         # "mail_admins": {
         #     "level": "ERROR",
@@ -469,7 +471,14 @@ LOGGING = {
             'filters': ['noisyrequestsfilter'],
             'propagate': False,
             "formatter": "django.server",
-        }
+        },
+        'django.request': {
+            'handlers': ['console', 'logfile'],
+            'level': 'INFO',
+            'filters': ['noisyrequestsfilter'],
+            'propagate': False,
+            "formatter": "django.server",
+        },
     },
 }
 
