@@ -103,7 +103,9 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
                     if binary.name.lower().replace('-', '').replace('_', '').replace('ytdlp', 'youtubedl') in config_key.lower()
                     # or binary.name.lower().replace('-', '').replace('_', '') in str(config_value).lower()
             )))
-            rows['Overrides'].append(str(obj_to_yaml(binary.provider_overrides))[:200])
+            # if not binary.provider_overrides:
+                # import ipdb; ipdb.set_trace()
+            rows['Overrides'].append(str(obj_to_yaml(binary.provider_overrides) or str(binary.provider_overrides))[:200])
             # rows['Description'].append(binary.description)
 
     return TableContext(
@@ -161,11 +163,14 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     rows = {
         "Name": [],
+        "verbose_name": [],
+        "configs": [],
+        "binproviders": [],
         "binaries": [],
         "extractors": [],
         "replayers": [],
-        "configs": [],
-        "verbose_name": [],
+        "checks": [],
+        "admindataviews": [],
     }
 
 
@@ -176,6 +181,11 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
             print(e)
 
         rows['Name'].append(ItemLink(plugin.name, key=plugin.name))
+        rows['verbose_name'].append(str(plugin.verbose_name))
+        rows['binproviders'].append(mark_safe(', '.join(
+            f'<a href="/admin/environment/binproviders/{binprovider.name}/">{binprovider.name}</a>'
+            for binprovider in plugin.binproviders
+        )))
         rows['binaries'].append(mark_safe(', '.join(
             f'<a href="/admin/environment/binaries/{binary.name}/">{binary.name}</a>'
             for binary in plugin.binaries
@@ -188,7 +198,8 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
                 for config_key in configset.__fields__.keys()
                     if config_key != 'section' and config_key in settings.CONFIG
         )))
-        rows['verbose_name'].append(str(plugin.verbose_name))
+        rows['checks'].append(str(plugin.checks))
+        rows['admindataviews'].append(str(plugin.admindataviews))
 
     return TableContext(
         title="Installed plugins",
@@ -224,7 +235,7 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
                     'binaries': plugin.binaries,
                     'extractors': plugin.extractors,
                     'replayers': plugin.replayers,
-                    'schema': obj_to_yaml(plugin.model_dump(include=('name', 'verbose_name', 'app_label', settings.PLUGIN_KEYS.keys()))),
+                    'schema': obj_to_yaml(plugin.model_dump(include=('name', 'verbose_name', 'app_label', *settings.PLUGIN_KEYS.keys()))),
                 },
                 "help_texts": {
                     # TODO

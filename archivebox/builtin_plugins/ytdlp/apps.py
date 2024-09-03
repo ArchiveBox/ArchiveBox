@@ -38,9 +38,15 @@ class FfmpegBinary(BaseBinary):
     binproviders_supported: List[InstanceOf[BinProvider]] = [env, apt, brew]
 
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
-        'env': {'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout},
-        'apt': {'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout},
-        'brew': {'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout},
+        'env': {
+            'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout,
+        },
+        'apt': {
+            'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout,
+        },
+        'brew': {
+            'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout,
+        },
     }
 
     # def get_ffmpeg_version(self) -> Optional[str]:

@@ -43,6 +43,7 @@ class BaseBinProvider(BinProvider):
 
 class BaseBinary(Binary):
     binproviders_supported: List[InstanceOf[BinProvider]] = Field(default_factory=list, alias='binproviders')
+    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = Field(default_factory=dict, alias='overrides')
 
     def register(self, settings, parent_plugin=None):
         if settings is None:
