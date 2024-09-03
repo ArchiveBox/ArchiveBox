@@ -1,11 +1,12 @@
 import sys
 from pathlib import Path
 from typing import List, Dict, Optional
+from subprocess import run, PIPE, CompletedProcess
 from pydantic import InstanceOf, Field
 
 from django.apps import AppConfig
 
-from pydantic_pkgr import BinProvider, BinName, PATHStr
+from pydantic_pkgr import BinProvider, BinName, PATHStr, BinProviderName, ProviderLookupDict
 from plugantic.base_plugin import BasePlugin, BaseConfigSet, BaseBinary, BaseBinProvider
 from plugantic.base_configset import ConfigSectionName
 
@@ -32,7 +33,22 @@ class YtdlpBinary(BaseBinary):
     name: BinName = YTDLP_CONFIG.YTDLP_BINARY
     binproviders_supported: List[InstanceOf[BinProvider]] = [env, pip, apt, brew]
 
+class FfmpegBinary(BaseBinary):
+    name: BinName = 'ffmpeg'
+    binproviders_supported: List[InstanceOf[BinProvider]] = [env, apt, brew]
+
+    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
+        'env': {'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout},
+        'apt': {'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout},
+        'brew': {'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout},
+    }
+
+    # def get_ffmpeg_version(self) -> Optional[str]:
+    #     return self.exec(cmd=['-version']).stdout
+
+
 YTDLP_BINARY = YtdlpBinary()
+FFMPEG_BINARY = FfmpegBinary()
 
 
 class YtdlpPlugin(BasePlugin):
@@ -41,7 +57,7 @@ class YtdlpPlugin(BasePlugin):
     verbose_name: str = 'YTDLP'
 
     configs: List[InstanceOf[BaseConfigSet]] = [YTDLP_CONFIG]
-    binaries: List[InstanceOf[BaseBinary]] = [YTDLP_BINARY]
+    binaries: List[InstanceOf[BaseBinary]] = [YTDLP_BINARY, FFMPEG_BINARY]
 
 
 PLUGIN = YtdlpPlugin()
