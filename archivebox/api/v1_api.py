@@ -6,6 +6,7 @@ from traceback import format_exception
 from contextlib import redirect_stdout, redirect_stderr
 
 from django.http import HttpRequest, HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ObjectDoesNotExist, EmptyResultSet, PermissionDenied
 
 from ninja import NinjaAPI, Swagger

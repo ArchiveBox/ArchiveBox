@@ -301,7 +301,7 @@ ROBOTS_TXT_FILENAME = 'robots.txt'
 FAVICON_FILENAME = 'favicon.ico'
 CONFIG_FILENAME = 'ArchiveBox.conf'
 
-DEFAULT_CLI_COLORS = {
+DEFAULT_CLI_COLORS = AttrDict({
     'reset': '\033[00;00m',
     'lightblue': '\033[01;30m',
     'lightyellow': '\033[01;33m',
@@ -311,8 +311,8 @@ DEFAULT_CLI_COLORS = {
     'blue': '\033[01;34m',
     'white': '\033[01;37m',
     'black': '\033[01;30m',
-}
-ANSI = {k: '' for k in DEFAULT_CLI_COLORS.keys()}
+})
+ANSI = AttrDict({k: '' for k in DEFAULT_CLI_COLORS.keys()})
 
 COLOR_DICT = defaultdict(lambda: [(0, 0, 0), (0, 0, 0)], {
     '00': [(0, 0, 0), (0, 0, 0)],
@@ -540,7 +540,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
 
     'TERM_WIDTH':               {'default': lambda c: lambda: shutil.get_terminal_size((100, 10)).columns},
     'USER':                     {'default': lambda c: get_system_user()},
-    'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else {k: '' for k in DEFAULT_CLI_COLORS.keys()}},
+    'ANSI':                     {'default': lambda c: DEFAULT_CLI_COLORS if c['USE_COLOR'] else AttrDict({k: '' for k in DEFAULT_CLI_COLORS.keys()})},
 
     'PACKAGE_DIR':              {'default': lambda c: Path(__file__).resolve().parent},
     'TEMPLATES_DIR':            {'default': lambda c: c['PACKAGE_DIR'] / TEMPLATES_DIR_NAME},
@@ -560,6 +560,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},  # exec is always needed to list directories
 
     'ARCHIVEBOX_BINARY':        {'default': lambda c: sys.argv[0] or bin_path('archivebox')},
+    'NODE_BIN_PATH':            {'default': lambda c: str((Path(c["OUTPUT_DIR"]).absolute() / 'node_modules' / '.bin'))},
 
     'VERSION':                  {'default': lambda c: get_version(c).split('+', 1)[0]},     # remove +editable from user-displayed version string
     'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},                  # short git commit hash of codebase HEAD commit
@@ -1269,8 +1270,7 @@ os.environ["TZ"] = TIMEZONE                                                  # n
 os.umask(0o777 - int(DIR_OUTPUT_PERMISSIONS, base=8))                        # noqa: F821
 
 # add ./node_modules/.bin to $PATH so we can use node scripts in extractors
-NODE_BIN_PATH = str((Path(CONFIG["OUTPUT_DIR"]).absolute() / 'node_modules' / '.bin'))
-sys.path.append(NODE_BIN_PATH)
+sys.path.append(CONFIG.NODE_BIN_PATH)
 
 # OPTIONAL: also look around the host system for node modules to use
 #   avoid enabling this unless absolutely needed,
