@@ -3,10 +3,9 @@ __package__ = 'archivebox.plugantic'
 
 from pydantic import BaseModel
 
-# from .binproviders import LazyImportStr
 
 
-class Replayer(BaseModel):
+class BaseReplayer(BaseModel):
     """Describes how to render an ArchiveResult in several contexts"""
     name: str = 'GenericReplayer'
     url_pattern: str = '*'
@@ -21,5 +20,17 @@ class Replayer(BaseModel):
     # icon_view: LazyImportStr = 'plugins.generic_replayer.views.get_icon'
     # thumbnail_view: LazyImportStr = 'plugins.generic_replayer.views.get_icon'
 
+    def register(self, settings, parent_plugin=None):
+        if settings is None:
+            from django.conf import settings as django_settings
+            settings = django_settings
 
-MEDIA_REPLAYER = Replayer(name='media')
+        self._plugin = parent_plugin                                      # for debugging only, never rely on this!
+        settings.REPLAYERS[self.name] = self
+
+
+# class MediaReplayer(BaseReplayer):
+#     name: str = 'MediaReplayer'
+
+
+# MEDIA_REPLAYER = MediaReplayer()

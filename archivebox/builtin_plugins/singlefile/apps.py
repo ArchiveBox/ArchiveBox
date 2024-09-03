@@ -1,42 +1,31 @@
-from typing import List, Optional, Dict
 from pathlib import Path
+from typing import List, Dict, Optional
 
 from django.apps import AppConfig
-from django.core.checks import Tags, Warning, register
 
-from pydantic import (
-    Field,
-    SerializeAsAny,
-)
-
-from pydantic_pkgr import BinProvider, BinName, Binary, EnvProvider, NpmProvider
+# Depends on other PyPI/vendor packages:
+from pydantic import InstanceOf, Field
+from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName
 from pydantic_pkgr.binprovider import bin_abspath
-from pydantic_pkgr.binary import BinProviderName, ProviderLookupDict
 
-from plugantic.extractors import Extractor, ExtractorName
-from plugantic.plugins import Plugin
-from plugantic.configs import ConfigSet, ConfigSectionName
+# Depends on other Django apps:
+from plugantic.base_plugin import BasePlugin, BaseConfigSet, BaseBinary, BaseExtractor, BaseReplayer
+from plugantic.base_configset import ConfigSectionName
 
+# Depends on Other Plugins:
 from pkg.settings import env
+from builtin_plugins.npm.apps import npm
 
 
 ###################### Config ##########################
 
-class SinglefileToggleConfig(ConfigSet):
+class SinglefileToggleConfigs(BaseConfigSet):
     section: ConfigSectionName = 'ARCHIVE_METHOD_TOGGLES'
 
     SAVE_SINGLEFILE: bool = True
 
 
-class SinglefileDependencyConfig(ConfigSet):
-    section: ConfigSectionName = 'DEPENDENCY_CONFIG'
-
-    SINGLEFILE_BINARY: str = Field(default='wget')
-    SINGLEFILE_ARGS: Optional[List[str]] = Field(default=None)
-    SINGLEFILE_EXTRA_ARGS: List[str] = []
-    SINGLEFILE_DEFAULT_ARGS: List[str] = ['--timeout={TIMEOUT-10}']
-
-class SinglefileOptionsConfig(ConfigSet):
+class SinglefileOptionsConfigs(BaseConfigSet):
     section: ConfigSectionName = 'ARCHIVE_METHOD_OPTIONS'
 
     # loaded from shared config
@@ -47,67 +36,83 @@ class SinglefileOptionsConfig(ConfigSet):
     SINGLEFILE_COOKIES_FILE: Optional[Path] = Field(default=None, alias='COOKIES_FILE')
 
 
+class SinglefileDependencyConfigs(BaseConfigSet):
+    section: ConfigSectionName = 'DEPENDENCY_CONFIG'
 
-DEFAULT_CONFIG = {
+    SINGLEFILE_BINARY: str = Field(default='wget')
+    SINGLEFILE_ARGS: Optional[List[str]] = Field(default=None)
+    SINGLEFILE_EXTRA_ARGS: List[str] = []
+    SINGLEFILE_DEFAULT_ARGS: List[str] = ['--timeout={TIMEOUT-10}']
+
+class SinglefileConfigs(SinglefileToggleConfigs, SinglefileOptionsConfigs, SinglefileDependencyConfigs):
+    # section: ConfigSectionName = 'ALL_CONFIGS'
+    pass
+
+DEFAULT_GLOBAL_CONFIG = {
     'CHECK_SSL_VALIDITY': False,
     'SAVE_SINGLEFILE': True,
     'TIMEOUT': 120,
 }
 
-PLUGIN_CONFIG = [
-    SinglefileToggleConfig(**DEFAULT_CONFIG),
-    SinglefileDependencyConfig(**DEFAULT_CONFIG),
-    SinglefileOptionsConfig(**DEFAULT_CONFIG),
+SINGLEFILE_CONFIGS = [
+    SinglefileToggleConfigs(**DEFAULT_GLOBAL_CONFIG),
+    SinglefileDependencyConfigs(**DEFAULT_GLOBAL_CONFIG),
+    SinglefileOptionsConfigs(**DEFAULT_GLOBAL_CONFIG),
 ]
 
-###################### Binaries ############################
+
 
 min_version: str = "1.1.54"
 max_version: str = "2.0.0"
 
-class SinglefileBinary(Binary):
-    name: BinName = 'single-file'
-    providers_supported: List[BinProvider] = [NpmProvider()]
+def get_singlefile_abspath() -> Optional[Path]:
+    return 
 
+
+class SinglefileBinary(BaseBinary):
+    name: BinName = 'single-file'
+    binproviders_supported: List[InstanceOf[BinProvider]] = [env, npm]
 
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] ={
-        'env': {
-            'abspath': lambda: bin_abspath('single-file-node.js', PATH=env.PATH) or bin_abspath('single-file', PATH=env.PATH),
-        },
-        'npm': {
-            # 'abspath': lambda: bin_abspath('single-file', PATH=NpmProvider().PATH) or bin_abspath('single-file', PATH=env.PATH),
-            'subdeps': lambda: f'single-file-cli@>={min_version} <{max_version}',
-        },
+        # 'env': {
+        #     'abspath': lambda: bin_abspath('single-file-node.js', PATH=env.PATH) or bin_abspath('single-file', PATH=env.PATH),
+        # },
+        # 'npm': {
+        #     'abspath': lambda: bin_abspath('single-file', PATH=npm.PATH) or bin_abspath('single-file-node.js', PATH=npm.PATH),
+        #     'subdeps': lambda: f'single-file-cli@>={min_version} <{max_version}',
+        # },
     }
 
+SINGLEFILE_BINARY = SinglefileBinary()
 
-###################### Extractors ##########################
+PLUGIN_BINARIES = [SINGLEFILE_BINARY]
 
-class SinglefileExtractor(Extractor):
-    name: ExtractorName = 'singlefile'
-    binary: Binary = SinglefileBinary()
+class SinglefileExtractor(BaseExtractor):
+    name: str = 'singlefile'
+    binary: BinName = SINGLEFILE_BINARY.name
 
     def get_output_path(self, snapshot) -> Path:
         return Path(snapshot.link_dir) / 'singlefile.html'
 
 
-###################### Plugins #############################
+SINGLEFILE_BINARY = SinglefileBinary()
+SINGLEFILE_EXTRACTOR = SinglefileExtractor()
+
+class SinglefilePlugin(BasePlugin):
+    name: str = 'builtin_plugins.singlefile'
+    app_label: str ='singlefile'
+    verbose_name: str = 'SingleFile'
+
+    configs: List[InstanceOf[BaseConfigSet]] = SINGLEFILE_CONFIGS
+    binaries: List[InstanceOf[BaseBinary]] = [SINGLEFILE_BINARY]
+    extractors: List[InstanceOf[BaseExtractor]] = [SINGLEFILE_EXTRACTOR]
 
 
-class SinglefilePlugin(Plugin):
-    name: str = 'singlefile'
-    configs: List[SerializeAsAny[ConfigSet]] = [*PLUGIN_CONFIG]
-    binaries: List[SerializeAsAny[Binary]] = [SinglefileBinary()]
-    extractors: List[SerializeAsAny[Extractor]] = [SinglefileExtractor()]
 
-PLUGINS = [SinglefilePlugin()]
-
-###################### Django Apps #########################
-
-class SinglefileConfig(AppConfig):
-    name = 'builtin_plugins.singlefile'
-    verbose_name = 'SingleFile'
-
-    def ready(self):
-        pass
-        # print('Loaded singlefile plugin')
+PLUGIN = SinglefilePlugin()
+DJANGO_APP = PLUGIN.AppConfig
+# CONFIGS = PLUGIN.configs
+# BINARIES = PLUGIN.binaries
+# EXTRACTORS = PLUGIN.extractors
+# REPLAYERS = PLUGIN.replayers
+# CHECKS = PLUGIN.checks

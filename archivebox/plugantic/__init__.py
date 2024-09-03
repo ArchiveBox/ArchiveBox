@@ -1,16 +1,9 @@
 __package__ = 'archivebox.plugantic'
 
-from .binaries import Binary
-from .extractors import Extractor
-from .replayers import Replayer
-from .configs import ConfigSet
-from .plugins import Plugin
+from .base_plugin import BasePlugin
+from .base_configset import BaseConfigSet
+from .base_binary import BaseBinary
+from .base_extractor import BaseExtractor
+from .base_replayer import BaseReplayer
+from .base_check import BaseCheck
 
-# __all__ = [
-#     'BinProvider',
-#     'Binary',
-#     'Extractor',
-#     'Replayer',
-#     'ConfigSet',
-#     'Plugin',
-# ]

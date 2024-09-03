@@ -318,7 +318,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
         print('{green}----------------------------------------------------------------------{reset}'.format(**ANSI))
     elif existing_index:
         # TODO: properly detect and print the existing version in current index as well
-        print('{green}[^] Verifying and updating existing ArchiveBox collection to v{}...{reset}'.format(VERSION, **ANSI))
+        print('{green}[*] Verifying and updating existing ArchiveBox collection to v{}...{reset}'.format(VERSION, **ANSI))
         print('{green}----------------------------------------------------------------------{reset}'.format(**ANSI))
     else:
         if force:

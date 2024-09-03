@@ -6,13 +6,14 @@ from typing_extensions import Self
 from abc import ABC
 from pathlib import Path
 
-from pydantic import BaseModel, model_validator, field_serializer, AfterValidator
+from pydantic import BaseModel, model_validator, field_serializer, AfterValidator, Field
+from pydantic_pkgr import BinName
 
-from .binaries import (
-    Binary,
-    YtdlpBinary,
-    WgetBinary,
-)
+# from .binaries import (
+#     Binary,
+#     YtdlpBinary,
+#     WgetBinary,
+# )
 
 
 # stubs
@@ -37,9 +38,9 @@ HandlerFuncStr = Annotated[str, AfterValidator(lambda s: s.startswith('self.'))]
 CmdArgsList = Annotated[List[str], AfterValidator(no_empty_args)]
 
 
-class Extractor(ABC, BaseModel):
+class BaseExtractor(ABC, BaseModel):
     name: ExtractorName
-    binary: Binary
+    binary: BinName
 
     output_path_func: HandlerFuncStr = 'self.get_output_path'
     should_extract_func: HandlerFuncStr = 'self.should_extract'
@@ -55,10 +56,14 @@ class Extractor(ABC, BaseModel):
         if self.args is None:
             self.args = [*self.default_args, *self.extra_args]
         return self
+    
+    def register(self, settings, parent_plugin=None):
+        if settings is None:
+            from django.conf import settings as django_settings
+            settings = django_settings
 
-    @field_serializer('binary', when_used='json')
-    def dump_binary(binary) -> str:
-        return binary.name
+        self._plugin = parent_plugin                                      # for debugging only, never rely on this!
+        settings.EXTRACTORS[self.name] = self
 
     def get_output_path(self, snapshot) -> Path:
         return Path(self.name)
@@ -86,33 +91,37 @@ class Extractor(ABC, BaseModel):
             'returncode': proc.returncode,
         }
 
-    def exec(self, args: CmdArgsList, pwd: Optional[Path]=None):
+    def exec(self, args: CmdArgsList, pwd: Optional[Path]=None, settings=None):
         pwd = pwd or Path('.')
-        assert self.binary.loaded_provider
-        return self.binary.exec(args, pwd=pwd)
+        if settings is None:
+            from django.conf import settings as django_settings
+            settings = django_settings
+        
+        binary = settings.BINARIES[self.binary]
+        return binary.exec(args, pwd=pwd)
 
 
-class YtdlpExtractor(Extractor):
-    name: ExtractorName = 'media'
-    binary: Binary = YtdlpBinary()
+# class YtdlpExtractor(Extractor):
+#     name: ExtractorName = 'media'
+#     binary: Binary = YtdlpBinary()
 
-    def get_output_path(self, snapshot) -> Path:
-        return Path(self.name)
-
-
-class WgetExtractor(Extractor):
-    name: ExtractorName = 'wget'
-    binary: Binary = WgetBinary()
-
-    def get_output_path(self, snapshot) -> Path:
-        return get_wget_output_path(snapshot)
+#     def get_output_path(self, snapshot) -> Path:
+#         return Path(self.name)
 
 
-class WarcExtractor(Extractor):
-    name: ExtractorName = 'warc'
-    binary: Binary = WgetBinary()
+# class WgetExtractor(Extractor):
+#     name: ExtractorName = 'wget'
+#     binary: Binary = WgetBinary()
 
-    def get_output_path(self, snapshot) -> Path:
-        return get_wget_output_path(snapshot)
+#     def get_output_path(self, snapshot) -> Path:
+#         return get_wget_output_path(snapshot)
+
+
+# class WarcExtractor(Extractor):
+#     name: ExtractorName = 'warc'
+#     binary: Binary = WgetBinary()
+
+#     def get_output_path(self, snapshot) -> Path:
+#         return get_wget_output_path(snapshot)
 
 

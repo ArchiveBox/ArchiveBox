@@ -19,6 +19,46 @@ IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
 IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
 IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
 
+
+################################################################################
+### ArchiveBox Plugin Settings
+################################################################################
+
+BUILTIN_PLUGINS_DIR = CONFIG.PACKAGE_DIR / 'builtin_plugins'  # /app/archivebox/builtin_plugins
+USERDATA_PLUGINS_DIR = CONFIG.OUTPUT_DIR / 'user_plugins'     # /data/user_plugins
+
+def find_plugins_in_dir(plugins_dir, prefix: str) -> Dict[str, Path]:
+    return {
+        f'{prefix}.{plugin_entrypoint.parent.name}': plugin_entrypoint.parent
+        for plugin_entrypoint in sorted(plugins_dir.glob('*/apps.py'))
+    }
+
+INSTALLED_PLUGINS = {
+    **find_plugins_in_dir(BUILTIN_PLUGINS_DIR, prefix='builtin_plugins'),
+    **find_plugins_in_dir(USERDATA_PLUGINS_DIR, prefix='user_plugins'),
+}
+
+### Plugins Globals (filled by plugantic.apps.load_plugins() after Django startup)
+PLUGINS = AttrDict({})
+
+CONFIGS = AttrDict({})
+BINPROVIDERS = AttrDict({})
+BINARIES = AttrDict({})
+EXTRACTORS = AttrDict({})
+REPLAYERS = AttrDict({})
+CHECKS = AttrDict({})
+ADMINDATAVIEWS = AttrDict({})
+
+PLUGIN_KEYS = AttrDict({
+    'CONFIGS': CONFIGS,
+    'BINPROVIDERS': BINPROVIDERS,
+    'BINARIES': BINARIES,
+    'EXTRACTORS': EXTRACTORS,
+    'REPLAYERS': REPLAYERS,
+    'CHECKS': CHECKS,
+    'ADMINDATAVIEWS': ADMINDATAVIEWS,
+})
+
 ################################################################################
 ### Django Core Settings
 ################################################################################
@@ -35,50 +75,33 @@ APPEND_SLASH = True
 DEBUG = CONFIG.DEBUG or ('--debug' in sys.argv)
 
 
-BUILTIN_PLUGINS_DIR = CONFIG.PACKAGE_DIR / 'builtin_plugins'
-USER_PLUGINS_DIR = CONFIG.OUTPUT_DIR / 'user_plugins'
-
-def find_plugins(plugins_dir, prefix: str) -> Dict[str, Any]:
-    plugins = {
-        f'{prefix}.{plugin_entrypoint.parent.name}': plugin_entrypoint.parent
-        for plugin_entrypoint in plugins_dir.glob('*/apps.py')
-    }
-    # print(f'Found {prefix} plugins:\n', '\n    '.join(plugins.keys()))
-    return plugins
-
-INSTALLED_PLUGINS = {
-    **find_plugins(BUILTIN_PLUGINS_DIR, prefix='builtin_plugins'),
-    **find_plugins(USER_PLUGINS_DIR, prefix='user_plugins'),
-}
-
-
 INSTALLED_APPS = [
+    # Django default apps
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admin',
-    'django_jsonform',
+
+    # 3rd-party apps from PyPI
+    'django_jsonform',           # handles rendering Pydantic models to Django HTML widgets/forms
+    'signal_webhooks',           # handles REST API outbound webhooks
     
-    'signal_webhooks',
-    'abid_utils',
-    'plugantic',
-    'core',
-    'api',
-    'pkg',
+    # our own apps
+    'abid_utils',                # handles ABID ID creation, handling, and models
+    'plugantic',                 # ArchiveBox plugin API definition + finding/registering/calling interface
+    'core',                      # core django model with Snapshot, ArchiveResult, etc.
+    'api',                       # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
+    'pkg',                       # ArchiveBox runtime package management interface for subdependencies
 
-    *INSTALLED_PLUGINS.keys(),
+    # ArchiveBox plugins
+    *INSTALLED_PLUGINS.keys(),   # all plugin django-apps found in archivebox/builtin_plugins and data/user_plugins
 
-    'admin_data_views',
-    'django_extensions',
+    # 3rd-party apps from PyPI that need to be loaded last
+    'admin_data_views',          # handles rendering some convenient automatic read-only views of data in Django admin
+    'django_extensions',         # provides Django Debug Toolbar (and other non-debug helpers)
 ]
-
-
-# For usage with https://www.jetadmin.io/integrations/django
-# INSTALLED_APPS += ['jet_django']
-# JET_PROJECT = 'archivebox'
-# JET_TOKEN = 'some-api-token-here'
 
 
 MIDDLEWARE = [
@@ -371,8 +394,11 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
+        "console": {
+            "level": "DEBUG",
+            "filters": [],
+            'formatter': 'simple',
+            "class": "logging.StreamHandler",
         },
         'logfile': {
             'level': 'ERROR',
@@ -380,14 +406,57 @@ LOGGING = {
             'filename': ERROR_LOG,
             'maxBytes': 1024 * 1024 * 25,  # 25 MB
             'backupCount': 10,
+            'formatter': 'verbose',
         },
+        # "mail_admins": {
+        #     "level": "ERROR",
+        #     "filters": ["require_debug_false"],
+        #     "class": "django.utils.log.AdminEmailHandler",
+        # },
     },
     'filters': {
         'noisyrequestsfilter': {
             '()': NoisyRequestsFilter,
-        }
+        },
+        "require_debug_false": {
+            "()": "django.utils.log.RequireDebugFalse",
+        },
+        "require_debug_true": {
+            "()": "django.utils.log.RequireDebugTrue",
+        },
+    },
+    'formatters': {
+        'verbose': {
+            'format': '{name} {levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{name} {message}',
+            'style': '{',
+        },
+        "django.server": {
+            "()": "django.utils.log.ServerFormatter",
+            "format": "[{server_time}] {message}",
+            "style": "{",
+        },
     },
     'loggers': {
+        'api': {
+            'handlers': ['console', 'logfile'],
+            'level': 'DEBUG',
+        },
+        'checks': {
+            'handlers': ['console', 'logfile'],
+            'level': 'DEBUG',
+        },
+        'core': {
+            'handlers': ['console', 'logfile'],
+            'level': 'DEBUG',
+        },
+        'builtin_plugins': {
+            'handlers': ['console', 'logfile'],
+            'level': 'DEBUG',
+        },
         'django': {
             'handlers': ['console', 'logfile'],
             'level': 'INFO',
@@ -397,6 +466,8 @@ LOGGING = {
             'handlers': ['console', 'logfile'],
             'level': 'INFO',
             'filters': ['noisyrequestsfilter'],
+            'propagate': False,
+            "formatter": "django.server",
         }
     },
 }
@@ -541,3 +612,9 @@ if DEBUG_REQUESTS_TRACKER:
 # https://docs.pydantic.dev/logfire/integrations/django/ (similar to DataDog / NewRelic / etc.)
 DEBUG_LOGFIRE = False
 DEBUG_LOGFIRE = DEBUG_LOGFIRE and (Path(CONFIG.OUTPUT_DIR) / '.logfire').is_dir()
+
+
+# For usage with https://www.jetadmin.io/integrations/django
+# INSTALLED_APPS += ['jet_django']
+# JET_PROJECT = 'archivebox'
+# JET_TOKEN = 'some-api-token-here'
