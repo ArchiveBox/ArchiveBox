@@ -144,17 +144,9 @@ class ABIDModel(models.Model):
 
         self.old_id = getattr(self, 'old_id', None) or self.id or uuid4()
         self.abid = None
-        self.created = ts_from_abid(abid_part_from_ts(timezone.now()))  # cut off precision to match precision of TS component
+        self.created = ts_from_abid(abid_part_from_ts(getattr(self, 'bookmarked', None) or timezone.now()))  # cut off precision to match precision of TS component
         self.added = getattr(self, 'added', None) or self.created
         self.modified = self.created
-        abid_ts_src_attr = self.abid_ts_src.split('self.', 1)[-1]   # e.g. 'self.added' -> 'added'
-        if abid_ts_src_attr and abid_ts_src_attr != 'created' and hasattr(self, abid_ts_src_attr):
-            # self.added = self.created
-            existing_abid_ts = getattr(self, abid_ts_src_attr, None)
-            created_and_abid_ts_are_same = existing_abid_ts and (existing_abid_ts - self.created) < timedelta(seconds=5)
-            if created_and_abid_ts_are_same:
-                setattr(self, abid_ts_src_attr, self.created)
-                assert getattr(self, abid_ts_src_attr) == self.created
 
         assert all(self.ABID_FRESH_VALUES.values()), f'Can only issue new ABID if all self.ABID_FRESH_VALUES are defined {self.ABID_FRESH_VALUES}'
 
