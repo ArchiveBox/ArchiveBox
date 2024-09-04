@@ -12,7 +12,7 @@ from signal_webhooks.models import WebhookBase
 
 from django_stubs_ext.db.models import TypedModelMeta
 
-from abid_utils.models import ABIDModel, ABIDField, get_or_create_system_user_pk
+from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
 
 
 
@@ -32,11 +32,12 @@ class APIToken(ABIDModel):
     abid_subtype_src = 'self.created_by_id'
     abid_rand_src = 'self.id'
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk)
-    created = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False)
+    created = AutoDateTimeField(default=None, null=False, db_index=True)
+    modified = models.DateTimeField(auto_now=True)
 
     token = models.CharField(max_length=32, default=generate_secret_token, unique=True)
     expires = models.DateTimeField(null=True, blank=True)
@@ -99,11 +100,11 @@ class OutboundWebhook(ABIDModel, WebhookBase):
     abid_subtype_src = 'self.ref'
     abid_rand_src = 'self.id'
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk)
-    created = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False)
+    created = AutoDateTimeField(default=None, null=False, db_index=True)
     modified = models.DateTimeField(auto_now=True)
 
     # More fields here: WebhookBase...

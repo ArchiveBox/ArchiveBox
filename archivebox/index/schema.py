@@ -192,7 +192,6 @@ class Link:
         if extended:
             info.update({
                 'snapshot_id': self.snapshot_id,
-                'snapshot_old_id': self.snapshot_old_id,
                 'snapshot_abid': self.snapshot_abid,
 
                 'link_dir': self.link_dir,
@@ -266,15 +265,11 @@ class Link:
     @cached_property
     def snapshot(self):
         from core.models import Snapshot
-        return Snapshot.objects.only('id', 'old_id', 'abid').get(url=self.url)
+        return Snapshot.objects.only('id', 'abid').get(url=self.url)
 
     @cached_property
     def snapshot_id(self):
         return str(self.snapshot.pk)
-
-    @cached_property
-    def snapshot_old_id(self):
-        return str(self.snapshot.old_id)
 
     @cached_property
     def snapshot_abid(self):

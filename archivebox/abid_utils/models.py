@@ -73,27 +73,30 @@ class ABIDModel(models.Model):
     """
     Abstract Base Model for other models to depend on. Provides ArchiveBox ID (ABID) interface.
     """
-    abid_prefix: str = DEFAULT_ABID_PREFIX   # e.g. 'tag_'
-    abid_ts_src = 'None'                    # e.g. 'self.created'
-    abid_uri_src = 'None'                   # e.g. 'self.uri'
-    abid_subtype_src = 'None'               # e.g. 'self.extractor'
-    abid_rand_src = 'None'                  # e.g. 'self.uuid' or 'self.id'
+    abid_prefix: str = DEFAULT_ABID_PREFIX            # e.g. 'tag_'
+    abid_ts_src = 'self.created'                     # e.g. 'self.created'
+    abid_uri_src = 'None'                            # e.g. 'self.uri'
+    abid_subtype_src = 'self.__class__.__name__'     # e.g. 'self.extractor'
+    abid_rand_src = 'self.id'                        # e.g. 'self.uuid' or 'self.id'
     abid_salt: str = DEFAULT_ABID_URI_SALT
 
-    # id = models.UUIDField(primary_key=True, default=uuid4, editable=True)
-    # uuid = models.UUIDField(blank=True, null=True, editable=True, unique=True)
-    abid = ABIDField(prefix=abid_prefix)
+    # id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
+    # abid = ABIDField(prefix=abid_prefix)
 
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk)
-    created = AutoDateTimeField(default=None, null=False, db_index=True)
-    modified = models.DateTimeField(auto_now=True)
+    # created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False)
+    # created = AutoDateTimeField(default=None, null=False, db_index=True)
+    # modified = models.DateTimeField(auto_now=True)
 
     class Meta(TypedModelMeta):
         abstract = True
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         if self._state.adding:
-            self.issue_new_abid()
+            self.pk = self.id = self.id or uuid4()
+            self.created = ts_from_abid(abid_part_from_ts(timezone.now()))  # cut off precision to match precision of TS component
+            self.modified = self.created
+            self.created_by = self.created_by or get_or_create_system_user_pk()
+            self.abid = str(self.issue_new_abid())
         return super().save(*args, **kwargs)
 
         # assert str(self.id) == str(self.ABID.uuid), f'self.id {self.id} does not match self.ABID {self.ABID.uuid}'
@@ -119,48 +122,28 @@ class ABIDModel(models.Model):
     def ABID_FRESH_HASHES(self) -> Dict[str, str]:
         return abid_hashes_from_values(**self.ABID_FRESH_VALUES)
 
-    
-    @property
-    def ABID_FRESH(self) -> ABID:
-        """
-        Return a pure freshly derived ABID (assembled from attrs defined in ABIDModel.abid_*_src).
-        """
+    def issue_new_abid(self):
+        assert self.abid is None, f'Can only issue new ABID for new objects that dont already have one {self.abid}'
+        assert self._state.adding, 'Can only issue new ABID when model._state.adding is True'
+        assert eval(self.abid_uri_src), f'Can only issue new ABID if self.abid_uri_src is defined ({self.abid_uri_src}={eval(self.abid_uri_src)})'
+
+        self.abid = None
+        self.pk = self.id = self.id or uuid4()
+        self.created = ts_from_abid(abid_part_from_ts(timezone.now()))  # cut off precision to match precision of TS component
 
         abid_fresh_values = self.ABID_FRESH_VALUES
         assert all(abid_fresh_values.values()), f'All ABID_FRESH_VALUES must be set {abid_fresh_values}'
         abid_fresh_hashes = self.ABID_FRESH_HASHES
         assert all(abid_fresh_hashes.values()), f'All ABID_FRESH_HASHES must be able to be generated {abid_fresh_hashes}'
         
-        abid = ABID(**abid_fresh_hashes)
+        new_abid = ABID(**abid_fresh_hashes)
         
-        assert abid.ulid and abid.uuid and abid.typeid, f'Failed to calculate {abid_fresh_values["prefix"]}_ABID for {self.__class__.__name__}'
-        return abid
-
-
-    def issue_new_abid(self):
-        assert self.abid is None, f'Can only issue new ABID for new objects that dont already have one {self.abid}'
-        assert self._state.adding, 'Can only issue new ABID when model._state.adding is True'
-        assert eval(self.abid_uri_src), f'Can only issue new ABID if self.abid_uri_src is defined ({self.abid_uri_src}={eval(self.abid_uri_src)})'
-
-        self.old_id = getattr(self, 'old_id', None) or self.id or uuid4()
-        self.abid = None
-        self.created = ts_from_abid(abid_part_from_ts(getattr(self, 'bookmarked', None) or timezone.now()))  # cut off precision to match precision of TS component
-        self.added = getattr(self, 'added', None) or self.created
-        self.modified = self.created
-
-        assert all(self.ABID_FRESH_VALUES.values()), f'Can only issue new ABID if all self.ABID_FRESH_VALUES are defined {self.ABID_FRESH_VALUES}'
-
-        new_abid = self.ABID_FRESH
+        assert new_abid.ulid and new_abid.uuid and new_abid.typeid, f'Failed to calculate {abid_fresh_values["prefix"]}_ABID for {self.__class__.__name__}'
 
         # store stable ABID on local fields, overwrite them because we are adding a new entry and existing defaults havent touched db yet
         self.abid = str(new_abid)
-        self.id = new_abid.uuid
-        self.pk = new_abid.uuid
-
-        assert self.ABID == new_abid
-        assert str(self.ABID.uuid) == str(self.id) == str(self.pk) == str(ABID.parse(self.abid).uuid)
-        
-        self._ready_to_save_as_new = True
+        assert str(self.ABID.uuid) == str(new_abid.uuid)
+        return new_abid
 
 
     @property
@@ -169,27 +152,12 @@ class ABIDModel(models.Model):
         aka get_or_generate_abid -> ULIDParts(timestamp='01HX9FPYTR', url='E4A5CCD9', subtype='00', randomness='ZYEBQE')
         """
 
-        # otherwise DB is single source of truth, load ABID from existing db pk
-        abid: ABID | None = None
-        try:
-            abid = abid or ABID.parse(cast(str, self.abid))
-        except Exception:
-            pass
+        if not self.abid:
+            pre_save_abid = self.issue_new_abid()
+            self.abid = str(pre_save_abid)
+            return pre_save_abid
 
-        try:
-            abid = abid or ABID.parse(cast(str, self.id))
-        except Exception:
-            pass
-
-        try:
-            abid = abid or ABID.parse(cast(str, self.pk))
-        except Exception:
-            pass
-
-        abid = abid or self.ABID_FRESH
-
-        return abid
-
+        return ABID.parse(cast(str, self.abid))
 
     @property
     def ULID(self) -> ULID:

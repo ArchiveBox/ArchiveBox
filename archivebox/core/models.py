@@ -54,12 +54,14 @@ class Tag(ABIDModel):
     abid_ts_src = 'self.created'
     abid_uri_src = 'self.slug'
     abid_subtype_src = '"03"'
-    abid_rand_src = 'self.old_id'
+    abid_rand_src = 'self.id'
 
-    old_id = models.BigIntegerField(unique=True, default=rand_int_id, serialize=False, verbose_name='Old ID')  # legacy PK
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)
+    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, related_name='tag_set')
+    created = AutoDateTimeField(default=None, null=False, db_index=True)
+    modified = models.DateTimeField(auto_now=True)
 
     name = models.CharField(unique=True, blank=False, max_length=100)
     slug = models.SlugField(unique=True, blank=False, max_length=100, editable=False)
@@ -73,10 +75,6 @@ class Tag(ABIDModel):
 
     def __str__(self):
         return self.name
-
-    # @property
-    # def old_id(self):
-    #     return self.id
 
     def slugify(self, tag, i=None):
         slug = slugify(tag)
@@ -133,16 +131,15 @@ class SnapshotManager(models.Manager):
 
 class Snapshot(ABIDModel):
     abid_prefix = 'snp_'
-    abid_ts_src = 'self.added'
+    abid_ts_src = 'self.created'
     abid_uri_src = 'self.url'
     abid_subtype_src = '"01"'
-    abid_rand_src = 'self.old_id'
+    abid_rand_src = 'self.id'
 
-    old_id = models.UUIDField(default=None, null=False, editable=False, unique=True)  # legacy pk
-    id = models.UUIDField(default=None, null=False, primary_key=True, editable=True, unique=True)
+    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, related_name='snapshot_set')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, related_name='snapshot_set')
     created = AutoDateTimeField(default=None, null=False, db_index=True)
     modified = models.DateTimeField(auto_now=True)
 
@@ -160,7 +157,6 @@ class Snapshot(ABIDModel):
     archiveresult_set: models.Manager['ArchiveResult']
 
     objects = SnapshotManager()
-
 
     def __repr__(self) -> str:
         title = (self.title_stripped or '-')[:64]
@@ -414,7 +410,7 @@ class ArchiveResult(ABIDModel):
     abid_ts_src = 'self.snapshot.added'
     abid_uri_src = 'self.snapshot.url'
     abid_subtype_src = 'self.extractor'
-    abid_rand_src = 'self.old_id'
+    abid_rand_src = 'self.id'
 
     EXTRACTOR_CHOICES = (
         ('htmltotext', 'htmltotext'),
@@ -438,13 +434,11 @@ class ArchiveResult(ABIDModel):
         ("skipped", "skipped")
     ]
 
-    old_id = models.BigIntegerField(default=rand_int_id, serialize=False, verbose_name='Old ID')
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True, unique=True, verbose_name='ID')
+    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, related_name='archiveresult_set')
-    created = AutoDateTimeField(default=timezone.now, db_index=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, related_name='archiveresult_set')
+    created = AutoDateTimeField(default=None, null=False, db_index=True)
     modified = models.DateTimeField(auto_now=True)
 
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE, to_field='id', db_column='snapshot_id')

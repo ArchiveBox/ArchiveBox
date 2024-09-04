@@ -64,7 +64,6 @@ class ArchiveResultSchema(Schema):
     TYPE: str = 'core.models.ArchiveResult'
 
     id: UUID
-    old_id: int
     abid: str
 
     modified: datetime
@@ -127,9 +126,9 @@ class ArchiveResultSchema(Schema):
 
 
 class ArchiveResultFilterSchema(FilterSchema):
-    id: Optional[str] = Field(None, q=['id__startswith', 'abid__icontains', 'old_id__startswith', 'snapshot__id__startswith', 'snapshot__abid__icontains', 'snapshot__timestamp__startswith'])
+    id: Optional[str] = Field(None, q=['id__startswith', 'abid__icontains', 'snapshot__id__startswith', 'snapshot__abid__icontains', 'snapshot__timestamp__startswith'])
 
-    search: Optional[str] = Field(None, q=['snapshot__url__icontains', 'snapshot__title__icontains', 'snapshot__tags__name__icontains', 'extractor', 'output__icontains', 'id__startswith', 'abid__icontains', 'old_id__startswith', 'snapshot__id__startswith', 'snapshot__abid__icontains', 'snapshot__timestamp__startswith'])
+    search: Optional[str] = Field(None, q=['snapshot__url__icontains', 'snapshot__title__icontains', 'snapshot__tags__name__icontains', 'extractor', 'output__icontains', 'id__startswith', 'abid__icontains', 'snapshot__id__startswith', 'snapshot__abid__icontains', 'snapshot__timestamp__startswith'])
     snapshot_id: Optional[str] = Field(None, q=['snapshot__id__startswith', 'snapshot__abid__icontains', 'snapshot__timestamp__startswith'])
     snapshot_url: Optional[str] = Field(None, q='snapshot__url__icontains')
     snapshot_tag: Optional[str] = Field(None, q='snapshot__tags__name__icontains')
@@ -157,8 +156,8 @@ def get_archiveresults(request, filters: ArchiveResultFilterSchema = Query(...))
 
 @router.get("/archiveresult/{archiveresult_id}", response=ArchiveResultSchema, url_name="get_archiveresult")
 def get_archiveresult(request, archiveresult_id: str):
-    """Get a specific ArchiveResult by pk, abid, or old_id."""
-    return ArchiveResult.objects.get(Q(id__icontains=archiveresult_id) | Q(abid__icontains=archiveresult_id) | Q(old_id__icontains=archiveresult_id))
+    """Get a specific ArchiveResult by id or abid."""
+    return ArchiveResult.objects.get(Q(id__icontains=archiveresult_id) | Q(abid__icontains=archiveresult_id))
 
 
 # @router.post("/archiveresult", response=ArchiveResultSchema)
@@ -193,7 +192,6 @@ class SnapshotSchema(Schema):
     TYPE: str = 'core.models.Snapshot'
 
     id: UUID
-    old_id: UUID
     abid: str
 
     modified: datetime
@@ -251,9 +249,7 @@ class SnapshotSchema(Schema):
 
 
 class SnapshotFilterSchema(FilterSchema):
-    id: Optional[str] = Field(None, q=['id__icontains', 'abid__icontains', 'old_id__icontains', 'timestamp__startswith'])
-
-    old_id: Optional[str] = Field(None, q='old_id__icontains')
+    id: Optional[str] = Field(None, q=['id__icontains', 'abid__icontains', 'timestamp__startswith'])
     abid: Optional[str] = Field(None, q='abid__icontains')
 
     created_by_id: str = Field(None, q='created_by_id')
@@ -266,7 +262,7 @@ class SnapshotFilterSchema(FilterSchema):
     modified__gte: datetime = Field(None, q='modified__gte')
     modified__lt: datetime = Field(None, q='modified__lt')
 
-    search: Optional[str] = Field(None, q=['url__icontains', 'title__icontains', 'tags__name__icontains', 'id__icontains', 'abid__icontains', 'old_id__icontains', 'timestamp__startswith'])
+    search: Optional[str] = Field(None, q=['url__icontains', 'title__icontains', 'tags__name__icontains', 'id__icontains', 'abid__icontains', 'timestamp__startswith'])
     url: Optional[str] = Field(None, q='url')
     tag: Optional[str] = Field(None, q='tags__name')
     title: Optional[str] = Field(None, q='title__icontains')
@@ -293,12 +289,12 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
     request.with_archiveresults = with_archiveresults
     snapshot = None
     try:
-        snapshot = Snapshot.objects.get(Q(abid__startswith=snapshot_id) | Q(id__startswith=snapshot_id) | Q(old_id__startswith=snapshot_id) | Q(timestamp__startswith=snapshot_id))
+        snapshot = Snapshot.objects.get(Q(abid__startswith=snapshot_id) | Q(id__startswith=snapshot_id) | Q(timestamp__startswith=snapshot_id))
     except Snapshot.DoesNotExist:
         pass
 
     try:
-        snapshot = snapshot or Snapshot.objects.get(Q(abid__icontains=snapshot_id) | Q(id__icontains=snapshot_id) | Q(old_id__icontains=snapshot_id))
+        snapshot = snapshot or Snapshot.objects.get(Q(abid__icontains=snapshot_id) | Q(id__icontains=snapshot_id))
     except Snapshot.DoesNotExist:
         pass
 
@@ -338,7 +334,6 @@ class TagSchema(Schema):
     TYPE: str = 'core.models.Tag'
 
     id: UUID
-    old_id: str
     abid: str
 
     modified: datetime
@@ -350,10 +345,6 @@ class TagSchema(Schema):
     slug: str
     num_snapshots: int
     snapshots: List[SnapshotSchema]
-
-    @staticmethod
-    def resolve_old_id(obj):
-        return str(obj.old_id)
 
     @staticmethod
     def resolve_created_by_id(obj):
@@ -386,11 +377,6 @@ def get_tag(request, tag_id: str, with_snapshots: bool=True):
     request.with_snapshots = with_snapshots
     request.with_archiveresults = False
     tag = None
-    try:
-        tag = tag or Tag.objects.get(old_id__icontains=tag_id)
-    except (Tag.DoesNotExist, ValidationError, ValueError):
-        pass
-
     try:
         tag = Tag.objects.get(abid__icontains=tag_id)
     except (Tag.DoesNotExist, ValidationError):

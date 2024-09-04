@@ -69,7 +69,6 @@ def get_abid_info(self, obj, request=None):
             &nbsp; &nbsp; SUBTYPE: &nbsp; &nbsp; &nbsp; <code style="font-size: 10px;"><b style="user-select: all">{}</b> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; {}</code> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px;"><b>{}</b></code> {}: <code style="user-select: all">{}</code><br/>
             &nbsp; &nbsp; RAND: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px;"><b style="user-select: all">{}</b> &nbsp; &nbsp; &nbsp; {}</code> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px;"><b>{}</b></code> {}: <code style="user-select: all">{}</code></code>
             <br/><hr/>
-            &nbsp; &nbsp; <small style="opacity: 0.5">.old_id: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all">{}</code></small><br/>
             </div>
             ''',
             obj.api_url + (f'?api_key={get_or_create_api_token(request.user)}' if request and request.user else ''), obj.api_url, obj.api_docs_url,
@@ -82,7 +81,6 @@ def get_abid_info(self, obj, request=None):
             highlight_diff(obj.ABID.uri, derived_uri), highlight_diff(str(obj.ABID.uuid)[14:26], str(fresh_abid.uuid)[14:26]), mark_safe(uri_diff), obj.abid_uri_src, str(obj.ABID_FRESH_VALUES['uri']),
             highlight_diff(obj.ABID.subtype, derived_subtype), highlight_diff(str(obj.ABID.uuid)[26:28], str(fresh_abid.uuid)[26:28]), mark_safe(subtype_diff), obj.abid_subtype_src, str(obj.ABID_FRESH_VALUES['subtype']),
             highlight_diff(obj.ABID.rand, derived_rand), highlight_diff(str(obj.ABID.uuid)[28:36], str(fresh_abid.uuid)[28:36]), mark_safe(rand_diff), obj.abid_rand_src, str(obj.ABID_FRESH_VALUES['rand'])[-7:],
-            highlight_diff(getattr(obj, 'old_id', ''), obj.pk),
         )
     except Exception as e:
         return str(e)

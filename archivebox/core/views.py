@@ -285,17 +285,17 @@ class SnapshotView(View):
         # ulid = slug.split('_', 1)[-1]
         # try:
         #     try:
-        #         snapshot = snapshot or Snapshot.objects.get(Q(abid=ulid) | Q(id=ulid) | Q(old_id=ulid))
+        #         snapshot = snapshot or Snapshot.objects.get(Q(abid=ulid) | Q(id=ulid))
         #     except Snapshot.DoesNotExist:
         #         pass
 
         #     try:
-        #         snapshot = Snapshot.objects.get(Q(abid__startswith=slug) | Q(abid__startswith=Snapshot.abid_prefix + slug) | Q(id__startswith=slug) | Q(old_id__startswith=slug))
+        #         snapshot = Snapshot.objects.get(Q(abid__startswith=slug) | Q(abid__startswith=Snapshot.abid_prefix + slug) | Q(id__startswith=slug))
         #     except (Snapshot.DoesNotExist, Snapshot.MultipleObjectsReturned):
         #         pass
 
         #     try:
-        #         snapshot = snapshot or Snapshot.objects.get(Q(abid__icontains=snapshot_id) | Q(id__icontains=snapshot_id) | Q(old_id__icontains=snapshot_id))
+        #         snapshot = snapshot or Snapshot.objects.get(Q(abid__icontains=snapshot_id) | Q(id__icontains=snapshot_id))
         #     except Snapshot.DoesNotExist:
         #         pass
         #     return redirect(f'/archive/{snapshot.timestamp}/index.html')
@@ -308,7 +308,7 @@ class SnapshotView(View):
                 # try exact match on full url / ABID first
                 snapshot = Snapshot.objects.get(
                     Q(url='http://' + path) | Q(url='https://' + path) | Q(id__startswith=path)
-                    | Q(abid__icontains=path) | Q(id__icontains=path) | Q(old_id__icontains=path)
+                    | Q(abid__icontains=path) | Q(id__icontains=path)
                 )
             except Snapshot.DoesNotExist:
                 # fall back to match on exact base_url
@@ -352,7 +352,7 @@ class SnapshotView(View):
                 )
                 for snap in Snapshot.objects.filter(
                     Q(url__startswith='http://' + base_url(path)) | Q(url__startswith='https://' + base_url(path))
-                    | Q(abid__icontains=path) | Q(id__icontains=path) | Q(old_id__icontains=path)
+                    | Q(abid__icontains=path) | Q(id__icontains=path)
                 ).only('url', 'timestamp', 'title', 'added').order_by('-added')
             )
             return HttpResponse(

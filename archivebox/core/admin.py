@@ -240,8 +240,8 @@ class ArchiveResultInline(admin.TabularInline):
     # fk_name = 'snapshot'
     extra = 0
     sort_fields = ('end_ts', 'extractor', 'output', 'status', 'cmd_version')
-    readonly_fields = ('result_id', 'completed', 'extractor', 'command', 'version')
-    fields = ('id', 'start_ts', 'end_ts', *readonly_fields, 'cmd', 'cmd_version', 'pwd', 'created_by', 'status', 'output')
+    readonly_fields = ('id', 'result_id', 'completed', 'command', 'version')
+    fields = ('start_ts', 'end_ts', *readonly_fields, 'extractor', 'cmd', 'cmd_version', 'pwd', 'created_by', 'status', 'output')
     # exclude = ('id',)
     ordering = ('end_ts',)
     show_change_link = True
@@ -273,7 +273,7 @@ class ArchiveResultInline(admin.TabularInline):
         snapshot = self.get_parent_object_from_request(request)
 
         # import ipdb; ipdb.set_trace()
-        formset.form.base_fields['id'].widget = formset.form.base_fields['id'].hidden_widget()
+        # formset.form.base_fields['id'].widget = formset.form.base_fields['id'].hidden_widget()
         
         # default values for new entries
         formset.form.base_fields['status'].initial = 'succeeded'
@@ -351,13 +351,13 @@ class SnapshotActionForm(ActionForm):
 
 @admin.register(Snapshot, site=archivebox_admin)
 class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
-    list_display = ('added', 'title_str', 'files', 'size', 'url_str')
-    sort_fields = ('title_str', 'url_str', 'added')
-    readonly_fields = ('tags_str', 'timestamp', 'admin_actions', 'status_info', 'bookmarked', 'created', 'added', 'updated', 'modified', 'API', 'link_dir')
-    search_fields = ('id', 'url', 'abid', 'old_id', 'timestamp', 'title', 'tags__name')
-    list_filter = ('added', 'updated', 'archiveresult__status', 'created_by', 'tags__name')
+    list_display = ('created', 'title_str', 'files', 'size', 'url_str')
+    sort_fields = ('title_str', 'url_str', 'created')
+    readonly_fields = ('tags_str', 'timestamp', 'admin_actions', 'status_info', 'bookmarked', 'created', 'created', 'updated', 'modified', 'API', 'link_dir')
+    search_fields = ('id', 'url', 'abid', 'timestamp', 'title', 'tags__name')
+    list_filter = ('created', 'updated', 'archiveresult__status', 'created_by', 'tags__name')
     fields = ('url', 'created_by', 'title',*readonly_fields)
-    ordering = ['-added']
+    ordering = ['-created']
     actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
     inlines = [TagInline, ArchiveResultInline]
     list_per_page = min(max(5, CONFIG.SNAPSHOTS_PER_PAGE), 5000)
@@ -389,12 +389,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
         try:
             snapshot = snapshot or Snapshot.objects.get(abid=Snapshot.abid_prefix + object_id.split('_', 1)[-1])
         except (Snapshot.DoesNotExist, ValidationError):
-            pass
-
-
-        try:
-            snapshot = snapshot or Snapshot.objects.get(old_id=object_id)
-        except (Snapshot.DoesNotExist, Snapshot.MultipleObjectsReturned, ValidationError):
             pass
 
         if snapshot:
@@ -690,7 +684,7 @@ class ArchiveResultAdmin(ABIDModelAdmin):
     list_display = ('start_ts', 'snapshot_info', 'tags_str', 'extractor', 'cmd_str', 'status', 'output_str')
     sort_fields = ('start_ts', 'extractor', 'status')
     readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created', 'modified', 'API', 'output_summary')
-    search_fields = ('id', 'old_id', 'abid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
+    search_fields = ('id', 'abid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
     fields = ('snapshot', 'extractor', 'status', 'output', 'pwd', 'start_ts', 'end_ts', 'created_by', 'cmd_version', 'cmd', *readonly_fields)
     autocomplete_fields = ['snapshot']
 
