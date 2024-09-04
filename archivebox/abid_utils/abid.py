@@ -114,7 +114,7 @@ class ABID(NamedTuple):
 @enforce_types
 def uri_hash(uri: Union[str, bytes], salt: str=DEFAULT_ABID_URI_SALT) -> str:
     """
-    'E4A5CCD9AF4ED2A6E0954DF19FD274E9CDDB4853051F033FD518BFC90AA1AC25'
+    https://example.com -> 'E4A5CCD9AF4ED2A6E0954DF19FD274E9CDDB4853051F033FD518BFC90AA1AC25' (example.com)
     """
     if isinstance(uri, bytes):
         uri_str: str = uri.decode()
@@ -130,6 +130,7 @@ def uri_hash(uri: Union[str, bytes], salt: str=DEFAULT_ABID_URI_SALT) -> str:
         except AttributeError:
             pass
     
+    # the uri hash is the sha256 of the domain + salt
     uri_bytes = uri_str.encode('utf-8') + salt.encode('utf-8')
 
     return hashlib.sha256(uri_bytes).hexdigest().upper()
@@ -162,7 +163,11 @@ def abid_part_from_ts(ts: datetime) -> str:
     return str(ulid.from_timestamp(ts))[:ABID_TS_LEN]
 
 @enforce_types
-def abid_part_from_subtype(subtype: str) -> str:
+def ts_from_abid(abid: str) -> datetime:
+    return ulid.parse(abid.split('_', 1)[-1]).timestamp().datetime
+
+@enforce_types
+def abid_part_from_subtype(subtype: str | int) -> str:
     """
     Snapshots have 01 type, other objects have other subtypes like wget/media/etc.
     Also allows us to change the ulid spec later by putting special sigil values here.
@@ -196,7 +201,7 @@ def abid_part_from_rand(rand: Union[str, UUID, None, int]) -> str:
 
 
 @enforce_types
-def abid_hashes_from_values(prefix: str, ts: datetime, uri: str, subtype: str, rand: Union[str, UUID, None, int], salt: str=DEFAULT_ABID_URI_SALT) -> Dict[str, str]:
+def abid_hashes_from_values(prefix: str, ts: datetime, uri: str, subtype: str | int, rand: Union[str, UUID, None, int], salt: str=DEFAULT_ABID_URI_SALT) -> Dict[str, str]:
     return {
         'prefix': abid_part_from_prefix(prefix),
         'ts': abid_part_from_ts(ts),

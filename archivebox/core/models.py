@@ -138,16 +138,16 @@ class Snapshot(ABIDModel):
     abid_subtype_src = '"01"'
     abid_rand_src = 'self.old_id'
 
-    old_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)  # legacy pk
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True, unique=True)
+    old_id = models.UUIDField(default=None, null=False, editable=False, unique=True)  # legacy pk
+    id = models.UUIDField(default=None, null=False, primary_key=True, editable=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, related_name='snapshot_set')
-    created = AutoDateTimeField(default=timezone.now, db_index=True)
+    created = AutoDateTimeField(default=None, null=False, db_index=True)
     modified = models.DateTimeField(auto_now=True)
 
     # legacy ts fields
-    added = AutoDateTimeField(default=timezone.now, db_index=True)
+    added = AutoDateTimeField(default=None, null=False, editable=True, db_index=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True, db_index=True)
 
     url = models.URLField(unique=True, db_index=True)
@@ -161,11 +161,6 @@ class Snapshot(ABIDModel):
 
     objects = SnapshotManager()
 
-    def save(self, *args, **kwargs):
-        # make sure self.added is seeded with a value before calculating ABID using it
-        if self._state.adding or not self.added:
-            self.added = self.added or timezone.now()
-        return super().save(*args, **kwargs)
 
     def __repr__(self) -> str:
         title = (self.title_stripped or '-')[:64]

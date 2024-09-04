@@ -27,7 +27,7 @@ def get_abid_info(self, obj, request=None):
     try:
         abid_diff = f' != obj.ABID: {highlight_diff(obj.ABID, obj.abid)} ❌' if str(obj.ABID) != str(obj.abid) else ' == .ABID ✅'
 
-        fresh_abid = obj.ABID_FRESH
+        fresh_abid = obj.ABID
         fresh_abid_diff = f' != &nbsp; .fresh_abid: {highlight_diff(fresh_abid, obj.ABID)} ❌' if str(fresh_abid) != str(obj.ABID) else '✅'
         fresh_uuid_diff = f' != &nbsp; .fresh_uuid: {highlight_diff(fresh_abid.uuid, obj.ABID.uuid)} ❌' if str(fresh_abid.uuid) != str(obj.ABID.uuid) else '✅'
 
@@ -35,17 +35,17 @@ def get_abid_info(self, obj, request=None):
         id_abid_diff = f' !=  .abid.uuid: {highlight_diff(obj.ABID.uuid, obj.id)} ❌' if str(obj.id) != str(obj.ABID.uuid) else ' == .abid ✅'
         id_pk_diff = f' !=  .pk: {highlight_diff(obj.pk, obj.id)} ❌' if str(obj.pk) != str(obj.id) else ' ==  .pk ✅'
 
-        source_ts_val = parse_date(obj.abid_values['ts']) or None
-        derived_ts = abid_part_from_ts(source_ts_val) if source_ts_val else None
+        fresh_ts = parse_date(obj.ABID_FRESH_VALUES['ts']) or None
+        derived_ts = abid_part_from_ts(fresh_ts) if fresh_ts else None
         ts_diff = f'!= {highlight_diff(derived_ts, obj.ABID.ts)} ❌' if derived_ts != obj.ABID.ts else '✅'
 
-        derived_uri = abid_part_from_uri(obj.abid_values['uri'])
+        derived_uri = abid_part_from_uri(obj.ABID_FRESH_VALUES['uri'])
         uri_diff = f'!= {highlight_diff(derived_uri, obj.ABID.uri)} ❌' if derived_uri != obj.ABID.uri else '✅'
 
-        derived_subtype = abid_part_from_subtype(obj.abid_values['subtype'])
+        derived_subtype = abid_part_from_subtype(obj.ABID_FRESH_VALUES['subtype'])
         subtype_diff = f'!= {highlight_diff(derived_subtype, obj.ABID.subtype)} ❌' if derived_subtype != obj.ABID.subtype else '✅'
 
-        derived_rand = abid_part_from_rand(obj.abid_values['rand'])
+        derived_rand = abid_part_from_rand(obj.ABID_FRESH_VALUES['rand'])
         rand_diff = f'!= {highlight_diff(derived_rand, obj.ABID.rand)} ❌' if derived_rand != obj.ABID.rand else '✅'
 
         # any_abid_discrepancies = any(
@@ -60,9 +60,9 @@ def get_abid_info(self, obj, request=None):
             <a href="{}" style="font-size: 16px; font-family: monospace; user-select: all; border-radius: 8px; background-color: #ddf; padding: 3px 5px; border: 1px solid #aaa; margin-bottom: 8px; display: inline-block; vertical-align: top;">{}</a> &nbsp; &nbsp; <a href="{}" style="color: limegreen; font-size: 0.9em; vertical-align: 1px; font-family: monospace;">📖 API DOCS</a>
             <br/><hr/>
             <div style="opacity: 0.8">
-            &nbsp; &nbsp; <small style="opacity: 0.8">.abid: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; {}</small><br/>
-            &nbsp; &nbsp; <small style="opacity: 0.8">.abid.uuid: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp; {}</small><br/>
             &nbsp; &nbsp; <small style="opacity: 0.8">.id: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp; {}</small><br/>
+            &nbsp; &nbsp; <small style="opacity: 0.8">.abid.uuid: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp; {}</small><br/>
+            &nbsp; &nbsp; <small style="opacity: 0.8">.abid: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px; user-select: all">{}</code> &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; {}</small><br/>
             <hr/>
             &nbsp; &nbsp; TS: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;<code style="font-size: 10px;"><b style="user-select: all">{}</b> &nbsp; {}</code> &nbsp; &nbsp; &nbsp;&nbsp; <code style="font-size: 10px;"><b>{}</b></code> {}: <code style="user-select: all">{}</code><br/>
             &nbsp; &nbsp; URI: &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <code style="font-size: 10px;"><b style="user-select: all">{}</b> &nbsp; &nbsp; {}</code> &nbsp;&nbsp; &nbsp; &nbsp; &nbsp;&nbsp; <code style="font-size: 10px;"><b>{}</b></code> <span style="display:inline-block; vertical-align: -4px; width: 330px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{}: <code style="user-select: all">{}</code></span><br/>
@@ -73,15 +73,15 @@ def get_abid_info(self, obj, request=None):
             </div>
             ''',
             obj.api_url + (f'?api_key={get_or_create_api_token(request.user)}' if request and request.user else ''), obj.api_url, obj.api_docs_url,
+            highlight_diff(obj.id, obj.ABID.uuid), mark_safe(id_pk_diff + id_abid_diff),
+            highlight_diff(obj.ABID.uuid, obj.id), mark_safe(fresh_uuid_diff),
             highlight_diff(obj.abid, fresh_abid), mark_safe(fresh_abid_diff),
-            highlight_diff(obj.ABID.uuid, fresh_abid.uuid), mark_safe(fresh_uuid_diff),
-            str(obj.id), mark_safe(id_pk_diff + id_abid_diff + id_fresh_abid_diff),
             # str(fresh_abid.uuid), mark_safe(fresh_uuid_diff),
             # str(fresh_abid), mark_safe(fresh_abid_diff),
-            highlight_diff(obj.ABID.ts, derived_ts), highlight_diff(str(obj.ABID.uuid)[0:14], str(fresh_abid.uuid)[0:14]), mark_safe(ts_diff), obj.abid_ts_src, source_ts_val and source_ts_val.isoformat(),
-            highlight_diff(obj.ABID.uri, derived_uri), highlight_diff(str(obj.ABID.uuid)[14:26], str(fresh_abid.uuid)[14:26]), mark_safe(uri_diff), obj.abid_uri_src, str(obj.abid_values['uri']),
-            highlight_diff(obj.ABID.subtype, derived_subtype), highlight_diff(str(obj.ABID.uuid)[26:28], str(fresh_abid.uuid)[26:28]), mark_safe(subtype_diff), obj.abid_subtype_src, str(obj.abid_values['subtype']),
-            highlight_diff(obj.ABID.rand, derived_rand), highlight_diff(str(obj.ABID.uuid)[28:36], str(fresh_abid.uuid)[28:36]), mark_safe(rand_diff), obj.abid_rand_src, str(obj.abid_values['rand'])[-7:],
+            highlight_diff(obj.ABID.ts, derived_ts), highlight_diff(str(obj.ABID.uuid)[0:14], str(fresh_abid.uuid)[0:14]), mark_safe(ts_diff), obj.abid_ts_src, fresh_ts and fresh_ts.isoformat(),
+            highlight_diff(obj.ABID.uri, derived_uri), highlight_diff(str(obj.ABID.uuid)[14:26], str(fresh_abid.uuid)[14:26]), mark_safe(uri_diff), obj.abid_uri_src, str(obj.ABID_FRESH_VALUES['uri']),
+            highlight_diff(obj.ABID.subtype, derived_subtype), highlight_diff(str(obj.ABID.uuid)[26:28], str(fresh_abid.uuid)[26:28]), mark_safe(subtype_diff), obj.abid_subtype_src, str(obj.ABID_FRESH_VALUES['subtype']),
+            highlight_diff(obj.ABID.rand, derived_rand), highlight_diff(str(obj.ABID.uuid)[28:36], str(fresh_abid.uuid)[28:36]), mark_safe(rand_diff), obj.abid_rand_src, str(obj.ABID_FRESH_VALUES['rand'])[-7:],
             highlight_diff(getattr(obj, 'old_id', ''), obj.pk),
         )
     except Exception as e:
@@ -93,6 +93,7 @@ class ABIDModelAdmin(admin.ModelAdmin):
     sort_fields = ('created', 'created_by', 'abid', '__str__')
     readonly_fields = ('created', 'modified', '__str__', 'API')
 
+    @admin.display(description='API Identifiers')
     def API(self, obj):
         return get_abid_info(self, obj, request=self.request)
 
