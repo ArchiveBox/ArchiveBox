@@ -16,21 +16,20 @@ def highlight_diff(display_val, compare_val):
     display_val = str(display_val)
     compare_val = str(compare_val)
 
-    diff_chars = mark_safe('').join(
+    return mark_safe(''.join(
         format_html('<span style="color: red;">{}</span>', display_val[i])
         if display_val[i] != compare_val[i] else
         format_html('<span display="color: black">{}</span>', display_val[i])
         for i in range(len(display_val))
-    )
-    return diff_chars
+    ))
 
 def get_abid_info(self, obj, request=None):
     try:
         abid_diff = f' != obj.ABID: {highlight_diff(obj.ABID, obj.abid)} ❌' if str(obj.ABID) != str(obj.abid) else ' == .ABID ✅'
 
-        fresh_abid = obj.generate_abid()
-        fresh_abid_diff = f' != &nbsp; .fresh_abid: {highlight_diff(obj.ABID, fresh_abid)} ❌' if str(fresh_abid) != str(obj.ABID) else '✅'
-        fresh_uuid_diff = f' != &nbsp; .fresh_uuid: {highlight_diff(obj.ABID.uuid, fresh_abid.uuid)} ❌' if str(fresh_abid.uuid) != str(obj.ABID.uuid) else '✅'
+        fresh_abid = obj.ABID_FRESH
+        fresh_abid_diff = f' != &nbsp; .fresh_abid: {highlight_diff(fresh_abid, obj.ABID)} ❌' if str(fresh_abid) != str(obj.ABID) else '✅'
+        fresh_uuid_diff = f' != &nbsp; .fresh_uuid: {highlight_diff(fresh_abid.uuid, obj.ABID.uuid)} ❌' if str(fresh_abid.uuid) != str(obj.ABID.uuid) else '✅'
 
         id_fresh_abid_diff = f' != .fresh_abid ❌' if str(fresh_abid.uuid) != str(obj.id) else ' == .fresh_abid ✅'
         id_abid_diff = f' !=  .abid.uuid: {highlight_diff(obj.ABID.uuid, obj.id)} ❌' if str(obj.id) != str(obj.ABID.uuid) else ' == .abid ✅'
@@ -74,16 +73,16 @@ def get_abid_info(self, obj, request=None):
             </div>
             ''',
             obj.api_url + (f'?api_key={get_or_create_api_token(request.user)}' if request and request.user else ''), obj.api_url, obj.api_docs_url,
-            str(obj.abid), mark_safe(fresh_abid_diff),
-            str(obj.ABID.uuid), mark_safe(fresh_uuid_diff),
+            highlight_diff(obj.abid, fresh_abid), mark_safe(fresh_abid_diff),
+            highlight_diff(obj.ABID.uuid, fresh_abid.uuid), mark_safe(fresh_uuid_diff),
             str(obj.id), mark_safe(id_pk_diff + id_abid_diff + id_fresh_abid_diff),
             # str(fresh_abid.uuid), mark_safe(fresh_uuid_diff),
             # str(fresh_abid), mark_safe(fresh_abid_diff),
-            obj.ABID.ts, str(obj.ABID.uuid)[0:14], mark_safe(ts_diff), obj.abid_ts_src, source_ts_val and source_ts_val.isoformat(),
-            obj.ABID.uri, str(obj.ABID.uuid)[14:26], mark_safe(uri_diff), obj.abid_uri_src, str(obj.abid_values['uri']),
-            obj.ABID.subtype, str(obj.ABID.uuid)[26:28], mark_safe(subtype_diff), obj.abid_subtype_src, str(obj.abid_values['subtype']),
-            obj.ABID.rand, str(obj.ABID.uuid)[28:36], mark_safe(rand_diff), obj.abid_rand_src, str(obj.abid_values['rand'])[-7:],
-            str(getattr(obj, 'old_id', '')),
+            highlight_diff(obj.ABID.ts, derived_ts), highlight_diff(str(obj.ABID.uuid)[0:14], str(fresh_abid.uuid)[0:14]), mark_safe(ts_diff), obj.abid_ts_src, source_ts_val and source_ts_val.isoformat(),
+            highlight_diff(obj.ABID.uri, derived_uri), highlight_diff(str(obj.ABID.uuid)[14:26], str(fresh_abid.uuid)[14:26]), mark_safe(uri_diff), obj.abid_uri_src, str(obj.abid_values['uri']),
+            highlight_diff(obj.ABID.subtype, derived_subtype), highlight_diff(str(obj.ABID.uuid)[26:28], str(fresh_abid.uuid)[26:28]), mark_safe(subtype_diff), obj.abid_subtype_src, str(obj.abid_values['subtype']),
+            highlight_diff(obj.ABID.rand, derived_rand), highlight_diff(str(obj.ABID.uuid)[28:36], str(fresh_abid.uuid)[28:36]), mark_safe(rand_diff), obj.abid_rand_src, str(obj.abid_values['rand'])[-7:],
+            highlight_diff(getattr(obj, 'old_id', ''), obj.pk),
         )
     except Exception as e:
         return str(e)

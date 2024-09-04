@@ -118,7 +118,7 @@ def render_django_template(template: str, context: Mapping[str, str]) -> str:
 
 
 def snapshot_icons(snapshot) -> str:
-    cache_key = f'{snapshot.pk}-{(snapshot.updated or snapshot.added).timestamp()}-snapshot-icons'
+    cache_key = f'result_icons:{snapshot.pk}:{(snapshot.modified or snapshot.created or snapshot.added).timestamp()}'
     
     def calc_snapshot_icons():
         from core.models import ArchiveResult
@@ -133,6 +133,7 @@ def snapshot_icons(snapshot) -> str:
         else:
             archive_results = snapshot.archiveresult_set.filter(status="succeeded", output__isnull=False)
 
+        # import ipdb; ipdb.set_trace()
         link = snapshot.as_link()
         path = link.archive_path
         canon = link.canonical_outputs()
@@ -197,7 +198,12 @@ def snapshot_icons(snapshot) -> str:
         # print(((end - start).total_seconds()*1000) // 1, 'ms')
         return result
 
-    return cache.get_or_set(cache_key, calc_snapshot_icons)
-    # return calc_snapshot_icons()
+    cache_result = cache.get(cache_key)
+    if cache_result:
+        return cache_result
+    
+    fresh_result = calc_snapshot_icons()
+    cache.set(cache_key, fresh_result, timeout=60 * 60 * 24)
+    return fresh_result
 
    

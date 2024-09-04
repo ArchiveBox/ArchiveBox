@@ -1,4 +1,6 @@
-from typing import NamedTuple, Any, Union, Optional
+__package__ = 'archivebox.abid_utils'
+
+from typing import NamedTuple, Any, Union, Optional, Dict
 
 import ulid
 import uuid6
@@ -9,6 +11,7 @@ from uuid import UUID
 from typeid import TypeID            # type: ignore[import-untyped]
 from datetime import datetime
 
+from ..util import enforce_types
 
 
 ABID_PREFIX_LEN = 4
@@ -108,6 +111,7 @@ class ABID(NamedTuple):
 ####################################################
 
 
+@enforce_types
 def uri_hash(uri: Union[str, bytes], salt: str=DEFAULT_ABID_URI_SALT) -> str:
     """
     'E4A5CCD9AF4ED2A6E0954DF19FD274E9CDDB4853051F033FD518BFC90AA1AC25'
@@ -130,17 +134,19 @@ def uri_hash(uri: Union[str, bytes], salt: str=DEFAULT_ABID_URI_SALT) -> str:
 
     return hashlib.sha256(uri_bytes).hexdigest().upper()
 
-def abid_part_from_prefix(prefix: Optional[str]) -> str:
+@enforce_types
+def abid_part_from_prefix(prefix: str) -> str:
     """
     'snp_'
     """
-    if prefix is None:
-        return 'obj_'
+    # if prefix is None:
+    #     return 'obj_'
 
     prefix = prefix.strip('_').lower()
     assert len(prefix) == 3
     return prefix + '_'
 
+@enforce_types
 def abid_part_from_uri(uri: str, salt: str=DEFAULT_ABID_URI_SALT) -> str:
     """
     'E4A5CCD9'     # takes first 8 characters of sha256(url)
@@ -148,12 +154,14 @@ def abid_part_from_uri(uri: str, salt: str=DEFAULT_ABID_URI_SALT) -> str:
     uri = str(uri)
     return uri_hash(uri, salt=salt)[:ABID_URI_LEN]
 
-def abid_part_from_ts(ts: Optional[datetime]) -> str:
+@enforce_types
+def abid_part_from_ts(ts: datetime) -> str:
     """
     '01HX9FPYTR'   # produces 10 character Timestamp section of ulid based on added date
     """
-    return str(ulid.from_timestamp(ts) if ts else ulid.new())[:ABID_TS_LEN]
+    return str(ulid.from_timestamp(ts))[:ABID_TS_LEN]
 
+@enforce_types
 def abid_part_from_subtype(subtype: str) -> str:
     """
     Snapshots have 01 type, other objects have other subtypes like wget/media/etc.
@@ -165,6 +173,7 @@ def abid_part_from_subtype(subtype: str) -> str:
 
     return hashlib.sha256(subtype.encode('utf-8')).hexdigest()[:ABID_SUBTYPE_LEN].upper()
 
+@enforce_types
 def abid_part_from_rand(rand: Union[str, UUID, None, int]) -> str:
     """
     'ZYEBQE'   # takes last 6 characters of randomness from existing legacy uuid db field
@@ -186,17 +195,22 @@ def abid_part_from_rand(rand: Union[str, UUID, None, int]) -> str:
     return str(rand)[-ABID_RAND_LEN:].upper()
 
 
-def abid_from_values(prefix, ts, uri, subtype, rand, salt=DEFAULT_ABID_URI_SALT) -> ABID:
+@enforce_types
+def abid_hashes_from_values(prefix: str, ts: datetime, uri: str, subtype: str, rand: Union[str, UUID, None, int], salt: str=DEFAULT_ABID_URI_SALT) -> Dict[str, str]:
+    return {
+        'prefix': abid_part_from_prefix(prefix),
+        'ts': abid_part_from_ts(ts),
+        'uri': abid_part_from_uri(uri, salt=salt),
+        'subtype': abid_part_from_subtype(subtype),
+        'rand': abid_part_from_rand(rand),
+    }
+
+@enforce_types
+def abid_from_values(prefix: str, ts: datetime, uri: str, subtype: str, rand: Union[str, UUID, None, int], salt: str=DEFAULT_ABID_URI_SALT) -> ABID:
     """
     Return a freshly derived ABID (assembled from attrs defined in ABIDModel.abid_*_src).
     """
 
-    abid = ABID(
-        prefix=abid_part_from_prefix(prefix),
-        ts=abid_part_from_ts(ts),
-        uri=abid_part_from_uri(uri, salt=salt),
-        subtype=abid_part_from_subtype(subtype),
-        rand=abid_part_from_rand(rand),
-    )
+    abid = ABID(**abid_hashes_from_values(prefix, ts, uri, subtype, rand, salt=salt))
     assert abid.ulid and abid.uuid and abid.typeid, f'Failed to calculate {prefix}_ABID for ts={ts} uri={uri} subtyp={subtype} rand={rand}'
     return abid
