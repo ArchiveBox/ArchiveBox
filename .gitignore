@@ -11,6 +11,7 @@ venv/
 .venv/
 .docker-venv/
 node_modules/
+typings/
 
 # Ignore dev lockfiles (should always be built fresh)
 pdm.dev.lock
