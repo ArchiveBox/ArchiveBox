@@ -20,7 +20,7 @@ from django.urls import reverse, reverse_lazy
 from django.db.models import Case, When, Value, IntegerField
 from django.conf import settings
 
-from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
+from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, get_or_create_system_user_pk
 
 from ..system import get_dir_size
 from ..util import parse_date, base_url
@@ -142,15 +142,18 @@ class Snapshot(ABIDModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True, unique=True)
     abid = ABIDField(prefix=abid_prefix)
 
-    url = models.URLField(unique=True, db_index=True)
-    timestamp = models.CharField(max_length=32, unique=True, db_index=True, editable=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, related_name='snapshot_set')
+    created = AutoDateTimeField(default=timezone.now, db_index=True)
+    modified = models.DateTimeField(auto_now=True)
 
-    title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
-    
-    tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name='snapshot_set', through_fields=('snapshot', 'tag'))
-
+    # legacy ts fields
     added = AutoDateTimeField(default=timezone.now, db_index=True)
     updated = models.DateTimeField(auto_now=True, blank=True, null=True, db_index=True)
+
+    url = models.URLField(unique=True, db_index=True)
+    timestamp = models.CharField(max_length=32, unique=True, db_index=True, editable=False)
+    tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name='snapshot_set', through_fields=('snapshot', 'tag'))
+    title = models.CharField(max_length=512, null=True, blank=True, db_index=True)    
 
     keys = ('url', 'timestamp', 'title', 'tags', 'updated')
 
@@ -158,6 +161,11 @@ class Snapshot(ABIDModel):
 
     objects = SnapshotManager()
 
+    def save(self, *args, **kwargs):
+        # make sure self.added is seeded with a value before calculating ABID using it
+        if self._state.adding or not self.added:
+            self.added = self.added or timezone.now()
+        return super().save(*args, **kwargs)
 
     def __repr__(self) -> str:
         title = (self.title_stripped or '-')[:64]
@@ -439,6 +447,10 @@ class ArchiveResult(ABIDModel):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=True, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, related_name='archiveresult_set')
+    created = AutoDateTimeField(default=timezone.now, db_index=True)
+    modified = models.DateTimeField(auto_now=True)
 
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE, to_field='id', db_column='snapshot_id')
 

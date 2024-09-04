@@ -18,6 +18,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
+from django.contrib.auth.admin import UserAdmin
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
 from django.conf import settings
@@ -112,8 +113,84 @@ class ArchiveBoxAdmin(admin.AdminSite):
         return render(template_name='add.html', request=request, context=context)
 
 
+class CustomUserAdmin(UserAdmin):
+    sort_fields = ['id', 'email', 'username', 'is_superuser', 'last_login', 'date_joined']
+    list_display = ['username', 'id', 'email', 'is_superuser', 'last_login', 'date_joined']
+    readonly_fields = ('snapshot_set', 'archiveresult_set', 'tag_set', 'apitoken_set', 'outboundwebhook_set')
+    fieldsets = [*UserAdmin.fieldsets, ('Data', {'fields': readonly_fields})]
+
+    @admin.display(description='Snapshots')
+    def snapshot_set(self, obj):
+        total_count = obj.snapshot_set.count()
+        return mark_safe('<br/>'.join(
+            format_html(
+                '<code><a href="/admin/core/snapshot/{}/change"><b>[{}]</b></a></code> <b>📅 {}</b> {}',
+                snap.pk,
+                snap.abid,
+                snap.updated.strftime('%Y-%m-%d %H:%M') if snap.updated else 'pending...',
+                snap.url[:64],
+            )
+            for snap in obj.snapshot_set.order_by('-modified')[:10]
+        ) + f'<br/><a href="/admin/core/snapshot/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
+
+    @admin.display(description='Archive Result Logs')
+    def archiveresult_set(self, obj):
+        total_count = obj.archiveresult_set.count()
+        return mark_safe('<br/>'.join(
+            format_html(
+                '<code><a href="/admin/core/archiveresult/{}/change"><b>[{}]</b></a></code> <b>📅 {}</b> <b>📄 {}</b> {}',
+                result.pk,
+                result.abid,
+                result.snapshot.updated.strftime('%Y-%m-%d %H:%M') if result.snapshot.updated else 'pending...',
+                result.extractor,
+                result.snapshot.url[:64],
+            )
+            for result in obj.archiveresult_set.order_by('-modified')[:10]
+        ) + f'<br/><a href="/admin/core/archiveresult/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
+
+    @admin.display(description='Tags')
+    def tag_set(self, obj):
+        total_count = obj.tag_set.count()
+        return mark_safe(', '.join(
+            format_html(
+                '<code><a href="/admin/core/tag/{}/change"><b>{}</b></a></code>',
+                tag.pk,
+                tag.name,
+            )
+            for tag in obj.tag_set.order_by('-modified')[:10]
+        ) + f'<br/><a href="/admin/core/tag/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
+
+    @admin.display(description='API Tokens')
+    def apitoken_set(self, obj):
+        total_count = obj.apitoken_set.count()
+        return mark_safe('<br/>'.join(
+            format_html(
+                '<code><a href="/admin/api/apitoken/{}/change"><b>[{}]</b></a></code> {} (expires {})',
+                apitoken.pk,
+                apitoken.abid,
+                apitoken.token_redacted[:64],
+                apitoken.expires,
+            )
+            for apitoken in obj.apitoken_set.order_by('-modified')[:10]
+        ) + f'<br/><a href="/admin/api/apitoken/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
+
+    @admin.display(description='API Outbound Webhooks')
+    def outboundwebhook_set(self, obj):
+        total_count = obj.outboundwebhook_set.count()
+        return mark_safe('<br/>'.join(
+            format_html(
+                '<code><a href="/admin/api/outboundwebhook/{}/change"><b>[{}]</b></a></code> {} -> {}',
+                outboundwebhook.pk,
+                outboundwebhook.abid,
+                outboundwebhook.referenced_model,
+                outboundwebhook.endpoint,
+            )
+            for outboundwebhook in obj.outboundwebhook_set.order_by('-modified')[:10]
+        ) + f'<br/><a href="/admin/api/outboundwebhook/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
+
+
 archivebox_admin = ArchiveBoxAdmin()
-archivebox_admin.register(get_user_model())
+archivebox_admin.register(get_user_model(), CustomUserAdmin)
 archivebox_admin.disable_action('delete_selected')
 
 # archivebox_admin.register(CustomPlugin)
@@ -576,8 +653,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
 @admin.register(Tag, site=archivebox_admin)
 class TagAdmin(ABIDModelAdmin):
     list_display = ('created', 'created_by', 'abid', 'name', 'num_snapshots', 'snapshots')
+    list_filter = ('created', 'created_by')
     sort_fields = ('name', 'slug', 'abid', 'created_by', 'created')
-    readonly_fields = ('slug', 'abid', 'created', 'modified', 'API', 'num_snapshots', 'snapshots')
+    readonly_fields = ('slug', 'abid', 'created', 'modified', 'API', 'snapshots')
     search_fields = ('abid', 'name', 'slug')
     fields = ('name', 'created_by', *readonly_fields)
     actions = ['delete_selected']
@@ -603,7 +681,7 @@ class TagAdmin(ABIDModelAdmin):
                 snap.url[:64],
             )
             for snap in tag.snapshot_set.order_by('-updated')[:10]
-        ) + (f'<br/><a href="/admin/core/snapshot/?tags__id__exact={tag.id}">and {total_count-10} more...<a>' if tag.snapshot_set.count() > 10 else ''))
+        ) + (f'<br/><a href="/admin/core/snapshot/?tags__id__exact={tag.id}">{total_count} total snapshots...<a>'))
 
 
 @admin.register(ArchiveResult, site=archivebox_admin)

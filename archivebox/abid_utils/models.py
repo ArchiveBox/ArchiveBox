@@ -89,17 +89,25 @@ class ABIDModel(models.Model):
         abstract = True
 
     def save(self, *args: Any, **kwargs: Any) -> None:
-        if self._state.adding or not self.created:
-            self.created = timezone.now()
+        self.created = self.created or timezone.now()
 
-        # when first creating a row, self.ABID is the source of truth
-        # overwrite default prefilled self.id & self.abid with generated self.ABID value
-        if self._state.adding or not self.id:
+        assert all(val for val in self.abid_values.values()), f'All ABID src values must be set: {self.abid_values}'
+
+        if self._state.adding:
             self.id = self.ABID.uuid
-        if self._state.adding or not self.abid:
             self.abid = str(self.ABID)
+        else:
+            assert self.id, 'id must be set when object exists in DB'
+            if not self.abid:
+                self.abid = str(self.ABID)
+        #     assert str(self.abid) == str(self.ABID), f'self.abid {self.id} does not match self.ABID {self.ABID.uuid}'
 
-        super().save(*args, **kwargs)
+        # fresh_abid = self.generate_abid()
+        # if str(fresh_abid) != str(self.abid):
+        #     self.abid = str(fresh_abid)
+
+        return super().save(*args, **kwargs)
+
         assert str(self.id) == str(self.ABID.uuid), f'self.id {self.id} does not match self.ABID {self.ABID.uuid}'
         assert str(self.abid) == str(self.ABID), f'self.abid {self.id} does not match self.ABID {self.ABID.uuid}'
         assert str(self.uuid) == str(self.ABID.uuid), f'self.uuid ({self.uuid}) does not match .ABID.uuid ({self.ABID.uuid})'
