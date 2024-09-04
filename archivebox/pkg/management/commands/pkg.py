@@ -8,8 +8,6 @@ from pydantic_pkgr.binprovider import bin_abspath
 
 from ....config import NODE_BIN_PATH, bin_path
 
-from plugantic.plugins import LOADED_PLUGINS
-
 from pkg.settings import env
 
 
@@ -30,11 +28,11 @@ class Command(BaseCommand):
 
     def list(self, *args, **options):
         self.stdout.write('################# PLUGINS ####################')
-        for plugin in LOADED_PLUGINS:
+        for plugin in settings.PLUGINS.values():
             self.stdout.write(f'{plugin.name}:')
             for binary in plugin.binaries:
                 try:
-                    binary = binary.install()
+                    binary = binary.load()
                 except Exception as e:
                     # import ipdb; ipdb.set_trace()
                     raise
