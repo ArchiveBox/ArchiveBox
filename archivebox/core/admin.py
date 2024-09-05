@@ -1,7 +1,6 @@
 __package__ = 'archivebox.core'
 
 import os
-import json
 
 from io import StringIO
 from pathlib import Path
@@ -10,7 +9,6 @@ from datetime import datetime, timezone
 from typing import Dict, Any
 
 from django.contrib import admin
-from django.db.models import Count, Q, Prefetch
 from django.urls import path, reverse, resolve
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -32,12 +30,10 @@ from signal_webhooks.utils import get_webhook_model
 
 from ..util import htmldecode, urldecode, ansi_to_html
 
-from core.models import Snapshot, ArchiveResult, Tag, SnapshotTag
+from core.models import Snapshot, ArchiveResult, Tag
 from core.forms import AddLinkForm
 from core.mixins import SearchResultsAdminMixin
 from api.models import APIToken
-from api.auth import get_or_create_api_token
-from abid_utils.models import get_or_create_system_user_pk
 from abid_utils.admin import ABIDModelAdmin
 
 from index.html import snapshot_icons

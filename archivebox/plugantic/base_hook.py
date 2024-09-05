@@ -20,7 +20,7 @@ class BaseHook(BaseModel):
     it modifies django.conf.settings in-place to add changes corresponding to its HookType.
     e.g. for a HookType.CONFIG, the Hook.register() function places the hook in settings.CONFIG (and settings.HOOKS)
     An example of an impure Hook would be a CHECK that modifies settings but also calls django.core.checks.register(check).
-
+    In practice any object that subclasses BaseHook and provides a .register() function can behave as a Hook.
 
     setup_django() -> imports all settings.INSTALLED_APPS...
         # django imports AppConfig, models, migrations, admins, etc. for all installed apps

@@ -1,9 +1,8 @@
 __package__ = 'archivebox.plugantic'
 
 
-from typing import Optional, List, Literal
-from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict, computed_field
+from typing import List, Literal
+from pydantic import ConfigDict
 
 from .base_hook import BaseHook, HookType
 

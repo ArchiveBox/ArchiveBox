@@ -127,10 +127,11 @@ class ABIDModel(models.Model):
                 )
 
                 change_error = ValidationError({
-                    NON_FIELD_ERRORS: ValidationError(full_summary),
                     **{
                         # url: ValidationError('Cannot update self.url= https://example.com/old -> https://example.com/new ...')
-                        diff['abid_src'].replace('self.', '') if diff['old_val'] != diff['new_val'] else NON_FIELD_ERRORS
+                        diff['abid_src'].replace('self.', '')
+                            if (diff['old_val'] != diff['new_val']) and hasattr(self, diff['abid_src'].replace('self.', ''))
+                            else NON_FIELD_ERRORS
                         : ValidationError(
                             'Cannot update %(abid_src)s= "%(old_val)s" -> "%(new_val)s" (would alter %(model)s.ABID.%(key)s=%(old_hash)s to %(new_hash)s)',
                             code='ABIDConflict',
@@ -138,6 +139,7 @@ class ABIDModel(models.Model):
                         )
                         for diff in abid_diffs.values()
                     },
+                    NON_FIELD_ERRORS: ValidationError(full_summary),
                 })
 
                 should_ovewrite_abid = self.abid_drift_allowed if (abid_drift_allowed is None) else abid_drift_allowed
