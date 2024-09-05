@@ -40,6 +40,7 @@ INSTALLED_PLUGINS = {
 
 ### Plugins Globals (filled by plugantic.apps.load_plugins() after Django startup)
 PLUGINS = AttrDict({})
+HOOKS = AttrDict({})
 
 CONFIGS = AttrDict({})
 BINPROVIDERS = AttrDict({})

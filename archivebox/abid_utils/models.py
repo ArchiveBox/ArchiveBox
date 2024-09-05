@@ -11,7 +11,8 @@ from datetime import datetime, timedelta
 from functools import partial
 from charidfield import CharIDField  # type: ignore[import-untyped]
 
-from django.core.exceptions import ValidationError
+from django.contrib import admin
+from django.core.exceptions import ValidationError, NON_FIELD_ERRORS
 from django.db import models
 from django.utils import timezone
 from django.db.utils import OperationalError
@@ -71,24 +72,6 @@ class AutoDateTimeField(models.DateTimeField):
 class ABIDError(Exception):
     pass
 
-class ABIDFieldsCannotBeChanged(ValidationError, ABIDError):
-    """
-    Properties used as unique identifiers (to generate ABID) cannot be edited after an object is created.
-    Create a new object instead with your desired changes (and it will be issued a new ABID).
-    """
-    def __init__(self, ABID_FRESH_DIFFS, obj):
-        self.ABID_FRESH_DIFFS = ABID_FRESH_DIFFS
-        self.obj = obj
-
-    def __str__(self):
-        keys_changed = ', '.join(diff['abid_src'] for diff in self.ABID_FRESH_DIFFS.values())
-        return (
-            f"This {self.obj.__class__.__name__}(abid={str(self.obj.ABID)}) was assigned a fixed, unique ID (ABID) based on its contents when it was created. " +
-            f'\nThe following changes cannot be made because they would alter the ABID:' +
-            '\n  ' + "\n    ".join(f'  - {diff["summary"]}' for diff in self.ABID_FRESH_DIFFS.values()) +
-            f"\nYou must reduce your changes to not affect these fields, or create a new {self.obj.__class__.__name__} object instead."
-        )
-
 
 class ABIDModel(models.Model):
     """
@@ -112,6 +95,10 @@ class ABIDModel(models.Model):
     class Meta(TypedModelMeta):
         abstract = True
 
+    @admin.display(description='Summary')
+    def __str__(self) -> str:
+        return f'[{self.abid or (self.abid_prefix + "NEW")}] {self.__class__.__name__} {eval(self.abid_uri_src)}'
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Overriden __init__ method ensures we have a stable creation timestamp that fields can use within initialization code pre-saving to DB."""
         super().__init__(*args, **kwargs)
@@ -121,29 +108,59 @@ class ABIDModel(models.Model):
         # (ordinarily fields cant depend on other fields until the obj is saved to db and recalled)
         self._init_timestamp = ts_from_abid(abid_part_from_ts(timezone.now()))
 
-    def save(self, *args: Any, abid_drift_allowed: bool | None=None, **kwargs: Any) -> None:
-        """Overriden save method ensures new ABID is generated while a new object is first saving."""
-
+    def clean(self, abid_drift_allowed: bool | None=None) -> None:
         if self._state.adding:
             # only runs once when a new object is first saved to the DB
             # sets self.id, self.pk, self.created_by, self.created_at, self.modified_at
+            self._previous_abid = None
             self.abid = str(self.issue_new_abid())
 
         else:
             # otherwise if updating, make sure none of the field changes would invalidate existing ABID
-            if self.ABID_FRESH_DIFFS:
-                ovewrite_abid = self.abid_drift_allowed if (abid_drift_allowed is None) else abid_drift_allowed
+            abid_diffs = self.ABID_FRESH_DIFFS
+            if abid_diffs:
 
-                change_error = ABIDFieldsCannotBeChanged(self.ABID_FRESH_DIFFS, obj=self)
-                if ovewrite_abid:
-                    print(f'#### DANGER: Changing ABID of existing record ({self.__class__.__name__}.abid_drift_allowed={abid_drift_allowed}), this will break any references to its previous ABID!')
+                keys_changed = ', '.join(diff['abid_src'] for diff in abid_diffs.values())
+                full_summary = (
+                    f"This {self.__class__.__name__}(abid={str(self.ABID)}) was assigned a fixed, unique ID (ABID) based on its contents when it was created. " +
+                    f"\nYou must reduce your changes to not affect these fields [{keys_changed}], or create a new {self.__class__.__name__} object instead."
+                )
+
+                change_error = ValidationError({
+                    NON_FIELD_ERRORS: ValidationError(full_summary),
+                    **{
+                        # url: ValidationError('Cannot update self.url= https://example.com/old -> https://example.com/new ...')
+                        diff['abid_src'].replace('self.', '') if diff['old_val'] != diff['new_val'] else NON_FIELD_ERRORS
+                        : ValidationError(
+                            'Cannot update %(abid_src)s= "%(old_val)s" -> "%(new_val)s" (would alter %(model)s.ABID.%(key)s=%(old_hash)s to %(new_hash)s)',
+                            code='ABIDConflict',
+                            params=diff,
+                        )
+                        for diff in abid_diffs.values()
+                    },
+                })
+
+                should_ovewrite_abid = self.abid_drift_allowed if (abid_drift_allowed is None) else abid_drift_allowed
+                if should_ovewrite_abid:
+                    print(f'\n#### DANGER: Changing ABID of existing record ({self.__class__.__name__}.abid_drift_allowed={self.abid_drift_allowed}), this will break any references to its previous ABID!')
                     print(change_error)
+                    self._previous_abid = self.abid
                     self.abid = str(self.issue_new_abid(force_new=True))
                     print(f'#### DANGER: OVERWROTE OLD ABID. NEW ABID=', self.abid)
                 else:
-                    raise change_error
+                    print(f'\n#### WARNING: ABID of existing record is outdated and has not been updated ({self.__class__.__name__}.abid_drift_allowed={self.abid_drift_allowed})')
+                    print(change_error)
+
+    def save(self, *args: Any, abid_drift_allowed: bool | None=None, **kwargs: Any) -> None:
+        """Overriden save method ensures new ABID is generated while a new object is first saving."""
+
+        self.clean(abid_drift_allowed=abid_drift_allowed)
 
         return super().save(*args, **kwargs)
+    
+    @classmethod
+    def id_from_abid(cls, abid: str) -> str:
+        return str(cls.objects.only('pk').get(abid=cls.abid_prefix + str(abid).split('_', 1)[-1]).pk)
 
     @property
     def ABID_SOURCES(self) -> Dict[str, str]:
@@ -196,10 +213,10 @@ class ABIDModel(models.Model):
         fresh_hashes = self.ABID_FRESH_HASHES
         return {
             key: {
+                'key': key,
                 'model': self.__class__.__name__,
                 'pk': self.pk,
                 'abid_src': abid_sources[key],
-                'abid_section': key,
                 'old_val': existing_values.get(key, None),
                 'old_hash': getattr(existing_abid, key),
                 'new_val': fresh_values[key],
@@ -215,7 +232,6 @@ class ABIDModel(models.Model):
         Issue a new ABID based on the current object's properties, can only be called once on new objects (before they are saved to DB).
         """
         if not force_new:
-            assert self.abid is None, f'Can only issue new ABID for new objects that dont already have one {self.abid}'
             assert self._state.adding, 'Can only issue new ABID when model._state.adding is True'
         assert eval(self.abid_uri_src), f'Can only issue new ABID if self.abid_uri_src is defined ({self.abid_uri_src}={eval(self.abid_uri_src)})'
 
@@ -286,7 +302,7 @@ class ABIDModel(models.Model):
         Compute the REST API URL to access this object.
         e.g. /api/v1/core/snapshot/snp_01BJQMF54D093DXEAWZ6JYRP
         """
-        return reverse_lazy('api-1:get_any', args=[self.abid])
+        return reverse_lazy('api-1:get_any', args=[self.abid])  # + f'?api_key={get_or_create_api_token(request.user)}'
 
     @property
     def api_docs_url(self) -> str:
@@ -296,7 +312,12 @@ class ABIDModel(models.Model):
         """
         return f'/api/v1/docs#/{self._meta.app_label.title()}%20Models/api_v1_{self._meta.app_label}_get_{self._meta.db_table}'
 
+    @property
+    def admin_change_url(self) -> str:
+        return f"/admin/{self._meta.app_label}/{self._meta.model_name}/{self.pk}/change/"
 
+    def get_absolute_url(self):
+        return self.api_docs_url
 
 ####################################################
 

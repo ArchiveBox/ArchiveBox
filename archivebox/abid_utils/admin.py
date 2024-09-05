@@ -9,7 +9,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.shortcuts import redirect
 
-from abid_utils.abid import ABID, abid_part_from_ts, abid_part_from_uri, abid_part_from_rand, abid_part_from_subtype
+from .abid import ABID
 
 from api.auth import get_or_create_api_token
 
@@ -94,29 +94,25 @@ def get_abid_info(self, obj, request=None):
 
 
 class ABIDModelAdmin(admin.ModelAdmin):
-    list_display = ('created_at', 'created_by', 'abid', '__str__')
-    sort_fields = ('created_at', 'created_by', 'abid', '__str__')
-    readonly_fields = ('created_at', 'modified_at', '__str__', 'abid_info')
+    list_display = ('created_at', 'created_by', 'abid')
+    sort_fields = ('created_at', 'created_by', 'abid')
+    readonly_fields = ('created_at', 'modified_at', 'abid_info')
+    # fields = [*readonly_fields]
 
-    @admin.display(description='API Identifiers')
-    def abid_info(self, obj):
-        return get_abid_info(self, obj, request=self.request)
-
+    def _get_obj_does_not_exist_redirect(self, request, opts, object_id):
+        try:
+            object_pk = self.model.id_from_abid(object_id)
+            return redirect(self.request.path.replace(object_id, object_pk), permanent=False)
+        except (self.model.DoesNotExist, ValidationError):
+            pass
+        return super()._get_obj_does_not_exist_redirect(request, opts, object_id)   # type: ignore
+    
     def queryset(self, request):
         self.request = request
         return super().queryset(request)
     
     def change_view(self, request, object_id, form_url="", extra_context=None):
         self.request = request
-
-        if object_id:
-            try:
-                object_uuid = str(self.model.objects.only('pk').get(abid=self.model.abid_prefix + object_id.split('_', 1)[-1]).pk)
-                if object_id != object_uuid:
-                    return redirect(self.request.path.replace(object_id, object_uuid), permanent=False)
-            except (self.model.DoesNotExist, ValidationError):
-                pass
-
         return super().change_view(request, object_id, form_url, extra_context)
 
     def get_form(self, request, obj=None, **kwargs):
@@ -126,9 +122,24 @@ class ABIDModelAdmin(admin.ModelAdmin):
             form.base_fields['created_by'].initial = request.user
         return form
 
+    def get_formset(self, request, formset=None, obj=None, **kwargs):
+        formset = super().get_formset(request, formset, obj, **kwargs)
+        formset.form.base_fields['created_at'].disabled = True
+        return formset
+
     def save_model(self, request, obj, form, change):
-        old_abid = obj.abid
+        self.request = request
+
+        old_abid = getattr(obj, '_previous_abid', None) or obj.abid
+
         super().save_model(request, obj, form, change)
+        obj.refresh_from_db()
+
         new_abid = obj.abid
         if new_abid != old_abid:
-            messages.warning(request, f"The object's ABID has been updated! {old_abid} -> {new_abid} (any references to the old ABID will need to be updated)")
+            messages.warning(request, f"The object's ABID has been updated! {old_abid} -> {new_abid} (any external references to the old ABID will need to be updated manually)")
+        # import ipdb; ipdb.set_trace()
+
+    @admin.display(description='API Identifiers')
+    def abid_info(self, obj):
+        return get_abid_info(self, obj, request=self.request)

@@ -254,7 +254,7 @@ class ArchiveResultInline(admin.TabularInline):
         try:
             return self.parent_model.objects.get(pk=resolved.kwargs['object_id'])
         except (self.parent_model.DoesNotExist, ValidationError):
-            return self.parent_model.objects.get(abid=self.parent_model.abid_prefix + resolved.kwargs['object_id'].split('_', 1)[-1])
+            return self.parent_model.objects.get(pk=self.parent_model.id_from_abid(resolved.kwargs['object_id']))
 
     @admin.display(
         description='Completed',
@@ -685,6 +685,7 @@ class ArchiveResultAdmin(ABIDModelAdmin):
     list_per_page = CONFIG.SNAPSHOTS_PER_PAGE
     
     paginator = AccelleratedPaginator
+    save_on_top = True
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         self.request = request

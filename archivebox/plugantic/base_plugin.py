@@ -1,6 +1,8 @@
 __package__ = 'archivebox.plugantic'
 
 import json
+import inspect
+from pathlib import Path
 
 from django.apps import AppConfig
 from django.core.checks import register
@@ -32,12 +34,11 @@ class BasePlugin(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, extra='ignore', populate_by_name=True)
 
     # Required by AppConfig:
-    name: str = Field()                           # e.g. 'builtin_plugins.singlefile'
-    app_label: str = Field()                      # e.g. 'singlefile'
-    verbose_name: str = Field()                   # e.g. 'SingleFile'
-    default_auto_field: ClassVar[str] = 'django.db.models.AutoField'
+    name: str = Field()                           # e.g. 'builtin_plugins.singlefile'  (DottedImportPath)
+    app_label: str = Field()                      # e.g. 'singlefile'                  (one-word machine-readable representation, to use as url-safe id/db-table prefix_/attr name)
+    verbose_name: str = Field()                   # e.g. 'SingleFile'                 (human-readable *short* label, for use in column names, form labels, etc.)
     
-    # Required by Plugantic:
+    # All the hooks the plugin will install:
     configs: List[InstanceOf[BaseConfigSet]] = Field(default=[])
     binproviders: List[InstanceOf[BaseBinProvider]] = Field(default=[])                # e.g. [Binary(name='yt-dlp')]
     binaries: List[InstanceOf[BaseBinary]] = Field(default=[])                # e.g. [Binary(name='yt-dlp')]
@@ -53,20 +54,23 @@ class BasePlugin(BaseModel):
         assert self.name and self.app_label and self.verbose_name, f'{self.__class__.__name__} is missing .name or .app_label or .verbose_name'
         
         assert json.dumps(self.model_json_schema(), indent=4), f'Plugin {self.name} has invalid JSON schema.'
+        return self
     
     @property
     def AppConfig(plugin_self) -> Type[AppConfig]:
         """Generate a Django AppConfig class for this plugin."""
 
         class PluginAppConfig(AppConfig):
+            """Django AppConfig for plugin, allows it to be loaded as a Django app listed in settings.INSTALLED_APPS."""
             name = plugin_self.name
             app_label = plugin_self.app_label
             verbose_name = plugin_self.verbose_name
+            default_auto_field = 'django.db.models.AutoField'
         
             def ready(self):
                 from django.conf import settings
                 
-                plugin_self.validate()
+                # plugin_self.validate()
                 plugin_self.register(settings)
 
         return PluginAppConfig
@@ -105,11 +109,6 @@ class BasePlugin(BaseModel):
     @property
     def ADMINDATAVIEWS(self) -> Dict[str, BaseCheck]:
         return AttrDict({admindataview.name: admindataview for admindataview in self.admindataviews})
-    
-    @computed_field
-    @property
-    def PLUGIN_KEYS(self) -> List[str]:
-        return 
 
     def register(self, settings=None):
         """Loads this plugin's configs, binaries, extractors, and replayers into global Django settings at runtime."""
@@ -184,6 +183,20 @@ class BasePlugin(BaseModel):
     #     return self.model_copy(update={
     #         'binaries': new_binaries,
     #     })
+
+    @computed_field
+    @property
+    def module_dir(self) -> Path:
+        return Path(inspect.getfile(self.__class__)).parent.resolve()
+    
+    @computed_field
+    @property
+    def module_path(self) -> str:  # DottedImportPath
+        """"
+        Dotted import path of the plugin's module (after its loaded via settings.INSTALLED_APPS).
+        e.g. 'archivebox.builtin_plugins.npm'
+        """
+        return self.name.strip('archivebox.')
 
 
 

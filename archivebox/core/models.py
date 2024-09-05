@@ -103,7 +103,7 @@ class Tag(ABIDModel):
     @property
     def api_url(self) -> str:
         # /api/v1/core/snapshot/{uulid}
-        return reverse_lazy('api-1:get_tag', args=[self.abid])
+        return reverse_lazy('api-1:get_tag', args=[self.abid])  # + f'?api_key={get_or_create_api_token(request.user)}'
 
     @property
     def api_docs_url(self) -> str:
@@ -211,11 +211,14 @@ class Snapshot(ABIDModel):
     @property
     def api_url(self) -> str:
         # /api/v1/core/snapshot/{uulid}
-        return reverse_lazy('api-1:get_snapshot', args=[self.abid])
+        return reverse_lazy('api-1:get_snapshot', args=[self.abid])  # + f'?api_key={get_or_create_api_token(request.user)}'
     
     @property
     def api_docs_url(self) -> str:
         return f'/api/v1/docs#/Core%20Models/api_v1_core_get_snapshot'
+    
+    def get_absolute_url(self):
+        return f'/{self.archive_path}'
     
     @cached_property
     def title_stripped(self) -> str:
@@ -476,11 +479,14 @@ class ArchiveResult(ABIDModel):
     @property
     def api_url(self) -> str:
         # /api/v1/core/archiveresult/{uulid}
-        return reverse_lazy('api-1:get_archiveresult', args=[self.abid])
+        return reverse_lazy('api-1:get_archiveresult', args=[self.abid])  # + f'?api_key={get_or_create_api_token(request.user)}'
     
     @property
     def api_docs_url(self) -> str:
         return f'/api/v1/docs#/Core%20Models/api_v1_core_get_archiveresult'
+    
+    def get_absolute_url(self):
+        return f'/{self.snapshot.archive_path}/{self.output_path()}'
 
     @property
     def extractor_module(self):

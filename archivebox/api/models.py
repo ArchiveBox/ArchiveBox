@@ -28,9 +28,10 @@ class APIToken(ABIDModel):
     # ABID: apt_<created_ts>_<token_hash>_<user_id_hash>_<uuid_rand>
     abid_prefix = 'apt_'
     abid_ts_src = 'self.created_at'
-    abid_uri_src = 'self.token'
-    abid_subtype_src = 'self.created_by_id'
+    abid_uri_src = 'self.created_by_id'
+    abid_subtype_src = '"01"'
     abid_rand_src = 'self.id'
+    abid_drift_allowed = True
 
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
@@ -99,6 +100,7 @@ class OutboundWebhook(ABIDModel, WebhookBase):
     abid_uri_src = 'self.endpoint'
     abid_subtype_src = 'self.ref'
     abid_rand_src = 'self.id'
+    abid_drift_allowed = True
 
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
@@ -121,3 +123,6 @@ class OutboundWebhook(ABIDModel, WebhookBase):
     class Meta(WebhookBase.Meta):
         verbose_name = 'API Outbound Webhook'
 
+
+    def __str__(self) -> str:
+        return f'[{self.abid}] {self.ref} -> {self.endpoint}'

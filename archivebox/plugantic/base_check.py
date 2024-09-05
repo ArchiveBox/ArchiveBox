@@ -1,14 +1,14 @@
 from typing import List, Type, Any
 
 from pydantic_core import core_schema
-from pydantic import GetCoreSchemaHandler
+from pydantic import GetCoreSchemaHandler, BaseModel
 
 from django.utils.functional import classproperty
 from django.core.checks import Warning, Tags, register
 
 class BaseCheck:
     label: str = ''
-    tag = Tags.database
+    tag: str = Tags.database
     
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:

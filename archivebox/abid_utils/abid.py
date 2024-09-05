@@ -148,11 +148,12 @@ def abid_part_from_prefix(prefix: str) -> str:
     return prefix + '_'
 
 @enforce_types
-def abid_part_from_uri(uri: str, salt: str=DEFAULT_ABID_URI_SALT) -> str:
+def abid_part_from_uri(uri: Any, salt: str=DEFAULT_ABID_URI_SALT) -> str:
     """
     'E4A5CCD9'     # takes first 8 characters of sha256(url)
     """
-    uri = str(uri)
+    uri = str(uri).strip()
+    assert uri not in ('None', '')
     return uri_hash(uri, salt=salt)[:ABID_URI_LEN]
 
 @enforce_types
@@ -201,7 +202,7 @@ def abid_part_from_rand(rand: Union[str, UUID, None, int]) -> str:
 
 
 @enforce_types
-def abid_hashes_from_values(prefix: str, ts: datetime, uri: str, subtype: str | int, rand: Union[str, UUID, None, int], salt: str=DEFAULT_ABID_URI_SALT) -> Dict[str, str]:
+def abid_hashes_from_values(prefix: str, ts: datetime, uri: Any, subtype: str | int, rand: Union[str, UUID, None, int], salt: str=DEFAULT_ABID_URI_SALT) -> Dict[str, str]:
     return {
         'prefix': abid_part_from_prefix(prefix),
         'ts': abid_part_from_ts(ts),
