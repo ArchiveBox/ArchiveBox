@@ -35,6 +35,18 @@ class BaseHook(BaseModel):
                 ...
         ...
 
+    Both core ArchiveBox code and plugin code depend on python >= 3.10 and django >= 5.0 w/ sqlite and a filesystem.
+    Core ArchiveBox code can depend only on python and the pip libraries it ships with, and can never depend on plugin code / node / other binaries.
+    Plugin code can depend on archivebox core, other django apps, other pip libraries, and other plugins.
+    Plugins can provide BinProviders + Binaries which can depend on arbitrary other binaries / package managers like curl / wget / yt-dlp / etc.
+
+    The execution interface between plugins is simply calling builtinplugins.npm.... functions directly, django handles
+    importing all plugin code. There is no need to manually register methods/classes, only register to call
+    impure setup functions or provide runtime state.
+    settings.CONFIGS / settings.BINPROVIDERS / settings.BINARIES /... etc. are reserved for dynamic runtime state only.
+    This state is exposed to the broader system in a flat namespace, e.g. CONFIG.IS_DOCKER=True, or BINARIES = [
+        ..., Binary('node', abspath='/usr/local/bin/node', version='22.2.0'), ...
+    ]
 
     """
     model_config = ConfigDict(
@@ -51,21 +63,18 @@ class BaseHook(BaseModel):
     @property
     def name(self) -> str:
         return f'{self.__module__}.{__class__.__name__}'
-    
+
     def register(self, settings, parent_plugin=None):
         """Load a record of an installed hook into global Django settings.HOOKS at runtime."""
+
+        assert json.dumps(self.model_json_schema(), indent=4), f'Hook {self.name} has invalid JSON schema.'
 
         if settings is None:
             from django.conf import settings as django_settings
             settings = django_settings
 
-        assert json.dumps(self.model_json_schema(), indent=4), f'Hook {self.name} has invalid JSON schema.'
-
-        self._plugin = parent_plugin         # for debugging only, never rely on this!
-
         # record installed hook in settings.HOOKS
+        self._plugin = parent_plugin         # for debugging only, never rely on this!
         settings.HOOKS[self.name] = self
-
-        hook_prefix, plugin_shortname = self.name.split('.', 1)
 
         print('REGISTERED HOOK:', self.name)
