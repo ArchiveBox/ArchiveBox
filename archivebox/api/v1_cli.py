@@ -94,7 +94,7 @@ class ListCommandSchema(Schema):
     status: Optional[StatusChoices] = StatusChoices.indexed
     after: Optional[float] = 0
     before: Optional[float] = 999999999999999
-    sort: str = 'added'
+    sort: str = 'bookmarked_at'
     as_json: bool = True
     as_html: bool = False
     as_csv: str | bool = 'timestamp,url'

@@ -245,7 +245,7 @@ def wget_output_path(link: Link, nocache: bool=False) -> Optional[str]:
     #    https://example.com/abc/test/?v=zzVa_tX1OiI
     #       > example.com/abc/test/index.html@v=zzVa_tX1OiI.html
 
-    cache_key = f'{link.url_hash}:{link.timestamp}-{link.updated and link.updated.timestamp()}-wget-output-path'
+    cache_key = f'{link.url_hash}:{link.timestamp}-{link.downloaded_at and link.downloaded_at.timestamp()}-wget-output-path'
     
     if not nocache:
         from django.core.cache import cache

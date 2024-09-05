@@ -1,8 +1,8 @@
 {% load static tz core_tags %}
 
 <tr>
-    <td title="Bookmarked: {{link.bookmarked_date|localtime}} ({{link.timestamp}})" data-sort="{{link.added.timestamp}}">
-        {{ link.added|localtime }}
+    <td title="Bookmarked: {{link.bookmarked_date|localtime}} ({{link.timestamp}})" data-sort="{{link.bookmarked_at.timestamp}}">
+        {{ link.bookmarked_at|localtime }}
     </td>
     <td class="title-col" style="opacity: {% if link.title %}1{% else %}0.3{% endif %}" title="{{link.title|default:'Not yet archived...'}}">
         {% if link.is_archived %}

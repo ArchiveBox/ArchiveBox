@@ -200,7 +200,7 @@ def parse_date(date: Any) -> Optional[datetime]:
         date = str(date)
 
     if isinstance(date, str):
-        return dateparser(date, settings={'TIMEZONE': 'UTC'}).replace(tzinfo=timezone.utc)
+        return dateparser(date, settings={'TIMEZONE': 'UTC'}).astimezone(timezone.utc)
 
     raise ValueError('Tried to parse invalid date! {}'.format(date))
 

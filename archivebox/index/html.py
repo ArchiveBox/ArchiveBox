@@ -118,7 +118,7 @@ def render_django_template(template: str, context: Mapping[str, str]) -> str:
 
 
 def snapshot_icons(snapshot) -> str:
-    cache_key = f'result_icons:{snapshot.pk}:{(snapshot.modified or snapshot.created or snapshot.added).timestamp()}'
+    cache_key = f'result_icons:{snapshot.pk}:{(snapshot.downloaded_at or snapshot.modified_at or snapshot.created_at or snapshot.bookmarked_at).timestamp()}'
     
     def calc_snapshot_icons():
         from core.models import ArchiveResult

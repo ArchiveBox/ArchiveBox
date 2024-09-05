@@ -540,9 +540,9 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     last_login = User.objects.order_by('last_login').last()
     if last_login:
         print(f'    Last UI login: {last_login.username} @ {str(last_login.last_login)[:16]}')
-    last_updated = Snapshot.objects.order_by('updated').last()
-    if last_updated:
-        print(f'    Last changes: {str(last_updated.updated)[:16]}')
+    last_downloaded = Snapshot.objects.order_by('downloaded_at').last()
+    if last_downloaded:
+        print(f'    Last changes: {str(last_downloaded.downloaded_at)[:16]}')
 
     if not users:
         print()
@@ -550,13 +550,13 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
         print('        archivebox manage createsuperuser')
 
     print()
-    for snapshot in links.order_by('-updated')[:10]:
-        if not snapshot.updated:
+    for snapshot in links.order_by('-downloaded_at')[:10]:
+        if not snapshot.downloaded_at:
             continue
         print(
             ANSI['black'],
             (
-                f'   > {str(snapshot.updated)[:16]} '
+                f'   > {str(snapshot.downloaded_at)[:16]} '
                 f'[{snapshot.num_outputs} {("X", "√")[snapshot.is_archived]} {printable_filesize(snapshot.archive_size)}] '
                 f'"{snapshot.title}": {snapshot.url}'
             )[:TERM_WIDTH()],

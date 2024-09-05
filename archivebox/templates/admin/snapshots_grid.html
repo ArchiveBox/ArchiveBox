@@ -148,7 +148,7 @@
       <div class="card">
           <div class="card-info">
             <a href="{% url 'admin:core_snapshot_change' obj.pk %}">
-              <span class="timestamp">{{obj.added}}</span>
+              <span class="timestamp">{{obj.bookmarked_at}}</span>
             </a>
             <label>
               <span class="num_outputs">📄 &nbsp; {{obj.num_outputs}}</span> &nbsp; &nbsp;

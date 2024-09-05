@@ -127,10 +127,10 @@ class CustomUserAdmin(UserAdmin):
                 '<code><a href="/admin/core/snapshot/{}/change"><b>[{}]</b></a></code> <b>📅 {}</b> {}',
                 snap.pk,
                 snap.abid,
-                snap.updated.strftime('%Y-%m-%d %H:%M') if snap.updated else 'pending...',
+                snap.downloaded_at.strftime('%Y-%m-%d %H:%M') if snap.downloaded_at else 'pending...',
                 snap.url[:64],
             )
-            for snap in obj.snapshot_set.order_by('-modified')[:10]
+            for snap in obj.snapshot_set.order_by('-modified_at')[:10]
         ) + f'<br/><a href="/admin/core/snapshot/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
 
     @admin.display(description='Archive Result Logs')
@@ -141,11 +141,11 @@ class CustomUserAdmin(UserAdmin):
                 '<code><a href="/admin/core/archiveresult/{}/change"><b>[{}]</b></a></code> <b>📅 {}</b> <b>📄 {}</b> {}',
                 result.pk,
                 result.abid,
-                result.snapshot.updated.strftime('%Y-%m-%d %H:%M') if result.snapshot.updated else 'pending...',
+                result.snapshot.downloaded_at.strftime('%Y-%m-%d %H:%M') if result.snapshot.downloaded_at else 'pending...',
                 result.extractor,
                 result.snapshot.url[:64],
             )
-            for result in obj.archiveresult_set.order_by('-modified')[:10]
+            for result in obj.archiveresult_set.order_by('-modified_at')[:10]
         ) + f'<br/><a href="/admin/core/archiveresult/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
 
     @admin.display(description='Tags')
@@ -157,7 +157,7 @@ class CustomUserAdmin(UserAdmin):
                 tag.pk,
                 tag.name,
             )
-            for tag in obj.tag_set.order_by('-modified')[:10]
+            for tag in obj.tag_set.order_by('-modified_at')[:10]
         ) + f'<br/><a href="/admin/core/tag/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
 
     @admin.display(description='API Tokens')
@@ -171,7 +171,7 @@ class CustomUserAdmin(UserAdmin):
                 apitoken.token_redacted[:64],
                 apitoken.expires,
             )
-            for apitoken in obj.apitoken_set.order_by('-modified')[:10]
+            for apitoken in obj.apitoken_set.order_by('-modified_at')[:10]
         ) + f'<br/><a href="/admin/api/apitoken/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
 
     @admin.display(description='API Outbound Webhooks')
@@ -185,7 +185,7 @@ class CustomUserAdmin(UserAdmin):
                 outboundwebhook.referenced_model,
                 outboundwebhook.endpoint,
             )
-            for outboundwebhook in obj.outboundwebhook_set.order_by('-modified')[:10]
+            for outboundwebhook in obj.outboundwebhook_set.order_by('-modified_at')[:10]
         ) + f'<br/><a href="/admin/api/outboundwebhook/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
 
 
@@ -351,13 +351,13 @@ class SnapshotActionForm(ActionForm):
 
 @admin.register(Snapshot, site=archivebox_admin)
 class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
-    list_display = ('created', 'title_str', 'files', 'size', 'url_str')
-    sort_fields = ('title_str', 'url_str', 'created')
-    readonly_fields = ('tags_str', 'timestamp', 'admin_actions', 'status_info', 'bookmarked', 'created', 'created', 'updated', 'modified', 'API', 'link_dir')
+    list_display = ('created_at', 'title_str', 'files', 'size', 'url_str')
+    sort_fields = ('title_str', 'url_str', 'created_at')
+    readonly_fields = ('admin_actions', 'status_info', 'tags_str', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'abid_info', 'link_dir')
     search_fields = ('id', 'url', 'abid', 'timestamp', 'title', 'tags__name')
-    list_filter = ('created', 'updated', 'archiveresult__status', 'created_by', 'tags__name')
-    fields = ('url', 'created_by', 'title',*readonly_fields)
-    ordering = ['-created']
+    list_filter = ('created_at', 'downloaded_at', 'archiveresult__status', 'created_by', 'tags__name')
+    fields = ('url', 'title', 'created_by', 'bookmarked_at', *readonly_fields)
+    ordering = ['-created_at']
     actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
     inlines = [TagInline, ArchiveResultInline]
     list_per_page = min(max(5, CONFIG.SNAPSHOTS_PER_PAGE), 5000)
@@ -377,30 +377,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
             self.message_user(request, f'Error occurred while loading the page: {str(e)} {request.GET} {request.POST}')
             return super().changelist_view(request, GLOBAL_CONTEXT)
 
-    def change_view(self, request, object_id, form_url="", extra_context=None):
-        self.request = request
-        snapshot = None
-
-        try:
-            snapshot = snapshot or Snapshot.objects.get(id=object_id)
-        except (Snapshot.DoesNotExist, Snapshot.MultipleObjectsReturned, ValidationError):
-            pass
-        
-        try:
-            snapshot = snapshot or Snapshot.objects.get(abid=Snapshot.abid_prefix + object_id.split('_', 1)[-1])
-        except (Snapshot.DoesNotExist, ValidationError):
-            pass
-
-        if snapshot:
-            object_id = str(snapshot.id)
-
-
-        return super().change_view(
-            request,
-            object_id,
-            form_url,
-            extra_context=extra_context,
-        )
 
     def get_urls(self):
         urls = super().get_urls()
@@ -416,8 +392,20 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
     #     self.request = request
     #     return super().get_queryset(request).prefetch_related('archiveresult_set').distinct()  # .annotate(archiveresult_count=Count('archiveresult'))
 
-    def tag_list(self, obj):
-        return ', '.join(tag.name for tag in obj.tags.all())
+    @admin.action(
+        description="Imported Timestamp"
+    )
+    def imported_timestamp(self, obj):
+        context = RequestContext(self.request, {
+            'bookmarked_date': obj.bookmarked,
+            'timestamp': obj.timestamp,
+        })
+
+        html = Template("""{{bookmarked_date}} (<code>{{timestamp}}</code>)""")
+        return mark_safe(html.render(context))
+    
+        # pretty_time = obj.bookmarked.strftime('%Y-%m-%d %H:%M:%S')
+        # return f'{pretty_time} ({obj.timestamp})'
 
     # TODO: figure out a different way to do this, you cant nest forms so this doenst work
     # def action(self, obj):
@@ -647,14 +635,14 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
 
 @admin.register(Tag, site=archivebox_admin)
 class TagAdmin(ABIDModelAdmin):
-    list_display = ('created', 'created_by', 'abid', 'name', 'num_snapshots', 'snapshots')
-    list_filter = ('created', 'created_by')
-    sort_fields = ('name', 'slug', 'abid', 'created_by', 'created')
-    readonly_fields = ('slug', 'abid', 'created', 'modified', 'API', 'snapshots')
+    list_display = ('created_at', 'created_by', 'abid', 'name', 'num_snapshots', 'snapshots')
+    list_filter = ('created_at', 'created_by')
+    sort_fields = ('name', 'slug', 'abid', 'created_by', 'created_at')
+    readonly_fields = ('slug', 'abid', 'created_at', 'modified_at', 'abid_info', 'snapshots')
     search_fields = ('abid', 'name', 'slug')
     fields = ('name', 'created_by', *readonly_fields)
     actions = ['delete_selected']
-    ordering = ['-created']
+    ordering = ['-created_at']
 
     paginator = AccelleratedPaginator
 
@@ -672,10 +660,10 @@ class TagAdmin(ABIDModelAdmin):
             format_html(
                 '<code><a href="/admin/core/snapshot/{}/change"><b>[{}]</b></a></code> {}',
                 snap.pk,
-                snap.updated.strftime('%Y-%m-%d %H:%M') if snap.updated else 'pending...',
+                snap.downloaded_at.strftime('%Y-%m-%d %H:%M') if snap.downloaded_at else 'pending...',
                 snap.url[:64],
             )
-            for snap in tag.snapshot_set.order_by('-updated')[:10]
+            for snap in tag.snapshot_set.order_by('-downloaded_at')[:10]
         ) + (f'<br/><a href="/admin/core/snapshot/?tags__id__exact={tag.id}">{total_count} total snapshots...<a>'))
 
 
@@ -683,7 +671,7 @@ class TagAdmin(ABIDModelAdmin):
 class ArchiveResultAdmin(ABIDModelAdmin):
     list_display = ('start_ts', 'snapshot_info', 'tags_str', 'extractor', 'cmd_str', 'status', 'output_str')
     sort_fields = ('start_ts', 'extractor', 'status')
-    readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created', 'modified', 'API', 'output_summary')
+    readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'abid_info', 'output_summary')
     search_fields = ('id', 'abid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
     fields = ('snapshot', 'extractor', 'status', 'output', 'pwd', 'start_ts', 'end_ts', 'created_by', 'cmd_version', 'cmd', *readonly_fields)
     autocomplete_fields = ['snapshot']
@@ -706,7 +694,7 @@ class ArchiveResultAdmin(ABIDModelAdmin):
             '<a href="/archive/{}/index.html"><b><code>[{}]</code></b> &nbsp; {} &nbsp; {}</a><br/>',
             result.snapshot.timestamp,
             result.snapshot.abid,
-            result.snapshot.added.strftime('%Y-%m-%d %H:%M'),
+            result.snapshot.bookmarked_at.strftime('%Y-%m-%d %H:%M'),
             result.snapshot.url[:128],
         )
 
@@ -765,18 +753,18 @@ class ArchiveResultAdmin(ABIDModelAdmin):
 
 @admin.register(APIToken, site=archivebox_admin)
 class APITokenAdmin(ABIDModelAdmin):
-    list_display = ('created', 'abid', 'created_by', 'token_redacted', 'expires')
-    sort_fields = ('abid', 'created', 'created_by', 'expires')
-    readonly_fields = ('created', 'modified', 'API')
+    list_display = ('created_at', 'abid', 'created_by', 'token_redacted', 'expires')
+    sort_fields = ('abid', 'created_at', 'created_by', 'expires')
+    readonly_fields = ('created_at', 'modified_at', 'abid_info')
     search_fields = ('id', 'abid', 'created_by__username', 'token')
     fields = ('created_by', 'token', 'expires', *readonly_fields)
 
     list_filter = ('created_by',)
-    ordering = ['-created']
+    ordering = ['-created_at']
     list_per_page = 100
 
 @admin.register(get_webhook_model(), site=archivebox_admin)
 class CustomWebhookAdmin(WebhookAdmin, ABIDModelAdmin):
-    list_display = ('created', 'created_by', 'abid', *WebhookAdmin.list_display)
-    sort_fields = ('created', 'created_by', 'abid', 'referenced_model', 'endpoint', 'last_success', 'last_error')
-    readonly_fields = ('created', 'modified', 'API', *WebhookAdmin.readonly_fields)
+    list_display = ('created_at', 'created_by', 'abid', *WebhookAdmin.list_display)
+    sort_fields = ('created_at', 'created_by', 'abid', 'referenced_model', 'endpoint', 'last_success', 'last_error')
+    readonly_fields = ('created_at', 'modified_at', 'abid_info', *WebhookAdmin.readonly_fields)

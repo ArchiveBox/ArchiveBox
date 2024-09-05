@@ -132,7 +132,7 @@ class Link:
     tags: Optional[str]
     sources: List[str]
     history: Dict[str, List[ArchiveResult]] = field(default_factory=lambda: {})
-    updated: Optional[datetime] = None
+    downloaded_at: Optional[datetime] = None
     schema: str = 'Link'
 
     def __str__(self) -> str:
@@ -164,7 +164,7 @@ class Link:
             assert isinstance(self.timestamp, str) and self.timestamp
             assert self.timestamp.replace('.', '').isdigit()
             assert isinstance(self.url, str) and '://' in self.url
-            assert self.updated is None or isinstance(self.updated, datetime)
+            assert self.downloaded_at is None or isinstance(self.downloaded_at, datetime)
             assert self.title is None or (isinstance(self.title, str) and self.title)
             assert self.tags is None or isinstance(self.tags, str)
             assert isinstance(self.sources, list)
@@ -184,7 +184,7 @@ class Link:
             'url': self.url,
             'title': self.title or None,
             'timestamp': self.timestamp,
-            'updated': self.updated or None,
+            'downloaded_at': self.downloaded_at or None,
             'tags': self.tags or None,
             'sources': self.sources or [],
             'history': self.history or {},
@@ -210,7 +210,7 @@ class Link:
                 'icons': None,           # only used to render static index in index/html.py, remove if no longer needed there
 
                 'bookmarked_date': self.bookmarked_date,
-                'updated_date': self.updated_date,
+                'downloaded_datestr': self.downloaded_datestr,
                 'oldest_archive_date': self.oldest_archive_date,
                 'newest_archive_date': self.newest_archive_date,
         
@@ -236,7 +236,7 @@ class Link:
             for key, val in json_info.items()
             if key in cls.field_names()
         }
-        info['updated'] = parse_date(info.get('updated'))
+        info['downloaded_at'] = parse_date(info.get('updated') or info.get('downloaded_at'))
         info['sources'] = info.get('sources') or []
 
         json_history = info.get('history') or {}
@@ -347,8 +347,8 @@ class Link:
 
 
     @property
-    def updated_date(self) -> Optional[str]:
-        return ts_to_date_str(self.updated) if self.updated else None
+    def downloaded_datestr(self) -> Optional[str]:
+        return ts_to_date_str(self.downloaded_at) if self.downloaded_at else None
 
     @property
     def archive_dates(self) -> List[datetime]:

@@ -27,7 +27,7 @@ class APIToken(ABIDModel):
     """
     # ABID: apt_<created_ts>_<token_hash>_<user_id_hash>_<uuid_rand>
     abid_prefix = 'apt_'
-    abid_ts_src = 'self.created'
+    abid_ts_src = 'self.created_at'
     abid_uri_src = 'self.token'
     abid_subtype_src = 'self.created_by_id'
     abid_rand_src = 'self.id'
@@ -36,8 +36,8 @@ class APIToken(ABIDModel):
     abid = ABIDField(prefix=abid_prefix)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False)
-    created = AutoDateTimeField(default=None, null=False, db_index=True)
-    modified = models.DateTimeField(auto_now=True)
+    created_at = AutoDateTimeField(default=None, null=False, db_index=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     token = models.CharField(max_length=32, default=generate_secret_token, unique=True)
     expires = models.DateTimeField(null=True, blank=True)
@@ -59,7 +59,7 @@ class APIToken(ABIDModel):
             "abid":             str(self.ABID),
             "created_by_id":    str(self.created_by_id),
             "token":            self.token,
-            "created":          self.created.isoformat(),
+            "created_at":       self.created_at.isoformat(),
             "expires":          self.expires_as_iso8601,
         }
 
@@ -95,7 +95,7 @@ class OutboundWebhook(ABIDModel, WebhookBase):
         settings.SIGNAL_WEBHOOKS_CUSTOM_MODEL = 'api.models.OutboundWebhook'
     """
     abid_prefix = 'whk_'
-    abid_ts_src = 'self.created'
+    abid_ts_src = 'self.created_at'
     abid_uri_src = 'self.endpoint'
     abid_subtype_src = 'self.ref'
     abid_rand_src = 'self.id'
@@ -104,8 +104,8 @@ class OutboundWebhook(ABIDModel, WebhookBase):
     abid = ABIDField(prefix=abid_prefix)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False)
-    created = AutoDateTimeField(default=None, null=False, db_index=True)
-    modified = models.DateTimeField(auto_now=True)
+    created_at = AutoDateTimeField(default=None, null=False, db_index=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     # More fields here: WebhookBase...
 

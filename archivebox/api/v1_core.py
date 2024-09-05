@@ -60,21 +60,16 @@ class CustomPagination(PaginationBase):
 
 ### ArchiveResult #########################################################################
 
-class ArchiveResultSchema(Schema):
+class MinimalArchiveResultSchema(Schema):
     TYPE: str = 'core.models.ArchiveResult'
 
     id: UUID
     abid: str
 
-    modified: datetime
-    created: datetime
+    modified_at: datetime
+    created_at: datetime
     created_by_id: str
     created_by_username: str
-
-    snapshot_abid: str
-    snapshot_timestamp: str
-    snapshot_url: str
-    snapshot_tags: str
 
     extractor: str
     cmd_version: Optional[str]
@@ -93,19 +88,11 @@ class ArchiveResultSchema(Schema):
         return User.objects.get(id=obj.created_by_id).username
 
     @staticmethod
-    def resolve_pk(obj):
-        return str(obj.pk)
-
-    @staticmethod
-    def resolve_uuid(obj):
-        return str(obj.uuid)
-
-    @staticmethod
     def resolve_abid(obj):
         return str(obj.ABID)
 
     @staticmethod
-    def resolve_created(obj):
+    def resolve_created_at(obj):
         return obj.start_ts
 
     @staticmethod
@@ -117,12 +104,27 @@ class ArchiveResultSchema(Schema):
         return obj.snapshot.url
 
     @staticmethod
+    def resolve_snapshot_id(obj):
+        return str(obj.snapshot_id)
+    
+    @staticmethod
     def resolve_snapshot_abid(obj):
         return str(obj.snapshot.ABID)
 
     @staticmethod
     def resolve_snapshot_tags(obj):
-        return obj.snapshot.tags_str()
+        return sorted(tag.name for tag in obj.snapshot.tags.all())
+
+class ArchiveResultSchema(MinimalArchiveResultSchema):
+    TYPE: str = 'core.models.ArchiveResult'
+
+    # ... Extends MinimalArchiveResultSchema fields ...
+
+    snapshot_id: UUID
+    snapshot_abid: str
+    snapshot_timestamp: str
+    snapshot_url: str
+    snapshot_tags: List[str]
 
 
 class ArchiveResultFilterSchema(FilterSchema):
@@ -140,9 +142,9 @@ class ArchiveResultFilterSchema(FilterSchema):
     pwd: Optional[str] = Field(None, q='pwd__icontains')
     cmd_version: Optional[str] = Field(None, q='cmd_version')
 
-    created: Optional[datetime] = Field(None, q='updated')
-    created__gte: Optional[datetime] = Field(None, q='updated__gte')
-    created__lt: Optional[datetime] = Field(None, q='updated__lt')
+    created_at: Optional[datetime] = Field(None, q='created_at')
+    created_at__gte: Optional[datetime] = Field(None, q='created_at__gte')
+    created_at__lt: Optional[datetime] = Field(None, q='created_at__lt')
 
 
 @router.get("/archiveresults", response=List[ArchiveResultSchema], url_name="get_archiveresult")
@@ -194,23 +196,25 @@ class SnapshotSchema(Schema):
     id: UUID
     abid: str
 
-    modified: datetime
-    created: datetime
     created_by_id: str
     created_by_username: str
+    created_at: datetime
+    modified_at: datetime
+
+    bookmarked_at: datetime
+    downloaded_at: Optional[datetime]
 
     url: str
-    tags: str
+    tags: List[str]
     title: Optional[str]
     timestamp: str
     archive_path: str
 
-    bookmarked: datetime
-    added: datetime
-    updated: Optional[datetime]
+    # url_for_admin: str
+    # url_for_view: str
 
     num_archiveresults: int
-    archiveresults: List[ArchiveResultSchema]
+    archiveresults: List[MinimalArchiveResultSchema]
 
     @staticmethod
     def resolve_created_by_id(obj):
@@ -222,20 +226,20 @@ class SnapshotSchema(Schema):
         return User.objects.get(id=obj.created_by_id).username
 
     @staticmethod
-    def resolve_pk(obj):
-        return str(obj.pk)
-
-    @staticmethod
-    def resolve_uuid(obj):
-        return str(obj.uuid)
-
-    @staticmethod
     def resolve_abid(obj):
         return str(obj.ABID)
 
     @staticmethod
     def resolve_tags(obj):
-        return obj.tags_str()
+        return sorted(tag.name for tag in obj.tags.all())
+
+    # @staticmethod
+    # def resolve_url_for_admin(obj):
+    #     return f"/admin/core/snapshot/{obj.id}/change/"
+    
+    # @staticmethod
+    # def resolve_url_for_view(obj):
+    #     return f"/{obj.archive_path}"
 
     @staticmethod
     def resolve_num_archiveresults(obj, context):
@@ -255,12 +259,12 @@ class SnapshotFilterSchema(FilterSchema):
     created_by_id: str = Field(None, q='created_by_id')
     created_by_username: str = Field(None, q='created_by__username__icontains')
 
-    created__gte: datetime = Field(None, q='created__gte')
-    created__lt: datetime = Field(None, q='created__lt')
-    created: datetime = Field(None, q='created')
-    modified: datetime = Field(None, q='modified')
-    modified__gte: datetime = Field(None, q='modified__gte')
-    modified__lt: datetime = Field(None, q='modified__lt')
+    created_at__gte: datetime = Field(None, q='created_at__gte')
+    created_at__lt: datetime = Field(None, q='created_at__lt')
+    created_at: datetime = Field(None, q='created_at')
+    modified_at: datetime = Field(None, q='modified_at')
+    modified_at__gte: datetime = Field(None, q='modified_at__gte')
+    modified_at__lt: datetime = Field(None, q='modified_at__lt')
 
     search: Optional[str] = Field(None, q=['url__icontains', 'title__icontains', 'tags__name__icontains', 'id__icontains', 'abid__icontains', 'timestamp__startswith'])
     url: Optional[str] = Field(None, q='url')
@@ -268,8 +272,8 @@ class SnapshotFilterSchema(FilterSchema):
     title: Optional[str] = Field(None, q='title__icontains')
     timestamp: Optional[str] = Field(None, q='timestamp__startswith')
     
-    added__gte: Optional[datetime] = Field(None, q='added__gte')
-    added__lt: Optional[datetime] = Field(None, q='added__lt')
+    bookmarked_at__gte: Optional[datetime] = Field(None, q='bookmarked_at__gte')
+    bookmarked_at__lt: Optional[datetime] = Field(None, q='bookmarked_at__lt')
 
 
 
@@ -285,7 +289,7 @@ def get_snapshots(request, filters: SnapshotFilterSchema = Query(...), with_arch
 
 @router.get("/snapshot/{snapshot_id}", response=SnapshotSchema, url_name="get_snapshot")
 def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
-    """Get a specific Snapshot by abid, uuid, or pk."""
+    """Get a specific Snapshot by abid or id."""
     request.with_archiveresults = with_archiveresults
     snapshot = None
     try:
@@ -311,7 +315,7 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
 #
 # @router.put("/snapshot/{snapshot_id}", response=SnapshotSchema)
 # def update_snapshot(request, snapshot_id: str, payload: SnapshotSchema):
-#     snapshot = get_object_or_404(Snapshot, uuid=snapshot_id)
+#     snapshot = get_object_or_404(Snapshot, id=snapshot_id)
 #
 #     for attr, value in payload.dict().items():
 #         setattr(snapshot, attr, value)
@@ -321,7 +325,7 @@ def get_snapshot(request, snapshot_id: str, with_archiveresults: bool=True):
 #
 # @router.delete("/snapshot/{snapshot_id}")
 # def delete_snapshot(request, snapshot_id: str):
-#     snapshot = get_object_or_404(Snapshot, uuid=snapshot_id)
+#     snapshot = get_object_or_404(Snapshot, id=snapshot_id)
 #     snapshot.delete()
 #     return {"success": True}
 
@@ -336,8 +340,8 @@ class TagSchema(Schema):
     id: UUID
     abid: str
 
-    modified: datetime
-    created: datetime
+    modified_at: datetime
+    created_at: datetime
     created_by_id: str
     created_by_username: str
 

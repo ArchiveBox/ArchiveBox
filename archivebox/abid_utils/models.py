@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from functools import partial
 from charidfield import CharIDField  # type: ignore[import-untyped]
 
-from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from django.db.utils import OperationalError
@@ -59,7 +59,7 @@ def get_or_create_system_user_pk(username='system'):
         return User.objects.filter(is_superuser=True).values_list('pk', flat=True)[0]
 
     # otherwise, create a dedicated "system" user
-    user, created = User.objects.get_or_create(username=username, is_staff=True, is_superuser=True, defaults={'email': '', 'password': ''})
+    user, _was_created = User.objects.get_or_create(username=username, is_staff=True, is_superuser=True, defaults={'email': '', 'password': ''})
     return user.pk
 
 
@@ -68,69 +68,166 @@ class AutoDateTimeField(models.DateTimeField):
     #     return timezone.now()
     pass
 
+class ABIDError(Exception):
+    pass
+
+class ABIDFieldsCannotBeChanged(ValidationError, ABIDError):
+    """
+    Properties used as unique identifiers (to generate ABID) cannot be edited after an object is created.
+    Create a new object instead with your desired changes (and it will be issued a new ABID).
+    """
+    def __init__(self, ABID_FRESH_DIFFS, obj):
+        self.ABID_FRESH_DIFFS = ABID_FRESH_DIFFS
+        self.obj = obj
+
+    def __str__(self):
+        keys_changed = ', '.join(diff['abid_src'] for diff in self.ABID_FRESH_DIFFS.values())
+        return (
+            f"This {self.obj.__class__.__name__}(abid={str(self.obj.ABID)}) was assigned a fixed, unique ID (ABID) based on its contents when it was created. " +
+            f'\nThe following changes cannot be made because they would alter the ABID:' +
+            '\n  ' + "\n    ".join(f'  - {diff["summary"]}' for diff in self.ABID_FRESH_DIFFS.values()) +
+            f"\nYou must reduce your changes to not affect these fields, or create a new {self.obj.__class__.__name__} object instead."
+        )
+
 
 class ABIDModel(models.Model):
     """
     Abstract Base Model for other models to depend on. Provides ArchiveBox ID (ABID) interface.
     """
     abid_prefix: str = DEFAULT_ABID_PREFIX            # e.g. 'tag_'
-    abid_ts_src = 'self.created'                     # e.g. 'self.created'
-    abid_uri_src = 'None'                            # e.g. 'self.uri'
+    abid_ts_src = 'self.created_at'                  # e.g. 'self.created_at'
+    abid_uri_src = 'None'                            # e.g. 'self.uri'                (MUST BE SET)
     abid_subtype_src = 'self.__class__.__name__'     # e.g. 'self.extractor'
     abid_rand_src = 'self.id'                        # e.g. 'self.uuid' or 'self.id'
-    abid_salt: str = DEFAULT_ABID_URI_SALT
+    abid_salt: str = DEFAULT_ABID_URI_SALT           # combined with self.uri to anonymize hashes on a per-install basis (default is shared globally with all users, means everyone will hash ABC to -> 123 the same around the world, makes it easy to share ABIDs across installs and see if they are for the same URI. Change this if you dont want your hashes to be guessable / in the same hash space as all other users)
+    abid_drift_allowed: bool = False                 # set to True to allow abid_field values to change after a fixed ABID has been issued (NOT RECOMMENDED: means values can drift out of sync from original ABID)
 
     # id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     # abid = ABIDField(prefix=abid_prefix)
 
     # created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False)
-    # created = AutoDateTimeField(default=None, null=False, db_index=True)
-    # modified = models.DateTimeField(auto_now=True)
+    # created_at = AutoDateTimeField(default=None, null=False, db_index=True)
+    # modified_at = models.DateTimeField(auto_now=True)
 
     class Meta(TypedModelMeta):
         abstract = True
 
-    def save(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Overriden __init__ method ensures we have a stable creation timestamp that fields can use within initialization code pre-saving to DB."""
+        super().__init__(*args, **kwargs)
+        # pre-compute a stable timestamp of the obj init time (with abid.ts precision limit applied) for use when object is first created,
+        # some other fields depend on a timestamp at creation time, and it's nice to have one common timestamp they can all share.
+        # Used as an alternative to auto_now_add=True + auto_now=True which can produce two different times & requires saving to DB to get the TS.
+        # (ordinarily fields cant depend on other fields until the obj is saved to db and recalled)
+        self._init_timestamp = ts_from_abid(abid_part_from_ts(timezone.now()))
+
+    def save(self, *args: Any, abid_drift_allowed: bool | None=None, **kwargs: Any) -> None:
+        """Overriden save method ensures new ABID is generated while a new object is first saving."""
+
         if self._state.adding:
-            self.pk = self.id = self.id or uuid4()
-            self.created = ts_from_abid(abid_part_from_ts(timezone.now()))  # cut off precision to match precision of TS component
-            self.modified = self.created
-            self.created_by = self.created_by or get_or_create_system_user_pk()
+            # only runs once when a new object is first saved to the DB
+            # sets self.id, self.pk, self.created_by, self.created_at, self.modified_at
             self.abid = str(self.issue_new_abid())
+
+        else:
+            # otherwise if updating, make sure none of the field changes would invalidate existing ABID
+            if self.ABID_FRESH_DIFFS:
+                ovewrite_abid = self.abid_drift_allowed if (abid_drift_allowed is None) else abid_drift_allowed
+
+                change_error = ABIDFieldsCannotBeChanged(self.ABID_FRESH_DIFFS, obj=self)
+                if ovewrite_abid:
+                    print(f'#### DANGER: Changing ABID of existing record ({self.__class__.__name__}.abid_drift_allowed={abid_drift_allowed}), this will break any references to its previous ABID!')
+                    print(change_error)
+                    self.abid = str(self.issue_new_abid(force_new=True))
+                    print(f'#### DANGER: OVERWROTE OLD ABID. NEW ABID=', self.abid)
+                else:
+                    raise change_error
+
         return super().save(*args, **kwargs)
 
-        # assert str(self.id) == str(self.ABID.uuid), f'self.id {self.id} does not match self.ABID {self.ABID.uuid}'
-        # assert str(self.abid) == str(self.ABID), f'self.abid {self.id} does not match self.ABID {self.ABID.uuid}'
-        # assert str(self.uuid) == str(self.ABID.uuid), f'self.uuid ({self.uuid}) does not match .ABID.uuid ({self.ABID.uuid})'
+    @property
+    def ABID_SOURCES(self) -> Dict[str, str]:
+        """"Get the dict of fresh ABID component values based on the live object's properties."""
+        assert self.abid_prefix
+        return {
+            'prefix': 'self.abid_prefix',             # defined as static class vars at build time
+            'ts': self.abid_ts_src,
+            'uri': self.abid_uri_src,
+            'subtype': self.abid_subtype_src,
+            'rand': self.abid_rand_src,
+            'salt': 'self.abid_salt',               # defined as static class vars at build time
+        }
 
     @property
     def ABID_FRESH_VALUES(self) -> Dict[str, Any]:
-        assert self.abid_ts_src != 'None'
-        assert self.abid_uri_src != 'None'
-        assert self.abid_rand_src != 'None'
-        assert self.abid_subtype_src != 'None'
+        """"Get the dict of fresh ABID component values based on the live object's properties."""
+        abid_sources = self.ABID_SOURCES
+        assert all(src != 'None' for src in abid_sources.values())
         return {
-            'prefix': self.abid_prefix,
-            'ts': eval(self.abid_ts_src),
-            'uri': eval(self.abid_uri_src),
-            'subtype': eval(self.abid_subtype_src),
-            'rand': eval(self.abid_rand_src),
-            'salt': self.abid_salt,
+            'prefix': eval(abid_sources['prefix']),
+            'ts': eval(abid_sources['ts']),
+            'uri': eval(abid_sources['uri']),
+            'subtype': eval(abid_sources['subtype']),
+            'rand': eval(abid_sources['rand']),
+            'salt': eval(abid_sources['salt']),
         }
     
     @property
     def ABID_FRESH_HASHES(self) -> Dict[str, str]:
-        return abid_hashes_from_values(**self.ABID_FRESH_VALUES)
+        """"Get the dict of fresh ABID component hashes based on the live object's properties."""
+        abid_values = self.ABID_FRESH_VALUES
+        assert all(val for val in abid_values.values())
+        return abid_hashes_from_values(
+            prefix=abid_values['prefix'],
+            ts=abid_values['ts'],
+            uri=abid_values['uri'],
+            subtype=abid_values['subtype'],
+            rand=abid_values['rand'],
+            salt=abid_values['salt'],
+        )
+    
+    @property
+    def ABID_FRESH_DIFFS(self) -> Dict[str, Dict[str, Any]]:
+        """Get the dict of discrepancies between the existing saved ABID and a new fresh ABID computed based on the live object."""
+        existing_abid = self.ABID
+        existing_values = {} if self._state.adding else self.__class__.objects.get(pk=self.pk).ABID_FRESH_VALUES
+        abid_sources = self.ABID_SOURCES
+        fresh_values = self.ABID_FRESH_VALUES
+        fresh_hashes = self.ABID_FRESH_HASHES
+        return {
+            key: {
+                'model': self.__class__.__name__,
+                'pk': self.pk,
+                'abid_src': abid_sources[key],
+                'abid_section': key,
+                'old_val': existing_values.get(key, None),
+                'old_hash': getattr(existing_abid, key),
+                'new_val': fresh_values[key],
+                'new_hash': new_hash,
+                'summary': f'{abid_sources[key]}= "{existing_values.get(key, None)}" -> "{fresh_values[key]}" (would alter {self.__class__.__name__.lower()}.ABID.{key}={getattr(existing_abid, key)} to {new_hash})',
+            }
+            for key, new_hash in fresh_hashes.items()
+            if getattr(existing_abid, key) != new_hash
+        }
 
-    def issue_new_abid(self):
-        assert self.abid is None, f'Can only issue new ABID for new objects that dont already have one {self.abid}'
-        assert self._state.adding, 'Can only issue new ABID when model._state.adding is True'
+    def issue_new_abid(self, force_new=False) -> ABID:
+        """
+        Issue a new ABID based on the current object's properties, can only be called once on new objects (before they are saved to DB).
+        """
+        if not force_new:
+            assert self.abid is None, f'Can only issue new ABID for new objects that dont already have one {self.abid}'
+            assert self._state.adding, 'Can only issue new ABID when model._state.adding is True'
         assert eval(self.abid_uri_src), f'Can only issue new ABID if self.abid_uri_src is defined ({self.abid_uri_src}={eval(self.abid_uri_src)})'
 
+        # Setup Field defaults to be ready for ABID generation
         self.abid = None
-        self.pk = self.id = self.id or uuid4()
-        self.created = ts_from_abid(abid_part_from_ts(timezone.now()))  # cut off precision to match precision of TS component
+        self.id = self.id or uuid4()
+        self.pk = self.id
+        self.created_at = self.created_at or self._init_timestamp  # cut off precision to match precision of TS component
+        self.modified_at = self.modified_at or self.created_at
+        self.created_by = self.created_by or get_or_create_system_user_pk()
 
+        # Compute fresh ABID values & hashes based on object's live properties
         abid_fresh_values = self.ABID_FRESH_VALUES
         assert all(abid_fresh_values.values()), f'All ABID_FRESH_VALUES must be set {abid_fresh_values}'
         abid_fresh_hashes = self.ABID_FRESH_HASHES
@@ -140,64 +237,63 @@ class ABIDModel(models.Model):
         
         assert new_abid.ulid and new_abid.uuid and new_abid.typeid, f'Failed to calculate {abid_fresh_values["prefix"]}_ABID for {self.__class__.__name__}'
 
-        # store stable ABID on local fields, overwrite them because we are adding a new entry and existing defaults havent touched db yet
-        self.abid = str(new_abid)
-        assert str(self.ABID.uuid) == str(new_abid.uuid)
         return new_abid
-
 
     @property
     def ABID(self) -> ABID:
         """
-        aka get_or_generate_abid -> ULIDParts(timestamp='01HX9FPYTR', url='E4A5CCD9', subtype='00', randomness='ZYEBQE')
+        Get the object's existing ABID (from self.abid if it's already saved to DB, otherwise generated fresh)
+        e.g. -> ABID(ts='01HX9FPYTR', uri='E4A5CCD9', subtype='00', rand='ZYEBQE')
         """
 
-        if not self.abid:
-            pre_save_abid = self.issue_new_abid()
-            self.abid = str(pre_save_abid)
-            return pre_save_abid
+        if self.abid:
+            return ABID.parse(cast(str, self.abid))
+        
+        return self.issue_new_abid()
 
-        return ABID.parse(cast(str, self.abid))
-
-    @property
-    def ULID(self) -> ULID:
-        """
-        Get a ulid.ULID representation of the object's ABID.
-        """
-        return self.ABID.ulid
-
-    @property
-    def UUID(self) -> UUID:
-        """
-        Get a uuid.UUID (v4) representation of the object's ABID.
-        """
-        return self.ABID.uuid
+    # These are all example helpers to make it easy to access alternate formats of the ABID.*, only add them if you actually need them
+    # @property
+    # def UUID(self) -> UUID:
+    #     """
+    #     Get a uuid.UUID (v4) representation of the object's ABID.
+    #     """
+    #     return self.ABID.uuid
     
-    @property
-    def uuid(self) -> str:
-        """
-        Get a str uuid.UUID (v4) representation of the object's ABID.
-        """
-        return str(self.ABID.uuid)
-
-    @property
-    def TypeID(self) -> TypeID:
-        """
-        Get a typeid.TypeID (stripe-style) representation of the object's ABID.
-        """
-        return self.ABID.typeid
+    # @property
+    # def uuid(self) -> str:
+    #     """
+    #     Get a str uuid.UUID (v4) representation of the object's ABID.
+    #     """
+    #     return str(self.ABID.uuid)
     
-    @property
-    def abid_uri(self) -> str:
-        return eval(self.abid_uri_src)
+    # @property
+    # def ULID(self) -> ULID:
+    #     """
+    #     Get a ulid.ULID representation of the object's ABID.
+    #     """
+    #     return self.ABID.ulid
+
+    # @property
+    # def TypeID(self) -> TypeID:
+    #     """
+    #     Get a typeid.TypeID (stripe-style) representation of the object's ABID.
+    #     """
+    #     return self.ABID.typeid
     
     @property
     def api_url(self) -> str:
-        # /api/v1/core/any/{abid}
+        """
+        Compute the REST API URL to access this object.
+        e.g. /api/v1/core/snapshot/snp_01BJQMF54D093DXEAWZ6JYRP
+        """
         return reverse_lazy('api-1:get_any', args=[self.abid])
 
     @property
     def api_docs_url(self) -> str:
+        """
+        Compute the REST API Documentation URL to learn about accessing this object.
+        e.g. /api/v1/docs#/Core%20Models/api_v1_core_get_snapshots
+        """
         return f'/api/v1/docs#/{self._meta.app_label.title()}%20Models/api_v1_{self._meta.app_label}_get_{self._meta.db_table}'
 
 
@@ -311,7 +407,7 @@ def find_obj_from_abid_rand(rand: Union[ABID, str], model=None) -> List[ABIDMode
                 )
 
             for obj in qs:
-                if abid in (str(obj.ABID_FRESH), str(obj.id), str(obj.abid)):
+                if abid in (str(obj.ABID), str(obj.id), str(obj.pk), str(obj.abid)):
                     # found exact match, no need to keep iterating
                     return [obj]
                 partial_matches.append(obj)

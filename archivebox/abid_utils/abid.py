@@ -208,6 +208,7 @@ def abid_hashes_from_values(prefix: str, ts: datetime, uri: str, subtype: str | 
         'uri': abid_part_from_uri(uri, salt=salt),
         'subtype': abid_part_from_subtype(subtype),
         'rand': abid_part_from_rand(rand),
+        # 'salt': don't add this, salt combined with uri above to form a single hash
     }
 
 @enforce_types

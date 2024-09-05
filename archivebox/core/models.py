@@ -5,10 +5,7 @@ from typing import Optional, List, Dict, Iterable
 from django_stubs_ext.db.models import TypedModelMeta
 
 import json
-import random
 
-import uuid
-from uuid import uuid4
 from pathlib import Path
 
 from django.db import models
@@ -18,9 +15,10 @@ from django.utils.text import slugify
 from django.core.cache import cache
 from django.urls import reverse, reverse_lazy
 from django.db.models import Case, When, Value, IntegerField
+from django.contrib import admin
 from django.conf import settings
 
-from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, get_or_create_system_user_pk
+from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
 
 from ..system import get_dir_size
 from ..util import parse_date, base_url
@@ -29,13 +27,10 @@ from ..index.html import snapshot_icons
 from ..extractors import ARCHIVE_METHODS_INDEXING_PRECEDENCE, EXTRACTORS
 
 
-def rand_int_id():
-    return random.getrandbits(32)
-
 
 # class BaseModel(models.Model):
 #     # TODO: migrate all models to a shared base class with all our standard fields and helpers:
-#     #       ulid/created/modified/owner/is_deleted/as_json/from_json/etc.
+#     #       ulid/created_at/modified_at/created_by/is_deleted/as_json/from_json/etc.
 #     #
 #     # id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
 #     # ulid = models.CharField(max_length=26, null=True, blank=True, db_index=True, unique=True)
@@ -51,17 +46,18 @@ class Tag(ABIDModel):
     Based on django-taggit model + ABID base.
     """
     abid_prefix = 'tag_'
-    abid_ts_src = 'self.created'
+    abid_ts_src = 'self.created_at'
     abid_uri_src = 'self.slug'
     abid_subtype_src = '"03"'
     abid_rand_src = 'self.id'
+    abid_drift_allowed = True
 
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, related_name='tag_set')
-    created = AutoDateTimeField(default=None, null=False, db_index=True)
-    modified = models.DateTimeField(auto_now=True)
+    created_at = AutoDateTimeField(default=None, null=False, db_index=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     name = models.CharField(unique=True, blank=False, max_length=100)
     slug = models.SlugField(unique=True, blank=False, max_length=100, editable=False)
@@ -131,32 +127,40 @@ class SnapshotManager(models.Manager):
 
 class Snapshot(ABIDModel):
     abid_prefix = 'snp_'
-    abid_ts_src = 'self.created'
+    abid_ts_src = 'self.created_at'
     abid_uri_src = 'self.url'
     abid_subtype_src = '"01"'
     abid_rand_src = 'self.id'
+    abid_drift_allowed = False
 
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, related_name='snapshot_set')
-    created = AutoDateTimeField(default=None, null=False, db_index=True)
-    modified = models.DateTimeField(auto_now=True)
+    created_at = AutoDateTimeField(default=None, null=False, db_index=True)  # loaded from self._init_timestamp
+    modified_at = models.DateTimeField(auto_now=True)
 
     # legacy ts fields
-    added = AutoDateTimeField(default=None, null=False, editable=True, db_index=True)
-    updated = models.DateTimeField(auto_now=True, blank=True, null=True, db_index=True)
+    bookmarked_at = AutoDateTimeField(default=None, null=False, editable=True, db_index=True)
+    downloaded_at = models.DateTimeField(default=None, null=True, editable=False, db_index=True, blank=True)
 
     url = models.URLField(unique=True, db_index=True)
     timestamp = models.CharField(max_length=32, unique=True, db_index=True, editable=False)
     tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name='snapshot_set', through_fields=('snapshot', 'tag'))
     title = models.CharField(max_length=512, null=True, blank=True, db_index=True)    
 
-    keys = ('url', 'timestamp', 'title', 'tags', 'updated')
+    keys = ('url', 'timestamp', 'title', 'tags', 'downloaded_at')
 
     archiveresult_set: models.Manager['ArchiveResult']
 
     objects = SnapshotManager()
+
+    def save(self, *args, **kwargs):
+        if not self.bookmarked_at:
+            self.bookmarked_at = self.created_at or self._init_timestamp
+        
+        super().save(*args, **kwargs)
+
 
     def __repr__(self) -> str:
         title = (self.title_stripped or '-')[:64]
@@ -185,9 +189,10 @@ class Snapshot(ABIDModel):
         from ..index import load_link_details
         return load_link_details(self.as_link())
 
+    @admin.display(description='Tags')
     def tags_str(self, nocache=True) -> str | None:
         calc_tags_str = lambda: ','.join(sorted(tag.name for tag in self.tags.all()))
-        cache_key = f'{self.pk}-{(self.updated or self.added).timestamp()}-tags'
+        cache_key = f'{self.pk}-{(self.downloaded_at or self.bookmarked_at).timestamp()}-tags'
         
         if hasattr(self, '_prefetched_objects_cache') and 'tags' in self._prefetched_objects_cache:
             # tags are pre-fetched already, use them directly (best because db is always freshest)
@@ -255,7 +260,7 @@ class Snapshot(ABIDModel):
 
     @cached_property
     def archive_size(self):
-        cache_key = f'{str(self.pk)[:12]}-{(self.updated or self.added).timestamp()}-size'
+        cache_key = f'{str(self.pk)[:12]}-{(self.downloaded_at or self.bookmarked_at).timestamp()}-size'
 
         def calc_dir_size():
             try:
@@ -274,7 +279,7 @@ class Snapshot(ABIDModel):
                     for result in self.archiveresult_set.all()
                     if result.extractor == 'screenshot' and result.status =='succeeded' and result.output
                 ),
-                key=lambda result: result.created,
+                key=lambda result: result.created_at,
             ) or [None])[-1]
         else:
             result = self.archiveresult_set.filter(
@@ -359,7 +364,7 @@ class Snapshot(ABIDModel):
 
 
     # def get_storage_dir(self, create=True, symlink=True) -> Path:
-    #     date_str = self.added.strftime('%Y%m%d')
+    #     date_str = self.bookmarked_at.strftime('%Y%m%d')
     #     domain_str = domain(self.url)
     #     abs_storage_dir = Path(settings.CONFIG.ARCHIVE_DIR) / 'snapshots' / date_str / domain_str / str(self.ulid)
 
@@ -407,10 +412,11 @@ class ArchiveResultManager(models.Manager):
 
 class ArchiveResult(ABIDModel):
     abid_prefix = 'res_'
-    abid_ts_src = 'self.snapshot.added'
+    abid_ts_src = 'self.snapshot.created_at'
     abid_uri_src = 'self.snapshot.url'
     abid_subtype_src = 'self.extractor'
     abid_rand_src = 'self.id'
+    abid_drift_allowed = True
 
     EXTRACTOR_CHOICES = (
         ('htmltotext', 'htmltotext'),
@@ -438,8 +444,8 @@ class ArchiveResult(ABIDModel):
     abid = ABIDField(prefix=abid_prefix)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, related_name='archiveresult_set')
-    created = AutoDateTimeField(default=None, null=False, db_index=True)
-    modified = models.DateTimeField(auto_now=True)
+    created_at = AutoDateTimeField(default=None, null=False, db_index=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     snapshot = models.ForeignKey(Snapshot, on_delete=models.CASCADE, to_field='id', db_column='snapshot_id')
 
@@ -460,6 +466,7 @@ class ArchiveResult(ABIDModel):
         
 
     def __str__(self):
+        # return f'[{self.abid}] 📅 {self.start_ts.strftime("%Y-%m-%d %H:%M")} 📄 {self.extractor} {self.snapshot.url}'
         return self.extractor
 
     @cached_property
@@ -503,7 +510,7 @@ class ArchiveResult(ABIDModel):
 
 
     # def get_storage_dir(self, create=True, symlink=True):
-    #     date_str = self.snapshot.added.strftime('%Y%m%d')
+    #     date_str = self.snapshot.bookmarked_at.strftime('%Y%m%d')
     #     domain_str = domain(self.snapshot.url)
     #     abs_storage_dir = Path(settings.CONFIG.ARCHIVE_DIR) / 'results' / date_str / domain_str / self.extractor / str(self.ulid)
 

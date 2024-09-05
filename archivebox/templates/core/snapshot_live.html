@@ -379,8 +379,8 @@
                         </small>
                     </div>
                     <div class="col-lg-2" style="padding-top: 4px">
-                        <a href="/archive/{{url}}" title="Date Added: {{bookmarked_date}}  |  First Archived: {{oldest_archive_date|default:updated_date}}  |  Last Checked: {{updated_date}}   (UTC)">
-                            {{oldest_archive_date|default:updated_date|default:bookmarked_date}}
+                        <a href="/archive/{{url}}" title="Date Added: {{bookmarked_date}}  |  First Archived: {{oldest_archive_date|default:downloaded_datestr}}  |  Last Checked: {{downloaded_datestr}}   (UTC)">
+                            {{oldest_archive_date|default:downloaded_datestr|default:bookmarked_date}}
                         </a>
                         <br/>
                         <div class="external-links">

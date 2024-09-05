@@ -211,7 +211,7 @@ class SnapshotView(View):
                     format_html(
                         (
                             '<center><br/><br/><br/>'
-                            'No Snapshot directories match the given timestamp or UUID: <code>{}</code><br/><br/>'
+                            'No Snapshot directories match the given timestamp/ID/ABID: <code>{}</code><br/><br/>'
                             'You can <a href="/add/" target="_top">add a new Snapshot</a>, or return to the <a href="/" target="_top">Main Index</a>'
                             '</center>'
                         ),
@@ -225,18 +225,18 @@ class SnapshotView(View):
                 snapshot_hrefs = mark_safe('<br/>').join(
                     format_html(
                         '{} <a href="/archive/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
-                        snap.added.strftime('%Y-%m-%d %H:%M:%S'),
+                        snap.bookmarked_at.strftime('%Y-%m-%d %H:%M:%S'),
                         snap.timestamp,
                         snap.timestamp,
                         snap.url,
                         snap.title_stripped[:64] or '',
                     )
-                    for snap in Snapshot.objects.filter(timestamp__startswith=slug).only('url', 'timestamp', 'title', 'added').order_by('-added')
+                    for snap in Snapshot.objects.filter(timestamp__startswith=slug).only('url', 'timestamp', 'title', 'bookmarked_at').order_by('-bookmarked_at')
                 )
                 return HttpResponse(
                     format_html(
                         (
-                            'Multiple Snapshots match the given timestamp/UUID <code>{}</code><br/><pre>'
+                            'Multiple Snapshots match the given timestamp/ID/ABID <code>{}</code><br/><pre>'
                         ),
                         slug,
                     ) + snapshot_hrefs + format_html(
@@ -257,12 +257,12 @@ class SnapshotView(View):
                         (
                             '<center><br/><br/><br/>'
                             f'Snapshot <a href="/archive/{snapshot.timestamp}/index.html" target="_top"><b><code>[{snapshot.timestamp}]</code></b></a>: <a href="{snapshot.url}" target="_blank" rel="noreferrer">{snapshot.url}</a><br/>'
-                            f'was queued on {str(snapshot.added).split(".")[0]}, '
+                            f'was queued on {str(snapshot.bookmarked_at).split(".")[0]}, '
                             f'but no files have been saved yet in:<br/><b><a href="/archive/{snapshot.timestamp}/" target="_top"><code>{snapshot.timestamp}</code></a><code>/'
                             '{}'
                             f'</code></b><br/><br/>'
                             'It\'s possible {} '
-                            f'during the last capture on {str(snapshot.added).split(".")[0]},<br/>or that the archiving process has not completed yet.<br/>'
+                            f'during the last capture on {str(snapshot.bookmarked_at).split(".")[0]},<br/>or that the archiving process has not completed yet.<br/>'
                             f'<pre><code># run this cmd to finish/retry archiving this Snapshot</code><br/>'
                             f'<code style="user-select: all; color: #333">archivebox update -t timestamp {snapshot.timestamp}</code></pre><br/><br/>'
                             '<div class="text-align: left; width: 100%; max-width: 400px">'
@@ -270,7 +270,7 @@ class SnapshotView(View):
                             f'- list all the <a href="/archive/{snapshot.timestamp}/" target="_top">Snapshot files <code>.*</code></a><br/>'
                             f'- view the <a href="/archive/{snapshot.timestamp}/index.html" target="_top">Snapshot <code>./index.html</code></a><br/>'
                             f'- go to the <a href="/admin/core/snapshot/{snapshot.pk}/change/" target="_top">Snapshot admin</a> to edit<br/>'
-                            f'- go to the <a href="/admin/core/snapshot/?uuid__startswith={snapshot.uuid}" target="_top">Snapshot actions</a> to re-archive<br/>'
+                            f'- go to the <a href="/admin/core/snapshot/?id__exact={snapshot.id}" target="_top">Snapshot actions</a> to re-archive<br/>'
                             '- or return to <a href="/" target="_top">the main index...</a></div>'
                             '</center>'
                         ),
@@ -343,7 +343,7 @@ class SnapshotView(View):
             snapshot_hrefs = mark_safe('<br/>').join(
                 format_html(
                     '{} <code style="font-size: 0.8em">{}</code> <a href="/archive/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
-                    snap.added.strftime('%Y-%m-%d %H:%M:%S'),
+                    snap.bookmarked_at.strftime('%Y-%m-%d %H:%M:%S'),
                     snap.abid,
                     snap.timestamp,
                     snap.timestamp,
@@ -353,7 +353,7 @@ class SnapshotView(View):
                 for snap in Snapshot.objects.filter(
                     Q(url__startswith='http://' + base_url(path)) | Q(url__startswith='https://' + base_url(path))
                     | Q(abid__icontains=path) | Q(id__icontains=path)
-                ).only('url', 'timestamp', 'title', 'added').order_by('-added')
+                ).only('url', 'timestamp', 'title', 'bookmarked_at').order_by('-bookmarked_at')
             )
             return HttpResponse(
                 format_html(
@@ -376,7 +376,7 @@ class PublicIndexView(ListView):
     template_name = 'public_index.html'
     model = Snapshot
     paginate_by = SNAPSHOTS_PER_PAGE
-    ordering = ['-added']
+    ordering = ['-bookmarked_at', '-created_at']
 
     def get_context_data(self, **kwargs):
         return {

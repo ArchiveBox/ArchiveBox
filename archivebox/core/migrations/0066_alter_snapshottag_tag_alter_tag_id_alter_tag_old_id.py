@@ -3,8 +3,11 @@
 import core.models
 import django.db.models.deletion
 import uuid
+import random
 from django.db import migrations, models
 
+def rand_int_id():
+    return random.getrandbits(32)
 
 class Migration(migrations.Migration):
 
@@ -26,6 +29,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='tag',
             name='old_id',
-            field=models.BigIntegerField(default=core.models.rand_int_id, serialize=False, unique=True, verbose_name='Old ID'),
+            field=models.BigIntegerField(default=rand_int_id, serialize=False, unique=True, verbose_name='Old ID'),
         ),
     ]

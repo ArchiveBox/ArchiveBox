@@ -134,7 +134,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
         link = load_link_details(link, out_dir=out_dir)
         write_link_details(link, out_dir=out_dir, skip_sql_index=False)
         log_link_archiving_started(link, str(out_dir), is_new)
-        link = link.overwrite(updated=datetime.now(timezone.utc))
+        link = link.overwrite(downloaded_at=datetime.now(timezone.utc))
         stats = {'skipped': 0, 'succeeded': 0, 'failed': 0}
         start_ts = datetime.now(timezone.utc)
 
@@ -157,11 +157,11 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                                                  output=result.output, pwd=result.pwd, start_ts=result.start_ts, end_ts=result.end_ts, status=result.status, created_by_id=snapshot.created_by_id)
 
 
-                    # bump the updated time on the main Snapshot here, this is critical
+                    # bump the downloaded_at time on the main Snapshot here, this is critical
                     # to be able to cache summaries of the ArchiveResults for a given
                     # snapshot without having to load all the results from the DB each time.
-                    # (we use {Snapshot.pk}-{Snapshot.updated} as the cache key and assume
-                    # ArchiveResults are unchanged as long as the updated timestamp is unchanged)
+                    # (we use {Snapshot.pk}-{Snapshot.downloaded_at} as the cache key and assume
+                    # ArchiveResults are unchanged as long as the downloaded_at timestamp is unchanged)
                     snapshot.save()
                 else:
                     # print('{black}      X {}{reset}'.format(method_name, **ANSI))

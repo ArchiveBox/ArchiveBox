@@ -2,9 +2,14 @@
 
 import core.models
 import uuid
+import random
 from django.db import migrations, models
 
 from abid_utils.abid import ABID
+
+
+def rand_int_id():
+    return random.getrandbits(32)
 
 
 def update_archiveresult_ids(apps, schema_editor):
@@ -30,7 +35,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='archiveresult',
             name='old_id',
-            field=models.BigIntegerField(default=core.models.rand_int_id, serialize=False, verbose_name='ID'),
+            field=models.BigIntegerField(default=rand_int_id, serialize=False, verbose_name='ID'),
         ),
         migrations.RunPython(update_archiveresult_ids, reverse_code=migrations.RunPython.noop),
         migrations.AlterField(
