@@ -21,6 +21,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
+from django.template import Template, RequestContext
 from django.conf import settings
 from django import forms
 
@@ -250,7 +251,10 @@ class ArchiveResultInline(admin.TabularInline):
 
     def get_parent_object_from_request(self, request):
         resolved = resolve(request.path_info)
-        return self.parent_model.objects.get(pk=resolved.kwargs['object_id'])
+        try:
+            return self.parent_model.objects.get(pk=resolved.kwargs['object_id'])
+        except (self.parent_model.DoesNotExist, ValidationError):
+            return self.parent_model.objects.get(abid=self.parent_model.abid_prefix + resolved.kwargs['object_id'].split('_', 1)[-1])
 
     @admin.display(
         description='Completed',

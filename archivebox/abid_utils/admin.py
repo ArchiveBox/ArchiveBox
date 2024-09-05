@@ -108,6 +108,15 @@ class ABIDModelAdmin(admin.ModelAdmin):
     
     def change_view(self, request, object_id, form_url="", extra_context=None):
         self.request = request
+
+        if object_id:
+            try:
+                object_uuid = str(self.model.objects.only('pk').get(abid=self.model.abid_prefix + object_id.split('_', 1)[-1]).pk)
+                if object_id != object_uuid:
+                    return redirect(self.request.path.replace(object_id, object_uuid), permanent=False)
+            except (self.model.DoesNotExist, ValidationError):
+                pass
+
         return super().change_view(request, object_id, form_url, extra_context)
 
     def get_form(self, request, obj=None, **kwargs):
@@ -117,7 +126,9 @@ class ABIDModelAdmin(admin.ModelAdmin):
             form.base_fields['created_by'].initial = request.user
         return form
 
-    # def save_model(self, request, obj, form, change):
-    #     if getattr(obj, 'created_by_id', None) in (None, get_or_create_system_user_pk()):
-    #         obj.created_by = request.user
-    #     obj.save()
+    def save_model(self, request, obj, form, change):
+        old_abid = obj.abid
+        super().save_model(request, obj, form, change)
+        new_abid = obj.abid
+        if new_abid != old_abid:
+            messages.warning(request, f"The object's ABID has been updated! {old_abid} -> {new_abid} (any references to the old ABID will need to be updated)")

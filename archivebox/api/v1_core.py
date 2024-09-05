@@ -78,6 +78,9 @@ class MinimalArchiveResultSchema(Schema):
     status: str
     output: str
 
+    start_ts: Optional[datetime]
+    end_ts: Optional[datetime]
+
     @staticmethod
     def resolve_created_by_id(obj):
         return str(obj.created_by_id)
