@@ -334,8 +334,8 @@ if IS_SHELL:
 LANGUAGE_CODE = 'en-us'
 USE_I18N = True
 USE_TZ = True
-DATETIME_FORMAT = 'Y-m-d g:iA'
-SHORT_DATETIME_FORMAT = 'Y-m-d h:iA'
+DATETIME_FORMAT = 'Y-m-d h:i:s A'
+SHORT_DATETIME_FORMAT = 'Y-m-d h:i:s A'
 TIME_ZONE = CONFIG.TIMEZONE        # django convention is TIME_ZONE, archivebox config uses TIMEZONE, they are equivalent
 
 
