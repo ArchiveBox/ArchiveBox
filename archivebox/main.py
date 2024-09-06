@@ -4,13 +4,16 @@ import os
 import sys
 import shutil
 import platform
-from django.utils import timezone
+import subprocess
+
+from typing import Dict, List, Optional, Iterable, IO, Union
 from pathlib import Path
 from datetime import date, datetime
 
-from typing import Dict, List, Optional, Iterable, IO, Union
 from crontab import CronTab, CronSlices
+
 from django.db.models import QuerySet
+from django.utils import timezone
 
 from .cli import (
     list_subcommands,
@@ -1346,7 +1349,30 @@ def server(runserver_args: Optional[List[str]]=None,
     config.SHOW_PROGRESS = False
     config.DEBUG = config.DEBUG or debug
 
-    call_command("runserver", *runserver_args)
+    if reload or debug:
+        call_command("runserver", *runserver_args)
+    else:
+        host = '127.0.0.1'
+        port = '8000'
+        
+        try:
+            host_and_port = [arg for arg in runserver_args if arg.replace('.', '').replace(':', '').isdigit()][0]
+            if ':' in host_and_port:
+                host, port = host_and_port.split(':')
+            else:
+                if '.' in host_and_port:
+                    host = host_and_port
+                else:
+                    port = host_and_port
+        except IndexError:
+            pass
+
+        try:
+            subprocess.run(['daphne', '--bind', host, '--port', port, 'archivebox.core.asgi:application'])
+        except (SystemExit, KeyboardInterrupt):
+            pass
+        except Exception as e:
+            print(e)
 
 
 @enforce_types
