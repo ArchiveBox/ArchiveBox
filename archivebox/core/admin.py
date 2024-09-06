@@ -2,19 +2,15 @@ __package__ = 'archivebox.core'
 
 import os
 
-from io import StringIO
+import threading
 from pathlib import Path
-from contextlib import redirect_stdout
-from datetime import datetime, timezone
-from typing import Dict, Any
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.urls import path, reverse, resolve
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from django.shortcuts import render, redirect
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
 from django.core.paginator import Paginator
@@ -28,10 +24,9 @@ from signal_webhooks.admin import WebhookAdmin
 from signal_webhooks.utils import get_webhook_model
 # from plugantic.admin import CustomPlugin
 
-from ..util import htmldecode, urldecode, ansi_to_html
+from ..util import htmldecode, urldecode
 
 from core.models import Snapshot, ArchiveResult, Tag
-from core.forms import AddLinkForm
 from core.mixins import SearchResultsAdminMixin
 from api.models import APIToken
 from abid_utils.admin import ABIDModelAdmin
@@ -64,50 +59,6 @@ class ArchiveBoxAdmin(admin.AdminSite):
     index_title = 'Links'
     site_title = 'Index'
     namespace = 'admin'
-
-    def get_urls(self):
-        return [
-            path('core/snapshot/add/', self.add_view, name='Add'),
-        ] + super().get_urls()
-
-    def add_view(self, request):
-        if not request.user.is_authenticated:
-            return redirect(f'/admin/login/?next={request.path}')
-
-        request.current_app = self.name
-        context: Dict[str, Any] = {
-            **self.each_context(request),
-            'title': 'Add URLs',
-        }
-
-        if request.method == 'GET':
-            context['form'] = AddLinkForm()
-
-        elif request.method == 'POST':
-            form = AddLinkForm(request.POST)
-            if form.is_valid():
-                url = form.cleaned_data["url"]
-                print(f'[+] Adding URL: {url}')
-                depth = 0 if form.cleaned_data["depth"] == "0" else 1
-                input_kwargs = {
-                    "urls": url,
-                    "depth": depth,
-                    "update_all": False,
-                    "out_dir": CONFIG.OUTPUT_DIR,
-                }
-                add_stdout = StringIO()
-                with redirect_stdout(add_stdout):
-                   add(**input_kwargs)
-                print(add_stdout.getvalue())
-
-                context.update({
-                    "stdout": ansi_to_html(add_stdout.getvalue().strip()),
-                    "form": AddLinkForm(),
-                })
-            else:
-                context["form"] = form
-
-        return render(template_name='add.html', request=request, context=context)
 
 
 class CustomUserAdmin(UserAdmin):
@@ -558,19 +509,37 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
         description="ℹ️ Get Title"
     )
     def update_titles(self, request, queryset):
-        archive_links([
-            snapshot.as_link()
-            for snapshot in queryset
-        ], overwrite=True, methods=('title','favicon'), out_dir=CONFIG.OUTPUT_DIR)
+        links = [snapshot.as_link() for snapshot in queryset]
+        if len(links) < 3:
+            # run syncronously if there are only 1 or 2 links
+            archive_links(links, overwrite=True, methods=('title','favicon'), out_dir=CONFIG.OUTPUT_DIR)
+            messages.success(request, f"Title and favicon have been fetched and saved for {len(links)} URLs.")
+        else:
+            # otherwise run in a bg thread
+            bg_thread = threading.Thread(
+                target=archive_links,
+                args=(links,),
+                kwargs={"overwrite": True, "methods": ['title', 'favicon'], "out_dir": CONFIG.OUTPUT_DIR},
+            )
+            bg_thread.setDaemon(True)
+            bg_thread.start()
+            messages.success(request, f"Title and favicon are updating in the background for {len(links)} URLs. (refresh in a few minutes to see results)")
 
     @admin.action(
         description="⬇️ Get Missing"
     )
     def update_snapshots(self, request, queryset):
-        archive_links([
-            snapshot.as_link()
-            for snapshot in queryset
-        ], out_dir=CONFIG.OUTPUT_DIR)
+        links = [snapshot.as_link() for snapshot in queryset]
+        bg_thread = threading.Thread(
+            target=archive_links,
+            args=(links,),
+            kwargs={"overwrite": False, "out_dir": CONFIG.OUTPUT_DIR},
+        )
+        bg_thread.setDaemon(True)
+        bg_thread.start()
+        messages.success(
+            request, f"Re-trying any previously failed methods for {len(links)} URLs in the background. (refresh in a few minutes to see results)"
+        )
 
 
     @admin.action(
@@ -578,24 +547,44 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
     )
     def resnapshot_snapshot(self, request, queryset):
         for snapshot in queryset:
-            timestamp = datetime.now(timezone.utc).isoformat('T', 'seconds')
+            timestamp = timezone.now().isoformat('T', 'seconds')
             new_url = snapshot.url.split('#')[0] + f'#{timestamp}'
-            add(new_url, tag=snapshot.tags_str())
+
+            bg_thread = threading.Thread(target=add, args=(new_url,), kwargs={'tag': snapshot.tags_str()})
+            bg_thread.setDaemon(True)
+            bg_thread.start()
+
+        messages.success(
+            request,
+            f"Creating new fresh snapshots for {len(queryset.count())} URLs in the background. (refresh in a few minutes to see results)",
+        )
 
     @admin.action(
         description="♲ Redo"
     )
     def overwrite_snapshots(self, request, queryset):
-        archive_links([
-            snapshot.as_link()
-            for snapshot in queryset
-        ], overwrite=True, out_dir=CONFIG.OUTPUT_DIR)
+        links = [snapshot.as_link() for snapshot in queryset]
+        bg_thread = threading.Thread(
+            target=archive_links,
+            args=(links,),
+            kwargs={"overwrite": True, "out_dir": CONFIG.OUTPUT_DIR},
+        )
+        bg_thread.setDaemon(True)
+        bg_thread.start()
+        messages.success(
+            request,
+            f"Clearing all previous results and re-downloading {len(links)} URLs in the background. (refresh in a few minutes to see results)",
+        )
 
     @admin.action(
         description="☠️ Delete"
     )
     def delete_snapshots(self, request, queryset):
         remove(snapshots=queryset, yes=True, delete=True, out_dir=CONFIG.OUTPUT_DIR)
+        messages.success(
+            request,
+            f"Succesfully deleted {len(queryset.count())} Snapshots. Don't forget to scrub URLs from import logs (data/sources) and error logs (data/logs) if needed.",
+        )
 
 
     @admin.action(
@@ -606,6 +595,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
         print('[+] Adding tags', tags, 'to Snapshots', queryset)
         for obj in queryset:
             obj.tags.add(*tags)
+        messages.success(
+            request,
+            f"Added {len(tags)} tags to {len(queryset.count())} Snapshots.",
+        )
 
 
     @admin.action(
@@ -616,10 +609,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
         print('[-] Removing tags', tags, 'to Snapshots', queryset)
         for obj in queryset:
             obj.tags.remove(*tags)
-
-
-        
-
+        messages.success(
+            request,
+            f"Removed {len(tags)} tags from {len(queryset.count())} Snapshots.",
+        )
 
 
 # @admin.register(SnapshotTag, site=archivebox_admin)

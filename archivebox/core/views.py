@@ -2,17 +2,17 @@ __package__ = 'archivebox.core'
 
 from typing import Callable
 
-from io import StringIO
+import threading
 from pathlib import Path
-from contextlib import redirect_stdout
 
 from django.shortcuts import render, redirect
 from django.http import HttpRequest, HttpResponse, Http404
 from django.utils.html import format_html, mark_safe
-from django.views import View, static
+from django.views import View
 from django.views.generic.list import ListView
 from django.views.generic import FormView
 from django.db.models import Q
+from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -477,18 +477,19 @@ class AddView(UserPassesTestMixin, FormView):
         }
         if extractors:
             input_kwargs.update({"extractors": extractors})
-        add_stdout = StringIO()
-        with redirect_stdout(add_stdout):
-            add(**input_kwargs)
-            print(add_stdout.getvalue())
 
-        context = self.get_context_data()
+        bg_thread = threading.Thread(target=add, kwargs=input_kwargs)
+        bg_thread.setDaemon(True)
+        bg_thread.start()
 
-        context.update({
-            "stdout": ansi_to_html(add_stdout.getvalue().strip()),
-            "form": AddLinkForm()
-        })
-        return render(template_name=self.template_name, request=self.request, context=context)
+        rough_url_count = url.count('://')
+
+        messages.success(
+            self.request,
+            f"Adding {rough_url_count} URLs in the background. (refresh in a few minutes to see results)",
+        )
+
+        return redirect("/admin/core/snapshot/")
 
 
 class HealthCheckView(View):

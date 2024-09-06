@@ -178,7 +178,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                         ts
                     ) + "\n" + str(e) + "\n"))
                     #f.write(f"\n> {command}; ts={ts} version={config['VERSION']} docker={config['IN_DOCKER']} is_tty={config['IS_TTY']}\n")
-               
+
                 # print(f'        ERROR: {method_name} {e.__class__.__name__}: {e} {getattr(e, "hints", "")}', ts, link.url, command)
                 raise Exception('Exception in archive_methods.save_{}(Link(url={}))'.format(
                     method_name,
