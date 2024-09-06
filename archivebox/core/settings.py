@@ -65,6 +65,7 @@ PLUGIN_KEYS = AttrDict({
 ################################################################################
 
 WSGI_APPLICATION = 'core.wsgi.application'
+ASGI_APPLICATION = "core.asgi.application"
 ROOT_URLCONF = 'core.urls'
 
 LOGIN_URL = '/accounts/login/'
