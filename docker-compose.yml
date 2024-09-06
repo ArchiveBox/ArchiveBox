@@ -17,6 +17,7 @@ services:
             - 8000:8000
         volumes:
             - ./data:/data
+            # ./data/personas/Default/chrome_profile/Default:/data/personas/Default/chrome_profile/Default
         environment:
             # - ADMIN_USERNAME=admin            # create an admin user on first run with the given user/pass combo
             # - ADMIN_PASSWORD=SomeSecretPassword
