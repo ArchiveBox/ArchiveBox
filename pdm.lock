@@ -5,7 +5,7 @@
 groups = ["default", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:f940c4c0a330b7b0bcff68a006b29ea3b1292ad6aadd3cfc909de0622f2963ac"
+content_hash = "sha256:61d53c8fbfcdaaf18e04d7aab12887caf9260b803db7e5b66a22e37b88824c55"
 
 [[metadata.targets]]
 requires_python = "==3.10.*"
@@ -454,6 +454,18 @@ dependencies = [
 files = [
     {file = "django_ninja-1.3.0-py3-none-any.whl", hash = "sha256:f58096b6c767d1403dfd6c49743f82d780d7b9688d9302ecab316ac1fa6131bb"},
     {file = "django_ninja-1.3.0.tar.gz", hash = "sha256:5b320e2dc0f41a6032bfa7e1ebc33559ae1e911a426f0c6be6674a50b20819be"},
+]
+
+[[package]]
+name = "django-object-actions"
+version = "4.2.0"
+requires_python = ">=3.7,<4.0"
+summary = "A Django app for adding object tools for models in the admin"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+files = [
+    {file = "django_object_actions-4.2.0-py3-none-any.whl", hash = "sha256:ae0df9984c68a4f42f219a391b71fa0630fe44a2983b39b8064378ebddcff30c"},
+    {file = "django_object_actions-4.2.0.tar.gz", hash = "sha256:e24befedf01b6fcdccbb03c33c0e2c855fd1a88f352a66dc7e2170ba31e80128"},
 ]
 
 [[package]]

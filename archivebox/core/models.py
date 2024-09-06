@@ -131,7 +131,7 @@ class Snapshot(ABIDModel):
     abid_uri_src = 'self.url'
     abid_subtype_src = '"01"'
     abid_rand_src = 'self.id'
-    abid_drift_allowed = False
+    abid_drift_allowed = True
 
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)

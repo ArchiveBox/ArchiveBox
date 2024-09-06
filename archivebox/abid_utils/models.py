@@ -2,12 +2,10 @@
 This file provides the Django ABIDField and ABIDModel base model to inherit from.
 """
 
-from typing import Any, Dict, Union, List, Set, NamedTuple, cast
 
-from ulid import ULID
-from uuid import uuid4, UUID
-from typeid import TypeID            # type: ignore[import-untyped]
-from datetime import datetime, timedelta
+from typing import Any, Dict, Union, List, Set, cast
+
+from uuid import uuid4
 from functools import partial
 from charidfield import CharIDField  # type: ignore[import-untyped]
 
@@ -30,7 +28,6 @@ from .abid import (
     DEFAULT_ABID_URI_SALT,
     abid_part_from_prefix,
     abid_hashes_from_values,
-    abid_from_values,
     ts_from_abid,
     abid_part_from_ts,
 )
@@ -119,6 +116,7 @@ class ABIDModel(models.Model):
             # otherwise if updating, make sure none of the field changes would invalidate existing ABID
             abid_diffs = self.ABID_FRESH_DIFFS
             if abid_diffs:
+                # change has invalidated the existing ABID, raise a nice ValidationError pointing out which fields caused the issue
 
                 keys_changed = ', '.join(diff['abid_src'] for diff in abid_diffs.values())
                 full_summary = (
@@ -142,16 +140,15 @@ class ABIDModel(models.Model):
                     NON_FIELD_ERRORS: ValidationError(full_summary),
                 })
 
-                should_ovewrite_abid = self.abid_drift_allowed if (abid_drift_allowed is None) else abid_drift_allowed
-                if should_ovewrite_abid:
-                    print(f'\n#### DANGER: Changing ABID of existing record ({self.__class__.__name__}.abid_drift_allowed={self.abid_drift_allowed}), this will break any references to its previous ABID!')
+                allowed_to_invalidate_abid = self.abid_drift_allowed if (abid_drift_allowed is None) else abid_drift_allowed
+                if allowed_to_invalidate_abid:
+                    print(f'\n#### WARNING: Change allowed despite it invalidating the ABID of an existing record ({self.__class__.__name__}.abid_drift_allowed={self.abid_drift_allowed})!', self.abid)
                     print(change_error)
-                    self._previous_abid = self.abid
-                    self.abid = str(self.issue_new_abid(force_new=True))
-                    print(f'#### DANGER: OVERWROTE OLD ABID. NEW ABID=', self.abid)
+                    print('--------------------------------------------------------------------------------------------------')
                 else:
-                    print(f'\n#### WARNING: ABID of existing record is outdated and has not been updated ({self.__class__.__name__}.abid_drift_allowed={self.abid_drift_allowed})')
+                    print(f'\n#### ERROR:   Change blocked because it would invalidate ABID of an existing record ({self.__class__.__name__}.abid_drift_allowed={self.abid_drift_allowed})', self.abid)
                     print(change_error)
+                    print('--------------------------------------------------------------------------------------------------')
                     raise change_error
 
     def save(self, *args: Any, abid_drift_allowed: bool | None=None, **kwargs: Any) -> None:
@@ -230,11 +227,11 @@ class ABIDModel(models.Model):
             if getattr(existing_abid, key) != new_hash
         }
 
-    def issue_new_abid(self, force_new=False) -> ABID:
+    def issue_new_abid(self, overwrite=False) -> ABID:
         """
         Issue a new ABID based on the current object's properties, can only be called once on new objects (before they are saved to DB).
         """
-        if not force_new:
+        if not overwrite:
             assert self._state.adding, 'Can only issue new ABID when model._state.adding is True'
         assert eval(self.abid_uri_src), f'Can only issue new ABID if self.abid_uri_src is defined ({self.abid_uri_src}={eval(self.abid_uri_src)})'
 

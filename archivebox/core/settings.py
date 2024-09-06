@@ -6,9 +6,11 @@ import re
 import logging
 import inspect
 import tempfile
-from typing import Any, Dict
 
+from typing import Dict
 from pathlib import Path
+
+import django
 from django.utils.crypto import get_random_string
 
 from ..config import CONFIG
@@ -89,8 +91,9 @@ INSTALLED_APPS = [
     'django.contrib.admin',
 
     # 3rd-party apps from PyPI
-    'django_jsonform',           # handles rendering Pydantic models to Django HTML widgets/forms
-    'signal_webhooks',           # handles REST API outbound webhooks
+    'django_jsonform',           # handles rendering Pydantic models to Django HTML widgets/forms  https://github.com/bhch/django-jsonform
+    'signal_webhooks',           # handles REST API outbound webhooks                              https://github.com/MrThearMan/django-signal-webhooks
+    'django_object_actions',     # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
     
     # our own apps
     'abid_utils',                # handles ABID ID creation, handling, and models
@@ -384,15 +387,11 @@ class NoisyRequestsFilter(logging.Filter):
 
         return True
 
-def add_extra_logging_attrs(record):
-    record.username = ''
-    try:
-        record.username = record.request.user.username
-    except AttributeError:
-        record.username = "Anonymous"
-        if hasattr(record, 'request'):
-            import ipdb; ipdb.set_trace()
-    return True
+
+class CustomOutboundWebhookLogFormatter(logging.Formatter):
+    def format(self, record):
+        result = super().format(record)
+        return result.replace('HTTP Request: ', 'OutboundWebhook: ')
 
 
 ERROR_LOG = tempfile.NamedTemporaryFile().name
@@ -416,21 +415,13 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "rich": {
-            "datefmt": "[%X]",
+            "datefmt": "[%Y-%m-%d %H:%M:%S]",
             # "format": "{asctime} {levelname} {module} {name} {message} {username}",
-            # "format": "%(message)s  (user=%(username)s",
+            "format": "%(name)s %(message)s",
         },
-        "verbose": {
-            "style": "{",
-        },
-        "simple": {
-            "format": "{name} {message}",
-            "style": "{",
-        },
-        "django.server": {
-            "()": "django.utils.log.ServerFormatter",
-            # "format": "{message} (user={username})",
-            "style": "{",
+        "outbound_webhooks": {
+            "()": CustomOutboundWebhookLogFormatter,
+            "datefmt": "[%Y-%m-%d %H:%M:%S]",
         },
     },
     "filters": {
@@ -443,10 +434,6 @@ LOGGING = {
         "require_debug_true": {
             "()": "django.utils.log.RequireDebugTrue",
         },
-        # "add_extra_logging_attrs": {
-        #     "()": "django.utils.log.CallbackFilter",
-        #     "callback": add_extra_logging_attrs,
-        # },
     },
     "handlers": {
         # "console": {
@@ -455,7 +442,7 @@ LOGGING = {
         #     "class": "logging.StreamHandler",
         #     'filters': ['noisyrequestsfilter', 'add_extra_logging_attrs'],
         # },
-        "console": {
+        "default": {
             "class": "rich.logging.RichHandler",
             "formatter": "rich",
             "level": "DEBUG",
@@ -463,18 +450,24 @@ LOGGING = {
             "rich_tracebacks": True,
             "filters": ["noisyrequestsfilter"],
             "tracebacks_suppress": [
+                django,
                 pydantic,
-                django.template,
             ],
         },
         "logfile": {
-            "level": "ERROR",
+            "level": "INFO",
             "class": "logging.handlers.RotatingFileHandler",
             "filename": ERROR_LOG,
             "maxBytes": 1024 * 1024 * 25,  # 25 MB
             "backupCount": 10,
-            "formatter": "verbose",
+            "formatter": "rich",
             "filters": ["noisyrequestsfilter"],
+        },
+        "outbound_webhooks": {
+            "class": "rich.logging.RichHandler",
+            "markup": False,
+            "rich_tracebacks": True,
+            "formatter": "outbound_webhooks",
         },
         # "mail_admins": {
         #     "level": "ERROR",
@@ -486,29 +479,35 @@ LOGGING = {
         },
     },
     "root": {
-        "handlers": ["console", "logfile"],
+        "handlers": ["default", "logfile"],
         "level": "INFO",
-        "formatter": "verbose",
+        "formatter": "rich",
     },
     "loggers": {
         "api": {
-            "handlers": ["console", "logfile"],
+            "handlers": ["default", "logfile"],
             "level": "DEBUG",
         },
         "checks": {
-            "handlers": ["console", "logfile"],
+            "handlers": ["default", "logfile"],
             "level": "DEBUG",
         },
         "core": {
-            "handlers": ["console", "logfile"],
+            "handlers": ["default", "logfile"],
             "level": "DEBUG",
         },
         "builtin_plugins": {
-            "handlers": ["console", "logfile"],
+            "handlers": ["default", "logfile"],
             "level": "DEBUG",
         },
+        "httpx": {
+            "handlers": ["outbound_webhooks"],
+            "level": "INFO",
+            "formatter": "outbound_webhooks",
+            "propagate": False,
+        },
         "django": {
-            "handlers": ["console", "logfile"],
+            "handlers": ["default", "logfile"],
             "level": "INFO",
             "filters": ["noisyrequestsfilter"],
         },
@@ -518,29 +517,27 @@ LOGGING = {
             "level": "ERROR",
         },
         "django.channels.server": {
+            # see archivebox.monkey_patches.ModifiedAccessLogGenerator for dedicated daphne server logging settings
             "propagate": False,
-            "handlers": ["console", "logfile"],
+            "handlers": ["default", "logfile"],
             "level": "INFO",
             "filters": ["noisyrequestsfilter"],
-            "formatter": "django.server",
         },
         "django.server": {  # logs all requests (2xx, 3xx, 4xx)
             "propagate": False,
-            "handlers": ["console", "logfile"],
+            "handlers": ["default", "logfile"],
             "level": "INFO",
             "filters": ["noisyrequestsfilter"],
-            "formatter": "django.server",
         },
         "django.request": {  # only logs 4xx and 5xx errors
             "propagate": False,
-            "handlers": ["console", "logfile"],
+            "handlers": ["default", "logfile"],
             "level": "INFO",
             "filters": ["noisyrequestsfilter"],
-            "formatter": "django.server",
         },
         "django.db.backends": {
             "propagate": False,
-            "handlers": ["console"],
+            "handlers": ["default"],
             "level": LOG_LEVEL_DATABASE,
         },
     },
