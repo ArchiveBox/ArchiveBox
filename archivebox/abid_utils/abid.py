@@ -1,6 +1,6 @@
 __package__ = 'archivebox.abid_utils'
 
-from typing import NamedTuple, Any, Union, Optional, Dict
+from typing import NamedTuple, Any, Union, Dict
 
 import ulid
 import uuid6
