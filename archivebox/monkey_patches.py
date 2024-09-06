@@ -37,6 +37,10 @@ class ModifiedAccessLogGenerator(access.AccessLogGenerator):
             return
         if request.endswith("/favicon.ico") or request.endswith("/robots.txt") or request.endswith("/screenshot.png"):
             return
+        if request.endswith('.css') or request.endswith('.js') or request.endswith('.woff') or request.endswith('.ttf'):
+            return
+        if str(status) in ('404', '304'):
+            return
         
         # clean up the log format to mostly match the same format as django.conf.settings.LOGGING rich formats
         self.stream.write(

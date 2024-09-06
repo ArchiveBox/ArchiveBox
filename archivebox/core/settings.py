@@ -522,7 +522,7 @@ LOGGING = {
         "django.request": {  # only logs 4xx and 5xx errors
             "propagate": False,
             "handlers": ["default", "logfile"],
-            "level": "INFO",
+            "level": "ERROR",
             "filters": ["noisyrequestsfilter"],
         },
         "django.db.backends": {
