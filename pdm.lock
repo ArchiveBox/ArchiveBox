@@ -5,7 +5,7 @@
 groups = ["default", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:c6aa1f436032d18d079a4c2e9d9b95a5110579eb96a449751bfaf4d472eba401"
+content_hash = "sha256:f940c4c0a330b7b0bcff68a006b29ea3b1292ad6aadd3cfc909de0622f2963ac"
 
 [[metadata.targets]]
 requires_python = "==3.10.*"
@@ -91,6 +91,54 @@ files = [
 ]
 
 [[package]]
+name = "attrs"
+version = "24.2.0"
+requires_python = ">=3.7"
+summary = "Classes Without Boilerplate"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "importlib-metadata; python_version < \"3.8\"",
+]
+files = [
+    {file = "attrs-24.2.0-py3-none-any.whl", hash = "sha256:81921eb96de3191c8258c199618104dd27ac608d9366f5e35d011eae1867ede2"},
+    {file = "attrs-24.2.0.tar.gz", hash = "sha256:5cfb1b9148b5b086569baec03f20d7b6bf3bcacc9a42bebf87ffaaca362f6346"},
+]
+
+[[package]]
+name = "autobahn"
+version = "24.4.2"
+requires_python = ">=3.9"
+summary = "WebSocket client & server library, WAMP real-time framework"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "cryptography>=3.4.6",
+    "hyperlink>=21.0.0",
+    "setuptools",
+    "txaio>=21.2.1",
+]
+files = [
+    {file = "autobahn-24.4.2-py2.py3-none-any.whl", hash = "sha256:c56a2abe7ac78abbfb778c02892d673a4de58fd004d088cd7ab297db25918e81"},
+    {file = "autobahn-24.4.2.tar.gz", hash = "sha256:a2d71ef1b0cf780b6d11f8b205fd2c7749765e65795f2ea7d823796642ee92c9"},
+]
+
+[[package]]
+name = "automat"
+version = "24.8.1"
+requires_python = ">=3.8"
+summary = "Self-service finite-state machines for the programmer on the go."
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "typing-extensions; python_version < \"3.10\"",
+]
+files = [
+    {file = "Automat-24.8.1-py3-none-any.whl", hash = "sha256:bf029a7bc3da1e2c24da2343e7598affaa9f10bf0ab63ff808566ce90551e02a"},
+    {file = "automat-24.8.1.tar.gz", hash = "sha256:b34227cf63f6325b8ad2399ede780675083e439b20c323d376373d8ee6306d88"},
+]
+
+[[package]]
 name = "base32-crockford"
 version = "0.3.0"
 summary = "A Python implementation of Douglas Crockford's base32 encoding scheme"
@@ -158,6 +206,39 @@ files = [
 ]
 
 [[package]]
+name = "channels"
+version = "4.1.0"
+requires_python = ">=3.8"
+summary = "Brings async, event-driven capabilities to Django 3.2 and up."
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "Django>=4.2",
+    "asgiref<4,>=3.6.0",
+]
+files = [
+    {file = "channels-4.1.0-py3-none-any.whl", hash = "sha256:a3c4419307f582c3f71d67bfb6eff748ae819c2f360b9b141694d84f242baa48"},
+    {file = "channels-4.1.0.tar.gz", hash = "sha256:e0ed375719f5c1851861f05ed4ce78b0166f9245ca0ecd836cb77d4bb531489d"},
+]
+
+[[package]]
+name = "channels"
+version = "4.1.0"
+extras = ["daphne"]
+requires_python = ">=3.8"
+summary = "Brings async, event-driven capabilities to Django 3.2 and up."
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "channels==4.1.0",
+    "daphne>=4.0.0",
+]
+files = [
+    {file = "channels-4.1.0-py3-none-any.whl", hash = "sha256:a3c4419307f582c3f71d67bfb6eff748ae819c2f360b9b141694d84f242baa48"},
+    {file = "channels-4.1.0.tar.gz", hash = "sha256:e0ed375719f5c1851861f05ed4ce78b0166f9245ca0ecd836cb77d4bb531489d"},
+]
+
+[[package]]
 name = "charset-normalizer"
 version = "3.3.2"
 requires_python = ">=3.7.0"
@@ -170,6 +251,18 @@ files = [
     {file = "charset_normalizer-3.3.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:9063e24fdb1e498ab71cb7419e24622516c4a04476b17a2dab57e8baa30d6e03"},
     {file = "charset_normalizer-3.3.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8465322196c8b4d7ab6d1e049e4c5cb460d0394da4a27d23cc242fbf0034b6b5"},
     {file = "charset_normalizer-3.3.2-py3-none-any.whl", hash = "sha256:3e4d1f6587322d2788836a99c69062fbb091331ec940e02d12d179c1d53e25fc"},
+]
+
+[[package]]
+name = "constantly"
+version = "23.10.4"
+requires_python = ">=3.8"
+summary = "Symbolic constants in Python"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+files = [
+    {file = "constantly-23.10.4-py3-none-any.whl", hash = "sha256:3fd9b4d1c3dc1ec9757f3c52aef7e53ad9323dbe39f51dfd4c43853b68dfa3f9"},
+    {file = "constantly-23.10.4.tar.gz", hash = "sha256:aa92b70a33e2ac0bb33cd745eb61776594dc48764b06c35e0efd050b7f1c7cbd"},
 ]
 
 [[package]]
@@ -204,6 +297,23 @@ files = [
     {file = "cryptography-43.0.0-cp39-abi3-macosx_10_9_universal2.whl", hash = "sha256:7b3f5fe74a5ca32d4d0f302ffe6680fcc5c28f8ef0dc0ae8f40c0f3a1b4fca66"},
     {file = "cryptography-43.0.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:299d3da8e00b7e2b54bb02ef58d73cd5f55fb31f33ebbf33bd00d9aa6807df7e"},
     {file = "cryptography-43.0.0.tar.gz", hash = "sha256:b88075ada2d51aa9f18283532c9f60e72170041bba88d7f37e49cbb10275299e"},
+]
+
+[[package]]
+name = "daphne"
+version = "4.1.2"
+requires_python = ">=3.8"
+summary = "Django ASGI (HTTP/WebSocket) server"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "asgiref<4,>=3.5.2",
+    "autobahn>=22.4.2",
+    "twisted[tls]>=22.4",
+]
+files = [
+    {file = "daphne-4.1.2-py3-none-any.whl", hash = "sha256:618d1322bb4d875342b99dd2a10da2d9aae7ee3645f765965fdc1e658ea5290a"},
+    {file = "daphne-4.1.2.tar.gz", hash = "sha256:fcbcace38eb86624ae247c7ffdc8ac12f155d7d19eafac4247381896d6f33761"},
 ]
 
 [[package]]
@@ -535,6 +645,22 @@ files = [
 ]
 
 [[package]]
+name = "hyperlink"
+version = "21.0.0"
+requires_python = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+summary = "A featureful, immutable, and correct URL for Python."
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "idna>=2.5",
+    "typing; python_version < \"3.5\"",
+]
+files = [
+    {file = "hyperlink-21.0.0-py2.py3-none-any.whl", hash = "sha256:e6b14c37ecb73e89c77d78cdb4c2cc8f3fb59a885c5b3f819ff4ed80f25af1b4"},
+    {file = "hyperlink-21.0.0.tar.gz", hash = "sha256:427af957daa58bc909471c6c40f74c5450fa123dd093fc53efd2e91d2705a56b"},
+]
+
+[[package]]
 name = "idna"
 version = "3.8"
 requires_python = ">=3.6"
@@ -544,6 +670,22 @@ marker = "python_version == \"3.10\""
 files = [
     {file = "idna-3.8-py3-none-any.whl", hash = "sha256:050b4e5baadcd44d760cedbd2b8e639f2ff89bbc7a5730fcc662954303377aac"},
     {file = "idna-3.8.tar.gz", hash = "sha256:d838c2c0ed6fced7693d5e8ab8e734d5f8fda53a039c0164afb0b82e771e3603"},
+]
+
+[[package]]
+name = "incremental"
+version = "24.7.2"
+requires_python = ">=3.8"
+summary = "A small library that versions your Python projects."
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "setuptools>=61.0",
+    "tomli; python_version < \"3.11\"",
+]
+files = [
+    {file = "incremental-24.7.2-py3-none-any.whl", hash = "sha256:8cb2c3431530bec48ad70513931a760f446ad6c25e8333ca5d95e24b0ed7b8fe"},
+    {file = "incremental-24.7.2.tar.gz", hash = "sha256:fb4f1d47ee60efe87d4f6f0ebb5f70b9760db2b2574c59c8e8912be4ebd464c9"},
 ]
 
 [[package]]
@@ -587,6 +729,21 @@ files = [
 ]
 
 [[package]]
+name = "markdown-it-py"
+version = "3.0.0"
+requires_python = ">=3.8"
+summary = "Python port of markdown-it. Markdown parsing, done right!"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "mdurl~=0.1",
+]
+files = [
+    {file = "markdown-it-py-3.0.0.tar.gz", hash = "sha256:e3f60a94fa066dc52ec76661e37c851cb232d92f9886b15cb560aaada2df8feb"},
+    {file = "markdown_it_py-3.0.0-py3-none-any.whl", hash = "sha256:355216845c60bd96232cd8d8c40e8f9765cc86f46880e43a8fd22dc1a1a8cab1"},
+]
+
+[[package]]
 name = "matplotlib-inline"
 version = "0.1.7"
 requires_python = ">=3.8"
@@ -599,6 +756,18 @@ dependencies = [
 files = [
     {file = "matplotlib_inline-0.1.7-py3-none-any.whl", hash = "sha256:df192d39a4ff8f21b1895d72e6a13f5fcc5099f00fa84384e0ea28c2cc0653ca"},
     {file = "matplotlib_inline-0.1.7.tar.gz", hash = "sha256:8423b23ec666be3d16e16b60bdd8ac4e86e840ebd1dd11a30b9f117f2fa0ab90"},
+]
+
+[[package]]
+name = "mdurl"
+version = "0.1.2"
+requires_python = ">=3.7"
+summary = "Markdown URL utilities"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+files = [
+    {file = "mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8"},
+    {file = "mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba"},
 ]
 
 [[package]]
@@ -665,19 +834,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pocket"
-version = "0.3.7"
-git = "https://github.com/tapanpandita/pocket.git"
-ref = "v0.3.7"
-revision = "5a144438cc89bfc0ec94db960718ccf1f76468c1"
-summary = "api wrapper for getpocket.com"
-groups = ["default"]
-marker = "python_version == \"3.10\""
-dependencies = [
-    "requests",
-]
-
-[[package]]
 name = "prompt-toolkit"
 version = "3.0.47"
 requires_python = ">=3.7.0"
@@ -719,7 +875,7 @@ name = "pyasn1"
 version = "0.6.0"
 requires_python = ">=3.8"
 summary = "Pure-Python implementation of ASN.1 types and DER/BER/CER codecs (X.208)"
-groups = ["ldap"]
+groups = ["default", "ldap"]
 marker = "python_version == \"3.10\""
 files = [
     {file = "pyasn1-0.6.0-py2.py3-none-any.whl", hash = "sha256:cca4bb0f2df5504f02f6f8a775b6e416ff9b0b3b16f7ee80b5a3153d9b804473"},
@@ -731,7 +887,7 @@ name = "pyasn1-modules"
 version = "0.4.0"
 requires_python = ">=3.8"
 summary = "A collection of ASN.1-based protocols modules"
-groups = ["ldap"]
+groups = ["default", "ldap"]
 marker = "python_version == \"3.10\""
 dependencies = [
     "pyasn1<0.7.0,>=0.4.6",
@@ -833,6 +989,21 @@ files = [
 ]
 
 [[package]]
+name = "pyopenssl"
+version = "24.2.1"
+requires_python = ">=3.7"
+summary = "Python wrapper module around the OpenSSL library"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "cryptography<44,>=41.0.5",
+]
+files = [
+    {file = "pyOpenSSL-24.2.1-py3-none-any.whl", hash = "sha256:967d5719b12b243588573f39b0c677637145c7a1ffedcd495a487e58177fbb8d"},
+    {file = "pyopenssl-24.2.1.tar.gz", hash = "sha256:4247f0dbe3748d560dcbb2ff3ea01af0f9a1a001ef5f7c4c647956ed8cbf0e95"},
+]
+
+[[package]]
 name = "python-crontab"
 version = "3.2.0"
 summary = "Python Crontab API"
@@ -918,6 +1089,41 @@ dependencies = [
 files = [
     {file = "requests-2.32.3-py3-none-any.whl", hash = "sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6"},
     {file = "requests-2.32.3.tar.gz", hash = "sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760"},
+]
+
+[[package]]
+name = "rich"
+version = "13.8.0"
+requires_python = ">=3.7.0"
+summary = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "markdown-it-py>=2.2.0",
+    "pygments<3.0.0,>=2.13.0",
+    "typing-extensions<5.0,>=4.0.0; python_version < \"3.9\"",
+]
+files = [
+    {file = "rich-13.8.0-py3-none-any.whl", hash = "sha256:2e85306a063b9492dffc86278197a60cbece75bcb766022f3436f567cae11bdc"},
+    {file = "rich-13.8.0.tar.gz", hash = "sha256:a5ac1f1cd448ade0d59cc3356f7db7a7ccda2c8cbae9c7a90c28ff463d3e91f4"},
+]
+
+[[package]]
+name = "service-identity"
+version = "24.1.0"
+requires_python = ">=3.8"
+summary = "Service identity verification for pyOpenSSL & cryptography."
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "attrs>=19.1.0",
+    "cryptography",
+    "pyasn1",
+    "pyasn1-modules",
+]
+files = [
+    {file = "service_identity-24.1.0-py3-none-any.whl", hash = "sha256:a28caf8130c8a5c1c7a6f5293faaf239bbfb7751e4862436920ee6f2616f568a"},
+    {file = "service_identity-24.1.0.tar.gz", hash = "sha256:6829c9d62fb832c2e1c435629b0a8c476e1929881f28bee4d20bc24161009221"},
 ]
 
 [[package]]
@@ -1027,6 +1233,58 @@ marker = "python_version == \"3.10\""
 files = [
     {file = "traitlets-5.14.3-py3-none-any.whl", hash = "sha256:b74e89e397b1ed28cc831db7aea759ba6640cb3de13090ca145426688ff1ac4f"},
     {file = "traitlets-5.14.3.tar.gz", hash = "sha256:9ed0579d3502c94b4b3732ac120375cda96f923114522847de4b3bb98b96b6b7"},
+]
+
+[[package]]
+name = "twisted"
+version = "24.7.0"
+requires_python = ">=3.8.0"
+summary = "An asynchronous networking framework written in Python"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "attrs>=21.3.0",
+    "automat>=0.8.0",
+    "constantly>=15.1",
+    "hyperlink>=17.1.1",
+    "incremental>=24.7.0",
+    "typing-extensions>=4.2.0",
+    "zope-interface>=5",
+]
+files = [
+    {file = "twisted-24.7.0-py3-none-any.whl", hash = "sha256:734832ef98108136e222b5230075b1079dad8a3fc5637319615619a7725b0c81"},
+    {file = "twisted-24.7.0.tar.gz", hash = "sha256:5a60147f044187a127ec7da96d170d49bcce50c6fd36f594e60f4587eff4d394"},
+]
+
+[[package]]
+name = "twisted"
+version = "24.7.0"
+extras = ["tls"]
+requires_python = ">=3.8.0"
+summary = "An asynchronous networking framework written in Python"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "idna>=2.4",
+    "pyopenssl>=21.0.0",
+    "service-identity>=18.1.0",
+    "twisted==24.7.0",
+]
+files = [
+    {file = "twisted-24.7.0-py3-none-any.whl", hash = "sha256:734832ef98108136e222b5230075b1079dad8a3fc5637319615619a7725b0c81"},
+    {file = "twisted-24.7.0.tar.gz", hash = "sha256:5a60147f044187a127ec7da96d170d49bcce50c6fd36f594e60f4587eff4d394"},
+]
+
+[[package]]
+name = "txaio"
+version = "23.1.1"
+requires_python = ">=3.7"
+summary = "Compatibility API between asyncio/Twisted/Trollius"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+files = [
+    {file = "txaio-23.1.1-py2.py3-none-any.whl", hash = "sha256:aaea42f8aad50e0ecfb976130ada140797e9dcb85fad2cf72b0f37f8cefcb490"},
+    {file = "txaio-23.1.1.tar.gz", hash = "sha256:f9a9216e976e5e3246dfd112ad7ad55ca915606b60b84a757ac769bd404ff704"},
 ]
 
 [[package]]
@@ -1182,4 +1440,19 @@ dependencies = [
 files = [
     {file = "yt_dlp-2024.8.6-py3-none-any.whl", hash = "sha256:ab507ff600bd9269ad4d654e309646976778f0e243eaa2f6c3c3214278bb2922"},
     {file = "yt_dlp-2024.8.6.tar.gz", hash = "sha256:e8551f26bc8bf67b99c12373cc87ed2073436c3437e53290878d0f4b4bb1f663"},
+]
+
+[[package]]
+name = "zope-interface"
+version = "7.0.3"
+requires_python = ">=3.8"
+summary = "Interfaces for Python"
+groups = ["default"]
+marker = "python_version == \"3.10\""
+dependencies = [
+    "setuptools",
+]
+files = [
+    {file = "zope.interface-7.0.3-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6195c3c03fef9f87c0dbee0b3b6451df6e056322463cf35bca9a088e564a3c58"},
+    {file = "zope.interface-7.0.3.tar.gz", hash = "sha256:cd2690d4b08ec9eaf47a85914fe513062b20da78d10d6d789a792c0b20307fb1"},
 ]

@@ -78,6 +78,8 @@ DEBUG = CONFIG.DEBUG or ('--debug' in sys.argv)
 
 
 INSTALLED_APPS = [
+    'daphne',
+    
     # Django default apps
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -351,37 +353,46 @@ en_formats.SHORT_DATETIME_FORMAT = SHORT_DATETIME_FORMAT
 ### Logging Settings
 ################################################################################
 
-IGNORABLE_404_URLS = [
-    re.compile(r'apple-touch-icon.*\.png$'),
-    re.compile(r'favicon\.ico$'),
-    re.compile(r'robots\.txt$'),
-    re.compile(r'.*\.(css|js)\.map$'),
-]
-IGNORABLE_200_URLS = [
-    re.compile(r'.*"GET /static/.* HTTP/.*" 2|3.+', re.I | re.M),
-    re.compile(r'.*"GET /admin/jsi18n/ HTTP/1.1" 200 .+', re.I | re.M),
+IGNORABLE_URL_PATTERNS = [
+    re.compile(r"/.*/?apple-touch-icon.*\.png"),
+    re.compile(r"/.*/?favicon\.ico"),
+    re.compile(r"/.*/?robots\.txt"),
+    re.compile(r"/.*/?.*\.(css|js)\.map"),
+    re.compile(r"/.*/?.*\.(css|js)\.map"),
+    re.compile(r"/static/.*"),
+    re.compile(r"/admin/jsi18n/"),
 ]
 
 class NoisyRequestsFilter(logging.Filter):
     def filter(self, record) -> bool:
         logline = record.getMessage()
+        # '"GET /api/v1/docs HTTP/1.1" 200 1023'
+        # '"GET /static/admin/js/SelectFilter2.js HTTP/1.1" 200 15502'
+        # '"GET /static/admin/js/SelectBox.js HTTP/1.1" 304 0'
+        # '"GET /admin/jsi18n/ HTTP/1.1" 200 3352'
+        # '"GET /admin/api/apitoken/0191bbf8-fd5e-0b8c-83a8-0f32f048a0af/change/ HTTP/1.1" 200 28778'
 
-        # ignore harmless 404s for the patterns in IGNORABLE_404_URLS
-        for ignorable_url_pattern in IGNORABLE_404_URLS:
-            ignorable_log_pattern = re.compile(f'"GET /.*/?{ignorable_url_pattern.pattern[:-1]} HTTP/.*" (200|30.|404) .+$', re.I | re.M)
-            if ignorable_log_pattern.match(logline):
+        # ignore harmless 404s for the patterns in IGNORABLE_URL_PATTERNS
+        for pattern in IGNORABLE_URL_PATTERNS:
+            ignorable_GET_request = re.compile(f'"GET {pattern.pattern} HTTP/.*" (2..|30.|404) .+$', re.I | re.M)
+            if ignorable_GET_request.match(logline):
                 return False
 
-            ignorable_log_pattern = re.compile(f'Not Found: /.*/?{ignorable_url_pattern.pattern}', re.I | re.M)
-            if ignorable_log_pattern.match(logline):
+            ignorable_404_pattern = re.compile(f'Not Found: {pattern.pattern}', re.I | re.M)
+            if ignorable_404_pattern.match(logline):
                 return False
 
-        # ignore staticfile requests that 200 or 30*
-        for ignorable_url_pattern in IGNORABLE_200_URLS:
-            if ignorable_log_pattern.match(logline):
-                return False
-            
         return True
+
+def add_extra_logging_attrs(record):
+    record.username = ''
+    try:
+        record.username = record.request.user.username
+    except AttributeError:
+        record.username = "Anonymous"
+        if hasattr(record, 'request'):
+            import ipdb; ipdb.set_trace()
+    return True
 
 
 ERROR_LOG = tempfile.NamedTemporaryFile().name
@@ -393,35 +404,38 @@ else:
     # if there's an issue on startup, we trash the log and let user figure it out via stdout/stderr
     print(f'[!] WARNING: data/logs dir does not exist. Logging to temp file: {ERROR_LOG}')
 
+
+LOG_LEVEL_DATABASE = 'DEBUG' if DEBUG else 'WARNING'
+LOG_LEVEL_REQUEST = 'DEBUG' if DEBUG else 'WARNING'
+
+import pydantic
+import django.template
+
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        "console": {
-            "level": "DEBUG",
-            "filters": [],
-            'formatter': 'simple',
-            "class": "logging.StreamHandler",
-            'filters': ['noisyrequestsfilter'],
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "rich": {
+            "datefmt": "[%X]",
+            # "format": "{asctime} {levelname} {module} {name} {message} {username}",
+            # "format": "%(message)s  (user=%(username)s",
         },
-        'logfile': {
-            'level': 'ERROR',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': ERROR_LOG,
-            'maxBytes': 1024 * 1024 * 25,  # 25 MB
-            'backupCount': 10,
-            'formatter': 'verbose',
-            'filters': ['noisyrequestsfilter'],
+        "verbose": {
+            "style": "{",
         },
-        # "mail_admins": {
-        #     "level": "ERROR",
-        #     "filters": ["require_debug_false"],
-        #     "class": "django.utils.log.AdminEmailHandler",
-        # },
+        "simple": {
+            "format": "{name} {message}",
+            "style": "{",
+        },
+        "django.server": {
+            "()": "django.utils.log.ServerFormatter",
+            # "format": "{message} (user={username})",
+            "style": "{",
+        },
     },
-    'filters': {
-        'noisyrequestsfilter': {
-            '()': NoisyRequestsFilter,
+    "filters": {
+        "noisyrequestsfilter": {
+            "()": NoisyRequestsFilter,
         },
         "require_debug_false": {
             "()": "django.utils.log.RequireDebugFalse",
@@ -429,57 +443,105 @@ LOGGING = {
         "require_debug_true": {
             "()": "django.utils.log.RequireDebugTrue",
         },
+        # "add_extra_logging_attrs": {
+        #     "()": "django.utils.log.CallbackFilter",
+        #     "callback": add_extra_logging_attrs,
+        # },
     },
-    'formatters': {
-        'verbose': {
-            'format': '{name} {levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
+    "handlers": {
+        # "console": {
+        #     "level": "DEBUG",
+        #     'formatter': 'simple',
+        #     "class": "logging.StreamHandler",
+        #     'filters': ['noisyrequestsfilter', 'add_extra_logging_attrs'],
+        # },
+        "console": {
+            "class": "rich.logging.RichHandler",
+            "formatter": "rich",
+            "level": "DEBUG",
+            "markup": False,
+            "rich_tracebacks": True,
+            "filters": ["noisyrequestsfilter"],
+            "tracebacks_suppress": [
+                pydantic,
+                django.template,
+            ],
         },
-        'simple': {
-            'format': '{name} {message}',
-            'style': '{',
+        "logfile": {
+            "level": "ERROR",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": ERROR_LOG,
+            "maxBytes": 1024 * 1024 * 25,  # 25 MB
+            "backupCount": 10,
+            "formatter": "verbose",
+            "filters": ["noisyrequestsfilter"],
         },
-        "django.server": {
-            "()": "django.utils.log.ServerFormatter",
-            "format": "[{server_time}] {message}",
-            "style": "{",
+        # "mail_admins": {
+        #     "level": "ERROR",
+        #     "filters": ["require_debug_false"],
+        #     "class": "django.utils.log.AdminEmailHandler",
+        # },
+        "null": {
+            "class": "logging.NullHandler",
         },
     },
-    'loggers': {
-        'api': {
-            'handlers': ['console', 'logfile'],
-            'level': 'DEBUG',
+    "root": {
+        "handlers": ["console", "logfile"],
+        "level": "INFO",
+        "formatter": "verbose",
+    },
+    "loggers": {
+        "api": {
+            "handlers": ["console", "logfile"],
+            "level": "DEBUG",
         },
-        'checks': {
-            'handlers': ['console', 'logfile'],
-            'level': 'DEBUG',
+        "checks": {
+            "handlers": ["console", "logfile"],
+            "level": "DEBUG",
         },
-        'core': {
-            'handlers': ['console', 'logfile'],
-            'level': 'DEBUG',
+        "core": {
+            "handlers": ["console", "logfile"],
+            "level": "DEBUG",
         },
-        'builtin_plugins': {
-            'handlers': ['console', 'logfile'],
-            'level': 'DEBUG',
+        "builtin_plugins": {
+            "handlers": ["console", "logfile"],
+            "level": "DEBUG",
         },
-        'django': {
-            'handlers': ['console', 'logfile'],
-            'level': 'INFO',
-            'filters': ['noisyrequestsfilter'],
+        "django": {
+            "handlers": ["console", "logfile"],
+            "level": "INFO",
+            "filters": ["noisyrequestsfilter"],
         },
-        'django.server': {
-            'handlers': ['console', 'logfile'],
-            'level': 'INFO',
-            'filters': ['noisyrequestsfilter'],
-            'propagate': False,
+        "django.utils.autoreload": {
+            "propagate": False,
+            "handlers": [],
+            "level": "ERROR",
+        },
+        "django.channels.server": {
+            "propagate": False,
+            "handlers": ["console", "logfile"],
+            "level": "INFO",
+            "filters": ["noisyrequestsfilter"],
             "formatter": "django.server",
         },
-        'django.request': {
-            'handlers': ['console', 'logfile'],
-            'level': 'INFO',
-            'filters': ['noisyrequestsfilter'],
-            'propagate': False,
+        "django.server": {  # logs all requests (2xx, 3xx, 4xx)
+            "propagate": False,
+            "handlers": ["console", "logfile"],
+            "level": "INFO",
+            "filters": ["noisyrequestsfilter"],
             "formatter": "django.server",
+        },
+        "django.request": {  # only logs 4xx and 5xx errors
+            "propagate": False,
+            "handlers": ["console", "logfile"],
+            "level": "INFO",
+            "filters": ["noisyrequestsfilter"],
+            "formatter": "django.server",
+        },
+        "django.db.backends": {
+            "propagate": False,
+            "handlers": ["console"],
+            "level": LOG_LEVEL_DATABASE,
         },
     },
 }

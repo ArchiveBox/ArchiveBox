@@ -1335,9 +1335,9 @@ def server(runserver_args: Optional[List[str]]=None,
         print('        archivebox manage createsuperuser')
         print()
 
-    # fallback to serving staticfiles insecurely with django when DEBUG=False
-    if not config.DEBUG:
-        runserver_args.append('--insecure')  # TODO: serve statics w/ nginx instead
+    # fallback to serving staticfiles insecurely with django when DEBUG=False (not compatible with daphne)
+    # if not config.DEBUG:
+    #     runserver_args.append('--insecure')  # TODO: serve statics w/ nginx instead
     
     # toggle autoreloading when archivebox code changes (it's on by default)
     if not reload:
