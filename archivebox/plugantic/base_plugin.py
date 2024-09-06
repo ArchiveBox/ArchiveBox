@@ -39,6 +39,10 @@ class BasePlugin(BaseModel):
     def id(self) -> str:
         return self.__class__.__name__
     
+    @property
+    def name(self) -> str:
+        return self.app_label
+    
     @computed_field
     @property
     def plugin_module(self) -> str:  # DottedImportPath

@@ -36,6 +36,8 @@ DEFAULT_GLOBAL_CONFIG = {
 PIP_CONFIG = PipDependencyConfigs(**DEFAULT_GLOBAL_CONFIG)
 
 class CustomPipProvider(PipProvider, BaseBinProvider):
+    name: str = 'pip'
+    INSTALLER_BIN: str = 'pip'
     PATH: PATHStr = str(Path(sys.executable).parent)
 
 

@@ -77,7 +77,7 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
     }
 
     for plugin in settings.PLUGINS.values():
-        for binary in plugin.binaries:
+        for binary in plugin.HOOKS_BY_TYPE.BINARY.values():
             try:
                 binary = binary.load()
             except Exception as e:
@@ -85,7 +85,7 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
             rows['Binary'].append(ItemLink(binary.name, key=binary.name))
             rows['Found Version'].append(f'✅ {binary.loaded_version}' if binary.loaded_version else '❌ missing')
-            rows['From Plugin'].append(plugin.name)
+            rows['From Plugin'].append(plugin.plugin_module)
             rows['Provided By'].append(
                 ', '.join(
                     f'[{binprovider.name}]' if binprovider.name == getattr(binary.loaded_binprovider, 'name', None) else binprovider.name
@@ -96,11 +96,11 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
                 # if binary.loaded_binprovider else
                 # ', '.join(getattr(provider, 'name', str(provider)) for provider in binary.binproviders_supported)
             )
-            rows['Found Abspath'].append(binary.loaded_abspath or '❌ missing')
+            rows['Found Abspath'].append(str(binary.loaded_abspath or '❌ missing'))
             rows['Related Configuration'].append(mark_safe(', '.join(
                 f'<a href="/admin/environment/config/{config_key}/">{config_key}</a>'
                 for config_key, config_value in relevant_configs.items()
-                    if binary.name.lower().replace('-', '').replace('_', '').replace('ytdlp', 'youtubedl') in config_key.lower()
+                    if str(binary.name).lower().replace('-', '').replace('_', '').replace('ytdlp', 'youtubedl') in config_key.lower()
                     # or binary.name.lower().replace('-', '').replace('_', '') in str(config_value).lower()
             )))
             # if not binary.provider_overrides:
@@ -121,7 +121,7 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     binary = None
     plugin = None
     for loaded_plugin in settings.PLUGINS.values():
-        for loaded_binary in loaded_plugin.binaries:
+        for loaded_binary in loaded_plugin.HOOKS_BY_TYPE.BINARY.values():
             if loaded_binary.name == key:
                 binary = loaded_binary
                 plugin = loaded_plugin
@@ -164,13 +164,9 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
     rows = {
         "Name": [],
         "verbose_name": [],
-        "configs": [],
-        "binproviders": [],
-        "binaries": [],
-        "extractors": [],
-        "replayers": [],
-        "checks": [],
-        "admindataviews": [],
+        "module": [],
+        "source_code": [],
+        "hooks": [],
     }
 
 
@@ -180,26 +176,14 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
         except Exception as e:
             print(e)
 
-        rows['Name'].append(ItemLink(plugin.name, key=plugin.name))
+        rows['Name'].append(ItemLink(plugin.id, key=plugin.id))
         rows['verbose_name'].append(str(plugin.verbose_name))
-        rows['binproviders'].append(mark_safe(', '.join(
-            f'<a href="/admin/environment/binproviders/{binprovider.name}/">{binprovider.name}</a>'
-            for binprovider in plugin.binproviders
+        rows['module'].append(str(plugin.plugin_module))
+        rows['source_code'].append(str(plugin.plugin_dir))
+        rows['hooks'].append(mark_safe(', '.join(
+            f'<a href="/admin/environment/hooks/{hook.id}/">{hook.id}</a>'
+            for hook in plugin.hooks
         )))
-        rows['binaries'].append(mark_safe(', '.join(
-            f'<a href="/admin/environment/binaries/{binary.name}/">{binary.name}</a>'
-            for binary in plugin.binaries
-        )))
-        rows['extractors'].append(', '.join(extractor.name for extractor in plugin.extractors))
-        rows['replayers'].append(', '.join(replayer.name for replayer in plugin.replayers))
-        rows['configs'].append(mark_safe(', '.join(
-            f'<a href="/admin/environment/config/{config_key}/">{config_key}</a>'
-            for configset in plugin.configs
-                for config_key in configset.__fields__.keys()
-                    if config_key != 'section' and config_key in settings.CONFIG
-        )))
-        rows['checks'].append(str(plugin.checks))
-        rows['admindataviews'].append(str(plugin.admindataviews))
 
     return TableContext(
         title="Installed plugins",
@@ -213,7 +197,7 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
 
     plugin = None
     for loaded_plugin in settings.PLUGINS.values():
-        if loaded_plugin.name == key:
+        if loaded_plugin.id == key:
             plugin = loaded_plugin
 
     assert plugin, f'Could not find a plugin matching the specified name: {key}'
@@ -228,14 +212,11 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
         title=key,
         data=[
             {
-                "name": plugin.name,
+                "name": plugin.id,
                 "description": plugin.verbose_name,
                 "fields": {
-                    'configs': plugin.configs,
-                    'binaries': plugin.binaries,
-                    'extractors': plugin.extractors,
-                    'replayers': plugin.replayers,
-                    'schema': obj_to_yaml(plugin.model_dump(include=('name', 'verbose_name', 'app_label', 'hooks'))),
+                    "hooks": plugin.hooks,
+                    "schema": obj_to_yaml(plugin.model_dump(include=("name", "verbose_name", "app_label", "hooks"))),
                 },
                 "help_texts": {
                     # TODO
