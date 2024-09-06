@@ -72,7 +72,9 @@ check_platforms || (recreate_builder && check_platforms) || exit 1
 
 
 # Make sure pyproject.toml, pdm{.dev}.lock, requirements{-dev}.txt, package{-lock}.json are all up-to-date
-bash ./bin/lock_pkgs.sh
+echo "[!] Make sure you've run ./bin/lock_pkgs.sh recently!"
+sleep 1
+# bash ./bin/lock_pkgs.sh
 
 
 echo "[+] Building archivebox:$VERSION docker image..."
