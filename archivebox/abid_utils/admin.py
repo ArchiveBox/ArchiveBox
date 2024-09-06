@@ -1,7 +1,6 @@
 __package__ = 'archivebox.abid_utils'
 
 from typing import Any
-from datetime import datetime
 
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
@@ -115,11 +114,11 @@ class ABIDModelAdmin(DjangoObjectActions, admin.ModelAdmin):
             return redirect(self.request.path.replace(object_id, object_pk), permanent=False)
         except (self.model.DoesNotExist, ValidationError):
             pass
-        return super()._get_obj_does_not_exist_redirect(request, opts, object_id)   # type: ignore
+        return super()._get_obj_does_not_exist_redirect(request, opts, object_id)       # type: ignore
     
     def queryset(self, request):
         self.request = request
-        return super().queryset(request)
+        return super().queryset(request)                                                # type: ignore
     
     def change_view(self, request, object_id, form_url="", extra_context=None):
         self.request = request
@@ -138,7 +137,7 @@ class ABIDModelAdmin(DjangoObjectActions, admin.ModelAdmin):
         return form
 
     def get_formset(self, request, formset=None, obj=None, **kwargs):
-        formset = super().get_formset(request, formset, obj, **kwargs)
+        formset = super().get_formset(request, formset, obj, **kwargs)                  # type: ignore
         formset.form.base_fields['created_at'].disabled = True
         
         return formset

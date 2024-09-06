@@ -31,7 +31,6 @@ dependencies = [
     # Extractor Dependencies
     "yt-dlp>=2024.8.6",               # for: media
     # "playwright>=1.43.0; platform_machine != 'armv7l'",  # WARNING: playwright doesn't have any sdist, causes trouble on build systems that refuse to install wheel-only packages
-
     "django-signal-webhooks>=0.3.0",
     "django-admin-data-views>=0.3.1",
     "ulid-py>=1.1.0",
@@ -40,7 +39,6 @@ dependencies = [
     "django-pydantic-field>=0.3.9",
     "django-jsonform>=2.22.0",
     "django-stubs>=5.0.2",
-
     # these can be safely omitted when installation subsystem does not provide these as packages (e.g. apt/debian)
     # archivebox will automatically load fallback vendored copies bundled via archivebox/vendor/__init__.py
     "pydantic-pkgr>=0.1.4",
