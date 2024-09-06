@@ -48,6 +48,7 @@ dependencies = [
     "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
     "django-taggit==1.3.0",
     "base32-crockford==0.3.0",
+    "rich>=13.8.0",
 ]
 
 homepage = "https://github.com/ArchiveBox/ArchiveBox"
@@ -112,6 +113,12 @@ build-backend = "pdm.backend"
 [project.scripts]
 archivebox = "archivebox.cli:main"
 
+
+[tool.ruff]
+line-length = 140
+target-version = "py310"
+src = ["archivebox"]
+exclude = ["*.pyi", "typings/", "migrations/", "vendor/"]
 
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]

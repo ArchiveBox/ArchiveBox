@@ -14,3 +14,10 @@ timezone.utc = datetime.timezone.utc
 # monkey patch django-signals-webhooks to change how it shows up in Admin UI
 # from signal_webhooks.apps import DjangoSignalWebhooksConfig
 # DjangoSignalWebhooksConfig.verbose_name = 'API'
+
+
+# Install rich for pretty tracebacks in console logs
+# https://rich.readthedocs.io/en/stable/traceback.html#traceback-handler
+from rich.traceback import install
+
+install(show_locals=True)
