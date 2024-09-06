@@ -1,28 +1,16 @@
-from typing import List, Type, Any
+__package__ = "archivebox.plugantic"
 
-from pydantic_core import core_schema
-from pydantic import GetCoreSchemaHandler, BaseModel
+from typing import List
 
-from django.utils.functional import classproperty
 from django.core.checks import Warning, Tags, register
 
-class BaseCheck:
-    label: str = ''
-    tag: str = Tags.database
+from .base_hook import BaseHook, HookType
+from ..config_stubs import AttrDict
+
+class BaseCheck(BaseHook):
+    hook_type: HookType = "CHECK"
     
-    @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
-        return core_schema.typed_dict_schema(
-            {
-                'name': core_schema.typed_dict_field(core_schema.str_schema()),
-                'tag': core_schema.typed_dict_field(core_schema.str_schema()),
-            },
-        )
-
-
-    @classproperty
-    def name(cls) -> str:
-        return cls.label or cls.__name__
+    tag: str = Tags.database
     
     @staticmethod
     def check(settings, logger) -> List[Warning]:
@@ -38,18 +26,26 @@ class BaseCheck:
         return errors
 
     def register(self, settings, parent_plugin=None):
-        # Regsiter in ArchiveBox plugins runtime settings
-        self._plugin = parent_plugin
-        settings.CHECKS[self.name] = self
+        # self._plugin = parent_plugin  # backref to parent is for debugging only, never rely on this!
 
-        # Register using Django check framework
+        self.register_with_django_check_system()  # (SIDE EFFECT)
+
+        # install hook into settings.CHECKS
+        settings.CHECKS = getattr(settings, "CHECKS", None) or AttrDict({})
+        settings.CHECKS[self.id] = self
+
+        # record installed hook in settings.HOOKS
+        super().register(settings, parent_plugin=parent_plugin)
+
+    def register_with_django_check_system(self):
+
         def run_check(app_configs, **kwargs) -> List[Warning]:
             from django.conf import settings
             import logging
-            settings = settings
-            logger = logging.getLogger('checks')
-            return self.check(settings, logger)
 
-        run_check.__name__ = self.label or self.__class__.__name__
+            return self.check(settings, logging.getLogger("checks"))
+
+        run_check.__name__ = self.id
         run_check.tags = [self.tag]
         register(self.tag)(run_check)
+

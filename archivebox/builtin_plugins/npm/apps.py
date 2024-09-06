@@ -1,17 +1,14 @@
 __package__ = 'archivebox.builtin_plugins.npm'
 
-from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Optional
 from pydantic import InstanceOf, Field
 
-from django.apps import AppConfig
-from django.conf import settings
 
 from pydantic_pkgr import BinProvider, NpmProvider, BinName, PATHStr
-from plugantic.base_plugin import BasePlugin, BaseConfigSet, BaseBinary, BaseBinProvider
-from plugantic.base_configset import ConfigSectionName
-
-from pkg.settings import env, apt, brew
+from plugantic.base_plugin import BasePlugin
+from plugantic.base_configset import BaseConfigSet, ConfigSectionName
+from plugantic.base_binary import BaseBinary, BaseBinProvider, env, apt, brew
+from plugantic.base_hook import BaseHook
 
 from ...config import CONFIG
 
@@ -33,10 +30,11 @@ DEFAULT_GLOBAL_CONFIG = {
 NPM_CONFIG = NpmDependencyConfigs(**DEFAULT_GLOBAL_CONFIG)
 
 
-class NpmProvider(NpmProvider, BaseBinProvider):
+class CustomNpmProvider(NpmProvider, BaseBinProvider):
     PATH: PATHStr = str(CONFIG.NODE_BIN_PATH)
 
-npm = NpmProvider(PATH=str(CONFIG.NODE_BIN_PATH))
+NPM_BINPROVIDER = CustomNpmProvider(PATH=str(CONFIG.NODE_BIN_PATH))
+npm = NPM_BINPROVIDER
 
 class NpmBinary(BaseBinary):
     name: BinName = 'npm'
@@ -55,19 +53,16 @@ NODE_BINARY = NodeBinary()
 
 
 class NpmPlugin(BasePlugin):
-    name: str = 'builtin_plugins.npm'
     app_label: str = 'npm'
     verbose_name: str = 'NPM'
-
-    configs: List[InstanceOf[BaseConfigSet]] = [NPM_CONFIG]
-    binproviders: List[InstanceOf[BaseBinProvider]] = [npm]
-    binaries: List[InstanceOf[BaseBinary]] = [NODE_BINARY, NPM_BINARY]
+    
+    hooks: List[InstanceOf[BaseHook]] = [
+        NPM_CONFIG,
+        NPM_BINPROVIDER,
+        NODE_BINARY,
+        NPM_BINARY,
+    ]
 
 
 PLUGIN = NpmPlugin()
 DJANGO_APP = PLUGIN.AppConfig
-# CONFIGS = PLUGIN.configs
-# BINARIES = PLUGIN.binaries
-# EXTRACTORS = PLUGIN.extractors
-# REPLAYERS = PLUGIN.replayers
-# CHECKS = PLUGIN.checks

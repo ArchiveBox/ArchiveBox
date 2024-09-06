@@ -6,17 +6,16 @@ from typing import List, Dict, Optional
 from pydantic import InstanceOf, Field
 
 import django
-from django.apps import AppConfig
 
-from django.db.backends.sqlite3.base import Database as sqlite3
-from django.core.checks import Error, Tags, register
+from django.db.backends.sqlite3.base import Database as sqlite3     # type: ignore[import-type]
+from django.core.checks import Error, Tags
 
 from pydantic_pkgr import BinProvider, PipProvider, BinName, PATHStr, BinProviderName, ProviderLookupDict, SemVer
-from plugantic.base_plugin import BasePlugin, BaseConfigSet, BaseBinary, BaseBinProvider
-from plugantic.base_configset import ConfigSectionName
+from plugantic.base_plugin import BasePlugin
+from plugantic.base_configset import BaseConfigSet, ConfigSectionName
 from plugantic.base_check import BaseCheck
-
-from pkg.settings import env, apt, brew
+from plugantic.base_binary import BaseBinary, BaseBinProvider, env, apt, brew
+from plugantic.base_hook import BaseHook
 
 
 ###################### Config ##########################
@@ -36,15 +35,17 @@ DEFAULT_GLOBAL_CONFIG = {
 }
 PIP_CONFIG = PipDependencyConfigs(**DEFAULT_GLOBAL_CONFIG)
 
-class PipProvider(PipProvider, BaseBinProvider):
+class CustomPipProvider(PipProvider, BaseBinProvider):
     PATH: PATHStr = str(Path(sys.executable).parent)
 
-pip = PipProvider(PATH=str(Path(sys.executable).parent))
 
+PIP_BINPROVIDER = CustomPipProvider(PATH=str(Path(sys.executable).parent))
+pip = PIP_BINPROVIDER
 
 class PipBinary(BaseBinary):
     name: BinName = 'pip'
     binproviders_supported: List[InstanceOf[BinProvider]] = [pip, apt, brew, env]
+
 PIP_BINARY = PipBinary()
 
 
@@ -57,14 +58,16 @@ class PythonBinary(BaseBinary):
     binproviders_supported: List[InstanceOf[BinProvider]] = [pip, apt, brew, env]
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
         'apt': {
-            'subdeps': \
-                lambda: 'python3 python3-minimal python3-pip python3-virtualenv',
+            'packages': \
+                lambda: 'python3 python3-minimal python3-pip python3-setuptools python3-virtualenv',
             'abspath': \
                 lambda: sys.executable,
             'version': \
                 lambda: '{}.{}.{}'.format(*sys.version_info[:3]),
         },
     }
+
+PYTHON_BINARY = PythonBinary()
 
 class SqliteBinary(BaseBinary):
     name: BinName = 'sqlite'
@@ -77,6 +80,8 @@ class SqliteBinary(BaseBinary):
                 lambda: SemVer(sqlite3.version),
         },
     }
+
+SQLITE_BINARY = SqliteBinary()
 
 
 class DjangoBinary(BaseBinary):
@@ -92,12 +97,12 @@ class DjangoBinary(BaseBinary):
         },
     }
 
-
+DJANGO_BINARY = DjangoBinary()
 
 
 class CheckUserIsNotRoot(BaseCheck):
     label: str = 'CheckUserIsNotRoot'
-    tag = Tags.database
+    tag: str = Tags.database
 
     @staticmethod
     def check(settings, logger) -> List[Warning]:
@@ -114,23 +119,22 @@ class CheckUserIsNotRoot(BaseCheck):
         return errors
 
 
+USER_IS_NOT_ROOT_CHECK = CheckUserIsNotRoot()
 
 
 class PipPlugin(BasePlugin):
-    name: str = 'builtin_plugins.pip'
     app_label: str = 'pip'
     verbose_name: str = 'PIP'
 
-    configs: List[InstanceOf[BaseConfigSet]] = [PIP_CONFIG]
-    binproviders: List[InstanceOf[BaseBinProvider]] = [pip]
-    binaries: List[InstanceOf[BaseBinary]] = [PIP_BINARY, PythonBinary(), SqliteBinary(), DjangoBinary()]
-    checks: List[InstanceOf[BaseCheck]] = [CheckUserIsNotRoot()]
-
+    hooks: List[InstanceOf[BaseHook]] = [
+        PIP_CONFIG,
+        PIP_BINPROVIDER,
+        PIP_BINARY,
+        PYTHON_BINARY,
+        SQLITE_BINARY,
+        DJANGO_BINARY,
+        USER_IS_NOT_ROOT_CHECK,
+    ]
 
 PLUGIN = PipPlugin()
 DJANGO_APP = PLUGIN.AppConfig
-# CONFIGS = PLUGIN.configs
-# BINARIES = PLUGIN.binaries
-# EXTRACTORS = PLUGIN.extractors
-# REPLAYERS = PLUGIN.replayers
-# CHECKS = PLUGIN.checks

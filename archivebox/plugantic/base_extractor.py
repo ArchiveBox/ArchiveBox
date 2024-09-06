@@ -3,28 +3,13 @@ __package__ = 'archivebox.plugantic'
 from typing import Optional, List, Literal, Annotated, Dict, Any
 from typing_extensions import Self
 
-from abc import ABC
 from pathlib import Path
 
-from pydantic import BaseModel, model_validator, field_serializer, AfterValidator, Field
+from pydantic import model_validator, AfterValidator
 from pydantic_pkgr import BinName
 
-# from .binaries import (
-#     Binary,
-#     YtdlpBinary,
-#     WgetBinary,
-# )
-
-
-# stubs
-class Snapshot:
-    pass
-
-class ArchiveResult:
-    pass
-
-def get_wget_output_path(*args, **kwargs) -> Path:
-    return Path('.').resolve()
+from .base_hook import BaseHook, HookType
+from ..config_stubs import AttrDict
 
 
 
@@ -38,7 +23,9 @@ HandlerFuncStr = Annotated[str, AfterValidator(lambda s: s.startswith('self.'))]
 CmdArgsList = Annotated[List[str], AfterValidator(no_empty_args)]
 
 
-class BaseExtractor(ABC, BaseModel):
+class BaseExtractor(BaseHook):
+    hook_type: HookType = 'EXTRACTOR'
+    
     name: ExtractorName
     binary: BinName
 
@@ -56,17 +43,20 @@ class BaseExtractor(ABC, BaseModel):
         if self.args is None:
             self.args = [*self.default_args, *self.extra_args]
         return self
-    
-    def register(self, settings, parent_plugin=None):
-        if settings is None:
-            from django.conf import settings as django_settings
-            settings = django_settings
 
-        self._plugin = parent_plugin                                      # for debugging only, never rely on this!
-        settings.EXTRACTORS[self.name] = self
+
+    def register(self, settings, parent_plugin=None):
+        # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
+
+        settings.EXTRACTORS = getattr(settings, "EXTRACTORS", None) or AttrDict({})
+        settings.EXTRACTORS[self.id] = self
+
+        super().register(settings, parent_plugin=parent_plugin)
+
+
 
     def get_output_path(self, snapshot) -> Path:
-        return Path(self.name)
+        return Path(self.id.lower())
 
     def should_extract(self, snapshot) -> bool:
         output_dir = self.get_output_path(snapshot)
@@ -106,7 +96,7 @@ class BaseExtractor(ABC, BaseModel):
 #     binary: Binary = YtdlpBinary()
 
 #     def get_output_path(self, snapshot) -> Path:
-#         return Path(self.name)
+#         return 'media/'
 
 
 # class WgetExtractor(Extractor):

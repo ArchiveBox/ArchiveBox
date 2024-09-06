@@ -1,9 +1,8 @@
 __package__ = 'archivebox.plugantic'
 
 import json
-from typing import Optional, List, Literal, ClassVar
-from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict, computed_field
+from typing import List, Literal
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 HookType = Literal['CONFIG', 'BINPROVIDER', 'BINARY', 'EXTRACTOR', 'REPLAYER', 'CHECK', 'ADMINDATAVIEW']
@@ -50,31 +49,39 @@ class BaseHook(BaseModel):
 
     """
     model_config = ConfigDict(
-        extra='allow',
+        extra="allow",
         arbitrary_types_allowed=True,
         from_attributes=True,
         populate_by_name=True,
         validate_defaults=True,
         validate_assignment=True,
+        revalidate_instances="always",
     )
+    
+    # verbose_name: str = Field()
 
-    hook_type: HookType = 'CONFIG'
 
+    @computed_field
     @property
-    def name(self) -> str:
-        return f'{self.__module__}.{__class__.__name__}'
+    def id(self) -> str:
+        return self.__class__.__name__
+    
+    @computed_field
+    @property
+    def hook_module(self) -> str:
+        return f'{self.__module__}.{self.__class__.__name__}'
+    
+    hook_type: HookType = Field()
+    
+    
 
     def register(self, settings, parent_plugin=None):
         """Load a record of an installed hook into global Django settings.HOOKS at runtime."""
+        self._plugin = parent_plugin         # for debugging only, never rely on this!
 
-        assert json.dumps(self.model_json_schema(), indent=4), f'Hook {self.name} has invalid JSON schema.'
-
-        if settings is None:
-            from django.conf import settings as django_settings
-            settings = django_settings
+        # assert json.dumps(self.model_json_schema(), indent=4), f"Hook {self.hook_module} has invalid JSON schema."
 
         # record installed hook in settings.HOOKS
-        self._plugin = parent_plugin         # for debugging only, never rely on this!
-        settings.HOOKS[self.name] = self
+        settings.HOOKS[self.id] = self
 
-        print('REGISTERED HOOK:', self.name)
+        # print("REGISTERED HOOK:", self.hook_module)

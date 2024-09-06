@@ -89,6 +89,8 @@ class ABIDModel(models.Model):
     # created_at = AutoDateTimeField(default=None, null=False, db_index=True)
     # modified_at = models.DateTimeField(auto_now=True)
 
+    _prefetched_objects_cache: Dict[str, Any]
+
     class Meta(TypedModelMeta):
         abstract = True
 

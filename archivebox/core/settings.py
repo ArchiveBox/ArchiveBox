@@ -40,27 +40,18 @@ INSTALLED_PLUGINS = {
     **find_plugins_in_dir(USERDATA_PLUGINS_DIR, prefix='user_plugins'),
 }
 
-### Plugins Globals (filled by plugantic.apps.load_plugins() after Django startup)
+### Plugins Globals (filled by builtin_plugins.npm.apps.NpmPlugin.register() after Django startup)
 PLUGINS = AttrDict({})
 HOOKS = AttrDict({})
 
-CONFIGS = AttrDict({})
-BINPROVIDERS = AttrDict({})
-BINARIES = AttrDict({})
-EXTRACTORS = AttrDict({})
-REPLAYERS = AttrDict({})
-CHECKS = AttrDict({})
-ADMINDATAVIEWS = AttrDict({})
+# CONFIGS = AttrDict({})
+# BINPROVIDERS = AttrDict({})
+# BINARIES = AttrDict({})
+# EXTRACTORS = AttrDict({})
+# REPLAYERS = AttrDict({})
+# CHECKS = AttrDict({})
+# ADMINDATAVIEWS = AttrDict({})
 
-PLUGIN_KEYS = AttrDict({
-    'CONFIGS': CONFIGS,
-    'BINPROVIDERS': BINPROVIDERS,
-    'BINARIES': BINARIES,
-    'EXTRACTORS': EXTRACTORS,
-    'REPLAYERS': REPLAYERS,
-    'CHECKS': CHECKS,
-    'ADMINDATAVIEWS': ADMINDATAVIEWS,
-})
 
 ################################################################################
 ### Django Core Settings
@@ -95,12 +86,11 @@ INSTALLED_APPS = [
     'signal_webhooks',           # handles REST API outbound webhooks                              https://github.com/MrThearMan/django-signal-webhooks
     'django_object_actions',     # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
     
-    # our own apps
+    # Our ArchiveBox-provided apps
     'abid_utils',                # handles ABID ID creation, handling, and models
     'plugantic',                 # ArchiveBox plugin API definition + finding/registering/calling interface
     'core',                      # core django model with Snapshot, ArchiveResult, etc.
     'api',                       # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
-    'pkg',                       # ArchiveBox runtime package management interface for subdependencies
 
     # ArchiveBox plugins
     *INSTALLED_PLUGINS.keys(),   # all plugin django-apps found in archivebox/builtin_plugins and data/user_plugins

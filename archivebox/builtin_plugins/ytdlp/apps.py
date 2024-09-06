@@ -1,17 +1,13 @@
-import sys
-import shutil
-from pathlib import Path
-from typing import List, Dict, Optional
-from subprocess import run, PIPE, CompletedProcess
+from typing import List, Dict
+from subprocess import run, PIPE
 from pydantic import InstanceOf, Field
 
-from django.apps import AppConfig
 
-from pydantic_pkgr import BinProvider, BinName, PATHStr, BinProviderName, ProviderLookupDict
-from plugantic.base_plugin import BasePlugin, BaseConfigSet, BaseBinary, BaseBinProvider
-from plugantic.base_configset import ConfigSectionName
-
-from pkg.settings import env, apt, brew
+from pydantic_pkgr import BinProvider, BinName, BinProviderName, ProviderLookupDict
+from plugantic.base_plugin import BasePlugin
+from plugantic.base_configset import BaseConfigSet, ConfigSectionName
+from plugantic.base_binary import BaseBinary, env, apt, brew
+from plugantic.base_hook import BaseHook
 
 from builtin_plugins.pip.apps import pip
 
@@ -67,12 +63,14 @@ FFMPEG_BINARY = FfmpegBinary()
 
 
 class YtdlpPlugin(BasePlugin):
-    name: str = 'builtin_plugins.ytdlp'
     app_label: str = 'ytdlp'
     verbose_name: str = 'YTDLP'
 
-    configs: List[InstanceOf[BaseConfigSet]] = [YTDLP_CONFIG]
-    binaries: List[InstanceOf[BaseBinary]] = [YTDLP_BINARY, FFMPEG_BINARY]
+    hooks: List[InstanceOf[BaseHook]] = [
+        YTDLP_CONFIG,
+        YTDLP_BINARY,
+        FFMPEG_BINARY,
+    ]
 
 
 PLUGIN = YtdlpPlugin()

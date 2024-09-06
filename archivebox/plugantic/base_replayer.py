@@ -1,13 +1,15 @@
 __package__ = 'archivebox.plugantic'
 
 
-from pydantic import BaseModel
+from .base_hook import BaseHook, HookType
+from ..config_stubs import AttrDict
 
 
-
-class BaseReplayer(BaseModel):
+class BaseReplayer(BaseHook):
     """Describes how to render an ArchiveResult in several contexts"""
-    name: str = 'GenericReplayer'
+    
+    hook_type: HookType = 'REPLAYER'
+    
     url_pattern: str = '*'
 
     row_template: str = 'plugins/generic_replayer/templates/row.html'
@@ -21,13 +23,12 @@ class BaseReplayer(BaseModel):
     # thumbnail_view: LazyImportStr = 'plugins.generic_replayer.views.get_icon'
 
     def register(self, settings, parent_plugin=None):
-        if settings is None:
-            from django.conf import settings as django_settings
-            settings = django_settings
+        # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
 
-        self._plugin = parent_plugin                                      # for debugging only, never rely on this!
-        settings.REPLAYERS[self.name] = self
+        settings.REPLAYERS = getattr(settings, 'REPLAYERS', None) or AttrDict({})
+        settings.REPLAYERS[self.id] = self
 
+        super().register(settings, parent_plugin=parent_plugin)
 
 # class MediaReplayer(BaseReplayer):
 #     name: str = 'MediaReplayer'

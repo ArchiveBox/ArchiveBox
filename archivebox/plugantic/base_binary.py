@@ -1,25 +1,18 @@
 __package__ = 'archivebox.plugantic'
 
-import sys
-import inspect
-import importlib
-from pathlib import Path
-
-
-from typing import Any, Optional, Dict, List
-from typing_extensions import Self
-from subprocess import run, PIPE
+import os
+from typing import Dict, List
 
 from pydantic import Field, InstanceOf
-from pydantic_pkgr import Binary, SemVer, BinName, BinProvider, EnvProvider, AptProvider, BrewProvider, PipProvider, BinProviderName, ProviderLookupDict
-from pydantic_pkgr.binprovider import HostBinPath
+from pydantic_pkgr import Binary, BinProvider, BinProviderName, ProviderLookupDict, AptProvider, BrewProvider, EnvProvider
 
-import django
-from django.core.cache import cache
-from django.db.backends.sqlite3.base import Database as sqlite3
+from .base_hook import BaseHook, HookType
+from ..config_stubs import AttrDict
 
 
-class BaseBinProvider(BinProvider):
+class BaseBinProvider(BaseHook, BinProvider):
+    hook_type: HookType = 'BINPROVIDER'
+    
     # def on_get_abspath(self, bin_name: BinName, **context) -> Optional[HostBinPath]:
     #     Class = super()
     #     get_abspath_func = lambda: Class.on_get_abspath(bin_name, **context)
@@ -33,68 +26,30 @@ class BaseBinProvider(BinProvider):
     #     return get_version_func()
 
     def register(self, settings, parent_plugin=None):
-        if settings is None:
-            from django.conf import settings as django_settings
-            settings = django_settings
+        # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
 
-        self._plugin = parent_plugin                                      # for debugging only, never rely on this!
-        settings.BINPROVIDERS[self.name] = self
+        settings.BINPROVIDERS = getattr(settings, "BINPROVIDERS", None) or AttrDict({})
+        settings.BINPROVIDERS[self.id] = self
+
+        super().register(settings, parent_plugin=parent_plugin)
 
 
-class BaseBinary(Binary):
+class BaseBinary(BaseHook, Binary):
+    hook_type: HookType = "BINARY"
+    
     binproviders_supported: List[InstanceOf[BinProvider]] = Field(default_factory=list, alias='binproviders')
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = Field(default_factory=dict, alias='overrides')
 
     def register(self, settings, parent_plugin=None):
-        if settings is None:
-            from django.conf import settings as django_settings
-            settings = django_settings
+        # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
 
-        self._plugin = parent_plugin                                      # for debugging only, never rely on this!
-        settings.BINARIES[self.name] = self
+        settings.BINARIES = getattr(settings, "BINARIES", None) or AttrDict({})
+        settings.BINARIES[self.id] = self
 
-# def get_ytdlp_version() -> str:
-#     import yt_dlp
-#     return yt_dlp.version.__version__
+        super().register(settings, parent_plugin=parent_plugin)
 
 
 
-
-# class YtdlpBinary(Binary):
-#     name: BinName = 'yt-dlp'
-#     providers_supported: List[BinProvider] = [
-#         EnvProvider(),
-#         PipProvider(),
-#         BrewProvider(),
-#         AptProvider(),
-#     ]
-#     provider_overrides:  Dict[BinProviderName, ProviderLookupDict] = {
-#         'pip': {
-#             'version': get_ytdlp_version,
-#         },
-#         'brew': {
-#             'subdeps': lambda: 'yt-dlp ffmpeg',
-#         },
-#         'apt': {
-#             'subdeps': lambda: 'yt-dlp ffmpeg',
-#         }
-#     }
-
-# class WgetBinary(Binary):
-#     name: BinName = 'wget'
-#     providers_supported: List[BinProvider] = [EnvProvider(), AptProvider(), BrewProvider()]
-
-
-# if __name__ == '__main__':
-#     PYTHON_BINARY = PythonBinary()
-#     SQLITE_BINARY = SqliteBinary()
-#     DJANGO_BINARY = DjangoBinary()
-#     WGET_BINARY = WgetBinary()
-#     YTDLP_BINARY = YtdlpPBinary()
-
-#     print('-------------------------------------DEFINING BINARIES---------------------------------')
-#     print(PYTHON_BINARY)
-#     print(SQLITE_BINARY)
-#     print(DJANGO_BINARY)
-#     print(WGET_BINARY)
-#     print(YTDLP_BINARY)
+apt = AptProvider()
+brew = BrewProvider()
+env = EnvProvider(PATH=os.environ.get("PATH", "/bin"))

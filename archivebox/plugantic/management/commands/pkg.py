@@ -1,4 +1,4 @@
-__package__ = 'archivebox.pkg.management.commands'
+__package__ = 'archivebox.plugantic.management.commands'
 
 from django.core.management.base import BaseCommand
 from django.conf import settings
@@ -7,8 +7,7 @@ from pydantic_pkgr import Binary, BinProvider, BrewProvider, EnvProvider, SemVer
 from pydantic_pkgr.binprovider import bin_abspath
 
 from ....config import NODE_BIN_PATH, bin_path
-
-from pkg.settings import env
+from ...base_binary import env
 
 
 class Command(BaseCommand):

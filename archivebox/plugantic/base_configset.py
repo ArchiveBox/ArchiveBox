@@ -2,9 +2,10 @@ __package__ = 'archivebox.plugantic'
 
 
 from typing import List, Literal
-from pydantic import ConfigDict
 
 from .base_hook import BaseHook, HookType
+from ..config_stubs import AttrDict
+
 
 ConfigSectionName = Literal[
     'GENERAL_CONFIG',
@@ -21,23 +22,16 @@ ConfigSectionNames: List[ConfigSectionName] = [
 
 
 class BaseConfigSet(BaseHook):
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra='allow', populate_by_name=True)
     hook_type: HookType = 'CONFIG'
 
     section: ConfigSectionName = 'GENERAL_CONFIG'
 
     def register(self, settings, parent_plugin=None):
-        """Installs the ConfigSet into Django settings.CONFIGS (and settings.HOOKS)."""
-        if settings is None:
-            from django.conf import settings as django_settings
-            settings = django_settings
+        # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
 
-        self._plugin = parent_plugin                                      # for debugging only, never rely on this!
-        
-        # install hook into settings.CONFIGS
-        settings.CONFIGS[self.name] = self
+        settings.CONFIGS = getattr(settings, "CONFIGS", None) or AttrDict({})
+        settings.CONFIGS[self.id] = self
 
-        # record installed hook in settings.HOOKS
         super().register(settings, parent_plugin=parent_plugin)
 
 

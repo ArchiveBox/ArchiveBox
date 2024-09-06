@@ -235,7 +235,7 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
                     'binaries': plugin.binaries,
                     'extractors': plugin.extractors,
                     'replayers': plugin.replayers,
-                    'schema': obj_to_yaml(plugin.model_dump(include=('name', 'verbose_name', 'app_label', *settings.PLUGIN_KEYS.keys()))),
+                    'schema': obj_to_yaml(plugin.model_dump(include=('name', 'verbose_name', 'app_label', 'hooks'))),
                 },
                 "help_texts": {
                     # TODO

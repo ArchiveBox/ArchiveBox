@@ -120,6 +120,9 @@ target-version = "py310"
 src = ["archivebox"]
 exclude = ["*.pyi", "typings/", "migrations/", "vendor/"]
 
+[tool.ruff.lint]
+ignore = ["E731"]
+
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]
 

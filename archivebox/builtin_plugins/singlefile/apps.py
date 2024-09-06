@@ -1,19 +1,18 @@
 from pathlib import Path
 from typing import List, Dict, Optional
 
-from django.apps import AppConfig
-
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, Field
 from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName
-from pydantic_pkgr.binprovider import bin_abspath
 
 # Depends on other Django apps:
-from plugantic.base_plugin import BasePlugin, BaseConfigSet, BaseBinary, BaseExtractor, BaseReplayer
-from plugantic.base_configset import ConfigSectionName
+from plugantic.base_plugin import BasePlugin
+from plugantic.base_configset import BaseConfigSet, ConfigSectionName
+from plugantic.base_binary import BaseBinary, env
+from plugantic.base_extractor import BaseExtractor
+from plugantic.base_hook import BaseHook
 
 # Depends on Other Plugins:
-from pkg.settings import env
 from builtin_plugins.npm.apps import npm
 
 
@@ -54,11 +53,7 @@ DEFAULT_GLOBAL_CONFIG = {
     'TIMEOUT': 120,
 }
 
-SINGLEFILE_CONFIGS = [
-    SinglefileToggleConfigs(**DEFAULT_GLOBAL_CONFIG),
-    SinglefileDependencyConfigs(**DEFAULT_GLOBAL_CONFIG),
-    SinglefileOptionsConfigs(**DEFAULT_GLOBAL_CONFIG),
-]
+SINGLEFILE_CONFIG = SinglefileConfigs(**DEFAULT_GLOBAL_CONFIG)
 
 
 
@@ -79,7 +74,7 @@ class SinglefileBinary(BaseBinary):
         # },
         # 'npm': {
         #     'abspath': lambda: bin_abspath('single-file', PATH=npm.PATH) or bin_abspath('single-file-node.js', PATH=npm.PATH),
-        #     'subdeps': lambda: f'single-file-cli@>={min_version} <{max_version}',
+        #     'packages': lambda: f'single-file-cli@>={min_version} <{max_version}',
         # },
     }
 
@@ -99,20 +94,16 @@ SINGLEFILE_BINARY = SinglefileBinary()
 SINGLEFILE_EXTRACTOR = SinglefileExtractor()
 
 class SinglefilePlugin(BasePlugin):
-    name: str = 'builtin_plugins.singlefile'
     app_label: str ='singlefile'
     verbose_name: str = 'SingleFile'
 
-    configs: List[InstanceOf[BaseConfigSet]] = SINGLEFILE_CONFIGS
-    binaries: List[InstanceOf[BaseBinary]] = [SINGLEFILE_BINARY]
-    extractors: List[InstanceOf[BaseExtractor]] = [SINGLEFILE_EXTRACTOR]
+    hooks: List[InstanceOf[BaseHook]] = [
+        SINGLEFILE_CONFIG,
+        SINGLEFILE_BINARY,
+        SINGLEFILE_EXTRACTOR,
+    ]
 
 
 
 PLUGIN = SinglefilePlugin()
 DJANGO_APP = PLUGIN.AppConfig
-# CONFIGS = PLUGIN.configs
-# BINARIES = PLUGIN.binaries
-# EXTRACTORS = PLUGIN.extractors
-# REPLAYERS = PLUGIN.replayers
-# CHECKS = PLUGIN.checks

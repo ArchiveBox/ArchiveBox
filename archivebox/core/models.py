@@ -1,7 +1,7 @@
 __package__ = 'archivebox.core'
 
 
-from typing import Optional, List, Dict, Iterable
+from typing import Optional, Dict, Iterable
 from django_stubs_ext.db.models import TypedModelMeta
 
 import json
@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 
 from django.db import models
-from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.core.cache import cache
@@ -107,7 +106,7 @@ class Tag(ABIDModel):
 
     @property
     def api_docs_url(self) -> str:
-        return f'/api/v1/docs#/Core%20Models/api_v1_core_get_tag'
+        return '/api/v1/docs#/Core%20Models/api_v1_core_get_tag'
 
 class SnapshotTag(models.Model):
     id = models.AutoField(primary_key=True)
@@ -215,7 +214,7 @@ class Snapshot(ABIDModel):
     
     @property
     def api_docs_url(self) -> str:
-        return f'/api/v1/docs#/Core%20Models/api_v1_core_get_snapshot'
+        return '/api/v1/docs#/Core%20Models/api_v1_core_get_snapshot'
     
     def get_absolute_url(self):
         return f'/{self.archive_path}'
@@ -315,7 +314,7 @@ class Snapshot(ABIDModel):
     def latest_title(self) -> Optional[str]:
         if self.title:
             return self.title   # whoopdedoo that was easy
-        
+
         # check if ArchiveResult set has already been prefetched, if so use it instead of fetching it from db again
         if hasattr(self, '_prefetched_objects_cache') and 'archiveresult_set' in self._prefetched_objects_cache:
             try:
@@ -329,7 +328,7 @@ class Snapshot(ABIDModel):
                 ) or [None])[-1]
             except IndexError:
                 pass
-        
+
 
         try:
             # take longest successful title from ArchiveResult db history
@@ -395,7 +394,7 @@ class Snapshot(ABIDModel):
 class ArchiveResultManager(models.Manager):
     def indexable(self, sorted: bool = True):
         """Return only ArchiveResults containing text suitable for full-text search (sorted in order of typical result quality)"""
-        
+
         INDEXABLE_METHODS = [ r[0] for r in ARCHIVE_METHODS_INDEXING_PRECEDENCE ]
         qs = self.get_queryset().filter(extractor__in=INDEXABLE_METHODS, status='succeeded')
 
@@ -466,7 +465,7 @@ class ArchiveResult(ABIDModel):
     class Meta(TypedModelMeta):
         verbose_name = 'Archive Result'
         verbose_name_plural = 'Archive Results Log'
-        
+
 
     def __str__(self):
         # return f'[{self.abid}] 📅 {self.start_ts.strftime("%Y-%m-%d %H:%M")} 📄 {self.extractor} {self.snapshot.url}'
@@ -480,11 +479,11 @@ class ArchiveResult(ABIDModel):
     def api_url(self) -> str:
         # /api/v1/core/archiveresult/{uulid}
         return reverse_lazy('api-1:get_archiveresult', args=[self.abid])  # + f'?api_key={get_or_create_api_token(request.user)}'
-    
+
     @property
     def api_docs_url(self) -> str:
-        return f'/api/v1/docs#/Core%20Models/api_v1_core_get_archiveresult'
-    
+        return '/api/v1/docs#/Core%20Models/api_v1_core_get_archiveresult'
+
     def get_absolute_url(self):
         return f'/{self.snapshot.archive_path}/{self.output_path()}'
 
