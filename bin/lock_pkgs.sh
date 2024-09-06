@@ -14,7 +14,7 @@ REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && p
 
 cd "$REPO_DIR"
 
-py_version="$(grep 'version = ' pyproject.toml | awk '{print $3}' | jq -r)"
+py_version="$(grep -E '^version = ' pyproject.toml | awk '{print $3}' | jq -r)"
 js_version="$(jq -r '.version' package.json)"
 
 if [[ "$py_version" != "$js_version" ]]; then
