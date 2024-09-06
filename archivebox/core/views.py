@@ -46,6 +46,7 @@ from ..main import add
 from ..util import base_url, ansi_to_html, htmlencode, urldecode, urlencode, ts_to_date_str
 from ..search import query_search_index
 from ..extractors.wget import wget_output_path
+from .serve_static import serve_static_with_byterange_support
 
 
 class HomepageView(View):
@@ -197,7 +198,9 @@ class SnapshotView(View):
                         # if they requested snapshot index, serve live rendered template instead of static html
                         response = self.render_live_index(request, snapshot)
                     else:
-                        response = static.serve(request, archivefile, document_root=snapshot.link_dir, show_indexes=True)
+                        response = serve_static_with_byterange_support(
+                            request, archivefile, document_root=snapshot.link_dir, show_indexes=True,
+                        )
                     response["Link"] = f'<{snapshot.url}>; rel="canonical"'
                     return response
                 except Snapshot.DoesNotExist:

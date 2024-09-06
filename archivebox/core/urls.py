@@ -1,14 +1,13 @@
 __package__ = 'archivebox.core'
 
-from django.urls import path, include
+from django.urls import path, re_path, include
 from django.views import static
-from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.conf import settings
 from django.views.generic.base import RedirectView
 
 from .admin import archivebox_admin
 from .views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView
-
+from .serve_static import serve_static
 
 # GLOBAL_CONTEXT doesn't work as-is, disabled for now: https://github.com/ArchiveBox/ArchiveBox/discussions/1306
 # from config import VERSION, VERSIONS_AVAILABLE, CAN_UPGRADE
@@ -18,13 +17,16 @@ from .views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthC
 # print('DEBUG', settings.DEBUG)
 
 urlpatterns = [
-    path('public/', PublicIndexView.as_view(), name='public-index'),
+    re_path(r"^static/(?P<path>.*)$", serve_static),
+    # re_path(r"^media/(?P<path>.*)$", static.serve, {"document_root": settings.MEDIA_ROOT}),
 
     path('robots.txt', static.serve, {'document_root': settings.STATICFILES_DIRS[0], 'path': 'robots.txt'}),
     path('favicon.ico', static.serve, {'document_root': settings.STATICFILES_DIRS[0], 'path': 'favicon.ico'}),
 
     path('docs/', RedirectView.as_view(url='https://github.com/ArchiveBox/ArchiveBox/wiki'), name='Docs'),
 
+    path('public/', PublicIndexView.as_view(), name='public-index'),
+    
     path('archive/', RedirectView.as_view(url='/')),
     path('archive/<path:path>', SnapshotView.as_view(), name='Snapshot'),
 
@@ -41,7 +43,7 @@ urlpatterns = [
     path("api/",      include('api.urls'), name='api'),
 
     path('health/', HealthCheckView.as_view(), name='healthcheck'),
-    path('error/', lambda *_: 1/0),
+    path('error/', lambda *_: 1/0),                                             # type: ignore
 
     # path('jet_api/', include('jet_django.urls')),  Enable to use https://www.jetadmin.io/integrations/django
 
@@ -49,7 +51,6 @@ urlpatterns = [
     path('index.json', static.serve, {'document_root': settings.CONFIG.OUTPUT_DIR, 'path': 'index.json'}),
     path('', HomepageView.as_view(), name='Home'),
 ]
-urlpatterns += staticfiles_urlpatterns()
 
 if settings.DEBUG_TOOLBAR:
     urlpatterns += [path('__debug__/', include("debug_toolbar.urls"))]

@@ -68,7 +68,7 @@ def wait_for_bg_threads_to_exit(thread_names: Iterable[str]=(), ignore_names: It
         else:
             return tries
 
-    raise Exception('Background threads failed to exit after {tries}s: {threads_summary}')
+    raise Exception(f'Background threads failed to exit after {tries}s: {threads_summary}')
 
 
 def list_subcommands() -> Dict[str, str]:
