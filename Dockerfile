@@ -253,7 +253,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt for ${TARGETPLATFORM}..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports \
-        build-essential \
+        build-essential gcc \
         libssl-dev libldap2-dev libsasl2-dev \
         python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps \
     # && ln -s "$GLOBAL_VENV" "$APP_VENV" \
@@ -264,7 +264,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     # && source $GLOBAL_VENV/bin/activate \
     && pip install -r requirements.txt \
     && apt-get purge -y \
-        build-essential \
+        build-essential gcc \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 

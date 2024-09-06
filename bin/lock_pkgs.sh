@@ -49,7 +49,7 @@ echo
 echo "[+] Generating dev & prod requirements.txt & pdm.lock from pyproject.toml..."
 pip install --upgrade pip setuptools
 pdm self update >/dev/null 2>&1 || true
-pdm venv create 3.10
+pdm venv create 3.11
 echo
 echo "pyproject.toml:    archivebox $(grep 'version = ' pyproject.toml | awk '{print $3}' | jq -r)"
 echo "$(which python):   $(python --version | head -n 1)"
@@ -60,16 +60,16 @@ pdm info
 echo
 # https://pdm-project.org/latest/usage/lockfile/
 # prod
-pdm lock --group=':all' --production --lockfile pdm.lock --python="==3.10.*" --platform=linux
-pdm lock --group=':all' --production --lockfile pdm.lock --python="==3.10.*" --platform=macos --append
+pdm lock --group=':all' --production --lockfile pdm.lock --python="==3.11.*" --platform=linux
+pdm lock --group=':all' --production --lockfile pdm.lock --python="==3.11.*" --platform=macos --append
 pdm sync --group=':all' --production --lockfile pdm.lock --clean
 pdm export --group=':all' --production --lockfile pdm.lock --without-hashes -o requirements.txt
 # cp ./pdm.lock ./pip_dist/
 # cp ./requirements.txt ./pip_dist/
 
 # dev
-pdm lock --group=':all' --dev --lockfile pdm.dev.lock --python="==3.10.*" --platform=linux
-pdm lock --group=':all' --dev --lockfile pdm.dev.lock --python="==3.10.*" --platform=macos --append
+pdm lock --group=':all' --dev --lockfile pdm.dev.lock --python="==3.11.*" --platform=linux
+pdm lock --group=':all' --dev --lockfile pdm.dev.lock --python="==3.11.*" --platform=macos --append
 pdm sync --group=':all' --dev --lockfile pdm.dev.lock --clean
 pdm export --group=':all' --dev --lockfile pdm.dev.lock --without-hashes -o requirements-dev.txt
 # cp ./pdm.dev.lock ./pip_dist/
