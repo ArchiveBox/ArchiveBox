@@ -111,7 +111,7 @@ class BasePlugin(BaseModel):
         for hook in self.hooks:
             hook.register(settings, parent_plugin=self)
 
-        print('√ REGISTERED PLUGIN:', self.plugin_module)
+        # print('√ REGISTERED PLUGIN:', self.plugin_module)
 
     # @validate_call
     # def install_binaries(self) -> Self:

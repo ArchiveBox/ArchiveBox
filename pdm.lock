@@ -5,7 +5,7 @@
 groups = ["default", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:61d53c8fbfcdaaf18e04d7aab12887caf9260b803db7e5b66a22e37b88824c55"
+content_hash = "sha256:c890335ff9967151514ff57e709d8b39c19f51edce5d15fb1b15c0a276a573f9"
 
 [[metadata.targets]]
 requires_python = "==3.10.*"

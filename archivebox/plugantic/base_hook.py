@@ -54,8 +54,8 @@ class BaseHook(BaseModel):
         from_attributes=True,
         populate_by_name=True,
         validate_defaults=True,
-        validate_assignment=True,
-        revalidate_instances="always",
+        validate_assignment=False,
+        revalidate_instances="subclass-instances",
     )
     
     # verbose_name: str = Field()
