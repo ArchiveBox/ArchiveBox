@@ -152,6 +152,7 @@ class ABIDModel(models.Model):
                 else:
                     print(f'\n#### WARNING: ABID of existing record is outdated and has not been updated ({self.__class__.__name__}.abid_drift_allowed={self.abid_drift_allowed})')
                     print(change_error)
+                    raise change_error
 
     def save(self, *args: Any, abid_drift_allowed: bool | None=None, **kwargs: Any) -> None:
         """Overriden save method ensures new ABID is generated while a new object is first saving."""
