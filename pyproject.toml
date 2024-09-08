@@ -23,6 +23,7 @@ dependencies = [
     "requests>=2.31.0",
     "dateparser>=1.0.0",
     "feedparser>=6.0.11",
+    "papers-dl>=0.0.10",
     "w3lib>=2.1.2",
     "rich>=13.8.0",
     "ulid-py>=1.1.0",

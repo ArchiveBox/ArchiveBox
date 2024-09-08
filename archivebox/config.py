@@ -141,6 +141,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SAVE_WARC':                {'type': bool,  'default': True, 'aliases': ('FETCH_WARC',)},
         'SAVE_GIT':                 {'type': bool,  'default': True, 'aliases': ('FETCH_GIT',)},
         'SAVE_MEDIA':               {'type': bool,  'default': True, 'aliases': ('FETCH_MEDIA',)},
+        'SAVE_PAPERS':              {'type': bool,  'default': True, 'aliases': ('FETCH_PAPERS',)},
         'SAVE_ARCHIVE_DOT_ORG':     {'type': bool,  'default': True, 'aliases': ('SUBMIT_ARCHIVE_DOT_ORG',)},
         'SAVE_ALLOWLIST':           {'type': dict,  'default': {},},
         'SAVE_DENYLIST':            {'type': dict,  'default': {},},
@@ -191,6 +192,9 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 ]},
         'YOUTUBEDL_EXTRA_ARGS':     {'type': list,  'default': None},
 
+
+        'PAPERSDL_ARGS':           {'type': list,  'default': None},
+        'PAPERSDL_EXTRA_ARGS':     {'type': list,  'default': None},
 
         'WGET_ARGS':                {'type': list,  'default': ['--no-verbose',
                                                                 '--adjust-extension',
@@ -244,6 +248,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'USE_CHROME':               {'type': bool,  'default': True},
         'USE_NODE':                 {'type': bool,  'default': True},
         'USE_YOUTUBEDL':            {'type': bool,  'default': True},
+        'USE_PAPERSDL':             {'type': bool,  'default': True},
         'USE_RIPGREP':              {'type': bool,  'default': True},
 
         'CURL_BINARY':              {'type': str,   'default': 'curl'},
@@ -253,6 +258,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'READABILITY_BINARY':       {'type': str,   'default': lambda c: bin_path('readability-extractor')},
         'MERCURY_BINARY':           {'type': str,   'default': lambda c: bin_path('postlight-parser')},
         'YOUTUBEDL_BINARY':         {'type': str,   'default': 'yt-dlp'},   # also can accept youtube-dl
+        'PAPERSDL_BINARY':          {'type': str,   'default': 'papers-dl'},
         'NODE_BINARY':              {'type': str,   'default': 'node'},
         'RIPGREP_BINARY':           {'type': str,   'default': 'rg'},
         'CHROME_BINARY':            {'type': str,   'default': None},
@@ -622,6 +628,12 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'SAVE_MEDIA':               {'default': lambda c: c['USE_YOUTUBEDL'] and c['SAVE_MEDIA']},
     'YOUTUBEDL_ARGS':           {'default': lambda c: c['YOUTUBEDL_ARGS'] or []},
     'YOUTUBEDL_EXTRA_ARGS':     {'default': lambda c: c['YOUTUBEDL_EXTRA_ARGS'] or []},
+
+    'USE_PAPERSDL':            {'default': lambda c: c['USE_PAPERSDL'] and c['SAVE_PAPERS']},
+    'PAPERSDL_VERSION':        {'default': lambda c: bin_version(c['PAPERSDL_BINARY']) if c['USE_PAPERSDL'] else None},
+    'SAVE_PAPERS':             {'default': lambda c: c['USE_PAPERSDL'] and c['SAVE_PAPERS']},
+    'PAPERSDL_ARGS':           {'default': lambda c: c['PAPERSDL_ARGS'] or []},
+    'PAPERSDL_EXTRA_ARGS':     {'default': lambda c: c['PAPERSDL_EXTRA_ARGS'] or []},
 
     'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] or find_chrome_binary()},
     'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and c['CHROME_BINARY'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'] or c['SAVE_SINGLEFILE'])},
@@ -1193,6 +1205,13 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'hash': bin_hash(config['YOUTUBEDL_BINARY']),
             'enabled': config['USE_YOUTUBEDL'],
             'is_valid': bool(config['YOUTUBEDL_VERSION']),
+        },
+        'PAPERSDL_BINARY': {
+            'path': bin_path(config['PAPERSDL_BINARY']),
+            'version': config['PAPERSDL_VERSION'],
+            'hash': bin_hash(config['PAPERSDL_BINARY']),
+            'enabled': config['USE_PAPERSDL'],
+            'is_valid': bool(config['PAPERSDL_VERSION']),
         },
         'CHROME_BINARY': {
             'path': bin_path(config['CHROME_BINARY']),

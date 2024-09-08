@@ -398,6 +398,7 @@ class Link:
             'mercury/content.html',
             'htmltotext.txt',
             'media',
+            'papers_dl',
             'git',
         )
 
@@ -411,7 +412,7 @@ class Link:
         
         ARCHIVE_METHODS = (
             'title', 'favicon', 'wget', 'warc', 'singlefile', 'pdf',
-            'screenshot', 'dom', 'git', 'media', 'archive_org',
+            'screenshot', 'dom', 'git', 'media', 'archive_org', 'papers_dl'
         )
         latest: Dict[str, ArchiveOutput] = {}
         for archive_method in ARCHIVE_METHODS:
@@ -451,6 +452,7 @@ class Link:
             'archive_org_path': 'https://web.archive.org/web/{}'.format(self.base_url),
             'git_path': 'git/',
             'media_path': 'media/',
+            'papers_dl_path': 'papers_dl/',
             'headers_path': 'headers.json',
         }
         if self.is_static:

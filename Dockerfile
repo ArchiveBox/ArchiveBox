@@ -283,6 +283,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     # && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
+# HACK: pdf2doi attempts to write to and read from this directory on startup,
+# which leads to permission errors. A better solution would be to open a pull
+# request upstream that makes this behavior configurable
+RUN chmod 777 /usr/local/lib/python3.11/site-packages/pdf2doi/
+
 ####################################################
 
 # Setup ArchiveBox runtime config
@@ -311,6 +316,7 @@ RUN (echo -e "\n\n[√] Finished Docker build succesfully. Saving build summary 
     && echo -e "BUILD_END_TIME=$(date +"%Y-%m-%d %H:%M:%S %s")\n\n" \
     ) | tee -a /VERSION.txt
 RUN "$CODE_DIR"/bin/docker_entrypoint.sh version 2>&1 | tee -a /VERSION.txt
+
 
 ####################################################
 

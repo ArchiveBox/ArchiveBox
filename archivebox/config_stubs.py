@@ -69,6 +69,7 @@ class ConfigDict(BaseConfig, AttrDict, total=False):
     SAVE_WARC: bool
     SAVE_GIT: bool
     SAVE_MEDIA: bool
+    SAVE_PAPERS: bool
     SAVE_ARCHIVE_DOT_ORG: bool
 
     RESOLUTION: str
@@ -91,6 +92,7 @@ class ConfigDict(BaseConfig, AttrDict, total=False):
     USE_GIT: bool
     USE_CHROME: bool
     USE_YOUTUBEDL: bool
+    USE_PAPERSDL: bool
     CURL_BINARY: str
     GIT_BINARY: str
     WGET_BINARY: str
@@ -98,6 +100,7 @@ class ConfigDict(BaseConfig, AttrDict, total=False):
     READABILITY_BINARY: str
     MERCURY_BINARY: str
     YOUTUBEDL_BINARY: str
+    PAPERSDL_BINARY: str
     CHROME_BINARY: Optional[str]
 
     YOUTUBEDL_ARGS: List[str]
