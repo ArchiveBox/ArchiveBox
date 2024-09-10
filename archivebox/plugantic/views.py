@@ -1,15 +1,19 @@
 __package__ = 'archivebox.plugantic'
 
+import os
 import inspect
-from typing import Any
+from typing import Any, List, Dict, cast
 
 from django.http import HttpRequest
 from django.conf import settings
+from django.utils import timezone
 from django.utils.html import format_html, mark_safe
 
 from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
+from ..config_stubs import AttrDict
+from ..util import parse_date
 
 from django.conf import settings
 
@@ -220,6 +224,216 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
                 },
                 "help_texts": {
                     # TODO
+                },
+            },
+        ],
+    )
+
+
+@render_with_table_view
+def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
+    assert request.user.is_superuser, "Must be a superuser to view configuration settings."
+
+    rows = {
+        "Name": [],
+        "State": [],
+        "PID": [],
+        "Started": [],
+        "Command": [],
+        "Logfile": [],
+        "Exit Status": [],
+    }
+    
+    from queues.supervisor_util import get_existing_supervisord_process
+    
+    supervisor = get_existing_supervisord_process()
+    if supervisor is None:
+        return TableContext(
+            title="No running worker processes",
+            table=rows,
+        )
+        
+    all_config_entries = cast(List[Dict[str, Any]], supervisor.getAllConfigInfo() or [])
+    all_config = {config["name"]: AttrDict(config) for config in all_config_entries}
+
+    # Add top row for supervisord process manager
+    rows["Name"].append(ItemLink('supervisord', key='supervisord'))
+    rows["State"].append(supervisor.getState()['statename'])
+    rows['PID'].append(str(supervisor.getPID()))
+    rows["Started"].append('-')
+    rows["Command"].append('supervisord --configuration=tmp/supervisord.conf')
+    rows["Logfile"].append(
+        format_html(
+            '<a href="/admin/environment/logs/{}/">{}</a>',
+            'supervisord',
+            'logs/supervisord.log',
+        )
+    )
+    rows['Exit Status'].append('0')
+
+    # Add a row for each worker process managed by supervisord
+    for proc in cast(List[Dict[str, Any]], supervisor.getAllProcessInfo()):
+        proc = AttrDict(proc)
+        # {
+        #     "name": "daphne",
+        #     "group": "daphne",
+        #     "start": 1725933056,
+        #     "stop": 0,
+        #     "now": 1725933438,
+        #     "state": 20,
+        #     "statename": "RUNNING",
+        #     "spawnerr": "",
+        #     "exitstatus": 0,
+        #     "logfile": "logs/server.log",
+        #     "stdout_logfile": "logs/server.log",
+        #     "stderr_logfile": "",
+        #     "pid": 33283,
+        #     "description": "pid 33283, uptime 0:06:22",
+        # }
+        rows["Name"].append(ItemLink(proc.name, key=proc.name))
+        rows["State"].append(proc.statename)
+        rows['PID'].append(proc.description.replace('pid ', ''))
+        rows["Started"].append(parse_date(proc.start).strftime("%Y-%m-%d %H:%M:%S") if proc.start else '')
+        rows["Command"].append(all_config[proc.name].command)
+        rows["Logfile"].append(
+            format_html(
+                '<a href="/admin/environment/logs/{}/">{}</a>',
+                proc.stdout_logfile.split("/")[-1].split('.')[0],
+                proc.stdout_logfile,
+            )
+        )
+        rows["Exit Status"].append(str(proc.exitstatus))
+
+    return TableContext(
+        title="Running worker processes",
+        table=rows,
+    )
+
+
+@render_with_item_view
+def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
+    assert request.user.is_superuser, "Must be a superuser to view configuration settings."
+
+    from queues.supervisor_util import get_existing_supervisord_process, get_worker
+    from queues.settings import CONFIG_FILE
+
+    supervisor = get_existing_supervisord_process()
+    if supervisor is None:
+        return ItemContext(
+            slug='none',
+            title='error: No running supervisord process.',
+            data=[],
+        )
+
+    all_config = cast(List[Dict[str, Any]], supervisor.getAllConfigInfo() or [])
+
+    if key == 'supervisord':
+        relevant_config = CONFIG_FILE.read_text()
+        relevant_logs = cast(str, supervisor.readLog(0, 10_000_000))
+        start_ts = [line for line in relevant_logs.split("\n") if "RPC interface 'supervisor' initialized" in line][-1].split(",", 1)[0]
+        uptime = str(timezone.now() - parse_date(start_ts)).split(".")[0]
+
+        proc = AttrDict(
+            {
+                "name": "supervisord",
+                "pid": supervisor.getPID(),
+                "statename": supervisor.getState()["statename"],
+                "start": start_ts,
+                "stop": None,
+                "exitstatus": "",
+                "stdout_logfile": "logs/supervisord.log",
+                "description": f'pid 000, uptime {uptime}',
+            }
+        )
+    else:
+        proc = AttrDict(get_worker(supervisor, key) or {})
+        relevant_config = [config for config in all_config if config['name'] == key][0]
+        relevant_logs = supervisor.tailProcessStdoutLog(key, 0, 10_000_000)[0]
+
+    return ItemContext(
+        slug=key,
+        title=key,
+        data=[
+            {
+                "name": key,
+                "description": key,
+                "fields": {
+                    "Command": proc.name,
+                    "PID": proc.pid,
+                    "State": proc.statename,
+                    "Started": parse_date(proc.start).strftime("%Y-%m-%d %H:%M:%S") if proc.start else "",
+                    "Stopped": parse_date(proc.stop).strftime("%Y-%m-%d %H:%M:%S") if proc.stop else "",
+                    "Exit Status": str(proc.exitstatus),
+                    "Logfile": proc.stdout_logfile,
+                    "Uptime": (proc.description or "").split("uptime ", 1)[-1],
+                    "Config": relevant_config,
+                    "Logs": relevant_logs,
+                },
+                "help_texts": {"Uptime": "How long the process has been running ([days:]hours:minutes:seconds)"},
+            },
+        ],
+    )
+
+
+@render_with_table_view
+def log_list_view(request: HttpRequest, **kwargs) -> TableContext:
+    assert request.user.is_superuser, "Must be a superuser to view configuration settings."
+
+    from django.conf import settings
+
+    log_files = settings.CONFIG.LOGS_DIR.glob("*.log")
+    log_files = sorted(log_files, key=os.path.getmtime)[::-1]
+
+    rows = {
+        "Name": [],
+        "Last Updated": [],
+        "Size": [],
+        "Most Recent Lines": [],
+    }
+
+    # Add a row for each worker process managed by supervisord
+    for logfile in log_files:
+        st = logfile.stat()
+        rows["Name"].append(ItemLink("logs" + str(logfile).rsplit("/logs", 1)[-1], key=logfile.name))
+        rows["Last Updated"].append(parse_date(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S"))
+        rows["Size"].append(f'{st.st_size//1000} kb')
+
+        with open(logfile, 'rb') as f:
+            f.seek(-1024, os.SEEK_END)
+            last_lines = f.read().decode().split("\n")
+            non_empty_lines = [line for line in last_lines if line.strip()]
+            rows["Most Recent Lines"].append(non_empty_lines[-1])
+
+    return TableContext(
+        title="Debug Log files",
+        table=rows,
+    )
+
+
+@render_with_item_view
+def log_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
+    assert request.user.is_superuser, "Must be a superuser to view configuration settings."
+
+    from django.conf import settings
+    
+    log_file = [logfile for logfile in settings.CONFIG.LOGS_DIR.glob('*.log') if key in logfile.name][0]
+
+    log_text = log_file.read_text()
+    log_stat = log_file.stat()
+
+    return ItemContext(
+        slug=key,
+        title=key,
+        data=[
+            {
+                "name": key,
+                "description": key,
+                "fields": {
+                    "Path": str(log_file),
+                    "Size": f"{log_stat.st_size//1000} kb",
+                    "Last Updated": parse_date(log_stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+                    "Tail": "\n".join(log_text[-10_000:].split("\n")[-20:]),
+                    "Full Log": log_text,
                 },
             },
         ],

@@ -662,6 +662,26 @@ ADMIN_DATA_VIEWS = {
                 "name": "plugin",
             },
         },
+        {
+            "route": "workers/",
+            "view": "plugantic.views.worker_list_view",
+            "name": "Workers",
+            "items": {
+                "route": "<str:key>/",
+                "view": "plugantic.views.worker_detail_view",
+                "name": "worker",
+            },
+        },
+        {
+            "route": "logs/",
+            "view": "plugantic.views.log_list_view",
+            "name": "Logs",
+            "items": {
+                "route": "<str:key>/",
+                "view": "plugantic.views.log_detail_view",
+                "name": "log",
+            },
+        },
     ],
 }
 

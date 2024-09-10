@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, get_permission_codename
 from django.contrib.auth.admin import UserAdmin
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
