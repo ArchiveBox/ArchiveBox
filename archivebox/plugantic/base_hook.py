@@ -78,11 +78,15 @@ class BaseHook(BaseModel):
         return f'{self.__module__}.{self.__class__.__name__}'
 
     @property
+    def hook_file(self) -> Path:
+        """e.g. builtin_plugins.singlefile.apps.SinglefileConfigSet"""
+        return Path(inspect.getfile(self.__class__))
+
+    @property
     def plugin_module(self) -> str:
         """e.g. builtin_plugins.singlefile"""
         return f"{self.__module__}.{self.__class__.__name__}".split("archivebox.", 1)[-1].rsplit(".apps.", 1)[0]
-        
-    @computed_field
+
     @property
     def plugin_dir(self) -> Path:
         return Path(inspect.getfile(self.__class__)).parent.resolve()
@@ -97,7 +101,7 @@ class BaseHook(BaseModel):
 
         # record installed hook in settings.HOOKS
         settings.HOOKS[self.id] = self
-        
+
         if settings.HOOKS[self.id].is_registered:
             raise Exception(f"Tried to run {self.hook_module}.register() but its already been called!")
 

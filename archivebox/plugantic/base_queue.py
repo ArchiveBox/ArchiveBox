@@ -77,6 +77,11 @@ class BaseQueue(BaseHook):
             return None
         print()
         worker = start_worker(supervisor, self.get_supervisor_config(settings), lazy=lazy)
+
+        # Update settings.WORKERS to include this worker
+        settings.WORKERS = getattr(settings, "WORKERS", None) or AttrDict({})
+        settings.WORKERS[self.id] = self.start_supervisord_worker(settings, lazy=True)
+
         return worker
 
     def register(self, settings, parent_plugin=None):
@@ -90,16 +95,16 @@ class BaseQueue(BaseHook):
         # on_startup(queue=self.name)(self.on_startup_task)
         # db_periodic_task(crontab(minute='*/5'))(self.on_periodic_task)
 
-        # Side effect: start consumer worker process under supervisord
-        settings.WORKERS = getattr(settings, "WORKERS", None) or AttrDict({})
-        settings.WORKERS[self.id] = self.start_supervisord_worker(settings, lazy=True)
-
         # Install queue into settings.QUEUES
         settings.QUEUES = getattr(settings, "QUEUES", None) or AttrDict({})
         settings.QUEUES[self.id] = self
 
         # Record installed hook into settings.HOOKS
         super().register(settings, parent_plugin=parent_plugin)
+
+    # def ready(self, settings):
+    #     self.start_supervisord_worker(settings, lazy=True)
+    #     super().ready(settings)
 
 
 # class WgetToggleConfig(ConfigSet):
