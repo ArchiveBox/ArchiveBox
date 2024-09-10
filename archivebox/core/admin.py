@@ -688,6 +688,12 @@ class ArchiveResultAdmin(ABIDModelAdmin):
     
     paginator = AccelleratedPaginator
     save_on_top = True
+    
+    actions = ['delete_selected']
+    
+    class Meta:
+        verbose_name = 'Archive Result'
+        verbose_name_plural = 'Archive Results'
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         self.request = request
