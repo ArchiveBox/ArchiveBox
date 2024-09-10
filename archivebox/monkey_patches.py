@@ -33,6 +33,8 @@ class ModifiedAccessLogGenerator(access.AccessLogGenerator):
         # Ignore noisy requests to staticfiles / favicons / etc.
         if 'GET /static/' in request:
             return
+        if "GET /health/" in request:
+            return
         if 'GET /admin/jsi18n/' in request:
             return
         if request.endswith("/favicon.ico") or request.endswith("/robots.txt") or request.endswith("/screenshot.png"):
