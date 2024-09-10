@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import List, Dict, Optional
 
+from django.conf import settings
+
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, Field
 from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName
@@ -101,9 +103,11 @@ class SinglefilePlugin(BasePlugin):
         SINGLEFILE_CONFIG,
         SINGLEFILE_BINARY,
         SINGLEFILE_EXTRACTOR,
+        SINGLEFILE_QUEUE,
     ]
 
 
 
 PLUGIN = SinglefilePlugin()
+PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig

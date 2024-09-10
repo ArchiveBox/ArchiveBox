@@ -2,6 +2,7 @@ from typing import List, Dict
 from subprocess import run, PIPE
 from pydantic import InstanceOf, Field
 
+from django.conf import settings
 
 from pydantic_pkgr import BinProvider, BinName, BinProviderName, ProviderLookupDict
 from plugantic.base_plugin import BasePlugin
@@ -74,4 +75,5 @@ class YtdlpPlugin(BasePlugin):
 
 
 PLUGIN = YtdlpPlugin()
+PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig

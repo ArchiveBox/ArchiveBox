@@ -1,14 +1,15 @@
 __package__ = 'archivebox.plugantic'
 
-import json
+import inspect
+from huey.api import TaskWrapper
+
+from pathlib import Path
 from typing import List, Literal
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
-HookType = Literal['CONFIG', 'BINPROVIDER', 'BINARY', 'EXTRACTOR', 'REPLAYER', 'CHECK', 'ADMINDATAVIEW']
-hook_type_names: List[HookType] = ['CONFIG', 'BINPROVIDER', 'BINARY', 'EXTRACTOR', 'REPLAYER', 'CHECK', 'ADMINDATAVIEW']
-
-
+HookType = Literal['CONFIG', 'BINPROVIDER', 'BINARY', 'EXTRACTOR', 'REPLAYER', 'CHECK', 'ADMINDATAVIEW', 'QUEUE']
+hook_type_names: List[HookType] = ['CONFIG', 'BINPROVIDER', 'BINARY', 'EXTRACTOR', 'REPLAYER', 'CHECK', 'ADMINDATAVIEW', 'QUEUE']
 
 class BaseHook(BaseModel):
     """
@@ -56,24 +57,37 @@ class BaseHook(BaseModel):
         validate_defaults=True,
         validate_assignment=False,
         revalidate_instances="subclass-instances",
+        ignored_types=(TaskWrapper, ),
     )
     
     # verbose_name: str = Field()
+    
+    is_registered: bool = False
+    is_ready: bool = False
 
 
     @computed_field
     @property
     def id(self) -> str:
         return self.__class__.__name__
-    
+
     @computed_field
     @property
     def hook_module(self) -> str:
+        """e.g. builtin_plugins.singlefile.apps.SinglefileConfigSet"""
         return f'{self.__module__}.{self.__class__.__name__}'
-    
+
+    @property
+    def plugin_module(self) -> str:
+        """e.g. builtin_plugins.singlefile"""
+        return f"{self.__module__}.{self.__class__.__name__}".split("archivebox.", 1)[-1].rsplit(".apps.", 1)[0]
+        
+    @computed_field
+    @property
+    def plugin_dir(self) -> Path:
+        return Path(inspect.getfile(self.__class__)).parent.resolve()
+
     hook_type: HookType = Field()
-    
-    
 
     def register(self, settings, parent_plugin=None):
         """Load a record of an installed hook into global Django settings.HOOKS at runtime."""
@@ -83,5 +97,20 @@ class BaseHook(BaseModel):
 
         # record installed hook in settings.HOOKS
         settings.HOOKS[self.id] = self
+        
+        if settings.HOOKS[self.id].is_registered:
+            raise Exception(f"Tried to run {self.hook_module}.register() but its already been called!")
+
+        settings.HOOKS[self.id].is_registered = True
 
         # print("REGISTERED HOOK:", self.hook_module)
+
+    def ready(self, settings):
+        """Runs any runtime code needed when AppConfig.ready() is called (after all models are imported)."""
+
+        assert self.id in settings.HOOKS, f"Tried to ready hook {self.hook_module} but it is not registered in settings.HOOKS."
+
+        if settings.HOOKS[self.id].is_ready:
+            raise Exception(f"Tried to run {self.hook_module}.ready() but its already been called!")
+
+        settings.HOOKS[self.id].is_ready = True

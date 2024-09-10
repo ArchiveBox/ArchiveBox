@@ -34,6 +34,9 @@ class BasePlugin(BaseModel):
     # All the hooks the plugin will install:
     hooks: List[InstanceOf[BaseHook]] = Field(default=[])
     
+    is_registered: bool = False
+    is_ready: bool = False
+    
     @computed_field
     @property
     def id(self) -> str:
@@ -81,7 +84,7 @@ class BasePlugin(BaseModel):
 
             def ready(self):
                 from django.conf import settings
-                plugin_self.register(settings)
+                plugin_self.ready(settings)
 
         return PluginAppConfig
 
@@ -97,9 +100,8 @@ class BasePlugin(BaseModel):
             hooks[hook.hook_type][hook.id] = hook
         return hooks
 
-
     def register(self, settings=None):
-        """Loads this plugin's configs, binaries, extractors, and replayers into global Django settings at runtime."""
+        """Loads this plugin's configs, binaries, extractors, and replayers into global Django settings at import time (before models are imported or any AppConfig.ready() are called)."""
 
         if settings is None:
             from django.conf import settings as django_settings
@@ -112,10 +114,33 @@ class BasePlugin(BaseModel):
         ### Mutate django.conf.settings... values in-place to include plugin-provided overrides
         settings.PLUGINS[self.id] = self
 
+        if settings.PLUGINS[self.id].is_registered:
+            raise Exception(f"Tried to run {self.plugin_module}.register() but its already been called!")
+
         for hook in self.hooks:
             hook.register(settings, parent_plugin=self)
 
+        settings.PLUGINS[self.id].is_registered = True
         # print('√ REGISTERED PLUGIN:', self.plugin_module)
+
+    def ready(self, settings=None):
+        """Runs any runtime code needed when AppConfig.ready() is called (after all models are imported)."""
+
+        if settings is None:
+            from django.conf import settings as django_settings
+            settings = django_settings
+
+        assert (
+            self.id in settings.PLUGINS and settings.PLUGINS[self.id].is_registered
+        ), f"Tried to run plugin.ready() for {self.plugin_module} but plugin is not yet registered in settings.PLUGINS."
+
+        if settings.PLUGINS[self.id].is_ready:
+            raise Exception(f"Tried to run {self.plugin_module}.ready() but its already been called!")
+
+        for hook in self.hooks:
+            hook.ready(settings)
+        
+        settings.PLUGINS[self.id].is_ready = True
 
     # @validate_call
     # def install_binaries(self) -> Self:

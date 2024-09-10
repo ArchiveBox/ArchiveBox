@@ -3,6 +3,7 @@ __package__ = 'archivebox.builtin_plugins.npm'
 from typing import List, Optional
 from pydantic import InstanceOf, Field
 
+from django.conf import settings
 
 from pydantic_pkgr import BinProvider, NpmProvider, BinName, PATHStr
 from plugantic.base_plugin import BasePlugin
@@ -65,4 +66,5 @@ class NpmPlugin(BasePlugin):
 
 
 PLUGIN = NpmPlugin()
+PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig

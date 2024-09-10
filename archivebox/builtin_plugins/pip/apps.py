@@ -9,6 +9,7 @@ import django
 
 from django.db.backends.sqlite3.base import Database as sqlite3     # type: ignore[import-type]
 from django.core.checks import Error, Tags
+from django.conf import settings
 
 from pydantic_pkgr import BinProvider, PipProvider, BinName, PATHStr, BinProviderName, ProviderLookupDict, SemVer
 from plugantic.base_plugin import BasePlugin
@@ -139,4 +140,5 @@ class PipPlugin(BasePlugin):
     ]
 
 PLUGIN = PipPlugin()
+PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig
