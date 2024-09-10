@@ -91,7 +91,7 @@ def stop_existing_supervisord_process():
         proc.terminate()
         proc.wait()
     except Exception:
-        raise
+        pass
     try:
         PID_FILE.unlink()
     except FileNotFoundError:
