@@ -26,6 +26,7 @@ build/
 dist/
 
 # Data folders
+tmp/
 data/
 data*/
 output/
