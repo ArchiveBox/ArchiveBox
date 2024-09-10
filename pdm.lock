@@ -5,7 +5,7 @@
 groups = ["default", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:ec23de8c5caf198c09f35e79411990eba9ed095da475f694d2a837c9a93d9bb1"
+content_hash = "sha256:6b7f39d2d95e4d463b535cf522ebc9d388a2ce5502d46b9f8ae320861bb34b0e"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -519,14 +519,14 @@ files = [
 
 [[package]]
 name = "django-object-actions"
-version = "4.2.0"
-requires_python = ">=3.7,<4.0"
+version = "4.3.0"
+requires_python = "<4.0,>=3.7"
 summary = "A Django app for adding object tools for models in the admin"
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "django_object_actions-4.2.0-py3-none-any.whl", hash = "sha256:ae0df9984c68a4f42f219a391b71fa0630fe44a2983b39b8064378ebddcff30c"},
-    {file = "django_object_actions-4.2.0.tar.gz", hash = "sha256:e24befedf01b6fcdccbb03c33c0e2c855fd1a88f352a66dc7e2170ba31e80128"},
+    {file = "django_object_actions-4.3.0-py3-none-any.whl", hash = "sha256:1af87dedcfd5a35207a4b90c386c059e5f02ecf1d954e3131e25f4a04d01c963"},
+    {file = "django_object_actions-4.3.0.tar.gz", hash = "sha256:611f768d768c9ca7b48278573feb7c07966174f5c50a9323ab4d02d0c4b7501e"},
 ]
 
 [[package]]
@@ -905,6 +905,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pocket"
+version = "0.3.7"
+git = "https://github.com/tapanpandita/pocket.git"
+ref = "v0.3.7"
+revision = "5a144438cc89bfc0ec94db960718ccf1f76468c1"
+summary = "api wrapper for getpocket.com"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "requests",
+]
+
+[[package]]
 name = "prompt-toolkit"
 version = "3.0.47"
 requires_python = ">=3.7.0"
@@ -1008,26 +1021,25 @@ files = [
 
 [[package]]
 name = "pydantic"
-version = "2.9.0"
+version = "2.9.1"
 requires_python = ">=3.8"
 summary = "Data validation using Python type hints"
 groups = ["default"]
 marker = "python_version == \"3.11\""
 dependencies = [
-    "annotated-types>=0.4.0",
-    "pydantic-core==2.23.2",
+    "annotated-types>=0.6.0",
+    "pydantic-core==2.23.3",
     "typing-extensions>=4.12.2; python_version >= \"3.13\"",
     "typing-extensions>=4.6.1; python_version < \"3.13\"",
-    "tzdata; python_version >= \"3.9\"",
 ]
 files = [
-    {file = "pydantic-2.9.0-py3-none-any.whl", hash = "sha256:f66a7073abd93214a20c5f7b32d56843137a7a2e70d02111f3be287035c45370"},
-    {file = "pydantic-2.9.0.tar.gz", hash = "sha256:c7a8a9fdf7d100afa49647eae340e2d23efa382466a8d177efcd1381e9be5598"},
+    {file = "pydantic-2.9.1-py3-none-any.whl", hash = "sha256:7aff4db5fdf3cf573d4b3c30926a510a10e19a0774d38fc4967f78beb6deb612"},
+    {file = "pydantic-2.9.1.tar.gz", hash = "sha256:1363c7d975c7036df0db2b4a61f2e062fbc0aa5ab5f2772e0ffc7191a4f4bce2"},
 ]
 
 [[package]]
 name = "pydantic-core"
-version = "2.23.2"
+version = "2.23.3"
 requires_python = ">=3.8"
 summary = "Core functionality for Pydantic validation and serialization"
 groups = ["default"]
@@ -1036,9 +1048,9 @@ dependencies = [
     "typing-extensions!=4.7.0,>=4.6.0",
 ]
 files = [
-    {file = "pydantic_core-2.23.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:7e9b24cca4037a561422bf5dc52b38d390fb61f7bfff64053ce1b72f6938e6b2"},
-    {file = "pydantic_core-2.23.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8d5b0ff3218858859910295df6953d7bafac3a48d5cd18f4e3ed9999efd2245f"},
-    {file = "pydantic_core-2.23.2.tar.gz", hash = "sha256:95d6bf449a1ac81de562d65d180af5d8c19672793c81877a2eda8fde5d08f2fd"},
+    {file = "pydantic_core-2.23.3-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:ea85bda3189fb27503af4c45273735bcde3dd31c1ab17d11f37b04877859ef45"},
+    {file = "pydantic_core-2.23.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e2c409ce1c219c091e47cb03feb3c4ed8c2b8e004efc940da0166aaee8f9d6c8"},
+    {file = "pydantic_core-2.23.3.tar.gz", hash = "sha256:3cb0f65d8b4121c1b015c60104a685feb929a29d7cf204387c7f2688c7974690"},
 ]
 
 [[package]]
@@ -1418,18 +1430,6 @@ marker = "python_version == \"3.11\""
 files = [
     {file = "typing_extensions-4.12.2-py3-none-any.whl", hash = "sha256:04e5ca0351e0f3f85c6853954072df659d0d13fac324d0072316b67d7794700d"},
     {file = "typing_extensions-4.12.2.tar.gz", hash = "sha256:1a7ead55c7e559dd4dee8856e3a88b41225abfe1ce8df57b7c13915fe121ffb8"},
-]
-
-[[package]]
-name = "tzdata"
-version = "2024.1"
-requires_python = ">=2"
-summary = "Provider of IANA time zone data"
-groups = ["default"]
-marker = "python_version == \"3.11\""
-files = [
-    {file = "tzdata-2024.1-py2.py3-none-any.whl", hash = "sha256:9068bc196136463f5245e51efda838afa15aaeca9903f49050dfa2679db4d252"},
-    {file = "tzdata-2024.1.tar.gz", hash = "sha256:2674120f8d891909751c38abcdfd386ac0a5a1127954fbc332af6b5ceae07efd"},
 ]
 
 [[package]]
