@@ -37,7 +37,7 @@ is_valid_cli_module = lambda module, subcommand: (
 )
 
 
-IGNORED_BG_THREADS = ('MainThread', 'ThreadPoolExecutor', 'IPythonHistorySavingThread')  # threads we dont have to wait for before exiting
+IGNORED_BG_THREADS = ('MainThread', 'ThreadPoolExecutor', 'IPythonHistorySavingThread', 'Scheduler')  # threads we dont have to wait for before exiting
 
 
 def wait_for_bg_threads_to_exit(thread_names: Iterable[str]=(), ignore_names: Iterable[str]=IGNORED_BG_THREADS, timeout: int=60) -> int:

@@ -23,6 +23,9 @@ from admin_data_views.utils import render_with_table_view, render_with_item_view
 
 from core.models import Snapshot
 from core.forms import AddLinkForm
+from core.admin import result_url
+
+from queues.tasks import bg_add
 
 from ..config import (
     OUTPUT_DIR,
@@ -478,15 +481,14 @@ class AddView(UserPassesTestMixin, FormView):
         if extractors:
             input_kwargs.update({"extractors": extractors})
 
-        bg_thread = threading.Thread(target=add, kwargs=input_kwargs)
-        bg_thread.setDaemon(True)
-        bg_thread.start()
+        result = bg_add(input_kwargs, parent_task_id=None)
+        print('Started background add job:', result)
 
         rough_url_count = url.count('://')
 
         messages.success(
             self.request,
-            f"Adding {rough_url_count} URLs in the background. (refresh in a few minutes to see results)",
+            mark_safe(f"Adding {rough_url_count} URLs in the background. (refresh in a few minutes to see results) {result_url(result)}"),
         )
 
         return redirect("/admin/core/snapshot/")

@@ -13,27 +13,13 @@ readme = "README.md"
 # pdm update --unconstrained
 dependencies = [
     # Last Bumped: 2024-08-20
-    # Base Framework and Language Dependencies
+    ############# Django / Core Libraries #############
     "setuptools>=69.5.1",
     "django>=5.0.4,<6.0",
     "django-ninja>=1.1.0",
     "django-extensions>=3.2.3",
     "mypy-extensions>=1.0.0",
-    # Python Helper Libraries
-    "requests>=2.31.0",
-    "dateparser>=1.0.0",
-    "feedparser>=6.0.11",
-    "w3lib>=2.1.2",
-    "rich>=13.8.0",
-    "ulid-py>=1.1.0",
-    "typeid-python>=0.3.0",
-    # Feature-Specific Dependencies
-    "python-crontab>=3.0.0",          # for: archivebox schedule
-    "croniter>=2.0.5",                # for: archivebox schedule
-    "ipython>=8.23.0",                # for: archivebox shell
-    # Extractor Dependencies
-    "yt-dlp>=2024.8.6",               # for: media
-    # "playwright>=1.43.0; platform_machine != 'armv7l'",  # WARNING: playwright doesn't have any sdist, causes trouble on build systems that refuse to install wheel-only packages
+    "channels[daphne]>=4.1.0",
     "django-signal-webhooks>=0.3.0",
     "django-admin-data-views>=0.3.1",
     "django-object-actions>=4.2.0",
@@ -41,6 +27,22 @@ dependencies = [
     "django-pydantic-field>=0.3.9",
     "django-jsonform>=2.22.0",
     "django-stubs>=5.0.2",
+    "django-huey>=1.2.1",
+    "django-huey-monitor>=0.9.0",
+    ############# Python Helper Libraries ############
+    "requests>=2.31.0",
+    "dateparser>=1.0.0",
+    "feedparser>=6.0.11",
+    "w3lib>=2.1.2",
+    "rich>=13.8.0",
+    "ulid-py>=1.1.0",
+    "typeid-python>=0.3.0",
+    "psutil>=6.0.0",
+    "supervisor>=4.2.5",
+    "python-crontab>=3.0.0",          # for: archivebox schedule
+    "croniter>=2.0.5",                # for: archivebox schedule
+    "ipython>=8.23.0",                # for: archivebox shell
+    ############# VENDORED LIBS ######################
     # these can be safely omitted when installation subsystem does not provide these as packages (e.g. apt/debian)
     # archivebox will automatically load fallback vendored copies bundled via archivebox/vendor/__init__.py
     "pydantic-pkgr>=0.1.4",
@@ -48,7 +50,8 @@ dependencies = [
     "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
     "django-taggit==1.3.0",
     "base32-crockford==0.3.0",
-    "channels[daphne]>=4.1.0",
+    ############# Extractor Dependencies #############
+    "yt-dlp>=2024.8.6",               # for: media
 ]
 
 homepage = "https://github.com/ArchiveBox/ArchiveBox"

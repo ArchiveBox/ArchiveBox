@@ -148,17 +148,16 @@ def list_migrations(out_dir: Path=OUTPUT_DIR) -> List[Tuple[bool, str]]:
 @enforce_types
 def apply_migrations(out_dir: Path=OUTPUT_DIR) -> List[str]:
     from django.core.management import call_command
-    null, out = StringIO(), StringIO()
-    try:
-        call_command("makemigrations", interactive=False, stdout=null)
-    except Exception as e:
-        print('[!] Failed to create some migrations. Please open an issue and copy paste this output for help: {}'.format(e))
-        print()
+    out1, out2 = StringIO(), StringIO()
     
-    call_command("migrate", interactive=False, stdout=out)
-    out.seek(0)
+    call_command("migrate", interactive=False, database='default', stdout=out1)
+    out1.seek(0)
+    call_command("migrate", "huey_monitor", interactive=False, database='queue', stdout=out2)
+    out2.seek(0)
 
-    return [line.strip() for line in out.readlines() if line.strip()]
+    return [
+        line.strip() for line in out1.readlines() + out2.readlines() if line.strip()
+    ]
 
 @enforce_types
 def get_admins(out_dir: Path=OUTPUT_DIR) -> List[str]:

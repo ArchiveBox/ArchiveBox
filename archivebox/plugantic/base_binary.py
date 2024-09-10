@@ -12,13 +12,13 @@ from ..config_stubs import AttrDict
 
 class BaseBinProvider(BaseHook, BinProvider):
     hook_type: HookType = 'BINPROVIDER'
-    
+
     # def on_get_abspath(self, bin_name: BinName, **context) -> Optional[HostBinPath]:
     #     Class = super()
     #     get_abspath_func = lambda: Class.on_get_abspath(bin_name, **context)
     #     # return cache.get_or_set(f'bin:abspath:{bin_name}', get_abspath_func)
     #     return get_abspath_func()
-    
+
     # def on_get_version(self, bin_name: BinName, abspath: Optional[HostBinPath]=None, **context) -> SemVer | None:
     #     Class = super()
     #     get_version_func = lambda: Class.on_get_version(bin_name, abspath, **context)

@@ -12,6 +12,7 @@ from plugantic.base_plugin import BasePlugin
 from plugantic.base_configset import BaseConfigSet, ConfigSectionName
 from plugantic.base_binary import BaseBinary, env
 from plugantic.base_extractor import BaseExtractor
+from plugantic.base_queue import BaseQueue
 from plugantic.base_hook import BaseHook
 
 # Depends on Other Plugins:
@@ -94,6 +95,13 @@ class SinglefileExtractor(BaseExtractor):
 
 SINGLEFILE_BINARY = SinglefileBinary()
 SINGLEFILE_EXTRACTOR = SinglefileExtractor()
+
+class SinglefileQueue(BaseQueue):
+    name: str = 'singlefile'
+    
+    binaries: List[InstanceOf[BaseBinary]] = [SINGLEFILE_BINARY]
+
+SINGLEFILE_QUEUE = SinglefileQueue()
 
 class SinglefilePlugin(BasePlugin):
     app_label: str ='singlefile'

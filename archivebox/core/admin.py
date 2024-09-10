@@ -30,6 +30,7 @@ from core.models import Snapshot, ArchiveResult, Tag
 from core.mixins import SearchResultsAdminMixin
 from api.models import APIToken
 from abid_utils.admin import ABIDModelAdmin
+from queues.tasks import bg_archive_links, bg_add
 
 from index.html import snapshot_icons
 from logging_util import printable_filesize
@@ -137,6 +138,8 @@ class CustomUserAdmin(UserAdmin):
         ) + f'<br/><a href="/admin/api/outboundwebhook/?created_by__id__exact={obj.pk}">{total_count} total records...<a>')
 
 
+
+
 archivebox_admin = ArchiveBoxAdmin()
 archivebox_admin.register(get_user_model(), CustomUserAdmin)
 archivebox_admin.disable_action('delete_selected')
@@ -153,6 +156,28 @@ archivebox_admin.get_app_list = get_app_list.__get__(archivebox_admin, ArchiveBo
 archivebox_admin.admin_data_index_view = admin_data_index_view.__get__(archivebox_admin, ArchiveBoxAdmin)       # type: ignore
 archivebox_admin.get_admin_data_urls = get_admin_data_urls.__get__(archivebox_admin, ArchiveBoxAdmin)           # type: ignore
 archivebox_admin.get_urls = get_urls(archivebox_admin.get_urls).__get__(archivebox_admin, ArchiveBoxAdmin)
+
+
+from huey_monitor.apps import HueyMonitorConfig
+HueyMonitorConfig.verbose_name = 'Background Workers'
+
+from huey_monitor.admin import TaskModel, TaskModelAdmin, SignalInfoModel, SignalInfoModelAdmin
+archivebox_admin.register(SignalInfoModel, SignalInfoModelAdmin)
+
+
+class CustomTaskModelAdmin(TaskModelAdmin):
+    actions = ["delete_selected"]
+
+    def has_delete_permission(self, request, obj=None):
+        codename = get_permission_codename("delete", self.opts)
+        return request.user.has_perm("%s.%s" % (self.opts.app_label, codename))
+
+
+archivebox_admin.register(TaskModel, CustomTaskModelAdmin)
+
+def result_url(result: TaskModel) -> str:
+    url = reverse("admin:huey_monitor_taskmodel_change", args=[str(result.id)])
+    return format_html('<a href="{url}" class="fade-in-progress-url">See progress...</a>'.format(url=url))
 
 
 class AccelleratedPaginator(Paginator):
@@ -515,65 +540,53 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
             archive_links(links, overwrite=True, methods=('title','favicon'), out_dir=CONFIG.OUTPUT_DIR)
             messages.success(request, f"Title and favicon have been fetched and saved for {len(links)} URLs.")
         else:
-            # otherwise run in a bg thread
-            bg_thread = threading.Thread(
-                target=archive_links,
-                args=(links,),
-                kwargs={"overwrite": True, "methods": ['title', 'favicon'], "out_dir": CONFIG.OUTPUT_DIR},
+            # otherwise run in a background worker
+            result = bg_archive_links((links,), kwargs={"overwrite": True, "methods": ["title", "favicon"], "out_dir": CONFIG.OUTPUT_DIR})
+            messages.success(
+                request,
+                mark_safe(f"Title and favicon are updating in the background for {len(links)} URLs. {result_url(result)}"),
             )
-            bg_thread.setDaemon(True)
-            bg_thread.start()
-            messages.success(request, f"Title and favicon are updating in the background for {len(links)} URLs. (refresh in a few minutes to see results)")
 
     @admin.action(
         description="⬇️ Get Missing"
     )
     def update_snapshots(self, request, queryset):
         links = [snapshot.as_link() for snapshot in queryset]
-        bg_thread = threading.Thread(
-            target=archive_links,
-            args=(links,),
-            kwargs={"overwrite": False, "out_dir": CONFIG.OUTPUT_DIR},
-        )
-        bg_thread.setDaemon(True)
-        bg_thread.start()
+
+        result = bg_archive_links((links,), kwargs={"overwrite": False, "out_dir": CONFIG.OUTPUT_DIR})
+
         messages.success(
-            request, f"Re-trying any previously failed methods for {len(links)} URLs in the background. (refresh in a few minutes to see results)"
+            request,
+            mark_safe(f"Re-trying any previously failed methods for {len(links)} URLs in the background. {result_url(result)}"),
         )
 
 
     @admin.action(
-        description="📑 Archive again"
+        description="🆕 Archive Again"
     )
     def resnapshot_snapshot(self, request, queryset):
         for snapshot in queryset:
             timestamp = timezone.now().isoformat('T', 'seconds')
             new_url = snapshot.url.split('#')[0] + f'#{timestamp}'
 
-            bg_thread = threading.Thread(target=add, args=(new_url,), kwargs={'tag': snapshot.tags_str()})
-            bg_thread.setDaemon(True)
-            bg_thread.start()
+            result = bg_add({'urls': new_url, 'tag': snapshot.tags_str()})
 
         messages.success(
             request,
-            f"Creating new fresh snapshots for {len(queryset.count())} URLs in the background. (refresh in a few minutes to see results)",
+            mark_safe(f"Creating new fresh snapshots for {queryset.count()} URLs in the background. {result_url(result)}"),
         )
 
     @admin.action(
-        description="♲ Redo"
+        description="🔄 Redo"
     )
     def overwrite_snapshots(self, request, queryset):
         links = [snapshot.as_link() for snapshot in queryset]
-        bg_thread = threading.Thread(
-            target=archive_links,
-            args=(links,),
-            kwargs={"overwrite": True, "out_dir": CONFIG.OUTPUT_DIR},
-        )
-        bg_thread.setDaemon(True)
-        bg_thread.start()
+
+        result = bg_archive_links((links,), kwargs={"overwrite": True, "out_dir": CONFIG.OUTPUT_DIR})
+
         messages.success(
             request,
-            f"Clearing all previous results and re-downloading {len(links)} URLs in the background. (refresh in a few minutes to see results)",
+            mark_safe(f"Clearing all previous results and re-downloading {len(links)} URLs in the background. {result_url(result)}"),
         )
 
     @admin.action(
@@ -583,7 +596,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
         remove(snapshots=queryset, yes=True, delete=True, out_dir=CONFIG.OUTPUT_DIR)
         messages.success(
             request,
-            f"Succesfully deleted {len(queryset.count())} Snapshots. Don't forget to scrub URLs from import logs (data/sources) and error logs (data/logs) if needed.",
+            mark_safe(f"Succesfully deleted {queryset.count()} Snapshots. Don't forget to scrub URLs from import logs (data/sources) and error logs (data/logs) if needed."),
         )
 
 
@@ -597,7 +610,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
             obj.tags.add(*tags)
         messages.success(
             request,
-            f"Added {len(tags)} tags to {len(queryset.count())} Snapshots.",
+            f"Added {len(tags)} tags to {queryset.count()} Snapshots.",
         )
 
 
@@ -611,7 +624,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
             obj.tags.remove(*tags)
         messages.success(
             request,
-            f"Removed {len(tags)} tags from {len(queryset.count())} Snapshots.",
+            f"Removed {len(tags)} tags from {queryset.count()} Snapshots.",
         )
 
 
@@ -726,7 +739,6 @@ class ArchiveResultAdmin(ABIDModelAdmin):
             root_dir = str(path_from_output_str)
         else:
             root_dir = str(snapshot_dir)
-
 
         # print(root_dir, str(list(os.walk(root_dir))))
 

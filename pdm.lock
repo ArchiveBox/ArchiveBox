@@ -5,7 +5,7 @@
 groups = ["default", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:c890335ff9967151514ff57e709d8b39c19f51edce5d15fb1b15c0a276a573f9"
+content_hash = "sha256:ec23de8c5caf198c09f35e79411990eba9ed095da475f694d2a837c9a93d9bb1"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -174,6 +174,34 @@ dependencies = [
 files = [
     {file = "brotlicffi-1.1.0.0-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9feb210d932ffe7798ee62e6145d3a757eb6233aa9a4e7db78dd3690d7755814"},
     {file = "brotlicffi-1.1.0.0.tar.gz", hash = "sha256:b77827a689905143f87915310b93b273ab17888fd43ef350d4832c4a71083c13"},
+]
+
+[[package]]
+name = "bx-django-utils"
+version = "79"
+summary = "Various Django utility functions"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "bx-py-utils>=92",
+    "django>=4.2",
+    "python-stdnum",
+]
+files = [
+    {file = "bx_django_utils-79-py3-none-any.whl", hash = "sha256:d50b10ace24b0b363574542faecf04a81029e2fec6d6e6525fe063ed06238e04"},
+    {file = "bx_django_utils-79.tar.gz", hash = "sha256:cb66087d4e9396281acf5a4394b749cff3062b66082d5726f6a8a342fdd35d0e"},
+]
+
+[[package]]
+name = "bx-py-utils"
+version = "101"
+requires_python = "<4,>=3.10"
+summary = "Various Python utility functions"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "bx_py_utils-101-py3-none-any.whl", hash = "sha256:eece1f0b1e3c091d38f3013984056b05f43c6a0fd716489cf337d89df802ab59"},
+    {file = "bx_py_utils-101.tar.gz", hash = "sha256:2aa295cde55da99b77f5f2f8b5bf8c0bec7e0046511832989ecbb1a43183cf75"},
 ]
 
 [[package]]
@@ -425,6 +453,40 @@ files = [
 ]
 
 [[package]]
+name = "django-huey"
+version = "1.2.1"
+requires_python = ">=3.8"
+summary = "An extension for django and huey that supports multi queue management"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "django>=3.2",
+    "huey>=2.0",
+]
+files = [
+    {file = "django_huey-1.2.1-py3-none-any.whl", hash = "sha256:59c82b72fd4b6e60c219bd1fbab78acfe68a1c8d3efb1d3e42798a67d01a4aa2"},
+    {file = "django_huey-1.2.1.tar.gz", hash = "sha256:634abf1e707acef90dd00df4267458486f89a3117419000ec5584b1c4129701a"},
+]
+
+[[package]]
+name = "django-huey-monitor"
+version = "0.9.0"
+requires_python = ">=3.10"
+summary = "Django based tool for monitoring huey task queue: https://github.com/coleifer/huey"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "bx-django-utils",
+    "bx-py-utils",
+    "django",
+    "huey",
+]
+files = [
+    {file = "django-huey-monitor-0.9.0.tar.gz", hash = "sha256:03366d98579c07e132672aa760373949fecec108a0e91229e870bb21453c800b"},
+    {file = "django_huey_monitor-0.9.0-py3-none-any.whl", hash = "sha256:1d5922d182e138e288f99d6cdb326cbed20c831d4c906c96cba148b0979e648a"},
+]
+
+[[package]]
 name = "django-jsonform"
 version = "2.22.0"
 requires_python = ">=3.4"
@@ -644,6 +706,16 @@ files = [
 ]
 
 [[package]]
+name = "huey"
+version = "2.5.1"
+summary = "huey, a little task queue"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "huey-2.5.1.tar.gz", hash = "sha256:8a323783ab434a095a4e72b8c48c5b8f957f9031fa860474a390a0927e957112"},
+]
+
+[[package]]
 name = "hyperlink"
 version = "21.0.0"
 requires_python = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
@@ -833,19 +905,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pocket"
-version = "0.3.7"
-git = "https://github.com/tapanpandita/pocket.git"
-ref = "v0.3.7"
-revision = "5a144438cc89bfc0ec94db960718ccf1f76468c1"
-summary = "api wrapper for getpocket.com"
-groups = ["default"]
-marker = "python_version == \"3.11\""
-dependencies = [
-    "requests",
-]
-
-[[package]]
 name = "prompt-toolkit"
 version = "3.0.47"
 requires_python = ">=3.7.0"
@@ -858,6 +917,19 @@ dependencies = [
 files = [
     {file = "prompt_toolkit-3.0.47-py3-none-any.whl", hash = "sha256:0d7bfa67001d5e39d02c224b663abc33687405033a8c422d0d675a5a13361d10"},
     {file = "prompt_toolkit-3.0.47.tar.gz", hash = "sha256:1e1b29cb58080b1e69f207c893a1a7bf16d127a5c30c9d17a25a5d77792e5360"},
+]
+
+[[package]]
+name = "psutil"
+version = "6.0.0"
+requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,>=2.7"
+summary = "Cross-platform lib for process and system monitoring in Python."
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "psutil-6.0.0-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5fd9a97c8e94059b0ef54a7d4baf13b405011176c3b6ff257c247cae0d560ecd"},
+    {file = "psutil-6.0.0-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:ffe7fc9b6b36beadc8c322f84e1caff51e8703b88eee1da46d1e3a6ae11b4fd0"},
+    {file = "psutil-6.0.0.tar.gz", hash = "sha256:8faae4f310b6d969fa26ca0545338b21f73c6b15db7c4a8d934a5482faa818f2"},
 ]
 
 [[package]]
@@ -1058,6 +1130,17 @@ files = [
 ]
 
 [[package]]
+name = "python-stdnum"
+version = "1.20"
+summary = "Python module to handle standardized numbers and codes"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "python-stdnum-1.20.tar.gz", hash = "sha256:ad2a2cf2eb025de408210235f36b4ae31252de3186240ccaa8126e117cb82690"},
+    {file = "python_stdnum-1.20-py2.py3-none-any.whl", hash = "sha256:111008e10391d54fb2afad2a10df70d5cb0c6c0a7ec82fec6f022cb8712961d3"},
+]
+
+[[package]]
 name = "pytz"
 version = "2024.1"
 summary = "World timezone definitions, modern and historical"
@@ -1218,6 +1301,20 @@ dependencies = [
 files = [
     {file = "stack_data-0.6.3-py3-none-any.whl", hash = "sha256:d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695"},
     {file = "stack_data-0.6.3.tar.gz", hash = "sha256:836a778de4fec4dcd1dcd89ed8abff8a221f58308462e1c4aa2a3cf30148f0b9"},
+]
+
+[[package]]
+name = "supervisor"
+version = "4.2.5"
+summary = "A system for controlling process state under UNIX"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "setuptools",
+]
+files = [
+    {file = "supervisor-4.2.5-py2.py3-none-any.whl", hash = "sha256:2ecaede32fc25af814696374b79e42644ecaba5c09494c51016ffda9602d0f08"},
+    {file = "supervisor-4.2.5.tar.gz", hash = "sha256:34761bae1a23c58192281a5115fb07fbf22c9b0133c08166beffc70fed3ebc12"},
 ]
 
 [[package]]

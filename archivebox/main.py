@@ -1,8 +1,10 @@
 __package__ = 'archivebox'
 
 import os
+import time
 import sys
 import shutil
+import signal
 import platform
 import subprocess
 
@@ -1352,6 +1354,7 @@ def server(runserver_args: Optional[List[str]]=None,
     if reload or debug:
         call_command("runserver", *runserver_args)
     else:
+        
         host = '127.0.0.1'
         port = '8000'
         
@@ -1367,12 +1370,52 @@ def server(runserver_args: Optional[List[str]]=None,
         except IndexError:
             pass
 
+        from queues.supervisor_util import get_or_create_supervisord_process, start_worker, stop_worker, watch_worker
+
+        print()
+        supervisor = get_or_create_supervisord_process(daemonize=False)
+
+        bg_workers = [
+            {
+                "name": "worker_system_tasks",
+                "command": "archivebox manage djangohuey --queue system_tasks",
+                "autostart": "true",
+                "autorestart": "true",
+                "stdout_logfile": "logs/worker_system_tasks.log",
+                "redirect_stderr": "true",
+            },
+        ]
+        fg_worker = {
+            "name": "worker_daphne",
+            "command": f"daphne --bind={host} --port={port} --application-close-timeout=600 archivebox.core.asgi:application",
+            "autostart": "false",
+            "autorestart": "true",
+            "stdout_logfile": "logs/worker_daphne.log",
+            "redirect_stderr": "true",
+        }
+
+        print()
+        for worker in bg_workers:
+            start_worker(supervisor, worker)
+
+        print()
+        start_worker(supervisor, fg_worker)
+        print()
+
         try:
-            subprocess.run(['daphne', '--bind', host, '--port', port, 'archivebox.core.asgi:application'])
-        except (SystemExit, KeyboardInterrupt):
+            watch_worker(supervisor, "worker_daphne")
+        except KeyboardInterrupt:
+            print("\n[🛑] Got Ctrl+C, stopping gracefully...")
+        except SystemExit:
             pass
-        except Exception as e:
-            print(e)
+        except BaseException as e:
+            print(f"\n[🛑] Got {e.__class__.__name__} exception, stopping web server gracefully...")
+            raise
+        finally:
+            stop_worker(supervisor, "worker_daphne")
+            time.sleep(0.5)
+
+        print("\n[🟩] ArchiveBox server shut down gracefully.")
 
 
 @enforce_types
