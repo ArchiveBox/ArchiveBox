@@ -311,6 +311,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 DATA_UPLOAD_MAX_NUMBER_FIELDS = None
+DATA_UPLOAD_MAX_MEMORY_SIZE = 26_214_400  # 25MB
 
 ################################################################################
 ### Shell Settings
