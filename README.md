@@ -790,7 +790,19 @@ ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.c
 <p><em>TIP: For better security while running ArchiveBox, and to avoid polluting your host system with a bunch of sub-dependencies that you need to keep up-to-date,<strong>it is strongly recommended to use the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker">⭐️ official Docker image</a></strong> which provides everything in an easy container with simple one-liner upgrades.</em></p>
 </blockquote>
 
-These optional dependencies used for archiving sites include:
+<ul>
+<li>Language: Python <code>&gt;=3.10</code></li>
+<li>Backend: <a href="https://www.djangoproject.com/">Django</a> + <a href="https://django-ninja.dev/">Django-Ninja</a> for REST API</li>
+<li>Frontend: <a href="https://docs.djangoproject.com/en/5.1/ref/contrib/admin/">Django Admin</a> + Vanilla HTML, CSS, JS</li>
+<li>Web Server: <a href="https://www.djangoproject.com/">Django</a> + <a href="https://channels.readthedocs.io/en/latest/"><code>channels</code></a> + <a href="https://github.com/django/daphne/"><code>daphne]</code></a></li>
+<li>Database: <a href="https://docs.djangoproject.com/en/5.1/ref/databases/#sqlite-notes">Django ORM</a> saving to <a href="https://www.sqlite.org/mostdeployed.html">SQLite3</a> <code>./data/index.sqlite</code></li>
+<li>Job Queue: <a href="https://huey.readthedocs.io/">Huey</a> using <code>./data/queue.sqlite3</code> under <code>supervisord</code></li>
+<li>Build/test/lint: <a href="https://github.com/pdm-project/pdm"><code>pdm</code></a> / <code>mypy</code>+<code>pyright</code>+<code>pytest</code> / <code>ruff</code></li>
+<li>Subdependencies: <a href="https://github.com/ArchiveBox/pydantic-pkgr"><code>pydantic-pkgr</code></a> installs apt/brew/pip/npm pkgs at runtime (e.g. <code>yt-dlp</code>, <code>singlefile</code>, <code>readability</code>, <code>git</code>)</li>
+</ul>
+
+
+These optional subdependencies used for archiving sites include:
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/62a02155-05d7-4f3e-8de5-75a50a145c4f" alt="archivebox --version CLI output screenshot showing dependencies installed" width="330px" align="right" style="max-width: 100%;">
 
@@ -1387,18 +1399,6 @@ docker run -it -p 8000:8000 \
 ```
 
 </details>
-
-### Architecture
-
-- Language: Python `>=3.10`
-- Backend: [Django](https://www.djangoproject.com/) + [Django-Ninja](https://django-ninja.dev/) for REST API
-- Frontend: [Django Admin](https://docs.djangoproject.com/en/5.1/ref/contrib/admin/) + Vanilla HTML, CSS, JS
-- Web Server: [Django](https://www.djangoproject.com/) + [`channels`](https://channels.readthedocs.io/en/latest/) + [`daphne]`](https://github.com/django/daphne/)
-- Database: [Django ORM](https://docs.djangoproject.com/en/5.1/ref/databases/#sqlite-notes) saving to [SQLite3](https://www.sqlite.org/mostdeployed.html) `./data/index.sqlite`
-- Job Queue: [Huey](https://huey.readthedocs.io/) using `./data/queue.sqlite3` under `supervisord`
-- Subdependencies: [`pydantic-pkgr`](https://github.com/ArchiveBox/pydantic-pkgr) installs apt/brew/pip/npm pkgs at runtime (e.g. `yt-dlp`, `singlefile`, `readability`, `git`)
-- Build/test/lint: [`pdm`](https://github.com/pdm-project/pdm) / `mypy`+`pyright`+`pytest` / `ruff`
-
 
 ### Common development tasks
 
