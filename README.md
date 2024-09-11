@@ -1388,6 +1388,18 @@ docker run -it -p 8000:8000 \
 
 </details>
 
+### Architecture
+
+- Language: Python `>=3.10`
+- Backend: [Django](https://www.djangoproject.com/) + [Django-Ninja](https://django-ninja.dev/) for REST API
+- Frontend: [Django Admin](https://docs.djangoproject.com/en/5.1/ref/contrib/admin/) + Vanilla HTML, CSS, JS
+- Web Server: [Django](https://www.djangoproject.com/) + [`channels`](https://channels.readthedocs.io/en/latest/) + [`daphne]`](https://github.com/django/daphne/)
+- Database: [Django ORM](https://docs.djangoproject.com/en/5.1/ref/databases/#sqlite-notes) saving to [SQLite3](https://www.sqlite.org/mostdeployed.html) `./data/index.sqlite`
+- Job Queue: [Huey](https://huey.readthedocs.io/) using `./data/queue.sqlite3` under `supervisord`
+- Subdependencies: [`pydantic-pkgr`](https://github.com/ArchiveBox/pydantic-pkgr) installs apt/brew/pip/npm pkgs at runtime (e.g. `yt-dlp`, `singlefile`, `readability`, `git`)
+- Build/test/lint: [`pdm`](https://github.com/pdm-project/pdm) / `mypy`+`pyright`+`pytest` / `ruff`
+
+
 ### Common development tasks
 
 See the `./bin/` folder and read the source of the bash scripts within.
