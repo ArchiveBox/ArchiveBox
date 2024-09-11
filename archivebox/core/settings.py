@@ -222,21 +222,42 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": DATABASE_NAME,
-        "OPTIONS": {
-            "timeout": 60,
-            "check_same_thread": False,
-        },
         "TIME_ZONE": CONFIG.TIMEZONE,
+        "OPTIONS": {
+            # https://gcollazo.com/optimal-sqlite-settings-for-django/
+            "timeout": 5,
+            "check_same_thread": False,
+            "transaction_mode": "IMMEDIATE",
+            "init_command": (
+                "PRAGMA foreign_keys=ON;"
+                "PRAGMA journal_mode = WAL;"
+                "PRAGMA synchronous = NORMAL;"
+                "PRAGMA temp_store = MEMORY;"
+                "PRAGMA mmap_size = 134217728;"
+                "PRAGMA journal_size_limit = 67108864;"
+                "PRAGMA cache_size = 2000;"
+            ),
+        },
         # DB setup is sometimes modified at runtime by setup_django() in config.py
     },
     "queue": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": QUEUE_DATABASE_NAME,
-        "OPTIONS": {
-            "timeout": 60,
-            "check_same_thread": False,
-        },
         "TIME_ZONE": CONFIG.TIMEZONE,
+        "OPTIONS": {
+            "timeout": 5,
+            "check_same_thread": False,
+            "transaction_mode": "IMMEDIATE",
+            "init_command": (
+                "PRAGMA foreign_keys=ON;"
+                "PRAGMA journal_mode = WAL;"
+                "PRAGMA synchronous = NORMAL;"
+                "PRAGMA temp_store = MEMORY;"
+                "PRAGMA mmap_size = 134217728;"
+                "PRAGMA journal_size_limit = 67108864;"
+                "PRAGMA cache_size = 2000;"
+            ),
+        },
     },
     # 'cache': {
     #     'ENGINE': 'django.db.backends.sqlite3',
@@ -286,7 +307,13 @@ DJANGO_HUEY = {
 }
 
 class HueyDBRouter:
-    """A router to store all the Huey Monitor models in the queue.sqlite3 database."""
+    """
+    A router to store all the Huey result k:v / Huey Monitor models in the queue.sqlite3 database.
+    We keep the databases separate because the queue database receives many more reads/writes per second
+    and we want to avoid single-write lock contention with the main database. Also all the in-progress task
+    data is ephemeral/not-important-long-term. This makes it easier to for the user to clear non-critical
+    temp data by just deleting queue.sqlite3 and leaving index.sqlite3.
+    """
 
     route_app_labels = {"huey_monitor", "django_huey", "djhuey"}
 
