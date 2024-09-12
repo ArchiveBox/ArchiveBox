@@ -14,39 +14,39 @@ readme = "README.md"
 dependencies = [
     # Last Bumped: 2024-08-20
     ############# Django / Core Libraries #############
-    "setuptools>=69.5.1",
-    "django>=5.0.4,<6.0",
-    "django-ninja>=1.1.0",
+    "setuptools>=74.1.0",
+    "django>=5.1.1,<6.0",
+    "django-ninja>=1.3.0",
     "django-extensions>=3.2.3",
     "mypy-extensions>=1.0.0",
     "channels[daphne]>=4.1.0",
     "django-signal-webhooks>=0.3.0",
-    "django-admin-data-views>=0.3.1",
-    "django-object-actions>=4.2.0",
+    "django-admin-data-views>=0.4.1",
+    "django-object-actions>=4.3.0",
     "django-charid-field>=0.4",
-    "django-pydantic-field>=0.3.9",
+    "django-pydantic-field>=0.3.10",
     "django-jsonform>=2.22.0",
-    "django-stubs>=5.0.2",
+    "django-stubs>=5.0.4",
     "django-huey>=1.2.1",
     "django-huey-monitor>=0.9.0",
     ############# Python Helper Libraries ############
-    "requests>=2.31.0",
-    "dateparser>=1.0.0",
+    "requests>=2.32.3",
+    "dateparser>=1.2.0",
     "feedparser>=6.0.11",
-    "w3lib>=2.1.2",
+    "w3lib>=2.2.1",
     "rich>=13.8.0",
     "ulid-py>=1.1.0",
-    "typeid-python>=0.3.0",
+    "typeid-python>=0.3.1",
     "psutil>=6.0.0",
     "supervisor>=4.2.5",
-    "python-crontab>=3.0.0",          # for: archivebox schedule
-    "croniter>=2.0.5",                # for: archivebox schedule
-    "ipython>=8.23.0",                # for: archivebox shell
+    "python-crontab>=3.2.0",          # for: archivebox schedule
+    "croniter>=3.0.3",                # for: archivebox schedule
+    "ipython>=8.27.0",                # for: archivebox shell
     ############# VENDORED LIBS ######################
     # these can be safely omitted when installation subsystem does not provide these as packages (e.g. apt/debian)
     # archivebox will automatically load fallback vendored copies bundled via archivebox/vendor/__init__.py
-    "pydantic-pkgr>=0.1.4",
-    "atomicwrites==1.4.0",
+    "pydantic-pkgr>=0.2.2",
+    "atomicwrites==1.4.1",
     "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
     "django-taggit==1.3.0",
     "base32-crockford==0.3.0",
