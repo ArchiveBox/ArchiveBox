@@ -4,9 +4,7 @@ import os
 import time
 import sys
 import shutil
-import signal
 import platform
-import subprocess
 
 from typing import Dict, List, Optional, Iterable, IO, Union
 from pathlib import Path
@@ -144,7 +142,6 @@ from .logging_util import (
 )
 
 from .search import flush_search_index, index_links
-
 
 
 @enforce_types
@@ -336,7 +333,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
                 "    {lightred}Hint:{reset} To import an existing data folder make sure to cd into the folder first, \n"
                 "    then run and run 'archivebox init' to pick up where you left off.\n\n"
                 "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
-                ).format(out_dir, **ANSI)
+                ).format(**ANSI)
             )
             raise SystemExit(2)
 

@@ -1,6 +1,5 @@
 __package__ = 'archivebox.queues'
 
-import sys
 import time
 import signal
 import psutil
