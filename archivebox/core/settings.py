@@ -29,10 +29,16 @@ IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
 BUILTIN_PLUGINS_DIR = CONFIG.PACKAGE_DIR / 'builtin_plugins'  # /app/archivebox/builtin_plugins
 USERDATA_PLUGINS_DIR = CONFIG.OUTPUT_DIR / 'user_plugins'     # /data/user_plugins
 
-def find_plugins_in_dir(plugins_dir, prefix: str) -> Dict[str, Path]:
+# PLUGIN_IMPORT_ORDER = ['base', 'pip', 'npm', 'ytdlp']
+#
+# def get_plugin_order(p: Path) -> str:
+#     return str(PLUGIN_IMPORT_ORDER.index(p.parent.name)) if p.parent.name in PLUGIN_IMPORT_ORDER else str(p)
+
+def find_plugins_in_dir(plugins_dir: Path, prefix: str) -> Dict[str, Path]:
+    """{"builtin_plugins.pip": "/app/archivebox/builtin_plugins/pip", "user_plugins.other": "/data/user_plugins/other",...}"""
     return {
-        f'{prefix}.{plugin_entrypoint.parent.name}': plugin_entrypoint.parent
-        for plugin_entrypoint in sorted(plugins_dir.glob('*/apps.py'))
+        f"{prefix}.{plugin_entrypoint.parent.name}": plugin_entrypoint.parent
+        for plugin_entrypoint in sorted(plugins_dir.glob("*/apps.py"))   # key=get_plugin_order  # Someday enforcing plugin import order may be required, but right now it's not needed
     }
 
 INSTALLED_PLUGINS = {
@@ -44,6 +50,7 @@ INSTALLED_PLUGINS = {
 PLUGINS = AttrDict({})
 HOOKS = AttrDict({})
 
+# Created later by Hook.register(settings) when each Plugin.register(settings) is called
 # CONFIGS = AttrDict({})
 # BINPROVIDERS = AttrDict({})
 # BINARIES = AttrDict({})
@@ -72,7 +79,7 @@ DEBUG = CONFIG.DEBUG or ('--debug' in sys.argv)
 
 INSTALLED_APPS = [
     'daphne',
-    
+
     # Django default apps
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -85,7 +92,7 @@ INSTALLED_APPS = [
     'django_jsonform',           # handles rendering Pydantic models to Django HTML widgets/forms  https://github.com/bhch/django-jsonform
     'signal_webhooks',           # handles REST API outbound webhooks                              https://github.com/MrThearMan/django-signal-webhooks
     'django_object_actions',     # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
-    
+
     # Our ArchiveBox-provided apps
     'queues',                    # handles starting and managing background workers and processes
     'abid_utils',                # handles ABID ID creation, handling, and models
@@ -94,7 +101,8 @@ INSTALLED_APPS = [
     'api',                       # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
 
     # ArchiveBox plugins
-    *INSTALLED_PLUGINS.keys(),   # all plugin django-apps found in archivebox/builtin_plugins and data/user_plugins
+    *INSTALLED_PLUGINS.keys(),   # all plugin django-apps found in archivebox/builtin_plugins and data/user_plugins,
+    # plugin.register(settings) is called at import of each plugin (in the order they are listed here), then plugin.ready() is called at AppConfig.ready() time
 
     # 3rd-party apps from PyPI that need to be loaded last
     'admin_data_views',          # handles rendering some convenient automatic read-only views of data in Django admin
@@ -218,55 +226,40 @@ DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(DATABASE_FILE))
 
 QUEUE_DATABASE_NAME = DATABASE_NAME.replace('index.sqlite3', 'queue.sqlite3')
 
+SQLITE_CONNECTION_OPTIONS = {
+    "TIME_ZONE": CONFIG.TIMEZONE,
+    "OPTIONS": {
+        # https://gcollazo.com/optimal-sqlite-settings-for-django/
+        "timeout": 5,
+        "check_same_thread": False,
+        "transaction_mode": "IMMEDIATE",
+        "init_command": (
+            "PRAGMA foreign_keys=ON;"
+            "PRAGMA journal_mode = WAL;"
+            "PRAGMA synchronous = NORMAL;"
+            "PRAGMA temp_store = MEMORY;"
+            "PRAGMA mmap_size = 134217728;"
+            "PRAGMA journal_size_limit = 67108864;"
+            "PRAGMA cache_size = 2000;"
+        ),
+    },
+}
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": DATABASE_NAME,
-        "TIME_ZONE": CONFIG.TIMEZONE,
-        "OPTIONS": {
-            # https://gcollazo.com/optimal-sqlite-settings-for-django/
-            "timeout": 5,
-            "check_same_thread": False,
-            "transaction_mode": "IMMEDIATE",
-            "init_command": (
-                "PRAGMA foreign_keys=ON;"
-                "PRAGMA journal_mode = WAL;"
-                "PRAGMA synchronous = NORMAL;"
-                "PRAGMA temp_store = MEMORY;"
-                "PRAGMA mmap_size = 134217728;"
-                "PRAGMA journal_size_limit = 67108864;"
-                "PRAGMA cache_size = 2000;"
-            ),
-        },
         # DB setup is sometimes modified at runtime by setup_django() in config.py
     },
     "queue": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": QUEUE_DATABASE_NAME,
-        "TIME_ZONE": CONFIG.TIMEZONE,
-        "OPTIONS": {
-            "timeout": 5,
-            "check_same_thread": False,
-            "transaction_mode": "IMMEDIATE",
-            "init_command": (
-                "PRAGMA foreign_keys=ON;"
-                "PRAGMA journal_mode = WAL;"
-                "PRAGMA synchronous = NORMAL;"
-                "PRAGMA temp_store = MEMORY;"
-                "PRAGMA mmap_size = 134217728;"
-                "PRAGMA journal_size_limit = 67108864;"
-                "PRAGMA cache_size = 2000;"
-            ),
-        },
+        **SQLITE_CONNECTION_OPTIONS,
     },
     # 'cache': {
     #     'ENGINE': 'django.db.backends.sqlite3',
     #     'NAME': CACHE_DB_PATH,
-    #     'OPTIONS': {
-    #         'timeout': 60,
-    #         'check_same_thread': False,
-    #     },
-    #     'TIME_ZONE': CONFIG.TIMEZONE,
+    #     **SQLITE_CONNECTION_OPTIONS,
     # },
 }
 MIGRATION_MODULES = {'signal_webhooks': None}
