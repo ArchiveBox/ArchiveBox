@@ -37,3 +37,6 @@
       assert:
         that: YTDLP_VERSION_MIN is version(BINARIES.ytdlp.version, '>=')
         quiet: true
+
+    - debug:
+        msg: "{{ {'BINARIES': BINARIES, 'BINPROVIDERS': BINPROVIDERS} }}"

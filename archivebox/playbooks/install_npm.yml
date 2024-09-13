@@ -1,4 +1,21 @@
 ---
+
+- import_playbook: install_package.yml
+  vars:
+    state: 'latest'
+    install_packages:
+      node:
+        bin_name: 'node'
+        packages: ['node']
+  when: BINARIES.node is not defined
+
+- import_playbook: load_binaries.yml
+  vars:
+    load_binaries:
+      node: {bin_name: 'node', version_cmd: 'node --version'}
+      npm: {bin_name: 'npm', version_cmd: 'npm --version'}
+  when: BINARIES.npm is not defined
+
 - name: "Install node, npm, and npx"
   hosts: localhost
   gather_facts: no
@@ -11,7 +28,7 @@
     MIN_NODE_VERSION: '22.7.0'
     MIN_NPM_VERSION: '10.8.3'
     state: 'latest'
-    packages: []
+    install_npm: {}
   tasks:
     # - package: update_cache=yes
     #   when: ansible_facts['os_family'] == "Debian"
@@ -24,71 +41,39 @@
       loop:
         - '{{LIB_DIR_NPM_BIN}}'
         - '{{LIB_DIR_BIN}}'
+      when: BINPROVIDERS.npm is not defined
 
     ###################################################################################
-    - name: "Install npm on system: [node, npm]"
-      ansible.builtin.package:
-        name: node
-        state: "{{state}}"
 
-    - name: "Install npm packages: {{packages}}"
+    - name: Check that installed Node version matches expected version
+      assert:
+        that:
+          - BINARIES.node.version is version(MIN_NODE_VERSION, '<=')
+          - BINARIES.npm.version is version(MIN_NPM_VERSION, '<=')
+        quiet: true
+      when: BINPROVIDERS.npm is not defined
+
+    - name: "Install npm packages: {{install_npm}}"
       community.general.npm:
         name: '{{item}}'
         state: "{{state}}"
         path: '{{LIB_DIR_NPM}}'
-      loop: '{{packages}}'
+      loop: "{{install_npm|dictsort|map(attribute='1')|map(attribute='packages')|flatten}}"
 
     ###################################################################################
-    - name: Get installed node abspath
-      command: 'which node'
-      register: NODE_ABSPATH_FULL
-      changed_when: False
-    
-    - name: Get installed node version
-      command: 'node --version'
-      register: NODE_VERSION_FULL
-      changed_when: False
-    
-    - name: Get installed npm abspath
-      command: 'which npm'
-      register: NPM_ABSPATH_FULL
-      changed_when: False
-
-    - name: Get installed npm version
-      command: 'npm --version'
-      register: NPM_VERSION_FULL
-      changed_when: False
-
-    - set_fact:
-        NODE_ABSPATH: "{{NODE_ABSPATH_FULL.stdout_lines|first}}"
-        NODE_VERSION: "{{NODE_VERSION_FULL.stdout_lines|first|regex_replace('^.*?v?([\\d\\.]+).*$', '\\1')}}"
-        NPM_ABSPATH: "{{NPM_ABSPATH_FULL.stdout_lines|first}}"
-        NPM_VERSION: "{{NPM_VERSION_FULL.stdout_lines|first|regex_replace('^.*?v?([\\d\\.]+).*$', '\\1')}}"
-
-    - name: Check that installed Chrome matches expected version
-      assert:
-        that:
-          - NODE_VERSION is version(MIN_NODE_VERSION, '<=')
-          - NPM_VERSION is version(MIN_NPM_VERSION, '<=')
-        quiet: true
+  
 
     ###################################################################################
     - set_fact:
-        NODE_BINARIES:
-          node:
-            abspath: "{{NODE_ABSPATH}}"
-            version: "{{NODE_VERSION}}"
-          npm:
-            abspath: "{{NPM_ABSPATH}}"
-            version: "{{NPM_VERSION}}"
         NODE_BINPROVIDERS:
           npm:
-            installer_abspath: "{{NPM_ABSPATH}}"
-            installer_version: "{{NPM_VERSION}}"
+            installer_abspath: "{{BINARIES.npm.abspath}}"
+            installer_version: "{{BINARIES.npm.version}}"
             PATH: "{{LIB_DIR_NPM_BIN}}"
+      when: BINPROVIDERS.npm is not defined
     - set_fact:
-        BINARIES: "{{ BINARIES | default({}) | combine(NODE_BINARIES) }}"
         BINPROVIDERS: "{{ BINPROVIDERS | default({}) | combine(NODE_BINPROVIDERS) }}"
+      when: BINPROVIDERS.npm is not defined
 
     - debug:
         msg: "{{ {'BINARIES': BINARIES, 'BINPROVIDERS': BINPROVIDERS} }}"

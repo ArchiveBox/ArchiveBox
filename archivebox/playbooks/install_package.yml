@@ -7,14 +7,12 @@
     LIB_DIR: '{{DATA_DIR}}/lib'
     LIB_DIR_BIN: '{{LIB_DIR}}/bin'
     state: 'latest'
-    install_packages:
-      bash:
-        packages: ['bash']
-      # curl: ['curl']
-      # wget: ['wget']
-      # git: ['git']
+    install_packages: {}
+      # bash:
+      #   packages: ['bash']
     PACKAGE_BINPROVIDERS: {}
     PACKAGE_BINARIES: {}
+    BINPROVIDERS: {}
   tasks:
     # - package: update_cache=yes
       # when: ansible_facts['os_family'] == "Debian"
@@ -24,13 +22,16 @@
         path: '{{LIB_DIR_BIN}}'
         state: directory
         recurse: true
+      when: BINPROVIDERS.ansible_package is not defined
 
     - name: Get ansible binary abspath
       command: 'which ansible'
       register: ANSIBLE_INSTALLER_ABSPATH_FULL
       changed_when: false
+      when: BINPROVIDERS.ansible_package is not defined
 
-    - set_fact:
+    - name: Calculate flat list of all packages to install
+      set_fact:
         all_packages: "{{install_packages|dictsort|map(attribute='1')|map(attribute='packages')|flatten|unique}}"
 
     ###################################################################################
@@ -48,10 +49,12 @@
           ansible_package:
             installer_abspath: "{{ANSIBLE_INSTALLER_ABSPATH_FULL.stdout}}"
             installer_version: "{{ansible_version.full}}"
-            PATH: "{{ LIB_DIR_BIN }}"
+            PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      when: BINPROVIDERS.ansible_package is not defined
 
     - set_fact:
         BINPROVIDERS: "{{ BINPROVIDERS | default({}) | combine(PACKAGE_BINPROVIDERS) }}"
+      when: BINPROVIDERS.ansible_package is not defined
 
     - debug:
         msg: "{{ {'BINPROVIDERS': BINPROVIDERS} }}"
@@ -61,3 +64,4 @@
   vars:
     load_binaries:
       bash:
+  when: BINARIES.bash is not defined

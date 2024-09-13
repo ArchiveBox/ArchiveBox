@@ -41,19 +41,16 @@
       loop:
         - '{{LIB_DIR_PIP}}'
         - '{{LIB_DIR_BIN}}'
+      when: BINPROVIDERS.pip is not defined
 
     ###################################################################################
-    
-    - debug:
-        msg:
-          - "{{BINARIES.python}}"
-          - "{{BINARIES.pip}}"
 
     - assert:
         that:
           - BINARIES.python.version is version(MIN_PYTHON_VERSION, '<=')
           - BINARIES.pip.version is version(MIN_PIP_VERSION, '<=')
         quiet: true
+      when: BINPROVIDERS.pip is not defined
     
     - name: "Install pip packages: {{install_pip}}"
       ansible.builtin.pip:
@@ -72,13 +69,10 @@
             installer_abspath: "{{BINARIES.pip.abspath}}"
             installer_version: "{{BINARIES.pip.version}}"
             PATH: "{{LIB_DIR_PIP_BIN}}"
+      when: BINPROVIDERS.pip is not defined
     - set_fact:
         BINPROVIDERS: "{{ BINPROVIDERS | default({}) | combine(PIP_BINPROVIDERS) }}"
+      when: BINPROVIDERS.pip is not defined
 
     - debug:
         msg: "{{ {'BINARIES': BINARIES, 'BINPROVIDERS': BINPROVIDERS} }}"
-
-- import_playbook: load_binaries.yml
-  vars:
-    load_binaries:
-      bash:

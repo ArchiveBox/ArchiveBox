@@ -1,0 +1,8 @@
+---
+- import_playbook: install_ytdlp.yml
+  vars:
+    state: 'latest'
+
+- import_playbook: install_singlefile.yml
+  vars:
+    state: 'latest'

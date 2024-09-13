@@ -1,35 +1,34 @@
 ---
-- name: Install node and single-file-cli
+
+- import_playbook: install_npm.yml
+  vars:
+    install_npm:
+      singlefile: {packages: ['single-file-cli@1.1.54']}
+    state: 'present'
+
+- import_playbook: load_binaries.yml
+  vars:
+    load_binaries:
+      singlefile: {bin_name: 'single-file', version_cmd: 'single-file --version', PATH: '{{BINPROVIDERS.npm.PATH}}'}
+
+
+- name: "Install Singlefile"
   hosts: localhost
   gather_facts: no
   vars:
-    DATA_DIR: '/Volumes/NVME/Users/squash/Code/archiveboxes/archivebox7/data4'
-    NPM_BIN_DIR: '{{DATA_DIR}}/node_modules/.bin'
-    MIN_BIN_VERSION: '1.1.54'
+    SINGLEFILE_VERSION_EXACT: '1.1.54'
   tasks:
-    # - package: update_cache=yes
-    #   when: ansible_facts['os_family'] == "Debian"
+    - name: Make sure Node and NPM are installed
+      assert:
+        that:
+          - BINARIES.node.version
+          - BINARIES.npm.version
+        quiet: true
 
-    - ansible.builtin.package:
-        name: node
-        state: present
-    
-    - community.general.npm:
-        name: 'single-file-cli'
-        version: '{{ MIN_BIN_VERSION }}'
-        path: '{{ NPM_BIN_DIR }}/../..'
-
-    - command: '{{ NPM_BIN_DIR }}/single-file --version'
-      register: BIN_VERSION_FULL
-      changed_when: False
-
-    - set_fact:
-        BIN_VERSION: "{{ BIN_VERSION_FULL.stdout_lines|first }}"
+    - name: Check that installed Singlefile version matches expected version
+      assert:
+        that: SINGLEFILE_VERSION_EXACT is version(BINARIES.singlefile.version, '==')
+        quiet: true
 
     - debug:
-        msg:
-          - "BIN_ABSPATH={{ NPM_BIN_DIR }}/single-file"
-          - "BIN_VERSION={{ BIN_VERSION }}"
-
-    - assert:
-        that: BIN_VERSION is version(MIN_BIN_VERSION, '==', version_type='semver')
+        msg: "{{ {'BINARIES': BINARIES, 'BINPROVIDERS': BINPROVIDERS} }}"
