@@ -1,0 +1,71 @@
+---
+- name: Get binary abspaths and versions and add to BINARIES
+  hosts: localhost
+  gather_facts: false
+  vars:
+    DATA_DIR: '/Volumes/NVME/Users/squash/Code/archiveboxes/archivebox7/data4'
+    LIB_DIR: '{{DATA_DIR}}/lib'
+    LIB_DIR_BIN: '{{LIB_DIR}}/bin'
+    load_binaries:
+      bash:
+        bin_name: bash
+        version_cmd: 'bash --version'
+      # ffmpeg:
+      #   version_cmd: 'ffmpeg -version'
+      # ytdlp:
+      #   bin_name: ytdlp
+      # curl:
+      # wget:
+      #   bin_name: wget
+      #   version_cmd: 'wget --version'
+  tasks:
+    - name: Make sure lib folders exist
+      file:
+        path: '{{LIB_DIR_BIN}}'
+        state: directory
+        recurse: true
+
+    ###################################################################################
+    - name: Get installed binary abspath
+      command: "which {{item.1.bin_name|default(item.0)}}"
+      register: ABSPATHS_FULL
+      changed_when: false
+      ignore_errors: true
+      loop: "{{load_binaries|dictsort}}"
+    
+    - name: Get installed binary version
+      command: "{{item.1.version_cmd|default((item.1.bin_name|default(item.0)) + ' --version')}}"
+      register: VERSIONS_FULL
+      changed_when: false
+      ignore_errors: true
+      loop: "{{load_binaries|dictsort}}"
+    
+    - name: Symlink installed binary into lib bin folder
+      file:
+        src: "{{ item }}"
+        dest: "{{ LIB_DIR_BIN }}/{{ item|basename }}"
+        state: link
+      loop: "{{ABSPATHS_FULL.results|map(attribute='stdout_lines')|map('first')}}"
+
+    - set_fact:
+        BINARY_ABSPATHS: "{{ BINARY_ABSPATHS | default({}) | combine({item.0: item.1}) }}"
+      loop: "{{ keys | zip(values) }}"
+      vars:
+        keys: "{{load_binaries|dictsort|map(attribute='0')}}"
+        values: "{{ABSPATHS_FULL.results|map(attribute='stdout_lines')|map('first')}}"
+
+    - set_fact:
+        BINARY_VERSIONS: "{{ BINARY_VERSIONS | default({}) | combine({item.0: item.1}) }}"
+      loop: "{{ keys | zip(values) }}"
+      vars:
+        keys: "{{load_binaries|dictsort|map(attribute='0')}}"
+        values: "{{VERSIONS_FULL.results|map(attribute='stdout_lines')|map('first')|map('regex_replace', '^.*?v?([\\d\\.]+).*$', '\\1')}}"        
+
+    - set_fact:
+        BINARIES: "{{ BINARIES | default({}) | combine({item: { 'abspath': BINARY_ABSPATHS[item], 'version': BINARY_VERSIONS[item] }}) }}"
+      loop: "{{load_binaries|dictsort|map(attribute='0')}}"
+
+    ###################################################################################
+
+    - debug:
+        msg: "{{ {'BINARIES': BINARIES} }}"

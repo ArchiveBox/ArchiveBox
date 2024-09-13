@@ -1,0 +1,35 @@
+---
+- name: Install node and single-file-cli
+  hosts: localhost
+  gather_facts: no
+  vars:
+    DATA_DIR: '/Volumes/NVME/Users/squash/Code/archiveboxes/archivebox7/data4'
+    NPM_BIN_DIR: '{{DATA_DIR}}/node_modules/.bin'
+    MIN_BIN_VERSION: '1.1.54'
+  tasks:
+    # - package: update_cache=yes
+    #   when: ansible_facts['os_family'] == "Debian"
+
+    - ansible.builtin.package:
+        name: node
+        state: present
+    
+    - community.general.npm:
+        name: 'single-file-cli'
+        version: '{{ MIN_BIN_VERSION }}'
+        path: '{{ NPM_BIN_DIR }}/../..'
+
+    - command: '{{ NPM_BIN_DIR }}/single-file --version'
+      register: BIN_VERSION_FULL
+      changed_when: False
+
+    - set_fact:
+        BIN_VERSION: "{{ BIN_VERSION_FULL.stdout_lines|first }}"
+
+    - debug:
+        msg:
+          - "BIN_ABSPATH={{ NPM_BIN_DIR }}/single-file"
+          - "BIN_VERSION={{ BIN_VERSION }}"
+
+    - assert:
+        that: BIN_VERSION is version(MIN_BIN_VERSION, '==', version_type='semver')

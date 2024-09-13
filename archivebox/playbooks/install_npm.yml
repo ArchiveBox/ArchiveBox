@@ -1,0 +1,94 @@
+---
+- name: "Install node, npm, and npx"
+  hosts: localhost
+  gather_facts: no
+  vars:
+    DATA_DIR: '/Volumes/NVME/Users/squash/Code/archiveboxes/archivebox7/data4'
+    LIB_DIR: '{{DATA_DIR}}/lib'
+    LIB_DIR_BIN: '{{LIB_DIR}}/bin'
+    LIB_DIR_NPM: '{{LIB_DIR}}/npm'
+    LIB_DIR_NPM_BIN: '{{LIB_DIR_NPM}}/node_modules/.bin'
+    MIN_NODE_VERSION: '22.7.0'
+    MIN_NPM_VERSION: '10.8.3'
+    state: 'latest'
+    packages: []
+  tasks:
+    # - package: update_cache=yes
+    #   when: ansible_facts['os_family'] == "Debian"
+
+    - name: Make sure lib folders exist
+      file:
+        path: '{{item}}'
+        state: directory
+        recurse: true
+      loop:
+        - '{{LIB_DIR_NPM_BIN}}'
+        - '{{LIB_DIR_BIN}}'
+
+    ###################################################################################
+    - name: "Install npm on system: [node, npm]"
+      ansible.builtin.package:
+        name: node
+        state: "{{state}}"
+
+    - name: "Install npm packages: {{packages}}"
+      community.general.npm:
+        name: '{{item}}'
+        state: "{{state}}"
+        path: '{{LIB_DIR_NPM}}'
+      loop: '{{packages}}'
+
+    ###################################################################################
+    - name: Get installed node abspath
+      command: 'which node'
+      register: NODE_ABSPATH_FULL
+      changed_when: False
+    
+    - name: Get installed node version
+      command: 'node --version'
+      register: NODE_VERSION_FULL
+      changed_when: False
+    
+    - name: Get installed npm abspath
+      command: 'which npm'
+      register: NPM_ABSPATH_FULL
+      changed_when: False
+
+    - name: Get installed npm version
+      command: 'npm --version'
+      register: NPM_VERSION_FULL
+      changed_when: False
+
+    - set_fact:
+        NODE_ABSPATH: "{{NODE_ABSPATH_FULL.stdout_lines|first}}"
+        NODE_VERSION: "{{NODE_VERSION_FULL.stdout_lines|first|regex_replace('^.*?v?([\\d\\.]+).*$', '\\1')}}"
+        NPM_ABSPATH: "{{NPM_ABSPATH_FULL.stdout_lines|first}}"
+        NPM_VERSION: "{{NPM_VERSION_FULL.stdout_lines|first|regex_replace('^.*?v?([\\d\\.]+).*$', '\\1')}}"
+
+    - name: Check that installed Chrome matches expected version
+      assert:
+        that:
+          - NODE_VERSION is version(MIN_NODE_VERSION, '<=')
+          - NPM_VERSION is version(MIN_NPM_VERSION, '<=')
+        quiet: true
+
+    ###################################################################################
+    - set_fact:
+        NODE_BINARIES:
+          node:
+            abspath: "{{NODE_ABSPATH}}"
+            version: "{{NODE_VERSION}}"
+          npm:
+            abspath: "{{NPM_ABSPATH}}"
+            version: "{{NPM_VERSION}}"
+        NODE_BINPROVIDERS:
+          npm:
+            installer_abspath: "{{NPM_ABSPATH}}"
+            installer_version: "{{NPM_VERSION}}"
+            PATH: "{{LIB_DIR_NPM_BIN}}"
+    - set_fact:
+        BINARIES: "{{ BINARIES | default({}) | combine(NODE_BINARIES) }}"
+        BINPROVIDERS: "{{ BINPROVIDERS | default({}) | combine(NODE_BINPROVIDERS) }}"
+
+    - debug:
+        msg: "{{ {'BINARIES': BINARIES, 'BINPROVIDERS': BINPROVIDERS} }}"

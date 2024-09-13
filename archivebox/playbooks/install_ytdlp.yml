@@ -1,0 +1,39 @@
+---
+- import_playbook: install_package.yml
+  vars:
+    install_package:
+      ffmpeg: {packages: ['ffmpeg']}
+    state: 'latest'
+
+- import_playbook: install_pip.yml
+  vars:
+    install_pip:
+      ytdlp: {packages: ['yt-dlp']}
+    state: 'latest'
+
+- import_playbook: load_binaries.yml
+  vars:
+    load_binaries:
+      ffmpeg: {bin_name: 'ffmpeg', version_cmd: 'ffmpeg -version'}
+      ytdlp: {bin_name: 'yt-dlp', version_cmd: 'yt-dlp --version'}
+
+
+- name: "Install YT-DLP"
+  hosts: localhost
+  gather_facts: no
+  vars:
+    YTDLP_VERSION_MIN: '2024.8.6'
+  tasks:
+    - name: Make sure Python and Pip are installed
+      assert:
+        that:
+          - BINARIES.python.version
+          - BINARIES.pip.version
+          - BINARIES.ffmpeg.version
+          - BINARIES.ytdlp.version
+        quiet: true
+
+    - name: Check that installed YT-DLP matches expected version
+      assert:
+        that: YTDLP_VERSION_MIN is version(BINARIES.ytdlp.version, '>=')
+        quiet: true

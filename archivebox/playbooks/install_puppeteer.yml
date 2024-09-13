@@ -1,0 +1,91 @@
+---
+- import_playbook: install_npm.yml
+  vars:
+    packages:
+      - 'puppeteer'
+      - '@puppeteer/browsers'
+    state: 'latest'
+
+- name: "Install puppeteer, puppeteer/browsers, and chrome"
+  hosts: localhost
+  gather_facts: no
+  vars:
+    DATA_DIR: '/Volumes/NVME/Users/squash/Code/archiveboxes/archivebox7/data4'
+    LIB_DIR: '{{DATA_DIR}}/lib'
+    LIB_DIR_NPM: '{{LIB_DIR}}/npm'
+    LIB_DIR_NPM_BIN: '{{LIB_DIR_NPM}}/node_modules/.bin'
+    LIB_DIR_BROWSERS: '{{LIB_DIR}}/browsers'
+    LIB_DIR_BIN: '{{LIB_DIR}}/bin'
+    CHROME_RELEASE_CHANNEL: 'chrome@stable'
+    CHROME_VERSION_MIN: '128.0.6613.137'
+  environment:
+    PATH: "{{LIB_DIR_NPM_BIN}}:{{ ansible_env.PATH }}"
+  tasks:
+    - name: Make sure prerequisite folders exist
+      file:
+        path: '{{item}}'
+        state: directory
+        recurse: true
+      loop:
+        - '{{LIB_DIR_BROWSERS}}'
+        - '{{LIB_DIR_BIN}}'
+
+    - name: Make sure Node and NPM are installed
+      assert:
+        that:
+          - BINARIES.node.version
+          - BINARIES.npm.version
+        quiet: true
+
+    - name: Get installed puppeteer version
+      command: 'puppeteer --version'
+      register: PUPPETEER_VERSION_FULL
+      changed_when: False
+
+    ###################################################################################
+    - name: Install Chrome browser using puppeteer/browsers
+      command: 'npx @puppeteer/browsers install {{CHROME_RELEASE_CHANNEL}} --path {{LIB_DIR_BROWSERS}}'
+      register: CHROME_VERSION_FULL
+      #         -> 'chrome@128.0.6613.137 /data/lib/browsers/chrome/linux_arm-128.0.6613.138/chrome-linux-arm64/...'
+      changed_when: CHROME_VERSION_MIN not in CHROME_VERSION_FULL.stdout
+
+    ###################################################################################
+    - set_fact:
+        PUPPETEER_ABSPATH: "{{LIB_DIR_NPM_BIN}}/puppeteer"
+        PUPPETEER_VERSION: "{{ PUPPETEER_VERSION_FULL.stdout_lines|first }}"
+        CHROME_ABSPATH: "{{ CHROME_VERSION_FULL.stdout_lines|last|split(' ', 1)|last }}"
+        CHROME_VERSION: "{{ CHROME_VERSION_FULL.stdout_lines|last|split('@', 1)|last|split(' ', 1)|first }}"
+
+    - name: Check that installed Chrome matches expected version
+      assert:
+        that: CHROME_VERSION_MIN is version(CHROME_VERSION, '>=')
+        quiet: true
+
+    - name: Create ./bin/chrome symlink to ./browsers/chrome/... binary
+      copy:
+        content: |
+                 #!/bin/bash
+                 exec '{{CHROME_ABSPATH}}' "$@"
+        dest: "{{LIB_DIR_BIN}}/chrome"
+    - file:
+        path: "{{LIB_DIR_BIN}}/chrome"
+        mode: u+rx,g-rx,o-rwx
+        state: 'file'
+
+    ###################################################################################
+    - set_fact:
+        PUPPETEER_DEPENDENCIES:
+          node: "{{BINARIES.node}}"
+          npm: "{{BINARIES.npm}}"
+        PUPPETEER_BINARIES:
+          puppeteer:
+            abspath: "{{PUPPETEER_ABSPATH}}"
+            version: "{{PUPPETEER_VERSION}}"
+          chrome:
+            abspath: "{{CHROME_ABSPATH}}"
+            version: "{{CHROME_VERSION}}"
+    - set_fact:
+        BINARIES: "{{ BINARIES | combine(PUPPETEER_BINARIES) }}"
+
+    - debug:
+        msg: "{{ {'BINARIES': BINARIES, 'BINPROVIDERS': BINPROVIDERS} }}"

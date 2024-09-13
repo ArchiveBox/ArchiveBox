@@ -1,0 +1,84 @@
+---
+
+- import_playbook: install_package.yml
+  vars:
+    install_packages:
+      python: {packages: ['python3']}
+    state: 'latest'
+
+- import_playbook: load_binaries.yml
+  vars:
+    load_binaries:
+      python: {bin_name: 'python3', version_cmd: 'python3 --version'}
+      pip: {bin_name: 'pip3', version_cmd: 'pip3 --version'}
+
+- name: "Install python, pip, and pipx"
+  hosts: localhost
+  gather_facts: no
+  vars:
+    DATA_DIR: '/Volumes/NVME/Users/squash/Code/archiveboxes/archivebox7/data4'
+    LIB_DIR: '{{DATA_DIR}}/lib'
+    LIB_DIR_BIN: '{{LIB_DIR}}/bin'
+    LIB_DIR_PIP: '{{LIB_DIR}}/pip'
+    LIB_DIR_PIP_BIN: '{{LIB_DIR_PIP}}/venv/bin'
+    MIN_PYTHON_VERSION: '3.11.9'
+    MIN_PIP_VERSION: '24.2'
+    state: 'latest'
+    install_pip:
+      pip:
+        bin_name: 'pip'
+        packages: ['pip', 'setuptools']
+      # ytdlp:
+      #   bin_name: 'yt-dlp'
+      #   packages: ['yt-dlp']
+  tasks:
+
+    - name: Make sure lib folders exist
+      file:
+        path: '{{item}}'
+        state: directory
+        recurse: true
+      loop:
+        - '{{LIB_DIR_PIP}}'
+        - '{{LIB_DIR_BIN}}'
+
+    ###################################################################################
+    
+    - debug:
+        msg:
+          - "{{BINARIES.python}}"
+          - "{{BINARIES.pip}}"
+
+    - assert:
+        that:
+          - BINARIES.python.version is version(MIN_PYTHON_VERSION, '<=')
+          - BINARIES.pip.version is version(MIN_PIP_VERSION, '<=')
+        quiet: true
+    
+    - name: "Install pip packages: {{install_pip}}"
+      ansible.builtin.pip:
+        name: '{{item}}'
+        state: "{{state}}"
+        virtualenv: '{{LIB_DIR_PIP}}/venv'
+        virtualenv_python: "{{BINARIES.python.abspath}}"
+        virtualenv_site_packages: yes
+      loop: "{{install_pip|dictsort|map(attribute='1')|map(attribute='packages')|flatten}}"
+
+
+    ###################################################################################
+    - set_fact:
+        PIP_BINPROVIDERS:
+          pip:
+            installer_abspath: "{{BINARIES.pip.abspath}}"
+            installer_version: "{{BINARIES.pip.version}}"
+            PATH: "{{LIB_DIR_PIP_BIN}}"
+    - set_fact:
+        BINPROVIDERS: "{{ BINPROVIDERS | default({}) | combine(PIP_BINPROVIDERS) }}"
+
+    - debug:
+        msg: "{{ {'BINARIES': BINARIES, 'BINPROVIDERS': BINPROVIDERS} }}"
+
+- import_playbook: load_binaries.yml
+  vars:
+    load_binaries:
+      bash:
