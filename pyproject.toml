@@ -52,6 +52,7 @@ dependencies = [
     "base32-crockford==0.3.0",
     ############# Extractor Dependencies #############
     "yt-dlp>=2024.8.6",               # for: media
+    "python-benedict[io,parse]>=0.33.2",
 ]
 
 homepage = "https://github.com/ArchiveBox/ArchiveBox"
