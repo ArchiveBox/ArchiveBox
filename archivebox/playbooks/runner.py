@@ -1,3 +1,4 @@
+import os
 from ansible_runner import Runner, RunnerConfig
 from benedict import benedict
 from rich.pretty import pprint
@@ -7,6 +8,9 @@ GLOBAL_CACHE = {}
 
 IGNORED_VARS = ('OUTPUT', 'STDOUT', 'STDERR', 'RC', 'CMD')
 # IGNORED_VARS = ()
+
+os.environ['ANSIBLE_INVENTORY_UNPARSED_WARNING'] = 'False'
+os.environ['ANSIBLE_LOCALHOST_WARNING'] = 'False'
 
 def run_playbook(name, extravars=None, getvars=IGNORED_VARS):
     _discarded = [GLOBAL_CACHE.pop(key) for key in IGNORED_VARS if key in GLOBAL_CACHE]
