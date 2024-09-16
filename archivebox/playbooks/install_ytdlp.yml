@@ -1,15 +1,15 @@
 ---
 - import_playbook: install_package.yml
   vars:
-    install_package:
+    install_packages:
       ffmpeg: {packages: ['ffmpeg']}
-    state: 'latest'
+    state: 'present'
 
 - import_playbook: install_pip.yml
   vars:
     install_pip:
       ytdlp: {packages: ['yt-dlp']}
-    state: 'latest'
+    state: 'present'
 
 - import_playbook: load_binaries.yml
   vars:
@@ -35,7 +35,7 @@
 
     - name: Check that installed YT-DLP matches expected version
       assert:
-        that: YTDLP_VERSION_MIN is version(BINARIES.ytdlp.version, '>=')
+        that: BINARIES.ytdlp.version is version(YTDLP_VERSION_MIN, '>=')
         quiet: true
 
     - debug:

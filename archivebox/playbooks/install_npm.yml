@@ -25,9 +25,9 @@
     LIB_DIR_BIN: '{{LIB_DIR}}/bin'
     LIB_DIR_NPM: '{{LIB_DIR}}/npm'
     LIB_DIR_NPM_BIN: '{{LIB_DIR_NPM}}/node_modules/.bin'
-    MIN_NODE_VERSION: '22.7.0'
-    MIN_NPM_VERSION: '10.8.3'
-    state: 'latest'
+    MIN_NODE_VERSION: '20.0.0'
+    MIN_NPM_VERSION: '10.0.0'
+    state: 'present'
     install_npm: {}
   tasks:
     # - package: update_cache=yes
@@ -48,8 +48,8 @@
     - name: Check that installed Node version matches expected version
       assert:
         that:
-          - BINARIES.node.version is version(MIN_NODE_VERSION, '<=')
-          - BINARIES.npm.version is version(MIN_NPM_VERSION, '<=')
+          - BINARIES.node.version is version(MIN_NODE_VERSION, '>=')
+          - BINARIES.npm.version is version(MIN_NPM_VERSION, '>=')
         quiet: true
       when: BINPROVIDERS.npm is not defined
 
@@ -71,8 +71,10 @@
             installer_version: "{{BINARIES.npm.version}}"
             PATH: "{{LIB_DIR_NPM_BIN}}"
       when: BINPROVIDERS.npm is not defined
+      
     - set_fact:
         BINPROVIDERS: "{{ BINPROVIDERS | default({}) | combine(NODE_BINPROVIDERS) }}"
+        cacheable: true
       when: BINPROVIDERS.npm is not defined
 
     - debug:

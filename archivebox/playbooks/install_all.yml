@@ -1,8 +1,16 @@
 ---
 - import_playbook: install_ytdlp.yml
   vars:
-    state: 'latest'
+    state: 'present'
 
 - import_playbook: install_singlefile.yml
   vars:
-    state: 'latest'
+    state: 'present'
+
+
+- import_playbook: install_package.yml
+  vars:
+    install_packages:
+      curl: {packages: ['curl']}
+      wget: {packages: ['wget']}
+    state: 'present'

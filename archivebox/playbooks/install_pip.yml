@@ -1,11 +1,5 @@
 ---
 
-- import_playbook: install_package.yml
-  vars:
-    install_packages:
-      python: {packages: ['python3']}
-    state: 'latest'
-
 - import_playbook: load_binaries.yml
   vars:
     load_binaries:
@@ -23,7 +17,7 @@
     LIB_DIR_PIP_BIN: '{{LIB_DIR_PIP}}/venv/bin'
     MIN_PYTHON_VERSION: '3.11.9'
     MIN_PIP_VERSION: '24.2'
-    state: 'latest'
+    state: 'present'
     install_pip:
       pip:
         bin_name: 'pip'
@@ -47,8 +41,8 @@
 
     - assert:
         that:
-          - BINARIES.python.version is version(MIN_PYTHON_VERSION, '<=')
-          - BINARIES.pip.version is version(MIN_PIP_VERSION, '<=')
+          - BINARIES.python.version is version(MIN_PYTHON_VERSION, '>=')
+          - BINARIES.pip.version is version(MIN_PIP_VERSION, '>=')
         quiet: true
       when: BINPROVIDERS.pip is not defined
     
@@ -70,8 +64,10 @@
             installer_version: "{{BINARIES.pip.version}}"
             PATH: "{{LIB_DIR_PIP_BIN}}"
       when: BINPROVIDERS.pip is not defined
+      
     - set_fact:
         BINPROVIDERS: "{{ BINPROVIDERS | default({}) | combine(PIP_BINPROVIDERS) }}"
+        cacheable: true
       when: BINPROVIDERS.pip is not defined
 
     - debug:
