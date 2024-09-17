@@ -55,11 +55,6 @@
     name: "nodejs={{ TARGET_NODE_VERSION | regex_replace('x', '') }}*"
     state: present
 
-- name: "Install system packages: npm"
-  ansible.builtin.package:
-    name: "npm"
-    state: "present"
-
 - name: Load NPM and Node binaries
   include_role:
     name: load_binary

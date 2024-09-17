@@ -14,6 +14,7 @@
     - include_role:
         name: setup_lib_npm
       vars:
+        TARGET_NODE_VERSION: '21'
         MIN_NODE_VERSION: '20.0.0'
         MIN_NPM_VERSION: '10.0.0'
 
