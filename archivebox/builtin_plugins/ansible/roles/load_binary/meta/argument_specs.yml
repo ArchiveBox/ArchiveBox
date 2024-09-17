@@ -1,0 +1,31 @@
+---
+argument_specs:
+  main:
+    short_description: Load a specified binary from the environment/PATH into BINARIES fact.
+
+    options:
+
+      name:
+        type: "str"
+        required: true
+        description: "A string key for the binary"
+
+      bin_name:
+        type: "str"
+        required: false
+        description: "The basename of the binary file (optional, defaults to name)"
+
+      abspath:
+        type: "str"
+        required: false
+        description: "An absolute path to the binary (overrides any auto-detected one)"
+
+      version_cmd:
+        type: "str"
+        required: false
+        description: "The command to run to get the binary's version (optional, defaults to $ <bin_name> --version)"
+
+      PATH:
+        type: "str"
+        required: false
+        description: "The PATH to search for the binary (optional, defaults to environment $PATH)"

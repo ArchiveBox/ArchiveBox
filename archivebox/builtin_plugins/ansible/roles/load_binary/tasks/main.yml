@@ -1,0 +1,73 @@
+
+---
+- name: Make sure ./data/lib/bin folder exists
+  file:
+    path: '{{LIB_DIR_BIN}}'
+    state: directory
+    recurse: true
+
+###################################################################################
+
+- set_fact:
+    PATH: "{{PATH or DEFAULT_PATH}}"
+    bin_name: "{{bin_name or name}}"
+    BINARY_ABSPATH: null
+    BINARY_VERSION: null
+
+- name: 'Get installed binary abspath: {{name}}'
+  command: 'env PATH="{{PATH}}:$PATH" which {{bin_name}}'
+  register: BINARY_ABSPATH
+  changed_when: BINARIES[name].abspath|default('NO VERSION FOUND') not in BINARY_ABSPATH.stdout
+
+- set_fact:
+    bin_name: "{{BINARY_ABSPATH.stdout|basename or bin_name}}"
+- set_fact:
+    version_cmd: "{{version_cmd or (bin_name + ' --version')}}"
+
+- name: 'Get installed binary version: {{name}}'
+  command: 'env PATH="{{PATH}}:$PATH" {{version_cmd}}'
+  register: BINARY_VERSION
+  changed_when: BINARIES[name].version|default('NO VERSION FOUND') not in BINARY_VERSION.stdout
+
+
+- name: 'Updating BINARIES with loaded abspaths & versions: {{name}}'
+  set_fact:
+    BINARIES: "{{      BINARIES
+      | default({})
+      | combine({
+          name: {
+            'name': name,
+            'bin_name': bin_name,
+            'version_cmd': version_cmd,
+            'symlink': LIB_DIR_BIN + '/' + name,
+            'abspath': BINARY_ABSPATH.stdout or abspath or None,
+            'version': BINARY_VERSION.stdout_lines|first|regex_replace('^.*?([\\d+\\.]+).*$', '\\1') or version or None,
+            'version_stdout': BINARY_VERSION.stdout or BINARY_VERSION.stderr,
+            'PATH': BINARY_ABSPATH.stdout|dirname or PATH,
+          },
+      })
+    }}"
+    cacheable: true
+  when: BINARY_ABSPATH.stdout and BINARY_VERSION.stdout
+
+- name: 'Symlink installed binary into lib bin folder: {{name}}'
+  file:
+    src: "{{ BINARY_ABSPATH.stdout }}"
+    dest: "{{ LIB_DIR_BIN }}/{{ name }}"
+    state: link
+    force: true
+  when: BINARY_ABSPATH.stdout and BINARY_VERSION.stdout
+  changed_when: False
+
+- debug:
+    msg:
+      - '{{BINARIES}}'
+
+- name: Unset variables
+  set_fact:
+    name:
+    bin_name:
+    version_cmd:
+    PATH:
+    BINARY_ABSPATH:
+    BINARY_VERSION:

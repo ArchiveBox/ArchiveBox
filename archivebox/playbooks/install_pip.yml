@@ -1,3 +1,4 @@
+#!/usr/bin/env ansible-playbook
 ---
 
 - import_playbook: load_binaries.yml
@@ -64,7 +65,7 @@
             installer_version: "{{BINARIES.pip.version}}"
             PATH: "{{LIB_DIR_PIP_BIN}}"
       when: BINPROVIDERS.pip is not defined
-      
+
     - set_fact:
         BINPROVIDERS: "{{ BINPROVIDERS | default({}) | combine(PIP_BINPROVIDERS) }}"
         cacheable: true

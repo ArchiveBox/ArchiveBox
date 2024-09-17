@@ -16,9 +16,22 @@
       ansible.builtin.pip:
         name: 'yt-dlp'
         state: "present"
-        virtualenv: '{{LIB_DIR_PIP}}/venv'
-        virtualenv_python: "{{BINARIES.python.abspath}}"
+        virtualenv: '{{BINPROVIDERS.pip.virtualenv}}'
+        virtualenv_python: "{{BINPROVIDERS.pip.virtualenv_python}}"
         virtualenv_site_packages: yes
+
+    - name: Load YTDLP binary
+      import_role:
+        name: load_binary
+      vars:
+        name: ytdlp
+
+    - name: Load ffmpeg binary
+      import_role:
+        name: load_binary
+      vars:
+        name: ffmpeg
+        version_cmd: 'ffmpeg -version'
 
     - name: Check that installed YT-DLP matches expected version
       assert:
@@ -27,23 +40,3 @@
 
     - debug:
         msg: "{{ {'BINARIES': BINARIES, 'BINPROVIDERS': BINPROVIDERS} }}"
-
-
-
-# - import_playbook: install_package.yml
-#   vars:
-#     install_packages:
-#       ffmpeg: {packages: ['ffmpeg']}
-#     state: 'present'
-
-# - import_playbook: install_pip.yml
-#   vars:
-#     install_pip:
-#       ytdlp: {packages: ['yt-dlp']}
-#     state: 'present'
-
-# - import_playbook: load_binaries.yml
-#   vars:
-#     load_binaries:
-#       ffmpeg: {bin_name: 'ffmpeg', version_cmd: 'ffmpeg -version'}
-#       ytdlp: {bin_name: 'yt-dlp', version_cmd: 'yt-dlp --version'}

@@ -1,0 +1,58 @@
+#!/usr/bin/env ansible-playbook
+---
+# - name: "Install using apt/brew/pkg/yum/etc."
+#   hosts: localhost
+#   gather_facts: no
+#   vars:
+#     DATA_DIR: '/Volumes/NVME/Users/squash/Code/archiveboxes/archivebox7/data4'
+#     LIB_DIR: '{{DATA_DIR}}/lib'
+#     LIB_DIR_BIN: '{{LIB_DIR}}/bin'
+#     state: 'present'
+#     install_packages: {}
+#       # bash:
+#       #   packages: ['bash']
+#     PACKAGE_BINPROVIDERS: {}
+#     PACKAGE_BINARIES: {}
+#     BINPROVIDERS: {}
+#   tasks:
+# - package: update_cache=yes
+  # when: ansible_facts['os_family'] == "Debian"
+
+- name: Make sure lib folders exist
+  file:
+    path: '{{LIB_DIR_BIN}}'
+    state: directory
+    recurse: true
+  when: BINPROVIDERS.ansible_package is not defined
+
+- name: Get ansible binary abspath
+  command: 'which ansible'
+  register: ANSIBLE_INSTALLER_ABSPATH_FULL
+  changed_when: false
+  when: BINPROVIDERS.ansible_package is not defined
+
+###################################################################################
+- name: "Install system packages: {{all_packages}}"
+  ansible.builtin.package:
+    name: "{{item}}"
+    state: "{{state}}"
+  loop: "{{all_packages}}"
+
+###################################################################################
+
+- set_fact:
+    PACKAGE_BINPROVIDERS:
+      ansible_package:
+        installer_abspath: "{{ANSIBLE_INSTALLER_ABSPATH_FULL.stdout}}"
+        installer_version: "{{ansible_version.full}}"
+        PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  when: BINPROVIDERS.ansible_package is not defined
+
+- set_fact:
+    BINPROVIDERS: "{{ BINPROVIDERS | default({}) | combine(PACKAGE_BINPROVIDERS) }}"
+    cacheable: true
+  when: BINPROVIDERS.ansible_package is not defined
+
+- debug:
+    msg: "{{ {'BINPROVIDERS': BINPROVIDERS} }}"
+

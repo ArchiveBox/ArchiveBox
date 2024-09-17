@@ -1,3 +1,4 @@
+#!/usr/bin/env ansible-playbook
 ---
 
 - import_playbook: install_package.yml
@@ -71,7 +72,7 @@
             installer_version: "{{BINARIES.npm.version}}"
             PATH: "{{LIB_DIR_NPM_BIN}}"
       when: BINPROVIDERS.npm is not defined
-      
+
     - set_fact:
         BINPROVIDERS: "{{ BINPROVIDERS | default({}) | combine(NODE_BINPROVIDERS) }}"
         cacheable: true

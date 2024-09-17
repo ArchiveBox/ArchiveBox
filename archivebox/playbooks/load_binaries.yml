@@ -1,3 +1,4 @@
+#!/usr/bin/env ansible-playbook
 ---
 - name: Get binary abspaths and versions and add to BINARIES
   hosts: localhost

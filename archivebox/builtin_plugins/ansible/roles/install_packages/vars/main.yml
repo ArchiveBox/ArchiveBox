@@ -1,0 +1,5 @@
+DATA_DIR: '{{playbook_dir}}'
+LIB_DIR: '{{DATA_DIR}}/lib'
+LIB_DIR_BIN: '{{LIB_DIR}}/bin'
+state: present
+all_packages: []

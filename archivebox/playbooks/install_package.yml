@@ -1,3 +1,4 @@
+#!/usr/bin/env ansible-playbook
 ---
 - name: "Install using apt/brew/pkg/yum/etc."
   hosts: localhost

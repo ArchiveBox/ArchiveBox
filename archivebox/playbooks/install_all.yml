@@ -1,3 +1,4 @@
+#!/usr/bin/env ansible-playbook
 ---
 - import_playbook: install_ytdlp.yml
   vars:
@@ -7,6 +8,9 @@
   vars:
     state: 'present'
 
+- import_playbook: install_puppeteer.yml
+  vars:
+    state: 'present'
 
 - import_playbook: install_package.yml
   vars:

@@ -1,0 +1,59 @@
+---
+- name: Make sure lib folders exist
+  file:
+    path: '{{item}}'
+    state: directory
+    recurse: true
+  loop:
+    - '{{LIB_DIR_NPM_BIN}}'
+    - '{{LIB_DIR_BIN}}'
+
+- name: "Install system packages: [node, npm]"
+  ansible.builtin.package:
+    name: "node"
+    state: "present"
+
+- name: Load NPM and Node binaries
+  include_role:
+    name: load_binary
+  vars:
+    name: '{{item}}'
+  loop:
+    - node
+    - npm
+
+- name: Check that installed Node version matches expected version
+  assert:
+    that:
+      - BINARIES.node.version is version(MIN_NODE_VERSION, '>=')
+      - BINARIES.npm.version is version(MIN_NPM_VERSION, '>=')
+    quiet: true
+
+###################################################################################
+
+
+# - name: "Install npm packages: {{install_npm}}"
+#   community.general.npm:
+#     name: '{{item}}'
+#     state: "{{state}}"
+#     path: '{{LIB_DIR_NPM}}'
+#   loop: "{{install_npm|dictsort|map(attribute='1')|map(attribute='packages')|flatten}}"
+
+###################################################################################
+
+
+###################################################################################
+- set_fact:
+    NODE_BINPROVIDERS:
+      npm:
+        installer_abspath: "{{BINARIES.npm.abspath}}"
+        installer_version: "{{BINARIES.npm.version}}"
+        PATH: "{{LIB_DIR_NPM_BIN}}"
+        lib_dir_npm: "{{LIB_DIR_NPM}}"
+
+- set_fact:
+    BINPROVIDERS: "{{ BINPROVIDERS | default({}) | combine(NODE_BINPROVIDERS) }}"
+    cacheable: true
+
+- debug:
+    msg: "{{ {'BINARIES': BINARIES, 'BINPROVIDERS': BINPROVIDERS} }}"

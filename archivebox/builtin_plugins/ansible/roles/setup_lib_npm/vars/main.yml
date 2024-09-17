@@ -1,0 +1,7 @@
+DATA_DIR: '{{playbook_dir}}'
+LIB_DIR: '{{DATA_DIR}}/lib'
+LIB_DIR_BIN: '{{LIB_DIR}}/bin'
+LIB_DIR_NPM: '{{LIB_DIR}}/npm'
+LIB_DIR_NPM_BIN: '{{LIB_DIR_NPM}}/node_modules/.bin'
+MIN_NODE_VERSION: '20.0.0'
+MIN_NPM_VERSION: '10.0.0'
