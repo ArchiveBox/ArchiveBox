@@ -8,9 +8,14 @@
     - '{{LIB_DIR_NPM_BIN}}'
     - '{{LIB_DIR_BIN}}'
 
-- name: "Install system packages: [node, npm]"
+- name: "Install system packages: node"
   ansible.builtin.package:
-    name: "node"
+    name: "{{ (ansible_facts['os_family']|lower == 'debian') | ternary('nodejs', 'node') }}"
+    state: "present"
+
+- name: "Install system packages: npm"
+  ansible.builtin.package:
+    name: "npm"
     state: "present"
 
 - name: Load NPM and Node binaries
