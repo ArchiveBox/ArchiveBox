@@ -44,10 +44,8 @@
   register: node_repo
 
 - name: Update apt cache if repo was added.
-  when: ansible_facts['os_family']|lower == 'debian'
   ansible.builtin.apt: update_cache=yes
-  when: node_repo is changed
-  tags: ['skip_ansible_lint']
+  when: ansible_facts['os_family']|lower == 'debian' and node_repo is changed
 
 - name: Ensure Node.js and npm are installed.
   when: ansible_facts['os_family']|lower == 'debian'
