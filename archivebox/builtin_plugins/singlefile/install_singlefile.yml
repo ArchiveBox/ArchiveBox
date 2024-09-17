@@ -20,7 +20,7 @@
       community.general.npm:
         name: 'single-file-cli@1.1.54'
         state: "present"
-        path: '{{BINPROVIDERS.npm.root_path}}'
+        path: '{{BINPROVIDERS.npm.lib_dir_npm}}'
 
     - name: Load single-file binary from installed NPM package
       include_role:

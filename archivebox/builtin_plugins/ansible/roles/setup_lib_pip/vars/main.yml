@@ -1,7 +1,9 @@
 DATA_DIR: '{{playbook_dir}}'
+
 LIB_DIR: '{{DATA_DIR}}/lib'
 LIB_DIR_BIN: '{{LIB_DIR}}/bin'
 LIB_DIR_PIP: '{{LIB_DIR}}/pip'
 LIB_DIR_PIP_BIN: '{{LIB_DIR_PIP}}/venv/bin'
+
 MIN_PYTHON_VERSION: '3.10.0'
 MIN_PIP_VERSION: '22.0'
