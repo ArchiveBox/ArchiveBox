@@ -8,23 +8,52 @@
     - '{{LIB_DIR_NPM_BIN}}'
     - '{{LIB_DIR_BIN}}'
 
-- name: Install the gpg key for nodejs LTS
-  apt_key:
-    url: "https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
-    state: present
-  when: ansible_facts['os_family']|lower == 'debian'
+###################################################################################
 
-- name: Install the nodejs LTS repos
-  apt_repository:
-    repo: "deb https://deb.nodesource.com/node_22.x {{ ansible_facts['distribution_release'] }} main"
-    state: present
-    update_cache: yes
+- name: Ensure dependencies are present.
   when: ansible_facts['os_family']|lower == 'debian'
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - python3-debian
+      - gnupg2
+    state: present
 
-- name: "Install system packages: node"
-  ansible.builtin.package:
-    name: "{{ (ansible_facts['os_family']|lower == 'debian') | ternary('nodejs', 'node') }}"
-    state: "present"
+- name: Download NodeSource's signing key.
+  # NodeSource's web server discriminates the User-Agent used by the deb822_repository module.
+  # https://github.com/nodesource/distributions/issues/1723
+  when: ansible_facts['os_family']|lower == 'debian'
+  ansible.builtin.get_url:
+    url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+    dest: /etc/apt/signing-key-nodesource-repo.asc
+    owner: root
+    group: root
+    mode: '0444'
+  register: node_signing_key
+
+- name: Add NodeSource repositories for Node.js.
+  when: ansible_facts['os_family']|lower == 'debian'
+  ansible.builtin.deb822_repository:
+    name: nodesource_{{ TARGET_NODE_VERSION }}
+    uris: "https://deb.nodesource.com/node_{{ TARGET_NODE_VERSION }}.x"
+    types: deb
+    suites: nodistro
+    components: main
+    signed_by: "{{ node_signing_key.dest }}"
+    state: present
+  register: node_repo
+
+- name: Update apt cache if repo was added.
+  when: ansible_facts['os_family']|lower == 'debian'
+  ansible.builtin.apt: update_cache=yes
+  when: node_repo is changed
+  tags: ['skip_ansible_lint']
+
+- name: Ensure Node.js and npm are installed.
+  when: ansible_facts['os_family']|lower == 'debian'
+  ansible.builtin.apt:
+    name: "nodejs={{ TARGET_NODE_VERSION | regex_replace('x', '') }}*"
+    state: present
 
 - name: "Install system packages: npm"
   ansible.builtin.package:
