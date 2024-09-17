@@ -8,6 +8,19 @@
     - '{{LIB_DIR_NPM_BIN}}'
     - '{{LIB_DIR_BIN}}'
 
+- name: Install the gpg key for nodejs LTS
+  apt_key:
+    url: "https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
+    state: present
+  when: ansible_facts['os_family']|lower == 'debian'
+
+- name: Install the nodejs LTS repos
+  apt_repository:
+    repo: "deb https://deb.nodesource.com/node_22.x {{ ansible_facts['distribution_release'] }} main"
+    state: present
+    update_cache: yes
+  when: ansible_facts['os_family']|lower == 'debian'
+
 - name: "Install system packages: node"
   ansible.builtin.package:
     name: "{{ (ansible_facts['os_family']|lower == 'debian') | ternary('nodejs', 'node') }}"
