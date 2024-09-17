@@ -2,7 +2,7 @@
 ---
 - name: "Install YT-DLP"
   hosts: localhost
-  gather_facts: no
+  gather_facts: True
   vars:
     YTDLP_VERSION_MIN: '2024.8.6'
   tasks:
@@ -12,26 +12,29 @@
         MIN_PYTHON_VERSION: '3.10.0'
         MIN_PIP_VERSION: '22.0'
     
-    - name: "Install pip packages: {{install_pip}}"
+    - name: "Install pip packages: yt-dlp"
       ansible.builtin.pip:
         name: 'yt-dlp'
-        state: "present"
+        state: 'latest'
         virtualenv: '{{BINPROVIDERS.pip.virtualenv}}'
         virtualenv_python: "{{BINPROVIDERS.pip.virtualenv_python}}"
-        virtualenv_site_packages: yes
+        virtualenv_site_packages: no
 
     - name: Load YTDLP binary
-      import_role:
+      include_role:
         name: load_binary
       vars:
         name: ytdlp
+        bin_name: yt-dlp
+        PATH: '{{BINPROVIDERS.pip.PATH}}'
 
     - name: Load ffmpeg binary
-      import_role:
+      include_role:
         name: load_binary
       vars:
         name: ffmpeg
         version_cmd: 'ffmpeg -version'
+        PATH: '{{BINPROVIDERS.pip.PATH}}:{{ansible_env.PATH}}'
 
     - name: Check that installed YT-DLP matches expected version
       assert:

@@ -32,7 +32,8 @@
 
 - name: 'Updating BINARIES with loaded abspaths & versions: {{name}}'
   set_fact:
-    BINARIES: "{{      BINARIES
+    BINARIES: "{{
+      BINARIES
       | default({})
       | combine({
           name: {

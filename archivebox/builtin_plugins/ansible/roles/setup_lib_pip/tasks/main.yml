@@ -10,7 +10,7 @@
   when: BINPROVIDERS.pip is not defined
 
 - name: Load Python and Pip binaries
-  import_role:
+  include_role:
     name: load_binary
   vars:
     name: '{{item}}'
@@ -53,7 +53,17 @@
 - set_fact:
     BINPROVIDERS: "{{ BINPROVIDERS | default({}) | combine(PIP_BINPROVIDERS) }}"
     cacheable: true
-  when: BINPROVIDERS.pip is not defined
+  changed_when: False
+
+- name: Load Python and Pip binaries from venv
+  include_role:
+    name: load_binary
+  vars:
+    name: '{{item}}'
+    PATH: '{{BINPROVIDERS.pip.PATH}}'
+  loop:
+    - python
+    - pip
 
 - debug:
     msg: "{{ {'BINARIES': BINARIES, 'BINPROVIDERS': BINPROVIDERS} }}"

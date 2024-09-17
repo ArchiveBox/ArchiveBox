@@ -107,12 +107,6 @@
             symlink: "{{LIB_DIR_BIN}}/chrome"
             version_cmd: "chrome --version"
             binprovider: 'puppeteer'
-        PUPPETEER_BINPROVIDERS:
-          puppeteer:
-            installer_abspath: "{{BINARIES.puppeteer.abspath}}"
-            installer_version: "{{BINARIES.puppeteer.version}}"
-            PATH: "{{LIB_DIR_BIN}}"
-            lib_dir_browsers: "{{LIB_DIR_BROWSERS}}"
 
     - name: Check that installed Chrome matches expected version
       assert:
