@@ -14,6 +14,7 @@ from plugantic.base_binary import BaseBinary, env
 from plugantic.base_extractor import BaseExtractor
 from plugantic.base_queue import BaseQueue
 from plugantic.base_hook import BaseHook
+from plugantic.ansible_utils import run_playbook
 
 # Depends on Other Plugins:
 from builtin_plugins.npm.apps import npm
@@ -59,12 +60,7 @@ DEFAULT_GLOBAL_CONFIG = {
 SINGLEFILE_CONFIG = SinglefileConfigs(**DEFAULT_GLOBAL_CONFIG)
 
 
-
-min_version: str = "1.1.54"
-max_version: str = "2.0.0"
-
-def get_singlefile_abspath() -> Optional[Path]:
-    return 
+INSTALL_BIN = './install_singlefile.yml'
 
 
 class SinglefileBinary(BaseBinary):
@@ -80,6 +76,23 @@ class SinglefileBinary(BaseBinary):
         #     'packages': lambda: f'single-file-cli@>={min_version} <{max_version}',
         # },
     }
+    
+    def install(self, *args, quiet=False) -> 'SinglefileBinary':
+        
+        install_playbook = self.plugin_dir / 'install_singlefile.yml'
+        
+        singlefile_bin = run_playbook(install_playbook, data_dir=settings.CONFIG.OUTPUT_DIR, quiet=quiet).BINARIES.singlefile
+
+        return self.__class__.model_validate(
+            {
+                **self.model_dump(),
+                "loaded_abspath": singlefile_bin.abspath,
+                "loaded_version": singlefile_bin.version,
+                "loaded_binprovider": env,
+                "binproviders_supported": self.binproviders_supported,
+            }
+        )
+        
 
 SINGLEFILE_BINARY = SinglefileBinary()
 
