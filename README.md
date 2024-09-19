@@ -1626,8 +1626,7 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 <br/><br/>
 <a href="https://twitter.com/ArchiveBoxApp"><img src="https://img.shields.io/badge/Tweet-%40ArchiveBoxApp-blue.svg?style=flat"/></a>&nbsp;
 <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?style=flat&label=Star+on+Github"/></a>&nbsp;
-<a href="https://zulip.archivebox.io/"><img src="https://img.shields.io/badge/Join_Our_Community-Zulip_Forum-%23B7EDFE.svg"/></a><br/>
-<sup>ArchiveBox was started by <a href="https://docs.sweeting.me/s/blog#About">Nick Sweeting</a> in 2017, and has <a href="https://star-history.com/#archivebox/archivebox&Date">grown steadily</a> with help from our <a href="https://github.com/ArchiveBox/ArchiveBox/graphs/contributors">amazing contributors</a>.</sup>
+<a href="https://zulip.archivebox.io/"><img src="https://img.shields.io/badge/Join_Our_Community-Zulip_Forum-%23B7EDFE.svg"/></a><br/><br/>
 <hr/>
 <i>✨ Have spare CPU/disk/bandwidth after all your 网站存档爬 and want to help the world?<br/>Check out our <a href="https://github.com/ArchiveBox/good-karma-kit">Good Karma Kit</a>...</i>
 </div>
