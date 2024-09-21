@@ -1,63 +1,11 @@
 [project]
 name = "archivebox"
 version = "0.8.4"
-requires-python = ">=3.10,<3.13"
-package-dir = "archivebox"
-platform = "py3-none-any"
+requires-python = ">=3.10"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
 license = {text = "MIT"}
 readme = "README.md"
-
-# pdm install
-# pdm update --unconstrained
-dependencies = [
-    # Last Bumped: 2024-08-20
-    ############# Django / Core Libraries #############
-    "setuptools>=74.1.0",
-    "django>=5.1.1,<6.0",
-    "django-ninja>=1.3.0",
-    "django-extensions>=3.2.3",
-    "mypy-extensions>=1.0.0",
-    "channels[daphne]>=4.1.0",
-    "django-signal-webhooks>=0.3.0",
-    "django-admin-data-views>=0.4.1",
-    "django-object-actions>=4.3.0",
-    "django-charid-field>=0.4",
-    "django-pydantic-field>=0.3.10",
-    "django-jsonform>=2.22.0",
-    "django-stubs>=5.0.4",
-    "django-huey>=1.2.1",
-    "django-huey-monitor>=0.9.0",
-    ############# Python Helper Libraries ############
-    "requests>=2.32.3",
-    "dateparser>=1.2.0",
-    "feedparser>=6.0.11",
-    "w3lib>=2.2.1",
-    "rich>=13.8.0",
-    "ulid-py>=1.1.0",
-    "typeid-python>=0.3.1",
-    "psutil>=6.0.0",
-    "supervisor>=4.2.5",
-    "python-crontab>=3.2.0",          # for: archivebox schedule
-    "croniter>=3.0.3",                # for: archivebox schedule
-    "ipython>=8.27.0",                # for: archivebox shell
-    ############# VENDORED LIBS ######################
-    # these can be safely omitted when installation subsystem does not provide these as packages (e.g. apt/debian)
-    # archivebox will automatically load fallback vendored copies bundled via archivebox/vendor/__init__.py
-    "pydantic-pkgr>=0.2.2",
-    "atomicwrites==1.4.1",
-    "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
-    "django-taggit==1.3.0",
-    "base32-crockford==0.3.0",
-    ############# Extractor Dependencies #############
-    "yt-dlp>=2024.8.6",               # for: media
-    "python-benedict[io,parse]>=0.33.2",
-]
-
-homepage = "https://github.com/ArchiveBox/ArchiveBox"
-repository = "https://github.com/ArchiveBox/ArchiveBox"
-documentation = "https://github.com/ArchiveBox/ArchiveBox/wiki"
 keywords = ["internet archiving", "web archiving", "digipres", "warc", "preservation", "backups", "archiving", "web", "bookmarks", "puppeteer", "browser", "download"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -88,7 +36,55 @@ classifiers = [
     "Topic :: Utilities",
     "Typing :: Typed",
 ]
-# dynamic = ["version"]  # TODO: programatticaly fetch version from package.json at build time
+# platform = "py3-none-any"
+# package = "archivebox"
+
+
+# pdm install
+# pdm update --unconstrained
+# Last Bumped: 2024-09-18
+dependencies = [
+    ############# Django / Core Libraries #############
+    "setuptools>=74.1.0",
+    "django>=5.1.1,<6.0",
+    "django-ninja>=1.3.0",
+    "django-extensions>=3.2.3",
+    "mypy-extensions>=1.0.0",
+    "channels[daphne]>=4.1.0",
+    "django-signal-webhooks>=0.3.0",
+    "django-admin-data-views>=0.4.1",
+    "django-object-actions>=4.3.0",
+    "django-charid-field>=0.4",
+    "django-pydantic-field>=0.3.10",
+    "django-jsonform>=2.22.0",
+    "django-stubs>=5.0.4",
+    "django-huey>=1.2.1",
+    "django-huey-monitor>=0.9.0",
+    ############# Python Helper Libraries ############
+    "requests>=2.32.3",
+    "dateparser>=1.2.0",
+    "feedparser>=6.0.11",
+    "w3lib>=2.2.1",
+    "rich>=13.8.0",
+    "ulid-py>=1.1.0",
+    "typeid-python>=0.3.1",
+    "psutil>=6.0.0",
+    "supervisor>=4.2.5",
+    "python-crontab>=3.2.0",          # for: archivebox schedule
+    "croniter>=3.0.3",                # for: archivebox schedule
+    "ipython>=8.27.0",                # for: archivebox shell
+    "python-benedict[io,parse]>=0.33.2",
+    ############# VENDORED LIBS ######################
+    # these can be safely omitted when installation subsystem does not provide these as packages (e.g. apt/debian)
+    # archivebox will automatically load fallback vendored copies bundled via archivebox/vendor/__init__.py
+    "pydantic-pkgr>=0.3.0",
+    "atomicwrites==1.4.1",
+    "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
+    "django-taggit==1.3.0",
+    "base32-crockford==0.3.0",
+    ############# Extractor Dependencies #############
+    "yt-dlp>=2024.8.6",               # for: media
+]
 
 # pdm lock --group=':all' 
 # pdm install -G:all
@@ -101,22 +97,57 @@ sonic = [
     "sonic-client>=1.0.0",
 ]
 ldap = [
-    # apt install libldap2-dev libsasl2-dev python3-ldap
+    # apt install libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev
     "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
 ]
-
+all = [
+    "archivebox[sonic,ldap]"
+]
 
 # pdm lock --group=':all' --dev
 # pdm install -G:all --dev
 # pdm update --dev --unconstrained
+[tool.pdm.dev-dependencies]
+build = [
+    # "pdm",                           # usually installed by apt/brew, dont double-install with pip
+    "pip>=24.2",
+    "setuptools>=75.1.0",
+    "wheel>=0.44.0",
+    "homebrew-pypi-poet>=0.10.0",      # for: generating archivebox.rb brewfile list of python packages
+]
+docs = [
+    "recommonmark>=0.7.1",
+    "sphinx",
+    "sphinx-rtd-theme>=2.0.0",
+]
+debug = [
+    "django-debug-toolbar>=4.4.6",
+    "djdt_flamegraph>=0.2.13",
+    "ipdb>=0.13.13",
+    "requests-tracker>=0.3.3",
+    "logfire[django]>=0.51.0",
+    "opentelemetry-instrumentation-django>=0.47b0",
+    "opentelemetry-instrumentation-sqlite3>=0.47b0",
+]
+test = [
+    "pytest>=8.3.3",
+    "bottle>=0.13.1",
+]
+lint = [
+    "flake8>=7.1.1",
+    "mypy>=1.11.2",
+    "django-autotyping>=0.5.1",
+]
+
+
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
-[project.scripts]
-archivebox = "archivebox.cli:main"
-
+[tool.setuptools]
+packages = ["archivebox"]
+package-dir = {"archivebox" = "archivebox"}
 
 [tool.ruff]
 line-length = 140
@@ -124,8 +155,9 @@ target-version = "py310"
 src = ["archivebox"]
 exclude = ["*.pyi", "typings/", "migrations/", "vendor/"]
 
+# https://docs.astral.sh/ruff/rules/
 [tool.ruff.lint]
-ignore = ["E731"]
+ignore = ["E731", "E303", "E266"]
 
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]
@@ -169,43 +201,14 @@ pythonVersion = "3.10"
 pythonPlatform = "Linux"
 
 
-
-[tool.pdm.dev-dependencies]
-build = [
-    # "pdm",                           # usually installed by apt/brew, dont double-install with pip
-    "setuptools>=69.5.1",
-    "pip",
-    "wheel",
-    "homebrew-pypi-poet>=0.10.0",      # for: generating archivebox.rb brewfile list of python packages
-]
-docs = [
-    "recommonmark",
-    "sphinx",
-    "sphinx-rtd-theme",
-]
-debug = [
-    "django-debug-toolbar",
-    "djdt_flamegraph",
-    "ipdb",
-    "requests-tracker>=0.3.3",
-    "logfire[django]>=0.51.0",
-    "opentelemetry-instrumentation-django>=0.47b0",
-    "opentelemetry-instrumentation-sqlite3>=0.47b0",
-]
-test = [
-    "pytest",
-    "bottle",
-]
-lint = [
-    "flake8",
-    "mypy",
-    "django-autotyping>=0.5.1",
-]
-
 [tool.pdm.scripts]
 lint = "./bin/lint.sh"
 test = "./bin/test.sh"
 # all = {composite = ["lint mypackage/", "test -v tests/"]}
+
+
+[project.scripts]
+archivebox = "archivebox.cli:main"
 
 
 [project.urls]

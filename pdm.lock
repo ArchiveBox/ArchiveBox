@@ -2,10 +2,10 @@
 # It is not intended for manual editing.
 
 [metadata]
-groups = ["default", "ldap", "sonic"]
+groups = ["default", "all", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:70904bf112383358bd5695abdd6b658075e5c0cac12b7a20faae83de38a90d4f"
+content_hash = "sha256:108bc23aad7ab29dae16cafd7ae5dd38a716ddce12d9c0fc823a112c5d76ea01"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -32,7 +32,7 @@ files = [
 
 [[package]]
 name = "anyio"
-version = "4.4.0"
+version = "4.5.0"
 requires_python = ">=3.8"
 summary = "High level compatibility layer for multiple asynchronous event loop implementations"
 groups = ["default"]
@@ -44,8 +44,8 @@ dependencies = [
     "typing-extensions>=4.1; python_version < \"3.11\"",
 ]
 files = [
-    {file = "anyio-4.4.0-py3-none-any.whl", hash = "sha256:c1b2d8f46a8a812513012e1107cb0e68c17159a7a594208005a57dc776e1bdc7"},
-    {file = "anyio-4.4.0.tar.gz", hash = "sha256:5aadc6a1bbb7cdb0bede386cac5e2940f5e2ff3aa20277e991cf028e0585ce94"},
+    {file = "anyio-4.5.0-py3-none-any.whl", hash = "sha256:fdeb095b7cc5a5563175eedd926ec4ae55413bb4be5770c424af0ba46ccb4a78"},
+    {file = "anyio-4.5.0.tar.gz", hash = "sha256:c5a275fe5ca0afd788001f58fca1e69e29ce706d746e317d660e21f70c530ef9"},
 ]
 
 [[package]]
@@ -53,7 +53,7 @@ name = "asgiref"
 version = "3.8.1"
 requires_python = ">=3.8"
 summary = "ASGI specs, helper code, and adapters"
-groups = ["default", "ldap"]
+groups = ["default", "all", "ldap"]
 marker = "python_version == \"3.11\""
 dependencies = [
     "typing-extensions>=4; python_version < \"3.11\"",
@@ -149,6 +149,21 @@ files = [
 ]
 
 [[package]]
+name = "beautifulsoup4"
+version = "4.12.3"
+requires_python = ">=3.6.0"
+summary = "Screen-scraping library"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "soupsieve>1.2",
+]
+files = [
+    {file = "beautifulsoup4-4.12.3-py3-none-any.whl", hash = "sha256:b80878c9f40111313e55da8ba20bdba06d8fa3969fc68304167741bbf9e082ed"},
+    {file = "beautifulsoup4-4.12.3.tar.gz", hash = "sha256:74e3d1928edc070d21748185c46e3fb33490f22f52a3addee9aee0f4f7781051"},
+]
+
+[[package]]
 name = "brotli"
 version = "1.1.0"
 summary = "Python bindings for the Brotli compression library"
@@ -193,14 +208,14 @@ files = [
 
 [[package]]
 name = "bx-py-utils"
-version = "101"
+version = "102"
 requires_python = "<4,>=3.10"
 summary = "Various Python utility functions"
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "bx_py_utils-101-py3-none-any.whl", hash = "sha256:eece1f0b1e3c091d38f3013984056b05f43c6a0fd716489cf337d89df802ab59"},
-    {file = "bx_py_utils-101.tar.gz", hash = "sha256:2aa295cde55da99b77f5f2f8b5bf8c0bec7e0046511832989ecbb1a43183cf75"},
+    {file = "bx_py_utils-102-py3-none-any.whl", hash = "sha256:961a0abf31b512f72c1473a4d115096b0c5becd32d08338ac62adbf5b217b680"},
+    {file = "bx_py_utils-102.tar.gz", hash = "sha256:6d131d40394b477de715169e80067a0ab4891c8f04afd33fbd7ca00e2faf21ae"},
 ]
 
 [[package]]
@@ -377,7 +392,7 @@ name = "django"
 version = "5.1.1"
 requires_python = ">=3.10"
 summary = "A high-level Python web framework that encourages rapid development and clean, pragmatic design."
-groups = ["default", "ldap"]
+groups = ["default", "all", "ldap"]
 marker = "python_version == \"3.11\""
 dependencies = [
     "asgiref<4,>=3.8.1",
@@ -410,7 +425,7 @@ name = "django-auth-ldap"
 version = "4.8.0"
 requires_python = ">=3.8"
 summary = "Django LDAP authentication backend"
-groups = ["ldap"]
+groups = ["all", "ldap"]
 marker = "python_version == \"3.11\""
 dependencies = [
     "Django>=3.2",
@@ -487,7 +502,7 @@ files = [
 
 [[package]]
 name = "django-jsonform"
-version = "2.22.0"
+version = "2.23.0"
 requires_python = ">=3.4"
 summary = "A user-friendly JSON editing form for Django admin."
 groups = ["default"]
@@ -496,8 +511,8 @@ dependencies = [
     "django>=2.0",
 ]
 files = [
-    {file = "django-jsonform-2.22.0.tar.gz", hash = "sha256:0c9d50fb371938e7262a7fef7c5a60835dd288f872f87b952d5e2ea84c825221"},
-    {file = "django_jsonform-2.22.0-py3-none-any.whl", hash = "sha256:c4dd1ba2b0152bd3164aacf326a83c35355c70d12de81908b5ced5f94c8263d6"},
+    {file = "django_jsonform-2.23.0-py3-none-any.whl", hash = "sha256:92078022f0d5bd8ffec215131f2d9826dfa83f08cc910090447f8b6028242e21"},
+    {file = "django_jsonform-2.23.0.tar.gz", hash = "sha256:21d64555679b51606b1774e642f7ec36f78a5d439ee0dfa3508e7b4faecb0d5d"},
 ]
 
 [[package]]
@@ -628,6 +643,18 @@ files = [
 ]
 
 [[package]]
+name = "et-xmlfile"
+version = "1.1.0"
+requires_python = ">=3.6"
+summary = "An implementation of lxml.xmlfile for the standard library"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "et_xmlfile-1.1.0-py3-none-any.whl", hash = "sha256:a2ba85d1d6a74ef63837eed693bcb89c3f752169b0e3e7ae5b16ca5e1b3deada"},
+    {file = "et_xmlfile-1.1.0.tar.gz", hash = "sha256:8eb9e2bc2f8c97e37a2dc85a09ecdcdec9d8a396530a6d5a33b30b9a92da0c5c"},
+]
+
+[[package]]
 name = "executing"
 version = "2.1.0"
 requires_python = ">=3.8"
@@ -652,6 +679,21 @@ dependencies = [
 files = [
     {file = "feedparser-6.0.11-py3-none-any.whl", hash = "sha256:0be7ee7b395572b19ebeb1d6aafb0028dee11169f1c934e0ed67d54992f4ad45"},
     {file = "feedparser-6.0.11.tar.gz", hash = "sha256:c9d0407b64c6f2a065d0ebb292c2b35c01050cc0dc33757461aaabdc4c4184d5"},
+]
+
+[[package]]
+name = "ftfy"
+version = "6.2.3"
+requires_python = "<4,>=3.8.1"
+summary = "Fixes mojibake and other problems with Unicode, after the fact"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "wcwidth<0.3.0,>=0.2.12",
+]
+files = [
+    {file = "ftfy-6.2.3-py3-none-any.whl", hash = "sha256:f15761b023f3061a66207d33f0c0149ad40a8319fd16da91796363e2c049fdf8"},
+    {file = "ftfy-6.2.3.tar.gz", hash = "sha256:79b505988f29d577a58a9069afe75553a02a46e42de6091c0660cdc67812badc"},
 ]
 
 [[package]]
@@ -732,14 +774,14 @@ files = [
 
 [[package]]
 name = "idna"
-version = "3.8"
+version = "3.10"
 requires_python = ">=3.6"
 summary = "Internationalized Domain Names in Applications (IDNA)"
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "idna-3.8-py3-none-any.whl", hash = "sha256:050b4e5baadcd44d760cedbd2b8e639f2ff89bbc7a5730fcc662954303377aac"},
-    {file = "idna-3.8.tar.gz", hash = "sha256:d838c2c0ed6fced7693d5e8ab8e734d5f8fda53a039c0164afb0b82e771e3603"},
+    {file = "idna-3.10-py3-none-any.whl", hash = "sha256:946d195a0d259cbba61165e88e65941f16e9b36ea6ddb97f00452bae8b1287d3"},
+    {file = "idna-3.10.tar.gz", hash = "sha256:12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9"},
 ]
 
 [[package]]
@@ -796,6 +838,16 @@ dependencies = [
 files = [
     {file = "jedi-0.19.1-py2.py3-none-any.whl", hash = "sha256:e983c654fe5c02867aef4cdfce5a2fbb4a50adc0af145f70504238f18ef5e7e0"},
     {file = "jedi-0.19.1.tar.gz", hash = "sha256:cf0496f3651bc65d7174ac1b7d043eff454892c708a87d1b683e57b569927ffd"},
+]
+
+[[package]]
+name = "mailchecker"
+version = "6.0.9"
+summary = "Cross-language email validation. Backed by a database of thousands throwable email providers."
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "mailchecker-6.0.9.tar.gz", hash = "sha256:f17e907ffe6f6faedc243f57eb0c9c951f61dec9af8e96922c1dcd093389b88d"},
 ]
 
 [[package]]
@@ -865,6 +917,21 @@ files = [
 ]
 
 [[package]]
+name = "openpyxl"
+version = "3.1.5"
+requires_python = ">=3.8"
+summary = "A Python library to read/write Excel 2010 xlsx/xlsm files"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "et-xmlfile",
+]
+files = [
+    {file = "openpyxl-3.1.5-py2.py3-none-any.whl", hash = "sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2"},
+    {file = "openpyxl-3.1.5.tar.gz", hash = "sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050"},
+]
+
+[[package]]
 name = "parso"
 version = "0.8.4"
 requires_python = ">=3.6"
@@ -888,6 +955,17 @@ dependencies = [
 files = [
     {file = "pexpect-4.9.0-py2.py3-none-any.whl", hash = "sha256:7236d1e080e4936be2dc3e326cec0af72acf9212a7e1d060210e70a47e253523"},
     {file = "pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f"},
+]
+
+[[package]]
+name = "phonenumbers"
+version = "8.13.45"
+summary = "Python version of Google's common library for parsing, formatting, storing and validating international phone numbers."
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "phonenumbers-8.13.45-py2.py3-none-any.whl", hash = "sha256:bf05ec20fcd13f0d53e43a34ed7bd1c8be26a72b88fce4b8c64fca5b4641987a"},
+    {file = "phonenumbers-8.13.45.tar.gz", hash = "sha256:53679a95b6060fd5e15467759252c87933d8566d6a5be00995a579eb0e02435b"},
 ]
 
 [[package]]
@@ -971,7 +1049,7 @@ name = "pyasn1"
 version = "0.6.1"
 requires_python = ">=3.8"
 summary = "Pure-Python implementation of ASN.1 types and DER/BER/CER codecs (X.208)"
-groups = ["default", "ldap"]
+groups = ["default", "all", "ldap"]
 marker = "python_version == \"3.11\""
 files = [
     {file = "pyasn1-0.6.1-py3-none-any.whl", hash = "sha256:0d632f46f2ba09143da3a8afe9e33fb6f92fa2320ab7e886e2d0f7672af84629"},
@@ -983,7 +1061,7 @@ name = "pyasn1-modules"
 version = "0.4.1"
 requires_python = ">=3.8"
 summary = "A collection of ASN.1-based protocols modules"
-groups = ["default", "ldap"]
+groups = ["default", "all", "ldap"]
 marker = "python_version == \"3.11\""
 dependencies = [
     "pyasn1<0.7.0,>=0.4.6",
@@ -1020,25 +1098,25 @@ files = [
 
 [[package]]
 name = "pydantic"
-version = "2.9.1"
+version = "2.9.2"
 requires_python = ">=3.8"
 summary = "Data validation using Python type hints"
 groups = ["default"]
 marker = "python_version == \"3.11\""
 dependencies = [
     "annotated-types>=0.6.0",
-    "pydantic-core==2.23.3",
+    "pydantic-core==2.23.4",
     "typing-extensions>=4.12.2; python_version >= \"3.13\"",
     "typing-extensions>=4.6.1; python_version < \"3.13\"",
 ]
 files = [
-    {file = "pydantic-2.9.1-py3-none-any.whl", hash = "sha256:7aff4db5fdf3cf573d4b3c30926a510a10e19a0774d38fc4967f78beb6deb612"},
-    {file = "pydantic-2.9.1.tar.gz", hash = "sha256:1363c7d975c7036df0db2b4a61f2e062fbc0aa5ab5f2772e0ffc7191a4f4bce2"},
+    {file = "pydantic-2.9.2-py3-none-any.whl", hash = "sha256:f048cec7b26778210e28a0459867920654d48e5e62db0958433636cde4254f12"},
+    {file = "pydantic-2.9.2.tar.gz", hash = "sha256:d155cef71265d1e9807ed1c32b4c8deec042a44a50a4188b25ac67ecd81a9c0f"},
 ]
 
 [[package]]
 name = "pydantic-core"
-version = "2.23.3"
+version = "2.23.4"
 requires_python = ">=3.8"
 summary = "Core functionality for Pydantic validation and serialization"
 groups = ["default"]
@@ -1047,14 +1125,14 @@ dependencies = [
     "typing-extensions!=4.7.0,>=4.6.0",
 ]
 files = [
-    {file = "pydantic_core-2.23.3-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:ea85bda3189fb27503af4c45273735bcde3dd31c1ab17d11f37b04877859ef45"},
-    {file = "pydantic_core-2.23.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e2c409ce1c219c091e47cb03feb3c4ed8c2b8e004efc940da0166aaee8f9d6c8"},
-    {file = "pydantic_core-2.23.3.tar.gz", hash = "sha256:3cb0f65d8b4121c1b015c60104a685feb929a29d7cf204387c7f2688c7974690"},
+    {file = "pydantic_core-2.23.4-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:1b84d168f6c48fabd1f2027a3d1bdfe62f92cade1fb273a5d68e621da0e44e6d"},
+    {file = "pydantic_core-2.23.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:216f9b2d7713eb98cb83c80b9c794de1f6b7e3145eef40400c62e86cee5f4e1e"},
+    {file = "pydantic_core-2.23.4.tar.gz", hash = "sha256:2584f7cf844ac4d970fba483a717dbe10c1c1c96a969bf65d61ffe94df1b2863"},
 ]
 
 [[package]]
 name = "pydantic-pkgr"
-version = "0.2.2"
+version = "0.3.0"
 requires_python = ">=3.10"
 summary = "System package manager APIs in strongly typed Python"
 groups = ["default"]
@@ -1065,8 +1143,8 @@ dependencies = [
     "typing-extensions>=4.11.0",
 ]
 files = [
-    {file = "pydantic_pkgr-0.2.2-py3-none-any.whl", hash = "sha256:8b213a298c560d598d932dcf1d05eec12c0378daf4f53ec6eedba719f886b647"},
-    {file = "pydantic_pkgr-0.2.2.tar.gz", hash = "sha256:704bc120700c154eb6e0292b05b1372c76063bfeaf3a8d58a25619ae74103a00"},
+    {file = "pydantic_pkgr-0.3.0-py3-none-any.whl", hash = "sha256:0bc47f5d7dc0b93a2b13336e7138db7c13ea46017f80aa335e9a1ef83ddf03bc"},
+    {file = "pydantic_pkgr-0.3.0.tar.gz", hash = "sha256:7a61cc239a10d8b05f9de33782c7d1c9d61412adf4959e471b83b8dcb4dde6bd"},
 ]
 
 [[package]]
@@ -1094,6 +1172,80 @@ dependencies = [
 files = [
     {file = "pyOpenSSL-24.2.1-py3-none-any.whl", hash = "sha256:967d5719b12b243588573f39b0c677637145c7a1ffedcd495a487e58177fbb8d"},
     {file = "pyopenssl-24.2.1.tar.gz", hash = "sha256:4247f0dbe3748d560dcbb2ff3ea01af0f9a1a001ef5f7c4c647956ed8cbf0e95"},
+]
+
+[[package]]
+name = "python-benedict"
+version = "0.33.2"
+summary = "python-benedict is a dict subclass with keylist/keypath/keyattr support, normalized I/O operations (base64, csv, ini, json, pickle, plist, query-string, toml, xls, xml, yaml) and many utilities... for humans, obviously."
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "python-fsutil<1.0.0,>=0.9.3",
+    "python-slugify<9.0.0,>=7.0.0",
+    "requests<3.0.0,>=2.26.0",
+]
+files = [
+    {file = "python-benedict-0.33.2.tar.gz", hash = "sha256:662de43bffb4e127da2056447f8ddd7f6f5c89b72dd66d289cf9abd1cc2720c8"},
+    {file = "python_benedict-0.33.2-py3-none-any.whl", hash = "sha256:50a69b601b34d4ad7b67fe94e3266ec05046bc547a4132fe43fd8fbd41aeefaa"},
+]
+
+[[package]]
+name = "python-benedict"
+version = "0.33.2"
+extras = ["html", "toml", "xls", "xml", "yaml"]
+summary = "python-benedict is a dict subclass with keylist/keypath/keyattr support, normalized I/O operations (base64, csv, ini, json, pickle, plist, query-string, toml, xls, xml, yaml) and many utilities... for humans, obviously."
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "beautifulsoup4<5.0.0,>=4.12.0",
+    "openpyxl<4.0.0,>=3.0.0",
+    "python-benedict==0.33.2",
+    "python-benedict[xml]",
+    "pyyaml<7.0,>=6.0",
+    "toml<1.0.0,>=0.10.2",
+    "xlrd<3.0.0,>=2.0.0",
+    "xmltodict<1.0.0,>=0.12.0",
+]
+files = [
+    {file = "python-benedict-0.33.2.tar.gz", hash = "sha256:662de43bffb4e127da2056447f8ddd7f6f5c89b72dd66d289cf9abd1cc2720c8"},
+    {file = "python_benedict-0.33.2-py3-none-any.whl", hash = "sha256:50a69b601b34d4ad7b67fe94e3266ec05046bc547a4132fe43fd8fbd41aeefaa"},
+]
+
+[[package]]
+name = "python-benedict"
+version = "0.33.2"
+extras = ["io", "parse"]
+summary = "python-benedict is a dict subclass with keylist/keypath/keyattr support, normalized I/O operations (base64, csv, ini, json, pickle, plist, query-string, toml, xls, xml, yaml) and many utilities... for humans, obviously."
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "ftfy<7.0.0,>=6.0.0",
+    "mailchecker<7.0.0,>=4.1.0",
+    "phonenumbers<9.0.0,>=8.12.0",
+    "python-benedict==0.33.2",
+    "python-benedict[html,toml,xls,xml,yaml]",
+    "python-dateutil<3.0.0,>=2.8.0",
+]
+files = [
+    {file = "python-benedict-0.33.2.tar.gz", hash = "sha256:662de43bffb4e127da2056447f8ddd7f6f5c89b72dd66d289cf9abd1cc2720c8"},
+    {file = "python_benedict-0.33.2-py3-none-any.whl", hash = "sha256:50a69b601b34d4ad7b67fe94e3266ec05046bc547a4132fe43fd8fbd41aeefaa"},
+]
+
+[[package]]
+name = "python-benedict"
+version = "0.33.2"
+extras = ["xml"]
+summary = "python-benedict is a dict subclass with keylist/keypath/keyattr support, normalized I/O operations (base64, csv, ini, json, pickle, plist, query-string, toml, xls, xml, yaml) and many utilities... for humans, obviously."
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "python-benedict==0.33.2",
+    "xmltodict<1.0.0,>=0.12.0",
+]
+files = [
+    {file = "python-benedict-0.33.2.tar.gz", hash = "sha256:662de43bffb4e127da2056447f8ddd7f6f5c89b72dd66d289cf9abd1cc2720c8"},
+    {file = "python_benedict-0.33.2-py3-none-any.whl", hash = "sha256:50a69b601b34d4ad7b67fe94e3266ec05046bc547a4132fe43fd8fbd41aeefaa"},
 ]
 
 [[package]]
@@ -1126,11 +1278,22 @@ files = [
 ]
 
 [[package]]
+name = "python-fsutil"
+version = "0.14.1"
+summary = "high-level file-system operations for lazy devs."
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "python-fsutil-0.14.1.tar.gz", hash = "sha256:8fb204fa8059f37bdeee8a1dc0fff010170202ea47c4225ee71bb3c26f3997be"},
+    {file = "python_fsutil-0.14.1-py3-none-any.whl", hash = "sha256:0d45e623f0f4403f674bdd8ae7aa7d24a4b3132ea45c65416bd2865e6b20b035"},
+]
+
+[[package]]
 name = "python-ldap"
 version = "3.4.4"
 requires_python = ">=3.6"
 summary = "Python modules for implementing LDAP clients"
-groups = ["ldap"]
+groups = ["all", "ldap"]
 marker = "python_version == \"3.11\""
 dependencies = [
     "pyasn1-modules>=0.1.5",
@@ -1138,6 +1301,21 @@ dependencies = [
 ]
 files = [
     {file = "python-ldap-3.4.4.tar.gz", hash = "sha256:7edb0accec4e037797705f3a05cbf36a9fde50d08c8f67f2aef99a2628fab828"},
+]
+
+[[package]]
+name = "python-slugify"
+version = "8.0.4"
+requires_python = ">=3.7"
+summary = "A Python slugify application that also handles Unicode"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "text-unidecode>=1.3",
+]
+files = [
+    {file = "python-slugify-8.0.4.tar.gz", hash = "sha256:59202371d1d05b54a9e7720c5e038f928f45daaffe41dd10822f3907b937c856"},
+    {file = "python_slugify-8.0.4-py2.py3-none-any.whl", hash = "sha256:276540b79961052b66b7d116620b36518847f52d5fd9e3a70164fc8c50faa6b8"},
 ]
 
 [[package]]
@@ -1160,6 +1338,19 @@ marker = "python_version == \"3.11\""
 files = [
     {file = "pytz-2024.2-py2.py3-none-any.whl", hash = "sha256:31c7c1817eb7fae7ca4b8c7ee50c72f93aa2dd863de768e1ef4245d426aa0725"},
     {file = "pytz-2024.2.tar.gz", hash = "sha256:2aa355083c50a0f93fa581709deac0c9ad65cca8a9e9beac660adcbd493c798a"},
+]
+
+[[package]]
+name = "pyyaml"
+version = "6.0.2"
+requires_python = ">=3.8"
+summary = "YAML parser and emitter for Python"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "PyYAML-6.0.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:1e2120ef853f59c7419231f3bf4e7021f1b936f6ebd222406c3b60212205d2ee"},
+    {file = "PyYAML-6.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3ad2a3decf9aaba3d29c8f537ac4b243e36bef957511b4766cb0057d32b0be85"},
+    {file = "pyyaml-6.0.2.tar.gz", hash = "sha256:d584d9ec91ad65861cc08d42e834324ef890a082e591037abe114850ff7bbc3e"},
 ]
 
 [[package]]
@@ -1231,14 +1422,14 @@ files = [
 
 [[package]]
 name = "setuptools"
-version = "74.1.2"
+version = "75.1.0"
 requires_python = ">=3.8"
 summary = "Easily download, build, install, upgrade, and uninstall Python packages"
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "setuptools-74.1.2-py3-none-any.whl", hash = "sha256:5f4c08aa4d3ebcb57a50c33b1b07e94315d7fc7230f7115e47fc99776c8ce308"},
-    {file = "setuptools-74.1.2.tar.gz", hash = "sha256:95b40ed940a1c67eb70fc099094bd6e99c6ee7c23aa2306f4d2697ba7916f9c6"},
+    {file = "setuptools-75.1.0-py3-none-any.whl", hash = "sha256:35ab7fd3bcd95e6b7fd704e4a1539513edad446c097797f2985e0e4b960772f2"},
+    {file = "setuptools-75.1.0.tar.gz", hash = "sha256:d59a21b17a275fb872a9c3dae73963160ae079f1049ed956880cd7c09b120538"},
 ]
 
 [[package]]
@@ -1279,7 +1470,7 @@ files = [
 name = "sonic-client"
 version = "1.0.0"
 summary = "python client for sonic search backend"
-groups = ["sonic"]
+groups = ["all", "sonic"]
 marker = "python_version == \"3.11\""
 files = [
     {file = "sonic-client-1.0.0.tar.gz", hash = "sha256:fe324c7354670488ed84847f6a6727d3cb5fb3675cb9b61396dcf5720e5aca66"},
@@ -1287,11 +1478,23 @@ files = [
 ]
 
 [[package]]
+name = "soupsieve"
+version = "2.6"
+requires_python = ">=3.8"
+summary = "A modern CSS selector implementation for Beautiful Soup."
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "soupsieve-2.6-py3-none-any.whl", hash = "sha256:e72c4ff06e4fb6e4b5a9f0f55fe6e81514581fca1515028625d0f299c602ccc9"},
+    {file = "soupsieve-2.6.tar.gz", hash = "sha256:e2e68417777af359ec65daac1057404a3c8a5455bb8abc36f1a9866ab1a51abb"},
+]
+
+[[package]]
 name = "sqlparse"
 version = "0.5.1"
 requires_python = ">=3.8"
 summary = "A non-validating SQL parser."
-groups = ["default", "ldap"]
+groups = ["default", "all", "ldap"]
 marker = "python_version == \"3.11\""
 files = [
     {file = "sqlparse-0.5.1-py3-none-any.whl", hash = "sha256:773dcbf9a5ab44a090f3441e2180efe2560220203dc2f8c0b0fa141e18b505e4"},
@@ -1326,6 +1529,29 @@ dependencies = [
 files = [
     {file = "supervisor-4.2.5-py2.py3-none-any.whl", hash = "sha256:2ecaede32fc25af814696374b79e42644ecaba5c09494c51016ffda9602d0f08"},
     {file = "supervisor-4.2.5.tar.gz", hash = "sha256:34761bae1a23c58192281a5115fb07fbf22c9b0133c08166beffc70fed3ebc12"},
+]
+
+[[package]]
+name = "text-unidecode"
+version = "1.3"
+summary = "The most basic Text::Unidecode port"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "text-unidecode-1.3.tar.gz", hash = "sha256:bad6603bb14d279193107714b288be206cac565dfa49aa5b105294dd5c4aab93"},
+    {file = "text_unidecode-1.3-py2.py3-none-any.whl", hash = "sha256:1311f10e8b895935241623731c2ba64f4c455287888b18189350b67134a822e8"},
+]
+
+[[package]]
+name = "toml"
+version = "0.10.2"
+requires_python = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
+summary = "Python Library for Tom's Obvious, Minimal Language"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
+    {file = "toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"},
 ]
 
 [[package]]
@@ -1409,14 +1635,14 @@ files = [
 
 [[package]]
 name = "types-pyyaml"
-version = "6.0.12.20240808"
+version = "6.0.12.20240917"
 requires_python = ">=3.8"
 summary = "Typing stubs for PyYAML"
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "types-PyYAML-6.0.12.20240808.tar.gz", hash = "sha256:b8f76ddbd7f65440a8bda5526a9607e4c7a322dc2f8e1a8c405644f9a6f4b9af"},
-    {file = "types_PyYAML-6.0.12.20240808-py3-none-any.whl", hash = "sha256:deda34c5c655265fc517b546c902aa6eed2ef8d3e921e4765fe606fe2afe8d35"},
+    {file = "types-PyYAML-6.0.12.20240917.tar.gz", hash = "sha256:d1405a86f9576682234ef83bcb4e6fff7c9305c8b1fbad5e0bcd4f7dbdc9c587"},
+    {file = "types_PyYAML-6.0.12.20240917-py3-none-any.whl", hash = "sha256:392b267f1c0fe6022952462bf5d6523f31e37f6cea49b14cee7ad634b6301570"},
 ]
 
 [[package]]
@@ -1460,14 +1686,14 @@ files = [
 
 [[package]]
 name = "urllib3"
-version = "2.2.2"
+version = "2.2.3"
 requires_python = ">=3.8"
 summary = "HTTP library with thread-safe connection pooling, file post, and more."
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "urllib3-2.2.2-py3-none-any.whl", hash = "sha256:a448b2f64d686155468037e1ace9f2d2199776e17f0a46610480d311f73e3472"},
-    {file = "urllib3-2.2.2.tar.gz", hash = "sha256:dd505485549a7a552833da5e6063639d0d177c04f23bc3864e41e5dc5f612168"},
+    {file = "urllib3-2.2.3-py3-none-any.whl", hash = "sha256:ca899ca043dcb1bafa3e262d73aa25c465bfb49e0bd9dd5d59f1d0acba2f8fac"},
+    {file = "urllib3-2.2.3.tar.gz", hash = "sha256:e7d814a81dad81e6caf2ec9fdedb284ecc9c73076b62654547cc64ccdcae26e9"},
 ]
 
 [[package]]
@@ -1521,6 +1747,30 @@ files = [
     {file = "websockets-13.0.1-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fac2d146ff30d9dd2fcf917e5d147db037a5c573f0446c564f16f1f94cf87462"},
     {file = "websockets-13.0.1-py3-none-any.whl", hash = "sha256:b80f0c51681c517604152eb6a572f5a9378f877763231fddb883ba2f968e8817"},
     {file = "websockets-13.0.1.tar.gz", hash = "sha256:4d6ece65099411cfd9a48d13701d7438d9c34f479046b34c50ff60bb8834e43e"},
+]
+
+[[package]]
+name = "xlrd"
+version = "2.0.1"
+requires_python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
+summary = "Library for developers to extract data from Microsoft Excel (tm) .xls spreadsheet files"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "xlrd-2.0.1-py2.py3-none-any.whl", hash = "sha256:6a33ee89877bd9abc1158129f6e94be74e2679636b8a205b43b85206c3f0bbdd"},
+    {file = "xlrd-2.0.1.tar.gz", hash = "sha256:f72f148f54442c6b056bf931dbc34f986fd0c3b0b6b5a58d013c9aef274d0c88"},
+]
+
+[[package]]
+name = "xmltodict"
+version = "0.13.0"
+requires_python = ">=3.4"
+summary = "Makes working with XML feel like you are working with JSON"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "xmltodict-0.13.0-py2.py3-none-any.whl", hash = "sha256:aa89e8fd76320154a40d19a0df04a4695fb9dc5ba977cbb68ab3e4eb225e7852"},
+    {file = "xmltodict-0.13.0.tar.gz", hash = "sha256:341595a488e3e01a85a9d8911d8912fd922ede5fecc4dce437eb4b6c8d037e56"},
 ]
 
 [[package]]
