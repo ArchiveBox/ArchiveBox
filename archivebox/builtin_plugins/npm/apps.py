@@ -1,15 +1,18 @@
 __package__ = 'archivebox.builtin_plugins.npm'
 
+from pathlib import Path
 from typing import List, Optional
-from pydantic import InstanceOf, Field
 
 from django.conf import settings
+from pydantic import InstanceOf, Field
 
-from pydantic_pkgr import BinProvider, NpmProvider, BinName, PATHStr
+from pydantic_pkgr import BinProvider, NpmProvider, BinName, PATHStr, BinProviderName
+
 from plugantic.base_plugin import BasePlugin
 from plugantic.base_configset import BaseConfigSet, ConfigSectionName
 from plugantic.base_binary import BaseBinary, BaseBinProvider, env, apt, brew
 from plugantic.base_hook import BaseHook
+
 
 from ...config import CONFIG
 
@@ -31,11 +34,22 @@ DEFAULT_GLOBAL_CONFIG = {
 NPM_CONFIG = NpmDependencyConfigs(**DEFAULT_GLOBAL_CONFIG)
 
 
-class CustomNpmProvider(NpmProvider, BaseBinProvider):
+class SystemNpmProvider(NpmProvider, BaseBinProvider):
+    name: BinProviderName = "npm"
     PATH: PATHStr = str(CONFIG.NODE_BIN_PATH)
+    
+    npm_prefix: Optional[Path] = None
 
-NPM_BINPROVIDER = CustomNpmProvider(PATH=str(CONFIG.NODE_BIN_PATH))
-npm = NPM_BINPROVIDER
+class LibNpmProvider(NpmProvider, BaseBinProvider):
+    name: BinProviderName = "lib_npm"
+    PATH: PATHStr = str(CONFIG.NODE_BIN_PATH)
+    
+    npm_prefix: Optional[Path] = settings.CONFIG.LIB_DIR / 'npm'
+
+
+SYS_NPM_BINPROVIDER = SystemNpmProvider()
+LIB_NPM_BINPROVIDER = LibNpmProvider()
+npm = LIB_NPM_BINPROVIDER
 
 class NpmBinary(BaseBinary):
     name: BinName = 'npm'
@@ -59,7 +73,8 @@ class NpmPlugin(BasePlugin):
     
     hooks: List[InstanceOf[BaseHook]] = [
         NPM_CONFIG,
-        NPM_BINPROVIDER,
+        SYS_NPM_BINPROVIDER,
+        LIB_NPM_BINPROVIDER,
         NODE_BINARY,
         NPM_BINARY,
     ]

@@ -7,11 +7,11 @@ from pydantic import InstanceOf, Field
 
 import django
 
-from django.db.backends.sqlite3.base import Database as sqlite3     # type: ignore[import-type]
+from django.db.backends.sqlite3.base import Database as django_sqlite3     # type: ignore[import-type]
 from django.core.checks import Error, Tags
 from django.conf import settings
 
-from pydantic_pkgr import BinProvider, PipProvider, BinName, PATHStr, BinProviderName, ProviderLookupDict, SemVer
+from pydantic_pkgr import BinProvider, PipProvider, BinName, BinProviderName, ProviderLookupDict, SemVer
 from plugantic.base_plugin import BasePlugin
 from plugantic.base_configset import BaseConfigSet, ConfigSectionName
 from plugantic.base_check import BaseCheck
@@ -36,37 +36,41 @@ DEFAULT_GLOBAL_CONFIG = {
 }
 PIP_CONFIG = PipDependencyConfigs(**DEFAULT_GLOBAL_CONFIG)
 
-class CustomPipProvider(PipProvider, BaseBinProvider):
-    name: str = 'pip'
-    INSTALLER_BIN: str = 'pip'
-    PATH: PATHStr = str(Path(sys.executable).parent)
+class SystemPipBinProvider(PipProvider, BaseBinProvider):
+    name: BinProviderName = "pip"
+    INSTALLER_BIN: BinName = "pip"
+    
+    pip_venv: Optional[Path] = None        # global pip scope
+    
+
+class SystemPipxBinProvider(PipProvider, BaseBinProvider):
+    name: BinProviderName = "pipx"
+    INSTALLER_BIN: BinName = "pipx"
 
 
-PIP_BINPROVIDER = CustomPipProvider(PATH=str(Path(sys.executable).parent))
-pip = PIP_BINPROVIDER
+class LibPipBinProvider(PipProvider, BaseBinProvider):
+    name: BinProviderName = "lib_pip"
+    INSTALLER_BIN: BinName = "pip"
+    
+    pip_venv: Optional[Path] = settings.CONFIG.OUTPUT_DIR / 'lib' / 'pip' / 'venv'
 
-class PipBinary(BaseBinary):
-    name: BinName = 'pip'
-    binproviders_supported: List[InstanceOf[BinProvider]] = [pip, apt, brew, env]
-
-PIP_BINARY = PipBinary()
-
-
+SYS_PIP_BINPROVIDER = SystemPipBinProvider()
+SYS_PIPX_BINPROVIDER = SystemPipxBinProvider()
+LIB_PIP_BINPROVIDER = LibPipBinProvider()
+pip = LIB_PIP_BINPROVIDER
 
 
 
 class PythonBinary(BaseBinary):
     name: BinName = 'python'
 
-    binproviders_supported: List[InstanceOf[BinProvider]] = [pip, apt, brew, env]
+    binproviders_supported: List[InstanceOf[BinProvider]] = [SYS_PIP_BINPROVIDER, apt, brew, env]
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
-        'apt': {
-            'packages': \
-                lambda: 'python3 python3-minimal python3-pip python3-setuptools python3-virtualenv',
-            'abspath': \
-                lambda: sys.executable,
-            'version': \
-                lambda: '{}.{}.{}'.format(*sys.version_info[:3]),
+        SYS_PIP_BINPROVIDER.name: {
+            'abspath': lambda:
+                sys.executable,
+            'version': lambda: 
+                '{}.{}.{}'.format(*sys.version_info[:3]),
         },
     }
 
@@ -74,13 +78,13 @@ PYTHON_BINARY = PythonBinary()
 
 class SqliteBinary(BaseBinary):
     name: BinName = 'sqlite'
-    binproviders_supported: List[InstanceOf[BaseBinProvider]] = Field(default=[pip])
+    binproviders_supported: List[InstanceOf[BaseBinProvider]] = Field(default=[SYS_PIP_BINPROVIDER])
     provider_overrides:  Dict[BinProviderName, ProviderLookupDict] = {
-        'pip': {
-            'abspath': \
-                lambda: Path(inspect.getfile(sqlite3)),
-            'version': \
-                lambda: SemVer(sqlite3.version),
+        SYS_PIP_BINPROVIDER.name: {
+            'abspath': lambda:
+                Path(inspect.getfile(django_sqlite3)),
+            'version': lambda:
+                SemVer(django_sqlite3.version),
         },
     }
 
@@ -90,17 +94,24 @@ SQLITE_BINARY = SqliteBinary()
 class DjangoBinary(BaseBinary):
     name: BinName = 'django'
 
-    binproviders_supported: List[InstanceOf[BaseBinProvider]] = Field(default=[pip])
+    binproviders_supported: List[InstanceOf[BaseBinProvider]] = Field(default=[SYS_PIP_BINPROVIDER])
     provider_overrides:  Dict[BinProviderName, ProviderLookupDict] = {
-        'pip': {
-            'abspath': \
-                lambda: inspect.getfile(django),
-            'version': \
-                lambda: django.VERSION[:3],
+        SYS_PIP_BINPROVIDER.name: {
+            'abspath': lambda:
+                inspect.getfile(django),
+            'version': lambda:
+                django.VERSION[:3],
         },
     }
 
 DJANGO_BINARY = DjangoBinary()
+
+class PipBinary(BaseBinary):
+    name: BinName = "pip"
+    binproviders_supported: List[InstanceOf[BinProvider]] = [LIB_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
+
+
+PIP_BINARY = PipBinary()
 
 
 class CheckUserIsNotRoot(BaseCheck):
@@ -120,9 +131,30 @@ class CheckUserIsNotRoot(BaseCheck):
             )
         logger.debug('[√] UID is not root')
         return errors
+    
+class CheckPipEnvironment(BaseCheck):
+    label: str = "CheckPipEnvironment"
+    tag: str = Tags.database
+
+    @staticmethod
+    def check(settings, logger) -> List[Warning]:
+        errors = []
+       
+        LIB_PIP_BINPROVIDER.setup()
+        if not LIB_PIP_BINPROVIDER.INSTALLER_BIN_ABSPATH:
+            errors.append(
+                Error(
+                    "Failed to setup data/lib/pip virtualenv for runtime dependencies!",
+                    id="pip.P001",
+                    hint="Make sure the data dir is writable and make sure python3-pip and python3-venv are installed & available on the host.",
+                )
+            )
+        logger.debug("[√] CheckPipEnvironment: data/lib/pip virtualenv is setup properly")
+        return errors
 
 
 USER_IS_NOT_ROOT_CHECK = CheckUserIsNotRoot()
+PIP_ENVIRONMENT_CHECK = CheckPipEnvironment()
 
 
 class PipPlugin(BasePlugin):
@@ -131,12 +163,15 @@ class PipPlugin(BasePlugin):
 
     hooks: List[InstanceOf[BaseHook]] = [
         PIP_CONFIG,
-        PIP_BINPROVIDER,
+        SYS_PIP_BINPROVIDER,
+        SYS_PIPX_BINPROVIDER,
+        LIB_PIP_BINPROVIDER,
         PIP_BINARY,
         PYTHON_BINARY,
         SQLITE_BINARY,
         DJANGO_BINARY,
         USER_IS_NOT_ROOT_CHECK,
+        PIP_ENVIRONMENT_CHECK,
     ]
 
 PLUGIN = PipPlugin()

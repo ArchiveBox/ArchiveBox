@@ -1,8 +1,9 @@
 __package__ = "archivebox.plugantic"
 
 from typing import Dict, List
+from typing_extensions import Self
 
-from pydantic import Field, InstanceOf
+from pydantic import Field, InstanceOf, validate_call
 from pydantic_pkgr import (
     Binary,
     BinProvider,
@@ -13,6 +14,7 @@ from pydantic_pkgr import (
     EnvProvider,
 )
 
+from django.conf import settings
 
 from .base_hook import BaseHook, HookType
 from ..config_stubs import AttrDict
@@ -40,7 +42,7 @@ class BaseBinProvider(BaseHook, BinProvider):
         settings.BINPROVIDERS[self.id] = self
 
         super().register(settings, parent_plugin=parent_plugin)
-
+        
 
 
 class BaseBinary(BaseHook, Binary):
@@ -57,6 +59,34 @@ class BaseBinary(BaseHook, Binary):
 
         super().register(settings, parent_plugin=parent_plugin)
 
+    @staticmethod
+    def symlink_to_lib(binary, bin_dir=settings.CONFIG.BIN_DIR) -> None:
+        if not (binary.abspath and binary.abspath.exists()):
+            return
+        
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        
+        symlink = bin_dir / binary.name
+        symlink.unlink(missing_ok=True)
+        symlink.symlink_to(binary.abspath)
+
+    @validate_call
+    def load(self, **kwargs) -> Self:
+        binary = super().load(**kwargs)
+        self.symlink_to_lib(binary=binary, bin_dir=settings.CONFIG.BIN_DIR)
+        return binary
+    
+    @validate_call
+    def install(self, **kwargs) -> Self:
+        binary = super().install(**kwargs)
+        self.symlink_to_lib(binary=binary, bin_dir=settings.CONFIG.BIN_DIR)
+        return binary
+    
+    @validate_call
+    def load_or_install(self, **kwargs) -> Self:
+        binary = super().load_or_install(**kwargs)
+        self.symlink_to_lib(binary=binary, bin_dir=settings.CONFIG.BIN_DIR)
+        return binary
 
 apt = AptProvider()
 brew = BrewProvider()
