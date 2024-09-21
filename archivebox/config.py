@@ -909,7 +909,7 @@ def hint(text: Union[Tuple[str, ...], List[str], str], prefix='    ', config: Op
 
 
 # Dependency Metadata Helpers
-def bin_version(binary: Optional[str], cmd: Optional[str]=None) -> Optional[str]:
+def bin_version(binary: Optional[str], cmd: Optional[str]=None, timeout: int=3) -> Optional[str]:
     """check the presence and return valid version line of a specified binary"""
 
     abspath = bin_path(binary)
@@ -919,15 +919,23 @@ def bin_version(binary: Optional[str], cmd: Optional[str]=None) -> Optional[str]
     try:
         bin_env = os.environ | {'LANG': 'C'}
         is_cmd_str = cmd and isinstance(cmd, str)
-        version_str = run(cmd or [abspath, "--version"], shell=is_cmd_str, stdout=PIPE, stderr=STDOUT, env=bin_env).stdout.strip().decode()
+        version_str = (
+            run(cmd or [abspath, "--version"], timeout=timeout, shell=is_cmd_str, stdout=PIPE, stderr=STDOUT, env=bin_env)
+            .stdout.strip()
+            .decode()
+        )
         if not version_str:
-            version_str = run(cmd or [abspath, "--version"], shell=is_cmd_str, stdout=PIPE, stderr=STDOUT).stdout.strip().decode()
+            version_str = (
+                run(cmd or [abspath, "--version"], timeout=timeout, shell=is_cmd_str, stdout=PIPE, stderr=STDOUT)
+                .stdout.strip()
+                .decode()
+            )
         
         # take first 3 columns of first line of version info
         semver = SemVer.parse(version_str)
         if semver:
             return str(semver)
-    except OSError:
+    except (OSError, TimeoutExpired):
         pass
         # stderr(f'[X] Unable to find working version of dependency: {binary}', color='red')
         # stderr('    Make sure it\'s installed, then confirm it\'s working by running:')
