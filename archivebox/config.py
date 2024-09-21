@@ -35,8 +35,8 @@ import requests
 from hashlib import md5
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Optional, Type, Tuple, Dict, Union, List, Any
-from subprocess import run, PIPE, DEVNULL, STDOUT
+from typing import Optional, Type, Tuple, Dict, Union, List
+from subprocess import run, PIPE, DEVNULL, STDOUT, TimeoutExpired
 from configparser import ConfigParser
 from collections import defaultdict
 import importlib.metadata
@@ -55,11 +55,13 @@ from .config_stubs import (
     ConfigDefaultDict,
 )
 
+# print('STARTING CONFIG LOADING')
+
 # load fallback libraries from vendor dir
 from .vendor import load_vendored_libs
 load_vendored_libs()
 
-
+# print("LOADED VENDOR LIBS")
 
 ############################### Config Schema ##################################
 
@@ -292,6 +294,7 @@ ARCHIVE_DIR_NAME = 'archive'
 SOURCES_DIR_NAME = 'sources'
 LOGS_DIR_NAME = 'logs'
 CACHE_DIR_NAME = 'cache'
+LIB_DIR_NAME = 'lib'
 PERSONAS_DIR_NAME = 'personas'
 CRONTABS_DIR_NAME = 'crontabs'
 SQL_INDEX_FILENAME = 'index.sqlite3'
@@ -372,6 +375,7 @@ ALLOWED_IN_OUTPUT_DIR = {
     SOURCES_DIR_NAME,
     LOGS_DIR_NAME,
     CACHE_DIR_NAME,
+    LIB_DIR_NAME,
     PERSONAS_DIR_NAME,
     SQL_INDEX_FILENAME,
     f"{SQL_INDEX_FILENAME}-wal",
@@ -394,6 +398,7 @@ ALLOWDENYLIST_REGEX_FLAGS: int = re.IGNORECASE | re.UNICODE | re.MULTILINE
 
 CONSTANTS = {
     "PACKAGE_DIR_NAME":             {'default': lambda c: PACKAGE_DIR_NAME},
+    "LIB_DIR_NAME":                 {'default': lambda c: LIB_DIR_NAME},
     "TEMPLATES_DIR_NAME":           {'default': lambda c: TEMPLATES_DIR_NAME},
     "ARCHIVE_DIR_NAME":             {'default': lambda c: ARCHIVE_DIR_NAME},
     "SOURCES_DIR_NAME":             {'default': lambda c: SOURCES_DIR_NAME},
@@ -554,6 +559,8 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'SOURCES_DIR':              {'default': lambda c: c['OUTPUT_DIR'] / SOURCES_DIR_NAME},
     'LOGS_DIR':                 {'default': lambda c: c['OUTPUT_DIR'] / LOGS_DIR_NAME},
     'CACHE_DIR':                {'default': lambda c: c['OUTPUT_DIR'] / CACHE_DIR_NAME},
+    'LIB_DIR':                  {'default': lambda c: c['OUTPUT_DIR'] / LIB_DIR_NAME},
+    'BIN_DIR':                  {'default': lambda c: c['OUTPUT_DIR'] / LIB_DIR_NAME / 'bin'},
     'PERSONAS_DIR':             {'default': lambda c: c['OUTPUT_DIR'] / PERSONAS_DIR_NAME},
     'CONFIG_FILE':              {'default': lambda c: Path(c['CONFIG_FILE']).resolve() if c['CONFIG_FILE'] else c['OUTPUT_DIR'] / CONFIG_FILENAME},
     'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and Path(c['COOKIES_FILE']).resolve()},
@@ -650,6 +657,8 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'SAVE_DENYLIST_PTN':        {'default': lambda c: c['SAVE_DENYLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_DENYLIST'].items()}},
 }
 
+
+# print("FINISHED DEFINING SCHEMAS")
 
 ################################### Helpers ####################################
 
@@ -833,6 +842,7 @@ def load_config(defaults: ConfigDefaultDict,
     extended_config: ConfigDict = config.copy() if config else {}
     for key, default in defaults.items():
         try:
+            # print('LOADING CONFIG KEY:', key, 'DEFAULT=', default)
             extended_config[key] = load_config_val(
                 key,
                 default=default['default'],
@@ -1034,6 +1044,11 @@ def get_code_locations(config: ConfigDict) -> SimpleConfigValueDict:
             'enabled': True,
             'is_valid': (config['TEMPLATES_DIR'] / 'static').exists(),
         },
+        'LIB_DIR': {
+            'path': (config['LIB_DIR']).resolve(),
+            'enabled': True,
+            'is_valid': config['LIB_DIR'].is_dir(),
+        },
         # 'NODE_MODULES_DIR': {
         #     'path': ,
         #     'enabled': ,
@@ -1054,53 +1069,53 @@ def get_data_locations(config: ConfigDict) -> ConfigValue:
         #     'enabled': config['USE_WGET'] and config['COOKIES_FILE'],
         #     'is_valid': False if config['COOKIES_FILE'] is None else Path(config['COOKIES_FILE']).exists(),
         # },
-        'OUTPUT_DIR': {
-            'path': config['OUTPUT_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
-            'is_mount': os.path.ismount(config['OUTPUT_DIR'].resolve()),
+        "OUTPUT_DIR": {
+            "path": config["OUTPUT_DIR"].resolve(),
+            "enabled": True,
+            "is_valid": (config["OUTPUT_DIR"] / SQL_INDEX_FILENAME).exists(),
+            "is_mount": os.path.ismount(config["OUTPUT_DIR"].resolve()),
         },
-        'CONFIG_FILE': {
-            'path': config['CONFIG_FILE'].resolve(),
-            'enabled': True,
-            'is_valid': config['CONFIG_FILE'].exists(),
+        "CONFIG_FILE": {
+            "path": config["CONFIG_FILE"].resolve(),
+            "enabled": True,
+            "is_valid": config["CONFIG_FILE"].exists(),
         },
-        'SQL_INDEX': {
-            'path': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).resolve(),
-            'enabled': True,
-            'is_valid': (config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).exists(),
-            'is_mount': os.path.ismount((config['OUTPUT_DIR'] / SQL_INDEX_FILENAME).resolve()),
+        "SQL_INDEX": {
+            "path": (config["OUTPUT_DIR"] / SQL_INDEX_FILENAME).resolve(),
+            "enabled": True,
+            "is_valid": (config["OUTPUT_DIR"] / SQL_INDEX_FILENAME).exists(),
+            "is_mount": os.path.ismount((config["OUTPUT_DIR"] / SQL_INDEX_FILENAME).resolve()),
         },
-        'ARCHIVE_DIR': {
-            'path': config['ARCHIVE_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': config['ARCHIVE_DIR'].exists(),
-            'is_mount': os.path.ismount(config['ARCHIVE_DIR'].resolve()),
+        "ARCHIVE_DIR": {
+            "path": config["ARCHIVE_DIR"].resolve(),
+            "enabled": True,
+            "is_valid": config["ARCHIVE_DIR"].exists(),
+            "is_mount": os.path.ismount(config["ARCHIVE_DIR"].resolve()),
         },
-        'SOURCES_DIR': {
-            'path': config['SOURCES_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': config['SOURCES_DIR'].exists(),
+        "SOURCES_DIR": {
+            "path": config["SOURCES_DIR"].resolve(),
+            "enabled": True,
+            "is_valid": config["SOURCES_DIR"].exists(),
         },
-        'PERSONAS_DIR': {
-            'path': config['PERSONAS_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': config['PERSONAS_DIR'].exists(),
+        "PERSONAS_DIR": {
+            "path": config["PERSONAS_DIR"].resolve(),
+            "enabled": True,
+            "is_valid": config["PERSONAS_DIR"].exists(),
         },
-        'LOGS_DIR': {
-            'path': config['LOGS_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': config['LOGS_DIR'].exists(),
+        "LOGS_DIR": {
+            "path": config["LOGS_DIR"].resolve(),
+            "enabled": True,
+            "is_valid": config["LOGS_DIR"].exists(),
         },
-        'CACHE_DIR': {
-            'path': config['CACHE_DIR'].resolve(),
-            'enabled': True,
-            'is_valid': config['CACHE_DIR'].exists(),
+        "CACHE_DIR": {
+            "path": config["CACHE_DIR"].resolve(),
+            "enabled": True,
+            "is_valid": config["CACHE_DIR"].exists(),
         },
-        'CUSTOM_TEMPLATES_DIR': {
-            'path': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).resolve(),
-            'enabled': bool(config['CUSTOM_TEMPLATES_DIR']),
-            'is_valid': config['CUSTOM_TEMPLATES_DIR'] and Path(config['CUSTOM_TEMPLATES_DIR']).exists(),
+        "CUSTOM_TEMPLATES_DIR": {
+            "path": config["CUSTOM_TEMPLATES_DIR"] and Path(config["CUSTOM_TEMPLATES_DIR"]).resolve(),
+            "enabled": bool(config["CUSTOM_TEMPLATES_DIR"]),
+            "is_valid": config["CUSTOM_TEMPLATES_DIR"] and Path(config["CUSTOM_TEMPLATES_DIR"]).exists(),
         },
         # managed by bin/docker_entrypoint.sh and python-crontab:
         # 'CRONTABS_DIR': {
@@ -1246,8 +1261,10 @@ def get_chrome_info(config: ConfigDict) -> ConfigValue:
 def load_all_config():
     CONFIG: ConfigDict = ConfigDict()
     for section_name, section_config in CONFIG_SCHEMA.items():
+        # print('LOADING CONFIG SECTION:', section_name)
         CONFIG = load_config(section_config, CONFIG)
 
+    # print("LOADING CONFIG SECTION:", 'DYNAMIC')
     return load_config(DYNAMIC_CONFIG_SCHEMA, CONFIG)
 
 # add all final config values in CONFIG to globals in this file
@@ -1255,6 +1272,7 @@ CONFIG: ConfigDict = load_all_config()
 globals().update(CONFIG)
 # this lets us do:  from .config import DEBUG, MEDIA_TIMEOUT, ...
 
+# print("FINISHED LOADING CONFIG USING SCHEMAS + FILE + ENV")
 
 # ******************************************************************************
 # ******************************************************************************
@@ -1444,8 +1462,8 @@ def check_migrations(out_dir: Union[str, Path, None]=None, config: ConfigDict=CO
     (Path(output_dir) / SOURCES_DIR_NAME).mkdir(exist_ok=True)
     (Path(output_dir) / LOGS_DIR_NAME).mkdir(exist_ok=True)
     (Path(output_dir) / CACHE_DIR_NAME).mkdir(exist_ok=True)
-    (Path(output_dir) / PERSONAS_DIR_NAME).mkdir(exist_ok=True)
-    (Path(output_dir) / PERSONAS_DIR_NAME / 'Default').mkdir(exist_ok=True)
+    (Path(output_dir) / LIB_DIR_NAME / 'bin').mkdir(exist_ok=True, parents=True)
+    (Path(output_dir) / PERSONAS_DIR_NAME / 'Default').mkdir(exist_ok=True, parents=True)
 
 
 
