@@ -2,7 +2,7 @@
 # Please do not edit it manually.
 
 annotated-types==0.7.0; python_version == "3.11"
-anyio==4.5.0; python_version == "3.11"
+anyio==4.6.0; python_version == "3.11"
 asgiref==3.8.1; python_version == "3.11"
 asttokens==2.4.1; python_version == "3.11"
 atomicwrites==1.4.1; python_version == "3.11"
@@ -75,7 +75,7 @@ pycparser==2.22; platform_python_implementation != "PyPy" and python_version == 
 pycryptodomex==3.20.0; python_version == "3.11"
 pydantic==2.9.2; python_version == "3.11"
 pydantic-core==2.23.4; python_version == "3.11"
-pydantic-pkgr==0.3.0; python_version == "3.11"
+pydantic-pkgr==0.3.4; python_version == "3.11"
 pygments==2.18.0; python_version == "3.11"
 pyopenssl==24.2.1; python_version == "3.11"
 python-benedict[html,toml,xls,xml,yaml]==0.33.2; python_version == "3.11"

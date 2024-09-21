@@ -5,7 +5,7 @@
 groups = ["default", "all", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:108bc23aad7ab29dae16cafd7ae5dd38a716ddce12d9c0fc823a112c5d76ea01"
+content_hash = "sha256:03398776fe3d6f6cafe8eff207a62051fa2ae69c3ef8b08f2cb6e5c01014e5b4"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -32,8 +32,8 @@ files = [
 
 [[package]]
 name = "anyio"
-version = "4.5.0"
-requires_python = ">=3.8"
+version = "4.6.0"
+requires_python = ">=3.9"
 summary = "High level compatibility layer for multiple asynchronous event loop implementations"
 groups = ["default"]
 marker = "python_version == \"3.11\""
@@ -44,8 +44,8 @@ dependencies = [
     "typing-extensions>=4.1; python_version < \"3.11\"",
 ]
 files = [
-    {file = "anyio-4.5.0-py3-none-any.whl", hash = "sha256:fdeb095b7cc5a5563175eedd926ec4ae55413bb4be5770c424af0ba46ccb4a78"},
-    {file = "anyio-4.5.0.tar.gz", hash = "sha256:c5a275fe5ca0afd788001f58fca1e69e29ce706d746e317d660e21f70c530ef9"},
+    {file = "anyio-4.6.0-py3-none-any.whl", hash = "sha256:c7d2e9d63e31599eeb636c8c5c03a7e108d73b345f064f1c19fdc87b79036a9a"},
+    {file = "anyio-4.6.0.tar.gz", hash = "sha256:137b4559cbb034c477165047febb6ff83f390fc3b20bf181c1fc0a728cb8beeb"},
 ]
 
 [[package]]
@@ -1132,7 +1132,7 @@ files = [
 
 [[package]]
 name = "pydantic-pkgr"
-version = "0.3.0"
+version = "0.3.3"
 requires_python = ">=3.10"
 summary = "System package manager APIs in strongly typed Python"
 groups = ["default"]
@@ -1143,8 +1143,8 @@ dependencies = [
     "typing-extensions>=4.11.0",
 ]
 files = [
-    {file = "pydantic_pkgr-0.3.0-py3-none-any.whl", hash = "sha256:0bc47f5d7dc0b93a2b13336e7138db7c13ea46017f80aa335e9a1ef83ddf03bc"},
-    {file = "pydantic_pkgr-0.3.0.tar.gz", hash = "sha256:7a61cc239a10d8b05f9de33782c7d1c9d61412adf4959e471b83b8dcb4dde6bd"},
+    {file = "pydantic_pkgr-0.3.3-py3-none-any.whl", hash = "sha256:6cc0c068dd69d829bf1c47bf75f7658a9889dcd4caf071b24ba6158510480124"},
+    {file = "pydantic_pkgr-0.3.3.tar.gz", hash = "sha256:bf1ac4f4c2e37841482e50843223a82c773f2b422419d678a92fef274379a671"},
 ]
 
 [[package]]
