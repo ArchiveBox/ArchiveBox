@@ -1,11 +1,14 @@
+__package__ = 'archivebox.builtin_plugins.singlefile'
+
 from pathlib import Path
 from typing import List, Dict, Optional
+from typing_extensions import Self
 
 from django.conf import settings
 
 # Depends on other PyPI/vendor packages:
-from pydantic import InstanceOf, Field
-from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName
+from pydantic import InstanceOf, Field, validate_call
+from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName, bin_abspath
 
 # Depends on other Django apps:
 from plugantic.base_plugin import BasePlugin
@@ -14,10 +17,9 @@ from plugantic.base_binary import BaseBinary, env
 from plugantic.base_extractor import BaseExtractor
 from plugantic.base_queue import BaseQueue
 from plugantic.base_hook import BaseHook
-from plugantic.ansible_utils import run_playbook
 
 # Depends on Other Plugins:
-from builtin_plugins.npm.apps import npm
+from builtin_plugins.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
 
 
 ###################### Config ##########################
@@ -60,39 +62,58 @@ DEFAULT_GLOBAL_CONFIG = {
 SINGLEFILE_CONFIG = SinglefileConfigs(**DEFAULT_GLOBAL_CONFIG)
 
 
-INSTALL_BIN = './install_singlefile.yml'
+SINGLEFILE_MIN_VERSION = '1.1.54'
+SINGLEFILE_MAX_VERSION = '1.1.60'
 
 
 class SinglefileBinary(BaseBinary):
     name: BinName = 'single-file'
-    binproviders_supported: List[InstanceOf[BinProvider]] = [npm, env]
+    binproviders_supported: List[InstanceOf[BinProvider]] = [LIB_NPM_BINPROVIDER, SYS_NPM_BINPROVIDER, env]
 
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] ={
-        # 'env': {
-        #     'abspath': lambda: bin_abspath('single-file-node.js', PATH=env.PATH) or bin_abspath('single-file', PATH=env.PATH),
-        # },
-        # 'npm': {
-        #     'abspath': lambda: bin_abspath('single-file', PATH=npm.PATH) or bin_abspath('single-file-node.js', PATH=npm.PATH),
-        #     'packages': lambda: f'single-file-cli@>={min_version} <{max_version}',
-        # },
+    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
+        env.name: {
+            'abspath': lambda:
+                bin_abspath('single-file', PATH=env.PATH) or bin_abspath('single-file-node.js', PATH=env.PATH),
+        },
+        LIB_NPM_BINPROVIDER.name: {
+            "abspath": lambda:
+                bin_abspath("single-file", PATH=LIB_NPM_BINPROVIDER.PATH) or bin_abspath("single-file-node.js", PATH=LIB_NPM_BINPROVIDER.PATH),
+            "packages": lambda:
+                [f"single-file-cli@>={SINGLEFILE_MIN_VERSION} <{SINGLEFILE_MAX_VERSION}"],
+        },
+        SYS_NPM_BINPROVIDER.name: {
+            "packages": lambda:
+                [],    # prevent modifying system global npm packages
+        },
     }
     
-    def install(self, *args, quiet=False) -> 'SinglefileBinary':
-        
-        install_playbook = self.plugin_dir / 'install_singlefile.yml'
-        
-        singlefile_bin = run_playbook(install_playbook, data_dir=settings.CONFIG.OUTPUT_DIR, quiet=quiet).BINARIES.singlefile
+    @validate_call
+    def install(self, binprovider_name: Optional[BinProviderName]=None) -> Self:
+        # force install to only use lib/npm provider, we never want to modify global NPM packages
+        return BaseBinary.install(self, binprovider_name=binprovider_name or LIB_NPM_BINPROVIDER.name)
+    
+    @validate_call
+    def load_or_install(self, binprovider_name: Optional[BinProviderName] = None) -> Self:
+        # force install to only use lib/npm provider, we never want to modify global NPM packages
+        try:
+            return self.load()
+        except Exception:
+            return BaseBinary.install(self, binprovider_name=binprovider_name or LIB_NPM_BINPROVIDER.name)
 
-        return self.__class__.model_validate(
-            {
-                **self.model_dump(),
-                "loaded_abspath": singlefile_bin.abspath,
-                "loaded_version": singlefile_bin.version,
-                "loaded_binprovider": env,
-                "binproviders_supported": self.binproviders_supported,
-            }
-        )
-        
+
+# ALTERNATIVE INSTALL METHOD using Ansible:
+# install_playbook = PLUGANTIC_DIR / 'ansible' / 'install_singlefile.yml'
+# singlefile_bin = run_playbook(install_playbook, data_dir=settings.CONFIG.OUTPUT_DIR, quiet=quiet).BINARIES.singlefile
+# return self.__class__.model_validate(
+#     {
+#         **self.model_dump(),
+#         "loaded_abspath": singlefile_bin.abspath,
+#         "loaded_version": singlefile_bin.version,
+#         "loaded_binprovider": env,
+#         "binproviders_supported": self.binproviders_supported,
+#     }
+# )
+
 
 SINGLEFILE_BINARY = SinglefileBinary()
 
