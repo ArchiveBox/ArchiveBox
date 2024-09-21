@@ -399,7 +399,10 @@ def log_list_view(request: HttpRequest, **kwargs) -> TableContext:
         rows["Size"].append(f'{st.st_size//1000} kb')
 
         with open(logfile, 'rb') as f:
-            f.seek(-1024, os.SEEK_END)
+            try:
+                f.seek(-1024, os.SEEK_END)
+            except OSError:
+                f.seek(0)
             last_lines = f.read().decode().split("\n")
             non_empty_lines = [line for line in last_lines if line.strip()]
             rows["Most Recent Lines"].append(non_empty_lines[-1])
