@@ -4,7 +4,7 @@ import inspect
 from huey.api import TaskWrapper
 
 from pathlib import Path
-from typing import List, Literal
+from typing import List, Literal, ClassVar
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 

@@ -70,7 +70,7 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
         "Provided By": [],
         "Found Abspath": [],
         "Related Configuration": [],
-        "Overrides": [],
+        # "Overrides": [],
         # "Description": [],
     }
 
@@ -109,7 +109,7 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
             )))
             # if not binary.provider_overrides:
                 # import ipdb; ipdb.set_trace()
-            rows['Overrides'].append(str(obj_to_yaml(binary.provider_overrides) or str(binary.provider_overrides))[:200])
+            # rows['Overrides'].append(str(obj_to_yaml(binary.provider_overrides) or str(binary.provider_overrides))[:200])
             # rows['Description'].append(binary.description)
 
     return TableContext(

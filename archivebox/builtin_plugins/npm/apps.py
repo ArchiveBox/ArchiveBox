@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import List, Optional
 
 from django.conf import settings
-from pydantic import InstanceOf, Field
+from pydantic import InstanceOf
 
 from pydantic_pkgr import BinProvider, NpmProvider, BinName, PATHStr, BinProviderName
 
 from plugantic.base_plugin import BasePlugin
-from plugantic.base_configset import BaseConfigSet, ConfigSectionName
+from plugantic.base_configset import BaseConfigSet
 from plugantic.base_binary import BaseBinary, BaseBinProvider, env, apt, brew
 from plugantic.base_hook import BaseHook
 
@@ -20,13 +20,14 @@ from ...config import CONFIG
 
 
 class NpmDependencyConfigs(BaseConfigSet):
-    section: ConfigSectionName = 'DEPENDENCY_CONFIG'
+    # section: ConfigSectionName = 'DEPENDENCY_CONFIG'
 
-    USE_NPM: bool = True
-    NPM_BINARY: str = Field(default='npm')
-    NPM_ARGS: Optional[List[str]] = Field(default=None)
-    NPM_EXTRA_ARGS: List[str] = []
-    NPM_DEFAULT_ARGS: List[str] = []
+    # USE_NPM: bool = True
+    # NPM_BINARY: str = Field(default='npm')
+    # NPM_ARGS: Optional[List[str]] = Field(default=None)
+    # NPM_EXTRA_ARGS: List[str] = []
+    # NPM_DEFAULT_ARGS: List[str] = []
+    pass
 
 
 DEFAULT_GLOBAL_CONFIG = {
@@ -35,7 +36,7 @@ NPM_CONFIG = NpmDependencyConfigs(**DEFAULT_GLOBAL_CONFIG)
 
 
 class SystemNpmProvider(NpmProvider, BaseBinProvider):
-    name: BinProviderName = "npm"
+    name: BinProviderName = "sys_npm"
     PATH: PATHStr = str(CONFIG.NODE_BIN_PATH)
     
     npm_prefix: Optional[Path] = None

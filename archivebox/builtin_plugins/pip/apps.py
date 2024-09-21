@@ -30,6 +30,7 @@ class PipDependencyConfigs(BaseConfigSet):
     PIP_ARGS: Optional[List[str]] = Field(default=None)
     PIP_EXTRA_ARGS: List[str] = []
     PIP_DEFAULT_ARGS: List[str] = []
+    
 
 
 DEFAULT_GLOBAL_CONFIG = {
@@ -37,15 +38,27 @@ DEFAULT_GLOBAL_CONFIG = {
 PIP_CONFIG = PipDependencyConfigs(**DEFAULT_GLOBAL_CONFIG)
 
 class SystemPipBinProvider(PipProvider, BaseBinProvider):
-    name: BinProviderName = "pip"
+    name: BinProviderName = "sys_pip"
     INSTALLER_BIN: BinName = "pip"
     
     pip_venv: Optional[Path] = None        # global pip scope
     
+    def on_install(self, bin_name: str, **kwargs):
+        # never modify system pip packages
+        return 'refusing to install packages globally with system pip, use a venv instead'
 
 class SystemPipxBinProvider(PipProvider, BaseBinProvider):
     name: BinProviderName = "pipx"
     INSTALLER_BIN: BinName = "pipx"
+    
+    pip_venv: Optional[Path] = None        # global pipx scope
+
+
+class VenvPipBinProvider(PipProvider, BaseBinProvider):
+    name: BinProviderName = "venv_pip"
+    INSTALLER_BIN: BinName = "pip"
+
+    pip_venv: Optional[Path] = Path(os.environ.get("VIRTUAL_ENV", None) or '/tmp/NotInsideAVenv')
 
 
 class LibPipBinProvider(PipProvider, BaseBinProvider):
@@ -55,7 +68,8 @@ class LibPipBinProvider(PipProvider, BaseBinProvider):
     pip_venv: Optional[Path] = settings.CONFIG.OUTPUT_DIR / 'lib' / 'pip' / 'venv'
 
 SYS_PIP_BINPROVIDER = SystemPipBinProvider()
-SYS_PIPX_BINPROVIDER = SystemPipxBinProvider()
+PIPX_PIP_BINPROVIDER = SystemPipxBinProvider()
+VENV_PIP_BINPROVIDER = VenvPipBinProvider()
 LIB_PIP_BINPROVIDER = LibPipBinProvider()
 pip = LIB_PIP_BINPROVIDER
 
@@ -64,7 +78,7 @@ pip = LIB_PIP_BINPROVIDER
 class PythonBinary(BaseBinary):
     name: BinName = 'python'
 
-    binproviders_supported: List[InstanceOf[BinProvider]] = [SYS_PIP_BINPROVIDER, apt, brew, env]
+    binproviders_supported: List[InstanceOf[BinProvider]] = [VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
         SYS_PIP_BINPROVIDER.name: {
             'abspath': lambda:
@@ -78,13 +92,15 @@ PYTHON_BINARY = PythonBinary()
 
 class SqliteBinary(BaseBinary):
     name: BinName = 'sqlite'
-    binproviders_supported: List[InstanceOf[BaseBinProvider]] = Field(default=[SYS_PIP_BINPROVIDER])
-    provider_overrides:  Dict[BinProviderName, ProviderLookupDict] = {
+    binproviders_supported: List[InstanceOf[BaseBinProvider]] = Field(default=[VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER])
+    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
+        VENV_PIP_BINPROVIDER.name: {
+            "abspath": lambda: Path(inspect.getfile(django_sqlite3)),
+            "version": lambda: SemVer(django_sqlite3.version),
+        },
         SYS_PIP_BINPROVIDER.name: {
-            'abspath': lambda:
-                Path(inspect.getfile(django_sqlite3)),
-            'version': lambda:
-                SemVer(django_sqlite3.version),
+            "abspath": lambda: Path(inspect.getfile(django_sqlite3)),
+            "version": lambda: SemVer(django_sqlite3.version),
         },
     }
 
@@ -94,13 +110,15 @@ SQLITE_BINARY = SqliteBinary()
 class DjangoBinary(BaseBinary):
     name: BinName = 'django'
 
-    binproviders_supported: List[InstanceOf[BaseBinProvider]] = Field(default=[SYS_PIP_BINPROVIDER])
-    provider_overrides:  Dict[BinProviderName, ProviderLookupDict] = {
+    binproviders_supported: List[InstanceOf[BaseBinProvider]] = Field(default=[VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER])
+    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
+        VENV_PIP_BINPROVIDER.name: {
+            "abspath": lambda: inspect.getfile(django),
+            "version": lambda: django.VERSION[:3],
+        },
         SYS_PIP_BINPROVIDER.name: {
-            'abspath': lambda:
-                inspect.getfile(django),
-            'version': lambda:
-                django.VERSION[:3],
+            "abspath": lambda: inspect.getfile(django),
+            "version": lambda: django.VERSION[:3],
         },
     }
 
@@ -108,7 +126,7 @@ DJANGO_BINARY = DjangoBinary()
 
 class PipBinary(BaseBinary):
     name: BinName = "pip"
-    binproviders_supported: List[InstanceOf[BinProvider]] = [LIB_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
+    binproviders_supported: List[InstanceOf[BinProvider]] = [LIB_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
 
 
 PIP_BINARY = PipBinary()
@@ -164,7 +182,8 @@ class PipPlugin(BasePlugin):
     hooks: List[InstanceOf[BaseHook]] = [
         PIP_CONFIG,
         SYS_PIP_BINPROVIDER,
-        SYS_PIPX_BINPROVIDER,
+        PIPX_PIP_BINPROVIDER,
+        VENV_PIP_BINPROVIDER,
         LIB_PIP_BINPROVIDER,
         PIP_BINARY,
         PYTHON_BINARY,
