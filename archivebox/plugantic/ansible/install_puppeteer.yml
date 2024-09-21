@@ -40,7 +40,7 @@
         name: puppeteer
         PATH: '{{BINPROVIDERS.npm.PATH}}'
 
-    # - name: Load chrome binaries from environment PATH
+    # - name: Find existing chrome binaries in environment PATH
     #   include_role:
     #     name: load_binary
     #   vars:
@@ -83,6 +83,7 @@
       when: not BINARIES.chrome.version|default('')
 
     - name: Create ./bin/chrome symlink to ./browsers/chrome/... binary
+      # normal symlink doesn't work for .app on macOS because it fails to load ../Framworks/..., so we create a tiny bash script to open it in its correct cwd instead
       copy:
         content: |
                  #!/bin/bash

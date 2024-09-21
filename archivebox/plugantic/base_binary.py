@@ -1,17 +1,25 @@
-__package__ = 'archivebox.plugantic'
+__package__ = "archivebox.plugantic"
 
-import os
 from typing import Dict, List
 
 from pydantic import Field, InstanceOf
-from pydantic_pkgr import Binary, BinProvider, BinProviderName, ProviderLookupDict, AptProvider, BrewProvider, EnvProvider
+from pydantic_pkgr import (
+    Binary,
+    BinProvider,
+    BinProviderName,
+    ProviderLookupDict,
+    AptProvider,
+    BrewProvider,
+    EnvProvider,
+)
+
 
 from .base_hook import BaseHook, HookType
 from ..config_stubs import AttrDict
 
 
 class BaseBinProvider(BaseHook, BinProvider):
-    hook_type: HookType = 'BINPROVIDER'
+    hook_type: HookType = "BINPROVIDER"
 
     # def on_get_abspath(self, bin_name: BinName, **context) -> Optional[HostBinPath]:
     #     Class = super()
@@ -34,11 +42,12 @@ class BaseBinProvider(BaseHook, BinProvider):
         super().register(settings, parent_plugin=parent_plugin)
 
 
+
 class BaseBinary(BaseHook, Binary):
     hook_type: HookType = "BINARY"
-    
-    binproviders_supported: List[InstanceOf[BinProvider]] = Field(default_factory=list, alias='binproviders')
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = Field(default_factory=dict, alias='overrides')
+
+    binproviders_supported: List[InstanceOf[BinProvider]] = Field(default_factory=list, alias="binproviders")
+    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = Field(default_factory=dict, alias="overrides")
 
     def register(self, settings, parent_plugin=None):
         # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
@@ -49,7 +58,6 @@ class BaseBinary(BaseHook, Binary):
         super().register(settings, parent_plugin=parent_plugin)
 
 
-
 apt = AptProvider()
 brew = BrewProvider()
-env = EnvProvider(PATH=os.environ.get("PATH", "/bin"))
+env = EnvProvider()
