@@ -1336,22 +1336,16 @@ def server(runserver_args: Optional[List[str]]=None,
         print('    To create an admin user, run:')
         print('        archivebox manage createsuperuser')
         print()
-
-    # fallback to serving staticfiles insecurely with django when DEBUG=False (not compatible with daphne)
-    # if not config.DEBUG:
-    #     runserver_args.append('--insecure')  # TODO: serve statics w/ nginx instead
     
-    # toggle autoreloading when archivebox code changes (it's on by default)
-    if not reload:
-        runserver_args.append('--noreload')
-
+    # toggle autoreloading when archivebox code changes
     config.SHOW_PROGRESS = False
     config.DEBUG = config.DEBUG or debug
 
-    if reload or debug:
+    if debug:
+        if not reload:
+            runserver_args.append('--noreload')  # '--insecure'
         call_command("runserver", *runserver_args)
     else:
-        
         host = '127.0.0.1'
         port = '8000'
         
@@ -1367,9 +1361,12 @@ def server(runserver_args: Optional[List[str]]=None,
         except IndexError:
             pass
 
+        print(f'    > Starting ArchiveBox webserver on http://{host}:{port}/')
+
         from queues.supervisor_util import get_or_create_supervisord_process, start_worker, stop_worker, watch_worker
 
         print()
+        
         supervisor = get_or_create_supervisord_process(daemonize=False)
 
         bg_workers = [
