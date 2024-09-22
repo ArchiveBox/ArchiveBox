@@ -63,7 +63,7 @@ def convert(ini_str: str) -> str:
 
 ### Basic Assertions
 
-test_input = """
+test_input = r"""
 [SERVER_CONFIG]
 IS_TTY=False
 USE_COLOR=False
@@ -225,7 +225,7 @@ NODE_VERSION=v21.7.3
 """
 
 
-expected_output = '''[SERVER_CONFIG]
+expected_output = r'''[SERVER_CONFIG]
 IS_TTY = false
 USE_COLOR = false
 SHOW_PROGRESS = false

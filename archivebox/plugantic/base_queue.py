@@ -36,6 +36,7 @@ class BaseQueue(BaseHook):
         return AttrDict(all_tasks)
 
     def get_huey_config(self, settings) -> dict:
+        """Get the config dict to insert into django.conf.settings.DJANGO_HUEY['queues']."""
         return {
             "huey_class": "huey.SqliteHuey",
             "filename": settings.QUEUE_DATABASE_NAME,
@@ -58,6 +59,7 @@ class BaseQueue(BaseHook):
         }
         
     def get_supervisor_config(self, settings) -> dict:
+        """Ge the config dict used to tell sueprvisord to start a huey consumer for this queue."""
         return {
             "name": f"worker_{self.name}",
             "command": f"archivebox manage djangohuey --queue {self.name}",
