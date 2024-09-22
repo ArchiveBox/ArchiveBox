@@ -179,7 +179,7 @@ services:
     #     environment:
     #         - INIT_COLLECTION=archivebox
     #     ports:
-    #         - 8080:8080
+    #         - 8686:8080
     #     volumes:
     #         - ./data:/archivebox
     #         - ./data/wayback:/webarchive
