@@ -5,7 +5,7 @@
 groups = ["default", "all", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:03398776fe3d6f6cafe8eff207a62051fa2ae69c3ef8b08f2cb6e5c01014e5b4"
+content_hash = "sha256:d7c9e7a40b0a794986eb3f6a3774d5003c9b39985411f63c1aa387dda9986ada"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -1132,7 +1132,7 @@ files = [
 
 [[package]]
 name = "pydantic-pkgr"
-version = "0.3.3"
+version = "0.3.5"
 requires_python = ">=3.10"
 summary = "System package manager APIs in strongly typed Python"
 groups = ["default"]
@@ -1143,8 +1143,8 @@ dependencies = [
     "typing-extensions>=4.11.0",
 ]
 files = [
-    {file = "pydantic_pkgr-0.3.3-py3-none-any.whl", hash = "sha256:6cc0c068dd69d829bf1c47bf75f7658a9889dcd4caf071b24ba6158510480124"},
-    {file = "pydantic_pkgr-0.3.3.tar.gz", hash = "sha256:bf1ac4f4c2e37841482e50843223a82c773f2b422419d678a92fef274379a671"},
+    {file = "pydantic_pkgr-0.3.5-py3-none-any.whl", hash = "sha256:921d42535a2562b80ca97e524f334b9e55448017621cb7d152b42b9e4f547a01"},
+    {file = "pydantic_pkgr-0.3.5.tar.gz", hash = "sha256:36444778d53d5cbdc261086fda0d65fb519a072105f5d1c7d88e224bd197dd1d"},
 ]
 
 [[package]]
@@ -1736,17 +1736,17 @@ files = [
 
 [[package]]
 name = "websockets"
-version = "13.0.1"
+version = "13.1"
 requires_python = ">=3.8"
 summary = "An implementation of the WebSocket Protocol (RFC 6455 & 7692)"
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "websockets-13.0.1-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:699ba9dd6a926f82a277063603fc8d586b89f4cb128efc353b749b641fcddda7"},
-    {file = "websockets-13.0.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:52aed6ef21a0f1a2a5e310fb5c42d7555e9c5855476bbd7173c3aa3d8a0302f2"},
-    {file = "websockets-13.0.1-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fac2d146ff30d9dd2fcf917e5d147db037a5c573f0446c564f16f1f94cf87462"},
-    {file = "websockets-13.0.1-py3-none-any.whl", hash = "sha256:b80f0c51681c517604152eb6a572f5a9378f877763231fddb883ba2f968e8817"},
-    {file = "websockets-13.0.1.tar.gz", hash = "sha256:4d6ece65099411cfd9a48d13701d7438d9c34f479046b34c50ff60bb8834e43e"},
+    {file = "websockets-13.1-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:61fc0dfcda609cda0fc9fe7977694c0c59cf9d749fbb17f4e9483929e3c48a19"},
+    {file = "websockets-13.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:c1dca61c6db1166c48b95198c0b7d9c990b30c756fc2923cc66f68d17dc558fd"},
+    {file = "websockets-13.1-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:87c6e35319b46b99e168eb98472d6c7d8634ee37750d7693656dc766395df096"},
+    {file = "websockets-13.1-py3-none-any.whl", hash = "sha256:a9a396a6ad26130cdae92ae10c36af09d9bfe6cafe69670fd3b6da9b07b4044f"},
+    {file = "websockets-13.1.tar.gz", hash = "sha256:a3b3366087c1bc0a2795111edcadddb8b3b59509d5db5d7ea3fdd69f954a8878"},
 ]
 
 [[package]]
