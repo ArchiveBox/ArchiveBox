@@ -89,7 +89,7 @@ services:
         environment:
             - SEARCH_BACKEND_PASSWORD=SomeSecretPassword
         volumes:
-            - ./sonic.cfg:/etc/sonic.cfg
+            #- ./sonic.cfg:/etc/sonic.cfg:ro    # use this if you prefer to download the config on the host and mount it manually
             - ./data/sonic:/var/lib/sonic/store
 
 
