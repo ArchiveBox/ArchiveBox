@@ -154,7 +154,7 @@ PUPPETEER_BINPROVIDER = PuppeteerBinProvider()
 
 class PuppeteerPlugin(BasePlugin):
     app_label: str ='puppeteer'
-    verbose_name: str = 'Puppeteer & Playwright'
+    verbose_name: str = 'Puppeteer (NPM)'
 
     hooks: List[InstanceOf[BaseHook]] = [
         PUPPETEER_CONFIG,

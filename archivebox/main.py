@@ -1328,7 +1328,7 @@ def server(runserver_args: Optional[List[str]]=None,
     from django.core.management import call_command
     from django.contrib.auth.models import User
 
-    print('{green}[+] Starting ArchiveBox webserver...{reset}'.format(**ANSI))
+    print('{green}[+] Starting ArchiveBox webserver... {reset}'.format(**ANSI))
     print('    > Logging errors to ./logs/errors.log')
     if not User.objects.filter(is_superuser=True).exists():
         print('{lightyellow}[!] No admin users exist yet, you will not be able to edit links in the UI.{reset}'.format(**ANSI))

@@ -167,7 +167,7 @@ PLAYWRIGHT_BINPROVIDER = PlaywrightBinProvider()
 
 class PlaywrightPlugin(BasePlugin):
     app_label: str = 'playwright'
-    verbose_name: str = 'Playwright'
+    verbose_name: str = 'Playwright (PIP)'
 
     hooks: List[InstanceOf[BaseHook]] = [
         PLAYWRIGHT_CONFIG,

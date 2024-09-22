@@ -1,6 +1,7 @@
 import platform
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
+from typing_extensions import Self
 
 from django.conf import settings
 
@@ -27,26 +28,31 @@ from builtin_plugins.puppeteer.apps import PUPPETEER_BINPROVIDER
 from builtin_plugins.playwright.apps import PLAYWRIGHT_BINPROVIDER
 
 
-CHROMIUM_BINARY_NAMES = [
+CHROMIUM_BINARY_NAMES_LINUX = [
     "chromium",
     "chromium-browser",
     "chromium-browser-beta",
     "chromium-browser-unstable",
     "chromium-browser-canary",
     "chromium-browser-dev",
-    "/Applications/Chromium.app/Contents/MacOS/Chromium",
 ]
-CHROME_BINARY_NAMES = [
+CHROMIUM_BINARY_NAMES_MACOS = ["/Applications/Chromium.app/Contents/MacOS/Chromium"]
+CHROMIUM_BINARY_NAMES = CHROMIUM_BINARY_NAMES_LINUX + CHROMIUM_BINARY_NAMES_MACOS
+
+CHROME_BINARY_NAMES_LINUX = [
     "google-chrome",
     "google-chrome-stable",
     "google-chrome-beta",
     "google-chrome-canary",
     "google-chrome-unstable",
     "google-chrome-dev",
-    # 'chrome',
+    "chrome"
+]
+CHROME_BINARY_NAMES_MACOS = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
 ]
+CHROME_BINARY_NAMES = CHROME_BINARY_NAMES_LINUX + CHROME_BINARY_NAMES_MACOS
 
 
 def autodetect_system_chrome_install(PATH=None) -> Optional[Path]:
@@ -56,13 +62,26 @@ def autodetect_system_chrome_install(PATH=None) -> Optional[Path]:
             return abspath
     return None
 
+def create_macos_app_symlink(target: Path, shortcut: Path):
+    """
+    on macOS, some binaries are inside of .app, so we need to
+    create a tiny bash script instead of a symlink
+    (so that ../ parent relationships are relative to original .app instead of callsite dir)
+    """
+    # TODO: should we enforce this? is it useful in any other situation?
+    # if platform.system().lower() != 'darwin':
+    #     raise Exception(...)
+        
+    shortcut.write_text(f"""#!/usr/bin/env bash\nexec '{target}' "$@"\n""")
+    shortcut.chmod(0o777)   # make sure its executable by everyone
+
 ###################### Config ##########################
 
 
 class ChromeDependencyConfigs(BaseConfigSet):
     section: ConfigSectionName = 'DEPENDENCY_CONFIG'
 
-    CHROME_BINARY: str = Field(default='wget')
+    CHROME_BINARY: str = Field(default='chrome')
     CHROME_ARGS: Optional[List[str]] = Field(default=None)
     CHROME_EXTRA_ARGS: List[str] = []
     CHROME_DEFAULT_ARGS: List[str] = ['--timeout={TIMEOUT-10}']
@@ -78,21 +97,18 @@ CHROME_CONFIG = ChromeConfigs(**DEFAULT_GLOBAL_CONFIG)
 
 
 class ChromeBinary(BaseBinary):
-    name: BinName = 'chrome'
+    name: BinName = CHROME_CONFIG.CHROME_BINARY
     binproviders_supported: List[InstanceOf[BinProvider]] = [PUPPETEER_BINPROVIDER, env, PLAYWRIGHT_BINPROVIDER]
     
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
         env.name: {
-            'abspath': lambda:
-                autodetect_system_chrome_install(PATH=env.PATH),
+            'abspath': lambda: autodetect_system_chrome_install(PATH=env.PATH),  # /usr/bin/google-chrome-stable
         },
         PUPPETEER_BINPROVIDER.name: {
-            'packages': lambda:
-                ['chrome@stable'],
+            'packages': lambda: ['chrome@stable'],              # npx @puppeteer/browsers install chrome@stable
         },
         PLAYWRIGHT_BINPROVIDER.name: {
-            'packages': lambda:
-                ['chromium'],
+            'packages': lambda: ['chromium'],                   # playwright install chromium
         },
     }
 
@@ -105,8 +121,7 @@ class ChromeBinary(BaseBinary):
         
         if platform.system().lower() == 'darwin':
             # if on macOS, browser binary is inside a .app, so we need to create a tiny bash script instead of a symlink
-            symlink.write_text(f"""#!/usr/bin/env bash\nexec '{binary.abspath}' "$@"\n""")
-            symlink.chmod(0o777)   # make sure its executable by everyone
+            create_macos_app_symlink(binary.abspath, symlink)
         else:
             # otherwise on linux we can symlink directly to binary executable
             symlink.symlink_to(binary.abspath)
@@ -117,8 +132,8 @@ CHROME_BINARY = ChromeBinary()
 PLUGIN_BINARIES = [CHROME_BINARY]
 
 class ChromePlugin(BasePlugin):
-    app_label: str ='puppeteer'
-    verbose_name: str = 'Chrome & Playwright'
+    app_label: str = 'chrome'
+    verbose_name: str = 'Chrome Browser'
 
     hooks: List[InstanceOf[BaseHook]] = [
         CHROME_CONFIG,
