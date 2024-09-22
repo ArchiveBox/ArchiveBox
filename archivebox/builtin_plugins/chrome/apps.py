@@ -85,6 +85,24 @@ class ChromeDependencyConfigs(BaseConfigSet):
     CHROME_ARGS: Optional[List[str]] = Field(default=None)
     CHROME_EXTRA_ARGS: List[str] = []
     CHROME_DEFAULT_ARGS: List[str] = ['--timeout={TIMEOUT-10}']
+    
+    def load(self) -> Self:
+        # for each field in the model, load its value
+        # load from each source in order of precedence (lowest to highest):
+        # - schema default
+        # - ArchiveBox.conf INI file
+        # - environment variables
+        # - command-line arguments
+        
+        LOADED_VALUES: Dict[str, Any] = {}
+
+        for field_name, field in self.__fields__.items():
+            def_value   = field.default_factory() if field.default_factory else field.default
+            ini_value   = settings.INI_CONFIG.get_value(field_name)
+            env_value   = settings.ENV_CONFIG.get_value(field_name)
+            cli_value   = settings.CLI_CONFIG.get_value(field_name)
+            run_value   = settings.RUN_CONFIG.get_value(field_name)
+            value = run_value or cli_value or env_value or ini_value or def_value
 
 class ChromeConfigs(ChromeDependencyConfigs):
     # section: ConfigSectionName = 'ALL_CONFIGS'
