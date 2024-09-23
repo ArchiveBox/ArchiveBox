@@ -6,6 +6,8 @@ import ast
 
 JSONValue = str | bool | int | None | List['JSONValue']
 
+TOML_HEADER = "# Converted from INI to TOML format: https://toml.io/en/\n\n"
+
 def load_ini_value(val: str) -> JSONValue:
     """Convert lax INI values into strict TOML-compliant (JSON) values"""
     if val.lower() in ('true', 'yes', '1'):
@@ -22,7 +24,7 @@ def load_ini_value(val: str) -> JSONValue:
 
     try:
         return json.loads(val)
-    except Exception as err:
+    except Exception:
         pass
     
     return val
@@ -50,7 +52,7 @@ def convert(ini_str: str) -> str:
             toml_dict[section.upper()][key.upper()] = json.dumps(parsed_value)
 
     # Build the TOML string
-    toml_str = ""
+    toml_str = TOML_HEADER
     for section, items in toml_dict.items():
         toml_str += f"[{section}]\n"
         for key, value in items.items():
@@ -63,7 +65,7 @@ def convert(ini_str: str) -> str:
 
 ### Basic Assertions
 
-test_input = r"""
+test_input = """
 [SERVER_CONFIG]
 IS_TTY=False
 USE_COLOR=False
@@ -225,7 +227,7 @@ NODE_VERSION=v21.7.3
 """
 
 
-expected_output = r'''[SERVER_CONFIG]
+expected_output = TOML_HEADER + '''[SERVER_CONFIG]
 IS_TTY = false
 USE_COLOR = false
 SHOW_PROGRESS = false
