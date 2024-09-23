@@ -60,18 +60,18 @@ class BaseHook(BaseModel):
         ignored_types=(TaskWrapper, ),
     )
     
+    hook_type: ClassVar[HookType]     # e.g. = 'CONFIG'
+    
     # verbose_name: str = Field()
     
-    is_registered: bool = False
-    is_ready: bool = False
+    _is_registered: bool = False
+    _is_ready: bool = False
 
 
-    @computed_field
     @property
     def id(self) -> str:
         return self.__class__.__name__
 
-    @computed_field
     @property
     def hook_module(self) -> str:
         """e.g. builtin_plugins.singlefile.apps.SinglefileConfigSet"""
@@ -91,7 +91,6 @@ class BaseHook(BaseModel):
     def plugin_dir(self) -> Path:
         return Path(inspect.getfile(self.__class__)).parent.resolve()
 
-    hook_type: HookType = Field()
 
     def register(self, settings, parent_plugin=None):
         """Load a record of an installed hook into global Django settings.HOOKS at runtime."""
@@ -102,10 +101,10 @@ class BaseHook(BaseModel):
         # record installed hook in settings.HOOKS
         settings.HOOKS[self.id] = self
 
-        if settings.HOOKS[self.id].is_registered:
+        if settings.HOOKS[self.id]._is_registered:
             raise Exception(f"Tried to run {self.hook_module}.register() but its already been called!")
 
-        settings.HOOKS[self.id].is_registered = True
+        settings.HOOKS[self.id]._is_registered = True
 
         # print("REGISTERED HOOK:", self.hook_module)
 
@@ -114,7 +113,7 @@ class BaseHook(BaseModel):
 
         assert self.id in settings.HOOKS, f"Tried to ready hook {self.hook_module} but it is not registered in settings.HOOKS."
 
-        if settings.HOOKS[self.id].is_ready:
+        if settings.HOOKS[self.id]._is_ready:
             raise Exception(f"Tried to run {self.hook_module}.ready() but its already been called!")
 
-        settings.HOOKS[self.id].is_ready = True
+        settings.HOOKS[self.id]._is_ready = True

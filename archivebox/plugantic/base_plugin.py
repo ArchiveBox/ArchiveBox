@@ -34,8 +34,8 @@ class BasePlugin(BaseModel):
     # All the hooks the plugin will install:
     hooks: List[InstanceOf[BaseHook]] = Field(default=[])
     
-    is_registered: bool = False
-    is_ready: bool = False
+    _is_registered: bool = False
+    _is_ready: bool = False
     
     @computed_field
     @property
@@ -114,13 +114,13 @@ class BasePlugin(BaseModel):
         ### Mutate django.conf.settings... values in-place to include plugin-provided overrides
         settings.PLUGINS[self.id] = self
 
-        if settings.PLUGINS[self.id].is_registered:
+        if settings.PLUGINS[self.id]._is_registered:
             raise Exception(f"Tried to run {self.plugin_module}.register() but its already been called!")
 
         for hook in self.hooks:
             hook.register(settings, parent_plugin=self)
 
-        settings.PLUGINS[self.id].is_registered = True
+        settings.PLUGINS[self.id]._is_registered = True
         # print('√ REGISTERED PLUGIN:', self.plugin_module)
 
     def ready(self, settings=None):
@@ -131,16 +131,16 @@ class BasePlugin(BaseModel):
             settings = django_settings
 
         assert (
-            self.id in settings.PLUGINS and settings.PLUGINS[self.id].is_registered
+            self.id in settings.PLUGINS and settings.PLUGINS[self.id]._is_registered
         ), f"Tried to run plugin.ready() for {self.plugin_module} but plugin is not yet registered in settings.PLUGINS."
 
-        if settings.PLUGINS[self.id].is_ready:
+        if settings.PLUGINS[self.id]._is_ready:
             raise Exception(f"Tried to run {self.plugin_module}.ready() but its already been called!")
 
         for hook in self.hooks:
             hook.ready(settings)
         
-        settings.PLUGINS[self.id].is_ready = True
+        settings.PLUGINS[self.id]._is_ready = True
 
     # @validate_call
     # def install_binaries(self) -> Self:
