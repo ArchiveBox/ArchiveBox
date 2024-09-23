@@ -1,7 +1,6 @@
 import platform
 from pathlib import Path
-from typing import List, Optional, Dict, Any
-from typing_extensions import Self
+from typing import List, Optional, Dict, ClassVar
 
 from django.conf import settings
 
@@ -79,7 +78,7 @@ def create_macos_app_symlink(target: Path, shortcut: Path):
 
 
 class ChromeDependencyConfigs(BaseConfigSet):
-    section: ConfigSectionName = 'DEPENDENCY_CONFIG'
+    section: ClassVar[ConfigSectionName] = "DEPENDENCY_CONFIG"
 
     CHROME_BINARY: str = Field(default='chrome')
     CHROME_ARGS: Optional[List[str]] = Field(default=None)

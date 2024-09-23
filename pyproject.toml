@@ -84,6 +84,7 @@ dependencies = [
     "base32-crockford==0.3.0",
     ############# Extractor Dependencies #############
     "yt-dlp>=2024.8.6",               # for: media
+    "pydantic-settings>=2.5.2",
 ]
 
 # pdm lock --group=':all' 

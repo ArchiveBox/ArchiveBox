@@ -1,7 +1,7 @@
 __package__ = 'archivebox.builtin_plugins.singlefile'
 
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, ClassVar
 from typing_extensions import Self
 
 from django.conf import settings
@@ -25,13 +25,13 @@ from builtin_plugins.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
 ###################### Config ##########################
 
 class SinglefileToggleConfigs(BaseConfigSet):
-    section: ConfigSectionName = 'ARCHIVE_METHOD_TOGGLES'
+    section: ClassVar[ConfigSectionName] = 'ARCHIVE_METHOD_TOGGLES'
 
     SAVE_SINGLEFILE: bool = True
 
 
 class SinglefileOptionsConfigs(BaseConfigSet):
-    section: ConfigSectionName = 'ARCHIVE_METHOD_OPTIONS'
+    section: ClassVar[ConfigSectionName] = 'ARCHIVE_METHOD_OPTIONS'
 
     # loaded from shared config
     SINGLEFILE_USER_AGENT: str = Field(default='', alias='USER_AGENT')
@@ -42,7 +42,7 @@ class SinglefileOptionsConfigs(BaseConfigSet):
 
 
 class SinglefileDependencyConfigs(BaseConfigSet):
-    section: ConfigSectionName = 'DEPENDENCY_CONFIG'
+    section: ClassVar[ConfigSectionName] = 'DEPENDENCY_CONFIG'
 
     SINGLEFILE_BINARY: str = Field(default='wget')
     SINGLEFILE_ARGS: Optional[List[str]] = Field(default=None)
@@ -50,7 +50,7 @@ class SinglefileDependencyConfigs(BaseConfigSet):
     SINGLEFILE_DEFAULT_ARGS: List[str] = ['--timeout={TIMEOUT-10}']
 
 class SinglefileConfigs(SinglefileToggleConfigs, SinglefileOptionsConfigs, SinglefileDependencyConfigs):
-    # section: ConfigSectionName = 'ALL_CONFIGS'
+    # section: ClassVar[ConfigSectionName] = 'ALL_CONFIGS'
     pass
 
 DEFAULT_GLOBAL_CONFIG = {

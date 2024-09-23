@@ -2,7 +2,7 @@ import os
 import sys
 import inspect
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, ClassVar
 from pydantic import InstanceOf, Field
 
 import django
@@ -23,7 +23,7 @@ from plugantic.base_hook import BaseHook
 
 
 class PipDependencyConfigs(BaseConfigSet):
-    section: ConfigSectionName = 'DEPENDENCY_CONFIG'
+    section: ClassVar[ConfigSectionName] = "DEPENDENCY_CONFIG"
 
     USE_PIP: bool = True
     PIP_BINARY: str = Field(default='pip')

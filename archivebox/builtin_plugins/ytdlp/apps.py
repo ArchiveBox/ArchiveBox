@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, ClassVar
 from subprocess import run, PIPE
 from pydantic import InstanceOf, Field
 
@@ -16,7 +16,7 @@ from builtin_plugins.pip.apps import pip
 
 
 class YtdlpDependencyConfigs(BaseConfigSet):
-    section: ConfigSectionName = 'DEPENDENCY_CONFIG'
+    section: ClassVar[ConfigSectionName] = "DEPENDENCY_CONFIG"
 
     USE_YTDLP: bool = True
 
