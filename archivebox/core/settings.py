@@ -21,13 +21,18 @@ IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
 IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
 IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
 
+DATA_DIR = Path(os.curdir).resolve()
+assert DATA_DIR == CONFIG.OUTPUT_DIR
+
+PACKAGE_DIR = Path(__file__).resolve().parent.parent
+assert PACKAGE_DIR == CONFIG.PACKAGE_DIR
 
 ################################################################################
 ### ArchiveBox Plugin Settings
 ################################################################################
 
-BUILTIN_PLUGINS_DIR = CONFIG.PACKAGE_DIR / 'builtin_plugins'  # /app/archivebox/builtin_plugins
-USERDATA_PLUGINS_DIR = CONFIG.OUTPUT_DIR / 'user_plugins'     # /data/user_plugins
+BUILTIN_PLUGINS_DIR = PACKAGE_DIR / 'builtin_plugins'  # /app/archivebox/builtin_plugins
+USERDATA_PLUGINS_DIR = DATA_DIR / 'user_plugins'     # /data/user_plugins
 
 # PLUGIN_IMPORT_ORDER = ['base', 'pip', 'npm', 'ytdlp']
 #
@@ -185,14 +190,14 @@ STATIC_URL = '/static/'
 
 STATICFILES_DIRS = [
     *([str(CONFIG.CUSTOM_TEMPLATES_DIR / 'static')] if CONFIG.CUSTOM_TEMPLATES_DIR else []),
-    str(Path(CONFIG.PACKAGE_DIR) / CONFIG.TEMPLATES_DIR_NAME / 'static'),
+    str(PACKAGE_DIR / CONFIG.TEMPLATES_DIR_NAME / 'static'),
 ]
 
 TEMPLATE_DIRS = [
     *([str(CONFIG.CUSTOM_TEMPLATES_DIR)] if CONFIG.CUSTOM_TEMPLATES_DIR else []),
-    str(Path(CONFIG.PACKAGE_DIR) / CONFIG.TEMPLATES_DIR_NAME / 'core'),
-    str(Path(CONFIG.PACKAGE_DIR) / CONFIG.TEMPLATES_DIR_NAME / 'admin'),
-    str(Path(CONFIG.PACKAGE_DIR) / CONFIG.TEMPLATES_DIR_NAME),
+    str(PACKAGE_DIR / CONFIG.TEMPLATES_DIR_NAME / 'core'),
+    str(PACKAGE_DIR / CONFIG.TEMPLATES_DIR_NAME / 'admin'),
+    str(PACKAGE_DIR / CONFIG.TEMPLATES_DIR_NAME),
 ]
 
 TEMPLATES = [
@@ -221,7 +226,7 @@ CACHE_DB_FILENAME = 'cache.sqlite3'
 CACHE_DB_PATH = CONFIG.CACHE_DIR / CACHE_DB_FILENAME
 CACHE_DB_TABLE = 'django_cache'
 
-DATABASE_FILE = Path(CONFIG.OUTPUT_DIR) / CONFIG.SQL_INDEX_FILENAME
+DATABASE_FILE = DATA_DIR / CONFIG.SQL_INDEX_FILENAME
 DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(DATABASE_FILE))
 
 QUEUE_DATABASE_NAME = DATABASE_NAME.replace('index.sqlite3', 'queue.sqlite3')
@@ -415,7 +420,7 @@ SHELL_PLUS_PRINT_SQL = False
 IPYTHON_ARGUMENTS = ['--no-confirm-exit', '--no-banner']
 IPYTHON_KERNEL_DISPLAY_NAME = 'ArchiveBox Django Shell'
 if IS_SHELL:
-    os.environ['PYTHONSTARTUP'] = str(Path(CONFIG.PACKAGE_DIR) / 'core' / 'welcome_message.py')
+    os.environ['PYTHONSTARTUP'] = str(PACKAGE_DIR / 'core' / 'welcome_message.py')
 
 
 ################################################################################
@@ -752,7 +757,7 @@ if DEBUG:
     INSTALLED_APPS += ['django_autotyping']
     AUTOTYPING: AutotypingSettingsDict = {
         "STUBS_GENERATION": {
-            "LOCAL_STUBS_DIR": Path(CONFIG.PACKAGE_DIR) / "typings",
+            "LOCAL_STUBS_DIR": PACKAGE_DIR / "typings",
         }
     }
 
@@ -786,7 +791,7 @@ if DEBUG_REQUESTS_TRACKER:
 
 # https://docs.pydantic.dev/logfire/integrations/django/ (similar to DataDog / NewRelic / etc.)
 DEBUG_LOGFIRE = False
-DEBUG_LOGFIRE = DEBUG_LOGFIRE and (Path(CONFIG.OUTPUT_DIR) / '.logfire').is_dir()
+DEBUG_LOGFIRE = DEBUG_LOGFIRE and (DATA_DIR / '.logfire').is_dir()
 
 
 # For usage with https://www.jetadmin.io/integrations/django
