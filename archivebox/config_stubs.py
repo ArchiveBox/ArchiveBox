@@ -2,17 +2,19 @@ from pathlib import Path
 from typing import Optional, Dict, Union, Tuple, Callable, Pattern, Type, Any, List
 from mypy_extensions import TypedDict
 
-
+from benedict import benedict
 
 SimpleConfigValue = Union[str, bool, int, None, Pattern, Dict[str, Any]]
 SimpleConfigValueDict = Dict[str, SimpleConfigValue]
 SimpleConfigValueGetter = Callable[[], SimpleConfigValue]
 ConfigValue = Union[SimpleConfigValue, SimpleConfigValueDict, SimpleConfigValueGetter]
 
-class AttrDict(dict):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__dict__ = self
+# class AttrDict(dict):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.__dict__ = self
+AttrDict = benedict  # https://github.com/fabiocaccamo/python-benedict/
+
 
 class BaseConfig(TypedDict):
     pass
