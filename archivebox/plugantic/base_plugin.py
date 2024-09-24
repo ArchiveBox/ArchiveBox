@@ -130,6 +130,9 @@ class BasePlugin(BaseModel):
         if settings is None:
             from django.conf import settings as django_settings
             settings = django_settings
+            
+        print()
+        print(self.plugin_module_full, '.register()')
 
         assert json.dumps(self.model_json_schema(), indent=4), f'Plugin {self.plugin_module} has invalid JSON schema.'
 
@@ -153,6 +156,9 @@ class BasePlugin(BaseModel):
         if settings is None:
             from django.conf import settings as django_settings
             settings = django_settings
+
+        print()
+        print(self.plugin_module_full, '.ready()')
 
         assert (
             self.id in settings.PLUGINS and settings.PLUGINS[self.id]._is_registered

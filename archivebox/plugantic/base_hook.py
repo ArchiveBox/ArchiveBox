@@ -103,6 +103,8 @@ class BaseHook(BaseModel):
 
         # assert json.dumps(self.model_json_schema(), indent=4), f"Hook {self.hook_module} has invalid JSON schema."
 
+        print('  -', self.hook_module, '.register()')
+
         # record installed hook in settings.HOOKS
         settings.HOOKS[self.id] = self
 
@@ -115,6 +117,8 @@ class BaseHook(BaseModel):
 
     def ready(self, settings):
         """Runs any runtime code needed when AppConfig.ready() is called (after all models are imported)."""
+
+        print('  -', self.hook_module, '.ready()')
 
         assert self.id in settings.HOOKS, f"Tried to ready hook {self.hook_module} but it is not registered in settings.HOOKS."
 
