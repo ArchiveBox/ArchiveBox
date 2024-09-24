@@ -11,6 +11,8 @@ from pydantic import model_validator, TypeAdapter
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
 from pydantic_settings.sources import TomlConfigSettingsSource
 
+from pydantic_pkgr.base_types import func_takes_args_or_kwargs
+
 from django.conf import settings
 
 from .base_hook import BaseHook, HookType
@@ -80,7 +82,7 @@ class FlatTomlConfigSettingsSource(TomlConfigSettingsSource):
                 # value is already flat, just set it as-is
                 self.toml_data[section_name] = section
                 
-        # filter toml_data to only include keys that are defined on the settings_cls
+        # filter toml_data to only include keys that are defined on this settings_cls
         self.toml_data = {
             key: value
             for key, value in self.toml_data.items()
@@ -175,17 +177,20 @@ class ArchiveBoxBaseConfig(BaseSettings):
         """Populate any unset values using function provided as their default"""
 
         for key, field in self.model_fields.items():
-            config_so_far = self.model_dump()
+            config_so_far = self.model_dump(include=set(self.model_fields.keys()), warnings=False)
             value = getattr(self, key)
             if isinstance(value, Callable):
                 # if value is a function, execute it to get the actual value, passing existing config as a dict arg
-                fallback_value = field.default(config_so_far)
+                if func_takes_args_or_kwargs(value):
+                    computed_default = field.default(config_so_far)
+                else:
+                    computed_default = field.default()
 
                 # check to make sure default factory return value matches type annotation
-                TypeAdapter(field.annotation).validate_python(fallback_value)
+                TypeAdapter(field.annotation).validate_python(computed_default)
 
                 # set generated default value as final validated value
-                setattr(self, key, fallback_value)
+                setattr(self, key, computed_default)
         return self
 
 class BaseConfigSet(ArchiveBoxBaseConfig, BaseHook):      # type: ignore[type-arg]
