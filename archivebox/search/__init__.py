@@ -1,6 +1,5 @@
 from typing import List, Union
 from pathlib import Path
-from importlib import import_module
 
 from django.db.models import QuerySet
 from django.conf import settings
@@ -15,12 +14,10 @@ from .utils import get_indexable_content, log_index_started
 
 
 def import_backend():
-    backend_string = f'plugins_search.{settings.CONFIGS.SearchBackendConfig.SEARCH_BACKEND_ENGINE}.{settings.CONFIGS.SearchBackendConfig.SEARCH_BACKEND_ENGINE}'
-    try:
-        backend = import_module(backend_string)
-    except Exception as err:
-        raise Exception("Could not load '%s' as a backend: %s" % (backend_string, err))
-    return backend
+    for backend in settings.SEARCH_BACKENDS:
+        if backend.name == settings.CONFIGS.SearchBackendConfig.SEARCH_BACKEND_ENGINE:
+            return backend
+    raise Exception(f'Could not load {settings.CONFIGS.SearchBackendConfig.SEARCH_BACKEND_ENGINE} as search backend')
 
 @enforce_types
 def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: Path=settings.DATA_DIR, skip_text_index: bool=False) -> None:

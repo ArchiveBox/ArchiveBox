@@ -4,12 +4,12 @@ import inspect
 from huey.api import TaskWrapper
 
 from pathlib import Path
-from typing import List, Literal, ClassVar
+from typing import Tuple, Literal, ClassVar, get_args
 from pydantic import BaseModel, ConfigDict
 
 
-HookType = Literal['CONFIG', 'BINPROVIDER', 'BINARY', 'EXTRACTOR', 'REPLAYER', 'CHECK', 'ADMINDATAVIEW', 'QUEUE']
-hook_type_names: List[HookType] = ['CONFIG', 'BINPROVIDER', 'BINARY', 'EXTRACTOR', 'REPLAYER', 'CHECK', 'ADMINDATAVIEW', 'QUEUE']
+HookType = Literal['CONFIG', 'BINPROVIDER', 'BINARY', 'EXTRACTOR', 'REPLAYER', 'CHECK', 'ADMINDATAVIEW', 'QUEUE', 'SEARCHBACKEND']
+hook_type_names: Tuple[HookType] = get_args(HookType)
 
 class BaseHook(BaseModel):
     """

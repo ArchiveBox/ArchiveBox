@@ -381,7 +381,7 @@ def search_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type: 
     from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG
     from ..search import query_search_index
     
-    if not SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENABLED:
+    if not SEARCH_BACKEND_CONFIG.USE_SEARCHING_BACKEND:
         stderr()
         stderr(
                 '[X] The search backend is not enabled, set config.USE_SEARCHING_BACKEND = True',
