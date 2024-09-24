@@ -1,9 +1,11 @@
 __package__ = 'archivebox.plugantic'
 
-
+import re
+import json
 from pathlib import Path
-from typing import List, Literal, Type, Tuple, Callable, ClassVar
+from typing import List, Literal, Type, Tuple, Callable, ClassVar, Any
 
+import toml
 from benedict import benedict
 from pydantic import model_validator, TypeAdapter
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
@@ -32,6 +34,28 @@ ConfigSectionNames: List[ConfigSectionName] = [
     'SEARCH_BACKEND_CONFIG',
     'DEPENDENCY_CONFIG',
 ]
+
+
+def better_toml_dump_str(val: Any) -> str:
+    try:
+        return toml.encoder._dump_str(val)     # type: ignore
+    except Exception:
+        # if we hit any of toml's numerous encoding bugs,
+        # fall back to using json representation of string
+        return json.dumps(str(val))
+
+class CustomTOMLEncoder(toml.encoder.TomlEncoder):
+    """
+    Custom TomlEncoder to work around https://github.com/uiri/toml's many encoding bugs.
+    More info: https://github.com/fabiocaccamo/python-benedict/issues/439
+    >>> toml.dumps(value, encoder=CustomTOMLEncoder())
+    """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.dump_funcs[str] = better_toml_dump_str
+        self.dump_funcs[re.RegexFlag] = better_toml_dump_str
+
+
 
 class FlatTomlConfigSettingsSource(TomlConfigSettingsSource):
     """
