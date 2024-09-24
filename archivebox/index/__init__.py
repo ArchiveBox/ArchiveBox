@@ -51,7 +51,6 @@ from .sql import (
     write_sql_link_details,
 )
 
-from ..search import search_backend_enabled, query_search_index
 
 ### Link filtering and checking
 
@@ -379,7 +378,10 @@ def q_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type: str='
     return snapshots.filter(q_filter)
 
 def search_filter(snapshots: QuerySet, filter_patterns: List[str], filter_type: str='search') -> QuerySet:
-    if not search_backend_enabled():
+    from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG
+    from ..search import query_search_index
+    
+    if not SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENABLED:
         stderr()
         stderr(
                 '[X] The search backend is not enabled, set config.USE_SEARCHING_BACKEND = True',

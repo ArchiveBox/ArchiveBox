@@ -3,24 +3,19 @@ from pathlib import Path
 from importlib import import_module
 
 from django.db.models import QuerySet
+from django.conf import settings
 
 from archivebox.index.schema import Link
 from archivebox.util import enforce_types
-from archivebox.config import stderr, OUTPUT_DIR, USE_INDEXING_BACKEND, USE_SEARCHING_BACKEND, SEARCH_BACKEND_ENGINE
+from archivebox.config import stderr
+
+# from archivebox.plugins_sys.config.apps import settings.CONFIGS.SearchBackendConfig
 
 from .utils import get_indexable_content, log_index_started
 
-def indexing_enabled():
-    return USE_INDEXING_BACKEND
-
-def search_backend_enabled():
-    return USE_SEARCHING_BACKEND
-
-def get_backend():
-    return f'search.backends.{SEARCH_BACKEND_ENGINE}'
 
 def import_backend():
-    backend_string = get_backend()
+    backend_string = f'plugins_search.{settings.CONFIGS.SearchBackendConfig.SEARCH_BACKEND_ENGINE}.{settings.CONFIGS.SearchBackendConfig.SEARCH_BACKEND_ENGINE}'
     try:
         backend = import_module(backend_string)
     except Exception as err:
@@ -28,8 +23,8 @@ def import_backend():
     return backend
 
 @enforce_types
-def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: Path=OUTPUT_DIR, skip_text_index: bool=False) -> None:
-    if not indexing_enabled():
+def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: Path=settings.DATA_DIR, skip_text_index: bool=False) -> None:
+    if not settings.CONFIGS.SearchBackendConfig.USE_INDEXING_BACKEND:
         return
 
     if not skip_text_index and texts:
@@ -48,10 +43,10 @@ def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: 
                 )
 
 @enforce_types
-def query_search_index(query: str, out_dir: Path=OUTPUT_DIR) -> QuerySet:
+def query_search_index(query: str, out_dir: Path=settings.DATA_DIR) -> QuerySet:
     from core.models import Snapshot
 
-    if search_backend_enabled():
+    if settings.CONFIGS.SearchBackendConfig.USE_SEARCHING_BACKEND:
         backend = import_backend()
         try:
             snapshot_pks = backend.search(query)
@@ -71,7 +66,7 @@ def query_search_index(query: str, out_dir: Path=OUTPUT_DIR) -> QuerySet:
 
 @enforce_types
 def flush_search_index(snapshots: QuerySet):
-    if not indexing_enabled() or not snapshots:
+    if not settings.CONFIGS.SearchBackendConfig.USE_INDEXING_BACKEND or not snapshots:
         return
     backend = import_backend()
     snapshot_pks = (str(pk) for pk in snapshots.values_list('pk', flat=True))
@@ -85,7 +80,7 @@ def flush_search_index(snapshots: QuerySet):
         )
 
 @enforce_types
-def index_links(links: Union[List[Link],None], out_dir: Path=OUTPUT_DIR):
+def index_links(links: Union[List[Link],None], out_dir: Path=settings.DATA_DIR):
     if not links:
         return
 

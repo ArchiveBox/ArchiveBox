@@ -141,8 +141,6 @@ from .logging_util import (
     printable_dependency_version,
 )
 
-from .search import flush_search_index, index_links
-
 
 @enforce_types
 def help(out_dir: Path=OUTPUT_DIR) -> None:
@@ -767,6 +765,8 @@ def remove(filter_str: Optional[str]=None,
 
     to_remove = snapshots.count()
 
+    from .search import flush_search_index
+
     flush_search_index(snapshots=snapshots)
     remove_from_sql_main_index(snapshots=snapshots, out_dir=out_dir)
     all_snapshots = load_main_index(out_dir=out_dir)
@@ -790,6 +790,7 @@ def update(resume: Optional[float]=None,
     """Import any new links from subscriptions and retry any previously failed/skipped links"""
 
     from core.models import ArchiveResult
+    from .search import index_links
 
     check_data_folder(out_dir=out_dir)
     check_dependencies()

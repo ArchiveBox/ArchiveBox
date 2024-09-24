@@ -31,7 +31,6 @@ from ..logging_util import (
     log_archive_method_started,
     log_archive_method_finished,
 )
-from ..search import write_search_index
 
 from .title import should_save_title, save_title
 from .favicon import should_save_favicon, save_favicon
@@ -109,6 +108,8 @@ def ignore_methods(to_ignore: List[str]) -> Iterable[str]:
 @enforce_types
 def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None, created_by_id: int | None=None) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
+
+    from ..search import write_search_index
 
     # TODO: Remove when the input is changed to be a snapshot. Suboptimal approach.
     from core.models import Snapshot, ArchiveResult

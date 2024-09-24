@@ -46,6 +46,7 @@ PLUGIN_DIRS = {
     'plugins_sys':          PACKAGE_DIR / 'plugins_sys',
     'plugins_pkg':          PACKAGE_DIR / 'plugins_pkg',
     'plugins_auth':         PACKAGE_DIR / 'plugins_auth',
+    'plugins_search':         PACKAGE_DIR / 'plugins_search',
     'plugins_extractor':    PACKAGE_DIR / 'plugins_extractor',
     'user_plugins':         DATA_DIR / 'user_plugins',
 }
