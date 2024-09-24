@@ -176,20 +176,41 @@ class ArchiveBoxBaseConfig(BaseSettings):
         """Populate any unset values using function provided as their default"""
 
         for key, field in self.model_fields.items():
-            config_so_far = benedict(self.model_dump(include=set(self.model_fields.keys()), warnings=False))
             value = getattr(self, key)
+            
             if isinstance(value, Callable):
-                # if value is a function, execute it to get the actual value, passing existing config as a dict arg
+                # if value is a function, execute it to get the actual value, passing existing config as a dict arg if expected
                 if func_takes_args_or_kwargs(value):
+                    # assemble dict of existing field values to pass to default factory functions
+                    config_so_far = benedict(self.model_dump(include=set(self.model_fields.keys()), warnings=False))
                     computed_default = field.default(config_so_far)
                 else:
+                    # otherwise it's a pure function with no args, just call it
                     computed_default = field.default()
 
-                # check to make sure default factory return value matches type annotation
+                # coerce/check to make sure default factory return value matches type annotation
                 TypeAdapter(field.annotation).validate_python(computed_default)
 
                 # set generated default value as final validated value
                 setattr(self, key, computed_default)
+        return self
+    
+    def update_in_place(self, warn=True, **kwargs):
+        """
+        Update the config with new values. Use this sparingly! We should almost never be updating config at runtime.
+        Sets them in the environment so they propagate to spawned subprocesses / across future re-__init__()s and reload from environment
+
+        Example acceptable use case: user config says SEARCH_BACKEND_ENGINE=sonic but sonic_client pip library is not installed so we cannot use it.
+        SEARCH_BACKEND_CONFIG.update_in_place(SEARCH_BACKEND_ENGINE='ripgrep') can be used to reset it back to ripgrep so we can continue.
+        """
+        if warn:
+            print('[!] WARNING: Some of the provided user config values cannot be used, temporarily ignoring them:')
+        for key, value in kwargs.items():
+            os.environ[key] = str(value)
+            original_value = getattr(self, key)
+            if warn:
+                print(f'    {key}={original_value} -> {value}')
+        self.__init__()
         return self
 
 class BaseConfigSet(ArchiveBoxBaseConfig, BaseHook):      # type: ignore[type-arg]

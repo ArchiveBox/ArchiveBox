@@ -115,9 +115,6 @@ class SearchBackendConfig(BaseConfigSet):
     USE_SEARCHING_BACKEND: bool         = Field(default=True)
     
     SEARCH_BACKEND_ENGINE: str          = Field(default='ripgrep')
-    SEARCH_BACKEND_HOST_NAME: str       = Field(default='localhost')
-    SEARCH_BACKEND_PORT: int            = Field(default=1491)
-    SEARCH_BACKEND_PASSWORD: str        = Field(default='SecretPassword')
     SEARCH_PROCESS_HTML: bool           = Field(default=True)
     SEARCH_BACKEND_TIMEOUT: int         = Field(default=10)
 

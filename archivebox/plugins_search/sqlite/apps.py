@@ -1,8 +1,9 @@
 __package__ = 'archivebox.plugins_search.sqlite'
 
+import sys
 import sqlite3
 import codecs
-from typing import List, ClassVar, Generator, Callable
+from typing import List, ClassVar, Iterable, Callable
 
 from django.conf import settings
 from django.db import connection as database
@@ -17,7 +18,7 @@ from plugantic.base_hook import BaseHook
 from plugantic.base_searchbackend import BaseSearchBackend
 
 # Depends on Other Plugins:
-# from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG
+from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG
 
 
 
@@ -26,19 +27,21 @@ from plugantic.base_searchbackend import BaseSearchBackend
 class SqliteftsConfig(BaseConfigSet):
     section: ClassVar[ConfigSectionName] = 'DEPENDENCY_CONFIG'
 
-    SQLITEFTS_SEPARATE_DATABASE: bool = Field(default=True, alias='FTS_SEPARATE_DATABASE')
-    SQLITEFTS_TOKENIZERS: str = Field(default='porter unicode61 remove_diacritics 2', alias='FTS_TOKENIZERS')
-    SQLITEFTS_MAX_LENGTH: int = Field(default=int(1e9), alias='FTS_SQLITE_MAX_LENGTH')
+    SQLITEFTS_SEPARATE_DATABASE: bool   = Field(default=True, alias='FTS_SEPARATE_DATABASE')
+    SQLITEFTS_TOKENIZERS: str           = Field(default='porter unicode61 remove_diacritics 2', alias='FTS_TOKENIZERS')
+    SQLITEFTS_MAX_LENGTH: int           = Field(default=int(1e9), alias='FTS_SQLITE_MAX_LENGTH')
     
-    SQLITEFTS_DB: str = Field(default='search.sqlite3')
-    SQLITEFTS_TABLE: str = Field(default='snapshot_fts')
-    SQLITEFTS_ID_TABLE: str = Field(default='snapshot_id_fts')
-    SQLITEFTS_COLUMN: str = Field(default='texts')
+    # Not really meant to be user-modified, just here as constants
+    SQLITEFTS_DB: str                   = Field(default='search.sqlite3')
+    SQLITEFTS_TABLE: str                = Field(default='snapshot_fts')
+    SQLITEFTS_ID_TABLE: str             = Field(default='snapshot_id_fts')
+    SQLITEFTS_COLUMN: str               = Field(default='texts')
     
     @model_validator(mode='after')
     def validate_fts_separate_database(self):
-        if self.SQLITEFTS_SEPARATE_DATABASE:
-            assert self.SQLITEFTS_DB, "SQLITEFTS_DB must be set if SQLITEFTS_SEPARATE_DATABASE is True"
+        if SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE == 'sqlite' and self.SQLITEFTS_SEPARATE_DATABASE and not self.SQLITEFTS_DB:
+            sys.stderr.write('[X] Error: SQLITEFTS_DB must be set if SQLITEFTS_SEPARATE_DATABASE is True\n')
+            SEARCH_BACKEND_CONFIG.update_in_place(SEARCH_BACKEND_ENGINE='ripgrep')
         return self
     
     @property
@@ -84,8 +87,7 @@ def _escape_sqlite3(value: str, *, quote: str, errors='strict') -> str:
 
     nul_index = encodable.find("\x00")
     if nul_index >= 0:
-        error = UnicodeEncodeError("NUL-terminated utf-8", encodable,
-                                   nul_index, nul_index + 1, "NUL not allowed")
+        error = UnicodeEncodeError("NUL-terminated utf-8", encodable, nul_index, nul_index + 1, "NUL not allowed")
         error_handler = codecs.lookup_error(errors)
         replacement, _ = error_handler(error)
         assert isinstance(replacement, str), "handling a UnicodeEncodeError should return a str replacement"
@@ -224,7 +226,7 @@ class SqliteftsSearchBackend(BaseSearchBackend):
         return snap_ids
 
     @staticmethod
-    def flush(snapshot_ids: Generator[str, None, None]):
+    def flush(snapshot_ids: Iterable[str]):
         snapshot_ids = list(snapshot_ids)  # type: ignore[assignment]
 
         id_table = _escape_sqlite3_identifier(SQLITEFTS_CONFIG.SQLITEFTS_ID_TABLE)
@@ -243,7 +245,7 @@ SQLITEFTS_SEARCH_BACKEND = SqliteftsSearchBackend()
 
 class SqliteftsSearchPlugin(BasePlugin):
     app_label: str ='sqlitefts'
-    verbose_name: str = 'Sqlitefts'
+    verbose_name: str = 'SQLite FTS5 Search'
 
     hooks: List[InstanceOf[BaseHook]] = [
         SQLITEFTS_CONFIG,

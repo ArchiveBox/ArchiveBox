@@ -20,8 +20,9 @@ except ImportError:
 
 class LdapConfig(BaseConfigSet):
     """
-    LDAP Config gets imported by core/settings.py very early during startup, so it needs to be in a separate file from apps.py
-    so that it can be imported during settings.py initialization before the apps are loaded.
+    LDAP Config gets imported by core/settings.py very early during startup.
+    It needs to be in a separate file from apps.py so that it can be imported
+    during settings.py initialization before the apps are loaded.
     """
     section: ClassVar[ConfigSectionName] = 'LDAP_CONFIG'
 
@@ -41,20 +42,29 @@ class LdapConfig(BaseConfigSet):
     
     @model_validator(mode='after')
     def validate_ldap_config(self):
+        # Check that LDAP libraries are installed
         if self.LDAP_ENABLED and LDAP_LIB is None:
-            sys.stderr.write('[X] Error: Found LDAP=True config but LDAP packages not installed. You may need to run: pip install archivebox[ldap]\n\n')
+            sys.stderr.write('[X] Error: LDAP Authentication is enabled but LDAP libraries are not installed. You may need to run: pip install archivebox[ldap]\n')
             # dont hard exit here. in case the user is just running "archivebox version" or "archivebox help", we still want those to work despite broken ldap
             # sys.exit(1)
-            self.LDAP_ENABLED = False
+            self.update(LDAP_ENABLED=False)
 
-        if self.LDAP_ENABLED:
-            assert (
-                self.LDAP_SERVER_URI
-                and self.LDAP_BIND_DN
-                and self.LDAP_BIND_PASSWORD
-                and self.LDAP_USER_BASE
-                and self.LDAP_USER_FILTER
-            ), 'LDAP_* config options must all be set if LDAP_ENABLED=True'
+        # Check that all required LDAP config options are set
+        all_config_is_set = (
+            self.LDAP_SERVER_URI
+            and self.LDAP_BIND_DN
+            and self.LDAP_BIND_PASSWORD
+            and self.LDAP_USER_BASE
+            and self.LDAP_USER_FILTER
+        )
+        if self.LDAP_ENABLED and not all_config_is_set:
+            missing_config_options = [
+                key for key, value in self.model_dump().items()
+                if value is None and key != 'LDAP_ENABLED'
+            ]
+            sys.stderr.write('[X] Error: LDAP_* config options must all be set if LDAP_ENABLED=True\n')
+            sys.stderr.write(f'    Missing: {", ".join(missing_config_options)}\n')
+            self.update(LDAP_ENABLED=False)
         return self
 
     @property

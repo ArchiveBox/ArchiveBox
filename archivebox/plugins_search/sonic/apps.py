@@ -1,5 +1,6 @@
 __package__ = 'archivebox.plugins_search.sonic'
 
+import os
 import sys
 from typing import List, Dict, ClassVar, Generator, cast
 
@@ -38,15 +39,23 @@ class SonicConfig(BaseConfigSet):
     SONIC_PASSWORD: str     = Field(default='SecretPassword', alias='SEARCH_BACKEND_PASSWORD')
     SONIC_COLLECTION: str   = Field(default='archivebox')
     SONIC_BUCKET: str       = Field(default='archivebox')
+    
+    SONIC_MAX_CHUNK_LENGTH: int     = Field(default=2000)
+    SONIC_MAX_TEXT_LENGTH: int      = Field(default=100000000)
+    SONIC_MAX_RETRIES: int          = Field(default=5)
 
     @model_validator(mode='after')
     def validate_sonic_port(self):
-        if SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE == 'sonic':
-            if SONIC_LIB is None:
-                sys.stderr.write('[!] Sonic search backend is enabled but not installed. Install Sonic to use the Sonic search backend.\n')
+        if SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE == 'sonic' and SONIC_LIB is None:
+            sys.stderr.write('[X] Error: Sonic search backend is enabled but sonic-client lib is not installed. You may need to run: pip install archivebox[sonic]\n')
+            # dont hard exit here. in case the user is just running "archivebox version" or "archivebox help", we still want those to work despite broken ldap
+            # sys.exit(1)
+            SEARCH_BACKEND_CONFIG.update_in_place(SEARCH_BACKEND_ENGINE='ripgrep')
         return self
 
 SONIC_CONFIG = SonicConfig()
+
+
 
 class SonicBinary(BaseBinary):
     name: BinName = SONIC_CONFIG.SONIC_BINARY
@@ -57,16 +66,12 @@ class SonicBinary(BaseBinary):
         # cargo.name: {'packages': lambda: ['sonic-server']},             # TODO: add cargo
     }
     
+    # TODO: add version checking over protocol? for when sonic backend is on remote server and binary is not installed locally
     # def on_get_version(self):
     #     with sonic.IngestClient(SONIC_CONFIG.SONIC_HOST, str(SONIC_CONFIG.SONIC_PORT), SONIC_CONFIG.SONIC_PASSWORD) as ingestcl:
     #         return SemVer.parse(str(ingestcl.protocol))
 
 SONIC_BINARY = SonicBinary()
-
-
-MAX_SONIC_TEXT_TOTAL_LENGTH = 100000000     # dont index more than 100 million characters per text
-MAX_SONIC_TEXT_CHUNK_LENGTH = 2000          # dont index more than 2000 characters per chunk
-MAX_SONIC_ERRORS_BEFORE_ABORT = 5
 
 
 
@@ -80,11 +85,11 @@ class SonicSearchBackend(BaseSearchBackend):
         with sonic.IngestClient(SONIC_CONFIG.SONIC_HOST, str(SONIC_CONFIG.SONIC_PORT), SONIC_CONFIG.SONIC_PASSWORD) as ingestcl:
             for text in texts:
                 chunks = (
-                    text[i:i+MAX_SONIC_TEXT_CHUNK_LENGTH]
+                    text[i:i+SONIC_CONFIG.SONIC_MAX_CHUNK_LENGTH]
                     for i in range(
                         0,
-                        min(len(text), MAX_SONIC_TEXT_TOTAL_LENGTH),
-                        MAX_SONIC_TEXT_CHUNK_LENGTH,
+                        min(len(text), SONIC_CONFIG.SONIC_MAX_TEXT_LENGTH),
+                        SONIC_CONFIG.SONIC_MAX_CHUNK_LENGTH,
                     )
                 )
                 try:
@@ -93,7 +98,7 @@ class SonicSearchBackend(BaseSearchBackend):
                 except Exception as err:
                     print(f'[!] Sonic search backend threw an error while indexing: {err.__class__.__name__} {err}')
                     error_count += 1
-                    if error_count > MAX_SONIC_ERRORS_BEFORE_ABORT:
+                    if error_count > SONIC_CONFIG.SONIC_MAX_RETRIES:
                         raise
 
     @staticmethod

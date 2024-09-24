@@ -27,8 +27,21 @@ class RipgrepConfig(BaseConfigSet):
     section: ClassVar[ConfigSectionName] = 'DEPENDENCY_CONFIG'
 
     RIPGREP_BINARY: str = Field(default='rg')
+    
+    RIPGREP_IGNORE_EXTENSIONS: str = Field(default='css,js,orig,svg')
+    RIPGREP_ARGS_DEFAULT: List[str] = Field(default=lambda c: [
+        # https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md
+        f'--type-add=ignore:*.{{{c.RIPGREP_IGNORE_EXTENSIONS}}}',
+        '--type-not=ignore',
+        '--ignore-case',
+        '--files-with-matches',
+        '--regexp',
+    ])
+    RIPGREP_SEARCH_DIR: str = Field(default=lambda: str(settings.ARCHIVE_DIR))
 
 RIPGREP_CONFIG = RipgrepConfig()
+
+
 
 class RipgrepBinary(BaseBinary):
     name: BinName = RIPGREP_CONFIG.RIPGREP_BINARY
@@ -41,17 +54,8 @@ class RipgrepBinary(BaseBinary):
 
 RIPGREP_BINARY = RipgrepBinary()
 
-
-RG_IGNORE_EXTENSIONS = ('css','js','orig','svg')
-
-RG_ADD_TYPE = '--type-add'
-RG_IGNORE_ARGUMENTS = f"ignore:*.{{{','.join(RG_IGNORE_EXTENSIONS)}}}"
-RG_DEFAULT_ARGUMENTS = "-ilTignore" # Case insensitive(i), matching files results(l)
-RG_REGEX_ARGUMENT = '-e'
-
-TIMESTAMP_REGEX = r'\/([\d]+\.[\d]+)\/'
-ts_regex =  re.compile(TIMESTAMP_REGEX)
-
+# regex to match archive/<ts>/... snapshot dir names
+TIMESTAMP_REGEX =  re.compile(r'\/([\d]+\.[\d]+)\/')
 
 class RipgrepSearchBackend(BaseSearchBackend):
     name: str = 'ripgrep'
@@ -67,30 +71,29 @@ class RipgrepSearchBackend(BaseSearchBackend):
 
     @staticmethod
     def search(text: str) -> List[str]:
-        rg_bin = RIPGREP_BINARY.load()
-        if not rg_bin.version:
+        from core.models import Snapshot
+        
+        ripgrep_binary = RIPGREP_BINARY.load()
+        if not ripgrep_binary.version:
             raise Exception("ripgrep binary not found, install ripgrep to use this search backend")
     
-        rg_cmd = [
-            rg_bin.abspath, 
-            RG_ADD_TYPE, 
-            RG_IGNORE_ARGUMENTS, 
-            RG_DEFAULT_ARGUMENTS, 
-            RG_REGEX_ARGUMENT, 
-            text, 
-            str(settings.ARCHIVE_DIR)
+        cmd = [
+            ripgrep_binary.abspath, 
+            *RIPGREP_CONFIG.RIPGREP_ARGS_DEFAULT,
+            text,
+            RIPGREP_CONFIG.RIPGREP_SEARCH_DIR,
         ]
-        rg = run(rg_cmd, timeout=SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_TIMEOUT, capture_output=True, text=True)
+        proc = run(cmd, timeout=SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_TIMEOUT, capture_output=True, text=True)
         timestamps = set()
-        for path in rg.stdout.splitlines():
-            ts = ts_regex.findall(path)
+        for path in proc.stdout.splitlines():
+            ts = TIMESTAMP_REGEX.findall(path)
             if ts:
                 timestamps.add(ts[0])
         
         snap_ids = [str(id) for id in Snapshot.objects.filter(timestamp__in=timestamps).values_list('pk', flat=True)]
     
         return snap_ids
-    
+
 RIPGREP_SEARCH_BACKEND = RipgrepSearchBackend()
 
 
