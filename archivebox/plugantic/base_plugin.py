@@ -61,14 +61,14 @@ class BasePlugin(BaseModel):
     def plugin_module(self) -> str:  # DottedImportPath
         """ "
         Dotted import path of the plugin's module (after its loaded via settings.INSTALLED_APPS).
-        e.g. 'archivebox.pkg_plugins.npm.apps.NpmPlugin' -> 'pkg_plugins.npm'
+        e.g. 'archivebox.plugins_pkg.npm.apps.NpmPlugin' -> 'plugins_pkg.npm'
         """
         return f"{self.__module__}.{self.__class__.__name__}".split("archivebox.", 1)[-1].rsplit('.apps.', 1)[0]
 
 
     @property
     def plugin_module_full(self) -> str:  # DottedImportPath
-        """e.g. 'archivebox.pkg_plugins.npm.apps.NpmPlugin'"""
+        """e.g. 'archivebox.plugins_pkg.npm.apps.NpmPlugin'"""
         return f"{self.__module__}.{self.__class__.__name__}"
     
     # @computed_field
@@ -84,7 +84,7 @@ class BasePlugin(BaseModel):
         # preserve references to original default objects,
         # pydantic deepcopies them by default which breaks mutability
         # see https://github.com/pydantic/pydantic/issues/7608
-        # if we dont do this, then sys_plugins.base.CORE_CONFIG != settings.CONFIGS.CoreConfig for example
+        # if we dont do this, then plugins_sys.base.CORE_CONFIG != settings.CONFIGS.CoreConfig for example
         # and calling .__init__() on one of them will not update the other
         self.hooks = self.model_fields['hooks'].default
         

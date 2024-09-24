@@ -1,4 +1,4 @@
-__package__ = 'archivebox.extractor_plugins.singlefile'
+__package__ = 'archivebox.plugins_extractor.singlefile'
 
 from pathlib import Path
 from typing import List, Dict, Optional, ClassVar
@@ -19,8 +19,8 @@ from plugantic.base_queue import BaseQueue
 from plugantic.base_hook import BaseHook
 
 # Depends on Other Plugins:
-from sys_plugins.base.apps import ARCHIVING_CONFIG
-from pkg_plugins.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
+from plugins_sys.base.apps import ARCHIVING_CONFIG
+from plugins_pkg.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
 
 ###################### Config ##########################
 

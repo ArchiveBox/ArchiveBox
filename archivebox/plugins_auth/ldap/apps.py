@@ -1,4 +1,4 @@
-__package__ = 'archivebox.auth_plugins.ldap'
+__package__ = 'archivebox.plugins_auth.ldap'
 
 import inspect
 
@@ -14,7 +14,7 @@ from plugantic.base_plugin import BasePlugin
 from plugantic.base_hook import BaseHook
 from plugantic.base_binary import BaseBinary, BaseBinProvider
 
-from pkg_plugins.pip.apps import SYS_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER
+from plugins_pkg.pip.apps import SYS_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER
 from .settings import LDAP_CONFIG, LDAP_LIB
 
 

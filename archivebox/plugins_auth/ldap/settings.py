@@ -1,4 +1,4 @@
-__package__ = 'archivebox.auth_plugins.ldap'
+__package__ = 'archivebox.plugins_auth.ldap'
 
 import sys
 

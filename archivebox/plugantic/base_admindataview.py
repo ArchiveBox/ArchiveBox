@@ -11,11 +11,11 @@ class BaseAdminDataView(BaseHook):
     
     # verbose_name: str = 'Data View'
     # route: str = '/npm/installed/'
-    # view: str = 'pkg_plugins.npm.admin.installed_list_view'
+    # view: str = 'plugins_pkg.npm.admin.installed_list_view'
     # items: Dict[str, str] = {
     #     "name": "installed_npm_pkg",
     #     'route': '<str:key>/',
-    #     'view': 'pkg_plugins.npm.admin.installed_detail_view',
+    #     'view': 'plugins_pkg.npm.admin.installed_detail_view',
     # }
 
     def register(self, settings, parent_plugin=None):

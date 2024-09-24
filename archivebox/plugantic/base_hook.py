@@ -26,11 +26,11 @@ class BaseHook(BaseModel):
         # django imports AppConfig, models, migrations, admins, etc. for all installed apps
         # django then calls AppConfig.ready() on each installed app...
 
-        pkg_plugins.npm.NpmPlugin().AppConfig.ready()                    # called by django
-            pkg_plugins.npm.NpmPlugin().register(settings) ->
-                pkg_plugins.npm.NpmConfigSet().register(settings)
+        plugins_pkg.npm.NpmPlugin().AppConfig.ready()                    # called by django
+            plugins_pkg.npm.NpmPlugin().register(settings) ->
+                plugins_pkg.npm.NpmConfigSet().register(settings)
                     plugantic.base_configset.BaseConfigSet().register(settings)
-                        plugantic.base_hook.BaseHook().register(settings, parent_plugin=pkg_plugins.npm.NpmPlugin())
+                        plugantic.base_hook.BaseHook().register(settings, parent_plugin=plugins_pkg.npm.NpmPlugin())
 
                 ...
         ...
@@ -74,17 +74,17 @@ class BaseHook(BaseModel):
 
     @property
     def hook_module(self) -> str:
-        """e.g. extractor_plugins.singlefile.apps.SinglefileConfigSet"""
+        """e.g. plugins_extractor.singlefile.apps.SinglefileConfigSet"""
         return f'{self.__module__}.{self.__class__.__name__}'
 
     @property
     def hook_file(self) -> Path:
-        """e.g. extractor_plugins.singlefile.apps.SinglefileConfigSet"""
+        """e.g. plugins_extractor.singlefile.apps.SinglefileConfigSet"""
         return Path(inspect.getfile(self.__class__))
 
     @property
     def plugin_module(self) -> str:
-        """e.g. extractor_plugins.singlefile"""
+        """e.g. plugins_extractor.singlefile"""
         return f"{self.__module__}.{self.__class__.__name__}".split("archivebox.", 1)[-1].rsplit(".apps.", 1)[0]
 
     @property

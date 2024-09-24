@@ -36,17 +36,17 @@ assert ARCHIVE_DIR == CONFIG.ARCHIVE_DIR
 
 
 def find_plugins_in_dir(plugins_dir: Path, prefix: str) -> Dict[str, Path]:
-    """{"pkg_plugins.pip": "/app/archivebox/pkg_plugins/pip", "user_plugins.other": "/data/user_plugins/other",...}"""
+    """{"plugins_pkg.pip": "/app/archivebox/plugins_pkg/pip", "user_plugins.other": "/data/user_plugins/other",...}"""
     return {
         f"{prefix}.{plugin_entrypoint.parent.name}": plugin_entrypoint.parent
         for plugin_entrypoint in sorted(plugins_dir.glob("*/apps.py"))   # key=get_plugin_order  # Someday enforcing plugin import order may be required, but right now it's not needed
     }
     
 PLUGIN_DIRS = {
-    'sys_plugins':          PACKAGE_DIR / 'sys_plugins',
-    'pkg_plugins':          PACKAGE_DIR / 'pkg_plugins',
-    'auth_plugins':         PACKAGE_DIR / 'auth_plugins',
-    'extractor_plugins':    PACKAGE_DIR / 'extractor_plugins',
+    'plugins_sys':          PACKAGE_DIR / 'plugins_sys',
+    'plugins_pkg':          PACKAGE_DIR / 'plugins_pkg',
+    'plugins_auth':         PACKAGE_DIR / 'plugins_auth',
+    'plugins_extractor':    PACKAGE_DIR / 'plugins_extractor',
     'user_plugins':         DATA_DIR / 'user_plugins',
 }
 INSTALLED_PLUGINS = {}
@@ -144,7 +144,7 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-from ..auth_plugins.ldap.settings import LDAP_CONFIG
+from ..plugins_auth.ldap.settings import LDAP_CONFIG
 
 if LDAP_CONFIG.LDAP_ENABLED:
     AUTH_LDAP_BIND_DN = LDAP_CONFIG.LDAP_BIND_DN
@@ -559,7 +559,7 @@ LOGGING = {
             "handlers": ["default", "logfile"],
             "level": "DEBUG",
         },
-        "extractor_plugins": {
+        "plugins_extractor": {
             "handlers": ["default", "logfile"],
             "level": "DEBUG",
         },

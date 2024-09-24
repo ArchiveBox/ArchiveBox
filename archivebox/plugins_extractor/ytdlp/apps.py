@@ -10,7 +10,7 @@ from plugantic.base_configset import BaseConfigSet, ConfigSectionName
 from plugantic.base_binary import BaseBinary, env, apt, brew
 from plugantic.base_hook import BaseHook
 
-from pkg_plugins.pip.apps import pip
+from plugins_pkg.pip.apps import pip
 
 ###################### Config ##########################
 
