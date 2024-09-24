@@ -15,7 +15,6 @@ from admin_data_views.utils import render_with_table_view, render_with_item_view
 from ..config_stubs import AttrDict
 from ..util import parse_date
 
-from django.conf import settings
 
 def obj_to_yaml(obj: Any, indent: int=0) -> str:
     indent_str = "  " * indent
