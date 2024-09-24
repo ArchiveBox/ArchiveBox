@@ -25,7 +25,16 @@ from ..config import AttrDict
 
 
 class BasePlugin(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra='ignore', populate_by_name=True)
+    model_config = ConfigDict(
+        extra='forbid',
+        arbitrary_types_allowed=True,
+        populate_by_name=True,
+        from_attributes=True,
+        validate_defaults=False,
+        validate_assignment=False,
+        revalidate_instances="always",
+        # frozen=True,
+    )
 
     # Required by AppConfig:
     app_label: str = Field()                      # e.g. 'singlefile'                  (one-word machine-readable representation, to use as url-safe id/db-table prefix_/attr name)
@@ -46,7 +55,7 @@ class BasePlugin(BaseModel):
     def name(self) -> str:
         return self.app_label
     
-    @computed_field
+    # @computed_field
     @property
     def plugin_module(self) -> str:  # DottedImportPath
         """ "
@@ -55,7 +64,7 @@ class BasePlugin(BaseModel):
         """
         return f"{self.__module__}.{self.__class__.__name__}".split("archivebox.", 1)[-1].rsplit('.apps.', 1)[0]
 
-    @computed_field
+    # @computed_field
     @property
     def plugin_dir(self) -> Path:
         return Path(inspect.getfile(self.__class__)).parent.resolve()
@@ -63,6 +72,14 @@ class BasePlugin(BaseModel):
     @model_validator(mode='after')
     def validate(self) -> Self:
         """Validate the plugin's build-time configuration here before it's registered in Django at runtime."""
+        
+        # VERY IMPORTANT:
+        # preserve references to original default objects,
+        # pydantic deepcopies them by default which breaks mutability
+        # see https://github.com/pydantic/pydantic/issues/7608
+        # if we dont do this, then builtin_plugins.base.CORE_CONFIG != settings.CONFIGS.CoreConfig for example
+        # and calling .__init__() on one of them will not update the other
+        self.hooks = self.model_fields['hooks'].default
         
         assert self.app_label and self.app_label and self.verbose_name, f'{self.__class__.__name__} is missing .name or .app_label or .verbose_name'
         
