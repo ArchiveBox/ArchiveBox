@@ -201,18 +201,21 @@ class BaseConfigSet(ArchiveBoxBaseConfig, BaseHook):      # type: ignore[type-ar
     def register(self, settings, parent_plugin=None):
         # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
 
-        settings.FLAT_CONFIG = getattr(settings, "FLAT_CONFIG", None) or benedict({})
+        # settings.FLAT_CONFIG = benedict(getattr(settings, "FLAT_CONFIG", settings.CONFIG))
+        # # pass FLAT_CONFIG so far into our config model to load it
+        # loaded_config = self.__class__(**settings.FLAT_CONFIG)
+        # # then dump our parsed config back into FLAT_CONFIG for the next plugin to use
+        # settings.FLAT_CONFIG.merge(loaded_config.model_dump(include=set(self.model_fields.keys())))
+        
         settings.CONFIGS = getattr(settings, "CONFIGS", None) or benedict({})
-        
-        # pass FLAT_CONFIG so far into our config model to load it
-        loaded_config = self.__class__(**settings.FLAT_CONFIG)
-        # then dump our parsed config back into FLAT_CONFIG for the next plugin to use
-        settings.FLAT_CONFIG.merge(loaded_config.model_dump())
-        
-        settings.CONFIGS[self.id] = loaded_config
+        settings.CONFIGS[self.id] = self
+        self._original_id = id(self)
 
         super().register(settings, parent_plugin=parent_plugin)
 
+    # def ready(self, settings):
+    #     # reload config from environment, in case it's been changed by any other plugins
+    #     self.__init__()
 
 
 # class WgetToggleConfig(ConfigSet):

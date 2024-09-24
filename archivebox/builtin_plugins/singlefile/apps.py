@@ -20,7 +20,7 @@ from plugantic.base_hook import BaseHook
 
 # Depends on Other Plugins:
 from builtin_plugins.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
-
+from builtin_plugins.base.apps import CORE_CONFIG
 
 ###################### Config ##########################
 
@@ -33,12 +33,11 @@ class SinglefileToggleConfigs(BaseConfigSet):
 class SinglefileOptionsConfigs(BaseConfigSet):
     section: ClassVar[ConfigSectionName] = 'ARCHIVE_METHOD_OPTIONS'
 
-    # loaded from shared config
-    SINGLEFILE_USER_AGENT: str = Field(default='', alias='USER_AGENT')
-    SINGLEFILE_TIMEOUT: int = Field(default=60, alias='TIMEOUT')
-    SINGLEFILE_CHECK_SSL_VALIDITY: bool = Field(default=True, alias='CHECK_SSL_VALIDITY')
-    SINGLEFILE_RESTRICT_FILE_NAMES: str = Field(default='windows', alias='RESTRICT_FILE_NAMES')
-    SINGLEFILE_COOKIES_FILE: Optional[Path] = Field(default=None, alias='COOKIES_FILE')
+    SINGLEFILE_USER_AGENT: str              = Field(default=lambda: CORE_CONFIG.USER_AGENT)
+    SINGLEFILE_TIMEOUT: int                 = Field(default=lambda: CORE_CONFIG.TIMEOUT)
+    SINGLEFILE_CHECK_SSL_VALIDITY: bool     = Field(default=lambda: CORE_CONFIG.CHECK_SSL_VALIDITY)
+    SINGLEFILE_RESTRICT_FILE_NAMES: str     = Field(default=lambda: CORE_CONFIG.RESTRICT_FILE_NAMES)
+    SINGLEFILE_COOKIES_FILE: Optional[Path] = Field(default=lambda: CORE_CONFIG.COOKIES_FILE)
 
 
 class SinglefileDependencyConfigs(BaseConfigSet):
