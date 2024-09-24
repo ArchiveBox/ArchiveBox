@@ -1,21 +1,22 @@
 __package__ = 'archivebox.plugantic'
 
-from typing import Dict
+# from typing import Dict
 
 from .base_hook import BaseHook, HookType
 from ..config_stubs import AttrDict
 
+
 class BaseAdminDataView(BaseHook):
     hook_type: HookType = "ADMINDATAVIEW"
     
-    verbose_name: str = 'NPM Installed Packages'
-    route: str = '/npm/installed/'
-    view: str = 'builtin_plugins.npm.admin.installed_list_view'
-    items: Dict[str, str] = {
-        "name": "installed_npm_pkg",
-        'route': '<str:key>/',
-        'view': 'builtin_plugins.npm.admin.installed_detail_view',
-    }
+    # verbose_name: str = 'Data View'
+    # route: str = '/npm/installed/'
+    # view: str = 'pkg_plugins.npm.admin.installed_list_view'
+    # items: Dict[str, str] = {
+    #     "name": "installed_npm_pkg",
+    #     'route': '<str:key>/',
+    #     'view': 'pkg_plugins.npm.admin.installed_detail_view',
+    # }
 
     def register(self, settings, parent_plugin=None):
         # self._plugin = parent_plugin                          # circular ref to parent only here for easier debugging! never depend on circular backref to parent in real code!

@@ -5,7 +5,7 @@
 groups = ["default", "all", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:6b062624538c5dfe6b1bd5be32546fef02b70ee73c4a1710a8eea9764bdd21d8"
+content_hash = "sha256:c6898f1602f4760763b438a54b5a7e74833755c083718d56c27abcd765d7f0de"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -208,14 +208,14 @@ files = [
 
 [[package]]
 name = "bx-py-utils"
-version = "102"
+version = "103"
 requires_python = "<4,>=3.10"
 summary = "Various Python utility functions"
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "bx_py_utils-102-py3-none-any.whl", hash = "sha256:961a0abf31b512f72c1473a4d115096b0c5becd32d08338ac62adbf5b217b680"},
-    {file = "bx_py_utils-102.tar.gz", hash = "sha256:6d131d40394b477de715169e80067a0ab4891c8f04afd33fbd7ca00e2faf21ae"},
+    {file = "bx_py_utils-103-py3-none-any.whl", hash = "sha256:706291bdbc430655d78628ca3af037cff7dd5e2003136fd4ff4249adb3ab6228"},
+    {file = "bx_py_utils-103.tar.gz", hash = "sha256:9aa162f7a1b81430811f2e7ce1a76ba4562e47d472b0e13cb8c8e055076d45d5"},
 ]
 
 [[package]]
@@ -593,7 +593,7 @@ files = [
 
 [[package]]
 name = "django-stubs"
-version = "5.0.4"
+version = "5.1.0"
 requires_python = ">=3.8"
 summary = "Mypy stubs for Django"
 groups = ["default"]
@@ -601,19 +601,19 @@ marker = "python_version == \"3.11\""
 dependencies = [
     "asgiref",
     "django",
-    "django-stubs-ext>=5.0.4",
+    "django-stubs-ext>=5.1.0",
     "tomli; python_version < \"3.11\"",
     "types-PyYAML",
     "typing-extensions>=4.11.0",
 ]
 files = [
-    {file = "django_stubs-5.0.4-py3-none-any.whl", hash = "sha256:c2502f5ecbae50c68f9a86d52b5b2447d8648fd205036dad0ccb41e19a445927"},
-    {file = "django_stubs-5.0.4.tar.gz", hash = "sha256:78e3764488fdfd2695f12502136548ec22f8d4b1780541a835042b8238d11514"},
+    {file = "django_stubs-5.1.0-py3-none-any.whl", hash = "sha256:b98d49a80aa4adf1433a97407102d068de26c739c405431d93faad96dd282c40"},
+    {file = "django_stubs-5.1.0.tar.gz", hash = "sha256:86128c228b65e6c9a85e5dc56eb1c6f41125917dae0e21e6cfecdf1b27e630c5"},
 ]
 
 [[package]]
 name = "django-stubs-ext"
-version = "5.0.4"
+version = "5.1.0"
 requires_python = ">=3.8"
 summary = "Monkey-patching and extensions for django-stubs"
 groups = ["default"]
@@ -623,8 +623,8 @@ dependencies = [
     "typing-extensions",
 ]
 files = [
-    {file = "django_stubs_ext-5.0.4-py3-none-any.whl", hash = "sha256:910cbaff3d1e8e806a5c27d5ddd4088535aae8371ea921b7fd680fdfa5f14e30"},
-    {file = "django_stubs_ext-5.0.4.tar.gz", hash = "sha256:85da065224204774208be29c7d02b4482d5a69218a728465c2fbe41725fdc819"},
+    {file = "django_stubs_ext-5.1.0-py3-none-any.whl", hash = "sha256:a455fc222c90b30b29ad8c53319559f5b54a99b4197205ddbb385aede03b395d"},
+    {file = "django_stubs_ext-5.1.0.tar.gz", hash = "sha256:ed7d51c0b731651879fc75f331fb0806d98b67bfab464e96e2724db6b46ef926"},
 ]
 
 [[package]]

@@ -39,6 +39,7 @@ class BasePlugin(BaseModel):
     # Required by AppConfig:
     app_label: str = Field()                      # e.g. 'singlefile'                  (one-word machine-readable representation, to use as url-safe id/db-table prefix_/attr name)
     verbose_name: str = Field()                   # e.g. 'SingleFile'                  (human-readable *short* label, for use in column names, form labels, etc.)
+    docs_url: str = Field(default=None)           # e.g. 'https://github.com/...'
     
     # All the hooks the plugin will install:
     hooks: List[InstanceOf[BaseHook]] = Field(default=[])
@@ -60,10 +61,16 @@ class BasePlugin(BaseModel):
     def plugin_module(self) -> str:  # DottedImportPath
         """ "
         Dotted import path of the plugin's module (after its loaded via settings.INSTALLED_APPS).
-        e.g. 'archivebox.builtin_plugins.npm.apps.NpmPlugin' -> 'builtin_plugins.npm'
+        e.g. 'archivebox.pkg_plugins.npm.apps.NpmPlugin' -> 'pkg_plugins.npm'
         """
         return f"{self.__module__}.{self.__class__.__name__}".split("archivebox.", 1)[-1].rsplit('.apps.', 1)[0]
 
+
+    @property
+    def plugin_module_full(self) -> str:  # DottedImportPath
+        """e.g. 'archivebox.pkg_plugins.npm.apps.NpmPlugin'"""
+        return f"{self.__module__}.{self.__class__.__name__}"
+    
     # @computed_field
     @property
     def plugin_dir(self) -> Path:
@@ -77,7 +84,7 @@ class BasePlugin(BaseModel):
         # preserve references to original default objects,
         # pydantic deepcopies them by default which breaks mutability
         # see https://github.com/pydantic/pydantic/issues/7608
-        # if we dont do this, then builtin_plugins.base.CORE_CONFIG != settings.CONFIGS.CoreConfig for example
+        # if we dont do this, then sys_plugins.base.CORE_CONFIG != settings.CONFIGS.CoreConfig for example
         # and calling .__init__() on one of them will not update the other
         self.hooks = self.model_fields['hooks'].default
         

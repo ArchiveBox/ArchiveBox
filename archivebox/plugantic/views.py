@@ -81,7 +81,7 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
     }
 
     for plugin in settings.PLUGINS.values():
-        for binary in plugin.HOOKS_BY_TYPE.BINARY.values():
+        for binary in plugin.HOOKS_BY_TYPE.get('BINARY', {}).values():
             try:
                 binary = binary.load()
             except Exception as e:
@@ -125,7 +125,7 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     binary = None
     plugin = None
     for loaded_plugin in settings.PLUGINS.values():
-        for loaded_binary in loaded_plugin.HOOKS_BY_TYPE.BINARY.values():
+        for loaded_binary in loaded_plugin.HOOKS_BY_TYPE.get('BINARY', {}).values():
             if loaded_binary.name == key:
                 binary = loaded_binary
                 plugin = loaded_plugin
@@ -175,17 +175,17 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
 
     for plugin in settings.PLUGINS.values():
-        try:
-            plugin = plugin.load_binaries()
-        except Exception as e:
-            print(e)
+        # try:
+        #     plugin.load_binaries()
+        # except Exception as e:
+        #     print(e)
 
         rows['Name'].append(ItemLink(plugin.id, key=plugin.id))
-        rows['verbose_name'].append(str(plugin.verbose_name))
+        rows['verbose_name'].append(mark_safe(f'<a href="{plugin.docs_url}" target="_blank">{plugin.verbose_name}</a>'))
         rows['module'].append(str(plugin.plugin_module))
         rows['source_code'].append(str(plugin.plugin_dir))
         rows['hooks'].append(mark_safe(', '.join(
-            f'<a href="/admin/environment/hooks/{hook.id}/">{hook.id}</a>'
+            f'<a href="{hook.admin_url}">{hook.id}</a>'
             for hook in plugin.hooks
         )))
 

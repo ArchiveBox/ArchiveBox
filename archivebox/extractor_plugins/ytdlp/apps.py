@@ -10,7 +10,7 @@ from plugantic.base_configset import BaseConfigSet, ConfigSectionName
 from plugantic.base_binary import BaseBinary, env, apt, brew
 from plugantic.base_hook import BaseHook
 
-from builtin_plugins.pip.apps import pip
+from pkg_plugins.pip.apps import pip
 
 ###################### Config ##########################
 
@@ -65,7 +65,8 @@ FFMPEG_BINARY = FfmpegBinary()
 
 class YtdlpPlugin(BasePlugin):
     app_label: str = 'ytdlp'
-    verbose_name: str = 'YTDLP'
+    verbose_name: str = 'YT-DLP'
+    docs_url: str = 'https://github.com/yt-dlp/yt-dlp'
 
     hooks: List[InstanceOf[BaseHook]] = [
         YTDLP_CONFIG,

@@ -136,6 +136,7 @@ test = [
     "bottle>=0.13.1",
 ]
 lint = [
+    "ruff>=0.6.6",
     "flake8>=7.1.1",
     "mypy>=1.11.2",
     "django-autotyping>=0.5.1",
@@ -158,7 +159,7 @@ exclude = ["*.pyi", "typings/", "migrations/", "vendor/"]
 
 # https://docs.astral.sh/ruff/rules/
 [tool.ruff.lint]
-ignore = ["E731", "E303", "E266"]
+ignore = ["E731", "E303", "E266", "E241", "E222"]
 
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]

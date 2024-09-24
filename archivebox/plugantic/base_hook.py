@@ -5,7 +5,7 @@ from huey.api import TaskWrapper
 
 from pathlib import Path
 from typing import List, Literal, ClassVar
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict
 
 
 HookType = Literal['CONFIG', 'BINPROVIDER', 'BINARY', 'EXTRACTOR', 'REPLAYER', 'CHECK', 'ADMINDATAVIEW', 'QUEUE']
@@ -26,11 +26,11 @@ class BaseHook(BaseModel):
         # django imports AppConfig, models, migrations, admins, etc. for all installed apps
         # django then calls AppConfig.ready() on each installed app...
 
-        builtin_plugins.npm.NpmPlugin().AppConfig.ready()                    # called by django
-            builtin_plugins.npm.NpmPlugin().register(settings) ->
-                builtin_plugins.npm.NpmConfigSet().register(settings)
+        pkg_plugins.npm.NpmPlugin().AppConfig.ready()                    # called by django
+            pkg_plugins.npm.NpmPlugin().register(settings) ->
+                pkg_plugins.npm.NpmConfigSet().register(settings)
                     plugantic.base_configset.BaseConfigSet().register(settings)
-                        plugantic.base_hook.BaseHook().register(settings, parent_plugin=builtin_plugins.npm.NpmPlugin())
+                        plugantic.base_hook.BaseHook().register(settings, parent_plugin=pkg_plugins.npm.NpmPlugin())
 
                 ...
         ...
@@ -74,22 +74,27 @@ class BaseHook(BaseModel):
 
     @property
     def hook_module(self) -> str:
-        """e.g. builtin_plugins.singlefile.apps.SinglefileConfigSet"""
+        """e.g. extractor_plugins.singlefile.apps.SinglefileConfigSet"""
         return f'{self.__module__}.{self.__class__.__name__}'
 
     @property
     def hook_file(self) -> Path:
-        """e.g. builtin_plugins.singlefile.apps.SinglefileConfigSet"""
+        """e.g. extractor_plugins.singlefile.apps.SinglefileConfigSet"""
         return Path(inspect.getfile(self.__class__))
 
     @property
     def plugin_module(self) -> str:
-        """e.g. builtin_plugins.singlefile"""
+        """e.g. extractor_plugins.singlefile"""
         return f"{self.__module__}.{self.__class__.__name__}".split("archivebox.", 1)[-1].rsplit(".apps.", 1)[0]
 
     @property
     def plugin_dir(self) -> Path:
         return Path(inspect.getfile(self.__class__)).parent.resolve()
+    
+    @property
+    def admin_url(self) -> str:
+        # e.g. /admin/environment/config/LdapConfig/
+        return f"/admin/environment/{self.hook_type.lower()}/{self.id}/"
 
 
     def register(self, settings, parent_plugin=None):

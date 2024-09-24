@@ -1,14 +1,14 @@
-__package__ = 'archivebox.builtin_plugins.singlefile'
+__package__ = 'archivebox.extractor_plugins.singlefile'
 
 from pathlib import Path
 from typing import List, Dict, Optional, ClassVar
-from typing_extensions import Self
+# from typing_extensions import Self
 
 from django.conf import settings
 
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, Field, validate_call
-from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName, bin_abspath
+from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName, bin_abspath, ShallowBinary
 
 # Depends on other Django apps:
 from plugantic.base_plugin import BasePlugin
@@ -19,8 +19,8 @@ from plugantic.base_queue import BaseQueue
 from plugantic.base_hook import BaseHook
 
 # Depends on Other Plugins:
-from builtin_plugins.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
-from builtin_plugins.base.apps import CORE_CONFIG
+from sys_plugins.base.apps import ARCHIVING_CONFIG
+from pkg_plugins.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
 
 ###################### Config ##########################
 
@@ -33,11 +33,10 @@ class SinglefileToggleConfigs(BaseConfigSet):
 class SinglefileOptionsConfigs(BaseConfigSet):
     section: ClassVar[ConfigSectionName] = 'ARCHIVE_METHOD_OPTIONS'
 
-    SINGLEFILE_USER_AGENT: str              = Field(default=lambda: CORE_CONFIG.USER_AGENT)
-    SINGLEFILE_TIMEOUT: int                 = Field(default=lambda: CORE_CONFIG.TIMEOUT)
-    SINGLEFILE_CHECK_SSL_VALIDITY: bool     = Field(default=lambda: CORE_CONFIG.CHECK_SSL_VALIDITY)
-    SINGLEFILE_RESTRICT_FILE_NAMES: str     = Field(default=lambda: CORE_CONFIG.RESTRICT_FILE_NAMES)
-    SINGLEFILE_COOKIES_FILE: Optional[Path] = Field(default=lambda: CORE_CONFIG.COOKIES_FILE)
+    SINGLEFILE_USER_AGENT: str              = Field(default=lambda: ARCHIVING_CONFIG.USER_AGENT)
+    SINGLEFILE_TIMEOUT: int                 = Field(default=lambda: ARCHIVING_CONFIG.TIMEOUT)
+    SINGLEFILE_CHECK_SSL_VALIDITY: bool     = Field(default=lambda: ARCHIVING_CONFIG.CHECK_SSL_VALIDITY)
+    SINGLEFILE_COOKIES_FILE: Optional[Path] = Field(default=lambda: ARCHIVING_CONFIG.COOKIES_FILE)
 
 
 class SinglefileDependencyConfigs(BaseConfigSet):
@@ -87,12 +86,12 @@ class SinglefileBinary(BaseBinary):
     }
     
     @validate_call
-    def install(self, binprovider_name: Optional[BinProviderName]=None) -> Self:
+    def install(self, binprovider_name: Optional[BinProviderName]=None) -> ShallowBinary:
         # force install to only use lib/npm provider, we never want to modify global NPM packages
         return BaseBinary.install(self, binprovider_name=binprovider_name or LIB_NPM_BINPROVIDER.name)
     
     @validate_call
-    def load_or_install(self, binprovider_name: Optional[BinProviderName] = None) -> Self:
+    def load_or_install(self, binprovider_name: Optional[BinProviderName] = None) -> ShallowBinary:
         # force install to only use lib/npm provider, we never want to modify global NPM packages
         try:
             return self.load()

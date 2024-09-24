@@ -1,9 +1,10 @@
 __package__ = 'archivebox.plugantic'
 
+import os
 import re
 import json
 from pathlib import Path
-from typing import List, Literal, Type, Tuple, Callable, ClassVar, Any
+from typing import Literal, Type, Tuple, Callable, ClassVar, Any, get_args
 
 import toml
 from benedict import benedict
@@ -13,29 +14,27 @@ from pydantic_settings.sources import TomlConfigSettingsSource
 
 from pydantic_pkgr.base_types import func_takes_args_or_kwargs
 
-from django.conf import settings
-
 from .base_hook import BaseHook, HookType
 from . import ini_to_toml
+
+
+PACKAGE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = Path(os.curdir).resolve()
+
 
 ConfigSectionName = Literal[
     'SHELL_CONFIG',
     'GENERAL_CONFIG',
+    'STORAGE_CONFIG',
     'SERVER_CONFIG',
+    'ARCHIVING_CONFIG',
+    'LDAP_CONFIG',
     'ARCHIVE_METHOD_TOGGLES',
     'ARCHIVE_METHOD_OPTIONS',
     'SEARCH_BACKEND_CONFIG',
     'DEPENDENCY_CONFIG',
 ]
-ConfigSectionNames: List[ConfigSectionName] = [
-    'SHELL_CONFIG',
-    'GENERAL_CONFIG',
-    'SERVER_CONFIG',
-    'ARCHIVE_METHOD_TOGGLES',
-    'ARCHIVE_METHOD_OPTIONS',
-    'SEARCH_BACKEND_CONFIG',
-    'DEPENDENCY_CONFIG',
-]
+ConfigSectionNames: Tuple[ConfigSectionName, ...] = get_args(ConfigSectionName)   # just gets the list of values from the Literal type
 
 
 def better_toml_dump_str(val: Any) -> str:
@@ -136,7 +135,7 @@ class ArchiveBoxBaseConfig(BaseSettings):
     ) -> Tuple[PydanticBaseSettingsSource, ...]:
         """Defines the config precedence order: Schema defaults -> ArchiveBox.conf (TOML) -> Environment variables"""
         
-        ARCHIVEBOX_CONFIG_FILE = settings.DATA_DIR / "ArchiveBox.conf"
+        ARCHIVEBOX_CONFIG_FILE = DATA_DIR / "ArchiveBox.conf"
         ARCHIVEBOX_CONFIG_FILE_BAK = ARCHIVEBOX_CONFIG_FILE.parent / ".ArchiveBox.conf.bak"
         
         # import ipdb; ipdb.set_trace()
@@ -177,7 +176,7 @@ class ArchiveBoxBaseConfig(BaseSettings):
         """Populate any unset values using function provided as their default"""
 
         for key, field in self.model_fields.items():
-            config_so_far = self.model_dump(include=set(self.model_fields.keys()), warnings=False)
+            config_so_far = benedict(self.model_dump(include=set(self.model_fields.keys()), warnings=False))
             value = getattr(self, key)
             if isinstance(value, Callable):
                 # if value is a function, execute it to get the actual value, passing existing config as a dict arg

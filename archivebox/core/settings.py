@@ -21,37 +21,40 @@ IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
 IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
 IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
 
-DATA_DIR = Path(os.curdir).resolve()
-assert DATA_DIR == CONFIG.OUTPUT_DIR
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent
 assert PACKAGE_DIR == CONFIG.PACKAGE_DIR
+
+DATA_DIR = Path(os.curdir).resolve()
+assert DATA_DIR == CONFIG.OUTPUT_DIR
+ARCHIVE_DIR = DATA_DIR / 'archive'
+assert ARCHIVE_DIR == CONFIG.ARCHIVE_DIR
 
 ################################################################################
 ### ArchiveBox Plugin Settings
 ################################################################################
 
-BUILTIN_PLUGINS_DIR = PACKAGE_DIR / 'builtin_plugins'  # /app/archivebox/builtin_plugins
-USERDATA_PLUGINS_DIR = DATA_DIR / 'user_plugins'     # /data/user_plugins
-
-# PLUGIN_IMPORT_ORDER = ['base', 'pip', 'npm', 'ytdlp']
-#
-# def get_plugin_order(p: Path) -> str:
-#     return str(PLUGIN_IMPORT_ORDER.index(p.parent.name)) if p.parent.name in PLUGIN_IMPORT_ORDER else str(p)
 
 def find_plugins_in_dir(plugins_dir: Path, prefix: str) -> Dict[str, Path]:
-    """{"builtin_plugins.pip": "/app/archivebox/builtin_plugins/pip", "user_plugins.other": "/data/user_plugins/other",...}"""
+    """{"pkg_plugins.pip": "/app/archivebox/pkg_plugins/pip", "user_plugins.other": "/data/user_plugins/other",...}"""
     return {
         f"{prefix}.{plugin_entrypoint.parent.name}": plugin_entrypoint.parent
         for plugin_entrypoint in sorted(plugins_dir.glob("*/apps.py"))   # key=get_plugin_order  # Someday enforcing plugin import order may be required, but right now it's not needed
     }
-
-INSTALLED_PLUGINS = {
-    **find_plugins_in_dir(BUILTIN_PLUGINS_DIR, prefix='builtin_plugins'),
-    **find_plugins_in_dir(USERDATA_PLUGINS_DIR, prefix='user_plugins'),
+    
+PLUGIN_DIRS = {
+    'sys_plugins':          PACKAGE_DIR / 'sys_plugins',
+    'pkg_plugins':          PACKAGE_DIR / 'pkg_plugins',
+    'auth_plugins':         PACKAGE_DIR / 'auth_plugins',
+    'extractor_plugins':    PACKAGE_DIR / 'extractor_plugins',
+    'user_plugins':         DATA_DIR / 'user_plugins',
 }
+INSTALLED_PLUGINS = {}
+for plugin_prefix, plugin_dir in PLUGIN_DIRS.items():
+    INSTALLED_PLUGINS.update(find_plugins_in_dir(plugin_dir, prefix=plugin_prefix))
 
-### Plugins Globals (filled by builtin_plugins.npm.apps.NpmPlugin.register() after Django startup)
+
+### Plugins Globals (filled by plugin_type.pluginname.apps.PluginName.register() after Django startup)
 PLUGINS = AttrDict({})
 HOOKS = AttrDict({})
 
@@ -106,7 +109,7 @@ INSTALLED_APPS = [
     'api',                       # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
 
     # ArchiveBox plugins
-    *INSTALLED_PLUGINS.keys(),   # all plugin django-apps found in archivebox/builtin_plugins and data/user_plugins,
+    *INSTALLED_PLUGINS.keys(),   # all plugin django-apps found in archivebox/*_plugins and data/user_plugins,
     # plugin.register(settings) is called at import of each plugin (in the order they are listed here), then plugin.ready() is called at AppConfig.ready() time
 
     # 3rd-party apps from PyPI that need to be loaded last
@@ -141,46 +144,16 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-if CONFIG.LDAP:
-    try:
-        import ldap
-        from django_auth_ldap.config import LDAPSearch
+from ..auth_plugins.ldap.settings import LDAP_CONFIG
 
-        global AUTH_LDAP_SERVER_URI
-        global AUTH_LDAP_BIND_DN
-        global AUTH_LDAP_BIND_PASSWORD
-        global AUTH_LDAP_USER_SEARCH
-        global AUTH_LDAP_USER_ATTR_MAP
-
-        AUTH_LDAP_SERVER_URI = CONFIG.LDAP_SERVER_URI
-        AUTH_LDAP_BIND_DN = CONFIG.LDAP_BIND_DN
-        AUTH_LDAP_BIND_PASSWORD = CONFIG.LDAP_BIND_PASSWORD
-
-        assert AUTH_LDAP_SERVER_URI and CONFIG.LDAP_USERNAME_ATTR and CONFIG.LDAP_USER_FILTER, 'LDAP_* config options must all be set if LDAP=True'
-
-        AUTH_LDAP_USER_SEARCH = LDAPSearch(
-            CONFIG.LDAP_USER_BASE,
-            ldap.SCOPE_SUBTREE,
-            '(&(' + CONFIG.LDAP_USERNAME_ATTR + '=%(user)s)' + CONFIG.LDAP_USER_FILTER + ')',
-        )
-
-        AUTH_LDAP_USER_ATTR_MAP = {
-            'username': CONFIG.LDAP_USERNAME_ATTR,
-            'first_name': CONFIG.LDAP_FIRSTNAME_ATTR,
-            'last_name': CONFIG.LDAP_LASTNAME_ATTR,
-            'email': CONFIG.LDAP_EMAIL_ATTR,
-        }
-
-        AUTHENTICATION_BACKENDS = [
-            'django.contrib.auth.backends.ModelBackend',
-            'django_auth_ldap.backend.LDAPBackend',
-        ]
-    except ModuleNotFoundError:
-        sys.stderr.write('[X] Error: Found LDAP=True config but LDAP packages not installed. You may need to run: pip install archivebox[ldap]\n\n')
-        # dont hard exit here. in case the user is just running "archivebox version" or "archivebox help", we still want those to work despite broken ldap
-        # sys.exit(1)
-
-
+if LDAP_CONFIG.LDAP_ENABLED:
+    AUTH_LDAP_BIND_DN = LDAP_CONFIG.LDAP_BIND_DN
+    AUTH_LDAP_SERVER_URI = LDAP_CONFIG.LDAP_SERVER_URI
+    AUTH_LDAP_BIND_PASSWORD = LDAP_CONFIG.LDAP_BIND_PASSWORD
+    AUTH_LDAP_USER_ATTR_MAP = LDAP_CONFIG.LDAP_USER_ATTR_MAP
+    AUTH_LDAP_USER_SEARCH = LDAP_CONFIG.AUTH_LDAP_USER_SEARCH
+    
+    AUTHENTICATION_BACKENDS = LDAP_CONFIG.AUTHENTICATION_BACKENDS
 
 ################################################################################
 ### Staticfile and Template Settings
@@ -496,6 +469,7 @@ else:
 LOG_LEVEL_DATABASE = 'DEBUG' if DEBUG else 'WARNING'
 LOG_LEVEL_REQUEST = 'DEBUG' if DEBUG else 'WARNING'
 
+
 import pydantic
 import django.template
 
@@ -585,7 +559,7 @@ LOGGING = {
             "handlers": ["default", "logfile"],
             "level": "DEBUG",
         },
-        "builtin_plugins": {
+        "extractor_plugins": {
             "handlers": ["default", "logfile"],
             "level": "DEBUG",
         },

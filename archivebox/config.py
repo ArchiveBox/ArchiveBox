@@ -89,14 +89,15 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'URL_DENYLIST':             {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$', 'aliases': ('URL_BLACKLIST',)},  # to avoid downloading code assets as their own pages
         'URL_ALLOWLIST':            {'type': str,   'default': None, 'aliases': ('URL_WHITELIST',)},
 
-        'ADMIN_USERNAME':           {'type': str,   'default': None},
-        'ADMIN_PASSWORD':           {'type': str,   'default': None},
 
         'ENFORCE_ATOMIC_WRITES':    {'type': bool,  'default': True},
         'TAG_SEPARATOR_PATTERN':    {'type': str,   'default': r'[,]'},
     },
 
     'SERVER_CONFIG': {
+        'ADMIN_USERNAME':            {'type': str,   'default': None},
+        'ADMIN_PASSWORD':            {'type': str,   'default': None},
+        
         'SECRET_KEY':                {'type': str,   'default': None},
         'BIND_ADDR':                 {'type': str,   'default': lambda c: ['127.0.0.1:8000', '0.0.0.0:8000'][c['IN_DOCKER']]},
         'ALLOWED_HOSTS':             {'type': str,   'default': '*'},     # e.g. archivebox.example.com,archivebox2.example.com
@@ -420,7 +421,7 @@ CONSTANTS = {
     "COLOR_DICT":                   {'default': lambda c: COLOR_DICT},
     "STATICFILE_EXTENSIONS":        {'default': lambda c: STATICFILE_EXTENSIONS},
     "ALLOWED_IN_OUTPUT_DIR":        {'default': lambda c: ALLOWED_IN_OUTPUT_DIR},
-    "ALLOWDENYLIST_REGEX_FLAGS":    {'default': lambda c: ALLOWDENYLIST_REGEX_FLAGS},
+    # "ALLOWDENYLIST_REGEX_FLAGS":    {'default': lambda c: ALLOWDENYLIST_REGEX_FLAGS},
 }
 
 ############################## Version Config ##################################
@@ -579,8 +580,8 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'COMMIT_HASH':              {'default': lambda c: get_commit_hash(c)},                  # short git commit hash of codebase HEAD commit
     'BUILD_TIME':               {'default': lambda c: get_build_time(c)},                   # docker build completed time or python src last modified time
     
-    'VERSIONS_AVAILABLE':       {'default': lambda c: get_versions_available_on_github(c)},
-    'CAN_UPGRADE':              {'default': lambda c: can_upgrade(c)},
+    'VERSIONS_AVAILABLE':       {'default': lambda c: False},             # get_versions_available_on_github(c)},
+    'CAN_UPGRADE':              {'default': lambda c: False},             # can_upgrade(c)},
 
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
     'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},

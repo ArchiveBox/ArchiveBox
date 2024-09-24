@@ -23,8 +23,8 @@ from plugantic.base_binary import BaseBinary, env
 from plugantic.base_hook import BaseHook
 
 # Depends on Other Plugins:
-from builtin_plugins.puppeteer.apps import PUPPETEER_BINPROVIDER
-from builtin_plugins.playwright.apps import PLAYWRIGHT_BINPROVIDER
+from pkg_plugins.puppeteer.apps import PUPPETEER_BINPROVIDER
+from pkg_plugins.playwright.apps import PLAYWRIGHT_BINPROVIDER
 
 
 CHROMIUM_BINARY_NAMES_LINUX = [

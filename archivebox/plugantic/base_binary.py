@@ -42,7 +42,11 @@ class BaseBinProvider(BaseHook, BinProvider):
         settings.BINPROVIDERS[self.id] = self
 
         super().register(settings, parent_plugin=parent_plugin)
-        
+    
+    @property
+    def admin_url(self) -> str:
+        # e.g. /admin/environment/binproviders/NpmBinProvider/   TODO
+        return "/admin/environment/binaries/"
 
 
 class BaseBinary(BaseHook, Binary):
@@ -87,6 +91,11 @@ class BaseBinary(BaseHook, Binary):
         binary = super().load_or_install(**kwargs)
         self.symlink_to_lib(binary=binary, bin_dir=settings.CONFIG.BIN_DIR)
         return binary
+    
+    @property
+    def admin_url(self) -> str:
+        # e.g. /admin/environment/config/LdapConfig/
+        return f"/admin/environment/binaries/{self.name}/"
 
 apt = AptProvider()
 brew = BrewProvider()

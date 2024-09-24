@@ -1,4 +1,4 @@
-__package__ = 'archivebox.builtin_plugins.npm'
+__package__ = 'archivebox.pkg_plugins.npm'
 
 from pathlib import Path
 from typing import List, Optional
