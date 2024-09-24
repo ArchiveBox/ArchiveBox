@@ -19,7 +19,7 @@ from plugantic.base_queue import BaseQueue
 from plugantic.base_hook import BaseHook
 
 # Depends on Other Plugins:
-from plugins_sys.base.apps import ARCHIVING_CONFIG
+from plugins_sys.config.apps import ARCHIVING_CONFIG
 from plugins_pkg.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
 
 ###################### Config ##########################

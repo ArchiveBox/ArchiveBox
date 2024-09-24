@@ -84,7 +84,7 @@ class BasePlugin(BaseModel):
         # preserve references to original default objects,
         # pydantic deepcopies them by default which breaks mutability
         # see https://github.com/pydantic/pydantic/issues/7608
-        # if we dont do this, then plugins_sys.base.CORE_CONFIG != settings.CONFIGS.CoreConfig for example
+        # if we dont do this, then plugins_extractor.SINGLEFILE_CONFIG != settings.CONFIGS.SingleFileConfig for example
         # and calling .__init__() on one of them will not update the other
         self.hooks = self.model_fields['hooks'].default
         

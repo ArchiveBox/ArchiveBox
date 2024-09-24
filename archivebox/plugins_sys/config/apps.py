@@ -123,9 +123,9 @@ class SearchBackendConfig(BaseConfigSet):
 SEARCH_BACKEND_CONFIG = SearchBackendConfig()
 
 
-class CorePlugin(BasePlugin):
-    app_label: str = 'core'
-    verbose_name: str = 'Core'
+class ConfigPlugin(BasePlugin):
+    app_label: str = 'config'
+    verbose_name: str = 'Configuration'
 
     hooks: List[InstanceOf[BaseHook]] = [
         SHELL_CONFIG,
@@ -137,6 +137,6 @@ class CorePlugin(BasePlugin):
     ]
 
 
-PLUGIN = CorePlugin()
+PLUGIN = ConfigPlugin()
 PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig
