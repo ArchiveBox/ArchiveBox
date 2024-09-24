@@ -34,6 +34,7 @@ import requests
 
 from hashlib import md5
 from pathlib import Path
+from benedict import benedict
 from datetime import datetime, timezone
 from typing import Optional, Type, Tuple, Dict, Union, List
 from subprocess import run, PIPE, DEVNULL, STDOUT, TimeoutExpired
@@ -304,17 +305,19 @@ ROBOTS_TXT_FILENAME = 'robots.txt'
 FAVICON_FILENAME = 'favicon.ico'
 CONFIG_FILENAME = 'ArchiveBox.conf'
 
-DEFAULT_CLI_COLORS = AttrDict({
-    'reset': '\033[00;00m',
-    'lightblue': '\033[01;30m',
-    'lightyellow': '\033[01;33m',
-    'lightred': '\033[01;35m',
-    'red': '\033[01;31m',
-    'green': '\033[01;32m',
-    'blue': '\033[01;34m',
-    'white': '\033[01;37m',
-    'black': '\033[01;30m',
-})
+DEFAULT_CLI_COLORS = benedict(
+    {
+        "reset": "\033[00;00m",
+        "lightblue": "\033[01;30m",
+        "lightyellow": "\033[01;33m",
+        "lightred": "\033[01;35m",
+        "red": "\033[01;31m",
+        "green": "\033[01;32m",
+        "blue": "\033[01;34m",
+        "white": "\033[01;37m",
+        "black": "\033[01;30m",
+    }
+)
 ANSI = AttrDict({k: '' for k in DEFAULT_CLI_COLORS.keys()})
 
 COLOR_DICT = defaultdict(lambda: [(0, 0, 0), (0, 0, 0)], {
