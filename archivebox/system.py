@@ -22,6 +22,8 @@ def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, 
         Mostly copied from https://github.com/python/cpython/blob/master/Lib/subprocess.py
     """
 
+    cmd = [str(arg) for arg in cmd]
+
     if input is not None:
         if kwargs.get('stdin') is not None:
             raise ValueError('stdin and input arguments may not both be used.')
@@ -38,7 +40,7 @@ def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, 
         if isinstance(cmd, (list, tuple)) and cmd[0].endswith('.py'):
             cmd = (PYTHON_BINARY, *cmd)
 
-        with Popen(cmd, *args, start_new_session=start_new_session, **kwargs) as process:
+        with Popen(cmd, *args, start_new_session=start_new_session, text=text, **kwargs) as process:
             pgid = os.getpgid(process.pid)
             try:
                 stdout, stderr = process.communicate(input, timeout=timeout)
