@@ -1,5 +1,9 @@
 __package__ = 'archivebox'
 
+import django
+import pydantic
+import shutil
+
 import django_stubs_ext
 
 django_stubs_ext.monkeypatch()
@@ -19,7 +23,7 @@ timezone.utc = datetime.timezone.utc
 # https://rich.readthedocs.io/en/stable/traceback.html#traceback-handler
 from rich.traceback import install
 
-install(show_locals=True)
+install(show_locals=True, word_wrap=False, locals_max_length=10, locals_hide_dunder=True, suppress=[django, pydantic], extra_lines=2, width=shutil.get_terminal_size((100, 10)).columns - 1)
 
 
 from daphne import access
