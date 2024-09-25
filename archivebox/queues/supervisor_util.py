@@ -14,6 +14,22 @@ from xmlrpc.client import ServerProxy
 
 from .settings import CONFIG_FILE, PID_FILE, SOCK_FILE, LOG_FILE, WORKER_DIR, TMP_DIR, LOGS_DIR
 
+from typing import Iterator
+
+def follow(file, sleep_sec=0.1) -> Iterator[str]:
+    """ Yield each line from a file as they are written.
+    `sleep_sec` is the time to sleep after empty reads. """
+    line = ''
+    while True:
+        tmp = file.readline()
+        if tmp is not None and tmp != "":
+            line += tmp
+            if line.endswith("\n"):
+                yield line
+                line = ''
+        elif sleep_sec:
+            time.sleep(sleep_sec)
+
 
 def create_supervisord_config():
     config_content = f"""
@@ -56,8 +72,7 @@ def create_worker_config(daemon):
         config_content += f"{key}={value}\n"
     config_content += "\n"
 
-    with open(configfile, "w") as f:
-        f.write(config_content)
+    configfile.write_text(config_content)
 
 
 def get_existing_supervisord_process():
@@ -197,6 +212,27 @@ def watch_worker(supervisor, daemon_name, interval=5):
             time.sleep(interval)
             continue
 
+def tail_worker_logs(log_path: str):
+    get_or_create_supervisord_process(daemonize=True)
+    
+    from rich.live import Live
+    from rich.table import Table
+    
+    table = Table()
+    table.add_column("TS")
+    table.add_column("URL")
+    
+    try:
+        with Live(table, refresh_per_second=1) as live:  # update 4 times a second to feel fluid
+            with open(log_path, 'r') as f:
+                for line in follow(f):
+                    if '://' in line:
+                        live.console.print(f"Working on: {line.strip()}")
+                    table.add_row("123124234", line.strip())
+    except KeyboardInterrupt:
+        print("\n[🛑] Got Ctrl+C, stopping gracefully...")
+    except SystemExit:
+        pass
 
 def get_worker(supervisor, daemon_name):
     try:
@@ -227,6 +263,83 @@ def stop_worker(supervisor, daemon_name):
         proc = get_worker(supervisor, daemon_name)
 
     raise Exception(f"Failed to stop worker {daemon_name}!")
+
+
+
+
+def start_server_workers(host='0.0.0.0', port='8000'):
+    supervisor = get_or_create_supervisord_process(daemonize=False)
+    
+    bg_workers = [
+        {
+            "name": "worker_system_tasks",
+            "command": "archivebox manage djangohuey --queue system_tasks",
+            "autostart": "true",
+            "autorestart": "true",
+            "stdout_logfile": "logs/worker_system_tasks.log",
+            "redirect_stderr": "true",
+        },
+    ]
+    fg_worker = {
+        "name": "worker_daphne",
+        "command": f"daphne --bind={host} --port={port} --application-close-timeout=600 archivebox.core.asgi:application",
+        "autostart": "false",
+        "autorestart": "true",
+        "stdout_logfile": "logs/worker_daphne.log",
+        "redirect_stderr": "true",
+    }
+
+    print()
+    for worker in bg_workers:
+        start_worker(supervisor, worker)
+
+    print()
+    start_worker(supervisor, fg_worker)
+    print()
+
+    try:
+        watch_worker(supervisor, "worker_daphne")
+    except KeyboardInterrupt:
+        print("\n[🛑] Got Ctrl+C, stopping gracefully...")
+    except SystemExit:
+        pass
+    except BaseException as e:
+        print(f"\n[🛑] Got {e.__class__.__name__} exception, stopping web server gracefully...")
+        raise
+    finally:
+        stop_worker(supervisor, "worker_daphne")
+        time.sleep(0.5)
+
+
+def start_cli_workers(watch=False):
+    supervisor = get_or_create_supervisord_process(daemonize=False)
+    
+    fg_worker = {
+        "name": "worker_system_tasks",
+        "command": "archivebox manage djangohuey --queue system_tasks",
+        "autostart": "true",
+        "autorestart": "true",
+        "stdout_logfile": "logs/worker_system_tasks.log",
+        "redirect_stderr": "true",
+    }
+
+    start_worker(supervisor, fg_worker)
+
+    if watch:
+        try:
+            watch_worker(supervisor, "worker_system_tasks")
+        except KeyboardInterrupt:
+            print("\n[🛑] Got Ctrl+C, stopping gracefully...")
+        except SystemExit:
+            pass
+        except BaseException as e:
+            print(f"\n[🛑] Got {e.__class__.__name__} exception, stopping web server gracefully...")
+            raise
+        finally:
+            stop_worker(supervisor, "worker_system_tasks")
+            time.sleep(0.5)
+    return fg_worker
+
 
 def main(daemons):
     supervisor = get_or_create_supervisord_process(daemonize=True)
