@@ -24,40 +24,21 @@ from plugins_pkg.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
 
 ###################### Config ##########################
 
-class SinglefileToggleConfigs(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'ARCHIVE_METHOD_TOGGLES'
+class SinglefileConfig(BaseConfigSet):
+    section: ClassVar[ConfigSectionName] = 'ARCHIVING_CONFIG'
 
     SAVE_SINGLEFILE: bool = True
-
-
-class SinglefileOptionsConfigs(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'ARCHIVE_METHOD_OPTIONS'
 
     SINGLEFILE_USER_AGENT: str              = Field(default=lambda: ARCHIVING_CONFIG.USER_AGENT)
     SINGLEFILE_TIMEOUT: int                 = Field(default=lambda: ARCHIVING_CONFIG.TIMEOUT)
     SINGLEFILE_CHECK_SSL_VALIDITY: bool     = Field(default=lambda: ARCHIVING_CONFIG.CHECK_SSL_VALIDITY)
     SINGLEFILE_COOKIES_FILE: Optional[Path] = Field(default=lambda: ARCHIVING_CONFIG.COOKIES_FILE)
 
-
-class SinglefileDependencyConfigs(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'DEPENDENCY_CONFIG'
-
     SINGLEFILE_BINARY: str = Field(default='wget')
-    SINGLEFILE_ARGS: Optional[List[str]] = Field(default=None)
     SINGLEFILE_EXTRA_ARGS: List[str] = []
-    SINGLEFILE_DEFAULT_ARGS: List[str] = ['--timeout={TIMEOUT-10}']
 
-class SinglefileConfigs(SinglefileToggleConfigs, SinglefileOptionsConfigs, SinglefileDependencyConfigs):
-    # section: ClassVar[ConfigSectionName] = 'ALL_CONFIGS'
-    pass
 
-DEFAULT_GLOBAL_CONFIG = {
-    'CHECK_SSL_VALIDITY': False,
-    'SAVE_SINGLEFILE': True,
-    'TIMEOUT': 120,
-}
-
-SINGLEFILE_CONFIG = SinglefileConfigs(**DEFAULT_GLOBAL_CONFIG)
+SINGLEFILE_CONFIG = SinglefileConfig()
 
 
 SINGLEFILE_MIN_VERSION = '1.1.54'

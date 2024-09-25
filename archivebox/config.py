@@ -30,6 +30,7 @@ import inspect
 import getpass
 import shutil
 import requests
+import archivebox
 
 from hashlib import md5
 from pathlib import Path
@@ -62,7 +63,6 @@ from .misc.logging import (
     stderr,
     hint,
 )
-from .misc.checks import check_system_config
 
 # print('STARTING CONFIG LOADING')
 
@@ -167,15 +167,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'USER_AGENT':               {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)'},
         'CURL_USER_AGENT':          {'type': str,   'default': lambda c: c['USER_AGENT'] + ' curl/{CURL_VERSION}'},
         'WGET_USER_AGENT':          {'type': str,   'default': lambda c: c['USER_AGENT'] + ' wget/{WGET_VERSION}'},
-        'CHROME_USER_AGENT':        {'type': str,   'default': lambda c: c['USER_AGENT']},
 
         'COOKIES_FILE':             {'type': str,   'default': None},
-        'CHROME_USER_DATA_DIR':     {'type': str,   'default': None},
-
-        'CHROME_TIMEOUT':           {'type': int,   'default': 0},
-        'CHROME_HEADLESS':          {'type': bool,  'default': True},
-        'CHROME_SANDBOX':           {'type': bool,  'default': lambda c: not c['IN_DOCKER']},
-        'CHROME_EXTRA_ARGS':        {'type': list,  'default': None},
 
         'YOUTUBEDL_ARGS':           {'type': list,  'default': lambda c: [
                                                                 '--restrict-filenames',
@@ -267,7 +260,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'YOUTUBEDL_BINARY':         {'type': str,   'default': 'yt-dlp'},   # also can accept youtube-dl
         'NODE_BINARY':              {'type': str,   'default': 'node'},
         'RIPGREP_BINARY':           {'type': str,   'default': 'rg'},
-        'CHROME_BINARY':            {'type': str,   'default': None},
 
         'POCKET_CONSUMER_KEY':      {'type': str,   'default': None},
         'POCKET_ACCESS_TOKENS':     {'type': dict,  'default': {}},
@@ -551,7 +543,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'PERSONAS_DIR':             {'default': lambda c: c['OUTPUT_DIR'] / PERSONAS_DIR_NAME},
     'CONFIG_FILE':              {'default': lambda c: Path(c['CONFIG_FILE']).resolve() if c['CONFIG_FILE'] else c['OUTPUT_DIR'] / CONFIG_FILENAME},
     'COOKIES_FILE':             {'default': lambda c: c['COOKIES_FILE'] and Path(c['COOKIES_FILE']).resolve()},
-    'CHROME_USER_DATA_DIR':     {'default': lambda c: Path(c['CHROME_USER_DATA_DIR']).resolve() if c['CHROME_USER_DATA_DIR'] else None},
+
     'URL_DENYLIST_PTN':         {'default': lambda c: c['URL_DENYLIST'] and re.compile(c['URL_DENYLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
     'URL_ALLOWLIST_PTN':        {'default': lambda c: c['URL_ALLOWLIST'] and re.compile(c['URL_ALLOWLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
     'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},  # exec is always needed to list directories
@@ -595,7 +587,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'WGET_ARGS':                {'default': lambda c: c['WGET_ARGS'] or []},
     'WGET_EXTRA_ARGS':          {'default': lambda c: c['WGET_EXTRA_ARGS'] or []},
 
-    'RIPGREP_VERSION':          {'default': lambda c: bin_version(c['RIPGREP_BINARY']) if c['USE_RIPGREP'] else None},
+    # 'RIPGREP_VERSION':          {'default': lambda c: bin_version(c['RIPGREP_BINARY']) if c['USE_RIPGREP'] else None},
 
     'USE_SINGLEFILE':           {'default': lambda c: c['USE_SINGLEFILE'] and c['SAVE_SINGLEFILE']},
     'SINGLEFILE_VERSION':       {'default': lambda c: bin_version(c['SINGLEFILE_BINARY']) if c['USE_SINGLEFILE'] else None},
@@ -620,15 +612,6 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'YOUTUBEDL_ARGS':           {'default': lambda c: c['YOUTUBEDL_ARGS'] or []},
     'YOUTUBEDL_EXTRA_ARGS':     {'default': lambda c: c['YOUTUBEDL_EXTRA_ARGS'] or []},
 
-    'CHROME_BINARY':            {'default': lambda c: c['CHROME_BINARY'] or find_chrome_binary()},
-    'USE_CHROME':               {'default': lambda c: c['USE_CHROME'] and c['CHROME_BINARY'] and (c['SAVE_PDF'] or c['SAVE_SCREENSHOT'] or c['SAVE_DOM'] or c['SAVE_SINGLEFILE'])},
-    'CHROME_VERSION':           {'default': lambda c: bin_version(c['CHROME_BINARY']) if c['USE_CHROME'] else None},
-    'CHROME_USER_AGENT':        {'default': lambda c: c['CHROME_USER_AGENT'].format(**c)},
-
-    'SAVE_PDF':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_PDF']},
-    'SAVE_SCREENSHOT':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SCREENSHOT']},
-    'SAVE_DOM':                 {'default': lambda c: c['USE_CHROME'] and c['SAVE_DOM']},
-    'SAVE_SINGLEFILE':          {'default': lambda c: c['USE_CHROME'] and c['SAVE_SINGLEFILE'] and c['USE_NODE']},
     'SAVE_READABILITY':         {'default': lambda c: c['USE_READABILITY'] and c['USE_NODE']},
     'SAVE_MERCURY':             {'default': lambda c: c['USE_MERCURY'] and c['USE_NODE']},
 
@@ -638,8 +621,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
     'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
     'DATA_LOCATIONS':           {'default': lambda c: get_data_locations(c)},
-    'CHROME_OPTIONS':           {'default': lambda c: get_chrome_info(c)},
-    'CHROME_EXTRA_ARGS':        {'default': lambda c: c['CHROME_EXTRA_ARGS'] or []},
+
     'SAVE_ALLOWLIST_PTN':       {'default': lambda c: c['SAVE_ALLOWLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_ALLOWLIST'].items()}},
     'SAVE_DENYLIST_PTN':        {'default': lambda c: c['SAVE_DENYLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_DENYLIST'].items()}},
 }
@@ -1183,21 +1165,20 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'enabled': config['USE_YOUTUBEDL'],
             'is_valid': bool(config['YOUTUBEDL_VERSION']),
         },
-        'CHROME_BINARY': {
-            'path': bin_path(config['CHROME_BINARY']),
-            'version': config['CHROME_VERSION'],
-            'hash': bin_hash(config['CHROME_BINARY']),
-            'enabled': config['USE_CHROME'],
-            'is_valid': bool(config['CHROME_VERSION']),
-        },
-        'RIPGREP_BINARY': {
-            'path': bin_path(config['RIPGREP_BINARY']),
-            'version': config['RIPGREP_VERSION'],
-            'hash': bin_hash(config['RIPGREP_BINARY']),
-            'enabled': config['USE_RIPGREP'],
-            'is_valid': bool(config['RIPGREP_VERSION']),
-        },
-        # TODO: add an entry for the sonic search backend?
+        # 'CHROME_BINARY': {
+        #     'path': bin_path(config['CHROME_BINARY']),
+        #     'version': config['CHROME_VERSION'],
+        #     'hash': bin_hash(config['CHROME_BINARY']),
+        #     'enabled': config['USE_CHROME'],
+        #     'is_valid': bool(config['CHROME_VERSION']),
+        # },
+        # 'RIPGREP_BINARY': {
+        #     'path': bin_path(config['RIPGREP_BINARY']),
+        #     'version': config['RIPGREP_VERSION'],
+        #     'hash': bin_hash(config['RIPGREP_BINARY']),
+        #     'enabled': config['USE_RIPGREP'],
+        #     'is_valid': bool(config['RIPGREP_VERSION']),
+        # },
         # 'SONIC_BINARY': {
         #     'path': bin_path(config['SONIC_BINARY']),
         #     'version': config['SONIC_VERSION'],
@@ -1206,20 +1187,6 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
         #     'is_valid': bool(config['SONIC_VERSION']),
         # },
     }
-
-def get_chrome_info(config: ConfigDict) -> ConfigValue:
-    return {
-        'TIMEOUT': config['TIMEOUT'],
-        'RESOLUTION': config['RESOLUTION'],
-        'CHECK_SSL_VALIDITY': config['CHECK_SSL_VALIDITY'],
-        'CHROME_BINARY': bin_path(config['CHROME_BINARY']),
-        'CHROME_TIMEOUT': config['CHROME_TIMEOUT'],
-        'CHROME_HEADLESS': config['CHROME_HEADLESS'],
-        'CHROME_SANDBOX': config['CHROME_SANDBOX'],
-        'CHROME_USER_AGENT': config['CHROME_USER_AGENT'],
-        'CHROME_USER_DATA_DIR': config['CHROME_USER_DATA_DIR'],
-    }
-
 
 # ******************************************************************************
 # ******************************************************************************
@@ -1264,27 +1231,6 @@ os.umask(0o777 - int(DIR_OUTPUT_PERMISSIONS, base=8))                        # n
 # add ./node_modules/.bin to $PATH so we can use node scripts in extractors
 sys.path.append(CONFIG.NODE_BIN_PATH)
 
-# OPTIONAL: also look around the host system for node modules to use
-#   avoid enabling this unless absolutely needed,
-#   having overlapping potential sources of libs is a big source of bugs/confusing to users
-# DEV_NODE_BIN_PATH = str((Path(CONFIG["PACKAGE_DIR"]).absolute() / '..' / 'node_modules' / '.bin'))
-# sys.path.append(DEV_NODE_BIN_PATH)
-# USER_NODE_BIN_PATH = str(Path('~/.node_modules/.bin').resolve())
-# sys.path.append(USER_NODE_BIN_PATH)
-
-# disable stderr "you really shouldnt disable ssl" warnings with library config
-if not CONFIG['CHECK_SSL_VALIDITY']:
-    import urllib3
-    requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-# get SQLite database version, compile options, and runtime options
-# TODO: make this a less hacky proper assertion checker helper function in somewhere like setup_django
-#cursor = sqlite3.connect(':memory:').cursor()
-#DYNAMIC_CONFIG_SCHEMA['SQLITE_VERSION'] = lambda c: cursor.execute("SELECT sqlite_version();").fetchone()[0]
-#DYNAMIC_CONFIG_SCHEMA['SQLITE_JOURNAL_MODE'] = lambda c: cursor.execute('PRAGMA journal_mode;').fetchone()[0]
-#DYNAMIC_CONFIG_SCHEMA['SQLITE_OPTIONS'] = lambda c: [option[0] for option in cursor.execute('PRAGMA compile_options;').fetchall()]
-#cursor.close()
 
 ########################### Config Validity Checkers ###########################
 
@@ -1308,13 +1254,19 @@ def bump_startup_progress_bar():
     if INITIAL_STARTUP_PROGRESS:
         INITIAL_STARTUP_PROGRESS.update(INITIAL_STARTUP_PROGRESS_TASK, advance=1)   # type: ignore
 
+
+def setup_django_minimal():
+    sys.path.append(str(archivebox.PACKAGE_DIR))
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+    django.setup()
+
+
 def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, in_memory_db=False) -> None:
     global INITIAL_STARTUP_PROGRESS
     global INITIAL_STARTUP_PROGRESS_TASK
     
     with Progress(transient=True, expand=True, console=CONSOLE) as INITIAL_STARTUP_PROGRESS:
         INITIAL_STARTUP_PROGRESS_TASK = INITIAL_STARTUP_PROGRESS.add_task("[green]Loading modules...", total=25)
-        check_system_config(config)
 
         output_dir = out_dir or Path(config['OUTPUT_DIR'])
 

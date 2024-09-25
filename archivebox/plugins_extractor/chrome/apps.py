@@ -1,5 +1,6 @@
 __package__ = 'archivebox.plugins_extractor.chrome'
 
+import sys
 import platform
 from pathlib import Path
 from typing import List, Optional, Dict, ClassVar
@@ -7,7 +8,8 @@ from typing import List, Optional, Dict, ClassVar
 from django.conf import settings
 
 # Depends on other PyPI/vendor packages:
-from pydantic import InstanceOf, Field
+from rich import print
+from pydantic import InstanceOf, Field, model_validator
 from pydantic_pkgr import (
     BinProvider,
     BinName,
@@ -25,8 +27,11 @@ from plugantic.base_binary import BaseBinary, env
 from plugantic.base_hook import BaseHook
 
 # Depends on Other Plugins:
+from plugins_sys.config.apps import ARCHIVING_CONFIG, SHELL_CONFIG
 from plugins_pkg.puppeteer.apps import PUPPETEER_BINPROVIDER
 from plugins_pkg.playwright.apps import PLAYWRIGHT_BINPROVIDER
+
+from ...util import dedupe
 
 
 CHROMIUM_BINARY_NAMES_LINUX = [
@@ -82,11 +87,113 @@ def create_macos_app_symlink(target: Path, shortcut: Path):
 class ChromeConfig(BaseConfigSet):
     section: ClassVar[ConfigSectionName] = "DEPENDENCY_CONFIG"
 
-    CHROME_BINARY: str                      = Field(default='chrome')
-    CHROME_ARGS: List[str] | None           = Field(default=None)
-    CHROME_EXTRA_ARGS: List[str]            = Field(default=[])
-    CHROME_DEFAULT_ARGS: List[str]          = Field(default=lambda: ['--timeout={TIMEOUT-10}'])
+    USE_CHROME: bool                        = Field(default=True)
 
+    # Chrome Binary
+    CHROME_BINARY: str                      = Field(default='chrome')
+    CHROME_EXTRA_ARGS: List[str]            = Field(default=[])
+    
+    # Chrome Options Tuning
+    CHROME_TIMEOUT: int                     = Field(default=lambda: ARCHIVING_CONFIG.TIMEOUT - 10)
+    CHROME_HEADLESS: bool                   = Field(default=True)
+    CHROME_SANDBOX: bool                    = Field(default=lambda: not SHELL_CONFIG.IN_DOCKER)
+    CHROME_RESOLUTION: str                  = Field(default=lambda: ARCHIVING_CONFIG.RESOLUTION)
+    CHROME_CHECK_SSL_VALIDITY: bool         = Field(default=lambda: ARCHIVING_CONFIG.CHECK_SSL_VALIDITY)
+    
+    # Cookies & Auth
+    CHROME_USER_AGENT: str                  = Field(default=lambda: ARCHIVING_CONFIG.USER_AGENT)
+    CHROME_USER_DATA_DIR: Path | None       = Field(default=None)
+    CHROME_PROFILE_NAME: str                = Field(default='Default')
+
+    # Extractor Toggles
+    SAVE_SCREENSHOT: bool                   = Field(default=True, alias='FETCH_SCREENSHOT')
+    SAVE_DOM: bool                          = Field(default=True, alias='FETCH_DOM')
+    SAVE_PDF: bool                          = Field(default=True, alias='FETCH_PDF')
+
+    @model_validator(mode='after')
+    def validate_use_chrome(self):
+        if self.USE_CHROME and self.CHROME_TIMEOUT < 15:
+            print(f'[red][!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={self.CHROME_TIMEOUT} seconds)[/red]', file=sys.stderr)
+            print('    Chrome will fail to archive all sites if set to less than ~15 seconds.', file=sys.stderr)
+            print('    (Setting it to somewhere between 30 and 300 seconds is recommended)', file=sys.stderr)
+            print(file=sys.stderr)
+            print('    If you want to make ArchiveBox run faster, disable specific archive methods instead:', file=sys.stderr)
+            print('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles', file=sys.stderr)
+            print(file=sys.stderr)
+            
+        # if user has specified a user data dir, make sure its valid
+        if self.CHROME_USER_DATA_DIR and self.CHROME_USER_DATA_DIR.exists():
+            # check to make sure user_data_dir/<profile_name> exists
+            if not (self.CHROME_USER_DATA_DIR / self.CHROME_PROFILE_NAME).exists():
+                print(f'[red][X] Could not find profile "{self.CHROME_PROFILE_NAME}" in CHROME_USER_DATA_DIR.[/red]', file=sys.stderr)
+                print(f'    {self.CHROME_USER_DATA_DIR}', file=sys.stderr)
+                print('    Make sure you set it to a Chrome user data directory containing a Default profile folder.', file=sys.stderr)
+                print('    For more info see:', file=sys.stderr)
+                print('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#CHROME_USER_DATA_DIR', file=sys.stderr)
+                if '/Default' in str(self.CHROME_USER_DATA_DIR):
+                    print(file=sys.stderr)
+                    print('    Try removing /Default from the end e.g.:', file=sys.stderr)
+                    print('        CHROME_USER_DATA_DIR="{}"'.format(str(self.CHROME_USER_DATA_DIR).split('/Default')[0]), file=sys.stderr)
+                
+                # hard error is too annoying here, instead just set it to nothing
+                # raise SystemExit(2)
+                self.CHROME_USER_DATA_DIR = None
+        else:
+            self.CHROME_USER_DATA_DIR = None
+            
+        return self
+
+    def chrome_args(self, **options) -> List[str]:
+        """helper to build up a chrome shell command with arguments"""
+    
+        # Chrome CLI flag documentation: https://peter.sh/experiments/chromium-command-line-switches/
+    
+        options = self.model_copy(update=options)
+    
+        cmd_args = [*options.CHROME_EXTRA_ARGS]
+    
+        if options.CHROME_HEADLESS:
+            cmd_args += ["--headless=new"]   # expects chrome version >= 111
+    
+        if not options.CHROME_SANDBOX:
+            # assume this means we are running inside a docker container
+            # in docker, GPU support is limited, sandboxing is unecessary,
+            # and SHM is limited to 64MB by default (which is too low to be usable).
+            cmd_args += (
+                "--no-sandbox",
+                "--no-zygote",
+                "--disable-dev-shm-usage",
+                "--disable-software-rasterizer",
+                "--run-all-compositor-stages-before-draw",
+                "--hide-scrollbars",
+                "--autoplay-policy=no-user-gesture-required",
+                "--no-first-run",
+                "--use-fake-ui-for-media-stream",
+                "--use-fake-device-for-media-stream",
+                "--disable-sync",
+                # "--password-store=basic",
+            )
+    
+        # disable automatic updating when running headless, as there's no user to see the upgrade prompts
+        cmd_args += ("--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT'",)
+    
+        # set window size for screenshot/pdf/etc. rendering
+        cmd_args += ('--window-size={}'.format(options.CHROME_RESOLUTION),)
+    
+        if not options.CHROME_CHECK_SSL_VALIDITY:
+            cmd_args += ('--disable-web-security', '--ignore-certificate-errors')
+    
+        if options.CHROME_USER_AGENT:
+            cmd_args += ('--user-agent={}'.format(options.CHROME_USER_AGENT),)
+    
+        if options.CHROME_TIMEOUT:
+           cmd_args += ('--timeout={}'.format(options.CHROME_TIMEOUT * 1000),)
+    
+        if options.CHROME_USER_DATA_DIR:
+            cmd_args.append('--user-data-dir={}'.format(options.CHROME_USER_DATA_DIR))
+            cmd_args.append('--profile-directory={}'.format(options.CHROME_PROFILE_NAME))
+    
+        return dedupe(cmd_args)
 
 CHROME_CONFIG = ChromeConfig()
 
@@ -121,6 +228,18 @@ class ChromeBinary(BaseBinary):
         else:
             # otherwise on linux we can symlink directly to binary executable
             symlink.symlink_to(binary.abspath)
+
+    @staticmethod            
+    def chrome_cleanup_lockfile():
+        """
+        Cleans up any state or runtime files that chrome leaves behind when killed by
+        a timeout or other error
+        """
+        lock_file = Path("~/.config/chromium/SingletonLock")
+
+        if SHELL_CONFIG.IN_DOCKER and lock_file.exists():
+            lock_file.unlink()
+
 
 
 CHROME_BINARY = ChromeBinary()

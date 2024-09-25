@@ -1,10 +1,10 @@
 __package__ = 'archivebox'
 
 import os
-import time
 import sys
 import shutil
 import platform
+import archivebox
 
 from typing import Dict, List, Optional, Iterable, IO, Union
 from pathlib import Path
@@ -69,6 +69,7 @@ from .extractors import archive_links, archive_link, ignore_methods
 from .misc.logging import stderr, hint
 from .misc.checks import check_data_folder, check_dependencies
 from .config import (
+    setup_django_minimal,
     ConfigDict,
     ANSI,
     IS_TTY,
@@ -81,8 +82,6 @@ from .config import (
     TIMEZONE,
     ENFORCE_ATOMIC_WRITES,
     OUTPUT_PERMISSIONS,
-    PYTHON_BINARY,
-    ARCHIVEBOX_BINARY,
     ONLY_NEW,
     OUTPUT_DIR,
     SOURCES_DIR,
@@ -95,31 +94,22 @@ from .config import (
     HTML_INDEX_FILENAME,
     SQL_INDEX_FILENAME,
     ALLOWED_IN_OUTPUT_DIR,
-    SEARCH_BACKEND_ENGINE,
     LDAP,
-    get_version,
     write_config_file,
     VERSION,
-    VERSIONS_AVAILABLE,
-    CAN_UPGRADE,
     COMMIT_HASH,
     BUILD_TIME,
     CODE_LOCATIONS,
     DATA_LOCATIONS,
     DEPENDENCIES,
-    CHROME_BINARY,
-    CHROME_VERSION,
     YOUTUBEDL_BINARY,
     YOUTUBEDL_VERSION,
     SINGLEFILE_VERSION,
     READABILITY_VERSION,
     MERCURY_VERSION,
-    NODE_VERSION,
     load_all_config,
     CONFIG,
     USER_CONFIG,
-    ADMIN_USERNAME,
-    ADMIN_PASSWORD,
     get_real_name,
     setup_django,
 )
@@ -216,6 +206,11 @@ def version(quiet: bool=False,
             out_dir: Path=OUTPUT_DIR) -> None:
     """Print the ArchiveBox version and dependency information"""
     
+    setup_django_minimal()
+    from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG, STORAGE_CONFIG, SHELL_CONFIG
+    from plugins_auth.ldap.apps import LDAP_CONFIG
+    from django.conf import settings
+    
     print(VERSION)
     
     if not quiet:
@@ -227,7 +222,7 @@ def version(quiet: bool=False,
         
         p = platform.uname()
         print(
-            'ArchiveBox v{}'.format(get_version(CONFIG)),
+            'ArchiveBox v{}'.format(archivebox.__version__),
             f'COMMIT_HASH={COMMIT_HASH[:7] if COMMIT_HASH else "unknown"}',
             f'BUILD_TIME={BUILD_TIME}',
         )
@@ -241,29 +236,35 @@ def version(quiet: bool=False,
         )
         OUTPUT_IS_REMOTE_FS = DATA_LOCATIONS['OUTPUT_DIR']['is_mount'] or DATA_LOCATIONS['ARCHIVE_DIR']['is_mount']
         print(
-            f'FS_ATOMIC={ENFORCE_ATOMIC_WRITES}',
+            f'FS_ATOMIC={STORAGE_CONFIG.ENFORCE_ATOMIC_WRITES}',
             f'FS_REMOTE={OUTPUT_IS_REMOTE_FS}',
-            f'FS_USER={PUID}:{PGID}',
-            f'FS_PERMS={OUTPUT_PERMISSIONS}',
+            f'FS_USER={SHELL_CONFIG.PUID}:{SHELL_CONFIG.PGID}',
+            f'FS_PERMS={STORAGE_CONFIG.OUTPUT_PERMISSIONS}',
         )
         print(
-            f'DEBUG={DEBUG}',
-            f'IS_TTY={IS_TTY}',
+            f'DEBUG={SHELL_CONFIG.DEBUG}',
+            f'IS_TTY={SHELL_CONFIG.IS_TTY}',
             f'TZ={TIMEZONE}',
-            f'SEARCH_BACKEND={SEARCH_BACKEND_ENGINE}',
-            f'LDAP={LDAP}',
+            f'SEARCH_BACKEND={SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE}',
+            f'LDAP={LDAP_CONFIG.LDAP_ENABLED}',
             #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
         )
         print()
 
-        print('{white}[i] Dependency versions:{reset}'.format(**ANSI))
+        print('{white}[i] Old dependency versions:{reset}'.format(**ANSI))
         for name, dependency in DEPENDENCIES.items():
             print(printable_dependency_version(name, dependency))
             
             # add a newline between core dependencies and extractor dependencies for easier reading
             if name == 'ARCHIVEBOX_BINARY':
                 print()
-        
+                
+        print()
+        print('{white}[i] New dependency versions:{reset}'.format(**ANSI))
+        for name, binary in settings.BINARIES.items():
+            loaded_bin = binary.load()
+            print('', '√' if loaded_bin.is_valid else 'X', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(15), loaded_bin.abspath)
+   
         print()
         print('{white}[i] Source-code locations:{reset}'.format(**ANSI))
         for name, path in CODE_LOCATIONS.items():
@@ -431,10 +432,11 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
     print('\n{green}----------------------------------------------------------------------{reset}'.format(**ANSI))
 
     from django.contrib.auth.models import User
+    from plugins_sys.config.apps import SERVER_CONFIG
 
-    if (ADMIN_USERNAME and ADMIN_PASSWORD) and not User.objects.filter(username=ADMIN_USERNAME).exists():
+    if (SERVER_CONFIG.ADMIN_USERNAME and SERVER_CONFIG.ADMIN_PASSWORD) and not User.objects.filter(username=SERVER_CONFIG.ADMIN_USERNAME).exists():
         print('{green}[+] Found ADMIN_USERNAME and ADMIN_PASSWORD configuration options, creating new admin user.{reset}'.format(**ANSI))
-        User.objects.create_superuser(username=ADMIN_USERNAME, password=ADMIN_PASSWORD)
+        User.objects.create_superuser(username=SERVER_CONFIG.ADMIN_USERNAME, password=SERVER_CONFIG.ADMIN_PASSWORD)
 
     if existing_index:
         print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
@@ -693,8 +695,8 @@ def add(urls: Union[str, List[str]],
 
     # tail_worker_logs(worker['stdout_logfile'])
 
-    if CAN_UPGRADE:
-        hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSIONS_AVAILABLE['recommended_version']['tag_name']} ({VERSIONS_AVAILABLE['recommended_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
+    # if CAN_UPGRADE:
+    #     hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSIONS_AVAILABLE['recommended_version']['tag_name']} ({VERSIONS_AVAILABLE['recommended_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
 
     return new_links
 
@@ -967,6 +969,8 @@ def list_folders(links: List[Link],
 def setup(out_dir: Path=OUTPUT_DIR) -> None:
     """Automatically install all ArchiveBox dependencies and extras"""
 
+    
+
     if not (out_dir / ARCHIVE_DIR_NAME).exists():
         run_subcommand('init', stdin=None, pwd=out_dir)
 
@@ -980,24 +984,26 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
 
     stderr('\n[+] Installing enabled ArchiveBox dependencies automatically...', color='green')
 
+    from plugins_pkg.pip.apps import PYTHON_BINARY
+    
     stderr('\n    Installing YOUTUBEDL_BINARY automatically using pip...')
     if YOUTUBEDL_VERSION:
         print(f'{YOUTUBEDL_VERSION} is already installed', YOUTUBEDL_BINARY)
     else:
         try:
             run_shell([
-                PYTHON_BINARY, '-m', 'pip',
+                PYTHON_BINARY.load().abspath, '-m', 'pip',
                 'install',
                 '--upgrade',
                 '--no-cache-dir',
                 '--no-warn-script-location',
                 'yt-dlp',
-            ], capture_output=False, cwd=out_dir)
+            ], capture_output=False, cwd=out_dir, text=True)
             pkg_path = run_shell([
-                PYTHON_BINARY, '-m', 'pip',
+                PYTHON_BINARY.load().abspath, '-m', 'pip',
                 'show',
                 'yt-dlp',
-            ], capture_output=True, text=True, cwd=out_dir).stdout.decode().split('Location: ')[-1].split('\n', 1)[0]
+            ], capture_output=True, text=True, cwd=out_dir).stdout.split('Location: ')[-1].split('\n', 1)[0]
             NEW_YOUTUBEDL_BINARY = Path(pkg_path) / 'yt-dlp' / '__main__.py'
             os.chmod(NEW_YOUTUBEDL_BINARY, 0o777)
             assert NEW_YOUTUBEDL_BINARY.exists(), f'yt-dlp must exist inside {pkg_path}'
@@ -1006,33 +1012,18 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
             stderr(f'[X] Failed to install python packages: {e}', color='red')
             raise SystemExit(1)
 
-    if platform.machine() == 'armv7l':
-        stderr('\n    Skip the automatic installation of CHROME_BINARY because playwright is not available on armv7.')
-    else:
-        stderr('\n    Installing CHROME_BINARY automatically using playwright...')
-        if CHROME_VERSION:
-            print(f'{CHROME_VERSION} is already installed', CHROME_BINARY)
-        else:
-            try:
-                run_shell([
-                    PYTHON_BINARY, '-m', 'pip',
-                    'install',
-                    '--upgrade',
-                    '--no-cache-dir',
-                    '--no-warn-script-location',
-                    'playwright',
-                ], capture_output=False, cwd=out_dir)
-                run_shell([PYTHON_BINARY, '-m', 'playwright', 'install', 'chromium'], capture_output=False, cwd=out_dir)
-                proc = run_shell([PYTHON_BINARY, '-c', 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)'], capture_output=True, text=True, cwd=out_dir)
-                NEW_CHROME_BINARY = proc.stdout.decode().strip() if isinstance(proc.stdout, bytes) else proc.stdout.strip()
-                assert NEW_CHROME_BINARY and len(NEW_CHROME_BINARY), 'CHROME_BINARY must contain a path'
-                config(f'CHROME_BINARY={NEW_CHROME_BINARY}', set=True, out_dir=out_dir)
-            except BaseException as e:                                              # lgtm [py/catch-base-exception]
-                stderr(f'[X] Failed to install chromium using playwright: {e.__class__.__name__} {e}', color='red')
-                raise SystemExit(1)
+
+    from plugins_extractor.chrome.apps import CHROME_BINARY
+    
+    CHROME_BINARY.load_or_install()
+
+    from plugins_pkg.npm.apps import NPM_BINARY
+    from plugins_extractor.singlefile.apps import SINGLEFILE_BINARY
+
+    SINGLEFILE_BINARY.load_or_install()
 
     stderr('\n    Installing SINGLEFILE_BINARY, READABILITY_BINARY, MERCURY_BINARY automatically using npm...')
-    if not NODE_VERSION:
+    if not NPM_BINARY.load().version:
         stderr('[X] You must first install node & npm using your system package manager', color='red')
         hint([
             'https://github.com/nodesource/distributions#table-of-contents',
@@ -1077,7 +1068,9 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
 
     stderr('\n[√] Set up ArchiveBox and its dependencies successfully.', color='green')
     
-    run_shell([PYTHON_BINARY, ARCHIVEBOX_BINARY, '--version'], capture_output=False, cwd=out_dir)
+    from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
+    
+    run_shell([ARCHIVEBOX_BINARY.load().abspath, '--version'], capture_output=False, cwd=out_dir)
 
 @enforce_types
 def config(config_options_str: Optional[str]=None,
@@ -1192,6 +1185,8 @@ def schedule(add: bool=False,
     """Set ArchiveBox to regularly import URLs at specific times using cron"""
     
     check_data_folder(CONFIG)
+    setup_django_minimal()
+    from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
 
     Path(LOGS_DIR).mkdir(exist_ok=True)
 
@@ -1212,7 +1207,7 @@ def schedule(add: bool=False,
             'cd',
             quoted(out_dir),
             '&&',
-            quoted(ARCHIVEBOX_BINARY),
+            quoted(ARCHIVEBOX_BINARY.load().abspath),
             *([
                 'add',
                 *(['--overwrite'] if overwrite else []),
@@ -1300,8 +1295,8 @@ def schedule(add: bool=False,
                 print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
                 raise SystemExit(1)
 
-    if CAN_UPGRADE:
-        hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSIONS_AVAILABLE['recommended_version']['tag_name']} ({VERSIONS_AVAILABLE['recommended_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
+    # if CAN_UPGRADE:
+    #     hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSIONS_AVAILABLE['recommended_version']['tag_name']} ({VERSIONS_AVAILABLE['recommended_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
 
     
 @enforce_types
@@ -1386,6 +1381,7 @@ def manage(args: Optional[List[str]]=None, out_dir: Path=OUTPUT_DIR) -> None:
     """Run an ArchiveBox Django management command"""
 
     check_data_folder(CONFIG)
+    setup_django_minimal()
     from django.core.management import execute_from_command_line
 
     if (args and "createsuperuser" in args) and (IN_DOCKER and not IS_TTY):
@@ -1393,7 +1389,9 @@ def manage(args: Optional[List[str]]=None, out_dir: Path=OUTPUT_DIR) -> None:
         stderr('    docker run -it archivebox manage {}'.format(' '.join(args or ['...'])), color='lightyellow')
         stderr('')
 
-    execute_from_command_line([f'{ARCHIVEBOX_BINARY} manage', *(args or ['help'])])
+    from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY  
+
+    execute_from_command_line([ARCHIVEBOX_BINARY.load().abspath, 'manage', *(args or ['help'])])
 
 
 @enforce_types

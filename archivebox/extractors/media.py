@@ -5,20 +5,7 @@ from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from ..system import run, chmod_file
-from ..util import (
-    enforce_types,
-    is_static_file,
-    dedupe,
-)
-from ..config import (
-    MEDIA_TIMEOUT,
-    SAVE_MEDIA,
-    YOUTUBEDL_ARGS,
-    YOUTUBEDL_EXTRA_ARGS,
-    YOUTUBEDL_BINARY,
-    YOUTUBEDL_VERSION,
-    CHECK_SSL_VALIDITY
-)
+from ..util import enforce_types, is_static_file, dedupe
 from ..logging_util import TimedProgress
 
 
@@ -38,6 +25,8 @@ def get_embed_path(archiveresult=None):
 
 @enforce_types
 def should_save_media(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
+    from plugins_extractor.ytdlp.apps import YTDLP_CONFIG
+    
     if is_static_file(link.url):
         return False
 
@@ -45,45 +34,52 @@ def should_save_media(link: Link, out_dir: Optional[Path]=None, overwrite: Optio
     if not overwrite and (out_dir / get_output_path()).exists():
         return False
 
-    return SAVE_MEDIA
+    return YTDLP_CONFIG.USE_YTDLP
 
 @enforce_types
-def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIMEOUT) -> ArchiveResult:
+def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=0) -> ArchiveResult:
     """Download playlists or individual video, audio, and subtitles using youtube-dl or yt-dlp"""
 
+
+    # from plugins_extractor.chrome.apps import CHROME_CONFIG
+    from plugins_extractor.ytdlp.apps import YTDLP_BINARY, YTDLP_CONFIG
+
+    YTDLP_BIN = YTDLP_BINARY.load()
+    assert YTDLP_BIN.abspath and YTDLP_BIN.version
+
+    timeout = timeout or YTDLP_CONFIG.YTDLP_TIMEOUT
     out_dir = out_dir or Path(link.link_dir)
     output: ArchiveOutput = get_output_path()
     output_path = out_dir / output
     output_path.mkdir(exist_ok=True)
     # later options take precedence
     options = [
-        *YOUTUBEDL_ARGS,
-        *YOUTUBEDL_EXTRA_ARGS,
-        *([] if CHECK_SSL_VALIDITY else ['--no-check-certificate']),
+        *YTDLP_CONFIG.YTDLP_EXTRA_ARGS,
+        *([] if YTDLP_CONFIG.YTDLP_CHECK_SSL_VALIDITY else ['--no-check-certificate']),
         # TODO: add --cookies-from-browser={CHROME_USER_DATA_DIR}
     ]
     cmd = [
-        YOUTUBEDL_BINARY,
+        str(YTDLP_BIN.abspath),
         *dedupe(options),
         link.url,
     ]
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(cmd, cwd=str(output_path), timeout=timeout + 1)
+        result = run(cmd, cwd=str(output_path), timeout=timeout + 1, text=True)
         chmod_file(output, cwd=str(out_dir))
         if result.returncode:
-            if (b'ERROR: Unsupported URL' in result.stderr
-                or b'HTTP Error 404' in result.stderr
-                or b'HTTP Error 403' in result.stderr
-                or b'URL could be a direct video link' in result.stderr
-                or b'Unable to extract container ID' in result.stderr):
+            if ('ERROR: Unsupported URL' in result.stderr
+                or 'HTTP Error 404' in result.stderr
+                or 'HTTP Error 403' in result.stderr
+                or 'URL could be a direct video link' in result.stderr
+                or 'Unable to extract container ID' in result.stderr):
                 # These happen too frequently on non-media pages to warrant printing to console
                 pass
             else:
                 hints = (
-                    'Got youtube-dl (or yt-dlp) response code: {}.'.format(result.returncode),
-                    *result.stderr.decode().split('\n'),
+                    'Got yt-dlp response code: {}.'.format(result.returncode),
+                    *result.stderr.split('\n'),
                 )
                 raise ArchiveError('Failed to save media', hints)
     except Exception as err:
@@ -117,7 +113,7 @@ def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=MEDIA_TIME
     return ArchiveResult(
         cmd=cmd,
         pwd=str(out_dir),
-        cmd_version=YOUTUBEDL_VERSION,
+        cmd_version=str(YTDLP_BIN.version),
         output=output,
         status=status,
         index_texts=index_texts,

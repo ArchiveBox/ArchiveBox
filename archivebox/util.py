@@ -18,8 +18,6 @@ from requests.exceptions import RequestException, ReadTimeout
 
 from base32_crockford import encode as base32_encode                            # type: ignore
 from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
-from os.path import lexists
-from os import remove as remove_file
 
 try:
     import chardet
@@ -281,82 +279,6 @@ def get_headers(url: str, timeout: int=None) -> str:
         indent=4,
     )
 
-
-@enforce_types
-def chrome_args(**options) -> List[str]:
-    """helper to build up a chrome shell command with arguments"""
-
-    # Chrome CLI flag documentation: https://peter.sh/experiments/chromium-command-line-switches/
-
-    from .config import (
-        CHROME_OPTIONS,
-        CHROME_VERSION,
-        CHROME_EXTRA_ARGS,
-    )
-
-    options = {**CHROME_OPTIONS, **options}
-
-    if not options['CHROME_BINARY']:
-        raise Exception('Could not find any CHROME_BINARY installed on your system')
-
-    cmd_args = [options['CHROME_BINARY']]
-
-    cmd_args += CHROME_EXTRA_ARGS
-
-    if options['CHROME_HEADLESS']:
-        cmd_args += ("--headless=new",)   # expects chrome version >= 111
-
-    if not options['CHROME_SANDBOX']:
-        # assume this means we are running inside a docker container
-        # in docker, GPU support is limited, sandboxing is unecessary,
-        # and SHM is limited to 64MB by default (which is too low to be usable).
-        cmd_args += (
-            "--no-sandbox",
-            "--no-zygote",
-            "--disable-dev-shm-usage",
-            "--disable-software-rasterizer",
-            "--run-all-compositor-stages-before-draw",
-            "--hide-scrollbars",
-            "--autoplay-policy=no-user-gesture-required",
-            "--no-first-run",
-            "--use-fake-ui-for-media-stream",
-            "--use-fake-device-for-media-stream",
-            "--disable-sync",
-            # "--password-store=basic",
-        )
-    
-    # disable automatic updating when running headless, as there's no user to see the upgrade prompts
-    cmd_args += ("--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT'",)
-
-    # set window size for screenshot/pdf/etc. rendering
-    cmd_args += ('--window-size={}'.format(options['RESOLUTION']),)
-
-    if not options['CHECK_SSL_VALIDITY']:
-        cmd_args += ('--disable-web-security', '--ignore-certificate-errors')
-
-    if options['CHROME_USER_AGENT']:
-        cmd_args += ('--user-agent={}'.format(options['CHROME_USER_AGENT']),)
-
-    if options['CHROME_TIMEOUT']:
-       cmd_args += ('--timeout={}'.format(options['CHROME_TIMEOUT'] * 1000),)
-
-    if options['CHROME_USER_DATA_DIR']:
-        cmd_args.append('--user-data-dir={}'.format(options['CHROME_USER_DATA_DIR']))
-        cmd_args.append('--profile-directory=Default')
-
-    return dedupe(cmd_args)
-
-
-def chrome_cleanup():
-    """
-    Cleans up any state or runtime files that chrome leaves behind when killed by
-    a timeout or other error
-    """
-
-    from .config import IN_DOCKER
-    
-    if IN_DOCKER and lexists("/home/archivebox/.config/chromium/SingletonLock"):
-        remove_file("/home/archivebox/.config/chromium/SingletonLock")
 
 @enforce_types
 def ansi_to_html(text: str) -> str:
