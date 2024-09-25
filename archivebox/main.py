@@ -262,8 +262,13 @@ def version(quiet: bool=False,
         print()
         print('{white}[i] New dependency versions:{reset}'.format(**ANSI))
         for name, binary in settings.BINARIES.items():
-            loaded_bin = binary.load()
-            print('', '√' if loaded_bin.is_valid else 'X', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(15), loaded_bin.abspath)
+            err = None
+            try:
+                loaded_bin = binary.load()
+            except Exception as e:
+                err = e
+                loaded_bin = binary
+            print('', '√' if loaded_bin.is_valid else 'X', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(15), loaded_bin.abspath or str(err))
    
         print()
         print('{white}[i] Source-code locations:{reset}'.format(**ANSI))
