@@ -2,7 +2,6 @@ __package__ = 'archivebox.misc'
 
 # TODO: merge/dedupe this file with archivebox/logging_util.py
 
-import os
 import sys
 from typing import Optional, Union, Tuple, List
 from collections import defaultdict
@@ -11,12 +10,10 @@ from rich.console import Console
 
 from ..config_stubs import ConfigDict
 
-SHOW_PROGRESS = None
-if os.environ.get('SHOW_PROGRESS', 'None') in ('True', '1', 'true', 'yes'):
-    SHOW_PROGRESS = True
+# SETUP RICH CONSOLE / TTY detection / COLOR / PROGRESS BARS
+CONSOLE = Console()
+IS_TTY = CONSOLE.is_interactive
 
-CONSOLE = Console(force_interactive=SHOW_PROGRESS)
-SHOW_PROGRESS = CONSOLE.is_interactive if SHOW_PROGRESS is None else SHOW_PROGRESS
 
 DEFAULT_CLI_COLORS = benedict(
     {

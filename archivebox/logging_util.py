@@ -17,6 +17,9 @@ from typing import Any, Optional, List, Dict, Union, IO, TYPE_CHECKING
 if TYPE_CHECKING:
     from .index.schema import Link, ArchiveResult
 
+from rich import print
+from rich.panel import Panel
+
 from .system import get_dir_size
 from .util import enforce_types
 from .config import (
@@ -231,15 +234,20 @@ def progress_bar(seconds: int, prefix: str='') -> None:
 
 
 def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str | IO], pwd: str):
-    cmd = ' '.join(('archivebox', subcommand, *subcommand_args))
-    stderr('{black}[i] [{now}] ArchiveBox v{VERSION}: {cmd}{reset}'.format(
+    args = ' '.join(subcommand_args)
+    version_msg = '[dark_magenta]\\[i] [{now}] ArchiveBox v{VERSION}: [/dark_magenta][green4]archivebox [green3]{subcommand}[green2] {args}[/green2]'.format(
         now=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
         VERSION=VERSION,
-        cmd=cmd,
-        **ANSI,
-    ))
-    stderr('{black}    > {pwd}{reset}'.format(pwd=pwd, **ANSI))
-    stderr()
+        subcommand=subcommand,
+        args=args,
+    )
+    # stderr()
+    # stderr('{black}    > {pwd}{reset}'.format(pwd=pwd, **ANSI))
+    # stderr()
+    if SHOW_PROGRESS:
+        print(Panel(version_msg), file=sys.stderr)
+    else:
+        print(version_msg, file=sys.stderr)
 
 ### Parsing Stage
 

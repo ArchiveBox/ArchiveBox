@@ -41,6 +41,7 @@ import importlib.metadata
 
 from pydantic_pkgr import SemVer
 from rich.progress import Progress
+from rich.console import Console
 
 import django
 from django.db.backends.sqlite3.base import Database as sqlite3
@@ -55,8 +56,6 @@ from .config_stubs import (
 )
 
 from .misc.logging import (
-    CONSOLE,
-    SHOW_PROGRESS,
     DEFAULT_CLI_COLORS,
     ANSI,
     COLOR_DICT,
@@ -1288,6 +1287,17 @@ if not CONFIG['CHECK_SSL_VALIDITY']:
 #cursor.close()
 
 ########################### Config Validity Checkers ###########################
+
+if not CONFIG.USE_COLOR:
+    os.environ['NO_COLOR'] = '1'
+if not CONFIG.SHOW_PROGRESS:
+    os.environ['TERM'] = 'dumb'
+
+# recreate rich console obj based on new config values
+CONSOLE = Console()
+from .misc import logging
+logging.CONSOLE = CONSOLE
+
 
 INITIAL_STARTUP_PROGRESS = None
 INITIAL_STARTUP_PROGRESS_TASK = 0

@@ -147,7 +147,7 @@ class CheckUserIsNotRoot(BaseCheck):
                     hint=f'Run ArchiveBox as a non-root user with a UID greater than 500. (currently running as UID {os.getuid()}).',
                 )
             )
-        logger.debug('[√] UID is not root')
+        # logger.debug('[√] UID is not root')
         return errors
 
     
@@ -168,7 +168,7 @@ class CheckPipEnvironment(BaseCheck):
                     hint="Make sure the data dir is writable and make sure python3-pip and python3-venv are installed & available on the host.",
                 )
             )
-        logger.debug("[√] CheckPipEnvironment: data/lib/pip virtualenv is setup properly")
+        # logger.debug("[√] CheckPipEnvironment: data/lib/pip virtualenv is setup properly")
         return errors
 
 
