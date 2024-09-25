@@ -4,7 +4,8 @@ import platform
 
 from typing import List, ClassVar
 from pathlib import Path
-from pydantic import InstanceOf, Field
+from pydantic import InstanceOf, Field, field_validator, model_validator
+from rich import print
 
 from django.conf import settings
 
@@ -30,6 +31,28 @@ class ShellConfig(BaseConfigSet):
     
     PUID: int                           = Field(default=os.getuid())
     PGID: int                           = Field(default=os.getgid())
+    
+    @model_validator(mode='after')
+    def validate_not_running_as_root(self):
+        attempted_command = ' '.join(sys.argv[:3])
+        if self.PUID == 0 and attempted_command != 'setup':
+            # stderr('[!] ArchiveBox should never be run as root!', color='red')
+            # stderr('    For more information, see the security overview documentation:')
+            # stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
+            print('[red][!] ArchiveBox should never be run as root![/red]', file=sys.stderr)
+            print('    For more information, see the security overview documentation:', file=sys.stderr)
+            print('        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root', file=sys.stderr)
+            
+            if self.IN_DOCKER:
+                print('[red][!] When using Docker, you must run commands with [green]docker run[/green] instead of [yellow3]docker exec[/yellow3], e.g.:', file=sys.stderr)
+                print('        docker compose run archivebox {attempted_command}', file=sys.stderr)
+                print(f'        docker run -it -v $PWD/data:/data archivebox/archivebox {attempted_command}', file=sys.stderr)
+                print('        or:', file=sys.stderr)
+                print(f'        docker compose exec --user=archivebox archivebox /bin/bash -c "archivebox {attempted_command}"', file=sys.stderr)
+                print(f'        docker exec -it --user=archivebox <container id> /bin/bash -c "archivebox {attempted_command}"', file=sys.stderr)
+            raise SystemExit(2)
+        
+        return self
 
 SHELL_CONFIG = ShellConfig()
 
@@ -104,6 +127,27 @@ class ArchivingConfig(BaseConfigSet):
     # CHROME_TIMEOUT: int                 = Field(default=0)
     # CHROME_HEADLESS: bool               = Field(default=True)
     # CHROME_SANDBOX: bool                = Field(default=lambda: not SHELL_CONFIG.IN_DOCKER)
+
+    @field_validator('TIMEOUT', mode='after')
+    def validate_timeout(cls, v):
+        print(f'[red][!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={v} seconds)[/red]', file=sys.stderr)
+        print('    You must allow *at least* 5 seconds for indexing and archive methods to run succesfully.', file=sys.stderr)
+        print('    (Setting it to somewhere between 30 and 3000 seconds is recommended)', file=sys.stderr)
+        print(file=sys.stderr)
+        print('    If you want to make ArchiveBox run faster, disable specific archive methods instead:', file=sys.stderr)
+        print('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles', file=sys.stderr)
+        print(file=sys.stderr)
+        return v
+    
+    @field_validator('CHECK_SSL_VALIDITY', mode='after')
+    def validate_check_ssl_validity(cls, v):
+        """SIDE EFFECT: disable "you really shouldnt disable ssl" warnings emitted by requests"""
+        if not v:
+            import requests
+            import urllib3
+            requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        return v
 
 ARCHIVING_CONFIG = ArchivingConfig()
 
