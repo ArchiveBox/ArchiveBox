@@ -10,7 +10,7 @@ from .supervisor_util import get_or_create_supervisord_process
 
 @db_task(queue="system_tasks", context=True)
 def bg_add(add_kwargs, task=None, parent_task_id=None):
-    get_or_create_supervisord_process(daemonize=True)
+    get_or_create_supervisord_process(daemonize=False)
     
     from ..main import add
     
@@ -29,7 +29,7 @@ def bg_add(add_kwargs, task=None, parent_task_id=None):
 
 @task(queue="system_tasks", context=True)
 def bg_archive_links(args, kwargs=None, task=None, parent_task_id=None):
-    get_or_create_supervisord_process(daemonize=True)
+    get_or_create_supervisord_process(daemonize=False)
     
     from ..extractors import archive_links
     
@@ -50,7 +50,7 @@ def bg_archive_links(args, kwargs=None, task=None, parent_task_id=None):
 
 @task(queue="system_tasks", context=True)
 def bg_archive_link(args, kwargs=None,task=None, parent_task_id=None):
-    get_or_create_supervisord_process(daemonize=True)
+    get_or_create_supervisord_process(daemonize=False)
     
     from ..extractors import archive_link
     
@@ -71,7 +71,7 @@ def bg_archive_link(args, kwargs=None,task=None, parent_task_id=None):
 
 @task(queue="system_tasks", context=True)
 def bg_archive_snapshot(snapshot, overwrite=False, methods=None, task=None, parent_task_id=None):
-    # get_or_create_supervisord_process(daemonize=True)
+    # get_or_create_supervisord_process(daemonize=False)
 
     from ..extractors import archive_link
     

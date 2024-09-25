@@ -57,8 +57,7 @@ supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
 files = %(here)s/{WORKER_DIR.name}/*.conf
 
 """
-    with open(CONFIG_FILE, "w") as f:
-        f.write(config_content)
+    CONFIG_FILE.write_text(config_content)
 
 def create_worker_config(daemon):
     Path.mkdir(WORKER_DIR, exist_ok=True)
@@ -111,7 +110,7 @@ def stop_existing_supervisord_process():
     except FileNotFoundError:
         pass
 
-def start_new_supervisord_process(daemonize=True):
+def start_new_supervisord_process(daemonize=False):
     print(f"[🦸‍♂️] Supervisord starting{' in background' if daemonize else ''}...")
     # Create a config file in the current working directory
     create_supervisord_config()
@@ -142,7 +141,7 @@ def start_new_supervisord_process(daemonize=True):
 
     return get_existing_supervisord_process()
 
-def get_or_create_supervisord_process(daemonize=True):
+def get_or_create_supervisord_process(daemonize=False):
     supervisor = get_existing_supervisord_process()
     if supervisor is None:
         stop_existing_supervisord_process()
@@ -213,7 +212,7 @@ def watch_worker(supervisor, daemon_name, interval=5):
             continue
 
 def tail_worker_logs(log_path: str):
-    get_or_create_supervisord_process(daemonize=True)
+    get_or_create_supervisord_process(daemonize=False)
     
     from rich.live import Live
     from rich.table import Table
@@ -272,8 +271,16 @@ def start_server_workers(host='0.0.0.0', port='8000'):
     
     bg_workers = [
         {
+            "name": "worker_scheduler",
+            "command": "archivebox manage djangohuey --queue system_tasks -w 4 -k thread --disable-health-check --flush-locks",
+            "autostart": "true",
+            "autorestart": "true",
+            "stdout_logfile": "logs/worker_scheduler.log",
+            "redirect_stderr": "true",
+        },
+        {
             "name": "worker_system_tasks",
-            "command": "archivebox manage djangohuey --queue system_tasks",
+            "command": "archivebox manage djangohuey --queue system_tasks -w 4 -k thread --no-periodic --disable-health-check",
             "autostart": "true",
             "autorestart": "true",
             "stdout_logfile": "logs/worker_system_tasks.log",
@@ -290,11 +297,10 @@ def start_server_workers(host='0.0.0.0', port='8000'):
     }
 
     print()
+    start_worker(supervisor, fg_worker)
+    print()
     for worker in bg_workers:
         start_worker(supervisor, worker)
-
-    print()
-    start_worker(supervisor, fg_worker)
     print()
 
     try:
@@ -337,17 +343,18 @@ def start_cli_workers(watch=False):
             raise
         finally:
             stop_worker(supervisor, "worker_system_tasks")
+            stop_worker(supervisor, "worker_scheduler")
             time.sleep(0.5)
     return fg_worker
 
 
-def main(daemons):
-    supervisor = get_or_create_supervisord_process(daemonize=True)
+# def main(daemons):
+#     supervisor = get_or_create_supervisord_process(daemonize=False)
 
-    worker = start_worker(supervisor, daemons["webworker"])
-    pprint(worker)
+#     worker = start_worker(supervisor, daemons["webworker"])
+#     pprint(worker)
 
-    print("All processes started in background.")
+#     print("All processes started in background.")
     
     # Optionally you can block the main thread until an exit signal is received:
     # try:

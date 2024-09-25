@@ -1372,51 +1372,11 @@ def server(runserver_args: Optional[List[str]]=None,
 
         print(f'    > Starting ArchiveBox webserver on http://{host}:{port}/')
 
-        from queues.supervisor_util import get_or_create_supervisord_process, start_worker, stop_worker, watch_worker
+        from queues.supervisor_util import start_server_workers
 
         print()
         
-        supervisor = get_or_create_supervisord_process(daemonize=False)
-
-        bg_workers = [
-            {
-                "name": "worker_system_tasks",
-                "command": "archivebox manage djangohuey --queue system_tasks",
-                "autostart": "true",
-                "autorestart": "true",
-                "stdout_logfile": "logs/worker_system_tasks.log",
-                "redirect_stderr": "true",
-            },
-        ]
-        fg_worker = {
-            "name": "worker_daphne",
-            "command": f"daphne --bind={host} --port={port} --application-close-timeout=600 archivebox.core.asgi:application",
-            "autostart": "false",
-            "autorestart": "true",
-            "stdout_logfile": "logs/worker_daphne.log",
-            "redirect_stderr": "true",
-        }
-
-        print()
-        for worker in bg_workers:
-            start_worker(supervisor, worker)
-
-        print()
-        start_worker(supervisor, fg_worker)
-        print()
-
-        try:
-            watch_worker(supervisor, "worker_daphne")
-        except KeyboardInterrupt:
-            print("\n[🛑] Got Ctrl+C, stopping gracefully...")
-        except SystemExit:
-            pass
-        except BaseException as e:
-            print(f"\n[🛑] Got {e.__class__.__name__} exception, stopping web server gracefully...")
-            raise
-        finally:
-            stop_worker(supervisor, "worker_daphne")
-            time.sleep(0.5)
+        start_server_workers(host=host, port=port)
 
         print("\n[🟩] ArchiveBox server shut down gracefully.")
 
