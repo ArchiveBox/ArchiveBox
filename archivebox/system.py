@@ -14,7 +14,7 @@ from crontab import CronTab
 from atomicwrites import atomic_write as lib_atomic_write
 
 from .util import enforce_types, ExtendedEncoder
-from .config import PYTHON_BINARY, OUTPUT_PERMISSIONS, DIR_OUTPUT_PERMISSIONS, ENFORCE_ATOMIC_WRITES
+from .config import OUTPUT_PERMISSIONS, DIR_OUTPUT_PERMISSIONS, ENFORCE_ATOMIC_WRITES
 
 
 def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, text=False, start_new_session=True, **kwargs):

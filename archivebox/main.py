@@ -974,103 +974,36 @@ def list_folders(links: List[Link],
 def setup(out_dir: Path=OUTPUT_DIR) -> None:
     """Automatically install all ArchiveBox dependencies and extras"""
 
-    
+    from rich import print
 
     if not (out_dir / ARCHIVE_DIR_NAME).exists():
         run_subcommand('init', stdin=None, pwd=out_dir)
 
     setup_django(out_dir=out_dir, check_db=True)
+
+    stderr('\n[+] Installing ArchiveBox dependencies automatically...', color='green')
+
+    from plugins_extractor.ytdlp.apps import YTDLP_BINARY
+    print(YTDLP_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+
+    from plugins_extractor.chrome.apps import CHROME_BINARY
+    print(CHROME_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+
+    from plugins_extractor.singlefile.apps import SINGLEFILE_BINARY
+    print(SINGLEFILE_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+    
+    from plugins_pkg.npm.apps import npm
+
+    print(npm.load_or_install('readability-extractor', overrides={'packages': lambda: ['github:ArchiveBox/readability-extractor']}).model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+    print(npm.load_or_install('postlight-parser',      overrides={'packages': lambda: ['@postlight/parser@^2.2.3'], 'version': lambda: '2.2.3'}).model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths'}))
+
     from django.contrib.auth import get_user_model
     User = get_user_model()
 
     if not User.objects.filter(is_superuser=True).exists():
         stderr('\n[+] Creating new admin user for the Web UI...', color='green')
         run_subcommand('manage', subcommand_args=['createsuperuser'], pwd=out_dir)
-
-    stderr('\n[+] Installing enabled ArchiveBox dependencies automatically...', color='green')
-
-    from plugins_pkg.pip.apps import PYTHON_BINARY
     
-    stderr('\n    Installing YOUTUBEDL_BINARY automatically using pip...')
-    if YOUTUBEDL_VERSION:
-        print(f'{YOUTUBEDL_VERSION} is already installed', YOUTUBEDL_BINARY)
-    else:
-        try:
-            run_shell([
-                PYTHON_BINARY.load().abspath, '-m', 'pip',
-                'install',
-                '--upgrade',
-                '--no-cache-dir',
-                '--no-warn-script-location',
-                'yt-dlp',
-            ], capture_output=False, cwd=out_dir, text=True)
-            pkg_path = run_shell([
-                PYTHON_BINARY.load().abspath, '-m', 'pip',
-                'show',
-                'yt-dlp',
-            ], capture_output=True, text=True, cwd=out_dir).stdout.split('Location: ')[-1].split('\n', 1)[0]
-            NEW_YOUTUBEDL_BINARY = Path(pkg_path) / 'yt-dlp' / '__main__.py'
-            os.chmod(NEW_YOUTUBEDL_BINARY, 0o777)
-            assert NEW_YOUTUBEDL_BINARY.exists(), f'yt-dlp must exist inside {pkg_path}'
-            config(f'YOUTUBEDL_BINARY={NEW_YOUTUBEDL_BINARY}', set=True, out_dir=out_dir)
-        except BaseException as e:                                              # lgtm [py/catch-base-exception]
-            stderr(f'[X] Failed to install python packages: {e}', color='red')
-            raise SystemExit(1)
-
-
-    from plugins_extractor.chrome.apps import CHROME_BINARY
-    
-    CHROME_BINARY.load_or_install()
-
-    from plugins_pkg.npm.apps import NPM_BINARY
-    from plugins_extractor.singlefile.apps import SINGLEFILE_BINARY
-
-    SINGLEFILE_BINARY.load_or_install()
-
-    stderr('\n    Installing SINGLEFILE_BINARY, READABILITY_BINARY, MERCURY_BINARY automatically using npm...')
-    if not NPM_BINARY.load().version:
-        stderr('[X] You must first install node & npm using your system package manager', color='red')
-        hint([
-            'https://github.com/nodesource/distributions#table-of-contents',
-            'or to disable all node-based modules run: archivebox config --set USE_NODE=False',
-        ])
-        raise SystemExit(1)
-
-    if all((SINGLEFILE_VERSION, READABILITY_VERSION, MERCURY_VERSION)):
-        print('SINGLEFILE_BINARY, READABILITY_BINARY, and MERCURURY_BINARY are already installed')
-    else:
-        try:
-            # clear out old npm package locations
-            paths = (
-                out_dir / 'package.json',
-                out_dir / 'package_lock.json',
-                out_dir / 'node_modules',
-            )
-            for path in paths:
-                if path.is_dir():
-                    shutil.rmtree(path, ignore_errors=True)
-                elif path.is_file():
-                    os.remove(path)
-
-            shutil.copyfile(PACKAGE_DIR / 'package.json', out_dir / 'package.json')   # copy the js requirements list from the source install into the data dir
-            # lets blindly assume that calling out to npm via shell works reliably cross-platform 🤡 (until proven otherwise via support tickets)
-            run_shell([
-                'npm',
-                'install',
-                '--prefix', str(out_dir),        # force it to put the node_modules dir in this folder
-                '--force',                       # overwrite any existing node_modules
-                '--no-save',                     # don't bother saving updating the package.json or package-lock.json file
-                '--no-audit',                    # don't bother checking for newer versions with security vuln fixes
-                '--no-fund',                     # hide "please fund our project" messages
-                '--loglevel', 'error',           # only show erros (hide warn/info/debug) during installation
-                # these args are written in blood, change with caution
-            ], capture_output=False, cwd=out_dir)
-            os.remove(out_dir / 'package.json')
-        except BaseException as e:                                              # lgtm [py/catch-base-exception]
-            stderr(f'[X] Failed to install npm packages: {e}', color='red')
-            hint(f'Try deleting {out_dir}/node_modules and running it again')
-            raise SystemExit(1)
-
     stderr('\n[√] Set up ArchiveBox and its dependencies successfully.', color='green')
     
     from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
