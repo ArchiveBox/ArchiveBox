@@ -5,7 +5,7 @@
 groups = ["default", "all", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:c6898f1602f4760763b438a54b5a7e74833755c083718d56c27abcd765d7f0de"
+content_hash = "sha256:ef9c8207ee70fef37d32fa6a53458a83f34626d3c0d9a86e7b8b35a7c44b6f09"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -208,14 +208,14 @@ files = [
 
 [[package]]
 name = "bx-py-utils"
-version = "103"
+version = "104"
 requires_python = "<4,>=3.10"
 summary = "Various Python utility functions"
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "bx_py_utils-103-py3-none-any.whl", hash = "sha256:706291bdbc430655d78628ca3af037cff7dd5e2003136fd4ff4249adb3ab6228"},
-    {file = "bx_py_utils-103.tar.gz", hash = "sha256:9aa162f7a1b81430811f2e7ce1a76ba4562e47d472b0e13cb8c8e055076d45d5"},
+    {file = "bx_py_utils-104-py3-none-any.whl", hash = "sha256:c92ebc4fb122e3e3c228d984d0a1f5c3284c3da6aab1a1c753f7eb1f71bdab3a"},
+    {file = "bx_py_utils-104.tar.gz", hash = "sha256:508cfc1d0fa6c22298f697c4efaa913337847d488d8a53eeccfae9ee106123f6"},
 ]
 
 [[package]]
@@ -1132,7 +1132,7 @@ files = [
 
 [[package]]
 name = "pydantic-pkgr"
-version = "0.3.5"
+version = "0.3.6"
 requires_python = ">=3.10"
 summary = "System package manager APIs in strongly typed Python"
 groups = ["default"]
@@ -1143,8 +1143,8 @@ dependencies = [
     "typing-extensions>=4.11.0",
 ]
 files = [
-    {file = "pydantic_pkgr-0.3.5-py3-none-any.whl", hash = "sha256:921d42535a2562b80ca97e524f334b9e55448017621cb7d152b42b9e4f547a01"},
-    {file = "pydantic_pkgr-0.3.5.tar.gz", hash = "sha256:36444778d53d5cbdc261086fda0d65fb519a072105f5d1c7d88e224bd197dd1d"},
+    {file = "pydantic_pkgr-0.3.6-py3-none-any.whl", hash = "sha256:ebe7aff450e67525020e4b167ef527fab38eaf681f72e0faff756fd7ccc8ae82"},
+    {file = "pydantic_pkgr-0.3.6.tar.gz", hash = "sha256:039e724f7dd92ff9c58b508b38d21ff38c571c34e163f628dabf3563b06e3fac"},
 ]
 
 [[package]]
