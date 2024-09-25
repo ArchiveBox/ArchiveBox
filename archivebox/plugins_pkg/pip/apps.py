@@ -1,6 +1,7 @@
 import os
 import sys
 import inspect
+import archivebox
 from pathlib import Path
 from typing import List, Dict, Optional, ClassVar
 from pydantic import InstanceOf, Field
@@ -73,6 +74,19 @@ VENV_PIP_BINPROVIDER = VenvPipBinProvider()
 LIB_PIP_BINPROVIDER = LibPipBinProvider()
 pip = LIB_PIP_BINPROVIDER
 
+
+class ArchiveboxBinary(BaseBinary):
+    name: BinName = 'archivebox'
+
+    binproviders_supported: List[InstanceOf[BinProvider]] = [VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
+    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
+        VENV_PIP_BINPROVIDER.name:  {'packages': lambda: [], 'version': lambda: archivebox.__version__},
+        SYS_PIP_BINPROVIDER.name:   {'packages': lambda: [], 'version': lambda: archivebox.__version__},
+        apt.name:                   {'packages': lambda: [], 'version': lambda: archivebox.__version__},
+        brew.name:                  {'packages': lambda: [], 'version': lambda: archivebox.__version__},
+    }
+
+ARCHIVEBOX_BINARY = ArchiveboxBinary()
 
 
 class PythonBinary(BaseBinary):
@@ -187,6 +201,7 @@ class PipPlugin(BasePlugin):
         VENV_PIP_BINPROVIDER,
         LIB_PIP_BINPROVIDER,
         PIP_BINARY,
+        ARCHIVEBOX_BINARY,
         PYTHON_BINARY,
         SQLITE_BINARY,
         DJANGO_BINARY,
