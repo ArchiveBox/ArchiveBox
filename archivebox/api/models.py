@@ -1,6 +1,5 @@
 __package__ = 'archivebox.api'
 
-import uuid
 import secrets
 from datetime import timedelta
 

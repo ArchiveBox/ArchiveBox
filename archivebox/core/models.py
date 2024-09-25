@@ -19,6 +19,8 @@ from django.conf import settings
 
 from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
 
+from queues.tasks import bg_archive_snapshot
+
 from ..system import get_dir_size
 from ..util import parse_date, base_url
 from ..index.schema import Link
@@ -160,6 +162,9 @@ class Snapshot(ABIDModel):
         
         super().save(*args, **kwargs)
 
+    def archive(self, overwrite=False, methods=None):
+        result = bg_archive_snapshot(self, overwrite=overwrite, methods=methods)
+        return result
 
     def __repr__(self) -> str:
         title = (self.title_stripped or '-')[:64]

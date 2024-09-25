@@ -30,7 +30,7 @@ from core.models import Snapshot, ArchiveResult, Tag
 from core.mixins import SearchResultsAdminMixin
 from api.models import APIToken
 from abid_utils.admin import ABIDModelAdmin
-from queues.tasks import bg_archive_links, bg_add
+from queues.tasks import bg_archive_links, bg_archive_link, bg_add
 
 from index.html import snapshot_icons
 from logging_util import printable_filesize

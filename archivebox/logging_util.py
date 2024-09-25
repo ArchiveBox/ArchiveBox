@@ -242,7 +242,7 @@ def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional
         args=args,
     )
     # stderr()
-    # stderr('{black}    > {pwd}{reset}'.format(pwd=pwd, **ANSI))
+    # stderr('[bright_black]    > {pwd}[/]'.format(pwd=pwd, **ANSI))
     # stderr()
     if SHOW_PROGRESS:
         print(Panel(version_msg), file=sys.stderr)
@@ -254,12 +254,11 @@ def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional
 
 def log_importing_started(urls: Union[str, List[str]], depth: int, index_only: bool):
     _LAST_RUN_STATS.parse_start_ts = datetime.now(timezone.utc)
-    print('{green}[+] [{}] Adding {} links to index (crawl depth={}){}...{reset}'.format(
+    print('[green][+] [{}] Adding {} links to index (crawl depth={}){}...[/]'.format(
         _LAST_RUN_STATS.parse_start_ts.strftime('%Y-%m-%d %H:%M:%S'),
         len(urls) if isinstance(urls, list) else len(urls.split('\n')),
         depth,
         ' (index only)' if index_only else '',
-        **ANSI,
     ))
 
 def log_source_saved(source_file: str):
@@ -275,7 +274,7 @@ def log_deduping_finished(num_new_links: int):
 
 def log_crawl_started(new_links):
     print()
-    print('{green}[*] Starting crawl of {} sites 1 hop out from starting point{reset}'.format(len(new_links), **ANSI))
+    print(f'[green][*] Starting crawl of {len(new_links)} sites 1 hop out from starting point[/]')
 
 ### Indexing Stage
 
@@ -283,10 +282,9 @@ def log_indexing_process_started(num_links: int):
     start_ts = datetime.now(timezone.utc)
     _LAST_RUN_STATS.index_start_ts = start_ts
     print()
-    print('{black}[*] [{}] Writing {} links to main index...{reset}'.format(
+    print('[bright_black][*] [{}] Writing {} links to main index...[/]'.format(
         start_ts.strftime('%Y-%m-%d %H:%M:%S'),
         num_links,
-        **ANSI,
     ))
 
 
@@ -312,17 +310,15 @@ def log_archiving_started(num_links: int, resume: Optional[float]=None):
     _LAST_RUN_STATS.archiving_start_ts = start_ts
     print()
     if resume:
-        print('{green}[▶] [{}] Resuming archive updating for {} pages starting from {}...{reset}'.format(
+        print('[green][▶] [{}] Resuming archive updating for {} pages starting from {}...[/]'.format(
              start_ts.strftime('%Y-%m-%d %H:%M:%S'),
              num_links,
              resume,
-             **ANSI,
         ))
     else:
-        print('{green}[▶] [{}] Starting archiving of {} snapshots in index...{reset}'.format(
+        print('[green][▶] [{}] Starting archiving of {} snapshots in index...[/]'.format(
              start_ts.strftime('%Y-%m-%d %H:%M:%S'),
              num_links,
-             **ANSI,
         ))
 
 def log_archiving_paused(num_links: int, idx: int, timestamp: str):
@@ -330,8 +326,7 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
     end_ts = datetime.now(timezone.utc)
     _LAST_RUN_STATS.archiving_end_ts = end_ts
     print()
-    print('\n{lightyellow}[X] [{now}] Downloading paused on link {timestamp} ({idx}/{total}){reset}'.format(
-        **ANSI,
+    print('\n[yellow3][X] [{now}] Downloading paused on link {timestamp} ({idx}/{total})[/]'.format(
         now=end_ts.strftime('%Y-%m-%d %H:%M:%S'),
         idx=idx+1,
         timestamp=timestamp,
@@ -355,12 +350,10 @@ def log_archiving_finished(num_links: int):
         duration = '{0:.2f} sec'.format(seconds)
 
     print()
-    print('{}[√] [{}] Update of {} pages complete ({}){}'.format(
-        ANSI['green'],
+    print('[green][√] [{}] Update of {} pages complete ({})[/]'.format(
         end_ts.strftime('%Y-%m-%d %H:%M:%S'),
         num_links,
         duration,
-        ANSI['reset'],
     ))
     print('    - {} links skipped'.format(_LAST_RUN_STATS.skipped))
     print('    - {} links updated'.format(_LAST_RUN_STATS.succeeded + _LAST_RUN_STATS.failed))
@@ -368,7 +361,7 @@ def log_archiving_finished(num_links: int):
     
     if Snapshot.objects.count() < 50:
         print()
-        print('    {lightred}Hint:{reset} To manage your archive in a Web UI, run:'.format(**ANSI))
+        print('    [violet]Hint:[/] To manage your archive in a Web UI, run:')
         print('        archivebox server 0.0.0.0:8000')
 
 
@@ -378,14 +371,13 @@ def log_link_archiving_started(link: "Link", link_dir: str, is_new: bool):
     #     http://www.benstopford.com/2015/02/14/log-structured-merge-trees/
     #     > output/archive/1478739709
 
-    print('\n[{symbol_color}{symbol}{reset}] [{symbol_color}{now}{reset}] "{title}"'.format(
-        symbol_color=ANSI['green' if is_new else 'black'],
+    print('\n[[{symbol_color}]{symbol}[/]] [[{symbol_color}]{now}[/]] "{title}"'.format(
+        symbol_color='green' if is_new else 'bright_black',
         symbol='+' if is_new else '√',
         now=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
         title=link.title or link.base_url,
-        **ANSI,
     ))
-    print('    {blue}{url}{reset}'.format(url=link.url, **ANSI))
+    print(f'    [sky_blue1]{link.url}[/]')
     print('    {} {}'.format(
         '>' if is_new else '√',
         pretty_path(link_dir),
@@ -408,7 +400,7 @@ def log_link_archiving_finished(link: "Link", link_dir: str, is_new: bool, stats
 
     end_ts = datetime.now(timezone.utc)
     duration = str(end_ts - start_ts).split('.')[0]
-    print('        {black}{} files ({}) in {}s {reset}'.format(size[2], printable_filesize(size[0]), duration, **ANSI))
+    print('        [bright_black]{} files ({}) in {}s [/]'.format(size[2], printable_filesize(size[0]), duration))
 
 
 def log_archive_method_started(method: str):
@@ -429,16 +421,13 @@ def log_archive_method_finished(result: "ArchiveResult"):
         if result.output.__class__.__name__ == 'TimeoutExpired':
             duration = (result.end_ts - result.start_ts).seconds
             hint_header = [
-                '{lightyellow}Extractor timed out after {}s.{reset}'.format(duration, **ANSI),
+                f'[yellow3]Extractor timed out after {duration}s.[/]',
             ]
         else:
+            error_name = result.output.__class__.__name__.replace('ArchiveError', '')
             hint_header = [
-                '{lightyellow}Extractor failed:{reset}'.format(**ANSI),
-                '    {reset}{} {red}{}{reset}'.format(
-                    result.output.__class__.__name__.replace('ArchiveError', ''),
-                    result.output, 
-                    **ANSI,
-                ),
+                '[yellow3]Extractor failed:[/]',
+                f'    {error_name} [red1]{result.output}[/]',
             ]
         
         # import pudb; pudb.set_trace()
@@ -454,7 +443,7 @@ def log_archive_method_finished(result: "ArchiveResult"):
                 hints = hints.split('\n')
 
             hints = (
-                '    {}{}{}'.format(ANSI['lightyellow'], line.strip(), ANSI['reset'])
+                f'    [yellow1]{line.strip()}[/]'
                 for line in list(hints)[:5] if line.strip()
             )
 
@@ -468,7 +457,7 @@ def log_archive_method_finished(result: "ArchiveResult"):
         output_lines = [
             *hint_header,
             *hints,
-            '{}Run to see full output:{}'.format(ANSI['lightred'], ANSI['reset']),
+            '[violet]Run to see full output:[/]',
             *docker_hints,
             *(['    cd {};'.format(result.pwd)] if result.pwd else []),
             '    {}'.format(quoted_cmd),
@@ -482,10 +471,7 @@ def log_archive_method_finished(result: "ArchiveResult"):
 
 
 def log_list_started(filter_patterns: Optional[List[str]], filter_type: str):
-    print('{green}[*] Finding links in the archive index matching these {} patterns:{reset}'.format(
-        filter_type,
-        **ANSI,
-    ))
+    print(f'[green][*] Finding links in the archive index matching these {filter_type} patterns:[/]')
     print('    {}'.format(' '.join(filter_patterns or ())))
 
 def log_list_finished(links):
@@ -498,7 +484,7 @@ def log_list_finished(links):
 
 
 def log_removal_started(links: List["Link"], yes: bool, delete: bool):
-    print('{lightyellow}[i] Found {} matching URLs to remove.{reset}'.format(len(links), **ANSI))
+    print(f'[yellow3][i] Found {len(links)} matching URLs to remove.[/]')
     if delete:
         file_counts = [link.num_outputs for link in links if Path(link.link_dir).exists()]
         print(
@@ -513,7 +499,7 @@ def log_removal_started(links: List["Link"], yes: bool, delete: bool):
 
     if not yes:
         print()
-        print('{lightyellow}[?] Do you want to proceed with removing these {} links?{reset}'.format(len(links), **ANSI))
+        print('[yellow3][?] Do you want to proceed with removing these {len(links)} links?[/]')
         try:
             assert input('    y/[n]: ').lower() == 'y'
         except (KeyboardInterrupt, EOFError, AssertionError):
@@ -522,28 +508,24 @@ def log_removal_started(links: List["Link"], yes: bool, delete: bool):
 def log_removal_finished(all_links: int, to_remove: int):
     if all_links == 0:
         print()
-        print('{red}[X] No matching links found.{reset}'.format(**ANSI))
+        print('[red1][X] No matching links found.[/]')
     else:
         print()
-        print('{red}[√] Removed {} out of {} links from the archive index.{reset}'.format(
-            to_remove,
-            all_links,
-            **ANSI,
-        ))
-        print('    Index now contains {} links.'.format(all_links - to_remove))
+        print(f'[red1][√] Removed {to_remove} out of {all_links} links from the archive index.[/]')
+        print(f'    Index now contains {all_links - to_remove} links.')
 
 
 def log_shell_welcome_msg():
     from .cli import CLI_SUBCOMMANDS
 
-    print('{green}# ArchiveBox Imports{reset}'.format(**ANSI))
-    print('{green}from core.models import Snapshot, ArchiveResult, Tag, User{reset}'.format(**ANSI))
-    print('{green}from cli import *\n    {}{reset}'.format("\n    ".join(CLI_SUBCOMMANDS.keys()), **ANSI))
+    print('[green]# ArchiveBox Imports[/]')
+    print('[green]from core.models import Snapshot, ArchiveResult, Tag, User[/]')
+    print('[green]from cli import *\n    {}[/]'.format("\n    ".join(CLI_SUBCOMMANDS.keys())))
     print()
     print('[i] Welcome to the ArchiveBox Shell!')
     print('    https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Shell-Usage')
     print()
-    print('    {lightred}Hint:{reset} Example use:'.format(**ANSI))
+    print('    [violet]Hint:[/] Example use:')
     print('        print(Snapshot.objects.filter(is_archived=True).count())')
     print('        Snapshot.objects.get(url="https://example.com").as_json()')
     print('        add("https://example.com/some/new/url")')

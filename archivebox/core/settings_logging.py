@@ -1,3 +1,4 @@
+__package__ = 'archivebox.core'
 import re
 import tempfile
 import logging
@@ -6,6 +7,8 @@ import pydantic
 import django.template
 
 import archivebox
+
+from ..misc.logging import IS_TTY
 
 
 IGNORABLE_URL_PATTERNS = [
@@ -101,7 +104,7 @@ SETTINGS_LOGGING = {
             "formatter": "rich",
             "level": "DEBUG",
             "markup": False,
-            "rich_tracebacks": True,
+            "rich_tracebacks": IS_TTY,
             "filters": ["noisyrequestsfilter"],
             "tracebacks_suppress": [
                 django,
