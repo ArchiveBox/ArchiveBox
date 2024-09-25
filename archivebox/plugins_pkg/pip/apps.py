@@ -19,7 +19,6 @@ from plugantic.base_check import BaseCheck
 from plugantic.base_binary import BaseBinary, BaseBinProvider, env, apt, brew
 from plugantic.base_hook import BaseHook
 
-PYTHON_ENCODING = sys.__stdout__.encoding.upper()
 
 ###################### Config ##########################
 
@@ -172,8 +171,21 @@ class CheckPipEnvironment(BaseCheck):
 
     @staticmethod
     def check(settings, logger) -> List[Warning]:
+        # hard errors: check python version
+        if sys.version_info[:3] < (3, 10, 0):
+            print('[red][X] Python version is not new enough: {sys.version} (>3.10 is required)[/red]', file=sys.stderr)
+            print('    See https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.', file=sys.stderr)
+            raise SystemExit(2)
+        
+        # hard errors: check django version
+        if int(django.VERSION[0]) < 5:
+            print('[red][X] Django version is not new enough: {django.VERSION[:3]} (>=5.0 is required)[/red]', file=sys.stderr)
+            print('    Upgrade django using pip or your system package manager: pip3 install --upgrade django', file=sys.stderr)
+            raise SystemExit(2)
+        
+        # soft errors: check that lib/pip virtualenv is setup properly
         errors = []
-       
+        
         LIB_PIP_BINPROVIDER.setup()
         if not LIB_PIP_BINPROVIDER.INSTALLER_BIN_ABSPATH:
             errors.append(
@@ -185,28 +197,6 @@ class CheckPipEnvironment(BaseCheck):
             )
         # logger.debug("[√] CheckPipEnvironment: data/lib/pip virtualenv is setup properly")
         return errors
-    
-    # check python version
-    if sys.version_info[:3] < (3, 10, 0):
-        print('[red][X] Python version is not new enough: {sys.version} (>3.10 is required)[/red]', file=sys.stderr)
-        print('    See https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.', file=sys.stderr)
-        raise SystemExit(2)
-    
-    # check django version
-    if int(django.VERSION[0]) < 5:
-        print('[red][X] Django version is not new enough: {django.VERSION[:3]} (>=5.0 is required)[/red]', file=sys.stderr)
-        print('    Upgrade django using pip or your system package manager: pip3 install --upgrade django', file=sys.stderr)
-        raise SystemExit(2)
-    
-    # check python locale
-    if PYTHON_ENCODING not in ('UTF-8', 'UTF8'):
-        print(f'[red][X] Your system is running python3 scripts with a bad locale setting: {PYTHON_ENCODING} (it should be UTF-8).[/red]', file=sys.stderr)
-        print('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)', file=sys.stderr)
-        print('    Or if you\'re using ubuntu/debian, run "dpkg-reconfigure locales"', file=sys.stderr)
-        print('')
-        print('    Confirm that it\'s fixed by opening a new shell and running:', file=sys.stderr)
-        print('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8', file=sys.stderr)
-        raise SystemExit(2)
 
 
 USER_IS_NOT_ROOT_CHECK = CheckUserIsNotRoot()

@@ -32,6 +32,9 @@ class ShellConfig(BaseConfigSet):
     PUID: int                           = Field(default=os.getuid())
     PGID: int                           = Field(default=os.getgid())
     
+    PYTHON_ENCODING: str                = Field(default=(sys.__stdout__ or sys.stdout or sys.__stderr__ or sys.stderr).encoding.upper().replace('UTF8', 'UTF-8'))
+
+    
     @model_validator(mode='after')
     def validate_not_running_as_root(self):
         attempted_command = ' '.join(sys.argv[:3])
@@ -50,6 +53,16 @@ class ShellConfig(BaseConfigSet):
                 print('        or:', file=sys.stderr)
                 print(f'        docker compose exec --user=archivebox archivebox /bin/bash -c "archivebox {attempted_command}"', file=sys.stderr)
                 print(f'        docker exec -it --user=archivebox <container id> /bin/bash -c "archivebox {attempted_command}"', file=sys.stderr)
+            raise SystemExit(2)
+        
+        # check python locale
+        if self.PYTHON_ENCODING != 'UTF-8':
+            print(f'[red][X] Your system is running python3 scripts with a bad locale setting: {self.PYTHON_ENCODING} (it should be UTF-8).[/red]', file=sys.stderr)
+            print('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)', file=sys.stderr)
+            print('    Or if you\'re using ubuntu/debian, run "dpkg-reconfigure locales"', file=sys.stderr)
+            print('')
+            print('    Confirm that it\'s fixed by opening a new shell and running:', file=sys.stderr)
+            print('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8', file=sys.stderr)
             raise SystemExit(2)
         
         return self

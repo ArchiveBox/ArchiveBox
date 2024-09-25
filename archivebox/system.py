@@ -38,6 +38,7 @@ def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, 
     pgid = None
     try:
         if isinstance(cmd, (list, tuple)) and cmd[0].endswith('.py'):
+            PYTHON_BINARY = sys.executable
             cmd = (PYTHON_BINARY, *cmd)
 
         with Popen(cmd, *args, start_new_session=start_new_session, text=text, **kwargs) as process:

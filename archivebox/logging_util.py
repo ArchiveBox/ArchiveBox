@@ -25,7 +25,6 @@ from .util import enforce_types
 from .config import (
     ConfigDict,
     OUTPUT_DIR,
-    PYTHON_ENCODING,
     VERSION,
     ANSI,
     IS_TTY,
@@ -184,7 +183,7 @@ class TimedProgress:
 @enforce_types
 def progress_bar(seconds: int, prefix: str='') -> None:
     """show timer in the form of progress bar, with percentage and seconds remaining"""
-    chunk = '█' if PYTHON_ENCODING == 'UTF-8' else '#'
+    chunk = '█' if (sys.stdout or sys.__stdout__).encoding.upper() == 'UTF-8' else '#'
     last_width = TERM_WIDTH()
     chunks = last_width - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
     try:

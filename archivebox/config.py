@@ -559,7 +559,6 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'CAN_UPGRADE':              {'default': lambda c: False},             # can_upgrade(c)},
 
     'PYTHON_BINARY':            {'default': lambda c: sys.executable},
-    'PYTHON_ENCODING':          {'default': lambda c: sys.stdout.encoding.upper()},
     'PYTHON_VERSION':           {'default': lambda c: '{}.{}.{}'.format(*sys.version_info[:3])},
 
     'DJANGO_BINARY':            {'default': lambda c: inspect.getfile(django)},
