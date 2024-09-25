@@ -138,7 +138,7 @@ def help(out_dir: Path=archivebox.DATA_DIR) -> None:
     )
 
 
-    if (Path(out_dir) / SQL_INDEX_FILENAME).exists():
+    if archivebox.CONSTANTS.DATABASE_FILE.exists():
         print('''{green}ArchiveBox v{}: The self-hosted internet archive.{reset}
 
 {lightred}Active data directory:{reset}
@@ -191,7 +191,7 @@ def version(quiet: bool=False,
     """Print the ArchiveBox version and dependency information"""
     
     setup_django_minimal()
-    from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG, STORAGE_CONFIG, SHELL_CONFIG, CONSTANTS
+    from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG, STORAGE_CONFIG, SHELL_CONFIG
     from plugins_auth.ldap.apps import LDAP_CONFIG
     from django.conf import settings
     
