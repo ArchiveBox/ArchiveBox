@@ -598,8 +598,8 @@ def add(urls: Union[str, List[str]],
     """Add a new URL or list of URLs to your archive"""
 
     from core.models import Snapshot, Tag
-    from queues.supervisor_util import start_cli_workers, tail_worker_logs
-    from queues.tasks import bg_archive_link
+    # from queues.supervisor_util import start_cli_workers, tail_worker_logs
+    # from queues.tasks import bg_archive_link
     
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
@@ -612,7 +612,7 @@ def add(urls: Union[str, List[str]],
     # Load list of links from the existing index
     check_data_folder(CONFIG)
     check_dependencies(CONFIG)
-    worker = start_cli_workers()
+    # worker = start_cli_workers()
     
     new_links: List[Link] = []
     all_links = load_main_index(out_dir=out_dir)
@@ -691,7 +691,7 @@ def add(urls: Union[str, List[str]],
             stderr(f'[*] [{ts}] Archiving {len(new_links)}/{len(all_links)} URLs from added set...', color='green')
             archive_links(new_links, overwrite=False, **archive_kwargs)
 
-    tail_worker_logs(worker['stdout_logfile'])
+    # tail_worker_logs(worker['stdout_logfile'])
 
     if CAN_UPGRADE:
         hint(f"There's a new version of ArchiveBox available! Your current version is {VERSION}. You can upgrade to {VERSIONS_AVAILABLE['recommended_version']['tag_name']} ({VERSIONS_AVAILABLE['recommended_version']['html_url']}). For more on how to upgrade: https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives\n")
@@ -796,12 +796,12 @@ def update(resume: Optional[float]=None,
 
     from core.models import ArchiveResult
     from .search import index_links
-    from .queues.supervisor_util import start_cli_workers
+    # from .queues.supervisor_util import start_cli_workers
     
 
     check_data_folder(CONFIG)
     check_dependencies(CONFIG)
-    start_cli_workers()
+    # start_cli_workers()
     new_links: List[Link] = [] # TODO: Remove input argument: only_new
 
     extractors = extractors.split(",") if extractors else []
