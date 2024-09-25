@@ -1,5 +1,6 @@
 __package__ = 'archivebox.core'
 import re
+import shutil
 import tempfile
 import logging
 
@@ -110,6 +111,9 @@ SETTINGS_LOGGING = {
                 django,
                 pydantic,
             ],
+            "tracebacks_width": shutil.get_terminal_size((100, 10)).columns - 1,
+            "tracebacks_word_wrap": False,
+            "tracebacks_show_locals": False,
         },
         "logfile": {
             "level": "INFO",
