@@ -16,6 +16,8 @@ from pydantic_pkgr import (
     HostBinPath,
 )
 
+import archivebox
+
 # Depends on other Django apps:
 from plugantic.base_plugin import BasePlugin
 from plugantic.base_configset import BaseConfigSet
@@ -40,12 +42,10 @@ class PuppeteerConfigs(BaseConfigSet):
     # PUPPETEER_DEFAULT_ARGS: List[str] = ['--timeout={TIMEOUT-10}']
     pass
 
-DEFAULT_GLOBAL_CONFIG = {
-}
 
-PUPPETEER_CONFIG = PuppeteerConfigs(**DEFAULT_GLOBAL_CONFIG)
+PUPPETEER_CONFIG = PuppeteerConfigs()
 
-LIB_DIR_BROWSERS = settings.CONFIG.OUTPUT_DIR / "lib" / "browsers"
+LIB_DIR_BROWSERS = archivebox.CONSTANTS.LIB_BROWSERS_DIR
 
 
 class PuppeteerBinary(BaseBinary):
@@ -60,8 +60,8 @@ PUPPETEER_BINARY = PuppeteerBinary()
 class PuppeteerBinProvider(BaseBinProvider):
     name: BinProviderName = "puppeteer"
     INSTALLER_BIN: BinName = "npx"
-    
-    PATH: PATHStr = str(settings.CONFIG.BIN_DIR)
+
+    PATH: PATHStr = str(archivebox.CONSTANTS.LIB_BIN_DIR)
 
     puppeteer_browsers_dir: Optional[Path] = LIB_DIR_BROWSERS
     puppeteer_install_args: List[str] = ["@puppeteer/browsers", "install", "--path", str(LIB_DIR_BROWSERS)]
@@ -140,7 +140,7 @@ PUPPETEER_BINPROVIDER = PuppeteerBinProvider()
 
 # ALTERNATIVE INSTALL METHOD using Ansible:
 # install_playbook = self.plugin_dir / 'install_puppeteer.yml'
-# chrome_bin = run_playbook(install_playbook, data_dir=settings.CONFIG.OUTPUT_DIR, quiet=quiet).BINARIES.chrome
+# chrome_bin = run_playbook(install_playbook, data_dir=archivebox.DATA_DIR, quiet=quiet).BINARIES.chrome
 # return self.__class__.model_validate(
 #     {
 #         **self.model_dump(),

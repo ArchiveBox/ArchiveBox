@@ -8,8 +8,6 @@ from collections import defaultdict
 from benedict import benedict
 from rich.console import Console
 
-from ..config_stubs import ConfigDict
-
 # SETUP RICH CONSOLE / TTY detection / COLOR / PROGRESS BARS
 CONSOLE = Console()
 IS_TTY = CONSOLE.is_interactive
@@ -43,7 +41,7 @@ COLOR_DICT = defaultdict(lambda: [(0, 0, 0), (0, 0, 0)], {
 })
 
 # Logging Helpers
-def stdout(*args, color: Optional[str]=None, prefix: str='', config: Optional[ConfigDict]=None) -> None:
+def stdout(*args, color: Optional[str]=None, prefix: str='', config: Optional[benedict]=None) -> None:
     ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
 
     if color:
@@ -53,7 +51,7 @@ def stdout(*args, color: Optional[str]=None, prefix: str='', config: Optional[Co
 
     sys.stdout.write(prefix + ''.join(strs))
 
-def stderr(*args, color: Optional[str]=None, prefix: str='', config: Optional[ConfigDict]=None) -> None:
+def stderr(*args, color: Optional[str]=None, prefix: str='', config: Optional[benedict]=None) -> None:
     ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
 
     if color:
@@ -63,7 +61,7 @@ def stderr(*args, color: Optional[str]=None, prefix: str='', config: Optional[Co
 
     sys.stderr.write(prefix + ''.join(strs))
 
-def hint(text: Union[Tuple[str, ...], List[str], str], prefix='    ', config: Optional[ConfigDict]=None) -> None:
+def hint(text: Union[Tuple[str, ...], List[str], str], prefix='    ', config: Optional[benedict]=None) -> None:
     ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
 
     if isinstance(text, str):

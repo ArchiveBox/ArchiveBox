@@ -18,6 +18,8 @@ from pydantic_pkgr import (
     bin_abspath,
 )
 
+import archivebox
+
 # Depends on other Django apps:
 from plugantic.base_plugin import BasePlugin
 from plugantic.base_configset import BaseConfigSet, ConfigSectionName
@@ -215,7 +217,7 @@ class ChromeBinary(BaseBinary):
     }
 
     @staticmethod
-    def symlink_to_lib(binary, bin_dir=settings.CONFIG.BIN_DIR) -> None:
+    def symlink_to_lib(binary, bin_dir=archivebox.CONSTANTS.LIB_BIN_DIR) -> None:
         if not (binary.abspath and binary.abspath.exists()):
             return
         

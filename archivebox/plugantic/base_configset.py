@@ -123,6 +123,10 @@ class ArchiveBoxBaseConfig(BaseSettings):
         validate_return=True,
         revalidate_instances="always",
     )
+    
+    load_from_defaults: ClassVar[bool] = True
+    load_from_configfile: ClassVar[bool] = True
+    load_from_environment: ClassVar[bool] = True
 
     @classmethod
     def settings_customise_sources(
@@ -140,20 +144,22 @@ class ArchiveBoxBaseConfig(BaseSettings):
         
         # import ipdb; ipdb.set_trace()
         
+        precedence_order = {}
+        
         # if ArchiveBox.conf does not exist yet, return defaults -> env order
         if not ARCHIVEBOX_CONFIG_FILE.is_file():
-            return (
-                init_settings,
-                env_settings,
-            )
+            precedence_order = {
+                'defaults': init_settings,
+                'environment': env_settings,
+            }
         
         # if ArchiveBox.conf exists and is in TOML format, return default -> TOML -> env order
         try:
-            return (
-                init_settings,
-                FlatTomlConfigSettingsSource(settings_cls, toml_file=ARCHIVEBOX_CONFIG_FILE),
-                env_settings,
-            )
+            precedence_order = precedence_order or {
+                'defaults': init_settings,
+                'configfile': FlatTomlConfigSettingsSource(settings_cls, toml_file=ARCHIVEBOX_CONFIG_FILE),
+                'environment': env_settings,
+            }
         except Exception as err:
             if err.__class__.__name__ != "TOMLDecodeError":
                 raise
@@ -165,11 +171,20 @@ class ArchiveBoxBaseConfig(BaseSettings):
             new_toml = ini_to_toml.convert(original_ini)
             ARCHIVEBOX_CONFIG_FILE.write_text(new_toml)
 
-            return (
-                init_settings,
-                FlatTomlConfigSettingsSource(settings_cls, toml_file=ARCHIVEBOX_CONFIG_FILE),
-                env_settings,
-            )
+            precedence_order = {
+                'defaults': init_settings,
+                'configfile': FlatTomlConfigSettingsSource(settings_cls, toml_file=ARCHIVEBOX_CONFIG_FILE),
+                'environment': env_settings,
+            }
+            
+        if not cls.load_from_environment:
+            precedence_order.pop('environment')
+        if not cls.load_from_configfile:
+            precedence_order.pop('configfile')
+        if not cls.load_from_defaults:
+            precedence_order.pop('defaults')
+
+        return tuple(precedence_order.values())
 
     @model_validator(mode="after")
     def fill_defaults(self):

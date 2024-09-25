@@ -1,11 +1,12 @@
 __package__ = 'archivebox.index'
 
+import archivebox
 from pathlib import Path
 from datetime import datetime, timezone
 from collections import defaultdict
 from typing import List, Optional, Iterator, Mapping
 
-from django.utils.html import format_html, mark_safe
+from django.utils.html import format_html, mark_safe   # type: ignore
 from django.core.cache import cache
 
 from .schema import Link
@@ -19,10 +20,6 @@ from ..util import (
     urldecode,
 )
 from ..config import (
-    OUTPUT_DIR,
-    VERSION,
-    FOOTER_INFO,
-    HTML_INDEX_FILENAME,
     SAVE_ARCHIVE_DOT_ORG,
     PREVIEW_ORIGINALS,
 )
@@ -36,10 +33,12 @@ TITLE_LOADING_MSG = 'Not yet archived...'
 ### Main Links Index
 
 @enforce_types
-def parse_html_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[str]:
+def parse_html_main_index(out_dir: Path=archivebox.DATA_DIR) -> Iterator[str]:
     """parse an archive index html file and return the list of urls"""
 
-    index_path = Path(out_dir) / HTML_INDEX_FILENAME
+    from plugins_sys.config.constants import CONSTANTS
+
+    index_path = Path(out_dir) / CONSTANTS.HTML_INDEX_FILENAME
     if index_path.exists():
         with open(index_path, 'r', encoding='utf-8') as f:
             for line in f:
@@ -59,14 +58,16 @@ def generate_index_from_links(links: List[Link], with_headers: bool):
 def main_index_template(links: List[Link], template: str=MAIN_INDEX_TEMPLATE) -> str:
     """render the template for the entire main index"""
 
+    from plugins_sys.config.apps import SHELL_CONFIG, SERVER_CONFIG
+
     return render_django_template(template, {
-        'version': VERSION,
-        'git_sha': VERSION,  # not used anymore, but kept for backwards compatibility
+        'version': archivebox.VERSION,
+        'git_sha': SHELL_CONFIG.COMMIT_HASH or archivebox.VERSION,
         'num_links': str(len(links)),
         'date_updated': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
         'time_updated': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M'),
         'links': [link._asdict(extended=True) for link in links],
-        'FOOTER_INFO': FOOTER_INFO,
+        'FOOTER_INFO': SERVER_CONFIG.FOOTER_INFO,
     })
 
 
@@ -74,10 +75,11 @@ def main_index_template(links: List[Link], template: str=MAIN_INDEX_TEMPLATE) ->
 
 @enforce_types
 def write_html_link_details(link: Link, out_dir: Optional[str]=None) -> None:
+    from plugins_sys.config.constants import CONSTANTS
     out_dir = out_dir or link.link_dir
 
     rendered_html = link_details_template(link)
-    atomic_write(str(Path(out_dir) / HTML_INDEX_FILENAME), rendered_html)
+    atomic_write(str(Path(out_dir) / CONSTANTS.HTML_INDEX_FILENAME), rendered_html)
 
 
 @enforce_types

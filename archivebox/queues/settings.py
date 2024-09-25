@@ -1,16 +1,13 @@
 from pathlib import Path
 
-from django.conf import settings
 
+import archivebox
+OUTPUT_DIR = archivebox.DATA_DIR
+LOGS_DIR = archivebox.CONSTANTS.LOGS_DIR
 
-OUTPUT_DIR = settings.CONFIG.OUTPUT_DIR
-LOGS_DIR = settings.CONFIG.LOGS_DIR
-
-TMP_DIR = OUTPUT_DIR / "tmp"
+TMP_DIR = archivebox.CONSTANTS.TMP_DIR
 
 Path.mkdir(TMP_DIR, exist_ok=True)
-
-
 CONFIG_FILE = TMP_DIR / "supervisord.conf"
 PID_FILE = TMP_DIR / "supervisord.pid"
 SOCK_FILE = TMP_DIR / "supervisord.sock"

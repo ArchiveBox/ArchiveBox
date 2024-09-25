@@ -5,51 +5,55 @@ __package__ = 'archivebox.misc'
 from benedict import benedict
 from pathlib import Path
 
-from .logging import stderr, hint
+import archivebox
+
+from .logging import stderr, hint, ANSI
 
 
 def check_dependencies(config: benedict, show_help: bool=True) -> None:
-    invalid_dependencies = [
-        (name, info) for name, info in config['DEPENDENCIES'].items()
-        if info['enabled'] and not info['is_valid']
-    ]
-    if invalid_dependencies and show_help:
-        stderr(f'[!] Warning: Missing {len(invalid_dependencies)} recommended dependencies', color='lightyellow')
-        for dependency, info in invalid_dependencies:
-            stderr(
-                '    ! {}: {} ({})'.format(
-                    dependency,
-                    info['path'] or 'unable to find binary',
-                    info['version'] or 'unable to detect version',
-                )
-            )
-            if dependency in ('YOUTUBEDL_BINARY', 'CHROME_BINARY', 'SINGLEFILE_BINARY', 'READABILITY_BINARY', 'MERCURY_BINARY'):
-                hint(('To install all packages automatically run: archivebox setup',
-                    f'or to disable it and silence this warning: archivebox config --set SAVE_{dependency.rsplit("_", 1)[0]}=False',
-                    ''), prefix='      ')
-        stderr('')
+    # dont do this on startup anymore, it's too slow
+    pass
+    # invalid_dependencies = [
+    #     (name, binary) for name, info in settings.BINARIES.items()
+    #     if not binary.
+    # ]
+    # if invalid_dependencies and show_help:
+    #     stderr(f'[!] Warning: Missing {len(invalid_dependencies)} recommended dependencies', color='lightyellow')
+    #     for dependency, info in invalid_dependencies:
+    #         stderr(
+    #             '    ! {}: {} ({})'.format(
+    #                 dependency,
+    #                 info['path'] or 'unable to find binary',
+    #                 info['version'] or 'unable to detect version',
+    #             )
+    #         )
+    #         if dependency in ('YOUTUBEDL_BINARY', 'CHROME_BINARY', 'SINGLEFILE_BINARY', 'READABILITY_BINARY', 'MERCURY_BINARY'):
+    #             hint(('To install all packages automatically run: archivebox setup',
+    #                 f'or to disable it and silence this warning: archivebox config --set SAVE_{dependency.rsplit("_", 1)[0]}=False',
+    #                 ''), prefix='      ')
+    #     stderr('')
 
 
 
 def check_data_folder(config: benedict) -> None:
-    output_dir = config['OUTPUT_DIR']
+    output_dir = archivebox.DATA_DIR
 
-    archive_dir_exists = (Path(output_dir) / 'archive').exists()
+    archive_dir_exists = (archivebox.CONSTANTS.ARCHIVE_DIR).exists()
     if not archive_dir_exists:
         stderr('[X] No archivebox index found in the current directory.', color='red')
         stderr(f'    {output_dir}', color='lightyellow')
         stderr()
-        stderr('    {lightred}Hint{reset}: Are you running archivebox in the right folder?'.format(**config['ANSI']))
+        stderr('    {lightred}Hint{reset}: Are you running archivebox in the right folder?'.format(**ANSI))
         stderr('        cd path/to/your/archive/folder')
         stderr('        archivebox [command]')
         stderr()
-        stderr('    {lightred}Hint{reset}: To create a new archive collection or import existing data in this folder, run:'.format(**config['ANSI']))
+        stderr('    {lightred}Hint{reset}: To create a new archive collection or import existing data in this folder, run:'.format(**ANSI))
         stderr('        archivebox init')
         raise SystemExit(2)
 
 
 def check_migrations(config: benedict):
-    output_dir = config['OUTPUT_DIR']
+    output_dir = archivebox.DATA_DIR
     
     from ..index.sql import list_migrations
 
@@ -63,8 +67,8 @@ def check_migrations(config: benedict):
         stderr('        archivebox init')
         raise SystemExit(3)
 
-    (Path(output_dir) / config['SOURCES_DIR_NAME']).mkdir(exist_ok=True)
-    (Path(output_dir) / config['LOGS_DIR_NAME']).mkdir(exist_ok=True)
-    (Path(output_dir) / config['CACHE_DIR_NAME']).mkdir(exist_ok=True)
-    (Path(output_dir) / config['LIB_DIR_NAME'] / 'bin').mkdir(exist_ok=True, parents=True)
-    (Path(output_dir) / config['PERSONAS_DIR_NAME'] / 'Default').mkdir(exist_ok=True, parents=True)
+    archivebox.CONSTANTS.SOURCES_DIR.mkdir(exist_ok=True)
+    archivebox.CONSTANTS.LOGS_DIR.mkdir(exist_ok=True)
+    archivebox.CONSTANTS.CACHE_DIR.mkdir(exist_ok=True)
+    (archivebox.CONSTANTS.LIB_DIR / 'bin').mkdir(exist_ok=True, parents=True)
+    (archivebox.CONSTANTS.PERSONAS_DIR / 'Default').mkdir(exist_ok=True, parents=True)

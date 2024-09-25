@@ -2,25 +2,24 @@ __package__ = 'archivebox.parsers'
 
 
 import re
+import archivebox
 
 from typing import IO, Iterable, Optional
 from configparser import ConfigParser
 
-from pathlib import Path
 from pocket import Pocket
 
 from ..index.schema import Link
 from ..util import enforce_types
 from ..system import atomic_write
 from ..config import (
-    SOURCES_DIR,
     POCKET_CONSUMER_KEY,
     POCKET_ACCESS_TOKENS,
 )
 
 
 COUNT_PER_PAGE = 500
-API_DB_PATH = Path(SOURCES_DIR) / 'pocket_api.db'
+API_DB_PATH = archivebox.DATA_DIR / 'sources' / 'pocket_api.db'
 
 # search for broken protocols that sometimes come from the Pocket API
 _BROKEN_PROTOCOL_RE = re.compile('^(http[s]?)(:/(?!/))')

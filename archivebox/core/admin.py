@@ -2,7 +2,6 @@ __package__ = 'archivebox.core'
 
 import os
 
-import threading
 from pathlib import Path
 
 from django.contrib import admin, messages
@@ -19,6 +18,7 @@ from django.template import Template, RequestContext
 from django.conf import settings
 from django import forms
 
+import archivebox
 
 from signal_webhooks.admin import WebhookAdmin
 from signal_webhooks.utils import get_webhook_model
@@ -34,13 +34,13 @@ from queues.tasks import bg_archive_links, bg_archive_link, bg_add
 
 from index.html import snapshot_icons
 from logging_util import printable_filesize
-from main import add, remove
+from main import remove
 from extractors import archive_links
 
 
 CONFIG = settings.CONFIG
 
-GLOBAL_CONTEXT = {'VERSION': CONFIG.VERSION, 'VERSIONS_AVAILABLE': CONFIG.VERSIONS_AVAILABLE, 'CAN_UPGRADE': CONFIG.CAN_UPGRADE}
+GLOBAL_CONTEXT = {'VERSION': archivebox.VERSION, 'VERSIONS_AVAILABLE': [], 'CAN_UPGRADE': False}
 
 # Admin URLs
 # /admin/

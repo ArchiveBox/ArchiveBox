@@ -1,5 +1,7 @@
 __package__ = 'archivebox.extractors'
 
+import archivebox
+
 from html.parser import HTMLParser
 import io
 from pathlib import Path
@@ -8,7 +10,6 @@ from typing import Optional
 from ..config import (
     SAVE_HTMLTOTEXT,
     TIMEOUT,
-    VERSION,
 )
 from ..index.schema import Link, ArchiveResult, ArchiveError
 from ..logging_util import TimedProgress
@@ -153,7 +154,7 @@ def save_htmltotext(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
     return ArchiveResult(
         cmd=cmd,
         pwd=str(out_dir),
-        cmd_version=VERSION,
+        cmd_version=archivebox.__version__,
         output=output,
         status=status,
         index_texts=[extracted_text] if extracted_text else [],

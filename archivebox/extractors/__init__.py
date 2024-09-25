@@ -14,7 +14,6 @@ from ..config import (
     SAVE_ALLOWLIST_PTN,
     SAVE_DENYLIST_PTN,
 )
-from ..core.settings import ERROR_LOG
 from ..index.schema import ArchiveResult, Link
 from ..index.sql import write_link_to_sql_index
 from ..index import (
@@ -109,6 +108,8 @@ def ignore_methods(to_ignore: List[str]) -> Iterable[str]:
 def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None, created_by_id: int | None=None) -> Link:
     """download the DOM, PDF, and a screenshot into a folder named after the link's timestamp"""
 
+    from django.conf import settings
+
     from ..search import write_search_index
 
     # TODO: Remove when the input is changed to be a snapshot. Suboptimal approach.
@@ -169,7 +170,7 @@ def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[s
                     stats['skipped'] += 1
             except Exception as e:
                 # https://github.com/ArchiveBox/ArchiveBox/issues/984#issuecomment-1150541627
-                with open(ERROR_LOG, "a", encoding='utf-8') as f:
+                with open(settings.ERROR_LOG, "a", encoding='utf-8') as f:
                     command = ' '.join(sys.argv)
                     ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
                     f.write(("\n" + 'Exception in archive_methods.save_{}(Link(url={})) command={}; ts={}'.format(

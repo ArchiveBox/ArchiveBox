@@ -1,13 +1,14 @@
+__package__ = 'archivebox.plugins_pkg.pip'
+
 import os
 import sys
 import inspect
 import archivebox
 from pathlib import Path
 from typing import List, Dict, Optional, ClassVar
-from pydantic import InstanceOf, Field
+from pydantic import InstanceOf, Field, model_validator
 
 import django
-
 from django.db.backends.sqlite3.base import Database as django_sqlite3     # type: ignore[import-type]
 from django.core.checks import Error, Tags
 from django.conf import settings
@@ -18,6 +19,8 @@ from plugantic.base_configset import BaseConfigSet, ConfigSectionName
 from plugantic.base_check import BaseCheck
 from plugantic.base_binary import BaseBinary, BaseBinProvider, env, apt, brew
 from plugantic.base_hook import BaseHook
+
+from ...misc.logging import hint
 
 
 ###################### Config ##########################
@@ -66,7 +69,7 @@ class LibPipBinProvider(PipProvider, BaseBinProvider):
     name: BinProviderName = "lib_pip"
     INSTALLER_BIN: BinName = "pip"
     
-    pip_venv: Optional[Path] = settings.CONFIG.OUTPUT_DIR / 'lib' / 'pip' / 'venv'
+    pip_venv: Optional[Path] = archivebox.CONSTANTS.LIB_PIP_DIR / 'venv'
 
 SYS_PIP_BINPROVIDER = SystemPipBinProvider()
 PIPX_PIP_BINPROVIDER = SystemPipxBinProvider()
@@ -117,6 +120,20 @@ class SqliteBinary(BaseBinary):
             "version": lambda: SemVer(django_sqlite3.version),
         },
     }
+    
+    @model_validator(mode='after')
+    def validate_json_extension_is_available(self):
+        # Check to make sure JSON extension is available in our Sqlite3 instance
+        try:
+            cursor = django_sqlite3.connect(':memory:').cursor()
+            cursor.execute('SELECT JSON(\'{"a": "b"}\')')
+        except django_sqlite3.OperationalError as exc:
+            print(f'[red][X] Your SQLite3 version is missing the required JSON1 extension: {exc}[/red]')
+            hint([
+                'Upgrade your Python version or install the extension manually:',
+                'https://code.djangoproject.com/wiki/JSON1Extension'
+            ])
+        return self
 
 SQLITE_BINARY = SqliteBinary()
 

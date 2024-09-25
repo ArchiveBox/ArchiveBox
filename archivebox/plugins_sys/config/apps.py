@@ -1,18 +1,24 @@
+__package__ = 'archivebox.plugins_sys.config'
 import os
 import sys
+import shutil
 import platform
+import archivebox
 
-from typing import List, ClassVar
+from typing import List, ClassVar, Dict, Optional
+from datetime import datetime
 from pathlib import Path
-from pydantic import InstanceOf, Field, field_validator, model_validator
+from pydantic import InstanceOf, Field, field_validator, model_validator, computed_field
+from benedict import benedict
 from rich import print
 
 from django.conf import settings
-
+from django.utils.crypto import get_random_string
 from plugantic.base_plugin import BasePlugin
 from plugantic.base_configset import BaseConfigSet, ConfigSectionName
 from plugantic.base_hook import BaseHook
 
+from .constants import CONSTANTS, CONSTANTS_CONFIG
 
 ###################### Config ##########################
 
@@ -24,17 +30,57 @@ class ShellConfig(BaseConfigSet):
     
     IS_TTY: bool                        = Field(default=sys.stdout.isatty())
     USE_COLOR: bool                     = Field(default=lambda c: c.IS_TTY)
-    SHOW_PROGRESS: bool                 = Field(default=lambda c: (c.IS_TTY and platform.system() != 'darwin'))  # progress bars are buggy on mac, disable for now
+    SHOW_PROGRESS: bool                 = Field(default=lambda c: c.IS_TTY)
     
     IN_DOCKER: bool                     = Field(default=False)
     IN_QEMU: bool                       = Field(default=False)
     
+    USER: str                           = Field(default=Path('~').expanduser().resolve().name)
     PUID: int                           = Field(default=os.getuid())
     PGID: int                           = Field(default=os.getgid())
     
     PYTHON_ENCODING: str                = Field(default=(sys.__stdout__ or sys.stdout or sys.__stderr__ or sys.stderr).encoding.upper().replace('UTF8', 'UTF-8'))
 
+    ANSI: Dict[str, str]                = Field(default=lambda c: CONSTANTS.DEFAULT_CLI_COLORS if c.USE_COLOR else CONSTANTS.DISABLED_CLI_COLORS)
+
+    VERSIONS_AVAILABLE: bool = False             # .check_for_update.get_versions_available_on_github(c)},
+    CAN_UPGRADE: bool = False                    # .check_for_update.can_upgrade(c)},
+
     
+    @computed_field
+    @property
+    def TERM_WIDTH(self) -> int:
+        return shutil.get_terminal_size((100, 10)).columns
+    
+    @computed_field
+    @property
+    def COMMIT_HASH(self) -> Optional[str]:
+        try:
+            git_dir = archivebox.PACKAGE_DIR / '../.git'
+            ref = (git_dir / 'HEAD').read_text().strip().split(' ')[-1]
+            commit_hash = git_dir.joinpath(ref).read_text().strip()
+            return commit_hash
+        except Exception:
+            pass
+    
+        try:
+            return list((archivebox.PACKAGE_DIR / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
+        except Exception:
+            pass
+        
+        return None
+    
+    @computed_field
+    @property
+    def BUILD_TIME(self) -> str:
+        if self.IN_DOCKER:
+            docker_build_end_time = Path('/VERSION.txt').read_text().rsplit('BUILD_END_TIME=')[-1].split('\n', 1)[0]
+            return docker_build_end_time
+    
+        src_last_modified_unix_timestamp = (archivebox.PACKAGE_DIR / 'config.py').stat().st_mtime
+        return datetime.fromtimestamp(src_last_modified_unix_timestamp).strftime('%Y-%m-%d %H:%M:%S %s')
+    
+
     @model_validator(mode='after')
     def validate_not_running_as_root(self):
         attempted_command = ' '.join(sys.argv[:3])
@@ -92,7 +138,7 @@ GENERAL_CONFIG = GeneralConfig()
 class ServerConfig(BaseConfigSet):
     section: ClassVar[ConfigSectionName] = 'SERVER_CONFIG'
 
-    SECRET_KEY: str                     = Field(default=None)
+    SECRET_KEY: str                     = Field(default=lambda: get_random_string(50, 'abcdefghijklmnopqrstuvwxyz0123456789_'))
     BIND_ADDR: str                      = Field(default=lambda: ['127.0.0.1:8000', '0.0.0.0:8000'][SHELL_CONFIG.IN_DOCKER])
     ALLOWED_HOSTS: str                  = Field(default='*')
     CSRF_TRUSTED_ORIGINS: str           = Field(default=lambda c: 'http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000,http://{}'.format(c.BIND_ADDR))
@@ -179,7 +225,7 @@ SEARCH_BACKEND_CONFIG = SearchBackendConfig()
 
 
 class ConfigPlugin(BasePlugin):
-    app_label: str = 'config'
+    app_label: str = 'CONFIG'
     verbose_name: str = 'Configuration'
 
     hooks: List[InstanceOf[BaseHook]] = [
@@ -190,6 +236,12 @@ class ConfigPlugin(BasePlugin):
         ARCHIVING_CONFIG,
         SEARCH_BACKEND_CONFIG,
     ]
+    
+    # def register(self, settings, parent_plugin=None):
+    #     try:
+    #         super().register(settings, parent_plugin=parent_plugin)
+    #     except Exception as e:
+    #         print(f'[red][X] Error registering config plugin: {e}[/red]', file=sys.stderr)
 
 
 PLUGIN = ConfigPlugin()

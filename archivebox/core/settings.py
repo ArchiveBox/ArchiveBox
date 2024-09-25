@@ -2,36 +2,27 @@ __package__ = 'archivebox.core'
 
 import os
 import sys
-import re
-import logging
 import inspect
-import tempfile
-import archivebox
 
 from typing import Dict
 from pathlib import Path
 
-import django
+from benedict import benedict
 from django.utils.crypto import get_random_string
 
+import archivebox
+
 from ..config import CONFIG
-from ..config_stubs import AttrDict
-assert isinstance(CONFIG, AttrDict)
 
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
 IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
 IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
 
 
-PACKAGE_DIR = archivebox.PACKAGE_DIR
-assert PACKAGE_DIR == CONFIG.PACKAGE_DIR
-
-DATA_DIR = archivebox.DATA_DIR
-assert DATA_DIR == CONFIG.OUTPUT_DIR
-ARCHIVE_DIR = DATA_DIR / 'archive'
-assert ARCHIVE_DIR == CONFIG.ARCHIVE_DIR
-
 VERSION = archivebox.__version__
+PACKAGE_DIR = archivebox.PACKAGE_DIR
+DATA_DIR = archivebox.DATA_DIR
+ARCHIVE_DIR = archivebox.DATA_DIR / 'archive'
 
 ################################################################################
 ### ArchiveBox Plugin Settings
@@ -39,17 +30,16 @@ VERSION = archivebox.__version__
 
 
 def find_plugins_in_dir(plugins_dir: Path, prefix: str) -> Dict[str, Path]:
-    """{"plugins_pkg.pip": "/app/archivebox/plugins_pkg/pip", "user_plugins.other": "/data/user_plugins/other",...}"""
     return {
         f"{prefix}.{plugin_entrypoint.parent.name}": plugin_entrypoint.parent
         for plugin_entrypoint in sorted(plugins_dir.glob("*/apps.py"))   # key=get_plugin_order  # Someday enforcing plugin import order may be required, but right now it's not needed
-    }
+    }   # "plugins_pkg.pip": "/app/archivebox/plugins_pkg/pip"
     
 PLUGIN_DIRS = {
     'plugins_sys':          PACKAGE_DIR / 'plugins_sys',
     'plugins_pkg':          PACKAGE_DIR / 'plugins_pkg',
     'plugins_auth':         PACKAGE_DIR / 'plugins_auth',
-    'plugins_search':         PACKAGE_DIR / 'plugins_search',
+    'plugins_search':       PACKAGE_DIR / 'plugins_search',
     'plugins_extractor':    PACKAGE_DIR / 'plugins_extractor',
     'user_plugins':         DATA_DIR / 'user_plugins',
 }
@@ -59,17 +49,17 @@ for plugin_prefix, plugin_dir in PLUGIN_DIRS.items():
 
 
 ### Plugins Globals (filled by plugin_type.pluginname.apps.PluginName.register() after Django startup)
-PLUGINS = AttrDict({})
-HOOKS = AttrDict({})
+PLUGINS = benedict({})
+HOOKS = benedict({})
 
-# Created later by Hook.register(settings) when each Plugin.register(settings) is called
-# CONFIGS = AttrDict({})
-# BINPROVIDERS = AttrDict({})
-# BINARIES = AttrDict({})
-# EXTRACTORS = AttrDict({})
-# REPLAYERS = AttrDict({})
-# CHECKS = AttrDict({})
-# ADMINDATAVIEWS = AttrDict({})
+# Created later by Plugin.register(settings) -> Hook.register(settings):
+# CONFIGS = benedict({})
+# BINPROVIDERS = benedict({})
+# BINARIES = benedict({})
+# EXTRACTORS = benedict({})
+# REPLAYERS = benedict({})
+# CHECKS = benedict({})
+# ADMINDATAVIEWS = benedict({})
 
 
 ################################################################################
@@ -113,7 +103,7 @@ INSTALLED_APPS = [
     'api',                       # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
 
     # ArchiveBox plugins
-    *INSTALLED_PLUGINS.keys(),   # all plugin django-apps found in archivebox/*_plugins and data/user_plugins,
+    *INSTALLED_PLUGINS.keys(),   # all plugin django-apps found in archivebox/plugins_* and data/user_plugins,
     # plugin.register(settings) is called at import of each plugin (in the order they are listed here), then plugin.ready() is called at AppConfig.ready() time
 
     # 3rd-party apps from PyPI that need to be loaded last
@@ -164,7 +154,7 @@ if LDAP_CONFIG.LDAP_ENABLED:
 ################################################################################
 
 STATIC_URL = '/static/'
-
+TEMPLATES_DIR_NAME = 'templates'
 STATICFILES_DIRS = [
     *([str(CONFIG.CUSTOM_TEMPLATES_DIR / 'static')] if CONFIG.CUSTOM_TEMPLATES_DIR else []),
     *[
@@ -172,7 +162,7 @@ STATICFILES_DIRS = [
         for plugin_dir in PLUGIN_DIRS.values()
         if (plugin_dir / 'static').is_dir()
     ],
-    str(PACKAGE_DIR / CONFIG.TEMPLATES_DIR_NAME / 'static'),
+    str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'static'),
 ]
 
 TEMPLATE_DIRS = [
@@ -182,9 +172,9 @@ TEMPLATE_DIRS = [
         for plugin_dir in PLUGIN_DIRS.values()
         if (plugin_dir / 'templates').is_dir()
     ],
-    str(PACKAGE_DIR / CONFIG.TEMPLATES_DIR_NAME / 'core'),
-    str(PACKAGE_DIR / CONFIG.TEMPLATES_DIR_NAME / 'admin'),
-    str(PACKAGE_DIR / CONFIG.TEMPLATES_DIR_NAME),
+    str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'core'),
+    str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'admin'),
+    str(PACKAGE_DIR / TEMPLATES_DIR_NAME),
 ]
 
 TEMPLATES = [
@@ -208,13 +198,14 @@ TEMPLATES = [
 ### External Service Settings
 ################################################################################
 
+from ..plugins_sys.config.constants import CONSTANTS
 
-CACHE_DB_FILENAME = 'cache.sqlite3'
-CACHE_DB_PATH = CONFIG.CACHE_DIR / CACHE_DB_FILENAME
-CACHE_DB_TABLE = 'django_cache'
+# CACHE_DB_FILENAME = 'cache.sqlite3'
+# CACHE_DB_PATH = CONSTANTS.CACHE_DIR / CACHE_DB_FILENAME
+# CACHE_DB_TABLE = 'django_cache'
 
-DATABASE_FILE = DATA_DIR / CONFIG.SQL_INDEX_FILENAME
-DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(DATABASE_FILE))
+DATABASE_FILE = DATA_DIR / CONSTANTS.SQL_INDEX_FILENAME
+DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(CONSTANTS.DATABASE_FILE))
 
 QUEUE_DATABASE_NAME = DATABASE_NAME.replace('index.sqlite3', 'queue.sqlite3')
 
@@ -222,6 +213,7 @@ SQLITE_CONNECTION_OPTIONS = {
     "TIME_ZONE": CONFIG.TIMEZONE,
     "OPTIONS": {
         # https://gcollazo.com/optimal-sqlite-settings-for-django/
+        # # https://litestream.io/tips/#busy-timeout
         "timeout": 5,
         "check_same_thread": False,
         "transaction_mode": "IMMEDIATE",
@@ -345,7 +337,7 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
         "OPTIONS": {
             "base_url": "/archive/",
-            "location": CONFIG.ARCHIVE_DIR,
+            "location": ARCHIVE_DIR,
         },
     },
     # "personas": {

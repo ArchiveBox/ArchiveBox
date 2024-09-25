@@ -19,6 +19,8 @@ from pydantic_pkgr import (
     DEFAULT_ENV_PATH,
 )
 
+import archivebox
+
 # Depends on other Django apps:
 from plugantic.base_plugin import BasePlugin
 from plugantic.base_configset import BaseConfigSet
@@ -42,12 +44,10 @@ class PlaywrightConfigs(BaseConfigSet):
     # PLAYWRIGHT_DEFAULT_ARGS: List[str] = ['--timeout={TIMEOUT-10}']
     pass
 
-DEFAULT_GLOBAL_CONFIG = {
-}
 
-PLAYWRIGHT_CONFIG = PlaywrightConfigs(**DEFAULT_GLOBAL_CONFIG)
+PLAYWRIGHT_CONFIG = PlaywrightConfigs()
 
-LIB_DIR_BROWSERS = settings.CONFIG.OUTPUT_DIR / "lib" / "browsers"
+LIB_DIR_BROWSERS = archivebox.CONSTANTS.LIB_BROWSERS_DIR
 
 
 
@@ -65,12 +65,12 @@ class PlaywrightBinProvider(BaseBinProvider):
     name: BinProviderName = "playwright"
     INSTALLER_BIN: BinName = PLAYWRIGHT_BINARY.name
 
-    PATH: PATHStr = f"{settings.CONFIG.BIN_DIR}:{DEFAULT_ENV_PATH}"
+    PATH: PATHStr = f"{archivebox.CONSTANTS.LIB_BIN_DIR}:{DEFAULT_ENV_PATH}"
 
     puppeteer_browsers_dir: Optional[Path] = (
-        Path("~/Library/Caches/ms-playwright").expanduser()
+        Path("~/Library/Caches/ms-playwright").expanduser()      # macos playwright cache dir
         if OPERATING_SYSTEM == "darwin" else
-        Path("~/.cache/ms-playwright").expanduser()
+        Path("~/.cache/ms-playwright").expanduser()              # linux playwright cache dir
     )
     puppeteer_install_args: List[str] = ["install"]  # --with-deps
 

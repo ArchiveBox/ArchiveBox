@@ -4,8 +4,11 @@ import re
 import os
 import sys
 import stat
+import shutil
 import time
 import argparse
+import archivebox
+
 from math import log
 from multiprocessing import Process
 from pathlib import Path
@@ -22,18 +25,7 @@ from rich.panel import Panel
 
 from .system import get_dir_size
 from .util import enforce_types
-from .config import (
-    ConfigDict,
-    OUTPUT_DIR,
-    VERSION,
-    ANSI,
-    IS_TTY,
-    IN_DOCKER,
-    TERM_WIDTH,
-    SHOW_PROGRESS,
-    SOURCES_DIR_NAME,
-    stderr,
-)
+from .misc.logging import ANSI, stderr
 
 @dataclass
 class RuntimeStats:
@@ -102,7 +94,7 @@ def reject_stdin(caller: str, stdin: Optional[IO]=sys.stdin) -> None:
     if not stdin:
         return None
 
-    if IN_DOCKER:
+    if os.environ.get('IN_DOCKER') in ('1', 'true', 'True', 'TRUE', 'yes'):
         # when TTY is disabled in docker we cant tell if stdin is being piped in or not
         # if we try to read stdin when its not piped we will hang indefinitely waiting for it
         return None
@@ -141,9 +133,14 @@ class TimedProgress:
 
     def __init__(self, seconds, prefix=''):
 
-        self.SHOW_PROGRESS = SHOW_PROGRESS
+        from plugins_sys.config.apps import SHELL_CONFIG
+
+        self.SHOW_PROGRESS = SHELL_CONFIG.SHOW_PROGRESS
+        self.ANSI = SHELL_CONFIG.ANSI
+        self.TERM_WIDTH = lambda: shutil.get_terminal_size().columns      # lambda so it live-updates when terminal is resized
+        
         if self.SHOW_PROGRESS:
-            self.p = Process(target=progress_bar, args=(seconds, prefix))
+            self.p = Process(target=progress_bar, args=(seconds, prefix, self.ANSI))
             self.p.start()
 
         self.stats = {'start_ts': datetime.now(timezone.utc), 'end_ts': None}
@@ -172,7 +169,7 @@ class TimedProgress:
 
                 # clear whole terminal line
                 try:
-                    sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))
+                    sys.stdout.write('\r{}{}\r'.format((' ' * self.TERM_WIDTH()), self.ANSI['reset']))
                 except (IOError, BrokenPipeError):
                     # ignore when the parent proc has stopped listening to our stdout
                     pass
@@ -181,9 +178,10 @@ class TimedProgress:
 
 
 @enforce_types
-def progress_bar(seconds: int, prefix: str='') -> None:
+def progress_bar(seconds: int, prefix: str='', ANSI: Dict[str, str]=ANSI) -> None:
     """show timer in the form of progress bar, with percentage and seconds remaining"""
-    chunk = '█' if (sys.stdout or sys.__stdout__).encoding.upper() == 'UTF-8' else '#'
+    output_buf = (sys.stdout or sys.__stdout__ or sys.stderr or sys.__stderr__)
+    chunk = '█' if output_buf and output_buf.encoding.upper() == 'UTF-8' else '#'
     last_width = TERM_WIDTH()
     chunks = last_width - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
     try:
@@ -236,18 +234,15 @@ def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional
     args = ' '.join(subcommand_args)
     version_msg = '[dark_magenta]\\[i] [{now}] ArchiveBox v{VERSION}: [/dark_magenta][green4]archivebox [green3]{subcommand}[green2] {args}[/green2]'.format(
         now=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-        VERSION=VERSION,
+        VERSION=archivebox.__version__,
         subcommand=subcommand,
         args=args,
     )
     # stderr()
     # stderr('[bright_black]    > {pwd}[/]'.format(pwd=pwd, **ANSI))
     # stderr()
-    if SHOW_PROGRESS:
-        print(Panel(version_msg), file=sys.stderr)
-    else:
-        print(version_msg, file=sys.stderr)
-
+    print(Panel(version_msg), file=sys.stderr)
+    
 ### Parsing Stage
 
 
@@ -261,7 +256,8 @@ def log_importing_started(urls: Union[str, List[str]], depth: int, index_only: b
     ))
 
 def log_source_saved(source_file: str):
-    print('    > Saved verbatim input to {}/{}'.format(SOURCES_DIR_NAME, source_file.rsplit('/', 1)[-1]))
+    from plugins_sys.config.constants import CONSTANTS
+    print('    > Saved verbatim input to {}/{}'.format(CONSTANTS.SOURCES_DIR_NAME, source_file.rsplit('/', 1)[-1]))
 
 def log_parsing_finished(num_parsed: int, parser_name: str):
     _LAST_RUN_STATS.parse_end_ts = datetime.now(timezone.utc)
@@ -293,12 +289,14 @@ def log_indexing_process_finished():
 
 
 def log_indexing_started(out_path: str):
-    if IS_TTY:
-        sys.stdout.write(f'    > ./{Path(out_path).relative_to(OUTPUT_DIR)}')
+    from plugins_sys.config.apps import SHELL_CONFIG
+    
+    if SHELL_CONFIG.IS_TTY:
+        sys.stdout.write(f'    > ./{Path(out_path).relative_to(archivebox.DATA_DIR)}')
 
 
 def log_indexing_finished(out_path: str):
-    print(f'\r    √ ./{Path(out_path).relative_to(OUTPUT_DIR)}')
+    print(f'\r    √ ./{Path(out_path).relative_to(archivebox.DATA_DIR)}')
 
 
 ### Archiving Stage
@@ -447,7 +445,7 @@ def log_archive_method_finished(result: "ArchiveResult"):
             )
 
         docker_hints = ()
-        if IN_DOCKER:
+        if os.environ.get('IN_DOCKER') in ('1', 'true', 'True', 'TRUE', 'yes'):
             docker_hints = (
                 '  docker run -it -v $PWD/data:/data archivebox/archivebox /bin/bash',
             )
@@ -534,7 +532,7 @@ def log_shell_welcome_msg():
 ### Helpers
 
 @enforce_types
-def pretty_path(path: Union[Path, str], pwd: Union[Path, str]=OUTPUT_DIR) -> str:
+def pretty_path(path: Union[Path, str], pwd: Union[Path, str]=archivebox.DATA_DIR) -> str:
     """convert paths like .../ArchiveBox/archivebox/../output/abc into output/abc"""
     pwd = str(Path(pwd))  # .resolve()
     path = str(path)
@@ -577,7 +575,7 @@ def printable_folders(folders: Dict[str, Optional["Link"]],
 
 
 @enforce_types
-def printable_config(config: ConfigDict, prefix: str='') -> str:
+def printable_config(config: dict, prefix: str='') -> str:
     return f'\n{prefix}'.join(
         f'{key}={val}'
         for key, val in config.items()

@@ -6,6 +6,8 @@ import shutil
 import platform
 import archivebox
 
+CONSTANTS = archivebox.CONSTANTS
+
 from typing import Dict, List, Optional, Iterable, IO, Union
 from pathlib import Path
 from datetime import date, datetime
@@ -66,47 +68,25 @@ from .index.html import (
 )
 from .index.csv import links_to_csv
 from .extractors import archive_links, archive_link, ignore_methods
-from .misc.logging import stderr, hint
+from .misc.logging import stderr, hint, ANSI
 from .misc.checks import check_data_folder, check_dependencies
 from .config import (
     setup_django_minimal,
     ConfigDict,
-    ANSI,
     IS_TTY,
     DEBUG,
     IN_DOCKER,
     IN_QEMU,
     PUID,
     PGID,
-    USER,
     TIMEZONE,
-    ENFORCE_ATOMIC_WRITES,
-    OUTPUT_PERMISSIONS,
     ONLY_NEW,
-    OUTPUT_DIR,
-    SOURCES_DIR,
-    ARCHIVE_DIR,
-    LOGS_DIR,
-    PACKAGE_DIR,
-    CONFIG_FILE,
-    ARCHIVE_DIR_NAME,
     JSON_INDEX_FILENAME,
     HTML_INDEX_FILENAME,
     SQL_INDEX_FILENAME,
-    ALLOWED_IN_OUTPUT_DIR,
     LDAP,
     write_config_file,
-    VERSION,
-    COMMIT_HASH,
-    BUILD_TIME,
-    CODE_LOCATIONS,
-    DATA_LOCATIONS,
     DEPENDENCIES,
-    YOUTUBEDL_BINARY,
-    YOUTUBEDL_VERSION,
-    SINGLEFILE_VERSION,
-    READABILITY_VERSION,
-    MERCURY_VERSION,
     load_all_config,
     CONFIG,
     USER_CONFIG,
@@ -114,7 +94,6 @@ from .config import (
     setup_django,
 )
 from .logging_util import (
-    TERM_WIDTH,
     TimedProgress,
     log_importing_started,
     log_crawl_started,
@@ -129,9 +108,14 @@ from .logging_util import (
     printable_dependency_version,
 )
 
+VERSION = archivebox.VERSION
+PACKAGE_DIR = archivebox.PACKAGE_DIR
+OUTPUT_DIR = archivebox.DATA_DIR
+ARCHIVE_DIR = archivebox.DATA_DIR / 'archive'
+
 
 @enforce_types
-def help(out_dir: Path=OUTPUT_DIR) -> None:
+def help(out_dir: Path=archivebox.DATA_DIR) -> None:
     """Print the ArchiveBox help message and usage"""
 
     all_subcommands = CLI_SUBCOMMANDS
@@ -207,7 +191,7 @@ def version(quiet: bool=False,
     """Print the ArchiveBox version and dependency information"""
     
     setup_django_minimal()
-    from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG, STORAGE_CONFIG, SHELL_CONFIG
+    from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG, STORAGE_CONFIG, SHELL_CONFIG, CONSTANTS
     from plugins_auth.ldap.apps import LDAP_CONFIG
     from django.conf import settings
     
@@ -223,8 +207,8 @@ def version(quiet: bool=False,
         p = platform.uname()
         print(
             'ArchiveBox v{}'.format(archivebox.__version__),
-            f'COMMIT_HASH={COMMIT_HASH[:7] if COMMIT_HASH else "unknown"}',
-            f'BUILD_TIME={BUILD_TIME}',
+            f'COMMIT_HASH={SHELL_CONFIG.COMMIT_HASH[:7] if SHELL_CONFIG.COMMIT_HASH else "unknown"}',
+            f'BUILD_TIME={SHELL_CONFIG.BUILD_TIME}',
         )
         print(
             f'IN_DOCKER={IN_DOCKER}',
@@ -234,7 +218,7 @@ def version(quiet: bool=False,
             f'PLATFORM={platform.platform()}',
             f'PYTHON={sys.implementation.name.title()}',
         )
-        OUTPUT_IS_REMOTE_FS = DATA_LOCATIONS['OUTPUT_DIR']['is_mount'] or DATA_LOCATIONS['ARCHIVE_DIR']['is_mount']
+        OUTPUT_IS_REMOTE_FS = CONSTANTS.DATA_LOCATIONS['OUTPUT_DIR']['is_mount'] or CONSTANTS.DATA_LOCATIONS['ARCHIVE_DIR']['is_mount']
         print(
             f'FS_ATOMIC={STORAGE_CONFIG.ENFORCE_ATOMIC_WRITES}',
             f'FS_REMOTE={OUTPUT_IS_REMOTE_FS}',
@@ -268,17 +252,18 @@ def version(quiet: bool=False,
             except Exception as e:
                 err = e
                 loaded_bin = binary
+                raise
             print('', '√' if loaded_bin.is_valid else 'X', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(15), loaded_bin.abspath or str(err))
    
         print()
         print('{white}[i] Source-code locations:{reset}'.format(**ANSI))
-        for name, path in CODE_LOCATIONS.items():
+        for name, path in CONSTANTS.CODE_LOCATIONS.items():
             print(printable_folder_status(name, path))
 
         print()
-        if DATA_LOCATIONS['OUTPUT_DIR']['is_valid']:
+        if CONSTANTS.DATABASE_FILE.exists() or CONSTANTS.ARCHIVE_DIR.exists() or CONSTANTS.CONFIG_FILE.exists():
             print('{white}[i] Data locations:{reset}'.format(**ANSI))
-            for name, path in DATA_LOCATIONS.items():
+            for name, path in CONSTANTS.DATA_LOCATIONS.items():
                 print(printable_folder_status(name, path))
         else:
             print()
@@ -303,19 +288,19 @@ def run(subcommand: str,
 
 
 @enforce_types
-def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
+def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=archivebox.DATA_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
     
     from core.models import Snapshot
 
     out_dir.mkdir(exist_ok=True)
-    is_empty = not len(set(os.listdir(out_dir)) - ALLOWED_IN_OUTPUT_DIR)
+    is_empty = not len(set(os.listdir(out_dir)) - CONSTANTS.ALLOWED_IN_OUTPUT_DIR)
 
-    if (out_dir / JSON_INDEX_FILENAME).exists():
+    if (out_dir / archivebox.CONSTANTS.JSON_INDEX_FILENAME).exists():
         stderr("[!] This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.", color="lightyellow")
         stderr("    You can run `archivebox list --json --with-headers > static_index.json` to manually generate it.", color="lightyellow")
 
-    existing_index = (out_dir / SQL_INDEX_FILENAME).exists()
+    existing_index = archivebox.CONSTANTS.DATABASE_FILE.exists()
 
     if is_empty and not existing_index:
         print('{green}[+] Initializing a new ArchiveBox v{} collection...{reset}'.format(VERSION, **ANSI))
@@ -344,25 +329,24 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
     else:
         print('\n{green}[+] Building archive folder structure...{reset}'.format(**ANSI))
     
-    print(f'    + ./{ARCHIVE_DIR.relative_to(OUTPUT_DIR)}, ./{SOURCES_DIR.relative_to(OUTPUT_DIR)}, ./{LOGS_DIR.relative_to(OUTPUT_DIR)}...')
-    Path(SOURCES_DIR).mkdir(exist_ok=True)
-    Path(ARCHIVE_DIR).mkdir(exist_ok=True)
-    Path(LOGS_DIR).mkdir(exist_ok=True)
-    print(f'    + ./{CONFIG_FILE.relative_to(OUTPUT_DIR)}...')
+    print(f'    + ./{CONSTANTS.ARCHIVE_DIR.relative_to(OUTPUT_DIR)}, ./{CONSTANTS.SOURCES_DIR.relative_to(OUTPUT_DIR)}, ./{CONSTANTS.LOGS_DIR.relative_to(OUTPUT_DIR)}...')
+    Path(CONSTANTS.SOURCES_DIR).mkdir(exist_ok=True)
+    Path(CONSTANTS.ARCHIVE_DIR).mkdir(exist_ok=True)
+    Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)
+    print(f'    + ./{CONSTANTS.CONFIG_FILE.relative_to(OUTPUT_DIR)}...')
     write_config_file({}, out_dir=out_dir)
 
-    if (out_dir / SQL_INDEX_FILENAME).exists():
+    if CONSTANTS.DATABASE_FILE.exists():
         print('\n{green}[*] Verifying main SQL index and running any migrations needed...{reset}'.format(**ANSI))
     else:
         print('\n{green}[+] Building main SQL index and running initial migrations...{reset}'.format(**ANSI))
     
-    DATABASE_FILE = out_dir / SQL_INDEX_FILENAME
     for migration_line in apply_migrations(out_dir):
         print(f'    {migration_line}')
 
-    assert DATABASE_FILE.exists()
+    assert CONSTANTS.DATABASE_FILE.exists()
     print()
-    print(f'    √ ./{DATABASE_FILE.relative_to(OUTPUT_DIR)}')
+    print(f'    √ ./{CONSTANTS.DATABASE_FILE.relative_to(OUTPUT_DIR)}')
     
     # from django.contrib.auth.models import User
     # if IS_TTY and not User.objects.filter(is_superuser=True).exists():
@@ -477,7 +461,7 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     check_data_folder(CONFIG)
 
     from core.models import Snapshot
-    from django.contrib.auth import get_user_model
+    from django.contrib.auth import get_user_mod, SHELL_CONFIG
     User = get_user_model()
 
     print('{green}[*] Scanning archive main index...{reset}'.format(**ANSI))
@@ -491,7 +475,7 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     num_sql_links = links.count()
     num_link_details = sum(1 for link in parse_json_links_details(out_dir=out_dir))
     print(f'    > SQL Main Index: {num_sql_links} links'.ljust(36), f'(found in {SQL_INDEX_FILENAME})')
-    print(f'    > JSON Link Details: {num_link_details} links'.ljust(36), f'(found in {ARCHIVE_DIR_NAME}/*/index.json)')
+    print(f'    > JSON Link Details: {num_link_details} links'.ljust(36), f'(found in {ARCHIVE_DIR.name}/*/index.json)')
     print()
     print('{green}[*] Scanning archive data directories...{reset}'.format(**ANSI))
     print(ANSI['lightyellow'], f'   {ARCHIVE_DIR}/*', ANSI['reset'])
@@ -539,7 +523,7 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     
     print()
     print('{green}[*] Scanning recent archive changes and user logins:{reset}'.format(**ANSI))
-    print(ANSI['lightyellow'], f'   {LOGS_DIR}/*', ANSI['reset'])
+    print(ANSI['lightyellow'], f'   {CONSTANTS.LOGS_DIR}/*', ANSI['reset'])
     users = get_admins().values_list('username', flat=True)
     print(f'    UI users {len(users)}: {", ".join(users)}')
     last_login = User.objects.order_by('last_login').last()
@@ -564,7 +548,7 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
                 f'   > {str(snapshot.downloaded_at)[:16]} '
                 f'[{snapshot.num_outputs} {("X", "√")[snapshot.is_archived]} {printable_filesize(snapshot.archive_size)}] '
                 f'"{snapshot.title}": {snapshot.url}'
-            )[:TERM_WIDTH()],
+            )[:SHELL_CONFIG.TERM_WIDTH],
             ANSI['reset'],
         )
     print(ANSI['black'], '   ...', ANSI['reset'])
@@ -976,7 +960,7 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
 
     from rich import print
 
-    if not (out_dir / ARCHIVE_DIR_NAME).exists():
+    if not ARCHIVE_DIR.exists():
         run_subcommand('init', stdin=None, pwd=out_dir)
 
     setup_django(out_dir=out_dir, check_db=True)
@@ -992,9 +976,13 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
     from plugins_extractor.singlefile.apps import SINGLEFILE_BINARY
     print(SINGLEFILE_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
     
+    from plugins_extractor.readability.apps import READABILITY_BINARY
+    print(READABILITY_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+    
+    
     from plugins_pkg.npm.apps import npm
 
-    print(npm.load_or_install('readability-extractor', overrides={'packages': lambda: ['github:ArchiveBox/readability-extractor']}).model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+    # TODO: move these to their own plugin binaries
     print(npm.load_or_install('postlight-parser',      overrides={'packages': lambda: ['@postlight/parser@^2.2.3'], 'version': lambda: '2.2.3'}).model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths'}))
 
     from django.contrib.auth import get_user_model
@@ -1020,7 +1008,6 @@ def config(config_options_str: Optional[str]=None,
     """Get and set your ArchiveBox project configuration values"""
 
     check_data_folder(CONFIG)
-
     if config_options and config_options_str:
         stderr(
             '[X] You should either pass config values as an arguments '
@@ -1096,7 +1083,6 @@ def config(config_options_str: Optional[str]=None,
     elif reset:
         stderr('[X] This command is not implemented yet.', color='red')
         stderr('    Please manually remove the relevant lines from your config file:')
-        stderr(f'        {CONFIG_FILE}')
         raise SystemExit(2)
     else:
         stderr('[X] You must pass either --get or --set, or no arguments to get the whole config.', color='red')
@@ -1125,8 +1111,9 @@ def schedule(add: bool=False,
     check_data_folder(CONFIG)
     setup_django_minimal()
     from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
+    from plugins_sys.config.apps import SHELL_CONFIG, CONSTANTS
 
-    Path(LOGS_DIR).mkdir(exist_ok=True)
+    Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)
 
     cron = CronTab(user=True)
     cron = dedupe_cron_jobs(cron)
@@ -1155,7 +1142,7 @@ def schedule(add: bool=False,
                 f'"{import_path}"',
             ] if import_path else ['update']),
             '>>',
-            quoted(Path(LOGS_DIR) / 'schedule.log'),
+            quoted(Path(CONSTANTS.LOGS_DIR) / 'schedule.log'),
             '2>&1',
 
         ]
@@ -1167,7 +1154,7 @@ def schedule(add: bool=False,
         elif CronSlices.is_valid(every):
             new_job.setall(every)
         else:
-            stderr('{red}[X] Got invalid timeperiod for cron task.{reset}'.format(**ANSI))
+            stderr('{red}[X] Got invalid timeperiod for cron task.{reset}'.format(**SHELL_CONFIG.ANSI))
             stderr('    It must be one of minute/hour/day/month')
             stderr('    or a quoted cron-format schedule like:')
             stderr('        archivebox init --every=day --depth=1 https://example.com/some/rss/feed.xml')
@@ -1181,11 +1168,11 @@ def schedule(add: bool=False,
         existing_jobs = list(cron.find_comment(CRON_COMMENT))
 
         print()
-        print('{green}[√] Scheduled new ArchiveBox cron job for user: {} ({} jobs are active).{reset}'.format(USER, len(existing_jobs), **ANSI))
+        print('{green}[√] Scheduled new ArchiveBox cron job for user: {} ({} jobs are active).{reset}'.format(SHELL_CONFIG.USER, len(existing_jobs), **SHELL_CONFIG.ANSI))
         print('\n'.join(f'  > {cmd}' if str(cmd) == str(new_job) else f'    {cmd}' for cmd in existing_jobs))
         if total_runs > 60 and not quiet:
             stderr()
-            stderr('{lightyellow}[!] With the current cron config, ArchiveBox is estimated to run >{} times per year.{reset}'.format(total_runs, **ANSI))
+            stderr('{lightyellow}[!] With the current cron config, ArchiveBox is estimated to run >{} times per year.{reset}'.format(total_runs, **SHELL_CONFIG.ANSI))
             stderr('    Congrats on being an enthusiastic internet archiver! 👌')
             stderr()
             stderr('    Make sure you have enough storage space available to hold all the data.')
@@ -1195,7 +1182,7 @@ def schedule(add: bool=False,
         if existing_jobs:
             print('\n'.join(str(cmd) for cmd in existing_jobs))
         else:
-            stderr('{red}[X] There are no ArchiveBox cron jobs scheduled for your user ({}).{reset}'.format(USER, **ANSI))
+            stderr('{red}[X] There are no ArchiveBox cron jobs scheduled for your user ({}).{reset}'.format(SHELL_CONFIG.USER, **SHELL_CONFIG.ANSI))
             stderr('    To schedule a new job, run:')
             stderr('        archivebox schedule --every=[timeperiod] --depth=1 https://example.com/some/rss/feed.xml')
         raise SystemExit(0)
@@ -1206,11 +1193,11 @@ def schedule(add: bool=False,
 
     if foreground or run_all:
         if not existing_jobs:
-            stderr('{red}[X] You must schedule some jobs first before running in foreground mode.{reset}'.format(**ANSI))
+            stderr('{red}[X] You must schedule some jobs first before running in foreground mode.{reset}'.format(**SHELL_CONFIG.ANSI))
             stderr('    archivebox schedule --every=hour --depth=1 https://example.com/some/rss/feed.xml')
             raise SystemExit(1)
 
-        print('{green}[*] Running {} ArchiveBox jobs in foreground task scheduler...{reset}'.format(len(existing_jobs), **ANSI))
+        print('{green}[*] Running {} ArchiveBox jobs in foreground task scheduler...{reset}'.format(len(existing_jobs), **SHELL_CONFIG.ANSI))
         if run_all:
             try:
                 for job in existing_jobs:
@@ -1220,7 +1207,7 @@ def schedule(add: bool=False,
                     job.run()
                     sys.stdout.write(f'\r    √ {job.command.split("/archivebox ")[-1]}\n')
             except KeyboardInterrupt:
-                print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
+                print('\n{green}[√] Stopped.{reset}'.format(**SHELL_CONFIG.ANSI))
                 raise SystemExit(1)
 
         if foreground:
@@ -1230,7 +1217,7 @@ def schedule(add: bool=False,
                 for result in cron.run_scheduler():
                     print(result)
             except KeyboardInterrupt:
-                print('\n{green}[√] Stopped.{reset}'.format(**ANSI))
+                print('\n{green}[√] Stopped.{reset}'.format(**SHELL_CONFIG.ANSI))
                 raise SystemExit(1)
 
     # if CAN_UPGRADE:

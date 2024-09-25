@@ -34,7 +34,7 @@ class SinglefileConfig(BaseConfigSet):
     SINGLEFILE_CHECK_SSL_VALIDITY: bool     = Field(default=lambda: ARCHIVING_CONFIG.CHECK_SSL_VALIDITY)
     SINGLEFILE_COOKIES_FILE: Optional[Path] = Field(default=lambda: ARCHIVING_CONFIG.COOKIES_FILE)
 
-    SINGLEFILE_BINARY: str = Field(default='wget')
+    SINGLEFILE_BINARY: str = Field(default='single-file')
     SINGLEFILE_EXTRA_ARGS: List[str] = []
 
 
@@ -46,17 +46,21 @@ SINGLEFILE_MAX_VERSION = '1.1.60'
 
 
 class SinglefileBinary(BaseBinary):
-    name: BinName = 'single-file'
+    name: BinName = SINGLEFILE_CONFIG.SINGLEFILE_BINARY
     binproviders_supported: List[InstanceOf[BinProvider]] = [LIB_NPM_BINPROVIDER, SYS_NPM_BINPROVIDER, env]
 
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
         env.name: {
             'abspath': lambda:
-                bin_abspath('single-file', PATH=env.PATH) or bin_abspath('single-file-node.js', PATH=env.PATH),
+                bin_abspath(SINGLEFILE_CONFIG.SINGLEFILE_BINARY, PATH=env.PATH)
+                or bin_abspath('single-file', PATH=env.PATH)
+                or bin_abspath('single-file-node.js', PATH=env.PATH),
         },
         LIB_NPM_BINPROVIDER.name: {
             "abspath": lambda:
-                bin_abspath("single-file", PATH=LIB_NPM_BINPROVIDER.PATH) or bin_abspath("single-file-node.js", PATH=LIB_NPM_BINPROVIDER.PATH),
+                bin_abspath(SINGLEFILE_CONFIG.SINGLEFILE_BINARY, PATH=env.PATH)
+                or bin_abspath("single-file", PATH=LIB_NPM_BINPROVIDER.PATH)
+                or bin_abspath("single-file-node.js", PATH=LIB_NPM_BINPROVIDER.PATH),
             "packages": lambda:
                 [f"single-file-cli@>={SINGLEFILE_MIN_VERSION} <{SINGLEFILE_MAX_VERSION}"],
         },

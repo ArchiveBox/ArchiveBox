@@ -4,6 +4,7 @@ __package__ = 'archivebox'
 import os
 import signal
 import shutil
+import getpass
 
 from json import dump
 from pathlib import Path
@@ -229,3 +230,31 @@ class suppress_output(object):
         if self.stderr:
             os.dup2(self.real_stderr, 2)
             os.close(self.null_stderr)
+
+
+def get_system_user() -> str:
+    # some host OS's are unable to provide a username (k3s, Windows), making this complicated
+    # uid 999 is especially problematic and breaks many attempts
+    SYSTEM_USER = None
+    FALLBACK_USER_PLACHOLDER = f'user_{os.getuid()}'
+
+    # Option 1
+    try:
+        import pwd
+        SYSTEM_USER = SYSTEM_USER or pwd.getpwuid(os.geteuid()).pw_name
+    except (ModuleNotFoundError, Exception):
+        pass
+
+    # Option 2
+    try:
+        SYSTEM_USER = SYSTEM_USER or getpass.getuser()
+    except Exception:
+        pass
+
+    # Option 3
+    try:
+        SYSTEM_USER = SYSTEM_USER or os.getlogin()
+    except Exception:
+        pass
+
+    return SYSTEM_USER or FALLBACK_USER_PLACHOLDER

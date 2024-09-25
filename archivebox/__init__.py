@@ -1,13 +1,14 @@
 __package__ = 'archivebox'
 
-# print('INSTALLING MONKEY PATCHES')
 
-from .monkey_patches import *
+# print('INSTALLING MONKEY PATCHES')
+from .monkey_patches import *                    # noqa
+# print('DONE INSTALLING MONKEY PATCHES')
+
 
 import os
-import importlib
+import importlib.metadata
 from pathlib import Path
-
 
 PACKAGE_DIR = Path(__file__).resolve().parent    # archivebox source code dir
 DATA_DIR = Path(os.curdir).resolve()             # archivebox user data dir
@@ -28,7 +29,9 @@ def _detect_installed_version():
 
     raise Exception('Failed to detect installed archivebox version!')
 
+VERSION = _detect_installed_version()
 
-__version__ = _detect_installed_version()
+__version__ = VERSION
 
-# print('DONE INSTALLING MONKEY PATCHES')
+
+from .constants import CONSTANTS
