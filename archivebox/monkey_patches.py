@@ -10,7 +10,6 @@ import datetime
 from django.utils import timezone
 timezone.utc = datetime.timezone.utc
 
-
 # monkey patch django-signals-webhooks to change how it shows up in Admin UI
 # from signal_webhooks.apps import DjangoSignalWebhooksConfig
 # DjangoSignalWebhooksConfig.verbose_name = 'API'

@@ -141,18 +141,22 @@ SETTINGS_LOGGING = {
         "api": {
             "handlers": ["default", "logfile"],
             "level": "DEBUG",
+            "propagate": False,
         },
         "checks": {
             "handlers": ["default", "logfile"],
             "level": "DEBUG",
+            "propagate": False,
         },
         "core": {
             "handlers": ["default", "logfile"],
             "level": "DEBUG",
+            "propagate": False,
         },
         "plugins_extractor": {
             "handlers": ["default", "logfile"],
             "level": "DEBUG",
+            "propagate": False,
         },
         "httpx": {
             "handlers": ["outbound_webhooks"],
@@ -164,6 +168,7 @@ SETTINGS_LOGGING = {
             "handlers": ["default", "logfile"],
             "level": "INFO",
             "filters": ["noisyrequestsfilter"],
+            "propagate": False,
         },
         "django.utils.autoreload": {
             "propagate": False,

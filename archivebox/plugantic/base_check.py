@@ -28,7 +28,7 @@ class BaseCheck(BaseHook):
     def register(self, settings, parent_plugin=None):
         # self._plugin = parent_plugin  # backref to parent is for debugging only, never rely on this!
 
-        self.register_with_django_check_system()  # (SIDE EFFECT)
+        self.register_with_django_check_system(settings)  # (SIDE EFFECT)
 
         # install hook into settings.CHECKS
         settings.CHECKS = getattr(settings, "CHECKS", None) or AttrDict({})
@@ -37,12 +37,9 @@ class BaseCheck(BaseHook):
         # record installed hook in settings.HOOKS
         super().register(settings, parent_plugin=parent_plugin)
 
-    def register_with_django_check_system(self):
-
+    def register_with_django_check_system(self, settings):
         def run_check(app_configs, **kwargs) -> List[Warning]:
-            from django.conf import settings
             import logging
-
             return self.check(settings, logging.getLogger("checks"))
 
         run_check.__name__ = self.id

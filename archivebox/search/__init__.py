@@ -14,7 +14,7 @@ from .utils import get_indexable_content, log_index_started
 
 
 def import_backend():
-    for backend in settings.SEARCH_BACKENDS:
+    for backend in settings.SEARCH_BACKENDS.values():
         if backend.name == settings.CONFIGS.SearchBackendConfig.SEARCH_BACKEND_ENGINE:
             return backend
     raise Exception(f'Could not load {settings.CONFIGS.SearchBackendConfig.SEARCH_BACKEND_ENGINE} as search backend')

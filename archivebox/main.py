@@ -16,7 +16,7 @@ from django.db.models import QuerySet
 from django.utils import timezone
 
 from .cli import (
-    list_subcommands,
+    CLI_SUBCOMMANDS,
     run_subcommand,
     display_first,
     meta_cmds,
@@ -66,9 +66,9 @@ from .index.html import (
 )
 from .index.csv import links_to_csv
 from .extractors import archive_links, archive_link, ignore_methods
+from .misc.logging import stderr, hint
+from .misc.checks import check_data_folder, check_dependencies
 from .config import (
-    stderr,
-    hint,
     ConfigDict,
     ANSI,
     IS_TTY,
@@ -98,8 +98,6 @@ from .config import (
     SEARCH_BACKEND_ENGINE,
     LDAP,
     get_version,
-    check_dependencies,
-    check_data_folder,
     write_config_file,
     VERSION,
     VERSIONS_AVAILABLE,
@@ -146,7 +144,7 @@ from .logging_util import (
 def help(out_dir: Path=OUTPUT_DIR) -> None:
     """Print the ArchiveBox help message and usage"""
 
-    all_subcommands = list_subcommands()
+    all_subcommands = CLI_SUBCOMMANDS
     COMMANDS_HELP_TEXT = '\n    '.join(
         f'{cmd.ljust(20)} {summary}'
         for cmd, summary in all_subcommands.items()
@@ -281,7 +279,7 @@ def version(quiet: bool=False,
             print('{white}[i] Data locations:{reset} (not in a data directory)'.format(**ANSI))
 
         print()
-        check_dependencies()
+        check_dependencies(CONFIG)
 
 
 @enforce_types
@@ -469,7 +467,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
 def status(out_dir: Path=OUTPUT_DIR) -> None:
     """Print out some info and statistics about the archive collection"""
 
-    check_data_folder(out_dir=out_dir)
+    check_data_folder(CONFIG)
 
     from core.models import Snapshot
     from django.contrib.auth import get_user_model
@@ -609,8 +607,8 @@ def add(urls: Union[str, List[str]],
         run_subcommand('init', stdin=None, pwd=out_dir)
 
     # Load list of links from the existing index
-    check_data_folder(out_dir=out_dir)
-    check_dependencies()
+    check_data_folder(CONFIG)
+    check_dependencies(CONFIG)
     new_links: List[Link] = []
     all_links = load_main_index(out_dir=out_dir)
 
@@ -705,7 +703,7 @@ def remove(filter_str: Optional[str]=None,
            out_dir: Path=OUTPUT_DIR) -> List[Link]:
     """Remove the specified URLs from the archive"""
     
-    check_data_folder(out_dir=out_dir)
+    check_data_folder(CONFIG)
 
     if snapshots is None:
         if filter_str and filter_patterns:
@@ -792,8 +790,8 @@ def update(resume: Optional[float]=None,
     from core.models import ArchiveResult
     from .search import index_links
 
-    check_data_folder(out_dir=out_dir)
-    check_dependencies()
+    check_data_folder(CONFIG)
+    check_dependencies(CONFIG)
     new_links: List[Link] = [] # TODO: Remove input argument: only_new
 
     extractors = extractors.split(",") if extractors else []
@@ -863,7 +861,7 @@ def list_all(filter_patterns_str: Optional[str]=None,
              out_dir: Path=OUTPUT_DIR) -> Iterable[Link]:
     """List, filter, and export information about archive entries"""
     
-    check_data_folder(out_dir=out_dir)
+    check_data_folder(CONFIG)
 
     if filter_patterns and filter_patterns_str:
         stderr(
@@ -911,7 +909,7 @@ def list_links(snapshots: Optional[QuerySet]=None,
                before: Optional[float]=None,
                out_dir: Path=OUTPUT_DIR) -> Iterable[Link]:
     
-    check_data_folder(out_dir=out_dir)
+    check_data_folder(CONFIG)
 
     if snapshots:
         all_snapshots = snapshots
@@ -935,7 +933,7 @@ def list_folders(links: List[Link],
                  status: str,
                  out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
     
-    check_data_folder(out_dir=out_dir)
+    check_data_folder(CONFIG)
 
     STATUS_FUNCTIONS = {
         "indexed": get_indexed_folders,
@@ -1080,7 +1078,7 @@ def config(config_options_str: Optional[str]=None,
            out_dir: Path=OUTPUT_DIR) -> None:
     """Get and set your ArchiveBox project configuration values"""
 
-    check_data_folder(out_dir=out_dir)
+    check_data_folder(CONFIG)
 
     if config_options and config_options_str:
         stderr(
@@ -1183,7 +1181,7 @@ def schedule(add: bool=False,
              out_dir: Path=OUTPUT_DIR):
     """Set ArchiveBox to regularly import URLs at specific times using cron"""
     
-    check_data_folder(out_dir=out_dir)
+    check_data_folder(CONFIG)
 
     Path(LOGS_DIR).mkdir(exist_ok=True)
 
@@ -1324,7 +1322,7 @@ def server(runserver_args: Optional[List[str]]=None,
     config.SHOW_PROGRESS = False
     config.DEBUG = config.DEBUG or debug
 
-    check_data_folder(out_dir=out_dir)
+    check_data_folder(CONFIG)
 
     from django.core.management import call_command
     from django.contrib.auth.models import User
@@ -1417,7 +1415,7 @@ def server(runserver_args: Optional[List[str]]=None,
 def manage(args: Optional[List[str]]=None, out_dir: Path=OUTPUT_DIR) -> None:
     """Run an ArchiveBox Django management command"""
 
-    check_data_folder(out_dir=out_dir)
+    check_data_folder(CONFIG)
     from django.core.management import execute_from_command_line
 
     if (args and "createsuperuser" in args) and (IN_DOCKER and not IS_TTY):
@@ -1432,7 +1430,7 @@ def manage(args: Optional[List[str]]=None, out_dir: Path=OUTPUT_DIR) -> None:
 def shell(out_dir: Path=OUTPUT_DIR) -> None:
     """Enter an interactive ArchiveBox Django shell"""
 
-    check_data_folder(out_dir=out_dir)
+    check_data_folder(CONFIG)
 
     from django.core.management import call_command
     call_command("shell_plus")

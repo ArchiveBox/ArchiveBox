@@ -96,14 +96,13 @@ class BaseHook(BaseModel):
         # e.g. /admin/environment/config/LdapConfig/
         return f"/admin/environment/{self.hook_type.lower()}/{self.id}/"
 
-
     def register(self, settings, parent_plugin=None):
         """Load a record of an installed hook into global Django settings.HOOKS at runtime."""
         self._plugin = parent_plugin         # for debugging only, never rely on this!
 
         # assert json.dumps(self.model_json_schema(), indent=4), f"Hook {self.hook_module} has invalid JSON schema."
 
-        print('  -', self.hook_module, '.register()')
+        # print('  -', self.hook_module, '.register()')
 
         # record installed hook in settings.HOOKS
         settings.HOOKS[self.id] = self
@@ -118,7 +117,7 @@ class BaseHook(BaseModel):
     def ready(self, settings):
         """Runs any runtime code needed when AppConfig.ready() is called (after all models are imported)."""
 
-        print('  -', self.hook_module, '.ready()')
+        # print('  -', self.hook_module, '.ready()')
 
         assert self.id in settings.HOOKS, f"Tried to ready hook {self.hook_module} but it is not registered in settings.HOOKS."
 

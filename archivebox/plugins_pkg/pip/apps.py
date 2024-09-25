@@ -149,6 +149,7 @@ class CheckUserIsNotRoot(BaseCheck):
             )
         logger.debug('[√] UID is not root')
         return errors
+
     
 class CheckPipEnvironment(BaseCheck):
     label: str = "CheckPipEnvironment"

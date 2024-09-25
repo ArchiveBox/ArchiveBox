@@ -1,3 +1,5 @@
+__package__ = 'archivebox.plugins_extractor.chrome'
+
 import platform
 from pathlib import Path
 from typing import List, Optional, Dict, ClassVar
@@ -77,40 +79,16 @@ def create_macos_app_symlink(target: Path, shortcut: Path):
 ###################### Config ##########################
 
 
-class ChromeDependencyConfigs(BaseConfigSet):
+class ChromeConfig(BaseConfigSet):
     section: ClassVar[ConfigSectionName] = "DEPENDENCY_CONFIG"
 
-    CHROME_BINARY: str = Field(default='chrome')
-    CHROME_ARGS: Optional[List[str]] = Field(default=None)
-    CHROME_EXTRA_ARGS: List[str] = []
-    CHROME_DEFAULT_ARGS: List[str] = ['--timeout={TIMEOUT-10}']
-    
-    # def load(self) -> Self:
-    #     # for each field in the model, load its value
-    #     # load from each source in order of precedence (lowest to highest):
-    #     # - schema default
-    #     # - ArchiveBox.conf INI file
-    #     # - environment variables
-    #     # - command-line arguments
-        
-    #     LOADED_VALUES: Dict[str, Any] = {}
+    CHROME_BINARY: str                      = Field(default='chrome')
+    CHROME_ARGS: List[str] | None           = Field(default=None)
+    CHROME_EXTRA_ARGS: List[str]            = Field(default=[])
+    CHROME_DEFAULT_ARGS: List[str]          = Field(default=lambda: ['--timeout={TIMEOUT-10}'])
 
-    #     for field_name, field in self.__fields__.items():
-    #         def_value   = field.default_factory() if field.default_factory else field.default
-    #         ini_value   = settings.INI_CONFIG.get_value(field_name)
-    #         env_value   = settings.ENV_CONFIG.get_value(field_name)
-    #         cli_value   = settings.CLI_CONFIG.get_value(field_name)
-    #         run_value   = settings.RUN_CONFIG.get_value(field_name)
-    #         value = run_value or cli_value or env_value or ini_value or def_value
 
-class ChromeConfigs(ChromeDependencyConfigs):
-    # section: ConfigSectionName = 'ALL_CONFIGS'
-    pass
-
-DEFAULT_GLOBAL_CONFIG = {
-}
-
-CHROME_CONFIG = ChromeConfigs(**DEFAULT_GLOBAL_CONFIG)
+CHROME_CONFIG = ChromeConfig()
 
 
 class ChromeBinary(BaseBinary):
@@ -133,6 +111,7 @@ class ChromeBinary(BaseBinary):
     def symlink_to_lib(binary, bin_dir=settings.CONFIG.BIN_DIR) -> None:
         if not (binary.abspath and binary.abspath.exists()):
             return
+        
         bin_dir.mkdir(parents=True, exist_ok=True)
         symlink = bin_dir / binary.name
         
@@ -146,7 +125,6 @@ class ChromeBinary(BaseBinary):
 
 CHROME_BINARY = ChromeBinary()
 
-PLUGIN_BINARIES = [CHROME_BINARY]
 
 class ChromePlugin(BasePlugin):
     app_label: str = 'chrome'

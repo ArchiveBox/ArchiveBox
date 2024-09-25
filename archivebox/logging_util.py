@@ -230,7 +230,7 @@ def progress_bar(seconds: int, prefix: str='') -> None:
         print()
 
 
-def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str], pwd: str):
+def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str | IO], pwd: str):
     cmd = ' '.join(('archivebox', subcommand, *subcommand_args))
     stderr('{black}[i] [{now}] ArchiveBox v{VERSION}: {cmd}{reset}'.format(
         now=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
@@ -526,11 +526,11 @@ def log_removal_finished(all_links: int, to_remove: int):
 
 
 def log_shell_welcome_msg():
-    from .cli import list_subcommands
+    from .cli import CLI_SUBCOMMANDS
 
     print('{green}# ArchiveBox Imports{reset}'.format(**ANSI))
     print('{green}from core.models import Snapshot, ArchiveResult, Tag, User{reset}'.format(**ANSI))
-    print('{green}from cli import *\n    {}{reset}'.format("\n    ".join(list_subcommands().keys()), **ANSI))
+    print('{green}from cli import *\n    {}{reset}'.format("\n    ".join(CLI_SUBCOMMANDS.keys()), **ANSI))
     print()
     print('[i] Welcome to the ArchiveBox Shell!')
     print('    https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Shell-Usage')

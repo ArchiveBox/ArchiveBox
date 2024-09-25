@@ -3,6 +3,7 @@ __package__ = "archivebox.plugantic"
 from typing import Dict, List
 from typing_extensions import Self
 
+from benedict import benedict
 from pydantic import Field, InstanceOf, validate_call
 from pydantic_pkgr import (
     Binary,
@@ -17,7 +18,6 @@ from pydantic_pkgr import (
 from django.conf import settings
 
 from .base_hook import BaseHook, HookType
-from ..config_stubs import AttrDict
 
 
 class BaseBinProvider(BaseHook, BinProvider):
@@ -38,7 +38,7 @@ class BaseBinProvider(BaseHook, BinProvider):
     def register(self, settings, parent_plugin=None):
         # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
 
-        settings.BINPROVIDERS = getattr(settings, "BINPROVIDERS", None) or AttrDict({})
+        settings.BINPROVIDERS = getattr(settings, "BINPROVIDERS", None) or benedict({})
         settings.BINPROVIDERS[self.id] = self
 
         super().register(settings, parent_plugin=parent_plugin)
@@ -58,7 +58,7 @@ class BaseBinary(BaseHook, Binary):
     def register(self, settings, parent_plugin=None):
         # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
 
-        settings.BINARIES = getattr(settings, "BINARIES", None) or AttrDict({})
+        settings.BINARIES = getattr(settings, "BINARIES", None) or benedict({})
         settings.BINARIES[self.id] = self
 
         super().register(settings, parent_plugin=parent_plugin)

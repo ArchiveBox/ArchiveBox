@@ -1,5 +1,7 @@
 __package__ = 'archivebox'
 
+# print('INSTALLING MONKEY PATCHES')
+
 from .monkey_patches import *
 
 import os
@@ -28,3 +30,5 @@ def _detect_installed_version():
 
 
 __version__ = _detect_installed_version()
+
+# print('DONE INSTALLING MONKEY PATCHES')

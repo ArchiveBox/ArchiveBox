@@ -1,6 +1,5 @@
 __package__ = 'archivebox.plugantic'
 
-import json
 import inspect
 from pathlib import Path
 
@@ -18,10 +17,11 @@ from pydantic import (
     computed_field,
     validate_call,
 )
+from benedict import benedict
 
 from .base_hook import BaseHook, HookType
 
-from ..config import AttrDict
+from ..config import bump_startup_progress_bar
 
 
 class BasePlugin(BaseModel):
@@ -90,7 +90,8 @@ class BasePlugin(BaseModel):
         
         assert self.app_label and self.app_label and self.verbose_name, f'{self.__class__.__name__} is missing .name or .app_label or .verbose_name'
         
-        assert json.dumps(self.model_json_schema(), indent=4), f"Plugin {self.plugin_module} has invalid JSON schema."
+        # assert json.dumps(self.model_json_schema(), indent=4), f"Plugin {self.plugin_module} has invalid JSON schema."
+        
         return self
     
     @property
@@ -114,13 +115,13 @@ class BasePlugin(BaseModel):
 
     @property
     def HOOKS_BY_ID(self) -> Dict[str, InstanceOf[BaseHook]]:
-        return AttrDict({hook.id: hook for hook in self.hooks})
+        return benedict({hook.id: hook for hook in self.hooks})
 
     @property
     def HOOKS_BY_TYPE(self) -> Dict[HookType, Dict[str, InstanceOf[BaseHook]]]:
-        hooks = AttrDict({})
+        hooks = benedict({})
         for hook in self.hooks:
-            hooks[hook.hook_type] = hooks.get(hook.hook_type) or AttrDict({})
+            hooks[hook.hook_type] = hooks.get(hook.hook_type) or benedict({})
             hooks[hook.hook_type][hook.id] = hook
         return hooks
 
@@ -131,10 +132,10 @@ class BasePlugin(BaseModel):
             from django.conf import settings as django_settings
             settings = django_settings
             
-        print()
-        print(self.plugin_module_full, '.register()')
+        # print()
+        # print(self.plugin_module_full, '.register()')
 
-        assert json.dumps(self.model_json_schema(), indent=4), f'Plugin {self.plugin_module} has invalid JSON schema.'
+        # assert json.dumps(self.model_json_schema(), indent=4), f'Plugin {self.plugin_module} has invalid JSON schema.'
 
         assert self.id not in settings.PLUGINS, f'Tried to register plugin {self.plugin_module} but it conflicts with existing plugin of the same name ({self.app_label}).'
 
@@ -149,6 +150,7 @@ class BasePlugin(BaseModel):
 
         settings.PLUGINS[self.id]._is_registered = True
         # print('√ REGISTERED PLUGIN:', self.plugin_module)
+        bump_startup_progress_bar()
 
     def ready(self, settings=None):
         """Runs any runtime code needed when AppConfig.ready() is called (after all models are imported)."""
@@ -157,8 +159,8 @@ class BasePlugin(BaseModel):
             from django.conf import settings as django_settings
             settings = django_settings
 
-        print()
-        print(self.plugin_module_full, '.ready()')
+        # print()
+        # print(self.plugin_module_full, '.ready()')
 
         assert (
             self.id in settings.PLUGINS and settings.PLUGINS[self.id]._is_registered
@@ -171,6 +173,7 @@ class BasePlugin(BaseModel):
             hook.ready(settings)
         
         settings.PLUGINS[self.id]._is_ready = True
+        bump_startup_progress_bar()
 
     # @validate_call
     # def install_binaries(self) -> Self:

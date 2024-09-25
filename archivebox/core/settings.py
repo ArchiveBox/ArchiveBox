@@ -170,6 +170,7 @@ STATICFILES_DIRS = [
     *[
         str(plugin_dir / 'static')
         for plugin_dir in PLUGIN_DIRS.values()
+        if (plugin_dir / 'static').is_dir()
     ],
     str(PACKAGE_DIR / CONFIG.TEMPLATES_DIR_NAME / 'static'),
 ]
@@ -179,6 +180,7 @@ TEMPLATE_DIRS = [
     *[
         str(plugin_dir / 'templates')
         for plugin_dir in PLUGIN_DIRS.values()
+        if (plugin_dir / 'templates').is_dir()
     ],
     str(PACKAGE_DIR / CONFIG.TEMPLATES_DIR_NAME / 'core'),
     str(PACKAGE_DIR / CONFIG.TEMPLATES_DIR_NAME / 'admin'),

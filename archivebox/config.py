@@ -28,21 +28,19 @@ import sys
 import json
 import inspect
 import getpass
-import platform
 import shutil
 import requests
 
 from hashlib import md5
 from pathlib import Path
-from benedict import benedict
 from datetime import datetime, timezone
-from typing import Optional, Type, Tuple, Dict, Union, List
+from typing import Optional, Type, Tuple, Dict
 from subprocess import run, PIPE, DEVNULL, STDOUT, TimeoutExpired
 from configparser import ConfigParser
-from collections import defaultdict
 import importlib.metadata
 
 from pydantic_pkgr import SemVer
+from rich.progress import Progress
 
 import django
 from django.db.backends.sqlite3.base import Database as sqlite3
@@ -55,6 +53,17 @@ from .config_stubs import (
     ConfigDefaultValue,
     ConfigDefaultDict,
 )
+
+from .misc.logging import (
+    CONSOLE,
+    SHOW_PROGRESS,
+    DEFAULT_CLI_COLORS,
+    ANSI,
+    COLOR_DICT,
+    stderr,
+    hint,
+)
+from .misc.checks import check_system_config
 
 # print('STARTING CONFIG LOADING')
 
@@ -70,7 +79,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
     'SHELL_CONFIG': {
         'IS_TTY':                   {'type': bool,  'default': lambda _: sys.stdout.isatty()},
         'USE_COLOR':                {'type': bool,  'default': lambda c: c['IS_TTY']},
-        'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: (c['IS_TTY'] and platform.system() != 'Darwin')},  # progress bars are buggy on mac, disable for now
+        'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: c['IS_TTY']},  # progress bars are buggy on mac, disable for now
         'IN_DOCKER':                {'type': bool,  'default': False},
         'IN_QEMU':                  {'type': bool,  'default': False},
         'PUID':                     {'type': int,   'default': os.getuid()},
@@ -306,32 +315,7 @@ ROBOTS_TXT_FILENAME = 'robots.txt'
 FAVICON_FILENAME = 'favicon.ico'
 CONFIG_FILENAME = 'ArchiveBox.conf'
 
-DEFAULT_CLI_COLORS = benedict(
-    {
-        "reset": "\033[00;00m",
-        "lightblue": "\033[01;30m",
-        "lightyellow": "\033[01;33m",
-        "lightred": "\033[01;35m",
-        "red": "\033[01;31m",
-        "green": "\033[01;32m",
-        "blue": "\033[01;34m",
-        "white": "\033[01;37m",
-        "black": "\033[01;30m",
-    }
-)
-ANSI = AttrDict({k: '' for k in DEFAULT_CLI_COLORS.keys()})
 
-COLOR_DICT = defaultdict(lambda: [(0, 0, 0), (0, 0, 0)], {
-    '00': [(0, 0, 0), (0, 0, 0)],
-    '30': [(0, 0, 0), (0, 0, 0)],
-    '31': [(255, 0, 0), (128, 0, 0)],
-    '32': [(0, 200, 0), (0, 128, 0)],
-    '33': [(255, 255, 0), (128, 128, 0)],
-    '34': [(0, 0, 255), (0, 0, 128)],
-    '35': [(255, 0, 255), (128, 0, 128)],
-    '36': [(0, 255, 255), (0, 128, 128)],
-    '37': [(255, 255, 255), (255, 255, 255)],
-})
 
 STATICFILE_EXTENSIONS = {
     # 99.999% of the time, URLs ending in these extensions are static files
@@ -880,37 +864,6 @@ def parse_version_string(version: str) -> Tuple[int, int, int]:
     return tuple(int(part) for part in base.split('.'))[:3]
 
 
-# Logging Helpers
-def stdout(*args, color: Optional[str]=None, prefix: str='', config: Optional[ConfigDict]=None) -> None:
-    ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
-
-    if color:
-        strs = [ansi[color], ' '.join(str(a) for a in args), ansi['reset'], '\n']
-    else:
-        strs = [' '.join(str(a) for a in args), '\n']
-
-    sys.stdout.write(prefix + ''.join(strs))
-
-def stderr(*args, color: Optional[str]=None, prefix: str='', config: Optional[ConfigDict]=None) -> None:
-    ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
-
-    if color:
-        strs = [ansi[color], ' '.join(str(a) for a in args), ansi['reset'], '\n']
-    else:
-        strs = [' '.join(str(a) for a in args), '\n']
-
-    sys.stderr.write(prefix + ''.join(strs))
-
-def hint(text: Union[Tuple[str, ...], List[str], str], prefix='    ', config: Optional[ConfigDict]=None) -> None:
-    ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
-
-    if isinstance(text, str):
-        stderr('{}{lightred}Hint:{reset} {}'.format(prefix, text, **ansi))
-    else:
-        stderr('{}{lightred}Hint:{reset} {}'.format(prefix, text[0], **ansi))
-        for line in text[1:]:
-            stderr('{}      {}'.format(prefix, line))
-
 
 # Dependency Metadata Helpers
 def bin_version(binary: Optional[str], cmd: Optional[str]=None, timeout: int=3) -> Optional[str]:
@@ -919,6 +872,10 @@ def bin_version(binary: Optional[str], cmd: Optional[str]=None, timeout: int=3) 
     abspath = bin_path(binary)
     if not binary or not abspath:
         return None
+    
+    return '999.999.999'
+
+    # Now handled by new BinProvider plugin system, no longer needed:
 
     try:
         bin_env = os.environ | {'LANG': 'C'}
@@ -960,6 +917,9 @@ def bin_path(binary: Optional[str]) -> Optional[str]:
     return shutil.which(str(Path(binary).expanduser())) or shutil.which(str(binary)) or binary
 
 def bin_hash(binary: Optional[str]) -> Optional[str]:
+    return 'UNUSED'
+    # DEPRECATED: now handled by new BinProvider plugin system, no longer needed:
+
     if binary is None:
         return None
     abs_path = bin_path(binary)
@@ -1329,246 +1289,123 @@ if not CONFIG['CHECK_SSL_VALIDITY']:
 
 ########################### Config Validity Checkers ###########################
 
+INITIAL_STARTUP_PROGRESS = None
+INITIAL_STARTUP_PROGRESS_TASK = 0
 
-def check_system_config(config: ConfigDict=CONFIG) -> None:
-    ### Check system environment
-    if config['USER'] == 'root' or str(config['PUID']) == "0":
-        stderr('[!] ArchiveBox should never be run as root!', color='red')
-        stderr('    For more information, see the security overview documentation:')
-        stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
-        
-        if config['IN_DOCKER']:
-            attempted_command = ' '.join(sys.argv[:3])
-            stderr('')
-            stderr('    {lightred}Hint{reset}: When using Docker, you must run commands with {green}docker run{reset} instead of {lightyellow}docker exec{reset}, e.g.:'.format(**config['ANSI']))
-            stderr(f'        docker compose run archivebox {attempted_command}')
-            stderr(f'        docker run -it -v $PWD/data:/data archivebox/archivebox {attempted_command}')
-            stderr('        or:')
-            stderr(f'        docker compose exec --user=archivebox archivebox /bin/bash -c "archivebox {attempted_command}"')
-            stderr(f'        docker exec -it --user=archivebox <container id> /bin/bash -c "archivebox {attempted_command}"')
-        
-        raise SystemExit(2)
-
-    ### Check Python environment
-    if sys.version_info[:3] < (3, 7, 0):
-        stderr(f'[X] Python version is not new enough: {config["PYTHON_VERSION"]} (>3.6 is required)', color='red')
-        stderr('    See https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.')
-        raise SystemExit(2)
-
-    if int(CONFIG['DJANGO_VERSION'].split('.')[0]) < 3:
-        stderr(f'[X] Django version is not new enough: {config["DJANGO_VERSION"]} (>3.0 is required)', color='red')
-        stderr('    Upgrade django using pip or your system package manager: pip3 install --upgrade django')
-        raise SystemExit(2)
-
-    if config['PYTHON_ENCODING'] not in ('UTF-8', 'UTF8'):
-        stderr(f'[X] Your system is running python3 scripts with a bad locale setting: {config["PYTHON_ENCODING"]} (it should be UTF-8).', color='red')
-        stderr('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)')
-        stderr('    Or if you\'re using ubuntu/debian, run "dpkg-reconfigure locales"')
-        stderr('')
-        stderr('    Confirm that it\'s fixed by opening a new shell and running:')
-        stderr('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8')
-        raise SystemExit(2)
-
-    # stderr('[i] Using Chrome binary: {}'.format(shutil.which(CHROME_BINARY) or CHROME_BINARY))
-    # stderr('[i] Using Chrome data dir: {}'.format(os.path.abspath(CHROME_USER_DATA_DIR)))
-    if config['CHROME_USER_DATA_DIR'] is not None and Path(config['CHROME_USER_DATA_DIR']).exists():
-        if not (Path(config['CHROME_USER_DATA_DIR']) / 'Default').exists():
-            stderr('[X] Could not find profile "Default" in CHROME_USER_DATA_DIR.', color='red')
-            stderr(f'    {config["CHROME_USER_DATA_DIR"]}')
-            stderr('    Make sure you set it to a Chrome user data directory containing a Default profile folder.')
-            stderr('    For more info see:')
-            stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#CHROME_USER_DATA_DIR')
-            if '/Default' in str(config['CHROME_USER_DATA_DIR']):
-                stderr()
-                stderr('    Try removing /Default from the end e.g.:')
-                stderr('        CHROME_USER_DATA_DIR="{}"'.format(str(config['CHROME_USER_DATA_DIR']).split('/Default')[0]))
-            
-            # hard error is too annoying here, instead just set it to nothing
-            # raise SystemExit(2)
-            config['CHROME_USER_DATA_DIR'] = None
-    else:
-        config['CHROME_USER_DATA_DIR'] = None
-
-
-def check_dependencies(config: ConfigDict=CONFIG, show_help: bool=True) -> None:
-    invalid_dependencies = [
-        (name, info) for name, info in config['DEPENDENCIES'].items()
-        if info['enabled'] and not info['is_valid']
-    ]
-    if invalid_dependencies and show_help:
-        stderr(f'[!] Warning: Missing {len(invalid_dependencies)} recommended dependencies', color='lightyellow')
-        for dependency, info in invalid_dependencies:
-            stderr(
-                '    ! {}: {} ({})'.format(
-                    dependency,
-                    info['path'] or 'unable to find binary',
-                    info['version'] or 'unable to detect version',
-                )
-            )
-            if dependency in ('YOUTUBEDL_BINARY', 'CHROME_BINARY', 'SINGLEFILE_BINARY', 'READABILITY_BINARY', 'MERCURY_BINARY'):
-                hint(('To install all packages automatically run: archivebox setup',
-                    f'or to disable it and silence this warning: archivebox config --set SAVE_{dependency.rsplit("_", 1)[0]}=False',
-                    ''), prefix='      ')
-        stderr('')
-
-    if config['TIMEOUT'] < 5:
-        stderr(f'[!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={config["TIMEOUT"]} seconds)', color='red')
-        stderr('    You must allow *at least* 5 seconds for indexing and archive methods to run succesfully.')
-        stderr('    (Setting it to somewhere between 30 and 3000 seconds is recommended)')
-        stderr()
-        stderr('    If you want to make ArchiveBox run faster, disable specific archive methods instead:')
-        stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles')
-        stderr()
-
-    elif config['USE_CHROME'] and config['TIMEOUT'] < 15:
-        stderr(f'[!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={config["TIMEOUT"]} seconds)', color='red')
-        stderr('    Chrome will fail to archive all sites if set to less than ~15 seconds.')
-        stderr('    (Setting it to somewhere between 30 and 300 seconds is recommended)')
-        stderr()
-        stderr('    If you want to make ArchiveBox run faster, disable specific archive methods instead:')
-        stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles')
-        stderr()
-
-    if config['USE_YOUTUBEDL'] and config['MEDIA_TIMEOUT'] < 20:
-        stderr(f'[!] Warning: MEDIA_TIMEOUT is set too low! (currently set to MEDIA_TIMEOUT={config["MEDIA_TIMEOUT"]} seconds)', color='red')
-        stderr('    youtube-dl/yt-dlp will fail to archive any media if set to less than ~20 seconds.')
-        stderr('    (Setting it somewhere over 60 seconds is recommended)')
-        stderr()
-        stderr('    If you want to disable media archiving entirely, set SAVE_MEDIA=False instead:')
-        stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#save_media')
-        stderr()
-
-        
-def check_data_folder(out_dir: Union[str, Path, None]=None, config: ConfigDict=CONFIG) -> None:
-    output_dir = out_dir or config['OUTPUT_DIR']
-    assert isinstance(output_dir, (str, Path))
-
-    archive_dir_exists = (Path(output_dir) / ARCHIVE_DIR_NAME).exists()
-    if not archive_dir_exists:
-        stderr('[X] No archivebox index found in the current directory.', color='red')
-        stderr(f'    {output_dir}', color='lightyellow')
-        stderr()
-        stderr('    {lightred}Hint{reset}: Are you running archivebox in the right folder?'.format(**config['ANSI']))
-        stderr('        cd path/to/your/archive/folder')
-        stderr('        archivebox [command]')
-        stderr()
-        stderr('    {lightred}Hint{reset}: To create a new archive collection or import existing data in this folder, run:'.format(**config['ANSI']))
-        stderr('        archivebox init')
-        raise SystemExit(2)
-
-
-def check_migrations(out_dir: Union[str, Path, None]=None, config: ConfigDict=CONFIG):
-    output_dir = out_dir or config['OUTPUT_DIR']
-    from .index.sql import list_migrations
-
-    pending_migrations = [name for status, name in list_migrations() if not status]
-
-    if pending_migrations:
-        stderr('[X] This collection was created with an older version of ArchiveBox and must be upgraded first.', color='lightyellow')
-        stderr(f'    {output_dir}')
-        stderr()
-        stderr(f'    To upgrade it to the latest version and apply the {len(pending_migrations)} pending migrations, run:')
-        stderr('        archivebox init')
-        raise SystemExit(3)
-
-    (Path(output_dir) / SOURCES_DIR_NAME).mkdir(exist_ok=True)
-    (Path(output_dir) / LOGS_DIR_NAME).mkdir(exist_ok=True)
-    (Path(output_dir) / CACHE_DIR_NAME).mkdir(exist_ok=True)
-    (Path(output_dir) / LIB_DIR_NAME / 'bin').mkdir(exist_ok=True, parents=True)
-    (Path(output_dir) / PERSONAS_DIR_NAME / 'Default').mkdir(exist_ok=True, parents=True)
-
-
+def bump_startup_progress_bar():
+    global INITIAL_STARTUP_PROGRESS
+    global INITIAL_STARTUP_PROGRESS_TASK
+    if INITIAL_STARTUP_PROGRESS:
+        INITIAL_STARTUP_PROGRESS.update(INITIAL_STARTUP_PROGRESS_TASK, advance=1)   # type: ignore
 
 def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, in_memory_db=False) -> None:
-    check_system_config()
+    global INITIAL_STARTUP_PROGRESS
+    global INITIAL_STARTUP_PROGRESS_TASK
+    
+    with Progress(transient=True, expand=True, console=CONSOLE) as INITIAL_STARTUP_PROGRESS:
+        INITIAL_STARTUP_PROGRESS_TASK = INITIAL_STARTUP_PROGRESS.add_task("[green]Loading modules...", total=25)
+        check_system_config(config)
 
-    output_dir = out_dir or Path(config['OUTPUT_DIR'])
+        output_dir = out_dir or Path(config['OUTPUT_DIR'])
 
-    assert isinstance(output_dir, Path) and isinstance(config['PACKAGE_DIR'], Path)
+        assert isinstance(output_dir, Path) and isinstance(config['PACKAGE_DIR'], Path)
 
-    try:
-        from django.core.management import call_command
-
-        sys.path.append(str(config['PACKAGE_DIR']))
-        os.environ.setdefault('OUTPUT_DIR', str(output_dir))
-        assert (config['PACKAGE_DIR'] / 'core' / 'settings.py').exists(), 'settings.py was not found at archivebox/core/settings.py'
-        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
-
-        # Check to make sure JSON extension is available in our Sqlite3 instance
+        bump_startup_progress_bar()
         try:
-            cursor = sqlite3.connect(':memory:').cursor()
-            cursor.execute('SELECT JSON(\'{"a": "b"}\')')
-        except sqlite3.OperationalError as exc:
-            stderr(f'[X] Your SQLite3 version is missing the required JSON1 extension: {exc}', color='red')
-            hint([
-                'Upgrade your Python version or install the extension manually:',
-                'https://code.djangoproject.com/wiki/JSON1Extension'
-            ])
+            from django.core.management import call_command
 
-        if in_memory_db:
-            # some commands (e.g. oneshot) dont store a long-lived sqlite3 db file on disk.
-            # in those cases we create a temporary in-memory db and run the migrations
-            # immediately to get a usable in-memory-database at startup
-            os.environ.setdefault("ARCHIVEBOX_DATABASE_NAME", ":memory:")
-            django.setup()
-            call_command("migrate", interactive=False, verbosity=0)
-        else:
-            # Otherwise use default sqlite3 file-based database and initialize django
-            # without running migrations automatically (user runs them manually by calling init)
-            django.setup()
+            sys.path.append(str(config['PACKAGE_DIR']))
+            os.environ.setdefault('OUTPUT_DIR', str(output_dir))
+            assert (config['PACKAGE_DIR'] / 'core' / 'settings.py').exists(), 'settings.py was not found at archivebox/core/settings.py'
+            os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 
-        from django.conf import settings
-
-        # log startup message to the error log
-        with open(settings.ERROR_LOG, "a", encoding='utf-8') as f:
-            command = ' '.join(sys.argv)
-            ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
-            f.write(f"\n> {command}; TS={ts} VERSION={config['VERSION']} IN_DOCKER={config['IN_DOCKER']} IS_TTY={config['IS_TTY']}\n")
-
-        if check_db:
-            # Enable WAL mode in sqlite3
-            from django.db import connection
-            with connection.cursor() as cursor:
-
-                # Set Journal mode to WAL to allow for multiple writers
-                current_mode = cursor.execute("PRAGMA journal_mode")
-                if current_mode != 'wal':
-                    cursor.execute("PRAGMA journal_mode=wal;")
-
-                # Set max blocking delay for concurrent writes and write sync mode
-                # https://litestream.io/tips/#busy-timeout
-                cursor.execute("PRAGMA busy_timeout = 5000;")
-                cursor.execute("PRAGMA synchronous = NORMAL;")
-
-            # Create cache table in DB if needed
+            # Check to make sure JSON extension is available in our Sqlite3 instance
             try:
-                from django.core.cache import cache
-                cache.get('test', None)
-            except django.db.utils.OperationalError:
-                call_command("createcachetable", verbosity=0)
+                cursor = sqlite3.connect(':memory:').cursor()
+                cursor.execute('SELECT JSON(\'{"a": "b"}\')')
+            except sqlite3.OperationalError as exc:
+                stderr(f'[X] Your SQLite3 version is missing the required JSON1 extension: {exc}', color='red')
+                hint([
+                    'Upgrade your Python version or install the extension manually:',
+                    'https://code.djangoproject.com/wiki/JSON1Extension'
+                ])
+                
+            bump_startup_progress_bar()
 
-            # if archivebox gets imported multiple times, we have to close
-            # the sqlite3 whenever we init from scratch to avoid multiple threads
-            # sharing the same connection by accident
-            from django.db import connections
-            for conn in connections.all():
-                conn.close_if_unusable_or_obsolete()
+            if in_memory_db:
+                # some commands (e.g. oneshot) dont store a long-lived sqlite3 db file on disk.
+                # in those cases we create a temporary in-memory db and run the migrations
+                # immediately to get a usable in-memory-database at startup
+                os.environ.setdefault("ARCHIVEBOX_DATABASE_NAME", ":memory:")
+                django.setup()
+                
+                bump_startup_progress_bar()
+                call_command("migrate", interactive=False, verbosity=0)
+            else:
+                # Otherwise use default sqlite3 file-based database and initialize django
+                # without running migrations automatically (user runs them manually by calling init)
+                django.setup()
+            
+            bump_startup_progress_bar()
 
-            sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
-            assert sql_index_path.exists(), (
-                f'No database file {SQL_INDEX_FILENAME} found in: {config["OUTPUT_DIR"]} (Are you in an ArchiveBox collection directory?)')
+            from django.conf import settings
 
+            # log startup message to the error log
+            with open(settings.ERROR_LOG, "a", encoding='utf-8') as f:
+                command = ' '.join(sys.argv)
+                ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
+                f.write(f"\n> {command}; TS={ts} VERSION={config['VERSION']} IN_DOCKER={config['IN_DOCKER']} IS_TTY={config['IS_TTY']}\n")
 
-            # https://docs.pydantic.dev/logfire/integrations/django/ Logfire Debugging
-            if settings.DEBUG_LOGFIRE:
-                from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
-                SQLite3Instrumentor().instrument()
+            if check_db:
+                # Enable WAL mode in sqlite3
+                from django.db import connection
+                with connection.cursor() as cursor:
 
-                import logfire
+                    # Set Journal mode to WAL to allow for multiple writers
+                    current_mode = cursor.execute("PRAGMA journal_mode")
+                    if current_mode != 'wal':
+                        cursor.execute("PRAGMA journal_mode=wal;")
 
-                logfire.configure()
-                logfire.instrument_django(is_sql_commentor_enabled=True)
-                logfire.info(f'Started ArchiveBox v{CONFIG.VERSION}', argv=sys.argv)
+                    # Set max blocking delay for concurrent writes and write sync mode
+                    # https://litestream.io/tips/#busy-timeout
+                    cursor.execute("PRAGMA busy_timeout = 5000;")
+                    cursor.execute("PRAGMA synchronous = NORMAL;")
 
-    except KeyboardInterrupt:
-        raise SystemExit(2)
+                # Create cache table in DB if needed
+                try:
+                    from django.core.cache import cache
+                    cache.get('test', None)
+                except django.db.utils.OperationalError:
+                    call_command("createcachetable", verbosity=0)
+
+                bump_startup_progress_bar()
+
+                # if archivebox gets imported multiple times, we have to close
+                # the sqlite3 whenever we init from scratch to avoid multiple threads
+                # sharing the same connection by accident
+                from django.db import connections
+                for conn in connections.all():
+                    conn.close_if_unusable_or_obsolete()
+
+                sql_index_path = Path(output_dir) / SQL_INDEX_FILENAME
+                assert sql_index_path.exists(), (
+                    f'No database file {SQL_INDEX_FILENAME} found in: {config["OUTPUT_DIR"]} (Are you in an ArchiveBox collection directory?)')
+
+                bump_startup_progress_bar()
+
+                # https://docs.pydantic.dev/logfire/integrations/django/ Logfire Debugging
+                if settings.DEBUG_LOGFIRE:
+                    from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
+                    SQLite3Instrumentor().instrument()
+
+                    import logfire
+
+                    logfire.configure()
+                    logfire.instrument_django(is_sql_commentor_enabled=True)
+                    logfire.info(f'Started ArchiveBox v{CONFIG.VERSION}', argv=sys.argv)
+
+        except KeyboardInterrupt:
+            raise SystemExit(2)
+
+    INITIAL_STARTUP_PROGRESS = None
+    INITIAL_STARTUP_PROGRESS_TASK = None
