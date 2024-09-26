@@ -86,8 +86,8 @@ READABILITY_EXTRACTOR = ReadabilityExtractor()
 # READABILITY_QUEUE = ReadabilityQueue()
 
 class ReadabilityPlugin(BasePlugin):
-    app_label: str ='singlefile'
-    verbose_name: str = 'SingleFile'
+    app_label: str ='readability'
+    verbose_name: str = 'Readability'
 
     hooks: List[InstanceOf[BaseHook]] = [
         READABILITY_CONFIG,
