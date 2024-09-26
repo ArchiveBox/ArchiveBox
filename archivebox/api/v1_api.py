@@ -6,18 +6,19 @@ from traceback import format_exception
 from contextlib import redirect_stdout, redirect_stderr
 
 from django.http import HttpRequest, HttpResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ObjectDoesNotExist, EmptyResultSet, PermissionDenied
 
 from ninja import NinjaAPI, Swagger
 
 # TODO: explore adding https://eadwincode.github.io/django-ninja-extra/
 
+import archivebox
+from plugins_sys.config.apps import SHELL_CONFIG
+
 from api.auth import API_AUTH_METHODS
-from ..config import VERSION, COMMIT_HASH
 
 
-COMMIT_HASH = COMMIT_HASH or 'unknown'
+COMMIT_HASH = SHELL_CONFIG.COMMIT_HASH or 'unknown'
 
 html_description=f'''
 <h3>Welcome to your ArchiveBox server's REST API <code>[v1 ALPHA]</code> homepage!</h3>
@@ -31,7 +32,7 @@ html_description=f'''
 <li>📚 ArchiveBox Documentation: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Github Wiki</a></li>
 <li>📜 See the API source code: <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/api"><code>archivebox/api/</code></a></li>
 </ul>
-<small>Served by ArchiveBox v{VERSION} (<a href="https://github.com/ArchiveBox/ArchiveBox/commit/{COMMIT_HASH}"><code>{COMMIT_HASH[:8]}</code></a>), API powered by <a href="https://django-ninja.dev/"><code>django-ninja</code></a>.</small>
+<small>Served by ArchiveBox v{archivebox.VERSION} (<a href="https://github.com/ArchiveBox/ArchiveBox/commit/{COMMIT_HASH}"><code>{COMMIT_HASH[:8]}</code></a>), API powered by <a href="https://django-ninja.dev/"><code>django-ninja</code></a>.</small>
 '''
 
 

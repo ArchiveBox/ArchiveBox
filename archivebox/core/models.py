@@ -17,6 +17,8 @@ from django.db.models import Case, When, Value, IntegerField
 from django.contrib import admin
 from django.conf import settings
 
+import archivebox
+
 from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
 
 from queues.tasks import bg_archive_snapshot
@@ -259,11 +261,11 @@ class Snapshot(ABIDModel):
 
     @cached_property
     def link_dir(self):
-        return str(settings.CONFIG.ARCHIVE_DIR / self.timestamp)
+        return str(archivebox.CONSTANTS.ARCHIVE_DIR / self.timestamp)
 
     @cached_property
     def archive_path(self):
-        return '{}/{}'.format(settings.CONFIG.ARCHIVE_DIR_NAME, self.timestamp)
+        return '{}/{}'.format(archivebox.CONSTANTS.ARCHIVE_DIR_NAME, self.timestamp)
 
     @cached_property
     def archive_size(self):
@@ -373,17 +375,17 @@ class Snapshot(ABIDModel):
     # def get_storage_dir(self, create=True, symlink=True) -> Path:
     #     date_str = self.bookmarked_at.strftime('%Y%m%d')
     #     domain_str = domain(self.url)
-    #     abs_storage_dir = Path(settings.CONFIG.ARCHIVE_DIR) / 'snapshots' / date_str / domain_str / str(self.ulid)
+    #     abs_storage_dir = Path(archivebox.CONSTANTS.ARCHIVE_DIR) / 'snapshots' / date_str / domain_str / str(self.ulid)
 
     #     if create and not abs_storage_dir.is_dir():
     #         abs_storage_dir.mkdir(parents=True, exist_ok=True)
 
     #     if symlink:
     #         LINK_PATHS = [
-    #             Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'all_by_id' / str(self.ulid),
-    #             # Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'snapshots_by_id' / str(self.ulid),
-    #             Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'snapshots_by_date' / date_str / domain_str / str(self.ulid),
-    #             Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'snapshots_by_domain' / domain_str / date_str / str(self.ulid),
+    #             Path(archivebox.CONSTANTS.ARCHIVE_DIR).parent / 'index' / 'all_by_id' / str(self.ulid),
+    #             # Path(archivebox.CONSTANTS.ARCHIVE_DIR).parent / 'index' / 'snapshots_by_id' / str(self.ulid),
+    #             Path(archivebox.CONSTANTS.ARCHIVE_DIR).parent / 'index' / 'snapshots_by_date' / date_str / domain_str / str(self.ulid),
+    #             Path(archivebox.CONSTANTS.ARCHIVE_DIR).parent / 'index' / 'snapshots_by_domain' / domain_str / date_str / str(self.ulid),
     #         ]
     #         for link_path in LINK_PATHS:
     #             link_path.parent.mkdir(parents=True, exist_ok=True)
@@ -522,18 +524,18 @@ class ArchiveResult(ABIDModel):
     # def get_storage_dir(self, create=True, symlink=True):
     #     date_str = self.snapshot.bookmarked_at.strftime('%Y%m%d')
     #     domain_str = domain(self.snapshot.url)
-    #     abs_storage_dir = Path(settings.CONFIG.ARCHIVE_DIR) / 'results' / date_str / domain_str / self.extractor / str(self.ulid)
+    #     abs_storage_dir = Path(archivebox.CONSTANTS.ARCHIVE_DIR) / 'results' / date_str / domain_str / self.extractor / str(self.ulid)
 
     #     if create and not abs_storage_dir.is_dir():
     #         abs_storage_dir.mkdir(parents=True, exist_ok=True)
 
     #     if symlink:
     #         LINK_PATHS = [
-    #             Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'all_by_id' / str(self.ulid),
-    #             # Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'results_by_id' / str(self.ulid),
-    #             # Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'results_by_date' / date_str / domain_str / self.extractor / str(self.ulid),
-    #             Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'results_by_domain' / domain_str / date_str / self.extractor / str(self.ulid),
-    #             Path(settings.CONFIG.ARCHIVE_DIR).parent / 'index' / 'results_by_type' / self.extractor / date_str / domain_str / str(self.ulid),
+    #             Path(archivebox.CONSTANTS.ARCHIVE_DIR).parent / 'index' / 'all_by_id' / str(self.ulid),
+    #             # Path(archivebox.CONSTANTS.ARCHIVE_DIR).parent / 'index' / 'results_by_id' / str(self.ulid),
+    #             # Path(archivebox.CONSTANTS.ARCHIVE_DIR).parent / 'index' / 'results_by_date' / date_str / domain_str / self.extractor / str(self.ulid),
+    #             Path(archivebox.CONSTANTS.ARCHIVE_DIR).parent / 'index' / 'results_by_domain' / domain_str / date_str / self.extractor / str(self.ulid),
+    #             Path(archivebox.CONSTANTS.ARCHIVE_DIR).parent / 'index' / 'results_by_type' / self.extractor / date_str / domain_str / str(self.ulid),
     #         ]
     #         for link_path in LINK_PATHS:
     #             link_path.parent.mkdir(parents=True, exist_ok=True)
