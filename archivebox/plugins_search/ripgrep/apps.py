@@ -1,11 +1,12 @@
 __package__ = 'archivebox.plugins_search.ripgrep'
 
 import re
+from pathlib import Path
 from subprocess import run
 from typing import List, Dict, ClassVar, Iterable
 # from typing_extensions import Self
 
-from django.conf import settings
+import archivebox
 
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, Field

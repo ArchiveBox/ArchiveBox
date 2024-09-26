@@ -2,21 +2,18 @@ __package__ = 'archivebox.plugins_sys.config'
 import os
 import sys
 import shutil
-import platform
 import archivebox
 
 from typing import List, ClassVar, Dict, Optional
 from datetime import datetime
 from pathlib import Path
 from pydantic import InstanceOf, Field, field_validator, model_validator, computed_field
-from benedict import benedict
 from rich import print
 
-from django.conf import settings
 from django.utils.crypto import get_random_string
 from plugantic.base_plugin import BasePlugin
 from plugantic.base_configset import BaseConfigSet, ConfigSectionName
-from plugantic.base_hook import BaseHook
+from plugantic.base_hook import BaseHook, HookType
 
 from .constants import CONSTANTS, CONSTANTS_CONFIG
 
@@ -122,6 +119,9 @@ class StorageConfig(BaseConfigSet):
     OUTPUT_PERMISSIONS: str             = Field(default='644')
     RESTRICT_FILE_NAMES: str            = Field(default='windows')
     ENFORCE_ATOMIC_WRITES: bool         = Field(default=True)
+    
+    # not supposed to be user settable:
+    DIR_OUTPUT_PERMISSIONS: str         = Field(default=lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5'))
 
 STORAGE_CONFIG = StorageConfig()
 
