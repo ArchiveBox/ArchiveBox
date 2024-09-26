@@ -519,9 +519,9 @@ def find_config_default(key: str) -> str:
 
 def find_config_type(key: str) -> str:
     if key in USER_CONFIG:
-        return USER_CONFIG[key]['type'].__name__
+        return str(USER_CONFIG[key]['type'])
     elif key in DYNAMIC_CONFIG_SCHEMA:
-        return type(CONFIG[key]).__name__
+        return str(type(CONFIG[key]))
     return 'str'
 
 def key_is_safe(key: str) -> bool:
