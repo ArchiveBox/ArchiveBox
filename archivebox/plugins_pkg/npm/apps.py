@@ -90,5 +90,5 @@ class NpmPlugin(BasePlugin):
 
 
 PLUGIN = NpmPlugin()
-PLUGIN.register(settings)
+# PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig

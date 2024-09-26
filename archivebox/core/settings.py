@@ -4,13 +4,13 @@ import os
 import sys
 import inspect
 
-from typing import Dict
 from pathlib import Path
 
-from benedict import benedict
 from django.utils.crypto import get_random_string
 
+import abx
 import archivebox
+from archivebox.constants import CONSTANTS
 
 from ..config import CONFIG
 
@@ -28,39 +28,47 @@ ARCHIVE_DIR = archivebox.DATA_DIR / 'archive'
 ### ArchiveBox Plugin Settings
 ################################################################################
 
+PLUGIN_HOOKSPECS = [
+    'abx.hookspec_django_settings',
+    'abx.hookspec_django_apps',
+    'abx.hookspec_django_urls',
+    'abx.hookspec_pydantic_pkgr',
+    'abx.hookspec_archivebox',
+    'plugantic.base_check',
+]
+abx.register_hookspecs(PLUGIN_HOOKSPECS)
 
-def find_plugins_in_dir(plugins_dir: Path, prefix: str) -> Dict[str, Path]:
-    return {
-        f"{prefix}.{plugin_entrypoint.parent.name}": plugin_entrypoint.parent
-        for plugin_entrypoint in sorted(plugins_dir.glob("*/apps.py"))   # key=get_plugin_order  # Someday enforcing plugin import order may be required, but right now it's not needed
-    }   # "plugins_pkg.pip": "/app/archivebox/plugins_pkg/pip"
-    
-PLUGIN_DIRS = {
-    'plugins_sys':          PACKAGE_DIR / 'plugins_sys',
-    'plugins_pkg':          PACKAGE_DIR / 'plugins_pkg',
-    'plugins_auth':         PACKAGE_DIR / 'plugins_auth',
-    'plugins_search':       PACKAGE_DIR / 'plugins_search',
-    'plugins_extractor':    PACKAGE_DIR / 'plugins_extractor',
-    'user_plugins':         DATA_DIR / 'user_plugins',
+BUILTIN_PLUGIN_DIRS = {
+    'plugins_sys':             archivebox.PACKAGE_DIR / 'plugins_sys',
+    'plugins_pkg':             archivebox.PACKAGE_DIR / 'plugins_pkg',
+    'plugins_auth':            archivebox.PACKAGE_DIR / 'plugins_auth',
+    'plugins_search':          archivebox.PACKAGE_DIR / 'plugins_search',
+    'plugins_extractor':       archivebox.PACKAGE_DIR / 'plugins_extractor',
 }
-INSTALLED_PLUGINS = {}
-for plugin_prefix, plugin_dir in PLUGIN_DIRS.items():
-    INSTALLED_PLUGINS.update(find_plugins_in_dir(plugin_dir, prefix=plugin_prefix))
+USER_PLUGIN_DIRS = {
+    'user_plugins': archivebox.DATA_DIR / 'user_plugins',
+}
 
+BUILTIN_PLUGINS = abx.get_plugins_in_dirs(BUILTIN_PLUGIN_DIRS)
+PIP_PLUGINS = abx.get_pip_installed_plugins(group='archivebox')
+USER_PLUGINS = abx.get_plugins_in_dirs(USER_PLUGIN_DIRS)
+ALL_PLUGINS = {**BUILTIN_PLUGINS, **PIP_PLUGINS, **USER_PLUGINS}
 
-### Plugins Globals (filled by plugin_type.pluginname.apps.PluginName.register() after Django startup)
-PLUGINS = benedict({})
-HOOKS = benedict({})
+PLUGIN_MANAGER = abx.pm
+PLUGINS = abx.load_plugins(ALL_PLUGINS)
+HOOKS = abx.get_plugins_HOOKS(PLUGINS)
 
-# Created later by Plugin.register(settings) -> Hook.register(settings):
-# CONFIGS = benedict({})
-# BINPROVIDERS = benedict({})
-# BINARIES = benedict({})
-# EXTRACTORS = benedict({})
-# REPLAYERS = benedict({})
-# CHECKS = benedict({})
-# ADMINDATAVIEWS = benedict({})
-
+CONFIGS = abx.get_plugins_CONFIGS()
+# FLAT_CONFIG = abx.get_plugins_FLAT_CONFIG(CONFIGS)
+FLAT_CONFIG = CONFIG
+BINPROVIDERS = abx.get_plugins_BINPROVIDERS()
+BINARIES = abx.get_plugins_BINARIES()
+EXTRACTORS = abx.get_plugins_EXTRACTORS()
+REPLAYERS = abx.get_plugins_REPLAYERS()
+CHECKS = abx.get_plugins_CHECKS()
+ADMINDATAVIEWS = abx.get_plugins_ADMINDATAVIEWS()
+QUEUES = abx.get_plugins_QUEUES()
+SEARCHBACKENDS = abx.get_plugins_SEARCHBACKENDS()
 
 ################################################################################
 ### Django Core Settings
@@ -96,15 +104,14 @@ INSTALLED_APPS = [
     'django_object_actions',     # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
 
     # Our ArchiveBox-provided apps
+    # 'plugantic',                 # ArchiveBox plugin API definition + finding/registering/calling interface
     'queues',                    # handles starting and managing background workers and processes
     'abid_utils',                # handles ABID ID creation, handling, and models
-    'plugantic',                 # ArchiveBox plugin API definition + finding/registering/calling interface
     'core',                      # core django model with Snapshot, ArchiveResult, etc.
     'api',                       # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
 
     # ArchiveBox plugins
-    *INSTALLED_PLUGINS.keys(),   # all plugin django-apps found in archivebox/plugins_* and data/user_plugins,
-    # plugin.register(settings) is called at import of each plugin (in the order they are listed here), then plugin.ready() is called at AppConfig.ready() time
+    *abx.get_plugins_INSTALLLED_APPS(),  # all plugin django-apps found in archivebox/plugins_* and data/user_plugins,
 
     # 3rd-party apps from PyPI that need to be loaded last
     'admin_data_views',          # handles rendering some convenient automatic read-only views of data in Django admin
@@ -112,7 +119,11 @@ INSTALLED_APPS = [
     'django_huey',               # provides multi-queue support for django huey https://github.com/gaiacoop/django-huey
     'bx_django_utils',           # needed for huey_monitor https://github.com/boxine/bx_django_utils
     'huey_monitor',              # adds an admin UI for monitoring background huey tasks https://github.com/boxine/django-huey-monitor
+
+    # load plugins last so all other apps are already .ready() when we call plugins.ready()
+    'abx',
 ]
+
 
 
 MIDDLEWARE = [
@@ -125,7 +136,9 @@ MIDDLEWARE = [
     'core.middleware.ReverseProxyAuthMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'core.middleware.CacheControlMiddleware',
+    *abx.get_plugins_MIDDLEWARE(),
 ]
+
 
 ################################################################################
 ### Authentication Settings
@@ -136,18 +149,20 @@ MIDDLEWARE = [
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.RemoteUserBackend',
     'django.contrib.auth.backends.ModelBackend',
+    *abx.get_plugins_AUTHENTICATION_BACKENDS(),
 ]
 
-from ..plugins_auth.ldap.settings import LDAP_CONFIG
 
-if LDAP_CONFIG.LDAP_ENABLED:
-    AUTH_LDAP_BIND_DN = LDAP_CONFIG.LDAP_BIND_DN
-    AUTH_LDAP_SERVER_URI = LDAP_CONFIG.LDAP_SERVER_URI
-    AUTH_LDAP_BIND_PASSWORD = LDAP_CONFIG.LDAP_BIND_PASSWORD
-    AUTH_LDAP_USER_ATTR_MAP = LDAP_CONFIG.LDAP_USER_ATTR_MAP
-    AUTH_LDAP_USER_SEARCH = LDAP_CONFIG.AUTH_LDAP_USER_SEARCH
+# from ..plugins_auth.ldap.settings import LDAP_CONFIG
+
+# if LDAP_CONFIG.LDAP_ENABLED:
+#     AUTH_LDAP_BIND_DN = LDAP_CONFIG.LDAP_BIND_DN
+#     AUTH_LDAP_SERVER_URI = LDAP_CONFIG.LDAP_SERVER_URI
+#     AUTH_LDAP_BIND_PASSWORD = LDAP_CONFIG.LDAP_BIND_PASSWORD
+#     AUTH_LDAP_USER_ATTR_MAP = LDAP_CONFIG.LDAP_USER_ATTR_MAP
+#     AUTH_LDAP_USER_SEARCH = LDAP_CONFIG.AUTH_LDAP_USER_SEARCH
     
-    AUTHENTICATION_BACKENDS = LDAP_CONFIG.AUTHENTICATION_BACKENDS
+#     AUTHENTICATION_BACKENDS = LDAP_CONFIG.AUTHENTICATION_BACKENDS
 
 ################################################################################
 ### Staticfile and Template Settings
@@ -156,22 +171,24 @@ if LDAP_CONFIG.LDAP_ENABLED:
 STATIC_URL = '/static/'
 TEMPLATES_DIR_NAME = 'templates'
 STATICFILES_DIRS = [
-    *([str(CONFIG.CUSTOM_TEMPLATES_DIR / 'static')] if CONFIG.CUSTOM_TEMPLATES_DIR else []),
-    *[
-        str(plugin_dir / 'static')
-        for plugin_dir in PLUGIN_DIRS.values()
-        if (plugin_dir / 'static').is_dir()
-    ],
+    *([str(CONSTANTS.CUSTOM_TEMPLATES_DIR / 'static')] if CONSTANTS.CUSTOM_TEMPLATES_DIR.is_dir() else []),
+    # *[
+    #     str(plugin_dir / 'static')
+    #     for plugin_dir in PLUGIN_DIRS.values()
+    #     if (plugin_dir / 'static').is_dir()
+    # ],
+    *abx.get_plugins_STATICFILES_DIRS(),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'static'),
 ]
 
 TEMPLATE_DIRS = [
-    *([str(CONFIG.CUSTOM_TEMPLATES_DIR)] if CONFIG.CUSTOM_TEMPLATES_DIR else []),
-    *[
-        str(plugin_dir / 'templates')
-        for plugin_dir in PLUGIN_DIRS.values()
-        if (plugin_dir / 'templates').is_dir()
-    ],
+    *([str(CONSTANTS.CUSTOM_TEMPLATES_DIR)] if CONSTANTS.CUSTOM_TEMPLATES_DIR.is_dir() else []),
+    # *[
+    #     str(plugin_dir / 'templates')
+    #     for plugin_dir in PLUGIN_DIRS.values()
+    #     if (plugin_dir / 'templates').is_dir()
+    # ],
+    *abx.get_plugins_TEMPLATE_DIRS(),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'core'),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'admin'),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME),
@@ -198,8 +215,6 @@ TEMPLATES = [
 ### External Service Settings
 ################################################################################
 
-from ..plugins_sys.config.constants import CONSTANTS
-
 # CACHE_DB_FILENAME = 'cache.sqlite3'
 # CACHE_DB_PATH = CONSTANTS.CACHE_DIR / CACHE_DB_FILENAME
 # CACHE_DB_TABLE = 'django_cache'
@@ -210,7 +225,7 @@ DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(CONSTANTS.DATABAS
 QUEUE_DATABASE_NAME = DATABASE_NAME.replace('index.sqlite3', 'queue.sqlite3')
 
 SQLITE_CONNECTION_OPTIONS = {
-    "TIME_ZONE": CONFIG.TIMEZONE,
+    "TIME_ZONE": CONSTANTS.TIMEZONE,
     "OPTIONS": {
         # https://gcollazo.com/optimal-sqlite-settings-for-django/
         # # https://litestream.io/tips/#busy-timeout
@@ -280,6 +295,7 @@ DJANGO_HUEY = {
     "queues": {
         HUEY["name"]: HUEY.copy(),
         # more registered here at plugin import-time by BaseQueue.register()
+        **abx.get_plugins_DJANGO_HUEY_QUEUES(),
     },
 }
 
@@ -411,7 +427,7 @@ USE_I18N = True
 USE_TZ = True
 DATETIME_FORMAT = 'Y-m-d h:i:s A'
 SHORT_DATETIME_FORMAT = 'Y-m-d h:i:s A'
-TIME_ZONE = CONFIG.TIMEZONE        # django convention is TIME_ZONE, archivebox config uses TIMEZONE, they are equivalent
+TIME_ZONE = CONSTANTS.TIMEZONE        # django convention is TIME_ZONE, archivebox config uses TIMEZONE, they are equivalent
 
 
 from django.conf.locale.en import formats as en_formats    # type: ignore
@@ -504,6 +520,7 @@ ADMIN_DATA_VIEWS = {
                 "name": "log",
             },
         },
+        *abx.get_plugins_ADMIN_DATA_VIEWS_URLS(),
     ],
 }
 
@@ -595,3 +612,7 @@ DEBUG_LOGFIRE = DEBUG_LOGFIRE and (DATA_DIR / '.logfire').is_dir()
 # INSTALLED_APPS += ['jet_django']
 # JET_PROJECT = 'archivebox'
 # JET_TOKEN = 'some-api-token-here'
+
+
+abx.register_plugins_settings(globals())
+

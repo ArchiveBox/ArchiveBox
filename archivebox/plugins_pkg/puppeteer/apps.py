@@ -165,5 +165,5 @@ class PuppeteerPlugin(BasePlugin):
 
 
 PLUGIN = PuppeteerPlugin()
-PLUGIN.register(settings)
+# PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig

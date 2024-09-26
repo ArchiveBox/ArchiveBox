@@ -245,5 +245,17 @@ class ConfigPlugin(BasePlugin):
 
 
 PLUGIN = ConfigPlugin()
-PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig
+
+
+
+# register django apps
+@archivebox.plugin.hookimpl
+def get_INSTALLED_APPS():
+    return [DJANGO_APP.name]
+
+# register configs
+@archivebox.plugin.hookimpl
+def register_CONFIG():
+    return PLUGIN.HOOKS_BY_TYPE['CONFIG'].values()
+

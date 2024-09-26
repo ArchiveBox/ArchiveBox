@@ -533,6 +533,8 @@ def key_is_safe(key: str) -> bool:
 @render_with_table_view
 def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
+    CONFIG = settings.FLAT_CONFIG
+
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
     rows = {

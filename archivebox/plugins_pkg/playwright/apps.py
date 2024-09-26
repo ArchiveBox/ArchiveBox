@@ -72,7 +72,7 @@ class PlaywrightBinProvider(BaseBinProvider):
         if OPERATING_SYSTEM == "darwin" else
         Path("~/.cache/ms-playwright").expanduser()              # linux playwright cache dir
     )
-    puppeteer_install_args: List[str] = ["install"]  # --with-deps
+    puppeteer_install_args: List[str] = ["install"]              # --with-deps
 
     packages_handler: ProviderLookupDict = Field(default={
         "chrome": lambda: ["chromium"],
@@ -177,5 +177,5 @@ class PlaywrightPlugin(BasePlugin):
 
 
 PLUGIN = PlaywrightPlugin()
-PLUGIN.register(settings)
+# PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig

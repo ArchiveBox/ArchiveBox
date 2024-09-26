@@ -96,32 +96,32 @@ class BaseHook(BaseModel):
         # e.g. /admin/environment/config/LdapConfig/
         return f"/admin/environment/{self.hook_type.lower()}/{self.id}/"
 
-    def register(self, settings, parent_plugin=None):
-        """Load a record of an installed hook into global Django settings.HOOKS at runtime."""
-        self._plugin = parent_plugin         # for debugging only, never rely on this!
+    # def register(self, settings, parent_plugin=None):
+    #     """Load a record of an installed hook into global Django settings.HOOKS at runtime."""
+    #     self._plugin = parent_plugin         # for debugging only, never rely on this!
 
-        # assert json.dumps(self.model_json_schema(), indent=4), f"Hook {self.hook_module} has invalid JSON schema."
+    #     # assert json.dumps(self.model_json_schema(), indent=4), f"Hook {self.hook_module} has invalid JSON schema."
 
-        # print('  -', self.hook_module, '.register()')
+    #     # print('  -', self.hook_module, '.register()')
 
-        # record installed hook in settings.HOOKS
-        settings.HOOKS[self.id] = self
+    #     # record installed hook in settings.HOOKS
+    #     settings.REGISTERED_HOOKS[self.id] = self
 
-        if settings.HOOKS[self.id]._is_registered:
-            raise Exception(f"Tried to run {self.hook_module}.register() but its already been called!")
+    #     if settings.REGISTERED_HOOKS[self.id]._is_registered:
+    #         raise Exception(f"Tried to run {self.hook_module}.register() but its already been called!")
 
-        settings.HOOKS[self.id]._is_registered = True
+    #     settings.REGISTERED_HOOKS[self.id]._is_registered = True
 
-        # print("REGISTERED HOOK:", self.hook_module)
+    #     # print("REGISTERED HOOK:", self.hook_module)
 
-    def ready(self, settings):
-        """Runs any runtime code needed when AppConfig.ready() is called (after all models are imported)."""
+    # def ready(self, settings):
+    #     """Runs any runtime code needed when AppConfig.ready() is called (after all models are imported)."""
 
-        # print('  -', self.hook_module, '.ready()')
+    #     # print('  -', self.hook_module, '.ready()')
 
-        assert self.id in settings.HOOKS, f"Tried to ready hook {self.hook_module} but it is not registered in settings.HOOKS."
+    #     assert self.id in settings.REGISTERED_HOOKS, f"Tried to ready hook {self.hook_module} but it is not registered in settings.REGISTERED_HOOKS."
 
-        if settings.HOOKS[self.id]._is_ready:
-            raise Exception(f"Tried to run {self.hook_module}.ready() but its already been called!")
+    #     if settings.REGISTERED_HOOKS[self.id]._is_ready:
+    #         raise Exception(f"Tried to run {self.hook_module}.ready() but its already been called!")
 
-        settings.HOOKS[self.id]._is_ready = True
+    #     settings.REGISTERED_HOOKS[self.id]._is_ready = True

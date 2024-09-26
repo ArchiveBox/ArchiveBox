@@ -1,5 +1,6 @@
 __package__ = 'archivebox.plugantic'
 
+import abx
 import inspect
 from pathlib import Path
 
@@ -20,9 +21,6 @@ from pydantic import (
 from benedict import benedict
 
 from .base_hook import BaseHook, HookType
-
-from ..config import bump_startup_progress_bar
-
 
 class BasePlugin(BaseModel):
     model_config = ConfigDict(
@@ -107,9 +105,10 @@ class BasePlugin(BaseModel):
 
             default_auto_field = 'django.db.models.AutoField'
 
-            def ready(self):
-                from django.conf import settings
-                plugin_self.ready(settings)
+            # handled by abx.hookimpl  ready()
+            # def ready(self):
+            #     from django.conf import settings
+            #     plugin_self.ready(settings)
 
         return PluginAppConfig
 
@@ -125,64 +124,60 @@ class BasePlugin(BaseModel):
             hooks[hook.hook_type][hook.id] = hook
         return hooks
 
-    def register(self, settings=None):
+    def register(self, settings):
         """Loads this plugin's configs, binaries, extractors, and replayers into global Django settings at import time (before models are imported or any AppConfig.ready() are called)."""
 
-        if settings is None:
-            from django.conf import settings as django_settings
-            settings = django_settings
-            
-        # print()
-        # print(self.plugin_module_full, '.register()')
+        from ..config import bump_startup_progress_bar
 
-        # assert json.dumps(self.model_json_schema(), indent=4), f'Plugin {self.plugin_module} has invalid JSON schema.'
+        # assert settings.PLUGINS[self.id] == self
+        # # assert self.id not in settings.PLUGINS, f'Tried to register plugin {self.plugin_module} but it conflicts with existing plugin of the same name ({self.app_label}).'
 
-        assert self.id not in settings.PLUGINS, f'Tried to register plugin {self.plugin_module} but it conflicts with existing plugin of the same name ({self.app_label}).'
+        # ### Mutate django.conf.settings... values in-place to include plugin-provided overrides
 
-        ### Mutate django.conf.settings... values in-place to include plugin-provided overrides
-        settings.PLUGINS[self.id] = self
+        # if settings.PLUGINS[self.id]._is_registered:
+        #     raise Exception(f"Tried to run {self.plugin_module}.register() but its already been called!")
 
-        if settings.PLUGINS[self.id]._is_registered:
-            raise Exception(f"Tried to run {self.plugin_module}.register() but its already been called!")
+        # for hook in self.hooks:
+        #     hook.register(settings, parent_plugin=self)
 
-        for hook in self.hooks:
-            hook.register(settings, parent_plugin=self)
-
-        settings.PLUGINS[self.id]._is_registered = True
-        # print('√ REGISTERED PLUGIN:', self.plugin_module)
+        # settings.PLUGINS[self.id]._is_registered = True
+        # # print('√ REGISTERED PLUGIN:', self.plugin_module)
         bump_startup_progress_bar()
 
     def ready(self, settings=None):
         """Runs any runtime code needed when AppConfig.ready() is called (after all models are imported)."""
 
-        if settings is None:
-            from django.conf import settings as django_settings
-            settings = django_settings
+        from ..config import bump_startup_progress_bar
 
-        # print()
-        # print(self.plugin_module_full, '.ready()')
 
-        assert (
-            self.id in settings.PLUGINS and settings.PLUGINS[self.id]._is_registered
-        ), f"Tried to run plugin.ready() for {self.plugin_module} but plugin is not yet registered in settings.PLUGINS."
+        # if settings is None:
+        #     from django.conf import settings as django_settings
+        #     settings = django_settings
 
-        if settings.PLUGINS[self.id]._is_ready:
-            raise Exception(f"Tried to run {self.plugin_module}.ready() but its already been called!")
+        # # print()
+        # # print(self.plugin_module_full, '.ready()')
 
-        for hook in self.hooks:
-            hook.ready(settings)
+        # assert (
+        #     self.id in settings.PLUGINS and settings.PLUGINS[self.id]._is_registered
+        # ), f"Tried to run plugin.ready() for {self.plugin_module} but plugin is not yet registered in settings.PLUGINS."
+
+        # if settings.PLUGINS[self.id]._is_ready:
+        #     raise Exception(f"Tried to run {self.plugin_module}.ready() but its already been called!")
+
+        # for hook in self.hooks:
+        #     hook.ready(settings)
         
-        settings.PLUGINS[self.id]._is_ready = True
+        # settings.PLUGINS[self.id]._is_ready = True
         bump_startup_progress_bar()
 
-    # @validate_call
-    # def install_binaries(self) -> Self:
-    #     new_binaries = []
-    #     for idx, binary in enumerate(self.binaries):
-    #         new_binaries.append(binary.install() or binary)
-    #     return self.model_copy(update={
-    #         'binaries': new_binaries,
-    #     })
+    @validate_call
+    def install_binaries(self) -> Self:
+        new_binaries = []
+        for idx, binary in enumerate(self.binaries):
+            new_binaries.append(binary.install() or binary)
+        return self.model_copy(update={
+            'binaries': new_binaries,
+        })
 
     @validate_call
     def load_binaries(self, cache=True) -> Self:

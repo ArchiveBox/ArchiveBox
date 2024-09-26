@@ -27,7 +27,6 @@ import re
 import sys
 import json
 import shutil
-import archivebox
 
 from hashlib import md5
 from pathlib import Path
@@ -36,15 +35,20 @@ from typing import Optional, Type, Tuple, Dict
 from subprocess import run, PIPE, DEVNULL, STDOUT, TimeoutExpired
 from configparser import ConfigParser
 
-from pydantic_pkgr import SemVer
 from rich.progress import Progress
 from rich.console import Console
+from benedict import benedict
 
 import django
 from django.db.backends.sqlite3.base import Database as sqlite3
 
+import archivebox
+from archivebox.constants import CONSTANTS
+from archivebox.constants import *
+
+from pydantic_pkgr import SemVer
+
 from .config_stubs import (
-    AttrDict,
     ConfigValue,
     ConfigDict,
     ConfigDefaultValue,
@@ -52,85 +56,35 @@ from .config_stubs import (
 )
 
 from .misc.logging import (
-    DEFAULT_CLI_COLORS,
-    ANSI,
-    COLOR_DICT,
     stderr,
     hint,      # noqa
 )
 
-# print('STARTING CONFIG LOADING')
-
-# load fallback libraries from vendor dir
-from .vendor import load_vendored_libs
-load_vendored_libs()
-
-# print("LOADED VENDOR LIBS")
+from .plugins_sys.config.apps import SHELL_CONFIG, GENERAL_CONFIG, ARCHIVING_CONFIG, SERVER_CONFIG, SEARCH_BACKEND_CONFIG, STORAGE_CONFIG
+from .plugins_auth.ldap.apps import LDAP_CONFIG
+from .plugins_extractor.favicon.apps import FAVICON_CONFIG
+ANSI = SHELL_CONFIG.ANSI
+LDAP = LDAP_CONFIG.LDAP_ENABLED
 
 ############################### Config Schema ##################################
 
 CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
-    'SHELL_CONFIG': {
-        'IS_TTY':                   {'type': bool,  'default': lambda _: sys.stdout.isatty()},
-        'USE_COLOR':                {'type': bool,  'default': lambda c: c['IS_TTY']},
-        'SHOW_PROGRESS':            {'type': bool,  'default': lambda c: c['IS_TTY']},  # progress bars are buggy on mac, disable for now
-        'IN_DOCKER':                {'type': bool,  'default': False},
-        'IN_QEMU':                  {'type': bool,  'default': False},
-        'PUID':                     {'type': int,   'default': os.getuid()},
-        'PGID':                     {'type': int,   'default': os.getgid()},
-    },
+    'SHELL_CONFIG': SHELL_CONFIG.as_legacy_config_schema(),
 
-    'GENERAL_CONFIG': {
-        'OUTPUT_DIR':               {'type': str,   'default': None},
-        'CONFIG_FILE':              {'type': str,   'default': None},
-        'ONLY_NEW':                 {'type': bool,  'default': True},
-        'TIMEOUT':                  {'type': int,   'default': 60},
-        'MEDIA_TIMEOUT':            {'type': int,   'default': 3600},
-        'OUTPUT_PERMISSIONS':       {'type': str,   'default': '644'},
-        'RESTRICT_FILE_NAMES':      {'type': str,   'default': 'windows'},  # TODO: move this to be a default WGET_ARGS
+    'SERVER_CONFIG': SERVER_CONFIG.as_legacy_config_schema(),
+    
+    'GENERAL_CONFIG': GENERAL_CONFIG.as_legacy_config_schema(),
 
-        'URL_DENYLIST':             {'type': str,   'default': r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$', 'aliases': ('URL_BLACKLIST',)},  # to avoid downloading code assets as their own pages
-        'URL_ALLOWLIST':            {'type': str,   'default': None, 'aliases': ('URL_WHITELIST',)},
+    'ARCHIVING_CONFIG': ARCHIVING_CONFIG.as_legacy_config_schema(),
 
+    'SEARCH_BACKEND_CONFIG': SEARCH_BACKEND_CONFIG.as_legacy_config_schema(),
 
-        'ENFORCE_ATOMIC_WRITES':    {'type': bool,  'default': True},
-        'TAG_SEPARATOR_PATTERN':    {'type': str,   'default': r'[,]'},
-    },
+    'STORAGE_CONFIG': STORAGE_CONFIG.as_legacy_config_schema(),
+    
+    'LDAP_CONFIG': LDAP_CONFIG.as_legacy_config_schema(),
+    
+    'FAVICON_CONFIG': FAVICON_CONFIG.as_legacy_config_schema(),
 
-    'SERVER_CONFIG': {
-        'ADMIN_USERNAME':            {'type': str,   'default': None},
-        'ADMIN_PASSWORD':            {'type': str,   'default': None},
-        
-        'SECRET_KEY':                {'type': str,   'default': None},
-        'BIND_ADDR':                 {'type': str,   'default': lambda c: ['127.0.0.1:8000', '0.0.0.0:8000'][c['IN_DOCKER']]},
-        'ALLOWED_HOSTS':             {'type': str,   'default': '*'},     # e.g. archivebox.example.com,archivebox2.example.com
-        'CSRF_TRUSTED_ORIGINS':      {'type': str,   'default': lambda c: 'http://localhost:8000,http://127.0.0.1:8000,http://0.0.0.0:8000,http://{}'.format(c['BIND_ADDR'])},   # e.g. https://archivebox.example.com,https://archivebox2.example.com:8080
-        'DEBUG':                     {'type': bool,  'default': False},
-        'PUBLIC_INDEX':              {'type': bool,  'default': True},
-        'PUBLIC_SNAPSHOTS':          {'type': bool,  'default': True},
-        'PUBLIC_ADD_VIEW':           {'type': bool,  'default': False},
-        'FOOTER_INFO':               {'type': str,   'default': 'Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.'},
-        'SNAPSHOTS_PER_PAGE':        {'type': int,   'default': 40},
-        'CUSTOM_TEMPLATES_DIR':      {'type': str,   'default': None},
-        'TIME_ZONE':                 {'type': str,   'default': 'UTC'},
-        'TIMEZONE':                  {'type': str,   'default': 'UTC'},
-        'REVERSE_PROXY_USER_HEADER': {'type': str,   'default': 'Remote-User'},
-        'REVERSE_PROXY_WHITELIST':   {'type': str,   'default': ''},
-        'LOGOUT_REDIRECT_URL':       {'type': str,   'default': '/'},
-        'PREVIEW_ORIGINALS':         {'type': bool,  'default': True},
-
-        'LDAP':                      {'type': bool,  'default': False},
-        'LDAP_SERVER_URI':           {'type': str,   'default': None},
-        'LDAP_BIND_DN':              {'type': str,   'default': None},
-        'LDAP_BIND_PASSWORD':        {'type': str,   'default': None},
-        'LDAP_USER_BASE':            {'type': str,   'default': None},
-        'LDAP_USER_FILTER':          {'type': str,   'default': None},
-        'LDAP_USERNAME_ATTR':        {'type': str,   'default': None},
-        'LDAP_FIRSTNAME_ATTR':       {'type': str,   'default': None},
-        'LDAP_LASTNAME_ATTR':        {'type': str,   'default': None},
-        'LDAP_EMAIL_ATTR':           {'type': str,   'default': None},
-        'LDAP_CREATE_SUPERUSER':     {'type': bool,  'default': False},
-    },
 
     'ARCHIVE_METHOD_TOGGLES': {
         'SAVE_TITLE':               {'type': bool,  'default': True, 'aliases': ('FETCH_TITLE',)},
@@ -212,26 +166,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'SINGLEFILE_EXTRA_ARGS':    {'type': list,  'default': None},
         'MERCURY_ARGS':             {'type': list,  'default': ['--format=text']},
         'MERCURY_EXTRA_ARGS':       {'type': list,  'default': None},
-        'FAVICON_PROVIDER':         {'type': str,   'default': 'https://www.google.com/s2/favicons?domain={}'},
-    },
-
-    'SEARCH_BACKEND_CONFIG' : {
-        'USE_INDEXING_BACKEND':     {'type': bool,  'default': True},
-        'USE_SEARCHING_BACKEND':    {'type': bool,  'default': True},
-        'SEARCH_BACKEND_ENGINE':    {'type': str,   'default': 'ripgrep'},
-        'SEARCH_BACKEND_HOST_NAME': {'type': str,   'default': 'localhost'},
-        'SEARCH_BACKEND_PORT':      {'type': int,   'default': 1491},
-        'SEARCH_BACKEND_PASSWORD':  {'type': str,   'default': 'SecretPassword'},
-        'SEARCH_PROCESS_HTML':      {'type': bool,  'default': True},
-        # SONIC
-        'SONIC_COLLECTION':         {'type': str,   'default': 'archivebox'},
-        'SONIC_BUCKET':             {'type': str,   'default': 'snapshots'},
-        'SEARCH_BACKEND_TIMEOUT':   {'type': int,   'default': 90},
-        # SQLite3 FTS5
-        'FTS_SEPARATE_DATABASE':    {'type': bool,  'default': True},
-        'FTS_TOKENIZERS':           {'type': str,   'default': 'porter unicode61 remove_diacritics 2'},
-        # Default from https://www.sqlite.org/limits.html#max_length
-        'FTS_SQLITE_MAX_LENGTH':    {'type': int,   'default': int(1e9)},
     },
 
     'DEPENDENCY_CONFIG': {
@@ -242,7 +176,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'USE_MERCURY':              {'type': bool,  'default': True},
         'USE_GIT':                  {'type': bool,  'default': True},
         'USE_CHROME':               {'type': bool,  'default': True},
-        'USE_NODE':                 {'type': bool,  'default': True},
         'USE_YOUTUBEDL':            {'type': bool,  'default': True},
         'USE_RIPGREP':              {'type': bool,  'default': True},
 
@@ -282,60 +215,16 @@ def get_real_name(key: str) -> str:
 
 
 
-################################ Constants #####################################
-
-PACKAGE_DIR_NAME = 'archivebox'
-TEMPLATES_DIR_NAME = 'templates'
-
-ARCHIVE_DIR_NAME = 'archive'
-SOURCES_DIR_NAME = 'sources'
-LOGS_DIR_NAME = 'logs'
-CACHE_DIR_NAME = 'cache'
-LIB_DIR_NAME = 'lib'
-PERSONAS_DIR_NAME = 'personas'
-CRONTABS_DIR_NAME = 'crontabs'
-SQL_INDEX_FILENAME = 'index.sqlite3'
-JSON_INDEX_FILENAME = 'index.json'
-HTML_INDEX_FILENAME = 'index.html'
-ROBOTS_TXT_FILENAME = 'robots.txt'
-FAVICON_FILENAME = 'favicon.ico'
-CONFIG_FILENAME = 'ArchiveBox.conf'
-
-
-
-
-ALLOWDENYLIST_REGEX_FLAGS: int = re.IGNORECASE | re.UNICODE | re.MULTILINE
-
-
-CONSTANTS = archivebox.CONSTANTS._asdict()
-
-############################## Version Config ##################################
-
-
-
-
-
-############################## Derived Config ##################################
-
-
-
 # These are derived/computed values calculated *after* all user-provided config values are ingested
 # they appear in `archivebox config` output and are intended to be read-only for the user
 DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
-    **{
-        key: {'default': lambda c: val}
-        for key, val in archivebox.CONSTANTS.items()
-    },
-
-
     'PACKAGE_DIR':              {'default': lambda c: archivebox.PACKAGE_DIR.resolve()},
-    'TEMPLATES_DIR':            {'default': lambda c: c['PACKAGE_DIR'] / TEMPLATES_DIR_NAME},
+    'TEMPLATES_DIR':            {'default': lambda c: c['PACKAGE_DIR'] / CONSTANTS.TEMPLATES_DIR_NAME},
     'CUSTOM_TEMPLATES_DIR':     {'default': lambda c: c['CUSTOM_TEMPLATES_DIR'] and Path(c['CUSTOM_TEMPLATES_DIR'])},
 
 
-    'URL_DENYLIST_PTN':         {'default': lambda c: c['URL_DENYLIST'] and re.compile(c['URL_DENYLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
-    'URL_ALLOWLIST_PTN':        {'default': lambda c: c['URL_ALLOWLIST'] and re.compile(c['URL_ALLOWLIST'] or '', ALLOWDENYLIST_REGEX_FLAGS)},
-    'DIR_OUTPUT_PERMISSIONS':   {'default': lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5')},  # exec is always needed to list directories
+    'URL_DENYLIST_PTN':         {'default': lambda c: c['URL_DENYLIST'] and re.compile(c['URL_DENYLIST'] or '', CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS)},
+    'URL_ALLOWLIST_PTN':        {'default': lambda c: c['URL_ALLOWLIST'] and re.compile(c['URL_ALLOWLIST'] or '', CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS)},
 
 
     'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
@@ -356,7 +245,7 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'WGET_EXTRA_ARGS':          {'default': lambda c: c['WGET_EXTRA_ARGS'] or []},
 
     'USE_MERCURY':              {'default': lambda c: c['USE_MERCURY'] and c['SAVE_MERCURY']},
-    'SAVE_MERCURY':             {'default': lambda c: c['USE_MERCURY'] and c['USE_NODE']},
+    'SAVE_MERCURY':             {'default': lambda c: c['USE_MERCURY']},
     'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury doesnt expose version info until this is merged https://github.com/postlight/parser/pull/750
     'MERCURY_ARGS':             {'default': lambda c: c['MERCURY_ARGS'] or []},
     'MERCURY_EXTRA_ARGS':       {'default': lambda c: c['MERCURY_EXTRA_ARGS'] or []},
@@ -365,8 +254,6 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
     'SAVE_GIT':                 {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
 
-    'USE_NODE':                 {'default': lambda c: True},
-    'NODE_VERSION':             {'default': lambda c: bin_version(c['NODE_BINARY']) if c['USE_NODE'] else None},
 
     'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
     # 'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
@@ -550,7 +437,7 @@ def load_config(defaults: ConfigDefaultDict,
                 config: Optional[ConfigDict]=None,
                 out_dir: Optional[str]=None,
                 env_vars: Optional[os._Environ]=None,
-                config_file_vars: Optional[Dict[str, str]]=None) -> ConfigDict:
+                config_file_vars: Optional[Dict[str, str]]=None) -> benedict:
 
     env_vars = env_vars or os.environ
     config_file_vars = config_file_vars or load_config_file(out_dir=out_dir)
@@ -583,13 +470,7 @@ def load_config(defaults: ConfigDefaultDict,
             # raise
             # raise SystemExit(2)
 
-    return AttrDict(extended_config)
-
-
-def parse_version_string(version: str) -> Tuple[int, int, int]:
-    """parses a version tag string formatted like 'vx.x.x' into (major, minor, patch) ints"""
-    base = version.split('+')[0].split('v')[-1] # remove 'v' prefix and '+editable' suffix
-    return tuple(int(part) for part in base.split('.'))[:3]
+    return benedict(extended_config)
 
 
 
@@ -778,13 +659,13 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
             'enabled': config['USE_WGET'],
             'is_valid': bool(config['WGET_VERSION']),
         },
-        'NODE_BINARY': {
-            'path': bin_path(config['NODE_BINARY']),
-            'version': config['NODE_VERSION'],
-            'hash': bin_hash(config['NODE_BINARY']),
-            'enabled': config['USE_NODE'],
-            'is_valid': bool(config['NODE_VERSION']),
-        },
+        # 'NODE_BINARY': {
+        #     'path': bin_path(config['NODE_BINARY']),
+        #     'version': config['NODE_VERSION'],
+        #     'hash': bin_hash(config['NODE_BINARY']),
+        #     'enabled': config['USE_NODE'],
+        #     'is_valid': bool(config['NODE_VERSION']),
+        # },
         'MERCURY_BINARY': {
             'path': bin_path(config['MERCURY_BINARY']),
             'version': config['MERCURY_VERSION'],
@@ -879,15 +760,15 @@ globals().update(CONFIG)
 
 
 # Set timezone to UTC and umask to OUTPUT_PERMISSIONS
-assert TIMEZONE == 'UTC', 'The server timezone should always be set to UTC'  # noqa: F821
+assert TIMEZONE == 'UTC', f'The server timezone should always be set to UTC (got {TIMEZONE})'  # noqa: F821
 os.environ["TZ"] = TIMEZONE                                                  # noqa: F821
-os.umask(0o777 - int(DIR_OUTPUT_PERMISSIONS, base=8))                        # noqa: F821
+os.umask(0o777 - int(STORAGE_CONFIG.DIR_OUTPUT_PERMISSIONS, base=8))                        # noqa: F821
 
 ########################### Config Validity Checkers ###########################
 
-if not CONFIG.USE_COLOR:
+if not SHELL_CONFIG.USE_COLOR:
     os.environ['NO_COLOR'] = '1'
-if not CONFIG.SHOW_PROGRESS:
+if not SHELL_CONFIG.SHOW_PROGRESS:
     os.environ['TERM'] = 'dumb'
 
 # recreate rich console obj based on new config values
@@ -913,7 +794,7 @@ def setup_django_minimal():
     django.setup()
 
 
-def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, in_memory_db=False) -> None:
+def setup_django(out_dir: Path | None=None, check_db=False, config: ConfigDict=CONFIG, in_memory_db=False) -> None:
     global INITIAL_STARTUP_PROGRESS
     global INITIAL_STARTUP_PROGRESS_TASK
     
@@ -930,7 +811,6 @@ def setup_django(out_dir: Path=None, check_db=False, config: ConfigDict=CONFIG, 
 
             sys.path.append(str(archivebox.PACKAGE_DIR))
             os.environ.setdefault('OUTPUT_DIR', str(archivebox.DATA_DIR))
-            os.environ.setdefault("ARCHIVEBOX_DATABASE_NAME", ":memory:")
             os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
                 
             bump_startup_progress_bar()

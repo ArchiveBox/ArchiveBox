@@ -134,5 +134,5 @@ class SinglefilePlugin(BasePlugin):
 
 
 PLUGIN = SinglefilePlugin()
-PLUGIN.register(settings)
+# PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig

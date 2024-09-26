@@ -8,10 +8,11 @@ from pathlib import Path
 from typing import List, Dict, Optional, ClassVar
 from pydantic import InstanceOf, Field, model_validator
 
+import abx
+
 import django
 from django.db.backends.sqlite3.base import Database as django_sqlite3     # type: ignore[import-type]
 from django.core.checks import Error, Tags
-from django.conf import settings
 
 from pydantic_pkgr import BinProvider, PipProvider, BinName, BinProviderName, ProviderLookupDict, SemVer
 from plugantic.base_plugin import BasePlugin
@@ -240,5 +241,11 @@ class PipPlugin(BasePlugin):
     ]
 
 PLUGIN = PipPlugin()
-PLUGIN.register(settings)
+# PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig
+
+
+@abx.hookimpl
+def register_django_checks(settings):
+    USER_IS_NOT_ROOT_CHECK.register_with_django_check_system(settings)
+    PIP_ENVIRONMENT_CHECK.register_with_django_check_system(settings)

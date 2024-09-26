@@ -255,5 +255,5 @@ class SqliteftsSearchPlugin(BasePlugin):
 
 
 PLUGIN = SqliteftsSearchPlugin()
-PLUGIN.register(settings)
+# PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig

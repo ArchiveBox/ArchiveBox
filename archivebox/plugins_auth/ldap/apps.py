@@ -51,5 +51,5 @@ class LdapAuthPlugin(BasePlugin):
 
 
 PLUGIN = LdapAuthPlugin()
-PLUGIN.register(settings)
+# PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig

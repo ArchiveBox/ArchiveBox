@@ -227,26 +227,34 @@ class ArchiveBoxBaseConfig(BaseSettings):
                 print(f'    {key}={original_value} -> {value}')
         self.__init__()
         return self
+    
+    def as_legacy_config_schema(self):
+        # shim for backwards compatibility with old config schema style
+        model_values = self.model_dump()
+        return benedict({
+            key: {'type': field.annotation, 'default': model_values[key]}
+            for key, field in self.model_fields.items()
+        })
 
 class BaseConfigSet(ArchiveBoxBaseConfig, BaseHook):      # type: ignore[type-arg]
     hook_type: ClassVar[HookType] = 'CONFIG'
 
     section: ClassVar[ConfigSectionName] = 'GENERAL_CONFIG'
 
-    def register(self, settings, parent_plugin=None):
-        # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
+    # def register(self, settings, parent_plugin=None):
+    #     # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
 
-        # settings.FLAT_CONFIG = benedict(getattr(settings, "FLAT_CONFIG", settings.CONFIG))
-        # # pass FLAT_CONFIG so far into our config model to load it
-        # loaded_config = self.__class__(**settings.FLAT_CONFIG)
-        # # then dump our parsed config back into FLAT_CONFIG for the next plugin to use
-        # settings.FLAT_CONFIG.merge(loaded_config.model_dump(include=set(self.model_fields.keys())))
+    #     settings.FLAT_CONFIG = benedict(getattr(settings, "FLAT_CONFIG", {}))
+    #     # pass FLAT_CONFIG so far into our config model to load it
+    #     loaded_config = self
+    #     # then dump our parsed config back into FLAT_CONFIG for the next plugin to use
+    #     settings.FLAT_CONFIG.merge(loaded_config.model_dump(include=set(self.model_fields.keys())))
         
-        settings.CONFIGS = getattr(settings, "CONFIGS", None) or benedict({})
-        settings.CONFIGS[self.id] = self
-        self._original_id = id(self)
+    #     settings.REGISTERED_CONFIGS = getattr(settings, "REGISTERED_CONFIGS", None) or benedict({})
+    #     settings.REGISTERED_CONFIGS[self.id] = self
+    #     self._original_id = id(self)
 
-        super().register(settings, parent_plugin=parent_plugin)
+    #     super().register(settings, parent_plugin=parent_plugin)
 
     # def ready(self, settings):
     #     # reload config from environment, in case it's been changed by any other plugins

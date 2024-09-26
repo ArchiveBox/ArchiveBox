@@ -97,5 +97,5 @@ class YtdlpPlugin(BasePlugin):
 
 
 PLUGIN = YtdlpPlugin()
-PLUGIN.register(settings)
+# PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig

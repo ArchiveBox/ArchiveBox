@@ -259,5 +259,5 @@ class ChromePlugin(BasePlugin):
 
 
 PLUGIN = ChromePlugin()
-PLUGIN.register(settings)
+# PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig

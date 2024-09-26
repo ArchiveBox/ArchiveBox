@@ -99,5 +99,5 @@ class ReadabilityPlugin(BasePlugin):
 
 
 PLUGIN = ReadabilityPlugin()
-PLUGIN.register(settings)
+# PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig

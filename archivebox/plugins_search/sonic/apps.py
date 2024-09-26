@@ -133,5 +133,5 @@ class SonicSearchPlugin(BasePlugin):
 
 
 PLUGIN = SonicSearchPlugin()
-PLUGIN.register(settings)
+# PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig
