@@ -37,7 +37,7 @@ class RipgrepConfig(BaseConfigSet):
         '--files-with-matches',
         '--regexp',
     ])
-    RIPGREP_SEARCH_DIR: str = Field(default=lambda: str(settings.ARCHIVE_DIR))
+    RIPGREP_SEARCH_DIR: Path = archivebox.CONSTANTS.ARCHIVE_DIR
 
 RIPGREP_CONFIG = RipgrepConfig()
 
@@ -81,7 +81,7 @@ class RipgrepSearchBackend(BaseSearchBackend):
             ripgrep_binary.abspath, 
             *RIPGREP_CONFIG.RIPGREP_ARGS_DEFAULT,
             text,
-            RIPGREP_CONFIG.RIPGREP_SEARCH_DIR,
+            str(RIPGREP_CONFIG.RIPGREP_SEARCH_DIR),
         ]
         proc = run(cmd, timeout=SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_TIMEOUT, capture_output=True, text=True)
         timestamps = set()

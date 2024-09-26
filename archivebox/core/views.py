@@ -2,7 +2,6 @@ __package__ = 'archivebox.core'
 
 from typing import Callable
 
-import threading
 from pathlib import Path
 
 from django.shortcuts import render, redirect
@@ -12,6 +11,7 @@ from django.views import View
 from django.views.generic.list import ListView
 from django.views.generic import FormView
 from django.db.models import Q
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.views.decorators.csrf import csrf_exempt
@@ -20,6 +20,8 @@ from django.utils.decorators import method_decorator
 from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
+import archivebox
+from archivebox.constants import CONSTANTS
 
 from core.models import Snapshot
 from core.forms import AddLinkForm
@@ -27,28 +29,17 @@ from core.admin import result_url
 
 from queues.tasks import bg_add
 
+from ..plugins_sys.config.apps import SHELL_CONFIG, SERVER_CONFIG
+from ..plugins_extractor.archivedotorg.apps import ARCHIVEDOTORG_CONFIG
+
 from ..config import (
-    OUTPUT_DIR,
-    PUBLIC_INDEX,
-    PUBLIC_SNAPSHOTS,
-    PUBLIC_ADD_VIEW,
-    VERSION,
-    COMMIT_HASH,
-    FOOTER_INFO,
-    SNAPSHOTS_PER_PAGE,
-    CONFIG,
     CONFIG_SCHEMA,
     DYNAMIC_CONFIG_SCHEMA,
     USER_CONFIG,
-    SAVE_ARCHIVE_DOT_ORG,
-    PREVIEW_ORIGINALS,
-    CONSTANTS,
 )
 from ..logging_util import printable_filesize
-from ..main import add
-from ..util import base_url, ansi_to_html, htmlencode, urldecode, urlencode, ts_to_date_str
+from ..util import base_url, htmlencode, ts_to_date_str
 from ..search import query_search_index
-from ..extractors.wget import wget_output_path
 from .serve_static import serve_static_with_byterange_support
 
 
@@ -57,7 +48,7 @@ class HomepageView(View):
         if request.user.is_authenticated:
             return redirect('/admin/core/snapshot/')
 
-        if PUBLIC_INDEX:
+        if SERVER_CONFIG.PUBLIC_INDEX:
             return redirect('/public')
 
         return redirect(f'/admin/login/?next={request.path}')
@@ -166,8 +157,8 @@ class SnapshotView(View):
             'status_color': 'success' if link.is_archived else 'danger',
             'oldest_archive_date': ts_to_date_str(link.oldest_archive_date),
             'warc_path': warc_path,
-            'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
-            'PREVIEW_ORIGINALS': PREVIEW_ORIGINALS,
+            'SAVE_ARCHIVE_DOT_ORG': ARCHIVEDOTORG_CONFIG.SAVE_ARCHIVE_DOT_ORG,
+            'PREVIEW_ORIGINALS': SERVER_CONFIG.PREVIEW_ORIGINALS,
             'archiveresults': sorted(archiveresults.values(), key=lambda r: all_types.index(r['name']) if r['name'] in all_types else -r['size']),
             'best_result': best_result,
             # 'tags_str': 'somealskejrewlkrjwer,werlmwrwlekrjewlkrjwer324m532l,4m32,23m324234',
@@ -176,7 +167,7 @@ class SnapshotView(View):
 
 
     def get(self, request, path):
-        if not request.user.is_authenticated and not PUBLIC_SNAPSHOTS:
+        if not request.user.is_authenticated and not SERVER_CONFIG.PUBLIC_SNAPSHOTS:
             return redirect(f'/admin/login/?next={request.path}')
 
         snapshot = None
@@ -381,15 +372,15 @@ class SnapshotView(View):
 class PublicIndexView(ListView):
     template_name = 'public_index.html'
     model = Snapshot
-    paginate_by = SNAPSHOTS_PER_PAGE
+    paginate_by = SERVER_CONFIG.SNAPSHOTS_PER_PAGE
     ordering = ['-bookmarked_at', '-created_at']
 
     def get_context_data(self, **kwargs):
         return {
             **super().get_context_data(**kwargs),
-            'VERSION': VERSION,
-            'COMMIT_HASH': COMMIT_HASH,
-            'FOOTER_INFO': FOOTER_INFO,
+            'VERSION': archivebox.VERSION,
+            'COMMIT_HASH': SHELL_CONFIG.COMMIT_HASH,
+            'FOOTER_INFO': SERVER_CONFIG.FOOTER_INFO,
         }
 
     def get_queryset(self, **kwargs):
@@ -428,7 +419,7 @@ class PublicIndexView(ListView):
         return qs.distinct()
 
     def get(self, *args, **kwargs):
-        if PUBLIC_INDEX or self.request.user.is_authenticated:
+        if SERVER_CONFIG.PUBLIC_INDEX or self.request.user.is_authenticated:
             response = super().get(*args, **kwargs)
             return response
         else:
@@ -449,7 +440,7 @@ class AddView(UserPassesTestMixin, FormView):
         return super().get_initial()
 
     def test_func(self):
-        return PUBLIC_ADD_VIEW or self.request.user.is_authenticated
+        return SERVER_CONFIG.PUBLIC_ADD_VIEW or self.request.user.is_authenticated
 
     def get_context_data(self, **kwargs):
         return {
@@ -457,8 +448,8 @@ class AddView(UserPassesTestMixin, FormView):
             'title': "Add URLs",
             # We can't just call request.build_absolute_uri in the template, because it would include query parameters
             'absolute_add_path': self.request.build_absolute_uri(self.request.path),
-            'VERSION': VERSION,
-            'FOOTER_INFO': FOOTER_INFO,
+            'VERSION': archivebox.VERSION,
+            'FOOTER_INFO': SERVER_CONFIG.FOOTER_INFO,
             'stdout': '',
         }
 
@@ -475,7 +466,7 @@ class AddView(UserPassesTestMixin, FormView):
             "depth": depth,
             "parser": parser,
             "update_all": False,
-            "out_dir": OUTPUT_DIR,
+            "out_dir": archivebox.DATA_DIR,
             "created_by_id": self.request.user.pk,
         }
         if extractors:

@@ -18,12 +18,18 @@ from requests.exceptions import RequestException, ReadTimeout
 
 from base32_crockford import encode as base32_encode                            # type: ignore
 from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
-
 try:
     import chardet
     detect_encoding = lambda rawdata: chardet.detect(rawdata)["encoding"]
 except ImportError:
     detect_encoding = lambda rawdata: "utf-8"
+
+
+from archivebox.constants import STATICFILE_EXTENSIONS
+from archivebox.plugins_sys.config.apps import ARCHIVING_CONFIG
+
+from .misc.logging import COLOR_DICT
+
 
 ### Parsing Helpers
 
@@ -114,7 +120,6 @@ def find_all_urls(urls_str: str):
 
 def is_static_file(url: str):
     # TODO: the proper way is with MIME type detection + ext, not only extension
-    from .config import STATICFILE_EXTENSIONS
     return extension(url).lower() in STATICFILE_EXTENSIONS
 
 
@@ -206,25 +211,20 @@ def parse_date(date: Any) -> Optional[datetime]:
 @enforce_types
 def download_url(url: str, timeout: int=None) -> str:
     """Download the contents of a remote url and return the text"""
-    from .config import (
-        TIMEOUT,
-        CHECK_SSL_VALIDITY,
-        WGET_USER_AGENT,
-        COOKIES_FILE,
-    )
-    timeout = timeout or TIMEOUT
+
+    timeout = timeout or ARCHIVING_CONFIG.TIMEOUT
     session = requests.Session()
 
-    if COOKIES_FILE and Path(COOKIES_FILE).is_file():
-        cookie_jar = http.cookiejar.MozillaCookieJar(COOKIES_FILE)
+    if ARCHIVING_CONFIG.COOKIES_FILE and Path(ARCHIVING_CONFIG.COOKIES_FILE).is_file():
+        cookie_jar = http.cookiejar.MozillaCookieJar(ARCHIVING_CONFIG.COOKIES_FILE)
         cookie_jar.load(ignore_discard=True, ignore_expires=True)
         for cookie in cookie_jar:
             session.cookies.set(cookie.name, cookie.value, domain=cookie.domain, path=cookie.path)
 
     response = session.get(
         url,
-        headers={'User-Agent': WGET_USER_AGENT},
-        verify=CHECK_SSL_VALIDITY,
+        headers={'User-Agent': ARCHIVING_CONFIG.USER_AGENT},
+        verify=ARCHIVING_CONFIG.CHECK_SSL_VALIDITY,
         timeout=timeout,
     )
 
@@ -243,14 +243,13 @@ def download_url(url: str, timeout: int=None) -> str:
 @enforce_types
 def get_headers(url: str, timeout: int=None) -> str:
     """Download the contents of a remote url and return the headers"""
-    from .config import TIMEOUT, CHECK_SSL_VALIDITY, WGET_USER_AGENT
-    timeout = timeout or TIMEOUT
+    timeout = timeout or ARCHIVING_CONFIG.TIMEOUT
 
     try:
         response = requests.head(
             url,
-            headers={'User-Agent': WGET_USER_AGENT},
-            verify=CHECK_SSL_VALIDITY,
+            headers={'User-Agent': ARCHIVING_CONFIG.USER_AGENT},
+            verify=ARCHIVING_CONFIG.CHECK_SSL_VALIDITY,
             timeout=timeout,
             allow_redirects=True,
         )
@@ -261,8 +260,8 @@ def get_headers(url: str, timeout: int=None) -> str:
     except RequestException:
         response = requests.get(
             url,
-            headers={'User-Agent': WGET_USER_AGENT},
-            verify=CHECK_SSL_VALIDITY,
+            headers={'User-Agent': ARCHIVING_CONFIG.USER_AGENT},
+            verify=ARCHIVING_CONFIG.CHECK_SSL_VALIDITY,
             timeout=timeout,
             stream=True
         )
@@ -285,7 +284,6 @@ def ansi_to_html(text: str) -> str:
     """
     Based on: https://stackoverflow.com/questions/19212665/python-converting-ansi-color-codes-to-html
     """
-    from .config import COLOR_DICT
 
     TEMPLATE = '<span style="color: rgb{}"><br>'
     text = text.replace('[m', '</span>')

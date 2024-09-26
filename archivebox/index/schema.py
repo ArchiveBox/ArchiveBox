@@ -9,8 +9,6 @@ These are the old types we used to use before ArchiveBox v0.4 (before we switche
 
 __package__ = 'archivebox.index'
 
-from pathlib import Path
-
 from datetime import datetime, timezone, timedelta
 
 from typing import List, Dict, Any, Optional, Union
@@ -19,9 +17,13 @@ from dataclasses import dataclass, asdict, field, fields
 
 from django.utils.functional import cached_property
 
+from archivebox.constants import ARCHIVE_DIR, ARCHIVE_DIR_NAME
+
+from plugins_extractor.favicon.apps import FAVICON_CONFIG
+
 from ..system import get_dir_size
 from ..util import ts_to_date_str, parse_date
-from ..config import OUTPUT_DIR, ARCHIVE_DIR_NAME, FAVICON_PROVIDER
+
 
 class ArchiveError(Exception):
     def __init__(self, message, hints=None):
@@ -88,7 +90,7 @@ class ArchiveResult:
                 info['start_ts'] = parse_date(info['start_ts'])
                 info['end_ts'] = parse_date(info['end_ts'])
             if "pwd" not in keys:
-                info["pwd"] = str(Path(OUTPUT_DIR) / ARCHIVE_DIR_NAME / json_info["timestamp"])
+                info["pwd"] = str(ARCHIVE_DIR / json_info["timestamp"])
             if "cmd_version" not in keys:
                 info["cmd_version"] = "Undefined"
             if "cmd" not in keys:
@@ -281,12 +283,10 @@ class Link:
 
     @property
     def link_dir(self) -> str:
-        from ..config import CONFIG
-        return str(Path(CONFIG['ARCHIVE_DIR']) / self.timestamp)
+        return str(ARCHIVE_DIR / self.timestamp)
 
     @property
     def archive_path(self) -> str:
-        from ..config import ARCHIVE_DIR_NAME
         return '{}/{}'.format(ARCHIVE_DIR_NAME, self.timestamp)
     
     @property
@@ -385,7 +385,6 @@ class Link:
 
     @property
     def is_archived(self) -> bool:
-        from ..config import ARCHIVE_DIR
         from ..util import domain
 
         output_paths = (
@@ -402,7 +401,7 @@ class Link:
         )
 
         return any(
-            (Path(ARCHIVE_DIR) / self.timestamp / path).exists()
+            (ARCHIVE_DIR / self.timestamp / path).exists()
             for path in output_paths
         )
 
@@ -438,7 +437,7 @@ class Link:
         canonical = {
             'index_path': 'index.html',
             'favicon_path': 'favicon.ico',
-            'google_favicon_path': FAVICON_PROVIDER.format(self.domain),
+            'google_favicon_path': FAVICON_CONFIG.FAVICON_PROVIDER.format(self.domain),
             'wget_path': wget_output_path(self),
             'warc_path': 'warc/',
             'singlefile_path': 'singlefile.html',
