@@ -7,12 +7,18 @@ from .monkey_patches import *                    # noqa
 
 
 import os
+import sys
 import importlib.metadata
 from pathlib import Path
 
 PACKAGE_DIR = Path(__file__).resolve().parent    # archivebox source code dir
 DATA_DIR = Path(os.curdir).resolve()             # archivebox user data dir
+ARCHIVE_DIR = DATA_DIR / 'archive'
 
+# make sure PACKAGE_DIR is in sys.path so we can import all subfolders
+# without necessarily waiting for django to load them thorugh INSTALLED_APPS
+if str(PACKAGE_DIR) not in sys.path:
+    sys.path.append(str(PACKAGE_DIR))
 
 def _detect_installed_version():
     try:
@@ -35,3 +41,8 @@ __version__ = VERSION
 
 
 from .constants import CONSTANTS
+
+
+# load fallback libraries from vendor dir
+from .vendor import load_vendored_libs
+load_vendored_libs()
