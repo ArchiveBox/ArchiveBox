@@ -1313,10 +1313,10 @@ def manage(args: Optional[List[str]]=None, out_dir: Path=OUTPUT_DIR) -> None:
         stderr('[!] Warning: you need to pass -it to use interactive commands in docker', color='lightyellow')
         stderr('    docker run -it archivebox manage {}'.format(' '.join(args or ['...'])), color='lightyellow')
         stderr('')
+        
+    # import ipdb; ipdb.set_trace()
 
-    from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY  
-
-    execute_from_command_line([ARCHIVEBOX_BINARY.load().abspath, 'manage', *(args or ['help'])])
+    execute_from_command_line(['manage.py', *(args or ['help'])])
 
 
 @enforce_types
