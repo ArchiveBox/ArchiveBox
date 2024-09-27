@@ -12,7 +12,6 @@ from collections.abc import Mapping
 from typing import Optional, List, IO, Union, Iterable
 from pathlib import Path
 
-
 from ..misc.checks import check_data_folder, check_migrations
 from ..misc.logging import stderr
 

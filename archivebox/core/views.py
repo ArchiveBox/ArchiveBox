@@ -1,7 +1,7 @@
 __package__ = 'archivebox.core'
 
 from typing import Callable
-
+from benedict import benedict
 from pathlib import Path
 
 from django.shortcuts import render, redirect
@@ -36,11 +36,14 @@ from ..config import (
     CONFIG_SCHEMA,
     DYNAMIC_CONFIG_SCHEMA,
     USER_CONFIG,
+    CONFIG,
 )
 from ..logging_util import printable_filesize
 from ..util import base_url, htmlencode, ts_to_date_str
 from ..search import query_search_index
 from .serve_static import serve_static_with_byterange_support
+
+CONFIG = benedict({**CONSTANTS, **CONFIG, **settings.FLAT_CONFIG})
 
 
 class HomepageView(View):
@@ -532,8 +535,6 @@ def key_is_safe(key: str) -> bool:
 
 @render_with_table_view
 def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
-
-    CONFIG = settings.FLAT_CONFIG
 
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 

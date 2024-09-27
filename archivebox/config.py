@@ -788,16 +788,23 @@ def bump_startup_progress_bar():
 
 
 def setup_django_minimal():
-    sys.path.append(str(archivebox.PACKAGE_DIR))
-    os.environ.setdefault('OUTPUT_DIR', str(archivebox.DATA_DIR))
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
-    django.setup()
+    # sys.path.append(str(archivebox.PACKAGE_DIR))
+    # os.environ.setdefault('OUTPUT_DIR', str(archivebox.DATA_DIR))
+    # os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+    # django.setup()
+    raise Exception('dont use this anymore')
+
+DJANGO_SET_UP = False
 
 
 def setup_django(out_dir: Path | None=None, check_db=False, config: ConfigDict=CONFIG, in_memory_db=False) -> None:
     global INITIAL_STARTUP_PROGRESS
     global INITIAL_STARTUP_PROGRESS_TASK
-    
+    global DJANGO_SET_UP
+
+    if DJANGO_SET_UP:
+        raise Exception('django is already set up!')
+
     with Progress(transient=True, expand=True, console=CONSOLE) as INITIAL_STARTUP_PROGRESS:
         INITIAL_STARTUP_PROGRESS_TASK = INITIAL_STARTUP_PROGRESS.add_task("[green]Loading modules...", total=25)
 
@@ -808,14 +815,12 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: ConfigDict=C
         bump_startup_progress_bar()
         try:
             from django.core.management import call_command
-
-            sys.path.append(str(archivebox.PACKAGE_DIR))
-            os.environ.setdefault('OUTPUT_DIR', str(archivebox.DATA_DIR))
-            os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
                 
             bump_startup_progress_bar()
 
             if in_memory_db:
+                raise Exception('dont use this anymore')
+            
                 # some commands (e.g. oneshot) dont store a long-lived sqlite3 db file on disk.
                 # in those cases we create a temporary in-memory db and run the migrations
                 # immediately to get a usable in-memory-database at startup
@@ -833,8 +838,6 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: ConfigDict=C
 
             from django.conf import settings
             
-            from plugins_sys.config.apps import SHELL_CONFIG
-
             # log startup message to the error log
             with open(settings.ERROR_LOG, "a", encoding='utf-8') as f:
                 command = ' '.join(sys.argv)
@@ -877,6 +880,8 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: ConfigDict=C
 
         except KeyboardInterrupt:
             raise SystemExit(2)
+        
+    DJANGO_SET_UP = True
 
     INITIAL_STARTUP_PROGRESS = None
     INITIAL_STARTUP_PROGRESS_TASK = None

@@ -1,4 +1,4 @@
-__package__ = 'archivebox.plugantic'
+__package__ = 'abx.archivebox'
 
 import abx
 import inspect
@@ -16,7 +16,6 @@ from pydantic import (
     model_validator,
     InstanceOf,
     computed_field,
-    validate_call,
 )
 from benedict import benedict
 
@@ -124,91 +123,32 @@ class BasePlugin(BaseModel):
             hooks[hook.hook_type][hook.id] = hook
         return hooks
 
+
+
+    @abx.hookimpl
     def register(self, settings):
-        """Loads this plugin's configs, binaries, extractors, and replayers into global Django settings at import time (before models are imported or any AppConfig.ready() are called)."""
+        from archivebox.config import bump_startup_progress_bar
 
-        from ..config import bump_startup_progress_bar
-
-        # assert settings.PLUGINS[self.id] == self
-        # # assert self.id not in settings.PLUGINS, f'Tried to register plugin {self.plugin_module} but it conflicts with existing plugin of the same name ({self.app_label}).'
-
-        # ### Mutate django.conf.settings... values in-place to include plugin-provided overrides
-
-        # if settings.PLUGINS[self.id]._is_registered:
-        #     raise Exception(f"Tried to run {self.plugin_module}.register() but its already been called!")
-
-        # for hook in self.hooks:
-        #     hook.register(settings, parent_plugin=self)
-
-        # settings.PLUGINS[self.id]._is_registered = True
-        # # print('√ REGISTERED PLUGIN:', self.plugin_module)
+        self._is_registered = True
         bump_startup_progress_bar()
 
+        print('◣----------------- REGISTERED PLUGIN:', self.plugin_module, '-----------------◢')
+        print()
+
+    @abx.hookimpl
     def ready(self, settings=None):
         """Runs any runtime code needed when AppConfig.ready() is called (after all models are imported)."""
 
-        from ..config import bump_startup_progress_bar
+        from archivebox.config import bump_startup_progress_bar
 
+        assert self._is_registered, f"Tried to run {self.plugin_module}.ready() but it was never registered!"
+        self._is_ready = True
 
-        # if settings is None:
-        #     from django.conf import settings as django_settings
-        #     settings = django_settings
-
-        # # print()
-        # # print(self.plugin_module_full, '.ready()')
-
-        # assert (
-        #     self.id in settings.PLUGINS and settings.PLUGINS[self.id]._is_registered
-        # ), f"Tried to run plugin.ready() for {self.plugin_module} but plugin is not yet registered in settings.PLUGINS."
-
-        # if settings.PLUGINS[self.id]._is_ready:
-        #     raise Exception(f"Tried to run {self.plugin_module}.ready() but its already been called!")
-
-        # for hook in self.hooks:
-        #     hook.ready(settings)
-        
         # settings.PLUGINS[self.id]._is_ready = True
         bump_startup_progress_bar()
 
-    @validate_call
-    def install_binaries(self) -> Self:
-        new_binaries = []
-        for idx, binary in enumerate(self.binaries):
-            new_binaries.append(binary.install() or binary)
-        return self.model_copy(update={
-            'binaries': new_binaries,
-        })
 
-    @validate_call
-    def load_binaries(self, cache=True) -> Self:
-        new_binaries = []
-        for idx, binary in enumerate(self.HOOKS_BY_TYPE['BINARY'].values()):
-            new_binaries.append(binary.load(cache=cache) or binary)
-        return self.model_copy(update={
-            'binaries': new_binaries,
-        })
+    @abx.hookimpl
+    def get_INSTALLED_APPS(self):
+        return [self.plugin_module]
 
-    # @validate_call
-    # def load_or_install_binaries(self, cache=True) -> Self:
-    #     new_binaries = []
-    #     for idx, binary in enumerate(self.binaries):
-    #         new_binaries.append(binary.load_or_install(cache=cache) or binary)
-    #     return self.model_copy(update={
-    #         'binaries': new_binaries,
-    #     })
-
-
-
-
-# class YtdlpPlugin(BasePlugin):
-#     name: str = 'ytdlp'
-#     configs: List[SerializeAsAny[BaseConfigSet]] = []
-#     binaries: List[SerializeAsAny[BaseBinary]] = [YtdlpBinary()]
-#     extractors: List[SerializeAsAny[BaseExtractor]] = [YtdlpExtractor()]
-#     replayers: List[SerializeAsAny[BaseReplayer]] = [MEDIA_REPLAYER]
-
-# class WgetPlugin(BasePlugin):
-#     name: str = 'wget'
-#     configs: List[SerializeAsAny[BaseConfigSet]] = [*WGET_CONFIG]
-#     binaries: List[SerializeAsAny[BaseBinary]] = [WgetBinary()]
-#     extractors: List[SerializeAsAny[BaseExtractor]] = [WgetExtractor(), WarcExtractor()]

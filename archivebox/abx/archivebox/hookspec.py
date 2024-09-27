@@ -1,4 +1,6 @@
-from .hookspec import hookspec
+__package__ = 'abx.archivebox'
+
+from .. import hookspec
 
 
 @hookspec

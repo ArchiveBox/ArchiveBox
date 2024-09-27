@@ -1,8 +1,8 @@
-__package__ = 'archivebox.plugantic'
+__package__ = 'abx.archivebox'
 
+import abx
 
 from .base_hook import BaseHook, HookType
-from ..config_stubs import AttrDict
 
 
 class BaseReplayer(BaseHook):
@@ -22,16 +22,8 @@ class BaseReplayer(BaseHook):
     # icon_view: LazyImportStr = 'plugins.generic_replayer.views.get_icon'
     # thumbnail_view: LazyImportStr = 'plugins.generic_replayer.views.get_icon'
 
-    def register(self, settings, parent_plugin=None):
-        # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
+    @abx.hookimpl
+    def get_REPLAYERS(self):
+        return [self]
 
-        settings.REPLAYERS = getattr(settings, 'REPLAYERS', None) or AttrDict({})
-        settings.REPLAYERS[self.id] = self
-
-        super().register(settings, parent_plugin=parent_plugin)
-
-# class MediaReplayer(BaseReplayer):
-#     name: str = 'MediaReplayer'
-
-
-# MEDIA_REPLAYER = MediaReplayer()
+    # TODO: add hookimpl methods for get_row_template, get_embed_template, get_fullpage_template, etc...

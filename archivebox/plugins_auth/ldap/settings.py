@@ -3,9 +3,9 @@ __package__ = 'archivebox.plugins_auth.ldap'
 import sys
 
 from typing import Dict, List, ClassVar, Optional
-from pydantic import Field, model_validator
+from pydantic import Field, model_validator, computed_field
 
-from ...plugantic.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
 
 LDAP_LIB = None
 try:
@@ -35,10 +35,10 @@ class LdapConfig(BaseConfigSet):
     LDAP_USER_FILTER: str               = Field(default=None)
     LDAP_CREATE_SUPERUSER: bool         = Field(default=False)
 
-    LDAP_USERNAME_ATTR: str             = Field(default=None)
-    LDAP_FIRSTNAME_ATTR: str            = Field(default=None)
-    LDAP_LASTNAME_ATTR: str             = Field(default=None)
-    LDAP_EMAIL_ATTR: str                = Field(default=None)
+    LDAP_USERNAME_ATTR: str             = Field(default='username')
+    LDAP_FIRSTNAME_ATTR: str            = Field(default='first_name')
+    LDAP_LASTNAME_ATTR: str             = Field(default='last_name')
+    LDAP_EMAIL_ATTR: str                = Field(default='email')
     
     @model_validator(mode='after')
     def validate_ldap_config(self):
@@ -50,14 +50,7 @@ class LdapConfig(BaseConfigSet):
             self.update(LDAP_ENABLED=False)
 
         # Check that all required LDAP config options are set
-        all_config_is_set = (
-            self.LDAP_SERVER_URI
-            and self.LDAP_BIND_DN
-            and self.LDAP_BIND_PASSWORD
-            and self.LDAP_USER_BASE
-            and self.LDAP_USER_FILTER
-        )
-        if self.LDAP_ENABLED and not all_config_is_set:
+        if self.LDAP_ENABLED and not self.LDAP_CONFIG_IS_SET:
             missing_config_options = [
                 key for key, value in self.model_dump().items()
                 if value is None and key != 'LDAP_ENABLED'
@@ -66,7 +59,20 @@ class LdapConfig(BaseConfigSet):
             sys.stderr.write(f'    Missing: {", ".join(missing_config_options)}\n')
             self.update(LDAP_ENABLED=False)
         return self
+    
+    @computed_field
+    @property
+    def LDAP_CONFIG_IS_SET(self) -> bool:
+        """Check that all required LDAP config options are set"""
+        return bool(LDAP_LIB) and self.LDAP_ENABLED and bool(
+            self.LDAP_SERVER_URI
+            and self.LDAP_BIND_DN
+            and self.LDAP_BIND_PASSWORD
+            and self.LDAP_USER_BASE
+            and self.LDAP_USER_FILTER
+        )
 
+    @computed_field
     @property
     def LDAP_USER_ATTR_MAP(self) -> Dict[str, str]:
         return {
@@ -76,6 +82,7 @@ class LdapConfig(BaseConfigSet):
             'email': self.LDAP_EMAIL_ATTR,
         }
 
+    @computed_field
     @property
     def AUTHENTICATION_BACKENDS(self) -> List[str]:
         return [
@@ -83,9 +90,10 @@ class LdapConfig(BaseConfigSet):
             'django_auth_ldap.backend.LDAPBackend',
         ]
 
+    @computed_field
     @property
     def AUTH_LDAP_USER_SEARCH(self) -> Optional[object]:
-        return LDAP_LIB and LDAPSearch(
+        return self.LDAP_USER_FILTER and LDAPSearch(
             self.LDAP_USER_BASE,
             LDAP_LIB.SCOPE_SUBTREE,                                                                         # type: ignore
             '(&(' + self.LDAP_USERNAME_ATTR + '=%(user)s)' + self.LDAP_USER_FILTER + ')',

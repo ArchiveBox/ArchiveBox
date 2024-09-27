@@ -1,4 +1,4 @@
-__package__ = 'archivebox.plugantic'
+__package__ = 'abx.archivebox'
 
 from typing import Optional, List, Literal, Annotated, Dict, Any
 from typing_extensions import Self
@@ -8,9 +8,9 @@ from pathlib import Path
 from pydantic import model_validator, AfterValidator
 from pydantic_pkgr import BinName
 
-from .base_hook import BaseHook, HookType
-from ..config_stubs import AttrDict
+import abx
 
+from .base_hook import BaseHook, HookType
 
 
 def no_empty_args(args: List[str]) -> List[str]:
@@ -45,16 +45,6 @@ class BaseExtractor(BaseHook):
         return self
 
 
-    def register(self, settings, parent_plugin=None):
-        # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
-
-        settings.EXTRACTORS = getattr(settings, "EXTRACTORS", None) or AttrDict({})
-        settings.EXTRACTORS[self.id] = self
-
-        super().register(settings, parent_plugin=parent_plugin)
-
-
-
     def get_output_path(self, snapshot) -> Path:
         return Path(self.id.lower())
 
@@ -64,7 +54,7 @@ class BaseExtractor(BaseHook):
             return False
         return True
 
-
+    # TODO: move this to a hookimpl
     def extract(self, url: str, **kwargs) -> Dict[str, Any]:
         output_dir = self.get_output_path(url, **kwargs)
 
@@ -81,6 +71,7 @@ class BaseExtractor(BaseHook):
             'returncode': proc.returncode,
         }
 
+    # TODO: move this to a hookimpl
     def exec(self, args: CmdArgsList, pwd: Optional[Path]=None, settings=None):
         pwd = pwd or Path('.')
         if settings is None:
@@ -90,28 +81,6 @@ class BaseExtractor(BaseHook):
         binary = settings.BINARIES[self.binary]
         return binary.exec(args, pwd=pwd)
 
-
-# class YtdlpExtractor(Extractor):
-#     name: ExtractorName = 'media'
-#     binary: Binary = YtdlpBinary()
-
-#     def get_output_path(self, snapshot) -> Path:
-#         return 'media/'
-
-
-# class WgetExtractor(Extractor):
-#     name: ExtractorName = 'wget'
-#     binary: Binary = WgetBinary()
-
-#     def get_output_path(self, snapshot) -> Path:
-#         return get_wget_output_path(snapshot)
-
-
-# class WarcExtractor(Extractor):
-#     name: ExtractorName = 'warc'
-#     binary: Binary = WgetBinary()
-
-#     def get_output_path(self, snapshot) -> Path:
-#         return get_wget_output_path(snapshot)
-
-
+    @abx.hookimpl
+    def get_EXTRACTORS(self):
+        return [self]

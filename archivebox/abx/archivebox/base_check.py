@@ -1,9 +1,10 @@
-__package__ = "archivebox.plugantic"
+__package__ = "abx.archivebox"
 
-import abx
 from typing import List
 
 from django.core.checks import Warning, Tags, register
+
+import abx
 
 from .base_hook import BaseHook, HookType
 
@@ -26,21 +27,18 @@ class BaseCheck(BaseHook):
         # logger.debug('[√] Loaded settings.PLUGINS succesfully.')
         return errors
 
-    def register(self, settings, parent_plugin=None):
-        # self._plugin = parent_plugin  # backref to parent is for debugging only, never rely on this!
+    @abx.hookimpl
+    def get_CHECKS(self):
+        return [self]
 
-        abx.pm.hook.register_django_check(check=self, settings=settings)
-
-
-
-@abx.hookspec
-@abx.hookimpl
-def register_django_check(check: BaseCheck, settings):
-    def run_check(app_configs, **kwargs) -> List[Warning]:
-        import logging
-        return check.check(settings, logging.getLogger("checks"))
-
-    run_check.__name__ = check.id
-    run_check.tags = [check.tag]
-    register(check.tag)(run_check)
-
+    @abx.hookimpl
+    def register_checks(self):
+        """Tell django that this check exists so it can be run automatically by django."""
+        def run_check(**kwargs):
+            from django.conf import settings
+            import logging
+            return self.check(settings, logging.getLogger("checks"))
+        
+        run_check.__name__ = self.id
+        run_check.tags = [self.tag]
+        register(self.tag)(run_check)

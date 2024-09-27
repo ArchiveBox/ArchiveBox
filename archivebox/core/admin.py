@@ -22,7 +22,7 @@ import archivebox
 
 from signal_webhooks.admin import WebhookAdmin
 from signal_webhooks.utils import get_webhook_model
-# from plugantic.admin import CustomPlugin
+# from abx.archivebox.admin import CustomPlugin
 
 from ..util import htmldecode, urldecode
 

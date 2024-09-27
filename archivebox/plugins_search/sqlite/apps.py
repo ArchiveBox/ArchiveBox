@@ -1,21 +1,20 @@
 __package__ = 'archivebox.plugins_search.sqlite'
 
 import sys
-import sqlite3
 import codecs
+import sqlite3
 from typing import List, ClassVar, Iterable, Callable
 
-from django.conf import settings
-from django.db import connection as database
+from django.core.exceptions import ImproperlyConfigured
 
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, Field, model_validator
 
 # Depends on other Django apps:
-from plugantic.base_plugin import BasePlugin
-from plugantic.base_configset import BaseConfigSet, ConfigSectionName
-from plugantic.base_hook import BaseHook
-from plugantic.base_searchbackend import BaseSearchBackend
+from abx.archivebox.base_plugin import BasePlugin
+from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_hook import BaseHook
+from abx.archivebox.base_searchbackend import BaseSearchBackend
 
 # Depends on Other Plugins:
 from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG
@@ -52,6 +51,7 @@ class SqliteftsConfig(BaseConfigSet):
         if self.SQLITEFTS_SEPARATE_DATABASE:
             return lambda: sqlite3.connect(self.SQLITEFTS_DB)
         else:
+            from django.db import connection as database
             return database.cursor
         
     @property
@@ -63,16 +63,20 @@ class SqliteftsConfig(BaseConfigSet):
         
     @property
     def SQLITE_LIMIT_LENGTH(self) -> int:
+        from django.db import connection as database
+        
         # Only Python >= 3.11 supports sqlite3.Connection.getlimit(),
         # so fall back to the default if the API to get the real value isn't present
         try:
             limit_id = sqlite3.SQLITE_LIMIT_LENGTH
-            try:
+            
+            if self.SQLITEFTS_SEPARATE_DATABASE:
+                cursor = self.get_connection()
+                return cursor.connection.getlimit(limit_id)
+            else:
                 with database.temporary_connection() as cursor:  # type: ignore[attr-defined]
                     return cursor.connection.getlimit(limit_id)
-            except AttributeError:
-                return database.getlimit(limit_id)
-        except AttributeError:
+        except (AttributeError, ImproperlyConfigured):
             return self.SQLITEFTS_MAX_LENGTH
 
 SQLITEFTS_CONFIG = SqliteftsConfig()

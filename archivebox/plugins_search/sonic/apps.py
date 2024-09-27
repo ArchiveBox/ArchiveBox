@@ -11,11 +11,11 @@ from pydantic import InstanceOf, Field, model_validator
 from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName
 
 # Depends on other Django apps:
-from plugantic.base_plugin import BasePlugin
-from plugantic.base_configset import BaseConfigSet, ConfigSectionName
-from plugantic.base_binary import BaseBinary, env, brew
-from plugantic.base_hook import BaseHook
-from plugantic.base_searchbackend import BaseSearchBackend
+from abx.archivebox.base_plugin import BasePlugin
+from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_binary import BaseBinary, env, brew
+from abx.archivebox.base_hook import BaseHook
+from abx.archivebox.base_searchbackend import BaseSearchBackend
 
 # Depends on Other Plugins:
 from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG

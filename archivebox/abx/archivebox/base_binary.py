@@ -1,9 +1,8 @@
-__package__ = "archivebox.plugantic"
+__package__ = "abx.archivebox"
 
 from typing import Dict, List
 from typing_extensions import Self
 
-from benedict import benedict
 from pydantic import Field, InstanceOf, validate_call
 from pydantic_pkgr import (
     Binary,
@@ -15,10 +14,8 @@ from pydantic_pkgr import (
     EnvProvider,
 )
 
-from django.conf import settings
-
+import abx
 import archivebox
-
 from .base_hook import BaseHook, HookType
 
 
@@ -37,33 +34,23 @@ class BaseBinProvider(BaseHook, BinProvider):
     #     # return cache.get_or_set(f'bin:version:{bin_name}:{abspath}', get_version_func)
     #     return get_version_func()
 
-    def register(self, settings, parent_plugin=None):
-        # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
-
-        settings.BINPROVIDERS = getattr(settings, "BINPROVIDERS", None) or benedict({})
-        settings.BINPROVIDERS[self.id] = self
-
-        super().register(settings, parent_plugin=parent_plugin)
+    
+    # TODO: add install/load/load_or_install methods as abx.hookimpl methods
     
     @property
     def admin_url(self) -> str:
         # e.g. /admin/environment/binproviders/NpmBinProvider/   TODO
         return "/admin/environment/binaries/"
 
+    @abx.hookimpl
+    def get_BINPROVIDERS(self):
+        return [self]
 
 class BaseBinary(BaseHook, Binary):
     hook_type: HookType = "BINARY"
 
     binproviders_supported: List[InstanceOf[BinProvider]] = Field(default_factory=list, alias="binproviders")
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = Field(default_factory=dict, alias="overrides")
-
-    def register(self, settings, parent_plugin=None):
-        # self._plugin = parent_plugin                                      # for debugging only, never rely on this!
-
-        settings.BINARIES = getattr(settings, "BINARIES", None) or benedict({})
-        settings.BINARIES[self.id] = self
-
-        super().register(settings, parent_plugin=parent_plugin)
 
     @staticmethod
     def symlink_to_lib(binary, bin_dir=None) -> None:
@@ -100,6 +87,12 @@ class BaseBinary(BaseHook, Binary):
     def admin_url(self) -> str:
         # e.g. /admin/environment/config/LdapConfig/
         return f"/admin/environment/binaries/{self.name}/"
+
+    @abx.hookimpl
+    def get_BINARIES(self):
+        return [self]
+    
+
 
 apt = AptProvider()
 brew = BrewProvider()

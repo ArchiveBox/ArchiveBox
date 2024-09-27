@@ -2,9 +2,9 @@ __package__ = 'archivebox.plugins_extractor.archivedotorg'
 
 from typing import List
 
-from plugantic.base_plugin import BasePlugin
-from plugantic.base_configset import BaseConfigSet
-from plugantic.base_hook import BaseHook
+from abx.archivebox.base_plugin import BasePlugin
+from abx.archivebox.base_configset import BaseConfigSet
+from abx.archivebox.base_hook import BaseHook
 
 ###################### Config ##########################
 

@@ -1,4 +1,4 @@
-__package__ = 'archivebox.plugins_auth.ldap'
+__package__ = 'plugins_auth.ldap'
 
 import inspect
 
@@ -6,13 +6,11 @@ from typing import List, Dict
 from pathlib import Path
 from pydantic import InstanceOf
 
-from django.conf import settings
-
 from pydantic_pkgr import BinProviderName, ProviderLookupDict, SemVer
 
-from plugantic.base_plugin import BasePlugin
-from plugantic.base_hook import BaseHook
-from plugantic.base_binary import BaseBinary, BaseBinProvider
+from abx.archivebox.base_plugin import BasePlugin
+from abx.archivebox.base_hook import BaseHook
+from abx.archivebox.base_binary import BaseBinary, BaseBinProvider
 
 from plugins_pkg.pip.apps import SYS_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER
 from .settings import LDAP_CONFIG, LDAP_LIB
@@ -51,5 +49,4 @@ class LdapAuthPlugin(BasePlugin):
 
 
 PLUGIN = LdapAuthPlugin()
-# PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig

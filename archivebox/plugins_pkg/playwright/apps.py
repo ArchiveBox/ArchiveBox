@@ -22,12 +22,12 @@ from pydantic_pkgr import (
 import archivebox
 
 # Depends on other Django apps:
-from plugantic.base_plugin import BasePlugin
-from plugantic.base_configset import BaseConfigSet
-from plugantic.base_binary import BaseBinary, BaseBinProvider, env
-# from plugantic.base_extractor import BaseExtractor
-# from plugantic.base_queue import BaseQueue
-from plugantic.base_hook import BaseHook
+from abx.archivebox.base_plugin import BasePlugin
+from abx.archivebox.base_configset import BaseConfigSet
+from abx.archivebox.base_binary import BaseBinary, BaseBinProvider, env
+# from abx.archivebox.base_extractor import BaseExtractor
+# from abx.archivebox.base_queue import BaseQueue
+from abx.archivebox.base_hook import BaseHook
 
 from plugins_pkg.pip.apps import SYS_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER, LIB_PIP_BINPROVIDER
 

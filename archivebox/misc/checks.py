@@ -1,38 +1,10 @@
 __package__ = 'archivebox.misc'
 
-# TODO: migrate all of these to new plugantic/base_check.py Check system
-
 from benedict import benedict
-from pathlib import Path
 
 import archivebox
 
-from .logging import stderr, hint, ANSI
-
-
-def check_dependencies(config: benedict, show_help: bool=True) -> None:
-    # dont do this on startup anymore, it's too slow
-    pass
-    # invalid_dependencies = [
-    #     (name, binary) for name, info in settings.BINARIES.items()
-    #     if not binary.
-    # ]
-    # if invalid_dependencies and show_help:
-    #     stderr(f'[!] Warning: Missing {len(invalid_dependencies)} recommended dependencies', color='lightyellow')
-    #     for dependency, info in invalid_dependencies:
-    #         stderr(
-    #             '    ! {}: {} ({})'.format(
-    #                 dependency,
-    #                 info['path'] or 'unable to find binary',
-    #                 info['version'] or 'unable to detect version',
-    #             )
-    #         )
-    #         if dependency in ('YOUTUBEDL_BINARY', 'CHROME_BINARY', 'SINGLEFILE_BINARY', 'READABILITY_BINARY', 'MERCURY_BINARY'):
-    #             hint(('To install all packages automatically run: archivebox setup',
-    #                 f'or to disable it and silence this warning: archivebox config --set SAVE_{dependency.rsplit("_", 1)[0]}=False',
-    #                 ''), prefix='      ')
-    #     stderr('')
-
+from .logging import stderr, ANSI
 
 
 def check_data_folder(config: benedict) -> None:

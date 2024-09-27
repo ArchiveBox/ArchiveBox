@@ -1,4 +1,4 @@
-__package__ = 'archivebox.plugantic'
+__package__ = 'abx.archivebox'
 
 import os
 import re
@@ -14,8 +14,10 @@ from pydantic_settings.sources import TomlConfigSettingsSource
 
 from pydantic_pkgr.base_types import func_takes_args_or_kwargs
 
+import abx
+
 from .base_hook import BaseHook, HookType
-from . import ini_to_toml
+from archivebox.misc import ini_to_toml
 
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent
@@ -236,6 +238,7 @@ class ArchiveBoxBaseConfig(BaseSettings):
             for key, field in self.model_fields.items()
         })
 
+
 class BaseConfigSet(ArchiveBoxBaseConfig, BaseHook):      # type: ignore[type-arg]
     hook_type: ClassVar[HookType] = 'CONFIG'
 
@@ -261,42 +264,20 @@ class BaseConfigSet(ArchiveBoxBaseConfig, BaseHook):      # type: ignore[type-ar
     #     self.__init__()
 
 
-# class WgetToggleConfig(ConfigSet):
-#     section: ConfigSectionName = 'ARCHIVE_METHOD_TOGGLES'
+    @abx.hookimpl
+    def get_CONFIGS(self):
+        try:
+            return {self.id: self}
+        except Exception as e:
+            # raise Exception(f'Error computing CONFIGS for {type(self)}: {e.__class__.__name__}: {e}')
+            print(f'Error computing CONFIGS for {type(self)}: {e.__class__.__name__}: {e}')
+        return {}
 
-#     SAVE_WGET: bool = True
-#     SAVE_WARC: bool = True
-
-# class WgetDependencyConfig(ConfigSet):
-#     section: ConfigSectionName = 'DEPENDENCY_CONFIG'
-
-#     WGET_BINARY: str = Field(default='wget')
-#     WGET_ARGS: Optional[List[str]] = Field(default=None)
-#     WGET_EXTRA_ARGS: List[str] = []
-#     WGET_DEFAULT_ARGS: List[str] = ['--timeout={TIMEOUT-10}']
-
-# class WgetOptionsConfig(ConfigSet):
-#     section: ConfigSectionName = 'ARCHIVE_METHOD_OPTIONS'
-
-#     # loaded from shared config
-#     WGET_AUTO_COMPRESSION: bool = Field(default=True)
-#     SAVE_WGET_REQUISITES: bool = Field(default=True)
-#     WGET_USER_AGENT: str = Field(default='', alias='USER_AGENT')
-#     WGET_TIMEOUT: int = Field(default=60, alias='TIMEOUT')
-#     WGET_CHECK_SSL_VALIDITY: bool = Field(default=True, alias='CHECK_SSL_VALIDITY')
-#     WGET_RESTRICT_FILE_NAMES: str = Field(default='windows', alias='RESTRICT_FILE_NAMES')
-#     WGET_COOKIES_FILE: Optional[Path] = Field(default=None, alias='COOKIES_FILE')
-
-
-# CONFIG = {
-#     'CHECK_SSL_VALIDITY': False,
-#     'SAVE_WARC': False,
-#     'TIMEOUT': 999,
-# }
-
-
-# WGET_CONFIG = [
-#     WgetToggleConfig(**CONFIG),
-#     WgetDependencyConfig(**CONFIG),
-#     WgetOptionsConfig(**CONFIG),
-# ]
+    @abx.hookimpl
+    def get_FLAT_CONFIG(self):
+        try:
+            return self.model_dump()
+        except Exception as e:
+            # raise Exception(f'Error computing FLAT_CONFIG for {type(self)}: {e.__class__.__name__}: {e}')
+            print(f'Error computing FLAT_CONFIG for {type(self)}: {e.__class__.__name__}: {e}')
+        return {}

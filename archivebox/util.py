@@ -26,7 +26,7 @@ except ImportError:
 
 
 from archivebox.constants import STATICFILE_EXTENSIONS
-from archivebox.plugins_sys.config.apps import ARCHIVING_CONFIG
+from plugins_sys.config.apps import ARCHIVING_CONFIG
 
 from .misc.logging import COLOR_DICT
 

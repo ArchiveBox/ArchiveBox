@@ -7,10 +7,10 @@ from pydantic import InstanceOf, Field, model_validator, AliasChoices
 from django.conf import settings
 
 from pydantic_pkgr import BinProvider, BinName, BinProviderName, ProviderLookupDict
-from plugantic.base_plugin import BasePlugin
-from plugantic.base_configset import BaseConfigSet, ConfigSectionName
-from plugantic.base_binary import BaseBinary, env, apt, brew
-from plugantic.base_hook import BaseHook
+from abx.archivebox.base_plugin import BasePlugin
+from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_binary import BaseBinary, env, apt, brew
+from abx.archivebox.base_hook import BaseHook
 
 from plugins_sys.config.apps import ARCHIVING_CONFIG
 from plugins_pkg.pip.apps import pip

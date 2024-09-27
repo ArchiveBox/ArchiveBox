@@ -11,10 +11,10 @@ from pydantic import InstanceOf, model_validator
 
 from pydantic_pkgr import BinProvider, NpmProvider, BinName, PATHStr, BinProviderName
 
-from plugantic.base_plugin import BasePlugin
-from plugantic.base_configset import BaseConfigSet
-from plugantic.base_binary import BaseBinary, BaseBinProvider, env, apt, brew
-from plugantic.base_hook import BaseHook
+from abx.archivebox.base_plugin import BasePlugin
+from abx.archivebox.base_configset import BaseConfigSet
+from abx.archivebox.base_binary import BaseBinary, BaseBinProvider, env, apt, brew
+from abx.archivebox.base_hook import BaseHook
 
 
 ###################### Config ##########################

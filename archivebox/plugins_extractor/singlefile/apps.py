@@ -11,12 +11,12 @@ from pydantic import InstanceOf, Field, validate_call
 from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName, bin_abspath, ShallowBinary
 
 # Depends on other Django apps:
-from plugantic.base_plugin import BasePlugin
-from plugantic.base_configset import BaseConfigSet, ConfigSectionName
-from plugantic.base_binary import BaseBinary, env
-from plugantic.base_extractor import BaseExtractor
-from plugantic.base_queue import BaseQueue
-from plugantic.base_hook import BaseHook
+from abx.archivebox.base_plugin import BasePlugin
+from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_binary import BaseBinary, env
+from abx.archivebox.base_extractor import BaseExtractor
+from abx.archivebox.base_queue import BaseQueue
+from abx.archivebox.base_hook import BaseHook
 
 # Depends on Other Plugins:
 from plugins_sys.config.apps import ARCHIVING_CONFIG
@@ -83,19 +83,6 @@ class SinglefileBinary(BaseBinary):
         except Exception:
             return BaseBinary.install(self, binprovider_name=binprovider_name or LIB_NPM_BINPROVIDER.name)
 
-
-# ALTERNATIVE INSTALL METHOD using Ansible:
-# install_playbook = PLUGANTIC_DIR / 'ansible' / 'install_singlefile.yml'
-# singlefile_bin = run_playbook(install_playbook, data_dir=settings.CONFIG.OUTPUT_DIR, quiet=quiet).BINARIES.singlefile
-# return self.__class__.model_validate(
-#     {
-#         **self.model_dump(),
-#         "loaded_abspath": singlefile_bin.abspath,
-#         "loaded_version": singlefile_bin.version,
-#         "loaded_binprovider": env,
-#         "binproviders_supported": self.binproviders_supported,
-#     }
-# )
 
 
 SINGLEFILE_BINARY = SinglefileBinary()

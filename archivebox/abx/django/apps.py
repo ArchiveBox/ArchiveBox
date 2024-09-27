@@ -1,8 +1,9 @@
+__package__ = 'abx.django'
+
 from django.apps import AppConfig
 
 
 class ABXConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
     name = 'abx'
 
     def ready(self):

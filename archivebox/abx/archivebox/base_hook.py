@@ -1,4 +1,4 @@
-__package__ = 'archivebox.plugantic'
+__package__ = 'abx.archivebox'
 
 import inspect
 from huey.api import TaskWrapper
@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Tuple, Literal, ClassVar, get_args
 from pydantic import BaseModel, ConfigDict
 
+import abx
 
 HookType = Literal['CONFIG', 'BINPROVIDER', 'BINARY', 'EXTRACTOR', 'REPLAYER', 'CHECK', 'ADMINDATAVIEW', 'QUEUE', 'SEARCHBACKEND']
 hook_type_names: Tuple[HookType] = get_args(HookType)
@@ -29,8 +30,8 @@ class BaseHook(BaseModel):
         plugins_pkg.npm.NpmPlugin().AppConfig.ready()                    # called by django
             plugins_pkg.npm.NpmPlugin().register(settings) ->
                 plugins_pkg.npm.NpmConfigSet().register(settings)
-                    plugantic.base_configset.BaseConfigSet().register(settings)
-                        plugantic.base_hook.BaseHook().register(settings, parent_plugin=plugins_pkg.npm.NpmPlugin())
+                    abx.archivebox.base_configset.BaseConfigSet().register(settings)
+                        abx.archivebox.base_hook.BaseHook().register(settings, parent_plugin=plugins_pkg.npm.NpmPlugin())
 
                 ...
         ...
@@ -96,32 +97,20 @@ class BaseHook(BaseModel):
         # e.g. /admin/environment/config/LdapConfig/
         return f"/admin/environment/{self.hook_type.lower()}/{self.id}/"
 
-    # def register(self, settings, parent_plugin=None):
-    #     """Load a record of an installed hook into global Django settings.HOOKS at runtime."""
-    #     self._plugin = parent_plugin         # for debugging only, never rely on this!
 
-    #     # assert json.dumps(self.model_json_schema(), indent=4), f"Hook {self.hook_module} has invalid JSON schema."
+    @abx.hookimpl
+    def register(self, settings):
+        """Called when django.apps.AppConfig.ready() is called"""
+        
+        print("REGISTERED HOOK:", self.hook_module)
+        self._is_registered = True
+        
 
-    #     # print('  -', self.hook_module, '.register()')
-
-    #     # record installed hook in settings.HOOKS
-    #     settings.REGISTERED_HOOKS[self.id] = self
-
-    #     if settings.REGISTERED_HOOKS[self.id]._is_registered:
-    #         raise Exception(f"Tried to run {self.hook_module}.register() but its already been called!")
-
-    #     settings.REGISTERED_HOOKS[self.id]._is_registered = True
-
-    #     # print("REGISTERED HOOK:", self.hook_module)
-
-    # def ready(self, settings):
-    #     """Runs any runtime code needed when AppConfig.ready() is called (after all models are imported)."""
-
-    #     # print('  -', self.hook_module, '.ready()')
-
-    #     assert self.id in settings.REGISTERED_HOOKS, f"Tried to ready hook {self.hook_module} but it is not registered in settings.REGISTERED_HOOKS."
-
-    #     if settings.REGISTERED_HOOKS[self.id]._is_ready:
-    #         raise Exception(f"Tried to run {self.hook_module}.ready() but its already been called!")
-
-    #     settings.REGISTERED_HOOKS[self.id]._is_ready = True
+    @abx.hookimpl
+    def ready(self):
+        """Called when django.apps.AppConfig.ready() is called"""
+        
+        assert self._is_registered, f"Tried to run {self.hook_module}.ready() but it was never registered!"
+       
+        # print("READY HOOK:", self.hook_module)
+        self._is_ready = True

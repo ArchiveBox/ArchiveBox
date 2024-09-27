@@ -15,11 +15,11 @@ from django.db.backends.sqlite3.base import Database as django_sqlite3     # typ
 from django.core.checks import Error, Tags
 
 from pydantic_pkgr import BinProvider, PipProvider, BinName, BinProviderName, ProviderLookupDict, SemVer
-from plugantic.base_plugin import BasePlugin
-from plugantic.base_configset import BaseConfigSet, ConfigSectionName
-from plugantic.base_check import BaseCheck
-from plugantic.base_binary import BaseBinary, BaseBinProvider, env, apt, brew
-from plugantic.base_hook import BaseHook
+from abx.archivebox.base_plugin import BasePlugin
+from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_check import BaseCheck
+from abx.archivebox.base_binary import BaseBinary, BaseBinProvider, env, apt, brew
+from abx.archivebox.base_hook import BaseHook
 
 from ...misc.logging import hint
 

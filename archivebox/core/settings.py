@@ -9,6 +9,10 @@ from pathlib import Path
 from django.utils.crypto import get_random_string
 
 import abx
+import abx.archivebox
+import abx.archivebox.use
+import abx.django.use
+
 import archivebox
 from archivebox.constants import CONSTANTS
 
@@ -19,22 +23,19 @@ IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
 IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
 
 
-VERSION = archivebox.__version__
+VERSION = archivebox.VERSION
 PACKAGE_DIR = archivebox.PACKAGE_DIR
 DATA_DIR = archivebox.DATA_DIR
-ARCHIVE_DIR = archivebox.DATA_DIR / 'archive'
+ARCHIVE_DIR = archivebox.ARCHIVE_DIR
 
 ################################################################################
 ### ArchiveBox Plugin Settings
 ################################################################################
 
 PLUGIN_HOOKSPECS = [
-    'abx.hookspec_django_settings',
-    'abx.hookspec_django_apps',
-    'abx.hookspec_django_urls',
-    'abx.hookspec_pydantic_pkgr',
-    'abx.hookspec_archivebox',
-    'plugantic.base_check',
+    'abx.django.hookspec',
+    'abx.pydantic_pkgr.hookspec',
+    'abx.archivebox.hookspec',
 ]
 abx.register_hookspecs(PLUGIN_HOOKSPECS)
 
@@ -55,20 +56,20 @@ USER_PLUGINS = abx.get_plugins_in_dirs(USER_PLUGIN_DIRS)
 ALL_PLUGINS = {**BUILTIN_PLUGINS, **PIP_PLUGINS, **USER_PLUGINS}
 
 PLUGIN_MANAGER = abx.pm
-PLUGINS = abx.load_plugins(ALL_PLUGINS)
-HOOKS = abx.get_plugins_HOOKS(PLUGINS)
+PLUGINS = abx.archivebox.load_archivebox_plugins(PLUGIN_MANAGER, ALL_PLUGINS)
+HOOKS = abx.archivebox.use.get_HOOKS(PLUGINS)
 
-CONFIGS = abx.get_plugins_CONFIGS()
-# FLAT_CONFIG = abx.get_plugins_FLAT_CONFIG(CONFIGS)
-FLAT_CONFIG = CONFIG
-BINPROVIDERS = abx.get_plugins_BINPROVIDERS()
-BINARIES = abx.get_plugins_BINARIES()
-EXTRACTORS = abx.get_plugins_EXTRACTORS()
-REPLAYERS = abx.get_plugins_REPLAYERS()
-CHECKS = abx.get_plugins_CHECKS()
-ADMINDATAVIEWS = abx.get_plugins_ADMINDATAVIEWS()
-QUEUES = abx.get_plugins_QUEUES()
-SEARCHBACKENDS = abx.get_plugins_SEARCHBACKENDS()
+CONFIGS = abx.archivebox.use.get_CONFIGS()
+FLAT_CONFIG = abx.archivebox.use.get_FLAT_CONFIG()
+BINPROVIDERS = abx.archivebox.use.get_BINPROVIDERS()
+BINARIES = abx.archivebox.use.get_BINARIES()
+EXTRACTORS = abx.archivebox.use.get_EXTRACTORS()
+REPLAYERS = abx.archivebox.use.get_REPLAYERS()
+CHECKS = abx.archivebox.use.get_CHECKS()
+ADMINDATAVIEWS = abx.archivebox.use.get_ADMINDATAVIEWS()
+QUEUES = abx.archivebox.use.get_QUEUES()
+SEARCHBACKENDS = abx.archivebox.use.get_SEARCHBACKENDS()
+
 
 ################################################################################
 ### Django Core Settings
@@ -104,14 +105,13 @@ INSTALLED_APPS = [
     'django_object_actions',     # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
 
     # Our ArchiveBox-provided apps
-    # 'plugantic',                 # ArchiveBox plugin API definition + finding/registering/calling interface
     'queues',                    # handles starting and managing background workers and processes
     'abid_utils',                # handles ABID ID creation, handling, and models
     'core',                      # core django model with Snapshot, ArchiveResult, etc.
     'api',                       # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
 
     # ArchiveBox plugins
-    *abx.get_plugins_INSTALLLED_APPS(),  # all plugin django-apps found in archivebox/plugins_* and data/user_plugins,
+    *abx.django.use.get_INSTALLED_APPS(),  # all plugin django-apps found in archivebox/plugins_* and data/user_plugins,
 
     # 3rd-party apps from PyPI that need to be loaded last
     'admin_data_views',          # handles rendering some convenient automatic read-only views of data in Django admin
@@ -136,7 +136,7 @@ MIDDLEWARE = [
     'core.middleware.ReverseProxyAuthMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'core.middleware.CacheControlMiddleware',
-    *abx.get_plugins_MIDDLEWARE(),
+    *abx.django.use.get_MIDDLEWARES(),
 ]
 
 
@@ -149,7 +149,7 @@ MIDDLEWARE = [
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.RemoteUserBackend',
     'django.contrib.auth.backends.ModelBackend',
-    *abx.get_plugins_AUTHENTICATION_BACKENDS(),
+    *abx.django.use.get_AUTHENTICATION_BACKENDS(),
 ]
 
 
@@ -177,7 +177,7 @@ STATICFILES_DIRS = [
     #     for plugin_dir in PLUGIN_DIRS.values()
     #     if (plugin_dir / 'static').is_dir()
     # ],
-    *abx.get_plugins_STATICFILES_DIRS(),
+    *abx.django.use.get_STATICFILES_DIRS(),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'static'),
 ]
 
@@ -188,7 +188,7 @@ TEMPLATE_DIRS = [
     #     for plugin_dir in PLUGIN_DIRS.values()
     #     if (plugin_dir / 'templates').is_dir()
     # ],
-    *abx.get_plugins_TEMPLATE_DIRS(),
+    *abx.django.use.get_TEMPLATE_DIRS(),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'core'),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'admin'),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME),
@@ -225,10 +225,12 @@ DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(CONSTANTS.DATABAS
 QUEUE_DATABASE_NAME = DATABASE_NAME.replace('index.sqlite3', 'queue.sqlite3')
 
 SQLITE_CONNECTION_OPTIONS = {
+    "ENGINE": "django.db.backends.sqlite3",
     "TIME_ZONE": CONSTANTS.TIMEZONE,
     "OPTIONS": {
         # https://gcollazo.com/optimal-sqlite-settings-for-django/
-        # # https://litestream.io/tips/#busy-timeout
+        # https://litestream.io/tips/#busy-timeout
+        # https://docs.djangoproject.com/en/5.1/ref/databases/#setting-pragma-options
         "timeout": 5,
         "check_same_thread": False,
         "transaction_mode": "IMMEDIATE",
@@ -246,17 +248,14 @@ SQLITE_CONNECTION_OPTIONS = {
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
         "NAME": DATABASE_NAME,
-        # DB setup is sometimes modified at runtime by setup_django() in config.py
+        **SQLITE_CONNECTION_OPTIONS,
     },
     "queue": {
-        "ENGINE": "django.db.backends.sqlite3",
         "NAME": QUEUE_DATABASE_NAME,
         **SQLITE_CONNECTION_OPTIONS,
     },
     # 'cache': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
     #     'NAME': CACHE_DB_PATH,
     #     **SQLITE_CONNECTION_OPTIONS,
     # },
@@ -295,7 +294,7 @@ DJANGO_HUEY = {
     "queues": {
         HUEY["name"]: HUEY.copy(),
         # more registered here at plugin import-time by BaseQueue.register()
-        **abx.get_plugins_DJANGO_HUEY_QUEUES(),
+        **abx.django.use.get_DJANGO_HUEY_QUEUES(QUEUE_DATABASE_NAME=QUEUE_DATABASE_NAME),
     },
 }
 
@@ -482,45 +481,45 @@ ADMIN_DATA_VIEWS = {
         },
         {
             "route": "binaries/",
-            "view": "plugantic.views.binaries_list_view",
+            "view": "plugins_sys.config.views.binaries_list_view",
             "name": "Binaries",
             "items": {
                 "route": "<str:key>/",
-                "view": "plugantic.views.binary_detail_view",
+                "view": "plugins_sys.config.views.binary_detail_view",
                 "name": "binary",
             },
         },
         {
             "route": "plugins/",
-            "view": "plugantic.views.plugins_list_view",
+            "view": "plugins_sys.config.views.plugins_list_view",
             "name": "Plugins",
             "items": {
                 "route": "<str:key>/",
-                "view": "plugantic.views.plugin_detail_view",
+                "view": "plugins_sys.config.views.plugin_detail_view",
                 "name": "plugin",
             },
         },
         {
             "route": "workers/",
-            "view": "plugantic.views.worker_list_view",
+            "view": "plugins_sys.config.views.worker_list_view",
             "name": "Workers",
             "items": {
                 "route": "<str:key>/",
-                "view": "plugantic.views.worker_detail_view",
+                "view": "plugins_sys.config.views.worker_detail_view",
                 "name": "worker",
             },
         },
         {
             "route": "logs/",
-            "view": "plugantic.views.log_list_view",
+            "view": "plugins_sys.config.views.log_list_view",
             "name": "Logs",
             "items": {
                 "route": "<str:key>/",
-                "view": "plugantic.views.log_detail_view",
+                "view": "plugins_sys.config.views.log_detail_view",
                 "name": "log",
             },
         },
-        *abx.get_plugins_ADMIN_DATA_VIEWS_URLS(),
+        *abx.django.use.get_ADMIN_DATA_VIEWS_URLS(),
     ],
 }
 
@@ -614,5 +613,7 @@ DEBUG_LOGFIRE = DEBUG_LOGFIRE and (DATA_DIR / '.logfire').is_dir()
 # JET_TOKEN = 'some-api-token-here'
 
 
-abx.register_plugins_settings(globals())
+abx.django.use.register_checks()
+abx.archivebox.use.register_all_hooks(globals())
 
+# import ipdb; ipdb.set_trace()

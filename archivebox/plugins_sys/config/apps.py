@@ -1,21 +1,24 @@
-__package__ = 'archivebox.plugins_sys.config'
+__package__ = 'plugins_sys.config'
+
 import os
 import sys
 import shutil
-import archivebox
 
 from typing import List, ClassVar, Dict, Optional
 from datetime import datetime
 from pathlib import Path
-from pydantic import InstanceOf, Field, field_validator, model_validator, computed_field
+
 from rich import print
-
+from pydantic import InstanceOf, Field, field_validator, model_validator, computed_field
 from django.utils.crypto import get_random_string
-from plugantic.base_plugin import BasePlugin
-from plugantic.base_configset import BaseConfigSet, ConfigSectionName
-from plugantic.base_hook import BaseHook, HookType
 
-from .constants import CONSTANTS, CONSTANTS_CONFIG
+from abx.archivebox.base_plugin import BasePlugin
+from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_hook import BaseHook
+
+
+import archivebox
+from archivebox.constants import CONSTANTS, CONSTANTS_CONFIG      # noqa
 
 ###################### Config ##########################
 
@@ -122,6 +125,7 @@ class StorageConfig(BaseConfigSet):
     
     # not supposed to be user settable:
     DIR_OUTPUT_PERMISSIONS: str         = Field(default=lambda c: c['OUTPUT_PERMISSIONS'].replace('6', '7').replace('4', '5'))
+
 
 STORAGE_CONFIG = StorageConfig()
 
@@ -249,13 +253,13 @@ DJANGO_APP = PLUGIN.AppConfig
 
 
 
-# register django apps
-@archivebox.plugin.hookimpl
-def get_INSTALLED_APPS():
-    return [DJANGO_APP.name]
+# # register django apps
+# @abx.hookimpl
+# def get_INSTALLED_APPS():
+#     return [DJANGO_APP.name]
 
-# register configs
-@archivebox.plugin.hookimpl
-def register_CONFIG():
-    return PLUGIN.HOOKS_BY_TYPE['CONFIG'].values()
+# # register configs
+# @abx.hookimpl
+# def register_CONFIG():
+#     return PLUGIN.HOOKS_BY_TYPE['CONFIG'].values()
 

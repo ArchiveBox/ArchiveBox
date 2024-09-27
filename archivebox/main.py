@@ -6,8 +6,6 @@ import shutil
 import platform
 import archivebox
 
-CONSTANTS = archivebox.CONSTANTS
-
 from typing import Dict, List, Optional, Iterable, IO, Union
 from pathlib import Path
 from datetime import date, datetime
@@ -69,9 +67,8 @@ from .index.html import (
 from .index.csv import links_to_csv
 from .extractors import archive_links, archive_link, ignore_methods
 from .misc.logging import stderr, hint, ANSI
-from .misc.checks import check_data_folder, check_dependencies
+from .misc.checks import check_data_folder
 from .config import (
-    setup_django_minimal,
     ConfigDict,
     IS_TTY,
     DEBUG,
@@ -91,7 +88,6 @@ from .config import (
     CONFIG,
     USER_CONFIG,
     get_real_name,
-    setup_django,
 )
 from .logging_util import (
     TimedProgress,
@@ -108,6 +104,7 @@ from .logging_util import (
     printable_dependency_version,
 )
 
+CONSTANTS = archivebox.CONSTANTS
 VERSION = archivebox.VERSION
 PACKAGE_DIR = archivebox.PACKAGE_DIR
 OUTPUT_DIR = archivebox.DATA_DIR
@@ -190,7 +187,6 @@ def version(quiet: bool=False,
             out_dir: Path=OUTPUT_DIR) -> None:
     """Print the ArchiveBox version and dependency information"""
     
-    setup_django_minimal()
     from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG, STORAGE_CONFIG, SHELL_CONFIG
     from plugins_auth.ldap.apps import LDAP_CONFIG
     from django.conf import settings
@@ -270,7 +266,6 @@ def version(quiet: bool=False,
             print('{white}[i] Data locations:{reset} (not in a data directory)'.format(**ANSI))
 
         print()
-        check_dependencies(CONFIG)
 
 
 @enforce_types
@@ -461,7 +456,7 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     check_data_folder(CONFIG)
 
     from core.models import Snapshot
-    from django.contrib.auth import get_user_mod, SHELL_CONFIG
+    from django.contrib.auth import get_user_model
     User = get_user_model()
 
     print('{green}[*] Scanning archive main index...{reset}'.format(**ANSI))
@@ -602,7 +597,7 @@ def add(urls: Union[str, List[str]],
 
     # Load list of links from the existing index
     check_data_folder(CONFIG)
-    check_dependencies(CONFIG)
+
     # worker = start_cli_workers()
     
     new_links: List[Link] = []
@@ -791,7 +786,6 @@ def update(resume: Optional[float]=None,
     
 
     check_data_folder(CONFIG)
-    check_dependencies(CONFIG)
     # start_cli_workers()
     new_links: List[Link] = [] # TODO: Remove input argument: only_new
 
@@ -963,8 +957,6 @@ def setup(out_dir: Path=OUTPUT_DIR) -> None:
     if not ARCHIVE_DIR.exists():
         run_subcommand('init', stdin=None, pwd=out_dir)
 
-    setup_django(out_dir=out_dir, check_db=True)
-
     stderr('\n[+] Installing ArchiveBox dependencies automatically...', color='green')
 
     from plugins_extractor.ytdlp.apps import YTDLP_BINARY
@@ -1109,7 +1101,6 @@ def schedule(add: bool=False,
     """Set ArchiveBox to regularly import URLs at specific times using cron"""
     
     check_data_folder(CONFIG)
-    setup_django_minimal()
     from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
     from plugins_sys.config.apps import SHELL_CONFIG, CONSTANTS
 
@@ -1256,6 +1247,8 @@ def server(runserver_args: Optional[List[str]]=None,
 
     from django.core.management import call_command
     from django.contrib.auth.models import User
+    
+    
 
     print('{green}[+] Starting ArchiveBox webserver... {reset}'.format(**ANSI))
     print('    > Logging errors to ./logs/errors.log')
@@ -1306,7 +1299,6 @@ def manage(args: Optional[List[str]]=None, out_dir: Path=OUTPUT_DIR) -> None:
     """Run an ArchiveBox Django management command"""
 
     check_data_folder(CONFIG)
-    setup_django_minimal()
     from django.core.management import execute_from_command_line
 
     if (args and "createsuperuser" in args) and (IN_DOCKER and not IS_TTY):

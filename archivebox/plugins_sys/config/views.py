@@ -1,8 +1,9 @@
-__package__ = 'archivebox.plugantic'
+__package__ = 'abx.archivebox'
 
 import os
 import inspect
 from typing import Any, List, Dict, cast
+from benedict import benedict
 
 from django.http import HttpRequest
 from django.conf import settings
@@ -14,8 +15,7 @@ from admin_data_views.utils import render_with_table_view, render_with_item_view
 
 import archivebox
 
-from ..config_stubs import AttrDict
-from ..util import parse_date
+from archivebox.util import parse_date
 
 
 def obj_to_yaml(obj: Any, indent: int=0) -> str:
@@ -255,7 +255,7 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
         )
         
     all_config_entries = cast(List[Dict[str, Any]], supervisor.getAllConfigInfo() or [])
-    all_config = {config["name"]: AttrDict(config) for config in all_config_entries}
+    all_config = {config["name"]: benedict(config) for config in all_config_entries}
 
     # Add top row for supervisord process manager
     rows["Name"].append(ItemLink('supervisord', key='supervisord'))
@@ -274,7 +274,7 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     # Add a row for each worker process managed by supervisord
     for proc in cast(List[Dict[str, Any]], supervisor.getAllProcessInfo()):
-        proc = AttrDict(proc)
+        proc = benedict(proc)
         # {
         #     "name": "daphne",
         #     "group": "daphne",
@@ -334,7 +334,7 @@ def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
         start_ts = [line for line in relevant_logs.split("\n") if "RPC interface 'supervisor' initialized" in line][-1].split(",", 1)[0]
         uptime = str(timezone.now() - parse_date(start_ts)).split(".")[0]
 
-        proc = AttrDict(
+        proc = benedict(
             {
                 "name": "supervisord",
                 "pid": supervisor.getPID(),
@@ -347,7 +347,7 @@ def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
             }
         )
     else:
-        proc = AttrDict(get_worker(supervisor, key) or {})
+        proc = benedict(get_worker(supervisor, key) or {})
         relevant_config = [config for config in all_config if config['name'] == key][0]
         relevant_logs = supervisor.tailProcessStdoutLog(key, 0, 10_000_000)[0]
 

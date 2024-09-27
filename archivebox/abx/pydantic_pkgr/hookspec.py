@@ -1,5 +1,5 @@
 
-from .hookspec import hookspec
+from ..hookspec import hookspec
 
 ###########################################################################################
 
