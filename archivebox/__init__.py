@@ -20,6 +20,15 @@ ARCHIVE_DIR = DATA_DIR / 'archive'
 if str(PACKAGE_DIR) not in sys.path:
     sys.path.append(str(PACKAGE_DIR))
 
+# load fallback libraries from vendor dir
+from .vendor import load_vendored_libs
+load_vendored_libs()
+
+
+os.environ['OUTPUT_DIR'] = str(DATA_DIR)
+os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
+
+
 def _detect_installed_version():
     try:
         return importlib.metadata.version(__package__ or 'archivebox')
@@ -41,8 +50,3 @@ __version__ = VERSION
 
 
 from .constants import CONSTANTS
-
-
-# load fallback libraries from vendor dir
-from .vendor import load_vendored_libs
-load_vendored_libs()
