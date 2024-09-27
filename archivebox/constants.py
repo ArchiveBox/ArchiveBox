@@ -14,14 +14,11 @@ from .misc.logging import DEFAULT_CLI_COLORS
 
 ###################### Config ##########################
 
+VERSION = archivebox.VERSION
+PACKAGE_DIR = archivebox.PACKAGE_DIR
+DATA_DIR = archivebox.DATA_DIR
+ARCHIVE_DIR = archivebox.ARCHIVE_DIR
 
-VERSION: str                              = archivebox.VERSION
-
-TIMEZONE: str = 'UTC'
-DEFAULT_CLI_COLORS: Dict[str, str]        = DEFAULT_CLI_COLORS
-DISABLED_CLI_COLORS: Dict[str, str]       = benedict({k: '' for k in DEFAULT_CLI_COLORS})
-
-PACKAGE_DIR: Path                   = archivebox.PACKAGE_DIR
 PACKAGE_DIR_NAME: str               = archivebox.PACKAGE_DIR.name
 TEMPLATES_DIR_NAME: str             = 'templates'
 TEMPLATES_DIR: Path                 = archivebox.PACKAGE_DIR / TEMPLATES_DIR_NAME
@@ -37,6 +34,7 @@ CACHE_DIR_NAME: str = 'cache'
 LOGS_DIR_NAME: str = 'logs'
 LIB_DIR_NAME: str = 'lib'
 TMP_DIR_NAME: str = 'tmp'
+
 OUTPUT_DIR: Path                    = archivebox.DATA_DIR
 ARCHIVE_DIR: Path                   = archivebox.DATA_DIR / ARCHIVE_DIR_NAME
 SOURCES_DIR: Path                   = archivebox.DATA_DIR / SOURCES_DIR_NAME
@@ -65,6 +63,10 @@ JSON_INDEX_FILENAME: str = 'index.json'
 HTML_INDEX_FILENAME: str = 'index.html'
 ROBOTS_TXT_FILENAME: str = 'robots.txt'
 FAVICON_FILENAME: str = 'favicon.ico'
+
+TIMEZONE: str                             = 'UTC'
+DEFAULT_CLI_COLORS: Dict[str, str]        = DEFAULT_CLI_COLORS
+DISABLED_CLI_COLORS: Dict[str, str]       = benedict({k: '' for k in DEFAULT_CLI_COLORS})
 
 ALLOWDENYLIST_REGEX_FLAGS: int = re.IGNORECASE | re.UNICODE | re.MULTILINE
 
@@ -238,5 +240,9 @@ DATA_LOCATIONS = benedict({
 
 
 
-CONSTANTS = benedict({key: value for key, value in globals().items() if key.isupper()})
+CONSTANTS = benedict({
+    key: value
+    for key, value in globals().items()
+    if key.isupper() and not key.startswith('_')
+})
 CONSTANTS_CONFIG = CONSTANTS
