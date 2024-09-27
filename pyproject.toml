@@ -61,6 +61,7 @@ dependencies = [
     "django-huey>=1.2.1",
     "django-huey-monitor>=0.9.0",
     ############# Python Helper Libraries ############
+    "pluggy>=1.5.0",
     "requests>=2.32.3",
     "dateparser>=1.2.0",
     "feedparser>=6.0.11",
@@ -74,6 +75,7 @@ dependencies = [
     "croniter>=3.0.3",                # for: archivebox schedule
     "ipython>=8.27.0",                # for: archivebox shell
     "python-benedict[io,parse]>=0.33.2",
+    "pydantic-settings>=2.5.2",
     ############# VENDORED LIBS ######################
     # these can be safely omitted when installation subsystem does not provide these as packages (e.g. apt/debian)
     # archivebox will automatically load fallback vendored copies bundled via archivebox/vendor/__init__.py
@@ -84,8 +86,6 @@ dependencies = [
     "base32-crockford==0.3.0",
     ############# Extractor Dependencies #############
     "yt-dlp>=2024.8.6",               # for: media
-    "pydantic-settings>=2.5.2",
-    "pluggy>=1.5.0",
 ]
 
 # pdm lock --group=':all' 

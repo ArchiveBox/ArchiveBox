@@ -5,7 +5,7 @@
 groups = ["default", "all", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:ef9c8207ee70fef37d32fa6a53458a83f34626d3c0d9a86e7b8b35a7c44b6f09"
+content_hash = "sha256:cdf785c77dcdb8927b7743c36374dc5f2377db78622d27eb8356648d61275a0a"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -748,12 +748,12 @@ files = [
 
 [[package]]
 name = "huey"
-version = "2.5.1"
+version = "2.5.2"
 summary = "huey, a little task queue"
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "huey-2.5.1.tar.gz", hash = "sha256:8a323783ab434a095a4e72b8c48c5b8f957f9031fa860474a390a0927e957112"},
+    {file = "huey-2.5.2.tar.gz", hash = "sha256:df33db474c05414ed40ee2110e9df692369871734da22d74ffb035a4bd74047f"},
 ]
 
 [[package]]
@@ -959,13 +959,25 @@ files = [
 
 [[package]]
 name = "phonenumbers"
-version = "8.13.45"
+version = "8.13.46"
 summary = "Python version of Google's common library for parsing, formatting, storing and validating international phone numbers."
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "phonenumbers-8.13.45-py2.py3-none-any.whl", hash = "sha256:bf05ec20fcd13f0d53e43a34ed7bd1c8be26a72b88fce4b8c64fca5b4641987a"},
-    {file = "phonenumbers-8.13.45.tar.gz", hash = "sha256:53679a95b6060fd5e15467759252c87933d8566d6a5be00995a579eb0e02435b"},
+    {file = "phonenumbers-8.13.46-py2.py3-none-any.whl", hash = "sha256:519422d407af066fdbf98e179ea2e214487060f26526d67871f817eefbbb2134"},
+    {file = "phonenumbers-8.13.46.tar.gz", hash = "sha256:94bf18ba9725bb6868d29473b13f78ef01e2585c5cb561ec0200be7676e77452"},
+]
+
+[[package]]
+name = "pluggy"
+version = "1.5.0"
+requires_python = ">=3.8"
+summary = "plugin and hook calling mechanisms for python"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+files = [
+    {file = "pluggy-1.5.0-py3-none-any.whl", hash = "sha256:44e1ad92c8ca002de6377e165f3e0f1be63266ab4d554740532335b9d75ea669"},
+    {file = "pluggy-1.5.0.tar.gz", hash = "sha256:2cffa88e94fdc978c4c574f15f9e59b7f4201d439195c3715ca9e2486f1d0cf1"},
 ]
 
 [[package]]
@@ -996,7 +1008,7 @@ dependencies = [
 
 [[package]]
 name = "prompt-toolkit"
-version = "3.0.47"
+version = "3.0.48"
 requires_python = ">=3.7.0"
 summary = "Library for building powerful interactive command lines in Python"
 groups = ["default"]
@@ -1005,8 +1017,8 @@ dependencies = [
     "wcwidth",
 ]
 files = [
-    {file = "prompt_toolkit-3.0.47-py3-none-any.whl", hash = "sha256:0d7bfa67001d5e39d02c224b663abc33687405033a8c422d0d675a5a13361d10"},
-    {file = "prompt_toolkit-3.0.47.tar.gz", hash = "sha256:1e1b29cb58080b1e69f207c893a1a7bf16d127a5c30c9d17a25a5d77792e5360"},
+    {file = "prompt_toolkit-3.0.48-py3-none-any.whl", hash = "sha256:f49a827f90062e411f1ce1f854f2aedb3c23353244f8108b89283587397ac10e"},
+    {file = "prompt_toolkit-3.0.48.tar.gz", hash = "sha256:d6623ab0477a80df74e646bdbc93621143f5caf104206aa29294d53de1a03d90"},
 ]
 
 [[package]]
@@ -1132,7 +1144,7 @@ files = [
 
 [[package]]
 name = "pydantic-pkgr"
-version = "0.3.6"
+version = "0.3.7"
 requires_python = ">=3.10"
 summary = "System package manager APIs in strongly typed Python"
 groups = ["default"]
@@ -1143,8 +1155,8 @@ dependencies = [
     "typing-extensions>=4.11.0",
 ]
 files = [
-    {file = "pydantic_pkgr-0.3.6-py3-none-any.whl", hash = "sha256:ebe7aff450e67525020e4b167ef527fab38eaf681f72e0faff756fd7ccc8ae82"},
-    {file = "pydantic_pkgr-0.3.6.tar.gz", hash = "sha256:039e724f7dd92ff9c58b508b38d21ff38c571c34e163f628dabf3563b06e3fac"},
+    {file = "pydantic_pkgr-0.3.7-py3-none-any.whl", hash = "sha256:fdb63b2cee79d7c9d53673b9d61afa846921fd4950a8c16a8c4d2555cd0f6478"},
+    {file = "pydantic_pkgr-0.3.7.tar.gz", hash = "sha256:6e575cdc3584d375eb8d5024e5e8bade1c225c2aee3af1a076951dbc1a2c1f2d"},
 ]
 
 [[package]]
