@@ -4,7 +4,7 @@ import os
 import re
 import json
 from pathlib import Path
-from typing import Literal, Type, Tuple, Callable, ClassVar, Any, get_args
+from typing import Type, Tuple, Callable, ClassVar, Any
 
 import toml
 from benedict import benedict
@@ -22,21 +22,6 @@ from archivebox.misc import ini_to_toml
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.curdir).resolve()
-
-
-ConfigSectionName = Literal[
-    'SHELL_CONFIG',
-    'GENERAL_CONFIG',
-    'STORAGE_CONFIG',
-    'SERVER_CONFIG',
-    'ARCHIVING_CONFIG',
-    'LDAP_CONFIG',
-    'ARCHIVE_METHOD_TOGGLES',
-    'ARCHIVE_METHOD_OPTIONS',
-    'SEARCH_BACKEND_CONFIG',
-    'DEPENDENCY_CONFIG',
-]
-ConfigSectionNames: Tuple[ConfigSectionName, ...] = get_args(ConfigSectionName)   # just gets the list of values from the Literal type
 
 
 def better_toml_dump_str(val: Any) -> str:
@@ -74,14 +59,14 @@ class FlatTomlConfigSettingsSource(TomlConfigSettingsSource):
         
         self.nested_toml_data = self._read_files(self.toml_file_path)
         self.toml_data = {}
-        for section_name, section in self.nested_toml_data.items():
-            if section_name in ConfigSectionNames and isinstance(section, dict):
+        for top_level_key, top_level_value in self.nested_toml_data.items():
+            if isinstance(top_level_value, dict):
                 # value is nested, flatten it
-                for key, value in section.items():
+                for key, value in top_level_value.items():
                     self.toml_data[key] = value
             else:
                 # value is already flat, just set it as-is
-                self.toml_data[section_name] = section
+                self.toml_data[top_level_key] = top_level_value
                 
         # filter toml_data to only include keys that are defined on this settings_cls
         self.toml_data = {
@@ -241,8 +226,6 @@ class ArchiveBoxBaseConfig(BaseSettings):
 
 class BaseConfigSet(ArchiveBoxBaseConfig, BaseHook):      # type: ignore[type-arg]
     hook_type: ClassVar[HookType] = 'CONFIG'
-
-    section: ClassVar[ConfigSectionName] = 'GENERAL_CONFIG'
 
     # def register(self, settings, parent_plugin=None):
     #     # self._plugin = parent_plugin                                      # for debugging only, never rely on this!

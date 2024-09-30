@@ -1,7 +1,7 @@
 __package__ = 'archivebox.plugins_search.sonic'
 
 import sys
-from typing import List, Dict, ClassVar, Generator, cast
+from typing import List, Dict, Generator, cast
 
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, Field, model_validator
@@ -9,7 +9,7 @@ from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinN
 
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
-from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_binary import BaseBinary, env, brew
 from abx.archivebox.base_hook import BaseHook
 from abx.archivebox.base_searchbackend import BaseSearchBackend
@@ -27,8 +27,6 @@ except ImportError:
 ###################### Config ##########################
 
 class SonicConfig(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'DEPENDENCY_CONFIG'
-
     SONIC_BINARY: str       = Field(default='sonic')
     
     SONIC_HOST: str         = Field(default='localhost', alias='SEARCH_BACKEND_HOST_NAME')

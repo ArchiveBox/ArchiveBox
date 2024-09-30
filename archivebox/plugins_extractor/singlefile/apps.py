@@ -4,15 +4,13 @@ from pathlib import Path
 from typing import List, Dict, Optional, ClassVar
 # from typing_extensions import Self
 
-from django.conf import settings
-
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, Field, validate_call
 from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName, bin_abspath, ShallowBinary
 
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
-from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_binary import BaseBinary, env
 from abx.archivebox.base_extractor import BaseExtractor
 from abx.archivebox.base_queue import BaseQueue
@@ -25,8 +23,6 @@ from plugins_pkg.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
 ###################### Config ##########################
 
 class SinglefileConfig(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'ARCHIVING_CONFIG'
-
     SAVE_SINGLEFILE: bool = True
 
     SINGLEFILE_USER_AGENT: str              = Field(default=lambda: ARCHIVING_CONFIG.USER_AGENT)

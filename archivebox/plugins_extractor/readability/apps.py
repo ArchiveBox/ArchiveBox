@@ -4,15 +4,13 @@ from pathlib import Path
 from typing import List, Dict, Optional, ClassVar
 # from typing_extensions import Self
 
-from django.conf import settings
-
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, Field, validate_call
 from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName, ShallowBinary
 
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
-from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_binary import BaseBinary, env
 from abx.archivebox.base_extractor import BaseExtractor
 from abx.archivebox.base_hook import BaseHook
@@ -24,8 +22,6 @@ from plugins_pkg.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
 ###################### Config ##########################
 
 class ReadabilityConfig(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'ARCHIVING_CONFIG'
-
     SAVE_READABILITY: bool = Field(default=True, alias='USE_READABILITY')
 
     READABILITY_TIMEOUT: int                 = Field(default=lambda: ARCHIVING_CONFIG.TIMEOUT)

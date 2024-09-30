@@ -3,13 +3,11 @@ from abx.archivebox.base_plugin import BasePlugin, InstanceOf, BaseHook
 
 
 # class WgetToggleConfig(ConfigSet):
-#     section: ConfigSectionName = 'ARCHIVE_METHOD_TOGGLES'
 
 #     SAVE_WGET: bool = True
 #     SAVE_WARC: bool = True
 
 # class WgetDependencyConfig(ConfigSet):
-#     section: ConfigSectionName = 'DEPENDENCY_CONFIG'
 
 #     WGET_BINARY: str = Field(default='wget')
 #     WGET_ARGS: Optional[List[str]] = Field(default=None)
@@ -17,7 +15,6 @@ from abx.archivebox.base_plugin import BasePlugin, InstanceOf, BaseHook
 #     WGET_DEFAULT_ARGS: List[str] = ['--timeout={TIMEOUT-10}']
 
 # class WgetOptionsConfig(ConfigSet):
-#     section: ConfigSectionName = 'ARCHIVE_METHOD_OPTIONS'
 
 #     # loaded from shared config
 #     WGET_AUTO_COMPRESSION: bool = Field(default=True)

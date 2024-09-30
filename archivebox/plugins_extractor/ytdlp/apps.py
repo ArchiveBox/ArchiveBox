@@ -4,11 +4,9 @@ from subprocess import run, PIPE
 
 from pydantic import InstanceOf, Field, model_validator, AliasChoices
 
-from django.conf import settings
-
 from pydantic_pkgr import BinProvider, BinName, BinProviderName, ProviderLookupDict
 from abx.archivebox.base_plugin import BasePlugin
-from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_binary import BaseBinary, env, apt, brew
 from abx.archivebox.base_hook import BaseHook
 
@@ -19,8 +17,6 @@ from plugins_pkg.pip.apps import pip
 
 
 class YtdlpConfig(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = "DEPENDENCY_CONFIG"
-
     USE_YTDLP: bool               = Field(default=True, validation_alias=AliasChoices('USE_YOUTUBEDL', 'SAVE_MEDIA'))
 
     YTDLP_BINARY: str             = Field(default='yt-dlp', alias='YOUTUBEDL_BINARY')

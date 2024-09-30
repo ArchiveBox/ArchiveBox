@@ -32,8 +32,6 @@ from plugins_pkg.npm.apps import LIB_NPM_BINPROVIDER, SYS_NPM_BINPROVIDER
 
 
 class PuppeteerConfigs(BaseConfigSet):
-    # section: ConfigSectionName = 'DEPENDENCY_CONFIG'
-
     # PUPPETEER_BINARY: str = Field(default='wget')
     # PUPPETEER_ARGS: Optional[List[str]] = Field(default=None)
     # PUPPETEER_EXTRA_ARGS: List[str] = []

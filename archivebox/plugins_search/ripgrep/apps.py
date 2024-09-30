@@ -3,7 +3,7 @@ __package__ = 'archivebox.plugins_search.ripgrep'
 import re
 from pathlib import Path
 from subprocess import run
-from typing import List, Dict, ClassVar, Iterable
+from typing import List, Dict, Iterable
 # from typing_extensions import Self
 
 # Depends on other PyPI/vendor packages:
@@ -12,7 +12,7 @@ from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinN
 
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
-from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_binary import BaseBinary, env, apt, brew
 from abx.archivebox.base_hook import BaseHook
 from abx.archivebox.base_searchbackend import BaseSearchBackend
@@ -23,8 +23,6 @@ from archivebox.config import CONSTANTS, SEARCH_BACKEND_CONFIG
 ###################### Config ##########################
 
 class RipgrepConfig(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'DEPENDENCY_CONFIG'
-
     RIPGREP_BINARY: str = Field(default='rg')
     
     RIPGREP_IGNORE_EXTENSIONS: str = Field(default='css,js,orig,svg')

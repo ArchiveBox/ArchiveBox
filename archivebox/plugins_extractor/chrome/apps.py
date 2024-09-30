@@ -18,7 +18,7 @@ from pydantic_pkgr import (
 
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
-from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_binary import BaseBinary, env
 # from abx.archivebox.base_extractor import BaseExtractor
 # from abx.archivebox.base_queue import BaseQueue
@@ -83,8 +83,6 @@ def create_macos_app_symlink(target: Path, shortcut: Path):
 
 
 class ChromeConfig(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = "DEPENDENCY_CONFIG"
-
     USE_CHROME: bool                        = Field(default=True)
 
     # Chrome Binary

@@ -17,7 +17,7 @@ from archivebox.config import CONSTANTS, VERSION
 
 import abx
 from abx.archivebox.base_plugin import BasePlugin
-from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_check import BaseCheck
 from abx.archivebox.base_binary import BaseBinary, BaseBinProvider, env, apt, brew
 from abx.archivebox.base_hook import BaseHook
@@ -29,8 +29,6 @@ from ...misc.logging import hint
 
 
 class PipDependencyConfigs(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = "DEPENDENCY_CONFIG"
-
     USE_PIP: bool = True
     PIP_BINARY: str = Field(default='pip')
     PIP_ARGS: Optional[List[str]] = Field(default=None)

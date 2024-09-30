@@ -4,7 +4,7 @@ import os
 import sys
 import shutil
 
-from typing import ClassVar, Dict, Optional
+from typing import Dict, Optional
 from datetime import datetime
 from pathlib import Path
 
@@ -12,7 +12,7 @@ from rich import print
 from pydantic import Field, field_validator, model_validator, computed_field
 from django.utils.crypto import get_random_string
 
-from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_configset import BaseConfigSet
 
 
 from .constants import CONSTANTS, PACKAGE_DIR
@@ -21,8 +21,6 @@ from .constants import CONSTANTS, PACKAGE_DIR
 
 
 class ShellConfig(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'SHELL_CONFIG'
-
     DEBUG: bool                         = Field(default=lambda: '--debug' in sys.argv)
     
     IS_TTY: bool                        = Field(default=sys.stdout.isatty())
@@ -114,8 +112,6 @@ SHELL_CONFIG = ShellConfig()
 
 
 class StorageConfig(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'STORAGE_CONFIG'
-
     OUTPUT_PERMISSIONS: str             = Field(default='644')
     RESTRICT_FILE_NAMES: str            = Field(default='windows')
     ENFORCE_ATOMIC_WRITES: bool         = Field(default=True)
@@ -128,8 +124,6 @@ STORAGE_CONFIG = StorageConfig()
 
 
 class GeneralConfig(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'GENERAL_CONFIG'
-        
     TAG_SEPARATOR_PATTERN: str          = Field(default=r'[,]')
 
 
@@ -137,8 +131,6 @@ GENERAL_CONFIG = GeneralConfig()
 
 
 class ServerConfig(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'SERVER_CONFIG'
-
     SECRET_KEY: str                     = Field(default=lambda: get_random_string(50, 'abcdefghijklmnopqrstuvwxyz0123456789_'))
     BIND_ADDR: str                      = Field(default=lambda: ['127.0.0.1:8000', '0.0.0.0:8000'][SHELL_CONFIG.IN_DOCKER])
     ALLOWED_HOSTS: str                  = Field(default='*')
@@ -163,8 +155,6 @@ SERVER_CONFIG = ServerConfig()
 
 
 class ArchivingConfig(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'ARCHIVING_CONFIG'
-    
     ONLY_NEW: bool                      = Field(default=True)
     
     TIMEOUT: int                        = Field(default=60)
@@ -213,8 +203,6 @@ ARCHIVING_CONFIG = ArchivingConfig()
 
 
 class SearchBackendConfig(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'SEARCH_BACKEND_CONFIG'
-
     USE_INDEXING_BACKEND: bool          = Field(default=True)
     USE_SEARCHING_BACKEND: bool         = Field(default=True)
     

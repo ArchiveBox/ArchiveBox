@@ -2,10 +2,10 @@ __package__ = 'archivebox.plugins_auth.ldap'
 
 import sys
 
-from typing import Dict, List, ClassVar, Optional
+from typing import Dict, List, Optional
 from pydantic import Field, model_validator, computed_field
 
-from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_configset import BaseConfigSet
 
 LDAP_LIB = None
 try:
@@ -24,7 +24,6 @@ class LdapConfig(BaseConfigSet):
     It needs to be in a separate file from apps.py so that it can be imported
     during settings.py initialization before the apps are loaded.
     """
-    section: ClassVar[ConfigSectionName] = 'LDAP_CONFIG'
 
     LDAP_ENABLED: bool                  = Field(default=False, alias='LDAP')
     

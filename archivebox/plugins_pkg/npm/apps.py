@@ -19,8 +19,6 @@ from abx.archivebox.base_hook import BaseHook
 
 
 class NpmDependencyConfigs(BaseConfigSet):
-    # section: ConfigSectionName = 'DEPENDENCY_CONFIG'
-
     # USE_NPM: bool = True
     # NPM_BINARY: str = Field(default='npm')
     # NPM_ARGS: Optional[List[str]] = Field(default=None)

@@ -3,7 +3,7 @@ __package__ = 'archivebox.plugins_search.sqlite'
 import sys
 import codecs
 import sqlite3
-from typing import List, ClassVar, Iterable, Callable
+from typing import List, Iterable, Callable
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -12,7 +12,7 @@ from pydantic import InstanceOf, Field, model_validator
 
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
-from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
+from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_hook import BaseHook
 from abx.archivebox.base_searchbackend import BaseSearchBackend
 
@@ -24,8 +24,6 @@ from archivebox.config import SEARCH_BACKEND_CONFIG
 ###################### Config ##########################
 
 class SqliteftsConfig(BaseConfigSet):
-    section: ClassVar[ConfigSectionName] = 'DEPENDENCY_CONFIG'
-
     SQLITEFTS_SEPARATE_DATABASE: bool   = Field(default=True, alias='FTS_SEPARATE_DATABASE')
     SQLITEFTS_TOKENIZERS: str           = Field(default='porter unicode61 remove_diacritics 2', alias='FTS_TOKENIZERS')
     SQLITEFTS_MAX_LENGTH: int           = Field(default=int(1e9), alias='FTS_SQLITE_MAX_LENGTH')

@@ -34,8 +34,6 @@ from plugins_pkg.pip.apps import SYS_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER, LIB_
 
 
 class PlaywrightConfigs(BaseConfigSet):
-    # section: ConfigSectionName = 'DEPENDENCY_CONFIG'
-
     # PLAYWRIGHT_BINARY: str = Field(default='wget')
     # PLAYWRIGHT_ARGS: Optional[List[str]] = Field(default=None)
     # PLAYWRIGHT_EXTRA_ARGS: List[str] = []
