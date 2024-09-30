@@ -9,7 +9,7 @@ from typing import Optional, List, IO
 
 from ..main import manage
 from ..util import docstring
-from ..config import OUTPUT_DIR
+from ..config.legacy import OUTPUT_DIR
 
 
 @docstring(manage.__doc__)

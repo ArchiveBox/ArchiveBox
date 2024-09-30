@@ -13,20 +13,15 @@ import abx.archivebox
 import abx.archivebox.use
 import abx.django.use
 
-import archivebox
-from archivebox.constants import CONSTANTS
+from archivebox.config import VERSION, DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS      # noqa
 
-from ..config import CONFIG
+from ..config.legacy import CONFIG
 
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
 IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
 IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
 
 
-VERSION = archivebox.VERSION
-PACKAGE_DIR = archivebox.PACKAGE_DIR
-DATA_DIR = archivebox.DATA_DIR
-ARCHIVE_DIR = archivebox.ARCHIVE_DIR
 
 ################################################################################
 ### ArchiveBox Plugin Settings
@@ -40,14 +35,14 @@ PLUGIN_HOOKSPECS = [
 abx.register_hookspecs(PLUGIN_HOOKSPECS)
 
 BUILTIN_PLUGIN_DIRS = {
-    'plugins_sys':             archivebox.PACKAGE_DIR / 'plugins_sys',
-    'plugins_pkg':             archivebox.PACKAGE_DIR / 'plugins_pkg',
-    'plugins_auth':            archivebox.PACKAGE_DIR / 'plugins_auth',
-    'plugins_search':          archivebox.PACKAGE_DIR / 'plugins_search',
-    'plugins_extractor':       archivebox.PACKAGE_DIR / 'plugins_extractor',
+    'archivebox':              PACKAGE_DIR,
+    'plugins_pkg':             PACKAGE_DIR / 'plugins_pkg',
+    'plugins_auth':            PACKAGE_DIR / 'plugins_auth',
+    'plugins_search':          PACKAGE_DIR / 'plugins_search',
+    'plugins_extractor':       PACKAGE_DIR / 'plugins_extractor',
 }
 USER_PLUGIN_DIRS = {
-    'user_plugins': archivebox.DATA_DIR / 'user_plugins',
+    'user_plugins': DATA_DIR / 'user_plugins',
 }
 
 BUILTIN_PLUGINS = abx.get_plugins_in_dirs(BUILTIN_PLUGIN_DIRS)
@@ -105,6 +100,7 @@ INSTALLED_APPS = [
     'django_object_actions',     # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
 
     # Our ArchiveBox-provided apps
+    #'config',                    # ArchiveBox config settings
     'queues',                    # handles starting and managing background workers and processes
     'abid_utils',                # handles ABID ID creation, handling, and models
     'core',                      # core django model with Snapshot, ArchiveResult, etc.
@@ -481,41 +477,41 @@ ADMIN_DATA_VIEWS = {
         },
         {
             "route": "binaries/",
-            "view": "plugins_sys.config.views.binaries_list_view",
+            "view": "archivebox.config.views.binaries_list_view",
             "name": "Binaries",
             "items": {
                 "route": "<str:key>/",
-                "view": "plugins_sys.config.views.binary_detail_view",
+                "view": "archivebox.config.views.binary_detail_view",
                 "name": "binary",
             },
         },
         {
             "route": "plugins/",
-            "view": "plugins_sys.config.views.plugins_list_view",
+            "view": "archivebox.config.views.plugins_list_view",
             "name": "Plugins",
             "items": {
                 "route": "<str:key>/",
-                "view": "plugins_sys.config.views.plugin_detail_view",
+                "view": "archivebox.config.views.plugin_detail_view",
                 "name": "plugin",
             },
         },
         {
             "route": "workers/",
-            "view": "plugins_sys.config.views.worker_list_view",
+            "view": "archivebox.config.views.worker_list_view",
             "name": "Workers",
             "items": {
                 "route": "<str:key>/",
-                "view": "plugins_sys.config.views.worker_detail_view",
+                "view": "archivebox.config.views.worker_detail_view",
                 "name": "worker",
             },
         },
         {
             "route": "logs/",
-            "view": "plugins_sys.config.views.log_list_view",
+            "view": "archivebox.config.views.log_list_view",
             "name": "Logs",
             "items": {
                 "route": "<str:key>/",
-                "view": "plugins_sys.config.views.log_detail_view",
+                "view": "archivebox.config.views.log_detail_view",
                 "name": "log",
             },
         },

@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Optional, Iterator, Any, Union
 
-import archivebox
+from archivebox.config import VERSION, DATA_DIR, CONSTANTS, SERVER_CONFIG, SHELL_CONFIG
 
 from .schema import Link
 from ..system import atomic_write
@@ -19,7 +19,6 @@ from ..util import enforce_types
 @enforce_types
 def generate_json_index_from_links(links: List[Link], with_headers: bool):
     from django.conf import settings
-    from plugins_sys.config.apps import SERVER_CONFIG
     
     MAIN_INDEX_HEADER = {
         'info': 'This is an index of site data archived by ArchiveBox: The self-hosted web archive.',
@@ -27,8 +26,8 @@ def generate_json_index_from_links(links: List[Link], with_headers: bool):
         'copyright_info': SERVER_CONFIG.FOOTER_INFO,
         'meta': {
             'project': 'ArchiveBox',
-            'version': archivebox.VERSION,
-            'git_sha': archivebox.VERSION,  # not used anymore, but kept for backwards compatibility
+            'version': VERSION,
+            'git_sha': VERSION,  # not used anymore, but kept for backwards compatibility
             'website': 'https://ArchiveBox.io',
             'docs': 'https://github.com/ArchiveBox/ArchiveBox/wiki',
             'source': 'https://github.com/ArchiveBox/ArchiveBox',
@@ -52,10 +51,8 @@ def generate_json_index_from_links(links: List[Link], with_headers: bool):
 
 
 @enforce_types
-def parse_json_main_index(out_dir: Path=archivebox.DATA_DIR) -> Iterator[Link]:
+def parse_json_main_index(out_dir: Path=DATA_DIR) -> Iterator[Link]:
     """parse an archive index json file and return the list of links"""
-
-    from plugins_sys.config.constants import CONSTANTS
 
     index_path = Path(out_dir) / CONSTANTS.JSON_INDEX_FILENAME
     if index_path.exists():
@@ -68,7 +65,7 @@ def parse_json_main_index(out_dir: Path=archivebox.DATA_DIR) -> Iterator[Link]:
                 print("    {lightyellow}! Found an index.json in the project root but couldn't load links from it: {} {}".format(
                     err.__class__.__name__,
                     err,
-                    **ANSI,
+                    **SHELL_CONFIG.ANSI,
                 ))
                 return ()
 
@@ -94,8 +91,6 @@ def parse_json_main_index(out_dir: Path=archivebox.DATA_DIR) -> Iterator[Link]:
 def write_json_link_details(link: Link, out_dir: Optional[str]=None) -> None:
     """write a json file with some info about the link"""
     
-    from plugins_sys.config.constants import CONSTANTS
-    
     out_dir = out_dir or link.link_dir
     path = Path(out_dir) / CONSTANTS.JSON_INDEX_FILENAME
     atomic_write(str(path), link._asdict(extended=True))
@@ -104,7 +99,6 @@ def write_json_link_details(link: Link, out_dir: Optional[str]=None) -> None:
 @enforce_types
 def parse_json_link_details(out_dir: Union[Path, str], guess: bool=False) -> Optional[Link]:
     """load the json link index from a given directory"""
-    from plugins_sys.config.constants import CONSTANTS
     
     existing_index = Path(out_dir) / CONSTANTS.JSON_INDEX_FILENAME
     if existing_index.exists():
@@ -121,7 +115,6 @@ def parse_json_link_details(out_dir: Union[Path, str], guess: bool=False) -> Opt
 def parse_json_links_details(out_dir: Union[Path, str]) -> Iterator[Link]:
     """read through all the archive data folders and return the parsed links"""
 
-    from plugins_sys.config.constants import CONSTANTS
 
     for entry in os.scandir(CONSTANTS.ARCHIVE_DIR):
         if entry.is_dir(follow_symlinks=True):

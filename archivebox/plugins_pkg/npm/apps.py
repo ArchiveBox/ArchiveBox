@@ -1,15 +1,13 @@
-__package__ = 'archivebox.plugins_pkg.npm'
-
-import archivebox
+__package__ = 'plugins_pkg.npm'
 
 from pathlib import Path
 from typing import List, Optional
 
-from django.conf import settings
-
 from pydantic import InstanceOf, model_validator
 
 from pydantic_pkgr import BinProvider, NpmProvider, BinName, PATHStr, BinProviderName
+
+from archivebox.config import DATA_DIR, CONSTANTS
 
 from abx.archivebox.base_plugin import BasePlugin
 from abx.archivebox.base_configset import BaseConfigSet
@@ -36,8 +34,8 @@ DEFAULT_GLOBAL_CONFIG = {
 NPM_CONFIG = NpmDependencyConfigs(**DEFAULT_GLOBAL_CONFIG)
 
 
-OLD_NODE_BIN_PATH = archivebox.DATA_DIR / 'node_modules' / '.bin'
-NEW_NODE_BIN_PATH = archivebox.CONSTANTS.LIB_NPM_DIR / 'node_modules' / '.bin'
+OLD_NODE_BIN_PATH = DATA_DIR / 'node_modules' / '.bin'
+NEW_NODE_BIN_PATH = CONSTANTS.LIB_NPM_DIR / 'node_modules' / '.bin'
 
 class SystemNpmProvider(NpmProvider, BaseBinProvider):
     name: BinProviderName = "sys_npm"
@@ -48,7 +46,7 @@ class LibNpmProvider(NpmProvider, BaseBinProvider):
     name: BinProviderName = "lib_npm"
     PATH: PATHStr = str(OLD_NODE_BIN_PATH)
     
-    npm_prefix: Optional[Path] = archivebox.CONSTANTS.LIB_NPM_DIR
+    npm_prefix: Optional[Path] = CONSTANTS.LIB_NPM_DIR
     
     @model_validator(mode='after')
     def validate_path(self):

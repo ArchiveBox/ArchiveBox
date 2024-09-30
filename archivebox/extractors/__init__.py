@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 from django.db.models import QuerySet
 
-from ..config import (
+from ..config.legacy import (
     SAVE_ALLOWLIST_PTN,
     SAVE_DENYLIST_PTN,
 )

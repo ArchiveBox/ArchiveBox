@@ -3,19 +3,20 @@ __package__ = "archivebox.parsers"
 
 import re
 import requests
-import archivebox
 from datetime import datetime
 
 from typing import IO, Iterable, Optional
 from configparser import ConfigParser
 
+from archivebox.config import CONSTANTS
+
 from ..index.schema import Link
 from ..util import enforce_types
 from ..system import atomic_write
-from ..config import READWISE_READER_TOKENS
+from ..config.legacy import READWISE_READER_TOKENS
 
 
-API_DB_PATH = archivebox.DATA_DIR / "sources" / "readwise_reader_api.db"
+API_DB_PATH = CONSTANTS.SOURCES_DIR / "readwise_reader_api.db"
 
 
 class ReadwiseReaderAPI:

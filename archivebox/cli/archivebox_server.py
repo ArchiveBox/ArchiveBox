@@ -10,7 +10,7 @@ from typing import Optional, List, IO
 
 from ..main import server
 from ..util import docstring
-from ..config import OUTPUT_DIR, BIND_ADDR
+from ..config.legacy import OUTPUT_DIR, BIND_ADDR
 from ..logging_util import SmartFormatter, reject_stdin
 
 @docstring(server.__doc__)

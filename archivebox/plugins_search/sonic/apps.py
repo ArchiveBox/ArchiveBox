@@ -1,10 +1,7 @@
 __package__ = 'archivebox.plugins_search.sonic'
 
-import os
 import sys
 from typing import List, Dict, ClassVar, Generator, cast
-
-from django.conf import settings
 
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, Field, model_validator
@@ -18,7 +15,7 @@ from abx.archivebox.base_hook import BaseHook
 from abx.archivebox.base_searchbackend import BaseSearchBackend
 
 # Depends on Other Plugins:
-from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG
+from archivebox.config import SEARCH_BACKEND_CONFIG
 
 SONIC_LIB = None
 try:

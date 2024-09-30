@@ -6,9 +6,9 @@ from django.conf import settings
 
 from archivebox.index.schema import Link
 from archivebox.util import enforce_types
-from archivebox.config import stderr
+from archivebox.misc.logging import stderr
 
-# from archivebox.plugins_sys.config.apps import settings.CONFIGS.SearchBackendConfig
+# from archivebox.archivebox.config import settings.CONFIGS.SearchBackendConfig
 
 from .utils import get_indexable_content, log_index_started
 

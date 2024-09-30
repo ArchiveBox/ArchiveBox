@@ -4,10 +4,8 @@ import re
 import os
 import sys
 import stat
-import shutil
 import time
 import argparse
-import archivebox
 
 from math import log
 from multiprocessing import Process
@@ -23,6 +21,7 @@ if TYPE_CHECKING:
 from rich import print
 from rich.panel import Panel
 
+from archivebox.config import CONSTANTS, DATA_DIR, VERSION, SHELL_CONFIG
 from .system import get_dir_size
 from .util import enforce_types
 from .misc.logging import ANSI, stderr
@@ -133,11 +132,8 @@ class TimedProgress:
 
     def __init__(self, seconds, prefix=''):
 
-        from plugins_sys.config.apps import SHELL_CONFIG
-
         self.SHOW_PROGRESS = SHELL_CONFIG.SHOW_PROGRESS
         self.ANSI = SHELL_CONFIG.ANSI
-        self.TERM_WIDTH = lambda: shutil.get_terminal_size().columns      # lambda so it live-updates when terminal is resized
         
         if self.SHOW_PROGRESS:
             self.p = Process(target=progress_bar, args=(seconds, prefix, self.ANSI))
@@ -169,7 +165,7 @@ class TimedProgress:
 
                 # clear whole terminal line
                 try:
-                    sys.stdout.write('\r{}{}\r'.format((' ' * self.TERM_WIDTH()), self.ANSI['reset']))
+                    sys.stdout.write('\r{}{}\r'.format((' ' * SHELL_CONFIG.TERM_WIDTH), self.ANSI['reset']))
                 except (IOError, BrokenPipeError):
                     # ignore when the parent proc has stopped listening to our stdout
                     pass
@@ -182,11 +178,11 @@ def progress_bar(seconds: int, prefix: str='', ANSI: Dict[str, str]=ANSI) -> Non
     """show timer in the form of progress bar, with percentage and seconds remaining"""
     output_buf = (sys.stdout or sys.__stdout__ or sys.stderr or sys.__stderr__)
     chunk = '█' if output_buf and output_buf.encoding.upper() == 'UTF-8' else '#'
-    last_width = TERM_WIDTH()
+    last_width = SHELL_CONFIG.TERM_WIDTH
     chunks = last_width - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
     try:
         for s in range(seconds * chunks):
-            max_width = TERM_WIDTH()
+            max_width = SHELL_CONFIG.TERM_WIDTH
             if max_width < last_width:
                 # when the terminal size is shrunk, we have to write a newline
                 # otherwise the progress bar will keep wrapping incorrectly
@@ -224,7 +220,7 @@ def progress_bar(seconds: int, prefix: str='', ANSI: Dict[str, str]=ANSI) -> Non
         sys.stdout.flush()
         # uncomment to have it disappear when it hits 100% instead of staying full red:
         # time.sleep(0.5)
-        # sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))
+        # sys.stdout.write('\r{}{}\r'.format((' ' * SHELL_CONFIG.TERM_WIDTH), ANSI['reset']))
         # sys.stdout.flush()
     except (KeyboardInterrupt, BrokenPipeError):
         print()
@@ -234,7 +230,7 @@ def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional
     args = ' '.join(subcommand_args)
     version_msg = '[dark_magenta]\\[i] [{now}] ArchiveBox v{VERSION}: [/dark_magenta][green4]archivebox [green3]{subcommand}[green2] {args}[/green2]'.format(
         now=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-        VERSION=archivebox.__version__,
+        VERSION=VERSION,
         subcommand=subcommand,
         args=args,
     )
@@ -256,7 +252,6 @@ def log_importing_started(urls: Union[str, List[str]], depth: int, index_only: b
     ))
 
 def log_source_saved(source_file: str):
-    from plugins_sys.config.constants import CONSTANTS
     print('    > Saved verbatim input to {}/{}'.format(CONSTANTS.SOURCES_DIR_NAME, source_file.rsplit('/', 1)[-1]))
 
 def log_parsing_finished(num_parsed: int, parser_name: str):
@@ -289,14 +284,12 @@ def log_indexing_process_finished():
 
 
 def log_indexing_started(out_path: str):
-    from plugins_sys.config.apps import SHELL_CONFIG
-    
     if SHELL_CONFIG.IS_TTY:
-        sys.stdout.write(f'    > ./{Path(out_path).relative_to(archivebox.DATA_DIR)}')
+        sys.stdout.write(f'    > ./{Path(out_path).relative_to(DATA_DIR)}')
 
 
 def log_indexing_finished(out_path: str):
-    print(f'\r    √ ./{Path(out_path).relative_to(archivebox.DATA_DIR)}')
+    print(f'\r    √ ./{Path(out_path).relative_to(DATA_DIR)}')
 
 
 ### Archiving Stage
@@ -532,7 +525,7 @@ def log_shell_welcome_msg():
 ### Helpers
 
 @enforce_types
-def pretty_path(path: Union[Path, str], pwd: Union[Path, str]=archivebox.DATA_DIR) -> str:
+def pretty_path(path: Union[Path, str], pwd: Union[Path, str]=DATA_DIR) -> str:
     """convert paths like .../ArchiveBox/archivebox/../output/abc into output/abc"""
     pwd = str(Path(pwd))  # .resolve()
     path = str(path)

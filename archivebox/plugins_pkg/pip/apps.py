@@ -3,18 +3,19 @@ __package__ = 'archivebox.plugins_pkg.pip'
 import os
 import sys
 import inspect
-import archivebox
 from pathlib import Path
 from typing import List, Dict, Optional, ClassVar
 from pydantic import InstanceOf, Field, model_validator
 
-import abx
 
 import django
 from django.db.backends.sqlite3.base import Database as django_sqlite3     # type: ignore[import-type]
 from django.core.checks import Error, Tags
-
 from pydantic_pkgr import BinProvider, PipProvider, BinName, BinProviderName, ProviderLookupDict, SemVer
+
+from archivebox.config import CONSTANTS, VERSION
+
+import abx
 from abx.archivebox.base_plugin import BasePlugin
 from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
 from abx.archivebox.base_check import BaseCheck
@@ -70,7 +71,7 @@ class LibPipBinProvider(PipProvider, BaseBinProvider):
     name: BinProviderName = "lib_pip"
     INSTALLER_BIN: BinName = "pip"
     
-    pip_venv: Optional[Path] = archivebox.CONSTANTS.LIB_PIP_DIR / 'venv'
+    pip_venv: Optional[Path] = CONSTANTS.LIB_PIP_DIR / 'venv'
 
 SYS_PIP_BINPROVIDER = SystemPipBinProvider()
 PIPX_PIP_BINPROVIDER = SystemPipxBinProvider()
@@ -84,10 +85,10 @@ class ArchiveboxBinary(BaseBinary):
 
     binproviders_supported: List[InstanceOf[BinProvider]] = [VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
-        VENV_PIP_BINPROVIDER.name:  {'packages': lambda: [], 'version': lambda: archivebox.__version__},
-        SYS_PIP_BINPROVIDER.name:   {'packages': lambda: [], 'version': lambda: archivebox.__version__},
-        apt.name:                   {'packages': lambda: [], 'version': lambda: archivebox.__version__},
-        brew.name:                  {'packages': lambda: [], 'version': lambda: archivebox.__version__},
+        VENV_PIP_BINPROVIDER.name:  {'packages': lambda: [], 'version': lambda: VERSION},
+        SYS_PIP_BINPROVIDER.name:   {'packages': lambda: [], 'version': lambda: VERSION},
+        apt.name:                   {'packages': lambda: [], 'version': lambda: VERSION},
+        brew.name:                  {'packages': lambda: [], 'version': lambda: VERSION},
     }
 
 ARCHIVEBOX_BINARY = ArchiveboxBinary()

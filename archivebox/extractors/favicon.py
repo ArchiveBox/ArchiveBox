@@ -11,7 +11,7 @@ from ..util import (
     domain,
     dedupe,
 )
-from ..config import CONFIG
+from ..config.legacy import CONFIG
 from ..logging_util import TimedProgress
 
 

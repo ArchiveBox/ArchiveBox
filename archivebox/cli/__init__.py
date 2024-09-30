@@ -4,7 +4,6 @@ __command__ = 'archivebox'
 import sys
 import argparse
 import threading
-import archivebox
 
 from time import sleep
 from collections.abc import Mapping
@@ -12,6 +11,7 @@ from collections.abc import Mapping
 from typing import Optional, List, IO, Union, Iterable
 from pathlib import Path
 
+from archivebox.config import DATA_DIR
 from ..misc.checks import check_data_folder, check_migrations
 from ..misc.logging import stderr
 
@@ -149,7 +149,7 @@ def run_subcommand(subcommand: str,
     subcommand_args = subcommand_args or []
 
     if subcommand not in meta_cmds:
-        from ..config import setup_django, CONFIG
+        from ..config.legacy import setup_django, CONFIG
 
         cmd_requires_db = subcommand in archive_cmds
         init_pending = '--init' in subcommand_args or '--quick-init' in subcommand_args
@@ -234,12 +234,12 @@ def main(args: List[str] | Omitted=OMITTED, stdin: IO | Omitted=OMITTED, pwd: st
             subcommand=command.subcommand,
             subcommand_args=command.subcommand_args,
             stdin=stdin or None,
-            pwd=pwd or archivebox.DATA_DIR,
+            pwd=pwd or DATA_DIR,
         )
 
     run_subcommand(
         subcommand=command.subcommand,
         subcommand_args=command.subcommand_args,
         stdin=stdin or None,
-        pwd=pwd or archivebox.DATA_DIR,
+        pwd=pwd or DATA_DIR,
     )

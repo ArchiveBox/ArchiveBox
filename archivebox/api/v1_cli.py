@@ -13,7 +13,7 @@ from ..main import (
     schedule,
 )
 from ..util import ansi_to_html
-from ..config import ONLY_NEW
+from ..config.legacy import ONLY_NEW
 
 
 from .auth import API_AUTH_METHODS

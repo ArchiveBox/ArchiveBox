@@ -11,7 +11,7 @@ from ..util import (
     get_headers,
     dedupe,
 )
-from ..config import (
+from ..config.legacy import (
     TIMEOUT,
     CURL_BINARY,
     CURL_ARGS,

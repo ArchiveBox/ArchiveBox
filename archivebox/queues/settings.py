@@ -1,11 +1,10 @@
 from pathlib import Path
 
+from archivebox.config import DATA_DIR, CONSTANTS
 
-import archivebox
-OUTPUT_DIR = archivebox.DATA_DIR
-LOGS_DIR = archivebox.CONSTANTS.LOGS_DIR
-
-TMP_DIR = archivebox.CONSTANTS.TMP_DIR
+OUTPUT_DIR = DATA_DIR
+LOGS_DIR = CONSTANTS.LOGS_DIR
+TMP_DIR = CONSTANTS.TMP_DIR
 
 Path.mkdir(TMP_DIR, exist_ok=True)
 CONFIG_FILE = TMP_DIR / "supervisord.conf"

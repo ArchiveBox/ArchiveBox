@@ -32,7 +32,7 @@ os.environ.update(TEST_CONFIG)
 
 from ..main import init
 from ..index import load_main_index
-from ..config import (
+from ..config.legacy import (
     SQL_INDEX_FILENAME,
     JSON_INDEX_FILENAME,
     HTML_INDEX_FILENAME,

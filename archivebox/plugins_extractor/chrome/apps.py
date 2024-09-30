@@ -5,8 +5,6 @@ import platform
 from pathlib import Path
 from typing import List, Optional, Dict, ClassVar
 
-from django.conf import settings
-
 # Depends on other PyPI/vendor packages:
 from rich import print
 from pydantic import InstanceOf, Field, model_validator
@@ -18,8 +16,6 @@ from pydantic_pkgr import (
     bin_abspath,
 )
 
-import archivebox
-
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
 from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
@@ -29,7 +25,7 @@ from abx.archivebox.base_binary import BaseBinary, env
 from abx.archivebox.base_hook import BaseHook
 
 # Depends on Other Plugins:
-from plugins_sys.config.apps import ARCHIVING_CONFIG, SHELL_CONFIG
+from archivebox.config import CONSTANTS, ARCHIVING_CONFIG, SHELL_CONFIG
 from plugins_pkg.puppeteer.apps import PUPPETEER_BINPROVIDER
 from plugins_pkg.playwright.apps import PLAYWRIGHT_BINPROVIDER
 
@@ -217,7 +213,7 @@ class ChromeBinary(BaseBinary):
     }
 
     @staticmethod
-    def symlink_to_lib(binary, bin_dir=archivebox.CONSTANTS.LIB_BIN_DIR) -> None:
+    def symlink_to_lib(binary, bin_dir=CONSTANTS.LIB_BIN_DIR) -> None:
         if not (binary.abspath and binary.abspath.exists()):
             return
         

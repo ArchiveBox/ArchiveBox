@@ -1,7 +1,7 @@
 __package__ = 'abx.django'
 
 import itertools
-from benedict import benedict
+# from benedict import benedict
 
 from .. import pm
 

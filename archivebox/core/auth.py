@@ -1,7 +1,7 @@
 __package__ = 'archivebox.core'
 
 
-from ..config import (
+from ..config.legacy import (
     LDAP
 )
 

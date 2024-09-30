@@ -4,7 +4,6 @@ import os
 import sys
 import shutil
 import platform
-import archivebox
 
 from typing import Dict, List, Optional, Iterable, IO, Union
 from pathlib import Path
@@ -15,6 +14,7 @@ from crontab import CronTab, CronSlices
 from django.db.models import QuerySet
 from django.utils import timezone
 
+from archivebox.config import CONSTANTS, VERSION, DATA_DIR, ARCHIVE_DIR, SHELL_CONFIG, SEARCH_BACKEND_CONFIG, STORAGE_CONFIG, SERVER_CONFIG, ARCHIVING_CONFIG
 from .cli import (
     CLI_SUBCOMMANDS,
     run_subcommand,
@@ -66,22 +66,9 @@ from .index.html import (
 )
 from .index.csv import links_to_csv
 from .extractors import archive_links, archive_link, ignore_methods
-from .misc.logging import stderr, hint, ANSI
+from .misc.logging import stderr, hint
 from .misc.checks import check_data_folder
-from .config import (
-    ConfigDict,
-    IS_TTY,
-    DEBUG,
-    IN_DOCKER,
-    IN_QEMU,
-    PUID,
-    PGID,
-    TIMEZONE,
-    ONLY_NEW,
-    JSON_INDEX_FILENAME,
-    HTML_INDEX_FILENAME,
-    SQL_INDEX_FILENAME,
-    LDAP,
+from .config.legacy import (
     write_config_file,
     DEPENDENCIES,
     load_all_config,
@@ -104,15 +91,9 @@ from .logging_util import (
     printable_dependency_version,
 )
 
-CONSTANTS = archivebox.CONSTANTS
-VERSION = archivebox.VERSION
-PACKAGE_DIR = archivebox.PACKAGE_DIR
-OUTPUT_DIR = archivebox.DATA_DIR
-ARCHIVE_DIR = archivebox.DATA_DIR / 'archive'
-
 
 @enforce_types
-def help(out_dir: Path=archivebox.DATA_DIR) -> None:
+def help(out_dir: Path=DATA_DIR) -> None:
     """Print the ArchiveBox help message and usage"""
 
     all_subcommands = CLI_SUBCOMMANDS
@@ -135,7 +116,7 @@ def help(out_dir: Path=archivebox.DATA_DIR) -> None:
     )
 
 
-    if archivebox.CONSTANTS.DATABASE_FILE.exists():
+    if CONSTANTS.DATABASE_FILE.exists():
         print('''{green}ArchiveBox v{}: The self-hosted internet archive.{reset}
 
 {lightred}Active data directory:{reset}
@@ -161,17 +142,17 @@ def help(out_dir: Path=archivebox.DATA_DIR) -> None:
 
 {lightred}Documentation:{reset}
     https://github.com/ArchiveBox/ArchiveBox/wiki
-'''.format(VERSION, out_dir, COMMANDS_HELP_TEXT, **ANSI))
+'''.format(VERSION, out_dir, COMMANDS_HELP_TEXT, **SHELL_CONFIG.ANSI))
     
     else:
-        print('{green}Welcome to ArchiveBox v{}!{reset}'.format(VERSION, **ANSI))
+        print('{green}Welcome to ArchiveBox v{}!{reset}'.format(VERSION, **SHELL_CONFIG.ANSI))
         print()
-        if IN_DOCKER:
+        if SHELL_CONFIG.IN_DOCKER:
             print('When using Docker, you need to mount a volume to use as your data dir:')
             print('    docker run -v /some/path:/data archivebox ...')
             print()
         print('To import an existing archive (from a previous version of ArchiveBox):')
-        print('    1. cd into your data dir OUTPUT_DIR (usually ArchiveBox/output) and run:')
+        print('    1. cd into your data dir DATA_DIR (usually ArchiveBox/output) and run:')
         print('    2. archivebox init')
         print()
         print('To start a new archive:')
@@ -184,10 +165,9 @@ def help(out_dir: Path=archivebox.DATA_DIR) -> None:
 
 @enforce_types
 def version(quiet: bool=False,
-            out_dir: Path=OUTPUT_DIR) -> None:
+            out_dir: Path=DATA_DIR) -> None:
     """Print the ArchiveBox version and dependency information"""
     
-    from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG, STORAGE_CONFIG, SHELL_CONFIG
     from plugins_auth.ldap.apps import LDAP_CONFIG
     from django.conf import settings
     
@@ -202,19 +182,19 @@ def version(quiet: bool=False,
         
         p = platform.uname()
         print(
-            'ArchiveBox v{}'.format(archivebox.__version__),
+            'ArchiveBox v{}'.format(CONSTANTS.VERSION),
             f'COMMIT_HASH={SHELL_CONFIG.COMMIT_HASH[:7] if SHELL_CONFIG.COMMIT_HASH else "unknown"}',
             f'BUILD_TIME={SHELL_CONFIG.BUILD_TIME}',
         )
         print(
-            f'IN_DOCKER={IN_DOCKER}',
-            f'IN_QEMU={IN_QEMU}',
+            f'IN_DOCKER={SHELL_CONFIG.IN_DOCKER}',
+            f'IN_QEMU={SHELL_CONFIG.IN_QEMU}',
             f'ARCH={p.machine}',
             f'OS={p.system}',
             f'PLATFORM={platform.platform()}',
             f'PYTHON={sys.implementation.name.title()}',
         )
-        OUTPUT_IS_REMOTE_FS = CONSTANTS.DATA_LOCATIONS['OUTPUT_DIR']['is_mount'] or CONSTANTS.DATA_LOCATIONS['ARCHIVE_DIR']['is_mount']
+        OUTPUT_IS_REMOTE_FS = CONSTANTS.DATA_LOCATIONS['DATA_DIR']['is_mount'] or CONSTANTS.DATA_LOCATIONS['ARCHIVE_DIR']['is_mount']
         print(
             f'FS_ATOMIC={STORAGE_CONFIG.ENFORCE_ATOMIC_WRITES}',
             f'FS_REMOTE={OUTPUT_IS_REMOTE_FS}',
@@ -224,14 +204,14 @@ def version(quiet: bool=False,
         print(
             f'DEBUG={SHELL_CONFIG.DEBUG}',
             f'IS_TTY={SHELL_CONFIG.IS_TTY}',
-            f'TZ={TIMEZONE}',
+            f'TZ={CONSTANTS.TIMEZONE}',
             f'SEARCH_BACKEND={SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE}',
             f'LDAP={LDAP_CONFIG.LDAP_ENABLED}',
             #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
         )
         print()
 
-        print('{white}[i] Old dependency versions:{reset}'.format(**ANSI))
+        print('{white}[i] Old dependency versions:{reset}'.format(**SHELL_CONFIG.ANSI))
         for name, dependency in DEPENDENCIES.items():
             print(printable_dependency_version(name, dependency))
             
@@ -240,7 +220,7 @@ def version(quiet: bool=False,
                 print()
                 
         print()
-        print('{white}[i] New dependency versions:{reset}'.format(**ANSI))
+        print('{white}[i] New dependency versions:{reset}'.format(**SHELL_CONFIG.ANSI))
         for name, binary in settings.BINARIES.items():
             err = None
             try:
@@ -252,18 +232,18 @@ def version(quiet: bool=False,
             print('', '√' if loaded_bin.is_valid else 'X', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(15), loaded_bin.abspath or str(err))
    
         print()
-        print('{white}[i] Source-code locations:{reset}'.format(**ANSI))
+        print('{white}[i] Source-code locations:{reset}'.format(**SHELL_CONFIG.ANSI))
         for name, path in CONSTANTS.CODE_LOCATIONS.items():
             print(printable_folder_status(name, path))
 
         print()
         if CONSTANTS.DATABASE_FILE.exists() or CONSTANTS.ARCHIVE_DIR.exists() or CONSTANTS.CONFIG_FILE.exists():
-            print('{white}[i] Data locations:{reset}'.format(**ANSI))
+            print('{white}[i] Data locations:{reset}'.format(**SHELL_CONFIG.ANSI))
             for name, path in CONSTANTS.DATA_LOCATIONS.items():
                 print(printable_folder_status(name, path))
         else:
             print()
-            print('{white}[i] Data locations:{reset} (not in a data directory)'.format(**ANSI))
+            print('{white}[i] Data locations:{reset} (not in a data directory)'.format(**SHELL_CONFIG.ANSI))
 
         print()
 
@@ -272,7 +252,7 @@ def version(quiet: bool=False,
 def run(subcommand: str,
         subcommand_args: Optional[List[str]],
         stdin: Optional[IO]=None,
-        out_dir: Path=OUTPUT_DIR) -> None:
+        out_dir: Path=DATA_DIR) -> None:
     """Run a given ArchiveBox subcommand with the given list of args"""
     run_subcommand(
         subcommand=subcommand,
@@ -283,27 +263,27 @@ def run(subcommand: str,
 
 
 @enforce_types
-def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=archivebox.DATA_DIR) -> None:
+def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=DATA_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
     
     from core.models import Snapshot
 
     out_dir.mkdir(exist_ok=True)
-    is_empty = not len(set(os.listdir(out_dir)) - CONSTANTS.ALLOWED_IN_OUTPUT_DIR)
+    is_empty = not len(set(os.listdir(out_dir)) - CONSTANTS.ALLOWED_IN_DATA_DIR)
 
-    if (out_dir / archivebox.CONSTANTS.JSON_INDEX_FILENAME).exists():
+    if (out_dir / CONSTANTS.JSON_INDEX_FILENAME).exists():
         stderr("[!] This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.", color="lightyellow")
         stderr("    You can run `archivebox list --json --with-headers > static_index.json` to manually generate it.", color="lightyellow")
 
-    existing_index = archivebox.CONSTANTS.DATABASE_FILE.exists()
+    existing_index = CONSTANTS.DATABASE_FILE.exists()
 
     if is_empty and not existing_index:
-        print('{green}[+] Initializing a new ArchiveBox v{} collection...{reset}'.format(VERSION, **ANSI))
-        print('{green}----------------------------------------------------------------------{reset}'.format(**ANSI))
+        print('{green}[+] Initializing a new ArchiveBox v{} collection...{reset}'.format(VERSION, **SHELL_CONFIG.ANSI))
+        print('{green}----------------------------------------------------------------------{reset}'.format(**SHELL_CONFIG.ANSI))
     elif existing_index:
         # TODO: properly detect and print the existing version in current index as well
-        print('{green}[*] Verifying and updating existing ArchiveBox collection to v{}...{reset}'.format(VERSION, **ANSI))
-        print('{green}----------------------------------------------------------------------{reset}'.format(**ANSI))
+        print('{green}[*] Verifying and updating existing ArchiveBox collection to v{}...{reset}'.format(VERSION, **SHELL_CONFIG.ANSI))
+        print('{green}----------------------------------------------------------------------{reset}'.format(**SHELL_CONFIG.ANSI))
     else:
         if force:
             stderr('[!] This folder appears to already have files in it, but no index.sqlite3 is present.', color='lightyellow')
@@ -315,41 +295,41 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
                 "    {lightred}Hint:{reset} To import an existing data folder make sure to cd into the folder first, \n"
                 "    then run and run 'archivebox init' to pick up where you left off.\n\n"
                 "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
-                ).format(**ANSI)
+                ).format(**SHELL_CONFIG.ANSI)
             )
             raise SystemExit(2)
 
     if existing_index:
-        print('\n{green}[*] Verifying archive folder structure...{reset}'.format(**ANSI))
+        print('\n{green}[*] Verifying archive folder structure...{reset}'.format(**SHELL_CONFIG.ANSI))
     else:
-        print('\n{green}[+] Building archive folder structure...{reset}'.format(**ANSI))
+        print('\n{green}[+] Building archive folder structure...{reset}'.format(**SHELL_CONFIG.ANSI))
     
-    print(f'    + ./{CONSTANTS.ARCHIVE_DIR.relative_to(OUTPUT_DIR)}, ./{CONSTANTS.SOURCES_DIR.relative_to(OUTPUT_DIR)}, ./{CONSTANTS.LOGS_DIR.relative_to(OUTPUT_DIR)}...')
+    print(f'    + ./{CONSTANTS.ARCHIVE_DIR.relative_to(DATA_DIR)}, ./{CONSTANTS.SOURCES_DIR.relative_to(DATA_DIR)}, ./{CONSTANTS.LOGS_DIR.relative_to(DATA_DIR)}...')
     Path(CONSTANTS.SOURCES_DIR).mkdir(exist_ok=True)
     Path(CONSTANTS.ARCHIVE_DIR).mkdir(exist_ok=True)
     Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)
-    print(f'    + ./{CONSTANTS.CONFIG_FILE.relative_to(OUTPUT_DIR)}...')
+    print(f'    + ./{CONSTANTS.CONFIG_FILE.relative_to(DATA_DIR)}...')
     write_config_file({}, out_dir=out_dir)
 
     if CONSTANTS.DATABASE_FILE.exists():
-        print('\n{green}[*] Verifying main SQL index and running any migrations needed...{reset}'.format(**ANSI))
+        print('\n{green}[*] Verifying main SQL index and running any migrations needed...{reset}'.format(**SHELL_CONFIG.ANSI))
     else:
-        print('\n{green}[+] Building main SQL index and running initial migrations...{reset}'.format(**ANSI))
+        print('\n{green}[+] Building main SQL index and running initial migrations...{reset}'.format(**SHELL_CONFIG.ANSI))
     
     for migration_line in apply_migrations(out_dir):
         print(f'    {migration_line}')
 
     assert CONSTANTS.DATABASE_FILE.exists()
     print()
-    print(f'    √ ./{CONSTANTS.DATABASE_FILE.relative_to(OUTPUT_DIR)}')
+    print(f'    √ ./{CONSTANTS.DATABASE_FILE.relative_to(DATA_DIR)}')
     
     # from django.contrib.auth.models import User
-    # if IS_TTY and not User.objects.filter(is_superuser=True).exists():
-    #     print('{green}[+] Creating admin user account...{reset}'.format(**ANSI))
+    # if SHELL_CONFIG.IS_TTY and not User.objects.filter(is_superuser=True).exists():
+    #     print('{green}[+] Creating admin user account...{reset}'.format(**SHELL_CONFIG.ANSI))
     #     call_command("createsuperuser", interactive=True)
 
     print()
-    print('{green}[*] Checking links from indexes and archive folders (safe to Ctrl+C)...{reset}'.format(**ANSI))
+    print('{green}[*] Checking links from indexes and archive folders (safe to Ctrl+C)...{reset}'.format(**SHELL_CONFIG.ANSI))
 
     all_links = Snapshot.objects.none()
     pending_links: Dict[str, Link] = {}
@@ -365,9 +345,9 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
             # Links in data folders that dont match their timestamp
             fixed, cant_fix = fix_invalid_folder_locations(out_dir=out_dir)
             if fixed:
-                print('    {lightyellow}√ Fixed {} data directory locations that didn\'t match their link timestamps.{reset}'.format(len(fixed), **ANSI))
+                print('    {lightyellow}√ Fixed {} data directory locations that didn\'t match their link timestamps.{reset}'.format(len(fixed), **SHELL_CONFIG.ANSI))
             if cant_fix:
-                print('    {lightyellow}! Could not fix {} data directory locations due to conflicts with existing folders.{reset}'.format(len(cant_fix), **ANSI))
+                print('    {lightyellow}! Could not fix {} data directory locations due to conflicts with existing folders.{reset}'.format(len(cant_fix), **SHELL_CONFIG.ANSI))
 
             # Links in JSON index but not in main index
             orphaned_json_links = {
@@ -377,7 +357,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
             }
             if orphaned_json_links:
                 pending_links.update(orphaned_json_links)
-                print('    {lightyellow}√ Added {} orphaned links from existing JSON index...{reset}'.format(len(orphaned_json_links), **ANSI))
+                print('    {lightyellow}√ Added {} orphaned links from existing JSON index...{reset}'.format(len(orphaned_json_links), **SHELL_CONFIG.ANSI))
 
             # Links in data dir indexes but not in main index
             orphaned_data_dir_links = {
@@ -387,7 +367,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
             }
             if orphaned_data_dir_links:
                 pending_links.update(orphaned_data_dir_links)
-                print('    {lightyellow}√ Added {} orphaned links from existing archive directories.{reset}'.format(len(orphaned_data_dir_links), **ANSI))
+                print('    {lightyellow}√ Added {} orphaned links from existing archive directories.{reset}'.format(len(orphaned_data_dir_links), **SHELL_CONFIG.ANSI))
 
             # Links in invalid/duplicate data dirs
             invalid_folders = {
@@ -395,10 +375,10 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
                 for folder, link in get_invalid_folders(all_links, out_dir=out_dir).items()
             }
             if invalid_folders:
-                print('    {lightyellow}! Skipped adding {} invalid link data directories.{reset}'.format(len(invalid_folders), **ANSI))
-                print('        X ' + '\n        X '.join(f'./{Path(folder).relative_to(OUTPUT_DIR)} {link}' for folder, link in invalid_folders.items()))
+                print('    {lightyellow}! Skipped adding {} invalid link data directories.{reset}'.format(len(invalid_folders), **SHELL_CONFIG.ANSI))
+                print('        X ' + '\n        X '.join(f'./{Path(folder).relative_to(DATA_DIR)} {link}' for folder, link in invalid_folders.items()))
                 print()
-                print('    {lightred}Hint:{reset} For more information about the link data directories that were skipped, run:'.format(**ANSI))
+                print('    {lightred}Hint:{reset} For more information about the link data directories that were skipped, run:'.format(**SHELL_CONFIG.ANSI))
                 print('        archivebox status')
                 print('        archivebox list --status=invalid')
 
@@ -407,28 +387,27 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
             stderr('[x] Stopped checking archive directories due to Ctrl-C/SIGTERM', color='red')
             stderr('    Your archive data is safe, but you should re-run `archivebox init` to finish the process later.')
             stderr()
-            stderr('    {lightred}Hint:{reset} In the future you can run a quick init without checking dirs like so:'.format(**ANSI))
+            stderr('    {lightred}Hint:{reset} In the future you can run a quick init without checking dirs like so:'.format(**SHELL_CONFIG.ANSI))
             stderr('        archivebox init --quick')
             raise SystemExit(1)
         
         write_main_index(list(pending_links.values()), out_dir=out_dir)
 
-    print('\n{green}----------------------------------------------------------------------{reset}'.format(**ANSI))
+    print('\n{green}----------------------------------------------------------------------{reset}'.format(**SHELL_CONFIG.ANSI))
 
     from django.contrib.auth.models import User
-    from plugins_sys.config.apps import SERVER_CONFIG
 
     if (SERVER_CONFIG.ADMIN_USERNAME and SERVER_CONFIG.ADMIN_PASSWORD) and not User.objects.filter(username=SERVER_CONFIG.ADMIN_USERNAME).exists():
-        print('{green}[+] Found ADMIN_USERNAME and ADMIN_PASSWORD configuration options, creating new admin user.{reset}'.format(**ANSI))
+        print('{green}[+] Found ADMIN_USERNAME and ADMIN_PASSWORD configuration options, creating new admin user.{reset}'.format(**SHELL_CONFIG.ANSI))
         User.objects.create_superuser(username=SERVER_CONFIG.ADMIN_USERNAME, password=SERVER_CONFIG.ADMIN_PASSWORD)
 
     if existing_index:
-        print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**ANSI))
+        print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**SHELL_CONFIG.ANSI))
     else:
-        print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links) + len(pending_links), **ANSI))
+        print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links) + len(pending_links), **SHELL_CONFIG.ANSI))
 
-    json_index = out_dir / JSON_INDEX_FILENAME
-    html_index = out_dir / HTML_INDEX_FILENAME
+    json_index = out_dir / CONSTANTS.JSON_INDEX_FILENAME
+    html_index = out_dir / CONSTANTS.HTML_INDEX_FILENAME
     index_name = f"{date.today()}_index_old"
     if json_index.exists():
         json_index.rename(f"{index_name}.json")
@@ -440,7 +419,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
 
     if Snapshot.objects.count() < 25:     # hide the hints for experienced users
         print()
-        print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**ANSI))
+        print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**SHELL_CONFIG.ANSI))
         print('        archivebox server  # then visit http://127.0.0.1:8000')
         print()
         print('    To add new links, you can run:')
@@ -450,7 +429,7 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
         print('        archivebox help')
 
 @enforce_types
-def status(out_dir: Path=OUTPUT_DIR) -> None:
+def status(out_dir: Path=DATA_DIR) -> None:
     """Print out some info and statistics about the archive collection"""
 
     check_data_folder(CONFIG)
@@ -459,8 +438,8 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     from django.contrib.auth import get_user_model
     User = get_user_model()
 
-    print('{green}[*] Scanning archive main index...{reset}'.format(**ANSI))
-    print(ANSI['lightyellow'], f'   {out_dir}/*', ANSI['reset'])
+    print('{green}[*] Scanning archive main index...{reset}'.format(**SHELL_CONFIG.ANSI))
+    print(SHELL_CONFIG.ANSI['lightyellow'], f'   {out_dir}/*', SHELL_CONFIG.ANSI['reset'])
     num_bytes, num_dirs, num_files = get_dir_size(out_dir, recursive=False, pattern='index.')
     size = printable_filesize(num_bytes)
     print(f'    Index size: {size} across {num_files} files')
@@ -469,15 +448,15 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     links = load_main_index(out_dir=out_dir)
     num_sql_links = links.count()
     num_link_details = sum(1 for link in parse_json_links_details(out_dir=out_dir))
-    print(f'    > SQL Main Index: {num_sql_links} links'.ljust(36), f'(found in {SQL_INDEX_FILENAME})')
+    print(f'    > SQL Main Index: {num_sql_links} links'.ljust(36), f'(found in {CONSTANTS.SQL_INDEX_FILENAME})')
     print(f'    > JSON Link Details: {num_link_details} links'.ljust(36), f'(found in {ARCHIVE_DIR.name}/*/index.json)')
     print()
-    print('{green}[*] Scanning archive data directories...{reset}'.format(**ANSI))
-    print(ANSI['lightyellow'], f'   {ARCHIVE_DIR}/*', ANSI['reset'])
+    print('{green}[*] Scanning archive data directories...{reset}'.format(**SHELL_CONFIG.ANSI))
+    print(SHELL_CONFIG.ANSI['lightyellow'], f'   {ARCHIVE_DIR}/*', SHELL_CONFIG.ANSI['reset'])
     num_bytes, num_dirs, num_files = get_dir_size(ARCHIVE_DIR)
     size = printable_filesize(num_bytes)
     print(f'    Size: {size} across {num_files} files in {num_dirs} directories')
-    print(ANSI['black'])
+    print(SHELL_CONFIG.ANSI['black'])
     num_indexed = len(get_indexed_folders(links, out_dir=out_dir))
     num_archived = len(get_archived_folders(links, out_dir=out_dir))
     num_unarchived = len(get_unarchived_folders(links, out_dir=out_dir))
@@ -502,23 +481,23 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
     print(f'        > corrupted: {len(corrupted)}'.ljust(36), f'({get_corrupted_folders.__doc__})')
     print(f'        > unrecognized: {len(unrecognized)}'.ljust(36), f'({get_unrecognized_folders.__doc__})')
         
-    print(ANSI['reset'])
+    print(SHELL_CONFIG.ANSI['reset'])
 
     if num_indexed:
-        print('    {lightred}Hint:{reset} You can list link data directories by status like so:'.format(**ANSI))
+        print('    {lightred}Hint:{reset} You can list link data directories by status like so:'.format(**SHELL_CONFIG.ANSI))
         print('        archivebox list --status=<status>  (e.g. indexed, corrupted, archived, etc.)')
 
     if orphaned:
-        print('    {lightred}Hint:{reset} To automatically import orphaned data directories into the main index, run:'.format(**ANSI))
+        print('    {lightred}Hint:{reset} To automatically import orphaned data directories into the main index, run:'.format(**SHELL_CONFIG.ANSI))
         print('        archivebox init')
 
     if num_invalid:
-        print('    {lightred}Hint:{reset} You may need to manually remove or fix some invalid data directories, afterwards make sure to run:'.format(**ANSI))
+        print('    {lightred}Hint:{reset} You may need to manually remove or fix some invalid data directories, afterwards make sure to run:'.format(**SHELL_CONFIG.ANSI))
         print('        archivebox init')
     
     print()
-    print('{green}[*] Scanning recent archive changes and user logins:{reset}'.format(**ANSI))
-    print(ANSI['lightyellow'], f'   {CONSTANTS.LOGS_DIR}/*', ANSI['reset'])
+    print('{green}[*] Scanning recent archive changes and user logins:{reset}'.format(**SHELL_CONFIG.ANSI))
+    print(SHELL_CONFIG.ANSI['lightyellow'], f'   {CONSTANTS.LOGS_DIR}/*', SHELL_CONFIG.ANSI['reset'])
     users = get_admins().values_list('username', flat=True)
     print(f'    UI users {len(users)}: {", ".join(users)}')
     last_login = User.objects.order_by('last_login').last()
@@ -530,7 +509,7 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
 
     if not users:
         print()
-        print('    {lightred}Hint:{reset} You can create an admin user by running:'.format(**ANSI))
+        print('    {lightred}Hint:{reset} You can create an admin user by running:'.format(**SHELL_CONFIG.ANSI))
         print('        archivebox manage createsuperuser')
 
     print()
@@ -538,19 +517,19 @@ def status(out_dir: Path=OUTPUT_DIR) -> None:
         if not snapshot.downloaded_at:
             continue
         print(
-            ANSI['black'],
+            SHELL_CONFIG.ANSI['black'],
             (
                 f'   > {str(snapshot.downloaded_at)[:16]} '
                 f'[{snapshot.num_outputs} {("X", "√")[snapshot.is_archived]} {printable_filesize(snapshot.archive_size)}] '
                 f'"{snapshot.title}": {snapshot.url}'
             )[:SHELL_CONFIG.TERM_WIDTH],
-            ANSI['reset'],
+            SHELL_CONFIG.ANSI['reset'],
         )
-    print(ANSI['black'], '   ...', ANSI['reset'])
+    print(SHELL_CONFIG.ANSI['black'], '   ...', SHELL_CONFIG.ANSI['reset'])
 
 
 @enforce_types
-def oneshot(url: str, extractors: str="", out_dir: Path=OUTPUT_DIR, created_by_id: int | None=None) -> List[Link]:
+def oneshot(url: str, extractors: str="", out_dir: Path=DATA_DIR, created_by_id: int | None=None) -> List[Link]:
     """
     Create a single URL archive folder with an index.json and index.html, and all the archive method outputs.
     You can run this to archive single pages without needing to create a whole collection with archivebox init.
@@ -571,7 +550,7 @@ def oneshot(url: str, extractors: str="", out_dir: Path=OUTPUT_DIR, created_by_i
 def add(urls: Union[str, List[str]],
         tag: str='',
         depth: int=0,
-        update: bool=not ONLY_NEW,
+        update: bool=not ARCHIVING_CONFIG.ONLY_NEW,
         update_all: bool=False,
         index_only: bool=False,
         overwrite: bool=False,
@@ -580,7 +559,7 @@ def add(urls: Union[str, List[str]],
         extractors: str="",
         parser: str="auto",
         created_by_id: int | None=None,
-        out_dir: Path=OUTPUT_DIR) -> List[Link]:
+        out_dir: Path=DATA_DIR) -> List[Link]:
     """Add a new URL or list of URLs to your archive"""
 
     from core.models import Snapshot, Tag
@@ -693,7 +672,7 @@ def remove(filter_str: Optional[str]=None,
            before: Optional[float]=None,
            yes: bool=False,
            delete: bool=False,
-           out_dir: Path=OUTPUT_DIR) -> List[Link]:
+           out_dir: Path=DATA_DIR) -> List[Link]:
     """Remove the specified URLs from the archive"""
     
     check_data_folder(CONFIG)
@@ -767,7 +746,7 @@ def remove(filter_str: Optional[str]=None,
 
 @enforce_types
 def update(resume: Optional[float]=None,
-           only_new: bool=ONLY_NEW,
+           only_new: bool=ARCHIVING_CONFIG.ONLY_NEW,
            index_only: bool=False,
            overwrite: bool=False,
            filter_patterns_str: Optional[str]=None,
@@ -777,7 +756,7 @@ def update(resume: Optional[float]=None,
            after: Optional[str]=None,
            before: Optional[str]=None,
            extractors: str="",
-           out_dir: Path=OUTPUT_DIR) -> List[Link]:
+           out_dir: Path=DATA_DIR) -> List[Link]:
     """Import any new links from subscriptions and retry any previously failed/skipped links"""
 
     from core.models import ArchiveResult
@@ -853,7 +832,7 @@ def list_all(filter_patterns_str: Optional[str]=None,
              json: bool=False,
              html: bool=False,
              with_headers: bool=False,
-             out_dir: Path=OUTPUT_DIR) -> Iterable[Link]:
+             out_dir: Path=DATA_DIR) -> Iterable[Link]:
     """List, filter, and export information about archive entries"""
     
     check_data_folder(CONFIG)
@@ -902,7 +881,7 @@ def list_links(snapshots: Optional[QuerySet]=None,
                filter_type: str='exact',
                after: Optional[float]=None,
                before: Optional[float]=None,
-               out_dir: Path=OUTPUT_DIR) -> Iterable[Link]:
+               out_dir: Path=DATA_DIR) -> Iterable[Link]:
     
     check_data_folder(CONFIG)
 
@@ -926,7 +905,7 @@ def list_links(snapshots: Optional[QuerySet]=None,
 @enforce_types
 def list_folders(links: List[Link],
                  status: str,
-                 out_dir: Path=OUTPUT_DIR) -> Dict[str, Optional[Link]]:
+                 out_dir: Path=DATA_DIR) -> Dict[str, Optional[Link]]:
     
     check_data_folder(CONFIG)
 
@@ -949,7 +928,7 @@ def list_folders(links: List[Link],
         raise ValueError('Status not recognized.')
 
 @enforce_types
-def setup(out_dir: Path=OUTPUT_DIR) -> None:
+def setup(out_dir: Path=DATA_DIR) -> None:
     """Automatically install all ArchiveBox dependencies and extras"""
 
     from rich import print
@@ -996,7 +975,7 @@ def config(config_options_str: Optional[str]=None,
            get: bool=False,
            set: bool=False,
            reset: bool=False,
-           out_dir: Path=OUTPUT_DIR) -> None:
+           out_dir: Path=DATA_DIR) -> None:
     """Get and set your ArchiveBox project configuration values"""
 
     check_data_folder(CONFIG)
@@ -1014,7 +993,7 @@ def config(config_options_str: Optional[str]=None,
 
     no_args = not (get or set or reset or config_options)
 
-    matching_config: ConfigDict = {}
+    matching_config = {}
     if get or no_args:
         if config_options:
             config_options = [get_real_name(key) for key in config_options]
@@ -1054,11 +1033,11 @@ def config(config_options_str: Optional[str]=None,
 
         if new_config:
             before = CONFIG
-            matching_config = write_config_file(new_config, out_dir=OUTPUT_DIR)
+            matching_config = write_config_file(new_config, out_dir=DATA_DIR)
             after = load_all_config()
             print(printable_config(matching_config))
 
-            side_effect_changes: ConfigDict = {}
+            side_effect_changes = {}
             for key, val in after.items():
                 if key in USER_CONFIG and (before[key] != after[key]) and (key not in matching_config):
                     side_effect_changes[key] = after[key]
@@ -1095,14 +1074,13 @@ def schedule(add: bool=False,
              tag: str='',
              depth: int=0,
              overwrite: bool=False,
-             update: bool=not ONLY_NEW,
+             update: bool=not ARCHIVING_CONFIG.ONLY_NEW,
              import_path: Optional[str]=None,
-             out_dir: Path=OUTPUT_DIR):
+             out_dir: Path=DATA_DIR):
     """Set ArchiveBox to regularly import URLs at specific times using cron"""
     
     check_data_folder(CONFIG)
     from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
-    from plugins_sys.config.apps import SHELL_CONFIG, CONSTANTS
 
     Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)
 
@@ -1222,7 +1200,7 @@ def server(runserver_args: Optional[List[str]]=None,
            init: bool=False,
            quick_init: bool=False,
            createsuperuser: bool=False,
-           out_dir: Path=OUTPUT_DIR) -> None:
+           out_dir: Path=DATA_DIR) -> None:
     """Run the ArchiveBox HTTP server"""
 
     runserver_args = runserver_args or []
@@ -1238,10 +1216,6 @@ def server(runserver_args: Optional[List[str]]=None,
         run_subcommand('manage', subcommand_args=['createsuperuser'], pwd=out_dir)
         print()
 
-    # setup config for django runserver
-    from . import config
-    config.SHOW_PROGRESS = False
-    config.DEBUG = config.DEBUG or debug
 
     check_data_folder(CONFIG)
 
@@ -1250,20 +1224,17 @@ def server(runserver_args: Optional[List[str]]=None,
     
     
 
-    print('{green}[+] Starting ArchiveBox webserver... {reset}'.format(**ANSI))
+    print('{green}[+] Starting ArchiveBox webserver... {reset}'.format(**SHELL_CONFIG.ANSI))
     print('    > Logging errors to ./logs/errors.log')
     if not User.objects.filter(is_superuser=True).exists():
-        print('{lightyellow}[!] No admin users exist yet, you will not be able to edit links in the UI.{reset}'.format(**ANSI))
+        print('{lightyellow}[!] No admin users exist yet, you will not be able to edit links in the UI.{reset}'.format(**SHELL_CONFIG.ANSI))
         print()
         print('    To create an admin user, run:')
         print('        archivebox manage createsuperuser')
         print()
     
-    # toggle autoreloading when archivebox code changes
-    config.SHOW_PROGRESS = False
-    config.DEBUG = config.DEBUG or debug
 
-    if debug:
+    if SHELL_CONFIG.DEBUG:
         if not reload:
             runserver_args.append('--noreload')  # '--insecure'
         call_command("runserver", *runserver_args)
@@ -1295,13 +1266,13 @@ def server(runserver_args: Optional[List[str]]=None,
 
 
 @enforce_types
-def manage(args: Optional[List[str]]=None, out_dir: Path=OUTPUT_DIR) -> None:
+def manage(args: Optional[List[str]]=None, out_dir: Path=DATA_DIR) -> None:
     """Run an ArchiveBox Django management command"""
 
     check_data_folder(CONFIG)
     from django.core.management import execute_from_command_line
 
-    if (args and "createsuperuser" in args) and (IN_DOCKER and not IS_TTY):
+    if (args and "createsuperuser" in args) and (SHELL_CONFIG.IN_DOCKER and not SHELL_CONFIG.IS_TTY):
         stderr('[!] Warning: you need to pass -it to use interactive commands in docker', color='lightyellow')
         stderr('    docker run -it archivebox manage {}'.format(' '.join(args or ['...'])), color='lightyellow')
         stderr('')
@@ -1312,7 +1283,7 @@ def manage(args: Optional[List[str]]=None, out_dir: Path=OUTPUT_DIR) -> None:
 
 
 @enforce_types
-def shell(out_dir: Path=OUTPUT_DIR) -> None:
+def shell(out_dir: Path=DATA_DIR) -> None:
     """Enter an interactive ArchiveBox Django shell"""
 
     check_data_folder(CONFIG)

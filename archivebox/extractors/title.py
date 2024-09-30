@@ -12,7 +12,7 @@ from ..util import (
     htmldecode,
     dedupe,
 )
-from ..config import (
+from ..config.legacy import (
     TIMEOUT,
     CHECK_SSL_VALIDITY,
     SAVE_TITLE,

@@ -20,8 +20,6 @@ from django.utils.decorators import method_decorator
 from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
-import archivebox
-from archivebox.constants import CONSTANTS
 
 from core.models import Snapshot
 from core.forms import AddLinkForm
@@ -29,10 +27,10 @@ from core.admin import result_url
 
 from queues.tasks import bg_add
 
-from ..plugins_sys.config.apps import SHELL_CONFIG, SERVER_CONFIG
+from archivebox.config import CONSTANTS, DATA_DIR, VERSION, SHELL_CONFIG, SERVER_CONFIG
 from ..plugins_extractor.archivedotorg.apps import ARCHIVEDOTORG_CONFIG
 
-from ..config import (
+from ..config.legacy import (
     CONFIG_SCHEMA,
     DYNAMIC_CONFIG_SCHEMA,
     USER_CONFIG,
@@ -381,7 +379,7 @@ class PublicIndexView(ListView):
     def get_context_data(self, **kwargs):
         return {
             **super().get_context_data(**kwargs),
-            'VERSION': archivebox.VERSION,
+            'VERSION': VERSION,
             'COMMIT_HASH': SHELL_CONFIG.COMMIT_HASH,
             'FOOTER_INFO': SERVER_CONFIG.FOOTER_INFO,
         }
@@ -451,7 +449,7 @@ class AddView(UserPassesTestMixin, FormView):
             'title': "Add URLs",
             # We can't just call request.build_absolute_uri in the template, because it would include query parameters
             'absolute_add_path': self.request.build_absolute_uri(self.request.path),
-            'VERSION': archivebox.VERSION,
+            'VERSION': VERSION,
             'FOOTER_INFO': SERVER_CONFIG.FOOTER_INFO,
             'stdout': '',
         }
@@ -469,7 +467,7 @@ class AddView(UserPassesTestMixin, FormView):
             "depth": depth,
             "parser": parser,
             "update_all": False,
-            "out_dir": archivebox.DATA_DIR,
+            "out_dir": DATA_DIR,
             "created_by_id": self.request.user.pk,
         }
         if extractors:

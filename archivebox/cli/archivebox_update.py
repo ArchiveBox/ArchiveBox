@@ -10,7 +10,7 @@ from typing import List, Optional, IO
 
 from ..main import update
 from ..util import docstring
-from ..config import OUTPUT_DIR
+from ..config.legacy import OUTPUT_DIR
 from ..index import (
     LINK_FILTERS,
     get_indexed_folders,

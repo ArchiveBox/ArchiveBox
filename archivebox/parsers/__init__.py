@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path 
 
 from ..system import atomic_write
-from ..config import (
+from ..config.legacy import (
     ANSI,
     OUTPUT_DIR,
     SOURCES_DIR_NAME,

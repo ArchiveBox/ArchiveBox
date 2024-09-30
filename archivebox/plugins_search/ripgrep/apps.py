@@ -6,8 +6,6 @@ from subprocess import run
 from typing import List, Dict, ClassVar, Iterable
 # from typing_extensions import Self
 
-import archivebox
-
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, Field
 from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName
@@ -20,7 +18,7 @@ from abx.archivebox.base_hook import BaseHook
 from abx.archivebox.base_searchbackend import BaseSearchBackend
 
 # Depends on Other Plugins:
-from plugins_sys.config.apps import SEARCH_BACKEND_CONFIG
+from archivebox.config import CONSTANTS, SEARCH_BACKEND_CONFIG
 
 ###################### Config ##########################
 
@@ -38,7 +36,7 @@ class RipgrepConfig(BaseConfigSet):
         '--files-with-matches',
         '--regexp',
     ])
-    RIPGREP_SEARCH_DIR: Path = archivebox.CONSTANTS.ARCHIVE_DIR
+    RIPGREP_SEARCH_DIR: Path = CONSTANTS.ARCHIVE_DIR
 
 RIPGREP_CONFIG = RipgrepConfig()
 

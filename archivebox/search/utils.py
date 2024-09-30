@@ -1,7 +1,7 @@
 from django.db.models import QuerySet
 
 from archivebox.util import enforce_types
-from archivebox.config import ANSI
+from archivebox.config.legacy import ANSI
 
 def log_index_started(url):
     print('{green}[*] Indexing url: {} in the search index {reset}'.format(url, **ANSI))

@@ -19,7 +19,7 @@ Documentation:
 
 """
 
-__package__ = 'archivebox'
+__package__ = 'archivebox.config'
 
 import os
 import io
@@ -38,31 +38,27 @@ from configparser import ConfigParser
 from rich.progress import Progress
 from rich.console import Console
 from benedict import benedict
+from pydantic_pkgr import SemVer
 
 import django
 from django.db.backends.sqlite3.base import Database as sqlite3
 
-import archivebox
-from archivebox.constants import CONSTANTS
-from archivebox.constants import *
 
-from pydantic_pkgr import SemVer
-
+from .constants import CONSTANTS, TIMEZONE, OUTPUT_DIR
+from .constants import *
 from .config_stubs import (
     ConfigValue,
-    ConfigDict,
     ConfigDefaultValue,
     ConfigDefaultDict,
 )
-
-from .misc.logging import (
+from ..misc.logging import (
     stderr,
     hint,      # noqa
 )
 
-from .plugins_sys.config.apps import SHELL_CONFIG, GENERAL_CONFIG, ARCHIVING_CONFIG, SERVER_CONFIG, SEARCH_BACKEND_CONFIG, STORAGE_CONFIG
-from .plugins_auth.ldap.apps import LDAP_CONFIG
-from .plugins_extractor.favicon.apps import FAVICON_CONFIG
+from .defaults import SHELL_CONFIG, GENERAL_CONFIG, ARCHIVING_CONFIG, SERVER_CONFIG, SEARCH_BACKEND_CONFIG, STORAGE_CONFIG
+from ..plugins_auth.ldap.apps import LDAP_CONFIG
+from ..plugins_extractor.favicon.apps import FAVICON_CONFIG
 ANSI = SHELL_CONFIG.ANSI
 LDAP = LDAP_CONFIG.LDAP_ENABLED
 
@@ -218,7 +214,7 @@ def get_real_name(key: str) -> str:
 # These are derived/computed values calculated *after* all user-provided config values are ingested
 # they appear in `archivebox config` output and are intended to be read-only for the user
 DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
-    'PACKAGE_DIR':              {'default': lambda c: archivebox.PACKAGE_DIR.resolve()},
+    'PACKAGE_DIR':              {'default': lambda c: CONSTANTS.PACKAGE_DIR.resolve()},
     'TEMPLATES_DIR':            {'default': lambda c: c['PACKAGE_DIR'] / CONSTANTS.TEMPLATES_DIR_NAME},
     'CUSTOM_TEMPLATES_DIR':     {'default': lambda c: c['CUSTOM_TEMPLATES_DIR'] and Path(c['CUSTOM_TEMPLATES_DIR'])},
 
@@ -259,8 +255,8 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     # 'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
     # 'DATA_LOCATIONS':           {'default': lambda c: get_data_locations(c)},
 
-    'SAVE_ALLOWLIST_PTN':       {'default': lambda c: c['SAVE_ALLOWLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_ALLOWLIST'].items()}},
-    'SAVE_DENYLIST_PTN':        {'default': lambda c: c['SAVE_DENYLIST'] and {re.compile(k, ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_DENYLIST'].items()}},
+    'SAVE_ALLOWLIST_PTN':       {'default': lambda c: c['SAVE_ALLOWLIST'] and {re.compile(k, CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_ALLOWLIST'].items()}},
+    'SAVE_DENYLIST_PTN':        {'default': lambda c: c['SAVE_DENYLIST'] and {re.compile(k, CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_DENYLIST'].items()}},
 }
 
 
@@ -273,7 +269,7 @@ def load_config_val(key: str,
                     default: ConfigDefaultValue=None,
                     type: Optional[Type]=None,
                     aliases: Optional[Tuple[str, ...]]=None,
-                    config: Optional[ConfigDict]=None,
+                    config: Optional[benedict]=None,
                     env_vars: Optional[os._Environ]=None,
                     config_file_vars: Optional[Dict[str, str]]=None) -> ConfigValue:
     """parse bool, int, and str key=value pairs from env"""
@@ -334,16 +330,16 @@ def load_config_val(key: str,
     raise Exception('Config values can only be str, bool, int, or json')
 
 
-def load_config_file(out_dir: str | None=archivebox.DATA_DIR) -> Optional[ConfigDict]:
+def load_config_file(out_dir: str | None=CONSTANTS.DATA_DIR) -> Optional[benedict]:
     """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
 
-    config_path = archivebox.CONSTANTS.CONFIG_FILE
+    config_path = CONSTANTS.CONFIG_FILE
     if config_path.exists():
         config_file = ConfigParser()
         config_file.optionxform = str
         config_file.read(config_path)
         # flatten into one namespace
-        config_file_vars = ConfigDict({
+        config_file_vars = benedict({
             key.upper(): val
             for section, options in config_file.items()
                 for key, val in options.items()
@@ -354,10 +350,10 @@ def load_config_file(out_dir: str | None=archivebox.DATA_DIR) -> Optional[Config
     return None
 
 
-def write_config_file(config: Dict[str, str], out_dir: str | None=archivebox.DATA_DIR) -> ConfigDict:
+def write_config_file(config: Dict[str, str], out_dir: str | None=CONSTANTS.DATA_DIR) -> benedict:
     """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
 
-    from .system import atomic_write
+    from ..system import atomic_write
 
     CONFIG_HEADER = (
     """# This is the config file for your ArchiveBox collection.
@@ -373,7 +369,7 @@ def write_config_file(config: Dict[str, str], out_dir: str | None=archivebox.DAT
 
     """)
 
-    config_path = archivebox.CONSTANTS.CONFIG_FILE
+    config_path = CONSTANTS.CONFIG_FILE
 
     if not config_path.exists():
         atomic_write(config_path, CONFIG_HEADER)
@@ -394,7 +390,7 @@ def write_config_file(config: Dict[str, str], out_dir: str | None=archivebox.DAT
             existing_config = dict(config_file[section])
         else:
             existing_config = {}
-        config_file[section] = ConfigDict({**existing_config, key: val})
+        config_file[section] = benedict({**existing_config, key: val})
 
     # always make sure there's a SECRET_KEY defined for Django
     existing_secret_key = None
@@ -426,15 +422,15 @@ def write_config_file(config: Dict[str, str], out_dir: str | None=archivebox.DAT
     if Path(f'{config_path}.bak').exists():
         os.remove(f'{config_path}.bak')
 
-    return {
+    return benedict({
         key.upper(): CONFIG.get(key.upper())
         for key in config.keys()
-    }
+    })
 
 
 
 def load_config(defaults: ConfigDefaultDict,
-                config: Optional[ConfigDict]=None,
+                config: Optional[benedict]=None,
                 out_dir: Optional[str]=None,
                 env_vars: Optional[os._Environ]=None,
                 config_file_vars: Optional[Dict[str, str]]=None) -> benedict:
@@ -442,7 +438,7 @@ def load_config(defaults: ConfigDefaultDict,
     env_vars = env_vars or os.environ
     config_file_vars = config_file_vars or load_config_file(out_dir=out_dir)
 
-    extended_config: ConfigDict = config.copy() if config else {}
+    extended_config = benedict(config.copy() if config else {})
     for key, default in defaults.items():
         try:
             # print('LOADING CONFIG KEY:', key, 'DEFAULT=', default)
@@ -614,7 +610,7 @@ def wget_supports_compression(config):
         return False
 
 
-def get_dependency_info(config: ConfigDict) -> ConfigValue:
+def get_dependency_info(config: benedict) -> ConfigValue:
     return {
         # 'PYTHON_BINARY': {
         #     'path': bin_path(config['PYTHON_BINARY']),
@@ -733,7 +729,7 @@ def get_dependency_info(config: ConfigDict) -> ConfigValue:
 
 
 def load_all_config():
-    CONFIG: ConfigDict = ConfigDict()
+    CONFIG = benedict()
     for section_name, section_config in CONFIG_SCHEMA.items():
         # print('LOADING CONFIG SECTION:', section_name)
         CONFIG = load_config(section_config, CONFIG)
@@ -742,7 +738,7 @@ def load_all_config():
     return load_config(DYNAMIC_CONFIG_SCHEMA, CONFIG)
 
 # add all final config values in CONFIG to globals in this file
-CONFIG: ConfigDict = load_all_config()
+CONFIG: benedict = load_all_config()
 globals().update(CONFIG)
 # this lets us do:  from .config import DEBUG, MEDIA_TIMEOUT, ...
 
@@ -773,7 +769,7 @@ if not SHELL_CONFIG.SHOW_PROGRESS:
 
 # recreate rich console obj based on new config values
 CONSOLE = Console()
-from .misc import logging
+from ..misc import logging
 logging.CONSOLE = CONSOLE
 
 
@@ -788,8 +784,8 @@ def bump_startup_progress_bar():
 
 
 def setup_django_minimal():
-    # sys.path.append(str(archivebox.PACKAGE_DIR))
-    # os.environ.setdefault('OUTPUT_DIR', str(archivebox.DATA_DIR))
+    # sys.path.append(str(CONSTANTS.PACKAGE_DIR))
+    # os.environ.setdefault('OUTPUT_DIR', str(CONSTANTS.DATA_DIR))
     # os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
     # django.setup()
     raise Exception('dont use this anymore')
@@ -797,7 +793,7 @@ def setup_django_minimal():
 DJANGO_SET_UP = False
 
 
-def setup_django(out_dir: Path | None=None, check_db=False, config: ConfigDict=CONFIG, in_memory_db=False) -> None:
+def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CONFIG, in_memory_db=False) -> None:
     global INITIAL_STARTUP_PROGRESS
     global INITIAL_STARTUP_PROGRESS_TASK
     global DJANGO_SET_UP
@@ -808,9 +804,9 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: ConfigDict=C
     with Progress(transient=True, expand=True, console=CONSOLE) as INITIAL_STARTUP_PROGRESS:
         INITIAL_STARTUP_PROGRESS_TASK = INITIAL_STARTUP_PROGRESS.add_task("[green]Loading modules...", total=25)
 
-        output_dir = out_dir or archivebox.DATA_DIR
+        output_dir = out_dir or CONSTANTS.DATA_DIR
 
-        assert isinstance(output_dir, Path) and isinstance(archivebox.PACKAGE_DIR, Path)
+        assert isinstance(output_dir, Path) and isinstance(CONSTANTS.PACKAGE_DIR, Path)
 
         bump_startup_progress_bar()
         try:
@@ -842,7 +838,7 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: ConfigDict=C
             with open(settings.ERROR_LOG, "a", encoding='utf-8') as f:
                 command = ' '.join(sys.argv)
                 ts = datetime.now(timezone.utc).strftime('%Y-%m-%d__%H:%M:%S')
-                f.write(f"\n> {command}; TS={ts} VERSION={archivebox.VERSION} IN_DOCKER={SHELL_CONFIG.IN_DOCKER} IS_TTY={SHELL_CONFIG.IS_TTY}\n")
+                f.write(f"\n> {command}; TS={ts} VERSION={CONSTANTS.VERSION} IN_DOCKER={SHELL_CONFIG.IN_DOCKER} IS_TTY={SHELL_CONFIG.IS_TTY}\n")
 
             if check_db:
                 # Create cache table in DB if needed
@@ -861,9 +857,9 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: ConfigDict=C
                 for conn in connections.all():
                     conn.close_if_unusable_or_obsolete()
 
-                sql_index_path = archivebox.CONSTANTS.DATABASE_FILE
+                sql_index_path = CONSTANTS.DATABASE_FILE
                 assert sql_index_path.exists(), (
-                    f'No database file {sql_index_path} found in: {archivebox.DATA_DIR} (Are you in an ArchiveBox collection directory?)')
+                    f'No database file {sql_index_path} found in: {CONSTANTS.DATA_DIR} (Are you in an ArchiveBox collection directory?)')
 
                 bump_startup_progress_bar()
 
@@ -876,7 +872,7 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: ConfigDict=C
 
                     logfire.configure()
                     logfire.instrument_django(is_sql_commentor_enabled=True)
-                    logfire.info(f'Started ArchiveBox v{archivebox.VERSION}', argv=sys.argv)
+                    logfire.info(f'Started ArchiveBox v{CONSTANTS.VERSION}', argv=sys.argv)
 
         except KeyboardInterrupt:
             raise SystemExit(2)

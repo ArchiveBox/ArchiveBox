@@ -17,7 +17,7 @@ from dataclasses import dataclass, asdict, field, fields
 
 from django.utils.functional import cached_property
 
-from archivebox.constants import ARCHIVE_DIR, ARCHIVE_DIR_NAME
+from archivebox.config.constants import ARCHIVE_DIR, ARCHIVE_DIR_NAME
 
 from plugins_extractor.favicon.apps import FAVICON_CONFIG
 
@@ -160,7 +160,7 @@ class Link:
         return float(self.timestamp) > float(other.timestamp)
 
     def typecheck(self) -> None:
-        from ..config import stderr, ANSI
+        from ..config.legacy import stderr, ANSI
         try:
             assert self.schema == self.__class__.__name__
             assert isinstance(self.timestamp, str) and self.timestamp

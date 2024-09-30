@@ -7,7 +7,7 @@ import logging
 import pydantic
 import django.template
 
-import archivebox
+from archivebox.config import CONSTANTS
 
 from ..misc.logging import IS_TTY
 
@@ -52,7 +52,7 @@ class CustomOutboundWebhookLogFormatter(logging.Formatter):
 
 ERROR_LOG = tempfile.NamedTemporaryFile().name
 
-LOGS_DIR = archivebox.DATA_DIR / 'logs'
+LOGS_DIR = CONSTANTS.LOGS_DIR
 
 if LOGS_DIR.is_dir():
     ERROR_LOG = (LOGS_DIR / 'errors.log')

@@ -127,7 +127,7 @@ class BasePlugin(BaseModel):
 
     @abx.hookimpl
     def register(self, settings):
-        from archivebox.config import bump_startup_progress_bar
+        from archivebox.config.legacy import bump_startup_progress_bar
 
         self._is_registered = True
         bump_startup_progress_bar()
@@ -139,7 +139,7 @@ class BasePlugin(BaseModel):
     def ready(self, settings=None):
         """Runs any runtime code needed when AppConfig.ready() is called (after all models are imported)."""
 
-        from archivebox.config import bump_startup_progress_bar
+        from archivebox.config.legacy import bump_startup_progress_bar
 
         assert self._is_registered, f"Tried to run {self.plugin_module}.ready() but it was never registered!"
         self._is_ready = True

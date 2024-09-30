@@ -12,7 +12,7 @@ from ..util import (
     is_static_file,
     dedupe,
 )
-from ..config import (
+from ..config.legacy import (
     TIMEOUT,
     CURL_ARGS,
     CURL_EXTRA_ARGS,
@@ -23,6 +23,7 @@ from ..config import (
     CURL_USER_AGENT,
 )
 from ..logging_util import TimedProgress
+
 
 def get_output_path():
     return 'archive.org.txt'

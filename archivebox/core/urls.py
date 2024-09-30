@@ -10,7 +10,7 @@ from .views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthC
 from .serve_static import serve_static
 
 # GLOBAL_CONTEXT doesn't work as-is, disabled for now: https://github.com/ArchiveBox/ArchiveBox/discussions/1306
-# from config import VERSION, VERSIONS_AVAILABLE, CAN_UPGRADE
+# from .config.legacy import VERSION, VERSIONS_AVAILABLE, CAN_UPGRADE
 # GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': VERSIONS_AVAILABLE, 'CAN_UPGRADE': CAN_UPGRADE}
 
 

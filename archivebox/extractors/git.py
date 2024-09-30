@@ -14,7 +14,7 @@ from ..util import (
     without_query,
     without_fragment,
 )
-from ..config import CONFIG
+from ..config.legacy import CONFIG
 from ..logging_util import TimedProgress
 
 

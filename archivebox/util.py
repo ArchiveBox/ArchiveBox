@@ -25,8 +25,8 @@ except ImportError:
     detect_encoding = lambda rawdata: "utf-8"
 
 
-from archivebox.constants import STATICFILE_EXTENSIONS
-from plugins_sys.config.apps import ARCHIVING_CONFIG
+from archivebox.config.constants import STATICFILE_EXTENSIONS
+from archivebox.config import ARCHIVING_CONFIG
 
 from .misc.logging import COLOR_DICT
 

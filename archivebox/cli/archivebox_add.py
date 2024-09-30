@@ -11,7 +11,7 @@ from typing import List, Optional, IO
 from ..main import add
 from ..util import docstring
 from ..parsers import PARSERS
-from ..config import OUTPUT_DIR, ONLY_NEW
+from ..config.legacy import OUTPUT_DIR, ONLY_NEW
 from ..logging_util import SmartFormatter, accept_stdin, stderr
 
 

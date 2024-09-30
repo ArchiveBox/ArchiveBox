@@ -11,7 +11,7 @@ from typing import List, Optional, IO
 
 from ..main import oneshot
 from ..util import docstring
-from ..config import OUTPUT_DIR
+from ..config.legacy import OUTPUT_DIR
 from ..logging_util import SmartFormatter, accept_stdin, stderr
 
 

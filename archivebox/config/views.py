@@ -13,8 +13,7 @@ from django.utils.html import format_html, mark_safe
 from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
-import archivebox
-
+from archivebox.config import CONSTANTS
 from archivebox.util import parse_date
 
 
@@ -381,7 +380,7 @@ def log_list_view(request: HttpRequest, **kwargs) -> TableContext:
     assert request.user.is_superuser, "Must be a superuser to view configuration settings."
 
 
-    log_files = archivebox.CONSTANTS.LOGS_DIR.glob("*.log")
+    log_files = CONSTANTS.LOGS_DIR.glob("*.log")
     log_files = sorted(log_files, key=os.path.getmtime)[::-1]
 
     rows = {
@@ -419,7 +418,7 @@ def log_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
 
     from django.conf import settings
     
-    log_file = [logfile for logfile in archivebox.CONSTANTS.LOGS_DIR.glob('*.log') if key in logfile.name][0]
+    log_file = [logfile for logfile in CONSTANTS.LOGS_DIR.glob('*.log') if key in logfile.name][0]
 
     log_text = log_file.read_text()
     log_stat = log_file.stat()

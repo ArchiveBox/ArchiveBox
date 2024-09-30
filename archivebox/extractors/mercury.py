@@ -13,7 +13,7 @@ from ..util import (
     is_static_file,
     dedupe,
 )
-from ..config import (
+from ..config.legacy import (
     TIMEOUT,
     SAVE_MERCURY,
     DEPENDENCIES,

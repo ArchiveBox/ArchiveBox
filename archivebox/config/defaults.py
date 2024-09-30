@@ -1,24 +1,21 @@
-__package__ = 'plugins_sys.config'
+__package__ = 'archivebox.config'
 
 import os
 import sys
 import shutil
 
-from typing import List, ClassVar, Dict, Optional
+from typing import ClassVar, Dict, Optional
 from datetime import datetime
 from pathlib import Path
 
 from rich import print
-from pydantic import InstanceOf, Field, field_validator, model_validator, computed_field
+from pydantic import Field, field_validator, model_validator, computed_field
 from django.utils.crypto import get_random_string
 
-from abx.archivebox.base_plugin import BasePlugin
 from abx.archivebox.base_configset import BaseConfigSet, ConfigSectionName
-from abx.archivebox.base_hook import BaseHook
 
 
-import archivebox
-from archivebox.constants import CONSTANTS, CONSTANTS_CONFIG      # noqa
+from .constants import CONSTANTS, PACKAGE_DIR
 
 ###################### Config ##########################
 
@@ -26,7 +23,7 @@ from archivebox.constants import CONSTANTS, CONSTANTS_CONFIG      # noqa
 class ShellConfig(BaseConfigSet):
     section: ClassVar[ConfigSectionName] = 'SHELL_CONFIG'
 
-    DEBUG: bool                         = Field(default=False)
+    DEBUG: bool                         = Field(default=lambda: '--debug' in sys.argv)
     
     IS_TTY: bool                        = Field(default=sys.stdout.isatty())
     USE_COLOR: bool                     = Field(default=lambda c: c.IS_TTY)
@@ -56,7 +53,7 @@ class ShellConfig(BaseConfigSet):
     @property
     def COMMIT_HASH(self) -> Optional[str]:
         try:
-            git_dir = archivebox.PACKAGE_DIR / '../.git'
+            git_dir = PACKAGE_DIR / '../.git'
             ref = (git_dir / 'HEAD').read_text().strip().split(' ')[-1]
             commit_hash = git_dir.joinpath(ref).read_text().strip()
             return commit_hash
@@ -64,7 +61,7 @@ class ShellConfig(BaseConfigSet):
             pass
     
         try:
-            return list((archivebox.PACKAGE_DIR / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
+            return list((PACKAGE_DIR / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
         except Exception:
             pass
         
@@ -77,7 +74,7 @@ class ShellConfig(BaseConfigSet):
             docker_build_end_time = Path('/VERSION.txt').read_text().rsplit('BUILD_END_TIME=')[-1].split('\n', 1)[0]
             return docker_build_end_time
     
-        src_last_modified_unix_timestamp = (archivebox.PACKAGE_DIR / 'config.py').stat().st_mtime
+        src_last_modified_unix_timestamp = (PACKAGE_DIR / 'package.json').stat().st_mtime
         return datetime.fromtimestamp(src_last_modified_unix_timestamp).strftime('%Y-%m-%d %H:%M:%S %s')
     
 
@@ -226,40 +223,4 @@ class SearchBackendConfig(BaseConfigSet):
     SEARCH_BACKEND_TIMEOUT: int         = Field(default=10)
 
 SEARCH_BACKEND_CONFIG = SearchBackendConfig()
-
-
-class ConfigPlugin(BasePlugin):
-    app_label: str = 'CONFIG'
-    verbose_name: str = 'Configuration'
-
-    hooks: List[InstanceOf[BaseHook]] = [
-        SHELL_CONFIG,
-        GENERAL_CONFIG,
-        STORAGE_CONFIG,
-        SERVER_CONFIG,
-        ARCHIVING_CONFIG,
-        SEARCH_BACKEND_CONFIG,
-    ]
-    
-    # def register(self, settings, parent_plugin=None):
-    #     try:
-    #         super().register(settings, parent_plugin=parent_plugin)
-    #     except Exception as e:
-    #         print(f'[red][X] Error registering config plugin: {e}[/red]', file=sys.stderr)
-
-
-PLUGIN = ConfigPlugin()
-DJANGO_APP = PLUGIN.AppConfig
-
-
-
-# # register django apps
-# @abx.hookimpl
-# def get_INSTALLED_APPS():
-#     return [DJANGO_APP.name]
-
-# # register configs
-# @abx.hookimpl
-# def register_CONFIG():
-#     return PLUGIN.HOOKS_BY_TYPE['CONFIG'].values()
 

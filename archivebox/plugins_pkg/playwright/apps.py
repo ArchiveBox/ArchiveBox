@@ -2,8 +2,6 @@ import platform
 from pathlib import Path
 from typing import List, Optional, Dict, ClassVar
 
-from django.conf import settings
-
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, computed_field, Field
 from pydantic_pkgr import (
@@ -19,7 +17,7 @@ from pydantic_pkgr import (
     DEFAULT_ENV_PATH,
 )
 
-import archivebox
+from archivebox.config import CONSTANTS
 
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
@@ -47,7 +45,7 @@ class PlaywrightConfigs(BaseConfigSet):
 
 PLAYWRIGHT_CONFIG = PlaywrightConfigs()
 
-LIB_DIR_BROWSERS = archivebox.CONSTANTS.LIB_BROWSERS_DIR
+LIB_DIR_BROWSERS = CONSTANTS.LIB_BROWSERS_DIR
 
 
 
@@ -65,7 +63,7 @@ class PlaywrightBinProvider(BaseBinProvider):
     name: BinProviderName = "playwright"
     INSTALLER_BIN: BinName = PLAYWRIGHT_BINARY.name
 
-    PATH: PATHStr = f"{archivebox.CONSTANTS.LIB_BIN_DIR}:{DEFAULT_ENV_PATH}"
+    PATH: PATHStr = f"{CONSTANTS.LIB_BIN_DIR}:{DEFAULT_ENV_PATH}"
 
     puppeteer_browsers_dir: Optional[Path] = (
         Path("~/Library/Caches/ms-playwright").expanduser()      # macos playwright cache dir

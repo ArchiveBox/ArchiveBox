@@ -18,11 +18,10 @@ from django.template import Template, RequestContext
 from django.conf import settings
 from django import forms
 
-import archivebox
-
 from signal_webhooks.admin import WebhookAdmin
 from signal_webhooks.utils import get_webhook_model
-# from abx.archivebox.admin import CustomPlugin
+
+from archivebox.config import VERSION
 
 from ..util import htmldecode, urldecode
 
@@ -30,7 +29,7 @@ from core.models import Snapshot, ArchiveResult, Tag
 from core.mixins import SearchResultsAdminMixin
 from api.models import APIToken
 from abid_utils.admin import ABIDModelAdmin
-from queues.tasks import bg_archive_links, bg_archive_link, bg_add
+from queues.tasks import bg_archive_links, bg_add
 
 from index.html import snapshot_icons
 from logging_util import printable_filesize
@@ -40,7 +39,7 @@ from extractors import archive_links
 
 CONFIG = settings.CONFIG
 
-GLOBAL_CONTEXT = {'VERSION': archivebox.VERSION, 'VERSIONS_AVAILABLE': [], 'CAN_UPGRADE': False}
+GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': [], 'CAN_UPGRADE': False}
 
 # Admin URLs
 # /admin/

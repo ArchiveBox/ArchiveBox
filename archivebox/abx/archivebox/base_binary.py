@@ -15,7 +15,8 @@ from pydantic_pkgr import (
 )
 
 import abx
-import archivebox
+
+from archivebox.config import CONSTANTS
 from .base_hook import BaseHook, HookType
 
 
@@ -54,7 +55,7 @@ class BaseBinary(BaseHook, Binary):
 
     @staticmethod
     def symlink_to_lib(binary, bin_dir=None) -> None:
-        bin_dir = bin_dir or archivebox.CONSTANTS.LIB_BIN_DIR
+        bin_dir = bin_dir or CONSTANTS.LIB_BIN_DIR
         
         if not (binary.abspath and binary.abspath.exists()):
             return
@@ -68,19 +69,19 @@ class BaseBinary(BaseHook, Binary):
     @validate_call
     def load(self, **kwargs) -> Self:
         binary = super().load(**kwargs)
-        self.symlink_to_lib(binary=binary, bin_dir=archivebox.CONSTANTS.LIB_BIN_DIR)
+        self.symlink_to_lib(binary=binary, bin_dir=CONSTANTS.LIB_BIN_DIR)
         return binary
     
     @validate_call
     def install(self, **kwargs) -> Self:
         binary = super().install(**kwargs)
-        self.symlink_to_lib(binary=binary, bin_dir=archivebox.CONSTANTS.LIB_BIN_DIR)
+        self.symlink_to_lib(binary=binary, bin_dir=CONSTANTS.LIB_BIN_DIR)
         return binary
     
     @validate_call
     def load_or_install(self, **kwargs) -> Self:
         binary = super().load_or_install(**kwargs)
-        self.symlink_to_lib(binary=binary, bin_dir=archivebox.CONSTANTS.LIB_BIN_DIR)
+        self.symlink_to_lib(binary=binary, bin_dir=CONSTANTS.LIB_BIN_DIR)
         return binary
     
     @property

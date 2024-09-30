@@ -1,4 +1,4 @@
-from ..config import (
+from ..config.legacy import (
     LDAP_CREATE_SUPERUSER
 )
 

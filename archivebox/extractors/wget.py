@@ -17,7 +17,7 @@ from ..util import (
     urldecode,
     dedupe,
 )
-from ..config import (
+from ..config.legacy import (
     WGET_ARGS,
     WGET_EXTRA_ARGS,
     TIMEOUT,
