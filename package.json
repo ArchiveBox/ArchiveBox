@@ -8,6 +8,6 @@
   "dependencies": {
     "@postlight/parser": "^2.2.3",
     "readability-extractor": "github:ArchiveBox/readability-extractor",
-    "single-file-cli": "^1.1.54"
+    "single-file-cli": "^2.0.67"
   }
 }
