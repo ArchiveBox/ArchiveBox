@@ -14,7 +14,7 @@ from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
 from archivebox.config import CONSTANTS
-from archivebox.util import parse_date
+from archivebox.misc.util import parse_date
 
 
 def obj_to_yaml(obj: Any, indent: int=0) -> str:
