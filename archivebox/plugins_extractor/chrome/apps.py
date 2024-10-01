@@ -87,7 +87,18 @@ class ChromeConfig(BaseConfigSet):
 
     # Chrome Binary
     CHROME_BINARY: str                      = Field(default='chrome')
-    CHROME_EXTRA_ARGS: List[str]            = Field(default=[])
+    CHROME_DEFAULT_ARGS: List[str]          = Field(default=[
+        '--virtual-time-budget=15000',
+        '--disable-features=DarkMode',
+        "--run-all-compositor-stages-before-draw",
+        "--hide-scrollbars",
+        "--autoplay-policy=no-user-gesture-required",
+        "--no-first-run",
+        "--use-fake-ui-for-media-stream",
+        "--use-fake-device-for-media-stream",
+        "--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT'",
+    ])
+    CHROME_EXTRA_ARGS: List[str]           = Field(default=[])
     
     # Chrome Options Tuning
     CHROME_TIMEOUT: int                     = Field(default=lambda: ARCHIVING_CONFIG.TIMEOUT - 10)
@@ -146,7 +157,7 @@ class ChromeConfig(BaseConfigSet):
     
         options = self.model_copy(update=options)
     
-        cmd_args = [*options.CHROME_EXTRA_ARGS]
+        cmd_args = [*options.CHROME_DEFAULT_ARGS, *options.CHROME_EXTRA_ARGS]
     
         if options.CHROME_HEADLESS:
             cmd_args += ["--headless=new"]   # expects chrome version >= 111
@@ -160,18 +171,10 @@ class ChromeConfig(BaseConfigSet):
                 "--no-zygote",
                 "--disable-dev-shm-usage",
                 "--disable-software-rasterizer",
-                "--run-all-compositor-stages-before-draw",
-                "--hide-scrollbars",
-                "--autoplay-policy=no-user-gesture-required",
-                "--no-first-run",
-                "--use-fake-ui-for-media-stream",
-                "--use-fake-device-for-media-stream",
                 "--disable-sync",
                 # "--password-store=basic",
             )
-    
-        # disable automatic updating when running headless, as there's no user to see the upgrade prompts
-        cmd_args += ("--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT'",)
+
     
         # set window size for screenshot/pdf/etc. rendering
         cmd_args += ('--window-size={}'.format(options.CHROME_RESOLUTION),)
