@@ -982,6 +982,8 @@ def config(config_options_str: Optional[str]=None,
            out_dir: Path=DATA_DIR) -> None:
     """Get and set your ArchiveBox project configuration values"""
 
+    from rich import print
+
     check_data_folder(CONFIG)
     if config_options and config_options_str:
         stderr(
