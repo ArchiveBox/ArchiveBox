@@ -5,13 +5,13 @@ __command__ = 'archivebox shell'
 
 import sys
 import argparse
-
+from pathlib import Path
 from typing import Optional, List, IO
 
-from ..main import shell
 from archivebox.misc.util import docstring
-from ..config.legacy import OUTPUT_DIR
+from archivebox.config import DATA_DIR
 from ..logging_util import SmartFormatter, reject_stdin
+from ..main import shell
 
 
 @docstring(shell.__doc__)
@@ -26,7 +26,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     reject_stdin(__command__, stdin)
     
     shell(
-        out_dir=pwd or OUTPUT_DIR,
+        out_dir=Path(pwd) if pwd else DATA_DIR,
     )
     
 

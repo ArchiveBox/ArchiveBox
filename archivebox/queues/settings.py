@@ -2,7 +2,6 @@ from pathlib import Path
 
 from archivebox.config import DATA_DIR, CONSTANTS
 
-OUTPUT_DIR = DATA_DIR
 LOGS_DIR = CONSTANTS.LOGS_DIR
 TMP_DIR = CONSTANTS.TMP_DIR
 

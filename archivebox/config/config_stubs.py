@@ -36,7 +36,6 @@ class ConfigDict(BaseConfig, benedict, total=False):
     IN_DOCKER: bool
 
     PACKAGE_DIR: Path
-    OUTPUT_DIR: Path
     CONFIG_FILE: Path
     ONLY_NEW: bool
     TIMEOUT: int

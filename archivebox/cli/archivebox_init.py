@@ -10,7 +10,7 @@ from typing import Optional, List, IO
 
 from ..main import init
 from archivebox.misc.util import docstring
-from ..config.legacy import OUTPUT_DIR
+from archivebox.config import DATA_DIR
 from ..logging_util import SmartFormatter, reject_stdin
 
 
@@ -44,7 +44,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         force=command.force,
         quick=command.quick,
         setup=command.setup,
-        out_dir=pwd or OUTPUT_DIR,
+        out_dir=pwd or DATA_DIR,
     )
     
 

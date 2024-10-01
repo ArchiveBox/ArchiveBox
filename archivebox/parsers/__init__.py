@@ -13,21 +13,16 @@ from typing import IO, Tuple, List, Optional
 from datetime import datetime, timezone
 from pathlib import Path 
 
+from archivebox.config import DATA_DIR, CONSTANTS, SHELL_CONFIG, ARCHIVING_CONFIG
 from archivebox.misc.system import atomic_write
-from ..config.legacy import (
-    ANSI,
-    OUTPUT_DIR,
-    SOURCES_DIR_NAME,
-    TIMEOUT,
-    stderr,
-    hint,
-)
+from archivebox.misc.logging import stderr, hint
 from archivebox.misc.util import (
     basename,
     htmldecode,
     download_url,
     enforce_types,
 )
+
 from ..index.schema import Link
 from ..logging_util import TimedProgress, log_source_saved
 
@@ -38,7 +33,6 @@ from . import pocket_html
 from . import pinboard_rss
 from . import shaarli_rss
 from . import medium_rss
-
 from . import netscape_html
 from . import generic_rss
 from . import generic_json
@@ -79,7 +73,7 @@ def parse_links_memory(urls: List[str], root_url: Optional[str]=None):
     parse a list of URLS without touching the filesystem
     """
 
-    timer = TimedProgress(TIMEOUT * 4)
+    timer = TimedProgress(ARCHIVING_CONFIG.TIMEOUT * 4)
     #urls = list(map(lambda x: x + "\n", urls))
     file = StringIO()
     file.writelines(urls)
@@ -98,7 +92,7 @@ def parse_links(source_file: str, root_url: Optional[str]=None, parser: str="aut
        RSS feed, bookmarks export, or text file
     """
 
-    timer = TimedProgress(TIMEOUT * 4)
+    timer = TimedProgress(ARCHIVING_CONFIG.TIMEOUT * 4)
     with open(source_file, 'r', encoding='utf-8') as file:
         links, parser = run_parser_functions(file, timer, root_url=root_url, parser=parser)
 
@@ -148,9 +142,9 @@ def run_parser_functions(to_parse: IO[str], timer, root_url: Optional[str]=None,
 
 
 @enforce_types
-def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: Path=OUTPUT_DIR) -> str:
+def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: Path=DATA_DIR) -> str:
     ts = str(datetime.now(timezone.utc).timestamp()).split('.', 1)[0]
-    source_path = str(out_dir / SOURCES_DIR_NAME / filename.format(ts=ts))
+    source_path = str(CONSTANTS.SOURCES_DIR / filename.format(ts=ts))
 
     referenced_texts = ''
 
@@ -167,10 +161,10 @@ def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: 
 
 
 @enforce_types
-def save_file_as_source(path: str, timeout: int=TIMEOUT, filename: str='{ts}-{basename}.txt', out_dir: Path=OUTPUT_DIR) -> str:
+def save_file_as_source(path: str, timeout: int=ARCHIVING_CONFIG.TIMEOUT, filename: str='{ts}-{basename}.txt', out_dir: Path=DATA_DIR) -> str:
     """download a given url's content into output/sources/domain-<timestamp>.txt"""
     ts = str(datetime.now(timezone.utc).timestamp()).split('.', 1)[0]
-    source_path = str(OUTPUT_DIR / SOURCES_DIR_NAME / filename.format(basename=basename(path), ts=ts))
+    source_path = str(CONSTANTS.SOURCES_DIR / filename.format(basename=basename(path), ts=ts))
 
     if any(path.startswith(s) for s in ('http://', 'https://', 'ftp://')):
         # Source is a URL that needs to be downloaded
@@ -183,9 +177,9 @@ def save_file_as_source(path: str, timeout: int=TIMEOUT, filename: str='{ts}-{ba
         except Exception as e:
             timer.end()
             print('{}[!] Failed to download {}{}\n'.format(
-                ANSI['red'],
+                SHELL_CONFIG.ANSI['red'],
                 path,
-                ANSI['reset'],
+                SHELL_CONFIG.ANSI['reset'],
             ))
             print('    ', e)
             raise e

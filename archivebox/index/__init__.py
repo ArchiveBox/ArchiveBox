@@ -243,7 +243,7 @@ def write_main_index(links: List[Link], out_dir: Path=DATA_DIR, created_by_id: i
     log_indexing_process_finished()
 
 @enforce_types
-def load_main_index(out_dir: Path=DATA_DIR, warn: bool=True) -> List[Link]:
+def load_main_index(out_dir: Path | str=DATA_DIR, warn: bool=True) -> List[Link]:
     """parse and load existing index with any new links from import_path merged in"""
     from core.models import Snapshot
     try:

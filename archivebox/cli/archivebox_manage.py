@@ -4,19 +4,19 @@ __package__ = 'archivebox.cli'
 __command__ = 'archivebox manage'
 
 import sys
-
+from pathlib import Path
 from typing import Optional, List, IO
 
-from ..main import manage
 from archivebox.misc.util import docstring
-from ..config.legacy import OUTPUT_DIR
+from archivebox.config import DATA_DIR
+from ..main import manage
 
 
 @docstring(manage.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     manage(
         args=args,
-        out_dir=pwd or OUTPUT_DIR,
+        out_dir=Path(pwd) if pwd else DATA_DIR,
     )
 
 

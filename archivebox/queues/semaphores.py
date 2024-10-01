@@ -1,9 +1,10 @@
-import time
 import uuid
 from functools import wraps
 from django.db import connection, transaction
 from django.utils import timezone
 from huey.exceptions import TaskLockedException
+
+from archivebox.config import CONSTANTS
 
 class SqliteSemaphore:
     def __init__(self, db_path, table_name, name, value=1, timeout=None):
@@ -68,7 +69,8 @@ class SqliteSemaphore:
         return cursor.rowcount > 0
 
 
-LOCKS_DB_PATH = settings.CONFIG.OUTPUT_DIR / 'locks.sqlite3'
+LOCKS_DB_PATH = CONSTANTS.DATABASE_FILE.parent / 'locks.sqlite3'
+
 
 def lock_task_semaphore(db_path, table_name, lock_name, value=1, timeout=None):
     """

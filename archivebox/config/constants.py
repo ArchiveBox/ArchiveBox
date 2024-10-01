@@ -60,7 +60,6 @@ class ConstantsDict(Mapping):
     LIB_DIR_NAME: str = 'lib'
     TMP_DIR_NAME: str = 'tmp'
 
-    OUTPUT_DIR: Path                    = DATA_DIR
     ARCHIVE_DIR: Path                   = DATA_DIR / ARCHIVE_DIR_NAME
     SOURCES_DIR: Path                   = DATA_DIR / SOURCES_DIR_NAME
     PERSONAS_DIR: Path                  = DATA_DIR / PERSONAS_DIR_NAME

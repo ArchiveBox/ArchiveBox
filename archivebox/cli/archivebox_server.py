@@ -5,13 +5,13 @@ __command__ = 'archivebox server'
 
 import sys
 import argparse
-
+from pathlib import Path
 from typing import Optional, List, IO
 
-from ..main import server
 from archivebox.misc.util import docstring
-from ..config.legacy import OUTPUT_DIR, BIND_ADDR
+from archivebox.config import DATA_DIR, SERVER_CONFIG
 from ..logging_util import SmartFormatter, reject_stdin
+from ..main import server
 
 @docstring(server.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
@@ -25,7 +25,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         'runserver_args',
         nargs='*',
         type=str,
-        default=[BIND_ADDR],
+        default=[SERVER_CONFIG.BIND_ADDR],
         help='Arguments to pass to Django runserver'
     )
     parser.add_argument(
@@ -68,7 +68,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         init=command.init,
         quick_init=command.quick_init,
         createsuperuser=command.createsuperuser,
-        out_dir=pwd or OUTPUT_DIR,
+        out_dir=Path(pwd) if pwd else DATA_DIR,
     )
 
 

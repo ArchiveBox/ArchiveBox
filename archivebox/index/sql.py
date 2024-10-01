@@ -8,18 +8,15 @@ from typing import List, Tuple, Iterator
 from django.db.models import QuerySet
 from django.db import transaction
 
-from .schema import Link
 from archivebox.misc.util import enforce_types, parse_date
-from ..config.legacy import (
-    OUTPUT_DIR,
-    TAG_SEPARATOR_PATTERN,
-)
+from archivebox.config import DATA_DIR, GENERAL_CONFIG
 
+from .schema import Link
 
 ### Main Links Index
 
 @enforce_types
-def parse_sql_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[Link]:
+def parse_sql_main_index(out_dir: Path=DATA_DIR) -> Iterator[Link]:
     from core.models import Snapshot
 
     return (
@@ -28,7 +25,7 @@ def parse_sql_main_index(out_dir: Path=OUTPUT_DIR) -> Iterator[Link]:
     )
 
 @enforce_types
-def remove_from_sql_main_index(snapshots: QuerySet, atomic: bool=False, out_dir: Path=OUTPUT_DIR) -> None:
+def remove_from_sql_main_index(snapshots: QuerySet, atomic: bool=False, out_dir: Path=DATA_DIR) -> None:
     if atomic:
         with transaction.atomic():
             return snapshots.delete()
@@ -44,7 +41,7 @@ def write_link_to_sql_index(link: Link, created_by_id: int | None=None):
     info['created_by_id'] = created_by_id or get_or_create_system_user_pk()
 
     tag_list = list(dict.fromkeys(
-        tag.strip() for tag in re.split(TAG_SEPARATOR_PATTERN, link.tags or '')
+        tag.strip() for tag in re.split(GENERAL_CONFIG.TAG_SEPARATOR_PATTERN, link.tags or '')
     ))
     info.pop('tags')
 
@@ -95,7 +92,7 @@ def write_link_to_sql_index(link: Link, created_by_id: int | None=None):
 
 
 @enforce_types
-def write_sql_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR, created_by_id: int | None=None) -> None:
+def write_sql_main_index(links: List[Link], out_dir: Path=DATA_DIR, created_by_id: int | None=None) -> None:
     for link in links:
         # with transaction.atomic():
             # write_link_to_sql_index(link)
@@ -103,7 +100,7 @@ def write_sql_main_index(links: List[Link], out_dir: Path=OUTPUT_DIR, created_by
             
 
 @enforce_types
-def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR, created_by_id: int | None=None) -> None:
+def write_sql_link_details(link: Link, out_dir: Path=DATA_DIR, created_by_id: int | None=None) -> None:
     from core.models import Snapshot
 
     # with transaction.atomic():
@@ -120,7 +117,7 @@ def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR, created_by_id: 
     snap.title = link.title
 
     tag_list = list(
-        {tag.strip() for tag in re.split(TAG_SEPARATOR_PATTERN, link.tags or '')}
+        {tag.strip() for tag in re.split(GENERAL_CONFIG.TAG_SEPARATOR_PATTERN, link.tags or '')}
         | set(snap.tags.values_list('name', flat=True))
     )
 
@@ -130,7 +127,7 @@ def write_sql_link_details(link: Link, out_dir: Path=OUTPUT_DIR, created_by_id: 
 
 
 @enforce_types
-def list_migrations(out_dir: Path=OUTPUT_DIR) -> List[Tuple[bool, str]]:
+def list_migrations(out_dir: Path=DATA_DIR) -> List[Tuple[bool, str]]:
     from django.core.management import call_command
     out = StringIO()
     call_command("showmigrations", list=True, stdout=out)
@@ -146,7 +143,7 @@ def list_migrations(out_dir: Path=OUTPUT_DIR) -> List[Tuple[bool, str]]:
     return migrations
 
 @enforce_types
-def apply_migrations(out_dir: Path=OUTPUT_DIR) -> List[str]:
+def apply_migrations(out_dir: Path=DATA_DIR) -> List[str]:
     from django.core.management import call_command
     out1, out2 = StringIO(), StringIO()
     
@@ -160,6 +157,6 @@ def apply_migrations(out_dir: Path=OUTPUT_DIR) -> List[str]:
     ]
 
 @enforce_types
-def get_admins(out_dir: Path=OUTPUT_DIR) -> List[str]:
+def get_admins(out_dir: Path=DATA_DIR) -> List[str]:
     from django.contrib.auth.models import User
     return User.objects.filter(is_superuser=True)

@@ -16,7 +16,7 @@ if str(PACKAGE_DIR) not in sys.path:
 
 from .config.constants import CONSTANTS, VERSION, PACKAGE_DIR, DATA_DIR, ARCHIVE_DIR   # noqa
 
-os.environ['OUTPUT_DIR'] = str(DATA_DIR)
+os.environ['ARCHIVEBOX_DATA_DIR'] = str(DATA_DIR)
 os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
 
 # print('INSTALLING MONKEY PATCHES')

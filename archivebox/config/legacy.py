@@ -44,7 +44,7 @@ import django
 from django.db.backends.sqlite3.base import Database as sqlite3
 
 
-from .constants import CONSTANTS, TIMEZONE, OUTPUT_DIR
+from .constants import CONSTANTS, TIMEZONE
 from .constants import *
 from .config_stubs import (
     ConfigValue,
@@ -57,8 +57,9 @@ from ..misc.logging import (
 )
 
 from .defaults import SHELL_CONFIG, GENERAL_CONFIG, ARCHIVING_CONFIG, SERVER_CONFIG, SEARCH_BACKEND_CONFIG, STORAGE_CONFIG
-from ..plugins_auth.ldap.apps import LDAP_CONFIG
-from ..plugins_extractor.favicon.apps import FAVICON_CONFIG
+from archivebox.plugins_auth.ldap.apps import LDAP_CONFIG
+from archivebox.plugins_extractor.favicon.apps import FAVICON_CONFIG
+
 ANSI = SHELL_CONFIG.ANSI
 LDAP = LDAP_CONFIG.LDAP_ENABLED
 
@@ -331,7 +332,7 @@ def load_config_val(key: str,
 
 
 def load_config_file(out_dir: str | None=CONSTANTS.DATA_DIR) -> Optional[benedict]:
-    """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
+    """load the ini-formatted config file from DATA_DIR/Archivebox.conf"""
 
     config_path = CONSTANTS.CONFIG_FILE
     if config_path.exists():
@@ -351,7 +352,7 @@ def load_config_file(out_dir: str | None=CONSTANTS.DATA_DIR) -> Optional[benedic
 
 
 def write_config_file(config: Dict[str, str], out_dir: str | None=CONSTANTS.DATA_DIR) -> benedict:
-    """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
+    """load the ini-formatted config file from DATA_DIR/Archivebox.conf"""
 
     from archivebox.misc.system import atomic_write
 
@@ -785,7 +786,7 @@ def bump_startup_progress_bar():
 
 def setup_django_minimal():
     # sys.path.append(str(CONSTANTS.PACKAGE_DIR))
-    # os.environ.setdefault('OUTPUT_DIR', str(CONSTANTS.DATA_DIR))
+    # os.environ.setdefault('ARCHIVEBOX_DATA_DIR', str(CONSTANTS.DATA_DIR))
     # os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
     # django.setup()
     raise Exception('dont use this anymore')

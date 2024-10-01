@@ -21,8 +21,7 @@ from django import forms
 from signal_webhooks.admin import WebhookAdmin
 from signal_webhooks.utils import get_webhook_model
 
-from archivebox.config import VERSION
-
+from archivebox.config import VERSION, DATA_DIR
 from archivebox.misc.util import htmldecode, urldecode
 
 from core.models import Snapshot, ArchiveResult, Tag
@@ -536,11 +535,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
         links = [snapshot.as_link() for snapshot in queryset]
         if len(links) < 3:
             # run syncronously if there are only 1 or 2 links
-            archive_links(links, overwrite=True, methods=('title','favicon'), out_dir=CONFIG.OUTPUT_DIR)
+            archive_links(links, overwrite=True, methods=('title','favicon'), out_dir=DATA_DIR)
             messages.success(request, f"Title and favicon have been fetched and saved for {len(links)} URLs.")
         else:
             # otherwise run in a background worker
-            result = bg_archive_links((links,), kwargs={"overwrite": True, "methods": ["title", "favicon"], "out_dir": CONFIG.OUTPUT_DIR})
+            result = bg_archive_links((links,), kwargs={"overwrite": True, "methods": ["title", "favicon"], "out_dir": DATA_DIR})
             messages.success(
                 request,
                 mark_safe(f"Title and favicon are updating in the background for {len(links)} URLs. {result_url(result)}"),
@@ -552,7 +551,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
     def update_snapshots(self, request, queryset):
         links = [snapshot.as_link() for snapshot in queryset]
 
-        result = bg_archive_links((links,), kwargs={"overwrite": False, "out_dir": CONFIG.OUTPUT_DIR})
+        result = bg_archive_links((links,), kwargs={"overwrite": False, "out_dir": DATA_DIR})
 
         messages.success(
             request,
@@ -581,7 +580,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
     def overwrite_snapshots(self, request, queryset):
         links = [snapshot.as_link() for snapshot in queryset]
 
-        result = bg_archive_links((links,), kwargs={"overwrite": True, "out_dir": CONFIG.OUTPUT_DIR})
+        result = bg_archive_links((links,), kwargs={"overwrite": True, "out_dir": DATA_DIR})
 
         messages.success(
             request,
@@ -592,7 +591,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
         description="☠️ Delete"
     )
     def delete_snapshots(self, request, queryset):
-        remove(snapshots=queryset, yes=True, delete=True, out_dir=CONFIG.OUTPUT_DIR)
+        remove(snapshots=queryset, yes=True, delete=True, out_dir=DATA_DIR)
         messages.success(
             request,
             mark_safe(f"Succesfully deleted {queryset.count()} Snapshots. Don't forget to scrub URLs from import logs (data/sources) and error logs (data/logs) if needed."),
@@ -732,7 +731,7 @@ class ArchiveResultAdmin(ABIDModelAdmin):
         )
 
     def output_summary(self, result):
-        snapshot_dir = Path(CONFIG.OUTPUT_DIR) / str(result.pwd).split('data/', 1)[-1]
+        snapshot_dir = Path(DATA_DIR) / str(result.pwd).split('data/', 1)[-1]
         output_str = format_html(
             '<pre style="display: inline-block">{}</pre><br/>',
             result.output,
