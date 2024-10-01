@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __package__ = 'archivebox.cli'
-__command__ = 'archivebox setup'
+__command__ = 'archivebox install'
 
 import sys
 import argparse
@@ -11,14 +11,14 @@ from typing import Optional, List, IO
 from archivebox.misc.util import docstring
 from archivebox.config import DATA_DIR
 from ..logging_util import SmartFormatter, reject_stdin
-from ..main import setup
+from ..main import install
 
 
-@docstring(setup.__doc__)
+@docstring(install.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
     parser = argparse.ArgumentParser(
         prog=__command__,
-        description=setup.__doc__,
+        description=install.__doc__,
         add_help=True,
         formatter_class=SmartFormatter,
     )
@@ -30,7 +30,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     command = parser.parse_args(args or ())   # noqa
     reject_stdin(__command__, stdin)
 
-    setup(
+    install(
         # force=command.force,
         out_dir=Path(pwd) if pwd else DATA_DIR,
     )

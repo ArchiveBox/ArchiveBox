@@ -68,7 +68,6 @@ from archivebox.misc.logging import stderr, hint
 from archivebox.misc.checks import check_data_folder
 from archivebox.config.legacy import (
     write_config_file,
-    DEPENDENCIES,
     load_all_config,
     CONFIG,
     USER_CONFIG,
@@ -129,7 +128,7 @@ def help(out_dir: Path=DATA_DIR) -> None:
 {lightred}Example Use:{reset}
     mkdir -p ~/archivebox/data; cd ~/archivebox/data
     archivebox init
-    archivebox setup
+    archivebox install
     archivebox version
     archivebox status
 
@@ -214,16 +213,8 @@ def version(quiet: bool=False,
     )
     print()
 
-    print('[pale_green3][i] Old dependency versions:[/pale_green3]')
-    for name, dependency in DEPENDENCIES.items():
-        print(printable_dependency_version(name, dependency))
-        
-        # add a newline between core dependencies and extractor dependencies for easier reading
-        if name == 'ARCHIVEBOX_BINARY':
-            print()
-            
     print()
-    print('[pale_green1][i] New dependency versions:[/pale_green1]')
+    print('[pale_green1][i] Dependency versions:[/pale_green1]')
     for name, binary in reversed(list(settings.BINARIES.items())):
         if binary.name == 'archivebox':
             continue
@@ -270,7 +261,7 @@ def run(subcommand: str,
 
 
 @enforce_types
-def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=DATA_DIR) -> None:
+def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Path=DATA_DIR) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
     
     from core.models import Snapshot
@@ -421,8 +412,8 @@ def init(force: bool=False, quick: bool=False, setup: bool=False, out_dir: Path=
     if html_index.exists():
         html_index.rename(f"{index_name}.html")
 
-    if setup:
-        run_subcommand('setup', pwd=out_dir)
+    if install:
+        run_subcommand('install', pwd=out_dir)
 
     if Snapshot.objects.count() < 25:     # hide the hints for experienced users
         print()

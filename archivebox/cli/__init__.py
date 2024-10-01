@@ -12,14 +12,17 @@ from typing import Optional, List, IO, Union, Iterable
 from pathlib import Path
 
 from archivebox.config import DATA_DIR
-from ..misc.checks import check_data_folder, check_migrations
-from ..misc.logging import stderr
+from archivebox.misc.logging import stderr
 
 from importlib import import_module
 
 BUILTIN_LIST = list
 
 CLI_DIR = Path(__file__).resolve().parent
+
+# rewrite setup -> install for backwards compatibility
+if sys.argv[1] == 'setup':
+    sys.argv[1] = 'install'
 
 
 # def list_subcommands() -> Dict[str, str]:
@@ -46,7 +49,7 @@ SUBCOMMAND_MODULES = {
     
     'init': 'archivebox_init',
     'config': 'archivebox_config',
-    'setup': 'archivebox_setup',
+    'install': 'archivebox_install',
     
     'add': 'archivebox_add',
     'remove': 'archivebox_remove',
@@ -98,7 +101,7 @@ CLI_SUBCOMMANDS = LazySubcommands()
 
 # these common commands will appear sorted before any others for ease-of-use
 meta_cmds = ('help', 'version')                               # dont require valid data folder at all
-main_cmds = ('init', 'config', 'setup')                       # dont require existing db present
+main_cmds = ('init', 'config', 'setup', 'install')            # dont require existing db present
 archive_cmds = ('add', 'remove', 'update', 'list', 'status')  # require existing db present
 fake_db = ("oneshot",)                                        # use fake in-memory db
 

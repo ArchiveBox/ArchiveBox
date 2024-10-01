@@ -81,7 +81,7 @@ class ShellConfig(BaseConfigSet):
     @model_validator(mode='after')
     def validate_not_running_as_root(self):
         attempted_command = ' '.join(sys.argv[:3])
-        if self.PUID == 0 and attempted_command != 'setup':
+        if self.PUID == 0 and attempted_command not in ('setup', 'install'):
             # stderr('[!] ArchiveBox should never be run as root!', color='red')
             # stderr('    For more information, see the security overview documentation:')
             # stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
