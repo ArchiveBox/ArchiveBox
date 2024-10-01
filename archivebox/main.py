@@ -939,29 +939,40 @@ def setup(out_dir: Path=DATA_DIR) -> None:
     """Automatically install all ArchiveBox dependencies and extras"""
 
     from rich import print
+    from django.conf import settings
 
     if not ARCHIVE_DIR.exists():
         run_subcommand('init', stdin=None, pwd=out_dir)
 
     stderr('\n[+] Installing ArchiveBox dependencies automatically...', color='green')
 
-    from plugins_extractor.ytdlp.apps import YTDLP_BINARY
-    print(YTDLP_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+    for binary in settings.BINARIES.values():
+        try:
+            print(binary.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+        except Exception as e:
+            print(f'[X] Failed to install {binary.name}: {e}')
 
-    from plugins_extractor.chrome.apps import CHROME_BINARY
-    print(CHROME_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+    # from plugins_extractor.curl.apps import CURL_BINARY
+    # print(CURL_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
 
-    from plugins_extractor.singlefile.apps import SINGLEFILE_BINARY
-    print(SINGLEFILE_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
-    
-    from plugins_extractor.readability.apps import READABILITY_BINARY
-    print(READABILITY_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
-    
-    
-    from plugins_pkg.npm.apps import npm
+    # from plugins_extractor.wget.apps import WGET_BINARY
+    # print(WGET_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
 
-    # TODO: move these to their own plugin binaries
-    print(npm.load_or_install('postlight-parser',      overrides={'packages': lambda: ['@postlight/parser@^2.2.3'], 'version': lambda: '2.2.3'}).model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths'}))
+    # from plugins_extractor.ytdlp.apps import YTDLP_BINARY
+    # print(YTDLP_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+
+    # from plugins_extractor.chrome.apps import CHROME_BINARY
+    # print(CHROME_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+
+    # from plugins_extractor.singlefile.apps import SINGLEFILE_BINARY
+    # print(SINGLEFILE_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+    
+    # from plugins_extractor.readability.apps import READABILITY_BINARY
+    # print(READABILITY_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+    
+    # from plugins_extractor.mercury.apps import MERCURY_BINARY
+    # print(MERCURY_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+    
 
     from django.contrib.auth import get_user_model
     User = get_user_model()
