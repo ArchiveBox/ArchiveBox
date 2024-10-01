@@ -169,89 +169,90 @@ def version(quiet: bool=False,
     """Print the ArchiveBox version and dependency information"""
     
     from rich import print
+    print(VERSION)
+    if quiet:
+        return
+    
     
     from plugins_auth.ldap.apps import LDAP_CONFIG
     from django.conf import settings
+
+    # 0.7.1
+    # ArchiveBox v0.7.1+editable COMMIT_HASH=951bba5 BUILD_TIME=2023-12-17 16:46:05 1702860365
+    # IN_DOCKER=False IN_QEMU=False ARCH=arm64 OS=Darwin PLATFORM=macOS-14.2-arm64-arm-64bit PYTHON=Cpython
+    # FS_ATOMIC=True FS_REMOTE=False FS_USER=501:20 FS_PERMS=644
+    # DEBUG=False IS_TTY=True TZ=UTC SEARCH_BACKEND=ripgrep LDAP=False
     
-    print(VERSION)
-    
-    if not quiet:
-        # 0.7.1
-        # ArchiveBox v0.7.1+editable COMMIT_HASH=951bba5 BUILD_TIME=2023-12-17 16:46:05 1702860365
-        # IN_DOCKER=False IN_QEMU=False ARCH=arm64 OS=Darwin PLATFORM=macOS-14.2-arm64-arm-64bit PYTHON=Cpython
-        # FS_ATOMIC=True FS_REMOTE=False FS_USER=501:20 FS_PERMS=644
-        # DEBUG=False IS_TTY=True TZ=UTC SEARCH_BACKEND=ripgrep LDAP=False
+    p = platform.uname()
+    print(
+        'ArchiveBox v{}'.format(CONSTANTS.VERSION),
+        f'COMMIT_HASH={SHELL_CONFIG.COMMIT_HASH[:7] if SHELL_CONFIG.COMMIT_HASH else "unknown"}',
+        f'BUILD_TIME={SHELL_CONFIG.BUILD_TIME}',
+    )
+    print(
+        f'IN_DOCKER={SHELL_CONFIG.IN_DOCKER}',
+        f'IN_QEMU={SHELL_CONFIG.IN_QEMU}',
+        f'ARCH={p.machine}',
+        f'OS={p.system}',
+        f'PLATFORM={platform.platform()}',
+        f'PYTHON={sys.implementation.name.title()}',
+    )
+    OUTPUT_IS_REMOTE_FS = CONSTANTS.DATA_LOCATIONS.DATA_DIR.is_mount or CONSTANTS.DATA_LOCATIONS.ARCHIVE_DIR.is_mount
+    print(
+        f'FS_ATOMIC={STORAGE_CONFIG.ENFORCE_ATOMIC_WRITES}',
+        f'FS_REMOTE={OUTPUT_IS_REMOTE_FS}',
+        f'FS_USER={SHELL_CONFIG.PUID}:{SHELL_CONFIG.PGID}',
+        f'FS_PERMS={STORAGE_CONFIG.OUTPUT_PERMISSIONS}',
+    )
+    print(
+        f'DEBUG={SHELL_CONFIG.DEBUG}',
+        f'IS_TTY={SHELL_CONFIG.IS_TTY}',
+        f'TZ={CONSTANTS.TIMEZONE}',
+        f'SEARCH_BACKEND={SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE}',
+        f'LDAP={LDAP_CONFIG.LDAP_ENABLED}',
+        #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
+    )
+    print()
+
+    print('[pale_green3][i] Old dependency versions:[/pale_green3]')
+    for name, dependency in DEPENDENCIES.items():
+        print(printable_dependency_version(name, dependency))
         
-        p = platform.uname()
-        print(
-            'ArchiveBox v{}'.format(CONSTANTS.VERSION),
-            f'COMMIT_HASH={SHELL_CONFIG.COMMIT_HASH[:7] if SHELL_CONFIG.COMMIT_HASH else "unknown"}',
-            f'BUILD_TIME={SHELL_CONFIG.BUILD_TIME}',
-        )
-        print(
-            f'IN_DOCKER={SHELL_CONFIG.IN_DOCKER}',
-            f'IN_QEMU={SHELL_CONFIG.IN_QEMU}',
-            f'ARCH={p.machine}',
-            f'OS={p.system}',
-            f'PLATFORM={platform.platform()}',
-            f'PYTHON={sys.implementation.name.title()}',
-        )
-        OUTPUT_IS_REMOTE_FS = CONSTANTS.DATA_LOCATIONS.DATA_DIR.is_mount or CONSTANTS.DATA_LOCATIONS.ARCHIVE_DIR.is_mount
-        print(
-            f'FS_ATOMIC={STORAGE_CONFIG.ENFORCE_ATOMIC_WRITES}',
-            f'FS_REMOTE={OUTPUT_IS_REMOTE_FS}',
-            f'FS_USER={SHELL_CONFIG.PUID}:{SHELL_CONFIG.PGID}',
-            f'FS_PERMS={STORAGE_CONFIG.OUTPUT_PERMISSIONS}',
-        )
-        print(
-            f'DEBUG={SHELL_CONFIG.DEBUG}',
-            f'IS_TTY={SHELL_CONFIG.IS_TTY}',
-            f'TZ={CONSTANTS.TIMEZONE}',
-            f'SEARCH_BACKEND={SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE}',
-            f'LDAP={LDAP_CONFIG.LDAP_ENABLED}',
-            #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
-        )
-        print()
-
-        print('[pale_green3][i] Old dependency versions:[/pale_green3]')
-        for name, dependency in DEPENDENCIES.items():
-            print(printable_dependency_version(name, dependency))
-            
-            # add a newline between core dependencies and extractor dependencies for easier reading
-            if name == 'ARCHIVEBOX_BINARY':
-                print()
-                
-        print()
-        print('[pale_green1][i] New dependency versions:[/pale_green1]')
-        for name, binary in reversed(list(settings.BINARIES.items())):
-            if binary.name == 'archivebox':
-                continue
-            
-            err = None
-            try:
-                loaded_bin = binary.load()
-            except Exception as e:
-                err = e
-                loaded_bin = binary
-                raise
-            provider_summary = f'[dark_sea_green3]{loaded_bin.binprovider.name.ljust(10)}[/dark_sea_green3]' if loaded_bin.binprovider else '[grey23]not found[/grey23]'
-            print('', '[green]√[/green]' if loaded_bin.is_valid else '[red]X[/red]', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(12), provider_summary, loaded_bin.abspath or f'[red]{err}[/red]')
-   
-        print()
-        print('[white][i] Source-code locations:[/white]')
-        for name, path in CONSTANTS.CODE_LOCATIONS.items():
-            print(printable_folder_status(name, path))
-
-        print()
-        if CONSTANTS.DATABASE_FILE.exists() or CONSTANTS.ARCHIVE_DIR.exists() or CONSTANTS.CONFIG_FILE.exists():
-            print('[white][i] Data locations:[/]')
-            for name, path in CONSTANTS.DATA_LOCATIONS.items():
-                print(printable_folder_status(name, path))
-        else:
+        # add a newline between core dependencies and extractor dependencies for easier reading
+        if name == 'ARCHIVEBOX_BINARY':
             print()
-            print('[white][i] Data locations:[/white] (not in a data directory)')
+            
+    print()
+    print('[pale_green1][i] New dependency versions:[/pale_green1]')
+    for name, binary in reversed(list(settings.BINARIES.items())):
+        if binary.name == 'archivebox':
+            continue
+        
+        err = None
+        try:
+            loaded_bin = binary.load()
+        except Exception as e:
+            err = e
+            loaded_bin = binary
+            raise
+        provider_summary = f'[dark_sea_green3]{loaded_bin.binprovider.name.ljust(10)}[/dark_sea_green3]' if loaded_bin.binprovider else '[grey23]not found[/grey23]'
+        print('', '[green]√[/green]' if loaded_bin.is_valid else '[red]X[/red]', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(12), provider_summary, loaded_bin.abspath or f'[red]{err}[/red]')
 
+    print()
+    print('[white][i] Source-code locations:[/white]')
+    for name, path in CONSTANTS.CODE_LOCATIONS.items():
+        print(printable_folder_status(name, path))
+
+    print()
+    if CONSTANTS.DATABASE_FILE.exists() or CONSTANTS.ARCHIVE_DIR.exists() or CONSTANTS.CONFIG_FILE.exists():
+        print('[white][i] Data locations:[/]')
+        for name, path in CONSTANTS.DATA_LOCATIONS.items():
+            print(printable_folder_status(name, path))
+    else:
         print()
+        print('[white][i] Data locations:[/white] (not in a data directory)')
+
+    print()
 
 
 @enforce_types

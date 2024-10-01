@@ -8,17 +8,17 @@ import argparse
 from pathlib import Path
 from typing import Optional, List, IO
 
-from archivebox.misc.util import docstring
-from archivebox.config import DATA_DIR
+# from archivebox.misc.util import docstring
+from archivebox.config import DATA_DIR, VERSION
 from ..logging_util import SmartFormatter, reject_stdin
-from ..main import version
 
 
-@docstring(version.__doc__)
+# @docstring(version.__doc__)
 def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
+    """Print the ArchiveBox version and dependency information"""
     parser = argparse.ArgumentParser(
         prog=__command__,
-        description=version.__doc__,
+        description="Print the ArchiveBox version and dependency information",   # version.__doc__,
         add_help=True,
         formatter_class=SmartFormatter,
     )
@@ -30,6 +30,13 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     command = parser.parse_args(args or ())
     reject_stdin(__command__, stdin)
     
+    # for speed reasons, check if quiet flag was set and just return simple version immediately if so
+    if command.quiet:
+        print(VERSION)
+        return
+    
+    # otherwise do big expensive import to get the full version
+    from ..main import version
     version(
         quiet=command.quiet,
         out_dir=Path(pwd) if pwd else DATA_DIR,
