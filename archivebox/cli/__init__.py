@@ -12,6 +12,7 @@ from typing import Optional, List, IO, Union, Iterable
 from pathlib import Path
 
 from archivebox.config import DATA_DIR
+from archivebox.misc.checks import check_migrations
 from archivebox.misc.logging import stderr
 
 from importlib import import_module
