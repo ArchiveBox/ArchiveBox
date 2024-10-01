@@ -20,20 +20,34 @@ ARCHIVE_DIR: Path = DATA_DIR / 'archive'                      # archivebox snaps
 
 
 def _detect_installed_version(PACKAGE_DIR: Path):
-    """Autodetect the installed archivebox version by using pip package metadata or pyproject.toml file"""
+    """Autodetect the installed archivebox version by using pip package metadata, pyproject.toml file, or package.json file"""
     try:
+        # if in production install, use pip-installed package metadata
         return importlib.metadata.version(__package__ or 'archivebox')
     except importlib.metadata.PackageNotFoundError:
-        try:
-            pyproject_config = (PACKAGE_DIR / 'pyproject.toml').read_text()
-            for line in pyproject_config:
-                if line.startswith('version = '):
-                    return line.split(' = ', 1)[-1].strip('"')
-        except FileNotFoundError:
-            # building docs, pyproject.toml is not available
-            return 'dev'
+        pass
 
-    raise Exception('Failed to detect installed archivebox version!')
+    try:
+        # if in dev Git repo dir, use pyproject.toml file
+        pyproject_config = (PACKAGE_DIR.parent / 'pyproject.toml').read_text().split('\n')
+        for line in pyproject_config:
+            if line.startswith('version = '):
+                return line.split(' = ', 1)[-1].strip('"')
+    except FileNotFoundError:
+        # building docs, pyproject.toml is not available
+        pass
+    
+    try:
+        # if in dev but not in Git repo dir, fallback to using package.json file
+        package_json = (PACKAGE_DIR / 'package.json').read_text().split('\n')
+        for line in package_json:
+            if '"version": "' in line:
+                return line.replace('"', '').split(':')[-1].strip(',')
+    except FileNotFoundError:
+        pass
+
+    # raise Exception('Failed to detect installed archivebox version!')
+    return 'dev'
 
 VERSION: str = _detect_installed_version(PACKAGE_DIR)
 

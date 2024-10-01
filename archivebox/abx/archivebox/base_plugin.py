@@ -132,8 +132,8 @@ class BasePlugin(BaseModel):
         self._is_registered = True
         bump_startup_progress_bar()
 
-        print('◣----------------- REGISTERED PLUGIN:', self.plugin_module, '-----------------◢')
-        print()
+        # print('◣----------------- REGISTERED PLUGIN:', self.plugin_module, '-----------------◢')
+        # print()
 
     @abx.hookimpl
     def ready(self, settings=None):

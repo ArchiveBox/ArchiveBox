@@ -102,7 +102,7 @@ class BaseHook(BaseModel):
     def register(self, settings):
         """Called when django.apps.AppConfig.ready() is called"""
         
-        print("REGISTERED HOOK:", self.hook_module)
+        # print("REGISTERED HOOK:", self.hook_module)
         self._is_registered = True
         
 
