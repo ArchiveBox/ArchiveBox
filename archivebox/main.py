@@ -166,6 +166,8 @@ def version(quiet: bool=False,
             out_dir: Path=DATA_DIR) -> None:
     """Print the ArchiveBox version and dependency information"""
     
+    from rich import print
+    
     from plugins_auth.ldap.apps import LDAP_CONFIG
     from django.conf import settings
     
@@ -209,7 +211,7 @@ def version(quiet: bool=False,
         )
         print()
 
-        print('{white}[i] Old dependency versions:{reset}'.format(**SHELL_CONFIG.ANSI))
+        print('[pale_green3][i] Old dependency versions:[/pale_green3]')
         for name, dependency in DEPENDENCIES.items():
             print(printable_dependency_version(name, dependency))
             
@@ -218,8 +220,11 @@ def version(quiet: bool=False,
                 print()
                 
         print()
-        print('{white}[i] New dependency versions:{reset}'.format(**SHELL_CONFIG.ANSI))
+        print('[pale_green1][i] New dependency versions:[/pale_green1]')
         for name, binary in reversed(list(settings.BINARIES.items())):
+            if binary.name == 'archivebox':
+                continue
+            
             err = None
             try:
                 loaded_bin = binary.load()
@@ -227,21 +232,22 @@ def version(quiet: bool=False,
                 err = e
                 loaded_bin = binary
                 raise
-            print('', '√' if loaded_bin.is_valid else 'X', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(15), loaded_bin.abspath or str(err))
+            provider_summary = f'[dark_sea_green3]{loaded_bin.binprovider.name.ljust(10)}[/dark_sea_green3]' if loaded_bin.binprovider else '[grey23]not found[/grey23]'
+            print('', '[green]√[/green]' if loaded_bin.is_valid else '[red]X[/red]', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(12), provider_summary, loaded_bin.abspath or f'[red]{err}[/red]')
    
         print()
-        print('{white}[i] Source-code locations:{reset}'.format(**SHELL_CONFIG.ANSI))
+        print('[white][i] Source-code locations:[/white]')
         for name, path in CONSTANTS.CODE_LOCATIONS.items():
             print(printable_folder_status(name, path))
 
         print()
         if CONSTANTS.DATABASE_FILE.exists() or CONSTANTS.ARCHIVE_DIR.exists() or CONSTANTS.CONFIG_FILE.exists():
-            print('{white}[i] Data locations:{reset}'.format(**SHELL_CONFIG.ANSI))
+            print('[white][i] Data locations:[/]')
             for name, path in CONSTANTS.DATA_LOCATIONS.items():
                 print(printable_folder_status(name, path))
         else:
             print()
-            print('{white}[i] Data locations:{reset} (not in a data directory)'.format(**SHELL_CONFIG.ANSI))
+            print('[white][i] Data locations:[/white] (not in a data directory)')
 
         print()
 
