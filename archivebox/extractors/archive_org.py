@@ -58,7 +58,7 @@ def save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, timeout: int=
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        result = run(cmd, cwd=str(out_dir), timeout=timeout)
+        result = run(cmd, cwd=str(out_dir), timeout=timeout, text=True)
         content_location, errors = parse_archive_dot_org_response(result.stdout)
         if content_location:
             archive_org_url = content_location[0]
