@@ -23,7 +23,7 @@ from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
 from queues.tasks import bg_archive_snapshot
 
 from archivebox.misc.system import get_dir_size
-from ..util import parse_date, base_url
+from archivebox.misc.util import parse_date, base_url
 from ..index.schema import Link
 from ..index.html import snapshot_icons
 from ..extractors import ARCHIVE_METHODS_INDEXING_PRECEDENCE, EXTRACTORS
@@ -231,7 +231,7 @@ class Snapshot(ABIDModel):
 
     @cached_property
     def extension(self) -> str:
-        from ..util import extension
+        from archivebox.misc.util import extension
         return extension(self.url)
 
     @cached_property

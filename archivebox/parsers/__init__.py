@@ -22,7 +22,7 @@ from ..config.legacy import (
     stderr,
     hint,
 )
-from ..util import (
+from archivebox.misc.util import (
     basename,
     htmldecode,
     download_url,

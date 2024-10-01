@@ -28,10 +28,10 @@ from .parsers import (
     save_file_as_source,
     parse_links_memory,
 )
-from .index.schema import Link
-from .util import enforce_types                         # type: ignore
+from archivebox.misc.util import enforce_types                         # type: ignore
 from archivebox.misc.system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
 from archivebox.misc.system import run as run_shell
+from .index.schema import Link
 from .index import (
     load_main_index,
     parse_links_from_source,
@@ -61,14 +61,12 @@ from .index.sql import (
     apply_migrations,
     remove_from_sql_main_index,
 )
-from .index.html import (
-    generate_index_from_links,
-)
+from .index.html import generate_index_from_links
 from .index.csv import links_to_csv
 from .extractors import archive_links, archive_link, ignore_methods
-from .misc.logging import stderr, hint
-from .misc.checks import check_data_folder
-from .config.legacy import (
+from archivebox.misc.logging import stderr, hint
+from archivebox.misc.checks import check_data_folder
+from archivebox.config.legacy import (
     write_config_file,
     DEPENDENCIES,
     load_all_config,
@@ -194,7 +192,7 @@ def version(quiet: bool=False,
             f'PLATFORM={platform.platform()}',
             f'PYTHON={sys.implementation.name.title()}',
         )
-        OUTPUT_IS_REMOTE_FS = CONSTANTS.DATA_LOCATIONS['DATA_DIR']['is_mount'] or CONSTANTS.DATA_LOCATIONS['ARCHIVE_DIR']['is_mount']
+        OUTPUT_IS_REMOTE_FS = CONSTANTS.DATA_LOCATIONS.DATA_DIR.is_mount or CONSTANTS.DATA_LOCATIONS.ARCHIVE_DIR.is_mount
         print(
             f'FS_ATOMIC={STORAGE_CONFIG.ENFORCE_ATOMIC_WRITES}',
             f'FS_REMOTE={OUTPUT_IS_REMOTE_FS}',
@@ -221,7 +219,7 @@ def version(quiet: bool=False,
                 
         print()
         print('{white}[i] New dependency versions:{reset}'.format(**SHELL_CONFIG.ANSI))
-        for name, binary in settings.BINARIES.items():
+        for name, binary in reversed(list(settings.BINARIES.items())):
             err = None
             try:
                 loaded_bin = binary.load()

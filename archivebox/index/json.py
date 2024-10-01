@@ -12,7 +12,7 @@ from archivebox.config import VERSION, DATA_DIR, CONSTANTS, SERVER_CONFIG, SHELL
 
 from .schema import Link
 from archivebox.misc.system import atomic_write
-from ..util import enforce_types
+from archivebox.misc.util import enforce_types
 
 
 

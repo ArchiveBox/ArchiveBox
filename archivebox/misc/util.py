@@ -317,22 +317,6 @@ def dedupe(options: List[str]) -> List[str]:
     return list(deduped.values())
 
 
-class AttributeDict(dict):
-    """Helper to allow accessing dict values via Example.key or Example['key']"""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Recursively convert nested dicts to AttributeDicts (optional):
-        # for key, val in self.items():
-        #     if isinstance(val, dict) and type(val) is not AttributeDict:
-        #         self[key] = AttributeDict(val)
-
-    def __getattr__(self, attr: str) -> Any:
-        return dict.__getitem__(self, attr)
-
-    def __setattr__(self, attr: str, value: Any) -> None:
-        return dict.__setitem__(self, attr, value)
-
 
 class ExtendedEncoder(pyjson.JSONEncoder):
     """

@@ -12,7 +12,7 @@ from ..main import (
     list_all,
     schedule,
 )
-from ..util import ansi_to_html
+from archivebox.misc.util import ansi_to_html
 from ..config.legacy import ONLY_NEW
 
 

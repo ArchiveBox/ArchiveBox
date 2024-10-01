@@ -5,7 +5,7 @@ import json
 from typing import IO, Iterable
 
 from ..index.schema import Link
-from ..util import (
+from archivebox.misc.util import (
     enforce_types,
 )
 

@@ -5,7 +5,7 @@ from typing import IO, Iterable
 from datetime import datetime
 
 from ..index.schema import Link
-from ..util import (
+from archivebox.misc.util import (
     htmldecode,
     enforce_types,
     str_between,

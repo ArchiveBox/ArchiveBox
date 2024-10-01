@@ -23,8 +23,8 @@ from rich.panel import Panel
 
 from archivebox.config import CONSTANTS, DATA_DIR, VERSION, SHELL_CONFIG
 from archivebox.misc.system import get_dir_size
-from .util import enforce_types
-from .misc.logging import ANSI, stderr
+from archivebox.misc.util import enforce_types
+from archivebox.misc.logging import ANSI, stderr
 
 @dataclass
 class RuntimeStats:

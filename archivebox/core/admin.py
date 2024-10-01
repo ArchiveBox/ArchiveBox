@@ -23,7 +23,7 @@ from signal_webhooks.utils import get_webhook_model
 
 from archivebox.config import VERSION
 
-from ..util import htmldecode, urldecode
+from archivebox.misc.util import htmldecode, urldecode
 
 from core.models import Snapshot, ArchiveResult, Tag
 from core.mixins import SearchResultsAdminMixin

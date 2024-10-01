@@ -13,7 +13,7 @@ from django.db.models import QuerySet, Q
 
 
 from archivebox.config import DATA_DIR, CONSTANTS, SEARCH_BACKEND_CONFIG
-from ..util import (
+from archivebox.misc.util import (
     scheme,
     enforce_types,
     ExtendedEncoder,

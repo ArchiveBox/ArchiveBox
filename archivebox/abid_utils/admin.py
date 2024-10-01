@@ -13,7 +13,7 @@ from django_object_actions import DjangoObjectActions, action
 
 from api.auth import get_or_create_api_token
 
-from ..util import parse_date
+from archivebox.misc.util import parse_date
 from .abid import ABID
 
 def highlight_diff(display_val: Any, compare_val: Any, invert: bool=False, color_same: str | None=None, color_diff: str | None=None):

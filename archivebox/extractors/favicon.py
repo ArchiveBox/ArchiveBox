@@ -6,7 +6,7 @@ from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput
 from archivebox.misc.system import chmod_file, run
-from ..util import (
+from archivebox.misc.util import (
     enforce_types,
     domain,
     dedupe,

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from archivebox.misc.system import run, chmod_file
-from ..util import (
+from archivebox.misc.util import (
     enforce_types,
     without_fragment,
     without_query,

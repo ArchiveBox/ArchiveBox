@@ -11,7 +11,7 @@ from pocket import Pocket
 from archivebox.config import CONSTANTS
 
 from ..index.schema import Link
-from ..util import enforce_types
+from archivebox.misc.util import enforce_types
 from archivebox.misc.system import atomic_write
 from ..config.legacy import (
     POCKET_CONSUMER_KEY,

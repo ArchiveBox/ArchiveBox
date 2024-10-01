@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Optional, IO
 
 from ..main import oneshot
-from ..util import docstring
+from archivebox.misc.util import docstring
 from ..config.legacy import OUTPUT_DIR
 from ..logging_util import SmartFormatter, accept_stdin, stderr
 

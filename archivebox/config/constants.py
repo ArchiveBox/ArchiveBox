@@ -173,7 +173,7 @@ class ConstantsDict(Mapping):
     # actually empty so that we dont clobber someone's home directory or desktop by accident.
     # These files are exceptions to the is_empty check when we're trying to init a new dir,
     # as they could be from a previous archivebox version, system artifacts, dependencies, etc.
-    ALLOWED_IN_OUTPUT_DIR: frozenset[str] = frozenset((
+    ALLOWED_IN_DATA_DIR: frozenset[str] = frozenset((
         *INGORED_PATHS,
         *PIP_RELATED_NAMES,
         *NPM_RELATED_NAMES,
@@ -212,7 +212,7 @@ class ConstantsDict(Mapping):
     })
         
     DATA_LOCATIONS = benedict({
-        "OUTPUT_DIR": {
+        "DATA_DIR": {
             "path": DATA_DIR.resolve(),
             "enabled": True,
             "is_valid": DATABASE_FILE.exists(),

@@ -2,7 +2,7 @@ __package__ = 'archivebox.core'
 
 from django import forms
 
-from ..util import URL_REGEX
+from archivebox.misc.util import URL_REGEX
 from ..parsers import PARSERS
 from taggit.utils import edit_string_for_tags, parse_tags
 

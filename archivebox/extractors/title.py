@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from ..util import (
+from archivebox.misc.util import (
     enforce_types,
     download_url,
     htmldecode,

@@ -9,7 +9,7 @@ import argparse
 from typing import List, Optional, IO
 
 from ..main import update
-from ..util import docstring
+from archivebox.misc.util import docstring
 from ..config.legacy import OUTPUT_DIR
 from ..index import (
     LINK_FILTERS,

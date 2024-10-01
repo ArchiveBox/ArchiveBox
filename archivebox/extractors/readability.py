@@ -8,7 +8,7 @@ import json
 
 from ..index.schema import Link, ArchiveResult, ArchiveError
 from archivebox.misc.system import run, atomic_write
-from ..util import enforce_types, is_static_file
+from archivebox.misc.util import enforce_types, is_static_file
 from ..logging_util import TimedProgress
 from .title import get_html
 

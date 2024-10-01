@@ -6,7 +6,7 @@ from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput
 from archivebox.misc.system import atomic_write
-from ..util import (
+from archivebox.misc.util import (
     enforce_types,
     get_headers,
     dedupe,

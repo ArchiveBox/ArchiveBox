@@ -11,7 +11,7 @@ from django.core.cache import cache
 from .schema import Link
 from archivebox.misc.system import atomic_write
 from ..logging_util import printable_filesize
-from ..util import (
+from archivebox.misc.util import (
     enforce_types,
     ts_to_date_str,
     urlencode,

@@ -11,7 +11,7 @@ from configparser import ConfigParser
 from archivebox.config import CONSTANTS
 
 from ..index.schema import Link
-from ..util import enforce_types
+from archivebox.misc.util import enforce_types
 from archivebox.misc.system import atomic_write
 from ..config.legacy import READWISE_READER_TOKENS
 

@@ -6,7 +6,7 @@ from time import mktime
 from feedparser import parse as feedparser
 
 from ..index.schema import Link
-from ..util import (
+from archivebox.misc.util import (
     htmldecode,
     enforce_types
 )

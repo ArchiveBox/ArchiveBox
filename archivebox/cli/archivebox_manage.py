@@ -8,7 +8,7 @@ import sys
 from typing import Optional, List, IO
 
 from ..main import manage
-from ..util import docstring
+from archivebox.misc.util import docstring
 from ..config.legacy import OUTPUT_DIR
 
 

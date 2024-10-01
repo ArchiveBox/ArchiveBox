@@ -9,7 +9,7 @@ import argparse
 from typing import Optional, List, IO
 
 from ..main import remove
-from ..util import docstring
+from archivebox.misc.util import docstring
 from ..config.legacy import OUTPUT_DIR
 from ..logging_util import SmartFormatter, accept_stdin
 

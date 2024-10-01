@@ -3,7 +3,7 @@ __package__ = 'archivebox.plugins_extractor.chrome'
 import sys
 import platform
 from pathlib import Path
-from typing import List, Optional, Dict, ClassVar
+from typing import List, Optional, Dict
 
 # Depends on other PyPI/vendor packages:
 from rich import print
@@ -29,7 +29,7 @@ from archivebox.config import CONSTANTS, ARCHIVING_CONFIG, SHELL_CONFIG
 from plugins_pkg.puppeteer.apps import PUPPETEER_BINPROVIDER
 from plugins_pkg.playwright.apps import PLAYWRIGHT_BINPROVIDER
 
-from ...util import dedupe
+from archivebox.misc.util import dedupe
 
 
 CHROMIUM_BINARY_NAMES_LINUX = [

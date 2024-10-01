@@ -1,4 +1,4 @@
-__package__ = 'archivebox'
+__package__ = 'archivebox.misc'
 
 
 import os
@@ -14,8 +14,8 @@ from subprocess import _mswindows, PIPE, Popen, CalledProcessError, CompletedPro
 from crontab import CronTab
 from atomicwrites import atomic_write as lib_atomic_write
 
-from .util import enforce_types, ExtendedEncoder
-from .config.legacy import OUTPUT_PERMISSIONS, DIR_OUTPUT_PERMISSIONS, ENFORCE_ATOMIC_WRITES
+from archivebox.config.legacy import OUTPUT_PERMISSIONS, DIR_OUTPUT_PERMISSIONS, ENFORCE_ATOMIC_WRITES
+from archivebox.misc.util import enforce_types, ExtendedEncoder
 
 
 def run(cmd, *args, input=None, capture_output=True, timeout=None, check=False, text=False, start_new_session=True, **kwargs):

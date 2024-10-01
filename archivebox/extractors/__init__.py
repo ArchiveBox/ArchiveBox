@@ -20,7 +20,7 @@ from ..index import (
     load_link_details,
     write_link_details,
 )
-from ..util import enforce_types
+from archivebox.misc.util import enforce_types
 from ..logging_util import (
     log_archiving_started,
     log_archiving_paused,

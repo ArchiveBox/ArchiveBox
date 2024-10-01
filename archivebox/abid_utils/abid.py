@@ -11,7 +11,7 @@ from uuid import UUID
 from typeid import TypeID            # type: ignore[import-untyped]
 from datetime import datetime
 
-from ..util import enforce_types
+from archivebox.misc.util import enforce_types
 
 
 ABID_PREFIX_LEN = 4

@@ -9,7 +9,7 @@ from django.db.models import QuerySet
 from django.db import transaction
 
 from .schema import Link
-from ..util import enforce_types, parse_date
+from archivebox.misc.util import enforce_types, parse_date
 from ..config.legacy import (
     OUTPUT_DIR,
     TAG_SEPARATOR_PATTERN,

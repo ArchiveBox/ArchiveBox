@@ -9,17 +9,12 @@ SimpleConfigValueDict = Dict[str, SimpleConfigValue]
 SimpleConfigValueGetter = Callable[[], SimpleConfigValue]
 ConfigValue = Union[SimpleConfigValue, SimpleConfigValueDict, SimpleConfigValueGetter]
 
-# class AttrDict(dict):
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.__dict__ = self
-AttrDict = benedict  # https://github.com/fabiocaccamo/python-benedict/
 
 
 class BaseConfig(TypedDict):
     pass
 
-class ConfigDict(BaseConfig, AttrDict, total=False):
+class ConfigDict(BaseConfig, benedict, total=False):
     """
     # Regenerate by pasting this quine into `archivebox shell` 🥚
     from archivebox.config import ConfigDict, CONFIG_DEFAULTS

@@ -13,7 +13,7 @@ from ..config.legacy import (
 from ..index.schema import Link, ArchiveResult, ArchiveError
 from ..logging_util import TimedProgress
 from archivebox.misc.system import atomic_write
-from ..util import (
+from archivebox.misc.util import (
     enforce_types,
     is_static_file,
 )

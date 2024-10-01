@@ -22,7 +22,7 @@ from archivebox.config.constants import ARCHIVE_DIR, ARCHIVE_DIR_NAME
 from plugins_extractor.favicon.apps import FAVICON_CONFIG
 
 from archivebox.misc.system import get_dir_size
-from ..util import ts_to_date_str, parse_date
+from archivebox.misc.util import ts_to_date_str, parse_date
 
 
 class ArchiveError(Exception):
@@ -67,7 +67,7 @@ class ArchiveResult:
 
     @classmethod
     def guess_ts(_cls, dict_info):
-        from ..util import parse_date
+        from archivebox.misc.util import parse_date
         parsed_timestamp = parse_date(dict_info["timestamp"])
         start_ts = parsed_timestamp
         end_ts = parsed_timestamp + timedelta(seconds=int(dict_info["duration"]))
@@ -75,7 +75,7 @@ class ArchiveResult:
 
     @classmethod
     def from_json(cls, json_info, guess=False):
-        from ..util import parse_date
+        from archivebox.misc.util import parse_date
 
         info = {
             key: val
@@ -231,7 +231,7 @@ class Link:
 
     @classmethod
     def from_json(cls, json_info, guess=False):
-        from ..util import parse_date
+        from archivebox.misc.util import parse_date
         
         info = {
             key: val
@@ -299,38 +299,38 @@ class Link:
     ### URL Helpers
     @property
     def url_hash(self):
-        from ..util import hashurl
+        from archivebox.misc.util import hashurl
 
         return hashurl(self.url)
 
     @property
     def scheme(self) -> str:
-        from ..util import scheme
+        from archivebox.misc.util import scheme
         return scheme(self.url)
 
     @property
     def extension(self) -> str:
-        from ..util import extension
+        from archivebox.misc.util import extension
         return extension(self.url)
 
     @property
     def domain(self) -> str:
-        from ..util import domain
+        from archivebox.misc.util import domain
         return domain(self.url)
 
     @property
     def path(self) -> str:
-        from ..util import path
+        from archivebox.misc.util import path
         return path(self.url)
 
     @property
     def basename(self) -> str:
-        from ..util import basename
+        from archivebox.misc.util import basename
         return basename(self.url)
 
     @property
     def base_url(self) -> str:
-        from ..util import base_url
+        from archivebox.misc.util import base_url
         return base_url(self.url)
 
     ### Pretty Printing Helpers
@@ -380,12 +380,12 @@ class Link:
 
     @property
     def is_static(self) -> bool:
-        from ..util import is_static_file
+        from archivebox.misc.util import is_static_file
         return is_static_file(self.url)
 
     @property
     def is_archived(self) -> bool:
-        from ..util import domain
+        from archivebox.misc.util import domain
 
         output_paths = (
             domain(self.url),

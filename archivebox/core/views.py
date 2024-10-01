@@ -37,7 +37,7 @@ from ..config.legacy import (
     CONFIG,
 )
 from ..logging_util import printable_filesize
-from ..util import base_url, htmlencode, ts_to_date_str
+from archivebox.misc.util import base_url, htmlencode, ts_to_date_str
 from ..search import query_search_index
 from .serve_static import serve_static_with_byterange_support
 

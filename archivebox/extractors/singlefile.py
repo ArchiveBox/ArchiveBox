@@ -7,7 +7,7 @@ import json
 
 from ..index.schema import Link, ArchiveResult, ArchiveError
 from archivebox.misc.system import run, chmod_file
-from ..util import enforce_types, is_static_file, dedupe
+from archivebox.misc.util import enforce_types, is_static_file, dedupe
 from ..logging_util import TimedProgress
 
 

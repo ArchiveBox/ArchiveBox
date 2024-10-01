@@ -25,7 +25,7 @@ class BaseQueue(BaseHook):
 
     @property
     def tasks(self) -> Dict[str, 'TaskWrapper']:
-        """Return an AttrDict of all the background worker tasks defined in the plugin's tasks.py file."""
+        """Return an dict of all the background worker tasks defined in the plugin's tasks.py file."""
         tasks = importlib.import_module(f"{self.plugin_module}.tasks")
 
         all_tasks = {}
@@ -83,7 +83,7 @@ class BaseQueue(BaseHook):
         worker = start_worker(supervisor, self.get_supervisord_config(settings), lazy=lazy)
 
         # Update settings.WORKERS to include this worker
-        settings.WORKERS = getattr(settings, "WORKERS", None) or AttrDict({})
+        settings.WORKERS = getattr(settings, "WORKERS", None) or benedict({})
         settings.WORKERS[self.id] = self.start_supervisord_worker(settings, lazy=True)
 
         return worker
