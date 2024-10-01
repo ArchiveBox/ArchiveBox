@@ -45,7 +45,9 @@ class ShellConfig(BaseConfigSet):
     @computed_field
     @property
     def TERM_WIDTH(self) -> int:
-        return shutil.get_terminal_size((100, 10)).columns
+        if not self.IS_TTY:
+            return 200
+        return shutil.get_terminal_size((140, 10)).columns
     
     @computed_field
     @property

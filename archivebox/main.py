@@ -96,20 +96,20 @@ def help(out_dir: Path=DATA_DIR) -> None:
 
     all_subcommands = CLI_SUBCOMMANDS
     COMMANDS_HELP_TEXT = '\n    '.join(
-        f'{cmd.ljust(20)} {summary}'
-        for cmd, summary in all_subcommands.items()
+        f'{cmd.ljust(20)} {func.__doc__}'
+        for cmd, func in all_subcommands.items()
         if cmd in meta_cmds
     ) + '\n\n    ' + '\n    '.join(
-        f'{cmd.ljust(20)} {summary}'
-        for cmd, summary in all_subcommands.items()
+        f'{cmd.ljust(20)} {func.__doc__}'
+        for cmd, func in all_subcommands.items()
         if cmd in main_cmds
     ) + '\n\n    ' + '\n    '.join(
-        f'{cmd.ljust(20)} {summary}'
-        for cmd, summary in all_subcommands.items()
+        f'{cmd.ljust(20)} {func.__doc__}'
+        for cmd, func in all_subcommands.items()
         if cmd in archive_cmds
     ) + '\n\n    ' + '\n    '.join(
-        f'{cmd.ljust(20)} {summary}'
-        for cmd, summary in all_subcommands.items()
+        f'{cmd.ljust(20)} {func.__doc__}'
+        for cmd, func in all_subcommands.items()
         if cmd not in display_first
     )
 
@@ -127,8 +127,10 @@ def help(out_dir: Path=DATA_DIR) -> None:
     {}
 
 {lightred}Example Use:{reset}
-    mkdir my-archive; cd my-archive/
+    mkdir -p ~/archivebox/data; cd ~/archivebox/data
     archivebox init
+    archivebox setup
+    archivebox version
     archivebox status
 
     archivebox add https://example.com/some/page

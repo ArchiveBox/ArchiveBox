@@ -1,8 +1,9 @@
 __package__ = 'archivebox'
 
+import sys
+import shutil
 import django
 import pydantic
-import shutil
 
 import django_stubs_ext
 
@@ -21,9 +22,12 @@ timezone.utc = datetime.timezone.utc
 
 # Install rich for pretty tracebacks in console logs
 # https://rich.readthedocs.io/en/stable/traceback.html#traceback-handler
+
 from rich.traceback import install
 
-install(show_locals=True, word_wrap=False, locals_max_length=10, locals_hide_dunder=True, suppress=[django, pydantic], extra_lines=2, width=shutil.get_terminal_size((100, 10)).columns - 1)
+TERM_WIDTH = (shutil.get_terminal_size((200, 10)).columns - 1) if sys.stdout.isatty() else 200
+# os.environ.setdefault('COLUMNS', str(TERM_WIDTH))
+install(show_locals=True, word_wrap=False, locals_max_length=10, locals_hide_dunder=True, suppress=[django, pydantic], extra_lines=2, width=TERM_WIDTH)
 
 
 from daphne import access
