@@ -1,10 +1,11 @@
 import sys
-from typing import List, Dict, ClassVar
+from typing import List, Dict
 from subprocess import run, PIPE
 
+from rich import print
 from pydantic import InstanceOf, Field, model_validator, AliasChoices
-
 from pydantic_pkgr import BinProvider, BinName, BinProviderName, ProviderLookupDict
+
 from abx.archivebox.base_plugin import BasePlugin
 from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_binary import BaseBinary, env, apt, brew
