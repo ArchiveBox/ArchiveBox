@@ -1,21 +1,21 @@
 __package__ = 'archivebox.search'
 
-from typing import List, Union
 from pathlib import Path
+from typing import List, Union
 
 from django.db.models import QuerySet
 from django.conf import settings
 
+import abx.archivebox.use
+
 from archivebox.index.schema import Link
 from archivebox.misc.util import enforce_types
 from archivebox.misc.logging import stderr
-from archivebox.config.legacy import ANSI
-
 from archivebox.config import SEARCH_BACKEND_CONFIG
 
 
 def log_index_started(url):
-    print('{green}[*] Indexing url: {} in the search index {reset}'.format(url, **ANSI))
+    print('[green][*] Indexing url: {} in the search index[/]'.format(url))
     print( )
 
 def get_file_result_content(res, extra_path, use_pwd=False):
@@ -57,7 +57,7 @@ def get_indexable_content(results: QuerySet):
 
 
 def import_backend():
-    for backend in settings.SEARCH_BACKENDS.values():
+    for backend in abx.archivebox.use.get_SEARCHBACKENDS().values():
         if backend.name == SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE:
             return backend
     raise Exception(f'Could not load {SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE} as search backend')
