@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from ..system import run, chmod_file
+from archivebox.misc.system import run, chmod_file
 from ..util import enforce_types, is_static_file
 from ..logging_util import TimedProgress
 

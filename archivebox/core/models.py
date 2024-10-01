@@ -22,7 +22,7 @@ from archivebox.config import CONSTANTS
 from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
 from queues.tasks import bg_archive_snapshot
 
-from ..system import get_dir_size
+from archivebox.misc.system import get_dir_size
 from ..util import parse_date, base_url
 from ..index.schema import Link
 from ..index.html import snapshot_icons

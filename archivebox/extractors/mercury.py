@@ -7,7 +7,7 @@ from typing import Optional, List
 import json
 
 from ..index.schema import Link, ArchiveResult, ArchiveError
-from ..system import run, atomic_write
+from archivebox.misc.system import run, atomic_write
 from ..util import (
     enforce_types,
     is_static_file,

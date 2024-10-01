@@ -11,7 +11,7 @@ from typing import List, Optional, Iterator, Any, Union
 from archivebox.config import VERSION, DATA_DIR, CONSTANTS, SERVER_CONFIG, SHELL_CONFIG
 
 from .schema import Link
-from ..system import atomic_write
+from archivebox.misc.system import atomic_write
 from ..util import enforce_types
 
 

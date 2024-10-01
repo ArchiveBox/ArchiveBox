@@ -1,12 +1,9 @@
 __package__ = 'abx.archivebox'
 
 import os
-import re
-import json
 from pathlib import Path
-from typing import Type, Tuple, Callable, ClassVar, Any
+from typing import Type, Tuple, Callable, ClassVar
 
-import toml
 from benedict import benedict
 from pydantic import model_validator, TypeAdapter
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
@@ -17,31 +14,11 @@ from pydantic_pkgr.base_types import func_takes_args_or_kwargs
 import abx
 
 from .base_hook import BaseHook, HookType
-from archivebox.misc import ini_to_toml
+from archivebox.misc import toml_util
 
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.curdir).resolve()
-
-
-def better_toml_dump_str(val: Any) -> str:
-    try:
-        return toml.encoder._dump_str(val)     # type: ignore
-    except Exception:
-        # if we hit any of toml's numerous encoding bugs,
-        # fall back to using json representation of string
-        return json.dumps(str(val))
-
-class CustomTOMLEncoder(toml.encoder.TomlEncoder):
-    """
-    Custom TomlEncoder to work around https://github.com/uiri/toml's many encoding bugs.
-    More info: https://github.com/fabiocaccamo/python-benedict/issues/439
-    >>> toml.dumps(value, encoder=CustomTOMLEncoder())
-    """
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.dump_funcs[str] = better_toml_dump_str
-        self.dump_funcs[re.RegexFlag] = better_toml_dump_str
 
 
 
@@ -155,7 +132,7 @@ class ArchiveBoxBaseConfig(BaseSettings):
             # Convert ArchiveBox.conf in INI format to TOML and save original to .ArchiveBox.bak
             original_ini = ARCHIVEBOX_CONFIG_FILE.read_text()
             ARCHIVEBOX_CONFIG_FILE_BAK.write_text(original_ini)
-            new_toml = ini_to_toml.convert(original_ini)
+            new_toml = toml_util.convert(original_ini)
             ARCHIVEBOX_CONFIG_FILE.write_text(new_toml)
 
             precedence_order = {

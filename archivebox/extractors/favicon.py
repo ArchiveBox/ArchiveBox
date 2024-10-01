@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput
-from ..system import chmod_file, run
+from archivebox.misc.system import chmod_file, run
 from ..util import (
     enforce_types,
     domain,

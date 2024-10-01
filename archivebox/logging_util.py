@@ -22,7 +22,7 @@ from rich import print
 from rich.panel import Panel
 
 from archivebox.config import CONSTANTS, DATA_DIR, VERSION, SHELL_CONFIG
-from .system import get_dir_size
+from archivebox.misc.system import get_dir_size
 from .util import enforce_types
 from .misc.logging import ANSI, stderr
 

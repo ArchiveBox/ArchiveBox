@@ -9,7 +9,7 @@ from django.utils.html import format_html, mark_safe   # type: ignore
 from django.core.cache import cache
 
 from .schema import Link
-from ..system import atomic_write
+from archivebox.misc.system import atomic_write
 from ..logging_util import printable_filesize
 from ..util import (
     enforce_types,

@@ -13,7 +13,7 @@ from typing import IO, Tuple, List, Optional
 from datetime import datetime, timezone
 from pathlib import Path 
 
-from ..system import atomic_write
+from archivebox.misc.system import atomic_write
 from ..config.legacy import (
     ANSI,
     OUTPUT_DIR,

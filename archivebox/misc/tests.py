@@ -2,7 +2,7 @@ __package__ = 'abx.archivebox'
 
 from django.test import TestCase
 
-from .ini_to_toml import convert, TOML_HEADER
+from .toml_util import convert, TOML_HEADER
 
 TEST_INPUT = """
 [SERVER_CONFIG]

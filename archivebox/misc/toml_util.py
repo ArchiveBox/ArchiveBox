@@ -3,7 +3,11 @@ from typing import Any, List, Callable
 import json
 import ast
 import inspect
+import toml
+import re
 import configparser
+
+from pathlib import Path, PosixPath
 
 from pydantic.json_schema import GenerateJsonSchema
 from pydantic_core import to_jsonable_python
@@ -68,8 +72,12 @@ def convert(ini_str: str) -> str:
 
 
 class JSONSchemaWithLambdas(GenerateJsonSchema):
+    """
+    Encode lambda functions in default values properly.
+    Usage:
+    >>> json.dumps(value, encoder=JSONSchemaWithLambdas())
+    """
     def encode_default(self, default: Any) -> Any:
-        """Encode lambda functions in default values properly"""
         config = self._config
         if isinstance(default, Callable):
             return '{{lambda ' + inspect.getsource(default).split('=lambda ')[-1].strip()[:-1] + '}}'
@@ -83,3 +91,24 @@ class JSONSchemaWithLambdas(GenerateJsonSchema):
     # for computed_field properties render them like this instead:
     # inspect.getsource(field.wrapped_property.fget).split('def ', 1)[-1].split('\n', 1)[-1].strip().strip('return '),
 
+
+def better_toml_dump_str(val: Any) -> str:
+    try:
+        return toml.encoder._dump_str(val)     # type: ignore
+    except Exception:
+        # if we hit any of toml's numerous encoding bugs,
+        # fall back to using json representation of string
+        return json.dumps(str(val))
+
+class CustomTOMLEncoder(toml.encoder.TomlEncoder):
+    """
+    Custom TomlEncoder to work around https://github.com/uiri/toml's many encoding bugs.
+    More info: https://github.com/fabiocaccamo/python-benedict/issues/439
+    >>> toml.dumps(value, encoder=CustomTOMLEncoder())
+    """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.dump_funcs[Path] = lambda x: json.dumps(str(x))
+        self.dump_funcs[PosixPath] = lambda x: json.dumps(str(x))
+        self.dump_funcs[str] = better_toml_dump_str
+        self.dump_funcs[re.RegexFlag] = better_toml_dump_str

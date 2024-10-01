@@ -6,6 +6,7 @@ import re
 from typing import Dict
 from pathlib import Path
 import importlib.metadata
+from collections.abc import Mapping
 
 from benedict import benedict
 
@@ -37,7 +38,7 @@ def _detect_installed_version(PACKAGE_DIR: Path):
 VERSION: str = _detect_installed_version(PACKAGE_DIR)
 
 
-class CONSTANTS:
+class ConstantsDict(Mapping):
     PACKAGE_DIR: Path = PACKAGE_DIR     # archivebox source code dir
     DATA_DIR: Path = DATA_DIR           # archivebox user data dir
     ARCHIVE_DIR: Path = ARCHIVE_DIR     # archivebox snapshot data dir
@@ -262,11 +263,24 @@ class CONSTANTS:
         },
     })
 
-    def __getitem__(self, key: str):
-        return getattr(self, key)
+    @classmethod
+    def __getitem__(cls, key: str):
+        return getattr(cls, key)
+    
+    @classmethod
+    def __benedict__(cls):
+        return benedict({key: value for key, value in cls.__dict__.items() if key.isupper() and not key.startswith('_')})
+    
+    @classmethod
+    def __len__(cls):
+        return len(cls.__benedict__())
 
+    @classmethod
+    def __iter__(cls):
+        return iter(cls.__benedict__())
+
+CONSTANTS = ConstantsDict()
+CONSTANTS_CONFIG = CONSTANTS.__benedict__()
 
 # add all key: values to globals() for easier importing
-globals().update(CONSTANTS.__dict__)
-
-CONSTANTS_CONFIG = CONSTANTS
+globals().update(CONSTANTS)

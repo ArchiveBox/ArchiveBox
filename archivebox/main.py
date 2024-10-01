@@ -30,8 +30,8 @@ from .parsers import (
 )
 from .index.schema import Link
 from .util import enforce_types                         # type: ignore
-from .system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
-from .system import run as run_shell
+from archivebox.misc.system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
+from archivebox.misc.system import run as run_shell
 from .index import (
     load_main_index,
     parse_links_from_source,

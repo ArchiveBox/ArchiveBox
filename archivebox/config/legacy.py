@@ -353,7 +353,7 @@ def load_config_file(out_dir: str | None=CONSTANTS.DATA_DIR) -> Optional[benedic
 def write_config_file(config: Dict[str, str], out_dir: str | None=CONSTANTS.DATA_DIR) -> benedict:
     """load the ini-formatted config file from OUTPUT_DIR/Archivebox.conf"""
 
-    from ..system import atomic_write
+    from archivebox.misc.system import atomic_write
 
     CONFIG_HEADER = (
     """# This is the config file for your ArchiveBox collection.

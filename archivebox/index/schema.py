@@ -21,7 +21,7 @@ from archivebox.config.constants import ARCHIVE_DIR, ARCHIVE_DIR_NAME
 
 from plugins_extractor.favicon.apps import FAVICON_CONFIG
 
-from ..system import get_dir_size
+from archivebox.misc.system import get_dir_size
 from ..util import ts_to_date_str, parse_date
 
 
