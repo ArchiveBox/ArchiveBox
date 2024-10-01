@@ -1,13 +1,13 @@
 __package__ = 'plugins_extractor.wget'
 
 import sys
-from typing import List, Optional, Dict
+from typing import List, Optional
 from pathlib import Path
 from subprocess import run, DEVNULL
 
 from rich import print
 from pydantic import InstanceOf, Field, model_validator
-from pydantic_pkgr import BinProvider, BinName, bin_abspath, BinProviderName, ProviderLookupDict
+from pydantic_pkgr import BinProvider, BinName
 
 from abx.archivebox.base_plugin import BasePlugin, BaseHook
 from abx.archivebox.base_configset import BaseConfigSet
@@ -80,12 +80,6 @@ WGET_CONFIG = WgetConfig()
 class WgetBinary(BaseBinary):
     name: BinName = WGET_CONFIG.WGET_BINARY
     binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
-    
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
-        brew.name: {
-            'abspath': lambda: bin_abspath(WGET_CONFIG.WGET_BINARY, PATH=f'/opt/homebrew/opt/wget/bin:{brew.PATH}'),
-        },
-    }
 
 WGET_BINARY = WgetBinary()
 

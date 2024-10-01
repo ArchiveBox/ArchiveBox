@@ -4,7 +4,6 @@ __package__ = 'archivebox.extractors'
 from pathlib import Path
 from typing import Optional
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from archivebox.misc.system import run, chmod_file
 from archivebox.misc.util import (
     enforce_types,
@@ -14,8 +13,9 @@ from archivebox.misc.util import (
     without_query,
     without_fragment,
 )
-from ..config.legacy import CONFIG
+from archivebox.plugins_extractor.git.apps import GIT_CONFIG, GIT_BINARY
 from ..logging_util import TimedProgress
+from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 
 
 def get_output_path():
@@ -42,28 +42,31 @@ def should_save_git(link: Link, out_dir: Optional[Path]=None, overwrite: Optiona
         return False
 
     is_clonable_url = (
-        (domain(link.url) in CONFIG.GIT_DOMAINS)
+        (domain(link.url) in GIT_CONFIG.GIT_DOMAINS)
         or (extension(link.url) == 'git')
     )
     if not is_clonable_url:
         return False
 
-    return CONFIG.SAVE_GIT
+    return GIT_CONFIG.SAVE_GIT
 
 
 @enforce_types
-def save_git(link: Link, out_dir: Optional[Path]=None, timeout: int=CONFIG.TIMEOUT) -> ArchiveResult:
+def save_git(link: Link, out_dir: Optional[Path]=None, timeout: int=GIT_CONFIG.GIT_TIMEOUT) -> ArchiveResult:
     """download full site using git"""
+    
+    git_binary = GIT_BINARY.load()
+    assert git_binary.abspath and git_binary.version
 
     out_dir = out_dir or Path(link.link_dir)
     output: ArchiveOutput = get_output_path()
     output_path = out_dir / output
     output_path.mkdir(exist_ok=True)
     cmd = [
-        CONFIG.GIT_BINARY,
+        str(git_binary.abspath),
         'clone',
-        *CONFIG.GIT_ARGS,
-        *([] if CONFIG.CHECK_SSL_VALIDITY else ['-c', 'http.sslVerify=false']),
+        *GIT_CONFIG.GIT_ARGS,
+        *([] if GIT_CONFIG.GIT_CHECK_SSL_VALIDITY else ['-c', 'http.sslVerify=false']),
         without_query(without_fragment(link.url)),
     ]
     status = 'succeeded'
@@ -88,7 +91,7 @@ def save_git(link: Link, out_dir: Optional[Path]=None, timeout: int=CONFIG.TIMEO
     return ArchiveResult(
         cmd=cmd,
         pwd=str(out_dir),
-        cmd_version=CONFIG.GIT_VERSION,
+        cmd_version=str(git_binary.version),
         output=output,
         status=status,
         **timer.stats,

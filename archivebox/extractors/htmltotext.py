@@ -5,18 +5,13 @@ import io
 from pathlib import Path
 from typing import Optional
 
-from archivebox.config import VERSION
-from ..config.legacy import (
-    SAVE_HTMLTOTEXT,
-    TIMEOUT,
-)
-from ..index.schema import Link, ArchiveResult, ArchiveError
-from ..logging_util import TimedProgress
+from archivebox.config import VERSION, ARCHIVING_CONFIG
+from archivebox.config.legacy import SAVE_HTMLTOTEXT
 from archivebox.misc.system import atomic_write
-from archivebox.misc.util import (
-    enforce_types,
-    is_static_file,
-)
+from archivebox.misc.util import enforce_types, is_static_file
+
+from ..logging_util import TimedProgress
+from ..index.schema import Link, ArchiveResult, ArchiveError
 from .title import get_html
 
 
@@ -122,7 +117,7 @@ def should_save_htmltotext(link: Link, out_dir: Optional[Path]=None, overwrite: 
 
 
 @enforce_types
-def save_htmltotext(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_htmltotext(link: Link, out_dir: Optional[Path]=None, timeout: int=ARCHIVING_CONFIG.TIMEOUT) -> ArchiveResult:
     """extract search-indexing-friendly text from an HTML document"""
 
     out_dir = Path(out_dir or link.link_dir)

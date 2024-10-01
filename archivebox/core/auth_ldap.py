@@ -1,9 +1,7 @@
-from ..config.legacy import (
-    LDAP_CREATE_SUPERUSER
-)
+from archivebox.plugins_auth.ldap.apps import LDAP_CONFIG
 
 def create_user(sender, user=None, ldap_user=None, **kwargs):
-    if not user.id and LDAP_CREATE_SUPERUSER:
+    if not user.id and LDAP_CONFIG.LDAP_CREATE_SUPERUSER:
         user.is_superuser = True
 
     user.is_staff = True

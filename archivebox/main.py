@@ -430,7 +430,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
 def status(out_dir: Path=DATA_DIR) -> None:
     """Print out some info and statistics about the archive collection"""
 
-    check_data_folder(CONFIG)
+    check_data_folder()
 
     from core.models import Snapshot
     from django.contrib.auth import get_user_model
@@ -573,7 +573,7 @@ def add(urls: Union[str, List[str]],
         run_subcommand('init', stdin=None, pwd=out_dir)
 
     # Load list of links from the existing index
-    check_data_folder(CONFIG)
+    check_data_folder()
 
     # worker = start_cli_workers()
     
@@ -673,7 +673,7 @@ def remove(filter_str: Optional[str]=None,
            out_dir: Path=DATA_DIR) -> List[Link]:
     """Remove the specified URLs from the archive"""
     
-    check_data_folder(CONFIG)
+    check_data_folder()
 
     if snapshots is None:
         if filter_str and filter_patterns:
@@ -762,7 +762,7 @@ def update(resume: Optional[float]=None,
     # from .queues.supervisor_util import start_cli_workers
     
 
-    check_data_folder(CONFIG)
+    check_data_folder()
     # start_cli_workers()
     new_links: List[Link] = [] # TODO: Remove input argument: only_new
 
@@ -833,7 +833,7 @@ def list_all(filter_patterns_str: Optional[str]=None,
              out_dir: Path=DATA_DIR) -> Iterable[Link]:
     """List, filter, and export information about archive entries"""
     
-    check_data_folder(CONFIG)
+    check_data_folder()
 
     if filter_patterns and filter_patterns_str:
         stderr(
@@ -881,7 +881,7 @@ def list_links(snapshots: Optional[QuerySet]=None,
                before: Optional[float]=None,
                out_dir: Path=DATA_DIR) -> Iterable[Link]:
     
-    check_data_folder(CONFIG)
+    check_data_folder()
 
     if snapshots:
         all_snapshots = snapshots
@@ -905,7 +905,7 @@ def list_folders(links: List[Link],
                  status: str,
                  out_dir: Path=DATA_DIR) -> Dict[str, Optional[Link]]:
     
-    check_data_folder(CONFIG)
+    check_data_folder()
 
     STATUS_FUNCTIONS = {
         "indexed": get_indexed_folders,
@@ -926,7 +926,7 @@ def list_folders(links: List[Link],
         raise ValueError('Status not recognized.')
 
 @enforce_types
-def setup(out_dir: Path=DATA_DIR) -> None:
+def install(out_dir: Path=DATA_DIR) -> None:
     """Automatically install all ArchiveBox dependencies and extras"""
 
     from rich import print
@@ -937,46 +937,30 @@ def setup(out_dir: Path=DATA_DIR) -> None:
 
     stderr('\n[+] Installing ArchiveBox dependencies automatically...', color='green')
 
-    for binary in settings.BINARIES.values():
+    for binary in reversed(list(settings.BINARIES.values())):
         try:
             print(binary.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
         except Exception as e:
             print(f'[X] Failed to install {binary.name}: {e}')
 
-    # from plugins_extractor.curl.apps import CURL_BINARY
-    # print(CURL_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
-
-    # from plugins_extractor.wget.apps import WGET_BINARY
-    # print(WGET_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
-
-    # from plugins_extractor.ytdlp.apps import YTDLP_BINARY
-    # print(YTDLP_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
-
-    # from plugins_extractor.chrome.apps import CHROME_BINARY
-    # print(CHROME_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
-
-    # from plugins_extractor.singlefile.apps import SINGLEFILE_BINARY
-    # print(SINGLEFILE_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
-    
-    # from plugins_extractor.readability.apps import READABILITY_BINARY
-    # print(READABILITY_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
-    
-    # from plugins_extractor.mercury.apps import MERCURY_BINARY
-    # print(MERCURY_BINARY.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
-    
 
     from django.contrib.auth import get_user_model
     User = get_user_model()
 
     if not User.objects.filter(is_superuser=True).exists():
-        stderr('\n[+] Creating new admin user for the Web UI...', color='green')
-        run_subcommand('manage', subcommand_args=['createsuperuser'], pwd=out_dir)
+        stderr('\n[+] Don\'t forget to create a new admin user for the Web UI...', color='green')
+        stderr('    archivebox manage createsuperuser')
+        # run_subcommand('manage', subcommand_args=['createsuperuser'], pwd=out_dir)
     
     stderr('\n[√] Set up ArchiveBox and its dependencies successfully.', color='green')
     
     from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
     
     run_shell([ARCHIVEBOX_BINARY.load().abspath, '--version'], capture_output=False, cwd=out_dir)
+
+# backwards-compatibility:
+setup = install
+
 
 @enforce_types
 def config(config_options_str: Optional[str]=None,
@@ -989,7 +973,7 @@ def config(config_options_str: Optional[str]=None,
 
     from rich import print
 
-    check_data_folder(CONFIG)
+    check_data_folder()
     if config_options and config_options_str:
         stderr(
             '[X] You should either pass config values as an arguments '
@@ -1090,8 +1074,8 @@ def schedule(add: bool=False,
              out_dir: Path=DATA_DIR):
     """Set ArchiveBox to regularly import URLs at specific times using cron"""
     
-    check_data_folder(CONFIG)
-    from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
+    check_data_folder()
+    from archivebox.plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
 
     Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)
 
@@ -1228,7 +1212,7 @@ def server(runserver_args: Optional[List[str]]=None,
         print()
 
 
-    check_data_folder(CONFIG)
+    check_data_folder()
 
     from django.core.management import call_command
     from django.contrib.auth.models import User
@@ -1280,7 +1264,7 @@ def server(runserver_args: Optional[List[str]]=None,
 def manage(args: Optional[List[str]]=None, out_dir: Path=DATA_DIR) -> None:
     """Run an ArchiveBox Django management command"""
 
-    check_data_folder(CONFIG)
+    check_data_folder()
     from django.core.management import execute_from_command_line
 
     if (args and "createsuperuser" in args) and (SHELL_CONFIG.IN_DOCKER and not SHELL_CONFIG.IS_TTY):
@@ -1297,7 +1281,7 @@ def manage(args: Optional[List[str]]=None, out_dir: Path=DATA_DIR) -> None:
 def shell(out_dir: Path=DATA_DIR) -> None:
     """Enter an interactive ArchiveBox Django shell"""
 
-    check_data_folder(CONFIG)
+    check_data_folder()
 
     from django.core.management import call_command
     call_command("shell_plus")

@@ -2,16 +2,11 @@ __package__ = 'archivebox.extractors'
 
 from pathlib import Path
 
-from typing import Optional
-
-from ..index.schema import Link, ArchiveResult, ArchiveOutput
 from archivebox.misc.system import chmod_file, run
-from archivebox.misc.util import (
-    enforce_types,
-    domain,
-    dedupe,
-)
-from ..config.legacy import CONFIG
+from archivebox.misc.util import enforce_types, domain, dedupe
+from archivebox.plugins_extractor.favicon.apps import FAVICON_CONFIG
+from archivebox.plugins_extractor.curl.apps import CURL_CONFIG, CURL_BINARY
+from ..index.schema import Link, ArchiveResult, ArchiveOutput
 from ..logging_util import TimedProgress
 
 
@@ -22,7 +17,7 @@ def should_save_favicon(link: Link, out_dir: str | Path | None=None, overwrite: 
     if not overwrite and (out_dir / 'favicon.ico').exists():
         return False
 
-    return CONFIG.SAVE_FAVICON
+    return FAVICON_CONFIG.SAVE_FAVICON
 
 @enforce_types
 def get_output_path():
@@ -30,8 +25,11 @@ def get_output_path():
 
 
 @enforce_types
-def save_favicon(link: Link, out_dir: str | Path | None=None, timeout: int=CONFIG.TIMEOUT) -> ArchiveResult:
+def save_favicon(link: Link, out_dir: str | Path | None=None, timeout: int=CURL_CONFIG.CURL_TIMEOUT) -> ArchiveResult:
     """download site favicon from google's favicon api"""
+
+    curl_binary = CURL_BINARY.load()
+    assert curl_binary.abspath and curl_binary.version
 
     out_dir = Path(out_dir or link.link_dir)
     assert out_dir.exists()
@@ -39,17 +37,17 @@ def save_favicon(link: Link, out_dir: str | Path | None=None, timeout: int=CONFI
     output: ArchiveOutput = 'favicon.ico'
     # later options take precedence
     options = [
-        *CONFIG.CURL_ARGS,
-        *CONFIG.CURL_EXTRA_ARGS,
+        *CURL_CONFIG.CURL_ARGS,
+        *CURL_CONFIG.CURL_EXTRA_ARGS,
         '--max-time', str(timeout),
         '--output', str(output),
-        *(['--user-agent', '{}'.format(CONFIG.CURL_USER_AGENT)] if CONFIG.CURL_USER_AGENT else []),
-        *([] if CONFIG.CHECK_SSL_VALIDITY else ['--insecure']),
+        *(['--user-agent', '{}'.format(CURL_CONFIG.CURL_USER_AGENT)] if CURL_CONFIG.CURL_USER_AGENT else []),
+        *([] if CURL_CONFIG.CURL_CHECK_SSL_VALIDITY else ['--insecure']),
     ]
     cmd = [
-        CONFIG.CURL_BINARY,
+        str(curl_binary.abspath),
         *dedupe(options),
-        CONFIG.FAVICON_PROVIDER.format(domain(link.url)),
+        FAVICON_CONFIG.FAVICON_PROVIDER.format(domain(link.url)),
     ]
     status = 'failed'
     timer = TimedProgress(timeout, prefix='      ')
@@ -65,7 +63,7 @@ def save_favicon(link: Link, out_dir: str | Path | None=None, timeout: int=CONFI
     return ArchiveResult(
         cmd=cmd,
         pwd=str(out_dir),
-        cmd_version=CONFIG.CURL_VERSION,
+        cmd_version=str(curl_binary.version),
         output=output,
         status=status,
         **timer.stats,

@@ -13,9 +13,7 @@ import abx.archivebox
 import abx.archivebox.use
 import abx.django.use
 
-from archivebox.config import VERSION, DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS      # noqa
-
-from ..config.legacy import CONFIG
+from archivebox.config import VERSION, DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS, SHELL_CONFIG, SERVER_CONFIG      # noqa
 
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
 IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
@@ -80,7 +78,7 @@ LOGOUT_REDIRECT_URL = os.environ.get('LOGOUT_REDIRECT_URL', '/')
 PASSWORD_RESET_URL = '/accounts/password_reset/'
 APPEND_SLASH = True
 
-DEBUG = CONFIG.DEBUG or ('--debug' in sys.argv)
+DEBUG = SHELL_CONFIG.DEBUG or ('--debug' in sys.argv)
 
 
 INSTALLED_APPS = [
@@ -364,10 +362,10 @@ STORAGES = {
 ### Security Settings
 ################################################################################
 
-SECRET_KEY = CONFIG.SECRET_KEY or get_random_string(50, 'abcdefghijklmnopqrstuvwxyz0123456789_')
+SECRET_KEY = SERVER_CONFIG.SECRET_KEY or get_random_string(50, 'abcdefghijklmnopqrstuvwxyz0123456789_')
 
-ALLOWED_HOSTS = CONFIG.ALLOWED_HOSTS.split(',')
-CSRF_TRUSTED_ORIGINS = list(set(CONFIG.CSRF_TRUSTED_ORIGINS.split(',')))
+ALLOWED_HOSTS = SERVER_CONFIG.ALLOWED_HOSTS.split(',')
+CSRF_TRUSTED_ORIGINS = list(set(SERVER_CONFIG.CSRF_TRUSTED_ORIGINS.split(',')))
 
 # automatically fix case when user sets ALLOWED_HOSTS (e.g. to archivebox.example.com)
 # but forgets to add https://archivebox.example.com to CSRF_TRUSTED_ORIGINS

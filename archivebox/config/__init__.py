@@ -1,6 +1,6 @@
 __package__ = 'archivebox.config'
 
-from .constants import CONSTANTS, PACKAGE_DIR, DATA_DIR, ARCHIVE_DIR, VERSION
+from .constants import CONSTANTS, CONSTANTS_CONFIG, PACKAGE_DIR, DATA_DIR, ARCHIVE_DIR, VERSION
 from .defaults import (
     SHELL_CONFIG,
     STORAGE_CONFIG,
@@ -23,4 +23,5 @@ __all__ = [
     'SERVER_CONFIG',
     'ARCHIVING_CONFIG',
     'SEARCH_BACKEND_CONFIG',
+    'CONSTANTS_CONFIG',
 ]

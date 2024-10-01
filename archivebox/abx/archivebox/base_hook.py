@@ -13,43 +13,6 @@ HookType = Literal['CONFIG', 'BINPROVIDER', 'BINARY', 'EXTRACTOR', 'REPLAYER', '
 hook_type_names: Tuple[HookType] = get_args(HookType)
 
 class BaseHook(BaseModel):
-    """
-    A Plugin consists of a list of Hooks, applied to django.conf.settings when AppConfig.read() -> Plugin.register() is called.
-    Plugin.register() then calls each Hook.register() on the provided settings.
-    each Hook.regsiter() function (ideally pure) takes a django.conf.settings as input and returns a new one back.
-    or 
-    it modifies django.conf.settings in-place to add changes corresponding to its HookType.
-    e.g. for a HookType.CONFIG, the Hook.register() function places the hook in settings.CONFIG (and settings.HOOKS)
-    An example of an impure Hook would be a CHECK that modifies settings but also calls django.core.checks.register(check).
-    In practice any object that subclasses BaseHook and provides a .register() function can behave as a Hook.
-
-    setup_django() -> imports all settings.INSTALLED_APPS...
-        # django imports AppConfig, models, migrations, admins, etc. for all installed apps
-        # django then calls AppConfig.ready() on each installed app...
-
-        plugins_pkg.npm.NpmPlugin().AppConfig.ready()                    # called by django
-            plugins_pkg.npm.NpmPlugin().register(settings) ->
-                plugins_pkg.npm.NpmConfigSet().register(settings)
-                    abx.archivebox.base_configset.BaseConfigSet().register(settings)
-                        abx.archivebox.base_hook.BaseHook().register(settings, parent_plugin=plugins_pkg.npm.NpmPlugin())
-
-                ...
-        ...
-
-    Both core ArchiveBox code and plugin code depend on python >= 3.10 and django >= 5.0 w/ sqlite and a filesystem.
-    Core ArchiveBox code can depend only on python and the pip libraries it ships with, and can never depend on plugin code / node / other binaries.
-    Plugin code can depend on archivebox core, other django apps, other pip libraries, and other plugins.
-    Plugins can provide BinProviders + Binaries which can depend on arbitrary other binaries / package managers like curl / wget / yt-dlp / etc.
-
-    The execution interface between plugins is simply calling builtinplugins.npm.... functions directly, django handles
-    importing all plugin code. There is no need to manually register methods/classes, only register to call
-    impure setup functions or provide runtime state.
-    settings.CONFIGS / settings.BINPROVIDERS / settings.BINARIES /... etc. are reserved for dynamic runtime state only.
-    This state is exposed to the broader system in a flat namespace, e.g. CONFIG.IS_DOCKER=True, or BINARIES = [
-        ..., Binary('node', abspath='/usr/local/bin/node', version='22.2.0'), ...
-    ]
-
-    """
     model_config = ConfigDict(
         extra="allow",
         arbitrary_types_allowed=True,

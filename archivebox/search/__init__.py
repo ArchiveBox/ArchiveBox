@@ -11,7 +11,7 @@ from archivebox.misc.util import enforce_types
 from archivebox.misc.logging import stderr
 from archivebox.config.legacy import ANSI
 
-# from archivebox.archivebox.config import settings.CONFIGS.SearchBackendConfig
+from archivebox.config import SEARCH_BACKEND_CONFIG
 
 
 def log_index_started(url):
@@ -58,13 +58,13 @@ def get_indexable_content(results: QuerySet):
 
 def import_backend():
     for backend in settings.SEARCH_BACKENDS.values():
-        if backend.name == settings.CONFIGS.SearchBackendConfig.SEARCH_BACKEND_ENGINE:
+        if backend.name == SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE:
             return backend
-    raise Exception(f'Could not load {settings.CONFIGS.SearchBackendConfig.SEARCH_BACKEND_ENGINE} as search backend')
+    raise Exception(f'Could not load {SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE} as search backend')
 
 @enforce_types
 def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: Path=settings.DATA_DIR, skip_text_index: bool=False) -> None:
-    if not settings.CONFIGS.SearchBackendConfig.USE_INDEXING_BACKEND:
+    if not SEARCH_BACKEND_CONFIG.USE_INDEXING_BACKEND:
         return
 
     if not skip_text_index and texts:
@@ -86,7 +86,7 @@ def write_search_index(link: Link, texts: Union[List[str], None]=None, out_dir: 
 def query_search_index(query: str, out_dir: Path=settings.DATA_DIR) -> QuerySet:
     from core.models import Snapshot
 
-    if settings.CONFIGS.SearchBackendConfig.USE_SEARCHING_BACKEND:
+    if SEARCH_BACKEND_CONFIG.USE_SEARCHING_BACKEND:
         backend = import_backend()
         try:
             snapshot_pks = backend.search(query)
@@ -106,7 +106,7 @@ def query_search_index(query: str, out_dir: Path=settings.DATA_DIR) -> QuerySet:
 
 @enforce_types
 def flush_search_index(snapshots: QuerySet):
-    if not settings.CONFIGS.SearchBackendConfig.USE_INDEXING_BACKEND or not snapshots:
+    if not SEARCH_BACKEND_CONFIG.USE_INDEXING_BACKEND or not snapshots:
         return
     backend = import_backend()
     snapshot_pks = (str(pk) for pk in snapshots.values_list('pk', flat=True))

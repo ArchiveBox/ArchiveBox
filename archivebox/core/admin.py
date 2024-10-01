@@ -36,7 +36,7 @@ from main import remove
 from extractors import archive_links
 
 
-CONFIG = settings.CONFIG
+CONFIG = settings.FLAT_CONFIG
 
 GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': [], 'CAN_UPGRADE': False}
 

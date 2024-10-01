@@ -76,7 +76,7 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     relevant_configs = {
         key: val
-        for key, val in settings.CONFIG.items()
+        for key, val in settings.FLAT_CONFIG.items()
         if '_BINARY' in key or '_VERSION' in key
     }
 
@@ -105,6 +105,7 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
                 f'<a href="/admin/environment/config/{config_key}/">{config_key}</a>'
                 for config_key, config_value in relevant_configs.items()
                     if str(binary.name).lower().replace('-', '').replace('_', '').replace('ytdlp', 'youtubedl') in config_key.lower()
+                    or config_value.lower().endswith(binary.name.lower())
                     # or binary.name.lower().replace('-', '').replace('_', '') in str(config_value).lower()
             )))
             # if not binary.provider_overrides:

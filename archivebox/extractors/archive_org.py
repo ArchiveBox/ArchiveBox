@@ -7,21 +7,10 @@ from collections import defaultdict
 
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from archivebox.misc.system import run, chmod_file
-from archivebox.misc.util import (
-    enforce_types,
-    is_static_file,
-    dedupe,
-)
-from ..config.legacy import (
-    TIMEOUT,
-    CURL_ARGS,
-    CURL_EXTRA_ARGS,
-    CHECK_SSL_VALIDITY,
-    SAVE_ARCHIVE_DOT_ORG,
-    CURL_BINARY,
-    CURL_VERSION,
-    CURL_USER_AGENT,
-)
+from archivebox.misc.util import enforce_types, is_static_file, dedupe
+from archivebox.plugins_extractor.archivedotorg.apps import ARCHIVEDOTORG_CONFIG
+from archivebox.plugins_extractor.curl.apps import CURL_CONFIG, CURL_BINARY
+
 from ..logging_util import TimedProgress
 
 
@@ -39,11 +28,14 @@ def should_save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, overwr
         # if open(path, 'r', encoding='utf-8').read().strip() != 'None':
         return False
 
-    return SAVE_ARCHIVE_DOT_ORG
+    return ARCHIVEDOTORG_CONFIG.SAVE_ARCHIVE_DOT_ORG
 
 @enforce_types
-def save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, timeout: int=CURL_CONFIG.CURL_TIMEOUT) -> ArchiveResult:
     """submit site to archive.org for archiving via their service, save returned archive url"""
+
+    curl_binary = CURL_BINARY.load()
+    assert curl_binary.abspath and curl_binary.version
 
     out_dir = out_dir or Path(link.link_dir)
     output: ArchiveOutput = get_output_path()
@@ -51,15 +43,15 @@ def save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, timeout: int=
     submit_url = 'https://web.archive.org/save/{}'.format(link.url)
     # later options take precedence
     options = [
-        *CURL_ARGS,
-        *CURL_EXTRA_ARGS,
+        *CURL_CONFIG.CURL_ARGS,
+        *CURL_CONFIG.CURL_EXTRA_ARGS,
         '--head',
         '--max-time', str(timeout),
-        *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
-        *([] if CHECK_SSL_VALIDITY else ['--insecure']),
+        *(['--user-agent', '{}'.format(CURL_CONFIG.CURL_USER_AGENT)] if CURL_CONFIG.CURL_USER_AGENT else []),
+        *([] if CURL_CONFIG.CURL_CHECK_SSL_VALIDITY else ['--insecure']),
     ]
     cmd = [
-        CURL_BINARY,
+        str(curl_binary.abspath),
         *dedupe(options),
         submit_url,
     ]
@@ -97,22 +89,22 @@ def save_archive_dot_org(link: Link, out_dir: Optional[Path]=None, timeout: int=
     return ArchiveResult(
         cmd=cmd,
         pwd=str(out_dir),
-        cmd_version=CURL_VERSION,
+        cmd_version=str(curl_binary.version),
         output=output,
         status=status,
         **timer.stats,
     )
 
 @enforce_types
-def parse_archive_dot_org_response(response: bytes) -> Tuple[List[str], List[str]]:
+def parse_archive_dot_org_response(response: str) -> Tuple[List[str], List[str]]:
     # Parse archive.org response headers
     headers: Dict[str, List[str]] = defaultdict(list)
 
     # lowercase all the header names and store in dict
     for header in response.splitlines():
-        if b':' not in header or not header.strip():
+        if ':' not in header or not header.strip():
             continue
-        name, val = header.decode().split(':', 1)
+        name, val = header.split(':', 1)
         headers[name.lower().strip()].append(val.strip())
 
     # Get successful archive url in "content-location" header or any errors

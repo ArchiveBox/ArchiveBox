@@ -60,6 +60,7 @@ from .defaults import SHELL_CONFIG, GENERAL_CONFIG, ARCHIVING_CONFIG, SERVER_CON
 from archivebox.plugins_auth.ldap.apps import LDAP_CONFIG
 from archivebox.plugins_extractor.favicon.apps import FAVICON_CONFIG
 from archivebox.plugins_extractor.wget.apps import WGET_CONFIG
+from archivebox.plugins_extractor.curl.apps import CURL_CONFIG
 
 ANSI = SHELL_CONFIG.ANSI
 LDAP = LDAP_CONFIG.LDAP_ENABLED
@@ -81,9 +82,11 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
     
     'LDAP_CONFIG': LDAP_CONFIG.as_legacy_config_schema(),
     
-    'FAVICON_CONFIG': FAVICON_CONFIG.as_legacy_config_schema(),
+    # 'FAVICON_CONFIG': FAVICON_CONFIG.as_legacy_config_schema(),
     
-    'WGET_CONFIG': WGET_CONFIG.as_legacy_config_schema(),
+    # 'WGET_CONFIG': WGET_CONFIG.as_legacy_config_schema(),
+    
+    # 'CURL_CONFIG': CURL_CONFIG.as_legacy_config_schema(),
 
 
     'ARCHIVE_METHOD_TOGGLES': {
@@ -109,7 +112,7 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
 
     'ARCHIVE_METHOD_OPTIONS': {
         'RESOLUTION':               {'type': str,   'default': '1440,2000', 'aliases': ('SCREENSHOT_RESOLUTION','WINDOW_SIZE')},
-        'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com,gist.github.com,codeberg.org,gitea.com,git.sr.ht'},
+        # 'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com,gist.github.com,codeberg.org,gitea.com,git.sr.ht'},
         'CHECK_SSL_VALIDITY':       {'type': bool,  'default': True},
         'MEDIA_MAX_SIZE':           {'type': str,   'default': '750m'},
 
@@ -144,15 +147,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
                                                                 ]},
         'YOUTUBEDL_EXTRA_ARGS':     {'type': list,  'default': None},
 
-
-        'CURL_ARGS':                {'type': list,  'default': ['--silent',
-                                                                '--location',
-                                                                '--compressed'
-                                                               ]},
-        'CURL_EXTRA_ARGS':          {'type': list,  'default': None},
-        'GIT_ARGS':                 {'type': list,  'default': ['--recursive']},
-        'SINGLEFILE_ARGS':          {'type': list,  'default': None},
-        'SINGLEFILE_EXTRA_ARGS':    {'type': list,  'default': None},
     },
 
     'DEPENDENCY_CONFIG': {
@@ -164,9 +158,9 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'USE_YOUTUBEDL':            {'type': bool,  'default': True},
         'USE_RIPGREP':              {'type': bool,  'default': True},
 
-        'CURL_BINARY':              {'type': str,   'default': 'curl'},
-        'GIT_BINARY':               {'type': str,   'default': 'git'},
-        'NODE_BINARY':              {'type': str,   'default': 'node'},
+        # 'GIT_BINARY':               {'type': str,   'default': 'git'},
+        # 'CURL_BINARY':              {'type': str,   'default': 'curl'},
+        # 'NODE_BINARY':              {'type': str,   'default': 'node'},
         # 'YOUTUBEDL_BINARY':         {'type': str,   'default': 'yt-dlp'},   # also can accept youtube-dl
         # 'SINGLEFILE_BINARY':        {'type': str,   'default': lambda c: bin_path('single-file')},
         # 'READABILITY_BINARY':       {'type': str,   'default': lambda c: bin_path('readability-extractor')},
@@ -209,21 +203,12 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'URL_DENYLIST_PTN':         {'default': lambda c: c['URL_DENYLIST'] and re.compile(c['URL_DENYLIST'] or '', CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS)},
     'URL_ALLOWLIST_PTN':        {'default': lambda c: c['URL_ALLOWLIST'] and re.compile(c['URL_ALLOWLIST'] or '', CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS)},
 
-
-    'USE_CURL':                 {'default': lambda c: c['USE_CURL'] and (c['SAVE_FAVICON'] or c['SAVE_TITLE'] or c['SAVE_ARCHIVE_DOT_ORG'])},
-    'CURL_VERSION':             {'default': lambda c: bin_version(c['CURL_BINARY']) if c['USE_CURL'] else None},
-    # 'CURL_USER_AGENT':          {'default': lambda c: c['CURL_USER_AGENT'].format(**c)},
-    'CURL_ARGS':                {'default': lambda c: c['CURL_ARGS'] or []},
-    'CURL_EXTRA_ARGS':          {'default': lambda c: c['CURL_EXTRA_ARGS'] or []},
-    'SAVE_FAVICON':             {'default': lambda c: c['USE_CURL'] and c['SAVE_FAVICON']},
-    'SAVE_ARCHIVE_DOT_ORG':     {'default': lambda c: c['USE_CURL'] and c['SAVE_ARCHIVE_DOT_ORG']},
-
-    'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
-    'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
-    'SAVE_GIT':                 {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
+    # 'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
+    # 'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
+    # 'SAVE_GIT':                 {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
 
 
-    'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
+    # 'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
     # 'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
     # 'DATA_LOCATIONS':           {'default': lambda c: get_data_locations(c)},
 
@@ -613,13 +598,13 @@ def get_dependency_info(config: benedict) -> ConfigValue:
         #     'is_valid': True,
         # },
         
-        'CURL_BINARY': {
-            'path': bin_path(config['CURL_BINARY']),
-            'version': config['CURL_VERSION'],
-            'hash': bin_hash(config['CURL_BINARY']),
-            'enabled': config['USE_CURL'],
-            'is_valid': bool(config['CURL_VERSION']),
-        },
+        # 'CURL_BINARY': {
+        #     'path': bin_path(config['CURL_BINARY']),
+        #     'version': config['CURL_VERSION'],
+        #     'hash': bin_hash(config['CURL_BINARY']),
+        #     'enabled': config['USE_CURL'],
+        #     'is_valid': bool(config['CURL_VERSION']),
+        # },
         # 'WGET_BINARY': {
         #     'path': bin_path(config['WGET_BINARY']),
         #     'version': config['WGET_VERSION'],
@@ -641,13 +626,13 @@ def get_dependency_info(config: benedict) -> ConfigValue:
         #     'enabled': config['USE_MERCURY'],
         #     'is_valid': bool(config['MERCURY_VERSION']),
         # },
-        'GIT_BINARY': {
-            'path': bin_path(config['GIT_BINARY']),
-            'version': config['GIT_VERSION'],
-            'hash': bin_hash(config['GIT_BINARY']),
-            'enabled': config['USE_GIT'],
-            'is_valid': bool(config['GIT_VERSION']),
-        },
+        # 'GIT_BINARY': {
+        #     'path': bin_path(config['GIT_BINARY']),
+        #     'version': config['GIT_VERSION'],
+        #     'hash': bin_hash(config['GIT_BINARY']),
+        #     'enabled': config['USE_GIT'],
+        #     'is_valid': bool(config['GIT_VERSION']),
+        # },
         # 'SINGLEFILE_BINARY': {
         #     'path': bin_path(config['SINGLEFILE_BINARY']),
         #     'version': config['SINGLEFILE_VERSION'],

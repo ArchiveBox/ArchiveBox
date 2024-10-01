@@ -1,13 +1,11 @@
 __package__ = 'archivebox.misc'
 
-from benedict import benedict
-
 from archivebox.config import DATA_DIR, ARCHIVE_DIR, CONSTANTS, SHELL_CONFIG
 
 from .logging import stderr
 
 
-def check_data_folder(config: benedict) -> None:
+def check_data_folder() -> None:
 
     archive_dir_exists = ARCHIVE_DIR.exists()
     if not archive_dir_exists:
@@ -23,7 +21,7 @@ def check_data_folder(config: benedict) -> None:
         raise SystemExit(2)
 
 
-def check_migrations(config: benedict):
+def check_migrations():
     from ..index.sql import list_migrations
 
     pending_migrations = [name for status, name in list_migrations() if not status]

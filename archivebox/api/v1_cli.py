@@ -13,7 +13,7 @@ from ..main import (
     schedule,
 )
 from archivebox.misc.util import ansi_to_html
-from ..config.legacy import ONLY_NEW
+from archivebox.config import ARCHIVING_CONFIG
 
 
 from .auth import API_AUTH_METHODS
@@ -58,7 +58,7 @@ class AddCommandSchema(Schema):
     urls: List[str]
     tag: str = ""
     depth: int = 0
-    update: bool = not ONLY_NEW  # Default to the opposite of ONLY_NEW
+    update: bool = not ARCHIVING_CONFIG.ONLY_NEW  # Default to the opposite of ARCHIVING_CONFIG.ONLY_NEW
     update_all: bool = False
     index_only: bool = False
     overwrite: bool = False
@@ -68,7 +68,7 @@ class AddCommandSchema(Schema):
 
 class UpdateCommandSchema(Schema):
     resume: Optional[float] = 0
-    only_new: bool = ONLY_NEW
+    only_new: bool = ARCHIVING_CONFIG.ONLY_NEW
     index_only: bool = False
     overwrite: bool = False
     after: Optional[float] = 0
@@ -85,7 +85,7 @@ class ScheduleCommandSchema(Schema):
     tag: str = ''
     depth: int = 0
     overwrite: bool = False
-    update: bool = not ONLY_NEW
+    update: bool = not ARCHIVING_CONFIG.ONLY_NEW
     clear: bool = False
 
 class ListCommandSchema(Schema):

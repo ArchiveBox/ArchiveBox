@@ -1,13 +1,11 @@
 __package__ = 'archivebox.core'
 
 
-from ..config.legacy import (
-    LDAP
-)
+from archivebox.plugins_auth.ldap.apps import LDAP_CONFIG
 
 def register_signals():
 
-    if LDAP:
+    if LDAP_CONFIG.LDAP_ENABLED:
         import django_auth_ldap.backend
         from .auth_ldap import create_user
 
