@@ -1,17 +1,21 @@
+__package__ = 'plugins_extractor.wget'
+
 import sys
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pathlib import Path
+from subprocess import run, DEVNULL
 
 from rich import print
 from pydantic import InstanceOf, Field, model_validator
-from pydantic_pkgr import BinProvider, BinName
+from pydantic_pkgr import BinProvider, BinName, bin_abspath, BinProviderName, ProviderLookupDict
 
 from abx.archivebox.base_plugin import BasePlugin, BaseHook
 from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_binary import BaseBinary, env, apt, brew
 from abx.archivebox.base_extractor import BaseExtractor, ExtractorName
 
-from archivebox.extractors.wget import wget_output_path
+from archivebox.config import ARCHIVING_CONFIG, STORAGE_CONFIG
+from .wget_util import wget_output_path
 
 
 class WgetConfig(BaseConfigSet):
@@ -34,13 +38,13 @@ class WgetConfig(BaseConfigSet):
     ]
     WGET_EXTRA_ARGS: List[str] = []
     
-    WGET_AUTO_COMPRESSION: bool = Field(default=True)
     SAVE_WGET_REQUISITES: bool = Field(default=True)
-    WGET_USER_AGENT: str = Field(default='', alias='USER_AGENT')
-    WGET_TIMEOUT: int = Field(default=60, alias='TIMEOUT')
-    WGET_CHECK_SSL_VALIDITY: bool = Field(default=True, alias='CHECK_SSL_VALIDITY')
-    WGET_RESTRICT_FILE_NAMES: str = Field(default='windows', alias='RESTRICT_FILE_NAMES')
-    WGET_COOKIES_FILE: Optional[Path] = Field(default=None, alias='COOKIES_FILE')
+    WGET_RESTRICT_FILE_NAMES: str = Field(default=lambda: STORAGE_CONFIG.RESTRICT_FILE_NAMES)
+    
+    WGET_TIMEOUT: int =  Field(default=lambda: ARCHIVING_CONFIG.TIMEOUT)
+    WGET_CHECK_SSL_VALIDITY: bool = Field(default=lambda: ARCHIVING_CONFIG.CHECK_SSL_VALIDITY)
+    WGET_USER_AGENT: str = Field(default=lambda: ARCHIVING_CONFIG.USER_AGENT)
+    WGET_COOKIES_FILE: Optional[Path] = Field(default=lambda: ARCHIVING_CONFIG.COOKIES_FILE)
     
     @model_validator(mode='after')
     def validate_use_ytdlp(self):
@@ -53,6 +57,22 @@ class WgetConfig(BaseConfigSet):
             print('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#save_media', file=sys.stderr)
             print(file=sys.stderr)
         return self
+    
+    @property
+    def WGET_AUTO_COMPRESSION(self) -> bool:
+        if hasattr(self, '_WGET_AUTO_COMPRESSION'):
+            return self._WGET_AUTO_COMPRESSION
+        try:
+            cmd = [
+                self.WGET_BINARY,
+                "--compression=auto",
+                "--help",
+            ]
+            self._WGET_AUTO_COMPRESSION = not run(cmd, stdout=DEVNULL, stderr=DEVNULL, timeout=3).returncode
+            return self._WGET_AUTO_COMPRESSION
+        except (FileNotFoundError, OSError):
+            self._WGET_AUTO_COMPRESSION = False
+            return False
 
 WGET_CONFIG = WgetConfig()
 
@@ -60,6 +80,12 @@ WGET_CONFIG = WgetConfig()
 class WgetBinary(BaseBinary):
     name: BinName = WGET_CONFIG.WGET_BINARY
     binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
+    
+    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
+        brew.name: {
+            'abspath': lambda: bin_abspath(WGET_CONFIG.WGET_BINARY, PATH=f'/opt/homebrew/opt/wget/bin:{brew.PATH}'),
+        },
+    }
 
 WGET_BINARY = WgetBinary()
 

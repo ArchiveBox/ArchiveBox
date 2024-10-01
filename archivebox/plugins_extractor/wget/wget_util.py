@@ -4,9 +4,8 @@ import re
 from pathlib import Path
 
 from typing import Optional
-from datetime import datetime, timezone
 
-from archivebox.misc.system import run, chmod_file
+
 from archivebox.misc.util import (
     enforce_types,
     without_fragment,
@@ -14,130 +13,10 @@ from archivebox.misc.util import (
     path,
     domain,
     urldecode,
-    dedupe,
 )
-from archivebox.plugins_extractor.wget.apps import WGET_BINARY, WGET_CONFIG
-
-from ..logging_util import TimedProgress
-from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-
-
-def get_output_path():
-    # TODO: actually save output into this folder, instead of do {domain}/**/index.html
-    return 'wget/'
-
-def get_embed_path(archiveresult=None):
-    if not archiveresult:
-        return get_output_path()
-
-    link = archiveresult.snapshot.as_link()
-    return wget_output_path(link)
-
 
 @enforce_types
-def should_save_wget(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
-    output_path = wget_output_path(link)
-    out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and output_path and (out_dir / output_path).exists():
-        return False
-
-    return WGET_CONFIG.SAVE_WGET
-
-
-@enforce_types
-def save_wget(link: Link, out_dir: Optional[Path]=None, timeout: int=WGET_CONFIG.WGET_TIMEOUT) -> ArchiveResult:
-    """download full site using wget"""
-
-    out_dir = Path(out_dir or link.link_dir)
-    assert out_dir.exists()
-    
-    if WGET_CONFIG.SAVE_WARC:
-        warc_dir = out_dir / "warc"
-        warc_dir.mkdir(exist_ok=True)
-        warc_path = warc_dir / str(int(datetime.now(timezone.utc).timestamp()))
-
-    wget_binary = WGET_BINARY.load()
-    assert wget_binary.abspath and wget_binary.version
-
-    # WGET CLI Docs: https://www.gnu.org/software/wget/manual/wget.html
-    output: ArchiveOutput = None
-    # later options take precedence
-    options = [
-        *WGET_CONFIG.WGET_ARGS,
-        *WGET_CONFIG.WGET_EXTRA_ARGS,
-        '--timeout={}'.format(timeout),
-        *(['--restrict-file-names={}'.format(WGET_CONFIG.WGET_RESTRICT_FILE_NAMES)] if WGET_CONFIG.WGET_RESTRICT_FILE_NAMES else []),
-        *(['--warc-file={}'.format(str(warc_path))] if WGET_CONFIG.SAVE_WARC else []),
-        *(['--page-requisites'] if WGET_CONFIG.SAVE_WGET_REQUISITES else []),
-        *(['--user-agent={}'.format(WGET_CONFIG.WGET_USER_AGENT)] if WGET_CONFIG.WGET_USER_AGENT else []),
-        *(['--load-cookies', str(WGET_CONFIG.WGET_COOKIES_FILE)] if WGET_CONFIG.WGET_COOKIES_FILE else []),
-        *(['--compression=auto'] if WGET_CONFIG.WGET_AUTO_COMPRESSION else []),
-        *([] if WGET_CONFIG.SAVE_WARC else ['--timestamping']),
-        *([] if WGET_CONFIG.WGET_CHECK_SSL_VALIDITY else ['--no-check-certificate', '--no-hsts']),
-        # '--server-response',  # print headers for better error parsing
-    ]
-    cmd = [
-        str(wget_binary.abspath),
-        *dedupe(options),
-        link.url,
-    ]
-
-    status = 'succeeded'
-    timer = TimedProgress(timeout, prefix='      ')
-    try:
-        result = run(cmd, cwd=str(out_dir), timeout=timeout)
-        output = wget_output_path(link)
-
-        # parse out number of files downloaded from last line of stderr:
-        #  "Downloaded: 76 files, 4.0M in 1.6s (2.52 MB/s)"
-        output_tail = [
-            line.strip()
-            for line in (result.stdout + result.stderr).decode().rsplit('\n', 3)[-3:]
-            if line.strip()
-        ]
-        files_downloaded = (
-            int(output_tail[-1].strip().split(' ', 2)[1] or 0)
-            if 'Downloaded:' in output_tail[-1]
-            else 0
-        )
-        hints = (
-            'Got wget response code: {}.'.format(result.returncode),
-            *output_tail,
-        )
-
-        # Check for common failure cases
-        if (result.returncode > 0 and files_downloaded < 1) or output is None:
-            if b'403: Forbidden' in result.stderr:
-                raise ArchiveError('403 Forbidden (try changing WGET_USER_AGENT)', hints)
-            if b'404: Not Found' in result.stderr:
-                raise ArchiveError('404 Not Found', hints)
-            if b'ERROR 500: Internal Server Error' in result.stderr:
-                raise ArchiveError('500 Internal Server Error', hints)
-            raise ArchiveError('Wget failed or got an error from the server', hints)
-        
-        if (out_dir / output).exists():
-            chmod_file(output, cwd=str(out_dir))
-        else:
-            print(f'          {out_dir}/{output}')
-            raise ArchiveError('Failed to find wget output after running', hints)
-    except Exception as err:
-        status = 'failed'
-        output = err
-    finally:
-        timer.end()
-
-    return ArchiveResult(
-        cmd=cmd,
-        pwd=str(out_dir),
-        cmd_version=str(wget_binary.version),
-        output=output,
-        status=status,
-        **timer.stats,
-    )
-
-
-@enforce_types
-def unsafe_wget_output_path(link: Link) -> Optional[str]:
+def unsafe_wget_output_path(link) -> Optional[str]:
     # There used to be a bunch of complex reverse-engineering path mapping logic here,
     # but it was removed in favor of just walking through the output folder recursively to try to find the
     # html file that wget produced. It's *much much much* slower than deriving it statically, and is currently
@@ -189,7 +68,7 @@ def unsafe_wget_output_path(link: Link) -> Optional[str]:
 
 
 @enforce_types
-def wget_output_path(link: Link, nocache: bool=False) -> Optional[str]:
+def wget_output_path(link, nocache: bool=False) -> Optional[str]:
     """calculate the path to the wgetted .html file, since wget may
     adjust some paths to be different than the base_url path.
 

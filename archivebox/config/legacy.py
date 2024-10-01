@@ -59,6 +59,7 @@ from ..misc.logging import (
 from .defaults import SHELL_CONFIG, GENERAL_CONFIG, ARCHIVING_CONFIG, SERVER_CONFIG, SEARCH_BACKEND_CONFIG, STORAGE_CONFIG
 from archivebox.plugins_auth.ldap.apps import LDAP_CONFIG
 from archivebox.plugins_extractor.favicon.apps import FAVICON_CONFIG
+from archivebox.plugins_extractor.wget.apps import WGET_CONFIG
 
 ANSI = SHELL_CONFIG.ANSI
 LDAP = LDAP_CONFIG.LDAP_ENABLED
@@ -81,6 +82,8 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
     'LDAP_CONFIG': LDAP_CONFIG.as_legacy_config_schema(),
     
     'FAVICON_CONFIG': FAVICON_CONFIG.as_legacy_config_schema(),
+    
+    'WGET_CONFIG': WGET_CONFIG.as_legacy_config_schema(),
 
 
     'ARCHIVE_METHOD_TOGGLES': {
@@ -112,7 +115,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
 
         'USER_AGENT':               {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)'},
         'CURL_USER_AGENT':          {'type': str,   'default': lambda c: c['USER_AGENT']}, # + ' curl/{CURL_VERSION}'},
-        'WGET_USER_AGENT':          {'type': str,   'default': lambda c: c['USER_AGENT']}, #  + ' wget/{WGET_VERSION}'},
 
         'COOKIES_FILE':             {'type': str,   'default': None},
 
@@ -143,16 +145,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'YOUTUBEDL_EXTRA_ARGS':     {'type': list,  'default': None},
 
 
-        'WGET_ARGS':                {'type': list,  'default': ['--no-verbose',
-                                                                '--adjust-extension',
-                                                                '--convert-links',
-                                                                '--force-directories',
-                                                                '--backup-converted',
-                                                                '--span-hosts',
-                                                                '--no-parent',
-                                                                '-e', 'robots=off',
-                                                                ]},
-        'WGET_EXTRA_ARGS':          {'type': list,  'default': None},
         'CURL_ARGS':                {'type': list,  'default': ['--silent',
                                                                 '--location',
                                                                 '--compressed'
@@ -161,16 +153,12 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
         'GIT_ARGS':                 {'type': list,  'default': ['--recursive']},
         'SINGLEFILE_ARGS':          {'type': list,  'default': None},
         'SINGLEFILE_EXTRA_ARGS':    {'type': list,  'default': None},
-        'MERCURY_ARGS':             {'type': list,  'default': ['--format=text']},
-        'MERCURY_EXTRA_ARGS':       {'type': list,  'default': None},
     },
 
     'DEPENDENCY_CONFIG': {
         'USE_CURL':                 {'type': bool,  'default': True},
-        'USE_WGET':                 {'type': bool,  'default': True},
         'USE_SINGLEFILE':           {'type': bool,  'default': True},
         'USE_READABILITY':          {'type': bool,  'default': True},
-        'USE_MERCURY':              {'type': bool,  'default': True},
         'USE_GIT':                  {'type': bool,  'default': True},
         'USE_CHROME':               {'type': bool,  'default': True},
         'USE_YOUTUBEDL':            {'type': bool,  'default': True},
@@ -178,8 +166,6 @@ CONFIG_SCHEMA: Dict[str, ConfigDefaultDict] = {
 
         'CURL_BINARY':              {'type': str,   'default': 'curl'},
         'GIT_BINARY':               {'type': str,   'default': 'git'},
-        'WGET_BINARY':              {'type': str,   'default': 'wget'},     # also can accept wget2
-        'MERCURY_BINARY':           {'type': str,   'default': lambda c: bin_path('postlight-parser')},
         'NODE_BINARY':              {'type': str,   'default': 'node'},
         # 'YOUTUBEDL_BINARY':         {'type': str,   'default': 'yt-dlp'},   # also can accept youtube-dl
         # 'SINGLEFILE_BINARY':        {'type': str,   'default': lambda c: bin_path('single-file')},
@@ -231,21 +217,6 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'CURL_EXTRA_ARGS':          {'default': lambda c: c['CURL_EXTRA_ARGS'] or []},
     'SAVE_FAVICON':             {'default': lambda c: c['USE_CURL'] and c['SAVE_FAVICON']},
     'SAVE_ARCHIVE_DOT_ORG':     {'default': lambda c: c['USE_CURL'] and c['SAVE_ARCHIVE_DOT_ORG']},
-
-    'USE_WGET':                 {'default': lambda c: c['USE_WGET'] and (c['SAVE_WGET'] or c['SAVE_WARC'])},
-    'WGET_VERSION':             {'default': lambda c: bin_version(c['WGET_BINARY']) if c['USE_WGET'] else None},
-    'WGET_AUTO_COMPRESSION':    {'default': lambda c: wget_supports_compression(c) if c['USE_WGET'] else False},
-    # 'WGET_USER_AGENT':          {'default': lambda c: c['WGET_USER_AGENT'].format(**c)},
-    'SAVE_WGET':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WGET']},
-    'SAVE_WARC':                {'default': lambda c: c['USE_WGET'] and c['SAVE_WARC']},
-    'WGET_ARGS':                {'default': lambda c: c['WGET_ARGS'] or []},
-    'WGET_EXTRA_ARGS':          {'default': lambda c: c['WGET_EXTRA_ARGS'] or []},
-
-    'USE_MERCURY':              {'default': lambda c: c['USE_MERCURY'] and c['SAVE_MERCURY']},
-    'SAVE_MERCURY':             {'default': lambda c: c['USE_MERCURY']},
-    'MERCURY_VERSION':          {'default': lambda c: '1.0.0' if shutil.which(str(bin_path(c['MERCURY_BINARY']))) else None},  # mercury doesnt expose version info until this is merged https://github.com/postlight/parser/pull/750
-    'MERCURY_ARGS':             {'default': lambda c: c['MERCURY_ARGS'] or []},
-    'MERCURY_EXTRA_ARGS':       {'default': lambda c: c['MERCURY_EXTRA_ARGS'] or []},
 
     'USE_GIT':                  {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
     'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
@@ -649,13 +620,13 @@ def get_dependency_info(config: benedict) -> ConfigValue:
             'enabled': config['USE_CURL'],
             'is_valid': bool(config['CURL_VERSION']),
         },
-        'WGET_BINARY': {
-            'path': bin_path(config['WGET_BINARY']),
-            'version': config['WGET_VERSION'],
-            'hash': bin_hash(config['WGET_BINARY']),
-            'enabled': config['USE_WGET'],
-            'is_valid': bool(config['WGET_VERSION']),
-        },
+        # 'WGET_BINARY': {
+        #     'path': bin_path(config['WGET_BINARY']),
+        #     'version': config['WGET_VERSION'],
+        #     'hash': bin_hash(config['WGET_BINARY']),
+        #     'enabled': config['USE_WGET'],
+        #     'is_valid': bool(config['WGET_VERSION']),
+        # },
         # 'NODE_BINARY': {
         #     'path': bin_path(config['NODE_BINARY']),
         #     'version': config['NODE_VERSION'],
@@ -663,13 +634,13 @@ def get_dependency_info(config: benedict) -> ConfigValue:
         #     'enabled': config['USE_NODE'],
         #     'is_valid': bool(config['NODE_VERSION']),
         # },
-        'MERCURY_BINARY': {
-            'path': bin_path(config['MERCURY_BINARY']),
-            'version': config['MERCURY_VERSION'],
-            'hash': bin_hash(config['MERCURY_BINARY']),
-            'enabled': config['USE_MERCURY'],
-            'is_valid': bool(config['MERCURY_VERSION']),
-        },
+        # 'MERCURY_BINARY': {
+        #     'path': bin_path(config['MERCURY_BINARY']),
+        #     'version': config['MERCURY_VERSION'],
+        #     'hash': bin_hash(config['MERCURY_BINARY']),
+        #     'enabled': config['USE_MERCURY'],
+        #     'is_valid': bool(config['MERCURY_VERSION']),
+        # },
         'GIT_BINARY': {
             'path': bin_path(config['GIT_BINARY']),
             'version': config['GIT_VERSION'],

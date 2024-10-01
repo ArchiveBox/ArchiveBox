@@ -11,16 +11,9 @@ from archivebox.misc.system import run, atomic_write
 from archivebox.misc.util import (
     enforce_types,
     is_static_file,
-    dedupe,
 )
-from ..config.legacy import (
-    TIMEOUT,
-    SAVE_MERCURY,
-    DEPENDENCIES,
-    MERCURY_VERSION,
-    MERCURY_ARGS,
-    MERCURY_EXTRA_ARGS,
-)
+from archivebox.plugins_extractor.mercury.apps import MERCURY_CONFIG, MERCURY_BINARY
+
 from ..logging_util import TimedProgress
 
 
@@ -49,35 +42,36 @@ def should_save_mercury(link: Link, out_dir: Optional[str]=None, overwrite: Opti
     if is_static_file(link.url):
         return False
 
-    out_dir = out_dir or Path(link.link_dir)
+    out_dir = Path(out_dir or link.link_dir)
+
     if not overwrite and (out_dir / get_output_path()).exists():
         return False
 
-    return SAVE_MERCURY
+    return MERCURY_CONFIG.SAVE_MERCURY
 
 
 @enforce_types
-def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=MERCURY_CONFIG.MERCURY_TIMEOUT) -> ArchiveResult:
     """download reader friendly version using @postlight/mercury-parser"""
 
     out_dir = Path(out_dir or link.link_dir)
     output_folder = out_dir.absolute() / get_output_path()
     output = get_output_path()
+    
+    mercury_binary = MERCURY_BINARY.load()
+    assert mercury_binary.abspath and mercury_binary.version
 
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
         output_folder.mkdir(exist_ok=True)
         # later options take precedence
-        options = [
-            *MERCURY_ARGS,
-            *MERCURY_EXTRA_ARGS,
-        ]
         # By default, get plain text version of article
         cmd = [
-            DEPENDENCIES['MERCURY_BINARY']['path'],
+            str(mercury_binary.abspath),
+            *MERCURY_CONFIG.MERCURY_EXTRA_ARGS,
+            '--format=text',
             link.url,
-            *dedupe(options)
         ]
         result = run(cmd, cwd=out_dir, timeout=timeout)
         try:
@@ -92,7 +86,8 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
 
         # Get HTML version of article
         cmd = [
-            DEPENDENCIES['MERCURY_BINARY']['path'],
+            str(mercury_binary.abspath),
+            *MERCURY_CONFIG.MERCURY_EXTRA_ARGS,
             link.url
         ]
         result = run(cmd, cwd=out_dir, timeout=timeout)
@@ -119,7 +114,7 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
     return ArchiveResult(
         cmd=cmd,
         pwd=str(out_dir),
-        cmd_version=MERCURY_VERSION,
+        cmd_version=str(mercury_binary.version),
         output=output,
         status=status,
         **timer.stats,
