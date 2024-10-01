@@ -9,14 +9,14 @@ from configparser import ConfigParser
 from pocket import Pocket
 
 from archivebox.config import CONSTANTS
-
-from ..index.schema import Link
 from archivebox.misc.util import enforce_types
 from archivebox.misc.system import atomic_write
-from ..config.legacy import (
+from archivebox.config.legacy import (
     POCKET_CONSUMER_KEY,
     POCKET_ACCESS_TOKENS,
 )
+
+from ..index.schema import Link
 
 
 COUNT_PER_PAGE = 500

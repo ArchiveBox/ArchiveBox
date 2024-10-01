@@ -604,14 +604,14 @@ def printable_folder_status(name: str, folder: Dict) -> str:
     path = pretty_path(folder['path'])
 
     return ' '.join((
-        ANSI[color],
+        f'[{color}]',
         symbol,
-        ANSI['reset'],
+        '[/]',
         name.ljust(21),
         num_files.ljust(14),
-        ANSI[color],
+        f'[{color}]',
         note.ljust(8),
-        ANSI['reset'],
+        '[/]',
         path.ljust(76),
     ))
 

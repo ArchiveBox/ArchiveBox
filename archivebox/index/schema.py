@@ -17,12 +17,13 @@ from dataclasses import dataclass, asdict, field, fields
 
 from django.utils.functional import cached_property
 
-from archivebox.config.constants import ARCHIVE_DIR, ARCHIVE_DIR_NAME
+from archivebox.config import ARCHIVE_DIR, CONSTANTS
 
 from plugins_extractor.favicon.apps import FAVICON_CONFIG
 
 from archivebox.misc.system import get_dir_size
 from archivebox.misc.util import ts_to_date_str, parse_date
+from archivebox.misc.logging import stderr, ANSI
 
 
 class ArchiveError(Exception):
@@ -67,7 +68,6 @@ class ArchiveResult:
 
     @classmethod
     def guess_ts(_cls, dict_info):
-        from archivebox.misc.util import parse_date
         parsed_timestamp = parse_date(dict_info["timestamp"])
         start_ts = parsed_timestamp
         end_ts = parsed_timestamp + timedelta(seconds=int(dict_info["duration"]))
@@ -75,8 +75,6 @@ class ArchiveResult:
 
     @classmethod
     def from_json(cls, json_info, guess=False):
-        from archivebox.misc.util import parse_date
-
         info = {
             key: val
             for key, val in json_info.items()
@@ -160,7 +158,6 @@ class Link:
         return float(self.timestamp) > float(other.timestamp)
 
     def typecheck(self) -> None:
-        from ..config.legacy import stderr, ANSI
         try:
             assert self.schema == self.__class__.__name__
             assert isinstance(self.timestamp, str) and self.timestamp
@@ -231,8 +228,6 @@ class Link:
 
     @classmethod
     def from_json(cls, json_info, guess=False):
-        from archivebox.misc.util import parse_date
-        
         info = {
             key: val
             for key, val in json_info.items()
@@ -287,7 +282,7 @@ class Link:
 
     @property
     def archive_path(self) -> str:
-        return '{}/{}'.format(ARCHIVE_DIR_NAME, self.timestamp)
+        return '{}/{}'.format(CONSTANTS.ARCHIVE_DIR_NAME, self.timestamp)
     
     @property
     def archive_size(self) -> float:

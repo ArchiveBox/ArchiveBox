@@ -202,16 +202,6 @@ class ConstantsDict(Mapping):
             'enabled': True,
             'is_valid': (PACKAGE_DIR / '__main__.py').exists(),
         },
-        'LIB_DIR': {
-            'path': LIB_DIR.resolve(),
-            'enabled': True,
-            'is_valid': LIB_DIR.is_dir(),
-        },
-        'RUNTIME_CONFIG': {
-            'path': TMP_DIR.resolve(),
-            'enabled': True,
-            'is_valid': TMP_DIR.is_dir(),
-        },
         'TEMPLATES_DIR': {
             'path': TEMPLATES_DIR.resolve(),
             'enabled': True,
@@ -221,6 +211,16 @@ class ConstantsDict(Mapping):
             'path': CUSTOM_TEMPLATES_DIR.resolve(),
             'enabled': True,
             'is_valid': CUSTOM_TEMPLATES_DIR.is_dir(),
+        },
+        'LIB_DIR': {
+            'path': LIB_DIR.resolve(),
+            'enabled': True,
+            'is_valid': LIB_DIR.is_dir(),
+        },
+        'TMP_DIR': {
+            'path': TMP_DIR.resolve(),
+            'enabled': True,
+            'is_valid': TMP_DIR.is_dir(),
         },
     })
         

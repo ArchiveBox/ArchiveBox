@@ -8,9 +8,7 @@ from typing import List, Optional, Iterator, Mapping
 from django.utils.html import format_html, mark_safe   # type: ignore
 from django.core.cache import cache
 
-from .schema import Link
 from archivebox.misc.system import atomic_write
-from ..logging_util import printable_filesize
 from archivebox.misc.util import (
     enforce_types,
     ts_to_date_str,
@@ -18,11 +16,11 @@ from archivebox.misc.util import (
     htmlencode,
     urldecode,
 )
-from archivebox.config.legacy import (
-    SAVE_ARCHIVE_DOT_ORG,
-    PREVIEW_ORIGINALS,
-)
 from archivebox.config import CONSTANTS, DATA_DIR, VERSION, SHELL_CONFIG, SERVER_CONFIG
+from archivebox.plugins_extractor.archivedotorg.apps import ARCHIVEDOTORG_CONFIG
+
+from .schema import Link
+from ..logging_util import printable_filesize
 
 MAIN_INDEX_TEMPLATE = 'static_index.html'
 MINIMAL_INDEX_TEMPLATE = 'minimal_index.html'
@@ -102,8 +100,8 @@ def link_details_template(link: Link) -> str:
         'status': 'archived' if link.is_archived else 'not yet archived',
         'status_color': 'success' if link.is_archived else 'danger',
         'oldest_archive_date': ts_to_date_str(link.oldest_archive_date),
-        'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
-        'PREVIEW_ORIGINALS': PREVIEW_ORIGINALS,
+        'SAVE_ARCHIVE_DOT_ORG': ARCHIVEDOTORG_CONFIG.SAVE_ARCHIVE_DOT_ORG,
+        'PREVIEW_ORIGINALS': SERVER_CONFIG.PREVIEW_ORIGINALS,
     })
 
 @enforce_types

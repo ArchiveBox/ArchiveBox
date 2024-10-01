@@ -14,7 +14,7 @@ from subprocess import _mswindows, PIPE, Popen, CalledProcessError, CompletedPro
 from crontab import CronTab
 from atomicwrites import atomic_write as lib_atomic_write
 
-from archivebox.config.legacy import OUTPUT_PERMISSIONS, DIR_OUTPUT_PERMISSIONS, ENFORCE_ATOMIC_WRITES
+from archivebox.config import STORAGE_CONFIG
 from archivebox.misc.util import enforce_types, ExtendedEncoder
 
 
@@ -94,7 +94,7 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
             elif isinstance(contents, (bytes, str)):
                 f.write(contents)
     except OSError as e:
-        if ENFORCE_ATOMIC_WRITES:
+        if STORAGE_CONFIG.ENFORCE_ATOMIC_WRITES:
             print(f"[X] OSError: Failed to write {path} with fcntl.F_FULLFSYNC. ({e})")
             print("    You can store the archive/ subfolder on a hard drive or network share that doesn't support support syncronous writes,")
             print("    but the main folder containing the index.sqlite3 and ArchiveBox.conf files must be on a filesystem that supports FSYNC.")
@@ -108,7 +108,7 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
                 f.write(contents)
 
     # set file permissions
-    os.chmod(path, int(OUTPUT_PERMISSIONS, base=8))
+    os.chmod(path, int(STORAGE_CONFIG.OUTPUT_PERMISSIONS, base=8))
 
 @enforce_types
 def chmod_file(path: str, cwd: str='.') -> None:
@@ -120,14 +120,14 @@ def chmod_file(path: str, cwd: str='.') -> None:
 
     if not root.is_dir():
         # path is just a plain file
-        os.chmod(root, int(OUTPUT_PERMISSIONS, base=8))
+        os.chmod(root, int(STORAGE_CONFIG.OUTPUT_PERMISSIONS, base=8))
     else:
         for subpath in Path(path).glob('**/*'):
             if subpath.is_dir():
                 # directories need execute permissions to be able to list contents
-                os.chmod(subpath, int(DIR_OUTPUT_PERMISSIONS, base=8))
+                os.chmod(subpath, int(STORAGE_CONFIG.DIR_OUTPUT_PERMISSIONS, base=8))
             else:
-                os.chmod(subpath, int(OUTPUT_PERMISSIONS, base=8))
+                os.chmod(subpath, int(STORAGE_CONFIG.OUTPUT_PERMISSIONS, base=8))
 
 
 @enforce_types
@@ -230,31 +230,3 @@ class suppress_output(object):
         if self.stderr:
             os.dup2(self.real_stderr, 2)
             os.close(self.null_stderr)
-
-
-def get_system_user() -> str:
-    # some host OS's are unable to provide a username (k3s, Windows), making this complicated
-    # uid 999 is especially problematic and breaks many attempts
-    SYSTEM_USER = None
-    FALLBACK_USER_PLACHOLDER = f'user_{os.getuid()}'
-
-    # Option 1
-    try:
-        import pwd
-        SYSTEM_USER = SYSTEM_USER or pwd.getpwuid(os.geteuid()).pw_name
-    except (ModuleNotFoundError, Exception):
-        pass
-
-    # Option 2
-    try:
-        SYSTEM_USER = SYSTEM_USER or getpass.getuser()
-    except Exception:
-        pass
-
-    # Option 3
-    try:
-        SYSTEM_USER = SYSTEM_USER or os.getlogin()
-    except Exception:
-        pass
-
-    return SYSTEM_USER or FALLBACK_USER_PLACHOLDER

@@ -12,19 +12,11 @@ from urllib.parse import urlparse
 from django.db.models import QuerySet, Q
 
 
-from archivebox.config import DATA_DIR, CONSTANTS, SEARCH_BACKEND_CONFIG
-from archivebox.misc.util import (
-    scheme,
-    enforce_types,
-    ExtendedEncoder,
-)
-from ..misc.logging import stderr
-from ..config.legacy import (
-    TIMEOUT,
-    URL_DENYLIST_PTN,
-    URL_ALLOWLIST_PTN,
-    OUTPUT_PERMISSIONS
-)
+from archivebox.config import DATA_DIR, CONSTANTS, ARCHIVING_CONFIG, STORAGE_CONFIG, SEARCH_BACKEND_CONFIG
+from archivebox.misc.util import scheme, enforce_types, ExtendedEncoder
+from archivebox.misc.logging import stderr
+from archivebox.config.legacy import URL_DENYLIST_PTN, URL_ALLOWLIST_PTN
+
 from ..logging_util import (
     TimedProgress,
     log_indexing_process_started,
@@ -119,7 +111,7 @@ def merge_links(a: Link, b: Link) -> Link:
 
 @enforce_types
 def validate_links(links: Iterable[Link]) -> List[Link]:
-    timer = TimedProgress(TIMEOUT * 4)
+    timer = TimedProgress(ARCHIVING_CONFIG.TIMEOUT * 4)
     try:
         links = archivable_links(links)  # remove chrome://, about:, mailto: etc.
         links = sorted_links(links)      # deterministically sort the links based on timestamp, url
@@ -211,7 +203,7 @@ def lowest_uniq_timestamp(used_timestamps: OrderedDict, timestamp: str) -> str:
 @enforce_types
 def timed_index_update(out_path: Path):
     log_indexing_started(out_path)
-    timer = TimedProgress(TIMEOUT * 2, prefix='      ')
+    timer = TimedProgress(ARCHIVING_CONFIG.TIMEOUT * 2, prefix='      ')
     try:
         yield
     finally:
@@ -230,14 +222,14 @@ def write_main_index(links: List[Link], out_dir: Path=DATA_DIR, created_by_id: i
     try:
         with timed_index_update(CONSTANTS.DATABASE_FILE):
             write_sql_main_index(links, out_dir=out_dir, created_by_id=created_by_id)
-            os.chmod(CONSTANTS.DATABASE_FILE, int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
+            os.chmod(CONSTANTS.DATABASE_FILE, int(STORAGE_CONFIG.OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
 
     except (KeyboardInterrupt, SystemExit):
         stderr('[!] Warning: Still writing index to disk...', color='lightyellow')
         stderr('    Run archivebox init to fix any inconsistencies from an ungraceful exit.')
         with timed_index_update(CONSTANTS.DATABASE_FILE):
             write_sql_main_index(links, out_dir=out_dir, created_by_id=created_by_id)
-            os.chmod(CONSTANTS.DATABASE_FILE, int(OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
+            os.chmod(CONSTANTS.DATABASE_FILE, int(STORAGE_CONFIG.OUTPUT_PERMISSIONS, base=8)) # set here because we don't write it with atomic writes
         raise SystemExit(0)
 
     log_indexing_process_finished()

@@ -69,8 +69,6 @@ from archivebox.misc.checks import check_data_folder
 from archivebox.config.legacy import (
     write_config_file,
     load_all_config,
-    CONFIG,
-    USER_CONFIG,
     get_real_name,
 )
 from .logging_util import (
@@ -85,7 +83,6 @@ from .logging_util import (
     printable_folders,
     printable_filesize,
     printable_folder_status,
-    printable_dependency_version,
 )
 
 
@@ -167,7 +164,9 @@ def version(quiet: bool=False,
             out_dir: Path=DATA_DIR) -> None:
     """Print the ArchiveBox version and dependency information"""
     
-    from rich import print
+    from rich.console import Console
+    console = Console()
+    print = console.print
     print(VERSION)
     if quiet:
         return
@@ -227,21 +226,27 @@ def version(quiet: bool=False,
             loaded_bin = binary
             raise
         provider_summary = f'[dark_sea_green3]{loaded_bin.binprovider.name.ljust(10)}[/dark_sea_green3]' if loaded_bin.binprovider else '[grey23]not found[/grey23]'
-        print('', '[green]√[/green]' if loaded_bin.is_valid else '[red]X[/red]', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(12), provider_summary, loaded_bin.abspath or f'[red]{err}[/red]')
+        if loaded_bin.abspath:
+            abspath = str(loaded_bin.abspath).replace(str(Path('~').expanduser()), '~')
+            if ' ' in abspath:
+                abspath = abspath.replace(' ', r'\ ')
+        else:
+            abspath = f'[red]{err}[/red]'
+        print('', '[green]√[/green]' if loaded_bin.is_valid else '[red]X[/red]', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(12), provider_summary, abspath, overflow='ignore', crop=False)
 
     print()
-    print('[white][i] Source-code locations:[/white]')
+    print('[deep_sky_blue3][i] Source-code locations:[/deep_sky_blue3]')
     for name, path in CONSTANTS.CODE_LOCATIONS.items():
-        print(printable_folder_status(name, path))
+        print(printable_folder_status(name, path), overflow='ignore', crop=False)
 
     print()
     if CONSTANTS.DATABASE_FILE.exists() or CONSTANTS.ARCHIVE_DIR.exists() or CONSTANTS.CONFIG_FILE.exists():
-        print('[white][i] Data locations:[/]')
+        print('[bright_yellow][i] Data locations:[/bright_yellow]')
         for name, path in CONSTANTS.DATA_LOCATIONS.items():
-            print(printable_folder_status(name, path))
+            print(printable_folder_status(name, path), overflow='ignore', crop=False)
     else:
         print()
-        print('[white][i] Data locations:[/white] (not in a data directory)')
+        print('[red][i] Data locations:[/red] (not in a data directory)')
 
     print()
 
@@ -984,6 +989,8 @@ def config(config_options_str: Optional[str]=None,
     elif config_options_str:
         config_options = config_options_str.split('\n')
 
+    from django.conf import settings
+    
     config_options = config_options or []
 
     no_args = not (get or set or reset or config_options)
@@ -992,15 +999,15 @@ def config(config_options_str: Optional[str]=None,
     if get or no_args:
         if config_options:
             config_options = [get_real_name(key) for key in config_options]
-            matching_config = {key: CONFIG[key] for key in config_options if key in CONFIG}
-            failed_config = [key for key in config_options if key not in CONFIG]
+            matching_config = {key: settings.FLAT_CONFIG[key] for key in config_options if key in settings.FLAT_CONFIG}
+            failed_config = [key for key in config_options if key not in settings.FLAT_CONFIG]
             if failed_config:
                 stderr()
                 stderr('[X] These options failed to get', color='red')
                 stderr('    {}'.format('\n    '.join(config_options)))
                 raise SystemExit(1)
         else:
-            matching_config = CONFIG
+            matching_config = settings.FLAT_CONFIG
         
         print(printable_config(matching_config))
         raise SystemExit(not matching_config)
@@ -1021,20 +1028,20 @@ def config(config_options_str: Optional[str]=None,
             if key != raw_key:
                 stderr(f'[i] Note: The config option {raw_key} has been renamed to {key}, please use the new name going forwards.', color='lightyellow')
 
-            if key in CONFIG:
+            if key in settings.FLAT_CONFIG:
                 new_config[key] = val.strip()
             else:
                 failed_options.append(line)
 
         if new_config:
-            before = CONFIG
+            before = settings.FLAT_CONFIG
             matching_config = write_config_file(new_config, out_dir=DATA_DIR)
             after = load_all_config()
             print(printable_config(matching_config))
 
             side_effect_changes = {}
             for key, val in after.items():
-                if key in USER_CONFIG and (before[key] != after[key]) and (key not in matching_config):
+                if key in settings.FLAT_CONFIG and (before[key] != after[key]) and (key not in matching_config):
                     side_effect_changes[key] = after[key]
 
             if side_effect_changes:
