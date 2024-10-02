@@ -86,6 +86,7 @@ dependencies = [
     "base32-crockford==0.3.0",
     ############# Extractor Dependencies #############
     "yt-dlp>=2024.8.6",               # for: media
+    "py-machineid>=0.6.0",
 ]
 
 # pdm lock --group=':all' 

@@ -5,7 +5,7 @@
 groups = ["default", "all", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:cdf785c77dcdb8927b7743c36374dc5f2377db78622d27eb8356648d61275a0a"
+content_hash = "sha256:3c924966bd7b6d20a3e653f83b72f7c4160088f136e0d4621650c96b23f75803"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -13,7 +13,7 @@ platform = "manylinux_2_17_x86_64"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
-platform = "macos_12_0_arm64"
+platform = "macos_14_0_arm64"
 
 [[package]]
 name = "annotated-types"
@@ -713,7 +713,7 @@ files = [
 
 [[package]]
 name = "httpcore"
-version = "1.0.5"
+version = "1.0.6"
 requires_python = ">=3.8"
 summary = "A minimal low-level HTTP client."
 groups = ["default"]
@@ -723,8 +723,8 @@ dependencies = [
     "h11<0.15,>=0.13",
 ]
 files = [
-    {file = "httpcore-1.0.5-py3-none-any.whl", hash = "sha256:421f18bac248b25d310f3cacd198d55b8e6125c107797b609ff9b7a6ba7991b5"},
-    {file = "httpcore-1.0.5.tar.gz", hash = "sha256:34a38e2f9291467ee3b44e89dd52615370e152954ba21721378a87b2960f7a61"},
+    {file = "httpcore-1.0.6-py3-none-any.whl", hash = "sha256:27b59625743b85577a8c0e10e55b50b5368a4f2cfe8cc7bcfa9cf00829c2682f"},
+    {file = "httpcore-1.0.6.tar.gz", hash = "sha256:73f6dbd6eb8c21bbf7ef8efad555481853f5f6acdeaff1edb0694289269ee17f"},
 ]
 
 [[package]]
@@ -842,12 +842,12 @@ files = [
 
 [[package]]
 name = "mailchecker"
-version = "6.0.9"
+version = "6.0.10"
 summary = "Cross-language email validation. Backed by a database of thousands throwable email providers."
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "mailchecker-6.0.9.tar.gz", hash = "sha256:f17e907ffe6f6faedc243f57eb0c9c951f61dec9af8e96922c1dcd093389b88d"},
+    {file = "mailchecker-6.0.10.tar.gz", hash = "sha256:d933fecb90a66459c8aa543a272890f97c02f6cbf30a3f5016ce2a1699848bee"},
 ]
 
 [[package]]
@@ -994,19 +994,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pocket"
-version = "0.3.7"
-git = "https://github.com/tapanpandita/pocket.git"
-ref = "v0.3.7"
-revision = "5a144438cc89bfc0ec94db960718ccf1f76468c1"
-summary = "api wrapper for getpocket.com"
-groups = ["default"]
-marker = "python_version == \"3.11\""
-dependencies = [
-    "requests",
-]
-
-[[package]]
 name = "prompt-toolkit"
 version = "3.0.48"
 requires_python = ">=3.7.0"
@@ -1054,6 +1041,20 @@ marker = "python_version == \"3.11\""
 files = [
     {file = "pure_eval-0.2.3-py3-none-any.whl", hash = "sha256:1db8e35b67b3d218d818ae653e27f06c3aa420901fa7b081ca98cbedc874e0d0"},
     {file = "pure_eval-0.2.3.tar.gz", hash = "sha256:5f4e983f40564c576c7c8635ae88db5956bb2229d7e9237d03b3c0b0190eaf42"},
+]
+
+[[package]]
+name = "py-machineid"
+version = "0.6.0"
+summary = "Get the unique machine ID of any host (without admin privileges)"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "winregistry; sys_platform == \"win32\"",
+]
+files = [
+    {file = "py-machineid-0.6.0.tar.gz", hash = "sha256:00c38d8521d429a4539bdd92967234db28a1a2b4b263062b351ca002332e633f"},
+    {file = "py_machineid-0.6.0-py3-none-any.whl", hash = "sha256:63214f8a98737311716b29d279716dc121a6495f16486caf5c032433f81cdfd6"},
 ]
 
 [[package]]
@@ -1144,7 +1145,7 @@ files = [
 
 [[package]]
 name = "pydantic-pkgr"
-version = "0.3.7"
+version = "0.3.8"
 requires_python = ">=3.10"
 summary = "System package manager APIs in strongly typed Python"
 groups = ["default"]
@@ -1155,8 +1156,8 @@ dependencies = [
     "typing-extensions>=4.11.0",
 ]
 files = [
-    {file = "pydantic_pkgr-0.3.7-py3-none-any.whl", hash = "sha256:fdb63b2cee79d7c9d53673b9d61afa846921fd4950a8c16a8c4d2555cd0f6478"},
-    {file = "pydantic_pkgr-0.3.7.tar.gz", hash = "sha256:6e575cdc3584d375eb8d5024e5e8bade1c225c2aee3af1a076951dbc1a2c1f2d"},
+    {file = "pydantic_pkgr-0.3.8-py3-none-any.whl", hash = "sha256:fefa34449feb8fc09d73d6beb8a61afe5959b1a848f0a5bba9db1d092d7099be"},
+    {file = "pydantic_pkgr-0.3.8.tar.gz", hash = "sha256:5ca12f4ee1c82ce0a2231c36b898534899a40a9e77cc4c97175fac9d1dc6e351"},
 ]
 
 [[package]]
@@ -1427,19 +1428,19 @@ files = [
 
 [[package]]
 name = "rich"
-version = "13.8.1"
-requires_python = ">=3.7.0"
+version = "13.9.1"
+requires_python = ">=3.8.0"
 summary = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
 groups = ["default"]
 marker = "python_version == \"3.11\""
 dependencies = [
     "markdown-it-py>=2.2.0",
     "pygments<3.0.0,>=2.13.0",
-    "typing-extensions<5.0,>=4.0.0; python_version < \"3.9\"",
+    "typing-extensions<5.0,>=4.0.0; python_version < \"3.11\"",
 ]
 files = [
-    {file = "rich-13.8.1-py3-none-any.whl", hash = "sha256:1760a3c0848469b97b558fc61c85233e3dafb69c7a071b4d60c38099d3cd4c06"},
-    {file = "rich-13.8.1.tar.gz", hash = "sha256:8260cda28e3db6bf04d2d1ef4dbc03ba80a824c88b0e7668a0f23126a424844a"},
+    {file = "rich-13.9.1-py3-none-any.whl", hash = "sha256:b340e739f30aa58921dc477b8adaa9ecdb7cecc217be01d93730ee1bc8aa83be"},
+    {file = "rich-13.9.1.tar.gz", hash = "sha256:097cffdf85db1babe30cc7deba5ab3a29e1b9885047dab24c57e9a7f8a9c1466"},
 ]
 
 [[package]]
@@ -1815,7 +1816,7 @@ files = [
 
 [[package]]
 name = "yt-dlp"
-version = "2024.8.6"
+version = "2024.9.27"
 requires_python = ">=3.8"
 summary = "A feature-rich command-line audio/video downloader"
 groups = ["default"]
@@ -1828,11 +1829,11 @@ dependencies = [
     "pycryptodomex",
     "requests<3,>=2.32.2",
     "urllib3<3,>=1.26.17",
-    "websockets>=12.0",
+    "websockets>=13.0",
 ]
 files = [
-    {file = "yt_dlp-2024.8.6-py3-none-any.whl", hash = "sha256:ab507ff600bd9269ad4d654e309646976778f0e243eaa2f6c3c3214278bb2922"},
-    {file = "yt_dlp-2024.8.6.tar.gz", hash = "sha256:e8551f26bc8bf67b99c12373cc87ed2073436c3437e53290878d0f4b4bb1f663"},
+    {file = "yt_dlp-2024.9.27-py3-none-any.whl", hash = "sha256:2717468dd697fcfcf9a89f493ba30a3830cdfb276c09750e5b561b08b9ef5f69"},
+    {file = "yt_dlp-2024.9.27.tar.gz", hash = "sha256:86605542e17e2e23ad23145b637ec308133762a15a5dedac4ae50b7973237026"},
 ]
 
 [[package]]

@@ -29,6 +29,7 @@ from core.mixins import SearchResultsAdminMixin
 from api.models import APIToken
 from abid_utils.admin import ABIDModelAdmin
 from queues.tasks import bg_archive_links, bg_add
+from machine.models import Machine, NetworkInterface
 
 from index.html import snapshot_icons
 from logging_util import printable_filesize
@@ -778,3 +779,53 @@ class CustomWebhookAdmin(WebhookAdmin, ABIDModelAdmin):
     list_display = ('created_at', 'created_by', 'abid', *WebhookAdmin.list_display)
     sort_fields = ('created_at', 'created_by', 'abid', 'referenced_model', 'endpoint', 'last_success', 'last_error')
     readonly_fields = ('created_at', 'modified_at', 'abid_info', *WebhookAdmin.readonly_fields)
+
+
+@admin.register(Machine, site=archivebox_admin)
+class MachineAdmin(ABIDModelAdmin):
+    list_display = ('abid', 'created_at', 'hostname', 'ips', 'os_platform', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'os_arch', 'os_family', 'os_release', 'hw_uuid')
+    sort_fields = ('abid', 'created_at', 'hostname', 'ips', 'os_platform', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'os_arch', 'os_family', 'os_release', 'hw_uuid')
+    # search_fields = ('id', 'abid', 'guid', 'hostname', 'hw_manufacturer', 'hw_product', 'hw_uuid', 'os_arch', 'os_family', 'os_platform', 'os_kernel', 'os_release')
+    
+    readonly_fields = ('guid', 'created_at', 'modified_at', 'abid_info', 'ips')
+    fields = (*readonly_fields, 'hostname', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'hw_uuid', 'os_arch', 'os_family', 'os_platform', 'os_kernel', 'os_release', 'stats')
+
+    list_filter = ('hw_in_docker', 'hw_in_vm', 'os_arch', 'os_family', 'os_platform')
+    ordering = ['-created_at']
+    list_per_page = 100
+
+    @admin.display(
+        description='Public IP',
+        ordering='networkinterface__ip_public',
+    )
+    def ips(self, machine):
+        return format_html(
+            '<a href="/admin/machine/networkinterface/?q={}"><b><code>{}</code></b></a>',
+            machine.abid,
+            ', '.join(machine.networkinterface_set.values_list('ip_public', flat=True)),
+        )
+
+@admin.register(NetworkInterface, site=archivebox_admin)
+class NetworkInterfaceAdmin(ABIDModelAdmin):
+    list_display = ('abid', 'created_at', 'machine_info', 'ip_public', 'dns_server', 'isp', 'country', 'region', 'city', 'iface', 'ip_local', 'mac_address')
+    sort_fields = ('abid', 'created_at', 'machine_info', 'ip_public', 'dns_server', 'isp', 'country', 'region', 'city', 'iface', 'ip_local', 'mac_address')
+    search_fields = ('abid', 'machine__abid', 'iface', 'ip_public', 'ip_local', 'mac_address', 'dns_server', 'hostname', 'isp', 'city', 'region', 'country')
+    
+    readonly_fields = ('machine', 'created_at', 'modified_at', 'abid_info', 'mac_address', 'ip_public', 'ip_local', 'dns_server')
+    fields = (*readonly_fields, 'iface', 'hostname', 'isp', 'city', 'region', 'country')
+
+    list_filter = ('isp', 'country', 'region')
+    ordering = ['-created_at']
+    list_per_page = 100
+
+    @admin.display(
+        description='Machine',
+        ordering='machine__abid',
+    )
+    def machine_info(self, iface):
+        return format_html(
+            '<a href="/admin/machine/machine/{}/change"><b><code>[{}]</code></b> &nbsp; {}</a>',
+            iface.machine.id,
+            iface.machine.abid,
+            iface.machine.hostname,
+        )
