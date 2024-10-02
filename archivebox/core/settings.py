@@ -43,15 +43,18 @@ USER_PLUGIN_DIRS = {
     'user_plugins':            DATA_DIR / 'user_plugins',
 }
 
+# Discover ArchiveBox plugins
 BUILTIN_PLUGINS = abx.get_plugins_in_dirs(BUILTIN_PLUGIN_DIRS)
 PIP_PLUGINS = abx.get_pip_installed_plugins(group='archivebox')
 USER_PLUGINS = abx.get_plugins_in_dirs(USER_PLUGIN_DIRS)
 ALL_PLUGINS = {**BUILTIN_PLUGINS, **PIP_PLUGINS, **USER_PLUGINS}
 
+# Load ArchiveBox plugins
 PLUGIN_MANAGER = abx.pm
 PLUGINS = abx.archivebox.load_archivebox_plugins(PLUGIN_MANAGER, ALL_PLUGINS)
 HOOKS = abx.archivebox.use.get_HOOKS(PLUGINS)
 
+# Load ArchiveBox config from plugins
 CONFIGS = abx.archivebox.use.get_CONFIGS()
 FLAT_CONFIG = abx.archivebox.use.get_FLAT_CONFIG()
 BINPROVIDERS = abx.archivebox.use.get_BINPROVIDERS()

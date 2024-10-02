@@ -49,8 +49,8 @@ SUBCOMMAND_MODULES = {
     'version': 'archivebox_version' ,
     
     'init': 'archivebox_init',
-    'config': 'archivebox_config',
     'install': 'archivebox_install',
+    'config': 'archivebox_config',
     
     'add': 'archivebox_add',
     'remove': 'archivebox_remove',

@@ -1,3 +1,20 @@
+#!/usr/bin/env python3
+#
+#  █████╗ ██████╗  ██████╗██╗  ██╗██╗██╗   ██╗███████╗██████╗  ██████╗ ██╗  ██╗
+# ██╔══██╗██╔══██╗██╔════╝██║  ██║██║██║   ██║██╔════╝██╔══██╗██╔═══██╗╚██╗██╔╝
+# ███████║██████╔╝██║     ███████║██║██║   ██║█████╗  ██████╔╝██║   ██║ ╚███╔╝ 
+# ██╔══██║██╔══██╗██║     ██╔══██║██║╚██╗ ██╔╝██╔══╝  ██╔══██╗██║   ██║ ██╔██╗ 
+# ██║  ██║██║  ██║╚██████╗██║  ██║██║ ╚████╔╝ ███████╗██████╔╝╚██████╔╝██╔╝ ██╗
+# ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝
+# Welcome to the ArchiveBox source code! Thanks for checking it out!
+#
+# "We are swimming upstream against a great torrent of disorganization.
+# In this, our main obligation is to establish arbitrary enclaves of order and system.
+# It is the greatest possible victory to be, to continue to be, and to have been.
+# No defeat can deprive us of the success of having existed for some moment of time
+# in a universe that seems indifferent to us."
+# --Norber Weiner
+
 __package__ = 'archivebox'
 
 import os
@@ -13,9 +30,9 @@ ARCHIVE_DIR = DATA_DIR / 'archive'                      # archivebox snapshot da
 if str(PACKAGE_DIR) not in sys.path:
     sys.path.append(str(PACKAGE_DIR))
 
+from .config.constants import CONSTANTS, VERSION  # noqa
 
-from .config.constants import CONSTANTS, VERSION, PACKAGE_DIR, DATA_DIR, ARCHIVE_DIR   # noqa
-
+os.environ['ARCHIVEBOX_PACKAGE_DIR'] = str(PACKAGE_DIR)
 os.environ['ARCHIVEBOX_DATA_DIR'] = str(DATA_DIR)
 os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
 
@@ -23,11 +40,54 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
 from .monkey_patches import *                    # noqa
 # print('DONE INSTALLING MONKEY PATCHES')
 
-# print('LOADING VENDOR LIBRARIES')
+# print('LOADING VENDORED LIBRARIES')
 from .vendor import load_vendored_libs           # noqa
 load_vendored_libs()
-# print('DONE LOADING VENDOR LIBRARIES')
+# print('DONE LOADING VENDORED LIBRARIES')
 
 __version__ = VERSION
 __author__ = 'Nick Sweeting'
 __license__ = 'MIT'
+
+#  ██████████████████████████████████████████████████████████████████████████████████████████████████ 
+#  ██████████████████████████████████████████████████████████████████████████████████████████████████ 
+#  ██████████████████████████████████████████████████████████████████████████████████████████████████ 
+#  ██████████████████████████████████████████████████████████████████████████████████████████████████ 
+#  ██████████████████████████████████████████████████████████████████████████████████████████████████ 
+#  ██████████████████████████████████████████████████████████████████████████████████████████████████ 
+#  ██████████████████████████████████████████████████████████████████████████████████████████████████ 
+#           ██                                                                            ██          
+#           ██                                                                            ██        
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                    ████████████████████████████████████                    ██          
+#           ██                    ██       █████████████████████████ █                    ██          
+#           ██                    ██       █████████████████████████ █                    ██          
+#           ██                    ██       █████████████████████████ █                    ██          
+#           ██                    ██       █████████████████████████ █                    ██          
+#           ██                    ██       █████████████████████████ █                    ██          
+#           ██                    ██       █████████████████████████ █                    ██          
+#           ██                    ██       █████████████████████████ █                    ██          
+#           ██                    ██       █████████████████████████ █                    ██          
+#           ██                    ██       █████████████████████████ █                    ██          
+#           ██                    ████████████████████████████████████                    ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                 ██████████████████████████████████████████                 ██          
+#           ██                 ██████████████████████████████████████████                 ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██          
+#           ██                                                                            ██        
+#           ████████████████████████████████████████████████████████████████████████████████          
