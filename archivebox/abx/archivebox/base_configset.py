@@ -14,7 +14,7 @@ from pydantic_pkgr.base_types import func_takes_args_or_kwargs
 import abx
 
 from .base_hook import BaseHook, HookType
-from archivebox.misc import toml_util
+from . import toml_util
 
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent
