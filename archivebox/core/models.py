@@ -14,6 +14,7 @@ from django.utils.text import slugify
 from django.core.cache import cache
 from django.urls import reverse, reverse_lazy
 from django.db.models import Case, When, Value, IntegerField
+from django.core.validators import MaxValueValidator, MinValueValidator 
 from django.contrib import admin
 from django.conf import settings
 
@@ -27,7 +28,7 @@ from archivebox.misc.util import parse_date, base_url
 from ..index.schema import Link
 from ..index.html import snapshot_icons
 from ..extractors import ARCHIVE_METHODS_INDEXING_PRECEDENCE, EXTRACTORS
-
+from ..parsers import PARSERS
 
 
 # class BaseModel(models.Model):
@@ -39,7 +40,6 @@ from ..extractors import ARCHIVE_METHODS_INDEXING_PRECEDENCE, EXTRACTORS
 
 #     class Meta(TypedModelMeta):
 #         abstract = True
-
 
 
 
@@ -66,6 +66,7 @@ class Tag(ABIDModel):
     # slug is autoset on save from name, never set it manually
 
     snapshot_set: models.Manager['Snapshot']
+    crawl_set: models.Manager['Crawl']
 
     class Meta(TypedModelMeta):
         verbose_name = "Tag"
@@ -120,6 +121,84 @@ class SnapshotTag(models.Model):
     class Meta:
         db_table = 'core_snapshot_tags'
         unique_together = [('snapshot', 'tag')]
+
+
+# class CrawlTag(models.Model):
+#     id = models.AutoField(primary_key=True)
+
+#     crawl = models.ForeignKey('Crawl', db_column='crawl_id', on_delete=models.CASCADE, to_field='id')
+#     tag = models.ForeignKey(Tag, db_column='tag_id', on_delete=models.CASCADE, to_field='id')
+
+#     class Meta:
+#         db_table = 'core_crawl_tags'
+#         unique_together = [('crawl', 'tag')]
+
+
+class Crawl(ABIDModel):
+    abid_prefix = 'crl_'
+    abid_ts_src = 'self.created_at'
+    abid_uri_src = 'self.urls'
+    abid_subtype_src = 'self.crawler'
+    abid_rand_src = 'self.id'
+    abid_drift_allowed = True
+
+    # CRAWLER_CHOICES = (
+    #     ('breadth_first', 'Breadth-First'),
+    #     ('depth_first', 'Depth-First'),
+    # )
+    PARSER_CHOICES = (
+        ('auto', 'auto'),
+        *((parser_key, value[0]) for parser_key, value in PARSERS.items()),
+    )
+
+    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
+    abid = ABIDField(prefix=abid_prefix)
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, related_name='crawl_set')
+    created_at = AutoDateTimeField(default=None, null=False, db_index=True)
+    modified_at = models.DateTimeField(auto_now=True)
+
+    urls = models.TextField(blank=False, null=False)
+    depth = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(0), MaxValueValidator(2)])
+    parser = models.CharField(choices=PARSER_CHOICES, default='auto', max_length=32)
+    
+    # crawler = models.CharField(choices=CRAWLER_CHOICES, default='breadth_first', max_length=32)
+    # tags = models.ManyToManyField(Tag, blank=True, related_name='crawl_set', through='CrawlTag')
+    # schedule = models.JSONField()
+    # config = models.JSONField()
+    
+
+    class Meta(TypedModelMeta):
+        verbose_name = 'Crawl'
+        verbose_name_plural = 'Crawls'
+
+    def __str__(self):
+        return self.parser
+
+    @cached_property
+    def crawl_dir(self):
+        return Path()
+
+    @property
+    def api_url(self) -> str:
+        # /api/v1/core/crawl/{uulid}
+        return reverse_lazy('api-1:get_crawl', args=[self.abid])  # + f'?api_key={get_or_create_api_token(request.user)}'
+
+    @property
+    def api_docs_url(self) -> str:
+        return '/api/v1/docs#/Core%20Models/api_v1_core_get_crawl'
+
+    # def get_absolute_url(self):
+    #     return f'/crawls/{self.abid}'
+    
+    def crawl(self):
+        # write self.urls to sources/crawl__<user>__YYYYMMDDHHMMSS.txt
+        # run parse_links(sources/crawl__<user>__YYYYMMDDHHMMSS.txt, parser=self.parser) and for each resulting link:
+        #   create a Snapshot
+        #   enqueue task bg_archive_snapshot(snapshot)
+        pass
+
+
 
 
 class SnapshotManager(models.Manager):
