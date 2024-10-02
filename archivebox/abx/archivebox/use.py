@@ -2,6 +2,7 @@ __package__ = 'abx.archivebox'
 
 from typing import Dict, Any
 
+from django.utils import timezone
 from benedict import benedict
 
 from .. import pm
@@ -106,3 +107,26 @@ def get_SEARCHBACKENDS() -> Dict[str, BaseSearchBackend]:
 
 def register_all_hooks(settings):
     pm.hook.register(settings=settings)
+
+
+
+def extract(url_or_snapshot_id):
+    from core.models import Snapshot
+    
+    url, snapshot_abid, snapshot_id = None, None, None
+    snapshot = None
+    if '://' in url_or_snapshot_id:
+        url = url_or_snapshot_id
+        try:
+            snapshot = Snapshot.objects.get(url=url)
+        except Snapshot.DoesNotExist:
+            snapshot = Snapshot(url=url_or_snapshot_id, timestamp=str(timezone.now().timestamp()), bookmarked_at=timezone.now())
+            snapshot.save()
+    elif '-' in url_or_snapshot_id:
+        snapshot_id = url_or_snapshot_id
+        snapshot = Snapshot.objects.get(id=snapshot_id)
+    else:
+        snapshot_abid = url_or_snapshot_id
+        snapshot = Snapshot.objects.get(abid=snapshot_abid)
+
+    return pm.hook.extract(snapshot_id=snapshot.id)

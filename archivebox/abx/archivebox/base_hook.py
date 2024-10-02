@@ -6,6 +6,7 @@ from huey.api import TaskWrapper
 from pathlib import Path
 from typing import Tuple, Literal, ClassVar, get_args
 from pydantic import BaseModel, ConfigDict
+from django.utils.functional import cached_property
 
 import abx
 
@@ -21,7 +22,7 @@ class BaseHook(BaseModel):
         validate_defaults=True,
         validate_assignment=False,
         revalidate_instances="subclass-instances",
-        ignored_types=(TaskWrapper, ),
+        ignored_types=(TaskWrapper, cached_property),
     )
     
     hook_type: ClassVar[HookType]     # e.g. = 'CONFIG'

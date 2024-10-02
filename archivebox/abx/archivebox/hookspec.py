@@ -1,5 +1,7 @@
 __package__ = 'abx.archivebox'
 
+from typing import Dict, Any
+
 from .. import hookspec
 
 
@@ -29,4 +31,9 @@ def get_QUEUES():
 
 @hookspec
 def get_SEARCHBACKENDS():
+    return {}
+
+
+@hookspec
+def extract(snapshot_id) -> Dict[str, Any]:
     return {}
