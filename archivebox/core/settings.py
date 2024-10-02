@@ -40,7 +40,7 @@ BUILTIN_PLUGIN_DIRS = {
     'plugins_extractor':       PACKAGE_DIR / 'plugins_extractor',
 }
 USER_PLUGIN_DIRS = {
-    'user_plugins': DATA_DIR / 'user_plugins',
+    'user_plugins':            DATA_DIR / 'user_plugins',
 }
 
 BUILTIN_PLUGINS = abx.get_plugins_in_dirs(BUILTIN_PLUGIN_DIRS)

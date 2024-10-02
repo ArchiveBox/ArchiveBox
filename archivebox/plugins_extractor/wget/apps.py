@@ -86,7 +86,7 @@ WGET_BINARY = WgetBinary()
 
 class WgetExtractor(BaseExtractor):
     name: ExtractorName = 'wget'
-    binary: str = WGET_BINARY.name
+    binary: BinName = WGET_BINARY.name
 
     def get_output_path(self, snapshot) -> Path | None:
         wget_index_path = wget_output_path(snapshot.as_link())
@@ -99,10 +99,10 @@ WGET_EXTRACTOR = WgetExtractor()
 
 class WarcExtractor(BaseExtractor):
     name: ExtractorName = 'warc'
-    binary: str = WGET_BINARY.name
+    binary: BinName = WGET_BINARY.name
 
     def get_output_path(self, snapshot) -> Path | None:
-        warc_files = (snapshot.link_dir / 'warc').glob('*.warc.gz')
+        warc_files = list((Path(snapshot.link_dir) / 'warc').glob('*.warc.gz'))
         if warc_files:
             return sorted(warc_files, key=lambda x: x.stat().st_size, reverse=True)[0]
         return None
