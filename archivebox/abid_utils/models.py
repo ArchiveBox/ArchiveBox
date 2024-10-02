@@ -243,8 +243,8 @@ class ABIDModel(models.Model):
         self.pk = self.id
         self.created_at = self.created_at or self._init_timestamp  # cut off precision to match precision of TS component
         self.modified_at = self.modified_at or self.created_at
-        self.created_by = self.created_by or get_or_create_system_user_pk()
-
+        self.created_by_id = (hasattr(self, 'created_by_id') and self.created_by_id) or get_or_create_system_user_pk()
+        
         # Compute fresh ABID values & hashes based on object's live properties
         abid_fresh_values = self.ABID_FRESH_VALUES
         assert all(abid_fresh_values.values()), f'All ABID_FRESH_VALUES must be set {abid_fresh_values}'
