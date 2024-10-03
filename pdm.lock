@@ -5,7 +5,7 @@
 groups = ["default", "all", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:3c924966bd7b6d20a3e653f83b72f7c4160088f136e0d4621650c96b23f75803"
+content_hash = "sha256:a013c4730c513728886815f8c16b748ecf56e4598fb549895ada7dd06e7e5db2"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -1441,6 +1441,21 @@ dependencies = [
 files = [
     {file = "rich-13.9.1-py3-none-any.whl", hash = "sha256:b340e739f30aa58921dc477b8adaa9ecdb7cecc217be01d93730ee1bc8aa83be"},
     {file = "rich-13.9.1.tar.gz", hash = "sha256:097cffdf85db1babe30cc7deba5ab3a29e1b9885047dab24c57e9a7f8a9c1466"},
+]
+
+[[package]]
+name = "rich-argparse"
+version = "1.5.2"
+requires_python = ">=3.8"
+summary = "Rich help formatters for argparse and optparse"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "rich>=11.0.0",
+]
+files = [
+    {file = "rich_argparse-1.5.2-py3-none-any.whl", hash = "sha256:7027503d5849e27fc7cc85fb58504363606f2ec1c8b3c27d9a8ad28788faf877"},
+    {file = "rich_argparse-1.5.2.tar.gz", hash = "sha256:84d348d5b6dafe99fffe2c7ea1ca0afe14096c921693445b9eee65ee4fcbfd2c"},
 ]
 
 [[package]]
