@@ -4,7 +4,7 @@ import os
 import sys
 import inspect
 from pathlib import Path
-from typing import List, Dict, Optional, ClassVar
+from typing import List, Dict, Optional
 from pydantic import InstanceOf, Field, model_validator
 
 
