@@ -8,6 +8,8 @@
   "dependencies": {
     "@postlight/parser": "^2.2.3",
     "readability-extractor": "github:ArchiveBox/readability-extractor",
-    "single-file-cli": "^1.1.54"
+    "single-file-cli": "^1.1.54",
+    "puppeteer": "^23.5.0",
+    "@puppeteer/browsers": "^2.4.0"
   }
 }

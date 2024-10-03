@@ -5,7 +5,7 @@
 groups = ["default", "all", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:a013c4730c513728886815f8c16b748ecf56e4598fb549895ada7dd06e7e5db2"
+content_hash = "sha256:d35702a8094586329c85290f6709dfe303ba7bbd62d78048989b67086c8a63dd"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -802,7 +802,7 @@ files = [
 
 [[package]]
 name = "ipython"
-version = "8.27.0"
+version = "8.28.0"
 requires_python = ">=3.10"
 summary = "IPython: Productive Interactive Computing"
 groups = ["default"]
@@ -821,8 +821,8 @@ dependencies = [
     "typing-extensions>=4.6; python_version < \"3.12\"",
 ]
 files = [
-    {file = "ipython-8.27.0-py3-none-any.whl", hash = "sha256:f68b3cb8bde357a5d7adc9598d57e22a45dfbea19eb6b98286fa3b288c9cd55c"},
-    {file = "ipython-8.27.0.tar.gz", hash = "sha256:0b99a2dc9f15fd68692e898e5568725c6d49c527d36a9fb5960ffbdeaa82ff7e"},
+    {file = "ipython-8.28.0-py3-none-any.whl", hash = "sha256:530ef1e7bb693724d3cdc37287c80b07ad9b25986c007a53aa1857272dac3f35"},
+    {file = "ipython-8.28.0.tar.gz", hash = "sha256:0d0d15ca1e01faeb868ef56bc7ee5a0de5bd66885735682e8a322ae289a13d1a"},
 ]
 
 [[package]]
@@ -842,12 +842,12 @@ files = [
 
 [[package]]
 name = "mailchecker"
-version = "6.0.10"
+version = "6.0.11"
 summary = "Cross-language email validation. Backed by a database of thousands throwable email providers."
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "mailchecker-6.0.10.tar.gz", hash = "sha256:d933fecb90a66459c8aa543a272890f97c02f6cbf30a3f5016ce2a1699848bee"},
+    {file = "mailchecker-6.0.11.tar.gz", hash = "sha256:bf2490e26a3a9ac385760838e3fcc7321a6be1980fdad5746d07b63a06479aa2"},
 ]
 
 [[package]]
@@ -994,6 +994,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pocket"
+version = "0.3.7"
+git = "https://github.com/tapanpandita/pocket.git"
+ref = "v0.3.7"
+revision = "5a144438cc89bfc0ec94db960718ccf1f76468c1"
+summary = "api wrapper for getpocket.com"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "requests",
+]
+
+[[package]]
 name = "prompt-toolkit"
 version = "3.0.48"
 requires_python = ">=3.7.0"
@@ -1098,15 +1111,15 @@ files = [
 
 [[package]]
 name = "pycryptodomex"
-version = "3.20.0"
-requires_python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
+version = "3.21.0"
+requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,>=2.7"
 summary = "Cryptographic library for Python"
 groups = ["default"]
 marker = "python_version == \"3.11\""
 files = [
-    {file = "pycryptodomex-3.20.0-cp35-abi3-macosx_10_9_universal2.whl", hash = "sha256:59af01efb011b0e8b686ba7758d59cf4a8263f9ad35911bfe3f416cee4f5c08c"},
-    {file = "pycryptodomex-3.20.0-cp35-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bca649483d5ed251d06daf25957f802e44e6bb6df2e8f218ae71968ff8f8edc4"},
-    {file = "pycryptodomex-3.20.0.tar.gz", hash = "sha256:7a710b79baddd65b806402e14766c721aee8fb83381769c27920f26476276c1e"},
+    {file = "pycryptodomex-3.21.0-cp36-abi3-macosx_10_9_universal2.whl", hash = "sha256:34325b84c8b380675fd2320d0649cdcbc9cf1e0d1526edbe8fce43ed858cdc7e"},
+    {file = "pycryptodomex-3.21.0-cp36-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9aa0cf13a1a1128b3e964dc667e5fe5c6235f7d7cfb0277213f0e2a783837cc2"},
+    {file = "pycryptodomex-3.21.0.tar.gz", hash = "sha256:222d0bd05381dd25c32dd6065c071ebf084212ab79bab4599ba9e6a3e0009e6c"},
 ]
 
 [[package]]
@@ -1145,7 +1158,7 @@ files = [
 
 [[package]]
 name = "pydantic-pkgr"
-version = "0.3.8"
+version = "0.3.9"
 requires_python = ">=3.10"
 summary = "System package manager APIs in strongly typed Python"
 groups = ["default"]
@@ -1156,8 +1169,8 @@ dependencies = [
     "typing-extensions>=4.11.0",
 ]
 files = [
-    {file = "pydantic_pkgr-0.3.8-py3-none-any.whl", hash = "sha256:fefa34449feb8fc09d73d6beb8a61afe5959b1a848f0a5bba9db1d092d7099be"},
-    {file = "pydantic_pkgr-0.3.8.tar.gz", hash = "sha256:5ca12f4ee1c82ce0a2231c36b898534899a40a9e77cc4c97175fac9d1dc6e351"},
+    {file = "pydantic_pkgr-0.3.9-py3-none-any.whl", hash = "sha256:8cdece5142b79127cdf96baf84cefdc0b811297e3b0e13526f88e10019ae60c1"},
+    {file = "pydantic_pkgr-0.3.9.tar.gz", hash = "sha256:f811600e9222b98b7d52df27375cab92ccfa702020f80a46076c4e5eeb099dc4"},
 ]
 
 [[package]]
