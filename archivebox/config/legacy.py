@@ -197,7 +197,7 @@ def get_real_name(key: str) -> str:
 DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     'PACKAGE_DIR':              {'default': lambda c: CONSTANTS.PACKAGE_DIR.resolve()},
     'TEMPLATES_DIR':            {'default': lambda c: c['PACKAGE_DIR'] / CONSTANTS.TEMPLATES_DIR_NAME},
-    'CUSTOM_TEMPLATES_DIR':     {'default': lambda c: c['CUSTOM_TEMPLATES_DIR'] and Path(c['CUSTOM_TEMPLATES_DIR'])},
+    # 'CUSTOM_TEMPLATES_DIR':     {'default': lambda c: c['CUSTOM_TEMPLATES_DIR'] and Path(c['CUSTOM_TEMPLATES_DIR'])},  # this is now a constant
 
 
     'URL_DENYLIST_PTN':         {'default': lambda c: c['URL_DENYLIST'] and re.compile(c['URL_DENYLIST'] or '', CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS)},

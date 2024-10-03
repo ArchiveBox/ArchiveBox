@@ -140,7 +140,7 @@ class ServerConfig(BaseConfigSet):
     
     SNAPSHOTS_PER_PAGE: int             = Field(default=40)
     FOOTER_INFO: str                    = Field(default='Content is hosted for personal archiving purposes only.  Contact server owner for any takedown requests.')
-    CUSTOM_TEMPLATES_DIR: Path          = Field(default=None)
+    # CUSTOM_TEMPLATES_DIR: Path          = Field(default=None)  # this is now a constant
 
     PUBLIC_INDEX: bool                  = Field(default=True)
     PUBLIC_SNAPSHOTS: bool              = Field(default=True)

@@ -31,12 +31,12 @@ SELECTED_PLATFORMS="${2:-$SUPPORTED_PLATFORMS}"
 
 echo "[^] Uploading docker image"
 docker buildx build --platform "$SELECTED_PLATFORMS" --push . \
-               -t archivebox/archivebox:$TAG_NAME \
-               -t archivebox/archivebox:$GIT_SHA \
-               -t nikisweeting/archivebox:$TAG_NAME \
-               -t nikisweeting/archivebox:$GIT_SHA \
-               -t ghcr.io/archivebox/archivebox:$TAG_NAME \
-               -t ghcr.io/archivebox/archivebox:$GIT_SHA
+               -t archivebox/archivebox:"$TAG_NAME" \
+               -t archivebox/archivebox:"$GIT_SHA" \
+               -t nikisweeting/archivebox:"$TAG_NAME" \
+               -t nikisweeting/archivebox:"$GIT_SHA" \
+               -t ghcr.io/archivebox/archivebox:"$TAG_NAME" \
+               -t ghcr.io/archivebox/archivebox:"$GIT_SHA"
             #    -t archivebox/archivebox \
             #    -t archivebox/archivebox:$VERSION \
             #    -t archivebox/archivebox:$SHORT_VERSION \
