@@ -8,8 +8,6 @@ from django.db import models
 from django.utils import timezone
 from django.utils.functional import cached_property
 
-from pydantic_pkgr import Binary
-
 
 import abx.archivebox.use
 from abx.archivebox.base_binary import BaseBinary, BaseBinProvider
@@ -201,7 +199,7 @@ class NetworkInterface(ABIDModel, ModelWithHealthStats):
 
 
 class InstalledBinaryManager(models.Manager):
-    def get_from_db_or_cache(self, binary: Binary) -> 'InstalledBinary':
+    def get_from_db_or_cache(self, binary: BaseBinary) -> 'InstalledBinary':
         """Get or create an InstalledBinary record for a Binary on the local machine"""
         
         global CURRENT_BINARIES
@@ -237,7 +235,7 @@ class InstalledBinaryManager(models.Manager):
             # if binary was not yet loaded from filesystem, do it now
             # this is expensive, we have to find it's abspath, version, and sha256, but it's necessary
             # to make sure we have a good, up-to-date record of it in the DB & in-memroy cache
-            binary = binary.load()
+            binary = binary.load(fresh=True)
 
         assert binary.loaded_binprovider and binary.loaded_abspath and binary.loaded_version and binary.loaded_sha256, f'Failed to load binary {binary.name} abspath, version, and sha256'
         
@@ -313,7 +311,7 @@ class InstalledBinary(ABIDModel, ModelWithHealthStats):
             self.machine = Machine.objects.current()
         if not self.binprovider:
             all_known_binproviders = list(abx.archivebox.use.get_BINPROVIDERS().values())
-            binary = Binary(name=self.name, binproviders=all_known_binproviders).load()
+            binary = BaseBinary(name=self.name, binproviders=all_known_binproviders).load(fresh=True)
             self.binprovider = binary.loaded_binprovider.name if binary.loaded_binprovider else None
         if not self.abspath:
             self.abspath = self.BINPROVIDER.get_abspath(self.name)
@@ -362,4 +360,4 @@ class InstalledBinary(ABIDModel, ModelWithHealthStats):
         })
 
     def load_fresh(self) -> BaseBinary:
-        return self.BINARY.load()
+        return self.BINARY.load(fresh=True)

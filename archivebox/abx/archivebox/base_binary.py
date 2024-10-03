@@ -67,9 +67,15 @@ class BaseBinary(BaseHook, Binary):
         symlink.chmod(0o777)   # make sure its executable by everyone
         
     @validate_call
-    def load(self, **kwargs) -> Self:
-        binary = super().load(**kwargs)
-        self.symlink_to_lib(binary=binary, bin_dir=CONSTANTS.LIB_BIN_DIR)
+    def load(self, fresh=False, **kwargs) -> Self:
+        if fresh:
+            binary = super().load(**kwargs)
+            self.symlink_to_lib(binary=binary, bin_dir=CONSTANTS.LIB_BIN_DIR)
+        else:
+            # get cached binary from db
+            from machine.models import InstalledBinary
+            installed_binary = InstalledBinary.objects.get_from_db_or_cache(self)
+            binary = InstalledBinary.load_from_db(installed_binary)
         return binary
     
     @validate_call
