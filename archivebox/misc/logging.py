@@ -5,12 +5,23 @@ __package__ = 'archivebox.misc'
 import sys
 from typing import Optional, Union, Tuple, List
 from collections import defaultdict
+from random import randint
+
 from benedict import benedict
 from rich.console import Console
+from rich.highlighter import Highlighter
 
 # SETUP RICH CONSOLE / TTY detection / COLOR / PROGRESS BARS
 CONSOLE = Console()
 IS_TTY = CONSOLE.is_interactive
+
+
+class RainbowHighlighter(Highlighter):
+    def highlight(self, text):
+        for index in range(len(text)):
+            text.stylize(f"color({randint(90, 98)})", index, index + 1)
+
+rainbow = RainbowHighlighter()
 
 
 DEFAULT_CLI_COLORS = benedict(

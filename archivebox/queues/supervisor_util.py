@@ -5,7 +5,7 @@ import signal
 import psutil
 import subprocess
 from pathlib import Path
-from rich.pretty import pprint
+from rich import print
 
 from typing import Dict, cast
 

@@ -30,7 +30,7 @@ TERM_WIDTH = (shutil.get_terminal_size((200, 10)).columns - 1) if sys.stdout.isa
 install(show_locals=True, word_wrap=False, locals_max_length=10, locals_hide_dunder=True, suppress=[django, pydantic], extra_lines=2, width=TERM_WIDTH)
 
 
-from daphne import access
+from daphne import access                                        # noqa
 
 class ModifiedAccessLogGenerator(access.AccessLogGenerator):
     """Clutge workaround until daphne uses the Python logging framework. https://github.com/django/daphne/pull/473/files"""
@@ -62,4 +62,11 @@ class ModifiedAccessLogGenerator(access.AccessLogGenerator):
             )
         )
         
-access.AccessLogGenerator.write_entry = ModifiedAccessLogGenerator.write_entry
+access.AccessLogGenerator.write_entry = ModifiedAccessLogGenerator.write_entry # type: ignore
+
+
+# fix benedict objects to pretty-print/repr more nicely with rich
+# https://stackoverflow.com/a/79048811/2156113
+# https://rich.readthedocs.io/en/stable/pretty.html#rich-repr-protocol
+import benedict                                                  # noqa
+benedict.benedict.__rich_repr__ = lambda self: (dict(self),)     # type: ignore

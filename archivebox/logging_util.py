@@ -5,7 +5,6 @@ import os
 import sys
 import stat
 import time
-import argparse
 
 from math import log
 from multiprocessing import Process
@@ -20,6 +19,8 @@ if TYPE_CHECKING:
 
 from rich import print
 from rich.panel import Panel
+from rich_argparse import RichHelpFormatter
+from django.core.management.base import DjangoHelpFormatter
 
 from archivebox.config import CONSTANTS, DATA_DIR, VERSION, SHELL_CONFIG
 from archivebox.misc.system import get_dir_size
@@ -79,12 +80,12 @@ def get_fd_info(fd) -> Dict[str, Any]:
 
 
 
-class SmartFormatter(argparse.HelpFormatter):
+class SmartFormatter(DjangoHelpFormatter, RichHelpFormatter):
     """Patched formatter that prints newlines in argparse help strings"""
     def _split_lines(self, text, width):
         if '\n' in text:
             return text.splitlines()
-        return argparse.HelpFormatter._split_lines(self, text, width)
+        return RichHelpFormatter._split_lines(self, text, width)
 
 
 def reject_stdin(caller: str, stdin: Optional[IO]=sys.stdin) -> None:
@@ -503,23 +504,6 @@ def log_removal_finished(all_links: int, to_remove: int):
         print()
         print(f'[red1][√] Removed {to_remove} out of {all_links} links from the archive index.[/]')
         print(f'    Index now contains {all_links - to_remove} links.')
-
-
-def log_shell_welcome_msg():
-    from .cli import CLI_SUBCOMMANDS
-
-    print('[green]# ArchiveBox Imports[/]')
-    print('[green]from core.models import Snapshot, ArchiveResult, Tag, User[/]')
-    print('[green]from cli import *\n    {}[/]'.format("\n    ".join(CLI_SUBCOMMANDS.keys())))
-    print()
-    print('[i] Welcome to the ArchiveBox Shell!')
-    print('    https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Shell-Usage')
-    print()
-    print('    [violet]Hint:[/] Example use:')
-    print('        print(Snapshot.objects.filter(is_archived=True).count())')
-    print('        Snapshot.objects.get(url="https://example.com").as_json()')
-    print('        add("https://example.com/some/new/url")')
-
 
 
 ### Helpers

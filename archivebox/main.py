@@ -90,73 +90,89 @@ from .logging_util import (
 def help(out_dir: Path=DATA_DIR) -> None:
     """Print the ArchiveBox help message and usage"""
 
+    from rich import print
+    from rich.panel import Panel
+
     all_subcommands = CLI_SUBCOMMANDS
     COMMANDS_HELP_TEXT = '\n    '.join(
-        f'{cmd.ljust(20)} {func.__doc__}'
+        f'[green]{cmd.ljust(20)}[/green] {func.__doc__}'
         for cmd, func in all_subcommands.items()
         if cmd in meta_cmds
     ) + '\n\n    ' + '\n    '.join(
-        f'{cmd.ljust(20)} {func.__doc__}'
+        f'[green]{cmd.ljust(20)}[/green] {func.__doc__}'
         for cmd, func in all_subcommands.items()
         if cmd in main_cmds
     ) + '\n\n    ' + '\n    '.join(
-        f'{cmd.ljust(20)} {func.__doc__}'
+        f'[green]{cmd.ljust(20)}[/green] {func.__doc__}'
         for cmd, func in all_subcommands.items()
         if cmd in archive_cmds
     ) + '\n\n    ' + '\n    '.join(
-        f'{cmd.ljust(20)} {func.__doc__}'
+        f'[green]{cmd.ljust(20)}[/green] {func.__doc__}'
         for cmd, func in all_subcommands.items()
         if cmd not in display_first
     )
+    
+    DOCKER_USAGE = '''
+[dodger_blue3]Docker Usage:[/dodger_blue3]
+    [grey53]# using Docker Compose:[/grey53]
+    [blue]docker compose run[/blue] [dark_green]archivebox[/dark_green] [green]\\[command][/green] [green3][...args][/green3] [violet][--help][/violet] [grey53][--version][/grey53]
 
+    [grey53]# using Docker:[/grey53]
+    [blue]docker run[/blue] -v [light_slate_blue]$PWD:/data[/light_slate_blue] [grey53]-p 8000:8000[/grey53] -it [dark_green]archivebox/archivebox[/dark_green] [green]\\[command][/green] [green3][...args][/green3] [violet][--help][/violet] [grey53][--version][/grey53]
+''' if SHELL_CONFIG.IN_DOCKER else ''
+    DOCKER_DOCS = '\n    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage]https://github.com/ArchiveBox/ArchiveBox/wiki/Docker[/link]' if SHELL_CONFIG.IN_DOCKER else ''
+    DOCKER_OUTSIDE_HINT = "\n    [grey53]# outside of Docker:[/grey53]" if SHELL_CONFIG.IN_DOCKER else ''
+    DOCKER_CMD_PREFIX = "[blue]docker ... [/blue]" if SHELL_CONFIG.IN_DOCKER else ''
 
+    print(f'''{DOCKER_USAGE}
+[deep_sky_blue4]Usage:[/deep_sky_blue4]{DOCKER_OUTSIDE_HINT}
+    [dark_green]archivebox[/dark_green] [green]\\[command][/green] [green3][...args][/green3] [violet][--help][/violet] [grey53][--version][/grey53]
+
+[deep_sky_blue4]Commands:[/deep_sky_blue4]
+    {COMMANDS_HELP_TEXT}
+
+[deep_sky_blue4]Documentation:[/deep_sky_blue4]
+    [link=https://github.com/ArchiveBox/ArchiveBox/wiki]https://github.com/ArchiveBox/ArchiveBox/wiki[/link]{DOCKER_DOCS}
+    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage]https://github.com/ArchiveBox/ArchiveBox/wiki/Usage[/link]
+    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration]https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration[/link]
+''')
+    
+    
     if CONSTANTS.DATABASE_FILE.exists():
-        print('''{green}ArchiveBox v{}: The self-hosted internet archive.{reset}
+        pretty_out_dir = str(out_dir).replace(str(Path('~').expanduser()), '~')
+        EXAMPLE_USAGE = f'''
+[light_slate_blue]DATA DIR[/light_slate_blue]: [yellow]{pretty_out_dir}[/yellow]
 
-{lightred}Active data directory:{reset}
-    {}
+[violet]Hint:[/violet] [i]Common maintenance tasks:[/i]
+    [dark_green]archivebox[/dark_green] [green]init[/green]      [grey53]# make sure database is up-to-date (safe to run multiple times)[/grey53]
+    [dark_green]archivebox[/dark_green] [green]install[/green]   [grey53]# make sure plugins are up-to-date (wget, chrome, singlefile, etc.)[/grey53]
+    [dark_green]archivebox[/dark_green] [green]status[/green]    [grey53]# get a health checkup report on your collection[/grey53]
+    [dark_green]archivebox[/dark_green] [green]update[/green]    [grey53]# retry any previously failed or interrupted archiving tasks[/grey53]
 
-{lightred}Usage:{reset}
-    archivebox [command] [--help] [--version] [...args]
-
-{lightred}Commands:{reset}
-    {}
-
-{lightred}Example Use:{reset}
-    mkdir -p ~/archivebox/data; cd ~/archivebox/data
-    archivebox init
-    archivebox install
-    archivebox version
-    archivebox status
-
-    archivebox add https://example.com/some/page
-    archivebox add --depth=1 ~/Downloads/bookmarks_export.html
-    
-    archivebox list --sort=timestamp --csv=timestamp,url,is_archived
-    archivebox schedule --every=day https://example.com/some/feed.rss
-    archivebox update --resume=15109948213.123
-
-{lightred}Documentation:{reset}
-    https://github.com/ArchiveBox/ArchiveBox/wiki
-'''.format(VERSION, out_dir, COMMANDS_HELP_TEXT, **SHELL_CONFIG.ANSI))
-    
+[violet]Hint:[/violet] [i]More example usage:[/i]
+    [dark_green]archivebox[/dark_green] [green]add[/green] --depth=1 "https://example.com/some/page"
+    [dark_green]archivebox[/dark_green] [green]list[/green] --sort=timestamp --csv=timestamp,downloaded_at,url,title
+    [dark_green]archivebox[/dark_green] [green]schedule[/green] --every=day --depth=1 "https://example.com/some/feed.rss"
+    [dark_green]archivebox[/dark_green] [green]server[/green] [blue]0.0.0.0:8000[/blue]                [grey53]# Start the Web UI / API server[/grey53]
+'''
+        print(Panel(EXAMPLE_USAGE, expand=False, border_style='grey53', title='[green3]:white_check_mark: A collection [light_slate_blue]DATA DIR[/light_slate_blue] is currently active[/green3]', subtitle='Commands run inside this dir will only apply to this collection.'))
     else:
-        print('{green}Welcome to ArchiveBox v{}!{reset}'.format(VERSION, **SHELL_CONFIG.ANSI))
-        print()
+        DATA_SETUP_HELP = '\n'
         if SHELL_CONFIG.IN_DOCKER:
-            print('When using Docker, you need to mount a volume to use as your data dir:')
-            print('    docker run -v /some/path:/data archivebox ...')
-            print()
-        print('To import an existing archive (from a previous version of ArchiveBox):')
-        print('    1. cd into your data dir DATA_DIR (usually ArchiveBox/output) and run:')
-        print('    2. archivebox init')
-        print()
-        print('To start a new archive:')
-        print('    1. Create an empty directory, then cd into it and run:')
-        print('    2. archivebox init')
-        print()
-        print('For more information, see the documentation here:')
-        print('    https://github.com/ArchiveBox/ArchiveBox/wiki')
+            DATA_SETUP_HELP += '[violet]Hint:[/violet] When using Docker, you need to mount a volume to use as your data dir:\n'
+            DATA_SETUP_HELP += '    docker run [violet]-v /some/path/data:/data[/violet] archivebox/archivebox ...\n\n'
+        DATA_SETUP_HELP += 'To load an [dark_blue]existing[/dark_blue] collection:\n'
+        DATA_SETUP_HELP += '    1. [green]cd[/green] ~/archivebox/data     [grey53]# go into existing [light_slate_blue]DATA DIR[/light_slate_blue] (can be anywhere)[/grey53]\n'
+        DATA_SETUP_HELP += f'    2. {DOCKER_CMD_PREFIX}[dark_green]archivebox[/dark_green] [green]init[/green]          [grey53]# migrate to latest version (safe to run multiple times)[/grey53]\n'
+        DATA_SETUP_HELP += f'    3. {DOCKER_CMD_PREFIX}[dark_green]archivebox[/dark_green] [green]install[/green]       [grey53]# auto-update all plugins (wget, chrome, singlefile, etc.)[/grey53]\n'
+        DATA_SETUP_HELP += f'    4. {DOCKER_CMD_PREFIX}[dark_green]archivebox[/dark_green] [green]help[/green]          [grey53]# ...get help with next steps... [/grey53]\n\n'
+        DATA_SETUP_HELP += 'To start a [sea_green1]new[/sea_green1] collection:\n'
+        DATA_SETUP_HELP += '    1. [green]mkdir[/green] ~/archivebox/data  [grey53]# create a new, empty [light_slate_blue]DATA DIR[/light_slate_blue] (can be anywhere)[/grey53]\n'
+        DATA_SETUP_HELP += '    2. [green]cd[/green] ~/archivebox/data     [grey53]# cd into the new directory[/grey53]\n'
+        DATA_SETUP_HELP += f'    3. {DOCKER_CMD_PREFIX}[dark_green]archivebox[/dark_green] [green]init[/green]          [grey53]# initialize ArchiveBox in the new data dir[/grey53]\n'
+        DATA_SETUP_HELP += f'    4. {DOCKER_CMD_PREFIX}[dark_green]archivebox[/dark_green] [green]install[/green]       [grey53]# auto-install all plugins (wget, chrome, singlefile, etc.)[/grey53]\n'
+        DATA_SETUP_HELP += f'    5. {DOCKER_CMD_PREFIX}[dark_green]archivebox[/dark_green] [green]help[/green]          [grey53]# ... get help with next steps... [/grey53]\n'
+        print(Panel(DATA_SETUP_HELP, expand=False, border_style='grey53', title='[red]:cross_mark: No collection is currently active[/red]', subtitle='All archivebox [green]commands[/green] should be run from inside a collection [light_slate_blue]DATA DIR[/light_slate_blue]'))
 
 
 @enforce_types
@@ -423,7 +439,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     if Snapshot.objects.count() < 25:     # hide the hints for experienced users
         print()
         print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**SHELL_CONFIG.ANSI))
-        print('        archivebox server  # then visit http://127.0.0.1:8000')
+        print(f'        archivebox server  # then visit [deep_sky_blue4][link=http://127.0.0.1:8000]http://127.0.0.1:8000[/link]')
         print()
         print('    To add new links, you can run:')
         print("        archivebox add < ~/some/path/to/list_of_links.txt")
@@ -1202,8 +1218,11 @@ def server(runserver_args: Optional[List[str]]=None,
            init: bool=False,
            quick_init: bool=False,
            createsuperuser: bool=False,
+           daemonize: bool=False,
            out_dir: Path=DATA_DIR) -> None:
     """Run the ArchiveBox HTTP server"""
+
+    from rich import print
 
     runserver_args = runserver_args or []
     
@@ -1226,12 +1245,12 @@ def server(runserver_args: Optional[List[str]]=None,
     
     
 
-    print('{green}[+] Starting ArchiveBox webserver... {reset}'.format(**SHELL_CONFIG.ANSI))
+    print('[green][+] Starting ArchiveBox webserver...[/green]')
     print('    > Logging errors to ./logs/errors.log')
     if not User.objects.filter(is_superuser=True).exists():
-        print('{lightyellow}[!] No admin users exist yet, you will not be able to edit links in the UI.{reset}'.format(**SHELL_CONFIG.ANSI))
+        print('[yellow][!] No admin users exist yet, you will not be able to edit links in the UI.[/yellow]')
         print()
-        print('    To create an admin user, run:')
+        print('    [violet]Hint:[/violet] To create an admin user, run:')
         print('        archivebox manage createsuperuser')
         print()
     
@@ -1256,15 +1275,15 @@ def server(runserver_args: Optional[List[str]]=None,
         except IndexError:
             pass
 
-        print(f'    > Starting ArchiveBox webserver on http://{host}:{port}/')
+        print(f'    [blink][green]>[/green][/blink] Starting ArchiveBox webserver on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link]')
 
         from queues.supervisor_util import start_server_workers
 
         print()
         
-        start_server_workers(host=host, port=port)
+        start_server_workers(host=host, port=port, daemonize=False)
 
-        print("\n[🟩] ArchiveBox server shut down gracefully.")
+        print("\n[i][green][🟩] ArchiveBox server shut down gracefully.[/green][/i]")
 
 
 @enforce_types
