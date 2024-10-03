@@ -66,7 +66,7 @@ class BaseBinary(BaseHook, Binary):
             symlink.unlink(missing_ok=True)
             symlink.symlink_to(binary.abspath)
         except Exception as err:
-            # print('[red]:caution: Failed to symlink binary into ./lib/bin folder[/red]', err)
+            # print('[red]:warning: Failed to symlink binary into ./lib/bin folder[/red]', err)
             pass
 
     @validate_call

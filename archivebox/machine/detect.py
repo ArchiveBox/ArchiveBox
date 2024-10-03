@@ -167,7 +167,11 @@ def get_isp_info(ip=None):
         result = subprocess.run(['dig', 'example.com', 'A'], capture_output=True, text=True, check=True).stdout
         dns_server = result.split(';; SERVER: ', 1)[-1].split('\n')[0].split('#')[0].strip()
     except Exception:
-        pass
+        try:
+            dns_server = Path('/etc/resolv.conf').read_text().split('nameserver ', 1)[-1].split('\n')[0].strip()
+        except Exception:
+            dns_server = '127.0.0.1'
+            print(f'[red]:warning: WARNING: Could not determine DNS server, using {dns_server}[/red]')
     
     # Get DNS resolver's ISP name
     # url = f'https://ipapi.co/{dns_server}/json/'
