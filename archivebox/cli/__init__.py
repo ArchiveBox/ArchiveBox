@@ -22,7 +22,9 @@ BUILTIN_LIST = list
 CLI_DIR = Path(__file__).resolve().parent
 
 # rewrite setup -> install for backwards compatibility
-if sys.argv[1] == 'setup':
+if len(sys.argv) > 1 and sys.argv[1] == 'setup':
+    from rich import print
+    print(':warning: [bold red]DEPRECATED[/bold red] `archivebox setup` is deprecated, use `archivebox install` instead')
     sys.argv[1] = 'install'
 
 
