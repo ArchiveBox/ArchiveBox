@@ -84,7 +84,7 @@ class BaseExtractor(BaseHook):
         assert uplink.machine == installed_binary.machine  # it would be *very* weird if this wasn't true
         
         # output_dir = self.get_output_path(snapshot) or CONSTANTS.TMP_DIR
-        output_dir = CONSTANTS.TMP_DIR / 'test'
+        output_dir = CONSTANTS.DATA_DIR / '.tmp' / 'extractors' / self.name / str(snapshot.abid)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # execute the extractor binary with the given args
