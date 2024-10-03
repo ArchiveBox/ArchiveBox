@@ -75,7 +75,7 @@ def create_macos_app_symlink(target: Path, shortcut: Path):
     # TODO: should we enforce this? is it useful in any other situation?
     # if platform.system().lower() != 'darwin':
     #     raise Exception(...)
-        
+    shortcut.unlink(missing_ok=True)
     shortcut.write_text(f"""#!/usr/bin/env bash\nexec '{target}' "$@"\n""")
     shortcut.chmod(0o777)   # make sure its executable by everyone
 
@@ -226,6 +226,7 @@ class ChromeBinary(BaseBinary):
             create_macos_app_symlink(binary.abspath, symlink)
         else:
             # otherwise on linux we can symlink directly to binary executable
+            symlink.unlink(missing_ok=True)
             symlink.symlink_to(binary.abspath)
 
     @staticmethod            
