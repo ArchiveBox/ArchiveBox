@@ -60,11 +60,16 @@ class BaseBinary(BaseHook, Binary):
         if not (binary.abspath and binary.abspath.exists()):
             return
         
-        bin_dir.mkdir(parents=True, exist_ok=True)
-        symlink = bin_dir / binary.name
-        symlink.unlink(missing_ok=True)
-        symlink.symlink_to(binary.abspath)
-        symlink.chmod(0o777)   # make sure its executable by everyone
+        try:
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            symlink = bin_dir / binary.name
+            symlink.unlink(missing_ok=True)
+            symlink.symlink_to(binary.abspath)
+            symlink.chmod(0o777)   # make sure its executable by everyone
+        except Exception as err:
+            # print(f'[red]:warning: Failed to symlink {symlink} -> {binary.abspath}[/red] {err}')
+            # not actually needed, we can just run without it
+            pass
         
     @validate_call
     def load(self, fresh=False, **kwargs) -> Self:

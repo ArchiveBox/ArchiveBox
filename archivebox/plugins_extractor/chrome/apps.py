@@ -221,13 +221,18 @@ class ChromeBinary(BaseBinary):
         bin_dir.mkdir(parents=True, exist_ok=True)
         symlink = bin_dir / binary.name
         
-        if platform.system().lower() == 'darwin':
-            # if on macOS, browser binary is inside a .app, so we need to create a tiny bash script instead of a symlink
-            create_macos_app_symlink(binary.abspath, symlink)
-        else:
-            # otherwise on linux we can symlink directly to binary executable
-            symlink.unlink(missing_ok=True)
-            symlink.symlink_to(binary.abspath)
+        try:
+            if platform.system().lower() == 'darwin':
+                # if on macOS, browser binary is inside a .app, so we need to create a tiny bash script instead of a symlink
+                create_macos_app_symlink(binary.abspath, symlink)
+            else:
+                # otherwise on linux we can symlink directly to binary executable
+                symlink.unlink(missing_ok=True)
+                symlink.symlink_to(binary.abspath)
+        except Exception as err:
+            # print(f'[red]:warning: Failed to symlink {symlink} -> {binary.abspath}[/red] {err}')
+            # not actually needed, we can just run without it
+            pass
 
     @staticmethod            
     def chrome_cleanup_lockfile():
