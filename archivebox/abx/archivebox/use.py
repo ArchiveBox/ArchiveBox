@@ -1,20 +1,22 @@
 __package__ = 'abx.archivebox'
 
-from typing import Dict, Any
+from typing import Dict, Any, TYPE_CHECKING
 
 from django.utils import timezone
 from benedict import benedict
 
 from .. import pm
-from .base_hook import BaseHook
-from .base_configset import BaseConfigSet
-from .base_binary import BaseBinary, BaseBinProvider
-from .base_extractor import BaseExtractor
-from .base_replayer import BaseReplayer
-from .base_check import BaseCheck
-from .base_queue import BaseQueue
-from .base_admindataview import BaseAdminDataView
-from .base_searchbackend import BaseSearchBackend
+
+if TYPE_CHECKING:
+    from .base_hook import BaseHook
+    from .base_configset import BaseConfigSet
+    from .base_binary import BaseBinary, BaseBinProvider
+    from .base_extractor import BaseExtractor
+    from .base_replayer import BaseReplayer
+    from .base_check import BaseCheck
+    from .base_queue import BaseQueue
+    from .base_admindataview import BaseAdminDataView
+    from .base_searchbackend import BaseSearchBackend
 
 # API exposed to ArchiveBox code
 
