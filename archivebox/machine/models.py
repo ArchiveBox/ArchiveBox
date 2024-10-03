@@ -1,39 +1,88 @@
 __package__ = 'archivebox.machine'
 
 import socket
+from datetime import timedelta
+from pathlib import Path
 
 from django.db import models
+from django.utils import timezone
+from django.utils.functional import cached_property
+
+from pydantic_pkgr import Binary
+
+
+import abx.archivebox.use
+from abx.archivebox.base_binary import BaseBinary, BaseBinProvider
 from archivebox.abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
 
 from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, get_host_stats
 
-CURRENT_MACHINE = None
-CURRENT_INTERFACE = None
+CURRENT_MACHINE = None                              # global cache for the current machine
+CURRENT_INTERFACE = None                            # global cache for the current network interface
+CURRENT_BINARIES = {}                               # global cache for the currently installed binaries
+MACHINE_RECHECK_INTERVAL = 7 * 24 * 60 * 60         # 1 week (how often should we check for OS/hardware changes?)
+NETWORK_INTERFACE_RECHECK_INTERVAL = 1 * 60 * 60    # 1 hour (how often should we check for public IP/private IP/DNS changes?)
+INSTALLED_BINARY_RECHECK_INTERVAL = 1 * 30 * 60     # 30min  (how often should we check for changes to locally installed binaries?)
+
+
+class ModelWithHealthStats(models.Model):
+    num_uses_failed = models.PositiveIntegerField(default=0)
+    num_uses_succeeded = models.PositiveIntegerField(default=0)
+    
+    class Meta:
+        abstract = True
+    
+    def record_health_failure(self) -> None:
+        self.num_uses_failed += 1
+        self.save()
+
+    def record_health_success(self) -> None:
+        self.num_uses_succeeded += 1
+        self.save()
+        
+    def reset_health(self) -> None:
+        # move all the failures to successes when resetting so we dont lose track of the total count
+        self.num_uses_succeeded = self.num_uses_failed + self.num_uses_succeeded
+        self.num_uses_failed = 0
+        self.save()
+        
+    @property
+    def health(self) -> int:
+        total_uses = max((self.num_uses_failed + self.num_uses_succeeded, 1))
+        success_pct = (self.num_uses_succeeded / total_uses) * 100
+        return round(success_pct)
+
 
 class MachineManager(models.Manager):
     def current(self) -> 'Machine':
+        """Get the current machine that ArchiveBox is running on."""
+        
         global CURRENT_MACHINE
         if CURRENT_MACHINE:
-            return CURRENT_MACHINE
+            expires_at = CURRENT_MACHINE.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL)
+            if timezone.now() < expires_at:
+                # assume current machine cant change *while archivebox is actively running on it*
+                # it's not strictly impossible to swap hardware while code is running,
+                # but its rare and unusual so we check only once per week
+                # (e.g. VMWare can live-migrate a VM to a new host while it's running)
+                return CURRENT_MACHINE
+            else:
+                CURRENT_MACHINE = None
         
-        guid = get_host_guid()
-        try:
-            CURRENT_MACHINE = self.get(guid=guid)
-            return CURRENT_MACHINE
-        except self.model.DoesNotExist:
-            pass
+        CURRENT_MACHINE, _created = self.update_or_create(
+            guid=get_host_guid(),
+            defaults={
+                'hostname': socket.gethostname(),
+                **get_os_info(),
+                **get_vm_info(),
+                'stats': get_host_stats(),
+            },
+        )        
+        CURRENT_MACHINE.save()  # populate ABID
         
-        CURRENT_MACHINE = self.model(
-            guid=guid,
-            hostname=socket.gethostname(),
-            **get_os_info(),
-            **get_vm_info(),
-            stats=get_host_stats(),
-        )
-        CURRENT_MACHINE.save()
         return CURRENT_MACHINE
 
-class Machine(ABIDModel):
+class Machine(ABIDModel, ModelWithHealthStats):
     abid_prefix = 'mxn_'
     abid_ts_src = 'self.created_at'
     abid_uri_src = 'self.guid'
@@ -48,13 +97,12 @@ class Machine(ABIDModel):
     modified_at = models.DateTimeField(auto_now=True)
 
     # IMMUTABLE PROPERTIES
-    guid = models.CharField(max_length=64, default=None, null=False, unique=True, editable=False)
+    guid = models.CharField(max_length=64, default=None, null=False, unique=True, editable=False)  # 64char sha256 hash of machine's unique hardware ID
     
     # MUTABLE PROPERTIES
-    hostname = models.CharField(max_length=63, default=None, null=False)
-    
-    hw_in_docker = models.BooleanField(default=False, null=False)
-    hw_in_vm = models.BooleanField(default=False, null=False)
+    hostname = models.CharField(max_length=63, default=None, null=False)        # e.g. somehost.subdomain.example.com
+    hw_in_docker = models.BooleanField(default=False, null=False)               # e.g. False
+    hw_in_vm = models.BooleanField(default=False, null=False)                   # e.g. False
     hw_manufacturer = models.CharField(max_length=63, default=None, null=False) # e.g. Apple
     hw_product = models.CharField(max_length=63, default=None, null=False)      # e.g. Mac Studio Mac13,1
     hw_uuid = models.CharField(max_length=255, default=None, null=False)        # e.g. 39A12B50-...-...-...-...
@@ -65,43 +113,49 @@ class Machine(ABIDModel):
     os_release = models.CharField(max_length=63, default=None, null=False)      # e.g. macOS 14.6.1
     os_kernel = models.CharField(max_length=255, default=None, null=False)      # e.g. Darwin Kernel Version 23.6.0: Mon Jul 29 21:14:30 PDT 2024; root:xnu-10063.141.2~1/RELEASE_ARM64_T6000
     
-    stats = models.JSONField(default=None, null=False)
+    # STATS COUNTERS
+    stats = models.JSONField(default=dict, null=False)                    # e.g. {"cpu_load": [1.25, 2.4, 1.4], "mem_swap_used_pct": 56, ...}
+    # num_uses_failed = models.PositiveIntegerField(default=0)                  # from ModelWithHealthStats
+    # num_uses_succeeded = models.PositiveIntegerField(default=0)
     
-    objects = MachineManager()
+    objects: MachineManager = MachineManager()
     
     networkinterface_set: models.Manager['NetworkInterface']
+
+    
 
 
 class NetworkInterfaceManager(models.Manager):
     def current(self) -> 'NetworkInterface':
+        """Get the current network interface for the current machine."""
+        
         global CURRENT_INTERFACE
         if CURRENT_INTERFACE:
-            return CURRENT_INTERFACE
+            # assume the current network interface (public IP, DNS servers, etc.) wont change more than once per hour
+            expires_at = CURRENT_INTERFACE.modified_at + timedelta(seconds=NETWORK_INTERFACE_RECHECK_INTERVAL)
+            if timezone.now() < expires_at:
+                return CURRENT_INTERFACE
+            else:
+                CURRENT_INTERFACE = None
         
         machine = Machine.objects.current()
         net_info = get_host_network()
-        try:
-            CURRENT_INTERFACE = self.get(
-                machine=machine,
-                ip_public=net_info['ip_public'],
-                ip_local=net_info['ip_local'],
-                mac_address=net_info['mac_address'],
-                dns_server=net_info['dns_server'],
-            )
-            return CURRENT_INTERFACE
-        except self.model.DoesNotExist:
-            pass
-        
-        CURRENT_INTERFACE = self.model(
+        CURRENT_INTERFACE, _created = self.update_or_create(
             machine=machine,
-            **get_host_network(),
+            ip_public=net_info.pop('ip_public'),
+            ip_local=net_info.pop('ip_local'),
+            mac_address=net_info.pop('mac_address'),
+            dns_server=net_info.pop('dns_server'),
+            defaults=net_info,
         )
-        CURRENT_INTERFACE.save()
+        CURRENT_INTERFACE.save()  # populate ABID
+
         return CURRENT_INTERFACE
-            
+    
 
 
-class NetworkInterface(ABIDModel):
+
+class NetworkInterface(ABIDModel, ModelWithHealthStats):
     abid_prefix = 'ixf_'
     abid_ts_src = 'self.machine.created_at'
     abid_uri_src = 'self.machine.guid'
@@ -115,7 +169,7 @@ class NetworkInterface(ABIDModel):
     created_at = AutoDateTimeField(default=None, null=False, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
     
-    machine = models.ForeignKey(Machine, on_delete=models.CASCADE, default=None, null=False)
+    machine = models.ForeignKey(Machine, on_delete=models.CASCADE, default=None, null=False)  # e.g. Machine(id=...)
 
     # IMMUTABLE PROPERTIES
     mac_address = models.CharField(max_length=17, default=None, null=False, editable=False)   # e.g. ab:cd:ef:12:34:56

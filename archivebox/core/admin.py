@@ -783,16 +783,17 @@ class CustomWebhookAdmin(WebhookAdmin, ABIDModelAdmin):
 
 @admin.register(Machine, site=archivebox_admin)
 class MachineAdmin(ABIDModelAdmin):
-    list_display = ('abid', 'created_at', 'hostname', 'ips', 'os_platform', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'os_arch', 'os_family', 'os_release', 'hw_uuid')
+    list_display = ('abid', 'created_at', 'hostname', 'ips', 'os_platform', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'os_arch', 'os_family', 'os_release', 'hw_uuid', 'health')
     sort_fields = ('abid', 'created_at', 'hostname', 'ips', 'os_platform', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'os_arch', 'os_family', 'os_release', 'hw_uuid')
     # search_fields = ('id', 'abid', 'guid', 'hostname', 'hw_manufacturer', 'hw_product', 'hw_uuid', 'os_arch', 'os_family', 'os_platform', 'os_kernel', 'os_release')
     
     readonly_fields = ('guid', 'created_at', 'modified_at', 'abid_info', 'ips')
-    fields = (*readonly_fields, 'hostname', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'hw_uuid', 'os_arch', 'os_family', 'os_platform', 'os_kernel', 'os_release', 'stats')
+    fields = (*readonly_fields, 'hostname', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'hw_uuid', 'os_arch', 'os_family', 'os_platform', 'os_kernel', 'os_release', 'stats', 'num_uses_succeeded', 'num_uses_failed')
 
     list_filter = ('hw_in_docker', 'hw_in_vm', 'os_arch', 'os_family', 'os_platform')
     ordering = ['-created_at']
     list_per_page = 100
+    actions = ["delete_selected"]
 
     @admin.display(
         description='Public IP',
@@ -807,16 +808,17 @@ class MachineAdmin(ABIDModelAdmin):
 
 @admin.register(NetworkInterface, site=archivebox_admin)
 class NetworkInterfaceAdmin(ABIDModelAdmin):
-    list_display = ('abid', 'created_at', 'machine_info', 'ip_public', 'dns_server', 'isp', 'country', 'region', 'city', 'iface', 'ip_local', 'mac_address')
+    list_display = ('abid', 'created_at', 'machine_info', 'ip_public', 'dns_server', 'isp', 'country', 'region', 'city', 'iface', 'ip_local', 'mac_address', 'health')
     sort_fields = ('abid', 'created_at', 'machine_info', 'ip_public', 'dns_server', 'isp', 'country', 'region', 'city', 'iface', 'ip_local', 'mac_address')
     search_fields = ('abid', 'machine__abid', 'iface', 'ip_public', 'ip_local', 'mac_address', 'dns_server', 'hostname', 'isp', 'city', 'region', 'country')
     
     readonly_fields = ('machine', 'created_at', 'modified_at', 'abid_info', 'mac_address', 'ip_public', 'ip_local', 'dns_server')
-    fields = (*readonly_fields, 'iface', 'hostname', 'isp', 'city', 'region', 'country')
+    fields = (*readonly_fields, 'iface', 'hostname', 'isp', 'city', 'region', 'country', 'num_uses_succeeded', 'num_uses_failed')
 
     list_filter = ('isp', 'country', 'region')
     ordering = ['-created_at']
     list_per_page = 100
+    actions = ["delete_selected"]
 
     @admin.display(
         description='Machine',
