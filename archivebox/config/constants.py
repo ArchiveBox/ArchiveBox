@@ -18,6 +18,7 @@ PACKAGE_DIR: Path = Path(__file__).resolve().parent.parent    # archivebox sourc
 DATA_DIR: Path = Path(os.curdir).resolve()                    # archivebox user data dir
 ARCHIVE_DIR: Path = DATA_DIR / 'archive'                      # archivebox snapshot data dir
 
+IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'yes')
 
 def _detect_installed_version(PACKAGE_DIR: Path):
     """Autodetect the installed archivebox version by using pip package metadata, pyproject.toml file, or package.json file"""
@@ -79,8 +80,8 @@ class ConstantsDict(Mapping):
     PERSONAS_DIR: Path                  = DATA_DIR / PERSONAS_DIR_NAME
     CACHE_DIR: Path                     = DATA_DIR / CACHE_DIR_NAME
     LOGS_DIR: Path                      = DATA_DIR / LOGS_DIR_NAME
-    LIB_DIR: Path                       = DATA_DIR / LIB_DIR_NAME
-    TMP_DIR: Path                       = DATA_DIR / TMP_DIR_NAME
+    LIB_DIR: Path                       = (Path('/tmp') if IN_DOCKER else DATA_DIR) / LIB_DIR_NAME
+    TMP_DIR: Path                       = (Path('/tmp') if IN_DOCKER else DATA_DIR) / TMP_DIR_NAME
     CUSTOM_TEMPLATES_DIR: Path          = DATA_DIR / CUSTOM_TEMPLATES_DIR_NAME
     USER_PLUGINS_DIR: Path              = DATA_DIR / USER_PLUGINS_DIR_NAME
 

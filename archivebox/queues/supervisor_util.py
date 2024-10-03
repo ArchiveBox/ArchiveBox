@@ -12,7 +12,7 @@ from typing import Dict, cast
 from supervisor.xmlrpc import SupervisorTransport
 from xmlrpc.client import ServerProxy
 
-from .settings import CONFIG_FILE, PID_FILE, SOCK_FILE, LOG_FILE, WORKER_DIR, TMP_DIR, LOGS_DIR
+from .settings import SUPERVISORD_CONFIG_FILE, DATA_DIR, PID_FILE, SOCK_FILE, LOG_FILE, WORKERS_DIR, TMP_DIR, LOGS_DIR
 
 from typing import Iterator
 
@@ -36,38 +36,39 @@ def create_supervisord_config():
 [supervisord]
 nodaemon = true
 environment = IS_SUPERVISORD_PARENT="true"
-pidfile = %(here)s/{PID_FILE.name}
-logfile = %(here)s/../{LOGS_DIR.name}/{LOG_FILE.name}
-childlogdir = %(here)s/../{LOGS_DIR.name}
-directory = %(here)s/..
+pidfile = {TMP_DIR}/{PID_FILE.name}
+logfile = {LOGS_DIR}/{LOG_FILE.name}
+childlogdir = {LOGS_DIR}
+directory = {DATA_DIR}
 strip_ansi = true
 nocleanup = true
 
 [unix_http_server]
-file = %(here)s/{SOCK_FILE.name}
+file = {TMP_DIR}/{SOCK_FILE.name}
 chmod = 0700
 
 [supervisorctl]
-serverurl = unix://%(here)s/{SOCK_FILE.name}
+serverurl = unix://{TMP_DIR}/{SOCK_FILE.name}
 
 [rpcinterface:supervisor]
 supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
 
 [include]
-files = %(here)s/{WORKER_DIR.name}/*.conf
+files = {WORKERS_DIR}/*.conf
 
 """
-    CONFIG_FILE.write_text(config_content)
+    SUPERVISORD_CONFIG_FILE.write_text(config_content)
 
 def create_worker_config(daemon):
-    Path.mkdir(WORKER_DIR, exist_ok=True)
+    Path.mkdir(WORKERS_DIR, exist_ok=True)
     
     name = daemon['name']
-    configfile = WORKER_DIR / f"{name}.conf"
+    configfile = WORKERS_DIR / f"{name}.conf"
 
     config_content = f"[program:{name}]\n"
     for key, value in daemon.items():
-        if key == 'name': continue
+        if key == 'name':
+            continue
         config_content += f"{key}={value}\n"
     config_content += "\n"
 
@@ -117,7 +118,7 @@ def start_new_supervisord_process(daemonize=False):
 
     # Start supervisord
     subprocess.Popen(
-        f"supervisord --configuration={CONFIG_FILE}",
+        f"supervisord --configuration={SUPERVISORD_CONFIG_FILE}",
         stdin=None,
         shell=True,
         start_new_session=daemonize,
@@ -146,8 +147,11 @@ def get_or_create_supervisord_process(daemonize=False):
     if supervisor is None:
         stop_existing_supervisord_process()
         supervisor = start_new_supervisord_process(daemonize=daemonize)
+        time.sleep(0.5)
 
-    assert supervisor and supervisor.getPID(), "Failed to start supervisord or connect to it!"
+    assert supervisor, "Failed to start supervisord or connect to it!"
+    supervisor.getPID()  # make sure it doesn't throw an exception
+    
     return supervisor
 
 def start_worker(supervisor, daemon, lazy=False):

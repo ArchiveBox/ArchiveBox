@@ -756,7 +756,9 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CON
     global DJANGO_SET_UP
 
     if DJANGO_SET_UP:
-        raise Exception('django is already set up!')
+        # raise Exception('django is already set up!')
+        # TODO: figure out why CLI entrypoints with init_pending are running this twice sometimes
+        return
 
     with Progress(transient=True, expand=True, console=CONSOLE) as INITIAL_STARTUP_PROGRESS:
         INITIAL_STARTUP_PROGRESS_TASK = INITIAL_STARTUP_PROGRESS.add_task("[green]Loading modules...", total=25)
