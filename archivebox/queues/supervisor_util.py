@@ -266,8 +266,8 @@ def stop_worker(supervisor, daemon_name):
 
 
 
-def start_server_workers(host='0.0.0.0', port='8000'):
-    supervisor = get_or_create_supervisord_process(daemonize=False)
+def start_server_workers(host='0.0.0.0', port='8000', daemonize=False):
+    supervisor = get_or_create_supervisord_process(daemonize=daemonize)
     
     bg_workers = [
         {
@@ -303,18 +303,19 @@ def start_server_workers(host='0.0.0.0', port='8000'):
         start_worker(supervisor, worker)
     print()
 
-    try:
-        watch_worker(supervisor, "worker_daphne")
-    except KeyboardInterrupt:
-        print("\n[🛑] Got Ctrl+C, stopping gracefully...")
-    except SystemExit:
-        pass
-    except BaseException as e:
-        print(f"\n[🛑] Got {e.__class__.__name__} exception, stopping web server gracefully...")
-        raise
-    finally:
-        stop_worker(supervisor, "worker_daphne")
-        time.sleep(0.5)
+    if not daemonize:
+        try:
+            watch_worker(supervisor, "worker_daphne")
+        except KeyboardInterrupt:
+            print("\n[🛑] Got Ctrl+C, stopping gracefully...")
+        except SystemExit:
+            pass
+        except BaseException as e:
+            print(f"\n[🛑] Got {e.__class__.__name__} exception, stopping web server gracefully...")
+            raise
+        finally:
+            stop_worker(supervisor, "worker_daphne")
+            time.sleep(0.5)
 
 
 def start_cli_workers(watch=False):

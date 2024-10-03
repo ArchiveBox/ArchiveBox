@@ -58,6 +58,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         action='store_true',
         help='Run archivebox manage createsuperuser before starting the server',
     )
+    parser.add_argument(
+        '--daemonize',
+        action='store_true',
+        help='Run the server in the background as a daemon',
+    )
     command = parser.parse_args(args or ())
     reject_stdin(__command__, stdin)
     
@@ -68,6 +73,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         init=command.init,
         quick_init=command.quick_init,
         createsuperuser=command.createsuperuser,
+        daemonize=command.daemonize,
         out_dir=Path(pwd) if pwd else DATA_DIR,
     )
 
