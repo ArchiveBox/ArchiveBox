@@ -180,13 +180,13 @@ def version(quiet: bool=False,
             out_dir: Path=DATA_DIR) -> None:
     """Print the ArchiveBox version and dependency information"""
     
-    from rich.console import Console
-    console = Console()
-    print = console.print
     print(VERSION)
-    if quiet:
+    if quiet or '--version' in sys.argv:
         return
     
+    from rich.console import Console
+    console = Console()
+    prnt = console.print
     
     from plugins_auth.ldap.apps import LDAP_CONFIG
     from django.conf import settings
@@ -198,12 +198,12 @@ def version(quiet: bool=False,
     # DEBUG=False IS_TTY=True TZ=UTC SEARCH_BACKEND=ripgrep LDAP=False
     
     p = platform.uname()
-    print(
-        'ArchiveBox v{}'.format(CONSTANTS.VERSION),
+    prnt(
+        '[dark_green]ArchiveBox[/dark_green] [dark_goldenrod]v{}[/dark_goldenrod]'.format(CONSTANTS.VERSION),
         f'COMMIT_HASH={SHELL_CONFIG.COMMIT_HASH[:7] if SHELL_CONFIG.COMMIT_HASH else "unknown"}',
         f'BUILD_TIME={SHELL_CONFIG.BUILD_TIME}',
     )
-    print(
+    prnt(
         f'IN_DOCKER={SHELL_CONFIG.IN_DOCKER}',
         f'IN_QEMU={SHELL_CONFIG.IN_QEMU}',
         f'ARCH={p.machine}',
@@ -212,13 +212,13 @@ def version(quiet: bool=False,
         f'PYTHON={sys.implementation.name.title()}',
     )
     OUTPUT_IS_REMOTE_FS = CONSTANTS.DATA_LOCATIONS.DATA_DIR.is_mount or CONSTANTS.DATA_LOCATIONS.ARCHIVE_DIR.is_mount
-    print(
+    prnt(
         f'FS_ATOMIC={STORAGE_CONFIG.ENFORCE_ATOMIC_WRITES}',
         f'FS_REMOTE={OUTPUT_IS_REMOTE_FS}',
         f'FS_USER={SHELL_CONFIG.PUID}:{SHELL_CONFIG.PGID}',
         f'FS_PERMS={STORAGE_CONFIG.OUTPUT_PERMISSIONS}',
     )
-    print(
+    prnt(
         f'DEBUG={SHELL_CONFIG.DEBUG}',
         f'IS_TTY={SHELL_CONFIG.IS_TTY}',
         f'TZ={CONSTANTS.TIMEZONE}',
@@ -226,10 +226,9 @@ def version(quiet: bool=False,
         f'LDAP={LDAP_CONFIG.LDAP_ENABLED}',
         #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
     )
-    print()
+    prnt()
 
-    print()
-    print('[pale_green1][i] Dependency versions:[/pale_green1]')
+    prnt('[pale_green1][i] Dependency versions:[/pale_green1]')
     for name, binary in reversed(list(settings.BINARIES.items())):
         if binary.name == 'archivebox':
             continue
@@ -240,31 +239,30 @@ def version(quiet: bool=False,
         except Exception as e:
             err = e
             loaded_bin = binary
-            raise
         provider_summary = f'[dark_sea_green3]{loaded_bin.binprovider.name.ljust(10)}[/dark_sea_green3]' if loaded_bin.binprovider else '[grey23]not found[/grey23]'
         if loaded_bin.abspath:
-            abspath = str(loaded_bin.abspath).replace(str(Path('~').expanduser()), '~')
+            abspath = str(loaded_bin.abspath).replace(str(DATA_DIR), '[light_slate_blue].[/light_slate_blue]').replace(str(Path('~').expanduser()), '~')
             if ' ' in abspath:
                 abspath = abspath.replace(' ', r'\ ')
         else:
             abspath = f'[red]{err}[/red]'
-        print('', '[green]√[/green]' if loaded_bin.is_valid else '[red]X[/red]', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(12), provider_summary, abspath, overflow='ignore', crop=False)
+        prnt('', '[green]√[/green]' if loaded_bin.is_valid else '[red]X[/red]', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(12), provider_summary, abspath, overflow='ignore', crop=False)
 
-    print()
-    print('[deep_sky_blue3][i] Source-code locations:[/deep_sky_blue3]')
+    prnt()
+    prnt('[deep_sky_blue3][i] Source-code locations:[/deep_sky_blue3]')
     for name, path in CONSTANTS.CODE_LOCATIONS.items():
-        print(printable_folder_status(name, path), overflow='ignore', crop=False)
+        prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
 
-    print()
+    prnt()
     if CONSTANTS.DATABASE_FILE.exists() or CONSTANTS.ARCHIVE_DIR.exists() or CONSTANTS.CONFIG_FILE.exists():
-        print('[bright_yellow][i] Data locations:[/bright_yellow]')
+        prnt('[bright_yellow][i] Data locations:[/bright_yellow]')
         for name, path in CONSTANTS.DATA_LOCATIONS.items():
-            print(printable_folder_status(name, path), overflow='ignore', crop=False)
+            prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
     else:
-        print()
-        print('[red][i] Data locations:[/red] (not in a data directory)')
+        prnt()
+        prnt('[red][i] Data locations:[/red] (not in a data directory)')
 
-    print()
+    prnt()
 
 
 @enforce_types
@@ -959,8 +957,10 @@ def install(out_dir: Path=DATA_DIR) -> None:
     stderr('\n[+] Installing ArchiveBox dependencies automatically...', color='green')
 
     for binary in reversed(list(settings.BINARIES.values())):
+        providers = ' [grey53]or[/grey53] '.join(provider.name for provider in binary.binproviders_supported)
+        print(f'[+] Locating / Installing [yellow]{binary.name}[/yellow] using [red]{providers}[/red]...')
         try:
-            print(binary.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath'}))
+            print(binary.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath', 'hook_type'}))
         except Exception as e:
             print(f'[X] Failed to install {binary.name}: {e}')
 
@@ -977,7 +977,7 @@ def install(out_dir: Path=DATA_DIR) -> None:
     
     from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
     
-    run_shell([ARCHIVEBOX_BINARY.load().abspath, '--version'], capture_output=False, cwd=out_dir)
+    run_shell([ARCHIVEBOX_BINARY.load().abspath, 'version'], capture_output=False, cwd=out_dir)
 
 # backwards-compatibility:
 setup = install

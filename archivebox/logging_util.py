@@ -518,16 +518,15 @@ def pretty_path(path: Union[Path, str], pwd: Union[Path, str]=DATA_DIR) -> str:
         return path
 
     # replace long absolute paths with ./ relative ones to save on terminal output width
-    if path.startswith(pwd) and (pwd != '/'):
-        path = path.replace(pwd, '.', 1)
+    if path.startswith(pwd) and (pwd != '/') and path != pwd:
+        path = path.replace(pwd, '[light_slate_blue].[/light_slate_blue]', 1)
     
     # quote paths containing spaces
     if ' ' in path:
         path = f'"{path}"'
-
-    # if path is just a plain dot, replace it back with the absolute path for clarity
-    if path == '.':
-        path = pwd
+        
+    # replace home directory with ~ for shorter output
+    path = path.replace(str(Path('~').expanduser()), '~')
 
     return path
 
@@ -591,8 +590,8 @@ def printable_folder_status(name: str, folder: Dict) -> str:
         f'[{color}]',
         symbol,
         '[/]',
-        name.ljust(21),
-        num_files.ljust(14),
+        name.ljust(21).replace('DATA_DIR', '[light_slate_blue]DATA_DIR[/light_slate_blue]'),
+        num_files.ljust(14).replace('missing', '[grey53]missing[/grey53]'),
         f'[{color}]',
         note.ljust(8),
         '[/]',
