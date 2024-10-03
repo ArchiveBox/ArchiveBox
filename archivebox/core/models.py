@@ -22,6 +22,7 @@ from archivebox.config import CONSTANTS
 
 from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
 from queues.tasks import bg_archive_snapshot
+from machine.models import Machine, NetworkInterface
 
 from archivebox.misc.system import get_dir_size
 from archivebox.misc.util import parse_date, base_url
@@ -545,6 +546,9 @@ class ArchiveResult(ABIDModel):
     end_ts = models.DateTimeField()
     status = models.CharField(max_length=16, choices=STATUS_CHOICES)
 
+    # the network interface that was used to download this result
+    # uplink = models.ForeignKey(NetworkInterface, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Network Interface Used')
+
     objects = ArchiveResultManager()
 
     class Meta(TypedModelMeta):
@@ -555,6 +559,10 @@ class ArchiveResult(ABIDModel):
     def __str__(self):
         # return f'[{self.abid}] 📅 {self.start_ts.strftime("%Y-%m-%d %H:%M")} 📄 {self.extractor} {self.snapshot.url}'
         return self.extractor
+
+    @cached_property
+    def machine(self):
+        return self.iface.machine if self.iface else None
 
     @cached_property
     def snapshot_dir(self):

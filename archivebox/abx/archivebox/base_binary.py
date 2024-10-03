@@ -14,9 +14,9 @@ from pydantic_pkgr import (
     EnvProvider,
 )
 
-import abx
-
 from archivebox.config import CONSTANTS
+
+import abx
 from .base_hook import BaseHook, HookType
 
 
@@ -92,9 +92,17 @@ class BaseBinary(BaseHook, Binary):
     @abx.hookimpl
     def get_BINARIES(self):
         return [self]
+
+
+class AptBinProvider(AptProvider, BaseBinProvider):
+    name: BinProviderName = "apt"
     
+class BrewBinProvider(BrewProvider, BaseBinProvider):
+    name: BinProviderName = "brew"
+    
+class EnvBinProvider(EnvProvider, BaseBinProvider):
+    name: BinProviderName = "env"
 
-
-apt = AptProvider()
-brew = BrewProvider()
-env = EnvProvider()
+apt = AptBinProvider()
+brew = BrewBinProvider()
+env = EnvBinProvider()

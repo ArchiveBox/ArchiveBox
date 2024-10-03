@@ -29,7 +29,7 @@ from core.mixins import SearchResultsAdminMixin
 from api.models import APIToken
 from abid_utils.admin import ABIDModelAdmin
 from queues.tasks import bg_archive_links, bg_add
-from machine.models import Machine, NetworkInterface
+from machine.models import Machine, NetworkInterface, InstalledBinary
 
 from index.html import snapshot_icons
 from logging_util import printable_filesize
@@ -828,4 +828,30 @@ class NetworkInterfaceAdmin(ABIDModelAdmin):
             iface.machine.id,
             iface.machine.abid,
             iface.machine.hostname,
+        )
+
+@admin.register(InstalledBinary, site=archivebox_admin)
+class InstalledBinaryAdmin(ABIDModelAdmin):
+    list_display = ('abid', 'created_at', 'machine_info', 'name', 'binprovider', 'version', 'abspath', 'sha256', 'health')
+    sort_fields = ('abid', 'created_at', 'machine_info', 'name', 'binprovider', 'version', 'abspath', 'sha256')
+    search_fields = ('abid', 'machine__abid', 'name', 'binprovider', 'version', 'abspath', 'sha256')
+    
+    readonly_fields = ('created_at', 'modified_at', 'abid_info')
+    fields = ('machine', 'name', 'binprovider', 'abspath', 'version', 'sha256', *readonly_fields, 'num_uses_succeeded', 'num_uses_failed')
+
+    list_filter = ('name', 'binprovider', 'machine_id')
+    ordering = ['-created_at']
+    list_per_page = 100
+    actions = ["delete_selected"]
+
+    @admin.display(
+        description='Machine',
+        ordering='machine__abid',
+    )
+    def machine_info(self, installed_binary):
+        return format_html(
+            '<a href="/admin/machine/machine/{}/change"><b><code>[{}]</code></b> &nbsp; {}</a>',
+            installed_binary.machine.id,
+            installed_binary.machine.abid,
+            installed_binary.machine.hostname,
         )

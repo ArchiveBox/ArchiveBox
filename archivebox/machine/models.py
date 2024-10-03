@@ -124,44 +124,188 @@ class NetworkInterface(ABIDModel):
     dns_server = models.GenericIPAddressField(default=None, null=False, editable=False)       # e.g. 8.8.8.8         or 2001:0db8:85a3:0000:0000:8a2e:0370:7334
     
     # MUTABLE PROPERTIES
-    iface = models.CharField(max_length=15, default=None, null=False)                         # e.g. en0
     hostname = models.CharField(max_length=63, default=None, null=False)                      # e.g. somehost.sub.example.com
+    iface = models.CharField(max_length=15, default=None, null=False)                         # e.g. en0
     isp = models.CharField(max_length=63, default=None, null=False)                           # e.g. AS-SONICTELECOM
     city = models.CharField(max_length=63, default=None, null=False)                          # e.g. Berkeley
     region = models.CharField(max_length=63, default=None, null=False)                        # e.g. California
     country = models.CharField(max_length=63, default=None, null=False)                       # e.g. United States
 
-    objects = NetworkInterfaceManager()
+    # STATS COUNTERS (from ModelWithHealthStats)
+    # num_uses_failed = models.PositiveIntegerField(default=0)
+    # num_uses_succeeded = models.PositiveIntegerField(default=0)
+
+    objects: NetworkInterfaceManager = NetworkInterfaceManager()
     
     class Meta:
         unique_together = (
+            # if *any* of these change, it's considered a different interface
+            # because we might get different downloaded content as a result,
+            # this forces us to store an audit trail whenever these things change
             ('machine', 'ip_public', 'ip_local', 'mac_address', 'dns_server'),
         )
+
+
+class InstalledBinaryManager(models.Manager):
+    def get_from_db_or_cache(self, binary: Binary) -> 'InstalledBinary':
+        """Get or create an InstalledBinary record for a Binary on the local machine"""
         
+        global CURRENT_BINARIES
+        cached_binary = CURRENT_BINARIES.get(binary.id)
+        if cached_binary:
+            expires_at = cached_binary.modified_at + timedelta(seconds=INSTALLED_BINARY_RECHECK_INTERVAL)
+            if timezone.now() < expires_at:
+                is_loaded = binary.abspath and binary.version and binary.sha256
+                if is_loaded:
+                    # if the caller took did the (expensive) job of loading the binary from the filesystem already
+                    # then their in-memory version is certainly more up-to-date than any potential cached version
+                    # use this opportunity to invalidate the cache in case if anything has changed
+                    is_different_from_cache = (
+                        binary.abspath != cached_binary.abspath
+                        or binary.version != cached_binary.version
+                        or binary.sha256 != cached_binary.sha256
+                    )
+                    if is_different_from_cache:
+                        CURRENT_BINARIES.pop(binary.id)
+                    else:
+                        return cached_binary
+                else:
+                    # if they have not yet loaded the binary
+                    # but our cache is recent enough and not expired, assume cached version is good enough
+                    # it will automatically reload when the cache expires
+                    # cached_binary will be stale/bad for up to 30min if binary was updated/removed on host system
+                    return cached_binary
+            else:
+                # cached binary is too old, reload it from scratch
+                CURRENT_BINARIES.pop(binary.id)
+        
+        if not binary.abspath or not binary.version or not binary.sha256:
+            # if binary was not yet loaded from filesystem, do it now
+            # this is expensive, we have to find it's abspath, version, and sha256, but it's necessary
+            # to make sure we have a good, up-to-date record of it in the DB & in-memroy cache
+            binary = binary.load()
 
-# class InstalledBinary(ABIDModel):
-#     abid_prefix = 'bin_'
-#     abid_ts_src = 'self.machine.created_at'
-#     abid_uri_src = 'self.machine.guid'
-#     abid_subtype_src = 'self.binprovider'
-#     abid_rand_src = 'self.id'
-#     abid_drift_allowed = False
+        assert binary.loaded_binprovider and binary.loaded_abspath and binary.loaded_version and binary.loaded_sha256, f'Failed to load binary {binary.name} abspath, version, and sha256'
+        
+        CURRENT_BINARIES[binary.id], _created = self.update_or_create(
+            machine=Machine.objects.current(),
+            name=binary.name,
+            binprovider=binary.loaded_binprovider.name,
+            version=str(binary.loaded_version),
+            abspath=str(binary.loaded_abspath),
+            sha256=str(binary.loaded_sha256),
+        )
+        cached_binary = CURRENT_BINARIES[binary.id]
+        cached_binary.save()   # populate ABID
+        
+        # if we get this far make sure DB record matches in-memroy cache
+        assert str(cached_binary.binprovider) == str(binary.loaded_binprovider.name)
+        assert str(cached_binary.abspath) == str(binary.loaded_abspath)
+        assert str(cached_binary.version) == str(binary.loaded_version)
+        assert str(cached_binary.sha256) == str(binary.loaded_sha256)
+        
+        return cached_binary
     
-#     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
-#     abid = ABIDField(prefix=abid_prefix)
 
-#     created_at = AutoDateTimeField(default=None, null=False, db_index=True)
-#     modified_at = models.DateTimeField(auto_now=True)
+
+class InstalledBinary(ABIDModel, ModelWithHealthStats):
+    abid_prefix = 'bin_'
+    abid_ts_src = 'self.machine.created_at'
+    abid_uri_src = 'self.machine.guid'
+    abid_subtype_src = 'self.binprovider'
+    abid_rand_src = 'self.id'
+    abid_drift_allowed = False
     
-#     machine = models.ForeignKey(Machine, on_delete=models.CASCADE, default=None, null=False)
-#     binprovider = models.CharField(max_length=255, default=None, null=False)
+    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
+    abid = ABIDField(prefix=abid_prefix)
+
+    created_at = AutoDateTimeField(default=None, null=False, db_index=True)
+    modified_at = models.DateTimeField(auto_now=True)
     
-#     name = models.CharField(max_length=255, default=None, null=False)
-#     version = models.CharField(max_length=255, default=None, null=False)
-#     abspath = models.CharField(max_length=255, default=None, null=False)
-#     sha256 = models.CharField(max_length=255, default=None, null=False)
+    # IMMUTABLE PROPERTIES
+    machine = models.ForeignKey(Machine, on_delete=models.CASCADE, default=None, null=False, blank=True)
+    name = models.CharField(max_length=63, default=None, null=False, blank=True)
+    binprovider = models.CharField(max_length=31, default=None, null=False, blank=True)
+    abspath = models.CharField(max_length=255, default=None, null=False, blank=True)
+    version = models.CharField(max_length=32, default=None, null=False, blank=True)
+    sha256 = models.CharField(max_length=64, default=None, null=False, blank=True)
     
-#     class Meta:
-#         unique_together = (
-#             ('machine', 'binprovider', 'version', 'abspath', 'sha256'),
-#         )
+    # MUTABLE PROPERTIES
+    # is_pinned = models.BooleanField(default=False)    # i.e. should this binary superceede other binaries with the same name on the host?
+    # is_valid = models.BooleanField(default=True)      # i.e. is this binary still available on the host?
+    
+    # STATS COUNTERS (from ModelWithHealthStats)
+    # num_uses_failed = models.PositiveIntegerField(default=0)
+    # num_uses_succeeded = models.PositiveIntegerField(default=0)
+    
+    objects: InstalledBinaryManager = InstalledBinaryManager()
+    
+    class Meta:
+        verbose_name = 'Installed Binary'
+        verbose_name_plural = 'Installed Binaries'
+        unique_together = (
+            ('machine', 'name', 'binprovider', 'abspath', 'version', 'sha256'),
+        )
+
+    def __str__(self) -> str:
+        return f'{self.name}@{self.binprovider}+{self.abspath}@{self.version}'
+    
+    def clean(self, *args, **kwargs) -> None:
+        assert self.name or self.abspath
+        self.name = str(self.name or self.abspath)
+        assert self.name
+
+        if not hasattr(self, 'machine'):
+            self.machine = Machine.objects.current()
+        if not self.binprovider:
+            all_known_binproviders = list(abx.archivebox.use.get_BINPROVIDERS().values())
+            binary = Binary(name=self.name, binproviders=all_known_binproviders).load()
+            self.binprovider = binary.loaded_binprovider.name if binary.loaded_binprovider else None
+        if not self.abspath:
+            self.abspath = self.BINPROVIDER.get_abspath(self.name)
+        if not self.version:
+            self.version = self.BINPROVIDER.get_version(self.name, abspath=self.abspath)
+        if not self.sha256:
+            self.sha256 = self.BINPROVIDER.get_sha256(self.name, abspath=self.abspath)
+            
+        super().clean(*args, **kwargs)
+
+    @cached_property
+    def BINARY(self) -> BaseBinary:
+        for binary in abx.archivebox.use.get_BINARIES().values():
+            if binary.name == self.name:
+                return binary
+        raise Exception(f'Orphaned InstalledBinary {self.name} {self.binprovider} was found in DB, could not find any plugin that defines it')
+        # TODO: we could technically reconstruct it from scratch, but why would we ever want to do that?
+
+    @cached_property
+    def BINPROVIDER(self) -> BaseBinProvider:
+        for binprovider in abx.archivebox.use.get_BINPROVIDERS().values():
+            if binprovider.name == self.binprovider:
+                return binprovider
+        raise Exception(f'Orphaned InstalledBinary(name={self.name}) was found in DB, could not find any plugin that defines BinProvider(name={self.binprovider})')
+
+    # maybe not a good idea to provide this? Binary in DB is a record of the binary's config
+    # whereas a loaded binary is a not-yet saved instance that may not have the same config
+    # why would we want to load a binary record from the db when it could be freshly loaded?
+    def load_from_db(self) -> BaseBinary:
+        # TODO: implement defaults arg in pydantic_pkgr
+        # return self.BINARY.load(defaults={
+        #     'binprovider': self.BINPROVIDER,
+        #     'abspath': Path(self.abspath),
+        #     'version': self.version,
+        #     'sha256': self.sha256,
+        # })
+        
+        return BaseBinary.model_validate({
+            **self.BINARY.model_dump(),
+            'abspath': self.abspath and Path(self.abspath),
+            'version': self.version,
+            'sha256': self.sha256,
+            'loaded_binprovider': self.BINPROVIDER,
+            'binproviders_supported': self.BINARY.binproviders_supported,
+            'provider_overrides': self.BINARY.provider_overrides,
+        })
+
+    def load_fresh(self) -> BaseBinary:
+        return self.BINARY.load()

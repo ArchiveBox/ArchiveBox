@@ -38,7 +38,6 @@ class ConfigPlugin(BasePlugin):
         ARCHIVING_CONFIG,
         SEARCH_BACKEND_CONFIG,
     ]
-    
 
 
 PLUGIN = ConfigPlugin()

@@ -480,7 +480,7 @@ ADMIN_DATA_VIEWS = {
         {
             "route": "binaries/",
             "view": "archivebox.config.views.binaries_list_view",
-            "name": "Binaries",
+            "name": "Dependencies",
             "items": {
                 "route": "<str:key>/",
                 "view": "archivebox.config.views.binary_detail_view",

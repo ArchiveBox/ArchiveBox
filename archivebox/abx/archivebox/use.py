@@ -46,9 +46,13 @@ def get_FLAT_CONFIG() -> Dict[str, Any]:
     })
 
 def get_BINPROVIDERS() -> Dict[str, BaseBinProvider]:
+    # TODO: move these to plugins
+    from abx.archivebox.base_binary import apt, brew, env
+    builtin_binproviders = [apt, brew, env]
+    
     return benedict({
         binprovider.id: binprovider
-        for plugin_binproviders in pm.hook.get_BINPROVIDERS()
+        for plugin_binproviders in [builtin_binproviders, *pm.hook.get_BINPROVIDERS()]
             for binprovider in plugin_binproviders
     })
 

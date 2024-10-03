@@ -16,6 +16,8 @@ from admin_data_views.utils import render_with_table_view, render_with_item_view
 from archivebox.config import CONSTANTS
 from archivebox.misc.util import parse_date
 
+from machine.models import InstalledBinary
+
 
 def obj_to_yaml(obj: Any, indent: int=0) -> str:
     indent_str = "  " * indent
@@ -64,7 +66,7 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
     rows = {
-        "Binary": [],
+        "Binary Name": [],
         "Found Version": [],
         "From Plugin": [],
         "Provided By": [],
@@ -83,11 +85,12 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
     for plugin in settings.PLUGINS.values():
         for binary in plugin.HOOKS_BY_TYPE.get('BINARY', {}).values():
             try:
-                binary = binary.load()
+                installed_binary = InstalledBinary.objects.get_from_db_or_cache(binary)
+                binary = installed_binary.load_from_db()
             except Exception as e:
                 print(e)
 
-            rows['Binary'].append(ItemLink(binary.name, key=binary.name))
+            rows['Binary Name'].append(ItemLink(binary.name, key=binary.name))
             rows['Found Version'].append(f'✅ {binary.loaded_version}' if binary.loaded_version else '❌ missing')
             rows['From Plugin'].append(plugin.plugin_module)
             rows['Provided By'].append(
