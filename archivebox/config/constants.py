@@ -4,6 +4,8 @@ __package__ = 'archivebox.config'
 import os
 import re
 import platform
+import machineid
+import tempfile
 
 from typing import Dict
 from pathlib import Path
@@ -53,6 +55,17 @@ def _detect_installed_version(PACKAGE_DIR: Path):
 VERSION: str = _detect_installed_version(PACKAGE_DIR)
 
 
+# Ensure system tmp dir and data dir exist as we need them to run almost everything
+if 'SYSTEM_TMP_DIR' in os.environ:
+    SYSTEM_TMP_DIR = Path(os.environ['SYSTEM_TMP_DIR'])
+else:
+    SYSTEM_TMP_DIR = Path(tempfile.gettempdir()) / 'archivebox'
+    SYSTEM_TMP_DIR.mkdir(parents=True, exist_ok=True)
+
+DATA_DIR_TMP_DIR = DATA_DIR / 'tmp' / machineid.hashed_id('archivebox')[:16]
+DATA_DIR_TMP_DIR.mkdir(parents=True, exist_ok=True)
+
+
 class ConstantsDict(Mapping):
     IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'yes')
     OS = platform.system().lower()      # darwin, linux, etc.
@@ -81,13 +94,16 @@ class ConstantsDict(Mapping):
     LIB_DIR_NAME: str = 'lib'
     TMP_DIR_NAME: str = 'tmp'
 
+    SYSTEM_TMP_DIR: Path                = SYSTEM_TMP_DIR
+    DATA_DIR_TMP_DIR: Path              = DATA_DIR_TMP_DIR
+
     ARCHIVE_DIR: Path                   = DATA_DIR / ARCHIVE_DIR_NAME
     SOURCES_DIR: Path                   = DATA_DIR / SOURCES_DIR_NAME
     PERSONAS_DIR: Path                  = DATA_DIR / PERSONAS_DIR_NAME
     CACHE_DIR: Path                     = DATA_DIR / CACHE_DIR_NAME
     LOGS_DIR: Path                      = DATA_DIR / LOGS_DIR_NAME
     LIB_DIR: Path                       = DATA_DIR / LIB_DIR_NAME / LIB_DIR_SCOPE   # e.g. data/lib/arm64-darwin-docker
-    TMP_DIR: Path                       = (Path('/tmp') if IN_DOCKER else DATA_DIR) / TMP_DIR_NAME
+    TMP_DIR: Path                       = SYSTEM_TMP_DIR if IN_DOCKER else DATA_DIR_TMP_DIR  # e.g. /var/folders/bk/63jsns1s.../T/archivebox or ./data/tmp/abcwe324234
     CUSTOM_TEMPLATES_DIR: Path          = DATA_DIR / CUSTOM_TEMPLATES_DIR_NAME
     USER_PLUGINS_DIR: Path              = DATA_DIR / USER_PLUGINS_DIR_NAME
 

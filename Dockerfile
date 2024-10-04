@@ -74,12 +74,7 @@ ENV CODE_DIR=/app \
     PLAYWRIGHT_BROWSERS_PATH=/browsers
     # TODO: add TMP_DIR and LIB_DIR?
 
-# Application-level paths
-ENV APP_VENV=/app/.venv \
-    NODE_MODULES=/app/node_modules
-
 # Build shell config
-ENV PATH="$PATH:$GLOBAL_VENV/bin:$APP_VENV/bin:$NODE_MODULES/.bin"
 SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "errtrace", "-o", "nounset", "-c"] 
 
 ######### System Environment ####################################
@@ -99,7 +94,6 @@ RUN (echo "[i] Docker build for ArchiveBox $(cat /VERSION.txt) starting..." \
     && echo "PLATFORM=${TARGETPLATFORM} ARCH=$(uname -m) ($(uname -s) ${TARGETARCH} ${TARGETVARIANT})" \
     && echo "BUILD_START_TIME=$(date +"%Y-%m-%d %H:%M:%S %s") TZ=${TZ} LANG=${LANG}" \
     && echo \
-    && echo "GLOBAL_VENV=${GLOBAL_VENV} APP_VENV=${APP_VENV} NODE_MODULES=${NODE_MODULES}" \
     && echo "PYTHON=${PYTHON_VERSION} NODE=${NODE_VERSION} PATH=${PATH}" \
     && echo "CODE_DIR=${CODE_DIR} DATA_DIR=${DATA_DIR}" \
     && echo \

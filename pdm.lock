@@ -5,7 +5,7 @@
 groups = ["default", "all", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:be2740879f6045b108b48e90997be10a6a670805e7682a0c86fc3cd1e98811c4"
+content_hash = "sha256:0aa8e150b08d1c571c1f8bfa844fdb3ad0995f9b01eb9199b6449ed0230acbd5"
 
 [[metadata.targets]]
 requires_python = "==3.12.*"
@@ -1158,7 +1158,7 @@ files = [
 
 [[package]]
 name = "pydantic-pkgr"
-version = "0.3.9"
+version = "0.4.2"
 requires_python = ">=3.10"
 summary = "System package manager APIs in strongly typed Python"
 groups = ["default"]
@@ -1169,8 +1169,8 @@ dependencies = [
     "typing-extensions>=4.11.0",
 ]
 files = [
-    {file = "pydantic_pkgr-0.3.9-py3-none-any.whl", hash = "sha256:8cdece5142b79127cdf96baf84cefdc0b811297e3b0e13526f88e10019ae60c1"},
-    {file = "pydantic_pkgr-0.3.9.tar.gz", hash = "sha256:f811600e9222b98b7d52df27375cab92ccfa702020f80a46076c4e5eeb099dc4"},
+    {file = "pydantic_pkgr-0.4.2-py3-none-any.whl", hash = "sha256:b78e421a58c1777098792236ed6da50b70167e18579c6e4353309ab121972f7b"},
+    {file = "pydantic_pkgr-0.4.2.tar.gz", hash = "sha256:879654052a22122484bebd2616c4ade6887f2f6fb3afae397937a5bb23473f76"},
 ]
 
 [[package]]

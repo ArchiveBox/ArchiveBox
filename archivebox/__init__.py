@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-ASCII_LOGO = """
- █████╗ ██████╗  ██████╗██╗  ██╗██╗██╗   ██╗███████╗ ██████╗  ██████╗ ██╗  ██╗
-██╔══██╗██╔══██╗██╔════╝██║  ██║██║██║   ██║██╔════╝ ██╔══██╗██╔═══██╗╚██╗██╔╝
-███████║██████╔╝██║     ███████║██║██║   ██║█████╗   ██████╔╝██║   ██║ ╚███╔╝ 
-██╔══██║██╔══██╗██║     ██╔══██║██║╚██╗ ██╔╝██╔══╝   ██╔══██╗██║   ██║ ██╔██╗ 
-██║  ██║██║  ██║╚██████╗██║  ██║██║ ╚████╔╝ ███████╗ ██████╔╝╚██████╔╝██╔╝ ██╗
-╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝
-"""
+
 # Welcome to the ArchiveBox source code! Thanks for checking it out!
 #
 # "We are swimming upstream against a great torrent of disorganization.
@@ -23,14 +16,25 @@ import sys
 import tempfile
 from pathlib import Path
 
-USING_TMP_DATA_DIR = None
+ASCII_LOGO = """
+ █████╗ ██████╗  ██████╗██╗  ██╗██╗██╗   ██╗███████╗ ██████╗  ██████╗ ██╗  ██╗
+██╔══██╗██╔══██╗██╔════╝██║  ██║██║██║   ██║██╔════╝ ██╔══██╗██╔═══██╗╚██╗██╔╝
+███████║██████╔╝██║     ███████║██║██║   ██║█████╗   ██████╔╝██║   ██║ ╚███╔╝ 
+██╔══██║██╔══██╗██║     ██╔══██║██║╚██╗ ██╔╝██╔══╝   ██╔══██╗██║   ██║ ██╔██╗ 
+██║  ██║██║  ██║╚██████╗██║  ██║██║ ╚████╔╝ ███████╗ ██████╔╝╚██████╔╝██╔╝ ██╗
+╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝
+"""
 
+SYSTEM_TMP_DIR = Path(tempfile.gettempdir()) / 'archivebox'
+SYSTEM_TMP_DIR.mkdir(parents=True, exist_ok=True)
+os.environ['SYSTEM_TMP_DIR'] = str(SYSTEM_TMP_DIR)
+
+# if we are outside a data dir, cd into an ephemeral tmp dir so that
+# we can run version/help without polluting cwd with an index.sqlite3
 if len(sys.argv) > 1 and sys.argv[1] in ('version', 'help'):
     current_dir = Path(os.getcwd()).resolve()
     if not (current_dir / 'index.sqlite3').exists():
-        USING_TMP_DATA_DIR = Path(tempfile.gettempdir()) / 'archivebox'
-        USING_TMP_DATA_DIR.mkdir(parents=True, exist_ok=True)
-        os.chdir(USING_TMP_DATA_DIR)
+        os.chdir(SYSTEM_TMP_DIR)
 
 # make sure PACKAGE_DIR is in sys.path so we can import all subfolders
 # without necessarily waiting for django to load them thorugh INSTALLED_APPS
