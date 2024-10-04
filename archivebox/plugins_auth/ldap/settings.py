@@ -8,12 +8,19 @@ from pydantic import Field, model_validator, computed_field
 from abx.archivebox.base_configset import BaseConfigSet
 
 LDAP_LIB = None
-try:
-    import ldap
-    from django_auth_ldap.config import LDAPSearch
-    LDAP_LIB = ldap
-except ImportError:
-    pass
+LDAP_SEARCH = None
+
+def get_ldap_lib():
+    global LDAP_LIB, LDAP_SEARCH
+    if LDAP_LIB and LDAP_SEARCH:
+        return LDAP_LIB, LDAP_SEARCH
+    try:
+        import ldap
+        from django_auth_ldap.config import LDAPSearch
+        LDAP_LIB, LDAP_SEARCH = ldap, LDAPSearch
+    except ImportError:
+        pass
+    return LDAP_LIB, LDAP_SEARCH
 
 ###################### Config ##########################
 
@@ -41,35 +48,40 @@ class LdapConfig(BaseConfigSet):
     
     @model_validator(mode='after')
     def validate_ldap_config(self):
-        # Check that LDAP libraries are installed
-        if self.LDAP_ENABLED and LDAP_LIB is None:
-            sys.stderr.write('[X] Error: LDAP Authentication is enabled but LDAP libraries are not installed. You may need to run: pip install archivebox[ldap]\n')
-            # dont hard exit here. in case the user is just running "archivebox version" or "archivebox help", we still want those to work despite broken ldap
-            # sys.exit(1)
-            self.update(LDAP_ENABLED=False)
+        if self.LDAP_ENABLED:
+            LDAP_LIB, _LDAPSearch = get_ldap_lib()
+            # Check that LDAP libraries are installed
+            if LDAP_LIB is None:
+                sys.stderr.write('[X] Error: LDAP Authentication is enabled but LDAP libraries are not installed. You may need to run: pip install archivebox[ldap]\n')
+                # dont hard exit here. in case the user is just running "archivebox version" or "archivebox help", we still want those to work despite broken ldap
+                # sys.exit(1)
+                self.update_in_place(LDAP_ENABLED=False)
 
-        # Check that all required LDAP config options are set
-        if self.LDAP_ENABLED and not self.LDAP_CONFIG_IS_SET:
-            missing_config_options = [
-                key for key, value in self.model_dump().items()
-                if value is None and key != 'LDAP_ENABLED'
-            ]
-            sys.stderr.write('[X] Error: LDAP_* config options must all be set if LDAP_ENABLED=True\n')
-            sys.stderr.write(f'    Missing: {", ".join(missing_config_options)}\n')
-            self.update(LDAP_ENABLED=False)
+            # Check that all required LDAP config options are set
+            if self.self.LDAP_CONFIG_IS_SET:
+                missing_config_options = [
+                    key for key, value in self.model_dump().items()
+                    if value is None and key != 'LDAP_ENABLED'
+                ]
+                sys.stderr.write('[X] Error: LDAP_* config options must all be set if LDAP_ENABLED=True\n')
+                sys.stderr.write(f'    Missing: {", ".join(missing_config_options)}\n')
+                self.update_in_place(LDAP_ENABLED=False)
         return self
     
     @computed_field
     @property
     def LDAP_CONFIG_IS_SET(self) -> bool:
         """Check that all required LDAP config options are set"""
-        return bool(LDAP_LIB) and self.LDAP_ENABLED and bool(
-            self.LDAP_SERVER_URI
-            and self.LDAP_BIND_DN
-            and self.LDAP_BIND_PASSWORD
-            and self.LDAP_USER_BASE
-            and self.LDAP_USER_FILTER
-        )
+        if self.LDAP_ENABLED:
+            LDAP_LIB, _LDAPSearch = get_ldap_lib()
+            return bool(LDAP_LIB) and self.LDAP_ENABLED and bool(
+                self.LDAP_SERVER_URI
+                and self.LDAP_BIND_DN
+                and self.LDAP_BIND_PASSWORD
+                and self.LDAP_USER_BASE
+                and self.LDAP_USER_FILTER
+            )
+        return False
 
     @computed_field
     @property
@@ -84,19 +96,24 @@ class LdapConfig(BaseConfigSet):
     @computed_field
     @property
     def AUTHENTICATION_BACKENDS(self) -> List[str]:
-        return [
-            'django.contrib.auth.backends.ModelBackend',
-            'django_auth_ldap.backend.LDAPBackend',
-        ]
+        if self.LDAP_ENABLED:
+            return [
+                'django.contrib.auth.backends.ModelBackend',
+                'django_auth_ldap.backend.LDAPBackend',
+            ]
+        return []
 
     @computed_field
     @property
     def AUTH_LDAP_USER_SEARCH(self) -> Optional[object]:
-        return self.LDAP_USER_FILTER and LDAPSearch(
-            self.LDAP_USER_BASE,
-            LDAP_LIB.SCOPE_SUBTREE,                                                                         # type: ignore
-            '(&(' + self.LDAP_USERNAME_ATTR + '=%(user)s)' + self.LDAP_USER_FILTER + ')',
-        )
+        if self.LDAP_ENABLED:
+            LDAP_LIB, LDAPSearch = get_ldap_lib()
+            return self.LDAP_USER_FILTER and LDAPSearch(
+                self.LDAP_USER_BASE,
+                LDAP_LIB.SCOPE_SUBTREE,                                                                         # type: ignore
+                '(&(' + self.LDAP_USERNAME_ATTR + '=%(user)s)' + self.LDAP_USER_FILTER + ')',
+            )
+        return None
 
 
 LDAP_CONFIG = LdapConfig()

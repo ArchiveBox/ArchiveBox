@@ -600,9 +600,9 @@ if DEBUG_REQUESTS_TRACKER:
         ),
     }
 
-# https://docs.pydantic.dev/logfire/integrations/django/ (similar to DataDog / NewRelic / etc.)
-DEBUG_LOGFIRE = False
-DEBUG_LOGFIRE = DEBUG_LOGFIRE and (DATA_DIR / '.logfire').is_dir()
+# # https://docs.pydantic.dev/logfire/integrations/django/ (similar to DataDog / NewRelic / etc.)
+# DEBUG_LOGFIRE = False
+# DEBUG_LOGFIRE = DEBUG_LOGFIRE and (DATA_DIR / '.logfire').is_dir()
 
 
 # For usage with https://www.jetadmin.io/integrations/django

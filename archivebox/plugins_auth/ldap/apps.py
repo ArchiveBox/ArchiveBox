@@ -13,10 +13,12 @@ from abx.archivebox.base_hook import BaseHook
 from abx.archivebox.base_binary import BaseBinary, BaseBinProvider
 
 from plugins_pkg.pip.apps import SYS_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER
-from .settings import LDAP_CONFIG, LDAP_LIB
+from .settings import LDAP_CONFIG, get_ldap_lib
 
 
 ###################### Config ##########################
+
+LDAP_LIB = lambda: get_ldap_lib()[0]
 
 
 class LdapBinary(BaseBinary):
@@ -26,12 +28,12 @@ class LdapBinary(BaseBinary):
 
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
         VENV_PIP_BINPROVIDER.name: {
-            "abspath": lambda: LDAP_LIB and Path(inspect.getfile(LDAP_LIB)),
-            "version": lambda: LDAP_LIB and SemVer(LDAP_LIB.__version__),
+            "abspath": lambda: LDAP_LIB() and Path(inspect.getfile(LDAP_LIB())),
+            "version": lambda: LDAP_LIB() and SemVer(LDAP_LIB().__version__),
         },
         SYS_PIP_BINPROVIDER.name: {
-            "abspath": lambda: LDAP_LIB and Path(inspect.getfile(LDAP_LIB)),
-            "version": lambda: LDAP_LIB and SemVer(LDAP_LIB.__version__),
+            "abspath": lambda: LDAP_LIB() and Path(inspect.getfile(LDAP_LIB())),
+            "version": lambda: LDAP_LIB() and SemVer(LDAP_LIB().__version__),
         },
     }
 

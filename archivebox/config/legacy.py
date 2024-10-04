@@ -823,15 +823,15 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CON
                 bump_startup_progress_bar()
 
                 # https://docs.pydantic.dev/logfire/integrations/django/ Logfire Debugging
-                if settings.DEBUG_LOGFIRE:
-                    from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
-                    SQLite3Instrumentor().instrument()
+                # if settings.DEBUG_LOGFIRE:
+                #     from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
+                #     SQLite3Instrumentor().instrument()
 
-                    import logfire
+                #     import logfire
 
-                    logfire.configure()
-                    logfire.instrument_django(is_sql_commentor_enabled=True)
-                    logfire.info(f'Started ArchiveBox v{CONSTANTS.VERSION}', argv=sys.argv)
+                #     logfire.configure()
+                #     logfire.instrument_django(is_sql_commentor_enabled=True)
+                #     logfire.info(f'Started ArchiveBox v{CONSTANTS.VERSION}', argv=sys.argv)
 
         except KeyboardInterrupt:
             raise SystemExit(2)
