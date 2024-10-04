@@ -154,14 +154,14 @@ def run_subcommand(subcommand: str,
 
     subcommand_args = subcommand_args or []
 
+    from archivebox.config.legacy import setup_django
+
+    cmd_requires_db = subcommand in archive_cmds
+    init_pending = '--init' in subcommand_args or '--quick-init' in subcommand_args
+
+    setup_django(in_memory_db=subcommand in fake_db, check_db=cmd_requires_db and not init_pending)
+
     if subcommand not in meta_cmds:
-        from archivebox.config.legacy import setup_django
-
-        cmd_requires_db = subcommand in archive_cmds
-        init_pending = '--init' in subcommand_args or '--quick-init' in subcommand_args
-
-        setup_django(in_memory_db=subcommand in fake_db, check_db=cmd_requires_db and not init_pending)
-
         if cmd_requires_db:
             check_migrations()
 

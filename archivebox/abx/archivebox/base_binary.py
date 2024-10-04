@@ -78,9 +78,14 @@ class BaseBinary(BaseHook, Binary):
             self.symlink_to_lib(binary=binary, bin_dir=CONSTANTS.LIB_BIN_DIR)
         else:
             # get cached binary from db
-            from machine.models import InstalledBinary
-            installed_binary = InstalledBinary.objects.get_from_db_or_cache(self)
-            binary = InstalledBinary.load_from_db(installed_binary)
+            try:
+                from machine.models import InstalledBinary
+                installed_binary = InstalledBinary.objects.get_from_db_or_cache(self)
+                binary = InstalledBinary.load_from_db(installed_binary)
+            except Exception:
+                # maybe we are not in a DATA dir so there is no db, fallback to reading from fs
+                # (e.g. when archivebox version is run outside of a DATA dir)
+                binary = super().load(**kwargs)
         return binary
     
     @validate_call
