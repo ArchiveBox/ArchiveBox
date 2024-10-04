@@ -165,7 +165,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 # Install Node environment
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing Node $NODE_VERSION environment in $NODE_MODULES..." \
+    echo "[+] Installing Node $NODE_VERSION environment..." \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
     && curl -fsSL "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key" | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && apt-get update -qq \
@@ -240,7 +240,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 WORKDIR "$CODE_DIR"
 COPY --chown=root:root --chmod=755 "package.json" "package-lock.json" "$CODE_DIR"/
 RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing NPM extractor dependencies from package.json into $NODE_MODULES..." \
+    echo "[+] Installing NPM extractor dependencies from package.json..." \
     && npm ci --prefer-offline --no-audit --cache /root/.npm \
     && ( \
         which node && node --version \
@@ -283,6 +283,7 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH
 
 # Setup ArchiveBox runtime config
 WORKDIR "$DATA_DIR"
+RUN openssl rand -hex 16 > /etc/machine-id
 ENV IN_DOCKER=True \
     DISPLAY=novnc:0.0 \
     CUSTOM_TEMPLATES_DIR=/data/user_templates \
