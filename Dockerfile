@@ -71,6 +71,7 @@ ENV CODE_DIR=/app \
     DATA_DIR=/data \
     GLOBAL_VENV=/venv \
     PLAYWRIGHT_BROWSERS_PATH=/browsers
+    # TODO: add TMP_DIR and LIB_DIR?
 
 # Application-level paths
 ENV APP_VENV=/app/.venv \
@@ -200,6 +201,21 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         && which rg && rg --version 2>&1 | head -n1 \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
+
+# Install sonic search
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
+    echo "[+] Installing Sonic search binary using apt..." \
+    && echo "deb [signed-by=/usr/share/keyrings/sonic.gpg] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main" > /etc/apt/sources.list.d/sonic.list \
+    && curl -fsSL 'https://packagecloud.io/valeriansaliou/sonic/gpgkey' | gpg --dearmor -o /usr/share/keyrings/sonic.gpg \
+    && apt-get update -qq \
+    && apt-get install -qq -y -t bookworm --no-upgrade sonic \
+    && rm -rf /var/lib/apt/lists/* \
+    # Save version info
+    && ( \
+        which sonic && sonic --version \
+        && echo -e '\n\n' \
+    ) | tee -a /VERSION.txt
+COPY --chown=root:root --chmod=755 "etc/sonic.cfg" /etc/sonic.cfg
 
 # Install chromium browser using playwright
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
