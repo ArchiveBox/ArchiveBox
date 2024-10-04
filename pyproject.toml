@@ -88,6 +88,7 @@ dependencies = [
     "base32-crockford==0.3.0",
     ############# Extractor Dependencies #############
     "yt-dlp>=2024.8.6",               # for: media
+    "django-url-tools>=0.0.8",
 ]
 
 # pdm lock --group=':all' 

@@ -54,8 +54,8 @@
         <br/>
         <span class="step-links">
             {% if page_obj.has_previous %}
-                <a href="{% url 'public-index' %}?page=1">&laquo; first</a> &nbsp;
-                <a href="{% url 'public-index' %}?page={{ page_obj.previous_page_number }}">previous</a>
+                <a href="{% add_params request.get_full_path page='1' %}">&laquo; first</a> &nbsp;
+                <a href="{% add_params request.get_full_path page=page_obj.previous_page_number %}">previous</a>
                 &nbsp;
             {% endif %}
     
@@ -65,8 +65,8 @@
         
             {% if page_obj.has_next %}
                 &nbsp;
-                <a href="{% url 'public-index' %}?page={{ page_obj.next_page_number }}">next </a> &nbsp;
-                <a href="{% url 'public-index' %}?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
+                <a href="{% add_params request.get_full_path page=page_obj.next_page_number %}">next </a> &nbsp;
+                <a href="{% add_params request.get_full_path page=page_obj.paginator.num_pages %}">last &raquo;</a>
             {% endif %}
         </span>
         <br>
