@@ -18,7 +18,7 @@ from .settings import LDAP_CONFIG, get_ldap_lib
 
 ###################### Config ##########################
 
-LDAP_LIB = lambda: get_ldap_lib()[0]
+LDAP_LIB = lambda: get_ldap_lib()[0]   # lazy load to avoid slow ldap lib import on startup
 
 
 class LdapBinary(BaseBinary):
@@ -28,12 +28,12 @@ class LdapBinary(BaseBinary):
 
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
         VENV_PIP_BINPROVIDER.name: {
-            "abspath": lambda: LDAP_LIB() and Path(inspect.getfile(LDAP_LIB())),
-            "version": lambda: LDAP_LIB() and SemVer(LDAP_LIB().__version__),
+            "abspath": lambda: LDAP_LIB() and Path(inspect.getfile(LDAP_LIB())),         # type: ignore
+            "version": lambda: LDAP_LIB() and SemVer(LDAP_LIB().__version__),            # type: ignore
         },
         SYS_PIP_BINPROVIDER.name: {
-            "abspath": lambda: LDAP_LIB() and Path(inspect.getfile(LDAP_LIB())),
-            "version": lambda: LDAP_LIB() and SemVer(LDAP_LIB().__version__),
+            "abspath": lambda: LDAP_LIB() and Path(inspect.getfile(LDAP_LIB())),         # type: ignore
+            "version": lambda: LDAP_LIB() and SemVer(LDAP_LIB().__version__),            # type: ignore
         },
     }
 

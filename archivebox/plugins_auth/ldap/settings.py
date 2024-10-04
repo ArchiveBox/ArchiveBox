@@ -58,7 +58,7 @@ class LdapConfig(BaseConfigSet):
                 self.update_in_place(LDAP_ENABLED=False)
 
             # Check that all required LDAP config options are set
-            if self.self.LDAP_CONFIG_IS_SET:
+            if self.LDAP_CONFIG_IS_SET:
                 missing_config_options = [
                     key for key, value in self.model_dump().items()
                     if value is None and key != 'LDAP_ENABLED'
