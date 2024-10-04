@@ -78,6 +78,8 @@ dependencies = [
     "py-machineid>=0.6.0",            # for: machine/detect.py calculating machine guid
     "python-benedict[io,parse]>=0.33.2",
     "pydantic-settings>=2.5.2",
+    ############# Extractor Dependencies #############
+    "yt-dlp>=2024.8.6",               # for: media
     ############# VENDORED LIBS ######################
     # these can be safely omitted when installation subsystem does not provide these as packages (e.g. apt/debian)
     # archivebox will automatically load fallback vendored copies bundled via archivebox/vendor/__init__.py
@@ -86,9 +88,7 @@ dependencies = [
     "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
     "django-taggit==1.3.0",
     "base32-crockford==0.3.0",
-    ############# Extractor Dependencies #############
-    "yt-dlp>=2024.8.6",               # for: media
-    "django-url-tools>=0.0.8",
+    #################################################
 ]
 
 # pdm lock --group=':all' 
