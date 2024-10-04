@@ -15,7 +15,7 @@ import machineid             # https://github.com/keygen-sh/py-machineid
 from rich import print
 
 PACKAGE_DIR = Path(__file__).parent
-DATA_DIR = Path('.').resolve()
+DATA_DIR = Path(os.getcwd()).resolve()
 
 def get_vm_info():
     hw_in_docker = bool(os.getenv('IN_DOCKER', False) in ('1', 'true', 'True', 'TRUE'))

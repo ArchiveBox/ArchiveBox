@@ -207,11 +207,6 @@ DYNAMIC_CONFIG_SCHEMA: ConfigDefaultDict = {
     # 'GIT_VERSION':              {'default': lambda c: bin_version(c['GIT_BINARY']) if c['USE_GIT'] else None},
     # 'SAVE_GIT':                 {'default': lambda c: c['USE_GIT'] and c['SAVE_GIT']},
 
-
-    # 'DEPENDENCIES':             {'default': lambda c: get_dependency_info(c)},
-    # 'CODE_LOCATIONS':           {'default': lambda c: get_code_locations(c)},
-    # 'DATA_LOCATIONS':           {'default': lambda c: get_data_locations(c)},
-
     'SAVE_ALLOWLIST_PTN':       {'default': lambda c: c['SAVE_ALLOWLIST'] and {re.compile(k, CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_ALLOWLIST'].items()}},
     'SAVE_DENYLIST_PTN':        {'default': lambda c: c['SAVE_DENYLIST'] and {re.compile(k, CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_DENYLIST'].items()}},
 }
@@ -427,74 +422,6 @@ def load_config(defaults: ConfigDefaultDict,
 
 
 
-# Dependency Metadata Helpers
-def bin_version(binary: Optional[str], cmd: Optional[str]=None, timeout: int=3) -> Optional[str]:
-    """check the presence and return valid version line of a specified binary"""
-
-    abspath = bin_path(binary)
-    if not binary or not abspath:
-        return None
-    
-    return '999.999.999'
-
-    # Now handled by new BinProvider plugin system, no longer needed:
-
-    try:
-        bin_env = os.environ | {'LANG': 'C'}
-        is_cmd_str = cmd and isinstance(cmd, str)
-        version_str = (
-            run(cmd or [abspath, "--version"], timeout=timeout, shell=is_cmd_str, stdout=PIPE, stderr=STDOUT, env=bin_env)
-            .stdout.strip()
-            .decode()
-        )
-        if not version_str:
-            version_str = (
-                run(cmd or [abspath, "--version"], timeout=timeout, shell=is_cmd_str, stdout=PIPE, stderr=STDOUT)
-                .stdout.strip()
-                .decode()
-            )
-        
-        # take first 3 columns of first line of version info
-        semver = SemVer.parse(version_str)
-        if semver:
-            return str(semver)
-    except (OSError, TimeoutExpired):
-        pass
-        # stderr(f'[X] Unable to find working version of dependency: {binary}', color='red')
-        # stderr('    Make sure it\'s installed, then confirm it\'s working by running:')
-        # stderr(f'        {binary} --version')
-        # stderr()
-        # stderr('    If you don\'t want to install it, you can disable it via config. See here for more info:')
-        # stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Install')
-    return None
-
-def bin_path(binary: Optional[str]) -> Optional[str]:
-    if binary is None:
-        return None
-
-    node_modules_bin = Path('.') / 'node_modules' / '.bin' / binary
-    if node_modules_bin.exists():
-        return str(node_modules_bin.resolve())
-
-    return shutil.which(str(Path(binary).expanduser())) or shutil.which(str(binary)) or binary
-
-def bin_hash(binary: Optional[str]) -> Optional[str]:
-    return 'UNUSED'
-    # DEPRECATED: now handled by new BinProvider plugin system, no longer needed:
-
-    if binary is None:
-        return None
-    abs_path = bin_path(binary)
-    if abs_path is None or not Path(abs_path).exists():
-        return None
-
-    file_hash = md5()
-    with io.open(abs_path, mode='rb') as f:
-        for chunk in iter(lambda: f.read(io.DEFAULT_BUFFER_SIZE), b''):
-            file_hash.update(chunk)
-
-    return f'md5:{file_hash.hexdigest()}'
-
 def find_chrome_binary() -> Optional[str]:
     """find any installed chrome binaries in the default locations"""
     # Precedence: Chromium, Chrome, Beta, Canary, Unstable, Dev
@@ -566,116 +493,6 @@ def wget_supports_compression(config):
     except (FileNotFoundError, OSError):
         return False
 
-
-def get_dependency_info(config: benedict) -> ConfigValue:
-    return {
-        # 'PYTHON_BINARY': {
-        #     'path': bin_path(config['PYTHON_BINARY']),
-        #     'version': config['PYTHON_VERSION'],
-        #     'hash': bin_hash(config['PYTHON_BINARY']),
-        #     'enabled': True,
-        #     'is_valid': bool(config['PYTHON_VERSION']),
-        # },
-        # 'SQLITE_BINARY': {
-        #     'path': bin_path(config['SQLITE_BINARY']),
-        #     'version': config['SQLITE_VERSION'],
-        #     'hash': bin_hash(config['SQLITE_BINARY']),
-        #     'enabled': True,
-        #     'is_valid': bool(config['SQLITE_VERSION']),
-        # },
-        # 'DJANGO_BINARY': {
-        #     'path': bin_path(config['DJANGO_BINARY']),
-        #     'version': config['DJANGO_VERSION'],
-        #     'hash': bin_hash(config['DJANGO_BINARY']),
-        #     'enabled': True,
-        #     'is_valid': bool(config['DJANGO_VERSION']),
-        # },
-        # 'ARCHIVEBOX_BINARY': {
-        #     'path': bin_path(config['ARCHIVEBOX_BINARY']),
-        #     'version': config['VERSION'],
-        #     'hash': bin_hash(config['ARCHIVEBOX_BINARY']),
-        #     'enabled': True,
-        #     'is_valid': True,
-        # },
-        
-        # 'CURL_BINARY': {
-        #     'path': bin_path(config['CURL_BINARY']),
-        #     'version': config['CURL_VERSION'],
-        #     'hash': bin_hash(config['CURL_BINARY']),
-        #     'enabled': config['USE_CURL'],
-        #     'is_valid': bool(config['CURL_VERSION']),
-        # },
-        # 'WGET_BINARY': {
-        #     'path': bin_path(config['WGET_BINARY']),
-        #     'version': config['WGET_VERSION'],
-        #     'hash': bin_hash(config['WGET_BINARY']),
-        #     'enabled': config['USE_WGET'],
-        #     'is_valid': bool(config['WGET_VERSION']),
-        # },
-        # 'NODE_BINARY': {
-        #     'path': bin_path(config['NODE_BINARY']),
-        #     'version': config['NODE_VERSION'],
-        #     'hash': bin_hash(config['NODE_BINARY']),
-        #     'enabled': config['USE_NODE'],
-        #     'is_valid': bool(config['NODE_VERSION']),
-        # },
-        # 'MERCURY_BINARY': {
-        #     'path': bin_path(config['MERCURY_BINARY']),
-        #     'version': config['MERCURY_VERSION'],
-        #     'hash': bin_hash(config['MERCURY_BINARY']),
-        #     'enabled': config['USE_MERCURY'],
-        #     'is_valid': bool(config['MERCURY_VERSION']),
-        # },
-        # 'GIT_BINARY': {
-        #     'path': bin_path(config['GIT_BINARY']),
-        #     'version': config['GIT_VERSION'],
-        #     'hash': bin_hash(config['GIT_BINARY']),
-        #     'enabled': config['USE_GIT'],
-        #     'is_valid': bool(config['GIT_VERSION']),
-        # },
-        # 'SINGLEFILE_BINARY': {
-        #     'path': bin_path(config['SINGLEFILE_BINARY']),
-        #     'version': config['SINGLEFILE_VERSION'],
-        #     'hash': bin_hash(config['SINGLEFILE_BINARY']),
-        #     'enabled': config['USE_SINGLEFILE'],
-        #     'is_valid': bool(config['SINGLEFILE_VERSION']),
-        # },
-        # 'READABILITY_BINARY': {
-        #     'path': bin_path(config['READABILITY_BINARY']),
-        #     'version': config['READABILITY_VERSION'],
-        #     'hash': bin_hash(config['READABILITY_BINARY']),
-        #     'enabled': config['USE_READABILITY'],
-        #     'is_valid': bool(config['READABILITY_VERSION']),
-        # },
-        # 'YOUTUBEDL_BINARY': {
-        #     'path': bin_path(config['YOUTUBEDL_BINARY']),
-        #     'version': config['YOUTUBEDL_VERSION'],
-        #     'hash': bin_hash(config['YOUTUBEDL_BINARY']),
-        #     'enabled': config['USE_YOUTUBEDL'],
-        #     'is_valid': bool(config['YOUTUBEDL_VERSION']),
-        # },
-        # 'CHROME_BINARY': {
-        #     'path': bin_path(config['CHROME_BINARY']),
-        #     'version': config['CHROME_VERSION'],
-        #     'hash': bin_hash(config['CHROME_BINARY']),
-        #     'enabled': config['USE_CHROME'],
-        #     'is_valid': bool(config['CHROME_VERSION']),
-        # },
-        # 'RIPGREP_BINARY': {
-        #     'path': bin_path(config['RIPGREP_BINARY']),
-        #     'version': config['RIPGREP_VERSION'],
-        #     'hash': bin_hash(config['RIPGREP_BINARY']),
-        #     'enabled': config['USE_RIPGREP'],
-        #     'is_valid': bool(config['RIPGREP_VERSION']),
-        # },
-        # 'SONIC_BINARY': {
-        #     'path': bin_path(config['SONIC_BINARY']),
-        #     'version': config['SONIC_VERSION'],
-        #     'hash': bin_hash(config['SONIC_BINARY']),
-        #     'enabled': config['USE_SONIC'],
-        #     'is_valid': bool(config['SONIC_VERSION']),
-        # },
-    }
 
 # ******************************************************************************
 # ******************************************************************************

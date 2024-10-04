@@ -2,9 +2,7 @@
 """This is the main entry point for the ArchiveBox CLI."""
 __package__ = 'archivebox'
 
-import archivebox      # noqa  # import archivebox/__init__.py to apply monkey patches, load vendored libs, etc.
 import sys
-
 from .cli import main
 
 ASCII_LOGO_MINI = r"""

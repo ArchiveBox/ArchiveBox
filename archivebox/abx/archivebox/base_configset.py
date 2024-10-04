@@ -18,7 +18,7 @@ from . import toml_util
 
 
 PACKAGE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = Path(os.curdir).resolve()
+DATA_DIR = Path(os.getcwd()).resolve()
 
 
 

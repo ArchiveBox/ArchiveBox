@@ -111,10 +111,10 @@ def atomic_write(path: Union[Path, str], contents: Union[dict, str, bytes], over
     os.chmod(path, int(STORAGE_CONFIG.OUTPUT_PERMISSIONS, base=8))
 
 @enforce_types
-def chmod_file(path: str, cwd: str='.') -> None:
+def chmod_file(path: str, cwd: str='') -> None:
     """chmod -R <permissions> <cwd>/<path>"""
 
-    root = Path(cwd) / path
+    root = Path(cwd or os.getcwd()) / path
     if not root.exists():
         raise Exception('Failed to chmod: {} does not exist (did the previous step fail?)'.format(path))
 

@@ -17,7 +17,7 @@ from ..misc.logging import DEFAULT_CLI_COLORS
 ###################### Config ##########################
 
 PACKAGE_DIR: Path = Path(__file__).resolve().parent.parent    # archivebox source code dir
-DATA_DIR: Path = Path(os.curdir).resolve()                    # archivebox user data dir
+DATA_DIR: Path = Path(os.getcwd()).resolve()                    # archivebox user data dir
 ARCHIVE_DIR: Path = DATA_DIR / 'archive'                      # archivebox snapshot data dir
 
 def _detect_installed_version(PACKAGE_DIR: Path):

@@ -227,7 +227,7 @@ def progress_bar(seconds: int, prefix: str='', ANSI: Dict[str, str]=ANSI) -> Non
         print()
 
 
-def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str | IO], pwd: str):
+def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str | IO], pwd: str='.'):
     args = ' '.join(subcommand_args)
     version_msg = '[dark_magenta]\\[{now}][/dark_magenta] [dark_red]ArchiveBox[/dark_red] [dark_goldenrod]v{VERSION}[/dark_goldenrod]: [green4]archivebox [green3]{subcommand}[green2] {args}[/green2]'.format(
         now=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),

@@ -1,6 +1,7 @@
 __package__ = 'abx.archivebox'
 
 import json
+import os
 
 from typing import Optional, List, Literal, Annotated, Dict, Any, Tuple
 from typing_extensions import Self
@@ -189,7 +190,7 @@ class BaseExtractor(BaseHook):
 
     # TODO: move this to a hookimpl
     def exec(self, args: CmdArgsList=(), cwd: Optional[Path]=None, installed_binary=None):
-        cwd = cwd or Path('.')
+        cwd = cwd or Path(os.getcwd())
         binary = self.load_binary(installed_binary=installed_binary)
         
         return binary.exec(cmd=args, cwd=cwd)

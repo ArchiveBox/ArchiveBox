@@ -1,19 +1,17 @@
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox'
 
+import os
 import sys
 import argparse
 import threading
+import tempfile
 
 from time import sleep
 from collections.abc import Mapping
 
 from typing import Optional, List, IO, Union, Iterable
 from pathlib import Path
-
-from archivebox.config import DATA_DIR
-from archivebox.misc.checks import check_migrations
-from archivebox.misc.logging import stderr
 
 from importlib import import_module
 
@@ -135,9 +133,10 @@ def wait_for_bg_threads_to_exit(thread_names: Iterable[str]=(), ignore_names: It
         if blocking_threads:
             sleep(1)
             if tries == 5:                            # only show stderr message if we need to wait more than 5s
-                stderr(
+                print(
                     f'[…] Waiting up to {timeout}s for background jobs (e.g. webhooks) to finish...',
                     threads_summary,
+                    file=sys.stderr,
                 )
         else:
             return tries
@@ -154,7 +153,11 @@ def run_subcommand(subcommand: str,
 
     subcommand_args = subcommand_args or []
 
+    from archivebox.misc.checks import check_migrations
     from archivebox.config.legacy import setup_django
+    
+    # print('DATA_DIR is', DATA_DIR)
+    # print('pwd is', os.getcwd())
 
     cmd_requires_db = subcommand in archive_cmds
     init_pending = '--init' in subcommand_args or '--quick-init' in subcommand_args
@@ -237,12 +240,10 @@ def main(args: List[str] | Omitted=OMITTED, stdin: IO | Omitted=OMITTED, pwd: st
             subcommand=command.subcommand,
             subcommand_args=command.subcommand_args,
             stdin=stdin or None,
-            pwd=pwd or DATA_DIR,
         )
 
     run_subcommand(
         subcommand=command.subcommand,
         subcommand_args=command.subcommand_args,
         stdin=stdin or None,
-        pwd=pwd or DATA_DIR,
     )

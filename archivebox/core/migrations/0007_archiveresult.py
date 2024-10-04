@@ -9,7 +9,7 @@ import django.db.models.deletion
 
 from index.json import to_json
 
-DATA_DIR = Path(os.curdir).resolve()                    # archivebox user data dir
+DATA_DIR = Path(os.getcwd()).resolve()                    # archivebox user data dir
 ARCHIVE_DIR = DATA_DIR / 'archive'                      # archivebox snapshot data dir
 
 

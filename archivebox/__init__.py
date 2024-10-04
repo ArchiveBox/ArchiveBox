@@ -20,21 +20,26 @@ __package__ = 'archivebox'
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 
-PACKAGE_DIR = Path(__file__).resolve().parent           # archivebox source code dir
-DATA_DIR = Path(os.curdir).resolve()                    # archivebox user data dir
-ARCHIVE_DIR = DATA_DIR / 'archive'                      # archivebox snapshot data dir
+USING_TMP_DATA_DIR = None
+
+if len(sys.argv) > 1 and sys.argv[1] in ('version', 'help'):
+    current_dir = Path(os.getcwd()).resolve()
+    if not (current_dir / 'index.sqlite3').exists():
+        USING_TMP_DATA_DIR = Path(tempfile.gettempdir()) / 'archivebox'
+        USING_TMP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+        os.chdir(USING_TMP_DATA_DIR)
 
 # make sure PACKAGE_DIR is in sys.path so we can import all subfolders
 # without necessarily waiting for django to load them thorugh INSTALLED_APPS
+PACKAGE_DIR = Path(__file__).resolve().parent
 if str(PACKAGE_DIR) not in sys.path:
     sys.path.append(str(PACKAGE_DIR))
 
-from .config.constants import CONSTANTS, VERSION  # noqa
+from .config.constants import CONSTANTS, DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, VERSION  # noqa
 
-os.environ['ARCHIVEBOX_PACKAGE_DIR'] = str(PACKAGE_DIR)
-os.environ['ARCHIVEBOX_DATA_DIR'] = str(DATA_DIR)
 os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
 
 # print('INSTALLING MONKEY PATCHES')

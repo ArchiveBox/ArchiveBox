@@ -138,7 +138,7 @@ def help(out_dir: Path=DATA_DIR) -> None:
 ''')
     
     
-    if CONSTANTS.DATABASE_FILE.exists():
+    if CONSTANTS.ARCHIVE_DIR.exists():
         pretty_out_dir = str(out_dir).replace(str(Path('~').expanduser()), '~')
         EXAMPLE_USAGE = f'''
 [light_slate_blue]DATA DIR[/light_slate_blue]: [yellow]{pretty_out_dir}[/yellow]
@@ -254,7 +254,7 @@ def version(quiet: bool=False,
         prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
 
     prnt()
-    if CONSTANTS.DATABASE_FILE.exists() or CONSTANTS.ARCHIVE_DIR.exists() or CONSTANTS.CONFIG_FILE.exists():
+    if CONSTANTS.ARCHIVE_DIR.exists() or CONSTANTS.CONFIG_FILE.exists():
         prnt('[bright_yellow][i] Data locations:[/bright_yellow]')
         for name, path in CONSTANTS.DATA_LOCATIONS.items():
             prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
