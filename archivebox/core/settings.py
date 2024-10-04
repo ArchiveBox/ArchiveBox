@@ -99,7 +99,6 @@ INSTALLED_APPS = [
     'django_jsonform',           # handles rendering Pydantic models to Django HTML widgets/forms  https://github.com/bhch/django-jsonform
     'signal_webhooks',           # handles REST API outbound webhooks                              https://github.com/MrThearMan/django-signal-webhooks
     'django_object_actions',     # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
-    'url_tools',                 # adds template tags to append/toggle URL parameters              https://bitbucket.org/monwara/django-url-tools
 
     # Our ArchiveBox-provided apps
     #'config',                   # ArchiveBox config settings (loaded as a plugin, don't need to add it here)
@@ -204,7 +203,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'url_tools.context_processors.current_url',
             ],
         },
     },
