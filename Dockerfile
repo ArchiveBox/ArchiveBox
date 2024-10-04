@@ -132,8 +132,14 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         # 2. docker and init system dependencies
         zlib1g-dev dumb-init gosu cron unzip grep dnsutils \
         # 3. frivolous CLI helpers to make debugging failed archiving easier
+        tree nano iputils-ping \
         # nano iputils-ping dnsutils htop procps jq yq
     && rm -rf /var/lib/apt/lists/*
+
+# Install sonic search backend
+COPY --from=archivebox/sonic:1.4.9 /usr/local/bin/sonic /usr/local/bin/sonic
+COPY --chown=root:root --chmod=755 "etc/sonic.cfg" /etc/sonic.cfg
+RUN (which sonic && sonic --version) | tee -a /VERSION.txt
 
 ######### Language Environments ####################################
 
@@ -191,31 +197,17 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         curl wget git yt-dlp ffmpeg ripgrep \
         # Packages we have also needed in the past:
         # youtube-dl wget2 aria2 python3-pyxattr rtmpdump libfribidi-bin mpv \
-    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/lib/apt/lists/*
     # Save version info
-    && ( \
-        which curl && curl --version | head -n1 \
-        && which wget && wget --version 2>&1 | head -n1 \
-        && which yt-dlp && yt-dlp --version 2>&1 | head -n1 \
-        && which git && git --version 2>&1 | head -n1 \
-        && which rg && rg --version 2>&1 | head -n1 \
-        && echo -e '\n\n' \
-    ) | tee -a /VERSION.txt
+    # && ( \
+    #     which curl && curl --version | head -n1 \
+    #     && which wget && wget --version 2>&1 | head -n1 \
+    #     && which yt-dlp && yt-dlp --version 2>&1 | head -n1 \
+    #     && which git && git --version 2>&1 | head -n1 \
+    #     && which rg && rg --version 2>&1 | head -n1 \
+    #     && echo -e '\n\n' \
+    # ) | tee -a /VERSION.txt
 
-# Install sonic search
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing Sonic search binary using apt..." \
-    && echo "deb [signed-by=/usr/share/keyrings/sonic.gpg] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main" > /etc/apt/sources.list.d/sonic.list \
-    && curl -fsSL 'https://packagecloud.io/valeriansaliou/sonic/gpgkey' | gpg --dearmor -o /usr/share/keyrings/sonic.gpg \
-    && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm --no-upgrade sonic \
-    && rm -rf /var/lib/apt/lists/* \
-    # Save version info
-    && ( \
-        which sonic && sonic --version \
-        && echo -e '\n\n' \
-    ) | tee -a /VERSION.txt
-COPY --chown=root:root --chmod=755 "etc/sonic.cfg" /etc/sonic.cfg
 
 # Install chromium browser using playwright
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
