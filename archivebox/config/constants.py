@@ -3,6 +3,8 @@ __package__ = 'archivebox.config'
 
 import os
 import re
+import platform
+
 from typing import Dict
 from pathlib import Path
 import importlib.metadata
@@ -17,8 +19,6 @@ from ..misc.logging import DEFAULT_CLI_COLORS
 PACKAGE_DIR: Path = Path(__file__).resolve().parent.parent    # archivebox source code dir
 DATA_DIR: Path = Path(os.curdir).resolve()                    # archivebox user data dir
 ARCHIVE_DIR: Path = DATA_DIR / 'archive'                      # archivebox snapshot data dir
-
-IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'yes')
 
 def _detect_installed_version(PACKAGE_DIR: Path):
     """Autodetect the installed archivebox version by using pip package metadata, pyproject.toml file, or package.json file"""
@@ -54,6 +54,12 @@ VERSION: str = _detect_installed_version(PACKAGE_DIR)
 
 
 class ConstantsDict(Mapping):
+    IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'yes')
+    OS = platform.system().lower()      # darwin, linux, etc.
+    ARCH = platform.machine().lower()   # arm64, x86_64, etc.
+    LIB_DIR_SCOPE = f'{ARCH}-{OS}' + ('-docker' if IN_DOCKER else '')
+
+
     PACKAGE_DIR: Path = PACKAGE_DIR     # archivebox source code dir
     DATA_DIR: Path = DATA_DIR           # archivebox user data dir
     ARCHIVE_DIR: Path = ARCHIVE_DIR     # archivebox snapshot data dir
@@ -80,7 +86,7 @@ class ConstantsDict(Mapping):
     PERSONAS_DIR: Path                  = DATA_DIR / PERSONAS_DIR_NAME
     CACHE_DIR: Path                     = DATA_DIR / CACHE_DIR_NAME
     LOGS_DIR: Path                      = DATA_DIR / LOGS_DIR_NAME
-    LIB_DIR: Path                       = (Path('/tmp') if IN_DOCKER else DATA_DIR) / LIB_DIR_NAME
+    LIB_DIR: Path                       = DATA_DIR / LIB_DIR_NAME / LIB_DIR_SCOPE   # e.g. data/lib/arm64-darwin-docker
     TMP_DIR: Path                       = (Path('/tmp') if IN_DOCKER else DATA_DIR) / TMP_DIR_NAME
     CUSTOM_TEMPLATES_DIR: Path          = DATA_DIR / CUSTOM_TEMPLATES_DIR_NAME
     USER_PLUGINS_DIR: Path              = DATA_DIR / USER_PLUGINS_DIR_NAME

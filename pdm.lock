@@ -5,7 +5,7 @@
 groups = ["default", "all", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:a03237d9196e1d9b2f82130d026c5fa9eaf165a7d2079393baa2205bedd92674"
+content_hash = "sha256:be2740879f6045b108b48e90997be10a6a670805e7682a0c86fc3cd1e98811c4"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -13,7 +13,7 @@ platform = "manylinux_2_17_x86_64"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
-platform = "macos_14_0_arm64"
+platform = "macos_12_0_arm64"
 
 [[package]]
 name = "annotated-types"
@@ -643,17 +643,6 @@ files = [
 ]
 
 [[package]]
-name = "django-url-tools"
-version = "0.0.8"
-summary = "Django helpers for dealing with URLs in templates"
-groups = ["default"]
-marker = "python_version == \"3.11\""
-files = [
-    {file = "django-url-tools-0.0.8.tar.gz", hash = "sha256:012cf28796265cd805b502f360c9a86f750b02dd7d5c770fc878bf1dead5aada"},
-    {file = "django-url-tools-0.0.8.zip", hash = "sha256:9d9cb034d3e1768ef4b98ab3e3ebb75eae51530d04c11ad19ecbefa30831d762"},
-]
-
-[[package]]
 name = "et-xmlfile"
 version = "1.1.0"
 requires_python = ">=3.6"
@@ -989,6 +978,19 @@ marker = "python_version == \"3.11\""
 files = [
     {file = "pluggy-1.5.0-py3-none-any.whl", hash = "sha256:44e1ad92c8ca002de6377e165f3e0f1be63266ab4d554740532335b9d75ea669"},
     {file = "pluggy-1.5.0.tar.gz", hash = "sha256:2cffa88e94fdc978c4c574f15f9e59b7f4201d439195c3715ca9e2486f1d0cf1"},
+]
+
+[[package]]
+name = "pocket"
+version = "0.3.7"
+git = "https://github.com/tapanpandita/pocket.git"
+ref = "v0.3.7"
+revision = "5a144438cc89bfc0ec94db960718ccf1f76468c1"
+summary = "api wrapper for getpocket.com"
+groups = ["default"]
+marker = "python_version == \"3.11\""
+dependencies = [
+    "requests",
 ]
 
 [[package]]
