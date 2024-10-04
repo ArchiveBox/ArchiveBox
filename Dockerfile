@@ -10,7 +10,7 @@
 #     docker run -v "$PWD/data":/data -p 8000:8000 archivebox server
 # Multi-arch build:
 #     docker buildx create --use
-#     docker buildx build . --platform=linux/amd64,linux/arm64--push -t archivebox/archivebox:latest -t archivebox/archivebox:dev
+#     docker buildx build . --platform=linux/amd64,linux/arm64--push -t archivebox/archivebox:0.7.5 -t archivebox/archivebox:dev
 #
 # Read more about [developing Archivebox](https://github.com/ArchiveBox/ArchiveBox#archivebox-development).
 
@@ -147,6 +147,7 @@ RUN (which sonic && sonic --version) | tee -a /VERSION.txt
 # Install Python environment
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
     echo "[+] Setting up Python $PYTHON_VERSION runtime..." \
+    # NOT NEEDED because we're using a pre-built python image, keeping this here in case we switch back to custom-building our own:
     # && apt-get update -qq \
     # && apt-get install -qq -y -t bookworm-backports --no-upgrade \
     #     python${PYTHON_VERSION} python${PYTHON_VERSION}-minimal python3-pip \
@@ -198,16 +199,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         curl wget git yt-dlp ffmpeg ripgrep \
         # Packages we have also needed in the past:
         # youtube-dl wget2 aria2 python3-pyxattr rtmpdump libfribidi-bin mpv \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
     # Save version info
-    # && ( \
-    #     which curl && curl --version | head -n1 \
-    #     && which wget && wget --version 2>&1 | head -n1 \
-    #     && which yt-dlp && yt-dlp --version 2>&1 | head -n1 \
-    #     && which git && git --version 2>&1 | head -n1 \
-    #     && which rg && rg --version 2>&1 | head -n1 \
-    #     && echo -e '\n\n' \
-    # ) | tee -a /VERSION.txt
+    && ( \
+        which curl && curl --version | head -n1 \
+        && which wget && wget --version 2>&1 | head -n1 \
+        && which yt-dlp && yt-dlp --version 2>&1 | head -n1 \
+        && which git && git --version 2>&1 | head -n1 \
+        && which rg && rg --version 2>&1 | head -n1 \
+        && echo -e '\n\n' \
+    ) | tee -a /VERSION.txt
 
 
 # Install chromium browser using playwright
@@ -279,17 +280,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 # Install ArchiveBox Python package from source
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
     echo "[*] Installing PIP ArchiveBox package from $CODE_DIR..." \
-    # && apt-get update -qq \
-    # install C compiler to build deps on platforms that dont have 32-bit wheels available on pypi
-    # && apt-get install -qq -y -t bookworm-backports \
-        # build-essential  \
-    # INSTALL ARCHIVEBOX python package globally from CODE_DIR, with all optional dependencies
-    && pip install -e "$CODE_DIR"[sonic,ldap] \
-    # save docker image size and always remove compilers / build tools after building is complete
-    # && apt-get purge -y build-essential \
-    # && apt-get autoremove -y \
+    && pip install -e "${CODE_DIR}[sonic,ldap]" \
     && rm -rf /var/lib/apt/lists/*
 
 ####################################################
@@ -298,7 +291,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 WORKDIR "$DATA_DIR"
 ENV IN_DOCKER=True \
     DISPLAY=novnc:0.0 \
-    CUSTOM_TEMPLATES_DIR=/data/templates \
+    CUSTOM_TEMPLATES_DIR=/data/user_templates \
     GOOGLE_API_KEY=no \
     GOOGLE_DEFAULT_CLIENT_ID=no \
     GOOGLE_DEFAULT_CLIENT_SECRET=no \
