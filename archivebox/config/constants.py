@@ -55,15 +55,6 @@ def _detect_installed_version(PACKAGE_DIR: Path):
 VERSION: str = _detect_installed_version(PACKAGE_DIR)
 
 
-# Ensure system tmp dir and data dir exist as we need them to run almost everything
-if 'SYSTEM_TMP_DIR' in os.environ:
-    SYSTEM_TMP_DIR = Path(os.environ['SYSTEM_TMP_DIR'])
-else:
-    SYSTEM_TMP_DIR = Path(tempfile.gettempdir()) / 'archivebox'
-    SYSTEM_TMP_DIR.mkdir(parents=True, exist_ok=True)
-
-DATA_DIR_TMP_DIR = DATA_DIR / 'tmp' / machineid.hashed_id('archivebox')[:16]
-DATA_DIR_TMP_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class ConstantsDict(Mapping):
@@ -71,7 +62,6 @@ class ConstantsDict(Mapping):
     OS = platform.system().lower()      # darwin, linux, etc.
     ARCH = platform.machine().lower()   # arm64, x86_64, etc.
     LIB_DIR_SCOPE = f'{ARCH}-{OS}' + ('-docker' if IN_DOCKER else '')
-
 
     PACKAGE_DIR: Path = PACKAGE_DIR     # archivebox source code dir
     DATA_DIR: Path = DATA_DIR           # archivebox user data dir
@@ -94,16 +84,18 @@ class ConstantsDict(Mapping):
     LIB_DIR_NAME: str = 'lib'
     TMP_DIR_NAME: str = 'tmp'
 
-    SYSTEM_TMP_DIR: Path                = SYSTEM_TMP_DIR
-    DATA_DIR_TMP_DIR: Path              = DATA_DIR_TMP_DIR
+    SYSTEM_TMP_DIR: Path                = Path(os.environ['SYSTEM_TMP_DIR']) if 'SYSTEM_TMP_DIR' in os.environ else (Path(tempfile.gettempdir()) / 'archivebox')
+    DATA_DIR_TMP_DIR: Path              = DATA_DIR / TMP_DIR_NAME / machineid.hashed_id('archivebox')[:16]
+    SYSTEM_LIB_DIR: Path                = Path(os.environ['SYSTEM_LIB_DIR']) if 'SYSTEM_LIB_DIR' in os.environ else (PACKAGE_DIR / LIB_DIR_NAME)
+    DATA_DIR_LIB_DIR: Path              = DATA_DIR / LIB_DIR_NAME / LIB_DIR_SCOPE
 
     ARCHIVE_DIR: Path                   = DATA_DIR / ARCHIVE_DIR_NAME
     SOURCES_DIR: Path                   = DATA_DIR / SOURCES_DIR_NAME
     PERSONAS_DIR: Path                  = DATA_DIR / PERSONAS_DIR_NAME
     CACHE_DIR: Path                     = DATA_DIR / CACHE_DIR_NAME
     LOGS_DIR: Path                      = DATA_DIR / LOGS_DIR_NAME
-    LIB_DIR: Path                       = DATA_DIR / LIB_DIR_NAME / LIB_DIR_SCOPE   # e.g. data/lib/arm64-darwin-docker
-    TMP_DIR: Path                       = SYSTEM_TMP_DIR if IN_DOCKER else DATA_DIR_TMP_DIR  # e.g. /var/folders/bk/63jsns1s.../T/archivebox or ./data/tmp/abcwe324234
+    LIB_DIR: Path                       = SYSTEM_LIB_DIR if IN_DOCKER else DATA_DIR_LIB_DIR  # e.g. /app/lib or ./data/lib/arm64-darwin-docker
+    TMP_DIR: Path                       = SYSTEM_TMP_DIR if IN_DOCKER else DATA_DIR_TMP_DIR  # e.g. /tmp/archivebox or ./data/tmp/abcwe324234
     CUSTOM_TEMPLATES_DIR: Path          = DATA_DIR / CUSTOM_TEMPLATES_DIR_NAME
     USER_PLUGINS_DIR: Path              = DATA_DIR / USER_PLUGINS_DIR_NAME
 
@@ -323,3 +315,8 @@ CONSTANTS_CONFIG = CONSTANTS.__benedict__()
 
 # add all key: values to globals() for easier importing
 globals().update(CONSTANTS)
+
+
+# these need to always exist as we need them to run almost everything
+CONSTANTS.LIB_DIR.mkdir(parents=True, exist_ok=True)
+CONSTANTS.TMP_DIR.mkdir(parents=True, exist_ok=True)

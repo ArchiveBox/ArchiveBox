@@ -227,7 +227,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && rm -rf /var/lib/apt/lists/* \
     && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
     && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
-    && chown -R $ARCHIVEBOX_USER "/home/${ARCHIVEBOX_USER}/.config" \
+    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/home/${ARCHIVEBOX_USER}/.config" \
     && mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
     && chown -R $ARCHIVEBOX_USER "$PLAYWRIGHT_BROWSERS_PATH" \
     # Save version info
@@ -237,11 +237,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     ) | tee -a /VERSION.txt
 
 # Install Node dependencies
-WORKDIR "$CODE_DIR"
-COPY --chown=root:root --chmod=755 "package.json" "package-lock.json" "$CODE_DIR"/
+WORKDIR "$CODE_DIR/lib/npm"
+COPY --chown=root:root --chmod=755 "package.json" "package-lock.json" "$CODE_DIR/lib/npm"
 RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing NPM extractor dependencies from package.json..." \
-    && npm ci --prefer-offline --no-audit --cache /root/.npm \
+    && npm ci --prefix="$CODE_DIR/lib/npm" --prefer-offline --no-audit --cache /root/.npm \
+    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$CODE_DIR/lib" \
     && ( \
         which node && node --version \
         && which npm && npm version \
@@ -285,6 +286,8 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH
 WORKDIR "$DATA_DIR"
 RUN openssl rand -hex 16 > /etc/machine-id
 ENV IN_DOCKER=True \
+    SYSTEM_LIB_DIR=/app/lib \
+    SYSTEM_TMP_DIR=/tmp \
     DISPLAY=novnc:0.0 \
     CUSTOM_TEMPLATES_DIR=/data/user_templates \
     GOOGLE_API_KEY=no \
