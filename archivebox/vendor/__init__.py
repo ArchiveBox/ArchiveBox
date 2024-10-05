@@ -6,11 +6,11 @@ VENDOR_DIR = Path(__file__).parent
 
 VENDORED_LIBS = {
     # sys.path dir:         library name
-    'python-atomicwrites':  'atomicwrites',
-    'django-taggit':        'taggit',
-    'pydantic-pkgr':        'pydantic_pkgr',
+    #'python-atomicwrites':  'atomicwrites',
+    #'django-taggit':        'taggit',
+    #'pydantic-pkgr':        'pydantic_pkgr',
     'pocket':               'pocket',
-    'base32-crockford':     'base32_crockford',
+    #'base32-crockford':     'base32_crockford',
 }
 
 def load_vendored_libs():

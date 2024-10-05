@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.8.5"
+version = "0.8.5-rc1"
 requires-python = ">=3.10"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -83,11 +83,11 @@ dependencies = [
     ############# VENDORED LIBS ######################
     # these can be safely omitted when installation subsystem does not provide these as packages (e.g. apt/debian)
     # archivebox will automatically load fallback vendored copies bundled via archivebox/vendor/__init__.py
-    "pydantic-pkgr>=0.4.2",
+    "pydantic-pkgr>=0.4.3",
     "atomicwrites==1.4.1",
-    "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
     "django-taggit==1.3.0",
     "base32-crockford==0.3.0",
+    # "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
     #################################################
 ]
 
