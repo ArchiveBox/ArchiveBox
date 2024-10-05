@@ -8,7 +8,7 @@ VENDORED_LIBS = {
     # sys.path dir:         library name
     #'python-atomicwrites':  'atomicwrites',
     #'django-taggit':        'taggit',
-    #'pydantic-pkgr':        'pydantic_pkgr',
+    'pydantic-pkgr':        'pydantic_pkgr',
     'pocket':               'pocket',
     #'base32-crockford':     'base32_crockford',
 }
