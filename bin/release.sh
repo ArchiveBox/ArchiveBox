@@ -30,5 +30,5 @@ cd "$REPO_DIR"
 ./bin/release_pip.sh
 ./bin/release_docker.sh
 
-VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
+VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
 echo "[√] Done. Published version v$VERSION"

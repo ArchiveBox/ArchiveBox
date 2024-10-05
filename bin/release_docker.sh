@@ -15,7 +15,7 @@ cd "$REPO_DIR"
 
 declare -a TAG_NAMES="$*"
 BRANCH_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
-VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
+VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
 GIT_SHA=sha-"$(git rev-parse --short HEAD)"
 SELECTED_PLATFORMS="linux/amd64,linux/arm64"
 

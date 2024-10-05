@@ -74,7 +74,7 @@ class ShellConfig(BaseConfigSet):
             docker_build_end_time = Path('/VERSION.txt').read_text().rsplit('BUILD_END_TIME=')[-1].split('\n', 1)[0]
             return docker_build_end_time
     
-        src_last_modified_unix_timestamp = (PACKAGE_DIR / 'package.json').stat().st_mtime
+        src_last_modified_unix_timestamp = (PACKAGE_DIR / 'README.md').stat().st_mtime
         return datetime.fromtimestamp(src_last_modified_unix_timestamp).strftime('%Y-%m-%d %H:%M:%S %s')
     
 

@@ -15,17 +15,17 @@ REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && p
 cd "$REPO_DIR"
 
 py_version="$(grep -E '^version = ' pyproject.toml | awk '{print $3}' | jq -r)"
-js_version="$(jq -r '.version' package.json)"
+# js_version="$(jq -r '.version' ${REPO_DIR}/etc/package.json)"
 
-if [[ "$py_version" != "$js_version" ]]; then
-    echo "[❌] Version in pyproject.toml ($py_version) does not match version in package.json ($js_version)!"
-    exit 1
-fi
+# if [[ "$py_version" != "$js_version" ]]; then
+#     echo "[❌] Version in pyproject.toml ($py_version) does not match version in etc/package.json ($js_version)!"
+#     exit 1
+# fi
 
 echo "[🔒] Locking all ArchiveBox dependencies (pip, npm)"
 echo
 echo "pyproject.toml:              archivebox $py_version"
-echo "package.json:                archivebox $js_version"
+# echo "package.json:                archivebox $js_version"
 echo
 echo
 
@@ -34,9 +34,9 @@ deactivate 2>/dev/null || true
 rm -Rf build dist
 rm -f uv.lock
 rm -f requirements.txt
-rm -f package-lock.json
-rm -f archivebox/package.json
-rm -f archivebox/package-lock.json
+# rm -f package-lock.json
+# rm -f archivebox/package.json
+# rm -f archivebox/package-lock.json
 # rm -Rf ./.venv
 # rm -Rf ./node_modules
 # rm -Rf ./archivebox/node_modules
@@ -59,23 +59,20 @@ uv lock
 uv pip compile pyproject.toml --all-extras -o requirements.txt >/dev/null
 uv sync --all-extras --frozen 2>/dev/null
 
-echo
-echo "[+] Generating package-lock.json from package.json..."
-npm install -g npm
-npm config set fund false --location=global &
-npm config set fund false &
-npm config set audit false --location=global &
-npm config set audit false &
-echo
-echo "package.json:    archivebox $(jq -r '.version' package.json)"
-echo
-echo "$(which node):   $(node --version | head -n 1)"
-echo "$(which npm):    $(npm --version | head -n 1)"
+# echo
+# echo "[+] Generating package-lock.json from etc/package.json..."
+# npm install -g npm
+# npm config set fund false --location=global
+# npm config set audit false --location=global
+# cd etc
+# echo
+# echo "etc/package.json:  archivebox $(jq -r '.version' etc/package.json)"
+# echo
+# echo "$(which node):     $(node --version | head -n 1)"
+# echo "$(which npm):      $(npm --version | head -n 1)"
 
-echo
-npm install --package-lock-only --prefer-offline
-cp package.json archivebox/package.json
-cp package-lock.json archivebox/package-lock.json
+# echo
+# npm install --package-lock-only --prefer-offline
 
 echo
 echo "[√] Finished. Don't forget to commit the new lockfiles:"
@@ -83,8 +80,8 @@ echo
 ls "pyproject.toml" | cat
 ls "requirements.txt" | cat
 ls "uv.lock" | cat
-echo
-ls "package.json" | cat
-ls "package-lock.json" | cat
-ls "archivebox/package.json" | cat
-ls "archivebox/package-lock.json" | cat
+# echo
+# ls "package.json" | cat
+# ls "package-lock.json" | cat
+# ls "archivebox/package.json" | cat
+# ls "archivebox/package-lock.json" | cat

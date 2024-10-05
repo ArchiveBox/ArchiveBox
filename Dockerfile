@@ -79,9 +79,9 @@ SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "errtrace", "-o", "
 
 ######### System Environment ####################################
 
-# Detect ArchiveBox version number by reading package.json
-COPY --chown=root:root --chmod=755 package.json "$CODE_DIR/"
-RUN grep '"version": ' "${CODE_DIR}/package.json" | awk -F'"' '{print $4}' > /VERSION.txt
+# Detect ArchiveBox version number by reading pyproject.toml
+COPY --chown=root:root --chmod=755 pyproject.toml "$CODE_DIR/"
+RUN grep '^version = ' "${CODE_DIR}/pyproject.toml" | awk -F'"' '{print $2}' > /VERSION.txt
 
 # Force apt to leave downloaded binaries in /var/cache/apt (massively speeds up Docker builds)
 RUN echo 'Binary::apt::APT::Keep-Downloaded-Packages "1";' > /etc/apt/apt.conf.d/99keep-cache \
@@ -238,10 +238,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 
 # Install Node dependencies
 WORKDIR "$CODE_DIR/lib/npm"
-COPY --chown=root:root --chmod=755 "package.json" "package-lock.json" "$CODE_DIR/lib/npm"
+COPY --chown=root:root --chmod=755 "etc/package.json" "$CODE_DIR/lib/npm"
 RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing NPM extractor dependencies from package.json..." \
-    && npm ci --prefix="$CODE_DIR/lib/npm" --prefer-offline --no-audit --cache /root/.npm \
+    && npm install --prefix="$CODE_DIR/lib/npm" --prefer-offline --no-fund --no-audit --cache /root/.npm \
     && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$CODE_DIR/lib" \
     && ( \
         which node && node --version \

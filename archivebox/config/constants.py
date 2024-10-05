@@ -4,7 +4,6 @@ __package__ = 'archivebox.config'
 import os
 import re
 import platform
-import machineid
 import tempfile
 
 from typing import Dict
@@ -38,15 +37,6 @@ def _detect_installed_version(PACKAGE_DIR: Path):
                 return line.split(' = ', 1)[-1].strip('"').strip()
     except FileNotFoundError:
         # building docs, pyproject.toml is not available
-        pass
-    
-    try:
-        # if in dev but not in Git repo dir, fallback to using package.json file
-        package_json = (PACKAGE_DIR / 'package.json').read_text().split('\n')
-        for line in package_json:
-            if '"version": "' in line:
-                return line.replace('"', '').split(':')[-1].strip(',').strip()
-    except FileNotFoundError:
         pass
 
     # raise Exception('Failed to detect installed archivebox version!')

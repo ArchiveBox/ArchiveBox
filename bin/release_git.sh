@@ -11,7 +11,7 @@ set -o pipefail
 IFS=$'\n'
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
-VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
+VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
 cd "$REPO_DIR"
 
 

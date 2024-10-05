@@ -41,7 +41,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.8.5rc1"
+version = "0.8.5rc2"
 source = { editable = "." }
 dependencies = [
     { name = "atomicwrites" },
@@ -76,6 +76,7 @@ dependencies = [
     { name = "rich" },
     { name = "rich-argparse" },
     { name = "setuptools" },
+    { name = "sonic-client" },
     { name = "supervisor" },
     { name = "typeid-python" },
     { name = "ulid-py" },
@@ -87,14 +88,10 @@ dependencies = [
 all = [
     { name = "django-auth-ldap" },
     { name = "python-ldap" },
-    { name = "sonic-client" },
 ]
 ldap = [
     { name = "django-auth-ldap" },
     { name = "python-ldap" },
-]
-sonic = [
-    { name = "sonic-client" },
 ]
 
 [package.dev-dependencies]
@@ -160,7 +157,7 @@ requires-dist = [
     { name = "rich", specifier = ">=13.8.0" },
     { name = "rich-argparse", specifier = ">=1.5.2" },
     { name = "setuptools", specifier = ">=74.1.0" },
-    { name = "sonic-client", marker = "extra == 'sonic'", specifier = ">=1.0.0" },
+    { name = "sonic-client", specifier = ">=1.0.0" },
     { name = "supervisor", specifier = ">=4.2.5" },
     { name = "typeid-python", specifier = ">=0.3.1" },
     { name = "ulid-py", specifier = ">=1.1.0" },
