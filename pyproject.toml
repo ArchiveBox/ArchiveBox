@@ -36,13 +36,8 @@ classifiers = [
     "Topic :: Utilities",
     "Typing :: Typed",
 ]
-# platform = "py3-none-any"
-# package = "archivebox"
 
 
-# pdm install
-# pdm update --unconstrained
-# Last Bumped: 2024-09-18
 dependencies = [
     ############# Django / Core Libraries #############
     "setuptools>=74.1.0",
@@ -91,9 +86,6 @@ dependencies = [
     #################################################
 ]
 
-# pdm lock --group=':all' 
-# pdm install -G:all
-# pdm update --group=':all' --unconstrained
 [project.optional-dependencies]
 sonic = [
     # echo "deb [signed-by=/usr/share/keyrings/valeriansaliou_sonic.gpg] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main" > /etc/apt/sources.list.d/valeriansaliou_sonic.list
@@ -113,7 +105,7 @@ all = [
 [tool.uv]
 dev-dependencies = [
     ### BUILD
-    # "pdm",                           # usually installed by apt/brew, dont double-install with pip
+    "uv",
     "pip>=24.2",
     "setuptools>=75.1.0",
     "wheel>=0.44.0",
@@ -146,6 +138,7 @@ dev-dependencies = [
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
+# https://github.com/astral-sh/uv/issues/3957
 
 [tool.setuptools]
 packages = ["archivebox"]
@@ -173,7 +166,7 @@ explicit_package_bases = true
 # disallow_incomplete_defs = true
 # disallow_untyped_defs = true
 # disallow_untyped_decorators = true
-# exclude = "pdm/(pep582/|models/in_process/.+\\.py)"
+# exclude = "tests/.*"
 plugins = ["mypy_django_plugin.main"]
 
 [tool.django-stubs]
@@ -201,12 +194,6 @@ reportMissingImports = true
 reportMissingTypeStubs = false
 pythonVersion = "3.10"
 pythonPlatform = "Linux"
-
-
-[tool.pdm.scripts]
-lint = "./bin/lint.sh"
-test = "./bin/test.sh"
-# all = {composite = ["lint mypackage/", "test -v tests/"]}
 
 
 [project.scripts]
