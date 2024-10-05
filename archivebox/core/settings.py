@@ -217,10 +217,7 @@ TEMPLATES = [
 # CACHE_DB_PATH = CONSTANTS.CACHE_DIR / CACHE_DB_FILENAME
 # CACHE_DB_TABLE = 'django_cache'
 
-DATABASE_FILE = DATA_DIR / CONSTANTS.SQL_INDEX_FILENAME
 DATABASE_NAME = os.environ.get("ARCHIVEBOX_DATABASE_NAME", str(CONSTANTS.DATABASE_FILE))
-
-QUEUE_DATABASE_NAME = DATABASE_NAME.replace('index.sqlite3', 'queue.sqlite3')
 
 SQLITE_CONNECTION_OPTIONS = {
     "ENGINE": "django.db.backends.sqlite3",
@@ -250,7 +247,7 @@ DATABASES = {
         **SQLITE_CONNECTION_OPTIONS,
     },
     "queue": {
-        "NAME": QUEUE_DATABASE_NAME,
+        "NAME": CONSTANTS.QUEUE_DATABASE_FILE,
         **SQLITE_CONNECTION_OPTIONS,
     },
     # 'cache': {
@@ -266,7 +263,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 HUEY = {
     "huey_class": "huey.SqliteHuey",
-    "filename": QUEUE_DATABASE_NAME,
+    "filename": CONSTANTS.QUEUE_DATABASE_FILENAME,
     "name": "system_tasks",
     "results": True,
     "store_none": True,
@@ -292,7 +289,7 @@ DJANGO_HUEY = {
     "queues": {
         HUEY["name"]: HUEY.copy(),
         # more registered here at plugin import-time by BaseQueue.register()
-        **abx.django.use.get_DJANGO_HUEY_QUEUES(QUEUE_DATABASE_NAME=QUEUE_DATABASE_NAME),
+        **abx.django.use.get_DJANGO_HUEY_QUEUES(QUEUE_DATABASE_NAME=CONSTANTS.QUEUE_DATABASE_FILENAME),
     },
 }
 

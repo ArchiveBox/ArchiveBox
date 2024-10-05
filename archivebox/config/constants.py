@@ -115,10 +115,11 @@ class ConstantsDict(Mapping):
 
     CONFIG_FILENAME: str = 'ArchiveBox.conf'
     SQL_INDEX_FILENAME: str = 'index.sqlite3'
+    QUEUE_DATABASE_FILENAME: str = 'queue.sqlite3'
 
     CONFIG_FILE: Path                   = DATA_DIR / CONFIG_FILENAME
     DATABASE_FILE: Path                 = DATA_DIR / SQL_INDEX_FILENAME
-    QUEUE_DATABASE_FILE: Path           = DATA_DIR / SQL_INDEX_FILENAME.replace('index.', 'queue.')
+    QUEUE_DATABASE_FILE: Path           = DATA_DIR / QUEUE_DATABASE_FILENAME
 
     JSON_INDEX_FILENAME: str = 'index.json'
     HTML_INDEX_FILENAME: str = 'index.html'
@@ -182,9 +183,11 @@ class ConstantsDict(Mapping):
         LOGS_DIR_NAME,
         CACHE_DIR_NAME,
         LIB_DIR_NAME,
+        TMP_DIR_NAME,
         PERSONAS_DIR_NAME,
         CUSTOM_TEMPLATES_DIR_NAME,
         USER_PLUGINS_DIR_NAME,
+        CRONTABS_DIR_NAME,
     ))
     DATA_DIRS: frozenset[Path] = frozenset(DATA_DIR / dirname for dirname in DATA_DIR_NAMES)
     DATA_FILE_NAMES: frozenset[str] = frozenset((
@@ -192,9 +195,9 @@ class ConstantsDict(Mapping):
         SQL_INDEX_FILENAME,
         f"{SQL_INDEX_FILENAME}-wal",
         f"{SQL_INDEX_FILENAME}-shm",
-        "queue.sqlite3",
-        "queue.sqlite3-wal",
-        "queue.sqlite3-shm",
+        QUEUE_DATABASE_FILENAME,
+        f"{QUEUE_DATABASE_FILENAME}-wal",
+        f"{QUEUE_DATABASE_FILENAME}-shm",
         "search.sqlite3",
         JSON_INDEX_FILENAME,
         HTML_INDEX_FILENAME,
