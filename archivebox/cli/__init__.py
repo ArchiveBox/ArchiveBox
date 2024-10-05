@@ -1,14 +1,14 @@
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox'
 
-import os
 import sys
 import argparse
 import threading
-import tempfile
 
 from time import sleep
 from collections.abc import Mapping
+
+from rich import print
 
 from typing import Optional, List, IO, Union, Iterable
 from pathlib import Path
@@ -242,8 +242,11 @@ def main(args: List[str] | Omitted=OMITTED, stdin: IO | Omitted=OMITTED, pwd: st
             stdin=stdin or None,
         )
 
-    run_subcommand(
-        subcommand=command.subcommand,
-        subcommand_args=command.subcommand_args,
-        stdin=stdin or None,
-    )
+    try:
+        run_subcommand(
+            subcommand=command.subcommand,
+            subcommand_args=command.subcommand_args,
+            stdin=stdin or None,
+        )
+    except KeyboardInterrupt:
+        print('\n\n[red][X] Got CTRL+C. Exiting...[/red]')
