@@ -39,6 +39,7 @@ classifiers = [
 
 
 dependencies = [
+    # ... archivebox/vendor/*             # see vendored libs here
     ############# Django / Core Libraries #############
     "setuptools>=74.1.0",
     "django>=5.1.1,<6.0",
@@ -73,18 +74,14 @@ dependencies = [
     "py-machineid>=0.6.0",            # for: machine/detect.py calculating machine guid
     "python-benedict[io,parse]>=0.33.2",
     "pydantic-settings>=2.5.2",
-    "sonic-client>=1.0.0",
-    ############# Extractor Dependencies #############
-    "yt-dlp>=2024.8.6",               # for: media
-    ############# VENDORED LIBS ######################
-    # these can be safely omitted when installation subsystem does not provide these as packages (e.g. apt/debian)
-    # archivebox will automatically load fallback vendored copies bundled via archivebox/vendor/__init__.py
-    "pydantic-pkgr>=0.4.3",
     "atomicwrites==1.4.1",
     "django-taggit==1.3.0",
     "base32-crockford==0.3.0",
     # "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
-    #################################################
+    "pydantic-pkgr>=0.4.5",
+    ############# Plugin Dependencies ################
+    "sonic-client>=1.0.0",
+    "yt-dlp>=2024.8.6",               # for: media"
 ]
 
 [project.optional-dependencies]
