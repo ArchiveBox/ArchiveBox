@@ -225,20 +225,10 @@ class ConstantsDict(Mapping):
             'enabled': True,
             'is_valid': STATIC_DIR.exists(),
         },
-        'CUSTOM_TEMPLATES_DIR': {
-            'path': CUSTOM_TEMPLATES_DIR.resolve(),
-            'enabled': True,
-            'is_valid': CUSTOM_TEMPLATES_DIR.is_dir(),
-        },
         'LIB_DIR': {
             'path': LIB_DIR.resolve(),
             'enabled': True,
             'is_valid': LIB_DIR.is_dir(),
-        },
-        'TMP_DIR': {
-            'path': TMP_DIR.resolve(),
-            'enabled': True,
-            'is_valid': TMP_DIR.is_dir(),
         },
     })
         
@@ -277,20 +267,35 @@ class ConstantsDict(Mapping):
             "enabled": True,
             "is_valid": SOURCES_DIR.exists(),
         },
-        "PERSONAS_DIR": {
-            "path": PERSONAS_DIR.resolve(),
-            "enabled": PERSONAS_DIR.exists(),
-            "is_valid": PERSONAS_DIR.exists(),
-        },
         "LOGS_DIR": {
             "path": LOGS_DIR.resolve(),
             "enabled": True,
             "is_valid": LOGS_DIR.is_dir(),
         },
-        "CACHE_DIR": {
-            "path": CACHE_DIR.resolve(),
-            "enabled": True,
-            "is_valid": CACHE_DIR.is_dir(),
+        # "CACHE_DIR": {
+        #     "path": CACHE_DIR.resolve(),
+        #     "enabled": True,
+        #     "is_valid": CACHE_DIR.is_dir(),
+        # },
+        'TMP_DIR': {
+            'path': TMP_DIR.resolve(),
+            'enabled': True,
+            'is_valid': TMP_DIR.is_dir(),
+        },
+        "PERSONAS_DIR": {
+            "path": PERSONAS_DIR.resolve(),
+            "enabled": PERSONAS_DIR.is_dir(),
+            "is_valid": PERSONAS_DIR.is_dir(),
+        },
+        'CUSTOM_TEMPLATES_DIR': {
+            'path': CUSTOM_TEMPLATES_DIR.resolve(),
+            'enabled': CUSTOM_TEMPLATES_DIR.is_dir(),
+            'is_valid': CUSTOM_TEMPLATES_DIR.is_dir(),
+        },
+        'USER_PLUGINS_DIR': {
+            'path': USER_PLUGINS_DIR.resolve(),
+            'enabled': USER_PLUGINS_DIR.is_dir(),
+            'is_valid': USER_PLUGINS_DIR.is_dir(),
         },
     })
 

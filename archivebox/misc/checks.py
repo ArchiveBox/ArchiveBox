@@ -36,6 +36,6 @@ def check_migrations():
 
     CONSTANTS.SOURCES_DIR.mkdir(exist_ok=True)
     CONSTANTS.LOGS_DIR.mkdir(exist_ok=True)
-    CONSTANTS.CACHE_DIR.mkdir(exist_ok=True)
+    # CONSTANTS.CACHE_DIR.mkdir(exist_ok=True)
     (CONSTANTS.LIB_DIR / 'bin').mkdir(exist_ok=True, parents=True)
     (CONSTANTS.PERSONAS_DIR / 'Default').mkdir(exist_ok=True, parents=True)

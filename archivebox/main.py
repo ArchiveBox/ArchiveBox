@@ -290,52 +290,52 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     is_empty = not len(set(os.listdir(out_dir)) - CONSTANTS.ALLOWED_IN_DATA_DIR)
 
     if (out_dir / CONSTANTS.JSON_INDEX_FILENAME).exists():
-        stderr("[!] This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.", color="lightyellow")
-        stderr("    You can run `archivebox list --json --with-headers > static_index.json` to manually generate it.", color="lightyellow")
+        print("[red]:warning: This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.[/red]", file=sys.stderr)
+        print("[red]    You can run `archivebox list --json --with-headers > static_index.json` to manually generate it.[/red]", file=sys.stderr)
 
     existing_index = CONSTANTS.DATABASE_FILE.exists()
 
     if is_empty and not existing_index:
-        print('{green}[+] Initializing a new ArchiveBox v{} collection...{reset}'.format(VERSION, **SHELL_CONFIG.ANSI))
-        print('{green}----------------------------------------------------------------------{reset}'.format(**SHELL_CONFIG.ANSI))
+        print(f'[turquoise4][+] Initializing a new ArchiveBox v{VERSION} collection...[/turquoise4]')
+        print('[green]----------------------------------------------------------------------[/green]')
     elif existing_index:
         # TODO: properly detect and print the existing version in current index as well
-        print('{green}[*] Verifying and updating existing ArchiveBox collection to v{}...{reset}'.format(VERSION, **SHELL_CONFIG.ANSI))
-        print('{green}----------------------------------------------------------------------{reset}'.format(**SHELL_CONFIG.ANSI))
+        print(f'[green][*] Verifying and updating existing ArchiveBox collection to v{VERSION}...[/green]')
+        print('[green]----------------------------------------------------------------------[/green]')
     else:
         if force:
-            stderr('[!] This folder appears to already have files in it, but no index.sqlite3 is present.', color='lightyellow')
-            stderr('    Because --force was passed, ArchiveBox will initialize anyway (which may overwrite existing files).')
+            print('[red][!] This folder appears to already have files in it, but no index.sqlite3 is present.[/red]')
+            print('[red]    Because --force was passed, ArchiveBox will initialize anyway (which may overwrite existing files).[/red]')
         else:
-            stderr(
-                ("{red}[X] This folder appears to already have files in it, but no index.sqlite3 present.{reset}\n\n"
+            print(
+                ("[red][X] This folder appears to already have files in it, but no index.sqlite3 present.[/red]\n\n"
                 "    You must run init in a completely empty directory, or an existing data folder.\n\n"
-                "    {lightred}Hint:{reset} To import an existing data folder make sure to cd into the folder first, \n"
+                "    [violet]Hint:[/violet] To import an existing data folder make sure to cd into the folder first, \n"
                 "    then run and run 'archivebox init' to pick up where you left off.\n\n"
                 "    (Always make sure your data folder is backed up first before updating ArchiveBox)"
-                ).format(**SHELL_CONFIG.ANSI)
+                )
             )
             raise SystemExit(2)
 
     if existing_index:
-        print('\n{green}[*] Verifying archive folder structure...{reset}'.format(**SHELL_CONFIG.ANSI))
+        print('\n[green][*] Verifying archive folder structure...[/green]')
     else:
-        print('\n{green}[+] Building archive folder structure...{reset}'.format(**SHELL_CONFIG.ANSI))
+        print('\n[green][+] Building archive folder structure...[/green]')
     
     print(f'    + ./{CONSTANTS.ARCHIVE_DIR.relative_to(DATA_DIR)}, ./{CONSTANTS.SOURCES_DIR.relative_to(DATA_DIR)}, ./{CONSTANTS.LOGS_DIR.relative_to(DATA_DIR)}...')
     Path(CONSTANTS.SOURCES_DIR).mkdir(exist_ok=True)
     Path(CONSTANTS.ARCHIVE_DIR).mkdir(exist_ok=True)
     Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)
     print(f'    + ./{CONSTANTS.CONFIG_FILE.relative_to(DATA_DIR)}...')
-    write_config_file({}, out_dir=out_dir)
+    write_config_file({}, out_dir=str(out_dir))
 
     if CONSTANTS.DATABASE_FILE.exists():
-        print('\n{green}[*] Verifying main SQL index and running any migrations needed...{reset}'.format(**SHELL_CONFIG.ANSI))
+        print('\n[green][*] Verifying main SQL index and running any migrations needed...[/green]')
     else:
-        print('\n{green}[+] Building main SQL index and running initial migrations...{reset}'.format(**SHELL_CONFIG.ANSI))
+        print('\n[green][+] Building main SQL index and running initial migrations...[/green]')
     
     for migration_line in apply_migrations(out_dir):
-        print(f'    {migration_line}')
+        sys.stdout.write(f'    {migration_line}\n')
 
     assert CONSTANTS.DATABASE_FILE.exists()
     print()
@@ -347,14 +347,14 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     #     call_command("createsuperuser", interactive=True)
 
     print()
-    print('{green}[*] Checking links from indexes and archive folders (safe to Ctrl+C)...{reset}'.format(**SHELL_CONFIG.ANSI))
+    print('[dodger_blue3][*] Checking links from indexes and archive folders (safe to Ctrl+C)...[/dodger_blue3]')
 
     all_links = Snapshot.objects.none()
     pending_links: Dict[str, Link] = {}
 
     if existing_index:
         all_links = load_main_index(out_dir=out_dir, warn=False)
-        print('    √ Loaded {} links from existing main index.'.format(all_links.count()))
+        print(f'    √ Loaded {all_links.count()} links from existing main index.')
 
     if quick:
         print('    > Skipping full snapshot directory check (quick mode)')
@@ -363,9 +363,9 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
             # Links in data folders that dont match their timestamp
             fixed, cant_fix = fix_invalid_folder_locations(out_dir=out_dir)
             if fixed:
-                print('    {lightyellow}√ Fixed {} data directory locations that didn\'t match their link timestamps.{reset}'.format(len(fixed), **SHELL_CONFIG.ANSI))
+                print(f'    [yellow]√ Fixed {len(fixed)} data directory locations that didn\'t match their link timestamps.[/yellow]')
             if cant_fix:
-                print('    {lightyellow}! Could not fix {} data directory locations due to conflicts with existing folders.{reset}'.format(len(cant_fix), **SHELL_CONFIG.ANSI))
+                print(f'    [red]! Could not fix {len(cant_fix)} data directory locations due to conflicts with existing folders.[/red]')
 
             # Links in JSON index but not in main index
             orphaned_json_links = {
@@ -375,7 +375,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
             }
             if orphaned_json_links:
                 pending_links.update(orphaned_json_links)
-                print('    {lightyellow}√ Added {} orphaned links from existing JSON index...{reset}'.format(len(orphaned_json_links), **SHELL_CONFIG.ANSI))
+                print(f'    [yellow]√ Added {len(orphaned_json_links)} orphaned links from existing JSON index...[/yellow]')
 
             # Links in data dir indexes but not in main index
             orphaned_data_dir_links = {
@@ -385,7 +385,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
             }
             if orphaned_data_dir_links:
                 pending_links.update(orphaned_data_dir_links)
-                print('    {lightyellow}√ Added {} orphaned links from existing archive directories.{reset}'.format(len(orphaned_data_dir_links), **SHELL_CONFIG.ANSI))
+                print(f'    [yellow]√ Added {len(orphaned_data_dir_links)} orphaned links from existing archive directories.[/yellow]')
 
             # Links in invalid/duplicate data dirs
             invalid_folders = {
@@ -393,36 +393,36 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
                 for folder, link in get_invalid_folders(all_links, out_dir=out_dir).items()
             }
             if invalid_folders:
-                print('    {lightyellow}! Skipped adding {} invalid link data directories.{reset}'.format(len(invalid_folders), **SHELL_CONFIG.ANSI))
+                print(f'    [red]! Skipped adding {len(invalid_folders)} invalid link data directories.[/red]')
                 print('        X ' + '\n        X '.join(f'./{Path(folder).relative_to(DATA_DIR)} {link}' for folder, link in invalid_folders.items()))
                 print()
-                print('    {lightred}Hint:{reset} For more information about the link data directories that were skipped, run:'.format(**SHELL_CONFIG.ANSI))
+                print('    [violet]Hint:[/violet] For more information about the link data directories that were skipped, run:')
                 print('        archivebox status')
                 print('        archivebox list --status=invalid')
 
         except (KeyboardInterrupt, SystemExit):
-            stderr()
-            stderr('[x] Stopped checking archive directories due to Ctrl-C/SIGTERM', color='red')
-            stderr('    Your archive data is safe, but you should re-run `archivebox init` to finish the process later.')
-            stderr()
-            stderr('    {lightred}Hint:{reset} In the future you can run a quick init without checking dirs like so:'.format(**SHELL_CONFIG.ANSI))
-            stderr('        archivebox init --quick')
+            print(file=sys.stderr)
+            print('[yellow]:stop_sign: Stopped checking archive directories due to Ctrl-C/SIGTERM[/yellow]', file=sys.stderr)
+            print('    Your archive data is safe, but you should re-run `archivebox init` to finish the process later.', file=sys.stderr)
+            print(file=sys.stderr)
+            print('    [violet]Hint:[/violet] In the future you can run a quick init without checking dirs like so:', file=sys.stderr)
+            print('        archivebox init --quick', file=sys.stderr)
             raise SystemExit(1)
         
         write_main_index(list(pending_links.values()), out_dir=out_dir)
 
-    print('\n{green}----------------------------------------------------------------------{reset}'.format(**SHELL_CONFIG.ANSI))
+    print('\n[green]----------------------------------------------------------------------[/green]')
 
     from django.contrib.auth.models import User
 
     if (SERVER_CONFIG.ADMIN_USERNAME and SERVER_CONFIG.ADMIN_PASSWORD) and not User.objects.filter(username=SERVER_CONFIG.ADMIN_USERNAME).exists():
-        print('{green}[+] Found ADMIN_USERNAME and ADMIN_PASSWORD configuration options, creating new admin user.{reset}'.format(**SHELL_CONFIG.ANSI))
+        print('[green][+] Found ADMIN_USERNAME and ADMIN_PASSWORD configuration options, creating new admin user.[/green]')
         User.objects.create_superuser(username=SERVER_CONFIG.ADMIN_USERNAME, password=SERVER_CONFIG.ADMIN_PASSWORD)
 
     if existing_index:
-        print('{green}[√] Done. Verified and updated the existing ArchiveBox collection.{reset}'.format(**SHELL_CONFIG.ANSI))
+        print('[green][√] Done. Verified and updated the existing ArchiveBox collection.[/green]')
     else:
-        print('{green}[√] Done. A new ArchiveBox collection was initialized ({} links).{reset}'.format(len(all_links) + len(pending_links), **SHELL_CONFIG.ANSI))
+        print(f'[green][√] Done. A new ArchiveBox collection was initialized ({len(all_links) + len(pending_links)} links).[/green]')
 
     json_index = out_dir / CONSTANTS.JSON_INDEX_FILENAME
     html_index = out_dir / CONSTANTS.HTML_INDEX_FILENAME
@@ -437,7 +437,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
 
     if Snapshot.objects.count() < 25:     # hide the hints for experienced users
         print()
-        print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**SHELL_CONFIG.ANSI))
+        print('    [violet]Hint:[/violet] To view your archive index, run:')
         print('        archivebox server  # then visit [deep_sky_blue4][link=http://127.0.0.1:8000]http://127.0.0.1:8000[/link][/deep_sky_blue4]')
         print()
         print('    To add new links, you can run:')
