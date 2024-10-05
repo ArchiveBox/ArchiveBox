@@ -567,7 +567,7 @@ def printable_folder_status(name: str, folder: Dict) -> str:
         else:
             color, symbol, note, num_files = 'red', 'X', 'invalid', '?'
     else:
-        color, symbol, note, num_files = 'lightyellow', '-', 'unused', '-'
+        color, symbol, note, num_files = 'grey53', '-', 'unused', '-'
 
 
     if folder['path']:

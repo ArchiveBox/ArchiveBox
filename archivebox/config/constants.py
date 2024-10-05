@@ -284,17 +284,17 @@ class ConstantsDict(Mapping):
         },
         "PERSONAS_DIR": {
             "path": PERSONAS_DIR.resolve(),
-            "enabled": PERSONAS_DIR.is_dir(),
+            "enabled": PERSONAS_DIR.exists(),
             "is_valid": PERSONAS_DIR.is_dir(),
         },
         'CUSTOM_TEMPLATES_DIR': {
             'path': CUSTOM_TEMPLATES_DIR.resolve(),
-            'enabled': CUSTOM_TEMPLATES_DIR.is_dir(),
+            'enabled': CUSTOM_TEMPLATES_DIR.exists(),
             'is_valid': CUSTOM_TEMPLATES_DIR.is_dir(),
         },
         'USER_PLUGINS_DIR': {
             'path': USER_PLUGINS_DIR.resolve(),
-            'enabled': USER_PLUGINS_DIR.is_dir(),
+            'enabled': USER_PLUGINS_DIR.exists(),
             'is_valid': USER_PLUGINS_DIR.is_dir(),
         },
     })

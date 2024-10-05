@@ -289,7 +289,6 @@ ENV IN_DOCKER=True \
     SYSTEM_LIB_DIR=/app/lib \
     SYSTEM_TMP_DIR=/tmp \
     DISPLAY=novnc:0.0 \
-    CUSTOM_TEMPLATES_DIR=/data/user_templates \
     GOOGLE_API_KEY=no \
     GOOGLE_DEFAULT_CLIENT_ID=no \
     GOOGLE_DEFAULT_CLIENT_SECRET=no \
