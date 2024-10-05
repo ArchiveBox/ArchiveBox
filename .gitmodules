@@ -1,9 +1,6 @@
 [submodule "docs"]
     path = docs
     url = https://github.com/ArchiveBox/ArchiveBox.wiki.git
-[submodule "docker"]
-	path = docker
-	url = https://github.com/ArchiveBox/docker-archivebox.git
 [submodule "archivebox/vendor/pocket"]
 	path = archivebox/vendor/pocket
 	url = https://github.com/tapanpandita/pocket
