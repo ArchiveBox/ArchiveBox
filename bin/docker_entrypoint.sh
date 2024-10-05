@@ -110,6 +110,10 @@ if [[ -d "$PLAYWRIGHT_BROWSERS_PATH/.links" ]]; then
     chown -h $PUID:$PGID "$PLAYWRIGHT_BROWSERS_PATH"/.links/*
 fi
 
+# also chown tmp dir
+mkdir -p /tmp/archivebox
+chown $PUID:$PGID /tmp
+chown $PUID:$PGID /tmp/archivebox
 
 # (this check is written in blood in 2023, QEMU silently breaks things in ways that are not obvious)
 export IN_QEMU="$(pmap 1 | grep qemu >/dev/null && echo 'True' || echo 'False')"

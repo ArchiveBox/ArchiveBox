@@ -284,7 +284,8 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH
 
 # Setup ArchiveBox runtime config
 WORKDIR "$DATA_DIR"
-RUN openssl rand -hex 16 > /etc/machine-id
+RUN openssl rand -hex 16 > /etc/machine-id \
+    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/tmp"
 ENV IN_DOCKER=True \
     SYSTEM_LIB_DIR=/app/lib \
     SYSTEM_TMP_DIR=/tmp \
