@@ -18,7 +18,7 @@ which docker > /dev/null || exit 1
 which jq > /dev/null || exit 1
 # which pdm > /dev/null || exit 1
 
-declare -a TAG_NAMES="$*"
+declare -a TAG_NAMES=("$@")
 BRANCH_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
 GIT_SHA=sha-"$(git rev-parse --short HEAD)"

@@ -13,7 +13,7 @@ IFS=$' '
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 cd "$REPO_DIR"
 
-declare -a TAG_NAMES="$*"
+declare -a TAG_NAMES=("$@")
 BRANCH_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
 GIT_SHA=sha-"$(git rev-parse --short HEAD)"
