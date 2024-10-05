@@ -21,5 +21,5 @@ git add .
 git commit -am "$VERSION release"
 git push
 git tag -a "v$VERSION" -m "v$VERSION"
-git push origin master
+git push origin
 git push origin --tags
