@@ -1319,8 +1319,8 @@ We use the [ArchiveBox GitHub Wiki](https://github.com/ArchiveBox/ArchiveBox/wik
 ## Developers
 
 - [Developer Documentation](https://github.com/ArchiveBox/ArchiveBox#archivebox-development)
-- [Python API](https://docs.archivebox.io/en/latest/modules.html) (alpha)
-- [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (alpha)
+- [Python API](https://docs.archivebox.io/)
+- [REST API](https://demo.archivebox.io/api) (alpha)
 
 ## More Info
 
@@ -1365,18 +1365,12 @@ git pull --recurse-submodules
 
 ```bash
 # Install ArchiveBox + python dependencies
-python3 -m venv .venv && source .venv/bin/activate && pip install -e '.[dev]'
-# or: pipenv install --dev && pipenv shell
+pip install uv
+uv venv
+uv sync
 
-# Install node dependencies
-npm install
-# or
-archivebox setup
-
-# Check to see if anything is missing
-archivebox --version
-# install any missing dependencies manually, or use the helper script:
-./bin/setup.sh
+archivebox init
+archivebox install
 ```
 
 #### 2. Option B: Build the docker container and use that for development instead
@@ -1413,6 +1407,8 @@ You can also run all these in Docker. For more examples see the GitHub Actions C
 archivebox config --set DEBUG=True
 # or
 archivebox server --debug ...
+# faster dev version wo/ bg workers enabled:
+daphne -b 0.0.0.0 -p 8000 archivebox.core.asgi:application
 ```
 
 https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
@@ -1447,12 +1443,12 @@ services:
 
 # or with plain Docker:
 docker build -t archivebox:dev https://github.com/ArchiveBox/ArchiveBox.git#dev
-docker run -it -v $PWD:/data archivebox:dev init --setup
+docker run -it -v $PWD:/data archivebox:dev init
 
 # or with pip:
 pip install 'git+https://github.com/pirate/ArchiveBox@dev'
 npm install 'git+https://github.com/ArchiveBox/ArchiveBox.git#dev'
-archivebox init --setup
+archivebox install
 ```
 
 </details>
@@ -1546,6 +1542,9 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 
 **The process to contribute a new extractor is like this:**
 
+> [!IMPORTANT]
+> This process is getting much easier after v0.8.x, there is a new plugin system under development: https://github.com/ArchiveBox/ArchiveBox/releases/tag/v0.8.4-rc
+
 1. [Open an issue](https://github.com/ArchiveBox/ArchiveBox/issues/new?assignees=&labels=changes%3A+behavior%2Cstatus%3A+idea+phase&template=feature_request.md&title=Feature+Request%3A+...) with your propsoed implementation (please link to the pages of any new external dependencies you plan on using)
 2. Ensure any dependencies needed are easily installable via a package managers like `apt`, `brew`, `pip3`, `npm`
    (Ideally, prefer to use external programs available via `pip3` or `npm`, however we do support using any binary installable via package manager that exposes a CLI/Python API and writes output to stdout or the filesystem.)
@@ -1574,8 +1573,6 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 # or individually:
 ./bin/build_docs.sh
 ./bin/build_pip.sh
-./bin/build_deb.sh
-./bin/build_brew.sh
 ./bin/build_docker.sh
 ```
 
@@ -1592,8 +1589,6 @@ Extractors take the URL of a page to archive, write their output to the filesyst
 # or individually:
 ./bin/release_docs.sh
 ./bin/release_pip.sh
-./bin/release_deb.sh
-./bin/release_brew.sh
 ./bin/release_docker.sh
 ```
 
