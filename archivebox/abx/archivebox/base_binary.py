@@ -95,10 +95,15 @@ class BaseBinary(BaseHook, Binary):
         return binary
     
     @validate_call
-    def load_or_install(self, **kwargs) -> Self:
-        binary = super().load_or_install(**kwargs)
-        self.symlink_to_lib(binary=binary, bin_dir=CONSTANTS.LIB_BIN_DIR)
-        return binary
+    def load_or_install(self, fresh=False, **kwargs) -> Self:
+        try:
+            binary = self.load(fresh=fresh)
+            if binary and binary.version:
+                self.symlink_to_lib(binary=binary, bin_dir=CONSTANTS.LIB_BIN_DIR)
+                return binary
+        except Exception:
+            pass
+        return self.install(**kwargs)
     
     @property
     def admin_url(self) -> str:

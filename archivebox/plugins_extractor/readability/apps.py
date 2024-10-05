@@ -1,7 +1,7 @@
 __package__ = 'archivebox.plugins_extractor.readability'
 
 from pathlib import Path
-from typing import List, Dict, Optional, ClassVar
+from typing import List, Dict, Optional
 # from typing_extensions import Self
 
 # Depends on other PyPI/vendor packages:
@@ -45,17 +45,17 @@ class ReadabilityBinary(BaseBinary):
     }
     
     @validate_call
-    def install(self, binprovider_name: Optional[BinProviderName]=None) -> ShallowBinary:
+    def install(self, binprovider_name: Optional[BinProviderName]=None, **kwargs) -> ShallowBinary:
         # force install to only use lib/npm provider, we never want to modify global NPM packages
-        return BaseBinary.install(self, binprovider_name=binprovider_name or LIB_NPM_BINPROVIDER.name)
+        return BaseBinary.install(self, binprovider_name=binprovider_name or LIB_NPM_BINPROVIDER.name, **kwargs)
     
     @validate_call
-    def load_or_install(self, binprovider_name: Optional[BinProviderName] = None) -> ShallowBinary:
-        # force install to only use lib/npm provider, we never want to modify global NPM packages
+    def load_or_install(self, binprovider_name: Optional[BinProviderName] = None, fresh=False, **kwargs) -> ShallowBinary:
         try:
-            return self.load()
+            return self.load(fresh=fresh)
         except Exception:
-            return BaseBinary.install(self, binprovider_name=binprovider_name or LIB_NPM_BINPROVIDER.name)
+            # force install to only use lib/npm provider, we never want to modify global NPM packages
+            return BaseBinary.install(self, binprovider_name=binprovider_name or LIB_NPM_BINPROVIDER.name, **kwargs)
 
 
 

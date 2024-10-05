@@ -5,17 +5,16 @@ import sys
 import inspect
 from pathlib import Path
 from typing import List, Dict, Optional
-from pydantic import InstanceOf, Field, model_validator
+from pydantic import InstanceOf, Field, model_validator, validate_call
 
 
 import django
 from django.db.backends.sqlite3.base import Database as django_sqlite3     # type: ignore[import-type]
 from django.core.checks import Error, Tags
-from pydantic_pkgr import BinProvider, PipProvider, BinName, BinProviderName, ProviderLookupDict, SemVer
+from pydantic_pkgr import BinProvider, PipProvider, BinName, BinProviderName, ProviderLookupDict, SemVer, bin_abspath
 
 from archivebox.config import CONSTANTS, VERSION
 
-import abx
 from abx.archivebox.base_plugin import BasePlugin
 from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_check import BaseCheck
@@ -35,11 +34,8 @@ class PipDependencyConfigs(BaseConfigSet):
     PIP_EXTRA_ARGS: List[str] = []
     PIP_DEFAULT_ARGS: List[str] = []
     
+PIP_CONFIG = PipDependencyConfigs()
 
-
-DEFAULT_GLOBAL_CONFIG = {
-}
-PIP_CONFIG = PipDependencyConfigs(**DEFAULT_GLOBAL_CONFIG)
 
 class SystemPipBinProvider(PipProvider, BaseBinProvider):
     name: BinProviderName = "sys_pip"
@@ -83,11 +79,19 @@ class ArchiveboxBinary(BaseBinary):
 
     binproviders_supported: List[InstanceOf[BinProvider]] = [VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
-        VENV_PIP_BINPROVIDER.name:  {'packages': lambda: [], 'version': lambda: VERSION},
-        SYS_PIP_BINPROVIDER.name:   {'packages': lambda: [], 'version': lambda: VERSION},
-        apt.name:                   {'packages': lambda: [], 'version': lambda: VERSION},
-        brew.name:                  {'packages': lambda: [], 'version': lambda: VERSION},
+        VENV_PIP_BINPROVIDER.name:  {'packages': lambda: [], 'version': lambda: VERSION, 'abspath': lambda: bin_abspath('archivebox')},
+        SYS_PIP_BINPROVIDER.name:   {'packages': lambda: [], 'version': lambda: VERSION, 'abspath': lambda: bin_abspath('archivebox')},
+        apt.name:                   {'packages': lambda: [], 'version': lambda: VERSION, 'abspath': lambda: bin_abspath('archivebox')},
+        brew.name:                  {'packages': lambda: [], 'version': lambda: VERSION, 'abspath': lambda: bin_abspath('archivebox')},
     }
+    
+    @validate_call
+    def install(self, **kwargs):
+        return self.load()                  # obviously it's already installed if we are running this ;)
+    
+    @validate_call
+    def load_or_install(self, **kwargs):
+        return self.load()                  # obviously it's already installed if we are running this ;)
 
 ARCHIVEBOX_BINARY = ArchiveboxBinary()
 
@@ -98,12 +102,18 @@ class PythonBinary(BaseBinary):
     binproviders_supported: List[InstanceOf[BinProvider]] = [VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
         SYS_PIP_BINPROVIDER.name: {
-            'abspath': lambda:
-                sys.executable,
-            'version': lambda: 
-                '{}.{}.{}'.format(*sys.version_info[:3]),
+            'abspath': lambda: sys.executable,
+            'version': lambda: '{}.{}.{}'.format(*sys.version_info[:3]),
         },
     }
+    
+    @validate_call
+    def install(self, **kwargs):
+        return self.load()                  # obviously it's already installed if we are running this ;)
+    
+    @validate_call
+    def load_or_install(self, **kwargs):
+        return self.load()                  # obviously it's already installed if we are running this ;)
 
 PYTHON_BINARY = PythonBinary()
 
@@ -134,6 +144,14 @@ class SqliteBinary(BaseBinary):
                 'https://code.djangoproject.com/wiki/JSON1Extension'
             ])
         return self
+    
+    @validate_call
+    def install(self, **kwargs):
+        return self.load()                  # obviously it's already installed if we are running this ;)
+    
+    @validate_call
+    def load_or_install(self, **kwargs):
+        return self.load()                  # obviously it's already installed if we are running this ;)
 
 SQLITE_BINARY = SqliteBinary()
 
@@ -152,6 +170,14 @@ class DjangoBinary(BaseBinary):
             "version": lambda: django.VERSION[:3],
         },
     }
+    
+    @validate_call
+    def install(self, **kwargs):
+        return self.load()                  # obviously it's already installed if we are running this ;)
+    
+    @validate_call
+    def load_or_install(self, **kwargs):
+        return self.load()                  # obviously it's already installed if we are running this ;)
 
 DJANGO_BINARY = DjangoBinary()
 
@@ -159,6 +185,13 @@ class PipBinary(BaseBinary):
     name: BinName = "pip"
     binproviders_supported: List[InstanceOf[BinProvider]] = [LIB_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
 
+    @validate_call
+    def install(self, **kwargs):
+        return self.load()                  # obviously it's already installed if we are running this ;)
+    
+    @validate_call
+    def load_or_install(self, **kwargs):
+        return self.load()                  # obviously it's already installed if we are running this ;)
 
 PIP_BINARY = PipBinary()
 
@@ -242,9 +275,3 @@ class PipPlugin(BasePlugin):
 PLUGIN = PipPlugin()
 # PLUGIN.register(settings)
 DJANGO_APP = PLUGIN.AppConfig
-
-
-@abx.hookimpl
-def register_django_checks(settings):
-    USER_IS_NOT_ROOT_CHECK.register_with_django_check_system(settings)
-    PIP_ENVIRONMENT_CHECK.register_with_django_check_system(settings)

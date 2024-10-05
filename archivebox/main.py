@@ -961,7 +961,7 @@ def install(out_dir: Path=DATA_DIR) -> None:
         providers = ' [grey53]or[/grey53] '.join(provider.name for provider in binary.binproviders_supported)
         print(f'[+] Locating / Installing [yellow]{binary.name}[/yellow] using [red]{providers}[/red]...')
         try:
-            print(binary.load_or_install().model_dump(exclude={'binproviders_supported', 'loaded_binprovider', 'provider_overrides', 'loaded_abspaths', 'bin_dir', 'loaded_respath', 'hook_type'}))
+            print(binary.load_or_install(fresh=True).model_dump(exclude={'provider_overrides', 'bin_dir', 'hook_type'}))
         except Exception as e:
             print(f'[X] Failed to install {binary.name}: {e}')
 
