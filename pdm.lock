@@ -5,7 +5,7 @@
 groups = ["default", "all", "ldap", "sonic"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:0aa8e150b08d1c571c1f8bfa844fdb3ad0995f9b01eb9199b6449ed0230acbd5"
+content_hash = "sha256:d6c891a0805024b0cdd752c09dad5785b8d2b57fd659f875213ab62c8357286c"
 
 [[metadata.targets]]
 requires_python = "==3.12.*"
@@ -13,7 +13,7 @@ platform = "manylinux_2_17_x86_64"
 
 [[metadata.targets]]
 requires_python = "==3.12.*"
-platform = "macos_12_0_arm64"
+platform = "macos_14_0_arm64"
 
 [[package]]
 name = "annotated-types"
@@ -981,32 +981,6 @@ files = [
 ]
 
 [[package]]
-name = "pocket"
-version = "0.3.7"
-git = "https://github.com/tapanpandita/pocket.git"
-ref = "v0.3.7"
-revision = "5a144438cc89bfc0ec94db960718ccf1f76468c1"
-summary = "api wrapper for getpocket.com"
-groups = ["default"]
-marker = "python_version == \"3.12\""
-dependencies = [
-    "requests",
-]
-
-[[package]]
-name = "pocket"
-version = "0.3.7"
-git = "https://github.com/tapanpandita/pocket.git"
-ref = "v0.3.7"
-revision = "5a144438cc89bfc0ec94db960718ccf1f76468c1"
-summary = "api wrapper for getpocket.com"
-groups = ["default"]
-marker = "python_version == \"3.12\""
-dependencies = [
-    "requests",
-]
-
-[[package]]
 name = "prompt-toolkit"
 version = "3.0.48"
 requires_python = ">=3.7.0"
@@ -1158,7 +1132,7 @@ files = [
 
 [[package]]
 name = "pydantic-pkgr"
-version = "0.4.2"
+version = "0.4.4"
 requires_python = ">=3.10"
 summary = "System package manager APIs in strongly typed Python"
 groups = ["default"]
@@ -1169,8 +1143,8 @@ dependencies = [
     "typing-extensions>=4.11.0",
 ]
 files = [
-    {file = "pydantic_pkgr-0.4.2-py3-none-any.whl", hash = "sha256:b78e421a58c1777098792236ed6da50b70167e18579c6e4353309ab121972f7b"},
-    {file = "pydantic_pkgr-0.4.2.tar.gz", hash = "sha256:879654052a22122484bebd2616c4ade6887f2f6fb3afae397937a5bb23473f76"},
+    {file = "pydantic_pkgr-0.4.4-py3-none-any.whl", hash = "sha256:f0b050543909cefb979a8ef238b6ba7010b7e05de9924c8a4ba20c567c6b1489"},
+    {file = "pydantic_pkgr-0.4.4.tar.gz", hash = "sha256:b49964f6228b7ab232a00ec638534e38a8f04b892dc396b41a3e121c50248599"},
 ]
 
 [[package]]
@@ -1441,7 +1415,7 @@ files = [
 
 [[package]]
 name = "rich"
-version = "13.9.1"
+version = "13.9.2"
 requires_python = ">=3.8.0"
 summary = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
 groups = ["default"]
@@ -1452,8 +1426,8 @@ dependencies = [
     "typing-extensions<5.0,>=4.0.0; python_version < \"3.11\"",
 ]
 files = [
-    {file = "rich-13.9.1-py3-none-any.whl", hash = "sha256:b340e739f30aa58921dc477b8adaa9ecdb7cecc217be01d93730ee1bc8aa83be"},
-    {file = "rich-13.9.1.tar.gz", hash = "sha256:097cffdf85db1babe30cc7deba5ab3a29e1b9885047dab24c57e9a7f8a9c1466"},
+    {file = "rich-13.9.2-py3-none-any.whl", hash = "sha256:8c82a3d3f8dcfe9e734771313e606b39d8247bb6b826e196f4914b333b743cf1"},
+    {file = "rich-13.9.2.tar.gz", hash = "sha256:51a2c62057461aaf7152b4d611168f93a9fc73068f8ded2790f29fe2b5366d0c"},
 ]
 
 [[package]]
