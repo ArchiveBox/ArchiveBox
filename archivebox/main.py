@@ -284,6 +284,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     """Initialize a new ArchiveBox collection in the current directory"""
     
     from core.models import Snapshot
+    from rich import print
 
     out_dir.mkdir(exist_ok=True)
     is_empty = not len(set(os.listdir(out_dir)) - CONSTANTS.ALLOWED_IN_DATA_DIR)
@@ -437,7 +438,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     if Snapshot.objects.count() < 25:     # hide the hints for experienced users
         print()
         print('    {lightred}Hint:{reset} To view your archive index, run:'.format(**SHELL_CONFIG.ANSI))
-        print(f'        archivebox server  # then visit [deep_sky_blue4][link=http://127.0.0.1:8000]http://127.0.0.1:8000[/link]')
+        print('        archivebox server  # then visit [deep_sky_blue4][link=http://127.0.0.1:8000]http://127.0.0.1:8000[/link][/deep_sky_blue4]')
         print()
         print('    To add new links, you can run:')
         print("        archivebox add < ~/some/path/to/list_of_links.txt")
@@ -1275,7 +1276,7 @@ def server(runserver_args: Optional[List[str]]=None,
         except IndexError:
             pass
 
-        print(f'    [blink][green]>[/green][/blink] Starting ArchiveBox webserver on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link]')
+        print(f'    [blink][green]>[/green][/blink] Starting ArchiveBox webserver on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')
 
         from queues.supervisor_util import start_server_workers
 
