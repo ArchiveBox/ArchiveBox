@@ -185,12 +185,13 @@ class ChromeConfig(BaseConfigSet):
         if options.CHROME_USER_AGENT:
             cmd_args += ('--user-agent={}'.format(options.CHROME_USER_AGENT),)
     
-        if options.CHROME_TIMEOUT:
-           cmd_args += ('--timeout={}'.format(options.CHROME_TIMEOUT * 1000),)
+        # this no longer works on newer chrome version for some reason, just causes chrome to hang indefinitely:
+        # if options.CHROME_TIMEOUT:
+        #   cmd_args += ('--timeout={}'.format(options.CHROME_TIMEOUT * 1000),)
     
         if options.CHROME_USER_DATA_DIR:
             cmd_args.append('--user-data-dir={}'.format(options.CHROME_USER_DATA_DIR))
-            cmd_args.append('--profile-directory={}'.format(options.CHROME_PROFILE_NAME))
+            cmd_args.append('--profile-directory={}'.format(options.CHROME_PROFILE_NAME or 'Default'))
     
         return dedupe(cmd_args)
 
