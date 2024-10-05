@@ -17,7 +17,7 @@
 #########################################################################################
 
 # Use Debian 12 w/ faster package updates: https://packages.debian.org/bookworm-backports/
-FROM python:3.12-slim-bookworm
+FROM python:3.11-slim-bookworm
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <dockerfile@archivebox.io>" \
@@ -59,7 +59,7 @@ ENV TZ=UTC \
     npm_config_loglevel=error
 
 # Version config
-ENV PYTHON_VERSION=3.12 \
+ENV PYTHON_VERSION=3.11 \
     NODE_VERSION=22
 
 # User config
