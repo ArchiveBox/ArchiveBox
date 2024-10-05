@@ -1,3 +1,5 @@
+__package__ = 'archivebox.machine'
+
 from django.apps import AppConfig
 
 

@@ -1,4 +1,4 @@
-__package__ = 'plugins_auth.ldap'
+__package__ = 'archivebox.plugins_auth.ldap'
 
 import inspect
 

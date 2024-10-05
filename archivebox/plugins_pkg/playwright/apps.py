@@ -1,3 +1,5 @@
+__package__ = 'archivebox.plugins_pkg.playwright'
+
 import platform
 from pathlib import Path
 from typing import List, Optional, Dict, ClassVar
