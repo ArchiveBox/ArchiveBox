@@ -15,4 +15,6 @@ cd "$REPO_DIR"
 source "$REPO_DIR/.venv/bin/activate"
 
 echo "[^] Publishing to PyPI..."
+rm -Rf dist
+uv build
 uv publish
