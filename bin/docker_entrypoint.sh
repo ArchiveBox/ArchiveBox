@@ -112,8 +112,10 @@ fi
 
 # also chown tmp dir
 mkdir -p /tmp/archivebox
-chown $PUID:$PGID /tmp
+chmod 777 /tmp
 chown $PUID:$PGID /tmp/archivebox
+mkdir -p /app/lib
+chown $PUID:$PGID /app/lib /app/lib/*
 
 # (this check is written in blood in 2023, QEMU silently breaks things in ways that are not obvious)
 export IN_QEMU="$(pmap 1 | grep qemu >/dev/null && echo 'True' || echo 'False')"
