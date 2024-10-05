@@ -85,7 +85,7 @@ class ConstantsDict(Mapping):
     TMP_DIR_NAME: str = 'tmp'
 
     SYSTEM_TMP_DIR: Path                = Path(os.environ['SYSTEM_TMP_DIR']) if 'SYSTEM_TMP_DIR' in os.environ else (Path(tempfile.gettempdir()) / 'archivebox')
-    DATA_DIR_TMP_DIR: Path              = DATA_DIR / TMP_DIR_NAME / machineid.hashed_id('archivebox')[:16]
+    # DATA_DIR_TMP_DIR: Path              = DATA_DIR / TMP_DIR_NAME / machineid.hashed_id('archivebox')[:16]   # cant be used because of socket path length restrictions break too often if data dir is in some deep subdir: ocket.error reported AF_UNIX path too long
     SYSTEM_LIB_DIR: Path                = Path(os.environ['SYSTEM_LIB_DIR']) if 'SYSTEM_LIB_DIR' in os.environ else (PACKAGE_DIR / LIB_DIR_NAME)
     DATA_DIR_LIB_DIR: Path              = DATA_DIR / LIB_DIR_NAME / LIB_DIR_SCOPE
 
@@ -95,7 +95,7 @@ class ConstantsDict(Mapping):
     CACHE_DIR: Path                     = DATA_DIR / CACHE_DIR_NAME
     LOGS_DIR: Path                      = DATA_DIR / LOGS_DIR_NAME
     LIB_DIR: Path                       = SYSTEM_LIB_DIR if IN_DOCKER else DATA_DIR_LIB_DIR  # e.g. /app/lib or ./data/lib/arm64-darwin-docker
-    TMP_DIR: Path                       = SYSTEM_TMP_DIR if IN_DOCKER else DATA_DIR_TMP_DIR  # e.g. /tmp/archivebox or ./data/tmp/abcwe324234
+    TMP_DIR: Path                       = SYSTEM_TMP_DIR
     CUSTOM_TEMPLATES_DIR: Path          = DATA_DIR / CUSTOM_TEMPLATES_DIR_NAME
     USER_PLUGINS_DIR: Path              = DATA_DIR / USER_PLUGINS_DIR_NAME
 
@@ -231,6 +231,11 @@ class ConstantsDict(Mapping):
             'enabled': True,
             'is_valid': LIB_DIR.is_dir(),
         },
+        'TMP_DIR': {
+            'path': TMP_DIR.resolve(),
+            'enabled': True,
+            'is_valid': TMP_DIR.is_dir(),
+        },
     })
         
     DATA_LOCATIONS = benedict({
@@ -278,11 +283,6 @@ class ConstantsDict(Mapping):
         #     "enabled": True,
         #     "is_valid": CACHE_DIR.is_dir(),
         # },
-        'TMP_DIR': {
-            'path': TMP_DIR.resolve(),
-            'enabled': True,
-            'is_valid': TMP_DIR.is_dir(),
-        },
         "PERSONAS_DIR": {
             "path": PERSONAS_DIR.resolve(),
             "enabled": PERSONAS_DIR.exists(),
