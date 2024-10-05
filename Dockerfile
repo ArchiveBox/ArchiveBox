@@ -214,7 +214,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         at-spi2-common fonts-liberation fonts-noto-color-emoji fonts-tlwg-loma-otf fonts-unifont libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 libavahi-client3 \
         libavahi-common-data libavahi-common3 libcups2 libfontenc1 libice6 libnspr4 libnss3 libsm6 libunwind8 \
         libxaw7 libxcomposite1 libxdamage1 libxfont2 \
-        libxkbfile1 libxmu6 libxpm4 libxt6 x11-xkb-utils xfonts-encodings \
+        libxkbfile1 libxmu6 libxpm4 libxt6 x11-xkb-utils x11-utils xfonts-encodings \
         # xfonts-scalable xfonts-utils xserver-common xvfb \
         # chrome can run without dbus/upower technically, it complains about missing dbus but should run ok anyway
         # libxss1 dbus dbus-x11 upower \
@@ -288,7 +288,6 @@ RUN openssl rand -hex 16 > /etc/machine-id
 ENV IN_DOCKER=True \
     SYSTEM_LIB_DIR=/app/lib \
     SYSTEM_TMP_DIR=/tmp \
-    DISPLAY=novnc:0.0 \
     GOOGLE_API_KEY=no \
     GOOGLE_DEFAULT_CLIENT_ID=no \
     GOOGLE_DEFAULT_CLIENT_SECRET=no \

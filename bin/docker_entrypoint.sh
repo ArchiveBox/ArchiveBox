@@ -81,6 +81,13 @@ else
     mkdir -p "$DATA_DIR/logs"
 fi
 
+# check if novnc x11 $DISPLAY is available
+export DISPLAY="${DISPLAY:-"novnc:0.0"}"
+if ! xdpyinfo > /dev/null 2>&1; then
+    # cant connect to x11 display, unset it so that chrome doesn't try to connect to it and hang indefinitely
+    unset DISPLAY
+fi
+
 # force set the ownership of the data dir contents to the archivebox user and group
 # this is needed because Docker Desktop often does not map user permissions from the host properly
 chown $PUID:$PGID "$DATA_DIR"
