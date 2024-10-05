@@ -26,7 +26,7 @@ cd "$REPO_DIR"
 
 # Push relase to public repositories
 ./bin/release_git.sh
-./bin/release_docs.sh
+# ./bin/release_docs.sh
 ./bin/release_pip.sh
 ./bin/release_docker.sh
 
