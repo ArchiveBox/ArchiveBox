@@ -110,23 +110,19 @@ all = [
     "archivebox[sonic,ldap]"
 ]
 
-# pdm lock --group=':all' --dev
-# pdm install -G:all --dev
-# pdm update --dev --unconstrained
-[tool.pdm.dev-dependencies]
-build = [
+[tool.uv]
+dev-dependencies = [
+    ### BUILD
     # "pdm",                           # usually installed by apt/brew, dont double-install with pip
     "pip>=24.2",
     "setuptools>=75.1.0",
     "wheel>=0.44.0",
     "homebrew-pypi-poet>=0.10.0",      # for: generating archivebox.rb brewfile list of python packages
-]
-docs = [
+    ### DOCS
     "recommonmark>=0.7.1",
     "sphinx",
     "sphinx-rtd-theme>=2.0.0",
-]
-debug = [
+    ### DEBUGGING
     "django-debug-toolbar>=4.4.6",
     "djdt_flamegraph>=0.2.13",
     "ipdb>=0.13.13",
@@ -136,12 +132,10 @@ debug = [
     "opentelemetry-instrumentation-sqlite3>=0.47b0",
     "viztracer",                                     # usage: viztracer ../.venv/bin/archivebox manage check
     # "snakeviz",                                      # usage: python -m cProfile -o flamegraph.prof ../.venv/bin/archivebox manage check
-]
-test = [
+    ### TESTING
     "pytest>=8.3.3",
     "bottle>=0.13.1",
-]
-lint = [
+    ### LINTING
     "ruff>=0.6.6",
     "flake8>=7.1.1",
     "mypy>=1.11.2",

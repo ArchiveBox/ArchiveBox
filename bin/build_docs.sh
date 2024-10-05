@@ -26,8 +26,8 @@ git pull
 cd "$REPO_DIR"
 
 echo "[+] Building docs"
-sphinx-apidoc -o docs archivebox
 cd "$REPO_DIR/docs"
+make clean
 make html
 # open docs/_build/html/index.html to see the output
 cd "$REPO_DIR"
