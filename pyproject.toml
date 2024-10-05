@@ -73,6 +73,7 @@ dependencies = [
     "py-machineid>=0.6.0",            # for: machine/detect.py calculating machine guid
     "python-benedict[io,parse]>=0.33.2",
     "pydantic-settings>=2.5.2",
+    "sonic-client>=1.0.0",
     ############# Extractor Dependencies #############
     "yt-dlp>=2024.8.6",               # for: media
     ############# VENDORED LIBS ######################
@@ -91,7 +92,8 @@ sonic = [
     # echo "deb [signed-by=/usr/share/keyrings/valeriansaliou_sonic.gpg] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main" > /etc/apt/sources.list.d/valeriansaliou_sonic.list
     # curl -fsSL https://packagecloud.io/valeriansaliou/sonic/gpgkey | gpg --dearmor -o /usr/share/keyrings/valeriansaliou_sonic.gpg
     # apt install sonic
-    "sonic-client>=1.0.0",
+    # no-op, now included by default:
+    # "sonic-client>=1.0.0",
 ]
 ldap = [
     # apt install libsasl2-dev python-dev-is-python3 libldap2-dev libssl-dev

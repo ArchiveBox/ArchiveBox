@@ -30,10 +30,12 @@ class LdapBinary(BaseBinary):
         VENV_PIP_BINPROVIDER.name: {
             "abspath": lambda: LDAP_LIB() and Path(inspect.getfile(LDAP_LIB())),         # type: ignore
             "version": lambda: LDAP_LIB() and SemVer(LDAP_LIB().__version__),            # type: ignore
+            "packages": lambda: ['archivebox[ldap]'],
         },
         SYS_PIP_BINPROVIDER.name: {
             "abspath": lambda: LDAP_LIB() and Path(inspect.getfile(LDAP_LIB())),         # type: ignore
             "version": lambda: LDAP_LIB() and SemVer(LDAP_LIB().__version__),            # type: ignore
+            "packages": lambda: ['archivebox[ldap]'],
         },
     }
 

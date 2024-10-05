@@ -73,6 +73,11 @@ VENV_PIP_BINPROVIDER = VenvPipBinProvider()
 LIB_PIP_BINPROVIDER = LibPipBinProvider()
 pip = LIB_PIP_BINPROVIDER
 
+# ensure python libraries are importable from these locations (if archivebox wasnt executed from one of these then they wont already be in sys.path)
+site_packages_dir = 'lib/python{}.{}/site-packages'.format(*sys.version_info[:2])
+sys.path.append(str(VENV_PIP_BINPROVIDER.pip_venv / site_packages_dir))
+sys.path.append(str(LIB_PIP_BINPROVIDER.pip_venv / site_packages_dir))
+
 
 class ArchiveboxBinary(BaseBinary):
     name: BinName = 'archivebox'

@@ -155,6 +155,7 @@ class ConstantsDict(Mapping):
         ".DS_Store",
         ".env",
         "Dockerfile",
+        ".ArchiveBox.conf.bak",
     ))
     PIP_RELATED_NAMES: frozenset[str] = frozenset((
         ".venv",
