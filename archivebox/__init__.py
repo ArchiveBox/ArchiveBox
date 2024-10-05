@@ -28,6 +28,7 @@ ASCII_LOGO = """
 SYSTEM_TMP_DIR = Path(tempfile.gettempdir()) / 'archivebox'
 SYSTEM_TMP_DIR.mkdir(parents=True, exist_ok=True)
 os.environ['SYSTEM_TMP_DIR'] = str(SYSTEM_TMP_DIR)
+os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
 
 # if we are outside a data dir, cd into an ephemeral tmp dir so that
 # we can run version/help without polluting cwd with an index.sqlite3
@@ -42,18 +43,19 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 if str(PACKAGE_DIR) not in sys.path:
     sys.path.append(str(PACKAGE_DIR))
 
-from .config.constants import CONSTANTS, DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, VERSION  # noqa
-
-os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
 
 # print('INSTALLING MONKEY PATCHES')
 from .monkey_patches import *                    # noqa
 # print('DONE INSTALLING MONKEY PATCHES')
 
+
 # print('LOADING VENDORED LIBRARIES')
 from .vendor import load_vendored_libs           # noqa
 load_vendored_libs()
 # print('DONE LOADING VENDORED LIBRARIES')
+
+
+from .config.constants import CONSTANTS, DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, VERSION  # noqa
 
 __version__ = VERSION
 __author__ = 'Nick Sweeting'
