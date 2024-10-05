@@ -182,13 +182,14 @@ class ArchivingConfig(BaseConfigSet):
 
     @field_validator('TIMEOUT', mode='after')
     def validate_timeout(cls, v):
-        print(f'[red][!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={v} seconds)[/red]', file=sys.stderr)
-        print('    You must allow *at least* 5 seconds for indexing and archive methods to run succesfully.', file=sys.stderr)
-        print('    (Setting it to somewhere between 30 and 3000 seconds is recommended)', file=sys.stderr)
-        print(file=sys.stderr)
-        print('    If you want to make ArchiveBox run faster, disable specific archive methods instead:', file=sys.stderr)
-        print('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles', file=sys.stderr)
-        print(file=sys.stderr)
+        if int(v) < 5:
+            print(f'[red][!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={v} seconds)[/red]', file=sys.stderr)
+            print('    You must allow *at least* 5 seconds for indexing and archive methods to run succesfully.', file=sys.stderr)
+            print('    (Setting it to somewhere between 30 and 3000 seconds is recommended)', file=sys.stderr)
+            print(file=sys.stderr)
+            print('    If you want to make ArchiveBox run faster, disable specific archive methods instead:', file=sys.stderr)
+            print('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles', file=sys.stderr)
+            print(file=sys.stderr)
         return v
     
     @field_validator('CHECK_SSL_VALIDITY', mode='after')
