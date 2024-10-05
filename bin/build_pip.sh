@@ -20,7 +20,6 @@ source .venv/bin/activate
 echo "[+] Building sdist, bdist_wheel, and egg_info"
 rm -Rf build dist
 uv build
-cp dist/* ./pip_dist/
 
 echo
-echo "[√] Finished. Don't forget to commit the new sdist and wheel files in ./pip_dist/"
+echo "[√] Finished. Built package in dist/"
