@@ -319,7 +319,7 @@ def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     assert request.user.is_superuser, "Must be a superuser to view configuration settings."
 
     from queues.supervisor_util import get_existing_supervisord_process, get_worker
-    from queues.settings import CONFIG_FILE
+    from queues.settings import SUPERVISORD_CONFIG_FILE
 
     supervisor = get_existing_supervisord_process()
     if supervisor is None:
@@ -332,7 +332,7 @@ def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     all_config = cast(List[Dict[str, Any]], supervisor.getAllConfigInfo() or [])
 
     if key == 'supervisord':
-        relevant_config = CONFIG_FILE.read_text()
+        relevant_config = SUPERVISORD_CONFIG_FILE.read_text()
         relevant_logs = cast(str, supervisor.readLog(0, 10_000_000))
         start_ts = [line for line in relevant_logs.split("\n") if "RPC interface 'supervisor' initialized" in line][-1].split(",", 1)[0]
         uptime = str(timezone.now() - parse_date(start_ts)).split(".")[0]

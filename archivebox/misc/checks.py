@@ -1,6 +1,7 @@
 __package__ = 'archivebox.misc'
 
 import sys
+
 from rich import print
 
 # DO NOT ADD ANY TOP-LEVEL IMPORTS HERE
@@ -59,6 +60,18 @@ def check_io_encoding():
         print('    Confirm that it\'s fixed by opening a new shell and running:', file=sys.stderr)
         print('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8', file=sys.stderr)
         raise SystemExit(2)
+    
+    # # hard errors: check python version
+    # if sys.version_info[:3] < (3, 10, 0):
+    #     print('[red][X] Python version is not new enough: {sys.version} (>3.10 is required)[/red]', file=sys.stderr)
+    #     print('    See https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.', file=sys.stderr)
+    #     raise SystemExit(2)
+    
+    # # hard errors: check django version
+    # if int(django.VERSION[0]) < 5:
+    #     print('[red][X] Django version is not new enough: {django.VERSION[:3]} (>=5.0 is required)[/red]', file=sys.stderr)
+    #     print('    Upgrade django using pip or your system package manager: pip3 install --upgrade django', file=sys.stderr)
+    #     raise SystemExit(2)
 
 
 def check_not_root():

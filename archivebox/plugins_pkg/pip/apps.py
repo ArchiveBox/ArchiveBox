@@ -226,26 +226,14 @@ class CheckPipEnvironment(BaseCheck):
 
     @staticmethod
     def check(settings, logger) -> List[Warning]:
-        # hard errors: check python version
-        if sys.version_info[:3] < (3, 10, 0):
-            print('[red][X] Python version is not new enough: {sys.version} (>3.10 is required)[/red]', file=sys.stderr)
-            print('    See https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#python for help upgrading your Python installation.', file=sys.stderr)
-            raise SystemExit(2)
-        
-        # hard errors: check django version
-        if int(django.VERSION[0]) < 5:
-            print('[red][X] Django version is not new enough: {django.VERSION[:3]} (>=5.0 is required)[/red]', file=sys.stderr)
-            print('    Upgrade django using pip or your system package manager: pip3 install --upgrade django', file=sys.stderr)
-            raise SystemExit(2)
-        
         # soft errors: check that lib/pip virtualenv is setup properly
         errors = []
         
         LIB_PIP_BINPROVIDER.setup()
-        if not LIB_PIP_BINPROVIDER.INSTALLER_BIN_ABSPATH:
+        if not LIB_PIP_BINPROVIDER.is_valid:
             errors.append(
                 Error(
-                    "Failed to setup data/lib/pip virtualenv for runtime dependencies!",
+                    f"Failed to setup {LIB_PIP_BINPROVIDER.pip_venv} virtualenv for runtime dependencies!",
                     id="pip.P001",
                     hint="Make sure the data dir is writable and make sure python3-pip and python3-venv are installed & available on the host.",
                 )
