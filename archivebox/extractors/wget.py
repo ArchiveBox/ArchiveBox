@@ -1,6 +1,7 @@
 __package__ = 'archivebox.extractors'
 
 import re
+import os
 from pathlib import Path
 
 from typing import Optional
@@ -147,23 +148,22 @@ def unsafe_wget_output_path(link: Link) -> Optional[str]:
     search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+") / urldecode(full_path)
     for _ in range(4):
         try:
-            if search_dir.exists():
-                if search_dir.is_dir():
-                    html_files = [
-                        f for f in search_dir.iterdir()
-                        if re.search(".+\\.[Ss]?[Hh][Tt][Mm][Ll]?$", str(f), re.I | re.M)
-                    ]
-                    if html_files:
-                        return str(html_files[0].relative_to(link.link_dir))
+            if os.access(search_dir, os.R_OK) and search_dir.is_dir():
+                html_files = [
+                    f for f in search_dir.iterdir()
+                    if re.search(".+\\.[Ss]?[Hh][Tt][Mm][Ll]?$", str(f), re.I | re.M)
+                ]
+                if html_files:
+                    return str(html_files[0].relative_to(link.link_dir))
 
-                    # sometimes wget'd URLs have no ext and return non-html
-                    # e.g. /some/example/rss/all -> some RSS XML content)
-                    #      /some/other/url.o4g   -> some binary unrecognized ext)
-                    # test this with archivebox add --depth=1 https://getpocket.com/users/nikisweeting/feed/all
-                    last_part_of_url = urldecode(full_path.rsplit('/', 1)[-1])
-                    for file_present in search_dir.iterdir():
-                        if file_present == last_part_of_url:
-                            return str((search_dir / file_present).relative_to(link.link_dir))
+                # sometimes wget'd URLs have no ext and return non-html
+                # e.g. /some/example/rss/all -> some RSS XML content)
+                #      /some/other/url.o4g   -> some binary unrecognized ext)
+                # test this with archivebox add --depth=1 https://getpocket.com/users/nikisweeting/feed/all
+                last_part_of_url = urldecode(full_path.rsplit('/', 1)[-1])
+                for file_present in search_dir.iterdir():
+                    if file_present == last_part_of_url:
+                        return str((search_dir / file_present).relative_to(link.link_dir))
         except OSError:
             # OSError 36 and others can happen here, caused by trying to check for impossible paths
             # (paths derived from URLs can often contain illegal unicode characters or be too long,
@@ -278,12 +278,12 @@ def wget_output_path(link: Link, nocache: bool=False) -> Optional[str]:
 
     # fallback to just the domain dir
     search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+")
-    if search_dir.is_dir():
+    if os.access(search_dir, os.R_OK) and search_dir.is_dir():
         return domain(link.url).replace(":", "+")
 
     # fallback to just the domain dir without port
     search_dir = Path(link.link_dir) / domain(link.url).split(":", 1)[0]
-    if search_dir.is_dir():
+    if os.access(search_dir, os.R_OK) and search_dir.is_dir():
         return domain(link.url).split(":", 1)[0]
 
     return None

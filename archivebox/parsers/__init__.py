@@ -149,12 +149,13 @@ def save_text_as_source(raw_text: str, filename: str='{ts}-stdin.txt', out_dir: 
 
     referenced_texts = ''
 
-    for entry in raw_text.split():
-        try:
-            if Path(entry).exists():
-                referenced_texts += Path(entry).read_text()
-        except Exception as err:
-            print(err)
+    # dont attempt to read local files from the text, security risk:
+    # for entry in raw_text.split():
+    #     try:
+    #         if Path(entry).exists():
+    #             referenced_texts += Path(entry).read_text()
+    #     except Exception as err:
+    #         print(err)
 
     atomic_write(source_path, raw_text + '\n' + referenced_texts)
     log_source_saved(source_file=source_path)

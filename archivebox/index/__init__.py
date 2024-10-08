@@ -249,7 +249,7 @@ def load_main_index(out_dir: Path | str=DATA_DIR, warn: bool=True) -> List[Link]
 @enforce_types
 def load_main_index_meta(out_dir: Path=DATA_DIR) -> Optional[dict]:
     index_path = out_dir / CONSTANTS.JSON_INDEX_FILENAME
-    if index_path.exists():
+    if os.access(index_path, os.F_OK):
         with open(index_path, 'r', encoding='utf-8') as f:
             meta_dict = pyjson.load(f)
             meta_dict.pop('links')

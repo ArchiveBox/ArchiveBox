@@ -1,6 +1,7 @@
 __package__ = 'archivebox.extractors'
 
 import re
+import os
 from pathlib import Path
 
 from typing import Optional
@@ -157,12 +158,12 @@ def wget_output_path(link, nocache: bool=False) -> Optional[str]:
 
     # fallback to just the domain dir
     search_dir = Path(link.link_dir) / domain(link.url).replace(":", "+")
-    if search_dir.is_dir():
+    if os.access(search_dir, os.R_OK) and search_dir.is_dir():
         return domain(link.url).replace(":", "+")
 
     # fallback to just the domain dir without port
     search_dir = Path(link.link_dir) / domain(link.url).split(":", 1)[0]
-    if search_dir.is_dir():
+    if os.access(search_dir, os.R_OK) and search_dir.is_dir():
         return domain(link.url).split(":", 1)[0]
 
     return None

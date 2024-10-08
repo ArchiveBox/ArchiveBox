@@ -200,22 +200,22 @@ class ConstantsDict(Mapping):
         'PACKAGE_DIR': {
             'path': (PACKAGE_DIR).resolve(),
             'enabled': True,
-            'is_valid': (PACKAGE_DIR / '__main__.py').exists(),                                                                            # read + list
+            'is_valid': os.access(PACKAGE_DIR / '__main__.py', os.X_OK),                                                                  # executable
         },
         'TEMPLATES_DIR': {
             'path': TEMPLATES_DIR.resolve(),
             'enabled': True,
-            'is_valid': STATIC_DIR.exists() and os.access(STATIC_DIR, os.R_OK) and os.access(STATIC_DIR, os.X_OK),                         # read + list
+            'is_valid': os.access(STATIC_DIR, os.R_OK) and os.access(STATIC_DIR, os.X_OK),                                                # read + list
         },
         'LIB_DIR': {
             'path': LIB_DIR.resolve(),
             'enabled': True,
-            'is_valid': LIB_DIR.is_dir() and os.access(LIB_DIR, os.R_OK) and os.access(LIB_DIR, os.X_OK) and os.access(LIB_DIR, os.W_OK),  # read + write
+            'is_valid': os.access(LIB_DIR, os.R_OK) and os.access(LIB_DIR, os.X_OK) and os.access(LIB_DIR, os.W_OK),                      # read + write
         },
         'TMP_DIR': {
             'path': TMP_DIR.resolve(),
             'enabled': True,
-            'is_valid': TMP_DIR.is_dir() and os.access(TMP_DIR, os.R_OK) and os.access(TMP_DIR, os.X_OK) and os.access(TMP_DIR, os.W_OK),  # read + write
+            'is_valid': os.access(TMP_DIR, os.R_OK) and os.access(TMP_DIR, os.X_OK) and os.access(TMP_DIR, os.W_OK),                      # read + write
         },
     })
         
@@ -223,61 +223,61 @@ class ConstantsDict(Mapping):
         "DATA_DIR": {
             "path": DATA_DIR.resolve(),
             "enabled": True,
-            "is_valid": DATABASE_FILE.exists() and os.access(DATA_DIR, os.R_OK) and os.access(DATA_DIR, os.W_OK) and os.access(DATA_DIR, os.X_OK),
+            "is_valid": os.access(DATA_DIR, os.R_OK) and os.access(DATA_DIR, os.W_OK) and os.access(DATA_DIR, os.X_OK),
             "is_mount": os.path.ismount(DATA_DIR.resolve()),
         },
         "CONFIG_FILE": {
             "path": CONFIG_FILE.resolve(),
             "enabled": True,
-            "is_valid": CONFIG_FILE.exists() and os.access(CONFIG_FILE, os.W_OK),
+            "is_valid":  os.access(CONFIG_FILE, os.R_OK) and os.access(CONFIG_FILE, os.W_OK),
         },
         "SQL_INDEX": {
             "path": DATABASE_FILE.resolve(),
             "enabled": True,
-            "is_valid": DATABASE_FILE.exists() and os.access(DATABASE_FILE, os.R_OK) and os.access(DATABASE_FILE, os.W_OK),
+            "is_valid": os.access(DATABASE_FILE, os.R_OK) and os.access(DATABASE_FILE, os.W_OK),
             "is_mount": os.path.ismount(DATABASE_FILE.resolve()),
         },
         "QUEUE_DATABASE": {
             "path": QUEUE_DATABASE_FILE.resolve(),
             "enabled": True,
-            "is_valid": QUEUE_DATABASE_FILE.exists() and os.access(QUEUE_DATABASE_FILE, os.R_OK) and os.access(QUEUE_DATABASE_FILE, os.W_OK),
+            "is_valid": os.access(QUEUE_DATABASE_FILE, os.R_OK) and os.access(QUEUE_DATABASE_FILE, os.W_OK),
             "is_mount": os.path.ismount(QUEUE_DATABASE_FILE.resolve()),
         },
         "ARCHIVE_DIR": {
             "path": ARCHIVE_DIR.resolve(),
             "enabled": True,
-            "is_valid": ARCHIVE_DIR.exists() and os.access(ARCHIVE_DIR, os.R_OK) and os.access(ARCHIVE_DIR, os.W_OK) and os.access(ARCHIVE_DIR, os.X_OK),
+            "is_valid": os.access(ARCHIVE_DIR, os.R_OK) and os.access(ARCHIVE_DIR, os.W_OK) and os.access(ARCHIVE_DIR, os.X_OK),
             "is_mount": os.path.ismount(ARCHIVE_DIR.resolve()),
         },
         "SOURCES_DIR": {
             "path": SOURCES_DIR.resolve(),
             "enabled": True,
-            "is_valid": SOURCES_DIR.exists() and os.access(SOURCES_DIR, os.R_OK) and os.access(SOURCES_DIR, os.W_OK) and os.access(SOURCES_DIR, os.X_OK),
+            "is_valid": os.access(SOURCES_DIR, os.R_OK) and os.access(SOURCES_DIR, os.W_OK) and os.access(SOURCES_DIR, os.X_OK),
         },
         "LOGS_DIR": {
             "path": LOGS_DIR.resolve(),
             "enabled": True,
-            "is_valid": LOGS_DIR.is_dir() and os.access(LOGS_DIR, os.R_OK) and os.access(LOGS_DIR, os.W_OK) and os.access(LOGS_DIR, os.X_OK),        # read + write
+            "is_valid": os.access(LOGS_DIR, os.R_OK) and os.access(LOGS_DIR, os.W_OK) and os.access(LOGS_DIR, os.X_OK),                              # read + write
         },
         # "CACHE_DIR": {
         #     "path": CACHE_DIR.resolve(),
         #     "enabled": True,
-        #     "is_valid": CACHE_DIR.is_dir() and os.access(CACHE_DIR, os.R_OK) and os.access(CACHE_DIR, os.W_OK) and os.access(CACHE_DIR, os.X_OK),  # read + write
+        #     "is_valid": os.access(CACHE_DIR, os.R_OK) and os.access(CACHE_DIR, os.W_OK) and os.access(CACHE_DIR, os.X_OK),                        # read + write
         # },
         "PERSONAS_DIR": {
             "path": PERSONAS_DIR.resolve(),
-            "enabled": PERSONAS_DIR.exists(),
-            "is_valid": PERSONAS_DIR.is_dir() and os.access(PERSONAS_DIR, os.R_OK) and os.access(PERSONAS_DIR, os.W_OK) and os.access(PERSONAS_DIR, os.X_OK), # read + write
+            "enabled": os.access(PERSONAS_DIR, os.R_OK),
+            "is_valid": os.access(PERSONAS_DIR, os.R_OK) and os.access(PERSONAS_DIR, os.W_OK) and os.access(PERSONAS_DIR, os.X_OK),                 # read + write
         },
         'CUSTOM_TEMPLATES_DIR': {
             'path': CUSTOM_TEMPLATES_DIR.resolve(),
-            'enabled': CUSTOM_TEMPLATES_DIR.exists(),
-            'is_valid': CUSTOM_TEMPLATES_DIR.is_dir() and os.access(CUSTOM_TEMPLATES_DIR, os.R_OK) and os.access(CUSTOM_TEMPLATES_DIR, os.X_OK),       # read
+            'enabled': os.access(CUSTOM_TEMPLATES_DIR, os.R_OK),
+            'is_valid': os.access(CUSTOM_TEMPLATES_DIR, os.R_OK) and os.access(CUSTOM_TEMPLATES_DIR, os.X_OK),                                      # read
         },
         'USER_PLUGINS_DIR': {
             'path': USER_PLUGINS_DIR.resolve(),
-            'enabled': USER_PLUGINS_DIR.exists(),
-            'is_valid': USER_PLUGINS_DIR.is_dir() and os.access(USER_PLUGINS_DIR, os.R_OK) and os.access(USER_PLUGINS_DIR, os.X_OK),                   # read
+            'enabled': os.access(USER_PLUGINS_DIR, os.R_OK),
+            'is_valid': os.access(USER_PLUGINS_DIR, os.R_OK) and os.access(USER_PLUGINS_DIR, os.X_OK),                                              # read
         },
     })
 

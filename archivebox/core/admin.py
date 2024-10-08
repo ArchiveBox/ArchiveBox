@@ -475,7 +475,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
         # ordering='archiveresult_count'
     )
     def size(self, obj):
-        archive_size = (Path(obj.link_dir) / 'index.html').exists() and obj.archive_size
+        archive_size = os.access(Path(obj.link_dir) / 'index.html', os.F_OK) and obj.archive_size
         if archive_size:
             size_txt = printable_filesize(archive_size)
             if archive_size > 52428800:
@@ -740,7 +740,7 @@ class ArchiveResultAdmin(ABIDModelAdmin):
         output_str += format_html('<a href="/archive/{}/index.html#all">See result files ...</a><br/><pre><code>', str(result.snapshot.timestamp))
         path_from_output_str = (snapshot_dir / result.output)
         output_str += format_html('<i style="padding: 1px">{}</i><b style="padding-right: 20px">/</b><i>{}</i><br/><hr/>', str(snapshot_dir), str(result.output))
-        if path_from_output_str.exists():
+        if os.access(path_from_output_str, os.R_OK):
             root_dir = str(path_from_output_str)
         else:
             root_dir = str(snapshot_dir)

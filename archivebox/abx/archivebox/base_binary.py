@@ -1,5 +1,6 @@
 __package__ = "abx.archivebox"
 
+import os
 from typing import Dict, List
 from typing_extensions import Self
 
@@ -57,7 +58,7 @@ class BaseBinary(BaseHook, Binary):
     def symlink_to_lib(binary, bin_dir=None) -> None:
         bin_dir = bin_dir or CONSTANTS.LIB_BIN_DIR
         
-        if not (binary.abspath and binary.abspath.exists()):
+        if not (binary.abspath and os.access(binary.abspath, os.R_OK)):
             return
         
         try:

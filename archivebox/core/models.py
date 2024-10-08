@@ -4,6 +4,7 @@ __package__ = 'archivebox.core'
 from typing import Optional, Dict, Iterable
 from django_stubs_ext.db.models import TypedModelMeta
 
+import os
 import json
 
 from pathlib import Path
@@ -22,7 +23,7 @@ from archivebox.config import CONSTANTS
 
 from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
 from queues.tasks import bg_archive_snapshot
-from machine.models import Machine, NetworkInterface
+# from machine.models import Machine, NetworkInterface
 
 from archivebox.misc.system import get_dir_size
 from archivebox.misc.util import parse_date, base_url
@@ -604,7 +605,7 @@ class ArchiveResult(ABIDModel):
         return link.canonical_outputs().get(f'{self.extractor}_path')
 
     def output_exists(self) -> bool:
-        return Path(self.output_path()).exists()
+        return os.access(self.output_path(), os.R_OK)
 
 
     # def get_storage_dir(self, create=True, symlink=True):

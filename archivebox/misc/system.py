@@ -114,7 +114,7 @@ def chmod_file(path: str, cwd: str='') -> None:
     """chmod -R <permissions> <cwd>/<path>"""
 
     root = Path(cwd or os.getcwd()) / path
-    if not root.exists():
+    if not os.access(root, os.R_OK):
         raise Exception('Failed to chmod: {} does not exist (did the previous step fail?)'.format(path))
 
     if not root.is_dir():
@@ -132,6 +132,9 @@ def chmod_file(path: str, cwd: str='') -> None:
 @enforce_types
 def copy_and_overwrite(from_path: Union[str, Path], to_path: Union[str, Path]):
     """copy a given file or directory to a given path, overwriting the destination"""
+    
+    assert os.access(from_path, os.R_OK)
+    
     if Path(from_path).is_dir():
         shutil.rmtree(to_path, ignore_errors=True)
         shutil.copytree(from_path, to_path)

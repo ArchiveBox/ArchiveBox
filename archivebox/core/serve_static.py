@@ -21,11 +21,11 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     assert document_root
     path = posixpath.normpath(path).lstrip("/")
     fullpath = Path(safe_join(document_root, path))
-    if fullpath.is_dir():
+    if os.access(fullpath, os.R_OK) and fullpath.is_dir():
         if show_indexes:
             return static.directory_index(path, fullpath)
         raise Http404(_("Directory indexes are not allowed here."))
-    if not fullpath.exists():
+    if not os.access(fullpath, os.R_OK):
         raise Http404(_("“%(path)s” does not exist") % {"path": fullpath})
     
     # Respect the If-Modified-Since header.

@@ -1,5 +1,6 @@
 __package__ = 'archivebox.misc'
 
+import os
 import sys
 
 from rich import print
@@ -14,7 +15,7 @@ from rich import print
 def check_data_folder() -> None:
     from archivebox import DATA_DIR, ARCHIVE_DIR
     
-    archive_dir_exists = ARCHIVE_DIR.exists()
+    archive_dir_exists = os.access(ARCHIVE_DIR, os.R_OK) and ARCHIVE_DIR.is_dir()
     if not archive_dir_exists:
         print('[red][X] No archivebox index found in the current directory.[/red]', file=sys.stderr)
         print(f'    {DATA_DIR}', file=sys.stderr)

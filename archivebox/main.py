@@ -140,7 +140,7 @@ def help(out_dir: Path=DATA_DIR) -> None:
 ''')
     
     
-    if CONSTANTS.ARCHIVE_DIR.exists():
+    if os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK) and CONSTANTS.ARCHIVE_DIR.is_dir():
         pretty_out_dir = str(out_dir).replace(str(Path('~').expanduser()), '~')
         EXAMPLE_USAGE = f'''
 [light_slate_blue]DATA DIR[/light_slate_blue]: [yellow]{pretty_out_dir}[/yellow]
@@ -264,7 +264,7 @@ def version(quiet: bool=False,
         prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
 
     prnt()
-    if CONSTANTS.ARCHIVE_DIR.exists() or CONSTANTS.CONFIG_FILE.exists():
+    if os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK) or os.access(CONSTANTS.CONFIG_FILE, os.R_OK):
         prnt('[bright_yellow][i] Data locations:[/bright_yellow]')
         for name, path in CONSTANTS.DATA_LOCATIONS.items():
             prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
@@ -331,11 +331,11 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     out_dir.mkdir(exist_ok=True)
     is_empty = not len(set(os.listdir(out_dir)) - CONSTANTS.ALLOWED_IN_DATA_DIR)
 
-    if (out_dir / CONSTANTS.JSON_INDEX_FILENAME).exists():
+    if os.access(out_dir / CONSTANTS.JSON_INDEX_FILENAME, os.F_OK):
         print("[red]:warning: This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.[/red]", file=sys.stderr)
         print("[red]    You can run `archivebox list --json --with-headers > static_index.json` to manually generate it.[/red]", file=sys.stderr)
 
-    existing_index = CONSTANTS.DATABASE_FILE.exists()
+    existing_index = os.access(CONSTANTS.DATABASE_FILE, os.F_OK)
 
     if is_empty and not existing_index:
         print(f'[turquoise4][+] Initializing a new ArchiveBox v{VERSION} collection...[/turquoise4]')
@@ -371,7 +371,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     print(f'    + ./{CONSTANTS.CONFIG_FILE.relative_to(DATA_DIR)}...')
     write_config_file({}, out_dir=str(out_dir))
 
-    if CONSTANTS.DATABASE_FILE.exists():
+    if os.access(CONSTANTS.DATABASE_FILE, os.F_OK):
         print('\n[green][*] Verifying main SQL index and running any migrations needed...[/green]')
     else:
         print('\n[green][+] Building main SQL index and running initial migrations...[/green]')
@@ -379,7 +379,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     for migration_line in apply_migrations(out_dir):
         sys.stdout.write(f'    {migration_line}\n')
 
-    assert CONSTANTS.DATABASE_FILE.exists()
+    assert os.access(CONSTANTS.DATABASE_FILE, os.R_OK)
     print()
     print(f'    √ ./{CONSTANTS.DATABASE_FILE.relative_to(DATA_DIR)}')
     
@@ -469,9 +469,9 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     json_index = out_dir / CONSTANTS.JSON_INDEX_FILENAME
     html_index = out_dir / CONSTANTS.HTML_INDEX_FILENAME
     index_name = f"{date.today()}_index_old"
-    if json_index.exists():
+    if os.access(json_index, os.F_OK):
         json_index.rename(f"{index_name}.json")
-    if html_index.exists():
+    if os.access(html_index, os.F_OK):
         html_index.rename(f"{index_name}.html")
 
     if install:
@@ -1007,7 +1007,7 @@ def install(out_dir: Path=DATA_DIR) -> None:
     from archivebox import CONSTANTS
     from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
 
-    if not ARCHIVE_DIR.exists():
+    if not (os.access(ARCHIVE_DIR, os.R_OK) and ARCHIVE_DIR.is_dir()):
         run_subcommand('init', stdin=None, pwd=out_dir)  # must init full index because we need a db to store InstalledBinary entries in
 
     print('\n[green][+] Installing ArchiveBox dependencies automatically...[/green]')

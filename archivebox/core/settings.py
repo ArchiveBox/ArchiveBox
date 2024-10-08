@@ -169,8 +169,9 @@ AUTHENTICATION_BACKENDS = [
 
 STATIC_URL = '/static/'
 TEMPLATES_DIR_NAME = 'templates'
+CUSTOM_TEMPLATES_ENABLED = os.access(CONSTANTS.CUSTOM_TEMPLATES_DIR, os.R_OK) and CONSTANTS.CUSTOM_TEMPLATES_DIR.is_dir()
 STATICFILES_DIRS = [
-    *([str(CONSTANTS.CUSTOM_TEMPLATES_DIR / 'static')] if CONSTANTS.CUSTOM_TEMPLATES_DIR.is_dir() else []),
+    *([str(CONSTANTS.CUSTOM_TEMPLATES_DIR / 'static')] if CUSTOM_TEMPLATES_ENABLED else []),
     # *[
     #     str(plugin_dir / 'static')
     #     for plugin_dir in PLUGIN_DIRS.values()
@@ -181,7 +182,7 @@ STATICFILES_DIRS = [
 ]
 
 TEMPLATE_DIRS = [
-    *([str(CONSTANTS.CUSTOM_TEMPLATES_DIR)] if CONSTANTS.CUSTOM_TEMPLATES_DIR.is_dir() else []),
+    *([str(CONSTANTS.CUSTOM_TEMPLATES_DIR)] if CUSTOM_TEMPLATES_ENABLED else []),
     # *[
     #     str(plugin_dir / 'templates')
     #     for plugin_dir in PLUGIN_DIRS.values()
@@ -600,7 +601,7 @@ if DEBUG_REQUESTS_TRACKER:
 
 # # https://docs.pydantic.dev/logfire/integrations/django/ (similar to DataDog / NewRelic / etc.)
 # DEBUG_LOGFIRE = False
-# DEBUG_LOGFIRE = DEBUG_LOGFIRE and (DATA_DIR / '.logfire').is_dir()
+# DEBUG_LOGFIRE = DEBUG_LOGFIRE and os.access(DATA_DIR / '.logfire', os.W_OK) and (DATA_DIR / '.logfire').is_dir()
 
 
 # For usage with https://www.jetadmin.io/integrations/django

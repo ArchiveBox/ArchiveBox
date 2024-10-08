@@ -1,5 +1,6 @@
 __package__ = 'abx.archivebox'
 
+import os
 import importlib
 
 from typing import Dict
@@ -21,7 +22,7 @@ def load_archivebox_plugins(pm, plugins_dict: Dict[str, Path]):
             archivebox_plugins_found.append(plugin_module_loaded.PLUGIN)
         
         # 2. then try to import plugin_module.apps as well
-        if (plugin_dir / 'apps.py').exists():
+        if os.access(plugin_dir / 'apps.py', os.R_OK):
             plugin_apps = importlib.import_module(plugin_module + '.apps')
             pm.register(plugin_apps)                                           # register the whole .apps  in case it contains loose hookimpls (not in a class)
             if hasattr(plugin_apps, 'PLUGIN'):

@@ -270,7 +270,7 @@ def load_config_file(out_dir: str | None=CONSTANTS.DATA_DIR) -> Optional[benedic
     """load the ini-formatted config file from DATA_DIR/Archivebox.conf"""
 
     config_path = CONSTANTS.CONFIG_FILE
-    if config_path.exists():
+    if os.access(config_path, os.R_OK):
         config_file = ConfigParser()
         config_file.optionxform = str
         config_file.read(config_path)
@@ -307,7 +307,7 @@ def write_config_file(config: Dict[str, str], out_dir: str | None=CONSTANTS.DATA
 
     config_path = CONSTANTS.CONFIG_FILE
 
-    if not config_path.exists():
+    if not os.access(config_path, os.F_OK):
         atomic_write(config_path, CONFIG_HEADER)
 
     config_file = ConfigParser()
@@ -355,7 +355,7 @@ def write_config_file(config: Dict[str, str], out_dir: str | None=CONSTANTS.DATA
 
         raise
 
-    if Path(f'{config_path}.bak').exists():
+    if os.access(f'{config_path}.bak', os.F_OK):
         os.remove(f'{config_path}.bak')
 
     return benedict({
@@ -462,7 +462,7 @@ def find_chrome_data_dir() -> Optional[str]:
     # )
     # for path in default_profile_paths:
     #     full_path = Path(path).resolve()
-    #     if full_path.exists():
+    #     if full_path.is_dir():
     #         return full_path
     return None
 
@@ -639,7 +639,7 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CON
                     conn.close_if_unusable_or_obsolete()
 
                 sql_index_path = CONSTANTS.DATABASE_FILE
-                assert sql_index_path.exists(), (
+                assert os.access(sql_index_path, os.F_OK), (
                     f'No database file {sql_index_path} found in: {CONSTANTS.DATA_DIR} (Are you in an ArchiveBox collection directory?)')
 
                 bump_startup_progress_bar()

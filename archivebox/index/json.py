@@ -102,7 +102,7 @@ def parse_json_link_details(out_dir: Union[Path, str], guess: bool=False) -> Opt
     """load the json link index from a given directory"""
     
     existing_index = Path(out_dir) / CONSTANTS.JSON_INDEX_FILENAME
-    if existing_index.exists():
+    if os.access(existing_index, os.F_OK):
         with open(existing_index, 'r', encoding='utf-8') as f:
             try:
                 link_json = pyjson.load(f)
@@ -119,7 +119,7 @@ def parse_json_links_details(out_dir: Union[Path, str]) -> Iterator[Link]:
 
     for entry in os.scandir(CONSTANTS.ARCHIVE_DIR):
         if entry.is_dir(follow_symlinks=True):
-            if (Path(entry.path) / 'index.json').exists():
+            if os.access((Path(entry.path) / 'index.json'), os.F_OK):
                 try:
                     link = parse_json_link_details(entry.path)
                 except KeyError:

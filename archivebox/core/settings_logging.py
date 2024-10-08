@@ -1,5 +1,8 @@
 __package__ = 'archivebox.core'
+
 import re
+import os
+
 import shutil
 import tempfile
 import logging
@@ -54,7 +57,7 @@ ERROR_LOG = tempfile.NamedTemporaryFile().name
 
 LOGS_DIR = CONSTANTS.LOGS_DIR
 
-if LOGS_DIR.is_dir():
+if os.access(LOGS_DIR, os.W_OK) and LOGS_DIR.is_dir():
     ERROR_LOG = (LOGS_DIR / 'errors.log')
 else:
     # historically too many edge cases here around creating log dir w/ correct permissions early on

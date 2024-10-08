@@ -1,5 +1,6 @@
 __package__ = 'archivebox.plugins_extractor.chrome'
 
+import os
 import sys
 import platform
 from pathlib import Path
@@ -130,9 +131,9 @@ class ChromeConfig(BaseConfigSet):
             print(file=sys.stderr)
             
         # if user has specified a user data dir, make sure its valid
-        if self.CHROME_USER_DATA_DIR and self.CHROME_USER_DATA_DIR.exists():
+        if self.CHROME_USER_DATA_DIR and os.access(self.CHROME_USER_DATA_DIR, os.R_OK):
             # check to make sure user_data_dir/<profile_name> exists
-            if not (self.CHROME_USER_DATA_DIR / self.CHROME_PROFILE_NAME).exists():
+            if not (self.CHROME_USER_DATA_DIR / self.CHROME_PROFILE_NAME).is_dir():
                 print(f'[red][X] Could not find profile "{self.CHROME_PROFILE_NAME}" in CHROME_USER_DATA_DIR.[/red]', file=sys.stderr)
                 print(f'    {self.CHROME_USER_DATA_DIR}', file=sys.stderr)
                 print('    Make sure you set it to a Chrome user data directory containing a Default profile folder.', file=sys.stderr)
@@ -217,7 +218,7 @@ class ChromeBinary(BaseBinary):
 
     @staticmethod
     def symlink_to_lib(binary, bin_dir=CONSTANTS.LIB_BIN_DIR) -> None:
-        if not (binary.abspath and binary.abspath.exists()):
+        if not (binary.abspath and os.access(binary.abspath, os.F_OK)):
             return
         
         bin_dir.mkdir(parents=True, exist_ok=True)
@@ -242,10 +243,14 @@ class ChromeBinary(BaseBinary):
         Cleans up any state or runtime files that chrome leaves behind when killed by
         a timeout or other error
         """
-        lock_file = Path("~/.config/chromium/SingletonLock")
+        lock_file = Path("~/.config/chromium/SingletonLock").expanduser()
 
-        if SHELL_CONFIG.IN_DOCKER and lock_file.exists():
+        if SHELL_CONFIG.IN_DOCKER and os.access(lock_file, os.F_OK):
             lock_file.unlink()
+        
+        if CHROME_CONFIG.CHROME_USER_DATA_DIR:
+            if os.access(CHROME_CONFIG.CHROME_USER_DATA_DIR / 'SingletonLock', os.F_OK):
+                lock_file.unlink()
 
 
 
