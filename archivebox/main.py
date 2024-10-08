@@ -236,6 +236,7 @@ def version(quiet: bool=False,
     prnt()
 
     prnt('[pale_green1][i] Dependency versions:[/pale_green1]')
+    failures = []
     for name, binary in reversed(list(settings.BINARIES.items())):
         if binary.name == 'archivebox':
             continue
@@ -254,6 +255,8 @@ def version(quiet: bool=False,
         else:
             abspath = f'[red]{err}[/red]'
         prnt('', '[green]√[/green]' if loaded_bin.is_valid else '[red]X[/red]', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(12), provider_summary, abspath, overflow='ignore', crop=False)
+        if not loaded_bin.is_valid:
+            failures.append(loaded_bin.name)
 
     prnt()
     prnt('[deep_sky_blue3][i] Source-code locations:[/deep_sky_blue3]')
@@ -299,6 +302,10 @@ def version(quiet: bool=False,
         prnt('    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid]https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid[/link]')
         prnt('    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts]https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts[/link]')
 
+    if failures:
+        raise SystemExit(1)
+    else:
+        raise SystemExit(0)
 
 @enforce_types
 def run(subcommand: str,
@@ -1046,7 +1053,8 @@ def install(out_dir: Path=DATA_DIR) -> None:
     
     from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
     
-    run_shell([ARCHIVEBOX_BINARY.load().abspath, 'version'], capture_output=False, cwd=out_dir)
+    proc = run_shell([ARCHIVEBOX_BINARY.load().abspath, 'version'], capture_output=False, cwd=out_dir)
+    raise SystemExit(proc.returncode)
 
 
 # backwards-compatibility:
