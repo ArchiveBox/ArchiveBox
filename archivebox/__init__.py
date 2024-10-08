@@ -25,14 +25,6 @@ ASCII_LOGO = """
 ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝
 """
 
-# detect ArchiveBox user's UID/GID based on data dir ownership
-from .config.permissions import drop_privileges                 # noqa
-drop_privileges()
-
-from .misc.checks import check_not_root, check_io_encoding      # noqa
-check_not_root()
-check_io_encoding()
-
 # make sure PACKAGE_DIR is in sys.path so we can import all subfolders
 # without necessarily waiting for django to load them thorugh INSTALLED_APPS
 PACKAGE_DIR = Path(__file__).resolve().parent
@@ -40,6 +32,13 @@ if str(PACKAGE_DIR) not in sys.path:
     sys.path.append(str(PACKAGE_DIR))
 os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
 
+# detect ArchiveBox user's UID/GID based on data dir ownership
+from .config.permissions import drop_privileges                 # noqa
+drop_privileges()
+
+from .misc.checks import check_not_root, check_io_encoding      # noqa
+check_not_root()
+check_io_encoding()
 
 # print('INSTALLING MONKEY PATCHES')
 from .monkey_patches import *                    # noqa
