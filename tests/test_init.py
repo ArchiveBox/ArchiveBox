@@ -7,11 +7,11 @@ from pathlib import Path
 import json, shutil
 import sqlite3
 
-from archivebox.config import OUTPUT_PERMISSIONS
+from archivebox.config.common import STORAGE_CONFIG
 
 from .fixtures import *
 
-DIR_PERMISSIONS = OUTPUT_PERMISSIONS.replace('6', '7').replace('4', '5')
+DIR_PERMISSIONS = STORAGE_CONFIG.OUTPUT_PERMISSIONS.replace('6', '7').replace('4', '5')
 
 def test_init(tmp_path, process):
     assert "Initializing a new ArchiveBox" in process.stdout.decode("utf-8")
@@ -57,7 +57,7 @@ def test_correct_permissions_output_folder(tmp_path, process):
     index_files = ['index.sqlite3', 'archive']
     for file in index_files:
         file_path = tmp_path / file
-        assert oct(file_path.stat().st_mode)[-3:] in (OUTPUT_PERMISSIONS, DIR_PERMISSIONS)
+        assert oct(file_path.stat().st_mode)[-3:] in (STORAGE_CONFIG.OUTPUT_PERMISSIONS, DIR_PERMISSIONS)
 
 def test_correct_permissions_add_command_results(tmp_path, process, disable_extractors_dict):
     os.chdir(tmp_path)
@@ -65,7 +65,7 @@ def test_correct_permissions_add_command_results(tmp_path, process, disable_extr
                                   env=disable_extractors_dict)
     archived_item_path = list(tmp_path.glob('archive/**/*'))[0]
     for path in archived_item_path.iterdir():
-        assert oct(path.stat().st_mode)[-3:] in (OUTPUT_PERMISSIONS, DIR_PERMISSIONS)
+        assert oct(path.stat().st_mode)[-3:] in (STORAGE_CONFIG.OUTPUT_PERMISSIONS, DIR_PERMISSIONS)
 
 def test_collision_urls_different_timestamps(tmp_path, process, disable_extractors_dict):
     os.chdir(tmp_path)

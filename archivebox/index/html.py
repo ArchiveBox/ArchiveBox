@@ -16,7 +16,9 @@ from archivebox.misc.util import (
     htmlencode,
     urldecode,
 )
-from archivebox.config import CONSTANTS, DATA_DIR, VERSION, SHELL_CONFIG, SERVER_CONFIG
+from archivebox.config import CONSTANTS, DATA_DIR, VERSION
+from archivebox.config.common import SERVER_CONFIG
+from archivebox.config.version import get_COMMIT_HASH
 from archivebox.plugins_extractor.archivedotorg.apps import ARCHIVEDOTORG_CONFIG
 
 from .schema import Link
@@ -56,7 +58,7 @@ def main_index_template(links: List[Link], template: str=MAIN_INDEX_TEMPLATE) ->
 
     return render_django_template(template, {
         'version': VERSION,
-        'git_sha': SHELL_CONFIG.COMMIT_HASH or VERSION,
+        'git_sha': get_COMMIT_HASH() or VERSION,
         'num_links': str(len(links)),
         'date_updated': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
         'time_updated': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M'),

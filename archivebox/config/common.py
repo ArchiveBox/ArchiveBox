@@ -1,21 +1,21 @@
 __package__ = 'archivebox.config'
 
-import os
 import sys
 import shutil
 
 from typing import Dict, Optional
-from datetime import datetime
 from pathlib import Path
 
 from rich import print
-from pydantic import Field, field_validator, model_validator, computed_field
+from pydantic import Field, field_validator, computed_field
 from django.utils.crypto import get_random_string
 
 from abx.archivebox.base_configset import BaseConfigSet
 
 
-from .constants import CONSTANTS, PACKAGE_DIR
+from .constants import CONSTANTS
+from .version import get_COMMIT_HASH, get_BUILD_TIME
+from .permissions import IN_DOCKER
 
 ###################### Config ##########################
 
@@ -27,14 +27,8 @@ class ShellConfig(BaseConfigSet):
     USE_COLOR: bool                     = Field(default=lambda c: c.IS_TTY)
     SHOW_PROGRESS: bool                 = Field(default=lambda c: c.IS_TTY)
     
-    IN_DOCKER: bool                     = Field(default=False)
+    IN_DOCKER: bool                     = Field(default=IN_DOCKER)
     IN_QEMU: bool                       = Field(default=False)
-    
-    USER: str                           = Field(default=Path('~').expanduser().resolve().name)
-    PUID: int                           = Field(default=os.getuid())
-    PGID: int                           = Field(default=os.getgid())
-    
-    PYTHON_ENCODING: str                = Field(default=(sys.__stdout__ or sys.stdout or sys.__stderr__ or sys.stderr).encoding.upper().replace('UTF8', 'UTF-8'))
 
     ANSI: Dict[str, str]                = Field(default=lambda c: CONSTANTS.DEFAULT_CLI_COLORS if c.USE_COLOR else CONSTANTS.DISABLED_CLI_COLORS)
 
@@ -52,63 +46,12 @@ class ShellConfig(BaseConfigSet):
     @computed_field
     @property
     def COMMIT_HASH(self) -> Optional[str]:
-        try:
-            git_dir = PACKAGE_DIR / '../.git'
-            ref = (git_dir / 'HEAD').read_text().strip().split(' ')[-1]
-            commit_hash = git_dir.joinpath(ref).read_text().strip()
-            return commit_hash
-        except Exception:
-            pass
-    
-        try:
-            return list((PACKAGE_DIR / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
-        except Exception:
-            pass
-        
-        return None
+        return get_COMMIT_HASH()
     
     @computed_field
     @property
     def BUILD_TIME(self) -> str:
-        if self.IN_DOCKER:
-            docker_build_end_time = Path('/VERSION.txt').read_text().rsplit('BUILD_END_TIME=')[-1].split('\n', 1)[0]
-            return docker_build_end_time
-    
-        src_last_modified_unix_timestamp = (PACKAGE_DIR / 'README.md').stat().st_mtime
-        return datetime.fromtimestamp(src_last_modified_unix_timestamp).strftime('%Y-%m-%d %H:%M:%S %s')
-    
-
-    @model_validator(mode='after')
-    def validate_not_running_as_root(self):
-        attempted_command = ' '.join(sys.argv[:3])
-        if self.PUID == 0 and attempted_command not in ('setup', 'install'):
-            # stderr('[!] ArchiveBox should never be run as root!', color='red')
-            # stderr('    For more information, see the security overview documentation:')
-            # stderr('        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root')
-            print('[red][!] ArchiveBox should never be run as root![/red]', file=sys.stderr)
-            print('    For more information, see the security overview documentation:', file=sys.stderr)
-            print('        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root', file=sys.stderr)
-            
-            if self.IN_DOCKER:
-                print('[red][!] When using Docker, you must run commands with [green]docker run[/green] instead of [yellow3]docker exec[/yellow3], e.g.:', file=sys.stderr)
-                print('        docker compose run archivebox {attempted_command}', file=sys.stderr)
-                print(f'        docker run -it -v $PWD/data:/data archivebox/archivebox {attempted_command}', file=sys.stderr)
-                print('        or:', file=sys.stderr)
-                print(f'        docker compose exec --user=archivebox archivebox /bin/bash -c "archivebox {attempted_command}"', file=sys.stderr)
-                print(f'        docker exec -it --user=archivebox <container id> /bin/bash -c "archivebox {attempted_command}"', file=sys.stderr)
-            raise SystemExit(2)
-        
-        # check python locale
-        if self.PYTHON_ENCODING != 'UTF-8':
-            print(f'[red][X] Your system is running python3 scripts with a bad locale setting: {self.PYTHON_ENCODING} (it should be UTF-8).[/red]', file=sys.stderr)
-            print('    To fix it, add the line "export PYTHONIOENCODING=UTF-8" to your ~/.bashrc file (without quotes)', file=sys.stderr)
-            print('    Or if you\'re using ubuntu/debian, run "dpkg-reconfigure locales"', file=sys.stderr)
-            print('')
-            print('    Confirm that it\'s fixed by opening a new shell and running:', file=sys.stderr)
-            print('        python3 -c "import sys; print(sys.stdout.encoding)"   # should output UTF-8', file=sys.stderr)
-            raise SystemExit(2)
-        
-        return self
+        return get_BUILD_TIME()
 
 SHELL_CONFIG = ShellConfig()
 

@@ -13,7 +13,8 @@ from typing import IO, Tuple, List, Optional
 from datetime import datetime, timezone
 from pathlib import Path 
 
-from archivebox.config import DATA_DIR, CONSTANTS, SHELL_CONFIG, ARCHIVING_CONFIG
+from archivebox.config import DATA_DIR, CONSTANTS
+from archivebox.config.common import SHELL_CONFIG, ARCHIVING_CONFIG
 from archivebox.misc.system import atomic_write
 from archivebox.misc.logging import stderr, hint
 from archivebox.misc.util import (

@@ -1,118 +1,115 @@
 __package__ = 'archivebox.config'
 
-
 import os
 import re
 import platform
-import tempfile
 
 from typing import Dict
 from pathlib import Path
-import importlib.metadata
 from collections.abc import Mapping
 
 from benedict import benedict
 
 from ..misc.logging import DEFAULT_CLI_COLORS
 
+from .paths import (
+    PACKAGE_DIR,
+    DATA_DIR,
+    ARCHIVE_DIR,
+    get_collection_id,
+    get_LIB_DIR,
+    get_TMP_DIR,
+)
+from .permissions import (
+    IS_ROOT,
+    IN_DOCKER,
+    RUNNING_AS_UID,
+    RUNNING_AS_GID,
+    DEFAULT_PUID,
+    DEFAULT_PGID,
+    ARCHIVEBOX_USER,
+    ARCHIVEBOX_GROUP,
+)
+from .version import detect_installed_version
+
 ###################### Config ##########################
-
-PACKAGE_DIR: Path = Path(__file__).resolve().parent.parent    # archivebox source code dir
-DATA_DIR: Path = Path(os.getcwd()).resolve()                    # archivebox user data dir
-ARCHIVE_DIR: Path = DATA_DIR / 'archive'                      # archivebox snapshot data dir
-
-def _detect_installed_version(PACKAGE_DIR: Path):
-    """Autodetect the installed archivebox version by using pip package metadata, pyproject.toml file, or package.json file"""
-    try:
-        # if in production install, use pip-installed package metadata
-        return importlib.metadata.version(__package__ or 'archivebox').strip()
-    except importlib.metadata.PackageNotFoundError:
-        pass
-
-    try:
-        # if in dev Git repo dir, use pyproject.toml file
-        pyproject_config = (PACKAGE_DIR.parent / 'pyproject.toml').read_text().split('\n')
-        for line in pyproject_config:
-            if line.startswith('version = '):
-                return line.split(' = ', 1)[-1].strip('"').strip()
-    except FileNotFoundError:
-        # building docs, pyproject.toml is not available
-        pass
-
-    # raise Exception('Failed to detect installed archivebox version!')
-    return 'dev'
-
-VERSION: str = _detect_installed_version(PACKAGE_DIR)
-
-
 
 
 class ConstantsDict(Mapping):
-    IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'yes')
-    OS = platform.system().lower()      # darwin, linux, etc.
-    ARCH = platform.machine().lower()   # arm64, x86_64, etc.
-    LIB_DIR_SCOPE = f'{ARCH}-{OS}' + ('-docker' if IN_DOCKER else '')
-
-    PACKAGE_DIR: Path = PACKAGE_DIR     # archivebox source code dir
-    DATA_DIR: Path = DATA_DIR           # archivebox user data dir
-    ARCHIVE_DIR: Path = ARCHIVE_DIR     # archivebox snapshot data dir
-    VERSION: str = VERSION
+    PACKAGE_DIR: Path                   = PACKAGE_DIR
+    DATA_DIR: Path                      = DATA_DIR
+    ARCHIVE_DIR: Path                   = ARCHIVE_DIR
+    COLLECTION_ID: str                  = get_collection_id(DATA_DIR)
     
+    # Host system
+    VERSION: str                        = detect_installed_version(PACKAGE_DIR)
+    OS: str                             = platform.system().lower()    # darwin, linux, etc.
+    ARCH: str                           = platform.machine().lower()   # arm64, x86_64, aarch64, etc.
+    IN_DOCKER: bool                     = IN_DOCKER
+    
+    # Permissions
+    IS_ROOT: bool                       = IS_ROOT
+    ARCHIVEBOX_USER: int                = ARCHIVEBOX_USER
+    ARCHIVEBOX_GROUP: int               = ARCHIVEBOX_GROUP
+    RUNNING_AS_UID: int                 = RUNNING_AS_UID
+    RUNNING_AS_GID: int                 = RUNNING_AS_GID
+    DEFAULT_PUID: int                   = DEFAULT_PUID
+    DEFAULT_PGID: int                   = DEFAULT_PGID
+    
+    # Source code dirs
     PACKAGE_DIR_NAME: str               = PACKAGE_DIR.name
     TEMPLATES_DIR_NAME: str             = 'templates'
     TEMPLATES_DIR: Path                 = PACKAGE_DIR / TEMPLATES_DIR_NAME
-    STATIC_DIR: Path                    = TEMPLATES_DIR / 'static'
+    STATIC_DIR_NAME: str                = 'static'
+    STATIC_DIR: Path                    = TEMPLATES_DIR / STATIC_DIR_NAME
+
+    # Data dirs
+    ARCHIVE_DIR_NAME: str               = 'archive'
+    SOURCES_DIR_NAME: str               = 'sources'
+    PERSONAS_DIR_NAME: str              = 'personas'
+    CRONTABS_DIR_NAME: str              = 'crontabs'
+    CACHE_DIR_NAME: str                 = 'cache'
+    LOGS_DIR_NAME: str                  = 'logs'
     USER_PLUGINS_DIR_NAME: str          = 'user_plugins'
     CUSTOM_TEMPLATES_DIR_NAME: str      = 'user_templates'
-
-    ARCHIVE_DIR_NAME: str = 'archive'
-    SOURCES_DIR_NAME: str = 'sources'
-    PERSONAS_DIR_NAME: str = 'personas'
-    CRONTABS_DIR_NAME: str = 'crontabs'
-    CACHE_DIR_NAME: str = 'cache'
-    LOGS_DIR_NAME: str = 'logs'
-    LIB_DIR_NAME: str = 'lib'
-    TMP_DIR_NAME: str = 'tmp'
-
-    SYSTEM_TMP_DIR: Path                = Path(os.environ['SYSTEM_TMP_DIR']) if 'SYSTEM_TMP_DIR' in os.environ else (Path(tempfile.gettempdir()) / 'archivebox')
-    # DATA_DIR_TMP_DIR: Path              = DATA_DIR / TMP_DIR_NAME / machineid.hashed_id('archivebox')[:16]   # cant be used because of socket path length restrictions break too often if data dir is in some deep subdir: ocket.error reported AF_UNIX path too long
-    SYSTEM_LIB_DIR: Path                = Path(os.environ['SYSTEM_LIB_DIR']) if 'SYSTEM_LIB_DIR' in os.environ else (PACKAGE_DIR / LIB_DIR_NAME)
-    DATA_DIR_LIB_DIR: Path              = DATA_DIR / LIB_DIR_NAME / LIB_DIR_SCOPE
-
     ARCHIVE_DIR: Path                   = DATA_DIR / ARCHIVE_DIR_NAME
     SOURCES_DIR: Path                   = DATA_DIR / SOURCES_DIR_NAME
     PERSONAS_DIR: Path                  = DATA_DIR / PERSONAS_DIR_NAME
-    CACHE_DIR: Path                     = DATA_DIR / CACHE_DIR_NAME
     LOGS_DIR: Path                      = DATA_DIR / LOGS_DIR_NAME
-    LIB_DIR: Path                       = SYSTEM_LIB_DIR if IN_DOCKER else DATA_DIR_LIB_DIR  # e.g. /app/lib or ./data/lib/arm64-darwin-docker
-    TMP_DIR: Path                       = SYSTEM_TMP_DIR
+    CACHE_DIR: Path                     = DATA_DIR / CACHE_DIR_NAME
     CUSTOM_TEMPLATES_DIR: Path          = DATA_DIR / CUSTOM_TEMPLATES_DIR_NAME
     USER_PLUGINS_DIR: Path              = DATA_DIR / USER_PLUGINS_DIR_NAME
 
+    # Data dir files
+    CONFIG_FILENAME: str                = 'ArchiveBox.conf'
+    SQL_INDEX_FILENAME: str             = 'index.sqlite3'
+    QUEUE_DATABASE_FILENAME: str        = 'queue.sqlite3'
+    CONFIG_FILE: Path                   = DATA_DIR / CONFIG_FILENAME
+    DATABASE_FILE: Path                 = DATA_DIR / SQL_INDEX_FILENAME
+    QUEUE_DATABASE_FILE: Path           = DATA_DIR / QUEUE_DATABASE_FILENAME
+    
+    JSON_INDEX_FILENAME: str            = 'index.json'
+    HTML_INDEX_FILENAME: str            = 'index.html'
+    ROBOTS_TXT_FILENAME: str            = 'robots.txt'
+    FAVICON_FILENAME: str               = 'favicon.ico'
+    
+    # Runtime dirs
+    TMP_DIR_NAME: str                   = 'tmp'
+    TMP_DIR: Path                       = get_TMP_DIR()
+    LIB_DIR_NAME: str                   = 'lib'
+    LIB_DIR: Path                       = get_LIB_DIR()
     LIB_PIP_DIR: Path                   = LIB_DIR / 'pip'
     LIB_NPM_DIR: Path                   = LIB_DIR / 'npm'
     LIB_BROWSERS_DIR: Path              = LIB_DIR / 'browsers'
     LIB_BIN_DIR: Path                   = LIB_DIR / 'bin'
     BIN_DIR: Path                       = LIB_BIN_DIR
 
-    CONFIG_FILENAME: str = 'ArchiveBox.conf'
-    SQL_INDEX_FILENAME: str = 'index.sqlite3'
-    QUEUE_DATABASE_FILENAME: str = 'queue.sqlite3'
+    # Config constants
+    TIMEZONE: str                       = 'UTC'
+    DEFAULT_CLI_COLORS: Dict[str, str]  = DEFAULT_CLI_COLORS
+    DISABLED_CLI_COLORS: Dict[str, str] = benedict({k: '' for k in DEFAULT_CLI_COLORS})
 
-    CONFIG_FILE: Path                   = DATA_DIR / CONFIG_FILENAME
-    DATABASE_FILE: Path                 = DATA_DIR / SQL_INDEX_FILENAME
-    QUEUE_DATABASE_FILE: Path           = DATA_DIR / QUEUE_DATABASE_FILENAME
-
-    JSON_INDEX_FILENAME: str = 'index.json'
-    HTML_INDEX_FILENAME: str = 'index.html'
-    ROBOTS_TXT_FILENAME: str = 'robots.txt'
-    FAVICON_FILENAME: str = 'favicon.ico'
-
-    TIMEZONE: str                             = 'UTC'
-    DEFAULT_CLI_COLORS: Dict[str, str]        = DEFAULT_CLI_COLORS
-    DISABLED_CLI_COLORS: Dict[str, str]       = benedict({k: '' for k in DEFAULT_CLI_COLORS})
-
-    ALLOWDENYLIST_REGEX_FLAGS: int = re.IGNORECASE | re.UNICODE | re.MULTILINE
+    ALLOWDENYLIST_REGEX_FLAGS: int      = re.IGNORECASE | re.UNICODE | re.MULTILINE
 
     STATICFILE_EXTENSIONS: frozenset[str] = frozenset((
         # 99.999% of the time, URLs ending in these extensions are static files
@@ -136,17 +133,6 @@ class ConstantsDict(Mapping):
         # html, htm, shtml, xhtml, xml, aspx, php, cgi
     ))
 
-    INGORED_PATHS: frozenset[str] = frozenset((
-        ".git",
-        ".svn",
-        ".DS_Store",
-        ".gitignore",
-        "lost+found",
-        ".DS_Store",
-        ".env",
-        "Dockerfile",
-        ".ArchiveBox.conf.bak",
-    ))
     PIP_RELATED_NAMES: frozenset[str] = frozenset((
         ".venv",
         "venv",
@@ -160,7 +146,15 @@ class ConstantsDict(Mapping):
         "yarn.lock",
     ))
 
-    DATA_DIR_NAMES: frozenset[str] = frozenset((
+    # When initializing archivebox in a new directory, we check to make sure the dir is
+    # actually empty so that we dont clobber someone's home directory or desktop by accident.
+    # These files are exceptions to the is_empty check when we're trying to init a new dir,
+    # as they could be from a previous archivebox version, system artifacts, dependencies, etc.
+    ALLOWED_IN_DATA_DIR: frozenset[str] = frozenset((
+        *PIP_RELATED_NAMES,
+        *NPM_RELATED_NAMES,
+        
+        ### Dirs:
         ARCHIVE_DIR_NAME,
         SOURCES_DIR_NAME,
         LOGS_DIR_NAME,
@@ -171,9 +165,12 @@ class ConstantsDict(Mapping):
         CUSTOM_TEMPLATES_DIR_NAME,
         USER_PLUGINS_DIR_NAME,
         CRONTABS_DIR_NAME,
-    ))
-    DATA_DIRS: frozenset[Path] = frozenset(DATA_DIR / dirname for dirname in DATA_DIR_NAMES)
-    DATA_FILE_NAMES: frozenset[str] = frozenset((
+        "static",                # created by old static exports <v0.6.0
+        "sonic",                 # created by docker bind mount / sonic FTS process
+        ".git",
+        ".svn",
+        
+        ### Files:
         CONFIG_FILENAME,
         SQL_INDEX_FILENAME,
         f"{SQL_INDEX_FILENAME}-wal",
@@ -188,43 +185,37 @@ class ConstantsDict(Mapping):
         FAVICON_FILENAME,
         CONFIG_FILENAME,
         f"{CONFIG_FILENAME}.bak",
+        f".{CONFIG_FILENAME}.bak",
         "static_index.json",
-    ))
-
-    # When initializing archivebox in a new directory, we check to make sure the dir is
-    # actually empty so that we dont clobber someone's home directory or desktop by accident.
-    # These files are exceptions to the is_empty check when we're trying to init a new dir,
-    # as they could be from a previous archivebox version, system artifacts, dependencies, etc.
-    ALLOWED_IN_DATA_DIR: frozenset[str] = frozenset((
-        *INGORED_PATHS,
-        *PIP_RELATED_NAMES,
-        *NPM_RELATED_NAMES,
-        *DATA_DIR_NAMES,
-        *DATA_FILE_NAMES,
-        "static",                # created by old static exports <v0.6.0
-        "sonic",                 # created by docker bind mount
+        ".DS_Store",
+        ".gitignore",
+        "lost+found",
+        ".DS_Store",
+        ".env",
+        ".collection_id",
+        "Dockerfile",
     ))
 
     CODE_LOCATIONS = benedict({
         'PACKAGE_DIR': {
             'path': (PACKAGE_DIR).resolve(),
             'enabled': True,
-            'is_valid': (PACKAGE_DIR / '__main__.py').exists(),
+            'is_valid': (PACKAGE_DIR / '__main__.py').exists(),                                                                            # read + list
         },
         'TEMPLATES_DIR': {
             'path': TEMPLATES_DIR.resolve(),
             'enabled': True,
-            'is_valid': STATIC_DIR.exists(),
+            'is_valid': STATIC_DIR.exists() and os.access(STATIC_DIR, os.R_OK) and os.access(STATIC_DIR, os.X_OK),                         # read + list
         },
         'LIB_DIR': {
             'path': LIB_DIR.resolve(),
             'enabled': True,
-            'is_valid': LIB_DIR.is_dir(),
+            'is_valid': LIB_DIR.is_dir() and os.access(LIB_DIR, os.R_OK) and os.access(LIB_DIR, os.X_OK) and os.access(LIB_DIR, os.W_OK),  # read + write
         },
         'TMP_DIR': {
             'path': TMP_DIR.resolve(),
             'enabled': True,
-            'is_valid': TMP_DIR.is_dir(),
+            'is_valid': TMP_DIR.is_dir() and os.access(TMP_DIR, os.R_OK) and os.access(TMP_DIR, os.X_OK) and os.access(TMP_DIR, os.W_OK),  # read + write
         },
     })
         
@@ -232,61 +223,61 @@ class ConstantsDict(Mapping):
         "DATA_DIR": {
             "path": DATA_DIR.resolve(),
             "enabled": True,
-            "is_valid": DATABASE_FILE.exists(),
+            "is_valid": DATABASE_FILE.exists() and os.access(DATA_DIR, os.R_OK) and os.access(DATA_DIR, os.W_OK) and os.access(DATA_DIR, os.X_OK),
             "is_mount": os.path.ismount(DATA_DIR.resolve()),
         },
         "CONFIG_FILE": {
             "path": CONFIG_FILE.resolve(),
             "enabled": True,
-            "is_valid": CONFIG_FILE.exists(),
+            "is_valid": CONFIG_FILE.exists() and os.access(CONFIG_FILE, os.W_OK),
         },
         "SQL_INDEX": {
             "path": DATABASE_FILE.resolve(),
             "enabled": True,
-            "is_valid": DATABASE_FILE.exists(),
+            "is_valid": DATABASE_FILE.exists() and os.access(DATABASE_FILE, os.R_OK) and os.access(DATABASE_FILE, os.W_OK),
             "is_mount": os.path.ismount(DATABASE_FILE.resolve()),
         },
         "QUEUE_DATABASE": {
             "path": QUEUE_DATABASE_FILE.resolve(),
             "enabled": True,
-            "is_valid": QUEUE_DATABASE_FILE.exists(),
+            "is_valid": QUEUE_DATABASE_FILE.exists() and os.access(QUEUE_DATABASE_FILE, os.R_OK) and os.access(QUEUE_DATABASE_FILE, os.W_OK),
             "is_mount": os.path.ismount(QUEUE_DATABASE_FILE.resolve()),
         },
         "ARCHIVE_DIR": {
             "path": ARCHIVE_DIR.resolve(),
             "enabled": True,
-            "is_valid": ARCHIVE_DIR.exists(),
+            "is_valid": ARCHIVE_DIR.exists() and os.access(ARCHIVE_DIR, os.R_OK) and os.access(ARCHIVE_DIR, os.W_OK) and os.access(ARCHIVE_DIR, os.X_OK),
             "is_mount": os.path.ismount(ARCHIVE_DIR.resolve()),
         },
         "SOURCES_DIR": {
             "path": SOURCES_DIR.resolve(),
             "enabled": True,
-            "is_valid": SOURCES_DIR.exists(),
+            "is_valid": SOURCES_DIR.exists() and os.access(SOURCES_DIR, os.R_OK) and os.access(SOURCES_DIR, os.W_OK) and os.access(SOURCES_DIR, os.X_OK),
         },
         "LOGS_DIR": {
             "path": LOGS_DIR.resolve(),
             "enabled": True,
-            "is_valid": LOGS_DIR.is_dir(),
+            "is_valid": LOGS_DIR.is_dir() and os.access(LOGS_DIR, os.R_OK) and os.access(LOGS_DIR, os.W_OK) and os.access(LOGS_DIR, os.X_OK),        # read + write
         },
         # "CACHE_DIR": {
         #     "path": CACHE_DIR.resolve(),
         #     "enabled": True,
-        #     "is_valid": CACHE_DIR.is_dir(),
+        #     "is_valid": CACHE_DIR.is_dir() and os.access(CACHE_DIR, os.R_OK) and os.access(CACHE_DIR, os.W_OK) and os.access(CACHE_DIR, os.X_OK),  # read + write
         # },
         "PERSONAS_DIR": {
             "path": PERSONAS_DIR.resolve(),
             "enabled": PERSONAS_DIR.exists(),
-            "is_valid": PERSONAS_DIR.is_dir(),
+            "is_valid": PERSONAS_DIR.is_dir() and os.access(PERSONAS_DIR, os.R_OK) and os.access(PERSONAS_DIR, os.W_OK) and os.access(PERSONAS_DIR, os.X_OK), # read + write
         },
         'CUSTOM_TEMPLATES_DIR': {
             'path': CUSTOM_TEMPLATES_DIR.resolve(),
             'enabled': CUSTOM_TEMPLATES_DIR.exists(),
-            'is_valid': CUSTOM_TEMPLATES_DIR.is_dir(),
+            'is_valid': CUSTOM_TEMPLATES_DIR.is_dir() and os.access(CUSTOM_TEMPLATES_DIR, os.R_OK) and os.access(CUSTOM_TEMPLATES_DIR, os.X_OK),       # read
         },
         'USER_PLUGINS_DIR': {
             'path': USER_PLUGINS_DIR.resolve(),
             'enabled': USER_PLUGINS_DIR.exists(),
-            'is_valid': USER_PLUGINS_DIR.is_dir(),
+            'is_valid': USER_PLUGINS_DIR.is_dir() and os.access(USER_PLUGINS_DIR, os.R_OK) and os.access(USER_PLUGINS_DIR, os.X_OK),                   # read
         },
     })
 
@@ -314,5 +305,6 @@ globals().update(CONSTANTS)
 
 
 # these need to always exist as we need them to run almost everything
+# TODO: figure out a better time to make these than import-time
 CONSTANTS.LIB_DIR.mkdir(parents=True, exist_ok=True)
 CONSTANTS.TMP_DIR.mkdir(parents=True, exist_ok=True)

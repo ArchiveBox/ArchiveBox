@@ -12,12 +12,13 @@ from ninja import NinjaAPI, Swagger
 
 # TODO: explore adding https://eadwincode.github.io/django-ninja-extra/
 
-from archivebox.config import SHELL_CONFIG, VERSION
+from archivebox.config import VERSION
+from archivebox.config.version import get_COMMIT_HASH
 
 from api.auth import API_AUTH_METHODS
 
 
-COMMIT_HASH = SHELL_CONFIG.COMMIT_HASH or 'unknown'
+COMMIT_HASH = get_COMMIT_HASH() or 'unknown'
 
 html_description=f'''
 <h3>Welcome to your ArchiveBox server's REST API <code>[v1 ALPHA]</code> homepage!</h3>

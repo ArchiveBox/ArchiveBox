@@ -9,7 +9,8 @@ import argparse
 from typing import List, Optional, IO
 
 from archivebox.misc.util import docstring
-from archivebox.config import DATA_DIR, ARCHIVING_CONFIG
+from archivebox.config import DATA_DIR
+from archivebox.config.common import ARCHIVING_CONFIG
 
 from ..main import add
 from ..parsers import PARSERS

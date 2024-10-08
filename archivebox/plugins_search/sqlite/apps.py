@@ -17,7 +17,7 @@ from abx.archivebox.base_hook import BaseHook
 from abx.archivebox.base_searchbackend import BaseSearchBackend
 
 # Depends on Other Plugins:
-from archivebox.config import SEARCH_BACKEND_CONFIG
+from archivebox.config.common import SEARCH_BACKEND_CONFIG
 
 
 

@@ -4,7 +4,6 @@ __package__ = 'archivebox.misc'
 import os
 import signal
 import shutil
-import getpass
 
 from json import dump
 from pathlib import Path
@@ -14,7 +13,7 @@ from subprocess import _mswindows, PIPE, Popen, CalledProcessError, CompletedPro
 from crontab import CronTab
 from atomicwrites import atomic_write as lib_atomic_write
 
-from archivebox.config import STORAGE_CONFIG
+from archivebox.config.common import STORAGE_CONFIG
 from archivebox.misc.util import enforce_types, ExtendedEncoder
 
 

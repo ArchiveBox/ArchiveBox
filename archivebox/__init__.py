@@ -13,7 +13,7 @@ __package__ = 'archivebox'
 
 import os
 import sys
-import tempfile
+
 from pathlib import Path
 
 ASCII_LOGO = """
@@ -25,37 +25,36 @@ ASCII_LOGO = """
 ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═══╝  ╚══════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝
 """
 
-SYSTEM_TMP_DIR = Path(tempfile.gettempdir()) / 'archivebox'
-SYSTEM_TMP_DIR.mkdir(parents=True, exist_ok=True)
-os.environ['SYSTEM_TMP_DIR'] = str(SYSTEM_TMP_DIR)
-os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
+# detect ArchiveBox user's UID/GID based on data dir ownership
+from archivebox.config.permissions import drop_privileges                 # noqa
+drop_privileges()
 
-# if we are outside a data dir, cd into an ephemeral tmp dir so that
-# we can run version/help without polluting cwd with an index.sqlite3
-if len(sys.argv) > 1 and sys.argv[1] in ('version', 'help'):
-    current_dir = Path(os.getcwd()).resolve()
-    if not (current_dir / 'index.sqlite3').exists():
-        os.chdir(SYSTEM_TMP_DIR)
+from archivebox.misc.checks import check_not_root, check_io_encoding      # noqa
+check_not_root()
+check_io_encoding()
 
 # make sure PACKAGE_DIR is in sys.path so we can import all subfolders
 # without necessarily waiting for django to load them thorugh INSTALLED_APPS
 PACKAGE_DIR = Path(__file__).resolve().parent
 if str(PACKAGE_DIR) not in sys.path:
     sys.path.append(str(PACKAGE_DIR))
+os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
 
 
 # print('INSTALLING MONKEY PATCHES')
-from .monkey_patches import *                    # noqa
+from archivebox.monkey_patches import *                    # noqa
 # print('DONE INSTALLING MONKEY PATCHES')
 
 
 # print('LOADING VENDORED LIBRARIES')
-from .vendor import load_vendored_libs           # noqa
+from archivebox.vendor import load_vendored_libs           # noqa
 load_vendored_libs()
 # print('DONE LOADING VENDORED LIBRARIES')
 
 
-from .config.constants import CONSTANTS, DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, VERSION  # noqa
+from archivebox.config.constants import CONSTANTS                         # noqa
+from archivebox.config.paths import PACKAGE_DIR, DATA_DIR, ARCHIVE_DIR    # noqa
+from archivebox.config.version import VERSION                             # noqa
 
 __version__ = VERSION
 __author__ = 'Nick Sweeting'

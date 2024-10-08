@@ -13,7 +13,8 @@ import abx.archivebox
 import abx.archivebox.use
 import abx.django.use
 
-from archivebox.config import VERSION, DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS, SHELL_CONFIG, SERVER_CONFIG      # noqa
+from archivebox.config import DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS
+from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG      # noqa
 
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
 IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ

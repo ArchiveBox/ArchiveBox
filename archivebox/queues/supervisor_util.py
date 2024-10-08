@@ -1,5 +1,6 @@
 __package__ = 'archivebox.queues'
 
+import os
 import time
 import signal
 import psutil
@@ -11,6 +12,8 @@ from typing import Dict, cast
 
 from supervisor.xmlrpc import SupervisorTransport
 from xmlrpc.client import ServerProxy
+
+from archivebox.config.permissions import ARCHIVEBOX_USER
 
 from .settings import SUPERVISORD_CONFIG_FILE, DATA_DIR, PID_FILE, SOCK_FILE, LOG_FILE, WORKERS_DIR, TMP_DIR, LOGS_DIR
 
@@ -42,6 +45,7 @@ childlogdir = {LOGS_DIR}
 directory = {DATA_DIR}
 strip_ansi = true
 nocleanup = true
+user = {ARCHIVEBOX_USER}
 
 [unix_http_server]
 file = {TMP_DIR}/{SOCK_FILE.name}

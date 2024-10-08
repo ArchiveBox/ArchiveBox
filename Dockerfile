@@ -287,22 +287,12 @@ WORKDIR "$DATA_DIR"
 RUN openssl rand -hex 16 > /etc/machine-id \
     && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/tmp"
 ENV IN_DOCKER=True \
-    SYSTEM_LIB_DIR=/app/lib \
-    SYSTEM_TMP_DIR=/tmp \
+    SYSTEM_LIB_DIR=/usr/share/archivebox \
+    SYSTEM_TMP_DIR=/tmp/archivebox \
     GOOGLE_API_KEY=no \
     GOOGLE_DEFAULT_CLIENT_ID=no \
     GOOGLE_DEFAULT_CLIENT_SECRET=no \
     ALLOWED_HOSTS=*
-    ## No need to set explicitly, these values will be autodetected by archivebox in docker:
-    # WGET_BINARY="wget" \
-    # YOUTUBEDL_BINARY="yt-dlp" \
-    # CHROME_BINARY="/usr/bin/chromium-browser" \
-    # USE_SINGLEFILE=True \
-    # SINGLEFILE_BINARY="$NODE_MODULES/.bin/single-file" \
-    # USE_READABILITY=True \
-    # READABILITY_BINARY="$NODE_MODULES/.bin/readability-extractor" \
-    # USE_MERCURY=True \
-    # MERCURY_BINARY="$NODE_MODULES/.bin/postlight-parser"
 
 # Print version for nice docker finish summary
 RUN (echo -e "\n\n[√] Finished Docker build succesfully. Saving build summary in: /VERSION.txt" \

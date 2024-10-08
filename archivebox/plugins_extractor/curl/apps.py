@@ -11,7 +11,7 @@ from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_binary import BaseBinary, env, apt, brew
 # from abx.archivebox.base_extractor import BaseExtractor, ExtractorName
 
-from archivebox.config import ARCHIVING_CONFIG
+from archivebox.config.common import ARCHIVING_CONFIG
 from archivebox.plugins_extractor.favicon.apps import FAVICON_CONFIG
 from archivebox.plugins_extractor.archivedotorg.apps import ARCHIVEDOTORG_CONFIG
 

@@ -11,7 +11,7 @@ import abx.archivebox.use
 from archivebox.index.schema import Link
 from archivebox.misc.util import enforce_types
 from archivebox.misc.logging import stderr
-from archivebox.config import SEARCH_BACKEND_CONFIG
+from archivebox.config.common import SEARCH_BACKEND_CONFIG
 
 
 def log_index_started(url):

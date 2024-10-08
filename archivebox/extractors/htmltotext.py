@@ -5,7 +5,8 @@ import io
 from pathlib import Path
 from typing import Optional
 
-from archivebox.config import VERSION, ARCHIVING_CONFIG
+from archivebox.config import VERSION
+from archivebox.config.common import ARCHIVING_CONFIG
 from archivebox.config.legacy import SAVE_HTMLTOTEXT
 from archivebox.misc.system import atomic_write
 from archivebox.misc.util import enforce_types, is_static_file

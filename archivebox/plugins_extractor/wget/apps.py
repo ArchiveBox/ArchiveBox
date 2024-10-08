@@ -14,7 +14,7 @@ from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_binary import BaseBinary, env, apt, brew
 from abx.archivebox.base_extractor import BaseExtractor, ExtractorName
 
-from archivebox.config import ARCHIVING_CONFIG, STORAGE_CONFIG
+from archivebox.config.common import ARCHIVING_CONFIG, STORAGE_CONFIG
 from .wget_util import wget_output_path
 
 

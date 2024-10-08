@@ -1,4 +1,4 @@
-__package__ = 'archivebox'
+__package__ = 'archivebox.misc'
 
 import re
 import requests
@@ -25,10 +25,10 @@ except ImportError:
     detect_encoding = lambda rawdata: "utf-8"
 
 
-from archivebox.config.constants import STATICFILE_EXTENSIONS
-from archivebox.config import ARCHIVING_CONFIG
+from archivebox.config import CONSTANTS
+from archivebox.config.common import ARCHIVING_CONFIG
 
-from .misc.logging import COLOR_DICT
+from .logging import COLOR_DICT
 
 
 ### Parsing Helpers
@@ -120,7 +120,7 @@ def find_all_urls(urls_str: str):
 
 def is_static_file(url: str):
     # TODO: the proper way is with MIME type detection + ext, not only extension
-    return extension(url).lower() in STATICFILE_EXTENSIONS
+    return extension(url).lower() in CONSTANTS.STATICFILE_EXTENSIONS
 
 
 def enforce_types(func):

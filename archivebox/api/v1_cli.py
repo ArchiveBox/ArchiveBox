@@ -13,7 +13,7 @@ from ..main import (
     schedule,
 )
 from archivebox.misc.util import ansi_to_html
-from archivebox.config import ARCHIVING_CONFIG
+from archivebox.config.common import ARCHIVING_CONFIG
 
 
 from .auth import API_AUTH_METHODS

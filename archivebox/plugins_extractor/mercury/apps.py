@@ -5,14 +5,14 @@ from pathlib import Path
 from subprocess import run
 
 from pydantic import InstanceOf, Field
-from pydantic_pkgr import BinProvider, BinName, bin_abspath
+from pydantic_pkgr import BinProvider, BinName, BinProviderName, ProviderLookupDict, bin_abspath
 
 from abx.archivebox.base_plugin import BasePlugin, BaseHook
 from abx.archivebox.base_configset import BaseConfigSet
-from abx.archivebox.base_binary import BaseBinary, BinProviderName,ProviderLookupDict, env
+from abx.archivebox.base_binary import BaseBinary, env
 from abx.archivebox.base_extractor import BaseExtractor, ExtractorName
 
-from archivebox.config import ARCHIVING_CONFIG, STORAGE_CONFIG
+from archivebox.config.common import ARCHIVING_CONFIG, STORAGE_CONFIG
 from archivebox.plugins_pkg.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
 
 class MercuryConfig(BaseConfigSet):

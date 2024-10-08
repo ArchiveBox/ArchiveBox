@@ -12,9 +12,11 @@ from urllib.parse import urlparse
 from django.db.models import QuerySet, Q
 
 
-from archivebox.config import DATA_DIR, CONSTANTS, ARCHIVING_CONFIG, STORAGE_CONFIG, SEARCH_BACKEND_CONFIG
-from archivebox.misc.util import scheme, enforce_types, ExtendedEncoder
 from archivebox.misc.logging import stderr
+from archivebox.misc.util import scheme, enforce_types, ExtendedEncoder
+
+from archivebox.config import DATA_DIR, CONSTANTS
+from archivebox.config.common import ARCHIVING_CONFIG, STORAGE_CONFIG, SEARCH_BACKEND_CONFIG
 from archivebox.config.legacy import URL_DENYLIST_PTN, URL_ALLOWLIST_PTN
 
 from ..logging_util import (

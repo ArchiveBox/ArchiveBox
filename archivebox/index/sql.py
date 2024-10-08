@@ -9,7 +9,8 @@ from django.db.models import QuerySet
 from django.db import transaction
 
 from archivebox.misc.util import enforce_types, parse_date
-from archivebox.config import DATA_DIR, GENERAL_CONFIG
+from archivebox.config import DATA_DIR
+from archivebox.config.common import GENERAL_CONFIG
 
 from .schema import Link
 

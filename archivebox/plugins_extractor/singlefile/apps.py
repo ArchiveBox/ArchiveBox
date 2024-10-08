@@ -1,11 +1,11 @@
 __package__ = 'archivebox.plugins_extractor.singlefile'
 
 from pathlib import Path
-from typing import List, Dict, Optional, ClassVar
+from typing import List, Dict, Optional
 # from typing_extensions import Self
 
 # Depends on other PyPI/vendor packages:
-from pydantic import InstanceOf, Field, validate_call
+from pydantic import InstanceOf, Field
 from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName, bin_abspath, ShallowBinary
 
 # Depends on other Django apps:
@@ -17,7 +17,7 @@ from abx.archivebox.base_queue import BaseQueue
 from abx.archivebox.base_hook import BaseHook
 
 # Depends on Other Plugins:
-from archivebox.config import ARCHIVING_CONFIG
+from archivebox.config.common import ARCHIVING_CONFIG
 from plugins_pkg.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
 
 ###################### Config ##########################

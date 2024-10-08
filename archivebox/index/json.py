@@ -8,7 +8,8 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Optional, Iterator, Any, Union
 
-from archivebox.config import VERSION, DATA_DIR, CONSTANTS, SERVER_CONFIG, SHELL_CONFIG
+from archivebox.config import VERSION, DATA_DIR, CONSTANTS
+from archivebox.config.common import SERVER_CONFIG, SHELL_CONFIG
 
 from .schema import Link
 from archivebox.misc.system import atomic_write

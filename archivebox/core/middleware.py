@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.contrib.auth.middleware import RemoteUserMiddleware
 from django.core.exceptions import ImproperlyConfigured
 
-from archivebox.config import SERVER_CONFIG
+from archivebox.config.common import SERVER_CONFIG
 
 
 def detect_timezone(request, activate: bool=True):

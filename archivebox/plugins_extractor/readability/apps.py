@@ -16,7 +16,7 @@ from abx.archivebox.base_extractor import BaseExtractor
 from abx.archivebox.base_hook import BaseHook
 
 # Depends on Other Plugins:
-from archivebox.config import ARCHIVING_CONFIG
+from archivebox.config.common import ARCHIVING_CONFIG
 from plugins_pkg.npm.apps import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER
 
 ###################### Config ##########################

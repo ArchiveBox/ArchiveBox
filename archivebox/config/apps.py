@@ -8,7 +8,7 @@ from abx.archivebox.base_hook import BaseHook
 
 
 from .constants import CONSTANTS, CONSTANTS_CONFIG, PACKAGE_DIR, DATA_DIR, ARCHIVE_DIR      # noqa
-from .defaults import (
+from .common import (
     ShellConfig,                    # noqa: F401
     StorageConfig,                  # noqa: F401
     GeneralConfig,                  # noqa: F401

@@ -11,7 +11,7 @@ from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_binary import BaseBinary, env, apt, brew
 from abx.archivebox.base_hook import BaseHook
 
-from archivebox.config import ARCHIVING_CONFIG
+from archivebox.config.common import ARCHIVING_CONFIG
 from plugins_pkg.pip.apps import pip
 
 ###################### Config ##########################

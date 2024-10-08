@@ -1,6 +1,7 @@
 __package__ = 'archivebox.cli'
 __command__ = 'archivebox'
 
+import os
 import sys
 import argparse
 import threading
@@ -24,6 +25,10 @@ if len(sys.argv) > 1 and sys.argv[1] == 'setup':
     from rich import print
     print(':warning: [bold red]DEPRECATED[/bold red] `archivebox setup` is deprecated, use `archivebox install` instead')
     sys.argv[1] = 'install'
+
+if '--debug' in sys.argv:
+    os.environ['DEBUG'] = 'True'
+    sys.argv.remove('--debug')
 
 
 # def list_subcommands() -> Dict[str, str]:
@@ -50,8 +55,8 @@ SUBCOMMAND_MODULES = {
     
     'init': 'archivebox_init',
     'install': 'archivebox_install',
+    ##############################################
     'config': 'archivebox_config',
-    
     'add': 'archivebox_add',
     'remove': 'archivebox_remove',
     'update': 'archivebox_update',
@@ -63,7 +68,7 @@ SUBCOMMAND_MODULES = {
     'shell': 'archivebox_shell',
     'manage': 'archivebox_manage',
 
-    'oneshot': 'archivebox_oneshot',
+    # 'oneshot': 'archivebox_oneshot',
 }
 
 # every imported command module must have these properties in order to be valid
@@ -102,11 +107,11 @@ CLI_SUBCOMMANDS = LazySubcommands()
 
 # these common commands will appear sorted before any others for ease-of-use
 meta_cmds = ('help', 'version')                               # dont require valid data folder at all
-main_cmds = ('init', 'config', 'setup', 'install')            # dont require existing db present
-archive_cmds = ('add', 'remove', 'update', 'list', 'status')  # require existing db present
+setup_cmds = ('init', 'setup', 'install')                      # require valid data folder, but dont require DB present in it yet
+archive_cmds = ('add', 'remove', 'update', 'list', 'status', 'schedule', 'server', 'shell', 'manage')  # require valid data folder + existing db present
 fake_db = ("oneshot",)                                        # use fake in-memory db
 
-display_first = (*meta_cmds, *main_cmds, *archive_cmds)
+display_first = (*meta_cmds, *setup_cmds, *archive_cmds)
 
 
 IGNORED_BG_THREADS = ('MainThread', 'ThreadPoolExecutor', 'IPythonHistorySavingThread', 'Scheduler')  # threads we dont have to wait for before exiting
@@ -157,14 +162,16 @@ def run_subcommand(subcommand: str,
     from archivebox.config.legacy import setup_django
     
     # print('DATA_DIR is', DATA_DIR)
-    # print('pwd is', os.getcwd())
+    # print('pwd is', os.getcwd())    
 
     cmd_requires_db = subcommand in archive_cmds
     init_pending = '--init' in subcommand_args or '--quick-init' in subcommand_args
 
-    setup_django(in_memory_db=subcommand in fake_db, check_db=cmd_requires_db and not init_pending)
+    check_db = cmd_requires_db and not init_pending
 
-    if subcommand not in meta_cmds:
+    setup_django(in_memory_db=subcommand in fake_db, check_db=check_db)
+
+    if subcommand in archive_cmds:
         if cmd_requires_db:
             check_migrations()
 

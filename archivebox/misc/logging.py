@@ -13,6 +13,7 @@ from rich.highlighter import Highlighter
 
 # SETUP RICH CONSOLE / TTY detection / COLOR / PROGRESS BARS
 CONSOLE = Console()
+STDERR = Console(stderr=True)
 IS_TTY = CONSOLE.is_interactive
 
 
@@ -51,7 +52,7 @@ COLOR_DICT = defaultdict(lambda: [(0, 0, 0), (0, 0, 0)], {
     '37': [(255, 255, 255), (255, 255, 255)],
 })
 
-# Logging Helpers
+# Logging Helpers (DEPRECATED, use rich.print instead going forward)
 def stdout(*args, color: Optional[str]=None, prefix: str='', config: Optional[benedict]=None) -> None:
     ansi = DEFAULT_CLI_COLORS if (config or {}).get('USE_COLOR') else ANSI
 

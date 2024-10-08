@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Optional, List, IO
 
 from archivebox.misc.util import docstring
-from archivebox.config import DATA_DIR, SERVER_CONFIG
+from archivebox.config import DATA_DIR
+from archivebox.config.common import SERVER_CONFIG
 from ..logging_util import SmartFormatter, reject_stdin
 from ..main import server
 

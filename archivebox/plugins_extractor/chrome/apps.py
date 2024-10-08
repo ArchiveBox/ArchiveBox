@@ -25,7 +25,8 @@ from abx.archivebox.base_binary import BaseBinary, env
 from abx.archivebox.base_hook import BaseHook
 
 # Depends on Other Plugins:
-from archivebox.config import CONSTANTS, ARCHIVING_CONFIG, SHELL_CONFIG
+from archivebox.config import CONSTANTS
+from archivebox.config.common import ARCHIVING_CONFIG, SHELL_CONFIG
 from plugins_pkg.puppeteer.apps import PUPPETEER_BINPROVIDER
 from plugins_pkg.playwright.apps import PLAYWRIGHT_BINPROVIDER
 
