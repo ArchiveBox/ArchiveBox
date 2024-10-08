@@ -66,6 +66,16 @@ def drop_privileges():
         # drop permissions to the user that owns the data dir / provided PUID
         if os.geteuid() != ARCHIVEBOX_USER:
             os.seteuid(ARCHIVEBOX_USER)
+            
+            # try:
+            #     from .paths import PACKAGE_DIR
+            # except ModuleNotFoundError:
+            #     print(f'[red][X] Failed to get package dir for {__file__}[/red]')
+                
+            # if not os.access(__file__, os.R_OK):
+            #     # ARCHIVEBOX_USER is not able to read the source code, chown it so they can
+            #     with SudoPermission(uid=0, fallback=True):
+            #         os.system(f'chown -R :{ARCHIVEBOX_GROUP} "{PACKAGE_DIR}"')
         # if we need sudo (e.g. for installing dependencies) code should use SudoPermissions() context manager to regain root
 
 

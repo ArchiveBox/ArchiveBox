@@ -302,9 +302,3 @@ CONSTANTS_CONFIG = CONSTANTS.__benedict__()
 
 # add all key: values to globals() for easier importing
 globals().update(CONSTANTS)
-
-
-# these need to always exist as we need them to run almost everything
-# TODO: figure out a better time to make these than import-time
-CONSTANTS.LIB_DIR.mkdir(parents=True, exist_ok=True)
-CONSTANTS.TMP_DIR.mkdir(parents=True, exist_ok=True)

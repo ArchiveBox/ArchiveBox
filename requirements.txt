@@ -199,9 +199,14 @@ pydantic==2.9.2
     # via
     #   django-ninja
     #   django-pydantic-field
+    #   pydantic-pkgr
     #   pydantic-settings
 pydantic-core==2.23.4
-    # via pydantic
+    # via
+    #   pydantic
+    #   pydantic-pkgr
+pydantic-pkgr==0.4.8
+    # via archivebox (pyproject.toml)
 pydantic-settings==2.5.2
     # via archivebox (pyproject.toml)
 pygments==2.18.0
@@ -303,6 +308,7 @@ typing-extensions==4.12.2
     #   django-stubs-ext
     #   pydantic
     #   pydantic-core
+    #   pydantic-pkgr
     #   twisted
 tzlocal==5.2
     # via dateparser

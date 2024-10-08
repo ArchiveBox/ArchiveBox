@@ -79,7 +79,7 @@ dependencies = [
     "base32-crockford==0.3.0",
     "platformdirs>=4.3.6",
     # "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
-    # "pydantic-pkgr>=0.4.7",
+    "pydantic-pkgr>=0.4.8",
     ############# Plugin Dependencies ################
     "sonic-client>=1.0.0",
     "yt-dlp>=2024.8.6",               # for: media"

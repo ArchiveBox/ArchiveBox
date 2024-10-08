@@ -41,7 +41,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.8.5rc8"
+version = "0.8.5rc9"
 source = { editable = "." }
 dependencies = [
     { name = "atomicwrites" },
@@ -69,6 +69,7 @@ dependencies = [
     { name = "pluggy" },
     { name = "psutil" },
     { name = "py-machineid" },
+    { name = "pydantic-pkgr" },
     { name = "pydantic-settings" },
     { name = "python-benedict", extra = ["io", "parse"] },
     { name = "python-crontab" },
@@ -149,6 +150,7 @@ requires-dist = [
     { name = "pluggy", specifier = ">=1.5.0" },
     { name = "psutil", specifier = ">=6.0.0" },
     { name = "py-machineid", specifier = ">=0.6.0" },
+    { name = "pydantic-pkgr", specifier = ">=0.4.8" },
     { name = "pydantic-settings", specifier = ">=2.5.2" },
     { name = "python-benedict", extras = ["io", "parse"], specifier = ">=0.33.2" },
     { name = "python-crontab", specifier = ">=3.2.0" },
@@ -1824,6 +1826,20 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f7/ca/9c0854829311fb446020ebb540ee22509731abad886d2859c855dd29b904/pydantic_core-2.23.4-pp310-pypy310_pp73-musllinux_1_1_aarch64.whl", hash = "sha256:d06b0c8da4f16d1d1e352134427cb194a0a6e19ad5db9161bf32b2113409e728", size = 1957926 },
     { url = "https://files.pythonhosted.org/packages/c0/1c/7836b67c42d0cd4441fcd9fafbf6a027ad4b79b6559f80cf11f89fd83648/pydantic_core-2.23.4-pp310-pypy310_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:ba1a0996f6c2773bd83e63f18914c1de3c9dd26d55f4ac302a7efe93fb8e7433", size = 2100342 },
     { url = "https://files.pythonhosted.org/packages/a9/f9/b6bcaf874f410564a78908739c80861a171788ef4d4f76f5009656672dfe/pydantic_core-2.23.4-pp310-pypy310_pp73-win_amd64.whl", hash = "sha256:9a5bce9d23aac8f0cf0836ecfc033896aa8443b501c58d0602dbfd5bd5b37753", size = 1920344 },
+]
+
+[[package]]
+name = "pydantic-pkgr"
+version = "0.4.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b4/f1/69ed61848d692565450b78a4083941fcc91cbb49103a6ec9918c104da884/pydantic_pkgr-0.4.8.tar.gz", hash = "sha256:3e5603fed54eb19546546f6bfcf3754a6d2003692e9dfa343ca4565e7b1d40cd", size = 36589 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8c/c6/65c2468354bb20aa3cc8450d636cd2f5fa8f2b17aaef87288ca4753da205/pydantic_pkgr-0.4.8-py3-none-any.whl", hash = "sha256:9f42fc58112a5154c59eb736cee2a86f279c89dd23a7b6db7375cdd62d0e3b36", size = 39295 },
 ]
 
 [[package]]
