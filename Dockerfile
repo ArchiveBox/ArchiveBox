@@ -18,6 +18,7 @@
 
 # Use Debian 12 w/ faster package updates: https://packages.debian.org/bookworm-backports/
 FROM python:3.11-slim-bookworm
+# FROM debian:bookworm-backports
 
 LABEL name="archivebox" \
     maintainer="Nick Sweeting <dockerfile@archivebox.io>" \
@@ -65,16 +66,20 @@ ENV PYTHON_VERSION=3.11 \
 # User config
 ENV ARCHIVEBOX_USER="archivebox" \
     DEFAULT_PUID=911 \
-    DEFAULT_PGID=911
+    DEFAULT_PGID=911 \
+    IN_DOCKER=True
 
 # Global paths
 ENV CODE_DIR=/app \
     DATA_DIR=/data \
     GLOBAL_VENV=/venv \
+    SYSTEM_LIB_DIR=/usr/share/archivebox \
+    SYSTEM_TMP_DIR=/tmp/archivebox \
     PLAYWRIGHT_BROWSERS_PATH=/browsers
     # TODO: add TMP_DIR and LIB_DIR?
 
 # Build shell config
+# ENV PATH="$SYSTEM_LIB_DIR/bin:$GLOBAL_VENV/bin:$PATH"
 SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "errtrace", "-o", "nounset", "-c"] 
 
 ######### System Environment ####################################
@@ -144,10 +149,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     # NOT NEEDED because we're using a pre-built python image, keeping this here in case we switch back to custom-building our own:
     # && apt-get update -qq \
     # && apt-get install -qq -y -t bookworm-backports --no-upgrade \
-    #     python${PYTHON_VERSION} python${PYTHON_VERSION}-minimal python3-pip \
+    #     python${PYTHON_VERSION} python${PYTHON_VERSION}-minimal python3-pip python${PYTHON_VERSION}-venv pipx \
     # && rm -rf /var/lib/apt/lists/* \
     # tell PDM to allow using global system python site packages
     # && rm /usr/lib/python3*/EXTERNALLY-MANAGED \
+    # && ln -s "$(which python${PYTHON_VERSION})" /usr/bin/python \
     # create global virtual environment GLOBAL_VENV to use (better than using pip install --global)
     # && python3 -m venv --system-site-packages --symlinks $GLOBAL_VENV \
     # && python3 -m venv --system-site-packages $GLOBAL_VENV \
@@ -183,6 +189,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     ) | tee -a /VERSION.txt
 
 
+
 ######### Extractor Dependencies ##################################
 
 # Install apt dependencies
@@ -190,7 +197,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     echo "[+] Installing APT extractor dependencies globally using apt..." \
     && apt-get update -qq \
     && apt-get install -qq -y -t bookworm-backports \
-        curl wget git yt-dlp ffmpeg ripgrep \
+        curl wget git ffmpeg ripgrep \
         # Packages we have also needed in the past:
         # youtube-dl wget2 aria2 python3-pyxattr rtmpdump libfribidi-bin mpv \
     && rm -rf /var/lib/apt/lists/* \
@@ -198,7 +205,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     && ( \
         which curl && curl --version | head -n1 \
         && which wget && wget --version 2>&1 | head -n1 \
-        && which yt-dlp && yt-dlp --version 2>&1 | head -n1 \
         && which git && git --version 2>&1 | head -n1 \
         && which rg && rg --version 2>&1 | head -n1 \
         && echo -e '\n\n' \
@@ -237,12 +243,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     ) | tee -a /VERSION.txt
 
 # Install Node dependencies
-WORKDIR "/usr/share/archivebox/npm"
-COPY --chown=root:root --chmod=755 "etc/package.json" "/usr/share/archivebox/npm"
+WORKDIR "$SYSTEM_LIB_DIR/npm"
+COPY "etc/package.json" "$SYSTEM_LIB_DIR/npm"
 RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing NPM extractor dependencies from package.json..." \
-    && npm install --prefix="/usr/share/archivebox/npm" --prefer-offline --no-fund --no-audit --cache /root/.npm \
-    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/usr/share/archivebox" \
+    && npm install --prefix="$SYSTEM_LIB_DIR/npm" --prefer-offline --no-fund --no-audit --cache /root/.npm \
+    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$SYSTEM_LIB_DIR" \
     && ( \
         which node && node --version \
         && which npm && npm version \
@@ -277,7 +283,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
 RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
     echo "[*] Installing PIP ArchiveBox package from $CODE_DIR..." \
-    && pip install -e "${CODE_DIR}[sonic,ldap]" \
+    && pip install -e "${CODE_DIR}[all]" \
     && rm -rf /var/lib/apt/lists/*
 
 ####################################################
@@ -286,10 +292,7 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH
 WORKDIR "$DATA_DIR"
 RUN openssl rand -hex 16 > /etc/machine-id \
     && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/tmp"
-ENV IN_DOCKER=True \
-    SYSTEM_LIB_DIR=/usr/share/archivebox \
-    SYSTEM_TMP_DIR=/tmp/archivebox \
-    GOOGLE_API_KEY=no \
+ENV GOOGLE_API_KEY=no \
     GOOGLE_DEFAULT_CLIENT_ID=no \
     GOOGLE_DEFAULT_CLIENT_SECRET=no \
     ALLOWED_HOSTS=*

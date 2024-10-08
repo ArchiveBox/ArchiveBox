@@ -275,7 +275,7 @@ def version(quiet: bool=False,
     
     data_dir_stat = Path(DATA_DIR).stat()
     data_dir_uid, data_dir_gid = data_dir_stat.st_uid, data_dir_stat.st_gid
-    data_owned_by_root = data_dir_uid == 0 or data_dir_gid == 0
+    data_owned_by_root = data_dir_uid == 0
     
     data_owned_by_default_user = data_dir_uid == DEFAULT_PUID or data_dir_gid == DEFAULT_PGID
     data_owner_doesnt_match = (data_dir_uid != ARCHIVEBOX_USER and data_dir_gid != ARCHIVEBOX_GROUP) and not IS_ROOT
