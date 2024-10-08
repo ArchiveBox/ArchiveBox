@@ -50,12 +50,12 @@ echo "${FULL_TAG_NAMES[@]}"
 # docker login ghcr.io --username=pirate
 
 echo "[^] Uploading docker image"
-mkdir -p ~/.cache/docker/archivebox
+mkdir -p "$HOME/.cache/docker/archivebox"
 
 # https://docs.docker.com/build/cache/backends/
 # shellcheck disable=SC2068
 exec docker buildx build \
    --platform "$SELECTED_PLATFORMS" \
-   --cache-from type=local,src=~/.cache/docker/archivebox \
-   --cache-to type=local,compression=zstd,mode=min,oci-mediatypes=true,dest=~/.cache/docker/archivebox \
+   --cache-from type=local,src="$HOME/.cache/docker/archivebox" \
+   --cache-to type=local,compression=zstd,mode=min,oci-mediatypes=true,dest="$HOME/.cache/docker/archivebox" \
    --push . ${FULL_TAG_NAMES[@]}   

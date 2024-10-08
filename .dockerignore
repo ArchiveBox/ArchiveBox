@@ -9,6 +9,7 @@ __pycache__/
 .pdm-python
 .eggs/
 .git/
+.vscode/
 !.git/HEAD
 !.git/refs/heads/*
 
@@ -31,6 +32,8 @@ deb_dist/
 pip_dist/
 assets/
 docker/
+website/
+typings/
 
 data/
 data*/
