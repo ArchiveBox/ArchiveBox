@@ -8,9 +8,14 @@ from contextlib import contextmanager
 
 DATA_DIR = Path(os.getcwd())
 
-DATA_DIR_STAT           = Path(DATA_DIR).stat()
-DATA_DIR_UID            = DATA_DIR_STAT.st_uid
-DATA_DIR_GID            = DATA_DIR_STAT.st_gid
+try:
+    DATA_DIR_STAT           = DATA_DIR.stat()
+    DATA_DIR_UID            = DATA_DIR_STAT.st_uid
+    DATA_DIR_GID            = DATA_DIR_STAT.st_gid
+except PermissionError:
+    DATA_DIR_UID            = 0
+    DATA_DIR_GID            = 0
+
 DEFAULT_PUID            = 911
 DEFAULT_PGID            = 911
 RUNNING_AS_UID          = os.getuid()
@@ -27,6 +32,29 @@ os.environ.setdefault('PGID', str(DATA_DIR_GID or RUNNING_AS_GID or DEFAULT_PGID
 
 ARCHIVEBOX_USER = int(os.environ['PUID'])
 ARCHIVEBOX_GROUP = int(os.environ['PGID'])
+
+if not USER:
+    try:
+        # alternative method 1 to get username
+        import pwd
+        USER = pwd.getpwuid(ARCHIVEBOX_USER).pw_name
+    except Exception:
+        pass
+        
+if not USER:
+    try:
+        # alternative method 2 to get username
+        import getpass
+        USER = getpass.getuser()
+    except Exception:
+        pass
+    
+if not USER:
+    try:
+        # alternative method 3 to get username
+        USER = os.getlogin() or 'archivebox'
+    except Exception:
+        USER = 'archivebox'
 
 #############################################################################################
 
@@ -61,10 +89,9 @@ def SudoPermission(uid=0, fallback=False):
         yield
     finally:
         # then set effective UID back to DATA_DIR owner
-        DATA_DIR_OWNER = DATA_DIR.stat().st_uid
         try:
-            os.seteuid(DATA_DIR_OWNER)
+            os.seteuid(ARCHIVEBOX_USER)
         except PermissionError as err:
             if not fallback:
-                raise PermissionError(f'Failed to revert uid={uid} back to {DATA_DIR_OWNER} after running code with sudo') from err
+                raise PermissionError(f'Failed to revert uid={uid} back to {ARCHIVEBOX_USER} after running code with sudo') from err
 
