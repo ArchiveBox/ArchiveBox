@@ -187,6 +187,7 @@ if ! test -L /var/spool/cron/crontabs; then
     rm -Rf /var/spool/cron/crontabs
     ln -sf "$DATA_DIR/crontabs" /var/spool/cron/crontabs
 fi
+chown -R $PUID "$DATA_DIR/crontabs"
 
 # set DBUS_SYSTEM_BUS_ADDRESS & DBUS_SESSION_BUS_ADDRESS
 # (dbus is not actually needed, it makes chrome log fewer warnings but isn't worth making our docker images bigger)
