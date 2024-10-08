@@ -104,7 +104,7 @@ def drop_privileges():
             #         os.system(f'chown -R :{ARCHIVEBOX_GROUP} "{PACKAGE_DIR}"')
         # if we need sudo (e.g. for installing dependencies) code should use SudoPermissions() context manager to regain root
     if ARCHIVEBOX_USER == 0 or not ARCHIVEBOX_USER_EXISTS:
-        print('[yellow]:warning:  Running as root is not recommended and may make your [blue]DATA_DIR[/blue] inaccessible to other users on your system.[/yellow]', file=sys.stderr)
+        print('[yellow]:warning:  Running as [red]root[/red] is not recommended and may make your [blue]DATA_DIR[/blue] inaccessible to other users on your system.[/yellow]', file=sys.stderr)
 
 
 @contextmanager
@@ -132,4 +132,3 @@ def SudoPermission(uid=0, fallback=False):
         except PermissionError as err:
             if not fallback:
                 raise PermissionError(f'Failed to revert uid={uid} back to {ARCHIVEBOX_USER} after running code with sudo') from err
-

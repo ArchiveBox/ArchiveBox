@@ -1,6 +1,7 @@
 __package__ = 'archivebox.config'
 
 import os
+import sys
 import tempfile
 import hashlib
 from pathlib import Path
@@ -21,7 +22,7 @@ ARCHIVE_DIR: Path = DATA_DIR / 'archive'                      # archivebox snaps
 @cache
 def get_collection_id(DATA_DIR=DATA_DIR):
     """Get a short, stable, unique ID for the current collection"""
-    collection_id_file = DATA_DIR / '.collection_id'
+    collection_id_file = DATA_DIR / '.archivebox_id'
     
     try:
         return collection_id_file.read_text().strip()
@@ -71,30 +72,35 @@ def get_LIB_DIR():
     
     HOST_DIRS = PlatformDirs(appname='archivebox', appauthor='ArchiveBox', version=detect_installed_version(), opinion=True, ensure_exists=False)
     
-    if 'SYSTEM_LIB_DIR' in os.environ:
-        lib_dir = Path(os.environ['SYSTEM_LIB_DIR'])
-    else:
-        with SudoPermission(uid=ARCHIVEBOX_USER, fallback=True):
-            lib_dir = HOST_DIRS.site_data_path
-    
-    # Docker: /usr/local/share/archivebox/0.8.5
-    # Ubuntu: /usr/local/share/archivebox/0.8.5
-    # macOS: /Library/Application Support/archivebox
+    lib_dir = tempfile.gettempdir()
     try:
-        with SudoPermission(uid=0, fallback=True):
-            lib_dir.mkdir(parents=True, exist_ok=True)
-    except PermissionError:
-        # our user cannot 
-        lib_dir = HOST_DIRS.user_data_path
-        lib_dir.mkdir(parents=True, exist_ok=True)
-    
-    if not dir_is_writable(lib_dir):
-        if IS_ROOT:
-            # make sure lib dir is owned by the archivebox user, not root
-            with SudoPermission(uid=0):
-                os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{lib_dir}"')
+        if 'SYSTEM_LIB_DIR' in os.environ:
+            lib_dir = Path(os.environ['SYSTEM_LIB_DIR'])
         else:
-            raise PermissionError(f'SYSTEM_LIB_DIR {lib_dir} is not writable by archivebox user {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}')
+            with SudoPermission(uid=ARCHIVEBOX_USER, fallback=True):
+                lib_dir = HOST_DIRS.site_data_path
+        
+        # Docker: /usr/local/share/archivebox/0.8.5
+        # Ubuntu: /usr/local/share/archivebox/0.8.5
+        # macOS: /Library/Application Support/archivebox
+        try:
+            with SudoPermission(uid=0, fallback=True):
+                lib_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            # our user cannot 
+            lib_dir = HOST_DIRS.user_data_path
+            lib_dir.mkdir(parents=True, exist_ok=True)
+        
+        if not dir_is_writable(lib_dir):
+            if IS_ROOT:
+                # make sure lib dir is owned by the archivebox user, not root
+                with SudoPermission(uid=0):
+                    os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{lib_dir}"')
+            else:
+                raise PermissionError()
+    except (PermissionError, AssertionError):
+        # raise PermissionError(f'SYSTEM_LIB_DIR {lib_dir} is not writable by archivebox user {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}')
+        print(f'[red]:cross_mark:  ERROR: SYSTEM_LIB_DIR {lib_dir} is not writable by archivebox user {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}[/red]', file=sys.stderr)
         
     return lib_dir
     
@@ -114,39 +120,41 @@ def get_TMP_DIR():
     
     # print('DATA_DIR OWNED BY:', ARCHIVEBOX_USER, ARCHIVEBOX_GROUP)
     # print('RUNNING AS:', self.PUID, self.PGID)
-    
-    if 'SYSTEM_TMP_DIR' in os.environ:
-        run_dir = Path(os.environ['SYSTEM_TMP_DIR']).resolve() / get_collection_id(DATA_DIR=DATA_DIR)
+    run_dir = tempfile.gettempdir()
+    try:
+        if 'SYSTEM_TMP_DIR' in os.environ:
+            run_dir = Path(os.environ['SYSTEM_TMP_DIR']).resolve() / get_collection_id(DATA_DIR=DATA_DIR)
+            with SudoPermission(uid=0, fallback=True):
+                run_dir.mkdir(parents=True, exist_ok=True)
+            if not dir_is_writable(run_dir):
+                if IS_ROOT:
+                    with SudoPermission(uid=0, fallback=False):
+                        os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{run_dir}"')
+                else:
+                    raise PermissionError()
+            assert len(str(run_dir / 'supervisord.conf')) < 95, 'SYSTEM_TMP_DIR path is too long, please set SYSTEM_TMP_DIR env variable to a shorter path (unfortunately unix requires socket paths be < 108 chars)'
+            return run_dir
+        
+        run_dir = (HOST_DIRS.site_runtime_path / get_collection_id(DATA_DIR=DATA_DIR)).resolve()
+        try:
+            assert len(str(run_dir)) + len('/supervisord.sock') < 95
+        except AssertionError:
+            run_dir = Path(tempfile.gettempdir()).resolve() / 'archivebox' / get_collection_id(DATA_DIR=DATA_DIR)
+            assert len(str(run_dir)) + len('/supervisord.sock') < 95, 'SYSTEM_TMP_DIR path is too long, please set SYSTEM_TMP_DIR env variable to a shorter path (unfortunately unix requires socket paths be < 108 chars)'
+        
         with SudoPermission(uid=0, fallback=True):
             run_dir.mkdir(parents=True, exist_ok=True)
+            
         if not dir_is_writable(run_dir):
             if IS_ROOT:
-                with SudoPermission(uid=0, fallback=False):
+                with SudoPermission(uid=0):
                     os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{run_dir}"')
             else:
-                raise PermissionError(f'SYSTEM_TMP_DIR {run_dir} is not writable by archivebox user {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}')
-        assert len(str(run_dir / 'supervisord.conf')) < 95, 'SYSTEM_TMP_DIR path is too long, please set SYSTEM_TMP_DIR env variable to a shorter path (unfortunately unix requires socket paths be < 108 chars)'
-        return run_dir
-    
-    run_dir = (HOST_DIRS.site_runtime_path / get_collection_id(DATA_DIR=DATA_DIR)).resolve()
-    try:
-        assert len(str(run_dir)) + len('/supervisord.sock') < 95
-    except AssertionError:
-        run_dir = Path(tempfile.gettempdir()).resolve() / 'archivebox' / get_collection_id(DATA_DIR=DATA_DIR)
-        assert len(str(run_dir)) + len('/supervisord.sock') < 95, 'SYSTEM_TMP_DIR path is too long, please set SYSTEM_TMP_DIR env variable to a shorter path (unfortunately unix requires socket paths be < 108 chars)'
-    
-    with SudoPermission(uid=0, fallback=True):
-        run_dir.mkdir(parents=True, exist_ok=True)
+                raise PermissionError()
+            
+    except (PermissionError, AssertionError):
+        # raise PermissionError(f'SYSTEM_TMP_DIR {run_dir} is not writable by archivebox user {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}')
+        print(f'[red]:cross_mark:  ERROR: SYSTEM_TMP_DIR {run_dir} is not writable by archivebox user {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}[/red]', file=sys.stderr)
         
-    if not dir_is_writable(run_dir):
-        if IS_ROOT:
-            with SudoPermission(uid=0):
-                os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{run_dir}"')
-        else:
-            raise PermissionError(f'SYSTEM_TMP_DIR {run_dir} is not writable by archivebox user {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}')
-    
-    # Docker: /tmp/archivebox/0.8.5/abc324235
-    # Ubuntu: /tmp/archivebox/0.8.5/abc324235
-    # macOS: /var/folders/qy/6tpfrpx100j1t4l312nz683m0000gn/T/archivebox/0.8.5/abc324235
     return run_dir
 

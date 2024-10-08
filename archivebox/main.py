@@ -269,31 +269,9 @@ def version(quiet: bool=False,
         for name, path in CONSTANTS.DATA_LOCATIONS.items():
             prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
     
-        from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, DEFAULT_PUID, DEFAULT_PGID, IS_ROOT, USER
+        from archivebox.misc.checks import check_data_dir_permissions
         
-        data_dir_stat = Path(DATA_DIR).stat()
-        data_dir_uid, data_dir_gid = data_dir_stat.st_uid, data_dir_stat.st_gid
-        data_owned_by_root = data_dir_uid == 0
-        
-        # data_owned_by_default_user = data_dir_uid == DEFAULT_PUID or data_dir_gid == DEFAULT_PGID
-        data_owner_doesnt_match = (data_dir_uid != ARCHIVEBOX_USER and data_dir_gid != ARCHIVEBOX_GROUP) and not IS_ROOT
-        data_not_writable = not (os.access(DATA_DIR, os.W_OK) and os.access(CONSTANTS.LIB_DIR, os.W_OK) and os.access(CONSTANTS.TMP_DIR, os.W_OK))
-        if data_owned_by_root:
-            prnt('[yellow]:warning: Warning: ArchiveBox [blue]DATA_DIR[/blue] is currently owned by [red]root[/red], ArchiveBox will refuse to run![/yellow]')
-        elif data_owner_doesnt_match or data_not_writable:
-            prnt(f'[yellow]:warning: Warning: ArchiveBox [blue]DATA_DIR[/blue] is currently owned by [red]{data_dir_uid}:{data_dir_gid}[/red], but ArchiveBox user is [blue]{ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}[/blue] ({USER})! (ArchiveBox may not be able to write to the data dir)[/yellow]')
-            
-        if data_owned_by_root or data_owner_doesnt_match or data_not_writable:
-            prnt(f'[violet]Hint:[/violet] If you encounter permissions errors, change [red]{data_dir_uid}[/red]:{data_dir_gid} (PUID:PGID) to match the user that will run ArchiveBox, e.g.:')
-            prnt(f'    [grey53]sudo[/grey53] chown -R [blue]{DEFAULT_PUID}:{DEFAULT_PGID}[/blue] {DATA_DIR.resolve()}')
-            prnt(f'    [grey53]sudo[/grey53] chown -R [blue]{DEFAULT_PUID}:{DEFAULT_PGID}[/blue] {CONSTANTS.LIB_DIR.resolve()}')
-            prnt(f'    [grey53]sudo[/grey53] chown -R [blue]{DEFAULT_PUID}:{DEFAULT_PGID}[/blue] {CONSTANTS.TMP_DIR.resolve()}')
-            prnt()
-            prnt('[blue]More info:[/blue]')
-            prnt('    [link=https://github.com/ArchiveBox/ArchiveBox#storage-requirements]https://github.com/ArchiveBox/ArchiveBox#storage-requirements[/link]')
-            prnt('    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#permissions]https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#permissions[/link]')
-            prnt('    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid]https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid[/link]')
-            prnt('    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts]https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts[/link]')
+        check_data_dir_permissions()
     else:
         prnt()
         prnt('[red][i] Data locations:[/red] (not in a data directory)')

@@ -63,7 +63,7 @@ dateparser==1.2.0
     # via archivebox (pyproject.toml)
 decorator==5.1.1
     # via ipython
-django==5.1.1
+django==5.1.2
     # via
     #   archivebox (pyproject.toml)
     #   bx-django-utils
@@ -83,7 +83,7 @@ django==5.1.1
     #   django-taggit
 django-admin-data-views==0.4.1
     # via archivebox (pyproject.toml)
-django-auth-ldap==4.8.0
+django-auth-ldap==5.0.0
     # via archivebox (pyproject.toml)
 django-charid-field==0.4
     # via archivebox (pyproject.toml)
@@ -205,7 +205,7 @@ pydantic-core==2.23.4
     # via
     #   pydantic
     #   pydantic-pkgr
-pydantic-pkgr==0.4.8
+pydantic-pkgr==0.4.9
     # via archivebox (pyproject.toml)
 pydantic-settings==2.5.2
     # via archivebox (pyproject.toml)
@@ -330,7 +330,7 @@ websockets==13.1
     # via yt-dlp
 xlrd==2.0.1
     # via python-benedict
-xmltodict==0.13.0
+xmltodict==0.14.0
     # via python-benedict
 yt-dlp==2024.10.7
     # via archivebox (pyproject.toml)

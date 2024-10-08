@@ -193,6 +193,7 @@ class ConstantsDict(Mapping):
         ".DS_Store",
         ".env",
         ".collection_id",
+        ".archivebox_id",
         "Dockerfile",
     ))
 

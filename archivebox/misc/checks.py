@@ -2,6 +2,7 @@ __package__ = 'archivebox.misc'
 
 import os
 import sys
+from pathlib import Path
 
 from rich import print
 
@@ -96,3 +97,33 @@ def check_not_root():
             print(f'        docker compose exec --user=archivebox archivebox /bin/bash -c "archivebox {attempted_command}"', file=sys.stderr)
             print(f'        docker exec -it --user=archivebox <container id> /bin/bash -c "archivebox {attempted_command}"', file=sys.stderr)
         raise SystemExit(2)
+
+
+def check_data_dir_permissions():
+    from archivebox import DATA_DIR, CONSTANTS
+    from archivebox.misc.logging import STDERR
+    from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, DEFAULT_PUID, DEFAULT_PGID, IS_ROOT, USER
+    
+    data_dir_stat = Path(DATA_DIR).stat()
+    data_dir_uid, data_dir_gid = data_dir_stat.st_uid, data_dir_stat.st_gid
+    data_owned_by_root = data_dir_uid == 0
+    
+    # data_owned_by_default_user = data_dir_uid == DEFAULT_PUID or data_dir_gid == DEFAULT_PGID
+    data_owner_doesnt_match = (data_dir_uid != ARCHIVEBOX_USER and data_dir_gid != ARCHIVEBOX_GROUP) and not IS_ROOT
+    data_not_writable = not (os.access(DATA_DIR, os.W_OK) and os.access(CONSTANTS.LIB_DIR, os.W_OK) and os.access(CONSTANTS.TMP_DIR, os.W_OK))
+    if data_owned_by_root:
+        STDERR.print('\n[yellow]:warning: Warning: ArchiveBox [blue]DATA_DIR[/blue] is currently owned by [red]root[/red], ArchiveBox will refuse to run![/yellow]')
+    elif data_owner_doesnt_match or data_not_writable:
+        STDERR.print(f'\n[yellow]:warning: Warning: ArchiveBox [blue]DATA_DIR[/blue] is currently owned by [red]{data_dir_uid}:{data_dir_gid}[/red], but ArchiveBox user is [blue]{ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}[/blue] ({USER})! (ArchiveBox may not be able to write to the data dir)[/yellow]')
+        
+    if data_owned_by_root or data_owner_doesnt_match or data_not_writable:
+        STDERR.print(f'[violet]Hint:[/violet] Change the current ownership [red]{data_dir_uid}[/red]:{data_dir_gid} (PUID:PGID) to a non-user & group that will run ArchiveBox, e.g.:')
+        STDERR.print(f'    [grey53]sudo[/grey53] chown -R [blue]{DEFAULT_PUID}:{DEFAULT_PGID}[/blue] {DATA_DIR.resolve()}')
+        STDERR.print(f'    [grey53]sudo[/grey53] chown -R [blue]{DEFAULT_PUID}:{DEFAULT_PGID}[/blue] {CONSTANTS.LIB_DIR.resolve()}')
+        STDERR.print(f'    [grey53]sudo[/grey53] chown -R [blue]{DEFAULT_PUID}:{DEFAULT_PGID}[/blue] {CONSTANTS.TMP_DIR.resolve()}')
+        STDERR.print()
+        STDERR.print('[blue]More info:[/blue]')
+        STDERR.print('    [link=https://github.com/ArchiveBox/ArchiveBox#storage-requirements]https://github.com/ArchiveBox/ArchiveBox#storage-requirements[/link]')
+        STDERR.print('    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#permissions]https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#permissions[/link]')
+        STDERR.print('    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid]https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid[/link]')
+        STDERR.print('    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts]https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts[/link]')

@@ -596,8 +596,15 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CON
                 except Exception as e:
                     bump_startup_progress_bar(advance=1000)
                     STDERR.print()
-                    STDERR.print(Panel(f'\n[red]{e.__class__.__name__}[/red]: [yellow]{e}[/yellow]\nPlease check your config and [blue]DATA_DIR[/blue] permissions.\n', title='\n\n[red][X] Error while trying to load database!', subtitle='[grey53]NO WRITES CAN BE PERFORMED[/grey53]', expand=False, style='bold red'))
+                    STDERR.print(Panel(
+                        f'\n[red]{e.__class__.__name__}[/red]: [yellow]{e}[/yellow]\nPlease check your config and [blue]DATA_DIR[/blue] permissions.\n',
+                        title='\n\n[red][X] Error while trying to load database![/red]',
+                        subtitle='[grey53]NO WRITES CAN BE PERFORMED[/grey53]',
+                        expand=False,
+                        style='bold red',
+                    ))
                     STDERR.print()
+                    STDERR.print_exception(show_locals=False)
                     return
             
             bump_startup_progress_bar()
