@@ -1,6 +1,11 @@
 __package__ = 'archivebox.config'
 
 import os
+import pwd
+import sys
+
+from rich import print
+
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -27,16 +32,29 @@ USER: str               = Path('~').expanduser().resolve().name
 IS_ROOT = RUNNING_AS_UID == 0
 IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'TRUE', 'yes')
 
-os.environ.setdefault('PUID', str(DATA_DIR_UID or RUNNING_AS_UID or DEFAULT_PUID))
-os.environ.setdefault('PGID', str(DATA_DIR_GID or RUNNING_AS_GID or DEFAULT_PGID))
+FALLBACK_UID = RUNNING_AS_UID
+FALLBACK_GID = RUNNING_AS_GID
+if RUNNING_AS_UID == 0:
+    try:
+        # if we are running as root it's really hard to figure out what the correct archivebox user should be
+        # as a last resort instead of setting DATA_DIR ownership to 0:0 (which breaks it for non-root users)
+        # check if 911:911 archivebox user exists on host system, and use it instead of 0
+        import pwd
+        if pwd.getpwuid(DEFAULT_PUID).pw_name == 'archivebox':
+            FALLBACK_UID = DEFAULT_PUID
+            FALLBACK_GID = DEFAULT_PGID
+    except Exception:
+        pass
+
+
+os.environ.setdefault('PUID', str(DATA_DIR_UID or EUID or RUNNING_AS_UID or FALLBACK_UID))
+os.environ.setdefault('PGID', str(DATA_DIR_GID or EGID or RUNNING_AS_GID or FALLBACK_GID))
 
 ARCHIVEBOX_USER = int(os.environ['PUID'])
 ARCHIVEBOX_GROUP = int(os.environ['PGID'])
-
 if not USER:
     try:
         # alternative method 1 to get username
-        import pwd
         USER = pwd.getpwuid(ARCHIVEBOX_USER).pw_name
     except Exception:
         pass
@@ -55,6 +73,14 @@ if not USER:
         USER = os.getlogin() or 'archivebox'
     except Exception:
         USER = 'archivebox'
+        
+ARCHIVEBOX_USER_EXISTS = False
+try:
+    pwd.getpwuid(ARCHIVEBOX_USER)
+    ARCHIVEBOX_USER_EXISTS = True
+except Exception:
+    ARCHIVEBOX_USER_EXISTS = False
+    
 
 #############################################################################################
 
@@ -64,7 +90,7 @@ def drop_privileges():
     # always run archivebox as the user that owns the data dir, never as root
     if os.getuid() == 0:
         # drop permissions to the user that owns the data dir / provided PUID
-        if os.geteuid() != ARCHIVEBOX_USER:
+        if os.geteuid() != ARCHIVEBOX_USER and ARCHIVEBOX_USER != 0 and ARCHIVEBOX_USER_EXISTS:
             os.seteuid(ARCHIVEBOX_USER)
             
             # try:
@@ -77,6 +103,8 @@ def drop_privileges():
             #     with SudoPermission(uid=0, fallback=True):
             #         os.system(f'chown -R :{ARCHIVEBOX_GROUP} "{PACKAGE_DIR}"')
         # if we need sudo (e.g. for installing dependencies) code should use SudoPermissions() context manager to regain root
+    if ARCHIVEBOX_USER == 0 or not ARCHIVEBOX_USER_EXISTS:
+        print('[yellow]:warning:  Running as root is not recommended and may make your [blue]DATA_DIR[/blue] inaccessible to other users on your system.[/yellow]', file=sys.stderr)
 
 
 @contextmanager
