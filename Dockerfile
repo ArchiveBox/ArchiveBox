@@ -237,12 +237,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     ) | tee -a /VERSION.txt
 
 # Install Node dependencies
-WORKDIR "$CODE_DIR/lib/npm"
-COPY --chown=root:root --chmod=755 "etc/package.json" "$CODE_DIR/lib/npm"
+WORKDIR "/usr/share/archivebox/npm"
+COPY --chown=root:root --chmod=755 "etc/package.json" "/usr/share/archivebox/npm"
 RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
     echo "[+] Installing NPM extractor dependencies from package.json..." \
-    && npm install --prefix="$CODE_DIR/lib/npm" --prefer-offline --no-fund --no-audit --cache /root/.npm \
-    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$CODE_DIR/lib" \
+    && npm install --prefix="/usr/share/archivebox/npm" --prefer-offline --no-fund --no-audit --cache /root/.npm \
+    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/usr/share/archivebox" \
     && ( \
         which node && node --version \
         && which npm && npm version \

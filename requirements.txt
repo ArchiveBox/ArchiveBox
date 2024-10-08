@@ -93,7 +93,7 @@ django-huey==1.2.1
     # via archivebox (pyproject.toml)
 django-huey-monitor==0.9.0
     # via archivebox (pyproject.toml)
-django-jsonform==2.23.0
+django-jsonform==2.23.1
     # via archivebox (pyproject.toml)
 django-ninja==1.3.0
     # via archivebox (pyproject.toml)
@@ -168,6 +168,8 @@ pexpect==4.9.0
     # via ipython
 phonenumbers==8.13.47
     # via python-benedict
+platformdirs==4.3.6
+    # via archivebox (pyproject.toml)
 pluggy==1.5.0
     # via archivebox (pyproject.toml)
 prompt-toolkit==3.0.48
@@ -324,7 +326,7 @@ xlrd==2.0.1
     # via python-benedict
 xmltodict==0.13.0
     # via python-benedict
-yt-dlp==2024.9.27
+yt-dlp==2024.10.7
     # via archivebox (pyproject.toml)
 zope-interface==7.0.3
     # via twisted

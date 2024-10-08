@@ -26,10 +26,10 @@ ASCII_LOGO = """
 """
 
 # detect ArchiveBox user's UID/GID based on data dir ownership
-from archivebox.config.permissions import drop_privileges                 # noqa
+from .config.permissions import drop_privileges                 # noqa
 drop_privileges()
 
-from archivebox.misc.checks import check_not_root, check_io_encoding      # noqa
+from .misc.checks import check_not_root, check_io_encoding      # noqa
 check_not_root()
 check_io_encoding()
 
@@ -42,19 +42,19 @@ os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
 
 
 # print('INSTALLING MONKEY PATCHES')
-from archivebox.monkey_patches import *                    # noqa
+from .monkey_patches import *                    # noqa
 # print('DONE INSTALLING MONKEY PATCHES')
 
 
 # print('LOADING VENDORED LIBRARIES')
-from archivebox.vendor import load_vendored_libs           # noqa
+from .vendor import load_vendored_libs           # noqa
 load_vendored_libs()
 # print('DONE LOADING VENDORED LIBRARIES')
 
 
-from archivebox.config.constants import CONSTANTS                         # noqa
-from archivebox.config.paths import PACKAGE_DIR, DATA_DIR, ARCHIVE_DIR    # noqa
-from archivebox.config.version import VERSION                             # noqa
+from .config.constants import CONSTANTS                         # noqa
+from .config.paths import PACKAGE_DIR, DATA_DIR, ARCHIVE_DIR    # noqa
+from .config.version import VERSION                             # noqa
 
 __version__ = VERSION
 __author__ = 'Nick Sweeting'
