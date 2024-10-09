@@ -276,9 +276,9 @@ def version(quiet: bool=False,
                 abspath = abspath.replace(' ', r'\ ')
                 
         PATH = str(binprovider.PATH).replace(str(DATA_DIR), '[light_slate_blue].[/light_slate_blue]').replace(str(Path('~').expanduser()), '~')
-        ownership_summary = f'UID=[blue]{str(binprovider.euid).ljust(4)}[/blue]'
+        ownership_summary = f'UID=[blue]{str(binprovider.EUID).ljust(4)}[/blue]'
         provider_summary = f'[dark_sea_green3]{str(abspath).ljust(52)}[/dark_sea_green3]' if abspath else f'[grey23]{"not available".ljust(52)}[/grey23]'
-        prnt('', '[green]√[/green]' if binprovider.is_valid else '[red]X[/red]', '', binprovider.name.ljust(11), provider_summary, ownership_summary, f'PATH={PATH}' if abspath else '', overflow='ellipsis', soft_wrap=True)
+        prnt('', '[green]√[/green]' if binprovider.is_valid else '[red]X[/red]', '', binprovider.name.ljust(11), provider_summary, ownership_summary, f'PATH={PATH}', overflow='ellipsis', soft_wrap=True)
 
     prnt()
     prnt('[deep_sky_blue3][i] Source-code locations:[/deep_sky_blue3]')
