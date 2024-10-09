@@ -14,6 +14,15 @@ pm.add_hookspecs(base_spec)
 
 ###### PLUGIN DISCOVERY AND LOADING ########################################################
 
+def get_plugin_order(plugin_entrypoint: Path):
+    order = 999
+    try:
+        # if .plugin_order file exists, use it to set the load priority
+        order = int((plugin_entrypoint.parent / '.plugin_order').read_text())
+    except FileNotFoundError:
+        pass
+    return (order, plugin_entrypoint)
+
 def register_hookspecs(hookspecs):
     for hookspec_import_path in hookspecs:
         hookspec_module = importlib.import_module(hookspec_import_path)
@@ -23,7 +32,7 @@ def register_hookspecs(hookspecs):
 def find_plugins_in_dir(plugins_dir: Path, prefix: str) -> Dict[str, Path]:
     return {
         f"{prefix}.{plugin_entrypoint.parent.name}": plugin_entrypoint.parent
-        for plugin_entrypoint in sorted(plugins_dir.glob("*/apps.py"))  # key=get_plugin_order  # Someday enforcing plugin import order may be required, but right now it's not needed
+        for plugin_entrypoint in sorted(plugins_dir.glob("*/apps.py"), key=get_plugin_order)
     }   # "plugins_pkg.pip": "/app/archivebox/plugins_pkg/pip"
 
 
