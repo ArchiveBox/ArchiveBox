@@ -240,12 +240,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     ) | tee -a /VERSION.txt
 
 # Install Node dependencies
-ENV PATH="/home/$ARCHIVEBOX_USER/.local/bin:$PATH"
+ENV PATH="/home/$ARCHIVEBOX_USER/.npm/bin:$PATH"
 USER $ARCHIVEBOX_USER
-RUN --mount=type=cache,target=/home/$ARCHIVEBOX_USER/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT,uid=$DEFAULT_PUID,gid=$DEFAULT_PGID \
-    echo "[+] Installing NPM extractor dependencies globally..." \
-    && npm config set prefix '~/.local/' \
-    && npm install --global --prefer-offline --no-fund --no-audit --cache /home/$ARCHIVEBOX_USER/.npm \
+WORKDIR "/home/$ARCHIVEBOX_USER/.npm"
+RUN --mount=type=cache,target=/home/$ARCHIVEBOX_USER/.npm_cache,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT,uid=$DEFAULT_PUID,gid=$DEFAULT_PGID \
+    echo "[+] Installing NPM extractor dependencies in /home/$ARCHIVEBOX_USER/.npm..." \
+    && npm config set prefix "/home/$ARCHIVEBOX_USER/.npm" \
+    && npm install --global --prefer-offline --no-fund --no-audit --cache "/home/$ARCHIVEBOX_USER/.npm_cache" \
         "@postlight/parser@^2.2.3" \
         "readability-extractor@github:ArchiveBox/readability-extractor" \
         "single-file-cli@^1.1.54" \
