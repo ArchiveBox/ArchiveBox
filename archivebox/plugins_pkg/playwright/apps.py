@@ -1,5 +1,6 @@
 __package__ = 'archivebox.plugins_pkg.playwright'
 
+import os
 import platform
 from pathlib import Path
 from typing import List, Optional, Dict, ClassVar
@@ -65,12 +66,12 @@ class PlaywrightBinProvider(BaseBinProvider):
 
     PATH: PATHStr = f"{CONSTANTS.LIB_BIN_DIR}:{DEFAULT_ENV_PATH}"
 
-    puppeteer_browsers_dir: Optional[Path] = (
+    playwright_browsers_dir: Optional[Path] = (
         Path("~/Library/Caches/ms-playwright").expanduser()      # macos playwright cache dir
         if OPERATING_SYSTEM == "darwin" else
         Path("~/.cache/ms-playwright").expanduser()              # linux playwright cache dir
     )
-    puppeteer_install_args: List[str] = ["install"]              # --with-deps
+    playwright_install_args: List[str] = ["install"]              # --with-deps
 
     packages_handler: ProviderLookupDict = Field(default={
         "chrome": lambda: ["chromium"],
@@ -86,8 +87,8 @@ class PlaywrightBinProvider(BaseBinProvider):
     def setup(self) -> None:
         assert SYS_PIP_BINPROVIDER.INSTALLER_BIN_ABSPATH, "Pip bin provider not initialized"
 
-        if self.puppeteer_browsers_dir:
-            self.puppeteer_browsers_dir.mkdir(parents=True, exist_ok=True)
+        if self.playwright_browsers_dir:
+            self.playwright_browsers_dir.mkdir(parents=True, exist_ok=True)
 
     def installed_browser_bins(self, browser_name: str = "*") -> List[Path]:
         if browser_name == 'chrome':
@@ -97,13 +98,13 @@ class PlaywrightBinProvider(BaseBinProvider):
         if platform.system().lower() == "darwin":
             # ~/Library/caches/ms-playwright/chromium-1097/chrome-mac/Chromium.app/Contents/MacOS/Chromium
             return sorted(
-                self.puppeteer_browsers_dir.glob(
+                self.playwright_browsers_dir.glob(
                     f"{browser_name}-*/*-mac*/*.app/Contents/MacOS/*"
                 )
             )
 
         # ~/Library/caches/ms-playwright/chromium-1097/chrome-linux/chromium
-        return sorted(self.puppeteer_browsers_dir.glob(f"{browser_name}-*/*-linux/*"))
+        return sorted(self.playwright_browsers_dir.glob(f"{browser_name}-*/*-linux/*"))
 
     def on_get_abspath(self, bin_name: BinName, **context) -> Optional[HostBinPath]:
         assert bin_name == "chrome", "Only chrome is supported using the @puppeteer/browsers install method currently."
@@ -112,7 +113,7 @@ class PlaywrightBinProvider(BaseBinProvider):
         if bin_name in self._browser_abspaths:
             return self._browser_abspaths[bin_name]
 
-        # first time loading, find browser in self.puppeteer_browsers_dir by searching filesystem for installed binaries
+        # first time loading, find browser in self.playwright_browsers_dir by searching filesystem for installed binaries
         matching_bins = [abspath for abspath in self.installed_browser_bins() if bin_name in str(abspath)]
         if matching_bins:
             newest_bin = matching_bins[-1]  # already sorted alphabetically, last should theoretically be highest version number
@@ -140,7 +141,7 @@ class PlaywrightBinProvider(BaseBinProvider):
 
         # print(f'[*] {self.__class__.__name__}: Installing {bin_name}: {self.INSTALLER_BIN_ABSPATH} install {packages}')
 
-        install_args = [*self.puppeteer_install_args]
+        install_args = [*self.playwright_install_args]
 
         proc = self.exec(bin_name=self.INSTALLER_BIN_ABSPATH, cmd=[*install_args, *packages])
 
@@ -150,12 +151,15 @@ class PlaywrightBinProvider(BaseBinProvider):
             raise Exception(f"{self.__class__.__name__}: install got returncode {proc.returncode} while installing {packages}: {packages}")
 
         # chrome@129.0.6668.58 /data/lib/browsers/chrome/mac_arm-129.0.6668.58/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
-        output_info = proc.stdout.strip().split("\n")[-1]
-        browser_abspath = output_info.split(" ", 1)[-1]
-        # browser_version = output_info.split('@', 1)[-1].split(' ', 1)[0]
-
-        self._browser_abspaths[bin_name] = Path(browser_abspath)
-
+        # playwright build v1010 downloaded to /home/squash/.cache/ms-playwright/ffmpeg-1010
+        output_lines = [line for line in proc.stdout.strip().split('\n') if '/chrome-' in line]
+        if output_lines:
+            relpath = output_lines[0].split(self.playwright_browsers_dir)[-1]
+            abspath = self.playwright_browsers_dir / relpath
+            if os.path.isfile(abspath) and os.access(abspath, os.X_OK):
+                self._browser_abspaths[bin_name] = abspath
+                return abspath
+        
         return proc.stderr.strip() + "\n" + proc.stdout.strip()
 
 PLAYWRIGHT_BINPROVIDER = PlaywrightBinProvider()

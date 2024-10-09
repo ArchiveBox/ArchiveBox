@@ -1006,7 +1006,7 @@ def install(out_dir: Path=DATA_DIR) -> None:
     from django.conf import settings
     
     from archivebox import CONSTANTS
-    from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, USER
+    from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
 
     if not (os.access(ARCHIVE_DIR, os.R_OK) and ARCHIVE_DIR.is_dir()):
         run_subcommand('init', stdin=None, pwd=out_dir)  # must init full index because we need a db to store InstalledBinary entries in
@@ -1019,7 +1019,7 @@ def install(out_dir: Path=DATA_DIR) -> None:
         
         # if we have sudo/root permissions, take advantage of them just while installing dependencies
         print()
-        print(f'[yellow]:warning:  Running as [blue]{USER}[/blue] ({EUID}) with [red]sudo[/red] only for dependencies that need it.[/yellow]')
+        print(f'[yellow]:warning:  Running as UID=[blue]{EUID}[/blue] with [red]sudo[/red] only for dependencies that need it.[/yellow]')
         print(f'    DATA_DIR, LIB_DIR, and TMP_DIR will be owned by [blue]{ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}[/blue].')
         print()
     
