@@ -57,7 +57,7 @@ class LdapBinary(BaseBinary):
             "packages": lambda: ['python-ldap>=3.4.3', 'django-auth-ldap>=4.1.0'],
         },
         apt.name: {
-            "abspath": lambda: get_LDAP_LIB_path(SYS_SITE_PACKAGES),
+            "abspath": lambda: get_LDAP_LIB_path((*USER_SITE_PACKAGES, *SYS_SITE_PACKAGES)),
             "version": lambda: get_LDAP_LIB_version(),
             "packages": lambda: ['libssl-dev', 'libldap2-dev', 'libsasl2-dev', 'python3-ldap', 'python3-msgpack', 'python3-mutagen'],
         },

@@ -80,9 +80,9 @@ def check_not_root():
     from archivebox.config.permissions import IS_ROOT, IN_DOCKER
     
     attempted_command = ' '.join(sys.argv[1:]) if len(sys.argv) > 1 else ''
-    is_getting_help = '-h' in sys.argv or '--help' in sys.argv or 'help' in sys.argv[:2]
-    is_getting_version = '--version' in sys.argv or 'version' in sys.argv[:2]
-    is_installing = 'setup' in sys.argv[:2] or 'install' in sys.argv[:2]
+    is_getting_help = '-h' in sys.argv or '--help' in sys.argv or 'help' in sys.argv
+    is_getting_version = '--version' in sys.argv or 'version' in sys.argv
+    is_installing = 'setup' in sys.argv or 'install' in sys.argv
     
     if IS_ROOT and not (is_getting_help or is_getting_version or is_installing):
         print('[red][!] ArchiveBox should never be run as root![/red]', file=sys.stderr)
