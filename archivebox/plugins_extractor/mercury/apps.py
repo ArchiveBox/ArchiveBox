@@ -2,7 +2,6 @@ __package__ = 'plugins_extractor.mercury'
 
 from typing import List, Optional, Dict
 from pathlib import Path
-from subprocess import run
 
 from pydantic import InstanceOf, Field
 from pydantic_pkgr import BinProvider, BinName, BinProviderName, ProviderLookupDict, bin_abspath
@@ -42,11 +41,10 @@ class MercuryBinary(BaseBinary):
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
         LIB_NPM_BINPROVIDER.name: {
             'packages': lambda: ['@postlight/parser@^2.2.3'],
-            'version': lambda: run([str(LIB_NPM_BINPROVIDER.INSTALLER_BIN_ABSPATH), f'--prefix={LIB_NPM_BINPROVIDER.npm_prefix}', 'info', '@postlight/parser', 'version'], text=True, capture_output=True).stdout.strip(),
         },
         SYS_NPM_BINPROVIDER.name: {
-            'packages': lambda: [],   # never try to install things globally
-            'version': lambda: run([str(SYS_NPM_BINPROVIDER.INSTALLER_BIN_ABSPATH), '-g', 'info', '@postlight/parser', 'version'], text=True, capture_output=True).stdout.strip(),
+            'packages': lambda: ['@postlight/parser@^2.2.3'],
+            'install': lambda: False,                          # never try to install things into global prefix
         },
         env.name: {
             'version': lambda: '999.999.999' if bin_abspath('postlight-parser', PATH=env.PATH) else None,

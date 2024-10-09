@@ -35,12 +35,12 @@ NPM_CONFIG = NpmDependencyConfigs(**DEFAULT_GLOBAL_CONFIG)
 OLD_NODE_BIN_PATH = DATA_DIR / 'node_modules' / '.bin'
 NEW_NODE_BIN_PATH = CONSTANTS.LIB_NPM_DIR / 'node_modules' / '.bin'
 
-class SystemNpmProvider(NpmProvider, BaseBinProvider):
+class SystemNpmBinProvider(NpmProvider, BaseBinProvider):
     name: BinProviderName = "sys_npm"
     
     npm_prefix: Optional[Path] = None
 
-class LibNpmProvider(NpmProvider, BaseBinProvider):
+class LibNpmBinProvider(NpmProvider, BaseBinProvider):
     name: BinProviderName = "lib_npm"
     PATH: PATHStr = f'{NEW_NODE_BIN_PATH}:{OLD_NODE_BIN_PATH}'
     
@@ -52,8 +52,8 @@ class LibNpmProvider(NpmProvider, BaseBinProvider):
         return self
 
 
-SYS_NPM_BINPROVIDER = SystemNpmProvider()
-LIB_NPM_BINPROVIDER = LibNpmProvider()
+SYS_NPM_BINPROVIDER = SystemNpmBinProvider()
+LIB_NPM_BINPROVIDER = LibNpmBinProvider()
 npm = LIB_NPM_BINPROVIDER
 
 class NodeBinary(BaseBinary):

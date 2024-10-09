@@ -17,6 +17,7 @@ from pydantic_pkgr import (
 )
 
 from archivebox.config import CONSTANTS
+from archivebox.config.permissions import ARCHIVEBOX_USER
 
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
@@ -60,6 +61,8 @@ class PuppeteerBinProvider(BaseBinProvider):
     INSTALLER_BIN: BinName = "npx"
 
     PATH: PATHStr = str(CONSTANTS.LIB_BIN_DIR)
+    
+    euid: Optional[int] = ARCHIVEBOX_USER
 
     puppeteer_browsers_dir: Optional[Path] = LIB_DIR_BROWSERS
     puppeteer_install_args: List[str] = ["@puppeteer/browsers", "install", "--path", str(LIB_DIR_BROWSERS)]
