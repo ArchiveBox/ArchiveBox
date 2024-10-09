@@ -72,14 +72,11 @@ ENV ARCHIVEBOX_USER="archivebox" \
 # Global paths
 ENV CODE_DIR=/app \
     DATA_DIR=/data \
-    GLOBAL_VENV=/venv \
-    SYSTEM_LIB_DIR=/usr/share/archivebox \
-    SYSTEM_TMP_DIR=/tmp/archivebox \
     PLAYWRIGHT_BROWSERS_PATH=/browsers
+    # GLOBAL_VENV=/venv \
     # TODO: add TMP_DIR and LIB_DIR?
 
 # Build shell config
-# ENV PATH="$SYSTEM_LIB_DIR/bin:$GLOBAL_VENV/bin:$PATH"
 SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "errtrace", "-o", "nounset", "-c"] 
 
 ######### System Environment ####################################
@@ -243,15 +240,25 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     ) | tee -a /VERSION.txt
 
 # Install Node dependencies
-WORKDIR "$SYSTEM_LIB_DIR/npm"
-COPY "etc/package.json" "$SYSTEM_LIB_DIR/npm"
-RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing NPM extractor dependencies from package.json..." \
-    && npm install --prefix="$SYSTEM_LIB_DIR/npm" --prefer-offline --no-fund --no-audit --cache /root/.npm \
-    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "$SYSTEM_LIB_DIR" \
-    && ( \
+ENV PATH="/home/$ARCHIVEBOX_USER/.local/bin:$PATH"
+USER $ARCHIVEBOX_USER
+RUN --mount=type=cache,target=/home/$ARCHIVEBOX_USER/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT,uid=$DEFAULT_PUID,gid=$DEFAULT_PGID \
+    echo "[+] Installing NPM extractor dependencies globally..." \
+    && npm config set prefix '~/.local/' \
+    && npm install --global --prefer-offline --no-fund --no-audit --cache /home/$ARCHIVEBOX_USER/.npm \
+        "@postlight/parser@^2.2.3" \
+        "readability-extractor@github:ArchiveBox/readability-extractor" \
+        "single-file-cli@^1.1.54" \
+        "puppeteer@^23.5.0" \
+        "@puppeteer/browsers@^2.4.0"
+USER root
+RUN ( \
         which node && node --version \
         && which npm && npm version \
+        && which postlight-parser \
+        && which readability-extractor && readability-extractor --version \
+        && which single-file && single-file --version \
+        && which puppeteer && puppeteer --version \
         && echo -e '\n\n' \
     ) | tee -a /VERSION.txt
 
