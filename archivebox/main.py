@@ -324,16 +324,25 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     
     from core.models import Snapshot
     from rich import print
+    
+    from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
+    from archivebox.config.paths import _get_collection_id
 
-    out_dir.mkdir(exist_ok=True)
+    # if running as root, chown the data dir to the archivebox user to make sure it's accessible to the archivebox user
+    if IS_ROOT:
+        with SudoPermission(uid=0):
+            os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"')
+    _get_collection_id()
+    if IS_ROOT:
+        with SudoPermission(uid=0):
+            os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"/*')
+    
+    # if os.access(out_dir / CONSTANTS.JSON_INDEX_FILENAME, os.F_OK):
+    #     print("[red]:warning: This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.[/red]", file=sys.stderr)
+    #     print("[red]    You can run `archivebox list --json --with-headers > static_index.json` to manually generate it.[/red]", file=sys.stderr)
+
     is_empty = not len(set(os.listdir(out_dir)) - CONSTANTS.ALLOWED_IN_DATA_DIR)
-
-    if os.access(out_dir / CONSTANTS.JSON_INDEX_FILENAME, os.F_OK):
-        print("[red]:warning: This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.[/red]", file=sys.stderr)
-        print("[red]    You can run `archivebox list --json --with-headers > static_index.json` to manually generate it.[/red]", file=sys.stderr)
-
-    existing_index = os.access(CONSTANTS.DATABASE_FILE, os.F_OK)
-
+    existing_index = os.path.isfile(CONSTANTS.DATABASE_FILE)
     if is_empty and not existing_index:
         print(f'[turquoise4][+] Initializing a new ArchiveBox v{VERSION} collection...[/turquoise4]')
         print('[green]----------------------------------------------------------------------[/green]')
@@ -376,7 +385,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     for migration_line in apply_migrations(out_dir):
         sys.stdout.write(f'    {migration_line}\n')
 
-    assert os.access(CONSTANTS.DATABASE_FILE, os.R_OK)
+    assert os.path.isfile(CONSTANTS.DATABASE_FILE) and os.access(CONSTANTS.DATABASE_FILE, os.R_OK)
     print()
     print(f'    √ ./{CONSTANTS.DATABASE_FILE.relative_to(DATA_DIR)}')
     

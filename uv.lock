@@ -41,7 +41,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.8.5rc28"
+version = "0.8.5rc31"
 source = { editable = "." }
 dependencies = [
     { name = "atomicwrites" },

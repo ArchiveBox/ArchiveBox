@@ -570,6 +570,18 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CON
         output_dir = out_dir or CONSTANTS.DATA_DIR
 
         assert isinstance(output_dir, Path) and isinstance(CONSTANTS.PACKAGE_DIR, Path)
+        
+        from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, SudoPermission
+        from archivebox.config.paths import _get_collection_id
+    
+        # if running as root, chown the data dir to the archivebox user to make sure it's accessible to the archivebox user
+        if IS_ROOT:
+            with SudoPermission(uid=0):
+                os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"')
+        _get_collection_id(DATA_DIR=CONSTANTS.DATA_DIR, force_create=True)
+        if IS_ROOT:
+            with SudoPermission(uid=0):
+                os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"/*')
 
         bump_startup_progress_bar()
         try:
@@ -596,7 +608,7 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CON
                 except Exception as e:
                     bump_startup_progress_bar(advance=1000)
                     
-                    is_using_meta_cmd = any(ignored_subcommand in sys.argv for ignored_subcommand in ('help', 'version', '--help', '--version'))
+                    is_using_meta_cmd = any(ignored_subcommand in sys.argv for ignored_subcommand in ('help', 'version', '--help', '--version', 'init'))
                     if not is_using_meta_cmd:
                         # show error message to user only if they're not running a meta command / just trying to get help
                         STDERR.print()

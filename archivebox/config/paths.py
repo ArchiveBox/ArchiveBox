@@ -21,9 +21,7 @@ DATABASE_FILE = DATA_DIR / 'index.sqlite3'
 
 #############################################################################################
 
-@cache
-def get_collection_id(DATA_DIR=DATA_DIR) -> str:
-    """Get a short, stable, unique ID for the current collection (e.g. abc45678)"""
+def _get_collection_id(DATA_DIR=DATA_DIR, force_create=False) -> str:
     collection_id_file = DATA_DIR / '.archivebox_id'
     
     try:
@@ -43,7 +41,7 @@ def get_collection_id(DATA_DIR=DATA_DIR) -> str:
     try:
         # only persist collection_id file if we already have an index.sqlite3 file present
         # otherwise we might be running in a directory that is not a collection, no point creating cruft files
-        if os.path.isfile(DATABASE_FILE) and os.access(DATA_DIR, os.W_OK):
+        if os.path.isfile(DATABASE_FILE) and os.access(DATA_DIR, os.W_OK) or force_create:
             collection_id_file.write_text(collection_id)
             
             # if we're running as root right now, make sure the collection_id file is owned by the archivebox user
@@ -56,6 +54,11 @@ def get_collection_id(DATA_DIR=DATA_DIR) -> str:
     except (OSError, FileNotFoundError, PermissionError):
         pass
     return collection_id
+
+@cache
+def get_collection_id(DATA_DIR=DATA_DIR) -> str:
+    """Get a short, stable, unique ID for the current collection (e.g. abc45678)"""
+    return _get_collection_id(DATA_DIR=DATA_DIR)
 
 @cache
 def get_machine_id() -> str:
