@@ -112,6 +112,7 @@ class PuppeteerBinProvider(BaseBinProvider):
                 f"{self.__class__.__name__} install method is not available on this host ({self.INSTALLER_BIN} not found in $PATH)"
             )
         packages = packages or self.on_get_packages(bin_name)
+        assert packages, f"No packages specified for installation of {bin_name}"
 
         # print(f'[*] {self.__class__.__name__}: Installing {bin_name}: {self.INSTALLER_BIN_ABSPATH} install {packages}')
 
