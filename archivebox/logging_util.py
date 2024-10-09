@@ -573,11 +573,14 @@ def printable_folder_status(name: str, folder: Dict) -> str:
 
     if folder['path']:
         if os.access(folder['path'], os.R_OK):
-            num_files = (
-                f'{len(os.listdir(folder["path"]))} files'
-                if Path(folder['path']).is_dir() else
-                printable_filesize(Path(folder['path']).stat().st_size)
-            )
+            try:
+                num_files = (
+                    f'{len(os.listdir(folder["path"]))} files'
+                    if os.path.isdir(folder['path']) else
+                    printable_filesize(Path(folder['path']).stat().st_size)
+                )
+            except PermissionError:
+                num_files = 'error'
         else:
             num_files = 'missing'
         

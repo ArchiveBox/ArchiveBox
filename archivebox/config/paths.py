@@ -95,7 +95,11 @@ def get_LIB_DIR():
             if IS_ROOT:
                 # make sure lib dir is owned by the archivebox user, not root
                 with SudoPermission(uid=0):
-                    os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{lib_dir}"')
+                    if ARCHIVEBOX_USER == 0:
+                        # print(f'[yellow]:warning:  Waring: Creating SYSTEM_LIB_DIR {lib_dir} with mode 777 so that non-root archivebox users can share it.[/yellow] (caches shared libs used by archivebox for performance)', file=sys.stderr)
+                        os.system(f'chmod -R 777 "{lib_dir}"')
+                    else:
+                        os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{lib_dir}"')
             else:
                 raise PermissionError()
     except (PermissionError, AssertionError):
@@ -129,7 +133,11 @@ def get_TMP_DIR():
             if not dir_is_writable(run_dir):
                 if IS_ROOT:
                     with SudoPermission(uid=0, fallback=False):
-                        os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{run_dir}"')
+                        if ARCHIVEBOX_USER == 0:
+                            # print(f'[yellow]:warning:  Waring: Creating SYSTEM_TMP_DIR {run_dir} with mode 777 so that non-root archivebox users can access it.[/yellow]', file=sys.stderr)
+                            os.system(f'chmod -R 777 "{run_dir}"')
+                        else:
+                            os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{run_dir}"')
                 else:
                     raise PermissionError()
             assert len(str(run_dir / 'supervisord.conf')) < 95, 'SYSTEM_TMP_DIR path is too long, please set SYSTEM_TMP_DIR env variable to a shorter path (unfortunately unix requires socket paths be < 108 chars)'
@@ -148,7 +156,11 @@ def get_TMP_DIR():
         if not dir_is_writable(run_dir):
             if IS_ROOT:
                 with SudoPermission(uid=0):
-                    os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{run_dir}"')
+                    if ARCHIVEBOX_USER == 0:
+                        # print(f'[yellow]:warning:  Waring: Creating SYSTEM_TMP_DIR {run_dir} with mode 777 so that non-root archivebox users can access it.[/yellow]', file=sys.stderr)
+                        os.system(f'chmod -R 777 "{run_dir}"')
+                    else:
+                        os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{run_dir}"')
             else:
                 raise PermissionError()
             

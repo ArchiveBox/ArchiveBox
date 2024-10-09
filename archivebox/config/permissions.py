@@ -85,7 +85,7 @@ except Exception:
 #############################################################################################
 
 def drop_privileges():
-    """If running as root, drop privileges to the user that owns the data dir (or PUID, or default=911)"""
+    """If running as root, drop privileges to the user that owns the data dir (or PUID)"""
     
     # always run archivebox as the user that owns the data dir, never as root
     if os.getuid() == 0:
