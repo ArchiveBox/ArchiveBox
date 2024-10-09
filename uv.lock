@@ -41,7 +41,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.8.5rc31"
+version = "0.8.5rc32"
 source = { editable = "." }
 dependencies = [
     { name = "atomicwrites" },
@@ -1834,16 +1834,16 @@ wheels = [
 
 [[package]]
 name = "pydantic-pkgr"
-version = "0.4.21"
+version = "0.4.22"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-core" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a4/5d/25288d8eb7386e68ac3e19ed2874219dffc7225b5db61e7749668d4cb2fd/pydantic_pkgr-0.4.21.tar.gz", hash = "sha256:ace74f3d4ab1d69d16f52d40ee8897b47deb89f4c82e659c29fd242407adb64c", size = 38567 }
+sdist = { url = "https://files.pythonhosted.org/packages/33/27/7f53f0b7e7359b20ddef4483256f535190e8b0bf291f0d0e63209e882a0b/pydantic_pkgr-0.4.22.tar.gz", hash = "sha256:5b6f7b19938b82483f5ba664ddf9ba249b9e9900a1088b0162dd378fd9291ea9", size = 38723 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8b/b5/1f36fc3fbd667ff6d1da581689fe9de2ef700a645d4f10f3f5c1afc7a4a6/pydantic_pkgr-0.4.21-py3-none-any.whl", hash = "sha256:6138ad0f979a6ea233ba3abc4010a0a974931796e94256f3c09e7fde5b020488", size = 41633 },
+    { url = "https://files.pythonhosted.org/packages/c1/48/783c3d7aa78fcd2bda2e0da83c163fb828647d12b9b82a71ca59eb82629b/pydantic_pkgr-0.4.22-py3-none-any.whl", hash = "sha256:f359e8676d92f9e8cc2bff44720407b04ff87c1df2da49077e72a2f9cb65aa2a", size = 41699 },
 ]
 
 [[package]]

@@ -325,18 +325,6 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     from core.models import Snapshot
     from rich import print
     
-    from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
-    from archivebox.config.paths import _get_collection_id
-
-    # if running as root, chown the data dir to the archivebox user to make sure it's accessible to the archivebox user
-    if IS_ROOT:
-        with SudoPermission(uid=0):
-            os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"')
-    _get_collection_id()
-    if IS_ROOT:
-        with SudoPermission(uid=0):
-            os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"/*')
-    
     # if os.access(out_dir / CONSTANTS.JSON_INDEX_FILENAME, os.F_OK):
     #     print("[red]:warning: This folder contains a JSON index. It is deprecated, and will no longer be kept up to date automatically.[/red]", file=sys.stderr)
     #     print("[red]    You can run `archivebox list --json --with-headers > static_index.json` to manually generate it.[/red]", file=sys.stderr)

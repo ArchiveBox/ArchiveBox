@@ -581,7 +581,7 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CON
         _get_collection_id(DATA_DIR=CONSTANTS.DATA_DIR, force_create=True)
         if IS_ROOT:
             with SudoPermission(uid=0):
-                os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"/*')
+                os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"/* 2>/dev/null')
 
         bump_startup_progress_bar()
         try:
