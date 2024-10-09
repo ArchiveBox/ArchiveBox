@@ -91,18 +91,15 @@ def drop_privileges():
     if os.getuid() == 0:
         # drop permissions to the user that owns the data dir / provided PUID
         if os.geteuid() != ARCHIVEBOX_USER and ARCHIVEBOX_USER != 0 and ARCHIVEBOX_USER_EXISTS:
+            # drop our effective UID to the archivebox user's UID
             os.seteuid(ARCHIVEBOX_USER)
             
-            # try:
-            #     from .paths import PACKAGE_DIR
-            # except ModuleNotFoundError:
-            #     print(f'[red][X] Failed to get package dir for {__file__}[/red]')
-                
-            # if not os.access(__file__, os.R_OK):
-            #     # ARCHIVEBOX_USER is not able to read the source code, chown it so they can
-            #     with SudoPermission(uid=0, fallback=True):
-            #         os.system(f'chown -R :{ARCHIVEBOX_GROUP} "{PACKAGE_DIR}"')
-        # if we need sudo (e.g. for installing dependencies) code should use SudoPermissions() context manager to regain root
+            # update environment variables so that subprocesses dont try to write to /root
+            pw_record = pwd.getpwuid(ARCHIVEBOX_USER)
+            os.environ['HOME']     = pw_record.pw_dir
+            os.environ['LOGNAME']  = pw_record.pw_name
+            os.environ['USER']     = pw_record.pw_name
+
     if ARCHIVEBOX_USER == 0 or not ARCHIVEBOX_USER_EXISTS:
         print('[yellow]:warning:  Running as [red]root[/red] is not recommended and may make your [blue]DATA_DIR[/blue] inaccessible to other users on your system.[/yellow]', file=sys.stderr)
 
