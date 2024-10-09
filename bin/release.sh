@@ -25,10 +25,10 @@ cd "$REPO_DIR"
 # ./bin/build_docker.sh
 
 # Push relase to public repositories
-./bin/release_git.sh
 # ./bin/release_docs.sh
-./bin/release_pip.sh
-./bin/release_docker.sh
+./bin/release_git.sh "$@"
+./bin/release_pip.sh "$@"
+./bin/release_docker.sh "$@"
 
 VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
 echo "[√] Done. Published version v$VERSION"

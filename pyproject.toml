@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.8.5rc21"
+version = "0.8.5rc27"
 requires-python = ">=3.10"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -78,7 +78,7 @@ dependencies = [
     "django-taggit==1.3.0",
     "base32-crockford==0.3.0",
     # "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
-    "pydantic-pkgr>=0.4.16",
+    "pydantic-pkgr>=0.4.20",
     ############# Plugin Dependencies ################
     "sonic-client>=1.0.0",
     "yt-dlp>=2024.8.6",               # for: media"

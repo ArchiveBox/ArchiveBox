@@ -45,7 +45,7 @@ cffi==1.17.1
     # via cryptography
 channels==4.1.0
     # via archivebox (pyproject.toml)
-charset-normalizer==3.3.2
+charset-normalizer==3.4.0
     # via requests
 constantly==23.10.4
     # via twisted
@@ -168,8 +168,6 @@ pexpect==4.9.0
     # via ipython
 phonenumbers==8.13.47
     # via python-benedict
-platformdirs==4.3.6
-    # via archivebox (pyproject.toml)
 pluggy==1.5.0
     # via archivebox (pyproject.toml)
 prompt-toolkit==3.0.48
@@ -205,7 +203,7 @@ pydantic-core==2.23.4
     # via
     #   pydantic
     #   pydantic-pkgr
-pydantic-pkgr==0.4.9
+pydantic-pkgr==0.4.20
     # via archivebox (pyproject.toml)
 pydantic-settings==2.5.2
     # via archivebox (pyproject.toml)
