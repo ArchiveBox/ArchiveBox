@@ -1,7 +1,7 @@
 __package__ = "abx.archivebox"
 
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 from typing_extensions import Self
 
 from pydantic import Field, InstanceOf, validate_call
@@ -16,6 +16,7 @@ from pydantic_pkgr import (
 )
 
 from archivebox.config import CONSTANTS
+from archivebox.config.permissions import ARCHIVEBOX_USER
 
 import abx
 from .base_hook import BaseHook, HookType
@@ -124,6 +125,8 @@ class BrewBinProvider(BrewProvider, BaseBinProvider):
     
 class EnvBinProvider(EnvProvider, BaseBinProvider):
     name: BinProviderName = "env"
+    
+    euid: Optional[int] = ARCHIVEBOX_USER
 
 apt = AptBinProvider()
 brew = BrewBinProvider()
