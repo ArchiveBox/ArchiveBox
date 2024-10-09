@@ -27,13 +27,15 @@ RUNNING_AS_UID          = os.getuid()
 RUNNING_AS_GID          = os.getgid()
 EUID                    = os.geteuid()
 EGID                    = os.getegid()
+SUDO_UID                = int(os.environ.get('SUDO_UID', 0))
+SUDO_GID                = int(os.environ.get('SUDO_GID', 0))
 USER: str               = Path('~').expanduser().resolve().name
 
 IS_ROOT = RUNNING_AS_UID == 0
 IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'TRUE', 'yes')
 
-FALLBACK_UID = RUNNING_AS_UID
-FALLBACK_GID = RUNNING_AS_GID
+FALLBACK_UID = RUNNING_AS_UID or SUDO_UID
+FALLBACK_GID = RUNNING_AS_GID or SUDO_GID
 if RUNNING_AS_UID == 0:
     try:
         # if we are running as root it's really hard to figure out what the correct archivebox user should be
@@ -101,7 +103,7 @@ def drop_privileges():
             os.environ['USER']     = pw_record.pw_name
 
     if ARCHIVEBOX_USER == 0 or not ARCHIVEBOX_USER_EXISTS:
-        print('[yellow]:warning:  Running as [red]root[/red] is not recommended and may make your [blue]DATA_DIR[/blue] inaccessible to other users on your system.[/yellow]', file=sys.stderr)
+        print('[yellow]:warning:  Running as [red]root[/red] is not recommended and may make your [blue]DATA_DIR[/blue] inaccessible to other users on your system.[/yellow] (use [blue]sudo[/blue] instead)', file=sys.stderr)
 
 
 @contextmanager

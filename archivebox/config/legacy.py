@@ -596,8 +596,8 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CON
                 except Exception as e:
                     bump_startup_progress_bar(advance=1000)
                     
-                    subcommand = sys.argv[1] if len(sys.argv) > 1 else 'unknown'
-                    if subcommand not in ('help', 'version', '--help', '--version'):
+                    is_using_meta_cmd = any(ignored_subcommand in sys.argv for ignored_subcommand in ('help', 'version', '--help', '--version'))
+                    if not is_using_meta_cmd:
                         # show error message to user only if they're not running a meta command / just trying to get help
                         STDERR.print()
                         STDERR.print(Panel(
