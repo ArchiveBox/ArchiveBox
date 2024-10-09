@@ -12,7 +12,7 @@ from abx.archivebox.base_plugin import BasePlugin
 from abx.archivebox.base_hook import BaseHook
 from abx.archivebox.base_binary import BaseBinary, BaseBinProvider
 
-from plugins_pkg.pip.apps import SYS_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER
+from plugins_pkg.pip.apps import SYS_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER, LIB_PIP_BINPROVIDER
 from .settings import LDAP_CONFIG, get_ldap_lib
 
 
@@ -24,7 +24,7 @@ LDAP_LIB = lambda: get_ldap_lib()[0]   # lazy load to avoid slow ldap lib import
 class LdapBinary(BaseBinary):
     name: str = 'ldap'
     description: str = 'LDAP Authentication'
-    binproviders_supported: List[InstanceOf[BaseBinProvider]] = [VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER]
+    binproviders_supported: List[InstanceOf[BaseBinProvider]] = [VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, LIB_PIP_BINPROVIDER]
 
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
         VENV_PIP_BINPROVIDER.name: {

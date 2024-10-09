@@ -999,7 +999,21 @@ def install(out_dir: Path=DATA_DIR) -> None:
         print('[yellow]:warning:  Using [red]root[/red] privileges only to install dependencies that need it, all other operations should be done as a [blue]non-root[/blue] user.[/yellow]')
         print(f'    DATA_DIR, LIB_DIR, and TMP_DIR will be owned by [blue]{ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}[/blue].')
         print()
-        
+    
+    
+    package_manager_names = ', '.join(binprovider.name for binprovider in reversed(list(settings.BINPROVIDERS.values())))
+    print(f'[+] Setting up package managers [yellow]{package_manager_names}[/yellow]...')
+    for binprovider in reversed(list(settings.BINPROVIDERS.values())):
+        try:
+            binprovider.setup()
+        except Exception:
+            # it's ok, installing binaries below will automatically set up package managers as needed
+            # e.g. if user does not have npm available we cannot set it up here yet, but once npm Binary is installed
+            # the next package that depends on npm will automatically call binprovider.setup() during its own install
+            pass
+    
+    print()
+    
     for binary in reversed(list(settings.BINARIES.values())):
         providers = ' [grey53]or[/grey53] '.join(provider.name for provider in binary.binproviders_supported)
         print(f'[+] Locating / Installing [yellow]{binary.name}[/yellow] using [red]{providers}[/red]...')

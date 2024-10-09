@@ -59,6 +59,10 @@ class VenvPipBinProvider(PipProvider, BaseBinProvider):
     INSTALLER_BIN: BinName = "pip"
 
     pip_venv: Optional[Path] = Path(os.environ.get("VIRTUAL_ENV", None) or '/tmp/NotInsideAVenv')
+    
+    def setup(self):
+        """never attempt to create a venv here, this is just used to detect if we are inside an existing one"""
+        return None
 
 
 class LibPipBinProvider(PipProvider, BaseBinProvider):
@@ -75,7 +79,8 @@ pip = LIB_PIP_BINPROVIDER
 
 # ensure python libraries are importable from these locations (if archivebox wasnt executed from one of these then they wont already be in sys.path)
 site_packages_dir = 'lib/python{}.{}/site-packages'.format(*sys.version_info[:2])
-sys.path.append(str(VENV_PIP_BINPROVIDER.pip_venv / site_packages_dir))
+if os.environ.get("VIRTUAL_ENV", None):
+    sys.path.append(str(VENV_PIP_BINPROVIDER.pip_venv / site_packages_dir))
 sys.path.append(str(LIB_PIP_BINPROVIDER.pip_venv / site_packages_dir))
 
 
