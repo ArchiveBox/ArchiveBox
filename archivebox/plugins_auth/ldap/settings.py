@@ -2,8 +2,6 @@ __package__ = 'archivebox.plugins_auth.ldap'
 
 import sys
 
-from functools import cache
-
 from typing import Dict, List, Optional
 from pydantic import Field, model_validator, computed_field
 
@@ -12,12 +10,15 @@ from abx.archivebox.base_configset import BaseConfigSet
 LDAP_LIB = None
 LDAP_SEARCH = None
 
-@cache
-def get_ldap_lib():    
+def get_ldap_lib(extra_paths=()):
     global LDAP_LIB, LDAP_SEARCH
     if LDAP_LIB and LDAP_SEARCH:
         return LDAP_LIB, LDAP_SEARCH
     try:
+        for path in extra_paths:
+            if path not in sys.path:
+                sys.path.append(path)
+            
         import ldap
         from django_auth_ldap.config import LDAPSearch
         LDAP_LIB, LDAP_SEARCH = ldap, LDAPSearch

@@ -2,6 +2,7 @@ __package__ = 'archivebox.plugins_pkg.pip'
 
 import os
 import sys
+import site
 from pathlib import Path
 from typing import List, Dict, Optional
 from pydantic import InstanceOf, Field, model_validator, validate_call
@@ -83,10 +84,23 @@ pip = LIB_PIP_BINPROVIDER
 assert VENV_PIP_BINPROVIDER.pip_venv is not None
 assert LIB_PIP_BINPROVIDER.pip_venv is not None
 
-site_packages_dir = 'lib/python{}.{}/site-packages'.format(*sys.version_info[:2])
-if os.environ.get("VIRTUAL_ENV", None):
-    sys.path.append(str(VENV_PIP_BINPROVIDER.pip_venv / site_packages_dir))
-sys.path.append(str(LIB_PIP_BINPROVIDER.pip_venv / site_packages_dir))
+major, minor, patch = sys.version_info[:3]
+site_packages_dir = f'lib/python{major}.{minor}/site-packages'
+
+LIB_SITE_PACKAGES = (LIB_PIP_BINPROVIDER.pip_venv / site_packages_dir,)
+VENV_SITE_PACKAGES = (VENV_PIP_BINPROVIDER.pip_venv / site_packages_dir,)
+USER_SITE_PACKAGES = site.getusersitepackages()
+SYS_SITE_PACKAGES = site.getsitepackages()
+
+ALL_SITE_PACKAGES = (
+    *LIB_SITE_PACKAGES,
+    *VENV_SITE_PACKAGES,
+    *USER_SITE_PACKAGES,
+    *SYS_SITE_PACKAGES,
+)
+for site_packages_dir in ALL_SITE_PACKAGES:
+    if site_packages_dir not in sys.path:
+        sys.path.append(str(site_packages_dir))
 
 
 class ArchiveboxBinary(BaseBinary):
@@ -94,10 +108,10 @@ class ArchiveboxBinary(BaseBinary):
 
     binproviders_supported: List[InstanceOf[BinProvider]] = [VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
-        VENV_PIP_BINPROVIDER.name:  {'packages': lambda: [], 'version': lambda: VERSION, 'abspath': lambda: bin_abspath('archivebox')},
-        SYS_PIP_BINPROVIDER.name:   {'packages': lambda: [], 'version': lambda: VERSION, 'abspath': lambda: bin_abspath('archivebox')},
-        apt.name:                   {'packages': lambda: [], 'version': lambda: VERSION, 'abspath': lambda: bin_abspath('archivebox')},
-        brew.name:                  {'packages': lambda: [], 'version': lambda: VERSION, 'abspath': lambda: bin_abspath('archivebox')},
+        VENV_PIP_BINPROVIDER.name:  {'packages': lambda: [], 'version': lambda: VERSION},
+        SYS_PIP_BINPROVIDER.name:   {'packages': lambda: [], 'version': lambda: VERSION},
+        apt.name:                   {'packages': lambda: [], 'version': lambda: VERSION},
+        brew.name:                  {'packages': lambda: [], 'version': lambda: VERSION},
     }
     
     @validate_call
