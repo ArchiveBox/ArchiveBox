@@ -42,7 +42,7 @@ class SystemNpmProvider(NpmProvider, BaseBinProvider):
 
 class LibNpmProvider(NpmProvider, BaseBinProvider):
     name: BinProviderName = "lib_npm"
-    PATH: PATHStr = str(OLD_NODE_BIN_PATH)
+    PATH: PATHStr = f'{NEW_NODE_BIN_PATH}:{OLD_NODE_BIN_PATH}'
     
     npm_prefix: Optional[Path] = CONSTANTS.LIB_NPM_DIR
     
@@ -56,19 +56,28 @@ SYS_NPM_BINPROVIDER = SystemNpmProvider()
 LIB_NPM_BINPROVIDER = LibNpmProvider()
 npm = LIB_NPM_BINPROVIDER
 
-class NpmBinary(BaseBinary):
-    name: BinName = 'npm'
-    binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
-
-
-NPM_BINARY = NpmBinary()
-
 class NodeBinary(BaseBinary):
     name: BinName = 'node'
     binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
 
 
 NODE_BINARY = NodeBinary()
+
+
+class NpmBinary(BaseBinary):
+    name: BinName = 'npm'
+    binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
+
+NPM_BINARY = NpmBinary()
+
+
+class NpxBinary(BaseBinary):
+    name: BinName = 'npx'
+    binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
+
+NPX_BINARY = NpxBinary()
+
+
 
 
 
@@ -82,6 +91,7 @@ class NpmPlugin(BasePlugin):
         LIB_NPM_BINPROVIDER,
         NODE_BINARY,
         NPM_BINARY,
+        NPX_BINARY,
     ]
 
 

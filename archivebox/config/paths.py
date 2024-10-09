@@ -5,8 +5,9 @@ import hashlib
 import platform
 from pathlib import Path
 from functools import cache
+from datetime import datetime
 
-from .permissions import SudoPermission
+from .permissions import SudoPermission, IS_ROOT, ARCHIVEBOX_USER
 
 #############################################################################################
 
@@ -30,14 +31,28 @@ def get_collection_id(DATA_DIR=DATA_DIR) -> str:
     except (OSError, FileNotFoundError, PermissionError):
         pass
     
-    hash_key = str(DATA_DIR.resolve()).encode()
-    collection_id = hashlib.sha256(hash_key).hexdigest()[:8]
+    # hash the machine_id + collection dir path + creation time to get a unique collection_id
+    machine_id = get_machine_id()
+    collection_path = DATA_DIR.resolve()
+    try:
+        creation_date = DATA_DIR.stat().st_ctime
+    except Exception:
+        creation_date = datetime.now().isoformat()
+    collection_id = hashlib.sha256(f'{machine_id}:{collection_path}@{creation_date}'.encode()).hexdigest()[:8]
     
     try:
         # only persist collection_id file if we already have an index.sqlite3 file present
         # otherwise we might be running in a directory that is not a collection, no point creating cruft files
         if os.path.isfile(DATABASE_FILE) and os.access(DATA_DIR, os.W_OK):
             collection_id_file.write_text(collection_id)
+            
+            # if we're running as root right now, make sure the collection_id file is owned by the archivebox user
+            if IS_ROOT:
+                with SudoPermission(uid=0):
+                    if ARCHIVEBOX_USER == 0:
+                        os.system(f'chmod 777 "{collection_id_file}"')
+                    else:    
+                        os.system(f'chown {ARCHIVEBOX_USER} "{collection_id_file}"')
     except (OSError, FileNotFoundError, PermissionError):
         pass
     return collection_id

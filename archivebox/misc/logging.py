@@ -2,6 +2,7 @@ __package__ = 'archivebox.misc'
 
 # TODO: merge/dedupe this file with archivebox/logging_util.py
 
+
 import sys
 from typing import Optional, Union, Tuple, List
 from collections import defaultdict
@@ -15,7 +16,6 @@ from rich.highlighter import Highlighter
 CONSOLE = Console()
 STDERR = Console(stderr=True)
 IS_TTY = CONSOLE.is_interactive
-
 
 class RainbowHighlighter(Highlighter):
     def highlight(self, text):

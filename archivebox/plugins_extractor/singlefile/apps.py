@@ -46,23 +46,27 @@ class SinglefileBinary(BaseBinary):
     binproviders_supported: List[InstanceOf[BinProvider]] = [LIB_NPM_BINPROVIDER, SYS_NPM_BINPROVIDER, env]
 
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
-        env.name: {
-            'abspath': lambda:
-                bin_abspath(SINGLEFILE_CONFIG.SINGLEFILE_BINARY, PATH=env.PATH)
-                or bin_abspath('single-file', PATH=env.PATH)
-                or bin_abspath('single-file-node.js', PATH=env.PATH),
-        },
         LIB_NPM_BINPROVIDER.name: {
             "abspath": lambda:
-                bin_abspath(SINGLEFILE_CONFIG.SINGLEFILE_BINARY, PATH=env.PATH)
+                bin_abspath(SINGLEFILE_CONFIG.SINGLEFILE_BINARY, PATH=LIB_NPM_BINPROVIDER.PATH)
                 or bin_abspath("single-file", PATH=LIB_NPM_BINPROVIDER.PATH)
                 or bin_abspath("single-file-node.js", PATH=LIB_NPM_BINPROVIDER.PATH),
             "packages": lambda:
                 [f"single-file-cli@>={SINGLEFILE_MIN_VERSION} <{SINGLEFILE_MAX_VERSION}"],
         },
         SYS_NPM_BINPROVIDER.name: {
+            "abspath": lambda:
+                bin_abspath(SINGLEFILE_CONFIG.SINGLEFILE_BINARY, PATH=SYS_NPM_BINPROVIDER.PATH)
+                or bin_abspath("single-file", PATH=SYS_NPM_BINPROVIDER.PATH)
+                or bin_abspath("single-file-node.js", PATH=SYS_NPM_BINPROVIDER.PATH),
             "packages": lambda:
                 [],    # prevent modifying system global npm packages
+        },
+        env.name: {
+            'abspath': lambda:
+                bin_abspath(SINGLEFILE_CONFIG.SINGLEFILE_BINARY, PATH=env.PATH)
+                or bin_abspath('single-file', PATH=env.PATH)
+                or bin_abspath('single-file-node.js', PATH=env.PATH),
         },
     }
     

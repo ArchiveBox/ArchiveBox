@@ -2,7 +2,7 @@ __package__ = 'archivebox.config'
 
 import os
 import re
-import platform
+import sys
 
 from typing import Dict
 from pathlib import Path
@@ -56,6 +56,7 @@ class ConstantsDict(Mapping):
     RUNNING_AS_GID: int                 = RUNNING_AS_GID
     DEFAULT_PUID: int                   = DEFAULT_PUID
     DEFAULT_PGID: int                   = DEFAULT_PGID
+    IS_INSIDE_VENV: bool                = sys.prefix != sys.base_prefix
     
     # Source code dirs
     PACKAGE_DIR_NAME: str               = PACKAGE_DIR.name
@@ -209,15 +210,20 @@ class ConstantsDict(Mapping):
             'enabled': True,
             'is_valid': os.access(STATIC_DIR, os.R_OK) and os.access(STATIC_DIR, os.X_OK),                                                # read + list
         },
+        'CUSTOM_TEMPLATES_DIR': {
+            'path': CUSTOM_TEMPLATES_DIR.resolve(),
+            'enabled': os.path.isdir(CUSTOM_TEMPLATES_DIR),
+            'is_valid': os.path.isdir(CUSTOM_TEMPLATES_DIR) and os.access(CUSTOM_TEMPLATES_DIR, os.R_OK),                                      # read
+        },
+        'USER_PLUGINS_DIR': {
+            'path': USER_PLUGINS_DIR.resolve(),
+            'enabled': os.path.isdir(USER_PLUGINS_DIR),
+            'is_valid': os.path.isdir(USER_PLUGINS_DIR) and os.access(USER_PLUGINS_DIR, os.R_OK),                                              # read
+        },
         'LIB_DIR': {
             'path': LIB_DIR.resolve(),
             'enabled': True,
-            'is_valid': os.access(LIB_DIR, os.R_OK) and os.access(LIB_DIR, os.X_OK) and os.access(LIB_DIR, os.W_OK),                      # read + write
-        },
-        'TMP_DIR': {
-            'path': TMP_DIR.resolve(),
-            'enabled': True,
-            'is_valid': os.access(TMP_DIR, os.R_OK) and os.access(TMP_DIR, os.X_OK) and os.access(TMP_DIR, os.W_OK),                      # read + write
+            'is_valid': os.path.isdir(LIB_DIR) and os.access(LIB_DIR, os.R_OK) and os.access(LIB_DIR, os.W_OK),                      # read + write
         },
     })
         
@@ -225,62 +231,57 @@ class ConstantsDict(Mapping):
         "DATA_DIR": {
             "path": DATA_DIR.resolve(),
             "enabled": True,
-            "is_valid": os.access(DATA_DIR, os.R_OK) and os.access(DATA_DIR, os.W_OK) and os.access(DATA_DIR, os.X_OK),
+            "is_valid": os.path.isdir(DATA_DIR) and os.access(DATA_DIR, os.R_OK) and os.access(DATA_DIR, os.W_OK),
             "is_mount": os.path.ismount(DATA_DIR.resolve()),
         },
         "CONFIG_FILE": {
             "path": CONFIG_FILE.resolve(),
             "enabled": True,
-            "is_valid":  os.access(CONFIG_FILE, os.R_OK) and os.access(CONFIG_FILE, os.W_OK),
+            "is_valid": os.path.isfile(CONFIG_FILE) and os.access(CONFIG_FILE, os.R_OK) and os.access(CONFIG_FILE, os.W_OK),
         },
         "SQL_INDEX": {
             "path": DATABASE_FILE.resolve(),
             "enabled": True,
-            "is_valid": os.access(DATABASE_FILE, os.R_OK) and os.access(DATABASE_FILE, os.W_OK),
+            "is_valid": os.path.isfile(DATABASE_FILE) and os.access(DATABASE_FILE, os.R_OK) and os.access(DATABASE_FILE, os.W_OK),
             "is_mount": os.path.ismount(DATABASE_FILE.resolve()),
         },
         "QUEUE_DATABASE": {
             "path": QUEUE_DATABASE_FILE.resolve(),
             "enabled": True,
-            "is_valid": os.access(QUEUE_DATABASE_FILE, os.R_OK) and os.access(QUEUE_DATABASE_FILE, os.W_OK),
+            "is_valid": os.path.isfile(QUEUE_DATABASE_FILE) and os.access(QUEUE_DATABASE_FILE, os.R_OK) and os.access(QUEUE_DATABASE_FILE, os.W_OK),
             "is_mount": os.path.ismount(QUEUE_DATABASE_FILE.resolve()),
         },
         "ARCHIVE_DIR": {
             "path": ARCHIVE_DIR.resolve(),
             "enabled": True,
-            "is_valid": os.access(ARCHIVE_DIR, os.R_OK) and os.access(ARCHIVE_DIR, os.W_OK) and os.access(ARCHIVE_DIR, os.X_OK),
+            "is_valid": os.path.isdir(ARCHIVE_DIR) and os.access(ARCHIVE_DIR, os.R_OK) and os.access(ARCHIVE_DIR, os.W_OK),
             "is_mount": os.path.ismount(ARCHIVE_DIR.resolve()),
         },
         "SOURCES_DIR": {
             "path": SOURCES_DIR.resolve(),
             "enabled": True,
-            "is_valid": os.access(SOURCES_DIR, os.R_OK) and os.access(SOURCES_DIR, os.W_OK) and os.access(SOURCES_DIR, os.X_OK),
+            "is_valid": os.path.isdir(SOURCES_DIR) and os.access(SOURCES_DIR, os.R_OK) and os.access(SOURCES_DIR, os.W_OK),
+        },
+        "PERSONAS_DIR": {
+            "path": PERSONAS_DIR.resolve(),
+            "enabled": os.path.isdir(PERSONAS_DIR),
+            "is_valid": os.path.isdir(PERSONAS_DIR) and os.access(PERSONAS_DIR, os.R_OK) and os.access(PERSONAS_DIR, os.W_OK),                 # read + write
         },
         "LOGS_DIR": {
             "path": LOGS_DIR.resolve(),
             "enabled": True,
-            "is_valid": os.access(LOGS_DIR, os.R_OK) and os.access(LOGS_DIR, os.W_OK) and os.access(LOGS_DIR, os.X_OK),                              # read + write
+            "is_valid": os.path.isdir(LOGS_DIR) and os.access(LOGS_DIR, os.R_OK) and os.access(LOGS_DIR, os.W_OK),                              # read + write
+        },
+        'TMP_DIR': {
+            'path': TMP_DIR.resolve(),
+            'enabled': True,
+            'is_valid': os.path.isdir(TMP_DIR) and os.access(TMP_DIR, os.R_OK) and os.access(TMP_DIR, os.W_OK),                      # read + write
         },
         # "CACHE_DIR": {
         #     "path": CACHE_DIR.resolve(),
         #     "enabled": True,
-        #     "is_valid": os.access(CACHE_DIR, os.R_OK) and os.access(CACHE_DIR, os.W_OK) and os.access(CACHE_DIR, os.X_OK),                        # read + write
+        #     "is_valid": os.access(CACHE_DIR, os.R_OK) and os.access(CACHE_DIR, os.W_OK),                        # read + write
         # },
-        "PERSONAS_DIR": {
-            "path": PERSONAS_DIR.resolve(),
-            "enabled": os.access(PERSONAS_DIR, os.R_OK),
-            "is_valid": os.access(PERSONAS_DIR, os.R_OK) and os.access(PERSONAS_DIR, os.W_OK) and os.access(PERSONAS_DIR, os.X_OK),                 # read + write
-        },
-        'CUSTOM_TEMPLATES_DIR': {
-            'path': CUSTOM_TEMPLATES_DIR.resolve(),
-            'enabled': os.access(CUSTOM_TEMPLATES_DIR, os.R_OK),
-            'is_valid': os.access(CUSTOM_TEMPLATES_DIR, os.R_OK) and os.access(CUSTOM_TEMPLATES_DIR, os.X_OK),                                      # read
-        },
-        'USER_PLUGINS_DIR': {
-            'path': USER_PLUGINS_DIR.resolve(),
-            'enabled': os.access(USER_PLUGINS_DIR, os.R_OK),
-            'is_valid': os.access(USER_PLUGINS_DIR, os.R_OK) and os.access(USER_PLUGINS_DIR, os.X_OK),                                              # read
-        },
     })
 
     @classmethod

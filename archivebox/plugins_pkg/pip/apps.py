@@ -2,13 +2,13 @@ __package__ = 'archivebox.plugins_pkg.pip'
 
 import os
 import sys
-import inspect
 from pathlib import Path
 from typing import List, Dict, Optional
 from pydantic import InstanceOf, Field, model_validator, validate_call
 
 
 import django
+import django.db.backends.sqlite3.base
 from django.db.backends.sqlite3.base import Database as django_sqlite3     # type: ignore[import-type]
 from django.core.checks import Error, Tags
 from pydantic_pkgr import BinProvider, PipProvider, BinName, BinProviderName, ProviderLookupDict, SemVer, bin_abspath
@@ -54,16 +54,18 @@ class SystemPipxBinProvider(PipProvider, BaseBinProvider):
     pip_venv: Optional[Path] = None        # global pipx scope
 
 
+IS_INSIDE_VENV = sys.prefix != sys.base_prefix
+
 class VenvPipBinProvider(PipProvider, BaseBinProvider):
     name: BinProviderName = "venv_pip"
     INSTALLER_BIN: BinName = "pip"
 
-    pip_venv: Optional[Path] = Path(os.environ.get("VIRTUAL_ENV", None) or '/tmp/NotInsideAVenv')
+    pip_venv: Optional[Path] = Path(sys.prefix if IS_INSIDE_VENV else os.environ.get("VIRTUAL_ENV", '/tmp/NotInsideAVenv/lib'))
     
     def setup(self):
         """never attempt to create a venv here, this is just used to detect if we are inside an existing one"""
         return None
-
+    
 
 class LibPipBinProvider(PipProvider, BaseBinProvider):
     name: BinProviderName = "lib_pip"
@@ -78,6 +80,9 @@ LIB_PIP_BINPROVIDER = LibPipBinProvider()
 pip = LIB_PIP_BINPROVIDER
 
 # ensure python libraries are importable from these locations (if archivebox wasnt executed from one of these then they wont already be in sys.path)
+assert VENV_PIP_BINPROVIDER.pip_venv is not None
+assert LIB_PIP_BINPROVIDER.pip_venv is not None
+
 site_packages_dir = 'lib/python{}.{}/site-packages'.format(*sys.version_info[:2])
 if os.environ.get("VIRTUAL_ENV", None):
     sys.path.append(str(VENV_PIP_BINPROVIDER.pip_venv / site_packages_dir))
@@ -127,17 +132,22 @@ class PythonBinary(BaseBinary):
 
 PYTHON_BINARY = PythonBinary()
 
+
+LOADED_SQLITE_PATH = Path(django.db.backends.sqlite3.base.__file__)
+LOADED_SQLITE_VERSION = SemVer(django_sqlite3.version)
+LOADED_SQLITE_FROM_VENV = str(LOADED_SQLITE_PATH.absolute().resolve()).startswith(str(VENV_PIP_BINPROVIDER.pip_venv.absolute().resolve()))
+
 class SqliteBinary(BaseBinary):
     name: BinName = 'sqlite'
     binproviders_supported: List[InstanceOf[BaseBinProvider]] = Field(default=[VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER])
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
         VENV_PIP_BINPROVIDER.name: {
-            "abspath": lambda: Path(inspect.getfile(django_sqlite3)),
-            "version": lambda: SemVer(django_sqlite3.version),
+            "abspath": lambda: LOADED_SQLITE_PATH if LOADED_SQLITE_FROM_VENV else None,
+            "version": lambda: LOADED_SQLITE_VERSION if LOADED_SQLITE_FROM_VENV else None,
         },
         SYS_PIP_BINPROVIDER.name: {
-            "abspath": lambda: Path(inspect.getfile(django_sqlite3)),
-            "version": lambda: SemVer(django_sqlite3.version),
+            "abspath": lambda: LOADED_SQLITE_PATH if not LOADED_SQLITE_FROM_VENV else None,
+            "version": lambda: LOADED_SQLITE_VERSION if not LOADED_SQLITE_FROM_VENV else None,
         },
     }
     
@@ -166,18 +176,22 @@ class SqliteBinary(BaseBinary):
 SQLITE_BINARY = SqliteBinary()
 
 
+LOADED_DJANGO_PATH = Path(django.__file__)
+LOADED_DJANGO_VERSION = SemVer(django.VERSION[:3])
+LOADED_DJANGO_FROM_VENV = str(LOADED_DJANGO_PATH.absolute().resolve()).startswith(str(VENV_PIP_BINPROVIDER.pip_venv.absolute().resolve()))
+
 class DjangoBinary(BaseBinary):
     name: BinName = 'django'
 
     binproviders_supported: List[InstanceOf[BaseBinProvider]] = Field(default=[VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER])
     provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
         VENV_PIP_BINPROVIDER.name: {
-            "abspath": lambda: inspect.getfile(django),
-            "version": lambda: django.VERSION[:3],
+            "abspath": lambda: LOADED_DJANGO_PATH if LOADED_DJANGO_FROM_VENV else None,
+            "version": lambda: LOADED_DJANGO_VERSION if LOADED_DJANGO_FROM_VENV else None,
         },
         SYS_PIP_BINPROVIDER.name: {
-            "abspath": lambda: inspect.getfile(django),
-            "version": lambda: django.VERSION[:3],
+            "abspath": lambda: LOADED_DJANGO_PATH if not LOADED_DJANGO_FROM_VENV else None,
+            "version": lambda: LOADED_DJANGO_VERSION if not LOADED_DJANGO_FROM_VENV else None,
         },
     }
     
@@ -204,6 +218,13 @@ class PipBinary(BaseBinary):
         return self.load()                  # obviously it's already installed if we are running this ;)
 
 PIP_BINARY = PipBinary()
+
+
+class PipxBinary(BaseBinary):
+    name: BinName = "pipx"
+    binproviders_supported: List[InstanceOf[BinProvider]] = [LIB_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
+
+PIPX_BINARY = PipxBinary()
 
 
 class CheckUserIsNotRoot(BaseCheck):
@@ -262,6 +283,7 @@ class PipPlugin(BasePlugin):
         VENV_PIP_BINPROVIDER,
         LIB_PIP_BINPROVIDER,
         PIP_BINARY,
+        PIPX_BINARY,
         ARCHIVEBOX_BINARY,
         PYTHON_BINARY,
         SQLITE_BINARY,
@@ -269,6 +291,7 @@ class PipPlugin(BasePlugin):
         USER_IS_NOT_ROOT_CHECK,
         PIP_ENVIRONMENT_CHECK,
     ]
+
 
 PLUGIN = PipPlugin()
 # PLUGIN.register(settings)

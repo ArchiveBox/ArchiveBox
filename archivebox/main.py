@@ -195,6 +195,8 @@ def version(quiet: bool=False,
     from archivebox.config.version import get_COMMIT_HASH, get_BUILD_TIME
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, RUNNING_AS_UID, RUNNING_AS_GID
 
+    from abx.archivebox.base_binary import BaseBinary, apt, brew, env
+
     # 0.7.1
     # ArchiveBox v0.7.1+editable COMMIT_HASH=951bba5 BUILD_TIME=2023-12-17 16:46:05 1702860365
     # IN_DOCKER=False IN_QEMU=False ARCH=arm64 OS=Darwin PLATFORM=macOS-14.2-arm64-arm-64bit PYTHON=Cpython
@@ -214,7 +216,7 @@ def version(quiet: bool=False,
         f'ARCH={p.machine}',
         f'OS={p.system}',
         f'PLATFORM={platform.platform()}',
-        f'PYTHON={sys.implementation.name.title()}',
+        f'PYTHON={sys.implementation.name.title()}' + (' (venv)' if CONSTANTS.IS_INSIDE_VENV else ''),
     )
     OUTPUT_IS_REMOTE_FS = CONSTANTS.DATA_LOCATIONS.DATA_DIR.is_mount or CONSTANTS.DATA_LOCATIONS.ARCHIVE_DIR.is_mount
     DATA_DIR_STAT = CONSTANTS.DATA_DIR.stat()
@@ -228,14 +230,15 @@ def version(quiet: bool=False,
     prnt(
         f'DEBUG={SHELL_CONFIG.DEBUG}',
         f'IS_TTY={SHELL_CONFIG.IS_TTY}',
-        f'TZ={CONSTANTS.TIMEZONE}',
+        f'SUDO={CONSTANTS.IS_ROOT}',
+        f'ID={CONSTANTS.MACHINE_ID}:{CONSTANTS.COLLECTION_ID}',
         f'SEARCH_BACKEND={SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE}',
         f'LDAP={LDAP_CONFIG.LDAP_ENABLED}',
         #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
     )
     prnt()
 
-    prnt('[pale_green1][i] Dependency versions:[/pale_green1]')
+    prnt('[pale_green1][i] Binary Dependencies:[/pale_green1]')
     failures = []
     for name, binary in reversed(list(settings.BINARIES.items())):
         if binary.name == 'archivebox':
@@ -247,7 +250,7 @@ def version(quiet: bool=False,
         except Exception as e:
             err = e
             loaded_bin = binary
-        provider_summary = f'[dark_sea_green3]{loaded_bin.binprovider.name.ljust(10)}[/dark_sea_green3]' if loaded_bin.binprovider else '[grey23]not found[/grey23]'
+        provider_summary = f'[dark_sea_green3]{loaded_bin.binprovider.name.ljust(10)}[/dark_sea_green3]' if loaded_bin.binprovider else '[grey23]not found[/grey23] '
         if loaded_bin.abspath:
             abspath = str(loaded_bin.abspath).replace(str(DATA_DIR), '[light_slate_blue].[/light_slate_blue]').replace(str(Path('~').expanduser()), '~')
             if ' ' in abspath:
@@ -257,6 +260,25 @@ def version(quiet: bool=False,
         prnt('', '[green]√[/green]' if loaded_bin.is_valid else '[red]X[/red]', '', loaded_bin.name.ljust(21), str(loaded_bin.version).ljust(12), provider_summary, abspath, overflow='ignore', crop=False)
         if not loaded_bin.is_valid:
             failures.append(loaded_bin.name)
+            
+    prnt()
+    prnt('[gold3][i] Package Managers:[/gold3]')
+    for name, binprovider in reversed(list(settings.BINPROVIDERS.items())):
+        err = None
+        
+        # TODO: implement a BinProvider.BINARY() method that gets the loaded binary for a binprovider's INSTALLER_BIN
+        loaded_bin = binprovider.INSTALLER_BINARY or BaseBinary(name=binprovider.INSTALLER_BIN, binproviders=[env, apt, brew])
+        
+        abspath = None
+        if loaded_bin.abspath:
+            abspath = str(loaded_bin.abspath).replace(str(DATA_DIR), '.').replace(str(Path('~').expanduser()), '~')
+            if ' ' in abspath:
+                abspath = abspath.replace(' ', r'\ ')
+                
+        PATH = str(binprovider.PATH).replace(str(DATA_DIR), '[light_slate_blue].[/light_slate_blue]').replace(str(Path('~').expanduser()), '~')
+        ownership_summary = f'UID=[blue]{str(binprovider.euid).ljust(4)}[/blue]'
+        provider_summary = f'[dark_sea_green3]{str(abspath).ljust(52)}[/dark_sea_green3]' if abspath else f'[grey23]{"not available".ljust(52)}[/grey23]'
+        prnt('', '[green]√[/green]' if binprovider.is_valid else '[red]X[/red]', '', binprovider.name.ljust(11), provider_summary, ownership_summary, f'PATH={PATH}' if abspath else '', overflow='ellipsis', soft_wrap=True)
 
     prnt()
     prnt('[deep_sky_blue3][i] Source-code locations:[/deep_sky_blue3]')
@@ -278,11 +300,9 @@ def version(quiet: bool=False,
         
     prnt()
     
-
     if failures:
         raise SystemExit(1)
-    else:
-        raise SystemExit(0)
+    raise SystemExit(0)
 
 @enforce_types
 def run(subcommand: str,
@@ -451,6 +471,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     if os.access(html_index, os.F_OK):
         html_index.rename(f"{index_name}.html")
     
+    CONSTANTS.PERSONAS_DIR.mkdir(parents=True, exist_ok=True)
     CONSTANTS.TMP_DIR.mkdir(parents=True, exist_ok=True)
     CONSTANTS.LIB_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -985,7 +1006,7 @@ def install(out_dir: Path=DATA_DIR) -> None:
     from django.conf import settings
     
     from archivebox import CONSTANTS
-    from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
+    from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, USER
 
     if not (os.access(ARCHIVE_DIR, os.R_OK) and ARCHIVE_DIR.is_dir()):
         run_subcommand('init', stdin=None, pwd=out_dir)  # must init full index because we need a db to store InstalledBinary entries in
@@ -994,15 +1015,17 @@ def install(out_dir: Path=DATA_DIR) -> None:
     
     # we never want the data dir to be owned by root, detect owner of existing owner of DATA_DIR to try and guess desired non-root UID
     if IS_ROOT:
+        EUID = os.geteuid()
+        
         # if we have sudo/root permissions, take advantage of them just while installing dependencies
         print()
-        print('[yellow]:warning:  Using [red]root[/red] privileges only to install dependencies that need it, all other operations should be done as a [blue]non-root[/blue] user.[/yellow]')
+        print(f'[yellow]:warning:  Running as [blue]{USER}[/blue] ({EUID}) with [red]sudo[/red] only for dependencies that need it.[/yellow]')
         print(f'    DATA_DIR, LIB_DIR, and TMP_DIR will be owned by [blue]{ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}[/blue].')
         print()
     
     
-    package_manager_names = ', '.join(binprovider.name for binprovider in reversed(list(settings.BINPROVIDERS.values())))
-    print(f'[+] Setting up package managers [yellow]{package_manager_names}[/yellow]...')
+    package_manager_names = ', '.join(f'[yellow]{binprovider.name}[/yellow]' for binprovider in reversed(list(settings.BINPROVIDERS.values())))
+    print(f'[+] Setting up package managers {package_manager_names}...')
     for binprovider in reversed(list(settings.BINPROVIDERS.values())):
         try:
             binprovider.setup()
@@ -1016,9 +1039,11 @@ def install(out_dir: Path=DATA_DIR) -> None:
     
     for binary in reversed(list(settings.BINARIES.values())):
         providers = ' [grey53]or[/grey53] '.join(provider.name for provider in binary.binproviders_supported)
-        print(f'[+] Locating / Installing [yellow]{binary.name}[/yellow] using [red]{providers}[/red]...')
+        print(f'[+] Detecting / Installing [yellow]{binary.name.ljust(22)}[/yellow] using [red]{providers}[/red]...')
         try:
-            print(binary.load_or_install(fresh=True).model_dump(exclude={'provider_overrides', 'bin_dir', 'hook_type'}))
+            with SudoPermission(uid=0, fallback=True):
+                # print(binary.load_or_install(fresh=True).model_dump(exclude={'provider_overrides', 'bin_dir', 'hook_type'}))
+                binary.load_or_install(fresh=True).model_dump(exclude={'provider_overrides', 'bin_dir', 'hook_type'})
             if IS_ROOT:
                 with SudoPermission(uid=0):
                     if ARCHIVEBOX_USER == 0:
@@ -1026,19 +1051,7 @@ def install(out_dir: Path=DATA_DIR) -> None:
                     else:    
                         os.system(f'chown -R {ARCHIVEBOX_USER} "{CONSTANTS.LIB_DIR.resolve()}"')
         except Exception as e:
-            if IS_ROOT:
-                print(f'[yellow]:warning:  Retrying {binary.name} installation with [red]sudo[/red]...[/yellow]')
-                with SudoPermission(uid=0):
-                    try:
-                        print(binary.load_or_install(fresh=True).model_dump(exclude={'provider_overrides', 'bin_dir', 'hook_type'}))
-                        if ARCHIVEBOX_USER == 0:
-                            os.system(f'chmod -R 777 "{CONSTANTS.LIB_DIR.resolve()}"')
-                        else:    
-                            os.system(f'chown -R {ARCHIVEBOX_USER} "{CONSTANTS.LIB_DIR.resolve()}"')
-                    except Exception as e:
-                        print(f'[red]:cross_mark: Failed to install {binary.name} as root: {e}[/red]')
-            else:
-                print(f'[red]:cross_mark: Failed to install {binary.name} as user {ARCHIVEBOX_USER}: {e}[/red]')
+            print(f'[red]:cross_mark: Failed to install {binary.name} as user {ARCHIVEBOX_USER}: {e}[/red]')
                 
 
     from django.contrib.auth import get_user_model
