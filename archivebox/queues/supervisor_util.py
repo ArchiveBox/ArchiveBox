@@ -3,6 +3,7 @@ __package__ = 'archivebox.queues'
 import time
 import signal
 import psutil
+import shutil
 import subprocess
 from pathlib import Path
 from rich import print
@@ -85,7 +86,7 @@ def get_existing_supervisord_process():
         current_state = cast(Dict[str, int | str], server.supervisor.getState())
         if current_state["statename"] == "RUNNING":
             pid = server.supervisor.getPID()
-            print(f"[🦸‍♂️] Supervisord connected (pid={pid}) via unix://{str(get_sock_file()).replace(str(TMP_DIR), 'tmp')}.")
+            print(f"[🦸‍♂️] Supervisord connected (pid={pid}) via unix://{str(get_sock_file()).replace(str(DATA_DIR), '.')}.")
             return server.supervisor
     except FileNotFoundError:
         return None
@@ -117,6 +118,13 @@ def stop_existing_supervisord_process():
 def start_new_supervisord_process(daemonize=False):
     print(f"[🦸‍♂️] Supervisord starting{' in background' if daemonize else ''}...")
     # Create a config file in the current working directory
+    
+    # clear out existing stale state files
+    shutil.rmtree(WORKERS_DIR, ignore_errors=True)
+    PID_FILE.unlink(missing_ok=True)
+    get_sock_file().unlink(missing_ok=True)
+    SUPERVISORD_CONFIG_FILE.unlink(missing_ok=True)
+    
     create_supervisord_config()
 
     # Start supervisord
