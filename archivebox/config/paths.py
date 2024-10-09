@@ -5,9 +5,10 @@ import sys
 import tempfile
 import hashlib
 from pathlib import Path
-
 from functools import cache
+
 from platformdirs import PlatformDirs
+from rich import print
 
 from .permissions import SudoPermission, IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
 
@@ -91,7 +92,7 @@ def get_LIB_DIR():
             lib_dir = HOST_DIRS.user_data_path
             lib_dir.mkdir(parents=True, exist_ok=True)
         
-        if not dir_is_writable(lib_dir):
+        if IS_ROOT or not dir_is_writable(lib_dir, uid=ARCHIVEBOX_USER):
             if IS_ROOT:
                 # make sure lib dir is owned by the archivebox user, not root
                 with SudoPermission(uid=0):
@@ -130,7 +131,7 @@ def get_TMP_DIR():
             run_dir = Path(os.environ['SYSTEM_TMP_DIR']).resolve() / get_collection_id(DATA_DIR=DATA_DIR)
             with SudoPermission(uid=0, fallback=True):
                 run_dir.mkdir(parents=True, exist_ok=True)
-            if not dir_is_writable(run_dir):
+            if not dir_is_writable(run_dir, uid=ARCHIVEBOX_USER):
                 if IS_ROOT:
                     with SudoPermission(uid=0, fallback=False):
                         if ARCHIVEBOX_USER == 0:
@@ -153,7 +154,7 @@ def get_TMP_DIR():
         with SudoPermission(uid=0, fallback=True):
             run_dir.mkdir(parents=True, exist_ok=True)
             
-        if not dir_is_writable(run_dir):
+        if IS_ROOT or not dir_is_writable(run_dir, uid=ARCHIVEBOX_USER):
             if IS_ROOT:
                 with SudoPermission(uid=0):
                     if ARCHIVEBOX_USER == 0:

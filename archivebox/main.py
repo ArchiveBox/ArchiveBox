@@ -450,6 +450,9 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
         json_index.rename(f"{index_name}.json")
     if os.access(html_index, os.F_OK):
         html_index.rename(f"{index_name}.html")
+    
+    CONSTANTS.TMP_DIR.mkdir(parents=True, exist_ok=True)
+    CONSTANTS.LIB_DIR.mkdir(parents=True, exist_ok=True)
 
     if install:
         run_subcommand('install', pwd=out_dir)
@@ -1004,14 +1007,20 @@ def install(out_dir: Path=DATA_DIR) -> None:
             print(binary.load_or_install(fresh=True).model_dump(exclude={'provider_overrides', 'bin_dir', 'hook_type'}))
             if IS_ROOT:
                 with SudoPermission(uid=0):
-                    os.system(f'chown -R {ARCHIVEBOX_USER} "{CONSTANTS.LIB_DIR.resolve()}"')
+                    if ARCHIVEBOX_USER == 0:
+                        os.system(f'chmod -R 777 "{CONSTANTS.LIB_DIR.resolve()}"')
+                    else:    
+                        os.system(f'chown -R {ARCHIVEBOX_USER} "{CONSTANTS.LIB_DIR.resolve()}"')
         except Exception as e:
             if IS_ROOT:
                 print(f'[yellow]:warning:  Retrying {binary.name} installation with [red]sudo[/red]...[/yellow]')
                 with SudoPermission(uid=0):
                     try:
                         print(binary.load_or_install(fresh=True).model_dump(exclude={'provider_overrides', 'bin_dir', 'hook_type'}))
-                        os.system(f'chown -R {ARCHIVEBOX_USER} "{CONSTANTS.LIB_DIR.resolve()}"')
+                        if ARCHIVEBOX_USER == 0:
+                            os.system(f'chmod -R 777 "{CONSTANTS.LIB_DIR.resolve()}"')
+                        else:    
+                            os.system(f'chown -R {ARCHIVEBOX_USER} "{CONSTANTS.LIB_DIR.resolve()}"')
                     except Exception as e:
                         print(f'[red]:cross_mark: Failed to install {binary.name} as root: {e}[/red]')
             else:

@@ -109,8 +109,8 @@ def check_data_dir_permissions():
     data_owned_by_root = data_dir_uid == 0
     
     # data_owned_by_default_user = data_dir_uid == DEFAULT_PUID or data_dir_gid == DEFAULT_PGID
-    data_owner_doesnt_match = (data_dir_uid != ARCHIVEBOX_USER and data_dir_gid != ARCHIVEBOX_GROUP) and not IS_ROOT
-    data_not_writable = not (os.access(DATA_DIR, os.W_OK) and os.access(CONSTANTS.LIB_DIR, os.W_OK) and os.access(CONSTANTS.TMP_DIR, os.W_OK))
+    data_owner_doesnt_match = (data_dir_uid != ARCHIVEBOX_USER and data_dir_gid != ARCHIVEBOX_GROUP) if not IS_ROOT else False
+    data_not_writable = not (os.isdir(DATA_DIR) and os.access(DATA_DIR, os.W_OK))     #  and os.access(CONSTANTS.LIB_DIR, os.W_OK) and os.access(CONSTANTS.TMP_DIR, os.W_OK))
     if data_owned_by_root:
         STDERR.print('\n[yellow]:warning: Warning: ArchiveBox [blue]DATA_DIR[/blue] is currently owned by [red]root[/red], ArchiveBox will refuse to run![/yellow]')
     elif data_owner_doesnt_match or data_not_writable:

@@ -16,9 +16,9 @@ from .paths import (
     PACKAGE_DIR,
     DATA_DIR,
     ARCHIVE_DIR,
-    get_collection_id,
-    get_LIB_DIR,
-    get_TMP_DIR,
+    # get_collection_id,
+    # get_LIB_DIR,
+    # get_TMP_DIR,
 )
 from .permissions import (
     IS_ROOT,
@@ -39,13 +39,14 @@ class ConstantsDict(Mapping):
     PACKAGE_DIR: Path                   = PACKAGE_DIR
     DATA_DIR: Path                      = DATA_DIR
     ARCHIVE_DIR: Path                   = ARCHIVE_DIR
-    COLLECTION_ID: str                  = get_collection_id(DATA_DIR)
+    # COLLECTION_ID: str                  = get_collection_id(DATA_DIR)
     
     # Host system
     VERSION: str                        = detect_installed_version(PACKAGE_DIR)
     OS: str                             = platform.system().lower()    # darwin, linux, etc.
     ARCH: str                           = platform.machine().lower()   # arm64, x86_64, aarch64, etc.
     IN_DOCKER: bool                     = IN_DOCKER
+    LIB_DIR_SCOPE: str                  = f'{ARCH}-{OS}-docker' if IN_DOCKER else f'{ARCH}-{OS}'
     
     # Permissions
     IS_ROOT: bool                       = IS_ROOT
@@ -95,9 +96,11 @@ class ConstantsDict(Mapping):
     
     # Runtime dirs
     TMP_DIR_NAME: str                   = 'tmp'
-    TMP_DIR: Path                       = get_TMP_DIR()
+    # TMP_DIR: Path                     = get_TMP_DIR()
+    TMP_DIR: Path                       = DATA_DIR / TMP_DIR_NAME
     LIB_DIR_NAME: str                   = 'lib'
-    LIB_DIR: Path                       = get_LIB_DIR()
+    # LIB_DIR: Path                     = get_LIB_DIR()
+    LIB_DIR: Path                       = DATA_DIR / LIB_DIR_NAME / LIB_DIR_SCOPE
     LIB_PIP_DIR: Path                   = LIB_DIR / 'pip'
     LIB_NPM_DIR: Path                   = LIB_DIR / 'npm'
     LIB_BROWSERS_DIR: Path              = LIB_DIR / 'browsers'

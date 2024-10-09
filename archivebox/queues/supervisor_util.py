@@ -1,6 +1,5 @@
 __package__ = 'archivebox.queues'
 
-import os
 import time
 import signal
 import psutil
@@ -15,7 +14,7 @@ from xmlrpc.client import ServerProxy
 
 from archivebox.config.permissions import ARCHIVEBOX_USER
 
-from .settings import SUPERVISORD_CONFIG_FILE, DATA_DIR, PID_FILE, SOCK_FILE, LOG_FILE, WORKERS_DIR, TMP_DIR, LOGS_DIR
+from .settings import SUPERVISORD_CONFIG_FILE, DATA_DIR, PID_FILE, get_sock_file, LOG_FILE, WORKERS_DIR, TMP_DIR, LOGS_DIR
 
 from typing import Iterator
 
@@ -48,11 +47,11 @@ nocleanup = true
 user = {ARCHIVEBOX_USER}
 
 [unix_http_server]
-file = {TMP_DIR}/{SOCK_FILE.name}
+file = {get_sock_file()}
 chmod = 0700
 
 [supervisorctl]
-serverurl = unix://{TMP_DIR}/{SOCK_FILE.name}
+serverurl = unix://{get_sock_file()}
 
 [rpcinterface:supervisor]
 supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
@@ -81,12 +80,12 @@ def create_worker_config(daemon):
 
 def get_existing_supervisord_process():
     try:
-        transport = SupervisorTransport(None, None, f"unix://{SOCK_FILE}")
+        transport = SupervisorTransport(None, None, f"unix://{get_sock_file()}")
         server = ServerProxy("http://localhost", transport=transport)
         current_state = cast(Dict[str, int | str], server.supervisor.getState())
         if current_state["statename"] == "RUNNING":
             pid = server.supervisor.getPID()
-            print(f"[🦸‍♂️] Supervisord connected (pid={pid}) via unix://{str(SOCK_FILE).replace(str(TMP_DIR), 'tmp')}.")
+            print(f"[🦸‍♂️] Supervisord connected (pid={pid}) via unix://{str(get_sock_file()).replace(str(TMP_DIR), 'tmp')}.")
             return server.supervisor
     except FileNotFoundError:
         return None
