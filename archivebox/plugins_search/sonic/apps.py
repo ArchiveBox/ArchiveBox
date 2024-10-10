@@ -51,7 +51,6 @@ class SonicConfig(BaseConfigSet):
 SONIC_CONFIG = SonicConfig()
 
 
-
 class SonicBinary(BaseBinary):
     name: BinName = SONIC_CONFIG.SONIC_BINARY
     binproviders_supported: List[InstanceOf[BinProvider]] = [brew, env]   # TODO: add cargo
@@ -121,7 +120,7 @@ class SonicSearchPlugin(BasePlugin):
 
     hooks: List[InstanceOf[BaseHook]] = [
         SONIC_CONFIG,
-        SONIC_BINARY,
+        *([SONIC_BINARY] if (SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE == 'sonic' or SONIC_LIB) else []),
         SONIC_SEARCH_BACKEND,
     ]
 
