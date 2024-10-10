@@ -75,7 +75,7 @@ class LdapAuthPlugin(BasePlugin):
 
     hooks: List[InstanceOf[BaseHook]] = [
         LDAP_CONFIG,
-        LDAP_BINARY,
+        *([LDAP_BINARY] if LDAP_CONFIG.LDAP_ENABLED else []),
     ]
 
 
