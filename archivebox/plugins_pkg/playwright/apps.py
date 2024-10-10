@@ -152,7 +152,13 @@ class PlaywrightBinProvider(BaseBinProvider):
 
         # chrome@129.0.6668.58 /data/lib/browsers/chrome/mac_arm-129.0.6668.58/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
         # playwright build v1010 downloaded to /home/squash/.cache/ms-playwright/ffmpeg-1010
-        output_lines = [line for line in proc.stdout.strip().split('\n') if '/chrome-' in line]
+        output_lines = [
+            line for line in proc.stdout.strip().split('\n')
+            if '/chrom' in line
+            and 'chrom' in line.rsplit('/', 1)[-1].lower()   # make final path segment (filename) contains chrome or chromium
+            and 'xdg-settings' not in line
+            and 'ffmpeg' not in line
+        ]
         if output_lines:
             relpath = output_lines[0].split(self.playwright_browsers_dir)[-1]
             abspath = self.playwright_browsers_dir / relpath

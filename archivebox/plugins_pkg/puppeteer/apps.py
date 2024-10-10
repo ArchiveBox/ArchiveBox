@@ -131,7 +131,7 @@ class PuppeteerBinProvider(BaseBinProvider):
 
         # to proceed? (y) chrome@129.0.6668.91 /tmp/test3/lib/x86_64-linux/browsers/chrome/linux-129.0.6668.91/chrome-linux64/chrome
         # chrome@129.0.6668.58 /data/lib/browsers/chrome/mac_arm-129.0.6668.58/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
-        relpath = proc.stdout.strip().split(str(self.puppeteer_browsers_dir))[-1]
+        relpath = proc.stdout.strip().split(str(self.puppeteer_browsers_dir))[-1].split('\n', 1)[0]
         abspath = self.puppeteer_browsers_dir / relpath
         
         if os.path.isfile(abspath) and os.access(abspath, os.X_OK):
