@@ -572,15 +572,13 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CON
         assert isinstance(output_dir, Path) and isinstance(CONSTANTS.PACKAGE_DIR, Path)
         
         from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, SudoPermission
-        from archivebox.config.paths import _get_collection_id
     
         # if running as root, chown the data dir to the archivebox user to make sure it's accessible to the archivebox user
-        if IS_ROOT:
+        if IS_ROOT and ARCHIVEBOX_USER != 0:
             with SudoPermission(uid=0):
+                # running as root is a special case where it's ok to be a bit slower
+                # make sure data dir is always owned by the correct user
                 os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"')
-        _get_collection_id(DATA_DIR=CONSTANTS.DATA_DIR, force_create=True)
-        if IS_ROOT:
-            with SudoPermission(uid=0):
                 os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"/* 2>/dev/null')
 
         bump_startup_progress_bar()
