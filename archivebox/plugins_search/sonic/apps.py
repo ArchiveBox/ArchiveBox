@@ -120,7 +120,7 @@ class SonicSearchPlugin(BasePlugin):
 
     hooks: List[InstanceOf[BaseHook]] = [
         SONIC_CONFIG,
-        *([SONIC_BINARY] if (SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE == 'sonic' or SONIC_LIB) else []),
+        *([SONIC_BINARY] if (SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE == 'sonic') else []),
         SONIC_SEARCH_BACKEND,
     ]
 
