@@ -11,7 +11,6 @@ from pydantic import InstanceOf, Field, model_validator, validate_call
 import django
 import django.db.backends.sqlite3.base
 from django.db.backends.sqlite3.base import Database as django_sqlite3     # type: ignore[import-type]
-from django.core.checks import Error, Tags
 from pydantic_pkgr import BinProvider, PipProvider, BinName, BinProviderName, ProviderLookupDict, SemVer
 
 from archivebox.config import CONSTANTS, VERSION
