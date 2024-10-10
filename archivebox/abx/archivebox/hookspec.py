@@ -18,10 +18,6 @@ def get_REPLAYERS():
     return {}
 
 @hookspec
-def get_CHECKS():
-    return {}
-
-@hookspec
 def get_ADMINDATAVIEWS():
     return {}
 

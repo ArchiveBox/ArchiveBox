@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from .base_binary import BaseBinary, BaseBinProvider
     from .base_extractor import BaseExtractor
     from .base_replayer import BaseReplayer
-    from .base_check import BaseCheck
     from .base_queue import BaseQueue
     from .base_admindataview import BaseAdminDataView
     from .base_searchbackend import BaseSearchBackend
@@ -77,13 +76,6 @@ def get_REPLAYERS() -> Dict[str, 'BaseReplayer']:
         replayer.id: replayer
         for plugin_replayers in pm.hook.get_REPLAYERS()
             for replayer in plugin_replayers
-    })
-
-def get_CHECKS() -> Dict[str, 'BaseCheck']:
-    return benedict({
-        check.id: check
-        for plugin_checks in pm.hook.get_CHECKS()
-            for check in plugin_checks
     })
 
 def get_ADMINDATAVIEWS() -> Dict[str, 'BaseAdminDataView']:

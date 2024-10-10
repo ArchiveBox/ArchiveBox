@@ -41,7 +41,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.8.5rc32"
+version = "0.8.5rc33"
 source = { editable = "." }
 dependencies = [
     { name = "atomicwrites" },
@@ -148,7 +148,7 @@ requires-dist = [
     { name = "pluggy", specifier = ">=1.5.0" },
     { name = "psutil", specifier = ">=6.0.0" },
     { name = "py-machineid", specifier = ">=0.6.0" },
-    { name = "pydantic-pkgr", specifier = ">=0.4.21" },
+    { name = "pydantic-pkgr", specifier = ">=0.4.23" },
     { name = "pydantic-settings", specifier = ">=2.5.2" },
     { name = "python-benedict", extras = ["io", "parse"], specifier = ">=0.33.2" },
     { name = "python-crontab", specifier = ">=3.2.0" },
@@ -1834,16 +1834,16 @@ wheels = [
 
 [[package]]
 name = "pydantic-pkgr"
-version = "0.4.22"
+version = "0.4.23"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-core" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/33/27/7f53f0b7e7359b20ddef4483256f535190e8b0bf291f0d0e63209e882a0b/pydantic_pkgr-0.4.22.tar.gz", hash = "sha256:5b6f7b19938b82483f5ba664ddf9ba249b9e9900a1088b0162dd378fd9291ea9", size = 38723 }
+sdist = { url = "https://files.pythonhosted.org/packages/09/fe/92649747968cfc93508fe54d182605b555bba6dc9762f99cf80fbc914d67/pydantic_pkgr-0.4.23.tar.gz", hash = "sha256:f4508fc395ba36648d86d5ff9792603eb9f166e5ec2d3ca88616c725d423635e", size = 38721 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c1/48/783c3d7aa78fcd2bda2e0da83c163fb828647d12b9b82a71ca59eb82629b/pydantic_pkgr-0.4.22-py3-none-any.whl", hash = "sha256:f359e8676d92f9e8cc2bff44720407b04ff87c1df2da49077e72a2f9cb65aa2a", size = 41699 },
+    { url = "https://files.pythonhosted.org/packages/31/e0/a953dc79dccf8f77afe967d48d27bd911666598d1ac1b905101d291d32ad/pydantic_pkgr-0.4.23-py3-none-any.whl", hash = "sha256:f7f04683db6b669fb74dd6c94f08e4918d16d1a38910b4025b0dcb7a28f2bf25", size = 41703 },
 ]
 
 [[package]]

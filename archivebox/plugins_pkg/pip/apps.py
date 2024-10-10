@@ -12,13 +12,12 @@ import django
 import django.db.backends.sqlite3.base
 from django.db.backends.sqlite3.base import Database as django_sqlite3     # type: ignore[import-type]
 from django.core.checks import Error, Tags
-from pydantic_pkgr import BinProvider, PipProvider, BinName, BinProviderName, ProviderLookupDict, SemVer, bin_abspath
+from pydantic_pkgr import BinProvider, PipProvider, BinName, BinProviderName, ProviderLookupDict, SemVer
 
 from archivebox.config import CONSTANTS, VERSION
 
 from abx.archivebox.base_plugin import BasePlugin
 from abx.archivebox.base_configset import BaseConfigSet
-from abx.archivebox.base_check import BaseCheck
 from abx.archivebox.base_binary import BaseBinary, BaseBinProvider, env, apt, brew
 from abx.archivebox.base_hook import BaseHook
 
@@ -241,51 +240,6 @@ class PipxBinary(BaseBinary):
 PIPX_BINARY = PipxBinary()
 
 
-class CheckUserIsNotRoot(BaseCheck):
-    label: str = 'CheckUserIsNotRoot'
-    tag: str = Tags.database
-
-    @staticmethod
-    def check(settings, logger) -> List[Warning]:
-        errors = []
-        if getattr(settings, "USER", None) == 'root' or getattr(settings, "PUID", None) == 0:
-            errors.append(
-                Error(
-                    "Cannot run as root!",
-                    id="core.S001",
-                    hint=f'Run ArchiveBox as a non-root user with a UID greater than 500. (currently running as UID {os.getuid()}).',
-                )
-            )
-        # logger.debug('[√] UID is not root')
-        return errors
-
-    
-class CheckPipEnvironment(BaseCheck):
-    label: str = "CheckPipEnvironment"
-    tag: str = Tags.database
-
-    @staticmethod
-    def check(settings, logger) -> List[Warning]:
-        # soft errors: check that lib/pip virtualenv is setup properly
-        errors = []
-        
-        LIB_PIP_BINPROVIDER.setup()
-        if not LIB_PIP_BINPROVIDER.is_valid:
-            errors.append(
-                Error(
-                    f"Failed to setup {LIB_PIP_BINPROVIDER.pip_venv} virtualenv for runtime dependencies!",
-                    id="pip.P001",
-                    hint="Make sure the data dir is writable and make sure python3-pip and python3-venv are installed & available on the host.",
-                )
-            )
-        # logger.debug("[√] CheckPipEnvironment: data/lib/pip virtualenv is setup properly")
-        return errors
-
-
-USER_IS_NOT_ROOT_CHECK = CheckUserIsNotRoot()
-PIP_ENVIRONMENT_CHECK = CheckPipEnvironment()
-
-
 class PipPlugin(BasePlugin):
     app_label: str = 'pip'
     verbose_name: str = 'PIP'
@@ -302,8 +256,6 @@ class PipPlugin(BasePlugin):
         PYTHON_BINARY,
         SQLITE_BINARY,
         DJANGO_BINARY,
-        USER_IS_NOT_ROOT_CHECK,
-        PIP_ENVIRONMENT_CHECK,
     ]
 
 
