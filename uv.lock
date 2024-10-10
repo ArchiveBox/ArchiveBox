@@ -41,7 +41,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.8.5rc33"
+version = "0.8.5rc34"
 source = { editable = "." }
 dependencies = [
     { name = "atomicwrites" },
@@ -148,7 +148,7 @@ requires-dist = [
     { name = "pluggy", specifier = ">=1.5.0" },
     { name = "psutil", specifier = ">=6.0.0" },
     { name = "py-machineid", specifier = ">=0.6.0" },
-    { name = "pydantic-pkgr", specifier = ">=0.4.23" },
+    { name = "pydantic-pkgr", specifier = ">=0.4.24" },
     { name = "pydantic-settings", specifier = ">=2.5.2" },
     { name = "python-benedict", extras = ["io", "parse"], specifier = ">=0.33.2" },
     { name = "python-crontab", specifier = ">=3.2.0" },
@@ -1834,16 +1834,16 @@ wheels = [
 
 [[package]]
 name = "pydantic-pkgr"
-version = "0.4.23"
+version = "0.4.24"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-core" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/09/fe/92649747968cfc93508fe54d182605b555bba6dc9762f99cf80fbc914d67/pydantic_pkgr-0.4.23.tar.gz", hash = "sha256:f4508fc395ba36648d86d5ff9792603eb9f166e5ec2d3ca88616c725d423635e", size = 38721 }
+sdist = { url = "https://files.pythonhosted.org/packages/14/65/9a3d801d19686de0d940d131a135bdb1a79ed6ac430c0f7901dcd45f710a/pydantic_pkgr-0.4.24.tar.gz", hash = "sha256:5a4de016478ecd7c0aec0818f5d2e72255a2f625a5c200af217aa70c4524fa90", size = 38785 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/31/e0/a953dc79dccf8f77afe967d48d27bd911666598d1ac1b905101d291d32ad/pydantic_pkgr-0.4.23-py3-none-any.whl", hash = "sha256:f7f04683db6b669fb74dd6c94f08e4918d16d1a38910b4025b0dcb7a28f2bf25", size = 41703 },
+    { url = "https://files.pythonhosted.org/packages/13/0d/84080a63ebcb112fe7a96bc681aee91ccdf0c334598e2016984aa4c74d6e/pydantic_pkgr-0.4.24-py3-none-any.whl", hash = "sha256:cec121b5b0fc73421af9915e45dfb09cdc776734fcee87f08b501053f5a36259", size = 41791 },
 ]
 
 [[package]]
@@ -2329,16 +2329,16 @@ wheels = [
 
 [[package]]
 name = "sphinx-rtd-theme"
-version = "3.0.0"
+version = "3.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "docutils" },
     { name = "sphinx" },
     { name = "sphinxcontrib-jquery" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/21/f8/2667f9cab89827528596588dd9de6f937f52e5c6e87e6f28ecb866955551/sphinx_rtd_theme-3.0.0.tar.gz", hash = "sha256:905d67de03217fd3d76fbbdd992034ac8e77044ef8063a544dda1af74d409e08", size = 7620317 }
+sdist = { url = "https://files.pythonhosted.org/packages/55/ff/e24d14f397ce07a93d302be444d4da7953294f9b1be99497dc92f800ac7b/sphinx_rtd_theme-3.0.1.tar.gz", hash = "sha256:a4c5745d1b06dfcb80b7704fe532eb765b44065a8fad9851e4258c8804140703", size = 7620352 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/11/81e5bfffdbd6dd3173d5ee29b4629a03ba80d38d4a250e7a8504af22d5c2/sphinx_rtd_theme-3.0.0-py2.py3-none-any.whl", hash = "sha256:1ffe1539957775bfa0a7331370de7dc145b6eac705de23365dc55c5d94bb08e7", size = 7655495 },
+    { url = "https://files.pythonhosted.org/packages/c8/51/aed903ad0843a06ccfb93e6e8849e752a9379eaec0f50d9237ae373dd737/sphinx_rtd_theme-3.0.1-py2.py3-none-any.whl", hash = "sha256:921c0ece75e90633ee876bd7b148cfaad136b481907ad154ac3669b6fc957916", size = 7655509 },
 ]
 
 [[package]]
@@ -2792,11 +2792,11 @@ wheels = [
 
 [[package]]
 name = "xmltodict"
-version = "0.14.0"
+version = "0.14.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/44/ea/9467a80e5d1722067ad235801883e6eb92f1665c2c629fea7d57fb52775e/xmltodict-0.14.0.tar.gz", hash = "sha256:8b39b25b564fd466be566c9e8a869cc4b5083c2fec7f98665f47bf0853f6cc77", size = 51945 }
+sdist = { url = "https://files.pythonhosted.org/packages/98/f7/d29b8cdc9d8d075673be0f800013c1161e2fd4234546a140855a1bcc9eb4/xmltodict-0.14.1.tar.gz", hash = "sha256:338c8431e4fc554517651972d62f06958718f6262b04316917008e8fd677a6b0", size = 51919 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c6/99/23393ec588b33a63b2471df7ab8e583eca117c63fb47b95545e5e747be75/xmltodict-0.14.0-py2.py3-none-any.whl", hash = "sha256:6dd20b8de8d0eb84d175ec706cc17b53df236615b0980de33537736319e5ee85", size = 9993 },
+    { url = "https://files.pythonhosted.org/packages/83/33/ce3c404fece93880135ab9a07414d57f642e9340717130362bcd4ecee3c1/xmltodict-0.14.1-py2.py3-none-any.whl", hash = "sha256:3ef4a7b71c08f19047fcbea572e1d7f4207ab269da1565b5d40e9823d3894e63", size = 9982 },
 ]
 
 [[package]]

@@ -1,11 +1,11 @@
 __package__ = 'archivebox.plugins_pkg.npm'
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from pydantic import InstanceOf, model_validator
 
-from pydantic_pkgr import BinProvider, NpmProvider, BinName, PATHStr, BinProviderName
+from pydantic_pkgr import BinProvider, NpmProvider, BinName, PATHStr, BinProviderName, ProviderLookupDict
 
 from archivebox.config import DATA_DIR, CONSTANTS
 
@@ -59,6 +59,10 @@ npm = LIB_NPM_BINPROVIDER
 class NodeBinary(BaseBinary):
     name: BinName = 'node'
     binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
+    
+    overrides: Dict[BinProviderName, ProviderLookupDict] = {
+        apt.name: {'packages': lambda c: ['nodejs']},
+    }
 
 
 NODE_BINARY = NodeBinary()
@@ -68,12 +72,22 @@ class NpmBinary(BaseBinary):
     name: BinName = 'npm'
     binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
 
+    overrides: Dict[BinProviderName, ProviderLookupDict] = {
+        apt.name: {'install': lambda: None},   # already installed when nodejs is installed
+        brew.name: {'install': lambda: None},  # already installed when nodejs is installed
+    }
+    
 NPM_BINARY = NpmBinary()
 
 
 class NpxBinary(BaseBinary):
     name: BinName = 'npx'
     binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
+    
+    overrides: Dict[BinProviderName, ProviderLookupDict] = {
+        apt.name: {'install': lambda: None},   # already installed when nodejs is installed
+        brew.name: {'install': lambda: None},  # already installed when nodejs is installed
+    }
 
 NPX_BINARY = NpxBinary()
 
