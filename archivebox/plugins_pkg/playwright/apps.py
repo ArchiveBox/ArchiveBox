@@ -149,14 +149,21 @@ class PlaywrightBinProvider(BaseBinProvider):
 
         # print(f'[*] {self.__class__.__name__}: Installing {bin_name}: {self.INSTALLER_BIN_ABSPATH} install {packages}')
 
-        install_args = [*self.playwright_install_args]
 
-        proc = self.exec(bin_name=self.INSTALLER_BIN_ABSPATH, cmd=[*install_args, *packages])
+        # playwright install-deps (to install system dependencies like fonts, graphics libraries, etc.)
+        if platform.system().lower() != 'darwin':
+            # libglib2.0-0, libnss3, libnspr4, libdbus-1-3, libatk1.0-0, libatk-bridge2.0-0, libcups2, libdrm2, libxcb1, libxkbcommon0, libatspi2.0-0, libx11-6, libxcomposite1, libxdamage1, libxext6, libxfixes3, libxrandr2, libgbm1, libcairo2, libasound2
+            proc = self.exec(bin_name=self.INSTALLER_BIN_ABSPATH, cmd=['install-deps'])
+            if proc.returncode != 0:
+                print(proc.stdout.strip())
+                print(proc.stderr.strip())
+
+        proc = self.exec(bin_name=self.INSTALLER_BIN_ABSPATH, cmd=['install', *packages])
 
         if proc.returncode != 0:
             print(proc.stdout.strip())
             print(proc.stderr.strip())
-            raise Exception(f"{self.__class__.__name__}: install got returncode {proc.returncode} while installing {packages}: {packages}")
+            raise Exception(f"{self.__class__.__name__}: install got returncode {proc.returncode} while installing {packages}: {packages} PACKAGES={packages}")
 
         # chrome@129.0.6668.58 /data/lib/browsers/chrome/mac_arm-129.0.6668.58/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
         # playwright build v1010 downloaded to /home/squash/.cache/ms-playwright/ffmpeg-1010
@@ -168,13 +175,12 @@ class PlaywrightBinProvider(BaseBinProvider):
             and 'ffmpeg' not in line
         ]
         if output_lines:
-            relpath = output_lines[0].split(self.playwright_browsers_dir)[-1]
+            relpath = output_lines[0].split(str(self.playwright_browsers_dir))[-1]
             abspath = self.playwright_browsers_dir / relpath
             if os.path.isfile(abspath) and os.access(abspath, os.X_OK):
                 self._browser_abspaths[bin_name] = abspath
-                return abspath
         
-        return proc.stderr.strip() + "\n" + proc.stdout.strip()
+        return (proc.stderr.strip() + "\n" + proc.stdout.strip()).strip()
 
 PLAYWRIGHT_BINPROVIDER = PlaywrightBinProvider()
 

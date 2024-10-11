@@ -88,6 +88,7 @@ class PuppeteerBinProvider(BaseBinProvider):
             return sorted(self.puppeteer_browsers_dir.glob(f'{browser_name}/mac*/chrome*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing'))
 
         # /data/lib/browsers/chrome/linux-131.0.6730.0/chrome-linux64/chrome
+        # /data/lib/aarch64-linux/browsers/chrome/linux-129.0.6668.100/chrome-linux64/chrome
         return sorted(self.puppeteer_browsers_dir.glob(f"{browser_name}/linux*/chrome*/chrome"))
 
     def default_abspath_handler(self, bin_name: BinName, **context) -> Optional[HostBinPath]:
@@ -102,7 +103,7 @@ class PuppeteerBinProvider(BaseBinProvider):
         if matching_bins:
             newest_bin = matching_bins[-1]  # already sorted alphabetically, last should theoretically be highest version number
             self._browser_abspaths[bin_name] = newest_bin
-            return self._browser_abspaths[bin_name]
+            return newest_bin
         
         return None
 
@@ -129,8 +130,9 @@ class PuppeteerBinProvider(BaseBinProvider):
             print(proc.stderr.strip())
             raise Exception(f"{self.__class__.__name__}: install got returncode {proc.returncode} while installing {packages}: {packages}")
 
-        # to proceed? (y) chrome@129.0.6668.91 /tmp/test3/lib/x86_64-linux/browsers/chrome/linux-129.0.6668.91/chrome-linux64/chrome
+        # chrome@129.0.6668.91 /tmp/test3/lib/x86_64-linux/browsers/chrome/linux-129.0.6668.91/chrome-linux64/chrome
         # chrome@129.0.6668.58 /data/lib/browsers/chrome/mac_arm-129.0.6668.58/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing
+        # /data/lib/aarch64-linux/browsers/chrome/linux-129.0.6668.100/chrome-linux64/chrome
         relpath = proc.stdout.strip().split(str(self.puppeteer_browsers_dir))[-1].split('\n', 1)[0]
         abspath = self.puppeteer_browsers_dir / relpath
         
@@ -138,7 +140,7 @@ class PuppeteerBinProvider(BaseBinProvider):
             self._browser_abspaths[bin_name] = abspath
             return abspath
 
-        return proc.stderr.strip() + "\n" + proc.stdout.strip()
+        return (proc.stderr.strip() + "\n" + proc.stdout.strip()).strip()
 
 PUPPETEER_BINPROVIDER = PuppeteerBinProvider()
 
