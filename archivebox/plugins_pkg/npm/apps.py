@@ -73,7 +73,7 @@ class NpmBinary(BaseBinary):
     binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
 
     overrides: BinaryOverrides = {
-        apt.name: {'install': lambda: None},   # already installed when nodejs is installed
+        apt.name: {'packages': ['npm']},   # already installed when nodejs is installed
         brew.name: {'install': lambda: None},  # already installed when nodejs is installed
     }
     
