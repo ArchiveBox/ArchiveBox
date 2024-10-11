@@ -275,6 +275,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
         build-essential gcc \
         libssl-dev libldap2-dev libsasl2-dev \
         python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps \
+        pipx \
     # && ln -s "$GLOBAL_VENV" "$APP_VENV" \
     # && pdm use --venv in-project \
     # && pdm run python -m ensurepip \
