@@ -205,7 +205,7 @@ pydantic-core==2.23.4
     # via
     #   pydantic
     #   pydantic-pkgr
-pydantic-pkgr==0.5.2
+pydantic-pkgr==0.5.3
     # via archivebox (pyproject.toml)
 pydantic-settings==2.5.2
     # via archivebox (pyproject.toml)

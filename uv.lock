@@ -41,7 +41,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.8.5rc42"
+version = "0.8.5rc44"
 source = { editable = "." }
 dependencies = [
     { name = "atomicwrites" },
@@ -148,7 +148,7 @@ requires-dist = [
     { name = "pluggy", specifier = ">=1.5.0" },
     { name = "psutil", specifier = ">=6.0.0" },
     { name = "py-machineid", specifier = ">=0.6.0" },
-    { name = "pydantic-pkgr", specifier = ">=0.5.2" },
+    { name = "pydantic-pkgr", specifier = ">=0.5.3" },
     { name = "pydantic-settings", specifier = ">=2.5.2" },
     { name = "python-benedict", extras = ["io", "parse"], specifier = ">=0.33.2" },
     { name = "python-crontab", specifier = ">=3.2.0" },
@@ -1849,7 +1849,7 @@ wheels = [
 
 [[package]]
 name = "pydantic-pkgr"
-version = "0.5.2"
+version = "0.5.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "platformdirs" },
@@ -1857,9 +1857,9 @@ dependencies = [
     { name = "pydantic-core" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0c/6c/ed0e6d519ecd4ac7cb36c8d74344a26260f7f1878c590a9f3cfb34057bec/pydantic_pkgr-0.5.2.tar.gz", hash = "sha256:8cd01cef9db94e6b97222c1e44b8a7a4b73ca0b8c51a7fddece501094c422d3e", size = 42303 }
+sdist = { url = "https://files.pythonhosted.org/packages/ad/81/e8628f2cefd5170095ccfbc52e93eb1289f12661699f9b957d1793c3f4f0/pydantic_pkgr-0.5.3.tar.gz", hash = "sha256:4b9f76f81ab9344d24f6d652e1e334b98ea6df0699820d6983fae00e9051fbb4", size = 42402 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c0/94/1db0817fd8fa234c9696625e314e44b91a9cee7f37cc715328cd57d2454d/pydantic_pkgr-0.5.2-py3-none-any.whl", hash = "sha256:7511830af65a75c03d9e4320d73640429ae53c1f1c2d39f28067857369f142fd", size = 45050 },
+    { url = "https://files.pythonhosted.org/packages/94/d1/888c58f7fa9c491479e8fb3a40671826c7b060a7b436851c9e66f0cb433a/pydantic_pkgr-0.5.3-py3-none-any.whl", hash = "sha256:d1b056c4228d6096a01b67a2980da64e671b70d620c8bc043a72e90ee8ef6eb2", size = 45101 },
 ]
 
 [[package]]
