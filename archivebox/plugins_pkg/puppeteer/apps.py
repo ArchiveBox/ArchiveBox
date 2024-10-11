@@ -66,7 +66,7 @@ class PuppeteerBinProvider(BaseBinProvider):
     euid: Optional[int] = ARCHIVEBOX_USER
 
     puppeteer_browsers_dir: Path = LIB_DIR_BROWSERS
-    puppeteer_install_args: List[str] = ["@puppeteer/browsers", "install", "--path", str(LIB_DIR_BROWSERS)]
+    puppeteer_install_args: List[str] = ['--yes', "@puppeteer/browsers", "install", "--path", str(LIB_DIR_BROWSERS)]
 
     packages_handler: BinProviderOverrides = Field(default={
         "chrome": lambda:
