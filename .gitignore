@@ -32,8 +32,10 @@ data/
 data*/
 output/
 index.sqlite3
+queue.sqlite3
 *.sqlite*
 data.*
+.archivebox_id
 
 # vim
 *.sw?
