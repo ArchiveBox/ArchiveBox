@@ -13,7 +13,7 @@ from pydantic_pkgr import (
     BinProvider,
     BinName,
     BinProviderName,
-    ProviderLookupDict,
+    BinaryOverrides,
     bin_abspath,
 )
 
@@ -204,15 +204,15 @@ class ChromeBinary(BaseBinary):
     name: BinName = CHROME_CONFIG.CHROME_BINARY
     binproviders_supported: List[InstanceOf[BinProvider]] = [PUPPETEER_BINPROVIDER, env, PLAYWRIGHT_BINPROVIDER]
     
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
+    overrides: BinaryOverrides = {
         env.name: {
             'abspath': lambda: autodetect_system_chrome_install(PATH=env.PATH),  # /usr/bin/google-chrome-stable
         },
         PUPPETEER_BINPROVIDER.name: {
-            'packages': lambda: ['chrome@stable'],              # npx @puppeteer/browsers install chrome@stable
+            'packages': ['chrome@stable'],              # npx @puppeteer/browsers install chrome@stable
         },
         PLAYWRIGHT_BINPROVIDER.name: {
-            'packages': lambda: ['chromium'],                   # playwright install chromium
+            'packages': ['chromium'],                   # playwright install chromium
         },
     }
 

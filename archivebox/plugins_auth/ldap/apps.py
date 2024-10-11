@@ -3,11 +3,11 @@ __package__ = 'archivebox.plugins_auth.ldap'
 
 import inspect
 
-from typing import List, Dict
+from typing import List
 from pathlib import Path
 from pydantic import InstanceOf
 
-from pydantic_pkgr import BinProviderName, ProviderLookupDict, SemVer
+from pydantic_pkgr import BinaryOverrides, SemVer
 
 from abx.archivebox.base_plugin import BasePlugin
 from abx.archivebox.base_hook import BaseHook
@@ -43,26 +43,26 @@ class LdapBinary(BaseBinary):
     description: str = 'LDAP Authentication'
     binproviders_supported: List[InstanceOf[BaseBinProvider]] = [VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, LIB_PIP_BINPROVIDER, apt]
 
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
+    overrides: BinaryOverrides = {
         LIB_PIP_BINPROVIDER.name: {
             "abspath": lambda: get_LDAP_LIB_path(LIB_SITE_PACKAGES),
             "version": lambda: get_LDAP_LIB_version(),
-            "packages": lambda: ['python-ldap>=3.4.3', 'django-auth-ldap>=4.1.0'],
+            "packages": ['python-ldap>=3.4.3', 'django-auth-ldap>=4.1.0'],
         },
         VENV_PIP_BINPROVIDER.name: {
             "abspath": lambda: get_LDAP_LIB_path(VENV_SITE_PACKAGES),
             "version": lambda: get_LDAP_LIB_version(),
-            "packages": lambda: ['python-ldap>=3.4.3', 'django-auth-ldap>=4.1.0'],
+            "packages": ['python-ldap>=3.4.3', 'django-auth-ldap>=4.1.0'],
         },
         SYS_PIP_BINPROVIDER.name: {
             "abspath": lambda: get_LDAP_LIB_path((*USER_SITE_PACKAGES, *SYS_SITE_PACKAGES)),
             "version": lambda: get_LDAP_LIB_version(),
-            "packages": lambda: ['python-ldap>=3.4.3', 'django-auth-ldap>=4.1.0'],
+            "packages": ['python-ldap>=3.4.3', 'django-auth-ldap>=4.1.0'],
         },
         apt.name: {
             "abspath": lambda: get_LDAP_LIB_path(),
             "version": lambda: get_LDAP_LIB_version(),
-            "packages": lambda: ['libssl-dev', 'libldap2-dev', 'libsasl2-dev', 'python3-ldap', 'python3-msgpack', 'python3-mutagen'],
+            "packages": ['libssl-dev', 'libldap2-dev', 'libsasl2-dev', 'python3-ldap', 'python3-msgpack', 'python3-mutagen'],
         },
     }
 

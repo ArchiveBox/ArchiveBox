@@ -1,11 +1,11 @@
 __package__ = 'archivebox.plugins_search.sonic'
 
 import sys
-from typing import List, Dict, Generator, cast
+from typing import List, Generator, cast
 
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, Field, model_validator
-from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName
+from pydantic_pkgr import BinProvider, BinaryOverrides, BinName
 
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
@@ -55,9 +55,9 @@ class SonicBinary(BaseBinary):
     name: BinName = SONIC_CONFIG.SONIC_BINARY
     binproviders_supported: List[InstanceOf[BinProvider]] = [brew, env]   # TODO: add cargo
 
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
-        brew.name: {'packages': lambda: ['sonic']},
-        # cargo.name: {'packages': lambda: ['sonic-server']},             # TODO: add cargo
+    overrides: BinaryOverrides = {
+        brew.name: {'packages': ['sonic']},
+        # cargo.name: {'packages': ['sonic-server']},                     # TODO: add cargo
     }
     
     # TODO: add version checking over protocol? for when sonic backend is on remote server and binary is not installed locally

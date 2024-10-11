@@ -1,15 +1,14 @@
 __package__ = "abx.archivebox"
 
 import os
-from typing import Dict, List, Optional
+from typing import Optional, cast
 from typing_extensions import Self
 
-from pydantic import Field, InstanceOf, validate_call
+from pydantic import validate_call
 from pydantic_pkgr import (
     Binary,
     BinProvider,
     BinProviderName,
-    ProviderLookupDict,
     AptProvider,
     BrewProvider,
     EnvProvider,
@@ -25,18 +24,6 @@ from .base_hook import BaseHook, HookType
 class BaseBinProvider(BaseHook, BinProvider):
     hook_type: HookType = "BINPROVIDER"
 
-    # def on_get_abspath(self, bin_name: BinName, **context) -> Optional[HostBinPath]:
-    #     Class = super()
-    #     get_abspath_func = lambda: Class.on_get_abspath(bin_name, **context)
-    #     # return cache.get_or_set(f'bin:abspath:{bin_name}', get_abspath_func)
-    #     return get_abspath_func()
-
-    # def on_get_version(self, bin_name: BinName, abspath: Optional[HostBinPath]=None, **context) -> SemVer | None:
-    #     Class = super()
-    #     get_version_func = lambda: Class.on_get_version(bin_name, abspath, **context)
-    #     # return cache.get_or_set(f'bin:version:{bin_name}:{abspath}', get_version_func)
-    #     return get_version_func()
-
     
     # TODO: add install/load/load_or_install methods as abx.hookimpl methods
     
@@ -51,9 +38,6 @@ class BaseBinProvider(BaseHook, BinProvider):
 
 class BaseBinary(BaseHook, Binary):
     hook_type: HookType = "BINARY"
-
-    binproviders_supported: List[InstanceOf[BinProvider]] = Field(default_factory=list, alias="binproviders")
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = Field(default_factory=dict, alias="overrides")
 
     @staticmethod
     def symlink_to_lib(binary, bin_dir=None) -> None:
@@ -82,13 +66,13 @@ class BaseBinary(BaseHook, Binary):
             # get cached binary from db
             try:
                 from machine.models import InstalledBinary
-                installed_binary = InstalledBinary.objects.get_from_db_or_cache(self)
+                installed_binary = InstalledBinary.objects.get_from_db_or_cache(self)    # type: ignore
                 binary = InstalledBinary.load_from_db(installed_binary)
             except Exception:
                 # maybe we are not in a DATA dir so there is no db, fallback to reading from fs
                 # (e.g. when archivebox version is run outside of a DATA dir)
                 binary = super().load(**kwargs)
-        return binary
+        return cast(Self, binary)
     
     @validate_call
     def install(self, **kwargs) -> Self:

@@ -3,12 +3,12 @@ __package__ = 'archivebox.plugins_search.ripgrep'
 import re
 from pathlib import Path
 from subprocess import run
-from typing import List, Dict, Iterable
+from typing import List, Iterable
 # from typing_extensions import Self
 
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, Field
-from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName
+from pydantic_pkgr import BinProvider, BinaryOverrides, BinName
 
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
@@ -45,9 +45,9 @@ class RipgrepBinary(BaseBinary):
     name: BinName = RIPGREP_CONFIG.RIPGREP_BINARY
     binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
 
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
-        apt.name: {'packages': lambda: ['ripgrep']},
-        brew.name: {'packages': lambda: ['ripgrep']},
+    overrides: BinaryOverrides = {
+        apt.name: {'packages': ['ripgrep']},
+        brew.name: {'packages': ['ripgrep']},
     }
 
 RIPGREP_BINARY = RipgrepBinary()

@@ -1,10 +1,10 @@
 import sys
-from typing import List, Dict
+from typing import List
 from subprocess import run, PIPE
 
 from rich import print
 from pydantic import InstanceOf, Field, model_validator, AliasChoices
-from pydantic_pkgr import BinProvider, BinName, BinProviderName, ProviderLookupDict
+from pydantic_pkgr import BinProvider, BinName, BinaryOverrides
 
 from abx.archivebox.base_plugin import BasePlugin
 from abx.archivebox.base_configset import BaseConfigSet
@@ -54,10 +54,10 @@ class FfmpegBinary(BaseBinary):
     name: BinName = 'ffmpeg'
     binproviders_supported: List[InstanceOf[BinProvider]] = [apt, brew, env]
 
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
+    overrides: BinaryOverrides = {
         'env': {
             # 'abspath': lambda: shutil.which('ffmpeg', PATH=env.PATH),
-            # 'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout,
+            'version': lambda: run(['ffmpeg', '-version'], stdout=PIPE, stderr=PIPE, text=True).stdout,
         },
         'apt': {
             # 'abspath': lambda: shutil.which('ffmpeg', PATH=apt.PATH),

@@ -11,7 +11,7 @@ from pydantic_pkgr import (
     BinName,
     BinProvider,
     BinProviderName,
-    ProviderLookupDict,
+    BinProviderOverrides,
     InstallArgs,
     PATHStr,
     HostBinPath,
@@ -66,15 +66,15 @@ class PlaywrightBinProvider(BaseBinProvider):
 
     PATH: PATHStr = f"{CONSTANTS.LIB_BIN_DIR}:{DEFAULT_ENV_PATH}"
 
-    playwright_browsers_dir: Optional[Path] = (
+    playwright_browsers_dir: Path = (
         Path("~/Library/Caches/ms-playwright").expanduser()      # macos playwright cache dir
         if OPERATING_SYSTEM == "darwin" else
         Path("~/.cache/ms-playwright").expanduser()              # linux playwright cache dir
     )
     playwright_install_args: List[str] = ["install"]              # --with-deps
 
-    packages_handler: ProviderLookupDict = Field(default={
-        "chrome": lambda: ["chromium"],
+    packages_handler: BinProviderOverrides = Field(default={
+        "chrome": ["chromium"],
     }, exclude=True)
 
     _browser_abspaths: ClassVar[Dict[str, HostBinPath]] = {}
@@ -104,9 +104,17 @@ class PlaywrightBinProvider(BaseBinProvider):
             )
 
         # ~/Library/caches/ms-playwright/chromium-1097/chrome-linux/chromium
-        return sorted(self.playwright_browsers_dir.glob(f"{browser_name}-*/*-linux/*"))
+        paths = []
+        for path in sorted(self.playwright_browsers_dir.glob(f"{browser_name}-*/*-linux/*")):
+            if 'xdg-settings' in str(path):
+                continue
+            if 'ffmpeg' in str(path):
+                continue
+            if '/chrom' in str(path) and 'chrom' in path.name.lower():
+                paths.append(path)
+        return paths
 
-    def on_get_abspath(self, bin_name: BinName, **context) -> Optional[HostBinPath]:
+    def default_abspath_handler(self, bin_name: BinName, **context) -> Optional[HostBinPath]:
         assert bin_name == "chrome", "Only chrome is supported using the @puppeteer/browsers install method currently."
 
         # already loaded, return abspath from cache
@@ -128,7 +136,7 @@ class PlaywrightBinProvider(BaseBinProvider):
 
         return None
 
-    def on_install(self, bin_name: str, packages: Optional[InstallArgs] = None, **context) -> str:
+    def default_install_handler(self, bin_name: str, packages: Optional[InstallArgs] = None, **context) -> str:
         """playwright install chrome"""
         self.setup()
         assert bin_name == "chrome", "Only chrome is supported using the playwright install method currently."
@@ -137,7 +145,7 @@ class PlaywrightBinProvider(BaseBinProvider):
             raise Exception(
                 f"{self.__class__.__name__} install method is not available on this host ({self.INSTALLER_BIN} not found in $PATH)"
             )
-        packages = packages or self.on_get_packages(bin_name)
+        packages = packages or self.get_packages(bin_name)
 
         # print(f'[*] {self.__class__.__name__}: Installing {bin_name}: {self.INSTALLER_BIN_ABSPATH} install {packages}')
 
@@ -155,7 +163,7 @@ class PlaywrightBinProvider(BaseBinProvider):
         output_lines = [
             line for line in proc.stdout.strip().split('\n')
             if '/chrom' in line
-            and 'chrom' in line.rsplit('/', 1)[-1].lower()   # make final path segment (filename) contains chrome or chromium
+            and 'chrom' in line.rsplit('/', 1)[-1].lower()   # if final path segment (filename) contains chrome or chromium
             and 'xdg-settings' not in line
             and 'ffmpeg' not in line
         ]

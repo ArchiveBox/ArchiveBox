@@ -356,7 +356,7 @@ class InstalledBinary(ABIDModel, ModelWithHealthStats):
             'sha256': self.sha256,
             'loaded_binprovider': self.BINPROVIDER,
             'binproviders_supported': self.BINARY.binproviders_supported,
-            'provider_overrides': self.BINARY.provider_overrides,
+            'overrides': self.BINARY.overrides,
         })
 
     def load_fresh(self) -> BaseBinary:

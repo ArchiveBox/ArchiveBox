@@ -4,14 +4,14 @@ import os
 import sys
 import site
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Optional
 from pydantic import InstanceOf, Field, model_validator, validate_call
 
 
 import django
 import django.db.backends.sqlite3.base
 from django.db.backends.sqlite3.base import Database as django_sqlite3     # type: ignore[import-type]
-from pydantic_pkgr import BinProvider, PipProvider, BinName, BinProviderName, ProviderLookupDict, SemVer
+from pydantic_pkgr import BinProvider, PipProvider, BinName, BinProviderName, BinaryOverrides, SemVer
 
 from archivebox.config import CONSTANTS, VERSION
 
@@ -105,18 +105,18 @@ class ArchiveboxBinary(BaseBinary):
     name: BinName = 'archivebox'
 
     binproviders_supported: List[InstanceOf[BinProvider]] = [VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
-        VENV_PIP_BINPROVIDER.name:  {'packages': lambda: [], 'version': lambda: VERSION},
-        SYS_PIP_BINPROVIDER.name:   {'packages': lambda: [], 'version': lambda: VERSION},
-        apt.name:                   {'packages': lambda: [], 'version': lambda: VERSION},
-        brew.name:                  {'packages': lambda: [], 'version': lambda: VERSION},
+    overrides: BinaryOverrides = {
+        VENV_PIP_BINPROVIDER.name:  {'packages': [], 'version': VERSION},
+        SYS_PIP_BINPROVIDER.name:   {'packages': [], 'version': VERSION},
+        apt.name:                   {'packages': [], 'version': VERSION},
+        brew.name:                  {'packages': [], 'version': VERSION},
     }
     
-    @validate_call
+    # @validate_call
     def install(self, **kwargs):
         return self.load()                  # obviously it's already installed if we are running this ;)
     
-    @validate_call
+    # @validate_call
     def load_or_install(self, **kwargs):
         return self.load()                  # obviously it's already installed if we are running this ;)
 
@@ -127,18 +127,18 @@ class PythonBinary(BaseBinary):
     name: BinName = 'python'
 
     binproviders_supported: List[InstanceOf[BinProvider]] = [VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
+    overrides: BinaryOverrides = {
         SYS_PIP_BINPROVIDER.name: {
-            'abspath': lambda: sys.executable,
-            'version': lambda: '{}.{}.{}'.format(*sys.version_info[:3]),
+            'abspath': sys.executable,
+            'version': '{}.{}.{}'.format(*sys.version_info[:3]),
         },
     }
     
-    @validate_call
+    # @validate_call
     def install(self, **kwargs):
         return self.load()                  # obviously it's already installed if we are running this ;)
     
-    @validate_call
+    # @validate_call
     def load_or_install(self, **kwargs):
         return self.load()                  # obviously it's already installed if we are running this ;)
 
@@ -152,14 +152,14 @@ LOADED_SQLITE_FROM_VENV = str(LOADED_SQLITE_PATH.absolute().resolve()).startswit
 class SqliteBinary(BaseBinary):
     name: BinName = 'sqlite'
     binproviders_supported: List[InstanceOf[BaseBinProvider]] = Field(default=[VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER])
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
+    overrides: BinaryOverrides = {
         VENV_PIP_BINPROVIDER.name: {
-            "abspath": lambda: LOADED_SQLITE_PATH if LOADED_SQLITE_FROM_VENV else None,
-            "version": lambda: LOADED_SQLITE_VERSION if LOADED_SQLITE_FROM_VENV else None,
+            "abspath": LOADED_SQLITE_PATH if LOADED_SQLITE_FROM_VENV else None,
+            "version": LOADED_SQLITE_VERSION if LOADED_SQLITE_FROM_VENV else None,
         },
         SYS_PIP_BINPROVIDER.name: {
-            "abspath": lambda: LOADED_SQLITE_PATH if not LOADED_SQLITE_FROM_VENV else None,
-            "version": lambda: LOADED_SQLITE_VERSION if not LOADED_SQLITE_FROM_VENV else None,
+            "abspath": LOADED_SQLITE_PATH if not LOADED_SQLITE_FROM_VENV else None,
+            "version": LOADED_SQLITE_VERSION if not LOADED_SQLITE_FROM_VENV else None,
         },
     }
     
@@ -177,11 +177,11 @@ class SqliteBinary(BaseBinary):
             ])
         return self
     
-    @validate_call
+    # @validate_call
     def install(self, **kwargs):
         return self.load()                  # obviously it's already installed if we are running this ;)
     
-    @validate_call
+    # @validate_call
     def load_or_install(self, **kwargs):
         return self.load()                  # obviously it's already installed if we are running this ;)
 
@@ -196,22 +196,22 @@ class DjangoBinary(BaseBinary):
     name: BinName = 'django'
 
     binproviders_supported: List[InstanceOf[BaseBinProvider]] = Field(default=[VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER])
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
+    overrides: BinaryOverrides = {
         VENV_PIP_BINPROVIDER.name: {
-            "abspath": lambda: LOADED_DJANGO_PATH if LOADED_DJANGO_FROM_VENV else None,
-            "version": lambda: LOADED_DJANGO_VERSION if LOADED_DJANGO_FROM_VENV else None,
+            "abspath": LOADED_DJANGO_PATH if LOADED_DJANGO_FROM_VENV else None,
+            "version": LOADED_DJANGO_VERSION if LOADED_DJANGO_FROM_VENV else None,
         },
         SYS_PIP_BINPROVIDER.name: {
-            "abspath": lambda: LOADED_DJANGO_PATH if not LOADED_DJANGO_FROM_VENV else None,
-            "version": lambda: LOADED_DJANGO_VERSION if not LOADED_DJANGO_FROM_VENV else None,
+            "abspath": LOADED_DJANGO_PATH if not LOADED_DJANGO_FROM_VENV else None,
+            "version": LOADED_DJANGO_VERSION if not LOADED_DJANGO_FROM_VENV else None,
         },
     }
     
-    @validate_call
+    # @validate_call
     def install(self, **kwargs):
         return self.load()                  # obviously it's already installed if we are running this ;)
     
-    @validate_call
+    # @validate_call
     def load_or_install(self, **kwargs):
         return self.load()                  # obviously it's already installed if we are running this ;)
 
@@ -221,11 +221,11 @@ class PipBinary(BaseBinary):
     name: BinName = "pip"
     binproviders_supported: List[InstanceOf[BinProvider]] = [LIB_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, apt, brew, env]
 
-    @validate_call
+    # @validate_call
     def install(self, **kwargs):
         return self.load()                  # obviously it's already installed if we are running this ;)
     
-    @validate_call
+    # @validate_call
     def load_or_install(self, **kwargs):
         return self.load()                  # obviously it's already installed if we are running this ;)
 

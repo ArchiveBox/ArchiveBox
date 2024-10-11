@@ -66,11 +66,11 @@ class SqliteftsConfig(BaseConfigSet):
         # Only Python >= 3.11 supports sqlite3.Connection.getlimit(),
         # so fall back to the default if the API to get the real value isn't present
         try:
-            limit_id = sqlite3.SQLITE_LIMIT_LENGTH
+            limit_id = sqlite3.SQLITE_LIMIT_LENGTH              # type: ignore[attr-defined]
             
             if self.SQLITEFTS_SEPARATE_DATABASE:
                 cursor = self.get_connection()
-                return cursor.connection.getlimit(limit_id)
+                return cursor.connection.getlimit(limit_id)     # type: ignore[attr-defined]
             else:
                 with database.temporary_connection() as cursor:  # type: ignore[attr-defined]
                     return cursor.connection.getlimit(limit_id)

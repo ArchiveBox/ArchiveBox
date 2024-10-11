@@ -179,7 +179,10 @@ def help(out_dir: Path=DATA_DIR) -> None:
 
 @enforce_types
 def version(quiet: bool=False,
-            out_dir: Path=DATA_DIR) -> None:
+            out_dir: Path=DATA_DIR,
+            binproviders: Optional[List[str]]=None,
+            binaries: Optional[List[str]]=None,
+            ) -> None:
     """Print the ArchiveBox version and dependency information"""
     
     print(VERSION)
@@ -244,6 +247,14 @@ def version(quiet: bool=False,
         if binary.name == 'archivebox':
             continue
         
+        # skip if the binary is not in the requested list of binaries
+        if binaries and binary.name not in binaries:
+            continue
+        
+        # skip if the binary is not supported by any of the requested binproviders
+        if binproviders and binary.binproviders_supported and not any(provider.name in binproviders for provider in binary.binproviders_supported):
+            continue
+        
         err = None
         try:
             loaded_bin = binary.load()
@@ -266,6 +277,9 @@ def version(quiet: bool=False,
     for name, binprovider in reversed(list(settings.BINPROVIDERS.items())):
         err = None
         
+        if binproviders and binprovider.name not in binproviders:
+            continue
+        
         # TODO: implement a BinProvider.BINARY() method that gets the loaded binary for a binprovider's INSTALLER_BIN
         loaded_bin = binprovider.INSTALLER_BINARY or BaseBinary(name=binprovider.INSTALLER_BIN, binproviders=[env, apt, brew])
         
@@ -278,25 +292,28 @@ def version(quiet: bool=False,
         PATH = str(binprovider.PATH).replace(str(DATA_DIR), '[light_slate_blue].[/light_slate_blue]').replace(str(Path('~').expanduser()), '~')
         ownership_summary = f'UID=[blue]{str(binprovider.EUID).ljust(4)}[/blue]'
         provider_summary = f'[dark_sea_green3]{str(abspath).ljust(52)}[/dark_sea_green3]' if abspath else f'[grey23]{"not available".ljust(52)}[/grey23]'
-        prnt('', '[green]√[/green]' if binprovider.is_valid else '[red]X[/red]', '', binprovider.name.ljust(11), provider_summary, ownership_summary, f'PATH={PATH}', overflow='ellipsis', soft_wrap=True)
+        prnt('', '[green]√[/green]' if binprovider.is_valid else '[grey53]-[/grey53]', '', binprovider.name.ljust(11), provider_summary, ownership_summary, f'PATH={PATH}', overflow='ellipsis', soft_wrap=True)
 
-    prnt()
-    prnt('[deep_sky_blue3][i] Source-code locations:[/deep_sky_blue3]')
-    for name, path in CONSTANTS.CODE_LOCATIONS.items():
-        prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
-
-    prnt()
-    if os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK) or os.access(CONSTANTS.CONFIG_FILE, os.R_OK):
-        prnt('[bright_yellow][i] Data locations:[/bright_yellow]')
-        for name, path in CONSTANTS.DATA_LOCATIONS.items():
-            prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
-    
-        from archivebox.misc.checks import check_data_dir_permissions
+    if not (binaries or binproviders):
+        # dont show source code / data dir info if we just want to get version info for a binary or binprovider
         
-        check_data_dir_permissions()
-    else:
         prnt()
-        prnt('[red][i] Data locations:[/red] (not in a data directory)')
+        prnt('[deep_sky_blue3][i] Code locations:[/deep_sky_blue3]')
+        for name, path in CONSTANTS.CODE_LOCATIONS.items():
+            prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
+
+        prnt()
+        if os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK) or os.access(CONSTANTS.CONFIG_FILE, os.R_OK):
+            prnt('[bright_yellow][i] Data locations:[/bright_yellow]')
+            for name, path in CONSTANTS.DATA_LOCATIONS.items():
+                prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
+        
+            from archivebox.misc.checks import check_data_dir_permissions
+            
+            check_data_dir_permissions()
+        else:
+            prnt()
+            prnt('[red][i] Data locations:[/red] (not in a data directory)')
         
     prnt()
     
@@ -986,7 +1003,7 @@ def list_folders(links: List[Link],
         raise ValueError('Status not recognized.')
 
 @enforce_types
-def install(out_dir: Path=DATA_DIR) -> None:
+def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, binaries: Optional[List[str]]=None, dry_run: bool=False) -> None:
     """Automatically install all ArchiveBox dependencies and extras"""
     
     # if running as root:
@@ -1021,9 +1038,15 @@ def install(out_dir: Path=DATA_DIR) -> None:
         print()
     
     
-    package_manager_names = ', '.join(f'[yellow]{binprovider.name}[/yellow]' for binprovider in reversed(list(settings.BINPROVIDERS.values())))
+    package_manager_names = ', '.join(
+        f'[yellow]{binprovider.name}[/yellow]'
+        for binprovider in reversed(list(settings.BINPROVIDERS.values()))
+        if not binproviders or (binproviders and binprovider.name in binproviders)
+    )
     print(f'[+] Setting up package managers {package_manager_names}...')
     for binprovider in reversed(list(settings.BINPROVIDERS.values())):
+        if binproviders and binprovider.name not in binproviders:
+            continue
         try:
             binprovider.setup()
         except Exception:
@@ -1035,12 +1058,46 @@ def install(out_dir: Path=DATA_DIR) -> None:
     print()
     
     for binary in reversed(list(settings.BINARIES.values())):
-        providers = ' [grey53]or[/grey53] '.join(provider.name for provider in binary.binproviders_supported)
+        if binary.name in ('archivebox', 'django', 'sqlite', 'python', 'pipx'):
+            # obviously must already be installed if we are running
+            continue
+        
+        if binaries and binary.name not in binaries:
+            continue
+        
+        providers = ' [grey53]or[/grey53] '.join(
+            provider.name for provider in binary.binproviders_supported
+            if not binproviders or (binproviders and provider.name in binproviders)
+        )
+        if not providers:
+            continue
         print(f'[+] Detecting / Installing [yellow]{binary.name.ljust(22)}[/yellow] using [red]{providers}[/red]...')
         try:
             with SudoPermission(uid=0, fallback=True):
-                # print(binary.load_or_install(fresh=True).model_dump(exclude={'provider_overrides', 'bin_dir', 'hook_type'}))
-                binary.load_or_install(fresh=True).model_dump(exclude={'provider_overrides', 'bin_dir', 'hook_type'})
+                # print(binary.load_or_install(fresh=True).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'}))
+                if binproviders:
+                    providers_supported_by_binary = [provider.name for provider in binary.binproviders_supported]
+                    for binprovider_name in binproviders:
+
+                        if binprovider_name not in providers_supported_by_binary:
+                            continue
+
+                        if dry_run:
+                            # always show install commands when doing a dry run
+                            sys.stderr.write("\033[2;49;90m")  # grey53
+                            result = binary.install(binproviders=[binprovider_name], dry_run=dry_run).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
+                            sys.stderr.write("\033[00m\n")     # reset
+                        else:
+                            result = binary.load_or_install(binproviders=[binprovider_name], fresh=True, dry_run=dry_run).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
+                        if result and result['loaded_version']:
+                            break
+                else:
+                    if dry_run:
+                        sys.stderr.write("\033[2;49;90m")  # grey53
+                        binary.install(dry_run=dry_run).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
+                        sys.stderr.write("\033[00m\n")  # reset
+                    else:
+                        binary.load_or_install(fresh=True, dry_run=dry_run).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
             if IS_ROOT:
                 with SudoPermission(uid=0):
                     if ARCHIVEBOX_USER == 0:
@@ -1049,6 +1106,9 @@ def install(out_dir: Path=DATA_DIR) -> None:
                         os.system(f'chown -R {ARCHIVEBOX_USER} "{CONSTANTS.LIB_DIR.resolve()}"')
         except Exception as e:
             print(f'[red]:cross_mark: Failed to install {binary.name} as user {ARCHIVEBOX_USER}: {e}[/red]')
+            if binaries and len(binaries) == 1:
+                # if we are only installing a single binary, raise the exception so the user can see what went wrong
+                raise
                 
 
     from django.contrib.auth import get_user_model
@@ -1063,7 +1123,13 @@ def install(out_dir: Path=DATA_DIR) -> None:
     
     from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
     
-    proc = run_shell([ARCHIVEBOX_BINARY.load().abspath, 'version'], capture_output=False, cwd=out_dir)
+    extra_args = []
+    if binproviders:
+        extra_args.append(f'--binproviders={",".join(binproviders)}')
+    if binaries:
+        extra_args.append(f'--binaries={",".join(binaries)}')
+    
+    proc = run_shell([ARCHIVEBOX_BINARY.load().abspath, 'version', *extra_args], capture_output=False, cwd=out_dir)
     raise SystemExit(proc.returncode)
 
 

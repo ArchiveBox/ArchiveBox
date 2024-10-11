@@ -9,7 +9,7 @@ from pydantic import model_validator, TypeAdapter
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
 from pydantic_settings.sources import TomlConfigSettingsSource
 
-from pydantic_pkgr.base_types import func_takes_args_or_kwargs
+from pydantic_pkgr import func_takes_args_or_kwargs
 
 import abx
 

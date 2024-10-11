@@ -1,12 +1,12 @@
 __package__ = 'archivebox.plugins_extractor.readability'
 
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List
 # from typing_extensions import Self
 
 # Depends on other PyPI/vendor packages:
-from pydantic import InstanceOf, Field, validate_call
-from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName, ShallowBinary
+from pydantic import InstanceOf, Field
+from pydantic_pkgr import BinProvider, BinaryOverrides, BinName
 
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
@@ -39,23 +39,10 @@ class ReadabilityBinary(BaseBinary):
     name: BinName = READABILITY_CONFIG.READABILITY_BINARY
     binproviders_supported: List[InstanceOf[BinProvider]] = [LIB_NPM_BINPROVIDER, SYS_NPM_BINPROVIDER, env]
 
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
-        LIB_NPM_BINPROVIDER.name: {"packages": lambda: [READABILITY_PACKAGE_NAME]},
-        SYS_NPM_BINPROVIDER.name: {"packages": lambda: []},    # prevent modifying system global npm packages
+    overrides: BinaryOverrides = {
+        LIB_NPM_BINPROVIDER.name: {"packages": [READABILITY_PACKAGE_NAME]},
+        SYS_NPM_BINPROVIDER.name: {"packages": [READABILITY_PACKAGE_NAME], "install": lambda: None},    # prevent modifying system global npm packages
     }
-    
-    @validate_call
-    def install(self, binprovider_name: Optional[BinProviderName]=None, **kwargs) -> ShallowBinary:
-        # force install to only use lib/npm provider, we never want to modify global NPM packages
-        return BaseBinary.install(self, binprovider_name=binprovider_name or LIB_NPM_BINPROVIDER.name, **kwargs)
-    
-    @validate_call
-    def load_or_install(self, binprovider_name: Optional[BinProviderName] = None, fresh=False, **kwargs) -> ShallowBinary:
-        try:
-            return self.load(fresh=fresh)
-        except Exception:
-            # force install to only use lib/npm provider, we never want to modify global NPM packages
-            return BaseBinary.install(self, binprovider_name=binprovider_name or LIB_NPM_BINPROVIDER.name, **kwargs)
 
 
 

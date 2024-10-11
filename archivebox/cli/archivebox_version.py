@@ -27,6 +27,18 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         action='store_true',
         help='Only print ArchiveBox version number and nothing else.',
     )
+    parser.add_argument(
+        '--binproviders', '-p',
+        type=str,
+        help='Select binproviders to detect DEFAULT=env,apt,brew,sys_pip,venv_pip,lib_pip,pipx,sys_npm,lib_npm,puppeteer,playwright (all)',
+        default=None,
+    )
+    parser.add_argument(
+        '--binaries', '-b',
+        type=str,
+        help='Select binaries to detect DEFAULT=curl,wget,git,yt-dlp,chrome,single-file,readability-extractor,postlight-parser,... (all)',
+        default=None,
+    )
     command = parser.parse_args(args or ())
     reject_stdin(__command__, stdin)
     
@@ -40,6 +52,8 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     version(
         quiet=command.quiet,
         out_dir=Path(pwd) if pwd else DATA_DIR,
+        binproviders=command.binproviders.split(',') if command.binproviders else None,
+        binaries=command.binaries.split(',') if command.binaries else None,
     )
 
 

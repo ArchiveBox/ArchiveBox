@@ -22,17 +22,33 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         add_help=True,
         formatter_class=SmartFormatter,
     )
-    # parser.add_argument(
-    #     '--force', # '-f',
-    #     action='store_true',
-    #     help='Overwrite any existing packages that conflict with the ones ArchiveBox is trying to install',
-    # )
+    parser.add_argument(
+        '--binproviders', '-p',
+        type=str,
+        help='Select binproviders to use DEFAULT=env,apt,brew,sys_pip,venv_pip,lib_pip,pipx,sys_npm,lib_npm,puppeteer,playwright (all)',
+        default=None,
+    )
+    parser.add_argument(
+        '--binaries', '-b',
+        type=str,
+        help='Select binaries to install DEFAULT=curl,wget,git,yt-dlp,chrome,single-file,readability-extractor,postlight-parser,... (all)',
+        default=None,
+    )
+    parser.add_argument(
+        '--dry-run', '-d',
+        action='store_true',
+        help='Show what would be installed without actually installing anything',
+        default=False,
+    )
     command = parser.parse_args(args or ())   # noqa
     reject_stdin(__command__, stdin)
 
     install(
         # force=command.force,
         out_dir=Path(pwd) if pwd else DATA_DIR,
+        binaries=command.binaries.split(',') if command.binaries else None,
+        binproviders=command.binproviders.split(',') if command.binproviders else None,
+        dry_run=command.dry_run,
     )
     
 

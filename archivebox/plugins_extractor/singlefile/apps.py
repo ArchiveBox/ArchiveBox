@@ -1,12 +1,12 @@
 __package__ = 'archivebox.plugins_extractor.singlefile'
 
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Optional
 # from typing_extensions import Self
 
 # Depends on other PyPI/vendor packages:
 from pydantic import InstanceOf, Field
-from pydantic_pkgr import BinProvider, BinProviderName, ProviderLookupDict, BinName, bin_abspath, ShallowBinary
+from pydantic_pkgr import BinProvider, BinaryOverrides, BinName, bin_abspath
 
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
@@ -45,22 +45,21 @@ class SinglefileBinary(BaseBinary):
     name: BinName = SINGLEFILE_CONFIG.SINGLEFILE_BINARY
     binproviders_supported: List[InstanceOf[BinProvider]] = [LIB_NPM_BINPROVIDER, SYS_NPM_BINPROVIDER, env]
 
-    provider_overrides: Dict[BinProviderName, ProviderLookupDict] = {
+    overrides: BinaryOverrides = {
         LIB_NPM_BINPROVIDER.name: {
             "abspath": lambda:
                 bin_abspath(SINGLEFILE_CONFIG.SINGLEFILE_BINARY, PATH=LIB_NPM_BINPROVIDER.PATH)
                 or bin_abspath("single-file", PATH=LIB_NPM_BINPROVIDER.PATH)
                 or bin_abspath("single-file-node.js", PATH=LIB_NPM_BINPROVIDER.PATH),
-            "packages": lambda:
-                [f"single-file-cli@>={SINGLEFILE_MIN_VERSION} <{SINGLEFILE_MAX_VERSION}"],
+            "packages": [f"single-file-cli@>={SINGLEFILE_MIN_VERSION} <{SINGLEFILE_MAX_VERSION}"],
         },
         SYS_NPM_BINPROVIDER.name: {
             "abspath": lambda:
                 bin_abspath(SINGLEFILE_CONFIG.SINGLEFILE_BINARY, PATH=SYS_NPM_BINPROVIDER.PATH)
                 or bin_abspath("single-file", PATH=SYS_NPM_BINPROVIDER.PATH)
                 or bin_abspath("single-file-node.js", PATH=SYS_NPM_BINPROVIDER.PATH),
-            "packages": lambda:
-                [],    # prevent modifying system global npm packages
+            "packages": [f"single-file-cli@>={SINGLEFILE_MIN_VERSION} <{SINGLEFILE_MAX_VERSION}"],
+            "install": lambda: None,
         },
         env.name: {
             'abspath': lambda:
@@ -69,18 +68,6 @@ class SinglefileBinary(BaseBinary):
                 or bin_abspath('single-file-node.js', PATH=env.PATH),
         },
     }
-    
-    def install(self, binprovider_name: Optional[BinProviderName]=None, **kwargs) -> ShallowBinary:
-        # force install to only use lib/npm provider, we never want to modify global NPM packages
-        return BaseBinary.install(self, binprovider_name=binprovider_name or LIB_NPM_BINPROVIDER.name, **kwargs)
-    
-    def load_or_install(self, binprovider_name: Optional[BinProviderName]=None, fresh=False, **kwargs) -> ShallowBinary:
-        try:
-            return self.load(fresh=fresh)
-        except Exception:
-            # force install to only use lib/npm provider, we never want to modify global NPM packages
-            return BaseBinary.install(self, binprovider_name=binprovider_name or LIB_NPM_BINPROVIDER.name, **kwargs)
-
 
 
 SINGLEFILE_BINARY = SinglefileBinary()

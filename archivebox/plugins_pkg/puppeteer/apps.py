@@ -11,7 +11,7 @@ from pydantic_pkgr import (
     BinProvider,
     BinName,
     BinProviderName,
-    ProviderLookupDict,
+    BinProviderOverrides,
     InstallArgs,
     PATHStr,
     HostBinPath,
@@ -65,10 +65,10 @@ class PuppeteerBinProvider(BaseBinProvider):
     
     euid: Optional[int] = ARCHIVEBOX_USER
 
-    puppeteer_browsers_dir: Optional[Path] = LIB_DIR_BROWSERS
+    puppeteer_browsers_dir: Path = LIB_DIR_BROWSERS
     puppeteer_install_args: List[str] = ["@puppeteer/browsers", "install", "--path", str(LIB_DIR_BROWSERS)]
 
-    packages_handler: ProviderLookupDict = Field(default={
+    packages_handler: BinProviderOverrides = Field(default={
         "chrome": lambda:
             ['chrome@stable'],
     }, exclude=True)
@@ -90,7 +90,7 @@ class PuppeteerBinProvider(BaseBinProvider):
         # /data/lib/browsers/chrome/linux-131.0.6730.0/chrome-linux64/chrome
         return sorted(self.puppeteer_browsers_dir.glob(f"{browser_name}/linux*/chrome*/chrome"))
 
-    def on_get_abspath(self, bin_name: BinName, **context) -> Optional[HostBinPath]:
+    def default_abspath_handler(self, bin_name: BinName, **context) -> Optional[HostBinPath]:
         assert bin_name == 'chrome', 'Only chrome is supported using the @puppeteer/browsers install method currently.'
         
         # already loaded, return abspath from cache
@@ -106,7 +106,7 @@ class PuppeteerBinProvider(BaseBinProvider):
         
         return None
 
-    def on_install(self, bin_name: str, packages: Optional[InstallArgs] = None, **context) -> str:
+    def default_install_handler(self, bin_name: str, packages: Optional[InstallArgs] = None, **context) -> str:
         """npx @puppeteer/browsers install chrome@stable"""
         self.setup()
         assert bin_name == 'chrome', 'Only chrome is supported using the @puppeteer/browsers install method currently.'
@@ -115,7 +115,7 @@ class PuppeteerBinProvider(BaseBinProvider):
             raise Exception(
                 f"{self.__class__.__name__} install method is not available on this host ({self.INSTALLER_BIN} not found in $PATH)"
             )
-        packages = packages or self.on_get_packages(bin_name)
+        packages = packages or self.get_packages(bin_name)
         assert packages, f"No packages specified for installation of {bin_name}"
 
         # print(f'[*] {self.__class__.__name__}: Installing {bin_name}: {self.INSTALLER_BIN_ABSPATH} install {packages}')

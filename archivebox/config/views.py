@@ -111,9 +111,9 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
                     or config_value.lower().endswith(binary.name.lower())
                     # or binary.name.lower().replace('-', '').replace('_', '') in str(config_value).lower()
             )))
-            # if not binary.provider_overrides:
+            # if not binary.overrides:
                 # import ipdb; ipdb.set_trace()
-            # rows['Overrides'].append(str(obj_to_yaml(binary.provider_overrides) or str(binary.provider_overrides))[:200])
+            # rows['Overrides'].append(str(obj_to_yaml(binary.overrides) or str(binary.overrides))[:200])
             # rows['Description'].append(binary.description)
 
     return TableContext(
@@ -153,7 +153,7 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
                     'binprovider': binary.loaded_binprovider,
                     'abspath': binary.loaded_abspath,
                     'version': binary.loaded_version,
-                    'overrides': obj_to_yaml(binary.provider_overrides),
+                    'overrides': obj_to_yaml(binary.overrides),
                     'providers': obj_to_yaml(binary.binproviders_supported),
                 },
                 "help_texts": {
