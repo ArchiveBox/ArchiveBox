@@ -4,7 +4,7 @@ import os
 import sys
 import platform
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import List, Optional
 
 # Depends on other PyPI/vendor packages:
 from rich import print
@@ -12,7 +12,6 @@ from pydantic import InstanceOf, Field, model_validator
 from pydantic_pkgr import (
     BinProvider,
     BinName,
-    BinProviderName,
     BinaryOverrides,
     bin_abspath,
 )

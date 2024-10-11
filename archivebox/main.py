@@ -1058,7 +1058,7 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
     print()
     
     for binary in reversed(list(settings.BINARIES.values())):
-        if binary.name in ('archivebox', 'django', 'sqlite', 'python', 'pipx'):
+        if binary.name in ('archivebox', 'django', 'sqlite', 'python'):
             # obviously must already be installed if we are running
             continue
         
@@ -1078,19 +1078,20 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
                 if binproviders:
                     providers_supported_by_binary = [provider.name for provider in binary.binproviders_supported]
                     for binprovider_name in binproviders:
-
                         if binprovider_name not in providers_supported_by_binary:
                             continue
-
-                        if dry_run:
-                            # always show install commands when doing a dry run
-                            sys.stderr.write("\033[2;49;90m")  # grey53
-                            result = binary.install(binproviders=[binprovider_name], dry_run=dry_run).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
-                            sys.stderr.write("\033[00m\n")     # reset
-                        else:
-                            result = binary.load_or_install(binproviders=[binprovider_name], fresh=True, dry_run=dry_run).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
-                        if result and result['loaded_version']:
-                            break
+                        try:
+                            if dry_run:
+                                # always show install commands when doing a dry run
+                                sys.stderr.write("\033[2;49;90m")  # grey53
+                                result = binary.install(binproviders=[binprovider_name], dry_run=dry_run).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
+                                sys.stderr.write("\033[00m\n")     # reset
+                            else:
+                                result = binary.load_or_install(binproviders=[binprovider_name], fresh=True, dry_run=dry_run, quiet=False).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
+                            if result and result['loaded_version']:
+                                break
+                        except Exception as e:
+                            print(f'[red]:cross_mark: Failed to install {binary.name} as using {binprovider_name} as user {ARCHIVEBOX_USER}: {e}[/red]')
                 else:
                     if dry_run:
                         sys.stderr.write("\033[2;49;90m")  # grey53
