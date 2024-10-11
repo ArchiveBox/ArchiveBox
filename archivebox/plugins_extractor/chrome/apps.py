@@ -19,7 +19,7 @@ from pydantic_pkgr import (
 # Depends on other Django apps:
 from abx.archivebox.base_plugin import BasePlugin
 from abx.archivebox.base_configset import BaseConfigSet
-from abx.archivebox.base_binary import BaseBinary, env
+from abx.archivebox.base_binary import BaseBinary, env, apt, brew
 # from abx.archivebox.base_extractor import BaseExtractor
 # from abx.archivebox.base_queue import BaseQueue
 from abx.archivebox.base_hook import BaseHook
@@ -58,6 +58,14 @@ CHROME_BINARY_NAMES_MACOS = [
     "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
 ]
 CHROME_BINARY_NAMES = CHROME_BINARY_NAMES_LINUX + CHROME_BINARY_NAMES_MACOS
+
+APT_DEPENDENCIES = [
+    'apt-transport-https', 'at-spi2-common', 'chromium-browser',
+    'fontconfig', 'fonts-freefont-ttf', 'fonts-ipafont-gothic', 'fonts-kacst', 'fonts-khmeros', 'fonts-liberation', 'fonts-noto', 'fonts-noto-color-emoji', 'fonts-symbola', 'fonts-thai-tlwg', 'fonts-tlwg-loma-otf', 'fonts-unifont', 'fonts-wqy-zenhei',
+    'libasound2', 'libatk-bridge2.0-0', 'libatk1.0-0', 'libatspi2.0-0', 'libavahi-client3', 'libavahi-common-data', 'libavahi-common3', 'libcairo2', 'libcups2',
+    'libdbus-1-3', 'libdrm2', 'libfontenc1', 'libgbm1', 'libglib2.0-0', 'libice6', 'libnspr4', 'libnss3', 'libsm6', 'libunwind8', 'libx11-6', 'libxaw7', 'libxcb1',
+    'libxcomposite1', 'libxdamage1', 'libxext6', 'libxfixes3', 'libxfont2', 'libxkbcommon0', 'libxkbfile1', 'libxmu6', 'libxpm4', 'libxrandr2', 'libxt6', 'x11-utils', 'x11-xkb-utils', 'xfonts-encodings',
+]
 
 
 def autodetect_system_chrome_install(PATH=None) -> Optional[Path]:
@@ -201,7 +209,7 @@ CHROME_CONFIG = ChromeConfig()
 
 class ChromeBinary(BaseBinary):
     name: BinName = CHROME_CONFIG.CHROME_BINARY
-    binproviders_supported: List[InstanceOf[BinProvider]] = [PUPPETEER_BINPROVIDER, env, PLAYWRIGHT_BINPROVIDER]
+    binproviders_supported: List[InstanceOf[BinProvider]] = [PUPPETEER_BINPROVIDER, env, PLAYWRIGHT_BINPROVIDER, apt, brew]
     
     overrides: BinaryOverrides = {
         env.name: {
@@ -212,6 +220,12 @@ class ChromeBinary(BaseBinary):
         },
         PLAYWRIGHT_BINPROVIDER.name: {
             'packages': ['chromium'],                   # playwright install chromium
+        },
+        apt.name: {
+            'packages': APT_DEPENDENCIES,
+        },
+        brew.name: {
+            'packages': ['--cask', 'chromium'],
         },
     }
 
