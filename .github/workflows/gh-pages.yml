@@ -37,7 +37,7 @@ jobs:
           fetch-depth: 1
       - name: Copy README.md into place
         run: |
-          rm ./website/README.md
+          rm -fv./website/README.md
           cp ./README.md ./website/README.md
       - name: Setup Pages
         uses: actions/configure-pages@v3
