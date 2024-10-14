@@ -6,7 +6,6 @@ from typing import List, Optional, Union, Any
 from datetime import datetime
 
 from django.db.models import Q
-from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 

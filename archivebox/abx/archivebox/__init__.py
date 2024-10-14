@@ -32,9 +32,13 @@ def load_archivebox_plugins(pm, plugins_dict: Dict[str, Path]):
         for ab_plugin in archivebox_plugins_found:
             pm.register(ab_plugin)
             for hook in ab_plugin.hooks:
-                hook.__signature__ = hook.__class__.__signature__              # fix to make pydantic model usable as Pluggy plugin
+                try:
+                    # if hook is a pydantic class, fix its __signature__ to make it usable as a Pluggy plugin
+                    hook.__signature__ = hook.__class__.__signature__              # fix to make pydantic model usable as Pluggy plugin
+                except Exception:
+                    pass
                 pm.register(hook)
             LOADED_PLUGINS[plugin_module] = ab_plugin
             
-        # print(f'    √ Loaded plugin: {LOADED_PLUGINS}')
+        print(f'    √ Loaded plugin: {plugin_module} {len(archivebox_plugins_found) * "🧩"}')
     return LOADED_PLUGINS
