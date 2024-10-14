@@ -110,6 +110,11 @@ def register_checks():
     """Register django checks with django system checks system"""
     pass
 
+@hookspec
+def register_admin(admin_site):
+    """Register django admin views/models with the main django admin site instance"""
+    pass
+
 
 ###########################################################################################
 

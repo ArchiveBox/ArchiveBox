@@ -96,3 +96,6 @@ def register_checks():
     """register any django system checks"""
     pm.hook.register_checks()
 
+def register_admin(admin_site):
+    """register any django admin models/views with the main django admin site instance"""
+    pm.hook.register_admin(admin_site=admin_site)
