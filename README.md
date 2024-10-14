@@ -1370,7 +1370,7 @@ uv venv
 uv sync
 
 archivebox init
-archivebox install
+archivebox setup
 ```
 
 #### 2. Option B: Build the docker container and use that for development instead
