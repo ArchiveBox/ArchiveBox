@@ -24,7 +24,6 @@ from admin_data_views.utils import render_with_table_view, render_with_item_view
 
 from core.models import Snapshot
 from core.forms import AddLinkForm
-from core.admin import result_url
 
 from queues.tasks import bg_add
 
@@ -452,6 +451,8 @@ class AddView(UserPassesTestMixin, FormView):
         }
 
     def form_valid(self, form):
+        from core.admin_archiveresults import result_url
+        
         url = form.cleaned_data["url"]
         print(f'[+] Adding URL: {url}')
         parser = form.cleaned_data["parser"]
