@@ -11,63 +11,38 @@ from django.utils.functional import cached_property
 
 import abx.archivebox.use
 from abx.archivebox.base_binary import BaseBinary, BaseBinProvider
-from archivebox.abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
+from archivebox.abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats
 
 from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, get_host_stats
 
-CURRENT_MACHINE = None                              # global cache for the current machine
-CURRENT_INTERFACE = None                            # global cache for the current network interface
-CURRENT_BINARIES = {}                               # global cache for the currently installed binaries
+_CURRENT_MACHINE = None                              # global cache for the current machine
+_CURRENT_INTERFACE = None                            # global cache for the current network interface
+_CURRENT_BINARIES = {}                               # global cache for the currently installed binaries
+
+
 MACHINE_RECHECK_INTERVAL = 7 * 24 * 60 * 60         # 1 week (how often should we check for OS/hardware changes?)
 NETWORK_INTERFACE_RECHECK_INTERVAL = 1 * 60 * 60    # 1 hour (how often should we check for public IP/private IP/DNS changes?)
 INSTALLED_BINARY_RECHECK_INTERVAL = 1 * 30 * 60     # 30min  (how often should we check for changes to locally installed binaries?)
 
-
-class ModelWithHealthStats(models.Model):
-    num_uses_failed = models.PositiveIntegerField(default=0)
-    num_uses_succeeded = models.PositiveIntegerField(default=0)
-    
-    class Meta:
-        abstract = True
-    
-    def record_health_failure(self) -> None:
-        self.num_uses_failed += 1
-        self.save()
-
-    def record_health_success(self) -> None:
-        self.num_uses_succeeded += 1
-        self.save()
-        
-    def reset_health(self) -> None:
-        # move all the failures to successes when resetting so we dont lose track of the total count
-        self.num_uses_succeeded = self.num_uses_failed + self.num_uses_succeeded
-        self.num_uses_failed = 0
-        self.save()
-        
-    @property
-    def health(self) -> int:
-        total_uses = max((self.num_uses_failed + self.num_uses_succeeded, 1))
-        success_pct = (self.num_uses_succeeded / total_uses) * 100
-        return round(success_pct)
 
 
 class MachineManager(models.Manager):
     def current(self) -> 'Machine':
         """Get the current machine that ArchiveBox is running on."""
         
-        global CURRENT_MACHINE
-        if CURRENT_MACHINE:
-            expires_at = CURRENT_MACHINE.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL)
+        global _CURRENT_MACHINE
+        if _CURRENT_MACHINE:
+            expires_at = _CURRENT_MACHINE.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL)
             if timezone.now() < expires_at:
                 # assume current machine cant change *while archivebox is actively running on it*
                 # it's not strictly impossible to swap hardware while code is running,
                 # but its rare and unusual so we check only once per week
                 # (e.g. VMWare can live-migrate a VM to a new host while it's running)
-                return CURRENT_MACHINE
+                return _CURRENT_MACHINE
             else:
-                CURRENT_MACHINE = None
+                _CURRENT_MACHINE = None
         
-        CURRENT_MACHINE, _created = self.update_or_create(
+        _CURRENT_MACHINE, _created = self.update_or_create(
             guid=get_host_guid(),
             defaults={
                 'hostname': socket.gethostname(),
@@ -76,11 +51,14 @@ class MachineManager(models.Manager):
                 'stats': get_host_stats(),
             },
         )        
-        CURRENT_MACHINE.save()  # populate ABID
+        _CURRENT_MACHINE.save()  # populate ABID
         
-        return CURRENT_MACHINE
+        return _CURRENT_MACHINE
+
 
 class Machine(ABIDModel, ModelWithHealthStats):
+    """Audit log entry for a physical machine that was used to do archiving."""
+    
     abid_prefix = 'mxn_'
     abid_ts_src = 'self.created_at'
     abid_uri_src = 'self.guid'
@@ -113,6 +91,7 @@ class Machine(ABIDModel, ModelWithHealthStats):
     
     # STATS COUNTERS
     stats = models.JSONField(default=dict, null=False)                    # e.g. {"cpu_load": [1.25, 2.4, 1.4], "mem_swap_used_pct": 56, ...}
+    
     # num_uses_failed = models.PositiveIntegerField(default=0)                  # from ModelWithHealthStats
     # num_uses_succeeded = models.PositiveIntegerField(default=0)
     
@@ -127,18 +106,18 @@ class NetworkInterfaceManager(models.Manager):
     def current(self) -> 'NetworkInterface':
         """Get the current network interface for the current machine."""
         
-        global CURRENT_INTERFACE
-        if CURRENT_INTERFACE:
+        global _CURRENT_INTERFACE
+        if _CURRENT_INTERFACE:
             # assume the current network interface (public IP, DNS servers, etc.) wont change more than once per hour
-            expires_at = CURRENT_INTERFACE.modified_at + timedelta(seconds=NETWORK_INTERFACE_RECHECK_INTERVAL)
+            expires_at = _CURRENT_INTERFACE.modified_at + timedelta(seconds=NETWORK_INTERFACE_RECHECK_INTERVAL)
             if timezone.now() < expires_at:
-                return CURRENT_INTERFACE
+                return _CURRENT_INTERFACE
             else:
-                CURRENT_INTERFACE = None
+                _CURRENT_INTERFACE = None
         
         machine = Machine.objects.current()
         net_info = get_host_network()
-        CURRENT_INTERFACE, _created = self.update_or_create(
+        _CURRENT_INTERFACE, _created = self.update_or_create(
             machine=machine,
             ip_public=net_info.pop('ip_public'),
             ip_local=net_info.pop('ip_local'),
@@ -146,14 +125,16 @@ class NetworkInterfaceManager(models.Manager):
             dns_server=net_info.pop('dns_server'),
             defaults=net_info,
         )
-        CURRENT_INTERFACE.save()  # populate ABID
+        _CURRENT_INTERFACE.save()  # populate ABID
 
-        return CURRENT_INTERFACE
+        return _CURRENT_INTERFACE
     
 
 
 
 class NetworkInterface(ABIDModel, ModelWithHealthStats):
+    """Audit log entry for a physical network interface / internet connection that was used to do archiving."""
+    
     abid_prefix = 'ixf_'
     abid_ts_src = 'self.machine.created_at'
     abid_uri_src = 'self.machine.guid'
@@ -183,7 +164,7 @@ class NetworkInterface(ABIDModel, ModelWithHealthStats):
     region = models.CharField(max_length=63, default=None, null=False)                        # e.g. California
     country = models.CharField(max_length=63, default=None, null=False)                       # e.g. United States
 
-    # STATS COUNTERS (from ModelWithHealthStats)
+    # STATS COUNTERS (inherited from ModelWithHealthStats)
     # num_uses_failed = models.PositiveIntegerField(default=0)
     # num_uses_succeeded = models.PositiveIntegerField(default=0)
 
@@ -202,8 +183,8 @@ class InstalledBinaryManager(models.Manager):
     def get_from_db_or_cache(self, binary: BaseBinary) -> 'InstalledBinary':
         """Get or create an InstalledBinary record for a Binary on the local machine"""
         
-        global CURRENT_BINARIES
-        cached_binary = CURRENT_BINARIES.get(binary.id)
+        global _CURRENT_BINARIES
+        cached_binary = _CURRENT_BINARIES.get(binary.id)
         if cached_binary:
             expires_at = cached_binary.modified_at + timedelta(seconds=INSTALLED_BINARY_RECHECK_INTERVAL)
             if timezone.now() < expires_at:
@@ -218,7 +199,7 @@ class InstalledBinaryManager(models.Manager):
                         or binary.sha256 != cached_binary.sha256
                     )
                     if is_different_from_cache:
-                        CURRENT_BINARIES.pop(binary.id)
+                        _CURRENT_BINARIES.pop(binary.id)
                     else:
                         return cached_binary
                 else:
@@ -229,7 +210,7 @@ class InstalledBinaryManager(models.Manager):
                     return cached_binary
             else:
                 # cached binary is too old, reload it from scratch
-                CURRENT_BINARIES.pop(binary.id)
+                _CURRENT_BINARIES.pop(binary.id)
         
         if not binary.abspath or not binary.version or not binary.sha256:
             # if binary was not yet loaded from filesystem, do it now
@@ -239,7 +220,7 @@ class InstalledBinaryManager(models.Manager):
 
         assert binary.loaded_binprovider and binary.loaded_abspath and binary.loaded_version and binary.loaded_sha256, f'Failed to load binary {binary.name} abspath, version, and sha256'
         
-        CURRENT_BINARIES[binary.id], _created = self.update_or_create(
+        _CURRENT_BINARIES[binary.id], _created = self.update_or_create(
             machine=Machine.objects.current(),
             name=binary.name,
             binprovider=binary.loaded_binprovider.name,
@@ -247,7 +228,7 @@ class InstalledBinaryManager(models.Manager):
             abspath=str(binary.loaded_abspath),
             sha256=str(binary.loaded_sha256),
         )
-        cached_binary = CURRENT_BINARIES[binary.id]
+        cached_binary = _CURRENT_BINARIES[binary.id]
         cached_binary.save()   # populate ABID
         
         # if we get this far make sure DB record matches in-memroy cache
@@ -282,11 +263,11 @@ class InstalledBinary(ABIDModel, ModelWithHealthStats):
     version = models.CharField(max_length=32, default=None, null=False, blank=True)
     sha256 = models.CharField(max_length=64, default=None, null=False, blank=True)
     
-    # MUTABLE PROPERTIES
+    # MUTABLE PROPERTIES (TODO)
     # is_pinned = models.BooleanField(default=False)    # i.e. should this binary superceede other binaries with the same name on the host?
     # is_valid = models.BooleanField(default=True)      # i.e. is this binary still available on the host?
     
-    # STATS COUNTERS (from ModelWithHealthStats)
+    # STATS COUNTERS (inherited from ModelWithHealthStats)
     # num_uses_failed = models.PositiveIntegerField(default=0)
     # num_uses_succeeded = models.PositiveIntegerField(default=0)
     
