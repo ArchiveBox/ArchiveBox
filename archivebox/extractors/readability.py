@@ -7,54 +7,58 @@ from typing import Optional
 import json
 
 from ..index.schema import Link, ArchiveResult, ArchiveError
-from ..system import run, atomic_write
-from ..util import (
-    enforce_types,
-    is_static_file,
-)
-from ..config import (
-    TIMEOUT,
-    CURL_BINARY,
-    SAVE_READABILITY,
-    DEPENDENCIES,
-    READABILITY_VERSION,
-)
+from archivebox.misc.system import run, atomic_write
+from archivebox.misc.util import enforce_types, is_static_file
 from ..logging_util import TimedProgress
 from .title import get_html
+
+def get_output_path():
+    return 'readability/'
+
+def get_embed_path(archiveresult=None):
+    return get_output_path() + 'content.html'
 
 
 @enforce_types
 def should_save_readability(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:
+    from plugins_extractor.readability.apps import READABILITY_CONFIG
+    
     if is_static_file(link.url):
         return False
 
-    out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'readability').exists():
+    output_subdir = (Path(out_dir or link.link_dir) / get_output_path())
+    if not overwrite and output_subdir.exists():
         return False
 
-    return SAVE_READABILITY
+    return READABILITY_CONFIG.SAVE_READABILITY
 
 
 @enforce_types
-def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=0) -> ArchiveResult:
     """download reader friendly version using @mozilla/readability"""
+    
+    from plugins_extractor.readability.apps import READABILITY_CONFIG, READABILITY_BINARY
+    
+    READABILITY_BIN = READABILITY_BINARY.load()
+    assert READABILITY_BIN.abspath and READABILITY_BIN.version
 
-    out_dir = Path(out_dir or link.link_dir)
-    output_folder = out_dir.absolute() / "readability"
-    output = "readability"
+    timeout = timeout or READABILITY_CONFIG.READABILITY_TIMEOUT
+    output_subdir = Path(out_dir or link.link_dir).absolute() / get_output_path()
+    output = get_output_path()
 
     # Readability Docs: https://github.com/mozilla/readability
 
     status = 'succeeded'
     # fake command to show the user so they have something to try debugging if get_html fails
     cmd = [
-        CURL_BINARY,
-        link.url
+        str(READABILITY_BIN.abspath),
+        '{dom,singlefile}.html',
+        link.url,
     ]
     readability_content = None
     timer = TimedProgress(timeout, prefix='      ')
     try:
-        document = get_html(link, out_dir)
+        document = get_html(link, Path(out_dir or link.link_dir))
         temp_doc = NamedTemporaryFile(delete=False)
         temp_doc.write(document.encode("utf-8"))
         temp_doc.close()
@@ -63,26 +67,26 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
             raise ArchiveError('Readability could not find HTML to parse for article text')
 
         cmd = [
-            DEPENDENCIES['READABILITY_BINARY']['path'],
+            str(READABILITY_BIN.abspath),
             temp_doc.name,
             link.url,
         ]
-        result = run(cmd, cwd=out_dir, timeout=timeout)
+        result = run(cmd, cwd=out_dir, timeout=timeout, text=True)
         try:
             result_json = json.loads(result.stdout)
             assert result_json and 'content' in result_json, 'Readability output is not valid JSON'
         except json.JSONDecodeError:
             raise ArchiveError('Readability was not able to archive the page (invalid JSON)', result.stdout + result.stderr)
 
-        output_folder.mkdir(exist_ok=True)
+        output_subdir.mkdir(exist_ok=True)
         readability_content = result_json.pop("textContent") 
-        atomic_write(str(output_folder / "content.html"), result_json.pop("content"))
-        atomic_write(str(output_folder / "content.txt"), readability_content)
-        atomic_write(str(output_folder / "article.json"), result_json)
+        atomic_write(str(output_subdir / "content.html"), result_json.pop("content"))
+        atomic_write(str(output_subdir / "content.txt"), readability_content)
+        atomic_write(str(output_subdir / "article.json"), result_json)
 
         output_tail = [
             line.strip()
-            for line in (result.stdout + result.stderr).decode().rsplit('\n', 5)[-5:]
+            for line in (result.stdout + result.stderr).rsplit('\n', 5)[-5:]
             if line.strip()
         ]
         hints = (
@@ -105,7 +109,7 @@ def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=TIMEO
     return ArchiveResult(
         cmd=cmd,
         pwd=str(out_dir),
-        cmd_version=READABILITY_VERSION,
+        cmd_version=str(READABILITY_BIN.version),
         output=output,
         status=status,
         index_texts=[readability_content] if readability_content else [],

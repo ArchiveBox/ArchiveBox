@@ -5,12 +5,11 @@ __command__ = 'archivebox update'
 
 import sys
 import argparse
-
+from pathlib import Path
 from typing import List, Optional, IO
 
-from ..main import update
-from ..util import docstring
-from ..config import OUTPUT_DIR
+from archivebox.misc.util import docstring
+from archivebox.config import DATA_DIR
 from ..index import (
     LINK_FILTERS,
     get_indexed_folders,
@@ -25,6 +24,7 @@ from ..index import (
     get_unrecognized_folders,
 )
 from ..logging_util import SmartFormatter, accept_stdin
+from ..main import update
 
 
 @docstring(update.__doc__)
@@ -127,7 +127,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         status=command.status,
         after=command.after,
         before=command.before,
-        out_dir=pwd or OUTPUT_DIR,
+        out_dir=Path(pwd) if pwd else DATA_DIR,
         extractors=command.extract,
     )
     

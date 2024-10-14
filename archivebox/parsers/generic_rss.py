@@ -2,13 +2,13 @@ __package__ = 'archivebox.parsers'
 
 
 from typing import IO, Iterable
-from datetime import datetime
+from time import mktime
+from feedparser import parse as feedparser
 
 from ..index.schema import Link
-from ..util import (
+from archivebox.misc.util import (
     htmldecode,
-    enforce_types,
-    str_between,
+    enforce_types
 )
 
 @enforce_types
@@ -16,35 +16,27 @@ def parse_generic_rss_export(rss_file: IO[str], **_kwargs) -> Iterable[Link]:
     """Parse RSS XML-format files into links"""
 
     rss_file.seek(0)
-    items = rss_file.read().split('<item>')
-    items = items[1:] if items else []
-    for item in items:
-        # example item:
-        # <item>
-        # <title><![CDATA[How JavaScript works: inside the V8 engine]]></title>
-        # <category>Unread</category>
-        # <link>https://blog.sessionstack.com/how-javascript-works-inside</link>
-        # <guid>https://blog.sessionstack.com/how-javascript-works-inside</guid>
-        # <pubDate>Mon, 21 Aug 2017 14:21:58 -0500</pubDate>
-        # </item>
+    feed = feedparser(rss_file.read())
+    for item in feed.entries:
+        url = item.link
+        title = item.title
+        time = mktime(item.updated_parsed)
 
-        trailing_removed = item.split('</item>', 1)[0]
-        leading_removed = trailing_removed.split('<item>', 1)[-1].strip()
-        rows = leading_removed.split('\n')
+        try:
+            tags = ','.join(map(lambda tag: tag.term, item.tags))
+        except AttributeError:
+            tags = ''
 
-        def get_row(key):
-            return [r for r in rows if r.strip().startswith('<{}>'.format(key))][0]
-
-        url = str_between(get_row('link'), '<link>', '</link>')
-        ts_str = str_between(get_row('pubDate'), '<pubDate>', '</pubDate>')
-        time = datetime.strptime(ts_str, "%a, %d %b %Y %H:%M:%S %z")
-        title = str_between(get_row('title'), '<![CDATA[', ']]').strip()
+        if url is None:
+            # Yielding a Link with no URL will
+            # crash on a URL validation assertion
+            continue
 
         yield Link(
             url=htmldecode(url),
-            timestamp=str(time.timestamp()),
+            timestamp=str(time),
             title=htmldecode(title) or None,
-            tags=None,
+            tags=tags,
             sources=[rss_file.name],
         )
 

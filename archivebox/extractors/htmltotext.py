@@ -5,19 +5,21 @@ import io
 from pathlib import Path
 from typing import Optional
 
-from ..config import (
-    SAVE_HTMLTOTEXT,
-    TIMEOUT,
-    VERSION,
-)
-from ..index.schema import Link, ArchiveResult, ArchiveError
+from archivebox.config import VERSION
+from archivebox.config.common import ARCHIVING_CONFIG
+from archivebox.config.legacy import SAVE_HTMLTOTEXT
+from archivebox.misc.system import atomic_write
+from archivebox.misc.util import enforce_types, is_static_file
+
 from ..logging_util import TimedProgress
-from ..system import atomic_write
-from ..util import (
-    enforce_types,
-    is_static_file,
-)
+from ..index.schema import Link, ArchiveResult, ArchiveError
 from .title import get_html
+
+
+def get_output_path():
+    return "htmltotext.txt"
+
+
 
 class HTMLTextExtractor(HTMLParser):
     TEXT_ATTRS = [
@@ -109,21 +111,23 @@ def should_save_htmltotext(link: Link, out_dir: Optional[Path]=None, overwrite: 
         return False
 
     out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'htmltotext.txt').exists():
+    if not overwrite and (out_dir / get_output_path()).exists():
         return False
 
     return SAVE_HTMLTOTEXT
 
 
 @enforce_types
-def save_htmltotext(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_htmltotext(link: Link, out_dir: Optional[Path]=None, timeout: int=ARCHIVING_CONFIG.TIMEOUT) -> ArchiveResult:
     """extract search-indexing-friendly text from an HTML document"""
 
     out_dir = Path(out_dir or link.link_dir)
-    output = "htmltotext.txt"
+    output = get_output_path()
+    cmd = ['(internal) archivebox.extractors.htmltotext', './{singlefile,dom}.html']
 
     timer = TimedProgress(timeout, prefix='      ')
     extracted_text = None
+    status = 'failed'
     try:
         extractor = HTMLTextExtractor()
         document = get_html(link, out_dir)
@@ -136,10 +140,9 @@ def save_htmltotext(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEO
         extracted_text = str(extractor)
 
         atomic_write(str(out_dir / output), extracted_text)
+        status = 'succeeded'
     except (Exception, OSError) as err:
-        status = 'failed'
         output = err
-        cmd = ['(internal) archivebox.extractors.htmltotext', './{singlefile,dom}.html']
     finally:
         timer.end()
 

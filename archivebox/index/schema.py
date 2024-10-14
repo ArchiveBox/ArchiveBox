@@ -4,11 +4,10 @@ WARNING: THIS FILE IS ALL LEGACY CODE TO BE REMOVED.
 
 DO NOT ADD ANY NEW FEATURES TO THIS FILE, NEW CODE GOES HERE: core/models.py
 
+These are the old types we used to use before ArchiveBox v0.4 (before we switched to Django).
 """
 
 __package__ = 'archivebox.index'
-
-from pathlib import Path
 
 from datetime import datetime, timezone, timedelta
 
@@ -18,9 +17,14 @@ from dataclasses import dataclass, asdict, field, fields
 
 from django.utils.functional import cached_property
 
-from ..system import get_dir_size
-from ..util import ts_to_date_str, parse_date
-from ..config import OUTPUT_DIR, ARCHIVE_DIR_NAME, FAVICON_PROVIDER
+from archivebox.config import ARCHIVE_DIR, CONSTANTS
+
+from plugins_extractor.favicon.apps import FAVICON_CONFIG
+
+from archivebox.misc.system import get_dir_size
+from archivebox.misc.util import ts_to_date_str, parse_date
+from archivebox.misc.logging import stderr, ANSI
+
 
 class ArchiveError(Exception):
     def __init__(self, message, hints=None):
@@ -64,7 +68,6 @@ class ArchiveResult:
 
     @classmethod
     def guess_ts(_cls, dict_info):
-        from ..util import parse_date
         parsed_timestamp = parse_date(dict_info["timestamp"])
         start_ts = parsed_timestamp
         end_ts = parsed_timestamp + timedelta(seconds=int(dict_info["duration"]))
@@ -72,8 +75,6 @@ class ArchiveResult:
 
     @classmethod
     def from_json(cls, json_info, guess=False):
-        from ..util import parse_date
-
         info = {
             key: val
             for key, val in json_info.items()
@@ -87,7 +88,7 @@ class ArchiveResult:
                 info['start_ts'] = parse_date(info['start_ts'])
                 info['end_ts'] = parse_date(info['end_ts'])
             if "pwd" not in keys:
-                info["pwd"] = str(Path(OUTPUT_DIR) / ARCHIVE_DIR_NAME / json_info["timestamp"])
+                info["pwd"] = str(ARCHIVE_DIR / json_info["timestamp"])
             if "cmd_version" not in keys:
                 info["cmd_version"] = "Undefined"
             if "cmd" not in keys:
@@ -131,7 +132,7 @@ class Link:
     tags: Optional[str]
     sources: List[str]
     history: Dict[str, List[ArchiveResult]] = field(default_factory=lambda: {})
-    updated: Optional[datetime] = None
+    downloaded_at: Optional[datetime] = None
     schema: str = 'Link'
 
     def __str__(self) -> str:
@@ -157,13 +158,12 @@ class Link:
         return float(self.timestamp) > float(other.timestamp)
 
     def typecheck(self) -> None:
-        from ..config import stderr, ANSI
         try:
             assert self.schema == self.__class__.__name__
             assert isinstance(self.timestamp, str) and self.timestamp
             assert self.timestamp.replace('.', '').isdigit()
             assert isinstance(self.url, str) and '://' in self.url
-            assert self.updated is None or isinstance(self.updated, datetime)
+            assert self.downloaded_at is None or isinstance(self.downloaded_at, datetime)
             assert self.title is None or (isinstance(self.title, str) and self.title)
             assert self.tags is None or isinstance(self.tags, str)
             assert isinstance(self.sources, list)
@@ -183,7 +183,7 @@ class Link:
             'url': self.url,
             'title': self.title or None,
             'timestamp': self.timestamp,
-            'updated': self.updated or None,
+            'downloaded_at': self.downloaded_at or None,
             'tags': self.tags or None,
             'sources': self.sources or [],
             'history': self.history or {},
@@ -191,9 +191,11 @@ class Link:
         if extended:
             info.update({
                 'snapshot_id': self.snapshot_id,
+                'snapshot_abid': self.snapshot_abid,
+
                 'link_dir': self.link_dir,
                 'archive_path': self.archive_path,
-                
+
                 'hash': self.url_hash,
                 'base_url': self.base_url,
                 'scheme': self.scheme,
@@ -202,12 +204,12 @@ class Link:
                 'basename': self.basename,
                 'extension': self.extension,
                 'is_static': self.is_static,
-                
+
                 'tags_str': (self.tags or '').strip(','),   # only used to render static index in index/html.py, remove if no longer needed there
                 'icons': None,           # only used to render static index in index/html.py, remove if no longer needed there
 
                 'bookmarked_date': self.bookmarked_date,
-                'updated_date': self.updated_date,
+                'downloaded_datestr': self.downloaded_datestr,
                 'oldest_archive_date': self.oldest_archive_date,
                 'newest_archive_date': self.newest_archive_date,
         
@@ -226,14 +228,12 @@ class Link:
 
     @classmethod
     def from_json(cls, json_info, guess=False):
-        from ..util import parse_date
-        
         info = {
             key: val
             for key, val in json_info.items()
             if key in cls.field_names()
         }
-        info['updated'] = parse_date(info.get('updated'))
+        info['downloaded_at'] = parse_date(info.get('updated') or info.get('downloaded_at'))
         info['sources'] = info.get('sources') or []
 
         json_history = info.get('history') or {}
@@ -260,9 +260,17 @@ class Link:
         return to_csv(self, cols=cols or self.field_names(), separator=separator, ljust=ljust)
 
     @cached_property
-    def snapshot_id(self):
+    def snapshot(self):
         from core.models import Snapshot
-        return str(Snapshot.objects.only('id').get(url=self.url).id)
+        return Snapshot.objects.only('id', 'abid').get(url=self.url)
+
+    @cached_property
+    def snapshot_id(self):
+        return str(self.snapshot.pk)
+
+    @cached_property
+    def snapshot_abid(self):
+        return str(self.snapshot.ABID)
 
     @classmethod
     def field_names(cls):
@@ -270,13 +278,11 @@ class Link:
 
     @property
     def link_dir(self) -> str:
-        from ..config import CONFIG
-        return str(Path(CONFIG['ARCHIVE_DIR']) / self.timestamp)
+        return str(ARCHIVE_DIR / self.timestamp)
 
     @property
     def archive_path(self) -> str:
-        from ..config import ARCHIVE_DIR_NAME
-        return '{}/{}'.format(ARCHIVE_DIR_NAME, self.timestamp)
+        return '{}/{}'.format(CONSTANTS.ARCHIVE_DIR_NAME, self.timestamp)
     
     @property
     def archive_size(self) -> float:
@@ -288,38 +294,38 @@ class Link:
     ### URL Helpers
     @property
     def url_hash(self):
-        from ..util import hashurl
+        from archivebox.misc.util import hashurl
 
         return hashurl(self.url)
 
     @property
     def scheme(self) -> str:
-        from ..util import scheme
+        from archivebox.misc.util import scheme
         return scheme(self.url)
 
     @property
     def extension(self) -> str:
-        from ..util import extension
+        from archivebox.misc.util import extension
         return extension(self.url)
 
     @property
     def domain(self) -> str:
-        from ..util import domain
+        from archivebox.misc.util import domain
         return domain(self.url)
 
     @property
     def path(self) -> str:
-        from ..util import path
+        from archivebox.misc.util import path
         return path(self.url)
 
     @property
     def basename(self) -> str:
-        from ..util import basename
+        from archivebox.misc.util import basename
         return basename(self.url)
 
     @property
     def base_url(self) -> str:
-        from ..util import base_url
+        from archivebox.misc.util import base_url
         return base_url(self.url)
 
     ### Pretty Printing Helpers
@@ -336,8 +342,8 @@ class Link:
 
 
     @property
-    def updated_date(self) -> Optional[str]:
-        return ts_to_date_str(self.updated) if self.updated else None
+    def downloaded_datestr(self) -> Optional[str]:
+        return ts_to_date_str(self.downloaded_at) if self.downloaded_at else None
 
     @property
     def archive_dates(self) -> List[datetime]:
@@ -369,25 +375,28 @@ class Link:
 
     @property
     def is_static(self) -> bool:
-        from ..util import is_static_file
+        from archivebox.misc.util import is_static_file
         return is_static_file(self.url)
 
     @property
     def is_archived(self) -> bool:
-        from ..config import ARCHIVE_DIR
-        from ..util import domain
+        from archivebox.misc.util import domain
 
         output_paths = (
             domain(self.url),
+            'output.html',
             'output.pdf',
             'screenshot.png',
-            'output.html',
+            'singlefile.html',
+            'readability/content.html',
+            'mercury/content.html',
+            'htmltotext.txt',
             'media',
-            'singlefile.html'
+            'git',
         )
 
         return any(
-            (Path(ARCHIVE_DIR) / self.timestamp / path).exists()
+            (ARCHIVE_DIR / self.timestamp / path).exists()
             for path in output_paths
         )
 
@@ -423,7 +432,7 @@ class Link:
         canonical = {
             'index_path': 'index.html',
             'favicon_path': 'favicon.ico',
-            'google_favicon_path': FAVICON_PROVIDER.format(self.domain),
+            'google_favicon_path': FAVICON_CONFIG.FAVICON_PROVIDER.format(self.domain),
             'wget_path': wget_output_path(self),
             'warc_path': 'warc/',
             'singlefile_path': 'singlefile.html',

@@ -9,10 +9,10 @@ import argparse
 from pathlib import Path
 from typing import List, Optional, IO
 
-from ..main import oneshot
-from ..util import docstring
-from ..config import OUTPUT_DIR
+from archivebox.misc.util import docstring
+from archivebox.config import DATA_DIR
 from ..logging_util import SmartFormatter, accept_stdin, stderr
+from ..main import oneshot
 
 
 @docstring(oneshot.__doc__)
@@ -46,7 +46,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     parser.add_argument(
         '--out-dir',
         type=str,
-        default=OUTPUT_DIR,
+        default=DATA_DIR,
         help= "Path to save the single archive folder to, e.g. ./example.com_archive"
     )
     command = parser.parse_args(args or ())

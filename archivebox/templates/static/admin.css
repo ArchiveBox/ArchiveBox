@@ -1,8 +1,8 @@
-* {
+/* * {
     -webkit-box-sizing: border-box;
     -moz-box-sizing: border-box;
     box-sizing: border-box;
-}
+} */
 
 #logo {
     height: 30px;
@@ -116,7 +116,6 @@ body.model-snapshot.change-list #content .object-tools {
     margin-right: 0px;
     width: auto;
     max-height: 40px;
-    overflow: hidden;
     display: block;
 }
 @media (max-width: 1000px) {
@@ -144,11 +143,11 @@ body.model-snapshot.change-list #content .object-tools {
     color: #333;
 }
 #content #changelist .actions .button[name=update_snapshots] {
-    background-color:lightseagreen;
+    background-color: #9ee54b;
     color: #333;
 }
 #content #changelist .actions .button[name=resnapshot_snapshot] {
-    background-color: #9ee54b;
+    background-color:lightseagreen;
     color: #333;
 }
 #content #changelist .actions .button[name=overwrite_snapshots] {
@@ -166,14 +165,14 @@ body.model-snapshot.change-list #content .object-tools {
     margin-right: 25px;
 }
 
-#content #changelist .actions .select2-selection {
+#content #changelist .actions > label {
     max-height: 25px;
 }
-#content #changelist .actions .select2-container--admin-autocomplete.select2-container {
+#content #changelist .actions > label {
     width: auto !important;
     min-width: 90px;
 }
-#content #changelist .actions .select2-selection__rendered .select2-selection__choice {
+#content #changelist .actions > label > select {
     margin-top: 3px;
 }
 
@@ -318,7 +317,7 @@ body.model-snapshot.change-list #content .object-tools {
 }
 
 .inline-group .tabular td.original p {
-    margin-top: -33px;
+    margin-top: -28px;
 }
 
 tbody .output-link {
@@ -330,3 +329,15 @@ tbody .output-link {
     box-shadow:   4px 4px 4px rgba(0,0,0,0.1);
 }
 tbody .output-link:hover {opacity: 1;}
+
+
+
+@keyframes fadeIn {
+    0% { opacity: 0; }
+    30% { opacity: 0.1;}
+    100% { opacity: 1; }
+}
+
+.fade-in-progress-url {
+    animation: fadeIn 14s;
+}

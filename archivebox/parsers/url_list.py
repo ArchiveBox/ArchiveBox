@@ -7,7 +7,7 @@ from typing import IO, Iterable
 from datetime import datetime, timezone
 
 from ..index.schema import Link
-from ..util import (
+from archivebox.misc.util import (
     enforce_types,
     URL_REGEX,
 )

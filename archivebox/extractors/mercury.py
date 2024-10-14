@@ -7,20 +7,21 @@ from typing import Optional, List
 import json
 
 from ..index.schema import Link, ArchiveResult, ArchiveError
-from ..system import run, atomic_write
-from ..util import (
+from archivebox.misc.system import run, atomic_write
+from archivebox.misc.util import (
     enforce_types,
     is_static_file,
+)
+from archivebox.plugins_extractor.mercury.apps import MERCURY_CONFIG, MERCURY_BINARY
 
-)
-from ..config import (
-    TIMEOUT,
-    SAVE_MERCURY,
-    DEPENDENCIES,
-    MERCURY_VERSION,
-)
 from ..logging_util import TimedProgress
 
+
+def get_output_path():
+    return 'mercury/'
+
+def get_embed_path(archiveresult=None):
+    return get_output_path() + 'content.html'
 
 
 @enforce_types
@@ -41,31 +42,36 @@ def should_save_mercury(link: Link, out_dir: Optional[str]=None, overwrite: Opti
     if is_static_file(link.url):
         return False
 
-    out_dir = out_dir or Path(link.link_dir)
-    if not overwrite and (out_dir / 'mercury').exists():
+    out_dir = Path(out_dir or link.link_dir)
+
+    if not overwrite and (out_dir / get_output_path()).exists():
         return False
 
-    return SAVE_MERCURY
+    return MERCURY_CONFIG.SAVE_MERCURY
 
 
 @enforce_types
-def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=MERCURY_CONFIG.MERCURY_TIMEOUT) -> ArchiveResult:
     """download reader friendly version using @postlight/mercury-parser"""
 
     out_dir = Path(out_dir or link.link_dir)
-    output_folder = out_dir.absolute() / "mercury"
-    output = "mercury"
+    output_folder = out_dir.absolute() / get_output_path()
+    output = get_output_path()
+    
+    mercury_binary = MERCURY_BINARY.load()
+    assert mercury_binary.abspath and mercury_binary.version
 
     status = 'succeeded'
     timer = TimedProgress(timeout, prefix='      ')
     try:
         output_folder.mkdir(exist_ok=True)
-
-        # Get plain text version of article
+        # later options take precedence
+        # By default, get plain text version of article
         cmd = [
-            DEPENDENCIES['MERCURY_BINARY']['path'],
+            str(mercury_binary.abspath),
+            *MERCURY_CONFIG.MERCURY_EXTRA_ARGS,
+            '--format=text',
             link.url,
-            "--format=text"
         ]
         result = run(cmd, cwd=out_dir, timeout=timeout)
         try:
@@ -80,7 +86,8 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
 
         # Get HTML version of article
         cmd = [
-            DEPENDENCIES['MERCURY_BINARY']['path'],
+            str(mercury_binary.abspath),
+            *MERCURY_CONFIG.MERCURY_EXTRA_ARGS,
             link.url
         ]
         result = run(cmd, cwd=out_dir, timeout=timeout)
@@ -107,7 +114,7 @@ def save_mercury(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT)
     return ArchiveResult(
         cmd=cmd,
         pwd=str(out_dir),
-        cmd_version=MERCURY_VERSION,
+        cmd_version=str(mercury_binary.version),
         output=output,
         status=status,
         **timer.stats,

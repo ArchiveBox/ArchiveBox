@@ -5,21 +5,14 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Optional
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from ..util import (
+from archivebox.misc.util import (
     enforce_types,
     download_url,
     htmldecode,
+    dedupe,
 )
-from ..config import (
-    TIMEOUT,
-    CHECK_SSL_VALIDITY,
-    SAVE_TITLE,
-    CURL_BINARY,
-    CURL_ARGS,
-    CURL_VERSION,
-    CURL_USER_AGENT,
-)
+from archivebox.plugins_extractor.curl.apps import CURL_CONFIG, CURL_BINARY
+from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from ..logging_util import TimedProgress
 
 
@@ -58,8 +51,9 @@ class TitleParser(HTMLParser):
         if tag.lower() == "title":
             self.inside_title_tag = False
 
+
 @enforce_types
-def get_html(link: Link, path: Path, timeout: int=TIMEOUT) -> str:
+def get_html(link: Link, path: Path, timeout: int=CURL_CONFIG.CURL_TIMEOUT) -> str:
     """
     Try to find wget, singlefile and then dom files.
     If none is found, download the url again.
@@ -75,12 +69,19 @@ def get_html(link: Link, path: Path, timeout: int=TIMEOUT) -> str:
             with open(abs_path / source, "r", encoding="utf-8") as f:
                 document = f.read()
                 break
-        except (FileNotFoundError, TypeError):
+        except (FileNotFoundError, TypeError, UnicodeDecodeError):
             continue
     if document is None:
         return download_url(link.url, timeout=timeout)
     else:
         return document
+
+
+def get_output_path():
+    # TODO: actually save title to this file
+    # (currently only saved in ArchiveResult.output as charfield value, not saved to filesystem)
+    return 'title.json'
+
 
 @enforce_types
 def should_save_title(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:
@@ -88,7 +89,7 @@ def should_save_title(link: Link, out_dir: Optional[str]=None, overwrite: Option
     if not overwrite and link.title and not link.title.lower().startswith('http'):
         return False
 
-    return SAVE_TITLE
+    return CURL_CONFIG.SAVE_TITLE
 
 def extract_title_with_regex(html):
     match = re.search(HTML_TITLE_REGEX, html)
@@ -96,18 +97,26 @@ def extract_title_with_regex(html):
     return output
 
 @enforce_types
-def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -> ArchiveResult:
+def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=CURL_CONFIG.CURL_TIMEOUT) -> ArchiveResult:
     """try to guess the page's title from its content"""
 
     from core.models import Snapshot
 
+    curl_binary = CURL_BINARY.load()
+    assert curl_binary.abspath and curl_binary.version
+
     output: ArchiveOutput = None
-    cmd = [
-        CURL_BINARY,
-        *CURL_ARGS,
+    # later options take precedence
+    options = [
+        *CURL_CONFIG.CURL_ARGS,
+        *CURL_CONFIG.CURL_EXTRA_ARGS,
         '--max-time', str(timeout),
-        *(['--user-agent', '{}'.format(CURL_USER_AGENT)] if CURL_USER_AGENT else []),
-        *([] if CHECK_SSL_VALIDITY else ['--insecure']),
+        *(['--user-agent', '{}'.format(CURL_CONFIG.CURL_USER_AGENT)] if CURL_CONFIG.CURL_USER_AGENT else []),
+        *([] if CURL_CONFIG.CURL_CHECK_SSL_VALIDITY else ['--insecure']),
+    ]
+    cmd = [
+        str(curl_binary.abspath),
+        *dedupe(options),
         link.url,
     ]
     status = 'succeeded'
@@ -146,7 +155,7 @@ def save_title(link: Link, out_dir: Optional[Path]=None, timeout: int=TIMEOUT) -
     return ArchiveResult(
         cmd=cmd,
         pwd=str(out_dir),
-        cmd_version=CURL_VERSION,
+        cmd_version=str(curl_binary.version),
         output=output,
         status=status,
         **timer.stats,

@@ -1,17 +1,27 @@
 {% extends "base.html" %}
 {% load static tz %}
+{% load core_tags %}
 
 {% block body %}
     <div id="toolbar">
-        <form id="changelist-search" action="{% url 'public-index' %}" method="get">
+        <form id="changelist-search" action="{{ request.get_full_path }}" method="get">
             <div>
                 <label for="searchbar"><img src="/static/admin/img/search.svg" alt="Search"></label>
-                <input type="text" size="40" name="q" value="" id="searchbar" autofocus placeholder="Title, URL, tags, timestamp, or content...".>
+                <select name="query_type" id="query_type">
+                    <option {% if request.GET.query_type == 'all' %}selected{% endif %} value="all">All</option>
+                    <option {% if request.GET.query_type == 'fulltext' %}selected{% endif %} value="fulltext">Content</option>
+                    <option {% if request.GET.query_type == 'meta' %}selected{% endif %} value="meta">Metadata</option>
+                    <option {% if request.GET.query_type == 'url' %}selected{% endif %} value="url">URL</option>
+                    <option {% if request.GET.query_type == 'title' %}selected{% endif %} value="title">Title</option>
+                    <option {% if request.GET.query_type == 'timestamp' %}selected{% endif %} value="timestamp">Timestamp</option>
+                    <option {% if request.GET.query_type == 'tags' %}selected{% endif %} value="tags">Tags</option>
+                </select>
+                <input type="text" size="40" name="q" value="{{ request.GET.q }}" id="searchbar" autofocus placeholder="Title, URL, tags, timestamp, or content...".>
                 <input type="submit" value="Search" style="height: 36px; padding-top: 6px; margin: 8px"/>
                 <input type="button"
                        value="♺"
                        title="Refresh..."
-                       onclick="location.href='{% url 'public-index' %}'"
+                       onclick="location.href='{{ request.get_full_path }}'"
                        style="background-color: rgba(121, 174, 200, 0.8); height: 30px; font-size: 0.8em; margin-top: 12px; padding-top: 6px; float:right">
                 </input>
                 &nbsp;
@@ -45,8 +55,8 @@
         <br/>
         <span class="step-links">
             {% if page_obj.has_previous %}
-                <a href="{% url 'public-index' %}?page=1">&laquo; first</a> &nbsp;
-                <a href="{% url 'public-index' %}?page={{ page_obj.previous_page_number }}">previous</a>
+                <a href="?{% url_replace page='1' %}">&laquo; first</a> &nbsp;
+                <a href="?{% url_replace page=page_obj.previous_page_number %}">previous</a>
                 &nbsp;
             {% endif %}
     
@@ -56,8 +66,8 @@
         
             {% if page_obj.has_next %}
                 &nbsp;
-                <a href="{% url 'public-index' %}?page={{ page_obj.next_page_number }}">next </a> &nbsp;
-                <a href="{% url 'public-index' %}?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
+                <a href="?{% url_replace page=page_obj.next_page_number %}">next </a> &nbsp;
+                <a href="?{% url_replace page=page_obj.paginator.num_pages %}">last &raquo;</a>
             {% endif %}
         </span>
         <br>

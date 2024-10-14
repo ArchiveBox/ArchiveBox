@@ -19,8 +19,6 @@ cd "$REPO_DIR"
 # the order matters
 ./bin/build_docs.sh
 ./bin/build_pip.sh
-./bin/build_deb.sh
-./bin/build_brew.sh
 ./bin/build_docker.sh
 
 echo "[√] Done. Install the built package by running:"

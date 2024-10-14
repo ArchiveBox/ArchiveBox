@@ -14,8 +14,7 @@ REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && p
 cd "$REPO_DIR"
 source "$REPO_DIR/.venv/bin/activate"
 
-echo "[^] Publishing to Test PyPI..."
-pdm publish --repository testpypi
-
 echo "[^] Publishing to PyPI..."
-pdm publish --no-build
+rm -Rf dist
+uv build
+uv publish

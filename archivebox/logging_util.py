@@ -5,7 +5,7 @@ import os
 import sys
 import stat
 import time
-import argparse
+
 from math import log
 from multiprocessing import Process
 from pathlib import Path
@@ -17,21 +17,16 @@ from typing import Any, Optional, List, Dict, Union, IO, TYPE_CHECKING
 if TYPE_CHECKING:
     from .index.schema import Link, ArchiveResult
 
-from .system import get_dir_size
-from .util import enforce_types
-from .config import (
-    ConfigDict,
-    OUTPUT_DIR,
-    PYTHON_ENCODING,
-    VERSION,
-    ANSI,
-    IS_TTY,
-    IN_DOCKER,
-    TERM_WIDTH,
-    SHOW_PROGRESS,
-    SOURCES_DIR_NAME,
-    stderr,
-)
+from rich import print
+from rich.panel import Panel
+from rich_argparse import RichHelpFormatter
+from django.core.management.base import DjangoHelpFormatter
+
+from archivebox.config import CONSTANTS, DATA_DIR, VERSION
+from archivebox.config.common import SHELL_CONFIG
+from archivebox.misc.system import get_dir_size
+from archivebox.misc.util import enforce_types
+from archivebox.misc.logging import ANSI, stderr
 
 @dataclass
 class RuntimeStats:
@@ -86,12 +81,12 @@ def get_fd_info(fd) -> Dict[str, Any]:
 
 
 
-class SmartFormatter(argparse.HelpFormatter):
+class SmartFormatter(DjangoHelpFormatter, RichHelpFormatter):
     """Patched formatter that prints newlines in argparse help strings"""
     def _split_lines(self, text, width):
         if '\n' in text:
             return text.splitlines()
-        return argparse.HelpFormatter._split_lines(self, text, width)
+        return RichHelpFormatter._split_lines(self, text, width)
 
 
 def reject_stdin(caller: str, stdin: Optional[IO]=sys.stdin) -> None:
@@ -100,7 +95,7 @@ def reject_stdin(caller: str, stdin: Optional[IO]=sys.stdin) -> None:
     if not stdin:
         return None
 
-    if IN_DOCKER:
+    if os.environ.get('IN_DOCKER') in ('1', 'true', 'True', 'TRUE', 'yes'):
         # when TTY is disabled in docker we cant tell if stdin is being piped in or not
         # if we try to read stdin when its not piped we will hang indefinitely waiting for it
         return None
@@ -139,9 +134,11 @@ class TimedProgress:
 
     def __init__(self, seconds, prefix=''):
 
-        self.SHOW_PROGRESS = SHOW_PROGRESS
+        self.SHOW_PROGRESS = SHELL_CONFIG.SHOW_PROGRESS
+        self.ANSI = SHELL_CONFIG.ANSI
+        
         if self.SHOW_PROGRESS:
-            self.p = Process(target=progress_bar, args=(seconds, prefix))
+            self.p = Process(target=progress_bar, args=(seconds, prefix, self.ANSI))
             self.p.start()
 
         self.stats = {'start_ts': datetime.now(timezone.utc), 'end_ts': None}
@@ -170,7 +167,7 @@ class TimedProgress:
 
                 # clear whole terminal line
                 try:
-                    sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))
+                    sys.stdout.write('\r{}{}\r'.format((' ' * SHELL_CONFIG.TERM_WIDTH), self.ANSI['reset']))
                 except (IOError, BrokenPipeError):
                     # ignore when the parent proc has stopped listening to our stdout
                     pass
@@ -179,14 +176,15 @@ class TimedProgress:
 
 
 @enforce_types
-def progress_bar(seconds: int, prefix: str='') -> None:
+def progress_bar(seconds: int, prefix: str='', ANSI: Dict[str, str]=ANSI) -> None:
     """show timer in the form of progress bar, with percentage and seconds remaining"""
-    chunk = '█' if PYTHON_ENCODING == 'UTF-8' else '#'
-    last_width = TERM_WIDTH()
+    output_buf = (sys.stdout or sys.__stdout__ or sys.stderr or sys.__stderr__)
+    chunk = '█' if output_buf and output_buf.encoding.upper() == 'UTF-8' else '#'
+    last_width = SHELL_CONFIG.TERM_WIDTH
     chunks = last_width - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
     try:
         for s in range(seconds * chunks):
-            max_width = TERM_WIDTH()
+            max_width = SHELL_CONFIG.TERM_WIDTH
             if max_width < last_width:
                 # when the terminal size is shrunk, we have to write a newline
                 # otherwise the progress bar will keep wrapping incorrectly
@@ -224,38 +222,39 @@ def progress_bar(seconds: int, prefix: str='') -> None:
         sys.stdout.flush()
         # uncomment to have it disappear when it hits 100% instead of staying full red:
         # time.sleep(0.5)
-        # sys.stdout.write('\r{}{}\r'.format((' ' * TERM_WIDTH()), ANSI['reset']))
+        # sys.stdout.write('\r{}{}\r'.format((' ' * SHELL_CONFIG.TERM_WIDTH), ANSI['reset']))
         # sys.stdout.flush()
     except (KeyboardInterrupt, BrokenPipeError):
         print()
 
 
-def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str], pwd: str):
-    cmd = ' '.join(('archivebox', subcommand, *subcommand_args))
-    stderr('{black}[i] [{now}] ArchiveBox v{VERSION}: {cmd}{reset}'.format(
+def log_cli_command(subcommand: str, subcommand_args: List[str], stdin: Optional[str | IO], pwd: str='.'):
+    args = ' '.join(subcommand_args)
+    version_msg = '[dark_magenta]\\[{now}][/dark_magenta] [dark_red]ArchiveBox[/dark_red] [dark_goldenrod]v{VERSION}[/dark_goldenrod]: [green4]archivebox [green3]{subcommand}[green2] {args}[/green2]'.format(
         now=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
         VERSION=VERSION,
-        cmd=cmd,
-        **ANSI,
-    ))
-    stderr('{black}    > {pwd}{reset}'.format(pwd=pwd, **ANSI))
-    stderr()
-
+        subcommand=subcommand,
+        args=args,
+    )
+    # stderr()
+    # stderr('[bright_black]    > {pwd}[/]'.format(pwd=pwd, **ANSI))
+    # stderr()
+    print(Panel(version_msg), file=sys.stderr)
+    
 ### Parsing Stage
 
 
 def log_importing_started(urls: Union[str, List[str]], depth: int, index_only: bool):
     _LAST_RUN_STATS.parse_start_ts = datetime.now(timezone.utc)
-    print('{green}[+] [{}] Adding {} links to index (crawl depth={}){}...{reset}'.format(
+    print('[green][+] [{}] Adding {} links to index (crawl depth={}){}...[/]'.format(
         _LAST_RUN_STATS.parse_start_ts.strftime('%Y-%m-%d %H:%M:%S'),
         len(urls) if isinstance(urls, list) else len(urls.split('\n')),
         depth,
         ' (index only)' if index_only else '',
-        **ANSI,
     ))
 
 def log_source_saved(source_file: str):
-    print('    > Saved verbatim input to {}/{}'.format(SOURCES_DIR_NAME, source_file.rsplit('/', 1)[-1]))
+    print('    > Saved verbatim input to {}/{}'.format(CONSTANTS.SOURCES_DIR_NAME, source_file.rsplit('/', 1)[-1]))
 
 def log_parsing_finished(num_parsed: int, parser_name: str):
     _LAST_RUN_STATS.parse_end_ts = datetime.now(timezone.utc)
@@ -267,7 +266,7 @@ def log_deduping_finished(num_new_links: int):
 
 def log_crawl_started(new_links):
     print()
-    print('{green}[*] Starting crawl of {} sites 1 hop out from starting point{reset}'.format(len(new_links), **ANSI))
+    print(f'[green][*] Starting crawl of {len(new_links)} sites 1 hop out from starting point[/]')
 
 ### Indexing Stage
 
@@ -275,10 +274,9 @@ def log_indexing_process_started(num_links: int):
     start_ts = datetime.now(timezone.utc)
     _LAST_RUN_STATS.index_start_ts = start_ts
     print()
-    print('{black}[*] [{}] Writing {} links to main index...{reset}'.format(
+    print('[bright_black][*] [{}] Writing {} links to main index...[/]'.format(
         start_ts.strftime('%Y-%m-%d %H:%M:%S'),
         num_links,
-        **ANSI,
     ))
 
 
@@ -288,12 +286,12 @@ def log_indexing_process_finished():
 
 
 def log_indexing_started(out_path: str):
-    if IS_TTY:
-        sys.stdout.write(f'    > ./{Path(out_path).relative_to(OUTPUT_DIR)}')
+    if SHELL_CONFIG.IS_TTY:
+        sys.stdout.write(f'    > ./{Path(out_path).relative_to(DATA_DIR)}')
 
 
 def log_indexing_finished(out_path: str):
-    print(f'\r    √ ./{Path(out_path).relative_to(OUTPUT_DIR)}')
+    print(f'\r    √ ./{Path(out_path).relative_to(DATA_DIR)}')
 
 
 ### Archiving Stage
@@ -304,17 +302,15 @@ def log_archiving_started(num_links: int, resume: Optional[float]=None):
     _LAST_RUN_STATS.archiving_start_ts = start_ts
     print()
     if resume:
-        print('{green}[▶] [{}] Resuming archive updating for {} pages starting from {}...{reset}'.format(
+        print('[green][▶] [{}] Resuming archive updating for {} pages starting from {}...[/]'.format(
              start_ts.strftime('%Y-%m-%d %H:%M:%S'),
              num_links,
              resume,
-             **ANSI,
         ))
     else:
-        print('{green}[▶] [{}] Starting archiving of {} snapshots in index...{reset}'.format(
+        print('[green][▶] [{}] Starting archiving of {} snapshots in index...[/]'.format(
              start_ts.strftime('%Y-%m-%d %H:%M:%S'),
              num_links,
-             **ANSI,
         ))
 
 def log_archiving_paused(num_links: int, idx: int, timestamp: str):
@@ -322,8 +318,7 @@ def log_archiving_paused(num_links: int, idx: int, timestamp: str):
     end_ts = datetime.now(timezone.utc)
     _LAST_RUN_STATS.archiving_end_ts = end_ts
     print()
-    print('\n{lightyellow}[X] [{now}] Downloading paused on link {timestamp} ({idx}/{total}){reset}'.format(
-        **ANSI,
+    print('\n[yellow3][X] [{now}] Downloading paused on link {timestamp} ({idx}/{total})[/]'.format(
         now=end_ts.strftime('%Y-%m-%d %H:%M:%S'),
         idx=idx+1,
         timestamp=timestamp,
@@ -347,12 +342,10 @@ def log_archiving_finished(num_links: int):
         duration = '{0:.2f} sec'.format(seconds)
 
     print()
-    print('{}[√] [{}] Update of {} pages complete ({}){}'.format(
-        ANSI['green'],
+    print('[green][√] [{}] Update of {} pages complete ({})[/]'.format(
         end_ts.strftime('%Y-%m-%d %H:%M:%S'),
         num_links,
         duration,
-        ANSI['reset'],
     ))
     print('    - {} links skipped'.format(_LAST_RUN_STATS.skipped))
     print('    - {} links updated'.format(_LAST_RUN_STATS.succeeded + _LAST_RUN_STATS.failed))
@@ -360,7 +353,7 @@ def log_archiving_finished(num_links: int):
     
     if Snapshot.objects.count() < 50:
         print()
-        print('    {lightred}Hint:{reset} To manage your archive in a Web UI, run:'.format(**ANSI))
+        print('    [violet]Hint:[/] To manage your archive in a Web UI, run:')
         print('        archivebox server 0.0.0.0:8000')
 
 
@@ -370,14 +363,13 @@ def log_link_archiving_started(link: "Link", link_dir: str, is_new: bool):
     #     http://www.benstopford.com/2015/02/14/log-structured-merge-trees/
     #     > output/archive/1478739709
 
-    print('\n[{symbol_color}{symbol}{reset}] [{symbol_color}{now}{reset}] "{title}"'.format(
-        symbol_color=ANSI['green' if is_new else 'black'],
+    print('\n[[{symbol_color}]{symbol}[/]] [[{symbol_color}]{now}[/]] "{title}"'.format(
+        symbol_color='green' if is_new else 'bright_black',
         symbol='+' if is_new else '√',
         now=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
         title=link.title or link.base_url,
-        **ANSI,
     ))
-    print('    {blue}{url}{reset}'.format(url=link.url, **ANSI))
+    print(f'    [sky_blue1]{link.url}[/]')
     print('    {} {}'.format(
         '>' if is_new else '√',
         pretty_path(link_dir),
@@ -400,7 +392,7 @@ def log_link_archiving_finished(link: "Link", link_dir: str, is_new: bool, stats
 
     end_ts = datetime.now(timezone.utc)
     duration = str(end_ts - start_ts).split('.')[0]
-    print('        {black}{} files ({}) in {}s {reset}'.format(size[2], printable_filesize(size[0]), duration, **ANSI))
+    print('        [bright_black]{} files ({}) in {}s [/]'.format(size[2], printable_filesize(size[0]), duration))
 
 
 def log_archive_method_started(method: str):
@@ -421,35 +413,34 @@ def log_archive_method_finished(result: "ArchiveResult"):
         if result.output.__class__.__name__ == 'TimeoutExpired':
             duration = (result.end_ts - result.start_ts).seconds
             hint_header = [
-                '{lightyellow}Extractor timed out after {}s.{reset}'.format(duration, **ANSI),
+                f'[yellow3]Extractor timed out after {duration}s.[/]',
             ]
         else:
+            error_name = result.output.__class__.__name__.replace('ArchiveError', '')
             hint_header = [
-                '{lightyellow}Extractor failed:{reset}'.format(**ANSI),
-                '    {reset}{} {red}{}{reset}'.format(
-                    result.output.__class__.__name__.replace('ArchiveError', ''),
-                    result.output, 
-                    **ANSI,
-                ),
+                '[yellow3]Extractor failed:[/]',
+                f'    {error_name} [red1]{result.output}[/]',
             ]
+        
+        # import pudb; pudb.set_trace()
 
         # Prettify error output hints string and limit to five lines
         hints = getattr(result.output, 'hints', None) or ()
         if hints:
             if isinstance(hints, (list, tuple, type(_ for _ in ()))):
-                hints = [hint.decode() for hint in hints if isinstance(hint, bytes)]
+                hints = [hint.decode() if isinstance(hint, bytes) else str(hint) for hint in hints]
             else:
                 if isinstance(hints, bytes):
                     hints = hints.decode()
                 hints = hints.split('\n')
 
             hints = (
-                '    {}{}{}'.format(ANSI['lightyellow'], line.strip(), ANSI['reset'])
+                f'    [yellow1]{line.strip()}[/]'
                 for line in list(hints)[:5] if line.strip()
             )
 
         docker_hints = ()
-        if IN_DOCKER:
+        if os.environ.get('IN_DOCKER') in ('1', 'true', 'True', 'TRUE', 'yes'):
             docker_hints = (
                 '  docker run -it -v $PWD/data:/data archivebox/archivebox /bin/bash',
             )
@@ -458,7 +449,7 @@ def log_archive_method_finished(result: "ArchiveResult"):
         output_lines = [
             *hint_header,
             *hints,
-            '{}Run to see full output:{}'.format(ANSI['lightred'], ANSI['reset']),
+            '[violet]Run to see full output:[/]',
             *docker_hints,
             *(['    cd {};'.format(result.pwd)] if result.pwd else []),
             '    {}'.format(quoted_cmd),
@@ -472,10 +463,7 @@ def log_archive_method_finished(result: "ArchiveResult"):
 
 
 def log_list_started(filter_patterns: Optional[List[str]], filter_type: str):
-    print('{green}[*] Finding links in the archive index matching these {} patterns:{reset}'.format(
-        filter_type,
-        **ANSI,
-    ))
+    print(f'[green][*] Finding links in the archive index matching these {filter_type} patterns:[/]')
     print('    {}'.format(' '.join(filter_patterns or ())))
 
 def log_list_finished(links):
@@ -488,9 +476,9 @@ def log_list_finished(links):
 
 
 def log_removal_started(links: List["Link"], yes: bool, delete: bool):
-    print('{lightyellow}[i] Found {} matching URLs to remove.{reset}'.format(len(links), **ANSI))
+    print(f'[yellow3][i] Found {len(links)} matching URLs to remove.[/]')
     if delete:
-        file_counts = [link.num_outputs for link in links if Path(link.link_dir).exists()]
+        file_counts = [link.num_outputs for link in links if os.access(link.link_dir, os.R_OK)]
         print(
             f'    {len(links)} Links will be de-listed from the main index, and their archived content folders will be deleted from disk.\n'
             f'    ({len(file_counts)} data folders with {sum(file_counts)} archived files will be deleted!)'
@@ -503,7 +491,7 @@ def log_removal_started(links: List["Link"], yes: bool, delete: bool):
 
     if not yes:
         print()
-        print('{lightyellow}[?] Do you want to proceed with removing these {} links?{reset}'.format(len(links), **ANSI))
+        print('[yellow3][?] Do you want to proceed with removing these {len(links)} links?[/]')
         try:
             assert input('    y/[n]: ').lower() == 'y'
         except (KeyboardInterrupt, EOFError, AssertionError):
@@ -512,38 +500,17 @@ def log_removal_started(links: List["Link"], yes: bool, delete: bool):
 def log_removal_finished(all_links: int, to_remove: int):
     if all_links == 0:
         print()
-        print('{red}[X] No matching links found.{reset}'.format(**ANSI))
+        print('[red1][X] No matching links found.[/]')
     else:
         print()
-        print('{red}[√] Removed {} out of {} links from the archive index.{reset}'.format(
-            to_remove,
-            all_links,
-            **ANSI,
-        ))
-        print('    Index now contains {} links.'.format(all_links - to_remove))
-
-
-def log_shell_welcome_msg():
-    from .cli import list_subcommands
-
-    print('{green}# ArchiveBox Imports{reset}'.format(**ANSI))
-    print('{green}from archivebox.core.models import Snapshot, ArchiveResult, Tag, User{reset}'.format(**ANSI))
-    print('{green}from archivebox.cli import *\n    {}{reset}'.format("\n    ".join(list_subcommands().keys()), **ANSI))
-    print()
-    print('[i] Welcome to the ArchiveBox Shell!')
-    print('    https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Shell-Usage')
-    print()
-    print('    {lightred}Hint:{reset} Example use:'.format(**ANSI))
-    print('        print(Snapshot.objects.filter(is_archived=True).count())')
-    print('        Snapshot.objects.get(url="https://example.com").as_json()')
-    print('        add("https://example.com/some/new/url")')
-
+        print(f'[red1][√] Removed {to_remove} out of {all_links} links from the archive index.[/]')
+        print(f'    Index now contains {all_links - to_remove} links.')
 
 
 ### Helpers
 
 @enforce_types
-def pretty_path(path: Union[Path, str], pwd: Union[Path, str]=OUTPUT_DIR) -> str:
+def pretty_path(path: Union[Path, str], pwd: Union[Path, str]=DATA_DIR) -> str:
     """convert paths like .../ArchiveBox/archivebox/../output/abc into output/abc"""
     pwd = str(Path(pwd))  # .resolve()
     path = str(path)
@@ -552,16 +519,15 @@ def pretty_path(path: Union[Path, str], pwd: Union[Path, str]=OUTPUT_DIR) -> str
         return path
 
     # replace long absolute paths with ./ relative ones to save on terminal output width
-    if path.startswith(pwd) and (pwd != '/'):
-        path = path.replace(pwd, '.', 1)
+    if path.startswith(pwd) and (pwd != '/') and path != pwd:
+        path = path.replace(pwd, '[light_slate_blue].[/light_slate_blue]', 1)
     
     # quote paths containing spaces
     if ' ' in path:
         path = f'"{path}"'
-
-    # if path is just a plain dot, replace it back with the absolute path for clarity
-    if path == '.':
-        path = pwd
+        
+    # replace home directory with ~ for shorter output
+    path = path.replace(str(Path('~').expanduser()), '~')
 
     return path
 
@@ -586,7 +552,7 @@ def printable_folders(folders: Dict[str, Optional["Link"]],
 
 
 @enforce_types
-def printable_config(config: ConfigDict, prefix: str='') -> str:
+def printable_config(config: dict, prefix: str='') -> str:
     return f'\n{prefix}'.join(
         f'{key}={val}'
         for key, val in config.items()
@@ -602,16 +568,19 @@ def printable_folder_status(name: str, folder: Dict) -> str:
         else:
             color, symbol, note, num_files = 'red', 'X', 'invalid', '?'
     else:
-        color, symbol, note, num_files = 'lightyellow', '-', 'disabled', '-'
+        color, symbol, note, num_files = 'grey53', '-', 'unused', '-'
 
 
     if folder['path']:
-        if Path(folder['path']).exists():
-            num_files = (
-                f'{len(os.listdir(folder["path"]))} files'
-                if Path(folder['path']).is_dir() else
-                printable_filesize(Path(folder['path']).stat().st_size)
-            )
+        if os.access(folder['path'], os.R_OK):
+            try:
+                num_files = (
+                    f'{len(os.listdir(folder["path"]))} files'
+                    if os.path.isdir(folder['path']) else
+                    printable_filesize(Path(folder['path']).stat().st_size)
+                )
+            except PermissionError:
+                num_files = 'error'
         else:
             num_files = 'missing'
         
@@ -622,31 +591,29 @@ def printable_folder_status(name: str, folder: Dict) -> str:
     path = pretty_path(folder['path'])
 
     return ' '.join((
-        ANSI[color],
+        f'[{color}]',
         symbol,
-        ANSI['reset'],
-        name.ljust(21),
-        num_files.ljust(14),
-        ANSI[color],
+        '[/]',
+        name.ljust(21).replace('DATA_DIR', '[light_slate_blue]DATA_DIR[/light_slate_blue]'),
+        num_files.ljust(14).replace('missing', '[grey53]missing[/grey53]'),
+        f'[{color}]',
         note.ljust(8),
-        ANSI['reset'],
+        '[/]',
         path.ljust(76),
     ))
 
 
 @enforce_types
 def printable_dependency_version(name: str, dependency: Dict) -> str:
-    version = None
+    color, symbol, note, version = 'red', 'X', 'invalid', '?'
+
     if dependency['enabled']:
         if dependency['is_valid']:
-            color, symbol, note, version = 'green', '√', 'valid', ''
+            color, symbol, note = 'green', '√', 'valid'
 
             parsed_version_num = re.search(r'[\d\.]+', dependency['version'])
             if parsed_version_num:
                 version = f'v{parsed_version_num[0]}'
-
-        if not version:
-            color, symbol, note, version = 'red', 'X', 'invalid', '?'
     else:
         color, symbol, note, version = 'lightyellow', '-', 'disabled', '-'
 

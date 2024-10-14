@@ -30,9 +30,6 @@ function bump_semver {
     echo "$1" | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g'
 }
 
-OLD_VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
-NEW_VERSION="$(bump_semver "$OLD_VERSION")"
-echo "[*] Bumping VERSION from $OLD_VERSION to $NEW_VERSION"
-contents="$(jq ".version = \"$NEW_VERSION\"" "$REPO_DIR/package.json")" && \
-echo "${contents}" > package.json
+# OLD_VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
+# NEW_VERSION="$(bump_semver "$OLD_VERSION")"
 

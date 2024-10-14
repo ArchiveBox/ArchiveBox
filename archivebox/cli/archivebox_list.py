@@ -5,12 +5,12 @@ __command__ = 'archivebox list'
 
 import sys
 import argparse
-
+from pathlib import Path
 from typing import Optional, List, IO
 
+from archivebox.misc.util import docstring
+from archivebox.config import DATA_DIR
 from ..main import list_all
-from ..util import docstring
-from ..config import OUTPUT_DIR
 from ..index import (
     LINK_FILTERS,
     get_indexed_folders,
@@ -131,7 +131,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         json=command.json,
         html=command.html,
         with_headers=command.with_headers,
-        out_dir=pwd or OUTPUT_DIR,
+        out_dir=Path(pwd) if pwd else DATA_DIR,
     )
     raise SystemExit(not matching_folders)
 
