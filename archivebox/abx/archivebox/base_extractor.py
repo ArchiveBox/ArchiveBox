@@ -53,7 +53,7 @@ class BaseExtractor(BaseHook):
     def get_output_path(self, snapshot) -> Path:
         return Path(self.id.lower())
 
-    def should_extract(self, snapshot) -> bool:
+    def should_extract(self, uri: str, config: dict | None=None) -> bool:
         try:
             assert self.detect_installed_binary().version
         except Exception:
