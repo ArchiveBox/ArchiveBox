@@ -1,7 +1,7 @@
 __package__ = 'plugins_extractor.ytdlp'
 __label__ = 'YT-DLP'
 __version__ = '2024.10.14'
-__author__ = 'Nick Sweeting'
+__author__ = 'ArchiveBox'
 __homepage__ = 'https://github.com/yt-dlp/yt-dlp'
 
 import abx

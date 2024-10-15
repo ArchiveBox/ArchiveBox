@@ -1,7 +1,7 @@
 __package__ = 'plugins_extractor.curl'
 __label__ = 'curl'
 __version__ = '2024.10.14'
-__author__ = 'Nick Sweeting'
+__author__ = 'ArchiveBox'
 __homepage__ = 'https://github.com/curl/curl'
 __dependencies__ = []
 

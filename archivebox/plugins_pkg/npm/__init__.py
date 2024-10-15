@@ -1,7 +1,7 @@
 __package__ = 'plugins_pkg.npm'
 __label__ = 'npm'
 __version__ = '2024.10.14'
-__author__ = 'Nick Sweeting'
+__author__ = 'ArchiveBox'
 __homepage__ = 'https://www.npmjs.com/'
 
 import abx

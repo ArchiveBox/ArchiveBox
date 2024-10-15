@@ -1,7 +1,7 @@
 __package__ = 'plugins_extractor.mercury'
 __label__ = 'mercury'
 __version__ = '2024.10.14'
-__author__ = 'Nick Sweeting'
+__author__ = 'ArchiveBox'
 __homepage__ = 'https://github.com/postlight/mercury-parser'
 __dependencies__ = ['npm']
 

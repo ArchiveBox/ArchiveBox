@@ -1,7 +1,7 @@
 __package__ = 'plugins_pkg.playwright'
 __label__ = 'playwright'
 __version__ = '2024.10.14'
-__author__ = 'Nick Sweeting'
+__author__ = 'ArchiveBox'
 __homepage__ = 'https://github.com/microsoft/playwright-python'
 
 import abx

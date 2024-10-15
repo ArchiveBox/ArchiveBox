@@ -1,7 +1,7 @@
 __package__ = 'plugins_extractor.chrome'
 __label__ = 'chrome'
 __version__ = '2024.10.14'
-__author__ = 'Nick Sweeting'
+__author__ = 'ArchiveBox'
 __homepage__ = 'https://github.com/ArchiveBox/ArchiveBox/tree/main/archivebox/plugins_extractor/chrome'
 __dependencies__ = []
 
