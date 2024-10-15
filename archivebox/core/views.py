@@ -613,7 +613,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                 "fields": {
                     'Key': key,
                     'Type': find_config_type(key),
-                    'Value': settings.FLAT_CONFIG[key] if key_is_safe(key) else '********',
+                    'Value': settings.FLAT_CONFIG.get(key, settings.CONFIGS.get(key, None)) if key_is_safe(key) else '********',
                 },
                 "help_texts": {
                     'Key': mark_safe(f'''

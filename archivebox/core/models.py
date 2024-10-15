@@ -118,6 +118,8 @@ class Tag(ABIDModel):
     def api_docs_url(self) -> str:
         return '/api/v1/docs#/Core%20Models/api_v1_core_get_tag'
 
+
+
 class SnapshotTag(models.Model):
     id = models.AutoField(primary_key=True)
 
