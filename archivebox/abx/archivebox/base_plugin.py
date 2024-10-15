@@ -8,6 +8,7 @@ from django.apps import AppConfig
 
 from typing import List, Type, Dict
 from typing_extensions import Self
+from types import ModuleType
 
 from pydantic import (
     BaseModel,
@@ -20,6 +21,18 @@ from pydantic import (
 from benedict import benedict
 
 from .base_hook import BaseHook, HookType
+
+def convert_flat_module_to_hook_class(hook_module: ModuleType) -> Type[BaseHook]:
+    plugin_name = hook_module.__module__.split('.')[-1]  # e.g. core
+    hook_id = hook_module.__name__                       # e.g. admin
+    
+    class_name = f"{plugin_name.title()}{hook_id.title()}"   # e.g. CoreAdmin
+    
+    return type(class_name, (BaseHook,),
+                {key: staticmethod(value) if callable(value) else value
+                 for key, value in ((name, getattr(hook_module, name))
+                                    for name in dir(hook_module))})
+
 
 class BasePlugin(BaseModel):
     model_config = ConfigDict(
@@ -39,7 +52,7 @@ class BasePlugin(BaseModel):
     docs_url: str = Field(default=None)           # e.g. 'https://github.com/...'
     
     # All the hooks the plugin will install:
-    hooks: List[InstanceOf[BaseHook]] = Field(default=[])
+    hooks: List[InstanceOf[BaseHook] | InstanceOf[ModuleType]] = Field(default=[])
     
     _is_registered: bool = False
     _is_ready: bool = False
@@ -83,7 +96,15 @@ class BasePlugin(BaseModel):
         # see https://github.com/pydantic/pydantic/issues/7608
         # if we dont do this, then plugins_extractor.SINGLEFILE_CONFIG != settings.CONFIGS.SingleFileConfig for example
         # and calling .__init__() on one of them will not update the other
-        self.hooks = self.model_fields['hooks'].default
+        self.hooks = []
+        for hook in self.model_fields['hooks'].default:
+            if isinstance(hook, BaseHook):
+                self.hooks.append(hook)
+            elif isinstance(hook, ModuleType):
+                # if hook is a module, turn it into a Hook class instance
+                # hook_instance = convert_flat_module_to_hook_class(hook)()
+                # self.hooks.extend(hook_instance)
+                print('SKIPPING INVALID HOOK:', hook)
         
         assert self.app_label and self.app_label and self.verbose_name, f'{self.__class__.__name__} is missing .name or .app_label or .verbose_name'
         
