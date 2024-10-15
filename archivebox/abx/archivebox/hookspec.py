@@ -4,10 +4,12 @@ from typing import Dict, Any
 
 from .. import hookspec
 
+from .base_configset import BaseConfigSet
 
 @hookspec
-def get_CONFIGS():
-    return {}
+def get_CONFIG() -> BaseConfigSet:
+    ...
+
 
 @hookspec
 def get_EXTRACTORS():

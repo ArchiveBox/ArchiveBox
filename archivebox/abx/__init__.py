@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Dict
 
 from . import hookspec as base_spec
-from .hookspec import hookimpl, hookspec           # noqa
-from .manager import pm, PluginManager             # noqa
+from abx.hookspec import hookimpl, hookspec           # noqa
+from abx.manager import pm, PluginManager             # noqa
 
 
 pm.add_hookspecs(base_spec)
@@ -32,7 +32,8 @@ def register_hookspecs(hookspecs):
 def find_plugins_in_dir(plugins_dir: Path, prefix: str) -> Dict[str, Path]:
     return {
         f"{prefix}.{plugin_entrypoint.parent.name}": plugin_entrypoint.parent
-        for plugin_entrypoint in sorted(plugins_dir.glob("*/apps.py"), key=get_plugin_order)
+        for plugin_entrypoint in sorted(plugins_dir.glob("*/__init__.py"), key=get_plugin_order)
+        if plugin_entrypoint.parent.name != 'abx'
     }   # "plugins_pkg.pip": "/app/archivebox/plugins_pkg/pip"
 
 

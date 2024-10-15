@@ -32,7 +32,7 @@ from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG
 from archivebox.misc.util import base_url, htmlencode, ts_to_date_str
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 
-from ..plugins_extractor.archivedotorg.apps import ARCHIVEDOTORG_CONFIG
+from ..plugins_extractor.archivedotorg.config import ARCHIVEDOTORG_CONFIG
 from ..logging_util import printable_filesize
 from ..search import query_search_index
 

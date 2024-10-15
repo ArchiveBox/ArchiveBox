@@ -183,7 +183,7 @@ class InstalledBinaryManager(models.Manager):
         """Get or create an InstalledBinary record for a Binary on the local machine"""
         
         global _CURRENT_BINARIES
-        cached_binary = _CURRENT_BINARIES.get(binary.id)
+        cached_binary = _CURRENT_BINARIES.get(binary.name)
         if cached_binary:
             expires_at = cached_binary.modified_at + timedelta(seconds=INSTALLED_BINARY_RECHECK_INTERVAL)
             if timezone.now() < expires_at:
@@ -198,7 +198,7 @@ class InstalledBinaryManager(models.Manager):
                         or binary.sha256 != cached_binary.sha256
                     )
                     if is_different_from_cache:
-                        _CURRENT_BINARIES.pop(binary.id)
+                        _CURRENT_BINARIES.pop(binary.name)
                     else:
                         return cached_binary
                 else:
@@ -209,7 +209,7 @@ class InstalledBinaryManager(models.Manager):
                     return cached_binary
             else:
                 # cached binary is too old, reload it from scratch
-                _CURRENT_BINARIES.pop(binary.id)
+                _CURRENT_BINARIES.pop(binary.name)
         
         if not binary.abspath or not binary.version or not binary.sha256:
             # if binary was not yet loaded from filesystem, do it now
@@ -219,7 +219,7 @@ class InstalledBinaryManager(models.Manager):
 
         assert binary.loaded_binprovider and binary.loaded_abspath and binary.loaded_version and binary.loaded_sha256, f'Failed to load binary {binary.name} abspath, version, and sha256'
         
-        _CURRENT_BINARIES[binary.id], _created = self.update_or_create(
+        _CURRENT_BINARIES[binary.name], _created = self.update_or_create(
             machine=Machine.objects.current(),
             name=binary.name,
             binprovider=binary.loaded_binprovider.name,
@@ -227,7 +227,7 @@ class InstalledBinaryManager(models.Manager):
             abspath=str(binary.loaded_abspath),
             sha256=str(binary.loaded_sha256),
         )
-        cached_binary = _CURRENT_BINARIES[binary.id]
+        cached_binary = _CURRENT_BINARIES[binary.name]
         cached_binary.save()   # populate ABID
         
         # if we get this far make sure DB record matches in-memroy cache

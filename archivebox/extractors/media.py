@@ -3,11 +3,13 @@ __package__ = 'archivebox.extractors'
 from pathlib import Path
 from typing import Optional
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from archivebox.misc.system import run, chmod_file
 from archivebox.misc.util import enforce_types, is_static_file, dedupe
+from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from ..logging_util import TimedProgress
 
+from plugins_extractor.ytdlp.config import YTDLP_CONFIG
+from plugins_extractor.ytdlp.binaries import YTDLP_BINARY
 
 def get_output_path():
     return 'media/'
@@ -25,7 +27,6 @@ def get_embed_path(archiveresult=None):
 
 @enforce_types
 def should_save_media(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
-    from plugins_extractor.ytdlp.apps import YTDLP_CONFIG
     
     if is_static_file(link.url):
         return False
@@ -39,10 +40,6 @@ def should_save_media(link: Link, out_dir: Optional[Path]=None, overwrite: Optio
 @enforce_types
 def save_media(link: Link, out_dir: Optional[Path]=None, timeout: int=0) -> ArchiveResult:
     """Download playlists or individual video, audio, and subtitles using youtube-dl or yt-dlp"""
-
-
-    # from plugins_extractor.chrome.apps import CHROME_CONFIG
-    from plugins_extractor.ytdlp.apps import YTDLP_BINARY, YTDLP_CONFIG
 
     YTDLP_BIN = YTDLP_BINARY.load()
     assert YTDLP_BIN.abspath and YTDLP_BIN.version

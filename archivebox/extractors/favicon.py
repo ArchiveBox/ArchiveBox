@@ -4,8 +4,9 @@ from pathlib import Path
 
 from archivebox.misc.system import chmod_file, run
 from archivebox.misc.util import enforce_types, domain, dedupe
-from archivebox.plugins_extractor.favicon.apps import FAVICON_CONFIG
-from archivebox.plugins_extractor.curl.apps import CURL_CONFIG, CURL_BINARY
+from archivebox.plugins_extractor.favicon.config import FAVICON_CONFIG
+from archivebox.plugins_extractor.curl.config import CURL_CONFIG
+from archivebox.plugins_extractor.curl.binaries import CURL_BINARY
 from ..index.schema import Link, ArchiveResult, ArchiveOutput
 from ..logging_util import TimedProgress
 

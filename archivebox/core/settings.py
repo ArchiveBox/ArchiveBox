@@ -41,7 +41,7 @@ BUILTIN_PLUGIN_DIRS = {
     'plugins_extractor':       PACKAGE_DIR / 'plugins_extractor',
 }
 USER_PLUGIN_DIRS = {
-    'user_plugins':            DATA_DIR / 'user_plugins',
+    # 'user_plugins':            DATA_DIR / 'user_plugins',
 }
 
 # Discover ArchiveBox plugins
@@ -52,19 +52,18 @@ ALL_PLUGINS = {**BUILTIN_PLUGINS, **PIP_PLUGINS, **USER_PLUGINS}
 
 # Load ArchiveBox plugins
 PLUGIN_MANAGER = abx.pm
-PLUGINS = abx.archivebox.load_archivebox_plugins(PLUGIN_MANAGER, ALL_PLUGINS)
-HOOKS = abx.archivebox.use.get_HOOKS(PLUGINS)
+abx.archivebox.load_archivebox_plugins(PLUGIN_MANAGER, ALL_PLUGINS)
+PLUGINS = abx.archivebox.use.get_PLUGINS()
 
 # Load ArchiveBox config from plugins
 CONFIGS = abx.archivebox.use.get_CONFIGS()
-FLAT_CONFIG = abx.archivebox.use.get_FLAT_CONFIG()
+CONFIG = FLAT_CONFIG = abx.archivebox.use.get_FLAT_CONFIG()
 BINPROVIDERS = abx.archivebox.use.get_BINPROVIDERS()
 BINARIES = abx.archivebox.use.get_BINARIES()
 EXTRACTORS = abx.archivebox.use.get_EXTRACTORS()
-REPLAYERS = abx.archivebox.use.get_REPLAYERS()
-ADMINDATAVIEWS = abx.archivebox.use.get_ADMINDATAVIEWS()
-QUEUES = abx.archivebox.use.get_QUEUES()
 SEARCHBACKENDS = abx.archivebox.use.get_SEARCHBACKENDS()
+# REPLAYERS = abx.archivebox.use.get_REPLAYERS()
+# ADMINDATAVIEWS = abx.archivebox.use.get_ADMINDATAVIEWS()
 
 
 ################################################################################
@@ -101,7 +100,7 @@ INSTALLED_APPS = [
     'django_object_actions',     # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
 
     # Our ArchiveBox-provided apps
-    #'config',                   # ArchiveBox config settings (loaded as a plugin, don't need to add it here)
+    'config',                    # ArchiveBox config settings (loaded as a plugin, don't need to add it here)
     'machine',                   # handles collecting and storing information about the host machine, network interfaces, installed binaries, etc.
     'queues',                    # handles starting and managing background workers and processes
     'abid_utils',                # handles ABID ID creation, handling, and models
@@ -610,6 +609,6 @@ if DEBUG_REQUESTS_TRACKER:
 
 
 abx.django.use.register_checks()
-abx.archivebox.use.register_all_hooks(globals())
+# abx.archivebox.use.register_all_hooks(globals())
 
 # import ipdb; ipdb.set_trace()

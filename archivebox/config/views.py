@@ -2,6 +2,7 @@ __package__ = 'abx.archivebox'
 
 import os
 import inspect
+from pathlib import Path
 from typing import Any, List, Dict, cast
 from benedict import benedict
 
@@ -12,6 +13,8 @@ from django.utils.html import format_html, mark_safe
 
 from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
+
+import abx.archivebox.use
 
 from archivebox.config import CONSTANTS
 from archivebox.misc.util import parse_date
@@ -82,8 +85,10 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
         if '_BINARY' in key or '_VERSION' in key
     }
 
-    for plugin in settings.PLUGINS.values():
-        for binary in plugin.HOOKS_BY_TYPE.get('BINARY', {}).values():
+    for plugin_id in abx.archivebox.use.get_PLUGINS().keys():
+        plugin = abx.archivebox.use.get_PLUGIN(plugin_id)
+        
+        for binary in plugin.BINARIES.values():
             try:
                 installed_binary = InstalledBinary.objects.get_from_db_or_cache(binary)
                 binary = installed_binary.load_from_db()
@@ -92,7 +97,7 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
             rows['Binary Name'].append(ItemLink(binary.name, key=binary.name))
             rows['Found Version'].append(f'✅ {binary.loaded_version}' if binary.loaded_version else '❌ missing')
-            rows['From Plugin'].append(plugin.plugin_module)
+            rows['From Plugin'].append(plugin.PACKAGE)
             rows['Provided By'].append(
                 ', '.join(
                     f'[{binprovider.name}]' if binprovider.name == getattr(binary.loaded_binprovider, 'name', None) else binprovider.name
@@ -128,8 +133,9 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
 
     binary = None
     plugin = None
-    for loaded_plugin in settings.PLUGINS.values():
-        for loaded_binary in loaded_plugin.HOOKS_BY_TYPE.get('BINARY', {}).values():
+    for plugin_id in abx.archivebox.use.get_PLUGINS().keys():
+        loaded_plugin = abx.archivebox.use.get_PLUGIN(plugin_id)
+        for loaded_binary in loaded_plugin.BINARIES.values():
             if loaded_binary.name == key:
                 binary = loaded_binary
                 plugin = loaded_plugin
@@ -149,7 +155,7 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
                 "name": binary.name,
                 "description": binary.abspath,
                 "fields": {
-                    'plugin': plugin.name,
+                    'plugin': plugin.PACKAGE,
                     'binprovider': binary.loaded_binprovider,
                     'abspath': binary.loaded_abspath,
                     'version': binary.loaded_version,
@@ -170,28 +176,43 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
     rows = {
-        "Name": [],
-        "verbose_name": [],
-        "module": [],
-        "source_code": [],
-        "hooks": [],
+        "Label": [],
+        "Version": [],
+        "Author": [],
+        "Package": [],
+        "Source Code": [],
+        "Config": [],
+        "Binaries": [],
+        "Package Managers": [],
+        # "Search Backends": [],
     }
 
 
-    for plugin in settings.PLUGINS.values():
-        # try:
-        #     plugin.load_binaries()
-        # except Exception as e:
-        #     print(e)
+    for plugin_id in settings.PLUGINS.keys():
+        
+        plugin = abx.archivebox.use.get_PLUGIN(plugin_id)
 
-        rows['Name'].append(ItemLink(plugin.id, key=plugin.id))
-        rows['verbose_name'].append(mark_safe(f'<a href="{plugin.docs_url}" target="_blank">{plugin.verbose_name}</a>'))
-        rows['module'].append(str(plugin.plugin_module))
-        rows['source_code'].append(str(plugin.plugin_dir))
-        rows['hooks'].append(mark_safe(', '.join(
-            f'<a href="{hook.admin_url}">{hook.id}</a>'
-            for hook in plugin.hooks
+        rows['Label'].append(mark_safe(f'<a href="{plugin.HOMEPAGE}" target="_blank">{plugin.LABEL}</a>'))
+        rows['Version'].append(str(plugin.VERSION))
+        rows['Author'].append(str(plugin.AUTHOR))
+        rows['Package'].append(ItemLink(plugin.PACKAGE, key=plugin.PACKAGE))
+        rows['Source Code'].append(format_html('<code>{}</code>', str(plugin.SOURCE_PATH).replace(str(Path('~').expanduser()), '~')))
+        rows['Config'].append(mark_safe(''.join(
+            f'<a href="/admin/environment/config/{key}/"><b><code>{key}</code></b>=<code>{value}</code></a><br/>'
+            for key, value in plugin.CONFIG.model_dump().items()
         )))
+        rows['Binaries'].append(mark_safe(', '.join(
+            f'<a href="/admin/environment/binaries/{binary.name}/"><code>{binary.name}</code></a>'
+            for binary in plugin.BINARIES.values()
+        )))
+        rows['Package Managers'].append(mark_safe(', '.join(
+            f'<a href="/admin/environment/binproviders/{binprovider.name}/"><code>{binprovider.name}</code></a>'
+            for binprovider in plugin.BINPROVIDERS.values()
+        )))
+        # rows['Search Backends'].append(mark_safe(', '.join(
+        #     f'<a href="/admin/environment/searchbackends/{searchbackend.name}/"><code>{searchbackend.name}</code></a>'
+        #     for searchbackend in plugin.SEARCHBACKENDS.values()
+        # )))
 
     return TableContext(
         title="Installed plugins",
@@ -204,8 +225,8 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
     plugin = None
-    for loaded_plugin in settings.PLUGINS.values():
-        if loaded_plugin.id == key:
+    for plugin_id, loaded_plugin in settings.PLUGINS.items0():
+        if loaded_plugin.PACKAGE == key or plugin_id == key:
             plugin = loaded_plugin
 
     assert plugin, f'Could not find a plugin matching the specified name: {key}'
@@ -220,11 +241,13 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
         title=key,
         data=[
             {
-                "name": plugin.id,
-                "description": plugin.verbose_name,
+                "name": plugin.PACKAGE,
+                "description": plugin.LABEL,
                 "fields": {
-                    "hooks": plugin.hooks,
-                    "schema": obj_to_yaml(plugin.model_dump(include=("name", "verbose_name", "app_label", "hooks"))),
+                    "version": plugin.VERSION,
+                    "author": plugin.AUTHOR,
+                    "homepage": plugin.HOMEPAGE,
+                    "dependencies": getattr(plugin, 'DEPENDENCIES', []),
                 },
                 "help_texts": {
                     # TODO

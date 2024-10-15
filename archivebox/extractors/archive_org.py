@@ -8,8 +8,9 @@ from collections import defaultdict
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from archivebox.misc.system import run, chmod_file
 from archivebox.misc.util import enforce_types, is_static_file, dedupe
-from archivebox.plugins_extractor.archivedotorg.apps import ARCHIVEDOTORG_CONFIG
-from archivebox.plugins_extractor.curl.apps import CURL_CONFIG, CURL_BINARY
+from archivebox.plugins_extractor.archivedotorg.config import ARCHIVEDOTORG_CONFIG
+from archivebox.plugins_extractor.curl.config import CURL_CONFIG
+from archivebox.plugins_extractor.curl.binaries import CURL_BINARY
 
 from ..logging_util import TimedProgress
 

@@ -14,7 +14,6 @@ from django.utils import timezone
 
 import abx
 
-from .base_hook import BaseHook, HookType
 from .base_binary import BaseBinary
 
 
@@ -28,8 +27,7 @@ HandlerFuncStr = Annotated[str, AfterValidator(lambda s: s.startswith('self.'))]
 CmdArgsList = Annotated[List[str] | Tuple[str, ...], AfterValidator(no_empty_args)]
 
 
-class BaseExtractor(BaseHook):
-    hook_type: HookType = 'EXTRACTOR'
+class BaseExtractor:
     
     name: ExtractorName
     binary: BinName
@@ -51,7 +49,7 @@ class BaseExtractor(BaseHook):
 
 
     def get_output_path(self, snapshot) -> Path:
-        return Path(self.id.lower())
+        return Path(self.__class__.__name__.lower())
 
     def should_extract(self, uri: str, config: dict | None=None) -> bool:
         try:

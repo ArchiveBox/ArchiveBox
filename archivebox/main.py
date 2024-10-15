@@ -193,7 +193,7 @@ def version(quiet: bool=False,
     console = Console()
     prnt = console.print
     
-    from plugins_auth.ldap.apps import LDAP_CONFIG
+    from plugins_auth.ldap.config import LDAP_CONFIG
     from django.conf import settings
     from archivebox.config.version import get_COMMIT_HASH, get_BUILD_TIME
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, RUNNING_AS_UID, RUNNING_AS_GID
@@ -1122,7 +1122,7 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
     
     print('\n[green][√] Set up ArchiveBox and its dependencies successfully.[/green]\n', file=sys.stderr)
     
-    from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
+    from plugins_pkg.pip.binaries import ARCHIVEBOX_BINARY
     
     extra_args = []
     if binproviders:
@@ -1253,7 +1253,7 @@ def schedule(add: bool=False,
     """Set ArchiveBox to regularly import URLs at specific times using cron"""
     
     check_data_folder()
-    from archivebox.plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
+    from archivebox.plugins_pkg.pip.binaries import ARCHIVEBOX_BINARY
     from archivebox.config.permissions import USER
 
     Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)

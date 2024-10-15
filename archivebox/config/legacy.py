@@ -50,13 +50,11 @@ from ..misc.logging import (
 )
 
 from .common import SHELL_CONFIG, GENERAL_CONFIG, ARCHIVING_CONFIG, SERVER_CONFIG, SEARCH_BACKEND_CONFIG, STORAGE_CONFIG
-from archivebox.plugins_auth.ldap.apps import LDAP_CONFIG
-from archivebox.plugins_extractor.favicon.apps import FAVICON_CONFIG
-from archivebox.plugins_extractor.wget.apps import WGET_CONFIG
-from archivebox.plugins_extractor.curl.apps import CURL_CONFIG
+from archivebox.plugins_extractor.favicon.config import FAVICON_CONFIG
+from archivebox.plugins_extractor.wget.config import WGET_CONFIG
+from archivebox.plugins_extractor.curl.config import CURL_CONFIG
 
 ANSI = SHELL_CONFIG.ANSI
-LDAP = LDAP_CONFIG.LDAP_ENABLED
 
 ############################### Config Schema ##################################
 
@@ -72,8 +70,6 @@ CONFIG_SCHEMA: Dict[str, Dict[str, Any]] = {
     'SEARCH_BACKEND_CONFIG': SEARCH_BACKEND_CONFIG.as_legacy_config_schema(),
 
     'STORAGE_CONFIG': STORAGE_CONFIG.as_legacy_config_schema(),
-    
-    'LDAP_CONFIG': LDAP_CONFIG.as_legacy_config_schema(),
     
     # 'FAVICON_CONFIG': FAVICON_CONFIG.as_legacy_config_schema(),
     
