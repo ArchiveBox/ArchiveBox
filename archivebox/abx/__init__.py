@@ -104,3 +104,28 @@ def get_registered_plugins():
     return plugins
 
 
+
+
+def get_plugin_hooks(plugin_pkg: str | None) -> Dict[str, Callable]:
+    """
+    Get all the functions marked with @hookimpl on a module.
+    """
+    if not plugin_pkg:
+        return {}
+    
+    hooks = {}
+    
+    plugin_module = importlib.import_module(plugin_pkg)
+    for attr_name in dir(plugin_module):
+        if attr_name.startswith('_'):
+            continue
+        try:
+            attr = getattr(plugin_module, attr_name)
+            if isinstance(attr, Callable):
+                hooks[attr_name] = None
+                pm.parse_hookimpl_opts(plugin_module, attr_name)
+                hooks[attr_name] = attr
+        except Exception as e:
+            print(f'Error getting hookimpls for {plugin_pkg}: {e}')
+
+    return hooks
