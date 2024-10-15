@@ -17,7 +17,7 @@ class MachineAdmin(ABIDModelAdmin):
     # search_fields = ('id', 'abid', 'guid', 'hostname', 'hw_manufacturer', 'hw_product', 'hw_uuid', 'os_arch', 'os_family', 'os_platform', 'os_kernel', 'os_release')
     
     readonly_fields = ('guid', 'created_at', 'modified_at', 'abid_info', 'ips')
-    fields = (*readonly_fields, 'hostname', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'hw_uuid', 'os_arch', 'os_family', 'os_platform', 'os_kernel', 'os_release', 'stats', 'num_uses_succeeded', 'num_uses_failed', 'tags')
+    fields = (*readonly_fields, 'hostname', 'hw_in_docker', 'hw_in_vm', 'hw_manufacturer', 'hw_product', 'hw_uuid', 'os_arch', 'os_family', 'os_platform', 'os_kernel', 'os_release', 'stats', 'num_uses_succeeded', 'num_uses_failed')
 
     list_filter = ('hw_in_docker', 'hw_in_vm', 'os_arch', 'os_family', 'os_platform')
     ordering = ['-created_at']
