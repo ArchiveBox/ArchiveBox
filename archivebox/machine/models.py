@@ -8,7 +8,6 @@ from django.db import models
 from django.utils import timezone
 from django.utils.functional import cached_property
 
-
 import abx.archivebox.use
 from abx.archivebox.base_binary import BaseBinary, BaseBinProvider
 from archivebox.abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats

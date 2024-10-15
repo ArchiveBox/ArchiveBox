@@ -8,20 +8,15 @@ from django.contrib import admin, messages
 from django.urls import path
 from django.utils.html import format_html, mark_safe
 from django.utils import timezone
-from django.forms import forms
+from django import forms
 from django.template import Template, RequestContext
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple
-
-
-
-import abx
 
 from archivebox.config import DATA_DIR, VERSION
 from archivebox.config.common import SERVER_CONFIG
 from archivebox.misc.util import htmldecode, urldecode
 from archivebox.misc.paginators import AccelleratedPaginator
-from archivebox.abid_utils.admin import ABIDModelAdmin
 from archivebox.search.admin import SearchResultsAdminMixin
 
 from archivebox.logging_util import printable_filesize
@@ -29,12 +24,12 @@ from archivebox.index.html import snapshot_icons
 from archivebox.extractors import archive_links
 from archivebox.main import remove
 
+from archivebox.abid_utils.admin import ABIDModelAdmin
 from archivebox.queues.tasks import bg_archive_links, bg_add
 
-
-from .models import Snapshot
-from .admin_archiveresults import ArchiveResultInline, result_url
-from .admin_tags import TagInline
+from core.models import Tag
+from core.admin_tags import TagInline
+from core.admin_archiveresults import ArchiveResultInline, result_url
 
 
 GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': [], 'CAN_UPGRADE': False}
@@ -360,9 +355,3 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
             request,
             f"Removed {len(tags)} tags from {queryset.count()} Snapshots.",
         )
-
-
-
-@abx.hookimpl
-def register_admin(admin_site):
-    admin_site.register(Snapshot, SnapshotAdmin)
