@@ -28,21 +28,32 @@ from ..extractors import EXTRACTOR_CHOICES
 
 class Seed(ABIDModel, ModelWithHealthStats):
     """
-    A fountain that produces URLs (+metadata) e.g.
-        - file://data/sources/2024-01-02_11-57-51__cli_add.txt
-        - file://data/sources/2024-01-02_11-57-51__web_ui_add.txt
+    A fountain that produces URLs (+metadata) each time it's queried e.g.
+        - file:///data/sources/2024-01-02_11-57-51__cli_add.txt
+        - file:///data/sources/2024-01-02_11-57-51__web_ui_add.txt
         - file:///Users/squash/Library/Application Support/Google/Chrome/Default/Bookmarks
         - https://getpocket.com/user/nikisweeting/feed
+        - https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml
         - ...
+    Each query of a Seed can produce the same list of URLs, or a different list each time.
+    The list of URLs it returns is used to create a new Crawl and seed it with new pending Snapshots.
         
-    When a crawl is created, a root_snapshot is initially created whos URI is the Seed URI.
-    The seed's preferred extractor is executed on the Snapshot, which produces an ArchiveResult.
-    The ArchiveResult (ideally) then contains some outlink URLs, which get turned into new Snapshots.
-    Then the cycle repeats up until Crawl.max_depth.
+    When a crawl is created, a root_snapshot is initially created with a URI set to the Seed URI.
+    The seed's preferred extractor is executed on that URI, which produces an ArchiveResult containing outlinks.
+    The outlinks then get turned into new pending Snapshots under the same crawl,
+    and the cycle repeats until Crawl.max_depth.
 
     Each consumption of a Seed by an Extractor can produce new urls, as Seeds can point to
-    stateful remote services, files whos contents change, etc.
+    stateful remote services, files with contents that change, directories that have new files within, etc.
     """
+    
+    abid_prefix = 'src_'
+    abid_ts_src = 'self.created_at'
+    abid_uri_src = 'self.uri'
+    abid_subtype_src = 'self.extractor'
+    abid_rand_src = 'self.id'
+    abid_drift_allowed = True
+    
     uri = models.URLField(max_length=255, blank=False, null=False, unique=True)              # unique source location where URLs will be loaded from
     
     extractor = models.CharField(choices=EXTRACTOR_CHOICES, default='auto', max_length=32)   # suggested extractor to use to load this URL source
@@ -60,7 +71,7 @@ class Seed(ABIDModel, ModelWithHealthStats):
         #      pocketapi://
         #      s3://
         #      etc..
-        return self.uri.split(':')[0]
+        return self.uri.split('://')[0].lower()
 
 
 class CrawlSchedule(ABIDModel, ModelWithHealthStats):
@@ -72,8 +83,8 @@ class CrawlSchedule(ABIDModel, ModelWithHealthStats):
     """
     abid_prefix = 'sch_'
     abid_ts_src = 'self.created_at'
-    abid_uri_src = 'self.crawl.abid'
-    abid_subtype_src = '"04"'
+    abid_uri_src = 'self.created_by_id'
+    abid_subtype_src = 'self.schedule'
     abid_rand_src = 'self.id'
     
     schedule = models.CharField(max_length=64, blank=False, null=False)
@@ -82,6 +93,13 @@ class CrawlSchedule(ABIDModel, ModelWithHealthStats):
     created_at = AutoDateTimeField(default=None, null=False, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False)
+    
+    crawl_set: models.Manager['Crawl']
+    
+    @property
+    def template(self):
+        """The base crawl that each new scheduled job should copy as a template"""
+        return self.crawl_set.first()
 
 
 class Crawl(ABIDModel, ModelWithHealthStats):
@@ -94,7 +112,7 @@ class Crawl(ABIDModel, ModelWithHealthStats):
     """
     abid_prefix = 'crl_'
     abid_ts_src = 'self.created_at'
-    abid_uri_src = 'self.seed_id'
+    abid_uri_src = 'self.seed.uri'
     abid_subtype_src = 'self.persona_id'
     abid_rand_src = 'self.id'
     abid_drift_allowed = True
@@ -125,6 +143,13 @@ class Crawl(ABIDModel, ModelWithHealthStats):
     class Meta(TypedModelMeta):
         verbose_name = 'Crawl'
         verbose_name_plural = 'Crawls'
+        
+    @property
+    def template(self):
+        """If this crawl was created under a ScheduledCrawl, returns the original template Crawl it was based off"""
+        if not self.schedule:
+            return None
+        return self.schedule.template
 
     @property
     def api_url(self) -> str:
@@ -138,6 +163,7 @@ class Crawl(ABIDModel, ModelWithHealthStats):
 
 
 class Outlink(models.Model):
+    """A record of a link found on a page, pointing to another page."""
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     
     src = models.URLField()   # parent page where the outlink/href was found       e.g. https://example.com/downloads
@@ -145,6 +171,8 @@ class Outlink(models.Model):
     
     via = models.ForeignKey(ArchiveResult, related_name='outlink_set')
 
+    class Meta:
+        unique_together = (('src', 'dst', 'via'),)
 
 
 def scheduler_runloop():
@@ -182,7 +210,7 @@ def create_crawl_from_ui_action(urls, extractor, credentials, depth, tags_str, p
 
 
 @abx.hookimpl.on_crawl_schedule_tick
-def create_crawl_from_crawl_schedule_if_due(crawl_schedule):
+def create_crawl_from_crawlschedule_if_due(crawl_schedule):
     # make sure it's not too early to run this scheduled import (makes this function indepmpotent / safe to call multiple times / every second)
     if timezone.now() < crawl_schedule.next_run_at:
         # it's not time to run it yet, wait for the next tick
