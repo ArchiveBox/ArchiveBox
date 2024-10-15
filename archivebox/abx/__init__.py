@@ -2,7 +2,7 @@ __package__ = 'abx'
 
 import importlib
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Callable, List
 
 from . import hookspec as base_spec
 from abx.hookspec import hookimpl, hookspec           # noqa
@@ -23,13 +23,19 @@ def get_plugin_order(plugin_entrypoint: Path):
         pass
     return (order, plugin_entrypoint)
 
-def register_hookspecs(hookspecs):
+def register_hookspecs(hookspecs: List[str]):
+    """
+    Register all the hookspecs from a list of module names.
+    """
     for hookspec_import_path in hookspecs:
         hookspec_module = importlib.import_module(hookspec_import_path)
         pm.add_hookspecs(hookspec_module)
 
 
 def find_plugins_in_dir(plugins_dir: Path, prefix: str) -> Dict[str, Path]:
+    """
+    Find all the plugins in a given directory. Just looks for an __init__.py file.
+    """
     return {
         f"{prefix}.{plugin_entrypoint.parent.name}": plugin_entrypoint.parent
         for plugin_entrypoint in sorted(plugins_dir.glob("*/__init__.py"), key=get_plugin_order)
@@ -38,7 +44,7 @@ def find_plugins_in_dir(plugins_dir: Path, prefix: str) -> Dict[str, Path]:
 
 
 def get_pip_installed_plugins(group='abx'):
-    """replaces pm.load_setuptools_entrypoints("abx")"""
+    """replaces pm.load_setuptools_entrypoints("abx"), finds plugins that registered entrypoints via pip"""
     import importlib.metadata
 
     DETECTED_PLUGINS = {}   # module_name: module_dir_path
@@ -53,6 +59,9 @@ def get_pip_installed_plugins(group='abx'):
 
 
 def get_plugins_in_dirs(plugin_dirs: Dict[str, Path]):
+    """
+    Get the mapping of dir_name: {plugin_id: plugin_dir} for all plugins in the given directories.
+    """
     DETECTED_PLUGINS = {}
     for plugin_prefix, plugin_dir in plugin_dirs.items():
         DETECTED_PLUGINS.update(find_plugins_in_dir(plugin_dir, prefix=plugin_prefix))
@@ -62,6 +71,9 @@ def get_plugins_in_dirs(plugin_dirs: Dict[str, Path]):
 # Load all plugins from pip packages, archivebox built-ins, and user plugins
 
 def load_plugins(plugins_dict: Dict[str, Path]):
+    """
+    Load all the plugins from a dictionary of module names and directory paths.
+    """
     LOADED_PLUGINS = {}
     for plugin_module, plugin_dir in plugins_dict.items():
         # print(f'Loading plugin: {plugin_module} from {plugin_dir}')
@@ -72,6 +84,9 @@ def load_plugins(plugins_dict: Dict[str, Path]):
     return LOADED_PLUGINS
 
 def get_registered_plugins():
+    """
+    Get all the plugins registered with Pluggy.
+    """
     plugins = {}
     plugin_to_distinfo = dict(pm.list_plugin_distinfo())
     for plugin in pm.get_plugins():
