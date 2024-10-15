@@ -9,6 +9,8 @@ from pydantic import InstanceOf
 
 from pydantic_pkgr import BinaryOverrides, SemVer
 
+import abx
+
 from abx.archivebox.base_plugin import BasePlugin
 from abx.archivebox.base_hook import BaseHook
 from abx.archivebox.base_binary import BaseBinary, BaseBinProvider, apt
@@ -69,6 +71,19 @@ class LdapBinary(BaseBinary):
 LDAP_BINARY = LdapBinary()
 
 
+def create_superuser_from_ldap_user(sender, user=None, ldap_user=None, **kwargs):
+    if user is None:
+        # not authenticated at all
+        return
+    
+    if not user.id and LDAP_CONFIG.LDAP_CREATE_SUPERUSER:
+        # authenticated via LDAP, but user is not set up in DB yet
+        user.is_superuser = True
+
+    user.is_staff = True
+    print(f'[!] WARNING: Creating new user {user} based on LDAP user {ldap_user} (is_staff={user.is_staff}, is_superuser={user.is_superuser})')
+
+
 class LdapAuthPlugin(BasePlugin):
     app_label: str = 'ldap'
     verbose_name: str = 'LDAP Authentication'
@@ -77,7 +92,15 @@ class LdapAuthPlugin(BasePlugin):
         LDAP_CONFIG,
         *([LDAP_BINARY] if LDAP_CONFIG.LDAP_ENABLED else []),
     ]
-
+    
+    @abx.hookimpl
+    def ready(self):
+        super().ready()
+        
+        if LDAP_CONFIG.LDAP_ENABLED:
+            import django_auth_ldap.backend
+            django_auth_ldap.backend.populate_user.connect(create_superuser_from_ldap_user)
+        
 
 PLUGIN = LdapAuthPlugin()
 DJANGO_APP = PLUGIN.AppConfig
