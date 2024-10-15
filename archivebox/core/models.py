@@ -82,9 +82,13 @@ class Tag(ABIDModel):
         if i is not None:
             slug += "_%d" % i
         return slug
+    
+    def clean(self, *args, **kwargs):
+        self.slug = self.slug or self.slugify(self.name)
+        super().clean(*args, **kwargs)
 
     def save(self, *args, **kwargs):
-        if self._state.adding and not self.slug:
+        if self._state.adding:
             self.slug = self.slugify(self.name)
 
             # if name is different but slug conficts with another tags slug, append a counter
