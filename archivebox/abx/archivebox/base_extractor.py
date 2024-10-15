@@ -195,8 +195,8 @@ class BaseExtractor:
     
     @cached_property
     def BINARY(self) -> BaseBinary:
-        import abx.archivebox.use
-        for binary in abx.archivebox.use.get_BINARIES().values():
+        import abx.archivebox.reads
+        for binary in abx.archivebox.reads.get_BINARIES().values():
             if binary.name == self.binary:
                 return binary
         raise ValueError(f'Binary {self.binary} not found')

@@ -503,7 +503,7 @@ def find_config_section(key: str) -> str:
     if key in CONSTANTS_CONFIG:
         return 'CONSTANT'
     matching_sections = [
-        section.id for section in settings.CONFIGS.values() if key in section.model_fields
+        section_id for section_id, section in settings.CONFIGS.items() if key in section.model_fields
     ]
     section = matching_sections[0] if matching_sections else 'DYNAMIC'
     return section
@@ -560,9 +560,9 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
         # "Aliases": [],
     }
 
-    for section in reversed(list(settings.CONFIGS.values())):
+    for section_id, section in reversed(list(settings.CONFIGS.items())):
         for key, field in section.model_fields.items():
-            rows['Section'].append(section.id)   # section.replace('_', ' ').title().replace(' Config', '')
+            rows['Section'].append(section_id)   # section.replace('_', ' ').title().replace(' Config', '')
             rows['Key'].append(ItemLink(key, key=key))
             rows['Type'].append(format_html('<code>{}</code>', find_config_type(key)))
             rows['Value'].append(mark_safe(f'<code>{getattr(section, key)}</code>') if key_is_safe(key) else '******** (redacted)')

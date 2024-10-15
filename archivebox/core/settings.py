@@ -10,7 +10,7 @@ from django.utils.crypto import get_random_string
 
 import abx
 import abx.archivebox
-import abx.archivebox.use
+import abx.archivebox.reads
 import abx.django.use
 
 from archivebox.config import DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS
@@ -53,17 +53,17 @@ ALL_PLUGINS = {**BUILTIN_PLUGINS, **PIP_PLUGINS, **USER_PLUGINS}
 # Load ArchiveBox plugins
 PLUGIN_MANAGER = abx.pm
 abx.archivebox.load_archivebox_plugins(PLUGIN_MANAGER, ALL_PLUGINS)
-PLUGINS = abx.archivebox.use.get_PLUGINS()
+PLUGINS = abx.archivebox.reads.get_PLUGINS()
 
 # Load ArchiveBox config from plugins
-CONFIGS = abx.archivebox.use.get_CONFIGS()
-CONFIG = FLAT_CONFIG = abx.archivebox.use.get_FLAT_CONFIG()
-BINPROVIDERS = abx.archivebox.use.get_BINPROVIDERS()
-BINARIES = abx.archivebox.use.get_BINARIES()
-EXTRACTORS = abx.archivebox.use.get_EXTRACTORS()
-SEARCHBACKENDS = abx.archivebox.use.get_SEARCHBACKENDS()
-# REPLAYERS = abx.archivebox.use.get_REPLAYERS()
-# ADMINDATAVIEWS = abx.archivebox.use.get_ADMINDATAVIEWS()
+CONFIGS = abx.archivebox.reads.get_CONFIGS()
+CONFIG = FLAT_CONFIG = abx.archivebox.reads.get_FLAT_CONFIG()
+BINPROVIDERS = abx.archivebox.reads.get_BINPROVIDERS()
+BINARIES = abx.archivebox.reads.get_BINARIES()
+EXTRACTORS = abx.archivebox.reads.get_EXTRACTORS()
+SEARCHBACKENDS = abx.archivebox.reads.get_SEARCHBACKENDS()
+# REPLAYERS = abx.archivebox.reads.get_REPLAYERS()
+# ADMINDATAVIEWS = abx.archivebox.reads.get_ADMINDATAVIEWS()
 
 
 ################################################################################
@@ -609,6 +609,6 @@ if DEBUG_REQUESTS_TRACKER:
 
 
 abx.django.use.register_checks()
-# abx.archivebox.use.register_all_hooks(globals())
+# abx.archivebox.reads.register_all_hooks(globals())
 
 # import ipdb; ipdb.set_trace()

@@ -1,10 +1,11 @@
 __package__ = 'abx.archivebox'
 
 import importlib
-from typing import Dict, Any, TYPE_CHECKING
+from typing import Dict, Set, Any, TYPE_CHECKING
 
 from benedict import benedict
 
+import abx
 from .. import pm
 
 if TYPE_CHECKING:
@@ -24,52 +25,37 @@ def get_PLUGINS() -> Dict[str, Dict[str, Any]]:
         for plugin_dict in pm.hook.get_PLUGIN()
             for plugin_id, plugin in plugin_dict.items()
     })
-    
-def get_PLUGIN(plugin_id: str):
-    plugin_info = get_PLUGINS().get(plugin_id, {})
-    assert plugin_info and getattr(plugin_info, 'PACKAGE', None), f'Plugin {plugin_id} not found'
-    
-    module = importlib.import_module(plugin_info['PACKAGE'])
-    extra_info ={
-        'ID': plugin_id,
-        'id': plugin_id,
-        **plugin_info,
-        'SOURCE_PATH': module.__file__,
-        'MODULE': module,
-        'CONFIG': {},
-        'BINARIES': {},
-        'BINPROVIDERS': {},
-        'EXTRACTORS': {},
-        'SEARCHBACKENDS': {},
-    }
-    try:
-        extra_info['CONFIG'] = module.get_CONFIG()[plugin_id]
-    except AttributeError:
-        pass
-    try:
-        extra_info['BINARIES'] = module.get_BINARIES()
-    except AttributeError:
-        pass
-    try:
-        extra_info['BINPROVIDERS'] = module.get_BINPROVIDERS()
-    except AttributeError:
-        pass
-    try:
-        extra_info['EXTRACTORS'] = module.get_EXTRACTORS()
-    except AttributeError:
-        pass
-    try:
-        extra_info['SEARCHBACKENDS'] = module.get_SEARCHBACKENDS()
-    except AttributeError:
-        pass
-    return benedict(extra_info)
 
-# def get_HOOKS(PLUGINS) -> Dict[str, 'BaseHook']:
-#     return benedict({
-#         hook.id: hook
-#         for plugin in PLUGINS.values()
-#             for hook in plugin.hooks
-#     })
+def get_PLUGIN(plugin_id: str) -> Dict[str, Any]:
+    plugin_info = get_PLUGINS().get(plugin_id, {})
+    package = plugin_info.get('package', plugin_info.get('PACKAGE', None))
+    if not package:
+        return {'id': plugin_id, 'hooks': {}}
+    module = importlib.import_module(package)
+    hooks = abx.get_plugin_hooks(module.__package__)
+    assert plugin_info and (plugin_info.get('id') or plugin_info.get('ID') or hooks)
+    
+    return benedict({
+        'id': plugin_id,
+        'label': getattr(module, '__label__', plugin_id),
+        'module': module,
+        'package': module.__package__,
+        'hooks': hooks,
+        'version': getattr(module, '__version__', '999.999.999'),
+        'author': getattr(module, '__author__', 'Unknown'),
+        'homepage': getattr(module, '__homepage__', 'https://github.com/ArchiveBox/ArchiveBox'),
+        'dependencies': getattr(module, '__dependencies__', []),
+        'source_code': module.__file__,
+        **plugin_info,
+    })
+    
+
+def get_HOOKS() -> Set[str]:
+    return {
+        hook_name
+        for plugin_id in get_PLUGINS().keys()
+            for hook_name in get_PLUGIN(plugin_id).hooks
+    }
 
 def get_CONFIGS() -> Dict[str, 'BaseConfigSet']:
     return benedict({
@@ -77,7 +63,8 @@ def get_CONFIGS() -> Dict[str, 'BaseConfigSet']:
         for plugin_configs in pm.hook.get_CONFIG()
             for config_id, configset in plugin_configs.items()
     })
-    
+
+
 def get_FLAT_CONFIG() -> Dict[str, Any]:
     return benedict({
         key: value
@@ -141,28 +128,3 @@ def get_SEARCHBACKENDS() -> Dict[str, 'BaseSearchBackend']:
         for plugin_searchbackends in pm.hook.get_SEARCHBACKENDS()
             for searchbackend_id,searchbackend in plugin_searchbackends.items()
     })
-
-
-###########################
-
-
-# def extract(url_or_snapshot_id):
-#     from core.models import Snapshot
-    
-#     url, snapshot_abid, snapshot_id = None, None, None
-#     snapshot = None
-#     if '://' in url_or_snapshot_id:
-#         url = url_or_snapshot_id
-#         try:
-#             snapshot = Snapshot.objects.get(url=url)
-#         except Snapshot.DoesNotExist:
-#             snapshot = Snapshot(url=url_or_snapshot_id, timestamp=str(timezone.now().timestamp()), bookmarked_at=timezone.now())
-#             snapshot.save()
-#     elif '-' in url_or_snapshot_id:
-#         snapshot_id = url_or_snapshot_id
-#         snapshot = Snapshot.objects.get(id=snapshot_id)
-#     else:
-#         snapshot_abid = url_or_snapshot_id
-#         snapshot = Snapshot.objects.get(abid=snapshot_abid)
-
-#     return pm.hook.extract(snapshot_id=snapshot.id)

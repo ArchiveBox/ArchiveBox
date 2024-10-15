@@ -8,7 +8,8 @@ from django.db import models
 from django.utils import timezone
 from django.utils.functional import cached_property
 
-import abx.archivebox.use
+import abx.archivebox.reads
+
 from abx.archivebox.base_binary import BaseBinary, BaseBinProvider
 from archivebox.abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats
 
@@ -290,7 +291,7 @@ class InstalledBinary(ABIDModel, ModelWithHealthStats):
         if not hasattr(self, 'machine'):
             self.machine = Machine.objects.current()
         if not self.binprovider:
-            all_known_binproviders = list(abx.archivebox.use.get_BINPROVIDERS().values())
+            all_known_binproviders = list(abx.archivebox.reads.get_BINPROVIDERS().values())
             binary = BaseBinary(name=self.name, binproviders=all_known_binproviders).load(fresh=True)
             self.binprovider = binary.loaded_binprovider.name if binary.loaded_binprovider else None
         if not self.abspath:
@@ -304,7 +305,7 @@ class InstalledBinary(ABIDModel, ModelWithHealthStats):
 
     @cached_property
     def BINARY(self) -> BaseBinary:
-        for binary in abx.archivebox.use.get_BINARIES().values():
+        for binary in abx.archivebox.reads.get_BINARIES().values():
             if binary.name == self.name:
                 return binary
         raise Exception(f'Orphaned InstalledBinary {self.name} {self.binprovider} was found in DB, could not find any plugin that defines it')
@@ -312,7 +313,7 @@ class InstalledBinary(ABIDModel, ModelWithHealthStats):
 
     @cached_property
     def BINPROVIDER(self) -> BaseBinProvider:
-        for binprovider in abx.archivebox.use.get_BINPROVIDERS().values():
+        for binprovider in abx.archivebox.reads.get_BINPROVIDERS().values():
             if binprovider.name == self.binprovider:
                 return binprovider
         raise Exception(f'Orphaned InstalledBinary(name={self.name}) was found in DB, could not find any plugin that defines BinProvider(name={self.binprovider})')
