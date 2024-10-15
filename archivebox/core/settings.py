@@ -410,7 +410,7 @@ SHELL_PLUS_PRINT_SQL = False
 IPYTHON_ARGUMENTS = ['--no-confirm-exit', '--no-banner']
 IPYTHON_KERNEL_DISPLAY_NAME = 'ArchiveBox Django Shell'
 if IS_SHELL:
-    os.environ['PYTHONSTARTUP'] = str(PACKAGE_DIR / 'core' / 'shell_welcome_message.py')
+    os.environ['PYTHONSTARTUP'] = str(PACKAGE_DIR / 'misc' / 'shell_welcome_message.py')
 
 
 ################################################################################
