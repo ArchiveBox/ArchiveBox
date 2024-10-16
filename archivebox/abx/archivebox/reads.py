@@ -128,3 +128,30 @@ def get_SEARCHBACKENDS() -> Dict[str, 'BaseSearchBackend']:
         for plugin_searchbackends in pm.hook.get_SEARCHBACKENDS()
             for searchbackend_id,searchbackend in plugin_searchbackends.items()
     })
+
+
+
+def get_scope_config(defaults=settings.CONFIG, persona=None, seed=None, crawl=None, snapshot=None, archiveresult=None, extra_config=None):
+    """Get all the relevant config for the given scope, in correct precedence order"""
+    
+    snapshot = snapshot or (archiveresult and archiveresult.snapshot)
+    crawl = crawl or (snapshot and snapshot.crawl)
+    seed = seed or (crawl and crawl.seed)
+    persona = persona or (crawl and crawl.persona)
+    
+    persona_config = persona.config if persona else {}
+    seed_config = seed.config if seed else {}
+    crawl_config = crawl.config if crawl else {}
+    snapshot_config = snapshot.config if snapshot else {}
+    archiveresult_config = archiveresult.config if archiveresult else {}
+    extra_config = extra_config or {}
+    
+    return {
+        **defaults,                     # defaults / config file / environment variables
+        **persona_config,               # lowest precedence
+        **seed_config,
+        **crawl_config,
+        **snapshot_config,
+        **archiveresult_config,
+        **extra_config,                 # highest precedence
+    }
