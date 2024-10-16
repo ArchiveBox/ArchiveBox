@@ -44,3 +44,22 @@ def get_BINARIES():
 #         'screenshot': SCREENSHOT_EXTRACTOR,
 #         'dom': DOM_EXTRACTOR,
 #     }
+
+# Hooks Available:
+
+# Events:
+# on_crawl_schedule_tick
+# on_seed_post_save
+# on_crawl_post_save
+# on_snapshot_post_save
+# on_archiveresult_post_save
+
+
+# create_root_snapshot_from_seed
+# create_archiveresults_pending_from_snapshot
+# create_crawl_from_crawlschedule_if_due
+# create_crawl_copy_from_template
+#  
+
+
+# create_crawl_from_crawlschedule_if_due
