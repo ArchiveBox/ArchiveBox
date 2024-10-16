@@ -18,12 +18,9 @@ from archivebox.config import CONSTANTS
 from archivebox.config.permissions import ARCHIVEBOX_USER
 
 import abx
-from .base_hook import BaseHook, HookType
 
 
-class BaseBinProvider(BaseHook, BinProvider):
-    hook_type: HookType = "BINPROVIDER"
-
+class BaseBinProvider(BinProvider):
     
     # TODO: add install/load/load_or_install methods as abx.hookimpl methods
     
@@ -36,8 +33,7 @@ class BaseBinProvider(BaseHook, BinProvider):
     def get_BINPROVIDERS(self):
         return [self]
 
-class BaseBinary(BaseHook, Binary):
-    hook_type: HookType = "BINARY"
+class BaseBinary(Binary):
 
     @staticmethod
     def symlink_to_lib(binary, bin_dir=None) -> None:

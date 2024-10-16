@@ -35,8 +35,9 @@ def check_migrations():
     from ..index.sql import list_migrations
 
     pending_migrations = [name for status, name in list_migrations() if not status]
+    is_migrating = any(arg in sys.argv for arg in ['makemigrations', 'migrate', 'init'])
 
-    if pending_migrations:
+    if pending_migrations and not is_migrating:
         print('[red][X] This collection was created with an older version of ArchiveBox and must be upgraded first.[/red]')
         print(f'    {DATA_DIR}', file=sys.stderr)
         print(file=sys.stderr)

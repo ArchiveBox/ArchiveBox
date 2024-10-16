@@ -56,7 +56,7 @@ from .config.paths import PACKAGE_DIR, DATA_DIR, ARCHIVE_DIR    # noqa
 from .config.version import VERSION                             # noqa
 
 __version__ = VERSION
-__author__ = 'Nick Sweeting'
+__author__ = 'ArchiveBox'
 __license__ = 'MIT'
 
 ASCII_ICON = """

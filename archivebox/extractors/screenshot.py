@@ -3,10 +3,13 @@ __package__ = 'archivebox.extractors'
 from pathlib import Path
 from typing import Optional
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from archivebox.misc.system import run, chmod_file
 from archivebox.misc.util import enforce_types, is_static_file
+from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from ..logging_util import TimedProgress
+
+from plugins_extractor.chrome.config import CHROME_CONFIG
+from plugins_extractor.chrome.binaries import CHROME_BINARY
 
 
 def get_output_path():
@@ -15,7 +18,6 @@ def get_output_path():
 
 @enforce_types
 def should_save_screenshot(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
-    from plugins_extractor.chrome.apps import CHROME_CONFIG
     
     if is_static_file(link.url):
         return False
@@ -30,7 +32,6 @@ def should_save_screenshot(link: Link, out_dir: Optional[Path]=None, overwrite: 
 def save_screenshot(link: Link, out_dir: Optional[Path]=None, timeout: int=60) -> ArchiveResult:
     """take screenshot of site using chrome --headless"""
     
-    from plugins_extractor.chrome.apps import CHROME_CONFIG, CHROME_BINARY
     CHROME_BIN = CHROME_BINARY.load()
     assert CHROME_BIN.abspath and CHROME_BIN.version
 

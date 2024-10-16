@@ -19,7 +19,7 @@ from archivebox.misc.util import (
 from archivebox.config import CONSTANTS, DATA_DIR, VERSION
 from archivebox.config.common import SERVER_CONFIG
 from archivebox.config.version import get_COMMIT_HASH
-from archivebox.plugins_extractor.archivedotorg.apps import ARCHIVEDOTORG_CONFIG
+from archivebox.plugins_extractor.archivedotorg.config import ARCHIVEDOTORG_CONFIG
 
 from .schema import Link
 from ..logging_util import printable_filesize

@@ -12,7 +12,8 @@ from archivebox.misc.util import (
     enforce_types,
     is_static_file,
 )
-from archivebox.plugins_extractor.mercury.apps import MERCURY_CONFIG, MERCURY_BINARY
+from archivebox.plugins_extractor.mercury.config import MERCURY_CONFIG
+from archivebox.plugins_extractor.mercury.binaries import MERCURY_BINARY
 
 from ..logging_util import TimedProgress
 

@@ -6,7 +6,6 @@ from typing import List, Optional, Union, Any
 from datetime import datetime
 
 from django.db.models import Q
-from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 
@@ -16,7 +15,6 @@ from ninja.errors import HttpError
 
 from core.models import Snapshot, ArchiveResult, Tag
 from api.models import APIToken, OutboundWebhook
-from abid_utils.abid import ABID
 
 from .auth import API_AUTH_METHODS
 
@@ -397,11 +395,70 @@ def get_tag(request, tag_id: str, with_snapshots: bool=True):
 
 
 
+# class CrawlSchema(Schema):
+#     TYPE: str = 'core.models.Crawl'
+
+#     id: UUID
+#     abid: str
+
+#     modified_at: datetime
+#     created_at: datetime
+#     created_by_id: str
+#     created_by_username: str
+
+#     urls: str
+#     depth: int
+#     parser: str
+    
+#     # snapshots: List[SnapshotSchema]
+
+#     @staticmethod
+#     def resolve_created_by_id(obj):
+#         return str(obj.created_by_id)
+    
+#     @staticmethod
+#     def resolve_created_by_username(obj):
+#         User = get_user_model()
+#         return User.objects.get(id=obj.created_by_id).username
+    
+#     @staticmethod
+#     def resolve_snapshots(obj, context):
+#         if context['request'].with_snapshots:
+#             return obj.snapshot_set.all().distinct()
+#         return Snapshot.objects.none()
+
+
+# @router.get("/crawl/{crawl_id}", response=CrawlSchema, url_name="get_crawl")
+# def get_crawl(request, crawl_id: str, with_snapshots: bool=False, with_archiveresults: bool=False):
+#     """Get a specific Crawl by id or abid."""
+#     crawl = None
+#     request.with_snapshots = with_snapshots
+#     request.with_archiveresults = with_archiveresults
+    
+#     try:
+#         crawl = Crawl.objects.get(abid__icontains=crawl_id)
+#     except Exception:
+#         pass
+
+#     try:
+#         crawl = crawl or Crawl.objects.get(id__icontains=crawl_id)
+#     except Exception:
+#         pass
+#     return crawl
+
+
+# [..., CrawlSchema]
 @router.get("/any/{abid}", response=Union[SnapshotSchema, ArchiveResultSchema, TagSchema], url_name="get_any")
 def get_any(request, abid: str):
     request.with_snapshots = False
     request.with_archiveresults = False
 
+    if abid.startswith(APIToken.abid_prefix):
+        raise HttpError(403, 'APIToken objects are not accessible via REST API')
+    
+    if abid.startswith(OutboundWebhook.abid_prefix):
+        raise HttpError(403, 'OutboundWebhook objects are not accessible via REST API')
+    
     response = None
     try:
         response = response or get_snapshot(request, abid)
@@ -417,11 +474,13 @@ def get_any(request, abid: str):
         response = response or get_tag(request, abid)
     except Exception:
         pass
-
-    if abid.startswith(APIToken.abid_prefix):
-        raise HttpError(403, 'APIToken objects are not accessible via REST API')
     
-    if abid.startswith(OutboundWebhook.abid_prefix):
-        raise HttpError(403, 'OutboundWebhook objects are not accessible via REST API')
+    # try:
+    #     response = response or get_crawl(request, abid)
+    # except Exception:
+    #     pass
 
-    raise HttpError(404, 'Object with given ABID not found')
+    if not response:
+        raise HttpError(404, 'Object with given ABID not found')
+
+    return response

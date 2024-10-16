@@ -14,7 +14,6 @@ from django.utils import timezone
 
 import abx
 
-from .base_hook import BaseHook, HookType
 from .base_binary import BaseBinary
 
 
@@ -28,8 +27,7 @@ HandlerFuncStr = Annotated[str, AfterValidator(lambda s: s.startswith('self.'))]
 CmdArgsList = Annotated[List[str] | Tuple[str, ...], AfterValidator(no_empty_args)]
 
 
-class BaseExtractor(BaseHook):
-    hook_type: HookType = 'EXTRACTOR'
+class BaseExtractor:
     
     name: ExtractorName
     binary: BinName
@@ -51,9 +49,9 @@ class BaseExtractor(BaseHook):
 
 
     def get_output_path(self, snapshot) -> Path:
-        return Path(self.id.lower())
+        return Path(self.__class__.__name__.lower())
 
-    def should_extract(self, snapshot) -> bool:
+    def should_extract(self, uri: str, config: dict | None=None) -> bool:
         try:
             assert self.detect_installed_binary().version
         except Exception:
@@ -197,8 +195,8 @@ class BaseExtractor(BaseHook):
     
     @cached_property
     def BINARY(self) -> BaseBinary:
-        import abx.archivebox.use
-        for binary in abx.archivebox.use.get_BINARIES().values():
+        import abx.archivebox.reads
+        for binary in abx.archivebox.reads.get_BINARIES().values():
             if binary.name == self.binary:
                 return binary
         raise ValueError(f'Binary {self.binary} not found')

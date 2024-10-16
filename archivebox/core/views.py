@@ -24,16 +24,15 @@ from admin_data_views.utils import render_with_table_view, render_with_item_view
 
 from core.models import Snapshot
 from core.forms import AddLinkForm
-from core.admin import result_url
 
 from queues.tasks import bg_add
 
 from archivebox.config import CONSTANTS_CONFIG, DATA_DIR, VERSION
 from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG
 from archivebox.misc.util import base_url, htmlencode, ts_to_date_str
+from archivebox.misc.serve_static import serve_static_with_byterange_support
 
-from .serve_static import serve_static_with_byterange_support
-from ..plugins_extractor.archivedotorg.apps import ARCHIVEDOTORG_CONFIG
+from ..plugins_extractor.archivedotorg.config import ARCHIVEDOTORG_CONFIG
 from ..logging_util import printable_filesize
 from ..search import query_search_index
 
@@ -452,6 +451,8 @@ class AddView(UserPassesTestMixin, FormView):
         }
 
     def form_valid(self, form):
+        from core.admin_archiveresults import result_url
+        
         url = form.cleaned_data["url"]
         print(f'[+] Adding URL: {url}')
         parser = form.cleaned_data["parser"]
@@ -502,7 +503,7 @@ def find_config_section(key: str) -> str:
     if key in CONSTANTS_CONFIG:
         return 'CONSTANT'
     matching_sections = [
-        section.id for section in settings.CONFIGS.values() if key in section.model_fields
+        section_id for section_id, section in settings.CONFIGS.items() if key in section.model_fields
     ]
     section = matching_sections[0] if matching_sections else 'DYNAMIC'
     return section
@@ -559,9 +560,9 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
         # "Aliases": [],
     }
 
-    for section in reversed(list(settings.CONFIGS.values())):
+    for section_id, section in reversed(list(settings.CONFIGS.items())):
         for key, field in section.model_fields.items():
-            rows['Section'].append(section.id)   # section.replace('_', ' ').title().replace(' Config', '')
+            rows['Section'].append(section_id)   # section.replace('_', ' ').title().replace(' Config', '')
             rows['Key'].append(ItemLink(key, key=key))
             rows['Type'].append(format_html('<code>{}</code>', find_config_type(key)))
             rows['Value'].append(mark_safe(f'<code>{getattr(section, key)}</code>') if key_is_safe(key) else '******** (redacted)')
@@ -612,7 +613,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                 "fields": {
                     'Key': key,
                     'Type': find_config_type(key),
-                    'Value': settings.FLAT_CONFIG[key] if key_is_safe(key) else '********',
+                    'Value': settings.FLAT_CONFIG.get(key, settings.CONFIGS.get(key, None)) if key_is_safe(key) else '********',
                 },
                 "help_texts": {
                     'Key': mark_safe(f'''

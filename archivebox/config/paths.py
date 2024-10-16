@@ -41,7 +41,8 @@ def _get_collection_id(DATA_DIR=DATA_DIR, force_create=False) -> str:
     try:
         # only persist collection_id file if we already have an index.sqlite3 file present
         # otherwise we might be running in a directory that is not a collection, no point creating cruft files
-        if os.path.isfile(DATABASE_FILE) and os.access(DATA_DIR, os.W_OK) or force_create:
+        collection_is_active = os.path.isfile(DATABASE_FILE) and os.path.isdir(ARCHIVE_DIR) and os.access(DATA_DIR, os.W_OK)
+        if collection_is_active or force_create:
             collection_id_file.write_text(collection_id)
             
             # if we're running as root right now, make sure the collection_id file is owned by the archivebox user

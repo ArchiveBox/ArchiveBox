@@ -6,11 +6,15 @@ from tempfile import NamedTemporaryFile
 from typing import Optional
 import json
 
-from ..index.schema import Link, ArchiveResult, ArchiveError
 from archivebox.misc.system import run, atomic_write
 from archivebox.misc.util import enforce_types, is_static_file
+from ..index.schema import Link, ArchiveResult, ArchiveError
 from ..logging_util import TimedProgress
 from .title import get_html
+
+from plugins_extractor.readability.config import READABILITY_CONFIG
+from plugins_extractor.readability.binaries import READABILITY_BINARY
+
 
 def get_output_path():
     return 'readability/'
@@ -21,7 +25,6 @@ def get_embed_path(archiveresult=None):
 
 @enforce_types
 def should_save_readability(link: Link, out_dir: Optional[str]=None, overwrite: Optional[bool]=False) -> bool:
-    from plugins_extractor.readability.apps import READABILITY_CONFIG
     
     if is_static_file(link.url):
         return False
@@ -36,8 +39,6 @@ def should_save_readability(link: Link, out_dir: Optional[str]=None, overwrite: 
 @enforce_types
 def save_readability(link: Link, out_dir: Optional[str]=None, timeout: int=0) -> ArchiveResult:
     """download reader friendly version using @mozilla/readability"""
-    
-    from plugins_extractor.readability.apps import READABILITY_CONFIG, READABILITY_BINARY
     
     READABILITY_BIN = READABILITY_BINARY.load()
     assert READABILITY_BIN.abspath and READABILITY_BIN.version

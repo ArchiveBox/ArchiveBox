@@ -13,9 +13,11 @@ from archivebox.misc.util import (
     without_query,
     without_fragment,
 )
-from archivebox.plugins_extractor.git.apps import GIT_CONFIG, GIT_BINARY
 from ..logging_util import TimedProgress
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+
+from archivebox.plugins_extractor.git.config import GIT_CONFIG
+from archivebox.plugins_extractor.git.binaries import GIT_BINARY
 
 
 def get_output_path():

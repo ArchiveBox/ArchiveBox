@@ -11,9 +11,7 @@ from pydantic_settings.sources import TomlConfigSettingsSource
 
 from pydantic_pkgr import func_takes_args_or_kwargs
 
-import abx
 
-from .base_hook import BaseHook, HookType
 from . import toml_util
 
 
@@ -201,29 +199,6 @@ class ArchiveBoxBaseConfig(BaseSettings):
         })
 
 
-class BaseConfigSet(ArchiveBoxBaseConfig, BaseHook):      # type: ignore[type-arg]
-    hook_type: ClassVar[HookType] = 'CONFIG'
+class BaseConfigSet(ArchiveBoxBaseConfig):      # type: ignore[type-arg]
 
-    # @abx.hookimpl
-    # def ready(self, settings):
-    #    # reload config from environment, in case it's been changed by any other plugins
-    #    self.__init__()
-
-
-    @abx.hookimpl
-    def get_CONFIGS(self):
-        try:
-            return {self.id: self}
-        except Exception as e:
-            # raise Exception(f'Error computing CONFIGS for {type(self)}: {e.__class__.__name__}: {e}')
-            print(f'Error computing CONFIGS for {type(self)}: {e.__class__.__name__}: {e}')
-        return {}
-
-    @abx.hookimpl
-    def get_FLAT_CONFIG(self):
-        try:
-            return self.model_dump()
-        except Exception as e:
-            # raise Exception(f'Error computing FLAT_CONFIG for {type(self)}: {e.__class__.__name__}: {e}')
-            print(f'Error computing FLAT_CONFIG for {type(self)}: {e.__class__.__name__}: {e}')
-        return {}
+    pass

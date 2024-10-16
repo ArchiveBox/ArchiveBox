@@ -321,6 +321,44 @@ class ABIDModel(models.Model):
     def get_absolute_url(self):
         return self.api_docs_url
 
+
+
+class ModelWithHealthStats(models.Model):
+    num_uses_failed = models.PositiveIntegerField(default=0)
+    num_uses_succeeded = models.PositiveIntegerField(default=0)
+    
+    class Meta:
+        abstract = True
+    
+    def record_health_failure(self) -> None:
+        self.num_uses_failed += 1
+        self.save()
+
+    def record_health_success(self) -> None:
+        self.num_uses_succeeded += 1
+        self.save()
+        
+    def reset_health(self) -> None:
+        # move all the failures to successes when resetting so we dont lose track of the total count
+        self.num_uses_succeeded = self.num_uses_failed + self.num_uses_succeeded
+        self.num_uses_failed = 0
+        self.save()
+        
+    @property
+    def health(self) -> int:
+        total_uses = max((self.num_uses_failed + self.num_uses_succeeded, 1))
+        success_pct = (self.num_uses_succeeded / total_uses) * 100
+        return round(success_pct)
+
+
+
+
+
+
+
+
+
+
 ####################################################
 
 # Django helpers

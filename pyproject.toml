@@ -75,7 +75,7 @@ dependencies = [
     "python-benedict[io,parse]>=0.33.2",
     "pydantic-settings>=2.5.2",
     "atomicwrites==1.4.1",
-    "django-taggit==1.3.0",
+    "django-taggit==6.1.0",
     "base32-crockford==0.3.0",
     # "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
     "pydantic-pkgr>=0.5.3",

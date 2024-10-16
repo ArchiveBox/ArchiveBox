@@ -68,6 +68,21 @@ body.model-snapshot.change-list #content .object-tools {
     background: #772948;
 }
 
+#content .adv-data textarea {
+    width: 82vw;
+    max-width: 100%;
+    min-height: 100px;
+    height: auto;
+    background-color: #145454;
+    color: #f1f1fd;
+    font-size: 12px;
+    font-family: monospace;
+    border-radius: 8px;
+    line-height: 1.2;
+    padding: 6px 9px;
+}
+
+
 #content .object-tools {
     margin-top: -35px;
     margin-right: -10px;

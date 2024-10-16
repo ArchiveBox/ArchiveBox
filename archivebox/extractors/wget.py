@@ -17,8 +17,8 @@ from archivebox.misc.util import (
     urldecode,
     dedupe,
 )
-from archivebox.plugins_extractor.wget.apps import WGET_BINARY, WGET_CONFIG
-
+from archivebox.plugins_extractor.wget.config import WGET_CONFIG
+from archivebox.plugins_extractor.wget.binaries import WGET_BINARY
 from ..logging_util import TimedProgress
 from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 

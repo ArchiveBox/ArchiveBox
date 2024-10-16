@@ -2,13 +2,9 @@ __package__ = 'abx.archivebox'
 
 import abx
 
-from .base_hook import BaseHook, HookType
 
-
-class BaseReplayer(BaseHook):
+class BaseReplayer:
     """Describes how to render an ArchiveResult in several contexts"""
-    
-    hook_type: HookType = 'REPLAYER'
     
     url_pattern: str = '*'
 

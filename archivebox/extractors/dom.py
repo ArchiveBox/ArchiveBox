@@ -11,6 +11,9 @@ from archivebox.misc.util import (
 )
 from ..logging_util import TimedProgress
 
+from plugins_extractor.chrome.config import CHROME_CONFIG
+from plugins_extractor.chrome.binaries import CHROME_BINARY
+
 
 def get_output_path():
     return 'output.html'
@@ -18,7 +21,6 @@ def get_output_path():
 
 @enforce_types
 def should_save_dom(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
-    from plugins_extractor.chrome.apps import CHROME_CONFIG
     
     if is_static_file(link.url):
         return False
@@ -33,8 +35,6 @@ def should_save_dom(link: Link, out_dir: Optional[Path]=None, overwrite: Optiona
 @enforce_types
 def save_dom(link: Link, out_dir: Optional[Path]=None, timeout: int=60) -> ArchiveResult:
     """print HTML of site to file using chrome --dump-html"""
-
-    from plugins_extractor.chrome.apps import CHROME_CONFIG, CHROME_BINARY
 
     CHROME_BIN = CHROME_BINARY.load()
     assert CHROME_BIN.abspath and CHROME_BIN.version
