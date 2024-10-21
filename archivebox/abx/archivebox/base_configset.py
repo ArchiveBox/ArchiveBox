@@ -29,6 +29,8 @@ ARCHIVEBOX_CONFIG_FILE_BAK = ARCHIVEBOX_CONFIG_FILE.parent / ".ArchiveBox.conf.b
 AUTOFIXES_HEADER = "[AUTOFIXES]"
 AUTOFIXES_SUBHEADER = "# The following config was added automatically to fix problems detected at startup:"
 
+_ALREADY_WARNED_ABOUT_UPDATED_CONFIG = set()
+
 
 class FlatTomlConfigSettingsSource(TomlConfigSettingsSource):
     """
@@ -167,6 +169,10 @@ class BaseConfigSet(BaseSettings):
                     setattr(self, key, computed_default)
         return self
     
+    def validate(self):
+        """Manual validation method, to be called from plugin/__init__.py:get_CONFIG()"""
+        pass
+    
     def get_default_value(self, key):
         """Get the default value for a given config key"""
         field = self.model_fields[key]
@@ -198,9 +204,13 @@ class BaseConfigSet(BaseSettings):
         """
         from archivebox.misc.toml_util import CustomTOMLEncoder
         
+        # silence warnings if they've already been shown once
+        if all(key in _ALREADY_WARNED_ABOUT_UPDATED_CONFIG for key in kwargs.keys()):
+            warn = False
+        
         if warn:
             fix_scope = 'in ArchiveBox.conf' if persist else 'just for current run'
-            print(f'[yellow]:warning:  WARNING: Some config cannot be used as-is, fixing automatically {fix_scope}:[/yellow] {hint}', file=sys.stderr)
+            print(f'\n[yellow]:warning:  WARNING: Some config cannot be used as-is, fixing automatically {fix_scope}:[/yellow] {hint}', file=sys.stderr)
         
         # set the new values in the environment
         for key, value in kwargs.items():
@@ -208,6 +218,7 @@ class BaseConfigSet(BaseSettings):
             original_value = getattr(self, key)
             if warn:
                 print(f'    {key}={original_value} -> {value}')
+                _ALREADY_WARNED_ABOUT_UPDATED_CONFIG.add(key)
         
         # if persist=True, write config changes to data/ArchiveBox.conf [AUTOFIXES] section
         try:
