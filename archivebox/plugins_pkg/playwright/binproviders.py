@@ -53,7 +53,10 @@ class PlaywrightBinProvider(BaseBinProvider):
     @computed_field
     @property
     def INSTALLER_BIN_ABSPATH(self) -> HostBinPath | None:
-        return PLAYWRIGHT_BINARY.load().abspath
+        try:
+            return PLAYWRIGHT_BINARY.load().abspath
+        except Exception as e:
+            return None
 
     def setup(self) -> None:
         # update paths from config if they arent the default

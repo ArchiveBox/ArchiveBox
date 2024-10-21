@@ -303,7 +303,8 @@ RUN openssl rand -hex 16 > /etc/machine-id \
     && mkdir -p "/tmp/archivebox" \
     && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/tmp/archivebox" \
     && mkdir -p "/usr/share/archivebox/lib" \
-    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/usr/share/archivebox/lib" \
+    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/usr/share/archivebox/lib"
+
 ENV GOOGLE_API_KEY=no \
     GOOGLE_DEFAULT_CLIENT_ID=no \
     GOOGLE_DEFAULT_CLIENT_SECRET=no \
