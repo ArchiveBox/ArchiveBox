@@ -81,7 +81,6 @@ class BaseExtractor:
         machine = installed_binary.machine
         assert uplink.machine == installed_binary.machine  # it would be *very* weird if this wasn't true
         
-        # output_dir = self.get_output_path(snapshot) or CONSTANTS.TMP_DIR
         output_dir = CONSTANTS.DATA_DIR / '.tmp' / 'extractors' / self.name / str(snapshot.abid)
         output_dir.mkdir(parents=True, exist_ok=True)
 

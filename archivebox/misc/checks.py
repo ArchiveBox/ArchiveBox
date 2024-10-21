@@ -127,7 +127,7 @@ def check_data_dir_permissions():
     
     # data_owned_by_default_user = data_dir_uid == DEFAULT_PUID or data_dir_gid == DEFAULT_PGID
     data_owner_doesnt_match = (data_dir_uid != ARCHIVEBOX_USER and data_dir_gid != ARCHIVEBOX_GROUP) if not IS_ROOT else False
-    data_not_writable = not (os.path.isdir(DATA_DIR) and os.access(DATA_DIR, os.W_OK))     #  and os.access(CONSTANTS.LIB_DIR, os.W_OK) and os.access(CONSTANTS.TMP_DIR, os.W_OK))
+    data_not_writable = not (os.path.isdir(DATA_DIR) and os.access(DATA_DIR, os.W_OK))
     if data_owned_by_root:
         STDERR.print('\n[yellow]:warning: Warning: ArchiveBox [blue]DATA_DIR[/blue] is currently owned by [red]root[/red], it must be changed before archiving can run![/yellow]')
     elif data_owner_doesnt_match or data_not_writable:
@@ -136,8 +136,6 @@ def check_data_dir_permissions():
     if data_owned_by_root or data_owner_doesnt_match or data_not_writable:
         STDERR.print(f'[violet]Hint:[/violet] Change the current ownership [red]{data_dir_uid}[/red]:{data_dir_gid} (PUID:PGID) to a non-root user & group that will run ArchiveBox, e.g.:')
         STDERR.print(f'    [grey53]sudo[/grey53] chown -R [blue]{DEFAULT_PUID}:{DEFAULT_PGID}[/blue] {DATA_DIR.resolve()}')
-        # STDERR.print(f'    [grey53]sudo[/grey53] chown -R [blue]{DEFAULT_PUID}:{DEFAULT_PGID}[/blue] {CONSTANTS.LIB_DIR.resolve()}')
-        # STDERR.print(f'    [grey53]sudo[/grey53] chown -R [blue]{DEFAULT_PUID}:{DEFAULT_PGID}[/blue] {CONSTANTS.TMP_DIR.resolve()}')
         STDERR.print()
         STDERR.print('[blue]More info:[/blue]')
         STDERR.print('    [link=https://github.com/ArchiveBox/ArchiveBox#storage-requirements]https://github.com/ArchiveBox/ArchiveBox#storage-requirements[/link]')

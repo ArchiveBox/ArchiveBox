@@ -1054,6 +1054,7 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
     
     from archivebox import CONSTANTS
     from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
+    from archivebox.config.paths import get_or_create_working_lib_dir
 
     if not (os.access(ARCHIVE_DIR, os.R_OK) and ARCHIVE_DIR.is_dir()):
         run_subcommand('init', stdin=None, pwd=out_dir)  # must init full index because we need a db to store InstalledBinary entries in
@@ -1070,6 +1071,7 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
         print(f'    DATA_DIR, LIB_DIR, and TMP_DIR will be owned by [blue]{ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}[/blue].')
         print()
     
+    LIB_DIR = get_or_create_working_lib_dir()
     
     package_manager_names = ', '.join(
         f'[yellow]{binprovider.name}[/yellow]'
@@ -1133,11 +1135,12 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
                     else:
                         binary.load_or_install(fresh=True, dry_run=dry_run).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
             if IS_ROOT:
+                LIB_DIR = 
                 with SudoPermission(uid=0):
                     if ARCHIVEBOX_USER == 0:
-                        os.system(f'chmod -R 777 "{CONSTANTS.LIB_DIR.resolve()}"')
+                        os.system(f'chmod -R 777 "{LIB_DIR.resolve()}"')
                     else:    
-                        os.system(f'chown -R {ARCHIVEBOX_USER} "{CONSTANTS.LIB_DIR.resolve()}"')
+                        os.system(f'chown -R {ARCHIVEBOX_USER} "{LIB_DIR.resolve()}"')
         except Exception as e:
             print(f'[red]:cross_mark: Failed to install {binary.name} as user {ARCHIVEBOX_USER}: {e}[/red]')
             if binaries and len(binaries) == 1:
