@@ -16,7 +16,6 @@ from pydantic_pkgr import (
 from abx.archivebox.base_binary import BaseBinary, env, apt, brew
 
 # Depends on Other Plugins:
-from archivebox.config import CONSTANTS
 from archivebox.config.common import SHELL_CONFIG
 from plugins_pkg.puppeteer.binproviders import PUPPETEER_BINPROVIDER
 from plugins_pkg.playwright.binproviders import PLAYWRIGHT_BINPROVIDER
@@ -99,7 +98,7 @@ class ChromeBinary(BaseBinary):
             'packages': APT_DEPENDENCIES,
         },
         brew.name: {
-            'packages': ['--cask', 'chromium'],
+            'packages': ['--cask', 'chromium'] if platform.system().lower() == 'darwin' else [],
         },
     }
 
