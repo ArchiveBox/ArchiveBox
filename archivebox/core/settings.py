@@ -19,8 +19,7 @@ from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG      # noqa
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
 IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
 IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
-
-
+IS_GETTING_VERSION_OR_HELP = 'version' in sys.argv or 'help' in sys.argv or '--version' in sys.argv or '--help' in sys.argv
 
 ################################################################################
 ### ArchiveBox Plugin Settings
@@ -106,7 +105,7 @@ INSTALLED_APPS = [
     'queues',                    # handles starting and managing background workers and processes
     'seeds',                     # handles Seed model and URL source management
     'crawls',                    # handles Crawl and CrawlSchedule models and management
-    'sessions',                  # handles Persona and session management
+    'personas',                  # handles Persona and session management
     'core',                      # core django model with Snapshot, ArchiveResult, etc.
     'api',                       # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
 

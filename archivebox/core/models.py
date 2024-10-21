@@ -22,6 +22,7 @@ from archivebox.config import CONSTANTS
 
 from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
 from queues.tasks import bg_archive_snapshot
+# from crawls.models import Crawl
 # from machine.models import Machine, NetworkInterface
 
 from archivebox.misc.system import get_dir_size
@@ -169,6 +170,8 @@ class Snapshot(ABIDModel):
     # legacy ts fields
     bookmarked_at = AutoDateTimeField(default=None, null=False, editable=True, db_index=True)
     downloaded_at = models.DateTimeField(default=None, null=True, editable=False, db_index=True, blank=True)
+
+    # crawl = models.ForeignKey(Crawl, on_delete=models.CASCADE, default=None, null=True, blank=True, related_name='snapshot_set')
 
     url = models.URLField(unique=True, db_index=True)
     timestamp = models.CharField(max_length=32, unique=True, db_index=True, editable=False)
