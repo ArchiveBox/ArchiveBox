@@ -1,7 +1,5 @@
 __package__ = 'archivebox.crawls'
 
-import time
-
 from django_stubs_ext.db.models import TypedModelMeta
 
 from django.db import models
@@ -9,10 +7,7 @@ from django.db.models import Q
 from django.core.validators import MaxValueValidator, MinValueValidator 
 from django.conf import settings
 from django.utils import timezone
-from django.utils.functional import cached_property
 from django.urls import reverse_lazy
-
-from pathlib import Path
 
 from seeds.models import Seed
 
@@ -116,7 +111,8 @@ class Outlink(models.Model):
     src = models.URLField()   # parent page where the outlink/href was found       e.g. https://example.com/downloads
     dst = models.URLField()   # remote location the child outlink/href points to   e.g. https://example.com/downloads/some_file.pdf
     
-    via = models.ForeignKey(ArchiveResult, related_name='outlink_set')
+    crawl = models.ForeignKey(Crawl, on_delete=models.CASCADE, null=False, blank=False, related_name='outlink_set')
+    via = models.ForeignKey('core.ArchiveResult', on_delete=models.SET_NULL, null=True, blank=True, related_name='outlink_set')
 
     class Meta:
         unique_together = (('src', 'dst', 'via'),)
@@ -125,44 +121,44 @@ class Outlink(models.Model):
 
 
         
-@abx.hookimpl.on_archiveresult_created
-def exec_archiveresult_extractor_effects(archiveresult):
-    config = get_scope_config(...)
+# @abx.hookimpl.on_archiveresult_created
+# def exec_archiveresult_extractor_effects(archiveresult):
+#     config = get_scope_config(...)
     
-    # abx.archivebox.writes.update_archiveresult_started(archiveresult, start_ts=timezone.now())
-    # abx.archivebox.events.on_archiveresult_updated(archiveresult)
+#     # abx.archivebox.writes.update_archiveresult_started(archiveresult, start_ts=timezone.now())
+#     # abx.archivebox.events.on_archiveresult_updated(archiveresult)
     
-    # check if it should be skipped
-    if not abx.archivebox.reads.get_archiveresult_should_run(archiveresult, config):
-        abx.archivebox.writes.update_archiveresult_skipped(archiveresult, status='skipped')
-        abx.archivebox.events.on_archiveresult_skipped(archiveresult, config)
-        return
+#     # check if it should be skipped
+#     if not abx.archivebox.reads.get_archiveresult_should_run(archiveresult, config):
+#         abx.archivebox.writes.update_archiveresult_skipped(archiveresult, status='skipped')
+#         abx.archivebox.events.on_archiveresult_skipped(archiveresult, config)
+#         return
     
-    # run the extractor method and save the output back to the archiveresult
-    try:
-        output = abx.archivebox.effects.exec_archiveresult_extractor(archiveresult, config)
-        abx.archivebox.writes.update_archiveresult_succeeded(archiveresult, output=output, error=None, end_ts=timezone.now())
-    except Exception as e:
-        abx.archivebox.writes.update_archiveresult_failed(archiveresult, error=e, end_ts=timezone.now())
+#     # run the extractor method and save the output back to the archiveresult
+#     try:
+#         output = abx.archivebox.effects.exec_archiveresult_extractor(archiveresult, config)
+#         abx.archivebox.writes.update_archiveresult_succeeded(archiveresult, output=output, error=None, end_ts=timezone.now())
+#     except Exception as e:
+#         abx.archivebox.writes.update_archiveresult_failed(archiveresult, error=e, end_ts=timezone.now())
     
-    # bump the modified time on the archiveresult and Snapshot
-    abx.archivebox.events.on_archiveresult_updated(archiveresult)
-    abx.archivebox.events.on_snapshot_updated(archiveresult.snapshot)
+#     # bump the modified time on the archiveresult and Snapshot
+#     abx.archivebox.events.on_archiveresult_updated(archiveresult)
+#     abx.archivebox.events.on_snapshot_updated(archiveresult.snapshot)
     
 
-@abx.hookimpl.reads.get_outlink_parents
-def get_outlink_parents(url, crawl_pk=None, config=None):
-    scope = Q(dst=url)
-    if crawl_pk:
-        scope = scope | Q(via__snapshot__crawl_id=crawl_pk)
+# @abx.hookimpl.reads.get_outlink_parents
+# def get_outlink_parents(url, crawl_pk=None, config=None):
+#     scope = Q(dst=url)
+#     if crawl_pk:
+#         scope = scope | Q(via__snapshot__crawl_id=crawl_pk)
     
-    parent = list(Outlink.objects.filter(scope))
-    if not parent:
-        # base case: we reached the top of the chain, no more parents left
-        return []
+#     parent = list(Outlink.objects.filter(scope))
+#     if not parent:
+#         # base case: we reached the top of the chain, no more parents left
+#         return []
     
-    # recursive case: there is another parent above us, get its parents
-    yield parent[0]
-    yield from get_outlink_parents(parent[0].src, crawl_pk=crawl_pk, config=config)
+#     # recursive case: there is another parent above us, get its parents
+#     yield parent[0]
+#     yield from get_outlink_parents(parent[0].src, crawl_pk=crawl_pk, config=config)
 
 
