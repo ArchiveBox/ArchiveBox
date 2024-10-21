@@ -14,9 +14,20 @@ from crontab import CronTab, CronSlices
 from django.db.models import QuerySet
 from django.utils import timezone
 
+from archivebox.misc.checks import check_data_folder
+from archivebox.misc.util import enforce_types                         # type: ignore
+from archivebox.misc.system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
+from archivebox.misc.system import run as run_shell
+from archivebox.misc.logging import stderr, hint
 from archivebox.config import CONSTANTS, VERSION, DATA_DIR, ARCHIVE_DIR
 from archivebox.config.common import SHELL_CONFIG, SEARCH_BACKEND_CONFIG, STORAGE_CONFIG, SERVER_CONFIG, ARCHIVING_CONFIG
 from archivebox.config.permissions import SudoPermission, IN_DOCKER
+from archivebox.config.configfile import (
+    write_config_file,
+    load_all_config,
+    get_real_name,
+)
+
 from .cli import (
     CLI_SUBCOMMANDS,
     run_subcommand,
@@ -30,9 +41,6 @@ from .parsers import (
     save_file_as_source,
     parse_links_memory,
 )
-from archivebox.misc.util import enforce_types                         # type: ignore
-from archivebox.misc.system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
-from archivebox.misc.system import run as run_shell
 from .index.schema import Link
 from .index import (
     load_main_index,
@@ -66,13 +74,6 @@ from .index.sql import (
 from .index.html import generate_index_from_links
 from .index.csv import links_to_csv
 from .extractors import archive_links, archive_link, ignore_methods
-from archivebox.misc.logging import stderr, hint
-from archivebox.misc.checks import check_data_folder
-from archivebox.config.configfile import (
-    write_config_file,
-    load_all_config,
-    get_real_name,
-)
 from .logging_util import (
     TimedProgress,
     log_importing_started,
@@ -194,13 +195,16 @@ def version(quiet: bool=False,
     console = Console()
     prnt = console.print
     
-    from plugins_auth.ldap.config import LDAP_CONFIG
     from django.conf import settings
+    
+    from abx.archivebox.base_binary import BaseBinary, apt, brew, env
+    
     from archivebox.config.version import get_COMMIT_HASH, get_BUILD_TIME
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, RUNNING_AS_UID, RUNNING_AS_GID
     from archivebox.config.paths import get_data_locations, get_code_locations
+    
+    from plugins_auth.ldap.config import LDAP_CONFIG
 
-    from abx.archivebox.base_binary import BaseBinary, apt, brew, env
 
     # 0.7.1
     # ArchiveBox v0.7.1+editable COMMIT_HASH=951bba5 BUILD_TIME=2023-12-17 16:46:05 1702860365
@@ -260,7 +264,7 @@ def version(quiet: bool=False,
 
     prnt('[pale_green1][i] Binary Dependencies:[/pale_green1]')
     failures = []
-    for name, binary in reversed(list(settings.BINARIES.items())):
+    for name, binary in list(settings.BINARIES.items()):
         if binary.name == 'archivebox':
             continue
         
@@ -291,7 +295,7 @@ def version(quiet: bool=False,
             
     prnt()
     prnt('[gold3][i] Package Managers:[/gold3]')
-    for name, binprovider in reversed(list(settings.BINPROVIDERS.items())):
+    for name, binprovider in list(settings.BINPROVIDERS.items()):
         err = None
         
         if binproviders and binprovider.name not in binproviders:

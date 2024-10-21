@@ -42,6 +42,6 @@ def get_BINPROVIDERS():
     from .binproviders import LIB_NPM_BINPROVIDER, SYS_NPM_BINPROVIDER
     
     return {
-        'lib_npm': LIB_NPM_BINPROVIDER,
         'sys_npm': SYS_NPM_BINPROVIDER,
+        'lib_npm': LIB_NPM_BINPROVIDER,
     }

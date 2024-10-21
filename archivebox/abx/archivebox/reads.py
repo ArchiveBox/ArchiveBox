@@ -76,9 +76,9 @@ def get_BINPROVIDERS() -> Dict[str, 'BaseBinProvider']:
     # TODO: move these to plugins
     from abx.archivebox.base_binary import apt, brew, env
     builtin_binproviders = {
+        'env': env,
         'apt': apt,
         'brew': brew,
-        'env': env,
     }
     
     return benedict({
