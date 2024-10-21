@@ -12,6 +12,8 @@ class CoreConfig(AppConfig):
         """Register the archivebox.core.admin_site as the main django admin site"""
         from core.admin_site import register_admin_site
         register_admin_site()
+        
+        abx.pm.hook.ready()
 
 
 
