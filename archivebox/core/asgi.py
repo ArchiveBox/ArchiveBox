@@ -7,7 +7,7 @@ For more information on this file, see
 https://docs.djangoproject.com/en/2.1/howto/deployment/wsgi/
 """
 
-from archivebox.config.legacy import setup_django
+from archivebox.config.django import setup_django
 
 setup_django(in_memory_db=False, check_db=True)
 

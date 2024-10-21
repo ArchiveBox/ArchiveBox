@@ -27,7 +27,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     parser.add_argument(
         '--search',
         action='store_true',
-        help="Search for KEYs that match the given search terms",
+        help="Search config KEYs, VALUEs, and ALIASES for the given term",
     )
     group.add_argument(
         '--get', #'-g',

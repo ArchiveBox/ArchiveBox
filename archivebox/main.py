@@ -68,7 +68,7 @@ from .index.csv import links_to_csv
 from .extractors import archive_links, archive_link, ignore_methods
 from archivebox.misc.logging import stderr, hint
 from archivebox.misc.checks import check_data_folder
-from archivebox.config.legacy import (
+from archivebox.config.configfile import (
     write_config_file,
     load_all_config,
     get_real_name,

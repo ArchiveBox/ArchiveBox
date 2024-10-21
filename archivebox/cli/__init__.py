@@ -159,7 +159,7 @@ def run_subcommand(subcommand: str,
     subcommand_args = subcommand_args or []
 
     from archivebox.misc.checks import check_migrations
-    from archivebox.config.legacy import setup_django
+    from archivebox.config.django import setup_django
     
     # print('DATA_DIR is', DATA_DIR)
     # print('pwd is', os.getcwd())    
