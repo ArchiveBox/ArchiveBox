@@ -1134,8 +1134,7 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
                         sys.stderr.write("\033[00m\n")  # reset
                     else:
                         binary.load_or_install(fresh=True, dry_run=dry_run).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
-            if IS_ROOT:
-                LIB_DIR = 
+            if IS_ROOT and LIB_DIR:
                 with SudoPermission(uid=0):
                     if ARCHIVEBOX_USER == 0:
                         os.system(f'chmod -R 777 "{LIB_DIR.resolve()}"')
