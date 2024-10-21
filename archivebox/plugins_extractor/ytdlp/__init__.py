@@ -35,3 +35,8 @@ def get_BINARIES():
         'ytdlp': YTDLP_BINARY,
         'ffmpeg': FFMPEG_BINARY,
     }
+
+@abx.hookimpl
+def ready():
+    from .config import YTDLP_CONFIG
+    YTDLP_CONFIG.validate()

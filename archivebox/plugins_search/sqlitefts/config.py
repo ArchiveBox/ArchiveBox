@@ -6,7 +6,7 @@ from typing import Callable
 
 from django.core.exceptions import ImproperlyConfigured
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from abx.archivebox.base_configset import BaseConfigSet
 
@@ -26,14 +26,12 @@ class SqliteftsConfig(BaseConfigSet):
     SQLITEFTS_TABLE: str                = Field(default='snapshot_fts')
     SQLITEFTS_ID_TABLE: str             = Field(default='snapshot_id_fts')
     SQLITEFTS_COLUMN: str               = Field(default='texts')
-    
-    @model_validator(mode='after')
-    def validate_fts_separate_database(self):
+        
+    def validate(self):
         if SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE == 'sqlite' and self.SQLITEFTS_SEPARATE_DATABASE and not self.SQLITEFTS_DB:
             sys.stderr.write('[X] Error: SQLITEFTS_DB must be set if SQLITEFTS_SEPARATE_DATABASE is True\n')
             SEARCH_BACKEND_CONFIG.update_in_place(SEARCH_BACKEND_ENGINE='ripgrep')
-        return self
-    
+        
     @property
     def get_connection(self) -> Callable[[], sqlite3.Connection]:
         # Make get_connection callable, because `django.db.connection.cursor()`

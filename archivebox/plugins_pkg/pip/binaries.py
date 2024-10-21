@@ -112,7 +112,7 @@ SQLITE_BINARY = SqliteBinary()
 
 LOADED_DJANGO_PATH = Path(django.__file__)
 LOADED_DJANGO_VERSION = SemVer(django.VERSION[:3])
-LOADED_DJANGO_FROM_VENV = str(LOADED_DJANGO_PATH.absolute().resolve()).startswith(str(VENV_PIP_BINPROVIDER.pip_venv.absolute().resolve()))
+LOADED_DJANGO_FROM_VENV = str(LOADED_DJANGO_PATH.absolute().resolve()).startswith(str(VENV_PIP_BINPROVIDER.pip_venv and VENV_PIP_BINPROVIDER.pip_venv.absolute().resolve()))
 
 class DjangoBinary(BaseBinary):
     name: BinName = 'django'

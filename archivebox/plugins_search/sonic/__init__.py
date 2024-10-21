@@ -46,3 +46,8 @@ def get_SEARCHBACKENDS():
     return {
         'sonic': SONIC_SEARCH_BACKEND,
     }
+
+@abx.hookimpl
+def ready():
+    from .config import SONIC_CONFIG
+    SONIC_CONFIG.validate()

@@ -50,8 +50,7 @@ class LdapConfig(BaseConfigSet):
     LDAP_LASTNAME_ATTR: str             = Field(default='last_name')
     LDAP_EMAIL_ATTR: str                = Field(default='email')
     
-    @model_validator(mode='after')
-    def validate_ldap_config(self):
+    def validate(self):
         if self.LDAP_ENABLED:
             LDAP_LIB, _LDAPSearch = get_ldap_lib()
             # Check that LDAP libraries are installed

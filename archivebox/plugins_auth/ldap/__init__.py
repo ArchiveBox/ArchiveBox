@@ -28,6 +28,7 @@ def get_PLUGIN():
 @abx.hookimpl
 def get_CONFIG():
     from .config import LDAP_CONFIG
+    
     return {
         __id__: LDAP_CONFIG
     }
@@ -64,6 +65,10 @@ def ready():
     """
     Called at AppConfig.ready() time (settings + models are all loaded)
     """
+    from .config import LDAP_CONFIG
+    
+    LDAP_CONFIG.validate()
+    
     from django.conf import settings
     
     if settings.CONFIGS.ldap.LDAP_ENABLED:

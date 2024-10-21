@@ -37,6 +37,12 @@ def get_BINARIES():
         'chrome': CHROME_BINARY,
     }
 
+@abx.hookimpl
+def ready():
+    from .config import CHROME_CONFIG
+    CHROME_CONFIG.validate()
+
+
 # @abx.hookimpl
 # def get_EXTRACTORS():
 #     return {

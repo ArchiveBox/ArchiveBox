@@ -4,7 +4,7 @@ import subprocess
 from typing import List, Optional
 from pathlib import Path
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from abx.archivebox.base_configset import BaseConfigSet
 
@@ -40,8 +40,7 @@ class WgetConfig(BaseConfigSet):
     WGET_USER_AGENT: str = Field(default=lambda: ARCHIVING_CONFIG.USER_AGENT)
     WGET_COOKIES_FILE: Optional[Path] = Field(default=lambda: ARCHIVING_CONFIG.COOKIES_FILE)
     
-    @model_validator(mode='after')
-    def validate_use_ytdlp(self):
+    def validate(self):
         if self.USE_WGET and self.WGET_TIMEOUT < 10:
             STDERR.print(f'[red][!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={self.WGET_TIMEOUT} seconds)[/red]')
             STDERR.print('    wget will fail to archive any sites if set to less than ~20 seconds.')

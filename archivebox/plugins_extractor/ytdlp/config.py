@@ -2,7 +2,7 @@ __package__ = 'plugins_extractor.ytdlp'
 
 from typing import List
 
-from pydantic import Field, model_validator, AliasChoices
+from pydantic import Field, AliasChoices
 
 from abx.archivebox.base_configset import BaseConfigSet
 
@@ -19,8 +19,7 @@ class YtdlpConfig(BaseConfigSet):
     YTDLP_CHECK_SSL_VALIDITY: bool = Field(default=lambda: ARCHIVING_CONFIG.CHECK_SSL_VALIDITY)
     YTDLP_TIMEOUT: int             = Field(default=lambda: ARCHIVING_CONFIG.MEDIA_TIMEOUT)
     
-    @model_validator(mode='after')
-    def validate_use_ytdlp(self):
+    def validate(self):
         if self.USE_YTDLP and self.YTDLP_TIMEOUT < 20:
             STDERR.print(f'[red][!] Warning: MEDIA_TIMEOUT is set too low! (currently set to MEDIA_TIMEOUT={self.YTDLP_TIMEOUT} seconds)[/red]')
             STDERR.print('    youtube-dl/yt-dlp will fail to archive any media if set to less than ~20 seconds.')

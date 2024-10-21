@@ -24,7 +24,7 @@ def get_PLUGIN():
 @abx.hookimpl
 def get_CONFIG():
     from .config import WGET_CONFIG
-    
+        
     return {
         'wget': WGET_CONFIG
     }
@@ -45,3 +45,8 @@ def get_EXTRACTORS():
         'wget': WGET_EXTRACTOR,
         'warc': WARC_EXTRACTOR,
     }
+
+@abx.hookimpl
+def ready():
+    from .config import WGET_CONFIG
+    WGET_CONFIG.validate()

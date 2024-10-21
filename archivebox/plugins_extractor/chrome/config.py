@@ -1,19 +1,20 @@
 __package__ = 'plugins_extractor.chrome'
 
 import os
-
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field
 from pydantic_pkgr import bin_abspath
 
 from abx.archivebox.base_configset import BaseConfigSet
 from abx.archivebox.base_binary import env
 
+from archivebox.config import CONSTANTS
 from archivebox.config.common import ARCHIVING_CONFIG, SHELL_CONFIG
 from archivebox.misc.logging import STDERR
 from archivebox.misc.util import dedupe
+from archivebox.logging_util import pretty_path
 
 
 CHROMIUM_BINARY_NAMES_LINUX = [
