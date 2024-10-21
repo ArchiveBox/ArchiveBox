@@ -1,6 +1,5 @@
 __package__ = 'archivebox.config'
 
-import os
 import re
 import sys
 
@@ -97,14 +96,10 @@ class ConstantsDict(Mapping):
     
     # Runtime dirs
     TMP_DIR_NAME: str                   = 'tmp'
-    TMP_DIR: Path                       = DATA_DIR / TMP_DIR_NAME / MACHINE_ID
+    DEFAULT_TMP_DIR: Path               = DATA_DIR / TMP_DIR_NAME / MACHINE_ID    # ./data/tmp/abc3244323
+    
     LIB_DIR_NAME: str                   = 'lib'
-    LIB_DIR: Path                       = DATA_DIR / LIB_DIR_NAME / MACHINE_TYPE
-    LIB_PIP_DIR: Path                   = LIB_DIR / 'pip'
-    LIB_NPM_DIR: Path                   = LIB_DIR / 'npm'
-    LIB_BROWSERS_DIR: Path              = LIB_DIR / 'browsers'
-    LIB_BIN_DIR: Path                   = LIB_DIR / 'bin'
-    BIN_DIR: Path                       = LIB_BIN_DIR
+    DEFAULT_LIB_DIR: Path               = DATA_DIR / LIB_DIR_NAME / MACHINE_TYPE  # ./data/lib/arm64-linux-docker
 
     # Config constants
     TIMEZONE: str                       = 'UTC'
@@ -198,91 +193,7 @@ class ConstantsDict(Mapping):
         ".archivebox_id",
         "Dockerfile",
     ))
-
-    CODE_LOCATIONS = benedict({
-        'PACKAGE_DIR': {
-            'path': (PACKAGE_DIR).resolve(),
-            'enabled': True,
-            'is_valid': os.access(PACKAGE_DIR / '__main__.py', os.X_OK),                                                                  # executable
-        },
-        'TEMPLATES_DIR': {
-            'path': TEMPLATES_DIR.resolve(),
-            'enabled': True,
-            'is_valid': os.access(STATIC_DIR, os.R_OK) and os.access(STATIC_DIR, os.X_OK),                                                # read + list
-        },
-        'CUSTOM_TEMPLATES_DIR': {
-            'path': CUSTOM_TEMPLATES_DIR.resolve(),
-            'enabled': os.path.isdir(CUSTOM_TEMPLATES_DIR),
-            'is_valid': os.path.isdir(CUSTOM_TEMPLATES_DIR) and os.access(CUSTOM_TEMPLATES_DIR, os.R_OK),                                      # read
-        },
-        'USER_PLUGINS_DIR': {
-            'path': USER_PLUGINS_DIR.resolve(),
-            'enabled': os.path.isdir(USER_PLUGINS_DIR),
-            'is_valid': os.path.isdir(USER_PLUGINS_DIR) and os.access(USER_PLUGINS_DIR, os.R_OK),                                              # read
-        },
-        'LIB_DIR': {
-            'path': LIB_DIR.resolve(),
-            'enabled': True,
-            'is_valid': os.path.isdir(LIB_DIR) and os.access(LIB_DIR, os.R_OK) and os.access(LIB_DIR, os.W_OK),                      # read + write
-        },
-    })
         
-    DATA_LOCATIONS = benedict({
-        "DATA_DIR": {
-            "path": DATA_DIR.resolve(),
-            "enabled": True,
-            "is_valid": os.path.isdir(DATA_DIR) and os.access(DATA_DIR, os.R_OK) and os.access(DATA_DIR, os.W_OK),
-            "is_mount": os.path.ismount(DATA_DIR.resolve()),
-        },
-        "CONFIG_FILE": {
-            "path": CONFIG_FILE.resolve(),
-            "enabled": True,
-            "is_valid": os.path.isfile(CONFIG_FILE) and os.access(CONFIG_FILE, os.R_OK) and os.access(CONFIG_FILE, os.W_OK),
-        },
-        "SQL_INDEX": {
-            "path": DATABASE_FILE.resolve(),
-            "enabled": True,
-            "is_valid": os.path.isfile(DATABASE_FILE) and os.access(DATABASE_FILE, os.R_OK) and os.access(DATABASE_FILE, os.W_OK),
-            "is_mount": os.path.ismount(DATABASE_FILE.resolve()),
-        },
-        "QUEUE_DATABASE": {
-            "path": QUEUE_DATABASE_FILE.resolve(),
-            "enabled": True,
-            "is_valid": os.path.isfile(QUEUE_DATABASE_FILE) and os.access(QUEUE_DATABASE_FILE, os.R_OK) and os.access(QUEUE_DATABASE_FILE, os.W_OK),
-            "is_mount": os.path.ismount(QUEUE_DATABASE_FILE.resolve()),
-        },
-        "ARCHIVE_DIR": {
-            "path": ARCHIVE_DIR.resolve(),
-            "enabled": True,
-            "is_valid": os.path.isdir(ARCHIVE_DIR) and os.access(ARCHIVE_DIR, os.R_OK) and os.access(ARCHIVE_DIR, os.W_OK),
-            "is_mount": os.path.ismount(ARCHIVE_DIR.resolve()),
-        },
-        "SOURCES_DIR": {
-            "path": SOURCES_DIR.resolve(),
-            "enabled": True,
-            "is_valid": os.path.isdir(SOURCES_DIR) and os.access(SOURCES_DIR, os.R_OK) and os.access(SOURCES_DIR, os.W_OK),
-        },
-        "PERSONAS_DIR": {
-            "path": PERSONAS_DIR.resolve(),
-            "enabled": os.path.isdir(PERSONAS_DIR),
-            "is_valid": os.path.isdir(PERSONAS_DIR) and os.access(PERSONAS_DIR, os.R_OK) and os.access(PERSONAS_DIR, os.W_OK),                 # read + write
-        },
-        "LOGS_DIR": {
-            "path": LOGS_DIR.resolve(),
-            "enabled": True,
-            "is_valid": os.path.isdir(LOGS_DIR) and os.access(LOGS_DIR, os.R_OK) and os.access(LOGS_DIR, os.W_OK),                              # read + write
-        },
-        'TMP_DIR': {
-            'path': TMP_DIR.resolve(),
-            'enabled': True,
-            'is_valid': os.path.isdir(TMP_DIR) and os.access(TMP_DIR, os.R_OK) and os.access(TMP_DIR, os.W_OK),                      # read + write
-        },
-        # "CACHE_DIR": {
-        #     "path": CACHE_DIR.resolve(),
-        #     "enabled": True,
-        #     "is_valid": os.access(CACHE_DIR, os.R_OK) and os.access(CACHE_DIR, os.W_OK),                        # read + write
-        # },
-    })
 
     @classmethod
     def __getitem__(cls, key: str):

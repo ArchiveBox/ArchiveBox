@@ -189,14 +189,16 @@ def version(quiet: bool=False,
     if quiet or '--version' in sys.argv:
         return
     
+    from rich.panel import Panel
     from rich.console import Console
     console = Console()
     prnt = console.print
     
-    from plugins_auth.ldap.apps import LDAP_CONFIG
+    from plugins_auth.ldap.config import LDAP_CONFIG
     from django.conf import settings
     from archivebox.config.version import get_COMMIT_HASH, get_BUILD_TIME
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, RUNNING_AS_UID, RUNNING_AS_GID
+    from archivebox.config.paths import get_data_locations, get_code_locations
 
     from abx.archivebox.base_binary import BaseBinary, apt, brew, env
 
@@ -221,7 +223,7 @@ def version(quiet: bool=False,
         f'PLATFORM={platform.platform()}',
         f'PYTHON={sys.implementation.name.title()}' + (' (venv)' if CONSTANTS.IS_INSIDE_VENV else ''),
     )
-    OUTPUT_IS_REMOTE_FS = CONSTANTS.DATA_LOCATIONS.DATA_DIR.is_mount or CONSTANTS.DATA_LOCATIONS.ARCHIVE_DIR.is_mount
+    OUTPUT_IS_REMOTE_FS = get_data_locations().DATA_DIR.is_mount or get_data_locations().ARCHIVE_DIR.is_mount
     DATA_DIR_STAT = CONSTANTS.DATA_DIR.stat()
     prnt(
         f'EUID={os.geteuid()}:{os.getegid()} UID={RUNNING_AS_UID}:{RUNNING_AS_GID} PUID={ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP}',
@@ -240,6 +242,21 @@ def version(quiet: bool=False,
         #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
     )
     prnt()
+    
+    if not (os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK) and os.access(CONSTANTS.CONFIG_FILE, os.R_OK)):
+        PANEL_TEXT = '\n'.join((
+            # '',
+            # f'[yellow]CURRENT DIR =[/yellow] [red]{os.getcwd()}[/red]',
+            '',
+            '[violet]Hint:[/violet] [green]cd[/green] into a collection [blue]DATA_DIR[/blue] and run [green]archivebox version[/green] again...',
+            '      [grey53]OR[/grey53] run [green]archivebox init[/green] to create a new collection in the current dir.',
+            '',
+            '      [i][grey53](this is [red]REQUIRED[/red] if you are opening a Github Issue to get help)[/grey53][/i]',
+            '',
+        ))
+        prnt(Panel(PANEL_TEXT, expand=False, border_style='grey53', title='[red]:exclamation: No collection [blue]DATA_DIR[/blue] is currently active[/red]', subtitle='Full version info is only available when inside a collection [light_slate_blue]DATA DIR[/light_slate_blue]'))
+        prnt()
+        return
 
     prnt('[pale_green1][i] Binary Dependencies:[/pale_green1]')
     failures = []
@@ -299,13 +316,13 @@ def version(quiet: bool=False,
         
         prnt()
         prnt('[deep_sky_blue3][i] Code locations:[/deep_sky_blue3]')
-        for name, path in CONSTANTS.CODE_LOCATIONS.items():
+        for name, path in get_code_locations().items():
             prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
 
         prnt()
         if os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK) or os.access(CONSTANTS.CONFIG_FILE, os.R_OK):
             prnt('[bright_yellow][i] Data locations:[/bright_yellow]')
-            for name, path in CONSTANTS.DATA_LOCATIONS.items():
+            for name, path in get_data_locations().items():
                 prnt(printable_folder_status(name, path), overflow='ignore', crop=False)
         
             from archivebox.misc.checks import check_data_dir_permissions
@@ -395,7 +412,7 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     print(f'    √ ./{CONSTANTS.DATABASE_FILE.relative_to(DATA_DIR)}')
     
     # from django.contrib.auth.models import User
-    # if SHELL_CONFIG.IS_TTY and not User.objects.filter(is_superuser=True).exists():
+    # if SHELL_CONFIG.IS_TTY and not User.objects.filter(is_superuser=True).exclude(username='system').exists():
     #     print('{green}[+] Creating admin user account...{reset}'.format(**SHELL_CONFIG.ANSI))
     #     call_command("createsuperuser", interactive=True)
 
@@ -486,9 +503,13 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
         html_index.rename(f"{index_name}.html")
     
     CONSTANTS.PERSONAS_DIR.mkdir(parents=True, exist_ok=True)
-    CONSTANTS.TMP_DIR.mkdir(parents=True, exist_ok=True)
-    CONSTANTS.LIB_DIR.mkdir(parents=True, exist_ok=True)
-
+    CONSTANTS.DEFAULT_TMP_DIR.mkdir(parents=True, exist_ok=True)
+    CONSTANTS.DEFAULT_LIB_DIR.mkdir(parents=True, exist_ok=True)
+    
+    from archivebox.config.common import STORAGE_CONFIG
+    STORAGE_CONFIG.TMP_DIR.mkdir(parents=True, exist_ok=True)
+    STORAGE_CONFIG.LIB_DIR.mkdir(parents=True, exist_ok=True)
+    
     if install:
         run_subcommand('install', pwd=out_dir)
 
@@ -1115,14 +1136,14 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
     from django.contrib.auth import get_user_model
     User = get_user_model()
 
-    if not User.objects.filter(is_superuser=True).exists():
+    if not User.objects.filter(is_superuser=True).exclude(username='system').exists():
         stderr('\n[+] Don\'t forget to create a new admin user for the Web UI...', color='green')
         stderr('    archivebox manage createsuperuser')
         # run_subcommand('manage', subcommand_args=['createsuperuser'], pwd=out_dir)
     
     print('\n[green][√] Set up ArchiveBox and its dependencies successfully.[/green]\n', file=sys.stderr)
     
-    from plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
+    from plugins_pkg.pip.binaries import ARCHIVEBOX_BINARY
     
     extra_args = []
     if binproviders:
@@ -1253,7 +1274,7 @@ def schedule(add: bool=False,
     """Set ArchiveBox to regularly import URLs at specific times using cron"""
     
     check_data_folder()
-    from archivebox.plugins_pkg.pip.apps import ARCHIVEBOX_BINARY
+    from archivebox.plugins_pkg.pip.binaries import ARCHIVEBOX_BINARY
     from archivebox.config.permissions import USER
 
     Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)
@@ -1399,46 +1420,43 @@ def server(runserver_args: Optional[List[str]]=None,
     from django.core.management import call_command
     from django.contrib.auth.models import User
     
+    if not User.objects.filter(is_superuser=True).exclude(username='system').exists():
+        print()
+        # print('[yellow][!] No admin accounts exist, you must create one to be able to log in to the Admin UI![/yellow]')
+        print('[violet]Hint:[/violet] To create an [bold]admin username & password[/bold] for the [deep_sky_blue3][underline][link=http://{host}:{port}/admin]Admin UI[/link][/underline][/deep_sky_blue3], run:')
+        print('      [green]archivebox manage createsuperuser[/green]')
+        print()
     
 
-    print('[green][+] Starting ArchiveBox webserver...[/green]')
-    print('    > Logging errors to ./logs/errors.log')
-    if not User.objects.filter(is_superuser=True).exists():
-        print('[yellow][!] No admin users exist yet, you will not be able to edit links in the UI.[/yellow]')
-        print()
-        print('    [violet]Hint:[/violet] To create an admin user, run:')
-        print('        archivebox manage createsuperuser')
-        print()
+    host = '127.0.0.1'
+    port = '8000'
     
+    try:
+        host_and_port = [arg for arg in runserver_args if arg.replace('.', '').replace(':', '').isdigit()][0]
+        if ':' in host_and_port:
+            host, port = host_and_port.split(':')
+        else:
+            if '.' in host_and_port:
+                host = host_and_port
+            else:
+                port = host_and_port
+    except IndexError:
+        pass
+
+    print('[green][+] Starting ArchiveBox webserver...[/green]')
+    print(f'    [blink][green]>[/green][/blink] Starting ArchiveBox webserver on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')
+    print(f'    [green]>[/green] Log in to ArchiveBox Admin UI on [deep_sky_blue3][link=http://{host}:{port}/admin]http://{host}:{port}/admin[/link][/deep_sky_blue3]')
+    print('    > Writing ArchiveBox error log to ./logs/errors.log')
 
     if SHELL_CONFIG.DEBUG:
         if not reload:
             runserver_args.append('--noreload')  # '--insecure'
         call_command("runserver", *runserver_args)
     else:
-        host = '127.0.0.1'
-        port = '8000'
-        
-        try:
-            host_and_port = [arg for arg in runserver_args if arg.replace('.', '').replace(':', '').isdigit()][0]
-            if ':' in host_and_port:
-                host, port = host_and_port.split(':')
-            else:
-                if '.' in host_and_port:
-                    host = host_and_port
-                else:
-                    port = host_and_port
-        except IndexError:
-            pass
-
-        print(f'    [blink][green]>[/green][/blink] Starting ArchiveBox webserver on [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]')
-
         from queues.supervisor_util import start_server_workers
 
         print()
-        
         start_server_workers(host=host, port=port, daemonize=False)
-
         print("\n[i][green][🟩] ArchiveBox server shut down gracefully.[/green][/i]")
 
 

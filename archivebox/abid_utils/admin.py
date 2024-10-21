@@ -10,11 +10,10 @@ from django.shortcuts import redirect
 
 from django_object_actions import DjangoObjectActions, action
 
-
-from api.auth import get_or_create_api_token
-
 from archivebox.misc.util import parse_date
+
 from .abid import ABID
+
 
 def highlight_diff(display_val: Any, compare_val: Any, invert: bool=False, color_same: str | None=None, color_diff: str | None=None):
     """highlight each character in red that differs with the char at the same index in compare_val"""
@@ -37,6 +36,8 @@ def highlight_diff(display_val: Any, compare_val: Any, invert: bool=False, color
     ))
 
 def get_abid_info(self, obj, request=None):
+    from archivebox.api.auth import get_or_create_api_token
+    
     try:
         #abid_diff = f' != obj.ABID: {highlight_diff(obj.ABID, obj.abid)} ❌' if str(obj.ABID) != str(obj.abid) else ' == .ABID ✅'
 

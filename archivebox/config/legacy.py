@@ -50,13 +50,11 @@ from ..misc.logging import (
 )
 
 from .common import SHELL_CONFIG, GENERAL_CONFIG, ARCHIVING_CONFIG, SERVER_CONFIG, SEARCH_BACKEND_CONFIG, STORAGE_CONFIG
-from archivebox.plugins_auth.ldap.apps import LDAP_CONFIG
-from archivebox.plugins_extractor.favicon.apps import FAVICON_CONFIG
-from archivebox.plugins_extractor.wget.apps import WGET_CONFIG
-from archivebox.plugins_extractor.curl.apps import CURL_CONFIG
+from archivebox.plugins_extractor.favicon.config import FAVICON_CONFIG
+from archivebox.plugins_extractor.wget.config import WGET_CONFIG
+from archivebox.plugins_extractor.curl.config import CURL_CONFIG
 
 ANSI = SHELL_CONFIG.ANSI
-LDAP = LDAP_CONFIG.LDAP_ENABLED
 
 ############################### Config Schema ##################################
 
@@ -72,8 +70,6 @@ CONFIG_SCHEMA: Dict[str, Dict[str, Any]] = {
     'SEARCH_BACKEND_CONFIG': SEARCH_BACKEND_CONFIG.as_legacy_config_schema(),
 
     'STORAGE_CONFIG': STORAGE_CONFIG.as_legacy_config_schema(),
-    
-    'LDAP_CONFIG': LDAP_CONFIG.as_legacy_config_schema(),
     
     # 'FAVICON_CONFIG': FAVICON_CONFIG.as_legacy_config_schema(),
     
@@ -262,6 +258,9 @@ def load_config_val(key: str,
 
     elif type is list or type is dict:
         return json.loads(val)
+    
+    elif type is Path:
+        return Path(val)
 
     raise Exception('Config values can only be str, bool, int, or json')
 
@@ -578,7 +577,7 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CON
             with SudoPermission(uid=0):
                 # running as root is a special case where it's ok to be a bit slower
                 # make sure data dir is always owned by the correct user
-                os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"')
+                os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}" 2>/dev/null')
                 os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"/* 2>/dev/null')
 
         bump_startup_progress_bar()

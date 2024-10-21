@@ -160,4 +160,4 @@ def apply_migrations(out_dir: Path=DATA_DIR) -> List[str]:
 @enforce_types
 def get_admins(out_dir: Path=DATA_DIR) -> List[str]:
     from django.contrib.auth.models import User
-    return User.objects.filter(is_superuser=True)
+    return User.objects.filter(is_superuser=True).exclude(username='system')

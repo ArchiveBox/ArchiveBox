@@ -2,6 +2,7 @@ __package__ = 'abx.archivebox'
 
 import os
 import inspect
+from pathlib import Path
 from typing import Any, List, Dict, cast
 from benedict import benedict
 
@@ -12,6 +13,8 @@ from django.utils.html import format_html, mark_safe
 
 from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
+
+import abx.archivebox.reads
 
 from archivebox.config import CONSTANTS
 from archivebox.misc.util import parse_date
@@ -82,8 +85,12 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
         if '_BINARY' in key or '_VERSION' in key
     }
 
-    for plugin in settings.PLUGINS.values():
-        for binary in plugin.HOOKS_BY_TYPE.get('BINARY', {}).values():
+    for plugin_id, plugin in abx.archivebox.reads.get_PLUGINS().items():
+        plugin = abx.archivebox.reads.get_PLUGIN(plugin_id)
+        if not plugin.hooks.get('get_BINARIES'):
+            continue
+        
+        for binary in plugin.hooks.get_BINARIES().values():
             try:
                 installed_binary = InstalledBinary.objects.get_from_db_or_cache(binary)
                 binary = installed_binary.load_from_db()
@@ -92,7 +99,7 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
             rows['Binary Name'].append(ItemLink(binary.name, key=binary.name))
             rows['Found Version'].append(f'✅ {binary.loaded_version}' if binary.loaded_version else '❌ missing')
-            rows['From Plugin'].append(plugin.plugin_module)
+            rows['From Plugin'].append(plugin.package)
             rows['Provided By'].append(
                 ', '.join(
                     f'[{binprovider.name}]' if binprovider.name == getattr(binary.loaded_binprovider, 'name', None) else binprovider.name
@@ -128,11 +135,16 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
 
     binary = None
     plugin = None
-    for loaded_plugin in settings.PLUGINS.values():
-        for loaded_binary in loaded_plugin.HOOKS_BY_TYPE.get('BINARY', {}).values():
-            if loaded_binary.name == key:
-                binary = loaded_binary
-                plugin = loaded_plugin
+    for plugin_id in abx.archivebox.reads.get_PLUGINS().keys():
+        loaded_plugin = abx.archivebox.reads.get_PLUGIN(plugin_id)
+        try:
+            for loaded_binary in loaded_plugin.hooks.get_BINARIES().values():
+                if loaded_binary.name == key:
+                    binary = loaded_binary
+                    plugin = loaded_plugin
+                    # break  # last write wins
+        except Exception as e:
+            print(e)
 
     assert plugin and binary, f'Could not find a binary matching the specified name: {key}'
 
@@ -149,7 +161,7 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
                 "name": binary.name,
                 "description": binary.abspath,
                 "fields": {
-                    'plugin': plugin.name,
+                    'plugin': plugin.package,
                     'binprovider': binary.loaded_binprovider,
                     'abspath': binary.loaded_abspath,
                     'version': binary.loaded_version,
@@ -170,28 +182,68 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
     rows = {
-        "Name": [],
-        "verbose_name": [],
-        "module": [],
-        "source_code": [],
-        "hooks": [],
+        "Label": [],
+        "Version": [],
+        "Author": [],
+        "Package": [],
+        "Source Code": [],
+        "Config": [],
+        "Binaries": [],
+        "Package Managers": [],
+        # "Search Backends": [],
     }
 
+    config_colors = {
+        '_BINARY': '#339',
+        'USE_': 'green',
+        'SAVE_': 'green',
+        '_ARGS': '#33e',
+        'KEY': 'red',
+        'COOKIES': 'red',
+        'AUTH': 'red',
+        'SECRET': 'red',
+        'TOKEN': 'red',
+        'PASSWORD': 'red',
+        'TIMEOUT': '#533',
+        'RETRIES': '#533',
+        'MAX': '#533',
+        'MIN': '#533',
+    }
+    def get_color(key):
+        for pattern, color in config_colors.items():
+            if pattern in key:
+                return color
+        return 'black'
 
-    for plugin in settings.PLUGINS.values():
-        # try:
-        #     plugin.load_binaries()
-        # except Exception as e:
-        #     print(e)
-
-        rows['Name'].append(ItemLink(plugin.id, key=plugin.id))
-        rows['verbose_name'].append(mark_safe(f'<a href="{plugin.docs_url}" target="_blank">{plugin.verbose_name}</a>'))
-        rows['module'].append(str(plugin.plugin_module))
-        rows['source_code'].append(str(plugin.plugin_dir))
-        rows['hooks'].append(mark_safe(', '.join(
-            f'<a href="{hook.admin_url}">{hook.id}</a>'
-            for hook in plugin.hooks
+    for plugin_id in settings.PLUGINS.keys():
+        
+        plugin = abx.archivebox.reads.get_PLUGIN(plugin_id)
+        plugin.hooks.get_BINPROVIDERS = plugin.hooks.get('get_BINPROVIDERS', lambda: {})
+        plugin.hooks.get_BINARIES = plugin.hooks.get('get_BINARIES', lambda: {})
+        plugin.hooks.get_CONFIG = plugin.hooks.get('get_CONFIG', lambda: {})
+        
+        rows['Label'].append(ItemLink(plugin.label, key=plugin.package))
+        rows['Version'].append(str(plugin.version))
+        rows['Author'].append(mark_safe(f'<a href="{plugin.homepage}" target="_blank">{plugin.author}</a>'))
+        rows['Package'].append(ItemLink(plugin.package, key=plugin.package))
+        rows['Source Code'].append(format_html('<code>{}</code>', str(plugin.source_code).replace(str(Path('~').expanduser()), '~')))
+        rows['Config'].append(mark_safe(''.join(
+            f'<a href="/admin/environment/config/{key}/"><b><code style="color: {get_color(key)};">{key}</code></b>=<code>{value}</code></a><br/>'
+            for configdict in plugin.hooks.get_CONFIG().values()
+                for key, value in benedict(configdict).items()
         )))
+        rows['Binaries'].append(mark_safe(', '.join(
+            f'<a href="/admin/environment/binaries/{binary.name}/"><code>{binary.name}</code></a>'
+            for binary in plugin.hooks.get_BINARIES().values()
+        )))
+        rows['Package Managers'].append(mark_safe(', '.join(
+            f'<a href="/admin/environment/binproviders/{binprovider.name}/"><code>{binprovider.name}</code></a>'
+            for binprovider in plugin.hooks.get_BINPROVIDERS().values()
+        )))
+        # rows['Search Backends'].append(mark_safe(', '.join(
+        #     f'<a href="/admin/environment/searchbackends/{searchbackend.name}/"><code>{searchbackend.name}</code></a>'
+        #     for searchbackend in plugin.SEARCHBACKENDS.values()
+        # )))
 
     return TableContext(
         title="Installed plugins",
@@ -203,28 +255,33 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
 
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
-    plugin = None
-    for loaded_plugin in settings.PLUGINS.values():
-        if loaded_plugin.id == key:
-            plugin = loaded_plugin
+    plugin_id = None
+    for check_plugin_id, loaded_plugin in settings.PLUGINS.items():
+        if check_plugin_id.split('.')[-1] == key.split('.')[-1]:
+            plugin_id = check_plugin_id
+            break
 
-    assert plugin, f'Could not find a plugin matching the specified name: {key}'
+    assert plugin_id, f'Could not find a plugin matching the specified name: {key}'
 
-    try:
-        plugin = plugin.load_binaries()
-    except Exception as e:
-        print(e)
+    plugin = abx.archivebox.reads.get_PLUGIN(plugin_id)
 
     return ItemContext(
         slug=key,
         title=key,
         data=[
             {
-                "name": plugin.id,
-                "description": plugin.verbose_name,
+                "name": plugin.package,
+                "description": plugin.label,
                 "fields": {
+                    "id": plugin.id,
+                    "package": plugin.package,
+                    "label": plugin.label,
+                    "version": plugin.version,
+                    "author": plugin.author,
+                    "homepage": plugin.homepage,
+                    "dependencies": getattr(plugin, 'DEPENDENCIES', []),
+                    "source_code": plugin.source_code,
                     "hooks": plugin.hooks,
-                    "schema": obj_to_yaml(plugin.model_dump(include=("name", "verbose_name", "app_label", "hooks"))),
                 },
                 "help_texts": {
                     # TODO

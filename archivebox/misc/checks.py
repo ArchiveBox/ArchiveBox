@@ -5,16 +5,24 @@ import sys
 from pathlib import Path
 
 from rich import print
+from rich.panel import Panel
 
-# DO NOT ADD ANY TOP-LEVEL IMPORTS HERE
+# DO NOT ADD ANY TOP-LEVEL IMPORTS HERE to anything other than builtin python libraries
 # this file is imported by archivebox/__init__.py
 # and any imports here will be imported by EVERYTHING else
 # so this file should only be used for pure python checks
 # that don't need to import other parts of ArchiveBox
 
+# if a check needs to import other parts of ArchiveBox,
+# the imports should be done inside the check function
+# and you should make sure if you need to import any django stuff
+# that the check is called after django.setup() has been called
+
 
 def check_data_folder() -> None:
     from archivebox import DATA_DIR, ARCHIVE_DIR
+    from archivebox.config import CONSTANTS
+    from archivebox.config.paths import create_and_chown_dir, get_or_create_working_tmp_dir, get_or_create_working_lib_dir
     
     archive_dir_exists = os.access(ARCHIVE_DIR, os.R_OK) and ARCHIVE_DIR.is_dir()
     if not archive_dir_exists:
@@ -30,26 +38,33 @@ def check_data_folder() -> None:
         raise SystemExit(2)
     
     
+    # Create data dir subdirs
+    create_and_chown_dir(CONSTANTS.SOURCES_DIR)
+    create_and_chown_dir(CONSTANTS.PERSONAS_DIR / 'Default')
+    create_and_chown_dir(CONSTANTS.LOGS_DIR)
+    # create_and_chown_dir(CONSTANTS.CACHE_DIR)
+    
+    # Create /tmp and /lib dirs if they don't exist
+    get_or_create_working_tmp_dir(autofix=True, quiet=False)
+    get_or_create_working_lib_dir(autofix=True, quiet=False)
+    
+    # Check data dir permissions, /tmp, and /lib permissions
+    check_data_dir_permissions()
+    
 def check_migrations():
-    from archivebox import DATA_DIR, CONSTANTS
+    from archivebox import DATA_DIR
     from ..index.sql import list_migrations
 
     pending_migrations = [name for status, name in list_migrations() if not status]
+    is_migrating = any(arg in sys.argv for arg in ['makemigrations', 'migrate', 'init'])
 
-    if pending_migrations:
+    if pending_migrations and not is_migrating:
         print('[red][X] This collection was created with an older version of ArchiveBox and must be upgraded first.[/red]')
         print(f'    {DATA_DIR}', file=sys.stderr)
         print(file=sys.stderr)
         print(f'    [violet]Hint:[/violet] To upgrade it to the latest version and apply the {len(pending_migrations)} pending migrations, run:', file=sys.stderr)
         print('        archivebox init', file=sys.stderr)
         raise SystemExit(3)
-
-    CONSTANTS.SOURCES_DIR.mkdir(exist_ok=True)
-    CONSTANTS.LOGS_DIR.mkdir(exist_ok=True)
-    # CONSTANTS.CACHE_DIR.mkdir(exist_ok=True)
-    (CONSTANTS.LIB_DIR / 'bin').mkdir(exist_ok=True, parents=True)
-    (CONSTANTS.PERSONAS_DIR / 'Default').mkdir(exist_ok=True, parents=True)
-
 
 def check_io_encoding():
     PYTHON_ENCODING = (sys.__stdout__ or sys.stdout or sys.__stderr__ or sys.stderr).encoding.upper().replace('UTF8', 'UTF-8')
@@ -127,3 +142,98 @@ def check_data_dir_permissions():
         STDERR.print('    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#permissions]https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#permissions[/link]')
         STDERR.print('    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid]https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid[/link]')
         STDERR.print('    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts]https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts[/link]')
+
+    from archivebox.config.common import STORAGE_CONFIG
+
+    # Check /tmp dir permissions
+    check_tmp_dir(STORAGE_CONFIG.TMP_DIR, throw=False, must_exist=True)
+
+    # Check /lib dir permissions
+    check_lib_dir(STORAGE_CONFIG.LIB_DIR, throw=False, must_exist=True)
+
+
+def check_tmp_dir(tmp_dir=None, throw=False, quiet=False, must_exist=True):
+    from archivebox.config.paths import assert_dir_can_contain_unix_sockets, dir_is_writable, get_or_create_working_tmp_dir
+    from archivebox.misc.logging import STDERR
+    from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
+    from archivebox.config.common import STORAGE_CONFIG
+    from archivebox.logging_util import pretty_path
+    
+    tmp_dir = tmp_dir or STORAGE_CONFIG.TMP_DIR
+    socket_file = tmp_dir.absolute().resolve() / "supervisord.sock"
+
+    if not must_exist and not os.path.isdir(tmp_dir):
+        # just check that its viable based on its length (because dir may not exist yet, we cant check if its writable)
+        return len(f'file://{socket_file}') <= 96
+
+    tmp_is_valid = False
+    try:
+        tmp_is_valid = dir_is_writable(tmp_dir)
+        tmp_is_valid = tmp_is_valid and assert_dir_can_contain_unix_sockets(tmp_dir)
+        assert tmp_is_valid, f'ArchiveBox user PUID={ARCHIVEBOX_USER} PGID={ARCHIVEBOX_GROUP} is unable to write to TMP_DIR={tmp_dir}'            
+        assert len(f'file://{socket_file}') <= 96, f'ArchiveBox TMP_DIR={tmp_dir} is too long, dir containing unix socket files must be <90 chars.'
+        return True
+    except Exception as e:
+        if not quiet:
+            STDERR.print()
+            ERROR_TEXT = '\n'.join((
+                '',
+                f'[red]:cross_mark: ArchiveBox is unable to use TMP_DIR={pretty_path(tmp_dir)}[/red]',
+                f'   [yellow]{e}[/yellow]',
+                '',
+                '[blue]Info:[/blue] [grey53]The TMP_DIR is used for the supervisord unix socket file and other temporary files.',
+                '  - It [red]must[/red] be on a local drive (not inside a docker volume, remote network drive, or FUSE mount).',
+                f'  - It [red]must[/red] be readable and writable by the ArchiveBox user (PUID={ARCHIVEBOX_USER}, PGID={ARCHIVEBOX_GROUP}).',
+                '  - It [red]must[/red] be a *short* path (less than 90 characters) due to UNIX path length restrictions for sockets.',
+                '  - It [yellow]should[/yellow] be able to hold at least 200MB of data (in-progress downloads can be large).[/grey53]',
+                '',
+                '[violet]Hint:[/violet] Fix it by setting TMP_DIR to a path that meets these requirements, e.g.:',
+                f'      [green]archivebox config --set TMP_DIR={get_or_create_working_tmp_dir(autofix=False, quiet=True) or "/tmp/archivebox"}[/green]',
+                '',
+            ))
+            STDERR.print(Panel(ERROR_TEXT, expand=False, border_style='red', title='[red]:cross_mark: Error with configured TMP_DIR[/red]', subtitle='Background workers may fail to start until fixed.'))
+            STDERR.print()
+        if throw:
+            raise OSError(f'TMP_DIR={tmp_dir} is invalid, ArchiveBox is unable to use it and the server will fail to start!') from e
+    return False
+
+
+def check_lib_dir(lib_dir: Path | None = None, throw=False, quiet=False, must_exist=True):
+    from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
+    from archivebox.misc.logging import STDERR
+    from archivebox.config.paths import dir_is_writable, get_or_create_working_lib_dir
+    from archivebox.config.common import STORAGE_CONFIG
+    from archivebox.logging_util import pretty_path
+    
+    lib_dir = lib_dir or STORAGE_CONFIG.LIB_DIR
+    
+    if not must_exist and not os.path.isdir(lib_dir):
+        return True
+    
+    lib_is_valid = False
+    try:
+        lib_is_valid = dir_is_writable(lib_dir)
+        assert lib_is_valid, f'ArchiveBox user PUID={ARCHIVEBOX_USER} PGID={ARCHIVEBOX_GROUP} is unable to write to LIB_DIR={lib_dir}'
+        return True
+    except Exception as e:
+        if not quiet:
+            STDERR.print()
+            ERROR_TEXT = '\n'.join((
+                '',
+                f'[red]:cross_mark: ArchiveBox is unable to use LIB_DIR={pretty_path(lib_dir)}[/red]',
+                f'   [yellow]{e}[/yellow]',
+                '',
+                '[blue]Info:[/blue] [grey53]The LIB_DIR is used to store ArchiveBox auto-installed plugin library and binary dependencies.',
+                f'  - It [red]must[/red] be readable and writable by the ArchiveBox user (PUID={ARCHIVEBOX_USER}, PGID={ARCHIVEBOX_GROUP}).',
+                '  - It [yellow]should[/yellow] be on a local (ideally fast) drive like an SSD or HDD (not on a network drive or external HDD).',
+                '  - It [yellow]should[/yellow] be able to hold at least 1GB of data (some dependencies like Chrome can be large).[/grey53]',
+                '',
+                '[violet]Hint:[/violet] Fix it by setting LIB_DIR to a path that meets these requirements, e.g.:',
+                f'      [green]archivebox config --set LIB_DIR={get_or_create_working_lib_dir(autofix=False, quiet=True) or "/usr/local/share/archivebox"}[/green]',
+                '',
+            ))
+            STDERR.print(Panel(ERROR_TEXT, expand=False, border_style='red', title='[red]:cross_mark: Error with configured LIB_DIR[/red]', subtitle='[yellow]Dependencies may not auto-install properly until fixed.[/yellow]'))
+            STDERR.print()
+        if throw:
+            raise OSError(f'LIB_DIR={lib_dir} is invalid, ArchiveBox is unable to use it and dependencies will fail to install.') from e
+    return False

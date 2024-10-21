@@ -10,7 +10,7 @@ from django.utils.crypto import get_random_string
 
 import abx
 import abx.archivebox
-import abx.archivebox.use
+import abx.archivebox.reads
 import abx.django.use
 
 from archivebox.config import DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS
@@ -19,8 +19,7 @@ from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG      # noqa
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
 IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
 IS_SHELL = 'shell' in sys.argv[:3] or 'shell_plus' in sys.argv[:3]
-
-
+IS_GETTING_VERSION_OR_HELP = 'version' in sys.argv or 'help' in sys.argv or '--version' in sys.argv or '--help' in sys.argv
 
 ################################################################################
 ### ArchiveBox Plugin Settings
@@ -41,7 +40,7 @@ BUILTIN_PLUGIN_DIRS = {
     'plugins_extractor':       PACKAGE_DIR / 'plugins_extractor',
 }
 USER_PLUGIN_DIRS = {
-    'user_plugins':            DATA_DIR / 'user_plugins',
+    # 'user_plugins':            DATA_DIR / 'user_plugins',
 }
 
 # Discover ArchiveBox plugins
@@ -52,19 +51,18 @@ ALL_PLUGINS = {**BUILTIN_PLUGINS, **PIP_PLUGINS, **USER_PLUGINS}
 
 # Load ArchiveBox plugins
 PLUGIN_MANAGER = abx.pm
-PLUGINS = abx.archivebox.load_archivebox_plugins(PLUGIN_MANAGER, ALL_PLUGINS)
-HOOKS = abx.archivebox.use.get_HOOKS(PLUGINS)
+abx.archivebox.load_archivebox_plugins(PLUGIN_MANAGER, ALL_PLUGINS)
+PLUGINS = abx.archivebox.reads.get_PLUGINS()
 
 # Load ArchiveBox config from plugins
-CONFIGS = abx.archivebox.use.get_CONFIGS()
-FLAT_CONFIG = abx.archivebox.use.get_FLAT_CONFIG()
-BINPROVIDERS = abx.archivebox.use.get_BINPROVIDERS()
-BINARIES = abx.archivebox.use.get_BINARIES()
-EXTRACTORS = abx.archivebox.use.get_EXTRACTORS()
-REPLAYERS = abx.archivebox.use.get_REPLAYERS()
-ADMINDATAVIEWS = abx.archivebox.use.get_ADMINDATAVIEWS()
-QUEUES = abx.archivebox.use.get_QUEUES()
-SEARCHBACKENDS = abx.archivebox.use.get_SEARCHBACKENDS()
+CONFIGS = abx.archivebox.reads.get_CONFIGS()
+CONFIG = FLAT_CONFIG = abx.archivebox.reads.get_FLAT_CONFIG()
+BINPROVIDERS = abx.archivebox.reads.get_BINPROVIDERS()
+BINARIES = abx.archivebox.reads.get_BINARIES()
+EXTRACTORS = abx.archivebox.reads.get_EXTRACTORS()
+SEARCHBACKENDS = abx.archivebox.reads.get_SEARCHBACKENDS()
+# REPLAYERS = abx.archivebox.reads.get_REPLAYERS()
+# ADMINDATAVIEWS = abx.archivebox.reads.get_ADMINDATAVIEWS()
 
 
 ################################################################################
@@ -101,10 +99,13 @@ INSTALLED_APPS = [
     'django_object_actions',     # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
 
     # Our ArchiveBox-provided apps
-    #'config',                   # ArchiveBox config settings (loaded as a plugin, don't need to add it here)
+    # 'abid_utils',                # handles ABID ID creation, handling, and models
+    'config',                    # ArchiveBox config settings (loaded as a plugin, don't need to add it here) 
     'machine',                   # handles collecting and storing information about the host machine, network interfaces, installed binaries, etc.
     'queues',                    # handles starting and managing background workers and processes
-    'abid_utils',                # handles ABID ID creation, handling, and models
+    'seeds',                     # handles Seed model and URL source management
+    'crawls',                    # handles Crawl and CrawlSchedule models and management
+    'personas',                  # handles Persona and session management
     'core',                      # core django model with Snapshot, ArchiveResult, etc.
     'api',                       # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
 
@@ -262,37 +263,38 @@ MIGRATION_MODULES = {'signal_webhooks': None}
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-HUEY = {
-    "huey_class": "huey.SqliteHuey",
-    "filename": CONSTANTS.QUEUE_DATABASE_FILENAME,
-    "name": "system_tasks",
-    "results": True,
-    "store_none": True,
-    "immediate": False,
-    "utc": True,
-    "consumer": {
-        "workers": 1,
-        "worker_type": "thread",
-        "initial_delay": 0.1,  # Smallest polling interval, same as -d.
-        "backoff": 1.15,  # Exponential backoff using this rate, -b.
-        "max_delay": 10.0,  # Max possible polling interval, -m.
-        "scheduler_interval": 1,  # Check schedule every second, -s.
-        "periodic": True,  # Enable crontab feature.
-        "check_worker_health": True,  # Enable worker health checks.
-        "health_check_interval": 1,  # Check worker health every second.
-    },
-}
+if not IS_GETTING_VERSION_OR_HELP:             # dont create queue.sqlite3 file if we're just running to get --version or --help
+    HUEY = {
+        "huey_class": "huey.SqliteHuey",
+        "filename": CONSTANTS.QUEUE_DATABASE_FILENAME,
+        "name": "system_tasks",
+        "results": True,
+        "store_none": True,
+        "immediate": False,
+        "utc": True,
+        "consumer": {
+            "workers": 1,
+            "worker_type": "thread",
+            "initial_delay": 0.1,  # Smallest polling interval, same as -d.
+            "backoff": 1.15,  # Exponential backoff using this rate, -b.
+            "max_delay": 10.0,  # Max possible polling interval, -m.
+            "scheduler_interval": 1,  # Check schedule every second, -s.
+            "periodic": True,  # Enable crontab feature.
+            "check_worker_health": True,  # Enable worker health checks.
+            "health_check_interval": 1,  # Check worker health every second.
+        },
+    }
 
-# https://huey.readthedocs.io/en/latest/contrib.html#setting-things-up
-# https://github.com/gaiacoop/django-huey
-DJANGO_HUEY = {
-    "default": "system_tasks",
-    "queues": {
-        HUEY["name"]: HUEY.copy(),
-        # more registered here at plugin import-time by BaseQueue.register()
-        **abx.django.use.get_DJANGO_HUEY_QUEUES(QUEUE_DATABASE_NAME=CONSTANTS.QUEUE_DATABASE_FILENAME),
-    },
-}
+    # https://huey.readthedocs.io/en/latest/contrib.html#setting-things-up
+    # https://github.com/gaiacoop/django-huey
+    DJANGO_HUEY = {
+        "default": "system_tasks",
+        "queues": {
+            HUEY["name"]: HUEY.copy(),
+            # more registered here at plugin import-time by BaseQueue.register()
+            **abx.django.use.get_DJANGO_HUEY_QUEUES(QUEUE_DATABASE_NAME=CONSTANTS.QUEUE_DATABASE_FILENAME),
+        },
+    }
 
 class HueyDBRouter:
     """
@@ -410,7 +412,7 @@ SHELL_PLUS_PRINT_SQL = False
 IPYTHON_ARGUMENTS = ['--no-confirm-exit', '--no-banner']
 IPYTHON_KERNEL_DISPLAY_NAME = 'ArchiveBox Django Shell'
 if IS_SHELL:
-    os.environ['PYTHONSTARTUP'] = str(PACKAGE_DIR / 'core' / 'shell_welcome_message.py')
+    os.environ['PYTHONSTARTUP'] = str(PACKAGE_DIR / 'misc' / 'shell_welcome_message.py')
 
 
 ################################################################################
@@ -610,6 +612,6 @@ if DEBUG_REQUESTS_TRACKER:
 
 
 abx.django.use.register_checks()
-abx.archivebox.use.register_all_hooks(globals())
+# abx.archivebox.reads.register_all_hooks(globals())
 
 # import ipdb; ipdb.set_trace()

@@ -18,12 +18,9 @@ from archivebox.config import CONSTANTS
 from archivebox.config.permissions import ARCHIVEBOX_USER
 
 import abx
-from .base_hook import BaseHook, HookType
 
 
-class BaseBinProvider(BaseHook, BinProvider):
-    hook_type: HookType = "BINPROVIDER"
-
+class BaseBinProvider(BinProvider):
     
     # TODO: add install/load/load_or_install methods as abx.hookimpl methods
     
@@ -36,12 +33,12 @@ class BaseBinProvider(BaseHook, BinProvider):
     def get_BINPROVIDERS(self):
         return [self]
 
-class BaseBinary(BaseHook, Binary):
-    hook_type: HookType = "BINARY"
+class BaseBinary(Binary):
 
     @staticmethod
     def symlink_to_lib(binary, bin_dir=None) -> None:
-        bin_dir = bin_dir or CONSTANTS.LIB_BIN_DIR
+        from archivebox.config.common import STORAGE_CONFIG
+        bin_dir = bin_dir or STORAGE_CONFIG.LIB_DIR / 'bin'
         
         if not (binary.abspath and os.access(binary.abspath, os.R_OK)):
             return
@@ -59,9 +56,10 @@ class BaseBinary(BaseHook, Binary):
         
     @validate_call
     def load(self, fresh=False, **kwargs) -> Self:
+        from archivebox.config.common import STORAGE_CONFIG
         if fresh:
             binary = super().load(**kwargs)
-            self.symlink_to_lib(binary=binary, bin_dir=CONSTANTS.LIB_BIN_DIR)
+            self.symlink_to_lib(binary=binary, bin_dir=STORAGE_CONFIG.LIB_DIR / 'bin')
         else:
             # get cached binary from db
             try:
@@ -76,16 +74,18 @@ class BaseBinary(BaseHook, Binary):
     
     @validate_call
     def install(self, **kwargs) -> Self:
+        from archivebox.config.common import STORAGE_CONFIG
         binary = super().install(**kwargs)
-        self.symlink_to_lib(binary=binary, bin_dir=CONSTANTS.LIB_BIN_DIR)
+        self.symlink_to_lib(binary=binary, bin_dir=STORAGE_CONFIG.LIB_DIR / 'bin')
         return binary
     
     @validate_call
     def load_or_install(self, fresh=False, **kwargs) -> Self:
+        from archivebox.config.common import STORAGE_CONFIG
         try:
             binary = self.load(fresh=fresh)
             if binary and binary.version:
-                self.symlink_to_lib(binary=binary, bin_dir=CONSTANTS.LIB_BIN_DIR)
+                self.symlink_to_lib(binary=binary, bin_dir=STORAGE_CONFIG.LIB_DIR / 'bin')
                 return binary
         except Exception:
             pass

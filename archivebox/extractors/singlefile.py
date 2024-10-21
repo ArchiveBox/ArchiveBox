@@ -10,6 +10,11 @@ from archivebox.misc.system import run, chmod_file
 from archivebox.misc.util import enforce_types, is_static_file, dedupe
 from ..logging_util import TimedProgress
 
+from plugins_extractor.chrome.config import CHROME_CONFIG
+from plugins_extractor.chrome.binaries import CHROME_BINARY
+from plugins_extractor.singlefile.config import SINGLEFILE_CONFIG
+from plugins_extractor.singlefile.binaries import SINGLEFILE_BINARY
+
 
 def get_output_path():
     return 'singlefile.html'
@@ -17,7 +22,6 @@ def get_output_path():
 
 @enforce_types
 def should_save_singlefile(link: Link, out_dir: Optional[Path]=None, overwrite: Optional[bool]=False) -> bool:
-    from plugins_extractor.singlefile.apps import SINGLEFILE_CONFIG
     
     if is_static_file(link.url):
         return False
@@ -26,15 +30,12 @@ def should_save_singlefile(link: Link, out_dir: Optional[Path]=None, overwrite: 
     if not overwrite and (out_dir / get_output_path()).exists():
         return False
 
-    return SINGLEFILE_CONFIG.SAVE_SINGLEFILE
+    return CHROME_CONFIG.USE_CHROME and SINGLEFILE_CONFIG.SAVE_SINGLEFILE
 
 
 @enforce_types
 def save_singlefile(link: Link, out_dir: Optional[Path]=None, timeout: int=60) -> ArchiveResult:
     """download full site using single-file"""
-    
-    from plugins_extractor.chrome.apps import CHROME_CONFIG, CHROME_BINARY
-    from plugins_extractor.singlefile.apps import SINGLEFILE_CONFIG, SINGLEFILE_BINARY
 
     CHROME_BIN = CHROME_BINARY.load()
     assert CHROME_BIN.abspath and CHROME_BIN.version

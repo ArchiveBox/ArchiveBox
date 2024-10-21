@@ -300,10 +300,15 @@ RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH
 # Setup ArchiveBox runtime config
 WORKDIR "$DATA_DIR"
 RUN openssl rand -hex 16 > /etc/machine-id \
-    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/tmp"
+    && mkdir -p "/tmp/archivebox" \
+    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/tmp/archivebox" \
+    && mkdir -p "/usr/share/archivebox/lib" \
+    && chown -R "$DEFAULT_PUID:$DEFAULT_PGID" "/usr/share/archivebox/lib" \
 ENV GOOGLE_API_KEY=no \
     GOOGLE_DEFAULT_CLIENT_ID=no \
     GOOGLE_DEFAULT_CLIENT_SECRET=no \
+    TMP_DIR=/tmp/archivebox \
+    LIB_DIR=/usr/share/archivebox/lib \
     ALLOWED_HOSTS=*
 
 # Print version for nice docker finish summary

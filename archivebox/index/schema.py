@@ -19,7 +19,7 @@ from django.utils.functional import cached_property
 
 from archivebox.config import ARCHIVE_DIR, CONSTANTS
 
-from plugins_extractor.favicon.apps import FAVICON_CONFIG
+from plugins_extractor.favicon.config import FAVICON_CONFIG
 
 from archivebox.misc.system import get_dir_size
 from archivebox.misc.util import ts_to_date_str, parse_date
