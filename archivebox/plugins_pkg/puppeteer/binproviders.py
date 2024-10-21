@@ -23,19 +23,16 @@ from abx.archivebox.base_binary import BaseBinProvider
 from plugins_pkg.npm.binproviders import SYS_NPM_BINPROVIDER
 
 
-LIB_DIR_BROWSERS = CONSTANTS.LIB_BROWSERS_DIR
-
-
 class PuppeteerBinProvider(BaseBinProvider):
     name: BinProviderName = "puppeteer"
     INSTALLER_BIN: BinName = "npx"
 
-    PATH: PATHStr = str(CONSTANTS.LIB_BIN_DIR)
+    PATH: PATHStr = str(CONSTANTS.DEFAULT_LIB_DIR / 'bin')
     
     euid: Optional[int] = ARCHIVEBOX_USER
 
-    puppeteer_browsers_dir: Path = LIB_DIR_BROWSERS
-    puppeteer_install_args: List[str] = ['--yes', "@puppeteer/browsers", "install", "--path", str(LIB_DIR_BROWSERS)]
+    puppeteer_browsers_dir: Path = CONSTANTS.DEFAULT_LIB_DIR / 'browsers'
+    puppeteer_install_args: List[str] = ['--yes', "@puppeteer/browsers", "install"]
 
     packages_handler: BinProviderOverrides = Field(default={
         "chrome": lambda:
@@ -45,6 +42,11 @@ class PuppeteerBinProvider(BaseBinProvider):
     _browser_abspaths: ClassVar[Dict[str, HostBinPath]] = {}
     
     def setup(self) -> None:
+        # update paths from config
+        from archivebox.config.common import STORAGE_CONFIG
+        self.puppeteer_browsers_dir = STORAGE_CONFIG.LIB_DIR / 'browsers'
+        self.PATH = str(STORAGE_CONFIG.LIB_DIR / 'bin')
+        
         assert SYS_NPM_BINPROVIDER.INSTALLER_BIN_ABSPATH, "NPM bin provider not initialized"
         
         if self.puppeteer_browsers_dir:
@@ -90,7 +92,7 @@ class PuppeteerBinProvider(BaseBinProvider):
 
         # print(f'[*] {self.__class__.__name__}: Installing {bin_name}: {self.INSTALLER_BIN_ABSPATH} install {packages}')
 
-        install_args = [*self.puppeteer_install_args]
+        install_args = [*self.puppeteer_install_args, "--path", str(self.puppeteer_browsers_dir)]
 
         proc = self.exec(bin_name=self.INSTALLER_BIN_ABSPATH, cmd=[*install_args, *packages])
 

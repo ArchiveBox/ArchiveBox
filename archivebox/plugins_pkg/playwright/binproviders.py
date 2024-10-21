@@ -35,7 +35,7 @@ class PlaywrightBinProvider(BaseBinProvider):
     name: BinProviderName = "playwright"
     INSTALLER_BIN: BinName = PLAYWRIGHT_BINARY.name
 
-    PATH: PATHStr = f"{CONSTANTS.LIB_BIN_DIR}:{DEFAULT_ENV_PATH}"
+    PATH: PATHStr = f"{CONSTANTS.DEFAULT_LIB_DIR / 'bin'}:{DEFAULT_ENV_PATH}"
 
     playwright_browsers_dir: Path = (
         MACOS_PLAYWRIGHT_CACHE_DIR.expanduser()
@@ -56,6 +56,11 @@ class PlaywrightBinProvider(BaseBinProvider):
         return PLAYWRIGHT_BINARY.load().abspath
 
     def setup(self) -> None:
+        # update paths from config if they arent the default
+        from archivebox.config.common import STORAGE_CONFIG
+        if STORAGE_CONFIG.LIB_DIR != CONSTANTS.DEFAULT_LIB_DIR:
+            self.PATH = f"{STORAGE_CONFIG.LIB_DIR / 'bin'}:{DEFAULT_ENV_PATH}"
+
         assert SYS_PIP_BINPROVIDER.INSTALLER_BIN_ABSPATH, "Pip bin provider not initialized"
 
         if self.playwright_browsers_dir:

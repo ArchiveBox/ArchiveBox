@@ -49,7 +49,15 @@ class LibPipBinProvider(PipProvider, BaseBinProvider):
     name: BinProviderName = "lib_pip"
     INSTALLER_BIN: BinName = "pip"
     
-    pip_venv: Optional[Path] = CONSTANTS.LIB_PIP_DIR / 'venv'
+    pip_venv: Optional[Path] = CONSTANTS.DEFAULT_LIB_DIR / 'pip' / 'venv'
+    
+    def setup(self) -> None:
+        # update paths from config if they arent the default
+        from archivebox.config.common import STORAGE_CONFIG
+        if STORAGE_CONFIG.LIB_DIR != CONSTANTS.DEFAULT_LIB_DIR:
+            self.pip_venv = STORAGE_CONFIG.LIB_DIR / 'pip' / 'venv'
+            
+        super().setup()
 
 SYS_PIP_BINPROVIDER = SystemPipBinProvider()
 PIPX_PIP_BINPROVIDER = SystemPipxBinProvider()

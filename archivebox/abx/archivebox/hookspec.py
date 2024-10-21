@@ -18,13 +18,7 @@ def get_PLUGIN() -> Dict[str, Dict[str, Any]]:
 def get_CONFIG() -> Dict[str, BaseConfigSet]:
     return {}
 
-@hookspec
-def get_BINARIES() -> Dict[str, BaseBinary]:
-    return {}
 
-@hookspec
-def get_BINPROVIDERS() -> Dict[str, BaseBinProvider]:
-    return {}
 
 @hookspec
 def get_EXTRACTORS() -> Dict[str, BaseExtractor]:
@@ -44,4 +38,15 @@ def get_SEARCHBACKENDS() -> Dict[str, BaseSearchBackend]:
 
 # @hookspec
 # def get_QUEUES():
+#     return {}
+
+
+##############################################################
+# provided by abx.pydantic_pkgr.hookspec:
+# @hookspec
+# def get_BINARIES() -> Dict[str, BaseBinary]:
+#     return {}
+
+# @hookspec
+# def get_BINPROVIDERS() -> Dict[str, BaseBinProvider]:
 #     return {}

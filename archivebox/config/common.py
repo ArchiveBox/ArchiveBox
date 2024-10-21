@@ -1,17 +1,17 @@
 __package__ = 'archivebox.config'
 
+import os
 import sys
 import shutil
-
+import tempfile
 from typing import Dict, Optional
 from pathlib import Path
 
 from rich import print
-from pydantic import Field, field_validator, computed_field
+from pydantic import Field, field_validator, computed_field, model_validator
 from django.utils.crypto import get_random_string
 
 from abx.archivebox.base_configset import BaseConfigSet
-
 
 from .constants import CONSTANTS
 from .version import get_COMMIT_HASH, get_BUILD_TIME
@@ -35,7 +35,6 @@ class ShellConfig(BaseConfigSet):
     VERSIONS_AVAILABLE: bool = False             # .check_for_update.get_versions_available_on_github(c)},
     CAN_UPGRADE: bool = False                    # .check_for_update.can_upgrade(c)},
 
-    
     @computed_field
     @property
     def TERM_WIDTH(self) -> int:
@@ -57,6 +56,16 @@ SHELL_CONFIG = ShellConfig()
 
 
 class StorageConfig(BaseConfigSet):
+    # TMP_DIR must be a local, fast, readable/writable dir by archivebox user,
+    # must be a short path due to unix path length restrictions for socket files (<100 chars)
+    # must be a local SSD/tmpfs for speed and because bind mounts/network mounts/FUSE dont support unix sockets
+    TMP_DIR: Path                       = Field(default=CONSTANTS.DEFAULT_TMP_DIR)
+    
+    # LIB_DIR must be a local, fast, readable/writable dir by archivebox user,
+    # must be able to contain executable binaries (up to 5GB size)
+    # should not be a remote/network/FUSE mount for speed reasons, otherwise extractors will be slow
+    LIB_DIR: Path                       = Field(default=CONSTANTS.DEFAULT_LIB_DIR)
+    
     OUTPUT_PERMISSIONS: str             = Field(default='644')
     RESTRICT_FILE_NAMES: str            = Field(default='windows')
     ENFORCE_ATOMIC_WRITES: bool         = Field(default=True)

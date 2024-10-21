@@ -82,10 +82,10 @@ class JSONSchemaWithLambdas(GenerateJsonSchema):
         if isinstance(default, Callable):
             return '{{lambda ' + inspect.getsource(default).split('=lambda ')[-1].strip()[:-1] + '}}'
         return to_jsonable_python(
-           default,
-           timedelta_mode=config.ser_json_timedelta,
-           bytes_mode=config.ser_json_bytes,
-           serialize_unknown=True
+            default,
+            timedelta_mode=config.ser_json_timedelta,
+            bytes_mode=config.ser_json_bytes,
+            serialize_unknown=True
         )
 
     # for computed_field properties render them like this instead:

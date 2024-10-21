@@ -258,6 +258,9 @@ def load_config_val(key: str,
 
     elif type is list or type is dict:
         return json.loads(val)
+    
+    elif type is Path:
+        return Path(val)
 
     raise Exception('Config values can only be str, bool, int, or json')
 
@@ -574,7 +577,7 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CON
             with SudoPermission(uid=0):
                 # running as root is a special case where it's ok to be a bit slower
                 # make sure data dir is always owned by the correct user
-                os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"')
+                os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}" 2>/dev/null')
                 os.system(f'chown {ARCHIVEBOX_USER}:{ARCHIVEBOX_GROUP} "{CONSTANTS.DATA_DIR}"/* 2>/dev/null')
 
         bump_startup_progress_bar()

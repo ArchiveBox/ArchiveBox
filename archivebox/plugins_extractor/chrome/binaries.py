@@ -104,7 +104,10 @@ class ChromeBinary(BaseBinary):
     }
 
     @staticmethod
-    def symlink_to_lib(binary, bin_dir=CONSTANTS.LIB_BIN_DIR) -> None:
+    def symlink_to_lib(binary, bin_dir=None) -> None:
+        from archivebox.config.common import STORAGE_CONFIG
+        bin_dir = bin_dir or STORAGE_CONFIG.LIB_DIR / 'bin'
+        
         if not (binary.abspath and os.access(binary.abspath, os.F_OK)):
             return
         

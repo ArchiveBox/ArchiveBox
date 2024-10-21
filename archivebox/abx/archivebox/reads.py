@@ -131,8 +131,11 @@ def get_SEARCHBACKENDS() -> Dict[str, 'BaseSearchBackend']:
 
 
 
-def get_scope_config(defaults=settings.CONFIG, persona=None, seed=None, crawl=None, snapshot=None, archiveresult=None, extra_config=None):
+def get_scope_config(defaults: benedict | None = None, persona=None, seed=None, crawl=None, snapshot=None, archiveresult=None, extra_config=None):
     """Get all the relevant config for the given scope, in correct precedence order"""
+    
+    from django.conf import settings
+    default_config: benedict = defaults or settings.CONFIG
     
     snapshot = snapshot or (archiveresult and archiveresult.snapshot)
     crawl = crawl or (snapshot and snapshot.crawl)
@@ -147,7 +150,7 @@ def get_scope_config(defaults=settings.CONFIG, persona=None, seed=None, crawl=No
     extra_config = extra_config or {}
     
     return {
-        **defaults,                     # defaults / config file / environment variables
+        **default_config,               # defaults / config file / environment variables
         **persona_config,               # lowest precedence
         **seed_config,
         **crawl_config,
