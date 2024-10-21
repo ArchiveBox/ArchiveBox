@@ -22,7 +22,6 @@ Documentation:
 __package__ = 'archivebox.config'
 
 import os
-import re
 import sys
 import json
 import shutil
@@ -49,152 +48,20 @@ from ..misc.logging import (
     hint,      # noqa
 )
 
-from .common import SHELL_CONFIG, GENERAL_CONFIG, ARCHIVING_CONFIG, SERVER_CONFIG, SEARCH_BACKEND_CONFIG, STORAGE_CONFIG
-from archivebox.plugins_extractor.favicon.config import FAVICON_CONFIG
-from archivebox.plugins_extractor.wget.config import WGET_CONFIG
-from archivebox.plugins_extractor.curl.config import CURL_CONFIG
+from .common import SHELL_CONFIG
 
 ANSI = SHELL_CONFIG.ANSI
 
-############################### Config Schema ##################################
-
-CONFIG_SCHEMA: Dict[str, Dict[str, Any]] = {
-    'SHELL_CONFIG': SHELL_CONFIG.as_legacy_config_schema(),
-
-    'SERVER_CONFIG': SERVER_CONFIG.as_legacy_config_schema(),
-    
-    'GENERAL_CONFIG': GENERAL_CONFIG.as_legacy_config_schema(),
-
-    'ARCHIVING_CONFIG': ARCHIVING_CONFIG.as_legacy_config_schema(),
-
-    'SEARCH_BACKEND_CONFIG': SEARCH_BACKEND_CONFIG.as_legacy_config_schema(),
-
-    'STORAGE_CONFIG': STORAGE_CONFIG.as_legacy_config_schema(),
-    
-    # 'FAVICON_CONFIG': FAVICON_CONFIG.as_legacy_config_schema(),
-    
-    # 'WGET_CONFIG': WGET_CONFIG.as_legacy_config_schema(),
-    
-    # 'CURL_CONFIG': CURL_CONFIG.as_legacy_config_schema(),
-
-
-    'ARCHIVE_METHOD_TOGGLES': {
-        'SAVE_TITLE':               {'type': bool,  'default': True, 'aliases': ('FETCH_TITLE',)},
-        'SAVE_FAVICON':             {'type': bool,  'default': True, 'aliases': ('FETCH_FAVICON',)},
-        'SAVE_WGET':                {'type': bool,  'default': True, 'aliases': ('FETCH_WGET',)},
-        'SAVE_WGET_REQUISITES':     {'type': bool,  'default': True, 'aliases': ('FETCH_WGET_REQUISITES',)},
-        'SAVE_SINGLEFILE':          {'type': bool,  'default': True, 'aliases': ('FETCH_SINGLEFILE',)},
-        'SAVE_READABILITY':         {'type': bool,  'default': True, 'aliases': ('FETCH_READABILITY',)},
-        'SAVE_MERCURY':             {'type': bool,  'default': True, 'aliases': ('FETCH_MERCURY',)},
-        'SAVE_HTMLTOTEXT':          {'type': bool,  'default': True, 'aliases': ('FETCH_HTMLTOTEXT',)},
-        'SAVE_PDF':                 {'type': bool,  'default': True, 'aliases': ('FETCH_PDF',)},
-        'SAVE_SCREENSHOT':          {'type': bool,  'default': True, 'aliases': ('FETCH_SCREENSHOT',)},
-        'SAVE_DOM':                 {'type': bool,  'default': True, 'aliases': ('FETCH_DOM',)},
-        'SAVE_HEADERS':             {'type': bool,  'default': True, 'aliases': ('FETCH_HEADERS',)},
-        'SAVE_WARC':                {'type': bool,  'default': True, 'aliases': ('FETCH_WARC',)},
-        'SAVE_GIT':                 {'type': bool,  'default': True, 'aliases': ('FETCH_GIT',)},
-        'SAVE_MEDIA':               {'type': bool,  'default': True, 'aliases': ('FETCH_MEDIA',)},
-        'SAVE_ARCHIVE_DOT_ORG':     {'type': bool,  'default': True, 'aliases': ('SUBMIT_ARCHIVE_DOT_ORG',)},
-        'SAVE_ALLOWLIST':           {'type': dict,  'default': {},},
-        'SAVE_DENYLIST':            {'type': dict,  'default': {},},
-    },
-
-    'ARCHIVE_METHOD_OPTIONS': {
-        'RESOLUTION':               {'type': str,   'default': '1440,2000', 'aliases': ('SCREENSHOT_RESOLUTION','WINDOW_SIZE')},
-        # 'GIT_DOMAINS':              {'type': str,   'default': 'github.com,bitbucket.org,gitlab.com,gist.github.com,codeberg.org,gitea.com,git.sr.ht'},
-        'CHECK_SSL_VALIDITY':       {'type': bool,  'default': True},
-        'MEDIA_MAX_SIZE':           {'type': str,   'default': '750m'},
-
-        'USER_AGENT':               {'type': str,   'default': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)'},
-        'CURL_USER_AGENT':          {'type': str,   'default': lambda c: c['USER_AGENT']}, # + ' curl/{CURL_VERSION}'},
-
-        'COOKIES_FILE':             {'type': str,   'default': None},
-
-        'YOUTUBEDL_ARGS':           {'type': list,  'default': lambda c: [
-                                                                '--restrict-filenames',
-                                                                '--trim-filenames', '128',
-                                                                '--write-description',
-                                                                '--write-info-json',
-                                                                '--write-annotations',
-                                                                '--write-thumbnail',
-                                                                '--no-call-home',
-                                                                '--write-sub',
-                                                                '--write-auto-subs',
-                                                                '--convert-subs=srt',
-                                                                '--yes-playlist',
-                                                                '--continue',
-                                                                # This flag doesn't exist in youtube-dl
-                                                                # only in yt-dlp
-                                                                '--no-abort-on-error',
-                                                                # --ignore-errors must come AFTER
-                                                                # --no-abort-on-error
-                                                                # https://github.com/yt-dlp/yt-dlp/issues/4914
-                                                                '--ignore-errors',
-                                                                '--geo-bypass',
-                                                                '--add-metadata',
-                                                                '--format=(bv*+ba/b)[filesize<={}][filesize_approx<=?{}]/(bv*+ba/b)'.format(c['MEDIA_MAX_SIZE'], c['MEDIA_MAX_SIZE']),
-                                                                ]},
-        'YOUTUBEDL_EXTRA_ARGS':     {'type': list,  'default': None},
-
-    },
-
-    'DEPENDENCY_CONFIG': {
-        'USE_CURL':                 {'type': bool,  'default': True},
-        'USE_SINGLEFILE':           {'type': bool,  'default': True},
-        'USE_READABILITY':          {'type': bool,  'default': True},
-        'USE_GIT':                  {'type': bool,  'default': True},
-        'USE_CHROME':               {'type': bool,  'default': True},
-        'USE_YOUTUBEDL':            {'type': bool,  'default': True},
-        'USE_RIPGREP':              {'type': bool,  'default': True},
-
-        # 'GIT_BINARY':               {'type': str,   'default': 'git'},
-        # 'CURL_BINARY':              {'type': str,   'default': 'curl'},
-        # 'NODE_BINARY':              {'type': str,   'default': 'node'},
-        # 'YOUTUBEDL_BINARY':         {'type': str,   'default': 'yt-dlp'},   # also can accept youtube-dl
-        # 'SINGLEFILE_BINARY':        {'type': str,   'default': lambda c: bin_path('single-file')},
-        # 'READABILITY_BINARY':       {'type': str,   'default': lambda c: bin_path('readability-extractor')},
-        # 'RIPGREP_BINARY':           {'type': str,   'default': 'rg'},
-
-        'POCKET_CONSUMER_KEY':      {'type': str,   'default': None},
-        'POCKET_ACCESS_TOKENS':     {'type': dict,  'default': {}},
-
-        'READWISE_READER_TOKENS':   {'type': dict,  'default': {}},
-    },
-}
-
-
-########################## Backwards-Compatibility #############################
-
-
-# for backwards compatibility with old config files, check old/deprecated names for each key
-CONFIG_ALIASES = {
-    alias: key
-    for section in CONFIG_SCHEMA.values()
-        for key, default in section.items()
-            for alias in default.get('aliases', ())
-}
-USER_CONFIG = {key: section[key] for section in CONFIG_SCHEMA.values() for key in section.keys()}
-
 def get_real_name(key: str) -> str:
     """get the current canonical name for a given deprecated config key"""
-    return CONFIG_ALIASES.get(key.upper().strip(), key.upper().strip())
-
-
-
-# These are derived/computed values calculated *after* all user-provided config values are ingested
-# they appear in `archivebox config` output and are intended to be read-only for the user
-DYNAMIC_CONFIG_SCHEMA: Dict[str, Any] = {
-    'URL_DENYLIST_PTN':         {'default': lambda c: c['URL_DENYLIST'] and re.compile(c['URL_DENYLIST'] or '', CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS)},
-    'URL_ALLOWLIST_PTN':        {'default': lambda c: c['URL_ALLOWLIST'] and re.compile(c['URL_ALLOWLIST'] or '', CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS)},
-
-    'SAVE_ALLOWLIST_PTN':       {'default': lambda c: c['SAVE_ALLOWLIST'] and {re.compile(k, CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_ALLOWLIST'].items()}},
-    'SAVE_DENYLIST_PTN':        {'default': lambda c: c['SAVE_DENYLIST'] and {re.compile(k, CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS): v for k, v in c['SAVE_DENYLIST'].items()}},
-}
-
-
-# print("FINISHED DEFINING SCHEMAS")
-
-################################### Helpers ####################################
+    from django.conf import settings
+    
+    for section in settings.CONFIGS.values():
+        try:
+            return section.aliases[key]
+        except KeyError:
+            pass
+    return key
 
 
 def load_config_val(key: str,
@@ -265,7 +132,7 @@ def load_config_val(key: str,
     raise Exception('Config values can only be str, bool, int, or json')
 
 
-def load_config_file(out_dir: str | None=CONSTANTS.DATA_DIR) -> Optional[benedict]:
+def load_config_file() -> Optional[benedict]:
     """load the ini-formatted config file from DATA_DIR/Archivebox.conf"""
 
     config_path = CONSTANTS.CONFIG_FILE
@@ -285,9 +152,18 @@ def load_config_file(out_dir: str | None=CONSTANTS.DATA_DIR) -> Optional[benedic
     return None
 
 
-def write_config_file(config: Dict[str, str], out_dir: str | None=CONSTANTS.DATA_DIR) -> benedict:
+def section_for_key(key: str) -> Any:
+    from django.conf import settings
+    for config_section in settings.CONFIGS.values():
+        if hasattr(config_section, key):
+            return config_section
+    return None
+
+
+def write_config_file(config: Dict[str, str]) -> benedict:
     """load the ini-formatted config file from DATA_DIR/Archivebox.conf"""
 
+    import abx.archivebox.reads
     from archivebox.misc.system import atomic_write
 
     CONFIG_HEADER = (
@@ -316,39 +192,30 @@ def write_config_file(config: Dict[str, str], out_dir: str | None=CONSTANTS.DATA
     with open(config_path, 'r', encoding='utf-8') as old:
         atomic_write(f'{config_path}.bak', old.read())
 
-    find_section = lambda key: [name for name, opts in CONFIG_SCHEMA.items() if key in opts][0]
-
     # Set up sections in empty config file
     for key, val in config.items():
-        section = find_section(key)
-        if section in config_file:
-            existing_config = dict(config_file[section])
+        section = section_for_key(key)
+        assert section is not None
+        
+        section_name = section.toml_section_header
+        
+        if section_name in config_file:
+            existing_config = dict(config_file[section_name])
         else:
             existing_config = {}
-        config_file[section] = benedict({**existing_config, key: val})
-
-    # always make sure there's a SECRET_KEY defined for Django
-    existing_secret_key = None
-    if 'SERVER_CONFIG' in config_file and 'SECRET_KEY' in config_file['SERVER_CONFIG']:
-        existing_secret_key = config_file['SERVER_CONFIG']['SECRET_KEY']
-
-    if (not existing_secret_key) or ('not a valid secret' in existing_secret_key):
-        from django.utils.crypto import get_random_string
-        chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_'
-        random_secret_key = get_random_string(50, chars)
-        if 'SERVER_CONFIG' in config_file:
-            config_file['SERVER_CONFIG']['SECRET_KEY'] = random_secret_key
-        else:
-            config_file['SERVER_CONFIG'] = {'SECRET_KEY': random_secret_key}
+        
+        config_file[section_name] = benedict({**existing_config, key: val})
+        section.update_in_place(warn=False, persist=False, **{key: val})
 
     with open(config_path, 'w+', encoding='utf-8') as new:
         config_file.write(new)
 
+    updated_config = {}
     try:
-        # validate the config by attempting to re-parse it
-        CONFIG = load_all_config()
+        # validate the updated_config by attempting to re-parse it
+        updated_config = {**load_all_config(), **abx.archivebox.reads.get_FLAT_CONFIG()}
     except BaseException:                                                       # lgtm [py/catch-base-exception]
-        # something went horribly wrong, rever to the previous version
+        # something went horribly wrong, revert to the previous version
         with open(f'{config_path}.bak', 'r', encoding='utf-8') as old:
             atomic_write(config_path, old.read())
 
@@ -358,7 +225,7 @@ def write_config_file(config: Dict[str, str], out_dir: str | None=CONSTANTS.DATA
         os.remove(f'{config_path}.bak')
 
     return benedict({
-        key.upper(): CONFIG.get(key.upper())
+        key.upper(): updated_config.get(key.upper())
         for key in config.keys()
     })
 
@@ -371,7 +238,7 @@ def load_config(defaults: Dict[str, Any],
                 config_file_vars: Optional[Dict[str, str]]=None) -> benedict:
 
     env_vars = env_vars or os.environ
-    config_file_vars = config_file_vars or load_config_file(out_dir=out_dir)
+    config_file_vars = config_file_vars or load_config_file()
 
     extended_config = benedict(config.copy() if config else {})
     for key, default in defaults.items():
@@ -486,17 +353,19 @@ def wget_supports_compression(config):
 
 
 def load_all_config():
-    CONFIG = benedict()
-    for section_name, section_config in CONFIG_SCHEMA.items():
-        # print('LOADING CONFIG SECTION:', section_name)
-        CONFIG = load_config(section_config, CONFIG)
-
-    # print("LOADING CONFIG SECTION:", 'DYNAMIC')
-    return load_config(DYNAMIC_CONFIG_SCHEMA, CONFIG)
+    import abx.archivebox.reads
+    
+    flat_config = benedict()
+    
+    for config_section in abx.archivebox.reads.get_CONFIGS().values():
+        config_section.__init__()
+        flat_config.update(config_section.model_dump())
+        
+    return flat_config
 
 # add all final config values in CONFIG to globals in this file
-CONFIG: benedict = load_all_config()
-globals().update(CONFIG)
+# CONFIG: benedict = {}
+# globals().update(CONFIG)
 
 
 # print("FINISHED LOADING CONFIG USING SCHEMAS + FILE + ENV")
@@ -507,15 +376,6 @@ globals().update(CONFIG)
 # ******************************************************************************
 # ******************************************************************************
 
-
-
-########################### System Environment Setup ###########################
-
-
-# Set timezone to UTC and umask to OUTPUT_PERMISSIONS
-assert CONSTANTS.TIMEZONE == 'UTC', f'The server timezone should always be set to UTC (got {CONSTANTS.TIMEZONE})'  # noqa: F821
-os.environ["TZ"] = CONSTANTS.TIMEZONE                                                  # noqa: F821
-os.umask(0o777 - int(STORAGE_CONFIG.DIR_OUTPUT_PERMISSIONS, base=8))                        # noqa: F821
 
 ########################### Config Validity Checkers ###########################
 
@@ -551,7 +411,7 @@ def setup_django_minimal():
 DJANGO_SET_UP = False
 
 
-def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CONFIG, in_memory_db=False) -> None:
+def setup_django(check_db=False, in_memory_db=False) -> None:
     from rich.panel import Panel
     
     global INITIAL_STARTUP_PROGRESS
@@ -565,10 +425,6 @@ def setup_django(out_dir: Path | None=None, check_db=False, config: benedict=CON
 
     with Progress(transient=True, expand=True, console=STDERR) as INITIAL_STARTUP_PROGRESS:
         INITIAL_STARTUP_PROGRESS_TASK = INITIAL_STARTUP_PROGRESS.add_task("[green]Loading modules...", total=25)
-
-        output_dir = out_dir or CONSTANTS.DATA_DIR
-
-        assert isinstance(output_dir, Path) and isinstance(CONSTANTS.PACKAGE_DIR, Path)
         
         from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, SudoPermission
     

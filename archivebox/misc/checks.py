@@ -50,6 +50,7 @@ def check_data_folder() -> None:
     
     # Check data dir permissions, /tmp, and /lib permissions
     check_data_dir_permissions()
+
     
 def check_migrations():
     from archivebox import DATA_DIR
@@ -65,6 +66,7 @@ def check_migrations():
         print(f'    [violet]Hint:[/violet] To upgrade it to the latest version and apply the {len(pending_migrations)} pending migrations, run:', file=sys.stderr)
         print('        archivebox init', file=sys.stderr)
         raise SystemExit(3)
+
 
 def check_io_encoding():
     PYTHON_ENCODING = (sys.__stdout__ or sys.stdout or sys.__stderr__ or sys.stderr).encoding.upper().replace('UTF8', 'UTF-8')
@@ -150,6 +152,8 @@ def check_data_dir_permissions():
 
     # Check /lib dir permissions
     check_lib_dir(STORAGE_CONFIG.LIB_DIR, throw=False, must_exist=True)
+    
+    os.umask(0o777 - int(STORAGE_CONFIG.DIR_OUTPUT_PERMISSIONS, base=8))                        # noqa: F821
 
 
 def check_tmp_dir(tmp_dir=None, throw=False, quiet=False, must_exist=True):

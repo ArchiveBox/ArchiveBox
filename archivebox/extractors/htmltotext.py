@@ -7,9 +7,10 @@ from typing import Optional
 
 from archivebox.config import VERSION
 from archivebox.config.common import ARCHIVING_CONFIG
-from archivebox.config.legacy import SAVE_HTMLTOTEXT
 from archivebox.misc.system import atomic_write
 from archivebox.misc.util import enforce_types, is_static_file
+
+from archivebox.plugins_extractor.htmltotext.config import HTMLTOTEXT_CONFIG
 
 from ..logging_util import TimedProgress
 from ..index.schema import Link, ArchiveResult, ArchiveError
@@ -114,7 +115,7 @@ def should_save_htmltotext(link: Link, out_dir: Optional[Path]=None, overwrite: 
     if not overwrite and (out_dir / get_output_path()).exists():
         return False
 
-    return SAVE_HTMLTOTEXT
+    return HTMLTOTEXT_CONFIG.SAVE_HTMLTOTEXT
 
 
 @enforce_types

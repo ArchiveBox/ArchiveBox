@@ -31,6 +31,7 @@ PACKAGE_DIR = Path(__file__).resolve().parent
 if str(PACKAGE_DIR) not in sys.path:
     sys.path.append(str(PACKAGE_DIR))
 os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
+os.environ['TZ'] = 'UTC'
 
 # detect ArchiveBox user's UID/GID based on data dir ownership
 from .config.permissions import drop_privileges                 # noqa

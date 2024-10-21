@@ -17,7 +17,6 @@ from archivebox.misc.util import scheme, enforce_types, ExtendedEncoder
 
 from archivebox.config import DATA_DIR, CONSTANTS
 from archivebox.config.common import ARCHIVING_CONFIG, STORAGE_CONFIG, SEARCH_BACKEND_CONFIG
-from archivebox.config.legacy import URL_DENYLIST_PTN, URL_ALLOWLIST_PTN
 
 from ..logging_util import (
     TimedProgress,
@@ -126,6 +125,7 @@ def validate_links(links: Iterable[Link]) -> List[Link]:
 @enforce_types
 def archivable_links(links: Iterable[Link]) -> Iterable[Link]:
     """remove chrome://, about:// or other schemed links that cant be archived"""
+    
     for link in links:
         try:
             urlparse(link.url)
@@ -133,9 +133,9 @@ def archivable_links(links: Iterable[Link]) -> Iterable[Link]:
             continue
         if scheme(link.url) not in ('http', 'https', 'ftp'):
             continue
-        if URL_DENYLIST_PTN and URL_DENYLIST_PTN.search(link.url):
+        if ARCHIVING_CONFIG.URL_DENYLIST_PTN and ARCHIVING_CONFIG.URL_DENYLIST_PTN.search(link.url):
             continue
-        if URL_ALLOWLIST_PTN and (not URL_ALLOWLIST_PTN.search(link.url)):
+        if ARCHIVING_CONFIG.URL_ALLOWLIST_PTN and (not ARCHIVING_CONFIG.URL_ALLOWLIST_PTN.search(link.url)):
             continue
 
         yield link

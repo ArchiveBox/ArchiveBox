@@ -10,7 +10,7 @@ import toml
 from rich import print
 
 from benedict import benedict
-from pydantic import model_validator, TypeAdapter
+from pydantic import model_validator, TypeAdapter, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
 from pydantic_settings.sources import TomlConfigSettingsSource
 
@@ -246,6 +246,26 @@ class BaseConfigSet(BaseSettings):
             print(file=sys.stderr)
             
         return self
+    
+    @property
+    def aliases(self) -> Dict[str, str]:
+        alias_map = {}
+        for key, field in self.model_fields.items():
+            alias_map[key] = key
+            
+            if field.validation_alias is None:
+                continue
+
+            if isinstance(field.validation_alias, AliasChoices):
+                for alias in field.validation_alias.choices:
+                    alias_map[alias] = key
+            elif isinstance(field.alias, str):
+                alias_map[field.alias] = key
+            else:
+                raise ValueError(f'Unknown alias type for field {key}: {field.alias}')
+        
+        return benedict(alias_map)
+    
     
     @property
     def toml_section_header(self):

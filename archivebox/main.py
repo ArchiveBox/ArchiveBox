@@ -396,8 +396,16 @@ def init(force: bool=False, quick: bool=False, install: bool=False, out_dir: Pat
     Path(CONSTANTS.SOURCES_DIR).mkdir(exist_ok=True)
     Path(CONSTANTS.ARCHIVE_DIR).mkdir(exist_ok=True)
     Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)
+    
     print(f'    + ./{CONSTANTS.CONFIG_FILE.relative_to(DATA_DIR)}...')
-    write_config_file({}, out_dir=str(out_dir))
+    
+    # create the .archivebox_id file with a unique ID for this collection
+    from archivebox.config.paths import _get_collection_id
+    _get_collection_id(CONSTANTS.DATA_DIR, force_create=True)
+    
+    # create the ArchiveBox.conf file
+    write_config_file({'SECRET_KEY': SERVER_CONFIG.SECRET_KEY})
+
 
     if os.access(CONSTANTS.DATABASE_FILE, os.F_OK):
         print('\n[green][*] Verifying main SQL index and running any migrations needed...[/green]')
@@ -1164,9 +1172,12 @@ def config(config_options_str: Optional[str]=None,
            config_options: Optional[List[str]]=None,
            get: bool=False,
            set: bool=False,
+           search: bool=False,
            reset: bool=False,
            out_dir: Path=DATA_DIR) -> None:
     """Get and set your ArchiveBox project configuration values"""
+
+    import abx.archivebox.reads
 
     from rich import print
 
@@ -1188,7 +1199,27 @@ def config(config_options_str: Optional[str]=None,
     no_args = not (get or set or reset or config_options)
 
     matching_config = {}
-    if get or no_args:
+    if search:
+        if config_options:
+            config_options = [get_real_name(key) for key in config_options]
+            matching_config = {key: settings.FLAT_CONFIG[key] for key in config_options if key in settings.FLAT_CONFIG}
+            for config_section in settings.CONFIGS.values():
+                aliases = config_section.aliases
+                
+                for search_key in config_options:
+                    # search all aliases in the section
+                    for alias_key, key in aliases.items():
+                        if search_key.lower() in alias_key.lower():
+                            matching_config[key] = config_section.model_dump()[key]
+                    
+                    # search all keys and values in the section
+                    for existing_key, value in config_section.model_dump().items():
+                        if search_key.lower() in existing_key.lower() or search_key.lower() in str(value).lower():
+                            matching_config[existing_key] = value
+            
+        print(printable_config(matching_config))
+        raise SystemExit(not matching_config)
+    elif get or no_args:
         if config_options:
             config_options = [get_real_name(key) for key in config_options]
             matching_config = {key: settings.FLAT_CONFIG[key] for key in config_options if key in settings.FLAT_CONFIG}
@@ -1227,14 +1258,15 @@ def config(config_options_str: Optional[str]=None,
 
         if new_config:
             before = settings.FLAT_CONFIG
-            matching_config = write_config_file(new_config, out_dir=DATA_DIR)
-            after = load_all_config()
+            matching_config = write_config_file(new_config)
+            after = {**load_all_config(), **abx.archivebox.reads.get_FLAT_CONFIG()}
             print(printable_config(matching_config))
 
             side_effect_changes = {}
             for key, val in after.items():
-                if key in settings.FLAT_CONFIG and (before[key] != after[key]) and (key not in matching_config):
+                if key in settings.FLAT_CONFIG and (str(before[key]) != str(after[key])) and (key not in matching_config):
                     side_effect_changes[key] = after[key]
+                    # import ipdb; ipdb.set_trace()
 
             if side_effect_changes:
                 stderr()

@@ -24,6 +24,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         formatter_class=SmartFormatter,
     )
     group = parser.add_mutually_exclusive_group()
+    parser.add_argument(
+        '--search',
+        action='store_true',
+        help="Search for KEYs that match the given search terms",
+    )
     group.add_argument(
         '--get', #'-g',
         action='store_true',
@@ -54,6 +59,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     config(
         config_options_str=config_options_str,
         config_options=command.config_options,
+        search=command.search,
         get=command.get,
         set=command.set,
         reset=command.reset,

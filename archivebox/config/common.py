@@ -1,8 +1,9 @@
 __package__ = 'archivebox.config'
 
+import re
 import sys
 import shutil
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from pathlib import Path
 
 from rich import print
@@ -107,19 +108,22 @@ SERVER_CONFIG = ServerConfig()
 
 
 class ArchivingConfig(BaseConfigSet):
-    ONLY_NEW: bool                      = Field(default=True)
+    ONLY_NEW: bool                        = Field(default=True)
     
-    TIMEOUT: int                        = Field(default=60)
-    MEDIA_TIMEOUT: int                  = Field(default=3600)
+    TIMEOUT: int                          = Field(default=60)
+    MEDIA_TIMEOUT: int                    = Field(default=3600)
 
-    MEDIA_MAX_SIZE: str                 = Field(default='750m')
-    RESOLUTION: str                     = Field(default='1440,2000')
-    CHECK_SSL_VALIDITY: bool            = Field(default=True)
-    USER_AGENT: str                     = Field(default='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)')
-    COOKIES_FILE: Path | None           = Field(default=None)
+    MEDIA_MAX_SIZE: str                   = Field(default='750m')
+    RESOLUTION: str                       = Field(default='1440,2000')
+    CHECK_SSL_VALIDITY: bool              = Field(default=True)
+    USER_AGENT: str                       = Field(default='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)')
+    COOKIES_FILE: Path | None             = Field(default=None)
     
-    URL_DENYLIST: str                   = Field(default=r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$', alias='URL_BLACKLIST')
-    URL_ALLOWLIST: str | None           = Field(default=None, alias='URL_WHITELIST')
+    URL_DENYLIST: str                     = Field(default=r'\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$', alias='URL_BLACKLIST')
+    URL_ALLOWLIST: str | None             = Field(default=None, alias='URL_WHITELIST')
+    
+    SAVE_ALLOWLIST: Dict[str, List[str]]  = Field(default={})  # mapping of regex patterns to list of archive methods
+    SAVE_DENYLIST: Dict[str, List[str]]   = Field(default={})
     
     # GIT_DOMAINS: str                    = Field(default='github.com,bitbucket.org,gitlab.com,gist.github.com,codeberg.org,gitea.com,git.sr.ht')
     # WGET_USER_AGENT: str                = Field(default=lambda c: c['USER_AGENT'] + ' wget/{WGET_VERSION}')
@@ -151,6 +155,28 @@ class ArchivingConfig(BaseConfigSet):
             requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         return v
+    
+    @property
+    def URL_ALLOWLIST_PTN(self) -> re.Pattern | None:
+        return re.compile(self.URL_ALLOWLIST, CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS) if self.URL_ALLOWLIST else None
+    
+    @property
+    def URL_DENYLIST_PTN(self) -> re.Pattern:
+        return re.compile(self.URL_DENYLIST, CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS)
+    
+    @property
+    def SAVE_ALLOWLIST_PTNS(self) -> Dict[re.Pattern, List[str]]:
+        return {
+            re.compile(k, CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS): v
+            for k, v in self.SAVE_ALLOWLIST.items()
+        } if self.SAVE_ALLOWLIST else {}
+    
+    @property
+    def SAVE_DENYLIST_PTNS(self) -> Dict[re.Pattern, List[str]]:
+        return {
+            re.compile(k, CONSTANTS.ALLOWDENYLIST_REGEX_FLAGS): v
+            for k, v in self.SAVE_DENYLIST.items()
+        } if self.SAVE_DENYLIST else {}
 
 ARCHIVING_CONFIG = ArchivingConfig()
 

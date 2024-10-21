@@ -10,10 +10,6 @@ from datetime import datetime, timezone
 
 from django.db.models import QuerySet
 
-from archivebox.config.legacy import (
-    SAVE_ALLOWLIST_PTN,
-    SAVE_DENYLIST_PTN,
-)
 from ..index.schema import ArchiveResult, Link
 from ..index.sql import write_link_to_sql_index
 from ..index import (
@@ -82,27 +78,30 @@ ARCHIVE_METHODS_INDEXING_PRECEDENCE = [
 
 @enforce_types
 def get_archive_methods_for_link(link: Link) -> Iterable[ArchiveMethodEntry]:
+    from archivebox.config.common import ARCHIVING_CONFIG
+    
     DEFAULT_METHODS = get_default_archive_methods()
     allowed_methods = {
-        m for pat, methods in
-        SAVE_ALLOWLIST_PTN.items()
-        if pat.search(link.url)
-        for m in methods
-    } or { m[0] for m in DEFAULT_METHODS }
+        method_name
+        for url_pattern, methods in ARCHIVING_CONFIG.SAVE_ALLOWLIST_PTNS.items()
+            for method_name in methods
+                if url_pattern.search(link.url)
+    } or { method[0] for method in DEFAULT_METHODS }
+    
     denied_methods = {
-        m for pat, methods in
-        SAVE_DENYLIST_PTN.items()
-        if pat.search(link.url)
-        for m in methods
+        method_name
+        for url_pattern, methods in ARCHIVING_CONFIG.SAVE_DENYLIST_PTNS.items()
+            for method_name in methods
+                if url_pattern.search(link.url)
     }
     allowed_methods -= denied_methods
 
-    return (m for m in DEFAULT_METHODS if m[0] in allowed_methods)
+    return [method for method in DEFAULT_METHODS if method[0] in allowed_methods]
 
 @enforce_types
 def ignore_methods(to_ignore: List[str]) -> Iterable[str]:
     ARCHIVE_METHODS = get_default_archive_methods()
-    return [x[0] for x in ARCHIVE_METHODS if x[0] not in to_ignore]
+    return [method[0] for method in ARCHIVE_METHODS if method[0] not in to_ignore]
 
 @enforce_types
 def archive_link(link: Link, overwrite: bool=False, methods: Optional[Iterable[str]]=None, out_dir: Optional[Path]=None, created_by_id: int | None=None) -> Link:
