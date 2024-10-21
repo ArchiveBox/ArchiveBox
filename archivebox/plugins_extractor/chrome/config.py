@@ -102,7 +102,7 @@ class ChromeConfig(BaseConfigSet):
     
     # Cookies & Auth
     CHROME_USER_AGENT: str                  = Field(default=lambda: ARCHIVING_CONFIG.USER_AGENT)
-    CHROME_USER_DATA_DIR: Path | None       = Field(default=None)
+    CHROME_USER_DATA_DIR: Path | None       = Field(default=CONSTANTS.PERSONAS_DIR / 'Default' / 'chrome_profile')
     CHROME_PROFILE_NAME: str                = Field(default='Default')
 
     # Extractor Toggles
@@ -110,9 +110,11 @@ class ChromeConfig(BaseConfigSet):
     SAVE_DOM: bool                          = Field(default=True, alias='FETCH_DOM')
     SAVE_PDF: bool                          = Field(default=True, alias='FETCH_PDF')
 
-    @model_validator(mode='after')
-    def validate_use_chrome(self):
+    def validate(self):
+        from archivebox.config.paths import create_and_chown_dir
+
         if self.USE_CHROME and self.CHROME_TIMEOUT < 15:
+            STDERR.print()
             STDERR.print(f'[red][!] Warning: TIMEOUT is set too low! (currently set to TIMEOUT={self.CHROME_TIMEOUT} seconds)[/red]')
             STDERR.print('    Chrome will fail to archive all sites if set to less than ~15 seconds.')
             STDERR.print('    (Setting it to somewhere between 30 and 300 seconds is recommended)')
@@ -120,29 +122,32 @@ class ChromeConfig(BaseConfigSet):
             STDERR.print('    If you want to make ArchiveBox run faster, disable specific archive methods instead:')
             STDERR.print('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles')
             STDERR.print()
-            
+
         # if user has specified a user data dir, make sure its valid
-        if self.CHROME_USER_DATA_DIR and os.access(self.CHROME_USER_DATA_DIR, os.R_OK):
+        if self.USE_CHROME and self.CHROME_USER_DATA_DIR:
+            try:
+                create_and_chown_dir(self.CHROME_USER_DATA_DIR / self.CHROME_PROFILE_NAME)
+            except Exception:
+                pass
+            
             # check to make sure user_data_dir/<profile_name> exists
-            if not (self.CHROME_USER_DATA_DIR / self.CHROME_PROFILE_NAME).is_dir():
+            if not os.path.isdir(self.CHROME_USER_DATA_DIR / self.CHROME_PROFILE_NAME):
+                STDERR.print()
+                STDERR.print()
                 STDERR.print(f'[red][X] Could not find profile "{self.CHROME_PROFILE_NAME}" in CHROME_USER_DATA_DIR.[/red]')
                 STDERR.print(f'    {self.CHROME_USER_DATA_DIR}')
                 STDERR.print('    Make sure you set it to a Chrome user data directory containing a Default profile folder.')
                 STDERR.print('    For more info see:')
                 STDERR.print('        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#CHROME_USER_DATA_DIR')
-                if '/Default' in str(self.CHROME_USER_DATA_DIR):
+                
+                # show special hint if they made the common mistake of putting /Default at the end of the path
+                if str(self.CHROME_USER_DATA_DIR).replace(str(CONSTANTS.PERSONAS_DIR / 'Default'), '').endswith('/Default'):
                     STDERR.print()
                     STDERR.print('    Try removing /Default from the end e.g.:')
-                    STDERR.print('        CHROME_USER_DATA_DIR="{}"'.format(str(self.CHROME_USER_DATA_DIR).split('/Default')[0]))
+                    STDERR.print('        CHROME_USER_DATA_DIR="{}"'.format(str(self.CHROME_USER_DATA_DIR).rsplit('/Default', 1)[0]))
                 
-                # hard error is too annoying here, instead just set it to nothing
-                # raise SystemExit(2)
-                self.update_in_place(CHROME_USER_DATA_DIR=None)
-        else:
-            if self.CHROME_USER_DATA_DIR is not None:
                 self.update_in_place(CHROME_USER_DATA_DIR=None)
             
-        return self
 
     def chrome_args(self, **options) -> List[str]:
         """helper to build up a chrome shell command with arguments"""
@@ -186,6 +191,11 @@ class ChromeConfig(BaseConfigSet):
         if options.CHROME_USER_DATA_DIR:
             cmd_args.append('--user-data-dir={}'.format(options.CHROME_USER_DATA_DIR))
             cmd_args.append('--profile-directory={}'.format(options.CHROME_PROFILE_NAME or 'Default'))
+        
+            if not os.path.isfile(options.CHROME_USER_DATA_DIR / options.CHROME_PROFILE_NAME / 'Preferences'):
+                STDERR.print(f'[green]        + creating new Chrome profile in: {pretty_path(options.CHROME_USER_DATA_DIR / options.CHROME_PROFILE_NAME)}[/green]')
+                cmd_args.remove('--no-first-run')
+                cmd_args.append('--first-run')
     
         return dedupe(cmd_args)
 
