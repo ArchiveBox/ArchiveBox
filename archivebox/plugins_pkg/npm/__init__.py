@@ -1,6 +1,7 @@
 __package__ = 'plugins_pkg.npm'
-__label__ = 'npm'
 __version__ = '2024.10.14'
+__id__ = 'npm'
+__label__ = 'npm'
 __author__ = 'ArchiveBox'
 __homepage__ = 'https://www.npmjs.com/'
 
@@ -10,12 +11,13 @@ import abx
 @abx.hookimpl
 def get_PLUGIN():
     return {
-        'npm': {
-            'PACKAGE': __package__,
-            'LABEL': __label__,
-            'VERSION': __version__,
-            'AUTHOR': __author__,
-            'HOMEPAGE': __homepage__,
+        __id__: {
+            'id': __id__,
+            'package': __package__,
+            'label': __label__,
+            'version': __version__,
+            'author': __author__,
+            'homepage': __homepage__,
         }
     }
 
@@ -24,7 +26,7 @@ def get_CONFIG():
     from .config import NPM_CONFIG
     
     return {
-        'npm': NPM_CONFIG,
+        __id__: NPM_CONFIG,
     }
 
 @abx.hookimpl

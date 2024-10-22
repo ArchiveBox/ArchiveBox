@@ -1,8 +1,9 @@
 __package__ = 'plugins_extractor.wget'
-__label__ = 'wget'
+__id__ = 'wget'
+__label__ = 'WGET'
 __version__ = '2024.10.14'
 __author__ = 'ArchiveBox'
-__homepage__ = 'https://github.com/ArchiveBox/ArchiveBox/tree/main/archivebox/plugins_extractor/wget'
+__homepage__ = 'https://github.com/ArchiveBox/ArchiveBox/tree/dev/archivebox/plugins_extractor/wget'
 __dependencies__ = []
 
 import abx
@@ -11,13 +12,14 @@ import abx
 @abx.hookimpl
 def get_PLUGIN():
     return {
-        'wget': {
-            'PACKAGE': __package__,
-            'LABEL': __label__,
-            'VERSION': __version__,
-            'AUTHOR': __author__,
-            'HOMEPAGE': __homepage__,
-            'DEPENDENCIES': __dependencies__,
+        __id__: {
+            'id': __id__,
+            'package': __package__,
+            'label': __label__,
+            'version': __version__,
+            'author': __author__,
+            'homepage': __homepage__,
+            'dependencies': __dependencies__,
         }
     }
 
@@ -26,7 +28,7 @@ def get_CONFIG():
     from .config import WGET_CONFIG
         
     return {
-        'wget': WGET_CONFIG
+        __id__: WGET_CONFIG
     }
 
 @abx.hookimpl
