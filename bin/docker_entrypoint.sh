@@ -113,8 +113,10 @@ fi
 # also create and chown tmp dir and lib dirs
 mkdir -p "$DATA_DIR"/lib/bin
 chown $PUID:$PGID "$DATA_DIR"/lib "$DATA_DIR"/lib/*
+chown $PUID:$PGID "$LIB_DIR/*" 2>/dev/null &
 mkdir -p "$DATA_DIR"/tmp/workers
 chown $PUID:$PGID "$DATA_DIR"/tmp "$DATA_DIR"/tmp/*
+chown $PUID:$PGID "$TMP_DIR/*" 2>/dev/null &
 
 # (this check is written in blood in 2023, QEMU silently breaks things in ways that are not obvious)
 export IN_QEMU="$(pmap 1 | grep qemu >/dev/null && echo 'True' || echo 'False')"
