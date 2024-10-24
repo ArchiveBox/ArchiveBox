@@ -8,10 +8,12 @@ import argparse
 
 from typing import List, Optional, IO
 
+from archivebox.misc.util import docstring
+from archivebox.config import DATA_DIR
+from archivebox.config.common import ARCHIVING_CONFIG
+
 from ..main import add
-from ..util import docstring
 from ..parsers import PARSERS
-from ..config import OUTPUT_DIR, ONLY_NEW
 from ..logging_util import SmartFormatter, accept_stdin, stderr
 
 
@@ -32,7 +34,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     parser.add_argument(
         '--update', #'-u',
         action='store_true',
-        default=not ONLY_NEW,  # when ONLY_NEW=True we skip updating old links
+        default=not ARCHIVING_CONFIG.ONLY_NEW,  # when ONLY_NEW=True we skip updating old links
         help="Also retry previously skipped/failed links when adding new links",
     )
     parser.add_argument(
@@ -117,7 +119,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         init=command.init,
         extractors=command.extract,
         parser=command.parser,
-        out_dir=pwd or OUTPUT_DIR,
+        out_dir=pwd or DATA_DIR,
     )
 
 

@@ -8,10 +8,10 @@ import argparse
 
 from typing import Optional, List, IO
 
-from ..main import init
-from ..util import docstring
-from ..config import OUTPUT_DIR
+from archivebox.misc.util import docstring
+from archivebox.config import DATA_DIR
 from ..logging_util import SmartFormatter, reject_stdin
+from ..main import init
 
 
 @docstring(init.__doc__)
@@ -33,9 +33,14 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help='Run any updates or migrations without rechecking all snapshot dirs',
     )
     parser.add_argument(
-        '--setup', #'-s',
+        '--install', #'-s',
         action='store_true',
         help='Automatically install dependencies and extras used for archiving',
+    )
+    parser.add_argument(
+        '--setup', #'-s',
+        action='store_true',
+        help='DEPRECATED: equivalent to --install',
     )
     command = parser.parse_args(args or ())
     reject_stdin(__command__, stdin)
@@ -43,8 +48,8 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     init(
         force=command.force,
         quick=command.quick,
-        setup=command.setup,
-        out_dir=pwd or OUTPUT_DIR,
+        install=command.install or command.setup,
+        out_dir=pwd or DATA_DIR,
     )
     
 

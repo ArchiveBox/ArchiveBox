@@ -5,13 +5,13 @@ __command__ = 'archivebox schedule'
 
 import sys
 import argparse
-
+from pathlib import Path
 from typing import Optional, List, IO
 
-from ..main import schedule
-from ..util import docstring
-from ..config import OUTPUT_DIR
+from archivebox.misc.util import docstring
+from archivebox.config import DATA_DIR
 from ..logging_util import SmartFormatter, reject_stdin
+from ..main import schedule
 
 
 @docstring(schedule.__doc__)
@@ -108,7 +108,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         overwrite=command.overwrite,
         update=command.update,
         import_path=command.import_path,
-        out_dir=pwd or OUTPUT_DIR,
+        out_dir=Path(pwd) if pwd else DATA_DIR,
     )
 
 

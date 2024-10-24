@@ -9,7 +9,7 @@ set -o errexit
 set -o errtrace
 set -o nounset
 set -o pipefail
-IFS=$'\n'
+IFS=$' '
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 cd "$REPO_DIR"
@@ -18,15 +18,34 @@ which docker > /dev/null || exit 1
 which jq > /dev/null || exit 1
 # which pdm > /dev/null || exit 1
 
-SUPPORTED_PLATFORMS="linux/amd64,linux/arm64,linux/arm/v7"
-
-TAG_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
-VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
-SHORT_VERSION="$(echo "$VERSION" | perl -pe 's/(\d+)\.(\d+)\.(\d+)/$1.$2/g')"
+declare -a TAG_NAMES=("$@")
+BRANCH_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
+VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
 GIT_SHA=sha-"$(git rev-parse --short HEAD)"
-SELECTED_PLATFORMS="${2:-$SUPPORTED_PLATFORMS}"
+SELECTED_PLATFORMS="linux/amd64,linux/arm64"
 
-echo "[+] Building Docker image: tag=$TAG_NAME version=$SHORT_VERSION arch=$SELECTED_PLATFORMS"
+# if not already in TAG_NAMES, add GIT_SHA and BRANCH_NAME  
+if ! echo "${TAG_NAMES[@]}" | grep -q "$GIT_SHA"; then
+    TAG_NAMES+=("$GIT_SHA")
+fi
+if ! echo "${TAG_NAMES[@]}" | grep -q "$BRANCH_NAME"; then
+    TAG_NAMES+=("$BRANCH_NAME")
+fi
+if ! echo "${TAG_NAMES[@]}" | grep -q "$VERSION"; then
+    TAG_NAMES+=("$VERSION")
+fi
+
+echo "[+] Building Docker image for $SELECTED_PLATFORMS: branch=$BRANCH_NAME version=$VERSION tags=${TAG_NAMES[*]}"
+
+declare -a FULL_TAG_NAMES
+# for each tag in TAG_NAMES, add archivebox/archivebox:tag and nikisweeting/archivebox:tag to FULL_TAG_NAMES
+for TAG_NAME in "${TAG_NAMES[@]}"; do
+    [[ "$TAG_NAME" == "" ]] && continue
+    FULL_TAG_NAMES+=("-t archivebox/archivebox:$TAG_NAME")
+    FULL_TAG_NAMES+=("-t nikisweeting/archivebox:$TAG_NAME")
+    FULL_TAG_NAMES+=("-t ghcr.io/archivebox/archivebox:$TAG_NAME")
+done
+echo "${FULL_TAG_NAMES[@]}"
 
 function check_platforms() {
     INSTALLED_PLATFORMS="$(docker buildx inspect | grep 'Platforms:' )"
@@ -67,35 +86,18 @@ function recreate_builder() {
 }
 
 # Check if docker is ready for cross-plaform builds, if not, recreate builder
-docker buildx use xbuilder 2>&1 >/dev/null || create_builder
+docker buildx use xbuilder >/dev/null 2>&1 || create_builder
 check_platforms || (recreate_builder && check_platforms) || exit 1
 
 
-# Build python package lists
-echo "[+] Generating requirements.txt and pdm.lock from pyproject.toml..."
-pdm lock --group=':all' --strategy="cross_platform" --production
-pdm export --group=':all' --production --without-hashes -o requirements.txt
+# Make sure pyproject.toml, pdm{.dev}.lock, requirements{-dev}.txt, package{-lock}.json are all up-to-date
+# echo "[!] Make sure you've run ./bin/lock_pkgs.sh recently!"
+bash ./bin/lock_pkgs.sh
 
 
 echo "[+] Building archivebox:$VERSION docker image..."
 # docker builder prune
 # docker build . --no-cache -t archivebox-dev \
 # replace --load with --push to deploy
-docker buildx build --platform "$SELECTED_PLATFORMS" --load . \
-               -t archivebox/archivebox \
-               -t archivebox/archivebox:$TAG_NAME \
-               -t archivebox/archivebox:$VERSION \
-               -t archivebox/archivebox:$SHORT_VERSION \
-               -t archivebox/archivebox:$GIT_SHA \
-               -t archivebox/archivebox:latest \
-               -t nikisweeting/archivebox \
-               -t nikisweeting/archivebox:$TAG_NAME \
-               -t nikisweeting/archivebox:$VERSION \
-               -t nikisweeting/archivebox:$SHORT_VERSION \
-               -t nikisweeting/archivebox:$GIT_SHA \
-               -t nikisweeting/archivebox:latest \
-               -t ghcr.io/archivebox/archivebox/archivebox:$TAG_NAME \
-               -t ghcr.io/archivebox/archivebox/archivebox:$VERSION \
-               -t ghcr.io/archivebox/archivebox/archivebox:$SHORT_VERSION \
-               -t ghcr.io/archivebox/archivebox/archivebox:$GIT_SHA \
-               -t ghcr.io/archivebox/archivebox/archivebox:latest
+# shellcheck disable=SC2068
+docker buildx build --platform "$SELECTED_PLATFORMS" --load . ${FULL_TAG_NAMES[@]}

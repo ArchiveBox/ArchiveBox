@@ -8,43 +8,54 @@ set -o errexit
 set -o errtrace
 set -o nounset
 set -o pipefail
-IFS=$'\n'
+IFS=$' '
 
 REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 cd "$REPO_DIR"
 
-SUPPORTED_PLATFORMS="linux/amd64,linux/arm64,linux/arm/v7"
-
-TAG_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
-VERSION="$(jq -r '.version' < "$REPO_DIR/package.json")"
-SHORT_VERSION="$(echo "$VERSION" | perl -pe 's/(\d+)\.(\d+)\.(\d+)/$1.$2/g')"
+declare -a TAG_NAMES=("$@")
+BRANCH_NAME="${1:-$(git rev-parse --abbrev-ref HEAD)}"
+VERSION="$(grep '^version = ' "${REPO_DIR}/pyproject.toml" | awk -F'"' '{print $2}')"
 GIT_SHA=sha-"$(git rev-parse --short HEAD)"
-SELECTED_PLATFORMS="${2:-$SUPPORTED_PLATFORMS}"
+SELECTED_PLATFORMS="linux/amd64,linux/arm64"
 
+# if not already in TAG_NAMES, add GIT_SHA and BRANCH_NAME  
+if ! echo "${TAG_NAMES[@]}" | grep -q "$GIT_SHA"; then
+   TAG_NAMES+=("$GIT_SHA")
+fi
+if ! echo "${TAG_NAMES[@]}" | grep -q "$BRANCH_NAME"; then
+   TAG_NAMES+=("$BRANCH_NAME")
+fi
+if ! echo "${TAG_NAMES[@]}" | grep -q "$VERSION"; then
+   TAG_NAMES+=("$VERSION")
+fi
+
+echo "[+] Building + releasing Docker image for $SELECTED_PLATFORMS: branch=$BRANCH_NAME version=$VERSION tags=${TAG_NAMES[*]}"
+
+declare -a FULL_TAG_NAMES
+# for each tag in TAG_NAMES, add archivebox/archivebox:tag and nikisweeting/archivebox:tag to FULL_TAG_NAMES
+for TAG_NAME in "${TAG_NAMES[@]}"; do
+    [[ "$TAG_NAME" == "" ]] && continue
+    FULL_TAG_NAMES+=("-t archivebox/archivebox:$TAG_NAME")
+    FULL_TAG_NAMES+=("-t nikisweeting/archivebox:$TAG_NAME")
+    FULL_TAG_NAMES+=("-t ghcr.io/archivebox/archivebox:$TAG_NAME")
+done
+echo "${FULL_TAG_NAMES[@]}"
+
+
+./bin/lock_pkgs.sh
 
 # echo "[*] Logging in to Docker Hub & Github Container Registry"
 # docker login --username=nikisweeting
 # docker login ghcr.io --username=pirate
 
-echo "[^] Building docker image"
-./bin/build_docker.sh "$TAG_NAME" "$SELECTED_PLATFORMS"
-
 echo "[^] Uploading docker image"
-docker buildx build --platform "$SELECTED_PLATFORMS" --push . \
-               -t archivebox/archivebox \
-               -t archivebox/archivebox:$TAG_NAME \
-               -t archivebox/archivebox:$VERSION \
-               -t archivebox/archivebox:$SHORT_VERSION \
-               -t archivebox/archivebox:$GIT_SHA \
-               -t archivebox/archivebox:latest \
-               -t nikisweeting/archivebox \
-               -t nikisweeting/archivebox:$TAG_NAME \
-               -t nikisweeting/archivebox:$VERSION \
-               -t nikisweeting/archivebox:$SHORT_VERSION \
-               -t nikisweeting/archivebox:$GIT_SHA \
-               -t nikisweeting/archivebox:latest \
-               -t ghcr.io/archivebox/archivebox/archivebox:$TAG_NAME \
-               -t ghcr.io/archivebox/archivebox/archivebox:$VERSION \
-               -t ghcr.io/archivebox/archivebox/archivebox:$SHORT_VERSION \
-               -t ghcr.io/archivebox/archivebox/archivebox:$GIT_SHA
+mkdir -p "$HOME/.cache/docker/archivebox"
 
+# https://docs.docker.com/build/cache/backends/
+# shellcheck disable=SC2068
+exec docker buildx build \
+   --platform "$SELECTED_PLATFORMS" \
+   --cache-from type=local,src="$HOME/.cache/docker/archivebox" \
+   --cache-to type=local,compression=zstd,mode=min,oci-mediatypes=true,dest="$HOME/.cache/docker/archivebox" \
+   --push . ${FULL_TAG_NAMES[@]}   

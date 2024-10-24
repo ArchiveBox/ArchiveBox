@@ -5,12 +5,12 @@ __command__ = 'archivebox help'
 
 import sys
 import argparse
-
+from pathlib import Path
 from typing import Optional, List, IO
 
+from archivebox.misc.util import docstring
+from archivebox.config import DATA_DIR
 from ..main import help
-from ..util import docstring
-from ..config import OUTPUT_DIR
 from ..logging_util import SmartFormatter, reject_stdin
 
 
@@ -25,7 +25,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     parser.parse_args(args or ())
     reject_stdin(__command__, stdin)
     
-    help(out_dir=pwd or OUTPUT_DIR)
+    help(out_dir=Path(pwd) if pwd else DATA_DIR)
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@ __pycache__/
 .pdm-python
 .eggs/
 .git/
+.vscode/
 !.git/HEAD
 !.git/refs/heads/*
 
@@ -17,6 +18,11 @@ venv/
 .venv-old/
 .docker-venv/
 node_modules/
+chrome/
+chromeprofile/
+
+pdm.dev.lock
+pdm.lock
 
 docs/
 build/
@@ -26,6 +32,11 @@ deb_dist/
 pip_dist/
 assets/
 docker/
+website/
+typings/
 
 data/
+data*/
 output/
+index.sqlite3
+index.sqlite3-wal

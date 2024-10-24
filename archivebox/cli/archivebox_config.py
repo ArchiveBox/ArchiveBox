@@ -5,12 +5,13 @@ __command__ = 'archivebox config'
 
 import sys
 import argparse
+from pathlib import Path
 
 from typing import Optional, List, IO
 
+from archivebox.misc.util import docstring
+from archivebox.config import DATA_DIR
 from ..main import config
-from ..util import docstring
-from ..config import OUTPUT_DIR
 from ..logging_util import SmartFormatter, accept_stdin
 
 
@@ -23,6 +24,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         formatter_class=SmartFormatter,
     )
     group = parser.add_mutually_exclusive_group()
+    parser.add_argument(
+        '--search',
+        action='store_true',
+        help="Search config KEYs, VALUEs, and ALIASES for the given term",
+    )
     group.add_argument(
         '--get', #'-g',
         action='store_true',
@@ -53,10 +59,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     config(
         config_options_str=config_options_str,
         config_options=command.config_options,
+        search=command.search,
         get=command.get,
         set=command.set,
         reset=command.reset,
-        out_dir=pwd or OUTPUT_DIR,
+        out_dir=Path(pwd) if pwd else DATA_DIR,
     )
 
 

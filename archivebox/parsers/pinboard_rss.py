@@ -2,50 +2,41 @@ __package__ = 'archivebox.parsers'
 
 
 from typing import IO, Iterable
-from datetime import datetime, timezone
-
-from xml.etree import ElementTree
+from time import mktime
+from feedparser import parse as feedparser
 
 from ..index.schema import Link
-from ..util import (
+from archivebox.misc.util import (
     htmldecode,
-    enforce_types,
+    enforce_types
 )
-
 
 @enforce_types
 def parse_pinboard_rss_export(rss_file: IO[str], **_kwargs) -> Iterable[Link]:
     """Parse Pinboard RSS feed files into links"""
 
     rss_file.seek(0)
-    root = ElementTree.parse(rss_file).getroot()
-    items = root.findall("{http://purl.org/rss/1.0/}item")
-    for item in items:
-        find = lambda p: item.find(p).text.strip() if item.find(p) is not None else None    # type: ignore
+    feed = feedparser(rss_file.read())
+    for item in feed.entries:
+        url = item.link
+        # title will start with "[priv] " if pin was marked private. useful?
+        title = item.title
+        time = mktime(item.updated_parsed)
 
-        url = find("{http://purl.org/rss/1.0/}link")
-        tags = find("{http://purl.org/dc/elements/1.1/}subject")
-        title = find("{http://purl.org/rss/1.0/}title")
-        ts_str = find("{http://purl.org/dc/elements/1.1/}date")
+        # all tags are in one entry.tags with spaces in it. annoying!
+        try:
+            tags = item.tags[0].term.replace(' ', ',')
+        except AttributeError:
+            tags = ''
         
         if url is None:
             # Yielding a Link with no URL will
             # crash on a URL validation assertion
             continue
 
-        # Pinboard includes a colon in its date stamp timezone offsets, which
-        # Python can't parse. Remove it:
-        if ts_str and ts_str[-3:-2] == ":":
-            ts_str = ts_str[:-3]+ts_str[-2:]
-
-        if ts_str:
-            time = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%S%z")
-        else:
-            time = datetime.now(timezone.utc)
-
         yield Link(
             url=htmldecode(url),
-            timestamp=str(time.timestamp()),
+            timestamp=str(time),
             title=htmldecode(title) or None,
             tags=htmldecode(tags) or None,
             sources=[rss_file.name],

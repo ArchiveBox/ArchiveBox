@@ -1,0 +1,8 @@
+# this folder contains vendored versions of these packages
+
+#atomicwrites==1.4.0
+#pocket==0.3.7
+pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7
+#django-taggit==1.3.0
+#base32-crockford==0.3.0
+pydantic-pkgr>=0.4.7

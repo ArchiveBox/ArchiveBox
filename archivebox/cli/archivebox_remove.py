@@ -5,13 +5,13 @@ __command__ = 'archivebox remove'
 
 import sys
 import argparse
-
+from pathlib import Path
 from typing import Optional, List, IO
 
-from ..main import remove
-from ..util import docstring
-from ..config import OUTPUT_DIR
+from archivebox.misc.util import docstring
+from archivebox.config import DATA_DIR
 from ..logging_util import SmartFormatter, accept_stdin
+from ..main import remove
 
 
 @docstring(remove.__doc__)
@@ -74,7 +74,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         after=command.after,
         yes=command.yes,
         delete=command.delete,
-        out_dir=pwd or OUTPUT_DIR,
+        out_dir=Path(pwd) if pwd else DATA_DIR,
     )
     
 
