@@ -134,6 +134,9 @@ dev-dependencies = [
     "django-autotyping>=0.5.1",
 ]
 
+[tool.uv.workspace]
+members = ["packages/*"]
+
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
@@ -211,3 +214,21 @@ Demo = "https://demo.archivebox.io"
 Donate = "https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"
 
 
+
+[tool.bumpver]
+current_version = "0.8.5rc51"
+version_pattern = "MAJOR.MINOR.PATCH[PYTAGNUM]"
+commit_message = "bump version {old_version} -> {new_version}"
+tag_message = "v{new_version}"
+tag_scope = "default"
+pre_commit_hook = ""
+post_commit_hook = ""
+commit = true
+tag = true
+push = true
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    'current_version = "{version}"',
+    'version = "{version}"',
+]
