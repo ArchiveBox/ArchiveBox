@@ -88,7 +88,7 @@ def create_root_snapshot_from_seed(crawl):
 def create_archiveresults_pending_from_snapshot(snapshot, config):
     config = get_scope_config(
         # defaults=settings.CONFIG_FROM_DEFAULTS,
-        # configfile=settings.CONFIG_FROM_FILE,
+        # collection=settings.CONFIG_FROM_FILE,
         # environment=settings.CONFIG_FROM_ENVIRONMENT,
         persona=archiveresult.snapshot.crawl.persona,
         seed=archiveresult.snapshot.crawl.seed,

@@ -4,10 +4,9 @@ import json
 import os
 
 from typing import Optional, List, Literal, Annotated, Dict, Any, Tuple
-from typing_extensions import Self
 from pathlib import Path
 
-from pydantic import model_validator, AfterValidator
+from pydantic import AfterValidator
 from pydantic_pkgr import BinName
 from django.utils.functional import cached_property
 from django.utils import timezone
@@ -17,36 +16,22 @@ import abx
 from .base_binary import BaseBinary
 
 
-def no_empty_args(args: List[str]) -> List[str]:
+def assert_no_empty_args(args: List[str]) -> List[str]:
     assert all(len(arg) for arg in args)
     return args
 
-ExtractorName = Literal['wget', 'warc', 'media', 'singlefile'] | str
+ExtractorName = Annotated[str, AfterValidator(lambda s: s.isidentifier())]
 
 HandlerFuncStr = Annotated[str, AfterValidator(lambda s: s.startswith('self.'))]
-CmdArgsList = Annotated[List[str] | Tuple[str, ...], AfterValidator(no_empty_args)]
+CmdArgsList = Annotated[List[str] | Tuple[str, ...], AfterValidator(assert_no_empty_args)]
 
 
 class BaseExtractor:
-    
     name: ExtractorName
     binary: BinName
 
-    output_path_func: HandlerFuncStr = 'self.get_output_path'
-    should_extract_func: HandlerFuncStr = 'self.should_extract'
-    extract_func: HandlerFuncStr = 'self.extract'
-    exec_func: HandlerFuncStr = 'self.exec'
-
     default_args: CmdArgsList = []
     extra_args: CmdArgsList = []
-    args: Optional[CmdArgsList] = None
-
-    @model_validator(mode='after')
-    def validate_model(self) -> Self:
-        if self.args is None:
-            self.args = [*self.default_args, *self.extra_args]
-        return self
-
 
     def get_output_path(self, snapshot) -> Path:
         return Path(self.__class__.__name__.lower())
@@ -71,7 +56,7 @@ class BaseExtractor:
         
         snapshot = Snapshot.objects.get(id=snapshot_id)
         
-        if not self.should_extract(snapshot):
+        if not self.should_extract(snapshot.url):
             return {}
         
         status = 'failed'

@@ -126,6 +126,7 @@ def is_static_file(url: str):
 def enforce_types(func):
     """
     Enforce function arg and kwarg types at runtime using its python3 type hints
+    Simpler version of pydantic @validate_call decorator
     """
     # TODO: check return type as well
 
@@ -283,6 +284,7 @@ def get_headers(url: str, timeout: int=None) -> str:
 def ansi_to_html(text: str) -> str:
     """
     Based on: https://stackoverflow.com/questions/19212665/python-converting-ansi-color-codes-to-html
+    Simple way to render colored CLI stdout/stderr in HTML properly, Textual/rich is probably better though.
     """
 
     TEMPLATE = '<span style="color: rgb{}"><br>'

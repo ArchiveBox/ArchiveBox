@@ -99,7 +99,7 @@ class BaseConfigSet(BaseSettings):
     )
     
     load_from_defaults: ClassVar[bool] = True
-    load_from_configfile: ClassVar[bool] = True
+    load_from_collection: ClassVar[bool] = True
     load_from_environment: ClassVar[bool] = True
 
     @classmethod
@@ -128,7 +128,8 @@ class BaseConfigSet(BaseSettings):
         try:
             precedence_order = precedence_order or {
                 'defaults': init_settings,
-                'configfile': FlatTomlConfigSettingsSource(settings_cls, toml_file=ARCHIVEBOX_CONFIG_FILE),
+                # 'collection': FlatTomlConfigSettingsSource(settings_cls, toml_file=ARCHIVEBOX_CONFIG_FILE),
+                'collection': FlatTomlConfigSettingsSource(settings_cls, toml_file=ARCHIVEBOX_CONFIG_FILE),
                 'environment': env_settings,
             }
         except Exception as err:
@@ -144,14 +145,15 @@ class BaseConfigSet(BaseSettings):
 
             precedence_order = {
                 'defaults': init_settings,
-                'configfile': FlatTomlConfigSettingsSource(settings_cls, toml_file=ARCHIVEBOX_CONFIG_FILE),
+                # 'collection': FlatTomlConfigSettingsSource(settings_cls, toml_file=ARCHIVEBOX_CONFIG_FILE),
+                'collection': FlatTomlConfigSettingsSource(settings_cls, toml_file=ARCHIVEBOX_CONFIG_FILE),
                 'environment': env_settings,
             }
             
         if not cls.load_from_environment:
             precedence_order.pop('environment')
-        if not cls.load_from_configfile:
-            precedence_order.pop('configfile')
+        if not cls.load_from_collection:
+            precedence_order.pop('collection')
         if not cls.load_from_defaults:
             precedence_order.pop('defaults')
 
@@ -278,15 +280,15 @@ class BaseConfigSet(BaseSettings):
         """Get the dictionary of {key: value} config loaded from the default values"""
         class OnlyDefaultsConfig(self.__class__):
             load_from_defaults = True
-            load_from_configfile = False
+            load_from_collection = False
             load_from_environment = False
         return benedict(OnlyDefaultsConfig().model_dump(exclude_unset=False, exclude_defaults=False, exclude=set(self.model_computed_fields.keys())))
     
-    def from_configfile(self) -> Dict[str, Any]:
-        """Get the dictionary of {key: value} config loaded from the configfile ArchiveBox.conf"""
+    def from_collection(self) -> Dict[str, Any]:
+        """Get the dictionary of {key: value} config loaded from the collection ArchiveBox.conf"""
         class OnlyConfigFileConfig(self.__class__):
             load_from_defaults = False
-            load_from_configfile = True
+            load_from_collection = True
             load_from_environment = False
         return benedict(OnlyConfigFileConfig().model_dump(exclude_unset=True, exclude_defaults=False, exclude=set(self.model_computed_fields.keys())))
     
@@ -294,7 +296,7 @@ class BaseConfigSet(BaseSettings):
         """Get the dictionary of {key: value} config loaded from the environment variables"""
         class OnlyEnvironmentConfig(self.__class__):
             load_from_defaults = False
-            load_from_configfile = False
+            load_from_collection = False
             load_from_environment = True
         return benedict(OnlyEnvironmentConfig().model_dump(exclude_unset=True, exclude_defaults=False, exclude=set(self.model_computed_fields.keys())))
     

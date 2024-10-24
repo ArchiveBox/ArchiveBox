@@ -15,7 +15,7 @@ from archivebox.misc.logging import stderr
 
 
 def get_real_name(key: str) -> str:
-    """get the current canonical name for a given deprecated config key"""
+    """get the up-to-date canonical name for a given old alias or current key"""
     from django.conf import settings
     
     for section in settings.CONFIGS.values():

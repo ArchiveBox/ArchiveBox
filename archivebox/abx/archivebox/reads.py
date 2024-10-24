@@ -57,7 +57,7 @@ def get_HOOKS() -> Set[str]:
             for hook_name in get_PLUGIN(plugin_id).hooks
     }
 
-def get_CONFIGS() -> Dict[str, 'BaseConfigSet']:
+def get_CONFIGS() -> benedict:   # Dict[str, 'BaseConfigSet']
     return benedict({
         config_id: configset
         for plugin_configs in pm.hook.get_CONFIG()

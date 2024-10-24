@@ -14,7 +14,6 @@ from pydantic_pkgr import (
     EnvProvider,
 )
 
-from archivebox.config import CONSTANTS
 from archivebox.config.permissions import ARCHIVEBOX_USER
 
 import abx
@@ -34,6 +33,7 @@ class BaseBinProvider(BinProvider):
         return [self]
 
 class BaseBinary(Binary):
+    # TODO: formalize state diagram, final states, transitions, side effects, etc.
 
     @staticmethod
     def symlink_to_lib(binary, bin_dir=None) -> None:

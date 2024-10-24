@@ -22,7 +22,7 @@ from archivebox.misc.logging import stderr, hint
 from archivebox.config import CONSTANTS, VERSION, DATA_DIR, ARCHIVE_DIR
 from archivebox.config.common import SHELL_CONFIG, SEARCH_BACKEND_CONFIG, STORAGE_CONFIG, SERVER_CONFIG, ARCHIVING_CONFIG
 from archivebox.config.permissions import SudoPermission, IN_DOCKER
-from archivebox.config.configfile import (
+from archivebox.config.collection import (
     write_config_file,
     load_all_config,
     get_real_name,
