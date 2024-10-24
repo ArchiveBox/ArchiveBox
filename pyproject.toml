@@ -61,6 +61,7 @@ dependencies = [
     "requests>=2.32.3",
     "dateparser>=1.2.0",
     "feedparser>=6.0.11",
+    "tzdata>=2024.2",
     "w3lib>=2.2.1",
     "rich>=13.8.0",
     "rich-argparse>=1.5.2",
