@@ -216,10 +216,10 @@ Donate = "https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"
 
 
 [tool.bumpver]
-current_version = "0.8.5rc52"
-version_pattern = "MAJOR.MINOR.PATCH[PYTAGNUM]"
+current_version = "v0.8.5rc52"
+version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
 commit_message = "bump version {old_version} -> {new_version}"
-tag_message = "v{new_version}"
+tag_message = "{new_version}"
 tag_scope = "default"
 pre_commit_hook = ""
 post_commit_hook = ""
@@ -230,5 +230,5 @@ push = true
 [tool.bumpver.file_patterns]
 "pyproject.toml" = [
     'current_version = "{version}"',
-    'version = "{version}"',
+    'version = "{pep440_version}"',
 ]
