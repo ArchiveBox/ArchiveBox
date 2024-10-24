@@ -267,7 +267,7 @@ if not IS_GETTING_VERSION_OR_HELP:             # dont create queue.sqlite3 file 
     HUEY = {
         "huey_class": "huey.SqliteHuey",
         "filename": CONSTANTS.QUEUE_DATABASE_FILENAME,
-        "name": "system_tasks",
+        "name": "commands",
         "results": True,
         "store_none": True,
         "immediate": False,
@@ -288,7 +288,7 @@ if not IS_GETTING_VERSION_OR_HELP:             # dont create queue.sqlite3 file 
     # https://huey.readthedocs.io/en/latest/contrib.html#setting-things-up
     # https://github.com/gaiacoop/django-huey
     DJANGO_HUEY = {
-        "default": "system_tasks",
+        "default": "commands",
         "queues": {
             HUEY["name"]: HUEY.copy(),
             # more registered here at plugin import-time by BaseQueue.register()

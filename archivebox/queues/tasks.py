@@ -1,7 +1,7 @@
 __package__ = 'archivebox.queues'
 
 from functools import wraps
-from django.utils import timezone
+# from django.utils import timezone
 
 from django_huey import db_task, task
 
@@ -10,7 +10,7 @@ from huey_monitor.tqdm import ProcessInfo
 
 from .supervisor_util import get_or_create_supervisord_process
 
-# @db_task(queue="system_tasks", context=True, schedule=1)
+# @db_task(queue="commands", context=True, schedule=1)
 # def scheduler_tick():
 #     print('SCHEDULER TICK', timezone.now().isoformat())
 #     # abx.archivebox.events.on_scheduler_runloop_start(timezone.now(), machine=Machine.objects.get_current_machine())
@@ -43,7 +43,7 @@ def db_task_with_parent(func):
     
     return wrapper
 
-@db_task(queue="system_tasks", context=True)
+@db_task(queue="commands", context=True)
 def bg_add(add_kwargs, task=None, parent_task_id=None):
     get_or_create_supervisord_process(daemonize=False)
     
@@ -62,7 +62,7 @@ def bg_add(add_kwargs, task=None, parent_task_id=None):
     return result
 
 
-@task(queue="system_tasks", context=True)
+@task(queue="commands", context=True)
 def bg_archive_links(args, kwargs=None, task=None, parent_task_id=None):
     get_or_create_supervisord_process(daemonize=False)
     
@@ -83,7 +83,7 @@ def bg_archive_links(args, kwargs=None, task=None, parent_task_id=None):
     return result
 
 
-@task(queue="system_tasks", context=True)
+@task(queue="commands", context=True)
 def bg_archive_link(args, kwargs=None,task=None, parent_task_id=None):
     get_or_create_supervisord_process(daemonize=False)
     
@@ -104,7 +104,7 @@ def bg_archive_link(args, kwargs=None,task=None, parent_task_id=None):
     return result
 
 
-@task(queue="system_tasks", context=True)
+@task(queue="commands", context=True)
 def bg_archive_snapshot(snapshot, overwrite=False, methods=None, task=None, parent_task_id=None):
     # get_or_create_supervisord_process(daemonize=False)
 
