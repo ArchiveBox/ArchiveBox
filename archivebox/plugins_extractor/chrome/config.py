@@ -189,6 +189,10 @@ class ChromeConfig(BaseConfigSet):
         #   cmd_args += ('--timeout={}'.format(options.CHROME_TIMEOUT * 1000),)
     
         if options.CHROME_USER_DATA_DIR:
+            # remove SingletonLock file
+            lockfile = options.CHROME_USER_DATA_DIR / options.CHROME_PROFILE_NAME / 'SingletonLock'
+            lockfile.unlink(missing_ok=True)
+            
             cmd_args.append('--user-data-dir={}'.format(options.CHROME_USER_DATA_DIR))
             cmd_args.append('--profile-directory={}'.format(options.CHROME_PROFILE_NAME or 'Default'))
         

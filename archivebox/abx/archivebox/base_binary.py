@@ -14,10 +14,7 @@ from pydantic_pkgr import (
     EnvProvider,
 )
 
-from archivebox.config import CONSTANTS
 from archivebox.config.permissions import ARCHIVEBOX_USER
-
-import abx
 
 
 class BaseBinProvider(BinProvider):
@@ -28,10 +25,6 @@ class BaseBinProvider(BinProvider):
     def admin_url(self) -> str:
         # e.g. /admin/environment/binproviders/NpmBinProvider/   TODO
         return "/admin/environment/binaries/"
-
-    @abx.hookimpl
-    def get_BINPROVIDERS(self):
-        return [self]
 
 class BaseBinary(Binary):
 
@@ -95,10 +88,6 @@ class BaseBinary(Binary):
     def admin_url(self) -> str:
         # e.g. /admin/environment/config/LdapConfig/
         return f"/admin/environment/binaries/{self.name}/"
-
-    @abx.hookimpl
-    def get_BINARIES(self):
-        return [self]
 
 
 class AptBinProvider(AptProvider, BaseBinProvider):

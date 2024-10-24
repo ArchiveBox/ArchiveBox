@@ -33,7 +33,7 @@ def generate_json_index_from_links(links: List[Link], with_headers: bool):
             'docs': 'https://github.com/ArchiveBox/ArchiveBox/wiki',
             'source': 'https://github.com/ArchiveBox/ArchiveBox',
             'issues': 'https://github.com/ArchiveBox/ArchiveBox/issues',
-            'dependencies': settings.BINARIES.to_dict(),
+            'dependencies': settings.BINARIES,
         },
     }
     

@@ -36,3 +36,7 @@ def get_CONFIG():
         'SEARCHBACKEND_CONFIG': SEARCH_BACKEND_CONFIG,
     }
 
+@abx.hookimpl
+def ready():
+    for config in get_CONFIG().values():
+        config.validate()

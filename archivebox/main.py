@@ -1075,11 +1075,11 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
     
     package_manager_names = ', '.join(
         f'[yellow]{binprovider.name}[/yellow]'
-        for binprovider in reversed(list(settings.BINPROVIDERS.values()))
+        for binprovider in list(settings.BINPROVIDERS.values())
         if not binproviders or (binproviders and binprovider.name in binproviders)
     )
     print(f'[+] Setting up package managers {package_manager_names}...')
-    for binprovider in reversed(list(settings.BINPROVIDERS.values())):
+    for binprovider in list(settings.BINPROVIDERS.values()):
         if binproviders and binprovider.name not in binproviders:
             continue
         try:
@@ -1092,7 +1092,7 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
     
     print()
     
-    for binary in reversed(list(settings.BINARIES.values())):
+    for binary in list(settings.BINARIES.values()):
         if binary.name in ('archivebox', 'django', 'sqlite', 'python'):
             # obviously must already be installed if we are running
             continue

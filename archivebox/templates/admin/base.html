@@ -148,6 +148,7 @@
             {% block footer %}<div id="footer"></div>{% endblock %}
         </div>
 
+        {% comment %} 
         {% if user.is_authenticated and user.is_superuser and CAN_UPGRADE %}
             <script>
                 if (!localStorage.getItem("bannerDismissed")) {
@@ -184,6 +185,7 @@
                 }
             </script>
         {% endif %}
+        {% endcomment %}
         
         <script>
             $ = django.jQuery;

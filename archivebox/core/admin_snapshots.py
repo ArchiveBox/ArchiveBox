@@ -13,7 +13,7 @@ from django.template import Template, RequestContext
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.admin.widgets import FilteredSelectMultiple
 
-from archivebox.config import DATA_DIR, VERSION
+from archivebox.config import DATA_DIR
 from archivebox.config.common import SERVER_CONFIG
 from archivebox.misc.util import htmldecode, urldecode
 from archivebox.misc.paginators import AccelleratedPaginator
@@ -32,8 +32,8 @@ from core.admin_tags import TagInline
 from core.admin_archiveresults import ArchiveResultInline, result_url
 
 
-GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': [], 'CAN_UPGRADE': False}
-
+# GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': [], 'CAN_UPGRADE': False}
+GLOBAL_CONTEXT = {}
 
 
 class SnapshotActionForm(ActionForm):
