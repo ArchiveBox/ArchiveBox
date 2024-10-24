@@ -41,7 +41,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.8.5rc50"
+version = "0.8.5rc53"
 source = { editable = "." }
 dependencies = [
     { name = "atomicwrites" },
@@ -79,6 +79,7 @@ dependencies = [
     { name = "sonic-client" },
     { name = "supervisor" },
     { name = "typeid-python" },
+    { name = "tzdata" },
     { name = "ulid-py" },
     { name = "w3lib" },
     { name = "yt-dlp" },
@@ -97,6 +98,7 @@ ldap = [
 [package.dev-dependencies]
 dev = [
     { name = "bottle" },
+    { name = "bumpver" },
     { name = "django-autotyping" },
     { name = "django-debug-toolbar" },
     { name = "djdt-flamegraph" },
@@ -160,6 +162,7 @@ requires-dist = [
     { name = "sonic-client", specifier = ">=1.0.0" },
     { name = "supervisor", specifier = ">=4.2.5" },
     { name = "typeid-python", specifier = ">=0.3.1" },
+    { name = "tzdata", specifier = ">=2024.2" },
     { name = "ulid-py", specifier = ">=1.1.0" },
     { name = "w3lib", specifier = ">=2.2.1" },
     { name = "yt-dlp", specifier = ">=2024.8.6" },
@@ -168,6 +171,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "bottle", specifier = ">=0.13.1" },
+    { name = "bumpver", specifier = ">=2023.1129" },
     { name = "django-autotyping", specifier = ">=0.5.1" },
     { name = "django-debug-toolbar", specifier = ">=4.4.6" },
     { name = "djdt-flamegraph", specifier = ">=0.2.13" },
@@ -386,6 +390,22 @@ wheels = [
 ]
 
 [[package]]
+name = "bumpver"
+version = "2023.1129"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "colorama" },
+    { name = "lexid" },
+    { name = "looseversion" },
+    { name = "toml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7e/31/7087ec411432b395e04c449e9c5569b6ef677bbb506a900251fe91070eb5/bumpver-2023.1129.tar.gz", hash = "sha256:2a09813066d92ae2eabf882d4f9a88ebd60135e828c424bdf7800e1723e15010", size = 110275 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f0/ee/147b9a684a9af36e429f75b6dc76c06f8086b114483de4bd4ae3a303fda9/bumpver-2023.1129-py2.py3-none-any.whl", hash = "sha256:b2a55c0224215b6ca1c3a0c99827749927b7c61cbb5dfef75565dbda8e75f687", size = 61957 },
+]
+
+[[package]]
 name = "bx-django-utils"
 version = "79"
 source = { registry = "https://pypi.org/simple" }
@@ -559,6 +579,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/cc/67/e5e7e0cbfefc4ca79025238b43cdf8a2037854195b37d6417f3d0895c4c2/charset_normalizer-3.4.0-cp313-cp313-win32.whl", hash = "sha256:f19c1585933c82098c2a520f8ec1227f20e339e33aca8fa6f956f6691b784e67", size = 94973 },
     { url = "https://files.pythonhosted.org/packages/65/97/fc9bbc54ee13d33dc54a7fcf17b26368b18505500fc01e228c27b5222d80/charset_normalizer-3.4.0-cp313-cp313-win_amd64.whl", hash = "sha256:707b82d19e65c9bd28b81dde95249b07bf9f5b90ebe1ef17d9b57473f8a64b7b", size = 102308 },
     { url = "https://files.pythonhosted.org/packages/bf/9b/08c0432272d77b04803958a4598a51e2a4b51c06640af8b8f0f908c18bf2/charset_normalizer-3.4.0-py3-none-any.whl", hash = "sha256:fe9f97feb71aa9896b81973a7bbada8c49501dc73e58a10fcef6663af95e5079", size = 49446 },
+]
+
+[[package]]
+name = "click"
+version = "8.1.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "platform_system == 'Windows'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/96/d3/f04c7bfcf5c1862a2a5b845c6b2b360488cf47af55dfa79c98f6a6bf98b5/click-8.1.7.tar.gz", hash = "sha256:ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de", size = 336121 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl", hash = "sha256:ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28", size = 97941 },
 ]
 
 [[package]]
@@ -1195,6 +1227,15 @@ wheels = [
 ]
 
 [[package]]
+name = "lexid"
+version = "2021.1006"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/0b/28a3f9abc75abbf1fa996eb2dd77e1e33a5d1aac62566e3f60a8ec8b8a22/lexid-2021.1006.tar.gz", hash = "sha256:509a3a4cc926d3dbf22b203b18a4c66c25e6473fb7c0e0d30374533ac28bafe5", size = 11525 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cf/e3/35764404a4b7e2021be1f88f42264c2e92e0c4720273559a62461ce64a47/lexid-2021.1006-py2.py3-none-any.whl", hash = "sha256:5526bb5606fd74c7add23320da5f02805bddd7c77916f2dc1943e6bada8605ed", size = 7587 },
+]
+
+[[package]]
 name = "libcst"
 version = "1.5.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1251,6 +1292,15 @@ wheels = [
 [package.optional-dependencies]
 django = [
     { name = "opentelemetry-instrumentation-django" },
+]
+
+[[package]]
+name = "looseversion"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/64/7e/f13dc08e0712cc2eac8e56c7909ce2ac280dbffef2ffd87bd5277ce9d58b/looseversion-1.3.0.tar.gz", hash = "sha256:ebde65f3f6bb9531a81016c6fef3eb95a61181adc47b7f949e9c0ea47911669e", size = 8799 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4e/74/d5405b9b3b12e9176dff223576d7090bc161092878f533fd0dc23dd6ae1d/looseversion-1.3.0-py2.py3-none-any.whl", hash = "sha256:781ef477b45946fc03dd4c84ea87734b21137ecda0e1e122bcb3c8d16d2a56e0", size = 8237 },
 ]
 
 [[package]]

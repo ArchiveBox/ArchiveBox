@@ -98,8 +98,15 @@ ldap = [
     "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
 ]
+debug = [
+    # packages needed for running with DEBUG=True
+    "django-debug-toolbar>=4.4.6",
+    "djdt_flamegraph>=0.2.13",
+    "ipdb>=0.13.13",
+    "requests-tracker>=0.3.3",
+]
 all = [
-    "archivebox[sonic,ldap]"
+    "archivebox[sonic,ldap,debug]"
 ]
 
 [tool.uv]
@@ -109,20 +116,18 @@ dev-dependencies = [
     "pip>=24.2",
     "setuptools>=75.1.0",
     "wheel>=0.44.0",
-    "homebrew-pypi-poet>=0.10.0",      # for: generating archivebox.rb brewfile list of python packages
+    "bumpver>=2023.1129",
+    #"homebrew-pypi-poet>=0.10.0", # for: generating archivebox.rb brewfile list of python packages
     ### DOCS
     "recommonmark>=0.7.1",
     "sphinx",
     "sphinx-rtd-theme>=2.0.0",
     ### DEBUGGING
-    "django-debug-toolbar>=4.4.6",
-    "djdt_flamegraph>=0.2.13",
-    "ipdb>=0.13.13",
-    "requests-tracker>=0.3.3",
+    "archivebox[debug]",
     "logfire[django]>=0.51.0",
     "opentelemetry-instrumentation-django>=0.47b0",
     "opentelemetry-instrumentation-sqlite3>=0.47b0",
-    "viztracer",                                     # usage: viztracer ../.venv/bin/archivebox manage check
+    "viztracer", # usage: viztracer ../.venv/bin/archivebox manage check
     # "snakeviz",                                      # usage: python -m cProfile -o flamegraph.prof ../.venv/bin/archivebox manage check
     ### TESTING
     "pytest>=8.3.3",
