@@ -8,6 +8,8 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Optional, Iterator, Any, Union
 
+import abx.archivebox.reads
+
 from archivebox.config import VERSION, DATA_DIR, CONSTANTS
 from archivebox.config.common import SERVER_CONFIG, SHELL_CONFIG
 
@@ -19,8 +21,6 @@ from archivebox.misc.util import enforce_types
 
 @enforce_types
 def generate_json_index_from_links(links: List[Link], with_headers: bool):
-    from django.conf import settings
-    
     MAIN_INDEX_HEADER = {
         'info': 'This is an index of site data archived by ArchiveBox: The self-hosted web archive.',
         'schema': 'archivebox.index.json',
@@ -33,10 +33,9 @@ def generate_json_index_from_links(links: List[Link], with_headers: bool):
             'docs': 'https://github.com/ArchiveBox/ArchiveBox/wiki',
             'source': 'https://github.com/ArchiveBox/ArchiveBox',
             'issues': 'https://github.com/ArchiveBox/ArchiveBox/issues',
-            'dependencies': settings.BINARIES.to_dict(),
+            'dependencies': dict(abx.archivebox.reads.get_BINARIES()),
         },
     }
-    
     
     if with_headers:
         output = {

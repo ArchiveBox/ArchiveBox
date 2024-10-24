@@ -5,7 +5,7 @@ import requests
 import json as pyjson
 import http.cookiejar
 
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Callable
 from pathlib import Path
 from inspect import signature
 from functools import wraps
@@ -19,14 +19,13 @@ from requests.exceptions import RequestException, ReadTimeout
 from base32_crockford import encode as base32_encode                            # type: ignore
 from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
 try:
-    import chardet
+    import chardet    # type:ignore
     detect_encoding = lambda rawdata: chardet.detect(rawdata)["encoding"]
 except ImportError:
     detect_encoding = lambda rawdata: "utf-8"
 
 
-from archivebox.config import CONSTANTS
-from archivebox.config.common import ARCHIVING_CONFIG
+from archivebox.config.constants import CONSTANTS
 
 from .logging import COLOR_DICT
 
@@ -187,11 +186,11 @@ def str_between(string: str, start: str, end: str=None) -> str:
 
 
 @enforce_types
-def parse_date(date: Any) -> Optional[datetime]:
+def parse_date(date: Any) -> datetime:
     """Parse unix timestamps, iso format, and human-readable strings"""
     
     if date is None:
-        return None
+        return None    # type: ignore
 
     if isinstance(date, datetime):
         if date.tzinfo is None:
@@ -212,6 +211,8 @@ def parse_date(date: Any) -> Optional[datetime]:
 @enforce_types
 def download_url(url: str, timeout: int=None) -> str:
     """Download the contents of a remote url and return the text"""
+
+    from archivebox.config.common import ARCHIVING_CONFIG
 
     timeout = timeout or ARCHIVING_CONFIG.TIMEOUT
     session = requests.Session()
@@ -242,8 +243,12 @@ def download_url(url: str, timeout: int=None) -> str:
         return url.rsplit('/', 1)[-1]
 
 @enforce_types
-def get_headers(url: str, timeout: int=None) -> str:
+def get_headers(url: str, timeout: int | None=None) -> str:
     """Download the contents of a remote url and return the headers"""
+    # TODO: get rid of this and use an abx pluggy hook instead
+    
+    from archivebox.config.common import ARCHIVING_CONFIG
+    
     timeout = timeout or ARCHIVING_CONFIG.TIMEOUT
 
     try:
@@ -308,13 +313,13 @@ def ansi_to_html(text: str) -> str:
 @enforce_types
 def dedupe(options: List[str]) -> List[str]:
     """
-    Deduplicates the given options. Options that come later clobber earlier
-    conflicting options.
+    Deduplicates the given CLI args by key=value. Options that come later override earlier.
     """
     deduped = {}
 
     for option in options:
-        deduped[option.split('=')[0]] = option
+        key = option.split('=')[0]
+        deduped[key] = option
 
     return list(deduped.values())
 
@@ -346,6 +351,9 @@ class ExtendedEncoder(pyjson.JSONEncoder):
         
         elif cls_name in ('dict_items', 'dict_keys', 'dict_values'):
             return tuple(obj)
+        
+        elif isinstance(obj, Callable):
+            return str(obj)
 
         return pyjson.JSONEncoder.default(self, obj)
 
