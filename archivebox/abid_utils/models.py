@@ -144,9 +144,10 @@ class ABIDModel(models.Model):
 
                 allowed_to_invalidate_abid = self.abid_drift_allowed if (abid_drift_allowed is None) else abid_drift_allowed
                 if allowed_to_invalidate_abid:
-                    print(f'\n#### WARNING: Change allowed despite it invalidating the ABID of an existing record ({self.__class__.__name__}.abid_drift_allowed={self.abid_drift_allowed})!', self.abid)
-                    print(change_error)
-                    print('--------------------------------------------------------------------------------------------------')
+                    # print(f'\n#### WARNING: Change allowed despite it invalidating the ABID of an existing record ({self.__class__.__name__}.abid_drift_allowed={self.abid_drift_allowed})!', self.abid)
+                    # print(change_error)
+                    # print('--------------------------------------------------------------------------------------------------')
+                    pass
                 else:
                     print(f'\n#### ERROR:   Change blocked because it would invalidate ABID of an existing record ({self.__class__.__name__}.abid_drift_allowed={self.abid_drift_allowed})', self.abid)
                     print(change_error)
