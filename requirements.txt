@@ -166,7 +166,7 @@ parso==0.8.4
     # via jedi
 pexpect==4.9.0
     # via ipython
-phonenumbers==8.13.47
+phonenumbers==8.13.48
     # via python-benedict
 platformdirs==4.3.6
     # via pydantic-pkgr
@@ -250,7 +250,7 @@ requests==2.32.3
     #   archivebox (pyproject.toml)
     #   python-benedict
     #   yt-dlp
-rich==13.9.2
+rich==13.9.3
     # via
     #   archivebox (pyproject.toml)
     #   rich-argparse
@@ -332,7 +332,7 @@ xlrd==2.0.1
     # via python-benedict
 xmltodict==0.14.2
     # via python-benedict
-yt-dlp==2024.10.7
+yt-dlp==2024.10.22
     # via archivebox (pyproject.toml)
-zope-interface==7.1.0
+zope-interface==7.1.1
     # via twisted

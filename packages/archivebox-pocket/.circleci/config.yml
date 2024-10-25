@@ -1,0 +1,61 @@
+version: 2.1
+orbs:
+  python: circleci/python@2.0.3
+
+jobs:
+  build_and_test_3_7:
+    docker:
+      - image: circleci/python:3.7
+    executor: python/default
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+      - run:
+          name: Run tests
+          command: nosetests
+  
+  build_and_test_3_8:
+    docker:
+      - image: circleci/python:3.8
+    executor: python/default
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+      - run:
+          name: Run tests
+          command: nosetests
+          
+  build_and_test_3_9:
+    docker:
+      - image: circleci/python:3.9
+    executor: python/default
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+      - run:
+          name: Run tests
+          command: nosetests
+          
+  build_and_test_3_10:
+    docker:
+      - image: circleci/python:3.10
+    executor: python/default
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+      - run:
+          name: Run tests
+          command: nosetests
+
+
+workflows:
+  test_pocket:
+    jobs:
+      - build_and_test_3_7
+      - build_and_test_3_8
+      - build_and_test_3_9
+      - build_and_test_3_10

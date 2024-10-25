@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.8.5rc51"
+version = "0.8.5rc53"
 requires-python = ">=3.10"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -46,6 +46,7 @@ dependencies = [
     "django-ninja>=1.3.0",
     "django-extensions>=3.2.3",
     "mypy-extensions>=1.0.0",
+    "typing_extensions>=4.12.2",
     "channels[daphne]>=4.1.0",
     "django-signal-webhooks>=0.3.0",
     "django-admin-data-views>=0.4.1",
@@ -80,6 +81,22 @@ dependencies = [
     # "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
     "pydantic-pkgr>=0.5.4",
     ############# Plugin Dependencies ################
+    "abx>=0.1.0",
+    "abx-spec-pydantic-pkgr>=0.1.0",
+    "abx-spec-config>=0.1.0",
+    "abx-spec-archivebox>=0.1.0",
+    "abx-spec-django>=0.1.0",
+    "abx-spec-extractor>=0.1.0",
+    "abx-spec-searchbackend>=0.1.0",
+
+    "abx-plugin-default-binproviders>=2024.10.24",
+    "abx-plugin-pip-binprovider>=2024.10.24",
+    "abx-plugin-npm-binprovider>=2024.10.24",
+    "abx-plugin-playwright-binprovider>=2024.10.24",
+
+    # "abx-plugin-pocket",
+    # "abx-plugin-sonic",
+    # "abx-plugin-yt-dlp",
     "sonic-client>=1.0.0",
     "yt-dlp>=2024.8.6",               # for: media"
 ]
@@ -104,14 +121,14 @@ all = [
 [tool.uv]
 dev-dependencies = [
     ### BUILD
-    "uv",
+    "uv>=0.4.26",
     "pip>=24.2",
     "setuptools>=75.1.0",
     "wheel>=0.44.0",
     "homebrew-pypi-poet>=0.10.0",      # for: generating archivebox.rb brewfile list of python packages
     ### DOCS
     "recommonmark>=0.7.1",
-    "sphinx",
+    "sphinx>=8.1.3",
     "sphinx-rtd-theme>=2.0.0",
     ### DEBUGGING
     "django-debug-toolbar>=4.4.6",
@@ -121,7 +138,7 @@ dev-dependencies = [
     "logfire[django]>=0.51.0",
     "opentelemetry-instrumentation-django>=0.47b0",
     "opentelemetry-instrumentation-sqlite3>=0.47b0",
-    "viztracer",                                     # usage: viztracer ../.venv/bin/archivebox manage check
+    "viztracer>=0.17.0",                               # usage: viztracer ../.venv/bin/archivebox manage check
     # "snakeviz",                                      # usage: python -m cProfile -o flamegraph.prof ../.venv/bin/archivebox manage check
     ### TESTING
     "pytest>=8.3.3",
@@ -132,6 +149,26 @@ dev-dependencies = [
     "mypy>=1.11.2",
     "django-autotyping>=0.5.1",
 ]
+
+[tool.uv.sources]
+abx = { workspace = true }
+abx-spec-pydantic-pkgr = { workspace = true }
+abx-spec-config = { workspace = true }
+abx-spec-archivebox = { workspace = true }
+abx-spec-django = { workspace = true }
+abx-spec-extractor = { workspace = true }
+abx-spec-searchbackend = { workspace = true }
+
+abx-plugin-default-binproviders = { workspace = true }
+abx-plugin-pip-binprovider = { workspace = true }
+abx-plugin-npm-binprovider = { workspace = true }
+abx-plugin-playwright-binprovider = { workspace = true }
+
+pydantic-pkgr = { workspace = true }
+archivebox-pocket = { workspace = true }
+
+[tool.uv.workspace]
+members = ["packages/*"]
 
 [build-system]
 requires = ["pdm-backend"]
