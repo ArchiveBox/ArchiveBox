@@ -23,7 +23,7 @@ from archivebox import CONSTANTS           # noqa
 from ..main import *                       # noqa
 from ..cli import CLI_SUBCOMMANDS
 
-CONFIG = settings.FLAT_CONFIG
+CONFIG = archivebox.pm.hook.get_FLAT_CONFIG()
 CLI_COMMAND_NAMES = ", ".join(CLI_SUBCOMMANDS.keys())
 
 if __name__ == '__main__':
@@ -55,6 +55,5 @@ if __name__ == '__main__':
     prnt('    add[blink][deep_sky_blue4]?[/deep_sky_blue4][/blink]                                                                        [grey53]# add ? after anything to get help[/]')
     prnt('    add("https://example.com/some/new/url")                                     [grey53]# call CLI methods from the shell[/]')
     prnt('    snap = Snapshot.objects.filter(url__contains="https://example.com").last()  [grey53]# query for individual snapshots[/]')
-    prnt('    archivebox.plugins_extractor.wget.apps.WGET_EXTRACTOR.extract(snap.id)      [grey53]# call an extractor directly[/]')
     prnt('    snap.archiveresult_set.all()                                                [grey53]# see extractor results[/]')
     prnt('    bool(re.compile(CONFIG.URL_DENYLIST).search("https://example.com/abc.exe")) [grey53]# test out a config change[/]')

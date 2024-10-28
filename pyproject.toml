@@ -69,19 +69,22 @@ dependencies = [
     "typeid-python>=0.3.1",
     "psutil>=6.0.0",
     "supervisor>=4.2.5",
-    "python-crontab>=3.2.0",          # for: archivebox schedule
-    "croniter>=3.0.3",                # for: archivebox schedule
-    "ipython>=8.27.0",                # for: archivebox shell
-    "py-machineid>=0.6.0",            # for: machine/detect.py calculating machine guid
+    "python-crontab>=3.2.0", # for: archivebox schedule
+    "croniter>=3.0.3", # for: archivebox schedule
+    "ipython>=8.27.0", # for: archivebox shell
+    "py-machineid>=0.6.0", # for: machine/detect.py calculating machine guid
     "python-benedict[io,parse]>=0.33.2",
     "pydantic-settings>=2.5.2",
     "atomicwrites==1.4.1",
     "django-taggit==6.1.0",
     "base32-crockford==0.3.0",
+    "platformdirs>=4.3.6",
+    ############# Plugin Dependencies ################
     # "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
     "pydantic-pkgr>=0.5.4",
-    ############# Plugin Dependencies ################
+    
     "abx>=0.1.0",
+
     "abx-spec-pydantic-pkgr>=0.1.0",
     "abx-spec-config>=0.1.0",
     "abx-spec-archivebox>=0.1.0",
@@ -90,15 +93,34 @@ dependencies = [
     "abx-spec-searchbackend>=0.1.0",
 
     "abx-plugin-default-binproviders>=2024.10.24",
-    "abx-plugin-pip-binprovider>=2024.10.24",
-    "abx-plugin-npm-binprovider>=2024.10.24",
-    "abx-plugin-playwright-binprovider>=2024.10.24",
+    "abx-plugin-pip>=2024.10.24",
+    "abx-plugin-npm>=2024.10.24",
+    "abx-plugin-playwright>=2024.10.24",
+    "abx-plugin-puppeteer>=2024.10.28",
 
-    # "abx-plugin-pocket",
-    # "abx-plugin-sonic",
-    # "abx-plugin-yt-dlp",
+    "abx-plugin-ripgrep-search>=2024.10.28",
+    "abx-plugin-sqlitefts-search>=2024.10.28",
+    "abx-plugin-sonic-search>=2024.10.28",
+    "abx-plugin-ldap-auth>=2024.10.28",
+
+    "abx-plugin-curl>=2024.10.27",
+    "abx-plugin-wget>=2024.10.28",
+    "abx-plugin-git>=2024.10.28",
+    "abx-plugin-chrome>=2024.10.28",
+    "abx-plugin-ytdlp>=2024.10.28",
+    
+    "abx-plugin-title>=2024.10.27",
+    "abx-plugin-favicon>=2024.10.27",
+    # "abx-plugin-headers>=2024.10.27",
+    "abx-plugin-archivedotorg>=2024.10.28",
+
+    "abx-plugin-singlefile>=2024.10.28",
+    "abx-plugin-readability>=2024.10.28",
+    "abx-plugin-mercury>=2024.10.28",
+    "abx-plugin-htmltotext>=2024.10.28",
+
     "sonic-client>=1.0.0",
-    "yt-dlp>=2024.8.6",               # for: media"
+    "yt-dlp>=2024.8.6", # for: media"
 ]
 
 [project.optional-dependencies]
@@ -160,15 +182,38 @@ abx-spec-extractor = { workspace = true }
 abx-spec-searchbackend = { workspace = true }
 
 abx-plugin-default-binproviders = { workspace = true }
-abx-plugin-pip-binprovider = { workspace = true }
-abx-plugin-npm-binprovider = { workspace = true }
-abx-plugin-playwright-binprovider = { workspace = true }
+abx-plugin-pip = { workspace = true }
+abx-plugin-npm = { workspace = true }
+abx-plugin-playwright = { workspace = true }
+abx-plugin-puppeteer = { workspace = true }
+abx-plugin-ripgrep-search = { workspace = true }
+abx-plugin-sqlitefts-search = { workspace = true }
+abx-plugin-sonic-search = { workspace = true }
+abx-plugin-ldap-auth = { workspace = true }
+
+abx-plugin-curl = { workspace = true }
+abx-plugin-wget = { workspace = true }
+abx-plugin-git = { workspace = true }
+abx-plugin-chrome = { workspace = true }
+abx-plugin-ytdlp = { workspace = true }
+
+abx-plugin-title = { workspace = true }
+abx-plugin-favicon = { workspace = true }
+# abx-plugin-headers = { workspace = true }
+abx-plugin-archivedotorg = { workspace = true }
+
+abx-plugin-singlefile = { workspace = true }
+abx-plugin-readability = { workspace = true }
+abx-plugin-mercury = { workspace = true }
+abx-plugin-htmltotext = { workspace = true }
+
 
 pydantic-pkgr = { workspace = true }
-archivebox-pocket = { workspace = true }
+pocket = { workspace = true }
 
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["archivebox/vendor/*"]
+exclude = ["archivebox/vendor/__pycache__"]
 
 [build-system]
 requires = ["pdm-backend"]
@@ -183,7 +228,7 @@ package-dir = {"archivebox" = "archivebox"}
 line-length = 140
 target-version = "py310"
 src = ["archivebox"]
-exclude = ["*.pyi", "typings/", "migrations/", "vendor/"]
+exclude = ["*.pyi", "typings/", "migrations/", "vendor/pocket"]
 
 # https://docs.astral.sh/ruff/rules/
 [tool.ruff.lint]
@@ -218,7 +263,7 @@ exclude = [
     "**/node_modules",
     "**/__pycache__",
     "**/migrations",
-    "archivebox/vendor",
+    "archivebox/vendor/pocket",
 ]
 stubPath = "./archivebox/typings"
 venvPath = "."

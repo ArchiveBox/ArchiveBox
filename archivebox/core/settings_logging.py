@@ -163,11 +163,6 @@ SETTINGS_LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
-        "plugins_extractor": {
-            "handlers": ["default", "logfile"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
         "httpx": {
             "handlers": ["outbound_webhooks"],
             "level": "INFO",

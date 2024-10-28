@@ -9,9 +9,11 @@ from pathlib import Path
 from django.utils.crypto import get_random_string
 
 import abx
+import archivebox
 
-from archivebox.config import DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS
+from archivebox.config import DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS  # noqa
 from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG      # noqa
+
 
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
 IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
@@ -22,24 +24,8 @@ IS_GETTING_VERSION_OR_HELP = 'version' in sys.argv or 'help' in sys.argv or '--v
 ### ArchiveBox Plugin Settings
 ################################################################################
 
-PLUGIN_HOOKSPECS = [
-    'abx_spec_django',
-    'abx_spec_pydantic_pkgr',
-    'abx_spec_config',
-    'abx_spec_archivebox',
-]
-abx.register_hookspecs(PLUGIN_HOOKSPECS)
-
-SYSTEM_PLUGINS = abx.get_pip_installed_plugins(group='abx')
-USER_PLUGINS = abx.find_plugins_in_dir(DATA_DIR / 'user_plugins')
-
-ALL_PLUGINS = {**SYSTEM_PLUGINS, **USER_PLUGINS}
-
-# Load ArchiveBox plugins
-abx.load_plugins(ALL_PLUGINS)
-
-# # Load ArchiveBox config from plugins
-
+ALL_PLUGINS = archivebox.ALL_PLUGINS
+LOADED_PLUGINS = archivebox.LOADED_PLUGINS
 
 ################################################################################
 ### Django Core Settings
@@ -98,6 +84,7 @@ INSTALLED_APPS = [
     # load plugins last so all other apps are already .ready() when we call plugins.ready()
     'abx',
 ]
+
 
 
 

@@ -8,6 +8,8 @@ from typing import List, Optional, Iterator, Mapping
 from django.utils.html import format_html, mark_safe   # type: ignore
 from django.core.cache import cache
 
+import abx
+
 from archivebox.misc.system import atomic_write
 from archivebox.misc.util import (
     enforce_types,
@@ -19,7 +21,6 @@ from archivebox.misc.util import (
 from archivebox.config import CONSTANTS, DATA_DIR, VERSION
 from archivebox.config.common import SERVER_CONFIG
 from archivebox.config.version import get_COMMIT_HASH
-from archivebox.plugins_extractor.archivedotorg.config import ARCHIVEDOTORG_CONFIG
 
 from .schema import Link
 from ..logging_util import printable_filesize
@@ -79,8 +80,10 @@ def write_html_link_details(link: Link, out_dir: Optional[str]=None) -> None:
 
 @enforce_types
 def link_details_template(link: Link) -> str:
-
-    from ..extractors.wget import wget_output_path
+    
+    from abx_plugin_wget_extractor.wget import wget_output_path
+    
+    SAVE_ARCHIVE_DOT_ORG = abx.pm.hook.get_FLAT_CONFIG().SAVE_ARCHIVE_DOT_ORG
 
     link_info = link._asdict(extended=True)
 
@@ -102,7 +105,7 @@ def link_details_template(link: Link) -> str:
         'status': 'archived' if link.is_archived else 'not yet archived',
         'status_color': 'success' if link.is_archived else 'danger',
         'oldest_archive_date': ts_to_date_str(link.oldest_archive_date),
-        'SAVE_ARCHIVE_DOT_ORG': ARCHIVEDOTORG_CONFIG.SAVE_ARCHIVE_DOT_ORG,
+        'SAVE_ARCHIVE_DOT_ORG': SAVE_ARCHIVE_DOT_ORG,
         'PREVIEW_ORIGINALS': SERVER_CONFIG.PREVIEW_ORIGINALS,
     })
 

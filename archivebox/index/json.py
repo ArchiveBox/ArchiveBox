@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Optional, Iterator, Any, Union
 
-import abx.archivebox.reads
+import abx
 
 from archivebox.config import VERSION, DATA_DIR, CONSTANTS
 from archivebox.config.common import SERVER_CONFIG, SHELL_CONFIG
@@ -33,7 +33,7 @@ def generate_json_index_from_links(links: List[Link], with_headers: bool):
             'docs': 'https://github.com/ArchiveBox/ArchiveBox/wiki',
             'source': 'https://github.com/ArchiveBox/ArchiveBox',
             'issues': 'https://github.com/ArchiveBox/ArchiveBox/issues',
-            'dependencies': dict(abx.archivebox.reads.get_BINARIES()),
+            'dependencies': dict(abx.pm.hook.get_BINARIES()),
         },
     }
     

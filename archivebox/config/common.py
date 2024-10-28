@@ -7,10 +7,10 @@ from typing import Dict, Optional, List
 from pathlib import Path
 
 from rich import print
-from pydantic import Field, field_validator, computed_field
+from pydantic import Field, field_validator
 from django.utils.crypto import get_random_string
 
-from abx.archivebox.base_configset import BaseConfigSet
+from abx_spec_config.base_configset import BaseConfigSet
 
 from .constants import CONSTANTS
 from .version import get_COMMIT_HASH, get_BUILD_TIME
@@ -31,22 +31,19 @@ class ShellConfig(BaseConfigSet):
 
     ANSI: Dict[str, str]                = Field(default=lambda c: CONSTANTS.DEFAULT_CLI_COLORS if c.USE_COLOR else CONSTANTS.DISABLED_CLI_COLORS)
 
-    VERSIONS_AVAILABLE: bool = False             # .check_for_update.get_versions_available_on_github(c)},
-    CAN_UPGRADE: bool = False                    # .check_for_update.can_upgrade(c)},
+    # VERSIONS_AVAILABLE: bool = False             # .check_for_update.get_versions_available_on_github(c)},
+    # CAN_UPGRADE: bool = False                    # .check_for_update.can_upgrade(c)},
 
-    @computed_field
     @property
     def TERM_WIDTH(self) -> int:
         if not self.IS_TTY:
             return 200
         return shutil.get_terminal_size((140, 10)).columns
     
-    @computed_field
     @property
     def COMMIT_HASH(self) -> Optional[str]:
         return get_COMMIT_HASH()
     
-    @computed_field
     @property
     def BUILD_TIME(self) -> str:
         return get_BUILD_TIME()

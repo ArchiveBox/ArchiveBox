@@ -15,7 +15,7 @@ import os
 import sys
 
 from pathlib import Path
-
+from typing import cast
 ASCII_LOGO = """
  █████╗ ██████╗  ██████╗██╗  ██╗██╗██╗   ██╗███████╗ ██████╗  ██████╗ ██╗  ██╗
 ██╔══██╗██╔══██╗██╔════╝██║  ██║██║██║   ██║██╔════╝ ██╔══██╗██╔═══██╗╚██╗██╔╝
@@ -50,6 +50,50 @@ from .monkey_patches import *                    # noqa
 from .vendor import load_vendored_libs           # noqa
 load_vendored_libs()
 # print('DONE LOADING VENDORED LIBRARIES')
+
+
+import abx                                       # noqa
+import abx_spec_archivebox                       # noqa
+import abx_spec_config                            # noqa
+import abx_spec_pydantic_pkgr                    # noqa
+import abx_spec_django                            # noqa
+import abx_spec_searchbackend                     # noqa
+
+
+abx.pm.add_hookspecs(abx_spec_config.PLUGIN_SPEC)
+abx.pm.register(abx_spec_config.PLUGIN_SPEC())
+
+abx.pm.add_hookspecs(abx_spec_pydantic_pkgr.PLUGIN_SPEC)
+abx.pm.register(abx_spec_pydantic_pkgr.PLUGIN_SPEC())
+
+abx.pm.add_hookspecs(abx_spec_django.PLUGIN_SPEC)
+abx.pm.register(abx_spec_django.PLUGIN_SPEC())
+
+abx.pm.add_hookspecs(abx_spec_searchbackend.PLUGIN_SPEC)
+abx.pm.register(abx_spec_searchbackend.PLUGIN_SPEC())
+
+
+abx.pm = cast(abx.ABXPluginManager[abx_spec_archivebox.ArchiveBoxPluginSpec], abx.pm)
+pm = abx.pm
+
+
+# Load all installed ABX-compatible plugins
+ABX_ECOSYSTEM_PLUGINS = abx.get_pip_installed_plugins(group='abx')
+# Load all ArchiveBox-specific plugins
+ARCHIVEBOX_BUILTIN_PLUGINS = {
+    'config': PACKAGE_DIR / 'config',
+    'core': PACKAGE_DIR / 'core',
+    # 'search': PACKAGE_DIR / 'search',
+    # 'core': PACKAGE_DIR / 'core',
+}
+# Load all user-defined ArchiveBox plugins
+USER_PLUGINS = abx.find_plugins_in_dir(Path(os.getcwd()) / 'user_plugins')
+# Merge all plugins together
+ALL_PLUGINS = {**ABX_ECOSYSTEM_PLUGINS, **ARCHIVEBOX_BUILTIN_PLUGINS, **USER_PLUGINS}
+
+
+# Load ArchiveBox plugins
+LOADED_PLUGINS = abx.load_plugins(ALL_PLUGINS)
 
 
 from .config.constants import CONSTANTS                         # noqa

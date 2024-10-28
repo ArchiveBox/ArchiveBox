@@ -17,9 +17,9 @@ from dataclasses import dataclass, asdict, field, fields
 
 from django.utils.functional import cached_property
 
-from archivebox.config import ARCHIVE_DIR, CONSTANTS
+import abx
 
-from plugins_extractor.favicon.config import FAVICON_CONFIG
+from archivebox.config import ARCHIVE_DIR, CONSTANTS
 
 from archivebox.misc.system import get_dir_size
 from archivebox.misc.util import ts_to_date_str, parse_date
@@ -426,7 +426,10 @@ class Link:
     def canonical_outputs(self) -> Dict[str, Optional[str]]:
         """predict the expected output paths that should be present after archiving"""
 
-        from ..extractors.wget import wget_output_path
+        from abx_plugin_wget.wget import wget_output_path
+        
+        FAVICON_CONFIG = abx.pm.hook.get_CONFIGS().favicon
+        
         # TODO: banish this awful duplication from the codebase and import these
         # from their respective extractor files
         canonical = {

@@ -8,9 +8,10 @@ from datetime import datetime
 from typing import IO, Iterable, Optional
 from configparser import ConfigParser
 
+import abx
+
 from archivebox.misc.util import enforce_types
 from archivebox.misc.system import atomic_write
-from archivebox.plugins_extractor.readwise.config import READWISE_CONFIG
 
 from ..index.schema import Link
 
@@ -62,26 +63,30 @@ def link_from_article(article: dict, sources: list):
 
 
 def write_cursor(username: str, since: str):
-    if not READWISE_CONFIG.READWISE_DB_PATH.exists():
-        atomic_write(READWISE_CONFIG.READWISE_DB_PATH, "")
+    READWISE_DB_PATH = abx.pm.hook.get_CONFIG().READWISE_DB_PATH
+    
+    if not READWISE_DB_PATH.exists():
+        atomic_write(READWISE_DB_PATH, "")
 
     since_file = ConfigParser()
     since_file.optionxform = str
-    since_file.read(READWISE_CONFIG.READWISE_DB_PATH)
+    since_file.read(READWISE_DB_PATH)
 
     since_file[username] = {"since": since}
 
-    with open(READWISE_CONFIG.READWISE_DB_PATH, "w+") as new:
+    with open(READWISE_DB_PATH, "w+") as new:
         since_file.write(new)
 
 
 def read_cursor(username: str) -> Optional[str]:
-    if not READWISE_CONFIG.READWISE_DB_PATH.exists():
-        atomic_write(READWISE_CONFIG.READWISE_DB_PATH, "")
+    READWISE_DB_PATH = abx.pm.hook.get_CONFIG().READWISE_DB_PATH
+    
+    if not READWISE_DB_PATH.exists():
+        atomic_write(READWISE_DB_PATH, "")
 
     config_file = ConfigParser()
     config_file.optionxform = str
-    config_file.read(READWISE_CONFIG.READWISE_DB_PATH)
+    config_file.read(READWISE_DB_PATH)
 
     return config_file.get(username, "since", fallback=None)
 
@@ -97,12 +102,14 @@ def should_parse_as_readwise_reader_api(text: str) -> bool:
 def parse_readwise_reader_api_export(input_buffer: IO[str], **_kwargs) -> Iterable[Link]:
     """Parse bookmarks from the Readwise Reader API"""
 
+    READWISE_READER_TOKENS = abx.pm.hook.get_CONFIG().READWISE_READER_TOKENS
+
     input_buffer.seek(0)
     pattern = re.compile(r"^readwise-reader:\/\/(\w+)")
     for line in input_buffer:
         if should_parse_as_readwise_reader_api(line):
             username = pattern.search(line).group(1)
-            api = ReadwiseReaderAPI(READWISE_CONFIG.READWISE_READER_TOKENS[username], cursor=read_cursor(username))
+            api = ReadwiseReaderAPI(READWISE_READER_TOKENS[username], cursor=read_cursor(username))
 
             for article in get_readwise_reader_articles(api):
                 yield link_from_article(article, sources=[line])

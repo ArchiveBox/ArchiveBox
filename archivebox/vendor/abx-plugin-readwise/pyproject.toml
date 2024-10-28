@@ -1,0 +1,18 @@
+[project]
+name = "abx-plugin-readwise"
+version = "2024.10.28"
+description = "Readwise API Extractor"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "abx>=0.1.0",
+    "abx-spec-config>=0.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.entry-points.abx]
+abx_plugin_readwise = "abx_plugin_readwise"
+
