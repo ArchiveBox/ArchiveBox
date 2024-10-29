@@ -262,6 +262,7 @@ def get_plugin(plugin: PluginId | ModuleType | Type) -> PluginInfo:
     # import the plugin module by its name
     if isinstance(plugin, str):
         module = importlib.import_module(plugin)
+        print('IMPORTED PLUGIN:', plugin)
         plugin = getattr(module, 'PLUGIN_SPEC', getattr(module, 'PLUGIN', module))
     elif inspect.ismodule(plugin):
         module = plugin

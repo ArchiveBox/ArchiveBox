@@ -47,8 +47,8 @@ from .monkey_patches import *                    # noqa
 
 
 # print('LOADING VENDORED LIBRARIES')
-from .vendor import load_vendored_libs           # noqa
-load_vendored_libs()
+from .pkgs import load_vendored_pkgs             # noqa
+load_vendored_pkgs()
 # print('DONE LOADING VENDORED LIBRARIES')
 
 # Load ABX Plugin Specifications + Default Implementations

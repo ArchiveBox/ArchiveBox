@@ -39,7 +39,7 @@ classifiers = [
 
 
 dependencies = [
-    # ... archivebox/vendor/*             # see vendored libs here
+    # ... archivebox/pkgs/*             # see vendored libs here
     ############# Django / Core Libraries #############
     "setuptools>=74.1.0",
     "django>=5.1.1,<6.0",
@@ -216,8 +216,8 @@ abx-plugin-htmltotext = { workspace = true }
 
 
 [tool.uv.workspace]
-members = ["archivebox/vendor/*"]
-exclude = ["archivebox/vendor/__pycache__"]
+members = ["archivebox/pkgs/*"]
+exclude = ["archivebox/pkgs/__pycache__"]
 
 [build-system]
 requires = ["pdm-backend"]
