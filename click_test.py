@@ -5,8 +5,6 @@ from archivebox.config.django import setup_django
 
 setup_django()
 
-import abx.archivebox.writes
-
 
 def parse_stdin_to_args(io=sys.stdin):
     for line in io.read().split('\n'):
@@ -25,7 +23,7 @@ if not sys.stdin.isatty():
 def extract(snapshot_ids_or_urls):
     for url_or_snapshot_id in snapshot_ids_or_urls:
         print('- EXTRACTING', url_or_snapshot_id, file=sys.stderr)
-        for result in abx.archivebox.writes.extract(url_or_snapshot_id):
+        for result in archivebox.pm.hook.extract(url_or_snapshot_id):
             print(result)
 
 if __name__ == "__main__":

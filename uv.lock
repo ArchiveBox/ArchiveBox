@@ -9,43 +9,44 @@ resolution-markers = [
 [manifest]
 members = [
     "abx",
-    "abx-archivedotorg-extractor",
-    "abx-chrome-extractor",
-    "abx-curl-extractor",
-    "abx-favicon-extractor",
-    "abx-git-extractor",
-    "abx-htmltotext-extractor",
-    "abx-ldap-auth",
-    "abx-mercury-extractor",
+    "abx-plugin-archivedotorg",
+    "abx-plugin-chrome",
+    "abx-plugin-curl",
     "abx-plugin-default-binproviders",
-    "abx-plugin-npm-binprovider",
-    "abx-plugin-pip-binprovider",
-    "abx-plugin-playwright-binprovider",
-    "abx-pocket-extractor",
-    "abx-puppeteer-binprovider",
-    "abx-readability-extractor",
-    "abx-readwise-extractor",
-    "abx-ripgrep-search",
-    "abx-singlefile-extractor",
-    "abx-sonic-search",
+    "abx-plugin-favicon",
+    "abx-plugin-git",
+    "abx-plugin-htmltotext",
+    "abx-plugin-ldap-auth",
+    "abx-plugin-mercury",
+    "abx-plugin-npm",
+    "abx-plugin-pip",
+    "abx-plugin-playwright",
+    "abx-plugin-pocket",
+    "abx-plugin-puppeteer",
+    "abx-plugin-readability",
+    "abx-plugin-readwise",
+    "abx-plugin-ripgrep-search",
+    "abx-plugin-singlefile",
+    "abx-plugin-sonic-search",
+    "abx-plugin-sqlitefts-search",
+    "abx-plugin-title",
+    "abx-plugin-wget",
+    "abx-plugin-ytdlp",
     "abx-spec-archivebox",
     "abx-spec-config",
     "abx-spec-django",
     "abx-spec-extractor",
     "abx-spec-pydantic-pkgr",
     "abx-spec-searchbackend",
-    "abx-sqlitefts-search",
-    "abx-wget-extractor",
-    "abx-ytdlp-extractor",
     "archivebox",
-    "archivebox-pocket",
+    "pocket",
     "pydantic-pkgr",
 ]
 
 [[package]]
 name = "abx"
 version = "0.1.0"
-source = { editable = "packages/abx" }
+source = { editable = "archivebox/vendor/abx" }
 dependencies = [
     { name = "django" },
     { name = "pluggy" },
@@ -58,49 +59,60 @@ requires-dist = [
 ]
 
 [[package]]
-name = "abx-archivedotorg-extractor"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-archivedotorg-extractor" }
+name = "abx-plugin-archivedotorg"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-archivedotorg" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-plugin-curl" },
+    { name = "abx-spec-config" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-plugin-curl", editable = "archivebox/vendor/abx-plugin-curl" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+]
 
 [[package]]
-name = "abx-chrome-extractor"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-chrome-extractor" }
+name = "abx-plugin-chrome"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-chrome" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+]
 
 [[package]]
-name = "abx-curl-extractor"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-curl-extractor" }
+name = "abx-plugin-curl"
+version = "2024.10.24"
+source = { editable = "archivebox/vendor/abx-plugin-curl" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr" },
+]
 
-[[package]]
-name = "abx-favicon-extractor"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-favicon-extractor" }
-
-[[package]]
-name = "abx-git-extractor"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-git-extractor" }
-
-[[package]]
-name = "abx-htmltotext-extractor"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-htmltotext-extractor" }
-
-[[package]]
-name = "abx-ldap-auth"
-version = "0.1.0"
-source = { editable = "packages/abx-plugin-ldap-auth" }
-
-[[package]]
-name = "abx-mercury-extractor"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-mercury-extractor" }
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+]
 
 [[package]]
 name = "abx-plugin-default-binproviders"
 version = "2024.10.24"
-source = { editable = "packages/abx-plugin-default-binproviders" }
+source = { editable = "archivebox/vendor/abx-plugin-default-binproviders" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-pydantic-pkgr" },
@@ -109,15 +121,98 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "packages/abx" },
-    { name = "abx-spec-pydantic-pkgr", editable = "packages/abx-spec-pydantic-pkgr" },
-    { name = "pydantic-pkgr", editable = "packages/pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "pydantic-pkgr", editable = "archivebox/vendor/pydantic-pkgr" },
 ]
 
 [[package]]
-name = "abx-plugin-npm-binprovider"
+name = "abx-plugin-favicon"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-favicon" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-plugin-curl" },
+    { name = "abx-spec-config" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-plugin-curl", editable = "archivebox/vendor/abx-plugin-curl" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+]
+
+[[package]]
+name = "abx-plugin-git"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-git" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-plugin-default-binproviders" },
+    { name = "abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-plugin-default-binproviders", editable = "archivebox/vendor/abx-plugin-default-binproviders" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+]
+
+[[package]]
+name = "abx-plugin-htmltotext"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-htmltotext" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+]
+
+[[package]]
+name = "abx-plugin-ldap-auth"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-ldap-auth" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+    { name = "abx-spec-django" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-django", editable = "archivebox/vendor/abx-spec-django" },
+]
+
+[[package]]
+name = "abx-plugin-mercury"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-mercury" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+]
+
+[[package]]
+name = "abx-plugin-npm"
 version = "2024.10.24"
-source = { editable = "packages/abx-plugin-npm-binprovider" }
+source = { editable = "archivebox/vendor/abx-plugin-npm" }
 dependencies = [
     { name = "abx" },
     { name = "abx-plugin-default-binproviders" },
@@ -128,17 +223,17 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "packages/abx" },
-    { name = "abx-plugin-default-binproviders", editable = "packages/abx-plugin-default-binproviders" },
-    { name = "abx-spec-config", editable = "packages/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "packages/abx-spec-pydantic-pkgr" },
-    { name = "pydantic-pkgr", editable = "packages/pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-plugin-default-binproviders", editable = "archivebox/vendor/abx-plugin-default-binproviders" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "pydantic-pkgr", editable = "archivebox/vendor/pydantic-pkgr" },
 ]
 
 [[package]]
-name = "abx-plugin-pip-binprovider"
+name = "abx-plugin-pip"
 version = "2024.10.24"
-source = { editable = "packages/abx-plugin-pip-binprovider" }
+source = { editable = "archivebox/vendor/abx-plugin-pip" }
 dependencies = [
     { name = "abx" },
     { name = "abx-plugin-default-binproviders" },
@@ -150,18 +245,18 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "packages/abx" },
-    { name = "abx-plugin-default-binproviders", editable = "packages/abx-plugin-default-binproviders" },
-    { name = "abx-spec-config", editable = "packages/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "packages/abx-spec-pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-plugin-default-binproviders", editable = "archivebox/vendor/abx-plugin-default-binproviders" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
     { name = "django", specifier = ">=5.0.0" },
-    { name = "pydantic-pkgr", editable = "packages/pydantic-pkgr" },
+    { name = "pydantic-pkgr", editable = "archivebox/vendor/pydantic-pkgr" },
 ]
 
 [[package]]
-name = "abx-plugin-playwright-binprovider"
-version = "2024.10.24"
-source = { editable = "packages/abx-plugin-playwright-binprovider" }
+name = "abx-plugin-playwright"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-playwright" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -172,52 +267,210 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "packages/abx" },
-    { name = "abx-spec-config", editable = "packages/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "packages/abx-spec-pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
     { name = "pydantic", specifier = ">=2.4.2" },
-    { name = "pydantic-pkgr", editable = "packages/pydantic-pkgr" },
+    { name = "pydantic-pkgr", editable = "archivebox/vendor/pydantic-pkgr" },
 ]
 
 [[package]]
-name = "abx-pocket-extractor"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-pocket-extractor" }
+name = "abx-plugin-pocket"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-pocket" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+    { name = "pocket" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "pocket", virtual = "archivebox/vendor/pocket" },
+]
 
 [[package]]
-name = "abx-puppeteer-binprovider"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-puppeteer-binprovider" }
+name = "abx-plugin-puppeteer"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-puppeteer" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr" },
+    { name = "pydantic-pkgr" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "pydantic-pkgr", editable = "archivebox/vendor/pydantic-pkgr" },
+]
 
 [[package]]
-name = "abx-readability-extractor"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-readability-extractor" }
+name = "abx-plugin-readability"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-readability" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+]
 
 [[package]]
-name = "abx-readwise-extractor"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-readwise-extractor" }
+name = "abx-plugin-readwise"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-readwise" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+]
 
 [[package]]
-name = "abx-ripgrep-search"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-ripgrep-search" }
+name = "abx-plugin-ripgrep-search"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-ripgrep-search" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+    { name = "abx-spec-searchbackend" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-searchbackend", editable = "archivebox/vendor/abx-spec-searchbackend" },
+]
 
 [[package]]
-name = "abx-singlefile-extractor"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-singlefile-extractor" }
+name = "abx-plugin-singlefile"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-singlefile" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr" },
+    { name = "pydantic-pkgr" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "pydantic-pkgr", editable = "archivebox/vendor/pydantic-pkgr" },
+]
 
 [[package]]
-name = "abx-sonic-search"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-sonic-search" }
+name = "abx-plugin-sonic-search"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-sonic-search" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr" },
+    { name = "abx-spec-searchbackend" },
+    { name = "pydantic-pkgr" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "abx-spec-searchbackend", editable = "archivebox/vendor/abx-spec-searchbackend" },
+    { name = "pydantic-pkgr", editable = "archivebox/vendor/pydantic-pkgr" },
+]
+
+[[package]]
+name = "abx-plugin-sqlitefts-search"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-sqlitefts-search" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+    { name = "abx-spec-searchbackend" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-searchbackend", editable = "archivebox/vendor/abx-spec-searchbackend" },
+]
+
+[[package]]
+name = "abx-plugin-title"
+version = "2024.10.27"
+source = { editable = "archivebox/vendor/abx-plugin-title" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-plugin-curl" },
+    { name = "abx-spec-config" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-plugin-curl", editable = "archivebox/vendor/abx-plugin-curl" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+]
+
+[[package]]
+name = "abx-plugin-wget"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-wget" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+]
+
+[[package]]
+name = "abx-plugin-ytdlp"
+version = "2024.10.28"
+source = { editable = "archivebox/vendor/abx-plugin-ytdlp" }
+dependencies = [
+    { name = "abx" },
+    { name = "abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr" },
+    { name = "pydantic-pkgr" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "pydantic-pkgr", editable = "archivebox/vendor/pydantic-pkgr" },
+]
 
 [[package]]
 name = "abx-spec-archivebox"
 version = "0.1.0"
-source = { editable = "packages/abx-spec-archivebox" }
+source = { editable = "archivebox/vendor/abx-spec-archivebox" }
 dependencies = [
     { name = "abx" },
     { name = "django" },
@@ -225,14 +478,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "packages/abx" },
+    { name = "abx", editable = "archivebox/vendor/abx" },
     { name = "django", specifier = ">=5.1.1,<6.0" },
 ]
 
 [[package]]
 name = "abx-spec-config"
-version = "0.0.1"
-source = { editable = "packages/abx-spec-config" }
+version = "0.1.0"
+source = { editable = "archivebox/vendor/abx-spec-config" }
 dependencies = [
     { name = "abx" },
     { name = "pydantic" },
@@ -243,7 +496,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "packages/abx" },
+    { name = "abx", editable = "archivebox/vendor/abx" },
     { name = "pydantic", specifier = ">=2.9.2" },
     { name = "pydantic-settings", specifier = ">=2.6.0" },
     { name = "python-benedict", specifier = ">=0.34.0" },
@@ -253,7 +506,7 @@ requires-dist = [
 [[package]]
 name = "abx-spec-django"
 version = "0.1.0"
-source = { editable = "packages/abx-spec-django" }
+source = { editable = "archivebox/vendor/abx-spec-django" }
 dependencies = [
     { name = "abx" },
     { name = "django" },
@@ -261,14 +514,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "packages/abx" },
+    { name = "abx", editable = "archivebox/vendor/abx" },
     { name = "django", specifier = ">=5.1.1,<6.0" },
 ]
 
 [[package]]
 name = "abx-spec-extractor"
 version = "0.1.0"
-source = { editable = "packages/abx-spec-extractor" }
+source = { editable = "archivebox/vendor/abx-spec-extractor" }
 dependencies = [
     { name = "abx" },
     { name = "pydantic" },
@@ -277,7 +530,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "packages/abx" },
+    { name = "abx", editable = "archivebox/vendor/abx" },
     { name = "pydantic", specifier = ">=2.5.0" },
     { name = "python-benedict", specifier = ">=0.26.0" },
 ]
@@ -285,7 +538,7 @@ requires-dist = [
 [[package]]
 name = "abx-spec-pydantic-pkgr"
 version = "0.1.0"
-source = { editable = "packages/abx-spec-pydantic-pkgr" }
+source = { editable = "archivebox/vendor/abx-spec-pydantic-pkgr" }
 dependencies = [
     { name = "abx" },
     { name = "pydantic-pkgr" },
@@ -293,14 +546,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "packages/abx" },
-    { name = "pydantic-pkgr", editable = "packages/pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "pydantic-pkgr", editable = "archivebox/vendor/pydantic-pkgr" },
 ]
 
 [[package]]
 name = "abx-spec-searchbackend"
 version = "0.1.0"
-source = { editable = "packages/abx-spec-searchbackend" }
+source = { editable = "archivebox/vendor/abx-spec-searchbackend" }
 dependencies = [
     { name = "abx" },
     { name = "pydantic" },
@@ -309,25 +562,10 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "packages/abx" },
+    { name = "abx", editable = "archivebox/vendor/abx" },
     { name = "pydantic", specifier = ">=2.5.0" },
     { name = "python-benedict", specifier = ">=0.26.0" },
 ]
-
-[[package]]
-name = "abx-sqlitefts-search"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-sqlitefts-search" }
-
-[[package]]
-name = "abx-wget-extractor"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-wget-extractor" }
-
-[[package]]
-name = "abx-ytdlp-extractor"
-version = "0.1.0"
-source = { virtual = "packages/abx-plugin-ytdlp-extractor" }
 
 [[package]]
 name = "alabaster"
@@ -411,10 +649,27 @@ version = "0.8.5rc53"
 source = { editable = "." }
 dependencies = [
     { name = "abx" },
+    { name = "abx-plugin-archivedotorg" },
+    { name = "abx-plugin-chrome" },
+    { name = "abx-plugin-curl" },
     { name = "abx-plugin-default-binproviders" },
-    { name = "abx-plugin-npm-binprovider" },
-    { name = "abx-plugin-pip-binprovider" },
-    { name = "abx-plugin-playwright-binprovider" },
+    { name = "abx-plugin-favicon" },
+    { name = "abx-plugin-git" },
+    { name = "abx-plugin-htmltotext" },
+    { name = "abx-plugin-ldap-auth" },
+    { name = "abx-plugin-mercury" },
+    { name = "abx-plugin-npm" },
+    { name = "abx-plugin-pip" },
+    { name = "abx-plugin-playwright" },
+    { name = "abx-plugin-puppeteer" },
+    { name = "abx-plugin-readability" },
+    { name = "abx-plugin-ripgrep-search" },
+    { name = "abx-plugin-singlefile" },
+    { name = "abx-plugin-sonic-search" },
+    { name = "abx-plugin-sqlitefts-search" },
+    { name = "abx-plugin-title" },
+    { name = "abx-plugin-wget" },
+    { name = "abx-plugin-ytdlp" },
     { name = "abx-spec-archivebox" },
     { name = "abx-spec-config" },
     { name = "abx-spec-django" },
@@ -442,6 +697,7 @@ dependencies = [
     { name = "feedparser" },
     { name = "ipython" },
     { name = "mypy-extensions" },
+    { name = "platformdirs" },
     { name = "pluggy" },
     { name = "psutil" },
     { name = "py-machineid" },
@@ -500,17 +756,34 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "packages/abx" },
-    { name = "abx-plugin-default-binproviders", editable = "packages/abx-plugin-default-binproviders" },
-    { name = "abx-plugin-npm-binprovider", editable = "packages/abx-plugin-npm-binprovider" },
-    { name = "abx-plugin-pip-binprovider", editable = "packages/abx-plugin-pip-binprovider" },
-    { name = "abx-plugin-playwright-binprovider", editable = "packages/abx-plugin-playwright-binprovider" },
-    { name = "abx-spec-archivebox", editable = "packages/abx-spec-archivebox" },
-    { name = "abx-spec-config", editable = "packages/abx-spec-config" },
-    { name = "abx-spec-django", editable = "packages/abx-spec-django" },
-    { name = "abx-spec-extractor", editable = "packages/abx-spec-extractor" },
-    { name = "abx-spec-pydantic-pkgr", editable = "packages/abx-spec-pydantic-pkgr" },
-    { name = "abx-spec-searchbackend", editable = "packages/abx-spec-searchbackend" },
+    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx-plugin-archivedotorg", editable = "archivebox/vendor/abx-plugin-archivedotorg" },
+    { name = "abx-plugin-chrome", editable = "archivebox/vendor/abx-plugin-chrome" },
+    { name = "abx-plugin-curl", editable = "archivebox/vendor/abx-plugin-curl" },
+    { name = "abx-plugin-default-binproviders", editable = "archivebox/vendor/abx-plugin-default-binproviders" },
+    { name = "abx-plugin-favicon", editable = "archivebox/vendor/abx-plugin-favicon" },
+    { name = "abx-plugin-git", editable = "archivebox/vendor/abx-plugin-git" },
+    { name = "abx-plugin-htmltotext", editable = "archivebox/vendor/abx-plugin-htmltotext" },
+    { name = "abx-plugin-ldap-auth", editable = "archivebox/vendor/abx-plugin-ldap-auth" },
+    { name = "abx-plugin-mercury", editable = "archivebox/vendor/abx-plugin-mercury" },
+    { name = "abx-plugin-npm", editable = "archivebox/vendor/abx-plugin-npm" },
+    { name = "abx-plugin-pip", editable = "archivebox/vendor/abx-plugin-pip" },
+    { name = "abx-plugin-playwright", editable = "archivebox/vendor/abx-plugin-playwright" },
+    { name = "abx-plugin-puppeteer", editable = "archivebox/vendor/abx-plugin-puppeteer" },
+    { name = "abx-plugin-readability", editable = "archivebox/vendor/abx-plugin-readability" },
+    { name = "abx-plugin-ripgrep-search", editable = "archivebox/vendor/abx-plugin-ripgrep-search" },
+    { name = "abx-plugin-singlefile", editable = "archivebox/vendor/abx-plugin-singlefile" },
+    { name = "abx-plugin-sonic-search", editable = "archivebox/vendor/abx-plugin-sonic-search" },
+    { name = "abx-plugin-sqlitefts-search", editable = "archivebox/vendor/abx-plugin-sqlitefts-search" },
+    { name = "abx-plugin-title", editable = "archivebox/vendor/abx-plugin-title" },
+    { name = "abx-plugin-wget", editable = "archivebox/vendor/abx-plugin-wget" },
+    { name = "abx-plugin-ytdlp", editable = "archivebox/vendor/abx-plugin-ytdlp" },
+    { name = "abx-spec-archivebox", editable = "archivebox/vendor/abx-spec-archivebox" },
+    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx-spec-django", editable = "archivebox/vendor/abx-spec-django" },
+    { name = "abx-spec-extractor", editable = "archivebox/vendor/abx-spec-extractor" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "abx-spec-searchbackend", editable = "archivebox/vendor/abx-spec-searchbackend" },
     { name = "archivebox", extras = ["sonic", "ldap"], marker = "extra == 'all'" },
     { name = "atomicwrites", specifier = "==1.4.1" },
     { name = "base32-crockford", specifier = "==0.3.0" },
@@ -534,10 +807,11 @@ requires-dist = [
     { name = "feedparser", specifier = ">=6.0.11" },
     { name = "ipython", specifier = ">=8.27.0" },
     { name = "mypy-extensions", specifier = ">=1.0.0" },
+    { name = "platformdirs", specifier = ">=4.3.6" },
     { name = "pluggy", specifier = ">=1.5.0" },
     { name = "psutil", specifier = ">=6.0.0" },
     { name = "py-machineid", specifier = ">=0.6.0" },
-    { name = "pydantic-pkgr", editable = "packages/pydantic-pkgr" },
+    { name = "pydantic-pkgr", editable = "archivebox/vendor/pydantic-pkgr" },
     { name = "pydantic-settings", specifier = ">=2.5.2" },
     { name = "python-benedict", extras = ["io", "parse"], specifier = ">=0.33.2" },
     { name = "python-crontab", specifier = ">=3.2.0" },
@@ -580,17 +854,6 @@ dev = [
     { name = "viztracer", specifier = ">=0.17.0" },
     { name = "wheel", specifier = ">=0.44.0" },
 ]
-
-[[package]]
-name = "archivebox-pocket"
-version = "0.3.7"
-source = { editable = "packages/archivebox-pocket" }
-dependencies = [
-    { name = "requests" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "requests", specifier = ">=2.32.3" }]
 
 [[package]]
 name = "asgiref"
@@ -2248,6 +2511,11 @@ wheels = [
 ]
 
 [[package]]
+name = "pocket"
+version = "0.3.7"
+source = { virtual = "archivebox/vendor/pocket" }
+
+[[package]]
 name = "prompt-toolkit"
 version = "3.0.48"
 source = { registry = "https://pypi.org/simple" }
@@ -2465,7 +2733,7 @@ wheels = [
 [[package]]
 name = "pydantic-pkgr"
 version = "0.5.4"
-source = { editable = "packages/pydantic-pkgr" }
+source = { editable = "archivebox/vendor/pydantic-pkgr" }
 dependencies = [
     { name = "platformdirs" },
     { name = "pydantic" },
@@ -2497,7 +2765,7 @@ requires-dist = [
     { name = "platformdirs", specifier = ">=4.3.6" },
     { name = "pydantic", specifier = ">=2.7.1" },
     { name = "pydantic-core", specifier = ">=2.18.2" },
-    { name = "pydantic-pkgr", extras = ["pyinfra", "ansible"], marker = "extra == 'all'", editable = "packages/pydantic-pkgr" },
+    { name = "pydantic-pkgr", extras = ["pyinfra", "ansible"], marker = "extra == 'all'", editable = "archivebox/vendor/pydantic-pkgr" },
     { name = "pyinfra", marker = "extra == 'pyinfra'", specifier = ">=2.6.1" },
     { name = "typing-extensions", specifier = ">=4.11.0" },
 ]
@@ -3296,14 +3564,14 @@ wheels = [
 
 [[package]]
 name = "typeguard"
-version = "4.3.0"
+version = "4.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8d/e1/3178b3e5369a98239ed7301e3946747048c66f4023163d55918f11b82d4e/typeguard-4.3.0.tar.gz", hash = "sha256:92ee6a0aec9135181eae6067ebd617fd9de8d75d714fb548728a4933b1dea651", size = 73374 }
+sdist = { url = "https://files.pythonhosted.org/packages/79/5a/91b7c8cfc2e96962442abc9d65c650436dd831910b4d7878980d6596fb98/typeguard-4.4.0.tar.gz", hash = "sha256:463bd8697a65a4aa576a63767c369b1ecfba8a5ba735edfe3223127b6ecfa28c", size = 74399 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/de/be0ba39ee73760bf33329b7c6f95bc67e96593c69c881671e312538e24bb/typeguard-4.3.0-py3-none-any.whl", hash = "sha256:4d24c5b39a117f8a895b9da7a9b3114f04eb63bade45a4492de49b175b6f7dfa", size = 35385 },
+    { url = "https://files.pythonhosted.org/packages/61/a3/00203767544b597a9e3c57b29a84967b3230f00bdd9aa6a52a73187043b4/typeguard-4.4.0-py3-none-any.whl", hash = "sha256:8ca34c14043f53b2caae7040549ba431770869bcd6287cfa8239db7ecb882b4a", size = 35736 },
 ]
 
 [[package]]
