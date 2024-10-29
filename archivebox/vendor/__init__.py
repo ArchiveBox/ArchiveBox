@@ -7,14 +7,16 @@ VENDOR_DIR = Path(__file__).parent
 VENDORED_LIBS = [
     'abx',
     'pydantic-pkgr',
-    'pocket',
 ]
 
+# scan ./vendor and add all dirs present to list of available VENDORED_LIBS
 for subdir in reversed(sorted(VENDOR_DIR.iterdir())):
     if subdir.is_dir() and subdir.name not in VENDORED_LIBS and not subdir.name.startswith('_'):
         VENDORED_LIBS.append(subdir.name)
 
+
 def load_vendored_libs():
+    """Add archivebox/vendor to sys.path and import all vendored libraries present within"""
     if str(VENDOR_DIR) not in sys.path:
         sys.path.append(str(VENDOR_DIR))
     

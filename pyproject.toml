@@ -79,10 +79,11 @@ dependencies = [
     "django-taggit==6.1.0",
     "base32-crockford==0.3.0",
     "platformdirs>=4.3.6",
-    ############# Plugin Dependencies ################
-    # "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
     "pydantic-pkgr>=0.5.4",
-    
+    "pocket>=0.3.6",
+    "sonic-client>=1.0.0",
+    "yt-dlp>=2024.8.6", # for: media"
+    ############# Plugin Dependencies ################
     "abx>=0.1.0",
 
     "abx-spec-pydantic-pkgr>=0.1.0",
@@ -118,9 +119,6 @@ dependencies = [
     "abx-plugin-readability>=2024.10.28",
     "abx-plugin-mercury>=2024.10.28",
     "abx-plugin-htmltotext>=2024.10.28",
-
-    "sonic-client>=1.0.0",
-    "yt-dlp>=2024.8.6", # for: media"
 ]
 
 [project.optional-dependencies]
@@ -136,8 +134,15 @@ ldap = [
     "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
 ]
+debug = [
+    # libs needed to run archivebox server with DEBUG=True
+    "django-debug-toolbar>=4.4.6",
+    "requests-tracker>=0.3.3",
+    "djdt_flamegraph>=0.2.13",
+    "ipdb>=0.13.13",
+]
 all = [
-    "archivebox[sonic,ldap]"
+    "archivebox[sonic,ldap,debug]"
 ]
 
 [tool.uv]
@@ -154,9 +159,9 @@ dev-dependencies = [
     "sphinx-rtd-theme>=2.0.0",
     ### DEBUGGING
     "django-debug-toolbar>=4.4.6",
+    "requests-tracker>=0.3.3",
     "djdt_flamegraph>=0.2.13",
     "ipdb>=0.13.13",
-    "requests-tracker>=0.3.3",
     "logfire[django]>=0.51.0",
     "opentelemetry-instrumentation-django>=0.47b0",
     "opentelemetry-instrumentation-sqlite3>=0.47b0",
@@ -173,6 +178,8 @@ dev-dependencies = [
 ]
 
 [tool.uv.sources]
+pydantic-pkgr = { workspace = true }
+
 abx = { workspace = true }
 abx-spec-pydantic-pkgr = { workspace = true }
 abx-spec-config = { workspace = true }
@@ -208,9 +215,6 @@ abx-plugin-mercury = { workspace = true }
 abx-plugin-htmltotext = { workspace = true }
 
 
-pydantic-pkgr = { workspace = true }
-pocket = { workspace = true }
-
 [tool.uv.workspace]
 members = ["archivebox/vendor/*"]
 exclude = ["archivebox/vendor/__pycache__"]
@@ -228,7 +232,7 @@ package-dir = {"archivebox" = "archivebox"}
 line-length = 140
 target-version = "py310"
 src = ["archivebox"]
-exclude = ["*.pyi", "typings/", "migrations/", "vendor/pocket"]
+exclude = ["*.pyi", "typings/", "migrations/"]
 
 # https://docs.astral.sh/ruff/rules/
 [tool.ruff.lint]
@@ -263,7 +267,6 @@ exclude = [
     "**/node_modules",
     "**/__pycache__",
     "**/migrations",
-    "archivebox/vendor/pocket",
 ]
 stubPath = "./archivebox/typings"
 venvPath = "."
