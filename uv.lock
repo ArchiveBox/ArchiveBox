@@ -44,7 +44,7 @@ members = [
 [[package]]
 name = "abx"
 version = "0.1.0"
-source = { editable = "archivebox/vendor/abx" }
+source = { editable = "archivebox/pkgs/abx" }
 dependencies = [
     { name = "django" },
     { name = "pluggy" },
@@ -59,7 +59,7 @@ requires-dist = [
 [[package]]
 name = "abx-plugin-archivedotorg"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-archivedotorg" }
+source = { editable = "archivebox/pkgs/abx-plugin-archivedotorg" }
 dependencies = [
     { name = "abx" },
     { name = "abx-plugin-curl" },
@@ -68,15 +68,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-plugin-curl", editable = "archivebox/vendor/abx-plugin-curl" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-plugin-curl", editable = "archivebox/pkgs/abx-plugin-curl" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
 ]
 
 [[package]]
 name = "abx-plugin-chrome"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-chrome" }
+source = { editable = "archivebox/pkgs/abx-plugin-chrome" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -85,15 +85,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" },
 ]
 
 [[package]]
 name = "abx-plugin-curl"
 version = "2024.10.24"
-source = { editable = "archivebox/vendor/abx-plugin-curl" }
+source = { editable = "archivebox/pkgs/abx-plugin-curl" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -102,15 +102,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" },
 ]
 
 [[package]]
 name = "abx-plugin-default-binproviders"
 version = "2024.10.24"
-source = { editable = "archivebox/vendor/abx-plugin-default-binproviders" }
+source = { editable = "archivebox/pkgs/abx-plugin-default-binproviders" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-pydantic-pkgr" },
@@ -119,15 +119,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" },
     { name = "pydantic-pkgr", specifier = ">=0.5.4" },
 ]
 
 [[package]]
 name = "abx-plugin-favicon"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-favicon" }
+source = { editable = "archivebox/pkgs/abx-plugin-favicon" }
 dependencies = [
     { name = "abx" },
     { name = "abx-plugin-curl" },
@@ -136,15 +136,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-plugin-curl", editable = "archivebox/vendor/abx-plugin-curl" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-plugin-curl", editable = "archivebox/pkgs/abx-plugin-curl" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
 ]
 
 [[package]]
 name = "abx-plugin-git"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-git" }
+source = { editable = "archivebox/pkgs/abx-plugin-git" }
 dependencies = [
     { name = "abx" },
     { name = "abx-plugin-default-binproviders" },
@@ -154,16 +154,16 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-plugin-default-binproviders", editable = "archivebox/vendor/abx-plugin-default-binproviders" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-plugin-default-binproviders", editable = "archivebox/pkgs/abx-plugin-default-binproviders" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" },
 ]
 
 [[package]]
 name = "abx-plugin-htmltotext"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-htmltotext" }
+source = { editable = "archivebox/pkgs/abx-plugin-htmltotext" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -171,14 +171,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
 ]
 
 [[package]]
 name = "abx-plugin-ldap-auth"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-ldap-auth" }
+source = { editable = "archivebox/pkgs/abx-plugin-ldap-auth" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -187,15 +187,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-django", editable = "archivebox/vendor/abx-spec-django" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-django", editable = "archivebox/pkgs/abx-spec-django" },
 ]
 
 [[package]]
 name = "abx-plugin-mercury"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-mercury" }
+source = { editable = "archivebox/pkgs/abx-plugin-mercury" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -203,14 +203,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
 ]
 
 [[package]]
 name = "abx-plugin-npm"
 version = "2024.10.24"
-source = { editable = "archivebox/vendor/abx-plugin-npm" }
+source = { editable = "archivebox/pkgs/abx-plugin-npm" }
 dependencies = [
     { name = "abx" },
     { name = "abx-plugin-default-binproviders" },
@@ -221,17 +221,17 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-plugin-default-binproviders", editable = "archivebox/vendor/abx-plugin-default-binproviders" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-plugin-default-binproviders", editable = "archivebox/pkgs/abx-plugin-default-binproviders" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" },
     { name = "pydantic-pkgr", specifier = ">=0.5.4" },
 ]
 
 [[package]]
 name = "abx-plugin-pip"
 version = "2024.10.24"
-source = { editable = "archivebox/vendor/abx-plugin-pip" }
+source = { editable = "archivebox/pkgs/abx-plugin-pip" }
 dependencies = [
     { name = "abx" },
     { name = "abx-plugin-default-binproviders" },
@@ -243,10 +243,10 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-plugin-default-binproviders", editable = "archivebox/vendor/abx-plugin-default-binproviders" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-plugin-default-binproviders", editable = "archivebox/pkgs/abx-plugin-default-binproviders" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" },
     { name = "django", specifier = ">=5.0.0" },
     { name = "pydantic-pkgr", specifier = ">=0.5.4" },
 ]
@@ -254,7 +254,7 @@ requires-dist = [
 [[package]]
 name = "abx-plugin-playwright"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-playwright" }
+source = { editable = "archivebox/pkgs/abx-plugin-playwright" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -265,9 +265,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" },
     { name = "pydantic", specifier = ">=2.4.2" },
     { name = "pydantic-pkgr", specifier = ">=0.5.4" },
 ]
@@ -275,7 +275,7 @@ requires-dist = [
 [[package]]
 name = "abx-plugin-pocket"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-pocket" }
+source = { editable = "archivebox/pkgs/abx-plugin-pocket" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -284,15 +284,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
     { name = "pocket", specifier = ">=0.3.6" },
 ]
 
 [[package]]
 name = "abx-plugin-puppeteer"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-puppeteer" }
+source = { editable = "archivebox/pkgs/abx-plugin-puppeteer" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -302,16 +302,16 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" },
     { name = "pydantic-pkgr", specifier = ">=0.5.4" },
 ]
 
 [[package]]
 name = "abx-plugin-readability"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-readability" }
+source = { editable = "archivebox/pkgs/abx-plugin-readability" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -319,14 +319,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
 ]
 
 [[package]]
 name = "abx-plugin-readwise"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-readwise" }
+source = { editable = "archivebox/pkgs/abx-plugin-readwise" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -334,14 +334,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
 ]
 
 [[package]]
 name = "abx-plugin-ripgrep-search"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-ripgrep-search" }
+source = { editable = "archivebox/pkgs/abx-plugin-ripgrep-search" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -350,15 +350,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-searchbackend", editable = "archivebox/vendor/abx-spec-searchbackend" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-searchbackend", editable = "archivebox/pkgs/abx-spec-searchbackend" },
 ]
 
 [[package]]
 name = "abx-plugin-singlefile"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-singlefile" }
+source = { editable = "archivebox/pkgs/abx-plugin-singlefile" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -368,16 +368,16 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" },
     { name = "pydantic-pkgr", specifier = ">=0.5.4" },
 ]
 
 [[package]]
 name = "abx-plugin-sonic-search"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-sonic-search" }
+source = { editable = "archivebox/pkgs/abx-plugin-sonic-search" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -388,17 +388,17 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
-    { name = "abx-spec-searchbackend", editable = "archivebox/vendor/abx-spec-searchbackend" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" },
+    { name = "abx-spec-searchbackend", editable = "archivebox/pkgs/abx-spec-searchbackend" },
     { name = "pydantic-pkgr", specifier = ">=0.5.4" },
 ]
 
 [[package]]
 name = "abx-plugin-sqlitefts-search"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-sqlitefts-search" }
+source = { editable = "archivebox/pkgs/abx-plugin-sqlitefts-search" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -407,15 +407,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-searchbackend", editable = "archivebox/vendor/abx-spec-searchbackend" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-searchbackend", editable = "archivebox/pkgs/abx-spec-searchbackend" },
 ]
 
 [[package]]
 name = "abx-plugin-title"
 version = "2024.10.27"
-source = { editable = "archivebox/vendor/abx-plugin-title" }
+source = { editable = "archivebox/pkgs/abx-plugin-title" }
 dependencies = [
     { name = "abx" },
     { name = "abx-plugin-curl" },
@@ -424,15 +424,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-plugin-curl", editable = "archivebox/vendor/abx-plugin-curl" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-plugin-curl", editable = "archivebox/pkgs/abx-plugin-curl" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
 ]
 
 [[package]]
 name = "abx-plugin-wget"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-wget" }
+source = { editable = "archivebox/pkgs/abx-plugin-wget" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -441,15 +441,15 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" },
 ]
 
 [[package]]
 name = "abx-plugin-ytdlp"
 version = "2024.10.28"
-source = { editable = "archivebox/vendor/abx-plugin-ytdlp" }
+source = { editable = "archivebox/pkgs/abx-plugin-ytdlp" }
 dependencies = [
     { name = "abx" },
     { name = "abx-spec-config" },
@@ -459,16 +459,16 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" },
     { name = "pydantic-pkgr", specifier = ">=0.5.4" },
 ]
 
 [[package]]
 name = "abx-spec-archivebox"
 version = "0.1.0"
-source = { editable = "archivebox/vendor/abx-spec-archivebox" }
+source = { editable = "archivebox/pkgs/abx-spec-archivebox" }
 dependencies = [
     { name = "abx" },
     { name = "django" },
@@ -476,14 +476,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
     { name = "django", specifier = ">=5.1.1,<6.0" },
 ]
 
 [[package]]
 name = "abx-spec-config"
 version = "0.1.0"
-source = { editable = "archivebox/vendor/abx-spec-config" }
+source = { editable = "archivebox/pkgs/abx-spec-config" }
 dependencies = [
     { name = "abx" },
     { name = "pydantic" },
@@ -494,7 +494,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
     { name = "pydantic", specifier = ">=2.9.2" },
     { name = "pydantic-settings", specifier = ">=2.6.0" },
     { name = "python-benedict", specifier = ">=0.34.0" },
@@ -504,7 +504,7 @@ requires-dist = [
 [[package]]
 name = "abx-spec-django"
 version = "0.1.0"
-source = { editable = "archivebox/vendor/abx-spec-django" }
+source = { editable = "archivebox/pkgs/abx-spec-django" }
 dependencies = [
     { name = "abx" },
     { name = "django" },
@@ -512,14 +512,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
     { name = "django", specifier = ">=5.1.1,<6.0" },
 ]
 
 [[package]]
 name = "abx-spec-extractor"
 version = "0.1.0"
-source = { editable = "archivebox/vendor/abx-spec-extractor" }
+source = { editable = "archivebox/pkgs/abx-spec-extractor" }
 dependencies = [
     { name = "abx" },
     { name = "pydantic" },
@@ -528,7 +528,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
     { name = "pydantic", specifier = ">=2.5.0" },
     { name = "python-benedict", specifier = ">=0.26.0" },
 ]
@@ -536,7 +536,7 @@ requires-dist = [
 [[package]]
 name = "abx-spec-pydantic-pkgr"
 version = "0.1.0"
-source = { editable = "archivebox/vendor/abx-spec-pydantic-pkgr" }
+source = { editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" }
 dependencies = [
     { name = "abx" },
     { name = "pydantic-pkgr" },
@@ -544,14 +544,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
     { name = "pydantic-pkgr", specifier = ">=0.5.4" },
 ]
 
 [[package]]
 name = "abx-spec-searchbackend"
 version = "0.1.0"
-source = { editable = "archivebox/vendor/abx-spec-searchbackend" }
+source = { editable = "archivebox/pkgs/abx-spec-searchbackend" }
 dependencies = [
     { name = "abx" },
     { name = "pydantic" },
@@ -560,7 +560,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
     { name = "pydantic", specifier = ">=2.5.0" },
     { name = "python-benedict", specifier = ">=0.26.0" },
 ]
@@ -600,7 +600,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.8.5rc53"
+version = "0.8.6rc0"
 source = { editable = "." }
 dependencies = [
     { name = "abx" },
@@ -722,34 +722,34 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx", editable = "archivebox/vendor/abx" },
-    { name = "abx-plugin-archivedotorg", editable = "archivebox/vendor/abx-plugin-archivedotorg" },
-    { name = "abx-plugin-chrome", editable = "archivebox/vendor/abx-plugin-chrome" },
-    { name = "abx-plugin-curl", editable = "archivebox/vendor/abx-plugin-curl" },
-    { name = "abx-plugin-default-binproviders", editable = "archivebox/vendor/abx-plugin-default-binproviders" },
-    { name = "abx-plugin-favicon", editable = "archivebox/vendor/abx-plugin-favicon" },
-    { name = "abx-plugin-git", editable = "archivebox/vendor/abx-plugin-git" },
-    { name = "abx-plugin-htmltotext", editable = "archivebox/vendor/abx-plugin-htmltotext" },
-    { name = "abx-plugin-ldap-auth", editable = "archivebox/vendor/abx-plugin-ldap-auth" },
-    { name = "abx-plugin-mercury", editable = "archivebox/vendor/abx-plugin-mercury" },
-    { name = "abx-plugin-npm", editable = "archivebox/vendor/abx-plugin-npm" },
-    { name = "abx-plugin-pip", editable = "archivebox/vendor/abx-plugin-pip" },
-    { name = "abx-plugin-playwright", editable = "archivebox/vendor/abx-plugin-playwright" },
-    { name = "abx-plugin-puppeteer", editable = "archivebox/vendor/abx-plugin-puppeteer" },
-    { name = "abx-plugin-readability", editable = "archivebox/vendor/abx-plugin-readability" },
-    { name = "abx-plugin-ripgrep-search", editable = "archivebox/vendor/abx-plugin-ripgrep-search" },
-    { name = "abx-plugin-singlefile", editable = "archivebox/vendor/abx-plugin-singlefile" },
-    { name = "abx-plugin-sonic-search", editable = "archivebox/vendor/abx-plugin-sonic-search" },
-    { name = "abx-plugin-sqlitefts-search", editable = "archivebox/vendor/abx-plugin-sqlitefts-search" },
-    { name = "abx-plugin-title", editable = "archivebox/vendor/abx-plugin-title" },
-    { name = "abx-plugin-wget", editable = "archivebox/vendor/abx-plugin-wget" },
-    { name = "abx-plugin-ytdlp", editable = "archivebox/vendor/abx-plugin-ytdlp" },
-    { name = "abx-spec-archivebox", editable = "archivebox/vendor/abx-spec-archivebox" },
-    { name = "abx-spec-config", editable = "archivebox/vendor/abx-spec-config" },
-    { name = "abx-spec-django", editable = "archivebox/vendor/abx-spec-django" },
-    { name = "abx-spec-extractor", editable = "archivebox/vendor/abx-spec-extractor" },
-    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/vendor/abx-spec-pydantic-pkgr" },
-    { name = "abx-spec-searchbackend", editable = "archivebox/vendor/abx-spec-searchbackend" },
+    { name = "abx", editable = "archivebox/pkgs/abx" },
+    { name = "abx-plugin-archivedotorg", editable = "archivebox/pkgs/abx-plugin-archivedotorg" },
+    { name = "abx-plugin-chrome", editable = "archivebox/pkgs/abx-plugin-chrome" },
+    { name = "abx-plugin-curl", editable = "archivebox/pkgs/abx-plugin-curl" },
+    { name = "abx-plugin-default-binproviders", editable = "archivebox/pkgs/abx-plugin-default-binproviders" },
+    { name = "abx-plugin-favicon", editable = "archivebox/pkgs/abx-plugin-favicon" },
+    { name = "abx-plugin-git", editable = "archivebox/pkgs/abx-plugin-git" },
+    { name = "abx-plugin-htmltotext", editable = "archivebox/pkgs/abx-plugin-htmltotext" },
+    { name = "abx-plugin-ldap-auth", editable = "archivebox/pkgs/abx-plugin-ldap-auth" },
+    { name = "abx-plugin-mercury", editable = "archivebox/pkgs/abx-plugin-mercury" },
+    { name = "abx-plugin-npm", editable = "archivebox/pkgs/abx-plugin-npm" },
+    { name = "abx-plugin-pip", editable = "archivebox/pkgs/abx-plugin-pip" },
+    { name = "abx-plugin-playwright", editable = "archivebox/pkgs/abx-plugin-playwright" },
+    { name = "abx-plugin-puppeteer", editable = "archivebox/pkgs/abx-plugin-puppeteer" },
+    { name = "abx-plugin-readability", editable = "archivebox/pkgs/abx-plugin-readability" },
+    { name = "abx-plugin-ripgrep-search", editable = "archivebox/pkgs/abx-plugin-ripgrep-search" },
+    { name = "abx-plugin-singlefile", editable = "archivebox/pkgs/abx-plugin-singlefile" },
+    { name = "abx-plugin-sonic-search", editable = "archivebox/pkgs/abx-plugin-sonic-search" },
+    { name = "abx-plugin-sqlitefts-search", editable = "archivebox/pkgs/abx-plugin-sqlitefts-search" },
+    { name = "abx-plugin-title", editable = "archivebox/pkgs/abx-plugin-title" },
+    { name = "abx-plugin-wget", editable = "archivebox/pkgs/abx-plugin-wget" },
+    { name = "abx-plugin-ytdlp", editable = "archivebox/pkgs/abx-plugin-ytdlp" },
+    { name = "abx-spec-archivebox", editable = "archivebox/pkgs/abx-spec-archivebox" },
+    { name = "abx-spec-config", editable = "archivebox/pkgs/abx-spec-config" },
+    { name = "abx-spec-django", editable = "archivebox/pkgs/abx-spec-django" },
+    { name = "abx-spec-extractor", editable = "archivebox/pkgs/abx-spec-extractor" },
+    { name = "abx-spec-pydantic-pkgr", editable = "archivebox/pkgs/abx-spec-pydantic-pkgr" },
+    { name = "abx-spec-searchbackend", editable = "archivebox/pkgs/abx-spec-searchbackend" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
     { name = "atomicwrites", specifier = "==1.4.1" },
     { name = "base32-crockford", specifier = "==0.3.0" },
@@ -1022,16 +1022,16 @@ wheels = [
 
 [[package]]
 name = "bx-django-utils"
-version = "79"
+version = "81"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "bx-py-utils" },
     { name = "django" },
     { name = "python-stdnum" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/62/8e/d56ffeb8f39c176b03439f614526b0b7de2d298bbf3250d6fdd40521cc51/bx_django_utils-79.tar.gz", hash = "sha256:cb66087d4e9396281acf5a4394b749cff3062b66082d5726f6a8a342fdd35d0e", size = 190245 }
+sdist = { url = "https://files.pythonhosted.org/packages/e7/4a/a4087420852629abd835a17f7d41eca9efa93453c6dcaa29697f40195021/bx_django_utils-81.tar.gz", hash = "sha256:0896f53d737ddda3e98085803e9f469abc4b84561d4062ec13aa40b14e9453b8", size = 192245 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/a1/dc24b907e2671512826d3c6593f79e4f78f8fc85544fbbf54102bacc08c9/bx_django_utils-79-py3-none-any.whl", hash = "sha256:d50b10ace24b0b363574542faecf04a81029e2fec6d6e6525fe063ed06238e04", size = 199326 },
+    { url = "https://files.pythonhosted.org/packages/28/8e/692dce1f10303c6f4a03f5c2ae646d36b555c6190f17e11a2a469f9bdc48/bx_django_utils-81-py3-none-any.whl", hash = "sha256:b7ca9a801f0a160fd68c5744b7449552a3029484c373b8aaa2f41d0d50431b51", size = 199480 },
 ]
 
 [[package]]
@@ -1225,15 +1225,15 @@ wheels = [
 
 [[package]]
 name = "croniter"
-version = "3.0.3"
+version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "python-dateutil" },
     { name = "pytz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/44/7a/14b0b14ab0203e2c79493cf487829dc294d5c44bedc810ab2f4a97fc9ff4/croniter-3.0.3.tar.gz", hash = "sha256:34117ec1741f10a7bd0ec3ad7d8f0eb8fa457a2feb9be32e6a2250e158957668", size = 53088 }
+sdist = { url = "https://files.pythonhosted.org/packages/c7/7c/ad5d5ecca499c00ac83c08fde57a49af929844b9c39d6256cc3fea30c940/croniter-4.0.0.tar.gz", hash = "sha256:3df735b70d005b68414d80728987ecba4d71054a1bb1b011f6d475bdefdbeddd", size = 55312 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/93/6a/f2f68e0f9cf702b6d055ab53cab0d8c100f04e86228ca500a8ca9de94b58/croniter-3.0.3-py2.py3-none-any.whl", hash = "sha256:b3bd11f270dc54ccd1f2397b813436015a86d30ffc5a7a9438eec1ed916f2101", size = 22422 },
+    { url = "https://files.pythonhosted.org/packages/4e/a5/b4cbef8a130382a84fc9342c2d1b2551dcf2817e768bb3e2881b71617119/croniter-4.0.0-py2.py3-none-any.whl", hash = "sha256:312717b8017ad6052817934af563f6754b1f25cb942dcca1e617240aca4aa254", size = 23411 },
 ]
 
 [[package]]
@@ -1513,7 +1513,7 @@ wheels = [
 
 [[package]]
 name = "django-stubs"
-version = "5.1.0"
+version = "5.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asgiref" },
@@ -1523,22 +1523,22 @@ dependencies = [
     { name = "types-pyyaml" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/47/35/fa62c35c48e77bc4dabfe56d16786a2e9965ff89c4c55ab909c2d9f00ce8/django_stubs-5.1.0.tar.gz", hash = "sha256:86128c228b65e6c9a85e5dc56eb1c6f41125917dae0e21e6cfecdf1b27e630c5", size = 265839 }
+sdist = { url = "https://files.pythonhosted.org/packages/bf/60/1ae90eb6e2e107bc64a3de9de78a5add7f3b85e491113504eed38d6d2c63/django_stubs-5.1.1.tar.gz", hash = "sha256:126d354bbdff4906c4e93e6361197f6fbfb6231c3df6def85a291dae6f9f577b", size = 265624 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1c/d8/4561cf32a652f12d1f6edf27ac1ed6194540b44592cc85ead62a1f6fdff6/django_stubs-5.1.0-py3-none-any.whl", hash = "sha256:b98d49a80aa4adf1433a97407102d068de26c739c405431d93faad96dd282c40", size = 470607 },
+    { url = "https://files.pythonhosted.org/packages/98/c8/3081d5f994351248fcd60f9aab10cb2020bdd7df0f14e80854373e15d7d4/django_stubs-5.1.1-py3-none-any.whl", hash = "sha256:c4dc64260bd72e6d32b9e536e8dd0d9247922f0271f82d1d5132a18f24b388ac", size = 470790 },
 ]
 
 [[package]]
 name = "django-stubs-ext"
-version = "5.1.0"
+version = "5.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "django" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/60/a5/dfb120bf3ce1f0da109481605f704ffe72533f056f42e8cffd5a486504a7/django_stubs_ext-5.1.0.tar.gz", hash = "sha256:ed7d51c0b731651879fc75f331fb0806d98b67bfab464e96e2724db6b46ef926", size = 9491 }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/62/a7129909d3c94eac957c02eeb05ac57cbca81db4f3f6270a8503697f376a/django_stubs_ext-5.1.1.tar.gz", hash = "sha256:db7364e4f50ae7e5360993dbd58a3a57ea4b2e7e5bab0fbd525ccdb3e7975d1c", size = 9455 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/03/20a5a19d1b8d26eddd8420261304ee9e6accd802f5332e360daaa2202afb/django_stubs_ext-5.1.0-py3-none-any.whl", hash = "sha256:a455fc222c90b30b29ad8c53319559f5b54a99b4197205ddbb385aede03b395d", size = 8966 },
+    { url = "https://files.pythonhosted.org/packages/6a/ed/f79ae5ad993bdf900d61892d2a9fc0145441a507a7579890fb8e21e4a7bc/django_stubs_ext-5.1.1-py3-none-any.whl", hash = "sha256:3907f99e178c93323e2ce908aef8352adb8c047605161f8d9e5e7b4efb5a6a9c", size = 8965 },
 ]
 
 [[package]]
@@ -1573,11 +1573,11 @@ wheels = [
 
 [[package]]
 name = "et-xmlfile"
-version = "1.1.0"
+version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/3d/5d/0413a31d184a20c763ad741cc7852a659bf15094c24840c5bdd1754765cd/et_xmlfile-1.1.0.tar.gz", hash = "sha256:8eb9e2bc2f8c97e37a2dc85a09ecdcdec9d8a396530a6d5a33b30b9a92da0c5c", size = 3218 }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/38/af70d7ab1ae9d4da450eeec1fa3918940a5fafb9055e934af8d6eb0c2313/et_xmlfile-2.0.0.tar.gz", hash = "sha256:dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54", size = 17234 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/96/c2/3dd434b0108730014f1b96fd286040dc3bcb70066346f7e01ec2ac95865f/et_xmlfile-1.1.0-py3-none-any.whl", hash = "sha256:a2ba85d1d6a74ef63837eed693bcb89c3f752169b0e3e7ae5b16ca5e1b3deada", size = 4688 },
+    { url = "https://files.pythonhosted.org/packages/c1/8b/5fe2cc11fee489817272089c4203e679c63b570a5aaeb18d852ae3cbba6a/et_xmlfile-2.0.0-py3-none-any.whl", hash = "sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa", size = 18059 },
 ]
 
 [[package]]
@@ -1626,14 +1626,14 @@ wheels = [
 
 [[package]]
 name = "ftfy"
-version = "6.3.0"
+version = "6.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "wcwidth" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/85/c3/63753eca4c5257ce0561cb5f8e9cd0d45d97848c73c56e33a0a764319e5b/ftfy-6.3.0.tar.gz", hash = "sha256:1c7d6418e72b25a7760feb150acf574b86924dbb2e95b32c0b3abbd1ba3d7ad6", size = 362118 }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/d3/8650919bc3c7c6e90ee3fa7fd618bf373cbbe55dff043bd67353dbb20cd8/ftfy-6.3.1.tar.gz", hash = "sha256:9b3c3d90f84fb267fe64d375a07b7f8912d817cf86009ae134aa03e1819506ec", size = 308927 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/76/0f/d8a8152e720cbcad890e56ee98639ff489f1992869b4cf304c3fa24d4bcc/ftfy-6.3.0-py3-none-any.whl", hash = "sha256:17aca296801f44142e3ff2c16f93fbf6a87609ebb3704a9a41dd5d4903396caf", size = 44778 },
+    { url = "https://files.pythonhosted.org/packages/ab/6e/81d47999aebc1b155f81eca4477a616a70f238a2549848c38983f3c22a82/ftfy-6.3.1-py3-none-any.whl", hash = "sha256:7c70eb532015cd2f9adb53f101fb6c7945988d023a085d127d1573dc49dd0083", size = 44821 },
 ]
 
 [[package]]
@@ -1785,7 +1785,7 @@ wheels = [
 
 [[package]]
 name = "ipython"
-version = "8.28.0"
+version = "8.29.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
@@ -1800,9 +1800,9 @@ dependencies = [
     { name = "traitlets" },
     { name = "typing-extensions", marker = "python_full_version < '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f7/21/48db7d9dd622b9692575004c7c98f85f5629428f58596c59606d36c51b58/ipython-8.28.0.tar.gz", hash = "sha256:0d0d15ca1e01faeb868ef56bc7ee5a0de5bd66885735682e8a322ae289a13d1a", size = 5495762 }
+sdist = { url = "https://files.pythonhosted.org/packages/85/e0/a3f36dde97e12121106807d80485423ae4c5b27ce60d40d4ab0bab18a9db/ipython-8.29.0.tar.gz", hash = "sha256:40b60e15b22591450eef73e40a027cf77bd652e757523eebc5bd7c7c498290eb", size = 5497513 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f4/3a/5d8680279ada9571de8469220069d27024ee47624af534e537c9ff49a450/ipython-8.28.0-py3-none-any.whl", hash = "sha256:530ef1e7bb693724d3cdc37287c80b07ad9b25986c007a53aa1857272dac3f35", size = 819456 },
+    { url = "https://files.pythonhosted.org/packages/c5/a5/c15ed187f1b3fac445bb42a2dedd8dec1eee1718b35129242049a13a962f/ipython-8.29.0-py3-none-any.whl", hash = "sha256:0188a1bd83267192123ccea7f4a8ed0a78910535dbaa3f37671dca76ebd429c8", size = 819911 },
 ]
 
 [[package]]
@@ -1866,7 +1866,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "1.2.0"
+version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "executing" },
@@ -1878,9 +1878,9 @@ dependencies = [
     { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/78/85/ce3e4ecc59a0126eaa9802f7d928d6efa837e63619dfec37654fb2d1f1c1/logfire-1.2.0.tar.gz", hash = "sha256:71866c4ce2f604b307ff0cc1a9b1254ea68b3c46f42bffd6ac36fc4db5abb62b", size = 240418 }
+sdist = { url = "https://files.pythonhosted.org/packages/66/41/7b563b7db2490ba9090edd0ba7b70ad9a003bfd608dc132edf5f1b394140/logfire-1.3.1.tar.gz", hash = "sha256:73f9ff2691c927fc3ad28da5308ffd43af30d9bb8efedef52266a797da878381", size = 242221 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7d/7f/37d9c3cbed1ef23b467c0c0039f35524595f8fd79f3acb54e647a0ccd590/logfire-1.2.0-py3-none-any.whl", hash = "sha256:edb2b441e418cf31877bd97e24b3755f873bb423f834cca66f315b25bde61ebd", size = 164724 },
+    { url = "https://files.pythonhosted.org/packages/56/6e/2d1a1b116733e930e8a20e2263cc5a9968d51ef546cc473895c1b5252ee0/logfire-1.3.1-py3-none-any.whl", hash = "sha256:974657b9d775a65b5c526550baa95c121257a907ab5d9e8c99cbb715562c2673", size = 164833 },
 ]
 
 [package.optional-dependencies]
@@ -2273,11 +2273,11 @@ wheels = [
 
 [[package]]
 name = "pip"
-version = "24.2"
+version = "24.3.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/4d/87/fb90046e096a03aeab235e139436b3fe804cdd447ed2093b0d70eba3f7f8/pip-24.2.tar.gz", hash = "sha256:5b5e490b5e9cb275c879595064adce9ebd31b854e3e803740b72f9ccf34a45b8", size = 1922041 }
+sdist = { url = "https://files.pythonhosted.org/packages/f4/b1/b422acd212ad7eedddaf7981eee6e5de085154ff726459cf2da7c5a184c1/pip-24.3.1.tar.gz", hash = "sha256:ebcb60557f2aefabc2e0f918751cd24ea0d56d8ec5445fe1807f1d2109660b99", size = 1931073 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d4/55/90db48d85f7689ec6f81c0db0622d704306c5284850383c090e6c7195a5c/pip-24.2-py3-none-any.whl", hash = "sha256:2cd581cf58ab7fcfca4ce8efa6dcacd0de5bf8d0a3eb9ec927e07405f4d9e2a2", size = 1815170 },
+    { url = "https://files.pythonhosted.org/packages/ef/7d/500c9ad20238fcfcb4cb9243eede163594d7020ce87bd9610c9e02771876/pip-24.3.1-py3-none-any.whl", hash = "sha256:3790624780082365f47549d032f3770eeb2b1e8bd1f7b2e02dace1afa361b4ed", size = 1822182 },
 ]
 
 [[package]]
@@ -2339,6 +2339,8 @@ version = "6.1.0"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/26/10/2a30b13c61e7cf937f4adf90710776b7918ed0a9c434e2c38224732af310/psutil-6.1.0.tar.gz", hash = "sha256:353815f59a7f64cdaca1c0307ee13558a0512f6db064e92fe833784f08539c7a", size = 508565 }
 wheels = [
+    { url = "https://files.pythonhosted.org/packages/da/2b/f4dea5d993d9cd22ad958eea828a41d5d225556123d372f02547c29c4f97/psutil-6.1.0-cp27-none-win32.whl", hash = "sha256:9118f27452b70bb1d9ab3198c1f626c2499384935aaf55388211ad982611407e", size = 246648 },
+    { url = "https://files.pythonhosted.org/packages/9f/14/4aa97a7f2e0ac33a050d990ab31686d651ae4ef8c86661fef067f00437b9/psutil-6.1.0-cp27-none-win_amd64.whl", hash = "sha256:a8506f6119cff7015678e2bce904a4da21025cc70ad283a53b099e7620061d85", size = 249905 },
     { url = "https://files.pythonhosted.org/packages/01/9e/8be43078a171381953cfee33c07c0d628594b5dbfc5157847b85022c2c1b/psutil-6.1.0-cp36-abi3-macosx_10_9_x86_64.whl", hash = "sha256:6e2dcd475ce8b80522e51d923d10c7871e45f20918e027ab682f94f1c6351688", size = 247762 },
     { url = "https://files.pythonhosted.org/packages/1d/cb/313e80644ea407f04f6602a9e23096540d9dc1878755f3952ea8d3d104be/psutil-6.1.0-cp36-abi3-macosx_11_0_arm64.whl", hash = "sha256:0895b8414afafc526712c498bd9de2b063deaac4021a3b3c34566283464aff8e", size = 248777 },
     { url = "https://files.pythonhosted.org/packages/65/8e/bcbe2025c587b5d703369b6a75b65d41d1367553da6e3f788aff91eaf5bd/psutil-6.1.0-cp36-abi3-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:9dcbfce5d89f1d1f2546a2090f4fcf87c7f669d1d90aacb7d7582addece9fb38", size = 284259 },
@@ -2892,32 +2894,32 @@ wheels = [
 
 [[package]]
 name = "ruff"
-version = "0.7.0"
+version = "0.7.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/2c/c7/f3367d1da5d568192968c5c9e7f3d51fb317b9ac04828493b23d8fce8ce6/ruff-0.7.0.tar.gz", hash = "sha256:47a86360cf62d9cd53ebfb0b5eb0e882193fc191c6d717e8bef4462bc3b9ea2b", size = 3146645 }
+sdist = { url = "https://files.pythonhosted.org/packages/a6/21/5c6e05e0fd3fbb41be4fb92edbc9a04de70baf60adb61435ce0c6b8c3d55/ruff-0.7.1.tar.gz", hash = "sha256:9d8a41d4aa2dad1575adb98a82870cf5db5f76b2938cf2206c22c940034a36f4", size = 3181670 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/48/59/a0275a0913f3539498d116046dd679cd657fe3b7caf5afe1733319414932/ruff-0.7.0-py3-none-linux_armv6l.whl", hash = "sha256:0cdf20c2b6ff98e37df47b2b0bd3a34aaa155f59a11182c1303cce79be715628", size = 10434007 },
-    { url = "https://files.pythonhosted.org/packages/cd/94/da0ba5f956d04c90dd899209904210600009dcda039ce840d83eb4298c7d/ruff-0.7.0-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:496494d350c7fdeb36ca4ef1c9f21d80d182423718782222c29b3e72b3512737", size = 10048066 },
-    { url = "https://files.pythonhosted.org/packages/57/1d/e5cc149ecc46e4f203403a79ccd170fad52d316f98b87d0f63b1945567db/ruff-0.7.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:214b88498684e20b6b2b8852c01d50f0651f3cc6118dfa113b4def9f14faaf06", size = 9711389 },
-    { url = "https://files.pythonhosted.org/packages/05/67/fb7ea2c869c539725a16c5bc294e9aa34f8b1b6fe702f1d173a5da517c2b/ruff-0.7.0-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:630fce3fefe9844e91ea5bbf7ceadab4f9981f42b704fae011bb8efcaf5d84be", size = 10755174 },
-    { url = "https://files.pythonhosted.org/packages/5f/f0/13703bc50536a0613ea3dce991116e5f0917a1f05528c6ab738b33c08d3f/ruff-0.7.0-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:211d877674e9373d4bb0f1c80f97a0201c61bcd1e9d045b6e9726adc42c156aa", size = 10196040 },
-    { url = "https://files.pythonhosted.org/packages/99/c1/77b04ab20324ab03d333522ee55fb0f1c38e3ca0d326b4905f82ce6b6c70/ruff-0.7.0-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:194d6c46c98c73949a106425ed40a576f52291c12bc21399eb8f13a0f7073495", size = 11033684 },
-    { url = "https://files.pythonhosted.org/packages/f2/97/f463334dc4efeea3551cd109163df15561c18a1c3ec13d51643740fd36ba/ruff-0.7.0-py3-none-manylinux_2_17_ppc64.manylinux2014_ppc64.whl", hash = "sha256:82c2579b82b9973a110fab281860403b397c08c403de92de19568f32f7178598", size = 11803700 },
-    { url = "https://files.pythonhosted.org/packages/b4/f8/a31d40c4bb92933d376a53e7c5d0245d9b27841357e4820e96d38f54b480/ruff-0.7.0-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:9af971fe85dcd5eaed8f585ddbc6bdbe8c217fb8fcf510ea6bca5bdfff56040e", size = 11347848 },
-    { url = "https://files.pythonhosted.org/packages/83/62/0c133b35ddaf91c65c30a56718b80bdef36bfffc35684d29e3a4878e0ea3/ruff-0.7.0-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:b641c7f16939b7d24b7bfc0be4102c56562a18281f84f635604e8a6989948914", size = 12480632 },
-    { url = "https://files.pythonhosted.org/packages/46/96/464058dd1d980014fb5aa0a1254e78799efb3096fc7a4823cd66a1621276/ruff-0.7.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d71672336e46b34e0c90a790afeac8a31954fd42872c1f6adaea1dff76fd44f9", size = 10941919 },
-    { url = "https://files.pythonhosted.org/packages/a0/f7/bda37ec77986a435dde44e1f59374aebf4282a5fa9cf17735315b847141f/ruff-0.7.0-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:ab7d98c7eed355166f367597e513a6c82408df4181a937628dbec79abb2a1fe4", size = 10745519 },
-    { url = "https://files.pythonhosted.org/packages/c2/33/5f77fc317027c057b61a848020a47442a1cbf12e592df0e41e21f4d0f3bd/ruff-0.7.0-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:1eb54986f770f49edb14f71d33312d79e00e629a57387382200b1ef12d6a4ef9", size = 10284872 },
-    { url = "https://files.pythonhosted.org/packages/ff/50/98aec292bc9537f640b8d031c55f3414bf15b6ed13b3e943fed75ac927b9/ruff-0.7.0-py3-none-musllinux_1_2_i686.whl", hash = "sha256:dc452ba6f2bb9cf8726a84aa877061a2462afe9ae0ea1d411c53d226661c601d", size = 10600334 },
-    { url = "https://files.pythonhosted.org/packages/f2/85/12607ae3201423a179b8cfadc7cb1e57d02cd0135e45bd0445acb4cef327/ruff-0.7.0-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:4b406c2dce5be9bad59f2de26139a86017a517e6bcd2688da515481c05a2cb11", size = 11017333 },
-    { url = "https://files.pythonhosted.org/packages/d4/7f/3b85a56879e705d5f46ec14daf8a439fca05c3081720fe3dc3209100922d/ruff-0.7.0-py3-none-win32.whl", hash = "sha256:f6c968509f767776f524a8430426539587d5ec5c662f6addb6aa25bc2e8195ec", size = 8570962 },
-    { url = "https://files.pythonhosted.org/packages/39/9f/c5ee2b40d377354dabcc23cff47eb299de4b4d06d345068f8f8cc1eadac8/ruff-0.7.0-py3-none-win_amd64.whl", hash = "sha256:ff4aabfbaaba880e85d394603b9e75d32b0693152e16fa659a3064a85df7fce2", size = 9365544 },
-    { url = "https://files.pythonhosted.org/packages/89/8b/ee1509f60148cecba644aa718f6633216784302458340311898aaf0b1bed/ruff-0.7.0-py3-none-win_arm64.whl", hash = "sha256:10842f69c245e78d6adec7e1db0a7d9ddc2fff0621d730e61657b64fa36f207e", size = 8695763 },
+    { url = "https://files.pythonhosted.org/packages/65/45/8a20a9920175c9c4892b2420f80ff3cf14949cf3067118e212f9acd9c908/ruff-0.7.1-py3-none-linux_armv6l.whl", hash = "sha256:cb1bc5ed9403daa7da05475d615739cc0212e861b7306f314379d958592aaa89", size = 10389268 },
+    { url = "https://files.pythonhosted.org/packages/1b/d3/2f8382db2cf4f9488e938602e33e36287f9d26cb283aa31f11c31297ce79/ruff-0.7.1-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:27c1c52a8d199a257ff1e5582d078eab7145129aa02721815ca8fa4f9612dc35", size = 10188348 },
+    { url = "https://files.pythonhosted.org/packages/a2/31/7d14e2a88da351200f844b7be889a0845d9e797162cf76b136d21b832a23/ruff-0.7.1-py3-none-macosx_11_0_arm64.whl", hash = "sha256:588a34e1ef2ea55b4ddfec26bbe76bc866e92523d8c6cdec5e8aceefeff02d99", size = 9841448 },
+    { url = "https://files.pythonhosted.org/packages/db/99/738cafdc768eceeca0bd26c6f03e213aa91203d2278e1d95b1c31c4ece41/ruff-0.7.1-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:94fc32f9cdf72dc75c451e5f072758b118ab8100727168a3df58502b43a599ca", size = 10674864 },
+    { url = "https://files.pythonhosted.org/packages/fe/12/bcf2836b50eab53c65008383e7d55201e490d75167c474f14a16e1af47d2/ruff-0.7.1-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:985818742b833bffa543a84d1cc11b5e6871de1b4e0ac3060a59a2bae3969250", size = 10192105 },
+    { url = "https://files.pythonhosted.org/packages/2b/71/261d5d668bf98b6c44e89bfb5dfa4cb8cb6c8b490a201a3d8030e136ea4f/ruff-0.7.1-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:32f1e8a192e261366c702c5fb2ece9f68d26625f198a25c408861c16dc2dea9c", size = 11194144 },
+    { url = "https://files.pythonhosted.org/packages/90/1f/0926d18a3b566fa6e7b3b36093088e4ffef6b6ba4ea85a462d9a93f7e35c/ruff-0.7.1-py3-none-manylinux_2_17_ppc64.manylinux2014_ppc64.whl", hash = "sha256:699085bf05819588551b11751eff33e9ca58b1b86a6843e1b082a7de40da1565", size = 11917066 },
+    { url = "https://files.pythonhosted.org/packages/cd/a8/9fac41f128b6a44ab4409c1493430b4ee4b11521e8aeeca19bfe1ce851f9/ruff-0.7.1-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:344cc2b0814047dc8c3a8ff2cd1f3d808bb23c6658db830d25147339d9bf9ea7", size = 11458821 },
+    { url = "https://files.pythonhosted.org/packages/25/cd/59644168f086ab13fe4e02943b9489a0aa710171f66b178e179df5383554/ruff-0.7.1-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:4316bbf69d5a859cc937890c7ac7a6551252b6a01b1d2c97e8fc96e45a7c8b4a", size = 12700379 },
+    { url = "https://files.pythonhosted.org/packages/fb/30/3bac63619eb97174661829c07fc46b2055a053dee72da29d7c304c1cd2c0/ruff-0.7.1-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:79d3af9dca4c56043e738a4d6dd1e9444b6d6c10598ac52d146e331eb155a8ad", size = 11019813 },
+    { url = "https://files.pythonhosted.org/packages/4b/af/f567b885b5cb3bcdbcca3458ebf210cc8c9c7a9f61c332d3c2a050c3b21e/ruff-0.7.1-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:c5c121b46abde94a505175524e51891f829414e093cd8326d6e741ecfc0a9112", size = 10662146 },
+    { url = "https://files.pythonhosted.org/packages/bc/ad/eb930d3ad117a9f2f7261969c21559ebd82bb13b6e8001c7caed0d44be5f/ruff-0.7.1-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:8422104078324ea250886954e48f1373a8fe7de59283d747c3a7eca050b4e378", size = 10256911 },
+    { url = "https://files.pythonhosted.org/packages/20/d5/af292ce70a016fcec792105ca67f768b403dd480a11888bc1f418fed0dd5/ruff-0.7.1-py3-none-musllinux_1_2_i686.whl", hash = "sha256:56aad830af8a9db644e80098fe4984a948e2b6fc2e73891538f43bbe478461b8", size = 10767488 },
+    { url = "https://files.pythonhosted.org/packages/24/85/cc04a3bd027f433bebd2a097e63b3167653c079f7f13d8f9a1178e693412/ruff-0.7.1-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:658304f02f68d3a83c998ad8bf91f9b4f53e93e5412b8f2388359d55869727fd", size = 11093368 },
+    { url = "https://files.pythonhosted.org/packages/0b/fb/c39cbf32d1f3e318674b8622f989417231794926b573f76dd4d0ca49f0f1/ruff-0.7.1-py3-none-win32.whl", hash = "sha256:b517a2011333eb7ce2d402652ecaa0ac1a30c114fbbd55c6b8ee466a7f600ee9", size = 8594180 },
+    { url = "https://files.pythonhosted.org/packages/5a/71/ec8cdea34ecb90c830ca60d54ac7b509a7b5eab50fae27e001d4470fe813/ruff-0.7.1-py3-none-win_amd64.whl", hash = "sha256:f38c41fcde1728736b4eb2b18850f6d1e3eedd9678c914dede554a70d5241307", size = 9419751 },
+    { url = "https://files.pythonhosted.org/packages/79/7b/884553415e9f0a9bf358ed52fb68b934e67ef6c5a62397ace924a1afdf9a/ruff-0.7.1-py3-none-win_arm64.whl", hash = "sha256:19aa200ec824c0f36d0c9114c8ec0087082021732979a359d6f3c390a6ff2a37", size = 8717402 },
 ]
 
 [[package]]
 name = "service-identity"
-version = "24.1.0"
+version = "24.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -2925,9 +2927,9 @@ dependencies = [
     { name = "pyasn1" },
     { name = "pyasn1-modules" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/38/d2/2ac20fd05f1b6fce31986536da4caeac51ed2e1bb25d4a7d73ca4eccdfab/service_identity-24.1.0.tar.gz", hash = "sha256:6829c9d62fb832c2e1c435629b0a8c476e1929881f28bee4d20bc24161009221", size = 40183 }
+sdist = { url = "https://files.pythonhosted.org/packages/07/a5/dfc752b979067947261dbbf2543470c58efe735c3c1301dd870ef27830ee/service_identity-24.2.0.tar.gz", hash = "sha256:b8683ba13f0d39c6cd5d625d2c5f65421d6d707b013b375c355751557cbe8e09", size = 39245 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/92/44669afe6354a7bed9968013862118c401690d8b5a805bab75ac1764845f/service_identity-24.1.0-py3-none-any.whl", hash = "sha256:a28caf8130c8a5c1c7a6f5293faaf239bbfb7751e4862436920ee6f2616f568a", size = 12037 },
+    { url = "https://files.pythonhosted.org/packages/08/2c/ca6dd598b384bc1ce581e24aaae0f2bed4ccac57749d5c3befbb5e742081/service_identity-24.2.0-py3-none-any.whl", hash = "sha256:6b047fbd8a84fd0bb0d55ebce4031e400562b9196e1e0d3e0fe2b8a59f6d4a85", size = 11364 },
 ]
 
 [[package]]
@@ -3171,7 +3173,7 @@ wheels = [
 
 [[package]]
 name = "twisted"
-version = "24.7.0"
+version = "24.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -3182,9 +3184,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "zope-interface" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8b/bf/f30eb89bcd14a21a36b4cd3d96658432d4c590af3c24bbe08ea77fa7bbbb/twisted-24.7.0.tar.gz", hash = "sha256:5a60147f044187a127ec7da96d170d49bcce50c6fd36f594e60f4587eff4d394", size = 3516844 }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/0f/2d0b0dcd52a849db64ff63619aead94ae1091fe4d4d7e100371efe513585/twisted-24.10.0.tar.gz", hash = "sha256:02951299672595fea0f70fa2d5f7b5e3d56836157eda68859a6ad6492d36756e", size = 3525999 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/d2/7b3e869b983fbf29d770fc2893f8df7c1739c6ff03a2b926b4fc43e4263e/twisted-24.7.0-py3-none-any.whl", hash = "sha256:734832ef98108136e222b5230075b1079dad8a3fc5637319615619a7725b0c81", size = 3181556 },
+    { url = "https://files.pythonhosted.org/packages/f9/7c/f80f6853d702782edb357190c42c3973f13c547a5f68ab1b17e6415061b8/twisted-24.10.0-py3-none-any.whl", hash = "sha256:67aa7c8aa94387385302acf44ade12967c747858c8bcce0f11d38077a11c5326", size = 3188753 },
 ]
 
 [package.optional-dependencies]
@@ -3283,27 +3285,27 @@ wheels = [
 
 [[package]]
 name = "uv"
-version = "0.4.26"
+version = "0.4.28"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/cb/90/500da91a6d2fdad8060d27b0c2dd948bb807a7cfc5fe32abc90dfaeb363f/uv-0.4.26.tar.gz", hash = "sha256:e9f45d8765a037a13ddedebb9e36fdcf06b7957654cfa8055d84f19eba12957e", size = 2072287 }
+sdist = { url = "https://files.pythonhosted.org/packages/67/5f/4c227d6ca86c1b27a27d953b0f6f7d867d16bf84802dbb2e03dacbcff629/uv-0.4.28.tar.gz", hash = "sha256:bc33e318b676aeba2ea8bcd1e8f38623272b891200cefc54f9c420f4f4091434", size = 2093199 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/1f/1e1af6656e83a9b0347c22328ad6d899760819e5f19fa80aee88b56d1e02/uv-0.4.26-py3-none-linux_armv6l.whl", hash = "sha256:d1ca5183afab454f28573a286811019b3552625af2cd1cd3996049d3bbfdb1ca", size = 13055731 },
-    { url = "https://files.pythonhosted.org/packages/92/27/2235628adcf468bc6be98b84e509afa54240d359b4705454e7e957a9650d/uv-0.4.26-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:391a6f5e31b212cb72a8f460493bbdf4088e66049666ad064ac8530230031289", size = 13230933 },
-    { url = "https://files.pythonhosted.org/packages/36/ce/dd9b312c2230705119d3de910a32bbd32dc500bf147c7a0076a31bdfd153/uv-0.4.26-py3-none-macosx_11_0_arm64.whl", hash = "sha256:acaa25b304db6f1e8064d3280532ecb80a58346e37f4199659269847848c4da0", size = 12266060 },
-    { url = "https://files.pythonhosted.org/packages/4d/64/ef6532d84841f5e77e240df9a7dbdc3ca5bf45fae323f247b7bd57bea037/uv-0.4.26-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl", hash = "sha256:2ddb60d508b668b8da055651b30ff56c1efb79d57b064c218a7622b5c74b2af8", size = 12539139 },
-    { url = "https://files.pythonhosted.org/packages/1b/30/b4f98f5e28a8c41e370be1a6ef9d48a619e20d3caeb2bf437f1560fab2df/uv-0.4.26-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:6f66f11e088d231b7e305f089dc949b0e6b1d65e0a877b50ba5c3ae26e151144", size = 12867987 },
-    { url = "https://files.pythonhosted.org/packages/7f/5f/605fe50a0710a78013ad5b2b1034d8f056b5971fc023b6510a24e9350637/uv-0.4.26-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:e086ebe200e9718e9622af405d45caad9d84b60824306fcb220335fe6fc90966", size = 13594669 },
-    { url = "https://files.pythonhosted.org/packages/ae/4b/e3d02b963f9f83f76d1b0757204a210aceebe8ae16f69fcb431b09bc3926/uv-0.4.26-py3-none-manylinux_2_17_ppc64.manylinux2014_ppc64.whl", hash = "sha256:41f9876c22ad5b4518bffe9e50ec7169e242b64f139cdcaf42a76f70a9bd5c78", size = 14156314 },
-    { url = "https://files.pythonhosted.org/packages/40/8e/7803d3b76d8694ba939509e49d0c37e70a6d580ef5b7f0242701533920e5/uv-0.4.26-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:6091075420eda571b0377d351c393b096514cb036a3199e033e003edaa0ff880", size = 13897243 },
-    { url = "https://files.pythonhosted.org/packages/97/ee/8d5b63b590d3cb9dae5ac396cc099dcad2e368794d77e34a52dd896e5d8e/uv-0.4.26-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:1214caacc6b9f9c72749634c7a82a5d93123a44b70a1fa6a9d13993c126ca33e", size = 17961411 },
-    { url = "https://files.pythonhosted.org/packages/da/9a/5a6a3ea6c2bc42904343897b666cb8c9ac921bf9551b463aeb592cd49d45/uv-0.4.26-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9a63a6fe6f249a9fff72328204c3e6b457aae5914590e6881b9b39dcc72d24df", size = 13700388 },
-    { url = "https://files.pythonhosted.org/packages/33/52/009ea704318c5d0f290fb2ea4e1874d5625a60b290c6e5e49aae4d140091/uv-0.4.26-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:c4c69532cb4d0c1e160883142b8bf0133a5a67e9aed5148e13743ae55c2dfc03", size = 12702036 },
-    { url = "https://files.pythonhosted.org/packages/72/38/4dc590872e5c1810c6ec203d9b070278ed396a1ebf3396e556079946c894/uv-0.4.26-py3-none-musllinux_1_1_armv7l.whl", hash = "sha256:9560c2eb234ea92276bbc647854d4a9e75556981c1193c3cc59f6613f7d177f2", size = 12854127 },
-    { url = "https://files.pythonhosted.org/packages/76/73/124820b37d1c8784fbebfc4b5b7812b4fa8e4e680c35b77a38be444dac9f/uv-0.4.26-py3-none-musllinux_1_1_i686.whl", hash = "sha256:a41bdd09b9a3ddc8f459c73e924485e1caae43e43305cedb65f5feac05cf184a", size = 13309009 },
-    { url = "https://files.pythonhosted.org/packages/f4/e7/37cf24861c6f76ba85ac80c15c391848524668be8dcd218ed04da80a96b6/uv-0.4.26-py3-none-musllinux_1_1_ppc64le.whl", hash = "sha256:23cee82020b9e973a5feba81c2cf359a5a09020216d98534926f45ee7b74521d", size = 15079442 },
-    { url = "https://files.pythonhosted.org/packages/ca/ac/fa29079ee0c26c65efca5c447ef6ce66f0afca1f73c09d599229d2d9dfd4/uv-0.4.26-py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:468f806e841229c0bd6e1cffaaffc064720704623890cee15b42b877cef748c5", size = 13827888 },
-    { url = "https://files.pythonhosted.org/packages/40/e8/f9824ecb8b13da5e8b0e9b8fbc81edb9e0d41923ebc6e287ae2e5a04bc62/uv-0.4.26-py3-none-win32.whl", hash = "sha256:70a108399d6c9e3d1f4a0f105d6d016f97f292dbb6c724e1ed2e6dc9f6872c79", size = 13092190 },
-    { url = "https://files.pythonhosted.org/packages/46/91/c76682177dbe46dc0cc9221f9483b186ad3d8e0b59056c2cdae5c011609c/uv-0.4.26-py3-none-win_amd64.whl", hash = "sha256:e826b544020ef407387ed734a89850cac011ee4b5daf94b4f616b71eff2c8a94", size = 14757412 },
+    { url = "https://files.pythonhosted.org/packages/fa/47/ba9c8dba784f5fe822ce0591e4951504db8294e549ae9b8c0eabcf80372a/uv-0.4.28-py3-none-linux_armv6l.whl", hash = "sha256:524f38d996b51c27d1342af0d4e69c1524fbcfe57c8e036498811a5079fab070", size = 13207872 },
+    { url = "https://files.pythonhosted.org/packages/3b/93/d19ab3a55778f97985203e3792ed79f53739d75f818a4792b0de07e29058/uv-0.4.28-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:2c8c3a719d68181127fcf90c0e5d2a4b76bb405bf464e04c8bf5c6d356109cec", size = 13281267 },
+    { url = "https://files.pythonhosted.org/packages/5a/4f/d672cb7467719b4b348e5380e59ac9dc2962b418f66167814e61f96f00a2/uv-0.4.28-py3-none-macosx_11_0_arm64.whl", hash = "sha256:e44e46aecf42e7d075d3428864c42598b3397fd4cdf5fbf198b38673870ac932", size = 12283215 },
+    { url = "https://files.pythonhosted.org/packages/24/15/67755fb799c205f7eb3843f60980d794fc4fefe7596097f96bd911ded348/uv-0.4.28-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl", hash = "sha256:7932026532a8294969777fa500dbd3c3a80aada14ac131d9696d596d31068550", size = 12599223 },
+    { url = "https://files.pythonhosted.org/packages/50/69/f6e67de2aea1476953fd412a76d2f634369fcd0cdeb23fb64f4c14d1ccbb/uv-0.4.28-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:d9b8543712257678a5ab7e6865486bc71903c231d151ad1aff663b1c25596744", size = 13014207 },
+    { url = "https://files.pythonhosted.org/packages/26/55/14f9f2f1f38493107462b2e8055c25ad8e3eea0821475c9888e91abdfdb1/uv-0.4.28-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:274b5af065a1a3a37456e9f1a8c1c4e9b07825be1c4135d299e022fb0547de38", size = 13621543 },
+    { url = "https://files.pythonhosted.org/packages/aa/09/4642cbcb8bcd74bb61089eca207c70dfde535c1a9c1933d809458781b7dc/uv-0.4.28-py3-none-manylinux_2_17_ppc64.manylinux2014_ppc64.whl", hash = "sha256:09a50416622b5df476be774739d1682db9079b7bc7493346c2085cf11b91706b", size = 14230000 },
+    { url = "https://files.pythonhosted.org/packages/d3/bf/76f3a245f7c7ee9058202136f83fa9628f7642bbc95eaa50c974c8ad50f1/uv-0.4.28-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:d12b58c945e4805f06b954475642049d97f69796b9a4c5742a6e0a281de0db9c", size = 13964366 },
+    { url = "https://files.pythonhosted.org/packages/27/be/59613a92b6fc47b70ab08390f28a429d2aeeee71901e29ab6e069e05cbc9/uv-0.4.28-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:4ec1bf494dcf30984b5e6e8208d78a8a4e483855c45c3ea2b1d9e7201d8af00f", size = 18007523 },
+    { url = "https://files.pythonhosted.org/packages/c6/55/1aad99613982f87eb9aacb405018365a256387232a12e00fabe3aff6536b/uv-0.4.28-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:22f6d4f95ceb4735a4c8f0555dda6761a57c8ee7fc1b6b7d7004d6a25a8aec38", size = 13764938 },
+    { url = "https://files.pythonhosted.org/packages/00/24/560fa8d5c81df81d33bd61aa677a0c86502035b09a3332a9218e29ef56e3/uv-0.4.28-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:2e82236e655c5af1905d7ca15c3c96c28a878f2d77a2e4f714d5254baad85b2e", size = 12768270 },
+    { url = "https://files.pythonhosted.org/packages/a3/74/8e35216352a8654ab4bfdf6ccd875433c7183ef725bb7947535378f01283/uv-0.4.28-py3-none-musllinux_1_1_armv7l.whl", hash = "sha256:a3c59d5a11e0ddf550e20ea10b5d26ed06acab1192d3b70fe3993444cfe8fd41", size = 13004268 },
+    { url = "https://files.pythonhosted.org/packages/24/fb/5723f6b60e0089a1c53d638cbd9c73f8132d361eed68966b7a80afb289bd/uv-0.4.28-py3-none-musllinux_1_1_i686.whl", hash = "sha256:be1ce25068d24b42273182729dc1917654438797346a5d470606949ec344fb22", size = 13344079 },
+    { url = "https://files.pythonhosted.org/packages/5f/8d/5cf54b786ce69788a00ffcb7e275bacff80dab72653a04fcd0214be03ec4/uv-0.4.28-py3-none-musllinux_1_1_ppc64le.whl", hash = "sha256:dea9d143e52cc295c9da9840530629196b0dc24c71b31a880f2f979fe3f1d62e", size = 15247117 },
+    { url = "https://files.pythonhosted.org/packages/fd/75/b22afa960bf8a74ec66bd35c702ad2552ad93edf3b231e9f29b96d0d519e/uv-0.4.28-py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:6ea1fac8b9b8d785f66e2ab46296e6939a43ab85da538d3eea12a27dfefd84a6", size = 13899919 },
+    { url = "https://files.pythonhosted.org/packages/56/30/c9691fc0d9bb8b5c7719429c4313591a251961e7e89b79b2e42349f3cf91/uv-0.4.28-py3-none-win32.whl", hash = "sha256:8a32af23fc619e1e70923a498c097ec6eb120e764315ba164fa7ab8a65af9ba3", size = 13124306 },
+    { url = "https://files.pythonhosted.org/packages/45/86/7bb87d8b97fcf807e97f256bfe9d55e31ef788778ec9793f2c9a6a5d128a/uv-0.4.28-py3-none-win_amd64.whl", hash = "sha256:e680313c3b25eee9f9f521fab20746292cf6ef4e162e4f973e0758867702384f", size = 14886993 },
 ]
 
 [[package]]
