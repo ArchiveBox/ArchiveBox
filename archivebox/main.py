@@ -199,15 +199,13 @@ def version(quiet: bool=False,
     console = Console()
     prnt = console.print
     
-    from django.conf import settings
-    
     from abx_plugin_default_binproviders import apt, brew, env
     
     from archivebox.config.version import get_COMMIT_HASH, get_BUILD_TIME
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, RUNNING_AS_UID, RUNNING_AS_GID
     from archivebox.config.paths import get_data_locations, get_code_locations
     
-    LDAP_ENABLED = archivebox.pm.hook.get_FLAT_CONFIG().LDAP_ENABLED
+    LDAP_ENABLED = archivebox.pm.hook.get_SCOPE_CONFIG().LDAP_ENABLED
 
 
     # 0.7.1

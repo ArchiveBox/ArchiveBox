@@ -174,7 +174,7 @@ class ABIDModel(models.Model):
             'uri': self.abid_uri_src,
             'subtype': self.abid_subtype_src,
             'rand': self.abid_rand_src,
-            'salt': 'self.abid_salt',               # defined as static class vars at build time
+            'salt': 'self.abid_salt',                 # defined as static class vars at build time
         }
 
     @property
