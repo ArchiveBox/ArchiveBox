@@ -1,14 +1,11 @@
 __package__ = 'archivebox.parsers'
 
 import json
-
 from typing import IO, Iterable
 
-from ..index.schema import Link
-from archivebox.misc.util import (
-    enforce_types,
-)
+from archivebox.misc.util import enforce_types
 
+from ..index.schema import Link
 from .generic_json import jsonObjectToLink
 
 def parse_line(line: str):
