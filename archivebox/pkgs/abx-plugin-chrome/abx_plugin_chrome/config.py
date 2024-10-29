@@ -79,15 +79,16 @@ class ChromeConfig(BaseConfigSet):
     # Chrome Binary
     CHROME_BINARY: str                      = Field(default='chrome')
     CHROME_DEFAULT_ARGS: List[str]          = Field(default=[
-        '--virtual-time-budget=15000',
-        '--disable-features=DarkMode',
-        "--run-all-compositor-stages-before-draw",
-        "--hide-scrollbars",
-        "--autoplay-policy=no-user-gesture-required",
-        "--no-first-run",
-        "--use-fake-ui-for-media-stream",
-        "--use-fake-device-for-media-stream",
-        "--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT'",
+        "--no-first-run",                                              # dont show any first run ui / setup prompts
+        '--virtual-time-budget=15000',                                 # accellerate any animations on the page by 15s into the future
+        '--disable-features=DarkMode',                                 # disable dark mode for archiving
+        "--run-all-compositor-stages-before-draw",                     # dont draw partially rendered content, wait until everything is ready
+        "--hide-scrollbars",                                           # hide scrollbars to prevent layout shift / scrollbar visible in screenshots
+        "--autoplay-policy=no-user-gesture-required",                  # allow media autoplay without user gesture (e.g. on mobile)
+        "--use-fake-ui-for-media-stream",                              # provide fake camera if site tries to request camera access
+        "--use-fake-device-for-media-stream",                          # provide fake camera if site tries to request camera access
+        "--simulate-outdated-no-au='Tue, 31 Dec 2099 23:59:59 GMT'",   # ignore chrome updates
+        "--force-gpu-mem-available-mb=4096",                           # allows for longer full page screenshots https://github.com/puppeteer/puppeteer/issues/5530
     ])
     CHROME_EXTRA_ARGS: List[str]           = Field(default=[])
     
@@ -190,6 +191,7 @@ class ChromeConfig(BaseConfigSet):
             cmd_args.append('--user-data-dir={}'.format(options.CHROME_USER_DATA_DIR))
             cmd_args.append('--profile-directory={}'.format(options.CHROME_PROFILE_NAME or 'Default'))
         
+            # if CHROME_USER_DATA_DIR is set but folder is empty, create a new profile inside it
             if not os.path.isfile(options.CHROME_USER_DATA_DIR / options.CHROME_PROFILE_NAME / 'Preferences'):
                 STDERR.print(f'[green]        + creating new Chrome profile in: {pretty_path(options.CHROME_USER_DATA_DIR / options.CHROME_PROFILE_NAME)}[/green]')
                 cmd_args.remove('--no-first-run')
