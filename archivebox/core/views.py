@@ -12,7 +12,6 @@ from django.views import View
 from django.views.generic.list import ListView
 from django.views.generic import FormView
 from django.db.models import Q
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.views.decorators.csrf import csrf_exempt
