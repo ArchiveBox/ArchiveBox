@@ -6,7 +6,7 @@ VENDOR_DIR = Path(__file__).parent
 
 VENDORED_LIBS = [
     'abx',
-    'pydantic-pkgr',
+    # 'pydantic-pkgr',
 ]
 
 # scan ./vendor and add all dirs present to list of available VENDORED_LIBS

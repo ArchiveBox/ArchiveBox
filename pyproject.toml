@@ -178,7 +178,7 @@ dev-dependencies = [
 ]
 
 [tool.uv.sources]
-pydantic-pkgr = { workspace = true }
+# pydantic-pkgr = { workspace = true }
 
 abx = { workspace = true }
 abx-spec-pydantic-pkgr = { workspace = true }

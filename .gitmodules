@@ -1,9 +1,3 @@
 [submodule "docs"]
     path = docs
     url = https://github.com/ArchiveBox/ArchiveBox.wiki.git
-[submodule "archivebox/vendor/pocket"]
-	path = archivebox/vendor/pocket
-	url = https://github.com/tapanpandita/pocket
-[submodule "archivebox/vendor/pydantic-pkgr"]
-	path = archivebox/vendor/pydantic-pkgr
-	url = https://github.com/ArchiveBox/pydantic-pkgr
