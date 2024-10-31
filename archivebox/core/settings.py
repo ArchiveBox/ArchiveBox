@@ -191,7 +191,7 @@ SQLITE_CONNECTION_OPTIONS = {
         # https://gcollazo.com/optimal-sqlite-settings-for-django/
         # https://litestream.io/tips/#busy-timeout
         # https://docs.djangoproject.com/en/5.1/ref/databases/#setting-pragma-options
-        "timeout": 5,
+        "timeout": 10,
         "check_same_thread": False,
         "transaction_mode": "IMMEDIATE",
         "init_command": (
