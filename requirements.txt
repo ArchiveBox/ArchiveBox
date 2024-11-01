@@ -29,9 +29,9 @@ beautifulsoup4==4.12.3
     # via python-benedict
 brotli==1.1.0
     # via yt-dlp
-bx-django-utils==79
+bx-django-utils==81
     # via django-huey-monitor
-bx-py-utils==104
+bx-py-utils==105
     # via
     #   bx-django-utils
     #   django-huey-monitor
@@ -49,7 +49,7 @@ charset-normalizer==3.4.0
     # via requests
 constantly==23.10.4
     # via twisted
-croniter==3.0.3
+croniter==5.0.1
     # via archivebox (pyproject.toml)
 cryptography==43.0.3
     # via
@@ -81,7 +81,7 @@ django==5.1.2
     #   django-stubs
     #   django-stubs-ext
     #   django-taggit
-django-admin-data-views==0.4.1
+django-admin-data-views==0.4.2
     # via archivebox (pyproject.toml)
 django-auth-ldap==5.1.0
     # via archivebox (pyproject.toml)
@@ -101,25 +101,25 @@ django-object-actions==4.3.0
     # via archivebox (pyproject.toml)
 django-pydantic-field==0.3.10
     # via archivebox (pyproject.toml)
-django-settings-holder==0.1.2
+django-settings-holder==0.2.1
     # via
     #   django-admin-data-views
     #   django-signal-webhooks
-django-signal-webhooks==0.3.0
+django-signal-webhooks==0.3.1
     # via archivebox (pyproject.toml)
-django-stubs==5.1.0
+django-stubs==5.1.1
     # via archivebox (pyproject.toml)
-django-stubs-ext==5.1.0
+django-stubs-ext==5.1.1
     # via django-stubs
 django-taggit==6.1.0
     # via archivebox (pyproject.toml)
-et-xmlfile==1.1.0
+et-xmlfile==2.0.0
     # via openpyxl
 executing==2.1.0
     # via stack-data
 feedparser==6.0.11
     # via archivebox (pyproject.toml)
-ftfy==6.3.0
+ftfy==6.3.1
     # via python-benedict
 h11==0.14.0
     # via httpcore
@@ -144,7 +144,7 @@ idna==3.10
     #   twisted
 incremental==24.7.2
     # via twisted
-ipython==8.28.0
+ipython==8.29.0
     # via archivebox (pyproject.toml)
 jedi==0.19.1
     # via ipython
@@ -166,7 +166,7 @@ parso==0.8.4
     # via jedi
 pexpect==4.9.0
     # via ipython
-phonenumbers==8.13.47
+phonenumbers==8.13.48
     # via python-benedict
 platformdirs==4.3.6
     # via pydantic-pkgr
@@ -201,13 +201,13 @@ pydantic==2.9.2
     #   django-pydantic-field
     #   pydantic-pkgr
     #   pydantic-settings
-pydantic-core==2.23.4
+pydantic-core==2.25.1
     # via
     #   pydantic
     #   pydantic-pkgr
 pydantic-pkgr==0.5.4
     # via archivebox (pyproject.toml)
-pydantic-settings==2.6.0
+pydantic-settings==2.6.1
     # via archivebox (pyproject.toml)
 pygments==2.18.0
     # via
@@ -250,15 +250,15 @@ requests==2.32.3
     #   archivebox (pyproject.toml)
     #   python-benedict
     #   yt-dlp
-rich==13.9.2
+rich==13.9.4
     # via
     #   archivebox (pyproject.toml)
     #   rich-argparse
 rich-argparse==1.5.2
     # via archivebox (pyproject.toml)
-service-identity==24.1.0
+service-identity==24.2.0
     # via twisted
-setuptools==75.2.0
+setuptools==75.3.0
     # via
     #   archivebox (pyproject.toml)
     #   autobahn
@@ -293,7 +293,7 @@ traitlets==5.14.3
     # via
     #   ipython
     #   matplotlib-inline
-twisted==24.7.0
+twisted==24.10.0
     # via daphne
 txaio==23.1.1
     # via autobahn
@@ -332,7 +332,7 @@ xlrd==2.0.1
     # via python-benedict
 xmltodict==0.14.2
     # via python-benedict
-yt-dlp==2024.10.7
+yt-dlp==2024.10.22
     # via archivebox (pyproject.toml)
-zope-interface==7.1.0
+zope-interface==7.1.1
     # via twisted
