@@ -8,9 +8,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Please fill out all the fields below to get help with your issue.  
-        **Do not skip the `archivebox version` field** or your issue will be closed automatically.  
-        If you would like faster help make sure to **include a screenshot!**  
+        *Please note:* it is normal to see errors occasionally for some extractors on some URLs (not every extractor will work on every page, that's why it offers many extractors).  
+        Please only report archiving errors if you are seeing them *consistently across many URLs* or if they are entirely *preventing you from using ArchiveBox*.
 
   - type: textarea
     id: description
@@ -18,8 +17,6 @@ body:
       label: Describe the bug
       description: |
         A description of what the issue is, what you expected to happen, and if relevant, the *URLs you were trying to archive* (if relevant).  
-        *Please note:* it is normal to see errors occasionally for some extractors on some URLs (not every extractor will work on every page, that's why it offers many extractors).  
-        Please only report archiving errors if you are seeing them *consistently across many URLs* or if they are entirely *preventing you from using ArchiveBox*.
       placeholder: |
         Got a bunch of 'singlefile was unable to archive this page' errors when trying to archive URLs from this site:
           https://example.com/xyz ...
