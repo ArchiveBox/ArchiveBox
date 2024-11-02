@@ -1,6 +1,6 @@
 name: 📑 Documentation change
 description: Submit a suggestion or edit for the Wiki documentation
-title: 'Documentation: ...'
+title: "Documentation: ..."
 labels: 'touches: docs'
 type: 'Enhancement'
 assignees:
@@ -42,7 +42,7 @@ body:
       value: |
         ---
           
-        We strive to answer issues as quickly as possible, it usually takes us *about a ~week* to respond.  
+        We strive to address issues as quickly as possible, it usually takes us *about a ~week* to respond.  
           
         In the meantime please consider:  
           
