@@ -8,8 +8,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        *Please note:* it is normal to see errors occasionally for some extractors on some URLs (not every extractor will work on every page, that's why it offers many extractors).  
-        Please only report archiving errors if you are seeing them *consistently across many URLs* or if they are entirely *preventing you from using ArchiveBox*.
+        *Please note:* it is normal to see errors occasionally for some extractors on some URLs (not every extractor will work on every type of page).  
+        Please report archiving errors if you are seeing them *consistently across many URLs* or if they are *preventing you from using ArchiveBox*.
 
   - type: textarea
     id: description
