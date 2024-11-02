@@ -15,9 +15,9 @@ body:
       multiple: false
       options:
         - Proposing a new feature
-        - Proposing a new extractor / type of content to archive
-        - Request modification of existing behavior or design
-        - Request a UI or UX design improvement
+        - New extractor / type of content to archive
+        - Modification of existing behavior
+        - Web UI or UX design improvement
 
   - type: textarea
     id: current_problem
