@@ -1,0 +1,42 @@
+name: 📑 Documentation change
+description: Submit a suggestion or correction for the documentation
+title: "Documentation: ..."
+assignees:
+  - pirate
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If you prefer, you can [submit a Pull Request to https://github.com/ArchiveBox/docs](https://github.com/ArchiveBox/docs) instead of opening an issue here
+
+  - type: input
+    id: page_url
+    validations:
+      required: true
+    attributes:
+      label: What is the URL of the page you'd like to edit?
+      placeholder: https://github.com/ArchiveBox/docs/wiki/Install
+
+  - type: textarea
+    id: suggested_edit
+    attributes:
+      label: What changes would you like to make?
+      placeholder: |
+        e.g. Please add a new section on how to install ArchiveBox on TempleOS.
+        Feel free to include images, screenshots, code snippets, etc.
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+          
+        We strive to answer issues as quickly as possible, it usually takes us *about a ~week* to respond.  
+          
+        In the meantime please consider:  
+          
+          - 💰 [Donating to support ArchiveBox open-source](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations)
+          - 👨‍✈️ [Hiring us for corporate deployments](https://docs.monadical.com/s/archivebox-consulting-services) with professional support, custom feature development, and help with CAPTCHAs/rate-limits
+          - 🔍 [Browsing the newer ReadTheDocs Documentation](https://docs.archivebox.io/)
+          - ✨ Testing out a newer [`BETA` release](https://github.com/ArchiveBox/ArchiveBox/releases) (issues are often already fixed in our latest `BETA` releases)
