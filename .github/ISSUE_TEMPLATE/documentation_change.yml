@@ -1,29 +1,39 @@
 name: 📑 Documentation change
-description: Submit a suggestion or correction for the documentation
-title: "Documentation: ..."
+description: Submit a suggestion or edit for the Wiki documentation
+title: 'Documentation: ...'
+label: 'touches: docs'
+type: 'Enhancement'
 assignees:
   - pirate
 body:
   - type: markdown
     attributes:
       value: |
-        If you prefer, you can [submit a Pull Request to https://github.com/ArchiveBox/docs](https://github.com/ArchiveBox/docs) instead of opening an issue here
+        If you prefer, you can [submit a Pull Request](https://github.com/ArchiveBox/docs) to https://github.com/ArchiveBox/docs instead of opening an issue here.
 
   - type: input
     id: page_url
     validations:
       required: true
     attributes:
-      label: What is the URL of the page you'd like to edit?
-      placeholder: https://github.com/ArchiveBox/docs/wiki/Install
+      label: What is the URL of the page you'd like to see improved?
+      placeholder: e.g. https://github.com/ArchiveBox/docs/wiki/Install
+
+  - type: input
+    id: section_title
+    validations:
+      required: true
+    attributes:
+      label: What is the title of the relevant section?
+      placeholder: e.g. Option B. Automatic Setup Script
 
   - type: textarea
     id: suggested_edit
     attributes:
-      label: What changes would you like to make?
+      label: What is the suggested edit?
       placeholder: |
-        e.g. Please add a new section on how to install ArchiveBox on TempleOS.
-        Feel free to include images, screenshots, code snippets, etc.
+        e.g. Please document how to run the automatic setup script for ArchiveBox on TempleOS.  
+        Feel free to attach images, screenshots, code snippets, etc. anything you think would help.
     validations:
       required: true
 
