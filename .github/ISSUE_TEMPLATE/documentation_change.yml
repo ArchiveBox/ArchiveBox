@@ -9,7 +9,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        If you prefer, you can submit a [Pull Request](https://github.com/ArchiveBox/docs) to https://github.com/ArchiveBox/docs edit the docs directly instead.
+        If you prefer, you can submit a [Pull Request](https://github.com/ArchiveBox/docs) on https://github.com/ArchiveBox/docs to edit the docs directly instead.
 
   - type: input
     id: page_url
