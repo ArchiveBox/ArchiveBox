@@ -87,7 +87,6 @@ body:
   - type: checkboxes
     id: filesystem
     attributes:
-      label: Using a network filesystem?
       description: Is your ArchiveBox data on a network filesystem (e.g. NFS/SMB/CIFS/etc. or FUSE/RClone/S3/B2/OneDrive/etc.)?
       options:
         - label: Using a network filesystem
@@ -109,7 +108,7 @@ body:
         - Other
 
   - type: textarea
-    id: configuration
+    id: docker_compose_yml
     attributes:
       label: "`docker-compose.yml` file"
       description: "If using Docker, please share your `docker-compose.yml` file (or the `docker run ...` command you use)."
