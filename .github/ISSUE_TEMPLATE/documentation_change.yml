@@ -1,7 +1,7 @@
 name: 📑 Documentation change
 description: Submit a suggestion or edit for the Wiki documentation
 title: 'Documentation: ...'
-label: 'touches: docs'
+labels: 'touches: docs'
 type: 'Enhancement'
 assignees:
   - pirate
