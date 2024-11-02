@@ -1,0 +1,153 @@
+name: 🐞 Bug report
+description: Report a bug or error you encountered in ArchiveBox
+title: "Bug: ..."
+assignees:
+  - pirate
+type: 'Bug'
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please fill out all the fields below to get help with your issue.  
+        **Do not skip the `archivebox version` field** or your issue will be closed automatically.  
+        If you would like faster help make sure to **include a screenshot!**  
+        *Please note we are unable to provide support for Windows unless you are [running in Docker](https://github.com/ArchiveBox/archivebox#:~:text=windows%20without%20docker).*  
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: |
+        A description of what the issue is, what you expected to happen, and if relevant, the URLs you were trying to archive.  
+        Please note it is normal to see errors occasionally for some extractors on some URLs (not every extractor will work on every page, that's why ArchiveBox provides many extractors).  
+        Please only report archiving errors if you are seeing them consistently across many URLs or if they are entirely preventing you from using ArchiveBox.
+      placeholder: "Got a bunch of 'singlefile was unable to archive this page' errors when trying to archive URLs from this site: https://example.com/xyz ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Please include the exact steps you took to trigger the issue.
+      placeholder: |
+        1. Ran ArchiveBox with the following options '...'<br/>
+        2. Went to the https://127.0.0.1:8000/add/ URL in the browser<br/>
+        3. Typed '...' into the 'Add URL' input field<br/>
+        4. Clicked the 'Add+' button<br/>
+        5. Saw this error in terminal: '....'
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Screenshots or log output
+      description: "Post the CLI output from when you ran ArchiveBox or a screenshot of the problem. (check `data/logs/errors.log` as well for errors)"
+      placeholder: 
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: version
+    attributes:
+      label: ArchiveBox Version
+      description: "You must run the `archivebox version` command and paste the **full** output here (not just the version number).<br/>For Docker Compose: `docker compose run archivebox version`<br/>For Docker: `docker run archivebox/archivebox version`"
+      render: shell
+      placeholder: |
+        0.8.6
+        ArchiveBox v0.8.6rc0 COMMIT_HASH=721427a BUILD_TIME=2024-10-21 12:57:02 1729515422
+        IN_DOCKER=False IN_QEMU=False ARCH=arm64 OS=Darwin PLATFORM=macOS-15.1-arm64-arm-64bit PYTHON=Cpython (venv)
+        EUID=502:20 UID=502:20 PUID=502:20 FS_UID=502:20 FS_PERMS=644 FS_ATOMIC=True FS_REMOTE=False
+        DEBUG=False IS_TTY=True SUDO=False ID=dfa11485:aa78ad45 SEARCH_BACKEND=ripgrep LDAP=False
+        
+        Binary Dependencies:
+        √  python                3.11.9       venv_pip   ~/archivebox/.venv/bin/python
+        √  django                5.1.2        venv_pip   ~/archivebox/.venv/lib/python3.11/site-packages/django/__init__.py
+        √  sqlite                2.6.0        venv_pip   ~/archivebox/.venv/lib/python3.11/site-packages/django/db/backends/sqlite3/base.py
+        √  pip                   24.3.1       venv_pip   ~/archivebox/.venv/bin/pip
+        ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating_system
+    validations:
+      required: true
+    attributes:
+      label: What host operating system/environment are you running ArchiveBox on?
+      multiple: false
+      options:
+        - macOS (including Docker on macOS)
+        - Linux (Ubuntu, Debian, Arch, Alpine, etc.)
+        - BSD (FreeBSD, OpenBSD, NetBSD, etc.)
+        - Windows (including WSL, WSL2, Docker Desktop on Windows)
+
+  - type: checkboxes
+    id: filesystem
+    attributes:
+      label: Using a network filesystem?
+      description: Is your ArchiveBox data on a network filesystem (e.g. NFS/SMB/CIFS/etc. or FUSE/RClone/S3/B2/OneDrive/etc.)?
+      options:
+        - label: Using a network filesystem
+          required: false
+  
+  - type: dropdown
+    id: install_method
+    validations:
+      required: true
+    attributes:
+      label: How did you install the version of ArchiveBox you are using?
+      multiple: false
+      options:
+        - pip
+        - apt
+        - brew
+        - nix
+        - Docker (or other container system like podman/LXC/Kubernetes or TrueNAS/Cloudron/YunoHost/etc.)
+        - Other
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: "`docker-compose.yml` file"
+      description: "If using Docker, please share your `docker-compose.yml` file (or the `docker run ...` command you use)."
+      placeholder: |
+        services:
+          archivebox:
+            image: archivebox/archivebox:latest
+            environment:
+              ...
+          
+          ...
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: "`data/ArchiveBox.conf` file"
+      description: "If you have any custom configuration, please share your `data/ArchiveBox.conf` contents here."
+      render: shell
+      placeholder: |
+        [SERVER_CONFIG]
+        SECRET_KEY = "*********(leave secrets/passwords out)************"
+
+        WGET_RESTRICT_FILE_NAMES=windows
+        USE_SYSTEM_WGET=true
+        CHECK_SSL_VALIDITY=false
+        ...
+    validations:
+      required: false
+
+
+  - type: markdown
+    attributes:
+      value: |
+        We strive to answer issues as quickly as possible, it usually takes us a week or less.  
+        In the meantime please consider [donating to support ArchiveBox open-source](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations) or hiring [ArchiveBox for professional use](https://docs.monadical.com/s/archivebox-consulting-services).  
+        <hr/>
+        Many issues are also fixed in our newer [BETA releases](https://github.com/ArchiveBox/ArchiveBox/releases), we encourage you to try the latest BETA before reporting an issue.  
+        Make sure your archive `data/` is **fully backed up** before trying any BETA or [troubleshooting steps](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting), we are not responsible for data loss.  
