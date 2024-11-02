@@ -34,7 +34,7 @@ body:
         2. Went to the https://127.0.0.1:8000/add/ page in Google Chrome
         3. Typed 'https://example.com/xyz' into the 'Add URL' input field
         4. Clicked the 'Add+' button
-        5. Got a 500 error and saw this output in terminal: '...'
+        5. Got a 500 error and saw the errors below in terminal
     validations:
       required: true
 
@@ -73,10 +73,10 @@ body:
         DEBUG=False IS_TTY=True SUDO=False ID=dfa11485:aa78ad45 SEARCH_BACKEND=ripgrep LDAP=False
         
         Binary Dependencies:
-        √  python                3.11.9       venv_pip   ~/archivebox/.venv/bin/python
-        √  django                5.1.2        venv_pip   ~/archivebox/.venv/lib/python3.11/site-packages/django/__init__.py
-        √  sqlite                2.6.0        venv_pip   ~/archivebox/.venv/lib/python3.11/site-packages/django/db/backends/sqlite3/base.py
-        √  pip                   24.3.1       venv_pip   ~/archivebox/.venv/bin/pip
+        √  python     3.11.9     venv_pip   ~/.venv/bin/python
+        √  django     5.1.2      venv_pip   ~/.venv/lib/python3.11/site-packages/django/__init__.py
+        √  sqlite     2.6.0      venv_pip   ~/.venv/lib/python3.11/site-packages/django/db/backends/sqlite3/base.py
+        √  pip        24.3.1     venv_pip   ~/.venv/bin/pip
         ...
     validations:
       required: true
@@ -110,6 +110,7 @@ body:
         - macOS (including Docker on macOS)
         - BSD (FreeBSD/OpenBSD/NetBSD/etc.)
         - Windows (including WSL, WSL2, Docker Desktop on Windows)
+        - Other
 
   - type: checkboxes
     id: filesystem
