@@ -87,7 +87,8 @@ body:
   - type: checkboxes
     id: filesystem
     attributes:
-      description: Is your ArchiveBox data on a network filesystem (e.g. NFS/SMB/CIFS/etc. or FUSE/RClone/S3/B2/OneDrive/etc.)?
+      label: Is your ArchiveBox data on a network filesystem?
+      description: Are you using a [remote filesystem](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-Up-Storage#supported-remote-filesystems) or FUSE mount for `data/` or `data/archive` (e.g. NFS/SMB/CIFS/etc. or FUSE/RClone/S3/B2/OneDrive/etc.)?
       options:
         - label: Using a network filesystem
           required: false
