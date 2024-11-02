@@ -11,34 +11,31 @@ body:
     validations:
       required: true
     attributes:
-      label: What type of suggestion are you making?
+      label: "What type of suggestion are you making?"
       multiple: false
       options:
+        - New extractor / type of content to save
         - Proposing a new feature
-        - New extractor / type of content to archive
         - Modification of existing behavior
         - Web UI or UX design improvement
 
   - type: textarea
     id: current_problem
     attributes:
-      label: What is the problem that your feature request solves
-      render: markdown
+      label: "What is the problem that your feature request solves?"
       description: |
         Describe the problem that your feature request solves, feel free to include any screenshots or examples.
       placeholder: |
-        e.g. I need to be able to archive spanish and french subtitle files 
-        from a particular <example.com> movie site that's going down soon.
+        e.g. I need to be able to archive spanish and french subtitle files from a particular movie site https://example.com/somevideos that's going down soon.
     validations:
       required: true
 
   - type: textarea
     id: proposed_solution
     attributes:
-      label: Describe the ideal specific solution you'd want, and whether it fits into any broader scope of changes
-      render: markdown
+      label: "What is your proposed solution?"
       description: |
-        Describe the perfect solution you'd like to see in an ideal world, and whether you think it's should go along with any other bigger changes.
+        Describe the ideal specific solution you'd want, and whether it fits into any broader scope of changes.
       placeholder: |
         e.g. I specifically need a new archive method to look for multilingual subtitle files related to pages.  
         The bigger picture solution is the ability for custom user scripts to be run in a puppeteer context during archiving.
@@ -48,8 +45,7 @@ body:
   - type: textarea
     id: workarounds_tried
     attributes:
-      label: What hacks or alternative solutions have you tried to solve the problem?
-      render: markdown
+      label: "What hacks or alternative solutions have you tried to solve the problem?"
       description: |
         A clear and concise description of any alternative solutions, workarounds, or other software you've considered using to fix the problem.
       placeholder: |
@@ -63,8 +59,8 @@ body:
     attributes:
       label: What version of ArchiveBox are you currently using?
       description: |
-        We need to know what version of ArchiveBox you're currently using in order to contextualize your feature request.  
-        Sometimes we've already fixed the issues in newer BETA versions, or sometimes features already exist but may not be available on specific OS's or environments.
+        We need to know what version of ArchiveBox and what OS you're currently using in order to contextualize your feature request.  
+        Sometimes we've already fixed the issues in newer BETA versions, sometimes features already exist but may not be available in specific environments/versions.
           
         Run the `archivebox version` command inside your current collection dir and paste the *full output* here (*not just the version number*).  
         For Docker Compose run: `docker compose run archivebox version`  
@@ -89,8 +85,7 @@ body:
   - type: checkboxes
     id: priority
     attributes:
-      label: How badly do you want this new feature?
-      description: Are you using a [remote filesystem](https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-Up-Storage#supported-remote-filesystems) or FUSE mount for `data/` or `data/archive` (e.g. NFS/SMB/CIFS/etc. or FUSE/RClone/S3/B2/OneDrive/etc.)?
+      label: "How badly do you want this new feature?"
       options:
         - label: "It's an urgent deal-breaker, I can't live without it"
           required: false
@@ -98,7 +93,7 @@ body:
           required: false
         - label: "It would be nice to have eventually"
           required: false
-        - label: "I'm willing to [help work on a PR](https://github.com/ArchiveBox/ArchiveBox#archivebox-development) to develop this change myself"
+        - label: "I'm willing to [work on a PR](https://github.com/ArchiveBox/ArchiveBox#archivebox-development) to develop this myself"
           required: false
         - label: "I have [donated money](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations) to go towards fixing this issue"
           required: false
@@ -113,7 +108,7 @@ body:
           required: false
         - label: "I've had a lot of difficulty getting ArchiveBox set up"
           required: false
-        - label: "I would pay $10/mo hosted version of ArchiveBox if it had this feature"
+        - label: "I would pay $10/mo for a hosted version of ArchiveBox if it had this feature"
           required: false
 
   - type: markdown
@@ -127,7 +122,6 @@ body:
         In the meantime please consider:  
           
           - 💰 [Donating to support ArchiveBox open-source](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations)
-          - 👨‍✈️ [Hiring us for corporate deployments](https://docs.monadical.com/s/archivebox-consulting-services) with professional support, custom feature development, and help with CAPTCHAs/rate-limits
+          - 📊 [Hiring us for corporate deployments](https://docs.monadical.com/s/archivebox-consulting-services) with professional support, custom feature development, and help with CAPTCHAs/rate-limits
           - 🔍 [Searching the Documentation](https://docs.archivebox.io/) for answers to common questions
-          - 📚 Reading the [Troubleshooting Guide](https://github.com/ArchiveBox/ArchiveBox/wiki)
           - ✨ Testing out a newer [`BETA` release](https://github.com/ArchiveBox/ArchiveBox/releases) (issues are often already fixed in our latest `BETA` releases)
