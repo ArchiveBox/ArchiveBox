@@ -1,0 +1,52 @@
+name: 📑 Documentation improvement
+description: Submit an idea or correction for the Wiki documentation
+title: "Documentation: ..."
+labels: 'touches: docs'
+type: 'Enhancement'
+assignees:
+  - pirate
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If you prefer, you can submit a [Pull Request](https://github.com/ArchiveBox/docs) on https://github.com/ArchiveBox/docs to edit the docs directly instead.
+
+  - type: input
+    id: page_url
+    validations:
+      required: true
+    attributes:
+      label: "What is the URL of the page you'd like to see improved?"
+      placeholder: e.g. https://github.com/ArchiveBox/docs/wiki/Install
+
+  - type: input
+    id: section_title
+    validations:
+      required: true
+    attributes:
+      label: "What is the title of the relevant section?"
+      placeholder: e.g. Option B. Automatic Setup Script
+
+  - type: textarea
+    id: suggested_edit
+    attributes:
+      label: "What is the suggested edit?"
+      placeholder: |
+        e.g. Please document how to run the automatic setup script for ArchiveBox on TempleOS.  
+        Attach images, screenshots, code snippets, etc. anything you think would help.
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+          
+        We strive to address issues as quickly as possible, it usually takes us *about a ~week* to respond.  
+          
+        In the meantime please consider:  
+          
+          - 💰 [Donating to support ArchiveBox open-source](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations)
+          - 👨‍✈️ [Hiring us for corporate deployments](https://docs.monadical.com/s/archivebox-consulting-services) with professional support, custom feature development, and help with CAPTCHAs/rate-limits
+          - 🔍 [Checking out the new ReadTheDocs Documentation](https://docs.archivebox.io/)
+          - ✨ Helping us test a newer [`BETA` release](https://github.com/ArchiveBox/ArchiveBox/releases)

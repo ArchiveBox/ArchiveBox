@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Chat with us on Zulip
+    url: https://zulip.archivebox.io
+    about: "Join us on our Zulip forum to chat with the developers and other users (it's similar to Discord but self-hosted)."
+  - name: 💁‍♂️ Hire us to provide archiving for your organization
+    url: https://docs.monadical.com/s/archivebox-consulting-services
+    about: "We provide hosting, develoment, and support, including on-prem/cloud setup w/ SSO & storage, CAPTCHA/rate-limiting avoidance, etc."

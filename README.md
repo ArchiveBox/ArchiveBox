@@ -27,7 +27,7 @@ Without active preservation effort, everything on the internet eventually disapp
 *ArchiveBox is an open source tool that lets organizations & individuals archive both public & private web content while retaining control over their data. It can be used to save copies of bookmarks, preserve evidence for legal cases, backup photos from FB/Insta/Flickr or media from YT/Soundcloud/etc., save research papers, and more...*
 <br/>
 
-> ➡️ Get ArchiveBox with `pip install archivebox` on [Linux](#quickstart), [macOS](#quickstart), and [Windows](#quickstart) (WSL2), or via **[Docker](#quickstart)** ⭐️.  
+> ➡️ Get ArchiveBox with `pip install archivebox` on [Linux](#quickstart)/[macOS](#quickstart), or via **[Docker](#quickstart)** ⭐️ on any OS.  
 
 *Once installed, it can be used as a [CLI tool](#usage), [self-hosted Web App](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive), [Python library](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage), or [one-off command](#static-archive-exporting).*
 

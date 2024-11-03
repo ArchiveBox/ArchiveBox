@@ -61,6 +61,7 @@ dependencies = [
     "pluggy>=1.5.0",
     "requests>=2.32.3",
     "dateparser>=1.2.0",
+    "tzdata>=2024.2",                 # needed for dateparser {TZ: UTC} on some systems: https://github.com/ArchiveBox/ArchiveBox/issues/1553
     "feedparser>=6.0.11",
     "w3lib>=2.2.1",
     "rich>=13.8.0",
@@ -135,11 +136,12 @@ ldap = [
     "django-auth-ldap>=4.1.0",
 ]
 debug = [
-    # libs needed to run archivebox server with DEBUG=True
+    # packages needed for running with DEBUG=True
     "django-debug-toolbar>=4.4.6",
-    "requests-tracker>=0.3.3",
     "djdt_flamegraph>=0.2.13",
     "ipdb>=0.13.13",
+    "requests-tracker>=0.3.3",
+    "django-autotyping>=0.5.1",
 ]
 all = [
     "archivebox[sonic,ldap,debug]"
@@ -152,7 +154,8 @@ dev-dependencies = [
     "pip>=24.2",
     "setuptools>=75.1.0",
     "wheel>=0.44.0",
-    "homebrew-pypi-poet>=0.10.0",      # for: generating archivebox.rb brewfile list of python packages
+    "bumpver>=2023.1129",
+    #"homebrew-pypi-poet>=0.10.0", # for: generating archivebox.rb brewfile list of python packages
     ### DOCS
     "recommonmark>=0.7.1",
     "sphinx>=8.1.3",
@@ -174,7 +177,6 @@ dev-dependencies = [
     "ruff>=0.6.6",
     "flake8>=7.1.1",
     "mypy>=1.11.2",
-    "django-autotyping>=0.5.1",
 ]
 
 [tool.uv.sources]
@@ -295,3 +297,21 @@ Demo = "https://demo.archivebox.io"
 Donate = "https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"
 
 
+
+[tool.bumpver]
+current_version = "v0.8.5rc53"
+version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
+commit_message = "bump version {old_version} -> {new_version}"
+tag_message = "{new_version}"
+tag_scope = "default"
+pre_commit_hook = ""
+post_commit_hook = ""
+commit = true
+tag = true
+push = true
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    'current_version = "{version}"',
+    'version = "{pep440_version}"',
+]

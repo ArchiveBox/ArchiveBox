@@ -64,7 +64,7 @@ class NinjaAPIWithIOCapture(NinjaAPI):
 
         # Add Auth Headers to response
         api_token = getattr(request, '_api_token', None)
-        token_expiry = api_token.expires.isoformat() if api_token else 'Never'
+        token_expiry = api_token.expires.isoformat() if api_token and api_token.expires else 'Never'
 
         response['X-ArchiveBox-Auth-Method'] = getattr(request, '_api_auth_method', None) or 'None'
         response['X-ArchiveBox-Auth-Expires'] = token_expiry
