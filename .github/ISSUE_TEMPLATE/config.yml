@@ -1,11 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Chat with us on the Zulip forum
+  - name: 💬 Chat with us on the Zulip forum
     url: https://zulip.archivebox.io
     about: "Join us on our Zulip to get help in realtime and chat with other users (it's similar to Discord but self-hosted)."
-  - name: Hire us to solve archiving for your org
+  - name: 💁‍♂️ Hire us to provide archiving for your organization
     url: https://docs.monadical.com/s/archivebox-consulting-services
-    about: "We provide setup, develoment, and support, including cloud storage setup, SSO, CAPTCHA/rate-limiting workarounds, and more."
-  - name: Report a security issue
-    url: https://github.com/ArchiveBox/ArchiveBox/security
-    about: Please report security vulnerabilities here.
+    about: "We provide hosting, develoment, and support, including on-prem/cloud setup w/ SSO & storage, CAPTCHA/rate-limiting avoidance, and more."
