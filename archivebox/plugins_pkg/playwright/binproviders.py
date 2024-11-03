@@ -37,11 +37,6 @@ class PlaywrightBinProvider(BaseBinProvider):
 
     PATH: PATHStr = f"{CONSTANTS.DEFAULT_LIB_DIR / 'bin'}:{DEFAULT_ENV_PATH}"
 
-    playwright_browsers_dir: Path = (
-        MACOS_PLAYWRIGHT_CACHE_DIR.expanduser()
-        if OPERATING_SYSTEM == "darwin" else
-        LINUX_PLAYWRIGHT_CACHE_DIR.expanduser()
-    )
     playwright_install_args: List[str] = ["install"]
 
     packages_handler: BinProviderOverrides = Field(default={
@@ -57,6 +52,24 @@ class PlaywrightBinProvider(BaseBinProvider):
             return PLAYWRIGHT_BINARY.load().abspath
         except Exception as e:
             return None
+
+    @property
+    def playwright_browsers_dir(self) -> Path:
+        # The directory where playwright stores browsers can be overridden with
+        # the "PLAYWRIGHT_BROWSERS_PATH" environment variable; if it's present
+        # and a directory, we should use that. See the playwright documentation
+        # for more details:
+        #    https://playwright.dev/docs/browsers#managing-browser-binaries
+        dir_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+        if dir_path and os.path.isdir(dir_path):
+            return Path(dir_path)
+
+        # Otherwise return the default path based on the operating system.
+        return (
+            MACOS_PLAYWRIGHT_CACHE_DIR.expanduser()
+            if OPERATING_SYSTEM == "darwin" else
+            LINUX_PLAYWRIGHT_CACHE_DIR.expanduser()
+        )
 
     def setup(self) -> None:
         # update paths from config if they arent the default
