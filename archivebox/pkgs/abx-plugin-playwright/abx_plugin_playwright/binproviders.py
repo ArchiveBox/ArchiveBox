@@ -25,9 +25,15 @@ import abx
 
 from .binaries import PLAYWRIGHT_BINARY
 
-
+USER_PLAYWRIGHT_CACHE_DIR: str | None = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", None)
 MACOS_PLAYWRIGHT_CACHE_DIR: Path = Path("~/Library/Caches/ms-playwright")
 LINUX_PLAYWRIGHT_CACHE_DIR: Path = Path("~/.cache/ms-playwright")
+
+PLAYWRIGHT_CACHE_DIR: Path = Path(USER_PLAYWRIGHT_CACHE_DIR) if USER_PLAYWRIGHT_CACHE_DIR else (
+    MACOS_PLAYWRIGHT_CACHE_DIR.expanduser()
+    if OPERATING_SYSTEM == "darwin" else
+    LINUX_PLAYWRIGHT_CACHE_DIR.expanduser()
+)
 
 
 class PlaywrightBinProvider(BinProvider):
@@ -36,11 +42,7 @@ class PlaywrightBinProvider(BinProvider):
 
     PATH: PATHStr = f"{Path('/usr/share/abx') / 'bin'}:{DEFAULT_ENV_PATH}"
 
-    playwright_browsers_dir: Path = (
-        MACOS_PLAYWRIGHT_CACHE_DIR.expanduser()
-        if OPERATING_SYSTEM == "darwin" else
-        LINUX_PLAYWRIGHT_CACHE_DIR.expanduser()
-    )
+    playwright_browsers_dir: Path = PLAYWRIGHT_CACHE_DIR
     playwright_install_args: List[str] = ["install"]
 
     packages_handler: BinProviderOverrides = Field(default={
@@ -49,7 +51,6 @@ class PlaywrightBinProvider(BinProvider):
 
     _browser_abspaths: ClassVar[Dict[str, HostBinPath]] = {}
 
-    @computed_field
     @property
     def INSTALLER_BIN_ABSPATH(self) -> HostBinPath | None:
         try:
