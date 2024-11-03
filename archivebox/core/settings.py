@@ -64,7 +64,8 @@ INSTALLED_APPS = [
     # 'abid_utils',                # handles ABID ID creation, handling, and models
     'config',                    # ArchiveBox config settings (loaded as a plugin, don't need to add it here) 
     'machine',                   # handles collecting and storing information about the host machine, network interfaces, installed binaries, etc.
-    'queues',                    # handles starting and managing background workers and processes
+    'actors',                    # handles starting and managing background workers and processes (orchestrators and actors)
+    'queues',                    # handles starting and managing background workers and processes (supervisord)
     'seeds',                     # handles Seed model and URL source management
     'crawls',                    # handles Crawl and CrawlSchedule models and management
     'personas',                  # handles Persona and session management

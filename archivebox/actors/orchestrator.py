@@ -3,8 +3,7 @@ __package__ = 'archivebox.actors'
 import os
 import time
 import itertools
-import uuid
-from typing import Dict, Type, Literal
+from typing import Dict, Type, Literal, ClassVar
 from django.utils.functional import classproperty
 
 from multiprocessing import Process, cpu_count
@@ -173,54 +172,36 @@ from django import db
 from django.db import connection
 
 
+from crawls.actors import CrawlActor
+from .actor_snapshot import SnapshotActor
+
+from abx_plugin_singlefile.actors import SinglefileActor
 
 
 class FaviconActor(ActorType[ArchiveResult]):
-    @classmethod
-    def get_queue(cls) -> QuerySet[ArchiveResult]:
+    CLAIM_ORDER: ClassVar[str] = 'created_at DESC'
+    CLAIM_WHERE: ClassVar[str] = 'status = "queued" AND extractor = "favicon"'
+    CLAIM_SET: ClassVar[str] = 'status = "started"'
+    
+    @classproperty
+    def QUERYSET(cls) -> QuerySet:
         return ArchiveResult.objects.filter(status='failed', extractor='favicon')
-    
-    @classmethod
-    def get_next(cls) -> ArchiveResult | None:
-        # return cls.get_next_atomic(
-        #     model=ArchiveResult,
-        #     where='status = "failed"',
-        #     set='status = "started"',
-        #     order_by='created_at DESC',
-        #     choose_from_top=cpu_count() * 10,
-        # )
-        return cls.get_random(
-            model=ArchiveResult,
-            where='status = "failed" AND extractor = "favicon"',
-            set='status = "queued"',
-            choose_from_top=50,
-        )
-    
+
     def tick(self, obj: ArchiveResult):
         print(f'[grey53]{self}.tick({obj.abid or obj.id}, status={obj.status}) remaining:[/grey53]', self.get_queue().count())
         updated = ArchiveResult.objects.filter(id=obj.id, status='started').update(status='success') == 1
         if not updated:
             raise Exception(f'Failed to update {obj.abid or obj.id}, interrupted by another actor writing to the same object')
-        # obj.refresh_from_db()
-        obj.status = 'success'
-        
-    def lock(self, obj: ArchiveResult) -> bool:
-        """As an alternative to self.get_next_atomic(), we can use select_for_update() or manually update a semaphore field here"""
-
-        locked = ArchiveResult.objects.filter(id=obj.id, status='queued').update(status='started') == 1
-        if locked:
-            # obj.refresh_from_db()
-            obj.status = 'started'
-            # print(f'FaviconActor[{self.pid}] lock({obj.id}) 🔒')
-            pass
-        else:
-            print(f'FaviconActor[{self.pid}] lock({obj.id}) X')
-        return locked
+        obj.refresh_from_db()
+        obj.save()
 
 
 class ExtractorsOrchestrator(Orchestrator):
     actor_types = {
+        'CrawlActor': CrawlActor,
+        'SnapshotActor': SnapshotActor,
         'FaviconActor': FaviconActor,
+        'SinglefileActor': SinglefileActor,
     }
 
 

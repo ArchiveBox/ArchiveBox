@@ -1,19 +1,8 @@
 __package__ = 'archivebox.seeds'
 
 
-from datetime import datetime
-
-from django_stubs_ext.db.models import TypedModelMeta
-
 from django.db import models
-from django.db.models import Q
-from django.core.validators import MaxValueValidator, MinValueValidator 
 from django.conf import settings
-from django.utils import timezone
-from django.utils.functional import cached_property
-from django.urls import reverse_lazy
-
-from pathlib import Path
 
 
 from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats
@@ -47,7 +36,10 @@ class Seed(ABIDModel, ModelWithHealthStats):
     abid_rand_src = 'self.id'
     abid_drift_allowed = True
     
-    uri = models.URLField(max_length=255, blank=False, null=False, unique=True)              # unique source location where URLs will be loaded from
+    id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
+    abid = ABIDField(prefix=abid_prefix)
+    
+    uri = models.URLField(max_length=2000, blank=False, null=False)                          # unique source location where URLs will be loaded from
     
     extractor = models.CharField(default='auto', max_length=32)   # suggested extractor to use to load this URL source
     tags_str = models.CharField(max_length=255, null=False, blank=True, default='')          # tags to attach to any URLs that come from this source
@@ -64,4 +56,10 @@ class Seed(ABIDModel, ModelWithHealthStats):
         #      pocketapi://
         #      s3://
         #      etc..
-        return self.uri.split('://')[0].lower()
+        return self.uri.split('://', 1)[0].lower()
+
+    class Meta:
+        verbose_name = 'Seed'
+        verbose_name_plural = 'Seeds'
+        
+        unique_together = (('created_by', 'uri', 'extractor'),)

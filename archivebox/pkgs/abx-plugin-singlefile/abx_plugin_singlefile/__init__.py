@@ -29,7 +29,7 @@ def get_EXTRACTORS():
         'singlefile': SINGLEFILE_EXTRACTOR,
     }
 
-# @abx.hookimpl
-# def get_INSTALLED_APPS():
-#     # needed to load ./models.py
-#     return [__package__]
+@abx.hookimpl
+def get_INSTALLED_APPS():
+    # needed to load ./models.py
+    return [__package__]

@@ -20,6 +20,17 @@ from django.urls import reverse_lazy
 
 from pathlib import Path
 
+# Glossary:
+#   - startup: when a new process is spawned
+#   - shutdown: when a process is exiting
+#   - start: at the beginning of some python code block
+#   - end: at the end of some python code block
+#   - queue: a django queryset of objects of a single type that are waiting to be processed
+#   - actor: a long-running daemon process that wakes up and processes a single object from a queue at a time
+#   - plugin: a python package that defines some hookimpls based on hookspecs exposed by ABX
+#   - object: an instance of a django model that represents a single row in the database
+
+
 # ORCHESTRATOR:
 # An orchestrator is a single long-running daemon process that manages spawning and killing actors for different queues of objects.
 # The orchestrator first starts when the archivebox starts, and it stops when archivebox is killed.
@@ -74,8 +85,8 @@ from pathlib import Path
 # On startup an actor should fire abx.pm.hook.on_actor_startup(object) and on exit it should fire abx.pm.hook.on_actor_exit(object) (both syncronous hooks that can be used by plugins to register any startup/cleanup code).
 # An ActorType defines the following hookspecs for plugins to hook into its behavior:
 #   - abx.pm.hook.on_actor_startup(actor, queue)
-#   - abx.pm.hook.on_actor_tick_started(actor, object)
-#   - abx.pm.hook.on_actor_tick_finished(actor, object)
+#   - abx.pm.hook.on_actor_tick_start(actor, object)
+#   - abx.pm.hook.on_actor_tick_end(actor, object)
 #   - abx.pm.hook.on_actor_tick_exception(actor, object, exception)
 #   - abx.pm.hook.on_actor_shutdown(actor)
 
@@ -107,8 +118,8 @@ from pathlib import Path
 #   - external API calls (e.g. uploading to s3, firing a webhook, writing to a logfile, etc.)
 #   - DO NOT use side effects to directly mutate other objects state or trigger other state transitions
 # ABX defines the following hookspecs for plugins to hook into transition behavior:
-#   - abx.pm.hook.on_transition_<objecttype>_from_abx_to_xyz_started(object)
-#   - abx.pm.hook.on_transition_<objecttype>_from_abx_to_xyz_succeeded(object)
+#   - abx.pm.hook.on_transition_<objecttype>_from_abx_to_xyz_start(object)
+#   - abx.pm.hook.on_transition_<objecttype>_from_abx_to_xyz_end(object)
 
 # READ:
 # A read() method is a function defined for a given ActorType that performs a single read from the DB and/or other read models like django cache, filesystem, in-memory caches, etc.

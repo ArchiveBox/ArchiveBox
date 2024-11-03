@@ -44,16 +44,17 @@ class ActorType(ABC, Generic[ModelType]):
     launch_kwargs: LaunchKwargs = {}
     mode: Literal['thread', 'process'] = 'process'
     
+    MAX_CONCURRENT_ACTORS: ClassVar[int] = min(max(2, int(cpu_count() * 0.6)), 8)   # min 2, max 8, up to 60% of available cpu cores
+    MAX_TICK_TIME: ClassVar[int] = 60                          # maximum duration in seconds to process a single object
+    
     QUERYSET: ClassVar[QuerySet]                      # the QuerySet to claim objects from
     CLAIM_WHERE: ClassVar[str] = 'status = "queued"'  # the WHERE clause to filter the objects when atomically getting the next object from the queue
     CLAIM_SET: ClassVar[str] = 'status = "started"'   # the SET clause to claim the object when atomically getting the next object from the queue
     CLAIM_ORDER: ClassVar[str] = 'created_at DESC'    # the ORDER BY clause to sort the objects with when atomically getting the next object from the queue
-    CLAIM_FROM_TOP: ClassVar[int] = 50                # the number of objects to consider when atomically getting the next object from the queue
+    CLAIM_FROM_TOP: ClassVar[int] = MAX_CONCURRENT_ACTORS * 10  # the number of objects to consider when atomically getting the next object from the queue
     ATOMIC: ClassVar[bool] = True                     # whether to atomically fetch+claim the nextobject in one step, or fetch and lock it in two steps
     
     # model_type: Type[ModelType]
-    MAX_CONCURRENT_ACTORS: ClassVar[int] = min(max(2, int(cpu_count() * 0.6)), 8)   # min 2, max 8, up to 60% of available cpu cores
-    MAX_TICK_TIME: ClassVar[int] = 60                          # maximum duration in seconds to process a single object
     
     _SPAWNED_ACTOR_PIDS: ClassVar[list[psutil.Process]] = []   # record all the pids of Actors spawned by this class
     
@@ -89,18 +90,19 @@ class ActorType(ABC, Generic[ModelType]):
     @classmethod
     def get_actors_to_spawn(cls, queue: QuerySet, running_actors: list[int]) -> list[LaunchKwargs]:
         """Get a list of launch kwargs for the number of actors to spawn based on the queue and currently running actors"""
+        queue_length = queue.count()
+        if not queue_length:                                      # queue is empty, spawn 0 actors
+            return []
+        
         actors_to_spawn: list[LaunchKwargs] = []
         max_spawnable = cls.MAX_CONCURRENT_ACTORS - len(running_actors)
-        queue_length = queue.count()
         
         # spawning new actors is expensive, avoid spawning all the actors at once. To stagger them,
         # let the next orchestrator tick handle starting another 2 on the next tick()
         # if queue_length > 10:                                   # queue is long, spawn as many as possible
         #   actors_to_spawn += max_spawnable * [{}]
         
-        if not queue_length:                                      # queue is empty, spawn 0 actors
-            return actors_to_spawn
-        elif queue_length > 4:                                    # queue is medium, spawn 1 or 2 actors
+        if queue_length > 4:                                    # queue is medium, spawn 1 or 2 actors
             actors_to_spawn += min(2, max_spawnable) * [{**cls.launch_kwargs}]
         else:                                                     # queue is short, spawn 1 actor
             actors_to_spawn += min(1, max_spawnable) * [{**cls.launch_kwargs}]
@@ -143,7 +145,6 @@ class ActorType(ABC, Generic[ModelType]):
         """override this to provide your queryset as the queue"""
         # return ArchiveResult.objects.filter(status='queued', extractor__in=('pdf', 'dom', 'screenshot'))
         return cls.QUERYSET
-    
     
     ### Instance Methods: Called by Actor after it has been spawned (i.e. forked as a thread or process)
     

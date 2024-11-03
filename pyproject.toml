@@ -61,7 +61,7 @@ dependencies = [
     "pluggy>=1.5.0",
     "requests>=2.32.3",
     "dateparser>=1.2.0",
-    "tzdata>=2024.2",                 # needed for dateparser {TZ: UTC} on some systems: https://github.com/ArchiveBox/ArchiveBox/issues/1553
+    "tzdata>=2024.2", # needed for dateparser {TZ: UTC} on some systems: https://github.com/ArchiveBox/ArchiveBox/issues/1553
     "feedparser>=6.0.11",
     "w3lib>=2.2.1",
     "rich>=13.8.0",
@@ -86,40 +86,35 @@ dependencies = [
     "yt-dlp>=2024.8.6", # for: media"
     ############# Plugin Dependencies ################
     "abx>=0.1.0",
-
     "abx-spec-pydantic-pkgr>=0.1.0",
     "abx-spec-config>=0.1.0",
     "abx-spec-archivebox>=0.1.0",
     "abx-spec-django>=0.1.0",
     "abx-spec-extractor>=0.1.0",
     "abx-spec-searchbackend>=0.1.0",
-
     "abx-plugin-default-binproviders>=2024.10.24",
     "abx-plugin-pip>=2024.10.24",
     "abx-plugin-npm>=2024.10.24",
     "abx-plugin-playwright>=2024.10.24",
     "abx-plugin-puppeteer>=2024.10.28",
-
     "abx-plugin-ripgrep-search>=2024.10.28",
     "abx-plugin-sqlitefts-search>=2024.10.28",
     "abx-plugin-sonic-search>=2024.10.28",
     "abx-plugin-ldap-auth>=2024.10.28",
-
     "abx-plugin-curl>=2024.10.27",
     "abx-plugin-wget>=2024.10.28",
     "abx-plugin-git>=2024.10.28",
     "abx-plugin-chrome>=2024.10.28",
     "abx-plugin-ytdlp>=2024.10.28",
-    
     "abx-plugin-title>=2024.10.27",
     "abx-plugin-favicon>=2024.10.27",
     # "abx-plugin-headers>=2024.10.27",
     "abx-plugin-archivedotorg>=2024.10.28",
-
     "abx-plugin-singlefile>=2024.10.28",
     "abx-plugin-readability>=2024.10.28",
     "abx-plugin-mercury>=2024.10.28",
     "abx-plugin-htmltotext>=2024.10.28",
+    "python-statemachine>=2.3.6",
 ]
 
 [project.optional-dependencies]

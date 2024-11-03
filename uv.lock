@@ -661,6 +661,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-benedict", extra = ["io", "parse"] },
     { name = "python-crontab" },
+    { name = "python-statemachine" },
     { name = "requests" },
     { name = "rich" },
     { name = "rich-argparse" },
@@ -789,6 +790,7 @@ requires-dist = [
     { name = "python-benedict", extras = ["io", "parse"], specifier = ">=0.33.2" },
     { name = "python-crontab", specifier = ">=3.2.0" },
     { name = "python-ldap", marker = "extra == 'ldap'", specifier = ">=3.4.3" },
+    { name = "python-statemachine", specifier = ">=2.3.6" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "requests-tracker", marker = "extra == 'debug'", specifier = ">=0.3.3" },
     { name = "rich", specifier = ">=13.8.0" },
@@ -2727,6 +2729,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/87/c7/5e1547c44e31da50a460df93af11a535ace568ef89d7a811069ead340c4a/python-slugify-8.0.4.tar.gz", hash = "sha256:59202371d1d05b54a9e7720c5e038f928f45daaffe41dd10822f3907b937c856", size = 10921 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a4/62/02da182e544a51a5c3ccf4b03ab79df279f9c60c5e82d5e8bec7ca26ac11/python_slugify-8.0.4-py2.py3-none-any.whl", hash = "sha256:276540b79961052b66b7d116620b36518847f52d5fd9e3a70164fc8c50faa6b8", size = 10051 },
+]
+
+[[package]]
+name = "python-statemachine"
+version = "2.3.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/20/c9/7034a362ce151f9fa0ead5630727a16122f7a5ed235d42447910dff95b6a/python_statemachine-2.3.6.tar.gz", hash = "sha256:9cb4040ca7f2158d3cd46f36a77b420b6ef95a90223928a7f3cab232a70bd560", size = 36735 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/39/04/19a44b549cbaae1ac6c2acc58afb96b71209da866713877f40aab2f45de6/python_statemachine-2.3.6-py3-none-any.whl", hash = "sha256:0001b02cbe2f5b2420c423b5b3e3a33915447ac6d9735219c929e2378d454f5f", size = 41529 },
 ]
 
 [[package]]
