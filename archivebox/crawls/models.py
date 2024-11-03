@@ -1,13 +1,20 @@
 __package__ = 'archivebox.crawls'
 
+from typing import TYPE_CHECKING
 from django_stubs_ext.db.models import TypedModelMeta
 
+from datetime import timedelta
+
 from django.db import models
-from django.db.models import Q
 from django.core.validators import MaxValueValidator, MinValueValidator 
 from django.conf import settings
-from django.utils import timezone
 from django.urls import reverse_lazy
+from django.utils import timezone
+
+from statemachine.mixins import MachineMixin
+
+if TYPE_CHECKING:
+    from core.models import Snapshot
 
 from seeds.models import Seed
 
@@ -41,8 +48,9 @@ class CrawlSchedule(ABIDModel, ModelWithHealthStats):
         """The base crawl that each new scheduled job should copy as a template"""
         return self.crawl_set.first()
 
+    
 
-class Crawl(ABIDModel, ModelWithHealthStats):
+class Crawl(ABIDModel, ModelWithHealthStats, MachineMixin):
     """
     A single session of URLs to archive starting from a given Seed and expanding outwards. An "archiving session" so to speak.
 
@@ -55,16 +63,29 @@ class Crawl(ABIDModel, ModelWithHealthStats):
     abid_prefix = 'crl_'
     abid_ts_src = 'self.created_at'
     abid_uri_src = 'self.seed.uri'
-    abid_subtype_src = 'self.persona_id'
+    abid_subtype_src = 'self.persona'
     abid_rand_src = 'self.id'
     abid_drift_allowed = True
+    
+    state_field_name = 'status'
+    state_machine_name = 'crawls.statemachines.CrawlMachine'
+    state_machine_attr = 'sm'
+    bind_events_as_methods = True
 
+    class CrawlStatus(models.TextChoices):
+        QUEUED = 'queued', 'Queued'
+        STARTED = 'started', 'Started'
+        SEALED = 'sealed', 'Sealed'
+
+    status = models.CharField(choices=CrawlStatus.choices, max_length=15, default=CrawlStatus.QUEUED, null=False, blank=False)
+    
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=None, null=False, related_name='crawl_set')
     created_at = AutoDateTimeField(default=None, null=False, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
+    
 
     seed = models.ForeignKey(Seed, on_delete=models.PROTECT, related_name='crawl_set', null=False, blank=False)
     max_depth = models.PositiveSmallIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(4)])
@@ -79,7 +100,7 @@ class Crawl(ABIDModel, ModelWithHealthStats):
     # schedule = models.JSONField()
     # config = models.JSONField()
     
-    # snapshot_set: models.Manager['Snapshot']
+    snapshot_set: models.Manager['Snapshot']
     
 
     class Meta(TypedModelMeta):
@@ -102,6 +123,28 @@ class Crawl(ABIDModel, ModelWithHealthStats):
     @property
     def api_docs_url(self) -> str:
         return '/api/v1/docs#/Core%20Models/api_v1_core_get_crawl'
+    
+    def has_pending_archiveresults(self) -> bool:
+        from core.models import ArchiveResult
+        
+        pending_statuses = [ArchiveResult.ArchiveResultStatus.QUEUED, ArchiveResult.ArchiveResultStatus.STARTED]
+        
+        snapshot_ids = self.snapshot_set.values_list('id', flat=True)
+        pending_archiveresults = ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids, status__in=pending_statuses)
+        return pending_archiveresults.exists()
+    
+    def create_root_snapshot(self) -> 'Snapshot':
+        from core.models import Snapshot
+        
+        root_snapshot, _ = Snapshot.objects.get_or_create(
+            crawl=self,
+            url=self.seed.uri,
+        )
+        return root_snapshot
+    
+    def bump_retry_at(self, seconds: int = 10):
+        self.retry_at = timezone.now() + timedelta(seconds=seconds)
+        self.save()
 
 
 class Outlink(models.Model):

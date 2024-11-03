@@ -60,7 +60,7 @@ def setup_django(check_db=False, in_memory_db=False) -> None:
         return
 
     with Progress(transient=True, expand=True, console=STDERR) as INITIAL_STARTUP_PROGRESS:
-        INITIAL_STARTUP_PROGRESS_TASK = INITIAL_STARTUP_PROGRESS.add_task("[green]Loading modules...", total=25)
+        INITIAL_STARTUP_PROGRESS_TASK = INITIAL_STARTUP_PROGRESS.add_task("[green]Loading modules...", total=25, visible=False)
         
         from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, SudoPermission
     
@@ -97,7 +97,7 @@ def setup_django(check_db=False, in_memory_db=False) -> None:
                 except Exception as e:
                     bump_startup_progress_bar(advance=1000)
                     
-                    is_using_meta_cmd = any(ignored_subcommand in sys.argv for ignored_subcommand in ('help', 'version', '--help', '--version', 'init'))
+                    is_using_meta_cmd = any(ignored_subcommand in sys.argv for ignored_subcommand in ('help', 'version', '--help', '--version'))
                     if not is_using_meta_cmd:
                         # show error message to user only if they're not running a meta command / just trying to get help
                         STDERR.print()

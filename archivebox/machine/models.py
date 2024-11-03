@@ -8,9 +8,10 @@ from django.db import models
 from django.utils import timezone
 from django.utils.functional import cached_property
 
-import abx.archivebox.reads
+import abx
+import archivebox
 
-from abx.archivebox.base_binary import BaseBinary, BaseBinProvider
+from pydantic_pkgr import Binary, BinProvider
 from archivebox.abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats
 
 from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, get_host_stats
@@ -180,7 +181,7 @@ class NetworkInterface(ABIDModel, ModelWithHealthStats):
 
 
 class InstalledBinaryManager(models.Manager):
-    def get_from_db_or_cache(self, binary: BaseBinary) -> 'InstalledBinary':
+    def get_from_db_or_cache(self, binary: Binary) -> 'InstalledBinary':
         """Get or create an InstalledBinary record for a Binary on the local machine"""
         
         global _CURRENT_BINARIES
@@ -216,7 +217,7 @@ class InstalledBinaryManager(models.Manager):
             # if binary was not yet loaded from filesystem, do it now
             # this is expensive, we have to find it's abspath, version, and sha256, but it's necessary
             # to make sure we have a good, up-to-date record of it in the DB & in-memroy cache
-            binary = binary.load(fresh=True)
+            binary = archivebox.pm.hook.binary_load(binary=binary, fresh=True)
 
         assert binary.loaded_binprovider and binary.loaded_abspath and binary.loaded_version and binary.loaded_sha256, f'Failed to load binary {binary.name} abspath, version, and sha256'
         
@@ -291,8 +292,8 @@ class InstalledBinary(ABIDModel, ModelWithHealthStats):
         if not hasattr(self, 'machine'):
             self.machine = Machine.objects.current()
         if not self.binprovider:
-            all_known_binproviders = list(abx.archivebox.reads.get_BINPROVIDERS().values())
-            binary = BaseBinary(name=self.name, binproviders=all_known_binproviders).load(fresh=True)
+            all_known_binproviders = list(abx.as_dict(archivebox.pm.hook.get_BINPROVIDERS()).values())
+            binary = archivebox.pm.hook.binary_load(binary=Binary(name=self.name, binproviders=all_known_binproviders), fresh=True)
             self.binprovider = binary.loaded_binprovider.name if binary.loaded_binprovider else None
         if not self.abspath:
             self.abspath = self.BINPROVIDER.get_abspath(self.name)
@@ -304,16 +305,16 @@ class InstalledBinary(ABIDModel, ModelWithHealthStats):
         super().clean(*args, **kwargs)
 
     @cached_property
-    def BINARY(self) -> BaseBinary:
-        for binary in abx.archivebox.reads.get_BINARIES().values():
+    def BINARY(self) -> Binary:
+        for binary in abx.as_dict(archivebox.pm.hook.get_BINARIES()).values():
             if binary.name == self.name:
                 return binary
         raise Exception(f'Orphaned InstalledBinary {self.name} {self.binprovider} was found in DB, could not find any plugin that defines it')
         # TODO: we could technically reconstruct it from scratch, but why would we ever want to do that?
 
     @cached_property
-    def BINPROVIDER(self) -> BaseBinProvider:
-        for binprovider in abx.archivebox.reads.get_BINPROVIDERS().values():
+    def BINPROVIDER(self) -> BinProvider:
+        for binprovider in abx.as_dict(archivebox.pm.hook.get_BINPROVIDERS()).values():
             if binprovider.name == self.binprovider:
                 return binprovider
         raise Exception(f'Orphaned InstalledBinary(name={self.name}) was found in DB, could not find any plugin that defines BinProvider(name={self.binprovider})')
@@ -321,7 +322,7 @@ class InstalledBinary(ABIDModel, ModelWithHealthStats):
     # maybe not a good idea to provide this? Binary in DB is a record of the binary's config
     # whereas a loaded binary is a not-yet saved instance that may not have the same config
     # why would we want to load a binary record from the db when it could be freshly loaded?
-    def load_from_db(self) -> BaseBinary:
+    def load_from_db(self) -> Binary:
         # TODO: implement defaults arg in pydantic_pkgr
         # return self.BINARY.load(defaults={
         #     'binprovider': self.BINPROVIDER,
@@ -330,7 +331,7 @@ class InstalledBinary(ABIDModel, ModelWithHealthStats):
         #     'sha256': self.sha256,
         # })
         
-        return BaseBinary.model_validate({
+        return Binary.model_validate({
             **self.BINARY.model_dump(),
             'abspath': self.abspath and Path(self.abspath),
             'version': self.version,
@@ -340,5 +341,5 @@ class InstalledBinary(ABIDModel, ModelWithHealthStats):
             'overrides': self.BINARY.overrides,
         })
 
-    def load_fresh(self) -> BaseBinary:
-        return self.BINARY.load(fresh=True)
+    def load_fresh(self) -> Binary:
+        return archivebox.pm.hook.binary_load(binary=self.BINARY, fresh=True)

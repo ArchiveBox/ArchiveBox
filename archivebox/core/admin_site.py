@@ -2,7 +2,7 @@ __package__ = 'archivebox.core'
 
 from django.contrib import admin
 
-import abx.django.use
+import archivebox
 
 class ArchiveBoxAdmin(admin.AdminSite):
     site_header = 'ArchiveBox'
@@ -37,6 +37,6 @@ def register_admin_site():
     sites.site = archivebox_admin
     
     # register all plugins admin classes
-    abx.django.use.register_admin(archivebox_admin)
+    archivebox.pm.hook.register_admin(admin_site=archivebox_admin)
     
     return archivebox_admin

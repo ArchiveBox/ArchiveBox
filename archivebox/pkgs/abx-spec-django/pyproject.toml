@@ -1,0 +1,17 @@
+[project]
+name = "abx-spec-django"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "abx>=0.1.0",
+    "django>=5.1.1,<6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.entry-points.abx]
+abx_spec_django = "abx_spec_django"

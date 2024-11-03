@@ -6,8 +6,8 @@ from typing import List, Union
 from django.db.models import QuerySet
 from django.conf import settings
 
-import abx.archivebox.reads
-
+import abx
+import archivebox
 from archivebox.index.schema import Link
 from archivebox.misc.util import enforce_types
 from archivebox.misc.logging import stderr
@@ -57,7 +57,7 @@ def get_indexable_content(results: QuerySet):
 
 
 def import_backend():
-    for backend in abx.archivebox.reads.get_SEARCHBACKENDS().values():
+    for backend in abx.as_dict(archivebox.pm.hook.get_SEARCHBACKENDS()).values():
         if backend.name == SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE:
             return backend
     raise Exception(f'Could not load {SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE} as search backend')

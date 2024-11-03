@@ -1,3 +1,15 @@
+"""
+Constants are for things that never change at runtime.
+(but they can change from run-to-run or machine-to-machine)
+
+DATA_DIR will never change at runtime, but you can run
+archivebox from inside a different DATA_DIR on the same machine.
+
+This is loaded very early in the archivebox startup flow, so nothing in this file 
+or imported from this file should import anything from archivebox.config.common, 
+django, other INSTALLED_APPS, or anything else that is not in a standard library.
+"""
+
 __package__ = 'archivebox.config'
 
 import re
@@ -197,10 +209,12 @@ class ConstantsDict(Mapping):
 
     @classmethod
     def __getitem__(cls, key: str):
+        # so it behaves like a dict[key] == dict.key or object attr
         return getattr(cls, key)
     
     @classmethod
     def __benedict__(cls):
+        # when casting to benedict, only include uppercase keys that don't start with an underscore
         return benedict({key: value for key, value in cls.__dict__.items() if key.isupper() and not key.startswith('_')})
     
     @classmethod
@@ -214,5 +228,6 @@ class ConstantsDict(Mapping):
 CONSTANTS = ConstantsDict()
 CONSTANTS_CONFIG = CONSTANTS.__benedict__()
 
-# add all key: values to globals() for easier importing
-globals().update(CONSTANTS)
+# add all key: values to globals() for easier importing, e.g.:
+# from archivebox.config.constants import IS_ROOT, PERSONAS_DIR, ...
+# globals().update(CONSTANTS)

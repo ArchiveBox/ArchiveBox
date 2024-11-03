@@ -14,6 +14,10 @@ from crontab import CronTab, CronSlices
 from django.db.models import QuerySet
 from django.utils import timezone
 
+from pydantic_pkgr import Binary
+
+import abx
+import archivebox
 from archivebox.misc.checks import check_data_folder
 from archivebox.misc.util import enforce_types                         # type: ignore
 from archivebox.misc.system import get_dir_size, dedupe_cron_jobs, CRON_COMMENT
@@ -22,7 +26,7 @@ from archivebox.misc.logging import stderr, hint
 from archivebox.config import CONSTANTS, VERSION, DATA_DIR, ARCHIVE_DIR
 from archivebox.config.common import SHELL_CONFIG, SEARCH_BACKEND_CONFIG, STORAGE_CONFIG, SERVER_CONFIG, ARCHIVING_CONFIG
 from archivebox.config.permissions import SudoPermission, IN_DOCKER
-from archivebox.config.configfile import (
+from archivebox.config.collection import (
     write_config_file,
     load_all_config,
     get_real_name,
@@ -195,15 +199,13 @@ def version(quiet: bool=False,
     console = Console()
     prnt = console.print
     
-    from django.conf import settings
-    
-    from abx.archivebox.base_binary import BaseBinary, apt, brew, env
+    from abx_plugin_default_binproviders import apt, brew, env
     
     from archivebox.config.version import get_COMMIT_HASH, get_BUILD_TIME
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, RUNNING_AS_UID, RUNNING_AS_GID
     from archivebox.config.paths import get_data_locations, get_code_locations
     
-    from plugins_auth.ldap.config import LDAP_CONFIG
+    LDAP_ENABLED = archivebox.pm.hook.get_SCOPE_CONFIG().LDAP_ENABLED
 
 
     # 0.7.1
@@ -242,7 +244,7 @@ def version(quiet: bool=False,
         f'SUDO={CONSTANTS.IS_ROOT}',
         f'ID={CONSTANTS.MACHINE_ID}:{CONSTANTS.COLLECTION_ID}',
         f'SEARCH_BACKEND={SEARCH_BACKEND_CONFIG.SEARCH_BACKEND_ENGINE}',
-        f'LDAP={LDAP_CONFIG.LDAP_ENABLED}',
+        f'LDAP={LDAP_ENABLED}',
         #f'DB=django.db.backends.sqlite3 (({CONFIG["SQLITE_JOURNAL_MODE"]})',  # add this if we have more useful info to show eventually
     )
     prnt()
@@ -264,7 +266,8 @@ def version(quiet: bool=False,
 
     prnt('[pale_green1][i] Binary Dependencies:[/pale_green1]')
     failures = []
-    for name, binary in list(settings.BINARIES.items()):
+    BINARIES = abx.as_dict(archivebox.pm.hook.get_BINARIES())
+    for name, binary in list(BINARIES.items()):
         if binary.name == 'archivebox':
             continue
         
@@ -295,14 +298,15 @@ def version(quiet: bool=False,
             
     prnt()
     prnt('[gold3][i] Package Managers:[/gold3]')
-    for name, binprovider in list(settings.BINPROVIDERS.items()):
+    BINPROVIDERS = abx.as_dict(archivebox.pm.hook.get_BINPROVIDERS())
+    for name, binprovider in list(BINPROVIDERS.items()):
         err = None
         
         if binproviders and binprovider.name not in binproviders:
             continue
         
         # TODO: implement a BinProvider.BINARY() method that gets the loaded binary for a binprovider's INSTALLER_BIN
-        loaded_bin = binprovider.INSTALLER_BINARY or BaseBinary(name=binprovider.INSTALLER_BIN, binproviders=[env, apt, brew])
+        loaded_bin = binprovider.INSTALLER_BINARY or Binary(name=binprovider.INSTALLER_BIN, binproviders=[env, apt, brew])
         
         abspath = None
         if loaded_bin.abspath:
@@ -1050,9 +1054,7 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
     #    - recommend user re-run with sudo if any deps need to be installed as root
 
     from rich import print
-    from django.conf import settings
     
-    from archivebox import CONSTANTS
     from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
     from archivebox.config.paths import get_or_create_working_lib_dir
 
@@ -1075,11 +1077,11 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
     
     package_manager_names = ', '.join(
         f'[yellow]{binprovider.name}[/yellow]'
-        for binprovider in list(settings.BINPROVIDERS.values())
+        for binprovider in reversed(list(abx.as_dict(abx.pm.hook.get_BINPROVIDERS()).values()))
         if not binproviders or (binproviders and binprovider.name in binproviders)
     )
     print(f'[+] Setting up package managers {package_manager_names}...')
-    for binprovider in list(settings.BINPROVIDERS.values()):
+    for binprovider in reversed(list(abx.as_dict(abx.pm.hook.get_BINPROVIDERS()).values())):
         if binproviders and binprovider.name not in binproviders:
             continue
         try:
@@ -1092,7 +1094,7 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
     
     print()
     
-    for binary in list(settings.BINARIES.values()):
+    for binary in reversed(list(abx.as_dict(abx.pm.hook.get_BINARIES()).values())):
         if binary.name in ('archivebox', 'django', 'sqlite', 'python'):
             # obviously must already be installed if we are running
             continue
@@ -1122,7 +1124,8 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
                                 result = binary.install(binproviders=[binprovider_name], dry_run=dry_run).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
                                 sys.stderr.write("\033[00m\n")     # reset
                             else:
-                                result = binary.load_or_install(binproviders=[binprovider_name], fresh=True, dry_run=dry_run, quiet=False).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
+                                loaded_binary = archivebox.pm.hook.binary_load_or_install(binary=binary, binproviders=[binprovider_name], fresh=True, dry_run=dry_run, quiet=False)
+                                result = loaded_binary.model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
                             if result and result['loaded_version']:
                                 break
                         except Exception as e:
@@ -1133,7 +1136,8 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
                         binary.install(dry_run=dry_run).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
                         sys.stderr.write("\033[00m\n")  # reset
                     else:
-                        binary.load_or_install(fresh=True, dry_run=dry_run).model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
+                        loaded_binary = archivebox.pm.hook.binary_load_or_install(binary=binary, fresh=True, dry_run=dry_run)
+                        result = loaded_binary.model_dump(exclude={'overrides', 'bin_dir', 'hook_type'})
             if IS_ROOT and LIB_DIR:
                 with SudoPermission(uid=0):
                     if ARCHIVEBOX_USER == 0:
@@ -1157,7 +1161,7 @@ def install(out_dir: Path=DATA_DIR, binproviders: Optional[List[str]]=None, bina
     
     print('\n[green][√] Set up ArchiveBox and its dependencies successfully.[/green]\n', file=sys.stderr)
     
-    from plugins_pkg.pip.binaries import ARCHIVEBOX_BINARY
+    from abx_plugin_pip.binaries import ARCHIVEBOX_BINARY
     
     extra_args = []
     if binproviders:
@@ -1183,8 +1187,6 @@ def config(config_options_str: Optional[str]=None,
            out_dir: Path=DATA_DIR) -> None:
     """Get and set your ArchiveBox project configuration values"""
 
-    import abx.archivebox.reads
-
     from rich import print
 
     check_data_folder()
@@ -1198,7 +1200,8 @@ def config(config_options_str: Optional[str]=None,
     elif config_options_str:
         config_options = config_options_str.split('\n')
 
-    from django.conf import settings
+    FLAT_CONFIG = archivebox.pm.hook.get_FLAT_CONFIG()
+    CONFIGS = archivebox.pm.hook.get_CONFIGS()
     
     config_options = config_options or []
 
@@ -1208,8 +1211,8 @@ def config(config_options_str: Optional[str]=None,
     if search:
         if config_options:
             config_options = [get_real_name(key) for key in config_options]
-            matching_config = {key: settings.FLAT_CONFIG[key] for key in config_options if key in settings.FLAT_CONFIG}
-            for config_section in settings.CONFIGS.values():
+            matching_config = {key: FLAT_CONFIG[key] for key in config_options if key in FLAT_CONFIG}
+            for config_section in CONFIGS.values():
                 aliases = config_section.aliases
                 
                 for search_key in config_options:
@@ -1228,15 +1231,15 @@ def config(config_options_str: Optional[str]=None,
     elif get or no_args:
         if config_options:
             config_options = [get_real_name(key) for key in config_options]
-            matching_config = {key: settings.FLAT_CONFIG[key] for key in config_options if key in settings.FLAT_CONFIG}
-            failed_config = [key for key in config_options if key not in settings.FLAT_CONFIG]
+            matching_config = {key: FLAT_CONFIG[key] for key in config_options if key in FLAT_CONFIG}
+            failed_config = [key for key in config_options if key not in FLAT_CONFIG]
             if failed_config:
                 stderr()
                 stderr('[X] These options failed to get', color='red')
                 stderr('    {}'.format('\n    '.join(config_options)))
                 raise SystemExit(1)
         else:
-            matching_config = settings.FLAT_CONFIG
+            matching_config = FLAT_CONFIG
         
         print(printable_config(matching_config))
         raise SystemExit(not matching_config)
@@ -1257,20 +1260,20 @@ def config(config_options_str: Optional[str]=None,
             if key != raw_key:
                 stderr(f'[i] Note: The config option {raw_key} has been renamed to {key}, please use the new name going forwards.', color='lightyellow')
 
-            if key in settings.FLAT_CONFIG:
+            if key in FLAT_CONFIG:
                 new_config[key] = val.strip()
             else:
                 failed_options.append(line)
 
         if new_config:
-            before = settings.FLAT_CONFIG
+            before = FLAT_CONFIG
             matching_config = write_config_file(new_config)
-            after = {**load_all_config(), **abx.archivebox.reads.get_FLAT_CONFIG()}
+            after = {**load_all_config(), **archivebox.pm.hook.get_FLAT_CONFIG()}
             print(printable_config(matching_config))
 
             side_effect_changes = {}
             for key, val in after.items():
-                if key in settings.FLAT_CONFIG and (str(before[key]) != str(after[key])) and (key not in matching_config):
+                if key in FLAT_CONFIG and (str(before[key]) != str(after[key])) and (key not in matching_config):
                     side_effect_changes[key] = after[key]
                     # import ipdb; ipdb.set_trace()
 
@@ -1312,7 +1315,7 @@ def schedule(add: bool=False,
     """Set ArchiveBox to regularly import URLs at specific times using cron"""
     
     check_data_folder()
-    from archivebox.plugins_pkg.pip.binaries import ARCHIVEBOX_BINARY
+    from abx_plugin_pip.binaries import ARCHIVEBOX_BINARY
     from archivebox.config.permissions import USER
 
     Path(CONSTANTS.LOGS_DIR).mkdir(exist_ok=True)

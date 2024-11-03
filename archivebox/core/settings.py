@@ -9,12 +9,11 @@ from pathlib import Path
 from django.utils.crypto import get_random_string
 
 import abx
-import abx.archivebox
-import abx.archivebox.reads
-import abx.django.use
+import archivebox
 
-from archivebox.config import DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS
+from archivebox.config import DATA_DIR, PACKAGE_DIR, ARCHIVE_DIR, CONSTANTS  # noqa
 from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG      # noqa
+
 
 IS_MIGRATING = 'makemigrations' in sys.argv[:3] or 'migrate' in sys.argv[:3]
 IS_TESTING = 'test' in sys.argv[:3] or 'PYTEST_CURRENT_TEST' in os.environ
@@ -25,45 +24,8 @@ IS_GETTING_VERSION_OR_HELP = 'version' in sys.argv or 'help' in sys.argv or '--v
 ### ArchiveBox Plugin Settings
 ################################################################################
 
-PLUGIN_HOOKSPECS = [
-    'abx.django.hookspec',
-    'abx.pydantic_pkgr.hookspec',
-    'abx.archivebox.hookspec',
-]
-abx.register_hookspecs(PLUGIN_HOOKSPECS)
-
-BUILTIN_PLUGIN_DIRS = {
-    'archivebox':              PACKAGE_DIR,
-    'plugins_pkg':             PACKAGE_DIR / 'plugins_pkg',
-    'plugins_auth':            PACKAGE_DIR / 'plugins_auth',
-    'plugins_search':          PACKAGE_DIR / 'plugins_search',
-    'plugins_extractor':       PACKAGE_DIR / 'plugins_extractor',
-}
-USER_PLUGIN_DIRS = {
-    # 'user_plugins':            DATA_DIR / 'user_plugins',
-}
-
-# Discover ArchiveBox plugins
-BUILTIN_PLUGINS = abx.get_plugins_in_dirs(BUILTIN_PLUGIN_DIRS)
-PIP_PLUGINS = abx.get_pip_installed_plugins(group='archivebox')
-USER_PLUGINS = abx.get_plugins_in_dirs(USER_PLUGIN_DIRS)
-ALL_PLUGINS = {**BUILTIN_PLUGINS, **PIP_PLUGINS, **USER_PLUGINS}
-
-# Load ArchiveBox plugins
-PLUGIN_MANAGER = abx.pm
-abx.archivebox.load_archivebox_plugins(PLUGIN_MANAGER, ALL_PLUGINS)
-PLUGINS = abx.archivebox.reads.get_PLUGINS()
-
-# Load ArchiveBox config from plugins
-CONFIGS = abx.archivebox.reads.get_CONFIGS()
-CONFIG = FLAT_CONFIG = abx.archivebox.reads.get_FLAT_CONFIG()
-BINPROVIDERS = abx.archivebox.reads.get_BINPROVIDERS()
-BINARIES = abx.archivebox.reads.get_BINARIES()
-EXTRACTORS = abx.archivebox.reads.get_EXTRACTORS()
-SEARCHBACKENDS = abx.archivebox.reads.get_SEARCHBACKENDS()
-# REPLAYERS = abx.archivebox.reads.get_REPLAYERS()
-# ADMINDATAVIEWS = abx.archivebox.reads.get_ADMINDATAVIEWS()
-
+ALL_PLUGINS = archivebox.ALL_PLUGINS
+LOADED_PLUGINS = archivebox.LOADED_PLUGINS
 
 ################################################################################
 ### Django Core Settings
@@ -102,7 +64,8 @@ INSTALLED_APPS = [
     # 'abid_utils',                # handles ABID ID creation, handling, and models
     'config',                    # ArchiveBox config settings (loaded as a plugin, don't need to add it here) 
     'machine',                   # handles collecting and storing information about the host machine, network interfaces, installed binaries, etc.
-    'queues',                    # handles starting and managing background workers and processes
+    'actors',                    # handles starting and managing background workers and processes (orchestrators and actors)
+    'queues',                    # handles starting and managing background workers and processes (supervisord)
     'seeds',                     # handles Seed model and URL source management
     'crawls',                    # handles Crawl and CrawlSchedule models and management
     'personas',                  # handles Persona and session management
@@ -110,7 +73,7 @@ INSTALLED_APPS = [
     'api',                       # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
 
     # ArchiveBox plugins
-    *abx.django.use.get_INSTALLED_APPS(),  # all plugin django-apps found in archivebox/plugins_* and data/user_plugins,
+    *abx.as_list(abx.pm.hook.get_INSTALLED_APPS()),  # all plugin django-apps found in archivebox/plugins_* and data/user_plugins,
 
     # 3rd-party apps from PyPI that need to be loaded last
     'admin_data_views',          # handles rendering some convenient automatic read-only views of data in Django admin
@@ -125,6 +88,7 @@ INSTALLED_APPS = [
 
 
 
+
 MIDDLEWARE = [
     'core.middleware.TimezoneMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -135,7 +99,7 @@ MIDDLEWARE = [
     'core.middleware.ReverseProxyAuthMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'core.middleware.CacheControlMiddleware',
-    *abx.django.use.get_MIDDLEWARES(),
+    *abx.as_list(abx.pm.hook.get_MIDDLEWARES()),
 ]
 
 
@@ -148,7 +112,7 @@ MIDDLEWARE = [
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.RemoteUserBackend',
     'django.contrib.auth.backends.ModelBackend',
-    *abx.django.use.get_AUTHENTICATION_BACKENDS(),
+    *abx.as_list(abx.pm.hook.get_AUTHENTICATION_BACKENDS()),
 ]
 
 
@@ -169,7 +133,7 @@ AUTHENTICATION_BACKENDS = [
 
 STATIC_URL = '/static/'
 TEMPLATES_DIR_NAME = 'templates'
-CUSTOM_TEMPLATES_ENABLED = os.access(CONSTANTS.CUSTOM_TEMPLATES_DIR, os.R_OK) and CONSTANTS.CUSTOM_TEMPLATES_DIR.is_dir()
+CUSTOM_TEMPLATES_ENABLED = os.path.isdir(CONSTANTS.CUSTOM_TEMPLATES_DIR) and os.access(CONSTANTS.CUSTOM_TEMPLATES_DIR, os.R_OK)
 STATICFILES_DIRS = [
     *([str(CONSTANTS.CUSTOM_TEMPLATES_DIR / 'static')] if CUSTOM_TEMPLATES_ENABLED else []),
     # *[
@@ -177,7 +141,7 @@ STATICFILES_DIRS = [
     #     for plugin_dir in PLUGIN_DIRS.values()
     #     if (plugin_dir / 'static').is_dir()
     # ],
-    *abx.django.use.get_STATICFILES_DIRS(),
+    *abx.as_list(abx.pm.hook.get_STATICFILES_DIRS()),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'static'),
 ]
 
@@ -188,7 +152,7 @@ TEMPLATE_DIRS = [
     #     for plugin_dir in PLUGIN_DIRS.values()
     #     if (plugin_dir / 'templates').is_dir()
     # ],
-    *abx.django.use.get_TEMPLATE_DIRS(),
+    *abx.as_list(abx.pm.hook.get_TEMPLATE_DIRS()),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'core'),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME / 'admin'),
     str(PACKAGE_DIR / TEMPLATES_DIR_NAME),
@@ -228,7 +192,7 @@ SQLITE_CONNECTION_OPTIONS = {
         # https://gcollazo.com/optimal-sqlite-settings-for-django/
         # https://litestream.io/tips/#busy-timeout
         # https://docs.djangoproject.com/en/5.1/ref/databases/#setting-pragma-options
-        "timeout": 5,
+        "timeout": 10,
         "check_same_thread": False,
         "transaction_mode": "IMMEDIATE",
         "init_command": (
@@ -267,7 +231,7 @@ if not IS_GETTING_VERSION_OR_HELP:             # dont create queue.sqlite3 file 
     HUEY = {
         "huey_class": "huey.SqliteHuey",
         "filename": CONSTANTS.QUEUE_DATABASE_FILENAME,
-        "name": "system_tasks",
+        "name": "commands",
         "results": True,
         "store_none": True,
         "immediate": False,
@@ -288,11 +252,11 @@ if not IS_GETTING_VERSION_OR_HELP:             # dont create queue.sqlite3 file 
     # https://huey.readthedocs.io/en/latest/contrib.html#setting-things-up
     # https://github.com/gaiacoop/django-huey
     DJANGO_HUEY = {
-        "default": "system_tasks",
+        "default": "commands",
         "queues": {
             HUEY["name"]: HUEY.copy(),
             # more registered here at plugin import-time by BaseQueue.register()
-            **abx.django.use.get_DJANGO_HUEY_QUEUES(QUEUE_DATABASE_NAME=CONSTANTS.QUEUE_DATABASE_FILENAME),
+            **abx.as_dict(abx.pm.hook.get_DJANGO_HUEY_QUEUES(QUEUE_DATABASE_NAME=CONSTANTS.QUEUE_DATABASE_FILENAME)),
         },
     }
 
@@ -517,7 +481,7 @@ ADMIN_DATA_VIEWS = {
                 "name": "log",
             },
         },
-        *abx.django.use.get_ADMIN_DATA_VIEWS_URLS(),
+        *abx.as_list(abx.pm.hook.get_ADMIN_DATA_VIEWS_URLS()),
     ],
 }
 
@@ -610,8 +574,5 @@ if DEBUG_REQUESTS_TRACKER:
 # JET_PROJECT = 'archivebox'
 # JET_TOKEN = 'some-api-token-here'
 
-
-abx.django.use.register_checks()
-# abx.archivebox.reads.register_all_hooks(globals())
 
 # import ipdb; ipdb.set_trace()

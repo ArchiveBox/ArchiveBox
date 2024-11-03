@@ -1,0 +1,18 @@
+[project]
+name = "abx-spec-searchbackend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "abx>=0.1.0",
+    "python-benedict>=0.26.0",
+    "pydantic>=2.5.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.entry-points.abx]
+abx_spec_searchbackend = "abx_spec_searchbackend"

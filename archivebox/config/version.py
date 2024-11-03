@@ -45,7 +45,7 @@ def detect_installed_version(PACKAGE_DIR: Path=PACKAGE_DIR):
 @cache
 def get_COMMIT_HASH() -> Optional[str]:
     try:
-        git_dir = PACKAGE_DIR / '../.git'
+        git_dir = PACKAGE_DIR.parent / '.git'
         ref = (git_dir / 'HEAD').read_text().strip().split(' ')[-1]
         commit_hash = git_dir.joinpath(ref).read_text().strip()
         return commit_hash
@@ -53,7 +53,7 @@ def get_COMMIT_HASH() -> Optional[str]:
         pass
 
     try:
-        return list((PACKAGE_DIR / '../.git/refs/heads/').glob('*'))[0].read_text().strip()
+        return list((PACKAGE_DIR.parent / '.git/refs/heads/').glob('*'))[0].read_text().strip()
     except Exception:
         pass
     
@@ -62,8 +62,12 @@ def get_COMMIT_HASH() -> Optional[str]:
 @cache
 def get_BUILD_TIME() -> str:
     if IN_DOCKER:
-        docker_build_end_time = Path('/VERSION.txt').read_text().rsplit('BUILD_END_TIME=')[-1].split('\n', 1)[0]
-        return docker_build_end_time
+        try:
+            # if we're in the archivebox official docker image, /VERSION.txt will contain the build time
+            docker_build_end_time = Path('/VERSION.txt').read_text().rsplit('BUILD_END_TIME=')[-1].split('\n', 1)[0]
+            return docker_build_end_time
+        except Exception:
+            pass
 
     src_last_modified_unix_timestamp = (PACKAGE_DIR / 'README.md').stat().st_mtime
     return datetime.fromtimestamp(src_last_modified_unix_timestamp).strftime('%Y-%m-%d %H:%M:%S %s')

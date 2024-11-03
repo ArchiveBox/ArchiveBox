@@ -10,7 +10,7 @@ from rich import print
 from pydantic import Field, field_validator
 from django.utils.crypto import get_random_string
 
-from abx.archivebox.base_configset import BaseConfigSet
+from abx_spec_config.base_configset import BaseConfigSet
 
 from .constants import CONSTANTS
 from .version import get_COMMIT_HASH, get_BUILD_TIME, VERSION
@@ -45,8 +45,6 @@ class ShellConfig(BaseConfigSet):
     def BUILD_TIME(self) -> str:
         return get_BUILD_TIME()
  
-    # def VERSIONS_AVAILABLE() -> bool             # .check_for_update.get_versions_available_on_github(c)},
-    # def CAN_UPGRADE() -> bool                    # .check_for_update.can_upgrade(c)},
 
 SHELL_CONFIG = ShellConfig()
 

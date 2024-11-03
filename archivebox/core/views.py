@@ -12,7 +12,6 @@ from django.views import View
 from django.views.generic.list import ListView
 from django.views.generic import FormView
 from django.db.models import Q
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.views.decorators.csrf import csrf_exempt
@@ -21,6 +20,7 @@ from django.utils.decorators import method_decorator
 from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
+import archivebox
 
 from core.models import Snapshot
 from core.forms import AddLinkForm
@@ -32,9 +32,8 @@ from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG
 from archivebox.misc.util import base_url, htmlencode, ts_to_date_str
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 
-from ..plugins_extractor.archivedotorg.config import ARCHIVEDOTORG_CONFIG
-from ..logging_util import printable_filesize
-from ..search import query_search_index
+from archivebox.logging_util import printable_filesize
+from archivebox.search import query_search_index
 
 
 class HomepageView(View):
@@ -69,7 +68,7 @@ class SnapshotView(View):
                 and embed_path
                 and os.access(abs_path, os.R_OK)
                 and abs_path.exists()):
-                if abs_path.is_dir() and not any(abs_path.glob('*.*')):
+                if os.path.isdir(abs_path) and not any(abs_path.glob('*.*')):
                     continue
 
                 result_info = {
@@ -103,7 +102,7 @@ class SnapshotView(View):
 
         # iterate through all the files in the snapshot dir and add the biggest ones to1 the result list
         snap_dir = Path(snapshot.link_dir)
-        assert os.access(snap_dir, os.R_OK) and os.access(snap_dir, os.X_OK)
+        assert os.path.isdir(snap_dir) and os.access(snap_dir, os.R_OK)
         
         for result_file in (*snap_dir.glob('*'), *snap_dir.glob('*/*')):
             extension = result_file.suffix.lstrip('.').lower()
@@ -154,7 +153,7 @@ class SnapshotView(View):
             'status_color': 'success' if link.is_archived else 'danger',
             'oldest_archive_date': ts_to_date_str(link.oldest_archive_date),
             'warc_path': warc_path,
-            'SAVE_ARCHIVE_DOT_ORG': ARCHIVEDOTORG_CONFIG.SAVE_ARCHIVE_DOT_ORG,
+            'SAVE_ARCHIVE_DOT_ORG': archivebox.pm.hook.get_FLAT_CONFIG().SAVE_ARCHIVE_DOT_ORG,
             'PREVIEW_ORIGINALS': SERVER_CONFIG.PREVIEW_ORIGINALS,
             'archiveresults': sorted(archiveresults.values(), key=lambda r: all_types.index(r['name']) if r['name'] in all_types else -r['size']),
             'best_result': best_result,
@@ -500,21 +499,25 @@ class HealthCheckView(View):
 
 
 def find_config_section(key: str) -> str:
+    CONFIGS = archivebox.pm.hook.get_CONFIGS()
+    
     if key in CONSTANTS_CONFIG:
         return 'CONSTANT'
     matching_sections = [
-        section_id for section_id, section in settings.CONFIGS.items() if key in section.model_fields
+        section_id for section_id, section in CONFIGS.items() if key in section.model_fields
     ]
     section = matching_sections[0] if matching_sections else 'DYNAMIC'
     return section
 
 def find_config_default(key: str) -> str:
+    CONFIGS = archivebox.pm.hook.get_CONFIGS()
+    
     if key in CONSTANTS_CONFIG:
         return str(CONSTANTS_CONFIG[key])
     
     default_val = None
 
-    for config in settings.CONFIGS.values():
+    for config in CONFIGS.values():
         if key in config.model_fields:
             default_val = config.model_fields[key].default
             break
@@ -530,7 +533,9 @@ def find_config_default(key: str) -> str:
     return default_val
 
 def find_config_type(key: str) -> str:
-    for config in settings.CONFIGS.values():
+    CONFIGS = archivebox.pm.hook.get_CONFIGS()
+    
+    for config in CONFIGS.values():
         if hasattr(config, key):
             type_hints = get_type_hints(config)
             try:
@@ -547,7 +552,8 @@ def key_is_safe(key: str) -> bool:
 
 @render_with_table_view
 def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
-
+    CONFIGS = archivebox.pm.hook.get_CONFIGS()
+    
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
     rows = {
@@ -560,7 +566,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
         # "Aliases": [],
     }
 
-    for section_id, section in reversed(list(settings.CONFIGS.items())):
+    for section_id, section in reversed(list(CONFIGS.items())):
         for key, field in section.model_fields.items():
             rows['Section'].append(section_id)   # section.replace('_', ' ').title().replace(' Config', '')
             rows['Key'].append(ItemLink(key, key=key))
@@ -570,7 +576,6 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
             # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
             # rows['Aliases'].append(', '.join(find_config_aliases(key)))
 
-   
     section = 'CONSTANT'
     for key in CONSTANTS_CONFIG.keys():
         rows['Section'].append(section)   # section.replace('_', ' ').title().replace(' Config', '')
@@ -589,7 +594,9 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
 @render_with_item_view
 def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
-
+    CONFIGS = archivebox.pm.hook.get_CONFIGS()
+    FLAT_CONFIG = archivebox.pm.hook.get_FLAT_CONFIG()
+    
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
     # aliases = USER_CONFIG.get(key, {}).get("aliases", [])
@@ -597,7 +604,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
 
     if key in CONSTANTS_CONFIG:
         section_header = mark_safe(f'[CONSTANTS]   &nbsp; <b><code style="color: lightgray">{key}</code></b> &nbsp; <small>(read-only, hardcoded by ArchiveBox)</small>')
-    elif key in settings.FLAT_CONFIG:
+    elif key in FLAT_CONFIG:
         section_header = mark_safe(f'data / ArchiveBox.conf &nbsp; [{find_config_section(key)}]  &nbsp; <b><code style="color: lightgray">{key}</code></b>')
     else:
         section_header = mark_safe(f'[DYNAMIC CONFIG]   &nbsp; <b><code style="color: lightgray">{key}</code></b> &nbsp; <small>(read-only, calculated at runtime)</small>')
@@ -613,7 +620,7 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                 "fields": {
                     'Key': key,
                     'Type': find_config_type(key),
-                    'Value': settings.FLAT_CONFIG.get(key, settings.CONFIGS.get(key, None)) if key_is_safe(key) else '********',
+                    'Value': FLAT_CONFIG.get(key, CONFIGS.get(key, None)) if key_is_safe(key) else '********',
                 },
                 "help_texts": {
                     'Key': mark_safe(f'''
@@ -635,13 +642,13 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                             <code>{find_config_default(key) or '↗️ See in ArchiveBox source code...'}</code>
                         </a>
                         <br/><br/>
-                        <p style="display: {"block" if key in settings.FLAT_CONFIG else "none"}">
+                        <p style="display: {"block" if key in FLAT_CONFIG else "none"}">
                             <i>To change this value, edit <code>data/ArchiveBox.conf</code> or run:</i>
                             <br/><br/>
                             <code>archivebox config --set {key}="{
                                 val.strip("'")
                                 if (val := find_config_default(key)) else
-                                (repr(settings.FLAT_CONFIG[key] if key_is_safe(key) else '********')).strip("'")
+                                (repr(FLAT_CONFIG[key] if key_is_safe(key) else '********')).strip("'")
                             }"</code>
                         </p>
                     '''),

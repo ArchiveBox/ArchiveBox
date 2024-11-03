@@ -14,8 +14,8 @@ from django.utils.html import format_html, mark_safe
 from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
-import abx.archivebox.reads
-
+import abx
+import archivebox
 from archivebox.config import CONSTANTS
 from archivebox.misc.util import parse_date
 
@@ -65,7 +65,7 @@ def obj_to_yaml(obj: Any, indent: int=0) -> str:
 
 @render_with_table_view
 def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
-
+    FLAT_CONFIG = archivebox.pm.hook.get_FLAT_CONFIG()
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
     rows = {
@@ -81,12 +81,11 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     relevant_configs = {
         key: val
-        for key, val in settings.FLAT_CONFIG.items()
+        for key, val in FLAT_CONFIG.items()
         if '_BINARY' in key or '_VERSION' in key
     }
 
-    for plugin_id, plugin in abx.archivebox.reads.get_PLUGINS().items():
-        plugin = abx.archivebox.reads.get_PLUGIN(plugin_id)
+    for plugin_id, plugin in abx.get_all_plugins().items():
         if not plugin.hooks.get('get_BINARIES'):
             continue
         
@@ -131,17 +130,16 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 @render_with_item_view
 def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
 
-    assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
+    assert request.user and request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
     binary = None
     plugin = None
-    for plugin_id in abx.archivebox.reads.get_PLUGINS().keys():
-        loaded_plugin = abx.archivebox.reads.get_PLUGIN(plugin_id)
+    for plugin_id, plugin in abx.get_all_plugins().items():
         try:
-            for loaded_binary in loaded_plugin.hooks.get_BINARIES().values():
+            for loaded_binary in plugin['hooks'].get_BINARIES().values():
                 if loaded_binary.name == key:
                     binary = loaded_binary
-                    plugin = loaded_plugin
+                    plugin = plugin
                     # break  # last write wins
         except Exception as e:
             print(e)
@@ -161,7 +159,7 @@ def binary_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
                 "name": binary.name,
                 "description": binary.abspath,
                 "fields": {
-                    'plugin': plugin.package,
+                    'plugin': plugin['package'],
                     'binprovider': binary.loaded_binprovider,
                     'abspath': binary.loaded_abspath,
                     'version': binary.loaded_version,
@@ -215,9 +213,7 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
                 return color
         return 'black'
 
-    for plugin_id in settings.PLUGINS.keys():
-        
-        plugin = abx.archivebox.reads.get_PLUGIN(plugin_id)
+    for plugin_id, plugin in abx.get_all_plugins().items():
         plugin.hooks.get_BINPROVIDERS = plugin.hooks.get('get_BINPROVIDERS', lambda: {})
         plugin.hooks.get_BINARIES = plugin.hooks.get('get_BINARIES', lambda: {})
         plugin.hooks.get_CONFIG = plugin.hooks.get('get_CONFIG', lambda: {})
@@ -263,7 +259,7 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
 
     assert plugin_id, f'Could not find a plugin matching the specified name: {key}'
 
-    plugin = abx.archivebox.reads.get_PLUGIN(plugin_id)
+    plugin = abx.get_plugin(plugin_id)
 
     return ItemContext(
         slug=key,

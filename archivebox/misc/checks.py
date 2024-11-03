@@ -201,6 +201,7 @@ def check_tmp_dir(tmp_dir=None, throw=False, quiet=False, must_exist=True):
 
 
 def check_lib_dir(lib_dir: Path | None = None, throw=False, quiet=False, must_exist=True):
+    import archivebox
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
     from archivebox.misc.logging import STDERR
     from archivebox.config.paths import dir_is_writable, get_or_create_working_lib_dir
@@ -208,6 +209,8 @@ def check_lib_dir(lib_dir: Path | None = None, throw=False, quiet=False, must_ex
     from archivebox.logging_util import pretty_path
     
     lib_dir = lib_dir or STORAGE_CONFIG.LIB_DIR
+    
+    assert lib_dir == archivebox.pm.hook.get_LIB_DIR(), "lib_dir is not the same as the one in the flat config"
     
     if not must_exist and not os.path.isdir(lib_dir):
         return True

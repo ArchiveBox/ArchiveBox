@@ -1,4 +1,5 @@
-__package__ = 'archivebox.config'
+__package__ = 'config'
+__order__ = 200
 
 from .paths import (
     PACKAGE_DIR,                                    # noqa
@@ -8,35 +9,28 @@ from .paths import (
 from .constants import CONSTANTS, CONSTANTS_CONFIG, PACKAGE_DIR, DATA_DIR, ARCHIVE_DIR      # noqa
 from .version import VERSION                        # noqa
 
-
-import abx
-
+# import abx
 
 # @abx.hookimpl
-# def get_INSTALLED_APPS():
-#     return ['config']
+# def get_CONFIG():
+#     from .common import (
+#         SHELL_CONFIG,
+#         STORAGE_CONFIG,
+#         GENERAL_CONFIG,
+#         SERVER_CONFIG,
+#         ARCHIVING_CONFIG,
+#         SEARCH_BACKEND_CONFIG,
+#     )
+#     return {
+#         'SHELL_CONFIG': SHELL_CONFIG,
+#         'STORAGE_CONFIG': STORAGE_CONFIG,
+#         'GENERAL_CONFIG': GENERAL_CONFIG,
+#         'SERVER_CONFIG': SERVER_CONFIG,
+#         'ARCHIVING_CONFIG': ARCHIVING_CONFIG,
+#         'SEARCHBACKEND_CONFIG': SEARCH_BACKEND_CONFIG,
+#     }
 
-
-@abx.hookimpl
-def get_CONFIG():
-    from .common import (
-        SHELL_CONFIG,
-        STORAGE_CONFIG,
-        GENERAL_CONFIG,
-        SERVER_CONFIG,
-        ARCHIVING_CONFIG,
-        SEARCH_BACKEND_CONFIG,
-    )
-    return {
-        'SHELL_CONFIG': SHELL_CONFIG,
-        'STORAGE_CONFIG': STORAGE_CONFIG,
-        'GENERAL_CONFIG': GENERAL_CONFIG,
-        'SERVER_CONFIG': SERVER_CONFIG,
-        'ARCHIVING_CONFIG': ARCHIVING_CONFIG,
-        'SEARCHBACKEND_CONFIG': SEARCH_BACKEND_CONFIG,
-    }
-
-@abx.hookimpl
-def ready():
-    for config in get_CONFIG().values():
-        config.validate()
+# @abx.hookimpl
+# def ready():
+#     for config in get_CONFIG().values():
+#         config.validate()

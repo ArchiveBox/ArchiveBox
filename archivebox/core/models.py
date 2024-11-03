@@ -8,21 +8,25 @@ import os
 import json
 
 from pathlib import Path
+from datetime import timedelta
 
 from django.db import models
 from django.utils.functional import cached_property
 from django.utils.text import slugify
+from django.utils import timezone
 from django.core.cache import cache
 from django.urls import reverse, reverse_lazy
 from django.db.models import Case, When, Value, IntegerField
 from django.contrib import admin
 from django.conf import settings
 
+from statemachine.mixins import MachineMixin
+
 from archivebox.config import CONSTANTS
 
 from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
 from queues.tasks import bg_archive_snapshot
-# from crawls.models import Crawl
+from crawls.models import Crawl
 # from machine.models import Machine, NetworkInterface
 
 from archivebox.misc.system import get_dir_size
@@ -152,13 +156,24 @@ class SnapshotManager(models.Manager):
         return super().get_queryset().prefetch_related('tags', 'archiveresult_set')  # .annotate(archiveresult_count=models.Count('archiveresult')).distinct()
 
 
-class Snapshot(ABIDModel):
+class Snapshot(ABIDModel, MachineMixin):
     abid_prefix = 'snp_'
     abid_ts_src = 'self.created_at'
     abid_uri_src = 'self.url'
     abid_subtype_src = '"01"'
     abid_rand_src = 'self.id'
     abid_drift_allowed = True
+
+    state_field_name = 'status'
+    state_machine_name = 'core.statemachines.SnapshotMachine'
+    state_machine_attr = 'sm'
+    
+    class SnapshotStatus(models.TextChoices):
+        QUEUED = 'queued', 'Queued'
+        STARTED = 'started', 'Started'
+        SEALED = 'sealed', 'Sealed'
+        
+    status = models.CharField(max_length=15, default=SnapshotStatus.QUEUED, null=False, blank=False)
 
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
@@ -171,7 +186,7 @@ class Snapshot(ABIDModel):
     bookmarked_at = AutoDateTimeField(default=None, null=False, editable=True, db_index=True)
     downloaded_at = models.DateTimeField(default=None, null=True, editable=False, db_index=True, blank=True)
 
-    # crawl = models.ForeignKey(Crawl, on_delete=models.CASCADE, default=None, null=True, blank=True, related_name='snapshot_set')
+    crawl = models.ForeignKey(Crawl, on_delete=models.CASCADE, default=None, null=True, blank=True, related_name='snapshot_set')
 
     url = models.URLField(unique=True, db_index=True)
     timestamp = models.CharField(max_length=32, unique=True, db_index=True, editable=False)
@@ -396,6 +411,25 @@ class Snapshot(ABIDModel):
                 tags_id.append(Tag.objects.get_or_create(name=tag)[0].pk)
         self.tags.clear()
         self.tags.add(*tags_id)
+        
+    def has_pending_archiveresults(self) -> bool:
+        pending_statuses = [ArchiveResult.ArchiveResultStatus.QUEUED, ArchiveResult.ArchiveResultStatus.STARTED]
+        pending_archiveresults = self.archiveresult_set.filter(status__in=pending_statuses)
+        return pending_archiveresults.exists()
+    
+    def create_pending_archiveresults(self) -> list['ArchiveResult']:
+        archiveresults = []
+        for extractor in EXTRACTORS:
+            archiveresult, _created = ArchiveResult.objects.get_or_create(
+                snapshot=self,
+                extractor=extractor,
+                status=ArchiveResult.ArchiveResultStatus.QUEUED,
+            )
+            archiveresults.append(archiveresult)
+        return archiveresults
+    
+    def bump_retry_at(self, seconds: int = 10):
+        self.retry_at = timezone.now() + timedelta(seconds=seconds)
 
 
     # def get_storage_dir(self, create=True, symlink=True) -> Path:
@@ -452,6 +486,20 @@ class ArchiveResult(ABIDModel):
     abid_subtype_src = 'self.extractor'
     abid_rand_src = 'self.id'
     abid_drift_allowed = True
+    
+    state_field_name = 'status'
+    state_machine_name = 'core.statemachines.ArchiveResultMachine'
+    state_machine_attr = 'sm'
+
+    class ArchiveResultStatus(models.TextChoices):
+        QUEUED = 'queued', 'Queued'
+        STARTED = 'started', 'Started'
+        SUCCEEDED = 'succeeded', 'Succeeded'
+        FAILED = 'failed', 'Failed'
+        SKIPPED = 'skipped', 'Skipped'
+        BACKOFF = 'backoff', 'Waiting to retry'
+        
+    status = models.CharField(max_length=15, choices=ArchiveResultStatus.choices, default=ArchiveResultStatus.QUEUED, null=False, blank=False)
 
     EXTRACTOR_CHOICES = (
         ('htmltotext', 'htmltotext'),
@@ -469,11 +517,7 @@ class ArchiveResult(ABIDModel):
         ('title', 'title'),
         ('wget', 'wget'),
     )
-    STATUS_CHOICES = [
-        ("succeeded", "succeeded"),
-        ("failed", "failed"),
-        ("skipped", "skipped")
-    ]
+
 
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
@@ -491,7 +535,6 @@ class ArchiveResult(ABIDModel):
     output = models.CharField(max_length=1024)
     start_ts = models.DateTimeField(db_index=True)
     end_ts = models.DateTimeField()
-    status = models.CharField(max_length=16, choices=STATUS_CHOICES)
 
     # the network interface that was used to download this result
     # uplink = models.ForeignKey(NetworkInterface, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Network Interface Used')
@@ -552,7 +595,15 @@ class ArchiveResult(ABIDModel):
         return link.canonical_outputs().get(f'{self.extractor}_path')
 
     def output_exists(self) -> bool:
-        return os.access(self.output_path(), os.R_OK)
+        return os.path.exists(self.output_path())
+    
+    def bump_retry_at(self, seconds: int = 10):
+        self.retry_at = timezone.now() + timedelta(seconds=seconds)
+        
+    def create_output_dir(self):
+        snap_dir = self.snapshot_dir
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        return snap_dir / self.output_path()
 
 
     # def get_storage_dir(self, create=True, symlink=True):

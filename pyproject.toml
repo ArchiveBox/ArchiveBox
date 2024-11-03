@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.8.5rc53"
+version = "0.8.6rc0"
 requires-python = ">=3.10"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -39,13 +39,14 @@ classifiers = [
 
 
 dependencies = [
-    # ... archivebox/vendor/*             # see vendored libs here
+    # ... archivebox/pkgs/*             # see vendored libs here
     ############# Django / Core Libraries #############
     "setuptools>=74.1.0",
     "django>=5.1.1,<6.0",
     "django-ninja>=1.3.0",
     "django-extensions>=3.2.3",
     "mypy-extensions>=1.0.0",
+    "typing_extensions>=4.12.2",
     "channels[daphne]>=4.1.0",
     "django-signal-webhooks>=0.3.0",
     "django-admin-data-views>=0.4.1",
@@ -60,7 +61,7 @@ dependencies = [
     "pluggy>=1.5.0",
     "requests>=2.32.3",
     "dateparser>=1.2.0",
-    "tzdata>=2024.2",                 # needed for dateparser {TZ: UTC} on some systems: https://github.com/ArchiveBox/ArchiveBox/issues/1553
+    "tzdata>=2024.2", # needed for dateparser {TZ: UTC} on some systems: https://github.com/ArchiveBox/ArchiveBox/issues/1553
     "feedparser>=6.0.11",
     "w3lib>=2.2.1",
     "rich>=13.8.0",
@@ -69,20 +70,51 @@ dependencies = [
     "typeid-python>=0.3.1",
     "psutil>=6.0.0",
     "supervisor>=4.2.5",
-    "python-crontab>=3.2.0",          # for: archivebox schedule
-    "croniter>=3.0.3",                # for: archivebox schedule
-    "ipython>=8.27.0",                # for: archivebox shell
-    "py-machineid>=0.6.0",            # for: machine/detect.py calculating machine guid
+    "python-crontab>=3.2.0", # for: archivebox schedule
+    "croniter>=3.0.3", # for: archivebox schedule
+    "ipython>=8.27.0", # for: archivebox shell
+    "py-machineid>=0.6.0", # for: machine/detect.py calculating machine guid
     "python-benedict[io,parse]>=0.33.2",
     "pydantic-settings>=2.5.2",
     "atomicwrites==1.4.1",
     "django-taggit==6.1.0",
     "base32-crockford==0.3.0",
-    # "pocket@git+https://github.com/tapanpandita/pocket.git@v0.3.7",
+    "platformdirs>=4.3.6",
     "pydantic-pkgr>=0.5.4",
-    ############# Plugin Dependencies ################
+    "pocket>=0.3.6",
     "sonic-client>=1.0.0",
-    "yt-dlp>=2024.8.6",               # for: media"
+    "yt-dlp>=2024.8.6", # for: media"
+    ############# Plugin Dependencies ################
+    "abx>=0.1.0",
+    "abx-spec-pydantic-pkgr>=0.1.0",
+    "abx-spec-config>=0.1.0",
+    "abx-spec-archivebox>=0.1.0",
+    "abx-spec-django>=0.1.0",
+    "abx-spec-extractor>=0.1.0",
+    "abx-spec-searchbackend>=0.1.0",
+    "abx-plugin-default-binproviders>=2024.10.24",
+    "abx-plugin-pip>=2024.10.24",
+    "abx-plugin-npm>=2024.10.24",
+    "abx-plugin-playwright>=2024.10.24",
+    "abx-plugin-puppeteer>=2024.10.28",
+    "abx-plugin-ripgrep-search>=2024.10.28",
+    "abx-plugin-sqlitefts-search>=2024.10.28",
+    "abx-plugin-sonic-search>=2024.10.28",
+    "abx-plugin-ldap-auth>=2024.10.28",
+    "abx-plugin-curl>=2024.10.27",
+    "abx-plugin-wget>=2024.10.28",
+    "abx-plugin-git>=2024.10.28",
+    "abx-plugin-chrome>=2024.10.28",
+    "abx-plugin-ytdlp>=2024.10.28",
+    "abx-plugin-title>=2024.10.27",
+    "abx-plugin-favicon>=2024.10.27",
+    # "abx-plugin-headers>=2024.10.27",
+    "abx-plugin-archivedotorg>=2024.10.28",
+    "abx-plugin-singlefile>=2024.10.28",
+    "abx-plugin-readability>=2024.10.28",
+    "abx-plugin-mercury>=2024.10.28",
+    "abx-plugin-htmltotext>=2024.10.28",
+    "python-statemachine>=2.3.6",
 ]
 
 [project.optional-dependencies]
@@ -113,7 +145,7 @@ all = [
 [tool.uv]
 dev-dependencies = [
     ### BUILD
-    "uv",
+    "uv>=0.4.26",
     "pip>=24.2",
     "setuptools>=75.1.0",
     "wheel>=0.44.0",
@@ -121,14 +153,17 @@ dev-dependencies = [
     #"homebrew-pypi-poet>=0.10.0", # for: generating archivebox.rb brewfile list of python packages
     ### DOCS
     "recommonmark>=0.7.1",
-    "sphinx",
+    "sphinx>=8.1.3",
     "sphinx-rtd-theme>=2.0.0",
     ### DEBUGGING
-    "archivebox[debug]",
+    "django-debug-toolbar>=4.4.6",
+    "requests-tracker>=0.3.3",
+    "djdt_flamegraph>=0.2.13",
+    "ipdb>=0.13.13",
     "logfire[django]>=0.51.0",
     "opentelemetry-instrumentation-django>=0.47b0",
     "opentelemetry-instrumentation-sqlite3>=0.47b0",
-    "viztracer", # usage: viztracer ../.venv/bin/archivebox manage check
+    "viztracer>=0.17.0",                               # usage: viztracer ../.venv/bin/archivebox manage check
     # "snakeviz",                                      # usage: python -m cProfile -o flamegraph.prof ../.venv/bin/archivebox manage check
     ### TESTING
     "pytest>=8.3.3",
@@ -139,8 +174,47 @@ dev-dependencies = [
     "mypy>=1.11.2",
 ]
 
+[tool.uv.sources]
+# pydantic-pkgr = { workspace = true }
+
+abx = { workspace = true }
+abx-spec-pydantic-pkgr = { workspace = true }
+abx-spec-config = { workspace = true }
+abx-spec-archivebox = { workspace = true }
+abx-spec-django = { workspace = true }
+abx-spec-extractor = { workspace = true }
+abx-spec-searchbackend = { workspace = true }
+
+abx-plugin-default-binproviders = { workspace = true }
+abx-plugin-pip = { workspace = true }
+abx-plugin-npm = { workspace = true }
+abx-plugin-playwright = { workspace = true }
+abx-plugin-puppeteer = { workspace = true }
+abx-plugin-ripgrep-search = { workspace = true }
+abx-plugin-sqlitefts-search = { workspace = true }
+abx-plugin-sonic-search = { workspace = true }
+abx-plugin-ldap-auth = { workspace = true }
+
+abx-plugin-curl = { workspace = true }
+abx-plugin-wget = { workspace = true }
+abx-plugin-git = { workspace = true }
+abx-plugin-chrome = { workspace = true }
+abx-plugin-ytdlp = { workspace = true }
+
+abx-plugin-title = { workspace = true }
+abx-plugin-favicon = { workspace = true }
+# abx-plugin-headers = { workspace = true }
+abx-plugin-archivedotorg = { workspace = true }
+
+abx-plugin-singlefile = { workspace = true }
+abx-plugin-readability = { workspace = true }
+abx-plugin-mercury = { workspace = true }
+abx-plugin-htmltotext = { workspace = true }
+
+
 [tool.uv.workspace]
-members = ["packages/*"]
+members = ["archivebox/pkgs/*"]
+exclude = ["archivebox/pkgs/__pycache__"]
 
 [build-system]
 requires = ["pdm-backend"]
@@ -155,7 +229,7 @@ package-dir = {"archivebox" = "archivebox"}
 line-length = 140
 target-version = "py310"
 src = ["archivebox"]
-exclude = ["*.pyi", "typings/", "migrations/", "vendor/"]
+exclude = ["*.pyi", "typings/", "migrations/"]
 
 # https://docs.astral.sh/ruff/rules/
 [tool.ruff.lint]
@@ -190,7 +264,6 @@ exclude = [
     "**/node_modules",
     "**/__pycache__",
     "**/migrations",
-    "archivebox/vendor",
 ]
 stubPath = "./archivebox/typings"
 venvPath = "."
