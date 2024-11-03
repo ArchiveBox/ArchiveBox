@@ -1,5 +1,5 @@
-name: 📑 Documentation change
-description: Submit a suggestion or edit for the Wiki documentation
+name: 📑 Documentation improvement
+description: Submit an idea or correction for the Wiki documentation
 title: "Documentation: ..."
 labels: 'touches: docs'
 type: 'Enhancement'
