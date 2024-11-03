@@ -191,22 +191,26 @@ class FaviconActor(ActorType[ArchiveResult]):
         # )
         return cls.get_random(
             model=ArchiveResult,
-            where='status = "failed"',
+            where='status = "failed" AND extractor = "favicon"',
             set='status = "queued"',
-            choose_from_top=cls.get_queue().count(),
+            choose_from_top=50,
         )
     
     def tick(self, obj: ArchiveResult):
-        print(f'[grey53]{self}.tick({obj.abid or obj.id}) remaining:[/grey53]', self.get_queue().count())
+        print(f'[grey53]{self}.tick({obj.abid or obj.id}, status={obj.status}) remaining:[/grey53]', self.get_queue().count())
         updated = ArchiveResult.objects.filter(id=obj.id, status='started').update(status='success') == 1
         if not updated:
             raise Exception(f'Failed to update {obj.abid or obj.id}, interrupted by another actor writing to the same object')
+        # obj.refresh_from_db()
+        obj.status = 'success'
         
     def lock(self, obj: ArchiveResult) -> bool:
         """As an alternative to self.get_next_atomic(), we can use select_for_update() or manually update a semaphore field here"""
 
         locked = ArchiveResult.objects.filter(id=obj.id, status='queued').update(status='started') == 1
         if locked:
+            # obj.refresh_from_db()
+            obj.status = 'started'
             # print(f'FaviconActor[{self.pid}] lock({obj.id}) 🔒')
             pass
         else:
