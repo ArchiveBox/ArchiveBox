@@ -53,7 +53,6 @@ class PlaywrightBinProvider(BaseBinProvider):
         except Exception as e:
             return None
 
-    @computed_field
     @property
     def playwright_browsers_dir(self) -> Path:
         # The directory where playwright stores browsers can be overridden with
