@@ -2,10 +2,11 @@ __package__ = 'archivebox.actors'
 
 import os
 import time
-import psutil
 from typing import ClassVar, Generic, TypeVar, Any, cast, Literal, Type
+from django.utils.functional import classproperty
 
 from rich import print
+import psutil
 
 from django import db
 from django.db import models
@@ -37,10 +38,14 @@ class ActorType(Generic[ModelType]):
     
     def __repr__(self) -> str:
         label = 'pid' if self.mode == 'process' else 'tid'
-        return f'[underline]{self.__class__.__name__}[/underline]\\[{label}={self.pid}]'
+        return f'[underline]{self.name}[/underline]\\[{label}={self.pid}]'
     
     def __str__(self) -> str:
         return self.__repr__()
+    
+    @classproperty
+    def name(cls) -> str:
+        return cls.__name__  # type: ignore
     
     @classmethod
     def get_running_actors(cls) -> list[int]:
@@ -89,7 +94,35 @@ class ActorType(Generic[ModelType]):
         return cls.get_queue().last()
     
     @classmethod
-    def get_next_atomic(cls, model: Type, filter=('status', 'queued'), update=('status', 'started'), sort='created_at', order='DESC', choose_from_top=50) -> ModelType | None:
+    def get_random(cls, model: Type[ModelType], where='status = "queued"', set='status = "started"', choose_from_top=50) -> ModelType | None:
+        app_label = model._meta.app_label
+        model_name = model._meta.model_name
+        
+        with db.connection.cursor() as cursor:
+            # subquery gets the pool of the top 50 candidates sorted by sort and order
+            # main query selects a random one from that pool
+            cursor.execute(f"""
+                UPDATE {app_label}_{model_name} 
+                SET {set}
+                WHERE {where} and id = (
+                    SELECT id FROM {app_label}_{model_name}
+                    WHERE {where}
+                    LIMIT 1
+                    OFFSET ABS(RANDOM()) % {choose_from_top}
+                )
+                RETURNING id;
+            """)
+            result = cursor.fetchone()
+            
+            # If no rows were claimed, return None
+            if result is None:
+                return None
+
+            return model.objects.get(id=result[0])
+        
+        
+    @classmethod
+    def get_next_atomic(cls, model: Type[ModelType], where='status = "queued"', set='status = "started"', order_by='created_at DESC', choose_from_top=50) -> ModelType | None:
         """
         atomically claim a random object from the top n=50 objects in the queue by updating status=queued->started
         optimized for minimizing contention on the queue with other actors selecting from the same list
@@ -102,18 +135,18 @@ class ActorType(Generic[ModelType]):
             # main query selects a random one from that pool
             cursor.execute(f"""
                 UPDATE {app_label}_{model_name} 
-                SET {update[0]} = '{update[1]}'
-                WHERE {filter[0]} = '{filter[1]}' and id = (
+                SET {set}
+                WHERE {where} and id = (
                     SELECT id FROM (
                         SELECT id FROM {app_label}_{model_name}
-                        WHERE {filter[0]} = '{filter[1]}'
-                        ORDER BY {sort} {order}
+                        WHERE {where}
+                        ORDER BY {order_by}
                         LIMIT {choose_from_top}
                     ) candidates
                     ORDER BY RANDOM()
                     LIMIT 1
                 )
-                RETURNING *;
+                RETURNING id;
             """)
             result = cursor.fetchone()
             
@@ -121,9 +154,7 @@ class ActorType(Generic[ModelType]):
             if result is None:
                 return None
                 
-            # reconstruct model instance from the row tuple
-            columns = [col[0] for col in cursor.description]
-            return model(**dict(zip(columns, result)))
+            return model.objects.get(id=result[0])
     
     @classmethod
     def get_actors_to_spawn(cls, queue, running_actors) -> list[LaunchKwargs]:
@@ -159,19 +190,19 @@ class ActorType(Generic[ModelType]):
         # abx.pm.hook.on_actor_shutdown(self)
         
     def on_tick_start(self, obj: ModelType):
-        # print(f'🏃‍♂️ {self}.on_tick_start()', getattr(obj, 'abid', obj.id))
+        # print(f'🏃‍♂️ {self}.on_tick_start()', obj.abid or obj.id)
         # abx.pm.hook.on_actor_tick_start(self, obj_to_process)
         # self.timer = TimedProgress(self.MAX_TICK_TIME, prefix='      ')
         pass
     
     def on_tick_end(self, obj: ModelType):
-        # print(f'🏃‍♂️ {self}.on_tick_end()', getattr(obj, 'abid', obj.id))
+        # print(f'🏃‍♂️ {self}.on_tick_end()', obj.abid or obj.id)
         # abx.pm.hook.on_actor_tick_end(self, obj_to_process)
         # self.timer.end()
         pass
     
     def on_tick_exception(self, obj: ModelType, err: BaseException):
-        print(f'[red]🏃‍♂️ {self}.on_tick_exception()[/red]', getattr(obj, 'abid', obj.id), err)
+        print(f'[red]🏃‍♂️ {self}.on_tick_exception()[/red]', obj.abid or obj.id, err)
         # abx.pm.hook.on_actor_tick_exception(self, obj_to_process, err)
     
     def runloop(self):
@@ -220,10 +251,10 @@ class ActorType(Generic[ModelType]):
             self.on_shutdown(err=err)
 
     def tick(self, obj: ModelType) -> None:
-        print(f'[blue]🏃‍♂️ {self}.tick()[/blue]', getattr(obj, 'abid', obj.id))
+        print(f'[blue]🏃‍♂️ {self}.tick()[/blue]', obj.abid or obj.id)
         
     def lock(self, obj: ModelType) -> bool:
-        print(f'[blue]🏃‍♂️ {self}.lock()[/blue]', getattr(obj, 'abid', obj.id))
+        print(f'[blue]🏃‍♂️ {self}.lock()[/blue]', obj.abid or obj.id)
         return True
 
 
