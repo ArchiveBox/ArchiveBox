@@ -6,7 +6,7 @@ import platform
 from pathlib import Path
 from typing import List, Optional, Dict, ClassVar
 
-from pydantic import computed_field, Field
+from pydantic import Field
 from pydantic_pkgr import (
     BinName,
     BinProvider,
@@ -21,6 +21,8 @@ from pydantic_pkgr import (
 )
 
 import abx
+
+from abx_plugin_default_binproviders import env
 
 
 from .binaries import PLAYWRIGHT_BINARY
@@ -55,7 +57,7 @@ class PlaywrightBinProvider(BinProvider):
     def INSTALLER_BIN_ABSPATH(self) -> HostBinPath | None:
         try:
             return PLAYWRIGHT_BINARY.load().abspath
-        except Exception as e:
+        except Exception:
             return None
 
     def setup(self) -> None:
