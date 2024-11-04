@@ -59,7 +59,7 @@ export PUID="$(id -u archivebox)"
 export PGID="$(id -g archivebox)"
 
 # Check if user attempted to run it in the root of their home folder or hard drive (common mistake)
-if [[ -d "$DATA_DIR/Documents" || -d "$DATA_DIR/.config" || -d "$DATA_DIR/usr" ]]; then
+if [[ -d "$DATA_DIR/Documents" || -d "$DATA_DIR/.config" || -d "$DATA_DIR/usr" || -f "$DATA_DIR/.bashrc" || -f "$DATA_DIR/.zshrc" ]]; then
     echo -e "\n[X] ERROR: ArchiveBox was run from inside a home folder"
     echo -e "      Make sure you are inside an existing collection directory or a new empty directory and try again"
     exit 3
