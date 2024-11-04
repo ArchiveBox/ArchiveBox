@@ -1,10 +1,22 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # ArchiveBox Setup Script (Ubuntu/Debian/FreeBSD/macOS)
 #   - Project Homepage: https://github.com/ArchiveBox/ArchiveBox
 #   - Install Documentation: https://github.com/ArchiveBox/ArchiveBox/wiki/Install
 # Script Usage:
-#    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | sh
+#    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | bash
 #           (aka https://docker-compose.archivebox.io)
+
+### Bash Environment Setup
+# http://redsymbol.net/articles/unofficial-bash-strict-mode/
+# https://www.gnu.org/software/bash/manual/html_node/The-Set-Builtin.html
+# set -o xtrace
+# set -x
+# shopt -s nullglob
+set -o errexit
+set -o errtrace
+set -o nounset
+set -o pipefail
+# IFS=$'\n'
 
 clear
 
@@ -20,9 +32,9 @@ if [ $(id -u) -eq 0 ]; then
     exit 2
 fi
 
-if (which docker-compose > /dev/null && docker pull archivebox/archivebox:latest); then
+if (which docker > /dev/null && docker pull archivebox/archivebox:latest); then
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker Compose..."
-    mkdir -p ~/archivebox/data
+    mkdir -p ~/archivebox/data || exit 1
     cd ~/archivebox
     if [ -f "./index.sqlite3" ]; then
         mv -i ~/archivebox/* ~/archivebox/data/
@@ -50,7 +62,7 @@ if (which docker-compose > /dev/null && docker pull archivebox/archivebox:latest
     exit 0
 elif (which docker > /dev/null && docker pull archivebox/archivebox:latest); then
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker..."
-    mkdir -p ~/archivebox/data
+    mkdir -p ~/archivebox/data || exit 1
     cd ~/archivebox
     if [ -f "./index.sqlite3" ]; then
         mv -i ~/archivebox/* ~/archivebox/data/
@@ -184,7 +196,7 @@ echo
 
 echo
 echo "[+] Initializing ArchiveBox data folder at ~/archivebox/data..."
-mkdir -p ~/archivebox/data
+mkdir -p ~/archivebox/data || exit 1
 cd ~/archivebox
 if [ -f "./index.sqlite3" ]; then
     mv -i ~/archivebox/* ~/archivebox/data/
