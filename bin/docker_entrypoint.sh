@@ -58,6 +58,13 @@ groupmod -o -g "${PGID:-$DETECTED_PGID}" "$ARCHIVEBOX_USER" > /dev/null 2>&1
 export PUID="$(id -u archivebox)"
 export PGID="$(id -g archivebox)"
 
+# Check if user attempted to run it in the root of their home folder or hard drive (common mistake)
+if [[ -d "$DATA_DIR/Documents" || -d "$DATA_DIR/.config" || -d "$DATA_DIR/usr" ]]; then
+    echo -e "\n[X] ERROR: ArchiveBox was run from inside a home folder"
+    echo -e "      Make sure you are inside an existing collection directory or a new empty directory and try again"
+    exit 3
+fi
+
 # Check the permissions of the data dir (or create if it doesn't exist)
 if [[ -d "$DATA_DIR/archive" ]]; then
     if touch "$DATA_DIR/archive/.permissions_test_safe_to_delete" 2>/dev/null; then
