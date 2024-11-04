@@ -14,9 +14,9 @@ class CrawlMachine(StateMachine, strict_states=True):
     model: Crawl
     
     # States
-    queued = State(value=Crawl.CrawlStatus.QUEUED, initial=True)
-    started = State(value=Crawl.CrawlStatus.STARTED)
-    sealed = State(value=Crawl.CrawlStatus.SEALED, final=True)
+    queued = State(value=Crawl.StatusChoices.QUEUED, initial=True)
+    started = State(value=Crawl.StatusChoices.STARTED)
+    sealed = State(value=Crawl.StatusChoices.SEALED, final=True)
     
     # Tick Event
     tick = (

@@ -6,7 +6,7 @@ import itertools
 from typing import Dict, Type, Literal, ClassVar
 from django.utils.functional import classproperty
 
-from multiprocessing import Process, cpu_count
+from multiprocessing import Process
 from threading import Thread, get_native_id
 
 

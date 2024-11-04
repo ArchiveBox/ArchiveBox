@@ -11,7 +11,7 @@ from django.conf import settings
 from django.urls import reverse_lazy
 from django.utils import timezone
 
-from statemachine.mixins import MachineMixin
+from actors.models import ModelWithStateMachine
 
 if TYPE_CHECKING:
     from core.models import Snapshot
@@ -50,7 +50,7 @@ class CrawlSchedule(ABIDModel, ModelWithHealthStats):
 
     
 
-class Crawl(ABIDModel, ModelWithHealthStats, MachineMixin):
+class Crawl(ABIDModel, ModelWithHealthStats, ModelWithStateMachine):
     """
     A single session of URLs to archive starting from a given Seed and expanding outwards. An "archiving session" so to speak.
 
@@ -67,17 +67,11 @@ class Crawl(ABIDModel, ModelWithHealthStats, MachineMixin):
     abid_rand_src = 'self.id'
     abid_drift_allowed = True
     
-    state_field_name = 'status'
     state_machine_name = 'crawls.statemachines.CrawlMachine'
-    state_machine_attr = 'sm'
-    bind_events_as_methods = True
-
-    class CrawlStatus(models.TextChoices):
-        QUEUED = 'queued', 'Queued'
-        STARTED = 'started', 'Started'
-        SEALED = 'sealed', 'Sealed'
-
-    status = models.CharField(choices=CrawlStatus.choices, max_length=15, default=CrawlStatus.QUEUED, null=False, blank=False)
+    retry_at_field_name = 'retry_at'
+    state_field_name = 'status'
+    StatusChoices = ModelWithStateMachine.StatusChoices
+    active_state = StatusChoices.STARTED
     
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
@@ -86,6 +80,8 @@ class Crawl(ABIDModel, ModelWithHealthStats, MachineMixin):
     created_at = AutoDateTimeField(default=None, null=False, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
     
+    status = ModelWithStateMachine.StatusField(choices=StatusChoices, default=StatusChoices.QUEUED)
+    retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
 
     seed = models.ForeignKey(Seed, on_delete=models.PROTECT, related_name='crawl_set', null=False, blank=False)
     max_depth = models.PositiveSmallIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(4)])
@@ -127,10 +123,8 @@ class Crawl(ABIDModel, ModelWithHealthStats, MachineMixin):
     def has_pending_archiveresults(self) -> bool:
         from core.models import ArchiveResult
         
-        pending_statuses = [ArchiveResult.ArchiveResultStatus.QUEUED, ArchiveResult.ArchiveResultStatus.STARTED]
-        
         snapshot_ids = self.snapshot_set.values_list('id', flat=True)
-        pending_archiveresults = ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids, status__in=pending_statuses)
+        pending_archiveresults = ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids).exclude(status__in=ArchiveResult.FINAL_OR_ACTIVE_STATES)
         return pending_archiveresults.exists()
     
     def create_root_snapshot(self) -> 'Snapshot':
@@ -139,12 +133,9 @@ class Crawl(ABIDModel, ModelWithHealthStats, MachineMixin):
         root_snapshot, _ = Snapshot.objects.get_or_create(
             crawl=self,
             url=self.seed.uri,
+            status=Snapshot.INITIAL_STATE,
         )
         return root_snapshot
-    
-    def bump_retry_at(self, seconds: int = 10):
-        self.retry_at = timezone.now() + timedelta(seconds=seconds)
-        self.save()
 
 
 class Outlink(models.Model):

@@ -16,9 +16,9 @@ class SnapshotMachine(StateMachine, strict_states=True):
     model: Snapshot
     
     # States
-    queued = State(value=Snapshot.SnapshotStatus.QUEUED, initial=True)
-    started = State(value=Snapshot.SnapshotStatus.STARTED)
-    sealed = State(value=Snapshot.SnapshotStatus.SEALED, final=True)
+    queued = State(value=Snapshot.StatusChoices.QUEUED, initial=True)
+    started = State(value=Snapshot.StatusChoices.STARTED)
+    sealed = State(value=Snapshot.StatusChoices.SEALED, final=True)
     
     # Tick Event
     tick = (
@@ -53,11 +53,11 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
     model: ArchiveResult
     
     # States
-    queued = State(value=ArchiveResult.ArchiveResultStatus.QUEUED, initial=True)
-    started = State(value=ArchiveResult.ArchiveResultStatus.STARTED)
-    backoff = State(value=ArchiveResult.ArchiveResultStatus.BACKOFF)
-    succeeded = State(value=ArchiveResult.ArchiveResultStatus.SUCCEEDED, final=True)
-    failed = State(value=ArchiveResult.ArchiveResultStatus.FAILED, final=True)
+    queued = State(value=ArchiveResult.StatusChoices.QUEUED, initial=True)
+    started = State(value=ArchiveResult.StatusChoices.STARTED)
+    backoff = State(value=ArchiveResult.StatusChoices.BACKOFF)
+    succeeded = State(value=ArchiveResult.StatusChoices.SUCCEEDED, final=True)
+    failed = State(value=ArchiveResult.StatusChoices.FAILED, final=True)
     
     # Tick Event
     tick = (
@@ -78,7 +78,7 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         super().__init__(archiveresult, *args, **kwargs)
         
     def can_start(self) -> bool:
-        return self.archiveresult.snapshot and self.archiveresult.snapshot.is_started()
+        return self.archiveresult.snapshot and self.archiveresult.snapshot.STATE == Snapshot.active_state
     
     def is_succeeded(self) -> bool:
         return self.archiveresult.output_exists()
@@ -87,7 +87,10 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         return not self.archiveresult.output_exists()
     
     def is_backoff(self) -> bool:
-        return self.archiveresult.status == ArchiveResult.ArchiveResultStatus.BACKOFF
+        return self.archiveresult.STATE == ArchiveResult.StatusChoices.BACKOFF
+    
+    def is_finished(self) -> bool:
+        return self.is_failed() or self.is_succeeded()
 
     def on_started(self):
         self.archiveresult.start_ts = timezone.now()
