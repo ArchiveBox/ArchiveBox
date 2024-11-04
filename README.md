@@ -13,7 +13,7 @@
 <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/LICENSE"><img src="https://img.shields.io/badge/Open_source-MIT-green.svg?logo=git&logoColor=green"/></a> <a href="https://github.com/ArchiveBox/ArchiveBox/commits/dev"><img src="https://img.shields.io/github/last-commit/ArchiveBox/ArchiveBox.svg?logo=Sublime+Text&logoColor=green&label=Active"/></a> &nbsp; <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?logo=github&label=Stars&logoColor=blue"/></a> &nbsp; <a href="https://hub.docker.com/r/archivebox/archivebox"><img src="https://img.shields.io/docker/pulls/archivebox/archivebox.svg?label=Docker+Pulls"/></a> <a href="https://pypi.org/project/archivebox/"><img src="https://img.shields.io/pypi/dm/archivebox?label=PyPI%20Installs&color=%235f7dae"/></a> <a href="https://chromewebstore.google.com/detail/archivebox-exporter/habonpimjphpdnmcfkaockjnffodikoj"><img src="https://img.shields.io/chrome-web-store/users/habonpimjphpdnmcfkaockjnffodikoj?label=Chrome%20Store&color=%231973e8"/></a>
 
 <!--<pre lang="bash" align="left"><code style="white-space: pre-line; text-align: left" align="left">
-curl -fsSL 'https://get.archivebox.io' | sh    # (or see pip/brew/Docker instructions below)
+curl -fsSL 'https://get.archivebox.io' | bash    # (or see pip/brew/Docker instructions below)
 </code></pre>-->
 
 </div>
@@ -99,7 +99,7 @@ archivebox init --setup
 <br/>
 <br/>
 # Option D: Or use the optional auto setup script to install it
-curl -fsSL 'https://get.archivebox.io' | sh
+curl -fsSL 'https://get.archivebox.io' | bash
 </code></pre>
 <br/>
 <sub>Open <a href="http://localhost:8000"><code>http://localhost:8000</code></a> to see your server's Web UI ➡️</sub>
@@ -233,7 +233,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (optional, highly recommended but not required).</li>
 <li>Run the automatic setup script.
-<pre lang="bash"><code style="white-space: pre-line">curl -fsSL 'https://get.archivebox.io' | sh</code></pre>
+<pre lang="bash"><code style="white-space: pre-line">curl -fsSL 'https://get.archivebox.io' | bash</code></pre>
 <i>For more info, see <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-b-automatic-setup-script">Install: Bare Metal</a> in the Wiki. ➡️</i>
 </li>
 </ol>
@@ -368,7 +368,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 
 <ul>
 <li>Arch: <a href="https://aur.archlinux.org/packages/archivebox/"><code>yay -S archivebox</code></a> (contributed by <a href="https://github.com/imlonghao"><code>@imlonghao</code></a>)</li>
-<li>FreeBSD: <a href="https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup"><code>curl -fsSL 'https://get.archivebox.io' | sh</code></a> (uses <code>pkg</code> + <code>pip3</code> under-the-hood)</li>
+<li>FreeBSD: <a href="https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup"><code>curl -fsSL 'https://get.archivebox.io' | bash</code></a> (uses <code>pkg</code> + <code>pip3</code> under-the-hood)</li>
 <li>Nix: <a href="https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/archivebox/default.nix"><code>nix-env --install archivebox</code></a> (contributed by <a href="https://github.com/siraben"><code>@siraben</code></a>)</li>
 <li>Guix: <a href="https://packages.guix.gnu.org/packages/archivebox/"><code>guix install archivebox</code></a> (contributed by <a href="https://github.com/rakino"><code>@rakino</code></a>)</li>
 <li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distribution...!</i></a></li>
