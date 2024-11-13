@@ -1,4 +1,4 @@
-__package__ = 'archivebox.extractors'
+__package__ = 'abx_plugin_chrome'
 
 from pathlib import Path
 from typing import Optional
@@ -8,11 +8,11 @@ from archivebox.misc.util import (
     enforce_types,
     is_static_file,
 )
-from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from ..logging_util import TimedProgress
+from archivebox.index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+from archivebox.logging_util import TimedProgress
 
-from plugins_extractor.chrome.config import CHROME_CONFIG
-from plugins_extractor.chrome.binaries import CHROME_BINARY
+from .config import CHROME_CONFIG
+from .binaries import CHROME_BINARY
 
 
 def get_output_path():

@@ -1,4 +1,4 @@
-__package__ = 'archivebox.extractors'
+__package__ = 'abx_plugin_mercury'
 
 from pathlib import Path
 
@@ -6,16 +6,16 @@ from subprocess import CompletedProcess
 from typing import Optional, List
 import json
 
-from ..index.schema import Link, ArchiveResult, ArchiveError
+from archivebox.logging_util import TimedProgress
+from archivebox.index.schema import Link, ArchiveResult, ArchiveError
 from archivebox.misc.system import run, atomic_write
 from archivebox.misc.util import (
     enforce_types,
     is_static_file,
 )
-from archivebox.plugins_extractor.mercury.config import MERCURY_CONFIG
-from archivebox.plugins_extractor.mercury.binaries import MERCURY_BINARY
+from .config import MERCURY_CONFIG
+from .binaries import MERCURY_BINARY
 
-from ..logging_util import TimedProgress
 
 
 def get_output_path():

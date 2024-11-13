@@ -1,4 +1,4 @@
-__package__ = 'abx_plugin_wget_extractor'
+__package__ = 'abx_plugin_wget'
 
 import re
 import os
@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime, timezone
 
+from archivebox.logging_util import TimedProgress
+from archivebox.index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from archivebox.misc.system import run, chmod_file
 from archivebox.misc.util import (
     enforce_types,
@@ -20,8 +22,6 @@ from archivebox.misc.util import (
 from .config import WGET_CONFIG
 from .binaries import WGET_BINARY
 
-from archivebox.logging_util import TimedProgress
-from archivebox.index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 
 
 def get_output_path():

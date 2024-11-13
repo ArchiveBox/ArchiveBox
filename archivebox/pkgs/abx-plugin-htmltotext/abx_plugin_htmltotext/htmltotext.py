@@ -1,4 +1,4 @@
-__package__ = 'archivebox.extractors'
+__package__ = 'abx_plugin_htmltotext'
 
 from html.parser import HTMLParser
 import io
@@ -9,13 +9,12 @@ from archivebox.config import VERSION
 from archivebox.config.common import ARCHIVING_CONFIG
 from archivebox.misc.system import atomic_write
 from archivebox.misc.util import enforce_types, is_static_file
+from archivebox.logging_util import TimedProgress
+from archivebox.index.schema import Link, ArchiveResult, ArchiveError
 
-from archivebox.plugins_extractor.htmltotext.config import HTMLTOTEXT_CONFIG
+from abx_plugin_title.extractor import get_html
 
-from ..logging_util import TimedProgress
-from ..index.schema import Link, ArchiveResult, ArchiveError
-from .title import get_html
-
+from .config import HTMLTOTEXT_CONFIG
 
 def get_output_path():
     return "htmltotext.txt"

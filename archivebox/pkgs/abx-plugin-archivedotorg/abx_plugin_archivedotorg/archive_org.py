@@ -1,18 +1,19 @@
-__package__ = 'archivebox.extractors'
+__package__ = 'abx_plugin_archivedotorg'
 
 
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 from collections import defaultdict
 
-from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+from archivebox.logging_util import TimedProgress
+from archivebox.index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from archivebox.misc.system import run, chmod_file
 from archivebox.misc.util import enforce_types, is_static_file, dedupe
-from archivebox.plugins_extractor.archivedotorg.config import ARCHIVEDOTORG_CONFIG
-from archivebox.plugins_extractor.curl.config import CURL_CONFIG
-from archivebox.plugins_extractor.curl.binaries import CURL_BINARY
 
-from ..logging_util import TimedProgress
+from abx_plugin_curl.config import CURL_CONFIG
+from abx_plugin_curl.binaries import CURL_BINARY
+
+from .config import ARCHIVEDOTORG_CONFIG
 
 
 def get_output_path():

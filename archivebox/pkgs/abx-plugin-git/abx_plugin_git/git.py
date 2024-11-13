@@ -1,4 +1,4 @@
-__package__ = 'archivebox.extractors'
+__package__ = 'abx_plugin_git'
 
 
 from pathlib import Path
@@ -13,8 +13,8 @@ from archivebox.misc.util import (
     without_query,
     without_fragment,
 )
-from ..logging_util import TimedProgress
-from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+from archivebox.logging_util import TimedProgress
+from archivebox.index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 
 from abx_plugin_git.config import GIT_CONFIG
 from abx_plugin_git.binaries import GIT_BINARY

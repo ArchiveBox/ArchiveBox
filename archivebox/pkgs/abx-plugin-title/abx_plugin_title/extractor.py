@@ -1,21 +1,20 @@
-__package__ = 'archivebox.extractors'
+__package__ = 'abx_plugin_title'
 
 import re
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Optional
 
+from archivebox.index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+from archivebox.logging_util import TimedProgress
 from archivebox.misc.util import (
     enforce_types,
     download_url,
     htmldecode,
     dedupe,
 )
-from abx_plugin_curl_extractor.config import CURL_CONFIG
-from abx_plugin_curl_extractor.binaries import CURL_BINARY
-
-from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from ..logging_util import TimedProgress
+from abx_plugin_curl.config import CURL_CONFIG
+from abx_plugin_curl.binaries import CURL_BINARY
 
 
 

@@ -1,4 +1,4 @@
-__package__ = 'archivebox.extractors'
+__package__ = 'abx_plugin_readability'
 
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -8,12 +8,12 @@ import json
 
 from archivebox.misc.system import run, atomic_write
 from archivebox.misc.util import enforce_types, is_static_file
-from ..index.schema import Link, ArchiveResult, ArchiveError
-from ..logging_util import TimedProgress
-from .title import get_html
+from archivebox.index.schema import Link, ArchiveResult, ArchiveError
+from archivebox.logging_util import TimedProgress
+from abx_plugin_title.extractor import get_html
 
-from plugins_extractor.readability.config import READABILITY_CONFIG
-from plugins_extractor.readability.binaries import READABILITY_BINARY
+from .config import READABILITY_CONFIG
+from .binaries import READABILITY_BINARY
 
 
 def get_output_path():

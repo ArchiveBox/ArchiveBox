@@ -1,15 +1,16 @@
-__package__ = 'archivebox.extractors'
+__package__ = 'abx_plugin_ytdlp'
 
 from pathlib import Path
 from typing import Optional
 
 from archivebox.misc.system import run, chmod_file
 from archivebox.misc.util import enforce_types, is_static_file, dedupe
-from ..index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from ..logging_util import TimedProgress
+from archivebox.index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+from archivebox.logging_util import TimedProgress
 
-from plugins_extractor.ytdlp.config import YTDLP_CONFIG
-from plugins_extractor.ytdlp.binaries import YTDLP_BINARY
+from .config import YTDLP_CONFIG
+from .binaries import YTDLP_BINARY
+
 
 def get_output_path():
     return 'media/'
