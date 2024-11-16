@@ -6,19 +6,89 @@ __command__ = 'archivebox add'
 import sys
 import argparse
 
-from typing import List, Optional, IO
+from typing import IO, TYPE_CHECKING
 
-from archivebox.misc.util import docstring
-from archivebox.config import DATA_DIR
+
+from django.utils import timezone
+from django.db.models import QuerySet
+
+
+from archivebox import CONSTANTS
 from archivebox.config.common import ARCHIVING_CONFIG
+from archivebox.config.django import setup_django
+from archivebox.config.permissions import USER, HOSTNAME
+from archivebox.misc.checks import check_data_folder
+from archivebox.parsers import PARSERS
+from archivebox.logging_util import SmartFormatter, accept_stdin, stderr
 
-from ..main import add
-from ..parsers import PARSERS
-from ..logging_util import SmartFormatter, accept_stdin, stderr
+from abid_utils.models import get_or_create_system_user_pk
+
+if TYPE_CHECKING:
+    from core.models import Snapshot
 
 
-@docstring(add.__doc__)
-def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
+ORCHESTRATOR = None
+
+
+def add(urls: str | list[str],
+        tag: str='',
+        depth: int=0,
+        update: bool=not ARCHIVING_CONFIG.ONLY_NEW,
+        update_all: bool=False,
+        index_only: bool=False,
+        overwrite: bool=False,
+        extractors: str="",
+        parser: str="auto",
+        persona: str='Default',
+        created_by_id: int | None=None) -> QuerySet['Snapshot']:
+    """Add a new URL or list of URLs to your archive"""
+
+    global ORCHESTRATOR
+
+    assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
+
+    # 0. setup abx, django, check_data_folder
+    setup_django()
+    check_data_folder()
+    
+    
+    from seeds.models import Seed
+    from crawls.models import Crawl
+    from actors.orchestrator import Orchestrator
+
+    
+    created_by_id = created_by_id or get_or_create_system_user_pk()
+    
+    # 1. save the provided urls to sources/2024-11-05__23-59-59__cli_add.txt
+    sources_file = CONSTANTS.SOURCES_DIR / f'{timezone.now().strftime("%Y-%m-%d__%H-%M-%S")}__cli_add.txt'
+    sources_file.write_text(urls if isinstance(urls, str) else '\n'.join(urls))
+    
+    # 2. create a new Seed pointing to the sources/2024-11-05__23-59-59__cli_add.txt
+    cmd = ' '.join(sys.argv)
+    seed = Seed.from_file(sources_file, label=f'{USER}@{HOSTNAME} $ {cmd}', parser=parser, tag=tag, created_by=created_by_id, config={
+        'ONLY_NEW': not update,
+        'INDEX_ONLY': index_only,
+        'OVERWRITE': overwrite,
+        'EXTRACTORS': extractors,
+        'DEFAULT_PERSONA': persona or 'Default',
+    })
+    # 3. create a new Crawl pointing to the Seed
+    crawl = Crawl.from_seed(seed, max_depth=depth)
+    
+    # 4. start the Orchestrator & wait until it completes
+    #    ... orchestrator will create the root Snapshot, which creates pending ArchiveResults, which gets run by the ArchiveResultActors ...
+    # from crawls.actors import CrawlActor
+    # from core.actors import SnapshotActor, ArchiveResultActor
+
+    orchestrator = Orchestrator(exit_on_idle=True)
+    orchestrator.start()
+    
+    # 5. return the list of new Snapshots created
+    return crawl.snapshot_set.all()
+
+
+def main(args: list[str] | None=None, stdin: IO | None=None, pwd: str | None=None) -> None:
+    """Add a new URL or list of URLs to your archive"""
     parser = argparse.ArgumentParser(
         prog=__command__,
         description=add.__doc__,
@@ -77,12 +147,7 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help="Re-archive URLs from scratch, overwriting any existing files"
     )
     parser.add_argument(
-        "--init", #'-i',
-        action='store_true',
-        help="Init/upgrade the curent data directory before adding",
-    )
-    parser.add_argument(
-        "--extract",
+        "--extract", '-e',
         type=str,
         help="Pass a list of the extractors to be used. If the method name is not correct, it will be ignored. \
               This does not take precedence over the configuration",
@@ -94,6 +159,12 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         help="Parser used to read inputted URLs.",
         default="auto",
         choices=["auto", *PARSERS.keys()],
+    )
+    parser.add_argument(
+        "--persona",
+        type=str,
+        help="Name of accounts persona to use when archiving.",
+        default="Default",
     )
     command = parser.parse_args(args or ())
     urls = command.urls
@@ -116,27 +187,11 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
         update_all=command.update_all,
         index_only=command.index_only,
         overwrite=command.overwrite,
-        init=command.init,
         extractors=command.extract,
         parser=command.parser,
-        out_dir=pwd or DATA_DIR,
+        persona=command.persona,
     )
 
 
 if __name__ == '__main__':
     main(args=sys.argv[1:], stdin=sys.stdin)
-
-
-# TODO: Implement these
-#
-# parser.add_argument(
-#     '--mirror', #'-m',
-#     action='store_true',
-#     help='Archive an entire site (finding all linked pages below it on the same domain)',
-# )
-# parser.add_argument(
-#     '--crawler', #'-r',
-#     choices=('depth_first', 'breadth_first'),
-#     help='Controls which crawler to use in order to find outlinks in a given page',
-#     default=None,
-# )
