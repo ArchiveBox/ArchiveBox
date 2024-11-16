@@ -97,6 +97,15 @@ class Orchestrator:
                 orphaned_objects.extend(model.objects.filter(retry_at__lt=timezone.now()).exclude(id__in=all_queued_ids))
         return orphaned_objects
     
+    @classmethod
+    def has_future_objects(cls, all_queues) -> bool:
+        # returns a list of objects that are in the queues of all actor types but not in the queues of any other actor types
+
+        return any(
+            queue.filter(retry_at__gt=timezone.now()).exists()
+            for queue in all_queues.values()
+        )
+    
     def on_startup(self):
         if self.mode == 'thread':
             self.pid = get_native_id()
@@ -111,8 +120,8 @@ class Orchestrator:
         # abx.pm.hook.on_orchestrator_shutdown(self)
         
     def on_tick_started(self, all_queues):
-        # total_pending = sum(queue.count() for queue in all_queues.values())
-        # print(f'👨‍✈️ {self}.on_tick_started()', f'total_pending={total_pending}')
+        total_pending = sum(queue.count() for queue in all_queues.values())
+        print(f'👨‍✈️ {self}.on_tick_started()', f'total_pending={total_pending}')
         # abx.pm.hook.on_orchestrator_tick_started(self, actor_types, all_queues)
         pass
     
@@ -123,15 +132,15 @@ class Orchestrator:
         # abx.pm.hook.on_orchestrator_tick_finished(self, actor_types, all_queues)
 
     def on_idle(self, all_queues):
-        # print(f'👨‍✈️ {self}.on_idle()')
+        print(f'👨‍✈️ {self}.on_idle()', f'idle_count={self.idle_count}')
         # abx.pm.hook.on_orchestrator_idle(self)
         # check for orphaned objects left behind
         if self.idle_count == 60:
             orphaned_objects = self.get_orphaned_objects(all_queues)
             if orphaned_objects:
-                print('[red]👨‍✈️ WARNING: some objects may not be processed, no actor has claimed them after 60s:[/red]', orphaned_objects)
-        if self.idle_count > 5 and self.exit_on_idle:
-            raise KeyboardInterrupt('Orchestrator has no more tasks to process, exiting')
+                print('[red]👨‍✈️ WARNING: some objects may not be processed, no actor has claimed them after 30s:[/red]', orphaned_objects)
+        if self.idle_count > 3 and self.exit_on_idle and not self.has_future_objects(all_queues):
+            raise KeyboardInterrupt('✅ All tasks completed, exiting')
 
     def runloop(self):
         from archivebox.config.django import setup_django
@@ -153,6 +162,8 @@ class Orchestrator:
                 all_spawned_actors = []
 
                 for actor_type, queue in all_queues.items():
+                    next_obj = queue.first()
+                    print(f'🏃‍♂️ {self}.runloop() {actor_type.__name__.ljust(20)} queue={str(queue.count()).ljust(3)} next={next_obj.abid if next_obj else "None"} {next_obj.status if next_obj else "None"} {(timezone.now() - next_obj.retry_at).total_seconds() if next_obj else "None"}')
                     try:
                         existing_actors = actor_type.get_running_actors()
                         all_existing_actors.extend(existing_actors)
@@ -168,7 +179,7 @@ class Orchestrator:
                 if not any(queue.exists() for queue in all_queues.values()):
                     self.on_idle(all_queues)
                     self.idle_count += 1
-                    time.sleep(1)
+                    time.sleep(0.5)
                 else:
                     self.idle_count = 0
                     

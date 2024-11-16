@@ -55,15 +55,15 @@ load_vendored_pkgs()
 import abx                                       # noqa
 import abx_spec_archivebox                       # noqa
 import abx_spec_config                           # noqa
-import abx_spec_pydantic_pkgr                    # noqa
+import abx_spec_abx_pkg                          # noqa
 import abx_spec_django                           # noqa
 import abx_spec_searchbackend                    # noqa
 
 abx.pm.add_hookspecs(abx_spec_config.PLUGIN_SPEC)
 abx.pm.register(abx_spec_config.PLUGIN_SPEC())
 
-abx.pm.add_hookspecs(abx_spec_pydantic_pkgr.PLUGIN_SPEC)
-abx.pm.register(abx_spec_pydantic_pkgr.PLUGIN_SPEC())
+abx.pm.add_hookspecs(abx_spec_abx_pkg.PLUGIN_SPEC)
+abx.pm.register(abx_spec_abx_pkg.PLUGIN_SPEC())
 
 abx.pm.add_hookspecs(abx_spec_django.PLUGIN_SPEC)
 abx.pm.register(abx_spec_django.PLUGIN_SPEC())

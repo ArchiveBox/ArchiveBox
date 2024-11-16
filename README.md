@@ -798,7 +798,7 @@ ArchiveBox bundles industry-standard tools like [Google Chrome](https://github.c
 <li>Database: <a href="https://docs.djangoproject.com/en/5.1/ref/databases/#sqlite-notes">Django ORM</a> saving to <a href="https://www.sqlite.org/mostdeployed.html">SQLite3</a> <code>./data/index.sqlite</code></li>
 <li>Job Queue: <a href="https://huey.readthedocs.io/">Huey</a> using <code>./data/queue.sqlite3</code> under <code>supervisord</code></li>
 <li>Build/test/lint: <a href="https://github.com/pdm-project/pdm"><code>pdm</code></a> / <code>mypy</code>+<code>pyright</code>+<code>pytest</code> / <code>ruff</code></li>
-<li>Subdependencies: <a href="https://github.com/ArchiveBox/pydantic-pkgr"><code>pydantic-pkgr</code></a> installs apt/brew/pip/npm pkgs at runtime (e.g. <code>yt-dlp</code>, <code>singlefile</code>, <code>readability</code>, <code>git</code>)</li>
+<li>Subdependencies: <a href="https://github.com/ArchiveBox/abx-pkg"><code>abx-pkg</code></a> installs apt/brew/pip/npm pkgs at runtime (e.g. <code>yt-dlp</code>, <code>singlefile</code>, <code>readability</code>, <code>git</code>)</li>
 </ul>
 
 

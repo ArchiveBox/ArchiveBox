@@ -465,7 +465,7 @@ class ActorType(Generic[ModelType]):
 
     def tick(self, obj_to_process: ModelType) -> None:
         """Call the object.sm.tick() method to process the object"""
-        print(f'[blue]🏃‍♂️ {self}.tick()[/blue] {obj_to_process}')
+        print(f'[blue]🏃‍♂️ {self}.tick()[/blue] {obj_to_process.ABID} {obj_to_process.status} {obj_to_process.retry_at}')
         
         # get the StateMachine instance from the object
         obj_statemachine = self._get_state_machine_instance(obj_to_process)
@@ -500,17 +500,22 @@ class ActorType(Generic[ModelType]):
         # abx.pm.hook.on_actor_shutdown(actor=self, last_obj=last_obj, last_error=last_error)
         
     def on_tick_start(self, obj_to_process: ModelType) -> None:
-        print(f'🏃‍♂️ {self}.on_tick_start() {obj_to_process}')
+        print(f'🏃‍♂️ {self}.on_tick_start() {obj_to_process.ABID} {obj_to_process.status} {obj_to_process.retry_at}')
         # abx.pm.hook.on_actor_tick_start(actor=self, obj_to_process=obj)
         # self.timer = TimedProgress(self.MAX_TICK_TIME, prefix='      ')
+        pass
     
     def on_tick_end(self, obj_to_process: ModelType) -> None:
-        print(f'🏃‍♂️ {self}.on_tick_end() {obj_to_process}')
+        print(f'🏃‍♂️ {self}.on_tick_end() {obj_to_process.ABID} {obj_to_process.status} {obj_to_process.retry_at}')
         # abx.pm.hook.on_actor_tick_end(actor=self, obj_to_process=obj_to_process)
         # self.timer.end()
+        pass
+        
+        # import ipdb; ipdb.set_trace()
+
     
     def on_tick_exception(self, obj_to_process: ModelType, error: Exception) -> None:
-        print(f'[red]🏃‍♂️ {self}.on_tick_exception()[/red] {obj_to_process}: [red]{type(error).__name__}: {error}[/red]')
+        print(f'[red]🏃‍♂️ {self}.on_tick_exception()[/red] {obj_to_process.ABID} {obj_to_process.status} {obj_to_process.retry_at}: [red]{type(error).__name__}: {error}[/red]')
         # abx.pm.hook.on_actor_tick_exception(actor=self, obj_to_process=obj_to_process, error=error)
 
 
