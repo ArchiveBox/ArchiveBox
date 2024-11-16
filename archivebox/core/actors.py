@@ -10,12 +10,16 @@ from actors.actor import ActorType
 
 
 class SnapshotActor(ActorType[Snapshot]):
+    """
+    The primary actor for progressing Snapshot objects
+    through their lifecycle using the SnapshotMachine.
+    """
     Model = Snapshot
     StateMachineClass = SnapshotMachine
     
-    ACTIVE_STATE: ClassVar[State] = SnapshotMachine.started
-    FINAL_STATES: ClassVar[list[State]] = SnapshotMachine.final_states
-    STATE_FIELD_NAME: ClassVar[str] = SnapshotMachine.state_field_name
+    ACTIVE_STATE: ClassVar[State] = SnapshotMachine.started                    # 'started'
+    FINAL_STATES: ClassVar[list[State]] = SnapshotMachine.final_states         # ['sealed']
+    STATE_FIELD_NAME: ClassVar[str] = SnapshotMachine.state_field_name         # status
     
     MAX_CONCURRENT_ACTORS: ClassVar[int] = 3
     MAX_TICK_TIME: ClassVar[int] = 10
@@ -24,12 +28,16 @@ class SnapshotActor(ActorType[Snapshot]):
 
 
 class ArchiveResultActor(ActorType[ArchiveResult]):
+    """
+    The primary actor for progressing ArchiveResult objects
+    through their lifecycle using the ArchiveResultMachine.
+    """
     Model = ArchiveResult
     StateMachineClass = ArchiveResultMachine
     
-    ACTIVE_STATE: ClassVar[State] = ArchiveResultMachine.started
-    FINAL_STATES: ClassVar[list[State]] = ArchiveResultMachine.final_states
-    STATE_FIELD_NAME: ClassVar[str] = ArchiveResultMachine.state_field_name
+    ACTIVE_STATE: ClassVar[State] = ArchiveResultMachine.started                # 'started'
+    FINAL_STATES: ClassVar[list[State]] = ArchiveResultMachine.final_states     # ['succeeded', 'failed', 'skipped']
+    STATE_FIELD_NAME: ClassVar[str] = ArchiveResultMachine.state_field_name     # status
     
     MAX_CONCURRENT_ACTORS: ClassVar[int] = 6
     MAX_TICK_TIME: ClassVar[int] = 60

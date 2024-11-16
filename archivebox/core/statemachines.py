@@ -11,7 +11,11 @@ from core.models import Snapshot, ArchiveResult
 
 
 class SnapshotMachine(StateMachine, strict_states=True):
-    """State machine for managing Snapshot lifecycle."""
+    """
+    State machine for managing Snapshot lifecycle.
+    
+    https://github.com/ArchiveBox/ArchiveBox/wiki/ArchiveBox-Architecture-Diagrams
+    """
     
     model: Snapshot
     
@@ -47,8 +51,13 @@ class SnapshotMachine(StateMachine, strict_states=True):
         self.snapshot.retry_at = None
         self.snapshot.save()
 
+
 class ArchiveResultMachine(StateMachine, strict_states=True):
-    """State machine for managing ArchiveResult lifecycle."""
+    """
+    State machine for managing ArchiveResult lifecycle.
+    
+    https://github.com/ArchiveBox/ArchiveBox/wiki/ArchiveBox-Architecture-Diagrams
+    """
     
     model: ArchiveResult
     

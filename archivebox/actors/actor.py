@@ -32,7 +32,7 @@ class ActorQueueIsEmpty(Exception):
 
 CPU_COUNT = cpu_count()
 DEFAULT_MAX_TICK_TIME = 60
-DEFAULT_MAX_CONCURRENT_ACTORS = min(max(2, int(CPU_COUNT * 0.6)), 8)   # 2 < 60% * num available cpu cores < 8
+DEFAULT_MAX_CONCURRENT_ACTORS = min(max(2, int(CPU_COUNT * 0.6)), 8)   # 2 < (60% * num available cpu cores) < 8
 
 limit = lambda n, max: min(n, max)
 
@@ -569,3 +569,4 @@ def compile_sql_update(queryset: QuerySet, update_kwargs: dict[str, Any], filter
     # e.g. UPDATE core_archiveresult SET status='%s', retry_at='%s' WHERE status NOT IN (%s, %s, %s) AND retry_at <= %s
     update_sql, update_params = query.get_compiler(queryset.db).as_sql()
     return update_sql, update_params
+
