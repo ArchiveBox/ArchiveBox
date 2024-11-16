@@ -5,12 +5,10 @@ __command__ = 'archivebox update'
 
 import sys
 import argparse
-from pathlib import Path
 from typing import List, Optional, IO
 
 from archivebox.misc.util import docstring
-from archivebox.config import DATA_DIR
-from ..index import (
+from archivebox.index import (
     LINK_FILTERS,
     get_indexed_folders,
     get_archived_folders,
@@ -23,8 +21,16 @@ from ..index import (
     get_corrupted_folders,
     get_unrecognized_folders,
 )
-from ..logging_util import SmartFormatter, accept_stdin
-from ..main import update
+from archivebox.logging_util import SmartFormatter, accept_stdin
+# from ..main import update
+
+def update():
+    from archivebox.config.django import setup_django
+    setup_django()
+    
+    from actors.orchestrator import Orchestrator
+    orchestrator = Orchestrator()
+    orchestrator.start()
 
 
 @docstring(update.__doc__)
@@ -116,20 +122,22 @@ def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional
     if not command.filter_patterns:
         filter_patterns_str = accept_stdin(stdin)
 
-    update(
-        resume=command.resume,
-        only_new=command.only_new,
-        index_only=command.index_only,
-        overwrite=command.overwrite,
-        filter_patterns_str=filter_patterns_str,
-        filter_patterns=command.filter_patterns,
-        filter_type=command.filter_type,
-        status=command.status,
-        after=command.after,
-        before=command.before,
-        out_dir=Path(pwd) if pwd else DATA_DIR,
-        extractors=command.extract,
-    )
+    update()
+    
+    # update(
+    #     resume=command.resume,
+    #     only_new=command.only_new,
+    #     index_only=command.index_only,
+    #     overwrite=command.overwrite,
+    #     filter_patterns_str=filter_patterns_str,
+    #     filter_patterns=command.filter_patterns,
+    #     filter_type=command.filter_type,
+    #     status=command.status,
+    #     after=command.after,
+    #     before=command.before,
+    #     out_dir=Path(pwd) if pwd else DATA_DIR,
+    #     extractors=command.extract,
+    # )
     
 
 if __name__ == '__main__':

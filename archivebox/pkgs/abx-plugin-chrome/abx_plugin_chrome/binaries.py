@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from pydantic import InstanceOf
-from pydantic_pkgr import (
+from abx_pkg import (
     Binary,
     BinProvider,
     BinName,

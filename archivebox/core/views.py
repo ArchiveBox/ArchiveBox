@@ -102,7 +102,8 @@ class SnapshotView(View):
 
         # iterate through all the files in the snapshot dir and add the biggest ones to1 the result list
         snap_dir = Path(snapshot.link_dir)
-        assert os.path.isdir(snap_dir) and os.access(snap_dir, os.R_OK)
+        if not os.path.isdir(snap_dir) and os.access(snap_dir, os.R_OK):
+            return {}
         
         for result_file in (*snap_dir.glob('*'), *snap_dir.glob('*/*')):
             extension = result_file.suffix.lstrip('.').lower()
@@ -504,7 +505,7 @@ def find_config_section(key: str) -> str:
     if key in CONSTANTS_CONFIG:
         return 'CONSTANT'
     matching_sections = [
-        section_id for section_id, section in CONFIGS.items() if key in section.model_fields
+        section_id for section_id, section in CONFIGS.items() if key in dict(section)
     ]
     section = matching_sections[0] if matching_sections else 'DYNAMIC'
     return section
@@ -518,8 +519,9 @@ def find_config_default(key: str) -> str:
     default_val = None
 
     for config in CONFIGS.values():
-        if key in config.model_fields:
-            default_val = config.model_fields[key].default
+        if key in dict(config):
+            default_field = getattr(config, 'model_fields', dict(config))[key]
+            default_val = default_field.default if hasattr(default_field, 'default') else default_field
             break
         
     if isinstance(default_val, Callable):
@@ -528,7 +530,6 @@ def find_config_default(key: str) -> str:
             default_val = default_val[:-1]
     else:
         default_val = str(default_val)
-        
         
     return default_val
 
@@ -567,7 +568,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
     }
 
     for section_id, section in reversed(list(CONFIGS.items())):
-        for key, field in section.model_fields.items():
+        for key in dict(section).keys():
             rows['Section'].append(section_id)   # section.replace('_', ' ').title().replace(' Config', '')
             rows['Key'].append(ItemLink(key, key=key))
             rows['Type'].append(format_html('<code>{}</code>', find_config_type(key)))
@@ -580,7 +581,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
     for key in CONSTANTS_CONFIG.keys():
         rows['Section'].append(section)   # section.replace('_', ' ').title().replace(' Config', '')
         rows['Key'].append(ItemLink(key, key=key))
-        rows['Type'].append(format_html('<code>{}</code>', getattr(type(CONSTANTS_CONFIG[key]), '__name__', repr(CONSTANTS_CONFIG[key]))))
+        rows['Type'].append(format_html('<code>{}</code>', getattr(type(CONSTANTS_CONFIG[key]), '__name__', str(CONSTANTS_CONFIG[key]))))
         rows['Value'].append(format_html('<code>{}</code>', CONSTANTS_CONFIG[key]) if key_is_safe(key) else '******** (redacted)')
         rows['Default'].append(mark_safe(f'<a href="https://github.com/search?q=repo%3AArchiveBox%2FArchiveBox+path%3Aconfig+{key}&type=code"><code style="text-decoration: underline">{find_config_default(key) or "See here..."}</code></a>'))
         # rows['Documentation'].append(mark_safe(f'Wiki: <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#{key.lower()}">{key}</a>'))
@@ -642,13 +643,13 @@ def live_config_value_view(request: HttpRequest, key: str, **kwargs) -> ItemCont
                             <code>{find_config_default(key) or '↗️ See in ArchiveBox source code...'}</code>
                         </a>
                         <br/><br/>
-                        <p style="display: {"block" if key in FLAT_CONFIG else "none"}">
+                        <p style="display: {"block" if key in FLAT_CONFIG and key not in CONSTANTS_CONFIG else "none"}">
                             <i>To change this value, edit <code>data/ArchiveBox.conf</code> or run:</i>
                             <br/><br/>
                             <code>archivebox config --set {key}="{
                                 val.strip("'")
                                 if (val := find_config_default(key)) else
-                                (repr(FLAT_CONFIG[key] if key_is_safe(key) else '********')).strip("'")
+                                (str(FLAT_CONFIG[key] if key_is_safe(key) else '********')).strip("'")
                             }"</code>
                         </p>
                     '''),

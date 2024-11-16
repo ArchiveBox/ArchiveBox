@@ -3,7 +3,7 @@ import abx
 
 from typing import Dict
 
-from pydantic_pkgr import (
+from abx_pkg import (
     AptProvider,
     BrewProvider,
     EnvProvider,

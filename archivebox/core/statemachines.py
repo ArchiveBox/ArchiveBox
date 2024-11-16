@@ -37,25 +37,44 @@ class SnapshotMachine(StateMachine, strict_states=True):
         super().__init__(snapshot, *args, **kwargs)
         
     def can_start(self) -> bool:
-        return self.snapshot.url
+        can_start = bool(self.snapshot.url and (self.snapshot.retry_at < timezone.now()))
+        if not can_start:
+            print(f'SnapshotMachine[{self.snapshot.ABID}].can_start() False: {self.snapshot.url} {self.snapshot.retry_at} {timezone.now()}')
+        return can_start
         
     def is_finished(self) -> bool:
+        # if no archiveresults exist yet, it's not finished
         if not self.snapshot.archiveresult_set.exists():
             return False
+        # if archiveresults exist but are still pending, it's not finished
         if self.snapshot.pending_archiveresults().exists():
             return False
+        
+        # otherwise archiveresults exist and are all finished, so it's finished
         return True
         
-    @started.enter
-    def on_started(self):
-        print(f'SnapshotMachine[{self.snapshot.ABID}].on_started(): snapshot.create_pending_archiveresults() + snapshot.bump_retry_at(+60s)')
-        self.snapshot.create_pending_archiveresults()
-        self.snapshot.bump_retry_at(seconds=60)
+    def on_transition(self, event, state):
+        print(f'SnapshotMachine[{self.snapshot.ABID}].on_transition() {event} -> {state}')
+        
+    @queued.enter
+    def enter_queued(self):
+        print(f'SnapshotMachine[{self.snapshot.ABID}].on_queued(): snapshot.retry_at = now()')
+        self.snapshot.status = Snapshot.StatusChoices.QUEUED
+        self.snapshot.retry_at = timezone.now()
         self.snapshot.save()
         
+    @started.enter
+    def enter_started(self):
+        print(f'SnapshotMachine[{self.snapshot.ABID}].on_started(): snapshot.create_pending_archiveresults() + snapshot.bump_retry_at(+60s)')
+        self.snapshot.status = Snapshot.StatusChoices.STARTED
+        self.snapshot.bump_retry_at(seconds=60)
+        self.snapshot.save()
+        self.snapshot.create_pending_archiveresults()
+        
     @sealed.enter
-    def on_sealed(self):
+    def enter_sealed(self):
         print(f'SnapshotMachine[{self.snapshot.ABID}].on_sealed(): snapshot.retry_at=None')
+        self.snapshot.status = Snapshot.StatusChoices.SEALED
         self.snapshot.retry_at = None
         self.snapshot.save()
 
@@ -95,7 +114,7 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         super().__init__(archiveresult, *args, **kwargs)
         
     def can_start(self) -> bool:
-        return self.archiveresult.snapshot and self.archiveresult.snapshot.STATE == Snapshot.active_state
+        return self.archiveresult.snapshot and (self.archiveresult.retry_at < timezone.now())
     
     def is_succeeded(self) -> bool:
         return self.archiveresult.output_exists()
@@ -109,29 +128,45 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
     def is_finished(self) -> bool:
         return self.is_failed() or self.is_succeeded()
 
+
+    @queued.enter
+    def enter_queued(self):
+        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_queued(): archiveresult.retry_at = now()')
+        self.archiveresult.status = ArchiveResult.StatusChoices.QUEUED
+        self.archiveresult.retry_at = timezone.now()
+        self.archiveresult.save()
+        
     @started.enter
-    def on_started(self):
+    def enter_started(self):
         print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_started(): archiveresult.start_ts + create_output_dir() + bump_retry_at(+60s)')
+        self.archiveresult.status = ArchiveResult.StatusChoices.STARTED
         self.archiveresult.start_ts = timezone.now()
-        self.archiveresult.create_output_dir()
         self.archiveresult.bump_retry_at(seconds=60)
         self.archiveresult.save()
+        self.archiveresult.create_output_dir()
 
     @backoff.enter
-    def on_backoff(self):
-        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_backoff(): archiveresult.bump_retry_at(+60s)')
+    def enter_backoff(self):
+        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_backoff(): archiveresult.retries += 1, archiveresult.bump_retry_at(+60s), archiveresult.end_ts = None')
+        self.archiveresult.status = ArchiveResult.StatusChoices.BACKOFF
+        self.archiveresult.retries = getattr(self.archiveresult, 'retries', 0) + 1
         self.archiveresult.bump_retry_at(seconds=60)
+        self.archiveresult.end_ts = None
         self.archiveresult.save()
 
     @succeeded.enter
-    def on_succeeded(self):
-        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_succeeded(): archiveresult.end_ts')
+    def enter_succeeded(self):
+        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_succeeded(): archiveresult.retry_at = None, archiveresult.end_ts = now()')
+        self.archiveresult.status = ArchiveResult.StatusChoices.SUCCEEDED
+        self.archiveresult.retry_at = None
         self.archiveresult.end_ts = timezone.now()
         self.archiveresult.save()
 
     @failed.enter
-    def on_failed(self):
-        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_failed(): archiveresult.end_ts')
+    def enter_failed(self):
+        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_failed(): archivebox.retry_at = None, archiveresult.end_ts = now()')
+        self.archiveresult.status = ArchiveResult.StatusChoices.FAILED
+        self.archiveresult.retry_at = None
         self.archiveresult.end_ts = timezone.now()
         self.archiveresult.save()
         

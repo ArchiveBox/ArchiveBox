@@ -3,7 +3,7 @@ __package__ = 'abx_plugin_mercury'
 from typing import List
 
 from pydantic import InstanceOf
-from pydantic_pkgr import BinProvider, BinName, BinaryOverrides, bin_abspath, Binary
+from abx_pkg import BinProvider, BinName, BinaryOverrides, bin_abspath, Binary
 
 from abx_plugin_default_binproviders import env
 

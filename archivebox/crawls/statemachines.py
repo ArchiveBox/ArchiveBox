@@ -1,5 +1,7 @@
 __package__ = 'archivebox.crawls'
 
+from django.utils import timezone
+
 from statemachine import State, StateMachine
 
 from crawls.models import Crawl
@@ -31,7 +33,7 @@ class CrawlMachine(StateMachine, strict_states=True):
         super().__init__(crawl, *args, **kwargs)
         
     def can_start(self) -> bool:
-        return self.crawl.seed and self.crawl.seed.uri
+        return bool(self.crawl.seed and self.crawl.seed.uri and (self.retry_at < timezone.now()))
         
     def is_finished(self) -> bool:
         if not self.crawl.snapshot_set.exists():
@@ -47,15 +49,17 @@ class CrawlMachine(StateMachine, strict_states=True):
     #     return "before_transition_return"
 
     @started.enter
-    def on_started(self):
+    def enter_started(self):
         print(f'CrawlMachine[{self.crawl.ABID}].on_started(): crawl.create_root_snapshot() + crawl.bump_retry_at(+10s)')
-        self.crawl.create_root_snapshot()
+        self.crawl.status = Crawl.StatusChoices.STARTED
         self.crawl.bump_retry_at(seconds=10)
         self.crawl.save()
+        self.crawl.create_root_snapshot()
 
     @sealed.enter        
-    def on_sealed(self):
+    def enter_sealed(self):
         print(f'CrawlMachine[{self.crawl.ABID}].on_sealed(): crawl.retry_at=None')
+        self.crawl.status = Crawl.StatusChoices.SEALED
         self.crawl.retry_at = None
         self.crawl.save()
 

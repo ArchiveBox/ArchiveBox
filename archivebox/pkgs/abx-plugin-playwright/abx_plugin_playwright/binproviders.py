@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, ClassVar
 
 from pydantic import Field
-from pydantic_pkgr import (
+from abx_pkg import (
     BinName,
     BinProvider,
     BinProviderName,

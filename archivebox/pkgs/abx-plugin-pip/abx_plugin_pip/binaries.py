@@ -9,7 +9,7 @@ from pydantic import InstanceOf, Field, model_validator
 import django
 import django.db.backends.sqlite3.base
 from django.db.backends.sqlite3.base import Database as django_sqlite3     # type: ignore[import-type]
-from pydantic_pkgr import BinProvider, Binary, BinName, BinaryOverrides, SemVer
+from abx_pkg import BinProvider, Binary, BinName, BinaryOverrides, SemVer
 
 
 from .binproviders import LIB_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER, env, apt, brew

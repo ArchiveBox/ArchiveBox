@@ -150,8 +150,8 @@ class Crawl(ABIDModel, ModelWithHealthStats, ModelWithStateMachine):
         parser = (self.seed and self.seed.extractor) or 'auto'
         created_at = self.created_at.strftime("%Y-%m-%d %H:%M") if self.created_at else '<no timestamp set>'
         if self.id and self.seed:
-            return f'[{self.ABID}] {url[:64]} ({parser}) @ {created_at} ({self.label or "Untitled Crawl"})'
-        return f'[{self.abid_prefix}****not*saved*yet****] {url[:64]} ({parser}) @ {created_at} ({self.label or "Untitled Crawl"})'
+            return f'\\[{self.ABID}] {url[:64]} ({parser}) @ {created_at} ({self.label or "Untitled Crawl"})'
+        return f'\\[{self.abid_prefix}****not*saved*yet****] {url[:64]} ({parser}) @ {created_at} ({self.label or "Untitled Crawl"})'
         
     @classmethod
     def from_seed(cls, seed: Seed, max_depth: int=0, persona: str='Default', tags_str: str='', config: dict|None=None, created_by: int|None=None):
@@ -184,26 +184,27 @@ class Crawl(ABIDModel, ModelWithHealthStats, ModelWithStateMachine):
         return '/api/v1/docs#/Core%20Models/api_v1_core_get_crawl'
     
     def pending_snapshots(self) -> QuerySet['Snapshot']:
-        from core.models import Snapshot
-        return self.snapshot_set.exclude(status__in=Snapshot.FINAL_OR_ACTIVE_STATES)
+        return self.snapshot_set.filter(retry_at__isnull=False)
     
     def pending_archiveresults(self) -> QuerySet['ArchiveResult']:
         from core.models import ArchiveResult
         
         snapshot_ids = self.snapshot_set.values_list('id', flat=True)
-        pending_archiveresults = ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids).exclude(status__in=ArchiveResult.FINAL_OR_ACTIVE_STATES)
+        pending_archiveresults = ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids, retry_at__isnull=True)
         return pending_archiveresults
     
     def create_root_snapshot(self) -> 'Snapshot':
         from core.models import Snapshot
         
-        root_snapshot, _ = Snapshot.objects.get_or_create(
-            crawl=self,
+        root_snapshot, _ = Snapshot.objects.update_or_create(
             url=self.seed.uri,
-            status=Snapshot.INITIAL_STATE,
-            retry_at=timezone.now(),
-            timestamp=str(timezone.now().timestamp()),
-            # config=self.seed.config,
+            defaults={
+                'crawl': self,
+                'status': Snapshot.INITIAL_STATE,
+                'retry_at': timezone.now(),
+                'timestamp': str(timezone.now().timestamp()),
+                # 'config': self.seed.config,
+            },
         )
         return root_snapshot
 

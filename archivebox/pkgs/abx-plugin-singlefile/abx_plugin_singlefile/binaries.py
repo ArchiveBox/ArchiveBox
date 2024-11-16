@@ -1,7 +1,7 @@
 from typing import List
 
 from pydantic import InstanceOf
-from pydantic_pkgr import Binary, BinProvider, BinaryOverrides, BinName, bin_abspath
+from abx_pkg import Binary, BinProvider, BinaryOverrides, BinName, bin_abspath
 
 from abx_plugin_default_binproviders import env
 from abx_plugin_npm.binproviders import SYS_NPM_BINPROVIDER, LIB_NPM_BINPROVIDER

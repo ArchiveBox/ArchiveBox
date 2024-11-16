@@ -1,17 +1,20 @@
 __package__ = 'abx_plugin_mercury'
 
-# from pathlib import Path
+from pathlib import Path
 
-# from .binaries import MERCURY_BINARY
+from abx_pkg import BinName
+from abx_spec_extractor import BaseExtractor, ExtractorName
 
-
-
-# class MercuryExtractor(BaseExtractor):
-#     name: ExtractorName = 'mercury'
-#     binary: str = MERCURY_BINARY.name
-
-#     def get_output_path(self, snapshot) -> Path | None:
-#         return snapshot.link_dir / 'mercury' / 'content.html'
+from .binaries import MERCURY_BINARY
 
 
-# MERCURY_EXTRACTOR = MercuryExtractor()
+
+class MercuryExtractor(BaseExtractor):
+    name: ExtractorName = 'mercury'
+    binary: BinName = MERCURY_BINARY.name
+
+    def get_output_path(self, snapshot) -> Path | None:
+        return snapshot.link_dir / 'mercury' / 'content.html'
+
+
+MERCURY_EXTRACTOR = MercuryExtractor()

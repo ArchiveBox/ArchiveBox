@@ -1,3 +1,4 @@
+__package__ = 'abx_plugin_chrome'
 __label__ = 'Chrome'
 __author__ = 'ArchiveBox'
 
@@ -25,10 +26,11 @@ def ready():
     CHROME_CONFIG.validate()
 
 
-# @abx.hookimpl
-# def get_EXTRACTORS():
-#     return {
-#         'pdf': PDF_EXTRACTOR,
-#         'screenshot': SCREENSHOT_EXTRACTOR,
-#         'dom': DOM_EXTRACTOR,
-#     }
+@abx.hookimpl
+def get_EXTRACTORS():
+    from .extractors import PDF_EXTRACTOR, SCREENSHOT_EXTRACTOR, DOM_EXTRACTOR
+    return {
+        'pdf': PDF_EXTRACTOR,
+        'screenshot': SCREENSHOT_EXTRACTOR,
+        'dom': DOM_EXTRACTOR,
+    }

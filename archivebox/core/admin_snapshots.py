@@ -56,12 +56,12 @@ class SnapshotActionForm(ActionForm):
 
 
 class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
-    list_display = ('created_at', 'title_str', 'files', 'size', 'url_str', 'crawl')
-    sort_fields = ('title_str', 'url_str', 'created_at', 'crawl')
+    list_display = ('created_at', 'title_str', 'status', 'files', 'size', 'url_str')
+    sort_fields = ('title_str', 'url_str', 'created_at', 'status', 'crawl')
     readonly_fields = ('admin_actions', 'status_info', 'tags_str', 'imported_timestamp', 'created_at', 'modified_at', 'downloaded_at', 'abid_info', 'link_dir')
     search_fields = ('id', 'url', 'abid', 'timestamp', 'title', 'tags__name')
     list_filter = ('created_at', 'downloaded_at', 'archiveresult__status', 'created_by', 'tags__name')
-    fields = ('url', 'title', 'created_by', 'bookmarked_at', 'crawl', *readonly_fields)
+    fields = ('url', 'title', 'created_by', 'bookmarked_at', 'status', 'retry_at', 'crawl', *readonly_fields)
     ordering = ['-created_at']
     actions = ['add_tags', 'remove_tags', 'update_titles', 'update_snapshots', 'resnapshot_snapshot', 'overwrite_snapshots', 'delete_snapshots']
     inlines = [TagInline, ArchiveResultInline]

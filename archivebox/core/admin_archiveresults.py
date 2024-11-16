@@ -39,7 +39,7 @@ class ArchiveResultInline(admin.TabularInline):
     extra = 0
     sort_fields = ('end_ts', 'extractor', 'output', 'status', 'cmd_version')
     readonly_fields = ('id', 'result_id', 'completed', 'command', 'version')
-    fields = ('start_ts', 'end_ts', *readonly_fields, 'extractor', 'cmd', 'cmd_version', 'pwd', 'created_by', 'status', 'output')
+    fields = ('start_ts', 'end_ts', *readonly_fields, 'extractor', 'cmd', 'cmd_version', 'pwd', 'created_by', 'status', 'retry_at', 'output')
     # exclude = ('id',)
     ordering = ('end_ts',)
     show_change_link = True
@@ -105,11 +105,11 @@ class ArchiveResultInline(admin.TabularInline):
 
 
 class ArchiveResultAdmin(ABIDModelAdmin):
-    list_display = ('start_ts', 'snapshot_info', 'tags_str', 'extractor', 'cmd_str', 'status', 'output_str')
-    sort_fields = ('start_ts', 'extractor', 'status')
+    list_display = ('abid', 'created_by', 'created_at', 'snapshot_info', 'tags_str', 'status', 'extractor', 'cmd_str', 'output_str')
+    sort_fields = ('abid', 'created_by', 'created_at', 'extractor', 'status')
     readonly_fields = ('cmd_str', 'snapshot_info', 'tags_str', 'created_at', 'modified_at', 'abid_info', 'output_summary')
     search_fields = ('id', 'abid', 'snapshot__url', 'extractor', 'output', 'cmd_version', 'cmd', 'snapshot__timestamp')
-    fields = ('snapshot', 'extractor', 'status', 'output', 'pwd', 'start_ts', 'end_ts', 'created_by', 'cmd_version', 'cmd', *readonly_fields)
+    fields = ('snapshot', 'extractor', 'status', 'retry_at', 'start_ts', 'end_ts', 'created_by', 'pwd', 'cmd_version', 'cmd', 'output', *readonly_fields)
     autocomplete_fields = ['snapshot']
 
     list_filter = ('status', 'extractor', 'start_ts', 'cmd_version')
@@ -169,7 +169,7 @@ class ArchiveResultAdmin(ABIDModelAdmin):
             result.output,
         )
         output_str += format_html('<a href="/archive/{}/index.html#all">See result files ...</a><br/><pre><code>', str(result.snapshot.timestamp))
-        path_from_output_str = (snapshot_dir / result.output)
+        path_from_output_str = (snapshot_dir / (result.output or ''))
         output_str += format_html('<i style="padding: 1px">{}</i><b style="padding-right: 20px">/</b><i>{}</i><br/><hr/>', str(snapshot_dir), str(result.output))
         if os.access(path_from_output_str, os.R_OK):
             root_dir = str(path_from_output_str)

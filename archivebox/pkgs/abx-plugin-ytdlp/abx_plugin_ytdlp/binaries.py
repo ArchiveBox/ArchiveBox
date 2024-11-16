@@ -4,7 +4,7 @@ import subprocess
 from typing import List
 
 from pydantic import InstanceOf
-from pydantic_pkgr import BinProvider, BinName, BinaryOverrides, Binary
+from abx_pkg import BinProvider, BinName, BinaryOverrides, Binary
 
 from abx_plugin_default_binproviders import apt, brew, env
 from abx_plugin_pip.binproviders import LIB_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER

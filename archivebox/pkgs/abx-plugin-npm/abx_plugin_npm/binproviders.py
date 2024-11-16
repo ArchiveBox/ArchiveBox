@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from pydantic_pkgr import NpmProvider, PATHStr, BinProviderName
+from abx_pkg import NpmProvider, PATHStr, BinProviderName
 
 import abx
 

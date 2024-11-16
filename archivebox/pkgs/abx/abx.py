@@ -244,10 +244,12 @@ def get_plugin_order(plugin: PluginId | Path | ModuleType | Type) -> Tuple[int, 
         except FileNotFoundError:
             pass
     
+    default_order = 10 if '_spec_' in str(plugin_dir).lower() else 999
+    
     if plugin_module:
-        order = getattr(plugin_module, '__order__', 999)
+        order = getattr(plugin_module, '__order__', default_order)
     else:
-        order = 999
+        order = default_order
     
     assert order is not None
     assert plugin_dir
@@ -270,7 +272,10 @@ def get_plugin(plugin: PluginId | ModuleType | Type) -> PluginInfo:
     elif inspect.isclass(plugin):
         module = inspect.getmodule(plugin)
     else:
-        raise ValueError(f'Invalid plugin, must be a module, class, or plugin ID (package name): {plugin}')
+        plugin = type(plugin)
+        module = inspect.getmodule(plugin)
+        
+        # raise ValueError(f'Invalid plugin, must be a module, class, or plugin ID (package name): {plugin}')
     
     assert module
     
@@ -416,9 +421,14 @@ def load_plugins(plugins: Iterable[PluginId | ModuleType | Type] | Dict[PluginId
     PLUGINS_TO_LOAD = []
     LOADED_PLUGINS = {}
     
-    for plugin in plugins:
-        plugin_info = get_plugin(plugin)
-        assert plugin_info, f'No plugin metadata found for {plugin}'
+    plugin_infos = sorted([
+        get_plugin(plugin)
+        for plugin in plugins
+    ], key=lambda plugin: plugin.get('order', 999))
+    
+    
+    for plugin_info in plugin_infos:
+        assert plugin_info, 'No plugin metadata found for plugin'
         assert 'id' in plugin_info and 'module' in plugin_info
         if plugin_info['module'] in pm.get_plugins():
             LOADED_PLUGINS[plugin_info['id']] = plugin_info
@@ -431,7 +441,7 @@ def load_plugins(plugins: Iterable[PluginId | ModuleType | Type] | Dict[PluginId
     for plugin_info in PLUGINS_TO_LOAD:
         pm.register(plugin_info['module'])
         LOADED_PLUGINS[plugin_info['id']] = plugin_info
-        # print(f'    √ Loaded plugin: {plugin_id}')
+        print(f'    √ Loaded plugin: {plugin_info["id"]}')
     return benedict(LOADED_PLUGINS)
 
 @cache

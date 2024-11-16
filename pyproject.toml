@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.8.6rc1"
+version = "0.8.6rc2"
 requires-python = ">=3.10"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -80,13 +80,13 @@ dependencies = [
     "django-taggit==6.1.0",
     "base32-crockford==0.3.0",
     "platformdirs>=4.3.6",
-    "pydantic-pkgr>=0.5.4",
+    "abx-pkg>=0.6.0",
     "pocket>=0.3.6",
     "sonic-client>=1.0.0",
     "yt-dlp>=2024.8.6", # for: media"
     ############# Plugin Dependencies ################
     "abx>=0.1.0",
-    "abx-spec-pydantic-pkgr>=0.1.0",
+    "abx-spec-abx-pkg>=0.1.1",
     "abx-spec-config>=0.1.0",
     "abx-spec-archivebox>=0.1.0",
     "abx-spec-django>=0.1.0",
@@ -178,10 +178,10 @@ dev-dependencies = [
 ]
 
 [tool.uv.sources]
-# pydantic-pkgr = { workspace = true }
+# abx-pkg = { workspace = true }
 
 abx = { workspace = true }
-abx-spec-pydantic-pkgr = { workspace = true }
+abx-spec-abx-pkg = { workspace = true }
 abx-spec-config = { workspace = true }
 abx-spec-archivebox = { workspace = true }
 abx-spec-django = { workspace = true }

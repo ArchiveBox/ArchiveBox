@@ -1,5 +1,5 @@
 __package__ = 'archivebox.core'
-
+__order__ = 100
 import abx
 
 @abx.hookimpl

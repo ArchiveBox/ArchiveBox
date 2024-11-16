@@ -1,10 +1,12 @@
+__order__ = 10
+
 import os
 
 from typing import Optional, List, Annotated, Tuple
 from pathlib import Path
 
 from pydantic import AfterValidator
-from pydantic_pkgr import BinName
+from abx_pkg import BinName
 
 
 import abx
@@ -23,7 +25,7 @@ CmdArgsList = Annotated[List[str] | Tuple[str, ...], AfterValidator(assert_no_em
 @abx.hookspec
 @abx.hookimpl
 def get_EXTRACTORS():
-    return []
+    return {}
 
 @abx.hookspec
 @abx.hookimpl

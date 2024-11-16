@@ -6,7 +6,7 @@ from typing import Optional
 
 from benedict import benedict
 
-from pydantic_pkgr import PipProvider, BinName, BinProviderName
+from abx_pkg import PipProvider, BinName, BinProviderName
 
 import abx
 

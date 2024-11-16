@@ -6,7 +6,7 @@ from typing import List
 from pathlib import Path
 from pydantic import InstanceOf
 
-from pydantic_pkgr import BinaryOverrides, SemVer, Binary, BinProvider
+from abx_pkg import BinaryOverrides, SemVer, Binary, BinProvider
 
 from abx_plugin_default_binproviders import apt
 from abx_plugin_pip.binproviders import SYS_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER, LIB_PIP_BINPROVIDER, VENV_SITE_PACKAGES, LIB_SITE_PACKAGES, USER_SITE_PACKAGES, SYS_SITE_PACKAGES

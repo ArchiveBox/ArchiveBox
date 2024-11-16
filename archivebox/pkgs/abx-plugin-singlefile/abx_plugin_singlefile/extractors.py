@@ -1,18 +1,21 @@
 __package__ = 'abx_plugin_singlefile'
 
-# from pathlib import Path
 
-# from pydantic_pkgr import BinName
+from pathlib import Path
 
-# from .binaries import SINGLEFILE_BINARY
+from abx_pkg import BinName
 
+from abx_spec_extractor import BaseExtractor, ExtractorName
 
-# class SinglefileExtractor(BaseExtractor):
-#     name: str = 'singlefile'
-#     binary: BinName = SINGLEFILE_BINARY.name
-
-#     def get_output_path(self, snapshot) -> Path:
-#         return Path(snapshot.link_dir) / 'singlefile.html'
+from .binaries import SINGLEFILE_BINARY
 
 
-# SINGLEFILE_EXTRACTOR = SinglefileExtractor()
+class SinglefileExtractor(BaseExtractor):
+    name: ExtractorName = 'singlefile'
+    binary: BinName = SINGLEFILE_BINARY.name
+
+    def get_output_path(self, snapshot) -> Path:
+        return Path(snapshot.link_dir) / 'singlefile.html'
+
+
+SINGLEFILE_EXTRACTOR = SinglefileExtractor()

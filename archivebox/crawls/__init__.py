@@ -1,4 +1,5 @@
 __package__ = 'archivebox.crawls'
+__order__ = 100
 
 import abx
 

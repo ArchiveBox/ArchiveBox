@@ -11,7 +11,7 @@ from django.utils.functional import cached_property
 import abx
 import archivebox
 
-from pydantic_pkgr import Binary, BinProvider
+from abx_pkg import Binary, BinProvider
 from archivebox.abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats
 
 from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, get_host_stats
@@ -323,7 +323,7 @@ class InstalledBinary(ABIDModel, ModelWithHealthStats):
     # whereas a loaded binary is a not-yet saved instance that may not have the same config
     # why would we want to load a binary record from the db when it could be freshly loaded?
     def load_from_db(self) -> Binary:
-        # TODO: implement defaults arg in pydantic_pkgr
+        # TODO: implement defaults arg in abx_pkg
         # return self.BINARY.load(defaults={
         #     'binprovider': self.BINPROVIDER,
         #     'abspath': Path(self.abspath),

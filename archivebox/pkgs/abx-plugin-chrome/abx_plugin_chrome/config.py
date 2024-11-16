@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from pydantic import Field
-from pydantic_pkgr import bin_abspath
+from abx_pkg import bin_abspath
 
 from abx_spec_config.base_configset import BaseConfigSet
 from abx_plugin_default_binproviders import env

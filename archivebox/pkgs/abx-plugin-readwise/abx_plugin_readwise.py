@@ -3,7 +3,7 @@ __id__ = 'abx_plugin_readwise_extractor'
 __label__ = 'Readwise API'
 __version__ = '2024.10.27'
 __author__ = 'ArchiveBox'
-__homepage__ = 'https://github.com/ArchiveBox/ArchiveBox/tree/dev/archivebox/plugins_extractor/readwise'
+__homepage__ = 'https://github.com/ArchiveBox/ArchiveBox/tree/dev/archivebox/pkgs/abx-plugin-readwise-extractor'
 __dependencies__ = []
 
 import abx

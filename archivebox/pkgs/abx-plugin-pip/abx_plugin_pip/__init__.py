@@ -1,5 +1,6 @@
 __package__ = 'abx_plugin_pip'
 __label__ = 'PIP'
+__order__ = 200
 
 import abx
 

@@ -86,10 +86,11 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
     }
 
     for plugin_id, plugin in abx.get_all_plugins().items():
-        if not plugin.hooks.get('get_BINARIES'):
+        plugin = benedict(plugin)
+        if not hasattr(plugin.plugin, 'get_BINARIES'):
             continue
         
-        for binary in plugin.hooks.get_BINARIES().values():
+        for binary in plugin.plugin.get_BINARIES().values():
             try:
                 installed_binary = InstalledBinary.objects.get_from_db_or_cache(binary)
                 binary = installed_binary.load_from_db()
@@ -214,9 +215,9 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
         return 'black'
 
     for plugin_id, plugin in abx.get_all_plugins().items():
-        plugin.hooks.get_BINPROVIDERS = plugin.hooks.get('get_BINPROVIDERS', lambda: {})
-        plugin.hooks.get_BINARIES = plugin.hooks.get('get_BINARIES', lambda: {})
-        plugin.hooks.get_CONFIG = plugin.hooks.get('get_CONFIG', lambda: {})
+        plugin.hooks.get_BINPROVIDERS = getattr(plugin.plugin, 'get_BINPROVIDERS', lambda: {})
+        plugin.hooks.get_BINARIES = getattr(plugin.plugin, 'get_BINARIES', lambda: {})
+        plugin.hooks.get_CONFIG = getattr(plugin.plugin, 'get_CONFIG', lambda: {})
         
         rows['Label'].append(ItemLink(plugin.label, key=plugin.package))
         rows['Version'].append(str(plugin.version))
@@ -251,8 +252,10 @@ def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
 
     assert request.user.is_superuser, 'Must be a superuser to view configuration settings.'
 
+    plugins = abx.get_all_plugins()
+
     plugin_id = None
-    for check_plugin_id, loaded_plugin in settings.PLUGINS.items():
+    for check_plugin_id, loaded_plugin in plugins.items():
         if check_plugin_id.split('.')[-1] == key.split('.')[-1]:
             plugin_id = check_plugin_id
             break

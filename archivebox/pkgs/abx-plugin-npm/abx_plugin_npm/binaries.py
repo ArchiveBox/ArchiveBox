@@ -1,4 +1,4 @@
-__package__ = 'plugins_pkg.npm'
+__package__ = 'abx_plugin_npm'
 
 
 from typing import List
@@ -6,7 +6,7 @@ from typing import List
 from pydantic import InstanceOf
 from benedict import benedict
 
-from pydantic_pkgr import BinProvider, Binary, BinName, BinaryOverrides
+from abx_pkg import BinProvider, Binary, BinName, BinaryOverrides
 
 from abx_plugin_default_binproviders import get_BINPROVIDERS
 

@@ -1,7 +1,7 @@
 __package__ = 'archivebox.core'
 
 
-from typing import Optional, Dict, Iterable
+from typing import Optional, Dict, Iterable, Any
 from django_stubs_ext.db.models import TypedModelMeta
 
 import os
@@ -20,20 +20,22 @@ from django.db.models import Case, When, Value, IntegerField
 from django.contrib import admin
 from django.conf import settings
 
-from actors.models import ModelWithStateMachine
+
+import abx
 
 from archivebox.config import CONSTANTS
 
 from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
+from actors.models import ModelWithStateMachine
 from queues.tasks import bg_archive_snapshot
 from crawls.models import Crawl
 # from machine.models import Machine, NetworkInterface
 
 from archivebox.misc.system import get_dir_size
 from archivebox.misc.util import parse_date, base_url
-from ..index.schema import Link
-from ..index.html import snapshot_icons
-from ..extractors import ARCHIVE_METHODS_INDEXING_PRECEDENCE, EXTRACTORS
+from archivebox.index.schema import Link
+from archivebox.index.html import snapshot_icons
+from archivebox.extractors import ARCHIVE_METHODS_INDEXING_PRECEDENCE
 
 
 # class BaseModel(models.Model):
@@ -195,13 +197,21 @@ class Snapshot(ABIDModel, ModelWithStateMachine):
     tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name='snapshot_set', through_fields=('snapshot', 'tag'))
     title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
 
-    keys = ('url', 'timestamp', 'title', 'tags', 'downloaded_at')
+    # config = models.JSONField(default=dict, null=False, blank=False, editable=True)
+
+    keys = ('url', 'timestamp', 'title', 'tags', 'downloaded_at', 'created_at', 'status', 'retry_at', 'abid', 'id')
 
     archiveresult_set: models.Manager['ArchiveResult']
 
     objects = SnapshotManager()
 
     def save(self, *args, **kwargs):
+        if self.pk:
+            existing_snapshot = self.__class__.objects.filter(pk=self.pk).first()
+            if existing_snapshot and existing_snapshot.status == self.StatusChoices.SEALED:
+                if self.as_json() != existing_snapshot.as_json():
+                    raise Exception(f'Snapshot {self.pk} is already sealed, it cannot be modified any further. NEW: {self.as_json()} != Existing: {existing_snapshot.as_json()}')
+        
         if not self.bookmarked_at:
             self.bookmarked_at = self.created_at or self._init_timestamp
             
@@ -427,7 +437,7 @@ class Snapshot(ABIDModel, ModelWithStateMachine):
         ALL_EXTRACTORS = ['favicon', 'title', 'screenshot', 'headers', 'singlefile', 'dom', 'git', 'archive_org', 'readability', 'mercury', 'pdf', 'wget']
         
         # config = get_scope_config(snapshot=self)
-        config = {'EXTRACTORS': ''}
+        config = {'EXTRACTORS': ','.join(ALL_EXTRACTORS)}
         
         if config.get('EXTRACTORS', 'auto') == 'auto':
             EXTRACTORS = ALL_EXTRACTORS
@@ -438,10 +448,13 @@ class Snapshot(ABIDModel, ModelWithStateMachine):
         for extractor in EXTRACTORS:
             if not extractor:
                 continue
-            archiveresult, _created = ArchiveResult.objects.get_or_create(
+            archiveresult = ArchiveResult.objects.update_or_create(
                 snapshot=self,
                 extractor=extractor,
                 status=ArchiveResult.INITIAL_STATE,
+                defaults={
+                    'retry_at': timezone.now(),
+                },
             )
             archiveresults.append(archiveresult)
         return archiveresults
@@ -560,6 +573,8 @@ class ArchiveResult(ABIDModel, ModelWithStateMachine):
     # uplink = models.ForeignKey(NetworkInterface, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Network Interface Used')
 
     objects = ArchiveResultManager()
+    
+    keys = ('snapshot_id', 'extractor', 'cmd', 'pwd', 'cmd_version', 'output', 'start_ts', 'end_ts', 'created_at', 'status', 'retry_at', 'abid', 'id')
 
     class Meta(TypedModelMeta):
         verbose_name = 'Archive Result'
@@ -576,6 +591,16 @@ class ArchiveResult(ABIDModel, ModelWithStateMachine):
 
     def __str__(self):
         return repr(self)
+    
+    def save(self, *args, **kwargs):
+        # if (self.pk and self.__class__.objects.filter(pk=self.pk).values_list('status', flat=True)[0] in [self.StatusChoices.FAILED, self.StatusChoices.SUCCEEDED, self.StatusChoices.SKIPPED]):
+        #     raise Exception(f'ArchiveResult {self.pk} is in a final state, it cannot be modified any further.')
+        if self.pk:
+            existing_archiveresult = self.__class__.objects.filter(pk=self.pk).first()
+            if existing_archiveresult and existing_archiveresult.status in [self.StatusChoices.FAILED, self.StatusChoices.SUCCEEDED, self.StatusChoices.SKIPPED]:
+                if self.as_json() != existing_archiveresult.as_json():
+                    raise Exception(f'ArchiveResult {self.pk} is in a final state, it cannot be modified any further. NEW: {self.as_json()} != Existing: {existing_archiveresult.as_json()}')
+        super().save(*args, **kwargs)
 
     # TODO: finish connecting machine.models
     # @cached_property
@@ -603,36 +628,53 @@ class ArchiveResult(ABIDModel, ModelWithStateMachine):
         return f'/{self.snapshot.archive_path}/{self.output_path()}'
 
     @property
-    def extractor_module(self):
-        return EXTRACTORS[self.extractor]
+    def extractor_module(self) -> Any | None:
+        return abx.as_dict(abx.pm.hook.get_EXTRACTORS()).get(self.extractor, None)
 
-    def output_path(self) -> str:
+    def output_path(self) -> str | None:
         """return the canonical output filename or directory name within the snapshot dir"""
-        return self.extractor_module.get_output_path()
+        try:
+            return self.extractor_module.get_output_path(self.snapshot)
+        except Exception as e:
+            print(f'Error getting output path for {self.extractor} extractor: {e}')
+            return None
 
-    def embed_path(self) -> str:
+    def embed_path(self) -> str | None:
         """
         return the actual runtime-calculated path to the file on-disk that
         should be used for user-facing iframe embeds of this result
         """
 
-        if get_embed_path_func := getattr(self.extractor_module, 'get_embed_path', None):
-            return get_embed_path_func(self)
-
-        return self.extractor_module.get_output_path()
+        try:
+            return self.extractor_module.get_embed_path(self)
+        except Exception as e:
+            print(f'Error getting embed path for {self.extractor} extractor: {e}')
+            return None
 
     def legacy_output_path(self):
         link = self.snapshot.as_link()
         return link.canonical_outputs().get(f'{self.extractor}_path')
 
     def output_exists(self) -> bool:
-        return os.path.exists(self.output_path())
-        
+        output_path = self.output_path()
+        return bool(output_path and os.path.exists(output_path))
+            
     def create_output_dir(self):
-        snap_dir = self.snapshot_dir
+        snap_dir = Path(self.snapshot_dir)
         snap_dir.mkdir(parents=True, exist_ok=True)
-        return snap_dir / self.output_path()
+        output_path = self.output_path()
+        if output_path:
+            (snap_dir / output_path).mkdir(parents=True, exist_ok=True)
+        else:
+            raise ValueError(f'Not able to calculate output path for {self.extractor} extractor in {snap_dir}')
+        return snap_dir / output_path
 
+    def as_json(self, *args) -> dict:
+        args = args or self.keys
+        return {
+            key: getattr(self, key)
+            for key in args
+        }
 
     # def get_storage_dir(self, create=True, symlink=True):
     #     date_str = self.snapshot.bookmarked_at.strftime('%Y%m%d')

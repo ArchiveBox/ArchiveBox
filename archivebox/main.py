@@ -14,7 +14,7 @@ from crontab import CronTab, CronSlices
 from django.db.models import QuerySet
 from django.utils import timezone
 
-from pydantic_pkgr import Binary
+from abx_pkg import Binary
 
 import abx
 import archivebox

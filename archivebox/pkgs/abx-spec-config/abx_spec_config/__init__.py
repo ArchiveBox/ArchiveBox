@@ -2,10 +2,12 @@ __order__ = 100
 
 import os
 from pathlib import Path
-from typing import Dict, Any, cast
+from typing import Any, cast, TYPE_CHECKING
 
 from benedict import benedict
 
+if TYPE_CHECKING:
+    from archivebox.config.constants import ConstantsDict
 
 import abx
 
@@ -13,38 +15,43 @@ from .base_configset import BaseConfigSet, ConfigKeyStr
 
 
 class ConfigPluginSpec:
+    @staticmethod
     @abx.hookspec(firstresult=True)
     @abx.hookimpl
-    def get_collection_config_path(self) -> Path:
+    def get_collection_config_path() -> Path:
         return Path(os.getcwd()) / "ArchiveBox.conf"
 
 
+    @staticmethod
     @abx.hookspec(firstresult=True)
     @abx.hookimpl
-    def get_system_config_path(self) -> Path:
+    def get_system_config_path() -> Path:
         return Path('~/.config/abx/abx.conf').expanduser()
 
 
+    @staticmethod
     @abx.hookspec
     @abx.hookimpl
-    def get_CONFIG(self) -> Dict[abx.PluginId, BaseConfigSet]:
+    def get_CONFIG() -> dict[abx.PluginId, 'BaseConfigSet | ConstantsDict']:
+        from archivebox import CONSTANTS
         """Get the config for a single plugin -> {plugin_id: PluginConfigSet()}"""
         return {
-            # override this in your plugin to return your plugin's config, e.g.
-            # 'ytdlp': YtdlpConfig(...),
+            'CONSTANTS': CONSTANTS,
         }
 
 
+    @staticmethod
     @abx.hookspec(firstresult=True)
     @abx.hookimpl
-    def get_CONFIGS(self) -> Dict[abx.PluginId, BaseConfigSet]:
+    def get_CONFIGS() -> dict[abx.PluginId, BaseConfigSet]:
         """Get the config for all plugins by plugin_id -> {plugin_abc: PluginABCConfigSet(), plugin_xyz: PluginXYZConfigSet(), ...}"""
         return abx.as_dict(pm.hook.get_CONFIG())
 
 
+    @staticmethod
     @abx.hookspec(firstresult=True)
     @abx.hookimpl
-    def get_FLAT_CONFIG(self) -> Dict[ConfigKeyStr, Any]:
+    def get_FLAT_CONFIG() -> dict[ConfigKeyStr, Any]:
         """Get the flat config assembled from all plugins config -> {SOME_KEY: 'someval', 'OTHER_KEY': 'otherval', ...}"""
         return benedict({
             key: value
@@ -52,9 +59,10 @@ class ConfigPluginSpec:
                 for key, value in benedict(configset).items()
         })
         
+    @staticmethod
     @abx.hookspec(firstresult=True)
     @abx.hookimpl
-    def get_SCOPE_CONFIG(self, extra=None, archiveresult=None, snapshot=None, crawl=None, user=None, collection=..., environment=..., machine=..., default=...) -> Dict[ConfigKeyStr, Any]:
+    def get_SCOPE_CONFIG(extra=None, archiveresult=None, snapshot=None, crawl=None, user=None, collection=..., environment=..., machine=..., default=...) -> dict[ConfigKeyStr, Any]:
         """Get the config as it applies to you right now, based on the current context"""
         return benedict({
             **pm.hook.get_default_config(default=default),
@@ -69,35 +77,41 @@ class ConfigPluginSpec:
             **(extra or {}),
         })
         
+    @staticmethod
     # @abx.hookspec(firstresult=True)
     # @abx.hookimpl
-    # def get_request_config(self, request) -> dict:
+    # def get_request_config(request) -> dict:
     #     session = getattr(request, 'session', None)
     #     return getattr(session, 'config', None) or {}
         
+    @staticmethod
     @abx.hookspec(firstresult=True)
     @abx.hookimpl
-    def get_archiveresult_config(self, archiveresult) -> Dict[ConfigKeyStr, Any]:
+    def get_archiveresult_config(archiveresult) -> dict[ConfigKeyStr, Any]:
         return getattr(archiveresult, 'config', None) or {}
     
+    @staticmethod
     @abx.hookspec(firstresult=True)
     @abx.hookimpl
-    def get_snapshot_config(self, snapshot) -> Dict[ConfigKeyStr, Any]:
+    def get_snapshot_config(snapshot) -> dict[ConfigKeyStr, Any]:
         return getattr(snapshot, 'config', None) or {}
     
+    @staticmethod
     @abx.hookspec(firstresult=True)
     @abx.hookimpl
-    def get_crawl_config(self, crawl) -> Dict[ConfigKeyStr, Any]:
+    def get_crawl_config(crawl) -> dict[ConfigKeyStr, Any]:
         return getattr(crawl, 'config', None) or {}
     
+    @staticmethod
     @abx.hookspec(firstresult=True)
     @abx.hookimpl
-    def get_user_config(self, user=None) -> Dict[ConfigKeyStr, Any]:
+    def get_user_config(user=None) -> dict[ConfigKeyStr, Any]:
         return getattr(user, 'config', None) or {}
     
+    @staticmethod
     @abx.hookspec(firstresult=True)
     @abx.hookimpl
-    def get_collection_config(self, collection=...) -> Dict[ConfigKeyStr, Any]:
+    def get_collection_config(collection=...) -> dict[ConfigKeyStr, Any]:
         # ... = ellipsis, means automatically get the collection config from the active data/ArchiveBox.conf file
         # {} = empty dict, override to ignore the collection config
         return benedict({
@@ -106,9 +120,10 @@ class ConfigPluginSpec:
                 for key, value in configset.from_collection().items()
         }) if collection == ... else collection
     
+    @staticmethod
     @abx.hookspec(firstresult=True)
     @abx.hookimpl
-    def get_environment_config(self, environment=...) -> Dict[ConfigKeyStr, Any]:
+    def get_environment_config(environment=...) -> dict[ConfigKeyStr, Any]:
         # ... = ellipsis, means automatically get the environment config from the active environment variables
         # {} = empty dict, override to ignore the environment config
         return benedict({
@@ -117,18 +132,20 @@ class ConfigPluginSpec:
                 for key, value in configset.from_environment().items()
         }) if environment == ... else environment
     
+    @staticmethod
     # @abx.hookspec(firstresult=True)
     # @abx.hookimpl
-    # def get_machine_config(self, machine=...) -> dict:
+    # def get_machine_config(machine=...) -> dict:
     #     # ... = ellipsis, means automatically get the machine config from the currently executing machine
     #     # {} = empty dict, override to ignore the machine config
     #     if machine == ...:
     #         machine = Machine.objects.get_current()
     #     return getattr(machine, 'config', None) or {}
         
+    @staticmethod
     @abx.hookspec(firstresult=True)
     @abx.hookimpl
-    def get_default_config(self, default=...) -> Dict[ConfigKeyStr, Any]:
+    def get_default_config(default=...) -> dict[ConfigKeyStr, Any]:
         # ... = ellipsis, means automatically get the machine config from the currently executing machine
         # {} = empty dict, override to ignore the machine config
         return benedict({

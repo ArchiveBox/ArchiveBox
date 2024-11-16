@@ -120,6 +120,8 @@ class ArchivingConfig(BaseConfigSet):
     SAVE_ALLOWLIST: Dict[str, List[str]]  = Field(default={})  # mapping of regex patterns to list of archive methods
     SAVE_DENYLIST: Dict[str, List[str]]   = Field(default={})
     
+    DEFAULT_PERSONA: str                  = Field(default='Default')
+    
     # GIT_DOMAINS: str                    = Field(default='github.com,bitbucket.org,gitlab.com,gist.github.com,codeberg.org,gitea.com,git.sr.ht')
     # WGET_USER_AGENT: str                = Field(default=lambda c: c['USER_AGENT'] + ' wget/{WGET_VERSION}')
     # CURL_USER_AGENT: str                = Field(default=lambda c: c['USER_AGENT'] + ' curl/{CURL_VERSION}')

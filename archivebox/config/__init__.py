@@ -1,4 +1,4 @@
-__package__ = 'config'
+__package__ = 'archivebox.config'
 __order__ = 200
 
 from .paths import (

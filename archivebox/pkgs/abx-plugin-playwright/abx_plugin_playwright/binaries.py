@@ -3,7 +3,7 @@ __package__ = 'abx_plugin_playwright'
 from typing import List
 
 from pydantic import InstanceOf
-from pydantic_pkgr import BinName, BinProvider, Binary
+from abx_pkg import BinName, BinProvider, Binary
 
 
 from abx_plugin_pip.binproviders import LIB_PIP_BINPROVIDER, VENV_PIP_BINPROVIDER, SYS_PIP_BINPROVIDER

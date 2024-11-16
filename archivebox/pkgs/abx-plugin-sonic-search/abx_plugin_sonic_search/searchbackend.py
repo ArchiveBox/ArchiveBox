@@ -1,4 +1,4 @@
-__package__ = 'plugins_search.sonic'
+__package__ = 'abx_plugin_sonic_search'
 
 from typing import List, Generator, cast
 

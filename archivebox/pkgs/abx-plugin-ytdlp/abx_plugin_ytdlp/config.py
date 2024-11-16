@@ -1,4 +1,4 @@
-__package__ = 'plugins_extractor.ytdlp'
+__package__ = 'abx_plugin_ytdlp'
 
 from typing import List
 

@@ -25,6 +25,9 @@ class BaseSearchBackend(abc.ABC):
 
 
 class SearchBackendPluginSpec:
+    __order__ = 10
+    
+    @staticmethod
     @abx.hookspec
     @abx.hookimpl
     def get_SEARCHBACKENDS() -> Dict[abx.PluginId, BaseSearchBackend]:

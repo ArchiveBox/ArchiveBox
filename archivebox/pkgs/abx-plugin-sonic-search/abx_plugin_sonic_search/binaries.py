@@ -3,7 +3,7 @@ __package__ = 'abx_plugin_sonic_search'
 from typing import List
 
 from pydantic import InstanceOf
-from pydantic_pkgr import BinProvider, BinaryOverrides, BinName, Binary
+from abx_pkg import BinProvider, BinaryOverrides, BinName, Binary
 
 from abx_plugin_default_binproviders import brew, env
 

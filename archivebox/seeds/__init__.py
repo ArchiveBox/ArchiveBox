@@ -1,5 +1,6 @@
 
 __package__ = 'archivebox.seeds'
+__order__ = 100
 
 import abx
 

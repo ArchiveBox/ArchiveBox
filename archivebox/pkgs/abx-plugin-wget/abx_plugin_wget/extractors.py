@@ -1,35 +1,37 @@
 __package__ = 'abx_plugin_wget'
 
-# from pathlib import Path
+from pathlib import Path
 
-# from pydantic_pkgr import BinName
+from abx_pkg import BinName
 
-# from .binaries import WGET_BINARY
-# from .wget_util import wget_output_path
+from abx_spec_extractor import BaseExtractor, ExtractorName
 
-# class WgetExtractor(BaseExtractor):
-#     name: ExtractorName = 'wget'
-#     binary: BinName = WGET_BINARY.name
+from .binaries import WGET_BINARY
+from .wget_util import wget_output_path
 
-#     def get_output_path(self, snapshot) -> Path | None:
-#         wget_index_path = wget_output_path(snapshot.as_link())
-#         if wget_index_path:
-#             return Path(wget_index_path)
-#         return None
+class WgetExtractor(BaseExtractor):
+    name: ExtractorName = 'wget'
+    binary: BinName = WGET_BINARY.name
 
-# WGET_EXTRACTOR = WgetExtractor()
+    def get_output_path(self, snapshot) -> Path | None:
+        wget_index_path = wget_output_path(snapshot.as_link())
+        if wget_index_path:
+            return Path(wget_index_path)
+        return None
 
-
-# class WarcExtractor(BaseExtractor):
-#     name: ExtractorName = 'warc'
-#     binary: BinName = WGET_BINARY.name
-
-#     def get_output_path(self, snapshot) -> Path | None:
-#         warc_files = list((Path(snapshot.link_dir) / 'warc').glob('*.warc.gz'))
-#         if warc_files:
-#             return sorted(warc_files, key=lambda x: x.stat().st_size, reverse=True)[0]
-#         return None
+WGET_EXTRACTOR = WgetExtractor()
 
 
-# WARC_EXTRACTOR = WarcExtractor()
+class WarcExtractor(BaseExtractor):
+    name: ExtractorName = 'warc'
+    binary: BinName = WGET_BINARY.name
+
+    def get_output_path(self, snapshot) -> Path | None:
+        warc_files = list((Path(snapshot.link_dir) / 'warc').glob('*.warc.gz'))
+        if warc_files:
+            return sorted(warc_files, key=lambda x: x.stat().st_size, reverse=True)[0]
+        return None
+
+
+WARC_EXTRACTOR = WarcExtractor()
 

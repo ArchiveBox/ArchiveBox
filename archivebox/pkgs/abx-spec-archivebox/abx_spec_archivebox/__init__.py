@@ -11,13 +11,13 @@ from typing import cast
 
 import abx
 from abx_spec_config import ConfigPluginSpec
-from abx_spec_pydantic_pkgr import PydanticPkgrPluginSpec
+from abx_spec_abx_pkg import AbxPkgPluginSpec
 from abx_spec_django import DjangoPluginSpec
 from abx_spec_searchbackend import SearchBackendPluginSpec
 
-class ArchiveBoxPluginSpec(ConfigPluginSpec, PydanticPkgrPluginSpec, DjangoPluginSpec, SearchBackendPluginSpec):
+class ArchiveBoxPluginSpec(ConfigPluginSpec, AbxPkgPluginSpec, DjangoPluginSpec, SearchBackendPluginSpec):
     """
-    ArchiveBox plugins can use any of the hooks from the Config, PydanticPkgr, and Django plugin specs.
+    ArchiveBox plugins can use any of the hooks from the Config, AbxPkg, and Django plugin specs.
     """
     pass
 

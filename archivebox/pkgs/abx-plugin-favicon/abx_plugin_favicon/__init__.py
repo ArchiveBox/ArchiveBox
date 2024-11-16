@@ -20,10 +20,10 @@ def get_CONFIG():
     }
 
 
-# @abx.hookimpl
-# def get_EXTRACTORS():
-#     from .extractors import FAVICON_EXTRACTOR
+@abx.hookimpl
+def get_EXTRACTORS():
+    from .extractors import FAVICON_EXTRACTOR
     
-#     return {
-#         'favicon': FAVICON_EXTRACTOR,
-#     }
+    return {
+        'favicon': FAVICON_EXTRACTOR,
+    }

@@ -4,7 +4,7 @@ from typing import List
 
 
 from pydantic import InstanceOf
-from pydantic_pkgr import BinProvider, BinName, Binary
+from abx_pkg import BinProvider, BinName, Binary
 
 from abx_plugin_default_binproviders import apt, brew, env
 

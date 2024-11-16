@@ -6,7 +6,7 @@ PKGS_DIR = Path(__file__).parent
 
 VENDORED_PKGS = [
     'abx',
-    # 'pydantic-pkgr',
+    # 'abx-pkg',
     # ... everything else in archivebox/pkgs/* comes after ...
 ]
 

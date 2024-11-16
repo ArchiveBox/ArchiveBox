@@ -1,4 +1,3 @@
-__order__ = 300
 
 import abx
 from typing import List, Dict, Any, cast
@@ -6,6 +5,8 @@ from typing import List, Dict, Any, cast
 ###########################################################################################
 
 class DjangoPluginSpec:
+    __order__ = 10
+    
     @abx.hookspec
     def get_INSTALLED_APPS() -> List[str]:
         return ['abx_spec_django']
