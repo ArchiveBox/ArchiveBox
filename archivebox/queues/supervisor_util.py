@@ -42,6 +42,23 @@ COMMAND_WORKER = {
     "stdout_logfile": "logs/worker_commands.log",
     "redirect_stderr": "true",
 }
+ORCHESTRATOR_WORKER = {
+    "name": "worker_orchestrator",
+    "command": "archivebox manage orchestrator",
+    "autostart": "true",
+    "autorestart": "true",
+    "stdout_logfile": "logs/worker_orchestrator.log",
+    "redirect_stderr": "true",
+}
+
+SERVER_WORKER = lambda host, port: {
+    "name": "worker_daphne",
+    "command": f"daphne --bind={host} --port={port} --application-close-timeout=600 archivebox.core.asgi:application",
+    "autostart": "false",
+    "autorestart": "true",
+    "stdout_logfile": "logs/worker_daphne.log",
+    "redirect_stderr": "true",
+}
 
 @cache
 def get_sock_file():
@@ -378,18 +395,11 @@ def start_server_workers(host='0.0.0.0', port='8000', daemonize=False):
     bg_workers = [
         SCHEDULER_WORKER,
         COMMAND_WORKER,
+        ORCHESTRATOR_WORKER,
     ]
-    fg_worker = {
-        "name": "worker_daphne",
-        "command": f"daphne --bind={host} --port={port} --application-close-timeout=600 archivebox.core.asgi:application",
-        "autostart": "false",
-        "autorestart": "true",
-        "stdout_logfile": "logs/worker_daphne.log",
-        "redirect_stderr": "true",
-    }
 
     print()
-    start_worker(supervisor, fg_worker)
+    start_worker(supervisor, SERVER_WORKER(host=host, port=port))
     print()
     for worker in bg_workers:
         start_worker(supervisor, worker)
@@ -413,20 +423,12 @@ def start_server_workers(host='0.0.0.0', port='8000', daemonize=False):
 def start_cli_workers(watch=False):
     supervisor = get_or_create_supervisord_process(daemonize=False)
     
-    fg_worker = {
-        "name": "worker_system_tasks",
-        "command": "archivebox manage djangohuey --queue system_tasks",
-        "autostart": "true",
-        "autorestart": "true",
-        "stdout_logfile": "logs/worker_system_tasks.log",
-        "redirect_stderr": "true",
-    }
-
-    start_worker(supervisor, fg_worker)
+    start_worker(supervisor, COMMAND_WORKER)
+    start_worker(supervisor, ORCHESTRATOR_WORKER)
 
     if watch:
         try:
-            watch_worker(supervisor, "worker_system_tasks")
+            watch_worker(supervisor, ORCHESTRATOR_WORKER['name'])
         except (KeyboardInterrupt, BrokenPipeError, IOError):
             STDERR.print("\n[🛑] Got Ctrl+C, stopping gracefully...")
         except SystemExit:
@@ -435,10 +437,10 @@ def start_cli_workers(watch=False):
             STDERR.print(f"\n[🛑] Got {e.__class__.__name__} exception, stopping web server gracefully...")
             raise
         finally:
-            stop_worker(supervisor, "worker_system_tasks")
-            stop_worker(supervisor, "worker_scheduler")
+            stop_worker(supervisor, COMMAND_WORKER['name'])
+            stop_worker(supervisor, ORCHESTRATOR_WORKER['name'])
             time.sleep(0.5)
-    return fg_worker
+    return [COMMAND_WORKER, ORCHESTRATOR_WORKER]
 
 
 # def main(daemons):
