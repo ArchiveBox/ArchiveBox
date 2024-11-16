@@ -15,6 +15,8 @@ from ninja.errors import HttpError
 
 from core.models import Snapshot, ArchiveResult, Tag
 from api.models import APIToken, OutboundWebhook
+from crawls.models import Crawl
+from seeds.models import Seed
 
 from .auth import API_AUTH_METHODS
 
@@ -395,56 +397,95 @@ def get_tag(request, tag_id: str, with_snapshots: bool=True):
 
 
 
-# class CrawlSchema(Schema):
-#     TYPE: str = 'core.models.Crawl'
+class SeedSchema(Schema):
+    TYPE: str = 'seeds.models.Seed'
 
-#     id: UUID
-#     abid: str
-
-#     modified_at: datetime
-#     created_at: datetime
-#     created_by_id: str
-#     created_by_username: str
-
-#     urls: str
-#     depth: int
-#     parser: str
+    id: UUID
+    abid: str
     
-#     # snapshots: List[SnapshotSchema]
-
-#     @staticmethod
-#     def resolve_created_by_id(obj):
-#         return str(obj.created_by_id)
+    modified_at: datetime
+    created_at: datetime
+    created_by_id: str
+    created_by_username: str
     
-#     @staticmethod
-#     def resolve_created_by_username(obj):
-#         User = get_user_model()
-#         return User.objects.get(id=obj.created_by_id).username
+    uri: str
+    tags_str: str
+    config: dict
     
-#     @staticmethod
-#     def resolve_snapshots(obj, context):
-#         if context['request'].with_snapshots:
-#             return obj.snapshot_set.all().distinct()
-#         return Snapshot.objects.none()
-
-
-# @router.get("/crawl/{crawl_id}", response=CrawlSchema, url_name="get_crawl")
-# def get_crawl(request, crawl_id: str, with_snapshots: bool=False, with_archiveresults: bool=False):
-#     """Get a specific Crawl by id or abid."""
-#     crawl = None
-#     request.with_snapshots = with_snapshots
-#     request.with_archiveresults = with_archiveresults
+    @staticmethod
+    def resolve_created_by_id(obj):
+        return str(obj.created_by_id)
     
-#     try:
-#         crawl = Crawl.objects.get(abid__icontains=crawl_id)
-#     except Exception:
-#         pass
+    @staticmethod
+    def resolve_created_by_username(obj):
+        User = get_user_model()
+        return User.objects.get(id=obj.created_by_id).username
+    
 
-#     try:
-#         crawl = crawl or Crawl.objects.get(id__icontains=crawl_id)
-#     except Exception:
-#         pass
-#     return crawl
+@router.get("/seed/{seed_id}", response=SeedSchema, url_name="get_seed")
+def get_seed(request, seed_id: str):
+    seed = None
+    request.with_snapshots = False
+    request.with_archiveresults = False
+    
+    try:
+        seed = Seed.objects.get(Q(abid__icontains=seed_id) | Q(id__icontains=seed_id))
+    except Exception:
+        pass
+    return seed
+
+
+class CrawlSchema(Schema):
+    TYPE: str = 'core.models.Crawl'
+
+    id: UUID
+    abid: str
+
+    modified_at: datetime
+    created_at: datetime
+    created_by_id: str
+    created_by_username: str
+
+    seed: SeedSchema
+    max_depth: int
+    status: str
+    retry_at: datetime
+    
+    # snapshots: List[SnapshotSchema]
+
+    @staticmethod
+    def resolve_created_by_id(obj):
+        return str(obj.created_by_id)
+    
+    @staticmethod
+    def resolve_created_by_username(obj):
+        User = get_user_model()
+        return User.objects.get(id=obj.created_by_id).username
+    
+    @staticmethod
+    def resolve_snapshots(obj, context):
+        if context['request'].with_snapshots:
+            return obj.snapshot_set.all().distinct()
+        return Snapshot.objects.none()
+
+
+@router.get("/crawl/{crawl_id}", response=CrawlSchema, url_name="get_crawl")
+def get_crawl(request, crawl_id: str, with_snapshots: bool=False, with_archiveresults: bool=False):
+    """Get a specific Crawl by id or abid."""
+    crawl = None
+    request.with_snapshots = with_snapshots
+    request.with_archiveresults = with_archiveresults
+    
+    try:
+        crawl = Crawl.objects.get(abid__icontains=crawl_id)
+    except Exception:
+        pass
+
+    try:
+        crawl = crawl or Crawl.objects.get(id__icontains=crawl_id)
+    except Exception:
+        pass
+    return crawl
 
 
 # [..., CrawlSchema]
