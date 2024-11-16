@@ -8,9 +8,9 @@ import os
 import json
 
 from pathlib import Path
-from datetime import timedelta
 
 from django.db import models
+from django.db.models import QuerySet
 from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.utils import timezone
@@ -149,7 +149,9 @@ class SnapshotTag(models.Model):
 
 
 
-
+def validate_timestamp(value):
+    assert isinstance(value, str) and value, f'timestamp must be a non-empty string, got: "{value}"'
+    assert value.replace('.', '').isdigit(), f'timestamp must be a float str, got: "{value}"'
 
 class SnapshotManager(models.Manager):
     def get_queryset(self):
@@ -179,6 +181,8 @@ class Snapshot(ABIDModel, ModelWithStateMachine):
     
     status = ModelWithStateMachine.StatusField(choices=StatusChoices, default=StatusChoices.QUEUED)
     retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
+    
+    notes = models.TextField(blank=True, null=False, default='', help_text='Any extra notes this snapshot should have')
 
     # legacy ts fields
     bookmarked_at = AutoDateTimeField(default=None, null=False, editable=True, db_index=True)
@@ -187,7 +191,7 @@ class Snapshot(ABIDModel, ModelWithStateMachine):
     crawl: Crawl = models.ForeignKey(Crawl, on_delete=models.CASCADE, default=None, null=True, blank=True, related_name='snapshot_set', db_index=True)  # type: ignore
 
     url = models.URLField(unique=True, db_index=True)
-    timestamp = models.CharField(max_length=32, unique=True, db_index=True, editable=False)
+    timestamp = models.CharField(max_length=32, unique=True, db_index=True, editable=False, validators=[validate_timestamp])
     tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name='snapshot_set', through_fields=('snapshot', 'tag'))
     title = models.CharField(max_length=512, null=True, blank=True, db_index=True)
 
@@ -200,6 +204,9 @@ class Snapshot(ABIDModel, ModelWithStateMachine):
     def save(self, *args, **kwargs):
         if not self.bookmarked_at:
             self.bookmarked_at = self.created_at or self._init_timestamp
+            
+        if not self.timestamp:
+            self.timestamp = str(self.bookmarked_at.timestamp())
         
         super().save(*args, **kwargs)
 
@@ -412,13 +419,25 @@ class Snapshot(ABIDModel, ModelWithStateMachine):
         self.tags.clear()
         self.tags.add(*tags_id)
         
-    def has_pending_archiveresults(self) -> bool:
+    def pending_archiveresults(self) -> QuerySet['ArchiveResult']:
         pending_archiveresults = self.archiveresult_set.exclude(status__in=ArchiveResult.FINAL_OR_ACTIVE_STATES)
-        return pending_archiveresults.exists()
+        return pending_archiveresults
     
     def create_pending_archiveresults(self) -> list['ArchiveResult']:
+        ALL_EXTRACTORS = ['favicon', 'title', 'screenshot', 'headers', 'singlefile', 'dom', 'git', 'archive_org', 'readability', 'mercury', 'pdf', 'wget']
+        
+        # config = get_scope_config(snapshot=self)
+        config = {'EXTRACTORS': ''}
+        
+        if config.get('EXTRACTORS', 'auto') == 'auto':
+            EXTRACTORS = ALL_EXTRACTORS
+        else:
+            EXTRACTORS = config.get('EXTRACTORS', '').split(',')
+        
         archiveresults = []
         for extractor in EXTRACTORS:
+            if not extractor:
+                continue
             archiveresult, _created = ArchiveResult.objects.get_or_create(
                 snapshot=self,
                 extractor=extractor,
@@ -534,6 +553,8 @@ class ArchiveResult(ABIDModel, ModelWithStateMachine):
     output = models.CharField(max_length=1024, default=None, null=True, blank=True)
     start_ts = models.DateTimeField(default=None, null=True, blank=True)
     end_ts = models.DateTimeField(default=None, null=True, blank=True)
+
+    notes = models.TextField(blank=True, null=False, default='', help_text='Any extra notes this ArchiveResult should have')
 
     # the network interface that was used to download this result
     # uplink = models.ForeignKey(NetworkInterface, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Network Interface Used')

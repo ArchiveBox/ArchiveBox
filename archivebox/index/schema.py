@@ -160,13 +160,13 @@ class Link:
     def typecheck(self) -> None:
         try:
             assert self.schema == self.__class__.__name__
-            assert isinstance(self.timestamp, str) and self.timestamp
-            assert self.timestamp.replace('.', '').isdigit()
-            assert isinstance(self.url, str) and '://' in self.url
-            assert self.downloaded_at is None or isinstance(self.downloaded_at, datetime)
-            assert self.title is None or (isinstance(self.title, str) and self.title)
-            assert self.tags is None or isinstance(self.tags, str)
-            assert isinstance(self.sources, list)
+            assert isinstance(self.timestamp, str) and self.timestamp, f'timestamp must be a non-empty string, got: "{self.timestamp}"'
+            assert self.timestamp.replace('.', '').isdigit(), f'timestamp must be a float str, got: "{self.timestamp}"'
+            assert isinstance(self.url, str) and '://' in self.url, f'url must be a non-empty string, got: "{self.url}"'
+            assert self.downloaded_at is None or isinstance(self.downloaded_at, datetime), f'downloaded_at must be a datetime or None, got: {self.downloaded_at}'
+            assert self.title is None or (isinstance(self.title, str) and self.title), f'title must be a non-empty string or None, got: "{self.title}"'
+            assert self.tags is None or isinstance(self.tags, str), f'tags must be a string or None, got: "{self.tags}"'
+            assert isinstance(self.sources, list), f'sources must be a list, got: {self.sources}'
             assert all(isinstance(source, str) and source for source in self.sources)
             assert isinstance(self.history, dict)
             for method, results in self.history.items():
@@ -427,8 +427,7 @@ class Link:
         """predict the expected output paths that should be present after archiving"""
 
         from abx_plugin_wget.wget import wget_output_path
-        
-        FAVICON_CONFIG = abx.pm.hook.get_CONFIGS().favicon
+        from abx_plugin_favicon.config import FAVICON_CONFIG
         
         # TODO: banish this awful duplication from the codebase and import these
         # from their respective extractor files
