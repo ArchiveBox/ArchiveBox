@@ -18,7 +18,7 @@ class DefaultStatusChoices(models.TextChoices):
 
 
 default_status_field: models.CharField = models.CharField(choices=DefaultStatusChoices.choices, max_length=15, default=DefaultStatusChoices.QUEUED, null=False, blank=False, db_index=True)
-default_retry_at_field: models.DateTimeField = models.DateTimeField(default=timezone.now, null=False, db_index=True)
+default_retry_at_field: models.DateTimeField = models.DateTimeField(default=timezone.now, null=True, blank=True, db_index=True)
 
 ObjectState = State | str
 ObjectStateList = Iterable[ObjectState]
@@ -164,7 +164,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
         
     @classproperty
     def ACTIVE_STATE(cls) -> str:
-        return cls._state_to_str(cls.StateMachineClass.active_state)
+        return cls._state_to_str(cls.active_state)
         
     @classproperty
     def INITIAL_STATE(cls) -> str:
