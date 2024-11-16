@@ -26,9 +26,9 @@ class SnapshotMachine(StateMachine, strict_states=True):
     
     # Tick Event
     tick = (
-        queued.to.itself(unless='can_start', internal=True) |
+        queued.to.itself(unless='can_start') |
         queued.to(started, cond='can_start') |
-        started.to.itself(unless='is_finished', internal=True) |
+        started.to.itself(unless='is_finished') |
         started.to(sealed, cond='is_finished')
     )
     
@@ -37,17 +37,25 @@ class SnapshotMachine(StateMachine, strict_states=True):
         super().__init__(snapshot, *args, **kwargs)
         
     def can_start(self) -> bool:
-        return self.snapshot.seed and self.snapshot.seed.uri
+        return self.snapshot.url
         
     def is_finished(self) -> bool:
-        return not self.snapshot.has_pending_archiveresults()
+        if not self.snapshot.archiveresult_set.exists():
+            return False
+        if self.snapshot.pending_archiveresults().exists():
+            return False
+        return True
         
+    @started.enter
     def on_started(self):
+        print(f'SnapshotMachine[{self.snapshot.ABID}].on_started(): snapshot.create_pending_archiveresults() + snapshot.bump_retry_at(+60s)')
         self.snapshot.create_pending_archiveresults()
         self.snapshot.bump_retry_at(seconds=60)
         self.snapshot.save()
         
+    @sealed.enter
     def on_sealed(self):
+        print(f'SnapshotMachine[{self.snapshot.ABID}].on_sealed(): snapshot.retry_at=None')
         self.snapshot.retry_at = None
         self.snapshot.save()
 
@@ -70,13 +78,13 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
     
     # Tick Event
     tick = (
-        queued.to.itself(unless='can_start', internal=True) |
+        queued.to.itself(unless='can_start') |
         queued.to(started, cond='can_start') |
-        started.to.itself(unless='is_finished', internal=True) |
+        started.to.itself(unless='is_finished') |
         started.to(succeeded, cond='is_succeeded') |
         started.to(failed, cond='is_failed') |
         started.to(backoff, cond='is_backoff') |
-        backoff.to.itself(unless='can_start', internal=True) |
+        backoff.to.itself(unless='can_start') |
         backoff.to(started, cond='can_start') |
         backoff.to(succeeded, cond='is_succeeded') |
         backoff.to(failed, cond='is_failed')
@@ -101,27 +109,35 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
     def is_finished(self) -> bool:
         return self.is_failed() or self.is_succeeded()
 
+    @started.enter
     def on_started(self):
+        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_started(): archiveresult.start_ts + create_output_dir() + bump_retry_at(+60s)')
         self.archiveresult.start_ts = timezone.now()
         self.archiveresult.create_output_dir()
         self.archiveresult.bump_retry_at(seconds=60)
         self.archiveresult.save()
 
+    @backoff.enter
     def on_backoff(self):
+        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_backoff(): archiveresult.bump_retry_at(+60s)')
         self.archiveresult.bump_retry_at(seconds=60)
         self.archiveresult.save()
 
+    @succeeded.enter
     def on_succeeded(self):
+        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_succeeded(): archiveresult.end_ts')
         self.archiveresult.end_ts = timezone.now()
         self.archiveresult.save()
 
+    @failed.enter
     def on_failed(self):
+        print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_failed(): archiveresult.end_ts')
         self.archiveresult.end_ts = timezone.now()
         self.archiveresult.save()
         
-    def after_transition(self, event: str, source: State, target: State):
-        print(f"after '{event}' from '{source.id}' to '{target.id}'")
-        # self.archiveresult.save_merkle_index()
-        # self.archiveresult.save_html_index()
-        # self.archiveresult.save_json_index()
-        return "after_transition"
+    # def after_transition(self, event: str, source: State, target: State):
+    #     print(f"after '{event}' from '{source.id}' to '{target.id}'")
+    #     # self.archiveresult.save_merkle_index()
+    #     # self.archiveresult.save_html_index()
+    #     # self.archiveresult.save_json_index()
+    #     return "after_transition"

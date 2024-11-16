@@ -19,7 +19,7 @@ class SnapshotActor(ActorType[Snapshot]):
     
     ACTIVE_STATE: ClassVar[State] = SnapshotMachine.started                    # 'started'
     FINAL_STATES: ClassVar[list[State]] = SnapshotMachine.final_states         # ['sealed']
-    STATE_FIELD_NAME: ClassVar[str] = SnapshotMachine.state_field_name         # status
+    STATE_FIELD_NAME: ClassVar[str] = Snapshot.state_field_name                # status
     
     MAX_CONCURRENT_ACTORS: ClassVar[int] = 3
     MAX_TICK_TIME: ClassVar[int] = 10
@@ -37,7 +37,7 @@ class ArchiveResultActor(ActorType[ArchiveResult]):
     
     ACTIVE_STATE: ClassVar[State] = ArchiveResultMachine.started                # 'started'
     FINAL_STATES: ClassVar[list[State]] = ArchiveResultMachine.final_states     # ['succeeded', 'failed', 'skipped']
-    STATE_FIELD_NAME: ClassVar[str] = ArchiveResultMachine.state_field_name     # status
+    STATE_FIELD_NAME: ClassVar[str] = ArchiveResult.state_field_name            # status
     
     MAX_CONCURRENT_ACTORS: ClassVar[int] = 6
     MAX_TICK_TIME: ClassVar[int] = 60
