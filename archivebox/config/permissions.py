@@ -3,6 +3,8 @@ __package__ = 'archivebox.config'
 import os
 import pwd
 import sys
+import socket
+import platform
 
 from rich import print
 
@@ -30,6 +32,7 @@ EGID                    = os.getegid()
 SUDO_UID                = int(os.environ.get('SUDO_UID', 0))
 SUDO_GID                = int(os.environ.get('SUDO_GID', 0))
 USER: str               = Path('~').expanduser().resolve().name
+HOSTNAME: str           = max([socket.gethostname(), platform.node()], key=len)
 
 IS_ROOT = RUNNING_AS_UID == 0
 IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'TRUE', 'yes')
