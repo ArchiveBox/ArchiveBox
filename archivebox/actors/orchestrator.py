@@ -102,7 +102,7 @@ class Orchestrator:
         # returns a list of objects that are in the queues of all actor types but not in the queues of any other actor types
 
         return any(
-            queue.filter(retry_at__gt=timezone.now()).exists()
+            queue.filter(retry_at__gte=timezone.now()).exists()
             for queue in all_queues.values()
         )
     
@@ -163,7 +163,7 @@ class Orchestrator:
 
                 for actor_type, queue in all_queues.items():
                     next_obj = queue.first()
-                    print(f'🏃‍♂️ {self}.runloop() {actor_type.__name__.ljust(20)} queue={str(queue.count()).ljust(3)} next={next_obj.abid if next_obj else "None"} {next_obj.status if next_obj else "None"} {(timezone.now() - next_obj.retry_at).total_seconds() if next_obj else "None"}')
+                    print(f'🏃‍♂️ {self}.runloop() {actor_type.__name__.ljust(20)} queue={str(queue.count()).ljust(3)} next={next_obj.abid if next_obj else "None"} {next_obj.status if next_obj else "None"} {(timezone.now() - next_obj.retry_at).total_seconds() if next_obj and next_obj.retry_at else "None"}')
                     try:
                         existing_actors = actor_type.get_running_actors()
                         all_existing_actors.extend(existing_actors)
