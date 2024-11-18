@@ -29,7 +29,7 @@ def update():
     setup_django()
     
     from actors.orchestrator import Orchestrator
-    orchestrator = Orchestrator()
+    orchestrator = Orchestrator(exit_on_idle=False)
     orchestrator.start()
 
 
