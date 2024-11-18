@@ -1,0 +1,17 @@
+[project]
+name = "abx-spec-abx-pkg"
+version = "0.1.1"
+description = "The ABX plugin specification for Binaries and BinProviders"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "abx>=0.1.0",
+    "abx-pkg>=0.6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.entry-points.abx]
+abx_spec_abx_pkg = "abx_spec_abx_pkg"
