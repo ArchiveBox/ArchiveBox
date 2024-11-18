@@ -6,7 +6,7 @@ from enum import Enum
 
 from ninja import Router, Schema
 
-from ..main import (
+from archivebox.main import (
     add,
     remove,
     update,

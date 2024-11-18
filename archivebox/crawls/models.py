@@ -194,6 +194,7 @@ class Crawl(ABIDModel, ModelWithHealthStats, ModelWithStateMachine):
         return pending_archiveresults
     
     def create_root_snapshot(self) -> 'Snapshot':
+        print(f'Crawl[{self.ABID}].create_root_snapshot()')
         from core.models import Snapshot
         
         try:

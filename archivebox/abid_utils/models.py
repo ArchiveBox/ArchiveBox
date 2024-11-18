@@ -351,7 +351,7 @@ class ABIDModel(models.Model):
     
     def update_for_workers(self, **update_kwargs) -> bool:
         """Immediately update the **kwargs on the object in DB, and reset the retry_at to now()"""
-        updated = bool(self._meta.model.objects.filter(pk=self.pk).update(retry_at=timezone.now(), **update_kwargs))
+        updated = bool(self._meta.model.objects.filter(pk=self.pk).update(**{'retry_at': timezone.now(), **update_kwargs}))
         self.refresh_from_db()
         return updated
 
@@ -387,16 +387,30 @@ class ModelWithHealthStats(models.Model):
 
 
 class ModelWithOutputDir(ABIDModel):
+    """
+    Base Model that adds an output_dir property to any ABIDModel.
+    
+    It creates the directory on .save(with_indexes=True), automatically migrating any old data if needed.
+    It then writes the indexes to the output_dir on .save(write_indexes=True).
+    It also makes sure the output_dir is in sync with the model.
+    """
     class Meta:
         abstract = True
         
     # output_dir = models.FilePathField(path=CONSTANTS.DATA_DIR, max_length=200, blank=True, null=True)
-    # output_files = models.JSONField(default=dict)
+    # output_files = models.TextField(default='')
+    #      format:   <sha256_hash>,<blake3_hash>,<size>,<content-type>,<path>
+    #                ...,...,123456,text/plain,index.merkle
+    #                ...,...,123456,text/html,index.html
+    #                ...,...,123456,application/json,index.json
+    #                ...,...,123456,text/html,singlefile/index.html
 
     def save(self, *args, write_indexes=False, **kwargs) -> None:
         super().save(*args, **kwargs)
+        self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        self.save_json_index()    # always write index.json to data/snapshots/snp_2342353k2jn3j32l4324/index.json
         if write_indexes:
-            self.write_indexes()
+            self.write_indexes()  # write the index.html, merkle hashes, symlinks, send indexable texts to search backend, etc.
 
     @property
     def output_dir_type(self) -> str:
@@ -429,7 +443,6 @@ class ModelWithOutputDir(ABIDModel):
         self.migrate_output_dir()
         self.save_merkle_index()
         self.save_html_index()
-        self.save_json_index()
         self.save_symlinks_index()
         
     def migrate_output_dir(self):
@@ -533,7 +546,7 @@ def find_model_from_abid_prefix(prefix: str) -> type[ABIDModel] | None:
     Return the Django Model that corresponds to a given ABID prefix.
     e.g. 'tag_' -> core.models.Tag
     """
-    prefix = abid_part_from_prefix(prefix)
+    prefix = abid_part_from_prefix(prefix)   # snp_... -> snp_
 
     import django.apps
 

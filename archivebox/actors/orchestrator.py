@@ -110,7 +110,7 @@ class Orchestrator:
     def on_startup(self):
         if self.mode == 'thread':
             # self.pid = get_native_id()
-            # print(f'[green]👨‍✈️ {self}.on_startup() STARTUP (THREAD)[/green]')
+            print(f'[green]👨‍✈️ {self}.on_startup() STARTUP (THREAD)[/green]')
             raise NotImplementedError('Thread-based orchestrators are disabled for now to reduce codebase complexity')
         elif self.mode == 'process':
             self.pid = os.getpid()
@@ -122,9 +122,9 @@ class Orchestrator:
         # abx.pm.hook.on_orchestrator_shutdown(self)
         
     def on_tick_started(self, all_queues):
-        # total_pending = sum(queue.count() for queue in all_queues.values())
-        # if total_pending:
-        #     print(f'👨‍✈️ {self}.on_tick_started()', f'total_pending={total_pending}')
+        total_pending = sum(queue.count() for queue in all_queues.values())
+        if total_pending:
+            print(f'👨‍✈️ {self}.on_tick_started()', f'total_pending={total_pending}')
         # abx.pm.hook.on_orchestrator_tick_started(self, actor_types, all_queues)
         pass
     
@@ -169,8 +169,8 @@ class Orchestrator:
                     if not queue.exists():
                         continue
         
-                    # next_obj = queue.first()
-                    # print(f'🏃‍♂️ {self}.runloop() {actor_type.__name__.ljust(20)} queue={str(queue.count()).ljust(3)} next={next_obj.abid if next_obj else "None"} {next_obj.status if next_obj else "None"} {(timezone.now() - next_obj.retry_at).total_seconds() if next_obj and next_obj.retry_at else "None"}')
+                    next_obj = queue.first()
+                    print(f'🏃‍♂️ {self}.runloop() {actor_type.__name__.ljust(20)} queue={str(queue.count()).ljust(3)} next={next_obj.abid if next_obj else "None"} {next_obj.status if next_obj else "None"} {(timezone.now() - next_obj.retry_at).total_seconds() if next_obj and next_obj.retry_at else "None"}')
                     self.idle_count = 0
                     try:
                         existing_actors = actor_type.get_running_actors()

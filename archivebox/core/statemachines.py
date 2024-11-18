@@ -29,9 +29,9 @@ class SnapshotMachine(StateMachine, strict_states=True):
     
     # Tick Event
     tick = (
-        queued.to.itself(unless='can_start', internal=True) |
+        queued.to.itself(unless='can_start') |
         queued.to(started, cond='can_start') |
-        started.to.itself(unless='is_finished', internal=True) |
+        started.to.itself(unless='is_finished') |
         started.to(sealed, cond='is_finished')
     )
     
@@ -40,7 +40,7 @@ class SnapshotMachine(StateMachine, strict_states=True):
         super().__init__(snapshot, *args, **kwargs)
         
     def can_start(self) -> bool:
-        can_start = bool(self.snapshot.url and (self.snapshot.retry_at < timezone.now()))
+        can_start = bool(self.snapshot.url)
         if not can_start:
             print(f'SnapshotMachine[{self.snapshot.ABID}].can_start() False: {self.snapshot.url} {self.snapshot.retry_at} {timezone.now()}')
         return can_start
@@ -63,24 +63,34 @@ class SnapshotMachine(StateMachine, strict_states=True):
     @queued.enter
     def enter_queued(self):
         print(f'SnapshotMachine[{self.snapshot.ABID}].on_queued(): snapshot.retry_at = now()')
-        self.snapshot.status = Snapshot.StatusChoices.QUEUED
-        self.snapshot.retry_at = timezone.now()
-        self.snapshot.save()
+        self.snapshot.update_for_workers(
+            retry_at=timezone.now(),
+            status=Snapshot.StatusChoices.QUEUED,
+        )
         
     @started.enter
     def enter_started(self):
         print(f'SnapshotMachine[{self.snapshot.ABID}].on_started(): snapshot.create_pending_archiveresults() + snapshot.bump_retry_at(+60s)')
-        self.snapshot.bump_retry_at(seconds=30)                 # if failed, wait 10s before retrying
-        self.snapshot.save()
+        # lock the snapshot while we create the pending archiveresults
+        self.snapshot.update_for_workers(
+            retry_at=timezone.now() + timedelta(seconds=30),  # if failed, wait 30s before retrying
+        )
+        # create the pending archiveresults
         self.snapshot.create_pending_archiveresults()
-        self.snapshot.status = Snapshot.StatusChoices.STARTED
+        
+        # unlock the snapshot after we're done creating the pending archiveresults + set status = started
+        self.snapshot.update_for_workers(
+            retry_at=timezone.now() + timedelta(seconds=5),  # wait 5s before checking it again
+            status=Snapshot.StatusChoices.STARTED,
+        )
         
     @sealed.enter
     def enter_sealed(self):
         print(f'SnapshotMachine[{self.snapshot.ABID}].on_sealed(): snapshot.retry_at=None')
-        self.snapshot.status = Snapshot.StatusChoices.SEALED
-        self.snapshot.retry_at = None
-        self.snapshot.save()
+        self.snapshot.update_for_workers(
+            retry_at=None,
+            status=Snapshot.StatusChoices.SEALED,
+        )
 
 
 class SnapshotWorker(ActorType[Snapshot]):
@@ -136,7 +146,10 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         super().__init__(archiveresult, *args, **kwargs)
         
     def can_start(self) -> bool:
-        return self.archiveresult.snapshot and (self.archiveresult.retry_at < timezone.now())
+        can_start = bool(self.archiveresult.snapshot.url)
+        if not can_start:
+            print(f'ArchiveResultMachine[{self.archiveresult.ABID}].can_start() False: {self.archiveresult.snapshot.url} {self.archiveresult.retry_at} {timezone.now()}')
+        return can_start
     
     def is_succeeded(self) -> bool:
         if self.archiveresult.output and 'err' not in self.archiveresult.output.lower():
