@@ -1,13 +1,12 @@
 __package__ = 'archivebox.crawls'
 
+from typing import ClassVar
 from django.utils import timezone
 
 from statemachine import State, StateMachine
 
+from actors.actor import ActorType
 from crawls.models import Crawl
-
-# State Machine Definitions
-#################################################
 
 
 class CrawlMachine(StateMachine, strict_states=True):
@@ -22,9 +21,9 @@ class CrawlMachine(StateMachine, strict_states=True):
     
     # Tick Event
     tick = (
-        queued.to.itself(unless='can_start') |
+        queued.to.itself(unless='can_start', internal=True) |
         queued.to(started, cond='can_start') |
-        started.to.itself(unless='is_finished') |
+        started.to.itself(unless='is_finished', internal=True) |
         started.to(sealed, cond='is_finished')
     )
     
@@ -62,4 +61,19 @@ class CrawlMachine(StateMachine, strict_states=True):
         self.crawl.status = Crawl.StatusChoices.SEALED
         self.crawl.retry_at = None
         self.crawl.save()
+
+
+class CrawlWorker(ActorType[Crawl]):
+    """The Actor that manages the lifecycle of all Crawl objects"""
+    
+    Model = Crawl
+    StateMachineClass = CrawlMachine
+    
+    ACTIVE_STATE: ClassVar[State] = CrawlMachine.started
+    FINAL_STATES: ClassVar[list[State]] = CrawlMachine.final_states
+    STATE_FIELD_NAME: ClassVar[str] = Crawl.state_field_name
+    
+    MAX_CONCURRENT_ACTORS: ClassVar[int] = 3
+    MAX_TICK_TIME: ClassVar[int] = 10
+    CLAIM_FROM_TOP_N: ClassVar[int] = MAX_CONCURRENT_ACTORS * 10
 

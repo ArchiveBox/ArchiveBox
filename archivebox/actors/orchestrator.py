@@ -76,13 +76,13 @@ class Orchestrator:
         
         # returns a Dict of all discovered {actor_type_id: ActorType} across the codebase
         # override this method in a subclass to customize the actor types that are used
-        # return {'Snapshot': SnapshotActorType, 'ArchiveResult_chrome': ChromeActorType, ...}
-        from crawls.actors import CrawlActor
-        from core.actors import SnapshotActor, ArchiveResultActor   
+        # return {'Snapshot': SnapshotWorker, 'ArchiveResult_chrome': ChromeActorType, ...}
+        from crawls.statemachines import CrawlWorker
+        from core.statemachines import SnapshotWorker, ArchiveResultWorker   
         return {
-            'CrawlActor': CrawlActor,
-            'SnapshotActor': SnapshotActor,
-            'ArchiveResultActor': ArchiveResultActor,
+            'CrawlWorker': CrawlWorker,
+            'SnapshotWorker': SnapshotWorker,
+            'ArchiveResultWorker': ArchiveResultWorker,
             # look through all models and find all classes that inherit from ActorType
             # actor_type.__name__: actor_type
             # for actor_type in abx.pm.hook.get_all_ACTORS_TYPES().values()
