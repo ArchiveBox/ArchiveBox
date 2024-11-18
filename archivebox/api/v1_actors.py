@@ -42,9 +42,7 @@ class ActorSchema(Schema):
     
     model: str
     statemachine: str
-    STATE_FIELD_NAME: str
-    # ACTIVE_STATE: str
-    FINAL_STATES: list[str]
+    ACTIVE_STATE: str
     EVENT_NAME: str
     CLAIM_ORDER: list[str]
     CLAIM_FROM_TOP_N: int
@@ -67,9 +65,9 @@ class ActorSchema(Schema):
     def resolve_name(obj) -> str:
         return str(obj)
 
-    # @staticmethod
-    # def resolve_ACTIVE_STATE(obj) -> str:
-    #     return str(obj.ACTIVE_STATE)
+    @staticmethod
+    def resolve_ACTIVE_STATE(obj) -> str:
+        return str(obj.ACTIVE_STATE)
     
     @staticmethod
     def resolve_FINAL_STATES(obj) -> list[str]:

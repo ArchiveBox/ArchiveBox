@@ -64,8 +64,11 @@ def add(urls: str | list[str],
     sources_file.write_text(urls if isinstance(urls, str) else '\n'.join(urls))
     
     # 2. create a new Seed pointing to the sources/2024-11-05__23-59-59__cli_add.txt
-    cmd = ' '.join(sys.argv)
-    seed = Seed.from_file(sources_file, label=f'{USER}@{HOSTNAME} $ {cmd}', parser=parser, tag=tag, created_by=created_by_id, config={
+    cli_args = [*sys.argv]
+    if cli_args[0].lower().endswith('archivebox'):
+        cli_args[0] = 'archivebox'  # full path to archivebox bin to just archivebox e.g. /Volumes/NVME/Users/squash/archivebox/.venv/bin/archivebox -> archivebox
+    cmd_str = ' '.join(cli_args)
+    seed = Seed.from_file(sources_file, label=f'{USER}@{HOSTNAME} $ {cmd_str}', parser=parser, tag=tag, created_by=created_by_id, config={
         'ONLY_NEW': not update,
         'INDEX_ONLY': index_only,
         'OVERWRITE': overwrite,
@@ -80,7 +83,7 @@ def add(urls: str | list[str],
     # from crawls.actors import CrawlActor
     # from core.actors import SnapshotActor, ArchiveResultActor
 
-    orchestrator = Orchestrator(exit_on_idle=True)
+    orchestrator = Orchestrator(exit_on_idle=True, max_concurrent_actors=2)
     orchestrator.start()
     
     # 5. return the list of new Snapshots created
