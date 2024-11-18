@@ -34,8 +34,9 @@
             font-family: monospace;
         }
         .scroll-area {
-            height: 800px;
-            overflow-y: auto;
+            /*height: 800px;
+            overflow-y: scroll; */
+            height: auto;
             border: 1px solid #ddd;
             padding: 10px;
             background-color: #fff;
@@ -66,6 +67,14 @@
         }
         .badge-failed {
             background-color: #f44336;
+            color: white;
+        }
+        .badge-succeeded {
+            background-color: #666;
+            color: white;
+        }
+        .badge-sealed {
+            background-color: #666;
             color: white;
         }
         .date {
