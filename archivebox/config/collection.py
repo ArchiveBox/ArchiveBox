@@ -239,7 +239,7 @@ def load_all_config():
     
     for config_section in abx.pm.hook.get_CONFIGS().values():
         config_section.__init__()
-        flat_config.update(config_section.model_dump())
+        flat_config.update(dict(config_section))
         
     return flat_config
 
