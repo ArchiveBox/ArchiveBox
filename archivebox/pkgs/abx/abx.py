@@ -2,7 +2,7 @@ __package__ = 'abx'
 __id__ = 'abx'
 __label__ = 'ABX'
 __author__ = 'Nick Sweeting'
-__homepage__ = 'https://github.com/ArchiveBox'
+__homepage__ = 'https://github.com/ArchiveBox/ArchiveBox'
 __order__ = 0
 
 
@@ -26,9 +26,11 @@ ParamsT = ParamSpec("ParamsT")
 ReturnT = TypeVar('ReturnT')
 
 class HookSpecDecoratorThatReturnsFirstResult(Protocol):    
+    """Type of a plugin method decorated with @hookspec(firstresult=True), which returns a single result (from the first plugin that implements the hook)"""
     def __call__(self, func: Callable[ParamsT, ReturnT]) -> Callable[ParamsT, ReturnT]: ...
 
 class HookSpecDecoratorThatReturnsListResults(Protocol):
+    """Type of a plugin method decorated with @hookspec(firstresult=False), which returns a list of results (one for each plugin that implements the hook)"""
     def __call__(self, func: Callable[ParamsT, ReturnT]) -> Callable[ParamsT, List[ReturnT]]: ...
 
 
@@ -111,10 +113,12 @@ impl = hookimpl = HookimplMarker("abx")
 
 
 def is_valid_attr_name(x: str) -> str:
+    """Check if a string is a valid attribute name (used to validate hook method names on a plugin)"""
     assert x.isidentifier() and not x.startswith('_')
     return x
 
 def is_valid_module_name(x: str) -> str:
+    """Check if a string e.g. "some_pkg.some_plugin_name" is a valid module name (used to validate plugin IDs)"""
     assert x.isidentifier() and not x.startswith('_') and x.islower()
     return x
 
@@ -123,6 +127,7 @@ PluginId = Annotated[str, AfterValidator(is_valid_module_name)]
 
 
 class PluginInfo(TypedDict, total=True):
+    """Full Metadata Dictionary containing all info about a plugin, returned by abx.get_plugin()"""
     id: PluginId
     package: AttrName
     label: str
@@ -213,6 +218,7 @@ pm = ABXPluginManager("abx")
 
 
 def get_plugin_order(plugin: PluginId | Path | ModuleType | Type) -> Tuple[int, Path]:
+    """Get the order a plugin should be loaded in by reading its ./.plugin_order file or .__order__ attr"""
     assert plugin
     plugin_module = None
     plugin_dir = None
@@ -259,6 +265,7 @@ def get_plugin_order(plugin: PluginId | Path | ModuleType | Type) -> Tuple[int, 
 
 # @cache
 def get_plugin(plugin: PluginId | ModuleType | Type) -> PluginInfo:
+    """Get the full PluginInfo metadata for a plugin, given its plugin ID, module, or class"""
     assert plugin
     
     # import the plugin module by its name
@@ -325,7 +332,7 @@ def get_plugin(plugin: PluginId | ModuleType | Type) -> PluginInfo:
 
 
 def get_all_plugins() -> Dict[PluginId, PluginInfo]:
-    """Get the metadata for all the plugins registered with Pluggy."""
+    """Get the PluginInfo metadata for all the loaded plugins"""
     plugins = {}
     for plugin_module in pm.get_plugins():
         plugin_info = get_plugin(plugin=plugin_module)
@@ -335,7 +342,7 @@ def get_all_plugins() -> Dict[PluginId, PluginInfo]:
 
 
 def get_all_hook_names() -> Set[str]:
-    """Get a set of all hook names across all plugins"""
+    """Get the names of all hookspec/hookimpl methods available across all loaded plugins"""
     return {
         hook_name
         for plugin_module in pm.get_plugins()
@@ -446,7 +453,7 @@ def load_plugins(plugins: Iterable[PluginId | ModuleType | Type] | Dict[PluginId
 
 @cache
 def get_plugin_hooks(plugin: PluginId | ModuleType | Type | None) -> Dict[AttrName, Callable]:
-    """Get all the functions marked with @hookimpl on a module."""
+    """Get all the functions marked with @hookimpl on a plugin module or class."""
     if not plugin:
         return {}
     
@@ -475,12 +482,12 @@ def get_plugin_hooks(plugin: PluginId | ModuleType | Type | None) -> Dict[AttrNa
 ReturnT = TypeVar('ReturnT')
 
 def as_list(results: List[List[ReturnT]]) -> List[ReturnT]:
-    """Flatten a list of lists returned by a pm.hook.call() into a single list"""
+    """Flatten a list of lists returned by a pm.hook.call() into a single list of [result1, result2, ...]"""
     return list(itertools.chain(*results))
 
 
 def as_dict(results: List[Dict[PluginId, ReturnT]]) -> Dict[PluginId, ReturnT]:
-    """Flatten a list of dicts returned by a pm.hook.call() into a single dict"""
+    """Flatten a list of dicts returned by a pm.hook.call() into a single dict of {plugin_id1: result1, plugin_id2: result2, ...}"""
     
     if isinstance(results, (dict, benedict)):
         results_list = results.values()
