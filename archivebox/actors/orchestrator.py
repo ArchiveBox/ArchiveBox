@@ -10,8 +10,6 @@ from django.utils import timezone
 import multiprocessing
 
 
-from threading import Thread, get_native_id
-
 
 from rich import print
 
@@ -32,11 +30,13 @@ class Orchestrator:
     actor_types: Dict[str, Type['ActorType']] = {}
     mode: Literal['thread', 'process'] = 'process'
     exit_on_idle: bool = True
+    max_concurrent_actors: int = 20
     
-    def __init__(self, actor_types: Dict[str, Type['ActorType']] | None = None, mode: Literal['thread', 'process'] | None=None, exit_on_idle: bool=True):
+    def __init__(self, actor_types: Dict[str, Type['ActorType']] | None = None, mode: Literal['thread', 'process'] | None=None, exit_on_idle: bool=True, max_concurrent_actors: int=max_concurrent_actors):
         self.actor_types = actor_types or self.actor_types or self.autodiscover_actor_types()
         self.mode = mode or self.mode
         self.exit_on_idle = exit_on_idle
+        self.max_concurrent_actors = max_concurrent_actors
 
     def __repr__(self) -> str:
         label = 'tid' if self.mode == 'thread' else 'pid'
@@ -49,13 +49,13 @@ class Orchestrator:
     def name(cls) -> str:
         return cls.__name__   # type: ignore
     
-    def fork_as_thread(self):
-        self.thread = Thread(target=self.runloop)
-        self.thread.start()
-        assert self.thread.native_id is not None
-        return self.thread.native_id
+    # def _fork_as_thread(self):
+    #     self.thread = Thread(target=self.runloop)
+    #     self.thread.start()
+    #     assert self.thread.native_id is not None
+    #     return self.thread.native_id
     
-    def fork_as_process(self):
+    def _fork_as_process(self):
         self.process = multiprocessing.Process(target=self.runloop)
         self.process.start()
         assert self.process.pid is not None
@@ -63,9 +63,10 @@ class Orchestrator:
 
     def start(self) -> int:
         if self.mode == 'thread':
-            return self.fork_as_thread()
+            # return self._fork_as_thread()
+            raise NotImplementedError('Thread-based orchestrators are disabled for now to reduce codebase complexity')
         elif self.mode == 'process':
-            return self.fork_as_process()
+            return self._fork_as_process()
         raise ValueError(f'Invalid orchestrator mode: {self.mode}')
     
     @classmethod
@@ -108,8 +109,9 @@ class Orchestrator:
     
     def on_startup(self):
         if self.mode == 'thread':
-            self.pid = get_native_id()
-            print(f'[green]👨‍✈️ {self}.on_startup() STARTUP (THREAD)[/green]')
+            # self.pid = get_native_id()
+            # print(f'[green]👨‍✈️ {self}.on_startup() STARTUP (THREAD)[/green]')
+            raise NotImplementedError('Thread-based orchestrators are disabled for now to reduce codebase complexity')
         elif self.mode == 'process':
             self.pid = os.getpid()
             print(f'[green]👨‍✈️ {self}.on_startup() STARTUP (PROCESS)[/green]')
@@ -120,16 +122,18 @@ class Orchestrator:
         # abx.pm.hook.on_orchestrator_shutdown(self)
         
     def on_tick_started(self, all_queues):
-        total_pending = sum(queue.count() for queue in all_queues.values())
-        print(f'👨‍✈️ {self}.on_tick_started()', f'total_pending={total_pending}')
+        # total_pending = sum(queue.count() for queue in all_queues.values())
+        # if total_pending:
+        #     print(f'👨‍✈️ {self}.on_tick_started()', f'total_pending={total_pending}')
         # abx.pm.hook.on_orchestrator_tick_started(self, actor_types, all_queues)
         pass
     
     def on_tick_finished(self, all_queues, all_existing_actors, all_spawned_actors):
-        if all_spawned_actors:
-            total_queue_length = sum(queue.count() for queue in all_queues.values())
-            print(f'[grey53]👨‍✈️ {self}.on_tick_finished() queue={total_queue_length} existing_actors={len(all_existing_actors)} spawned_actors={len(all_spawned_actors)}[/grey53]')
+        # if all_spawned_actors:
+        #     total_queue_length = sum(queue.count() for queue in all_queues.values())
+        #     print(f'[grey53]👨‍✈️ {self}.on_tick_finished() queue={total_queue_length} existing_actors={len(all_existing_actors)} spawned_actors={len(all_spawned_actors)}[/grey53]')
         # abx.pm.hook.on_orchestrator_tick_finished(self, actor_types, all_queues)
+        pass
 
     def on_idle(self, all_queues):
         print(f'👨‍✈️ {self}.on_idle()', f'idle_count={self.idle_count}')
@@ -162,13 +166,18 @@ class Orchestrator:
                 all_spawned_actors = []
 
                 for actor_type, queue in all_queues.items():
-                    next_obj = queue.first()
-                    print(f'🏃‍♂️ {self}.runloop() {actor_type.__name__.ljust(20)} queue={str(queue.count()).ljust(3)} next={next_obj.abid if next_obj else "None"} {next_obj.status if next_obj else "None"} {(timezone.now() - next_obj.retry_at).total_seconds() if next_obj and next_obj.retry_at else "None"}')
+                    if not queue.exists():
+                        continue
+        
+                    # next_obj = queue.first()
+                    # print(f'🏃‍♂️ {self}.runloop() {actor_type.__name__.ljust(20)} queue={str(queue.count()).ljust(3)} next={next_obj.abid if next_obj else "None"} {next_obj.status if next_obj else "None"} {(timezone.now() - next_obj.retry_at).total_seconds() if next_obj and next_obj.retry_at else "None"}')
+                    self.idle_count = 0
                     try:
                         existing_actors = actor_type.get_running_actors()
                         all_existing_actors.extend(existing_actors)
                         actors_to_spawn = actor_type.get_actors_to_spawn(queue, existing_actors)
-                        for launch_kwargs in actors_to_spawn:
+                        can_spawn_num_remaining = self.max_concurrent_actors - len(all_existing_actors)  # set max_concurrent_actors=1 to disable multitasking
+                        for launch_kwargs in actors_to_spawn[:can_spawn_num_remaining]:
                             new_actor_pid = actor_type.start(mode='process', **launch_kwargs)
                             all_spawned_actors.append(new_actor_pid)
                     except Exception as err:
@@ -192,98 +201,3 @@ class Orchestrator:
             else:
                 print(f'\n[red]🏃‍♂️ {self}.runloop() FATAL:[/red]', err.__class__.__name__, err)
             self.on_shutdown(err=err)
-
-
-
-# from archivebox.config.django import setup_django
-
-# setup_django()
-
-# from core.models import ArchiveResult, Snapshot
-
-# from django.utils import timezone
-
-# from django import db
-# from django.db import connection
-
-
-# from crawls.actors import CrawlActor
-# from core.actors import SnapshotActor, ArchiveResultActor
-
-# class ArchivingOrchestrator(Orchestrator):
-#     actor_types = {
-#         'CrawlActor': CrawlActor,
-#         'SnapshotActor': SnapshotActor,
-#         'ArchiveResultActor': ArchiveResultActor,
-#         # 'FaviconActor': FaviconActor,
-#         # 'SinglefileActor': SinglefileActor,
-#     }
-
-# from abx_plugin_singlefile.actors import SinglefileActor
-
-
-# class FaviconActor(ActorType[ArchiveResult]):
-#     CLAIM_ORDER: ClassVar[str] = 'created_at DESC'
-#     CLAIM_WHERE: ClassVar[str] = 'status = "queued" AND extractor = "favicon"'
-#     CLAIM_SET: ClassVar[str] = 'status = "started"'
-    
-#     @classproperty
-#     def QUERYSET(cls) -> QuerySet:
-#         return ArchiveResult.objects.filter(status='failed', extractor='favicon')
-
-#     def tick(self, obj: ArchiveResult):
-#         print(f'[grey53]{self}.tick({obj.abid or obj.id}, status={obj.status}) remaining:[/grey53]', self.get_queue().count())
-#         updated = ArchiveResult.objects.filter(id=obj.id, status='started').update(status='success') == 1
-#         if not updated:
-#             raise Exception(f'Failed to update {obj.abid or obj.id}, interrupted by another actor writing to the same object')
-#         obj.refresh_from_db()
-#         obj.save()
-
-
-# class ArchivingOrchestrator(Orchestrator):
-#     actor_types = {
-#         'CrawlActor': CrawlActor,
-#         'SnapshotActor': SnapshotActor,
-#         'ArchiveResultActor': ArchiveResultActor,
-#         # 'FaviconActor': FaviconActor,
-#         # 'SinglefileActor': SinglefileActor,
-#     }
-
-
-# if __name__ == '__main__':    
-#     orchestrator = ExtractorsOrchestrator()
-#     orchestrator.start()
-    
-#     snap = Snapshot.objects.last()
-#     assert snap is not None
-#     created = 0
-#     while True:
-#         time.sleep(0.05)
-#         # try:
-#         #     ArchiveResult.objects.bulk_create([
-#         #         ArchiveResult(
-#         #             id=uuid.uuid4(),
-#         #             snapshot=snap,
-#         #             status='failed',
-#         #             extractor='favicon',
-#         #             cmd=['echo', '"hello"'],
-#         #             cmd_version='1.0',
-#         #             pwd='.',
-#         #             start_ts=timezone.now(),
-#         #             end_ts=timezone.now(),
-#         #             created_at=timezone.now(),
-#         #             modified_at=timezone.now(),
-#         #             created_by_id=1,
-#         #         )
-#         #         for _ in range(100)
-#         #     ])
-#         #     created += 100
-#         #     if created % 1000 == 0:
-#         #         print(f'[blue]Created {created} ArchiveResults...[/blue]')
-#         #         time.sleep(25)
-#         # except Exception as err:
-#         #     print(err)
-#         #     db.connections.close_all()
-#         # except BaseException as err:
-#         #     print(err)
-#         #     break
