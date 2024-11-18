@@ -315,7 +315,7 @@ class ActorType(Generic[ModelType]):
     @classproperty
     def pending_q(cls) -> Q:
         """Get the filter for objects that are ready for processing."""
-        return ~(cls.active_q) & ~(cls.final_q) & ~(cls.future_q)
+        return (~(cls.active_q) & ~(cls.final_q)) | Q(retry_at__lte=timezone.now())
     
     @classmethod
     def get_queue(cls, sort: bool=True) -> QuerySet[ModelType]:
