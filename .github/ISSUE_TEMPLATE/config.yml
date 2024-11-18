@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: ❓ Ask a question or start a discussion
+    url: https://github.com/ArchiveBox/ArchiveBox/discussions
+    about: "Use Github Discussions for quick questions or support (don't use this to report bugs / problems with ArchiveBox)"
   - name: 💬 Chat with us on Zulip
     url: https://zulip.archivebox.io
     about: "Join us on our Zulip forum to chat with the developers and other users (it's similar to Discord but self-hosted)."
