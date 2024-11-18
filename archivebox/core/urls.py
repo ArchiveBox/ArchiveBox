@@ -10,6 +10,8 @@ from archivebox.misc.serve_static import serve_static
 from core.admin_site import archivebox_admin
 from core.views import HomepageView, SnapshotView, PublicIndexView, AddView, HealthCheckView
 
+from actors.views import JobsDashboardView
+
 # GLOBAL_CONTEXT doesn't work as-is, disabled for now: https://github.com/ArchiveBox/ArchiveBox/discussions/1306
 # from archivebox.config import VERSION, VERSIONS_AVAILABLE, CAN_UPGRADE
 # GLOBAL_CONTEXT = {'VERSION': VERSION, 'VERSIONS_AVAILABLE': VERSIONS_AVAILABLE, 'CAN_UPGRADE': CAN_UPGRADE}
@@ -21,30 +23,30 @@ urlpatterns = [
     re_path(r"^static/(?P<path>.*)$", serve_static),
     # re_path(r"^media/(?P<path>.*)$", static.serve, {"document_root": settings.MEDIA_ROOT}),
 
+    path('health/', HealthCheckView.as_view(), name='healthcheck'),
+    path('error/', lambda *_: 1/0),                                             # type: ignore
     path('robots.txt', static.serve, {'document_root': settings.STATICFILES_DIRS[0], 'path': 'robots.txt'}),
     path('favicon.ico', static.serve, {'document_root': settings.STATICFILES_DIRS[0], 'path': 'favicon.ico'}),
-
-    path('docs/', RedirectView.as_view(url='https://github.com/ArchiveBox/ArchiveBox/wiki'), name='Docs'),
-
-    path('public/', PublicIndexView.as_view(), name='public-index'),
-    
-    path('archive/', RedirectView.as_view(url='/')),
-    path('archive/<path:path>', SnapshotView.as_view(), name='Snapshot'),
-
-    path('admin/core/snapshot/add/', RedirectView.as_view(url='/add/')),
-    path('add/', AddView.as_view(), name='add'),
 
     path('accounts/login/', RedirectView.as_view(url='/admin/login/')),
     path('accounts/logout/', RedirectView.as_view(url='/admin/logout/')),
 
-
+    path('admin/core/snapshot/add/', RedirectView.as_view(url='/add/')),
+    path('docs/', RedirectView.as_view(url='https://github.com/ArchiveBox/ArchiveBox/wiki'), name='Docs'),
+    path('archive/', RedirectView.as_view(url='/')),
+    
     path('accounts/', include('django.contrib.auth.urls')),
     path('admin/', archivebox_admin.urls),
-    
     path("api/",      include('api.urls'), name='api'),
 
-    path('health/', HealthCheckView.as_view(), name='healthcheck'),
-    path('error/', lambda *_: 1/0),                                             # type: ignore
+    path('public/', PublicIndexView.as_view(), name='public-index'),
+    
+    path('archive/<path:path>', SnapshotView.as_view(), name='Snapshot'),
+
+    path('add/', AddView.as_view(), name='add'),
+    
+    path("jobs/",     JobsDashboardView.as_view(), name='jobs_dashboard'),
+
 
     # path('jet_api/', include('jet_django.urls')),  Enable to use https://www.jetadmin.io/integrations/django
 
