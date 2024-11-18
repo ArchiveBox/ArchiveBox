@@ -7,9 +7,8 @@ from datetime import datetime
 
 from ninja import Router, Schema
 
-from .auth import API_AUTH_METHODS
 
-router = Router(tags=['Workers and Tasks'], auth=API_AUTH_METHODS)
+router = Router(tags=['Workers and Tasks'])
 
 
 class TaskSchema(Schema):
@@ -50,7 +49,10 @@ class ActorSchema(Schema):
     MAX_TICK_TIME: int
     MAX_CONCURRENT_ACTORS: int
     
-    queue: list[TaskSchema]
+    future: list[TaskSchema]
+    pending: list[TaskSchema]
+    stalled: list[TaskSchema]
+    active: list[TaskSchema]
     past: list[TaskSchema]
     
     @staticmethod
@@ -72,10 +74,22 @@ class ActorSchema(Schema):
     @staticmethod
     def resolve_FINAL_STATES(obj) -> list[str]:
         return [str(state) for state in obj.FINAL_STATES]
-
+    
     @staticmethod
-    def resolve_queue(obj) -> list[TaskSchema]:
-        return [obj for obj in obj.qs.filter(obj.pending_q | obj.future_q | obj.active_q | obj.stalled_q).order_by('-retry_at')]
+    def resolve_future(obj) -> list[TaskSchema]:
+        return [obj for obj in obj.qs.filter(obj.future_q).order_by('-retry_at')]
+    
+    @staticmethod
+    def resolve_pending(obj) -> list[TaskSchema]:
+        return [obj for obj in obj.qs.filter(obj.pending_q).order_by('-retry_at')]
+    
+    @staticmethod
+    def resolve_stalled(obj) -> list[TaskSchema]:
+        return [obj for obj in obj.qs.filter(obj.stalled_q).order_by('-retry_at')]
+    
+    @staticmethod
+    def resolve_active(obj) -> list[TaskSchema]:
+        return [obj for obj in obj.qs.filter(obj.active_q).order_by('-retry_at')]
 
     @staticmethod
     def resolve_past(obj) -> list[TaskSchema]:

@@ -13,8 +13,17 @@
             margin: 0 auto;
             padding: 20px;
         }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            48% { opacity: 0.2; }
+            52% { opacity: 1; }
+            100% { opacity: 1; }
+        }
         h1 {
             text-align: center;
+        }
+        h1 a {
+            animation: pulse 1s;
         }
         .dashboard {
             display: grid;
@@ -85,13 +94,21 @@
     </style>
 </head>
 <body>
-    <h1>Job Dashboard <small><a href="?refresh=true">♻️ {{now}}</a></small></h1>
+    <h1>Job Dashboard <small><a href="?refresh=true" id="current-time">♻️ {{now}}}</a></small></h1>
     <div id="dashboard" class="dashboard"></div>
 
     <script>
         function formatDate(dateString) {
+            const now = Date.now()
+            const date = new Date(dateString)
             // return new Date(dateString).toLocaleString();
-            return new Date(dateString).toISOString().split('T').at(-1).replace('Z', '');
+            // return date.toISOString().split('T').at(-1).replace('Z', '');
+            const seconds_diff = Math.round((date - now) / 1000, 0)
+            if (seconds_diff < 0) {
+                return `${seconds_diff}s ago`;
+            } else {
+                return `${seconds_diff}s in the future`;
+            }
         }
 
         function createJobElement(job) {
@@ -109,6 +126,10 @@
         }
 
         function updateDashboard(data) {
+            const currentTime = document.getElementById('current-time');
+            window.now = new Date();
+            currentTime.innerHTML = `♻️ ${window.now.toISOString().split('T').at(-1).replace('Z', '')}`;
+
             const dashboard = document.getElementById('dashboard');
             dashboard.innerHTML = '';
 
@@ -117,16 +138,42 @@
                 card.className = 'card';
                 card.innerHTML = `
                     <h2>${actor.model}</h2>
-                    <h3>Queue</h3>
-                    <div class="scroll-area" id="queue-${actor.model}"></div>
-                    <h3>Past Tasks</h3>
-                    <div class="scroll-area" id="past-${actor.model}"></div>
+                    <hr/>
+                    Future
+                    <div class="scroll-area" style="background-color: white;" id="future-${actor.model}"></div>
+                    <hr/>
+                    Pending
+                    <div class="scroll-area" style="background-color: lightblue;" id="pending-${actor.model}"></div>
+                    <hr/>
+                    Stalled
+                    <div class="scroll-area" style="background-color: lightcoral;" id="stalled-${actor.model}"></div>
+                    <hr/>
+                    Active
+                    <div class="scroll-area" style="background-color: lightgreen;" id="active-${actor.model}"></div>
+                    <hr/>
+                    Past
+                    <div class="scroll-area" style="background-color: lightgrey;" id="past-${actor.model}"></div>
                 `;
                 dashboard.appendChild(card);
 
-                const queueContainer = document.getElementById(`queue-${actor.model}`);
-                actor.queue.forEach(job => {
-                    queueContainer.appendChild(createJobElement(job));
+                const futureContainer = document.getElementById(`future-${actor.model}`);
+                actor.future.forEach(job => {
+                    futureContainer.appendChild(createJobElement(job));
+                });
+
+                const pendingContainer = document.getElementById(`pending-${actor.model}`);
+                actor.pending.forEach(job => {
+                    pendingContainer.appendChild(createJobElement(job));
+                });
+
+                const stalledContainer = document.getElementById(`stalled-${actor.model}`);
+                actor.stalled.forEach(job => {
+                    stalledContainer.appendChild(createJobElement(job));
+                });
+
+                const activeContainer = document.getElementById(`active-${actor.model}`);
+                actor.active.forEach(job => {
+                    activeContainer.appendChild(createJobElement(job));
                 });
 
                 const pastContainer = document.getElementById(`past-${actor.model}`);
@@ -149,7 +196,7 @@
 
         fetchData();
 
-        setInterval(fetchData, 1000);
+        setInterval(fetchData, 750);
     </script>
 </body>
 </html>
