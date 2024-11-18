@@ -25,7 +25,7 @@ import abx
 
 from archivebox.config import CONSTANTS
 
-from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
+from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithOutputDir
 from actors.models import ModelWithStateMachine
 from queues.tasks import bg_archive_snapshot
 from crawls.models import Crawl
@@ -159,8 +159,7 @@ class SnapshotManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().prefetch_related('tags', 'archiveresult_set')  # .annotate(archiveresult_count=models.Count('archiveresult')).distinct()
 
-
-class Snapshot(ABIDModel, ModelWithStateMachine):
+class Snapshot(ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
     abid_prefix = 'snp_'
     abid_ts_src = 'self.created_at'
     abid_uri_src = 'self.url'
@@ -174,6 +173,8 @@ class Snapshot(ABIDModel, ModelWithStateMachine):
     StatusChoices = ModelWithStateMachine.StatusChoices
     active_state = StatusChoices.STARTED
     
+    output_dir_parent = 'snapshots'
+    
     id = models.UUIDField(primary_key=True, default=None, null=False, editable=False, unique=True, verbose_name='ID')
     abid = ABIDField(prefix=abid_prefix)
 
@@ -186,7 +187,6 @@ class Snapshot(ABIDModel, ModelWithStateMachine):
     
     notes = models.TextField(blank=True, null=False, default='', help_text='Any extra notes this snapshot should have')
 
-    # legacy ts fields
     bookmarked_at = AutoDateTimeField(default=None, null=False, editable=True, db_index=True)
     downloaded_at = models.DateTimeField(default=None, null=True, editable=False, db_index=True, blank=True)
 
@@ -206,6 +206,7 @@ class Snapshot(ABIDModel, ModelWithStateMachine):
     objects = SnapshotManager()
 
     def save(self, *args, **kwargs):
+        print(f'{self}.save()')
         if self.pk:
             existing_snapshot = self.__class__.objects.filter(pk=self.pk).first()
             if existing_snapshot and existing_snapshot.status == self.StatusChoices.SEALED:
@@ -420,7 +421,7 @@ class Snapshot(ABIDModel, ModelWithStateMachine):
             pass
 
         return None
-
+    
     def save_tags(self, tags: Iterable[str]=()) -> None:
         tags_id = []
         for tag in tags:
@@ -459,7 +460,56 @@ class Snapshot(ABIDModel, ModelWithStateMachine):
             if archiveresult.status == ArchiveResult.INITIAL_STATE:
                 archiveresults.append(archiveresult)
         return archiveresults
+    
 
+    # def migrate_output_dir(self):
+    #     """Move the output files to the new folder structure if needed"""
+    #     print(f'{self}.migrate_output_dir()')
+    #     self.migrate_from_0_7_2()
+    #     self.migrate_from_0_8_6()
+    #     # ... future migrations here
+    
+    # def migrate_from_0_7_2(self):
+    #     """Migrate the folder structure from 0.7.2 to the current version"""
+    #     # migrate any existing output_dir into data/archiveresults/<extractor>/YYYY-MM-DD/<domain>/<abid>
+    #     # create self.output_dir if it doesn't exist
+    #     # move loose files in snapshot_dir into self.output_dir
+    #     # update self.pwd = self.output_dir
+    #     print(f'{self}.migrate_from_0_7_2()')
+    
+    # def migrate_from_0_8_6(self):
+    #     """Migrate the folder structure from 0.8.6 to the current version"""
+    #     # ... future migration code here ...
+    #     print(f'{self}.migrate_from_0_8_6()')
+            
+    # def save_json_index(self):
+    #     """Save the json index file to ./.index.json"""
+    #     print(f'{self}.save_json_index()')
+    #     pass
+    
+    # def save_symlinks_index(self):
+    #     """Update the symlink farm idnexes to point to the new location of self.output_dir"""
+    #     # ln -s self.output_dir data/index/results_by_type/wget/YYYY-MM-DD/example.com/<abid>
+    #     # ln -s self.output_dir data/index/results_by_day/YYYY-MM-DD/example.com/wget/<abid>
+    #     # ln -s self.output_dir data/index/results_by_domain/example.com/YYYY-MM-DD/wget/<abid>
+    #     # ln -s self.output_dir data/index/results_by_abid/<abid>
+    #     # ln -s self.output_dir data/archive/<snapshot_timestamp>/<extractor>
+    #     print(f'{self}.save_symlinks_index()')
+    
+    # def save_html_index(self):
+    #     """Save the html index file to ./.index.html"""
+    #     print(f'{self}.save_html_index()')
+    #     pass
+
+    # def save_merkle_index(self):
+    #     """Calculate the recursive sha256 of all the files in the output path and save it to ./.checksum.json"""
+    #     print(f'{self}.save_merkle_index()')
+    #     pass
+
+    # def save_search_index(self):
+    #     """Pass any indexable text to the search backend indexer (e.g. sonic, SQLiteFTS5, etc.)"""
+    #     print(f'{self}.save_search_index()')
+    #     pass
 
     # def get_storage_dir(self, create=True, symlink=True) -> Path:
     #     date_str = self.bookmarked_at.strftime('%Y%m%d')
@@ -508,7 +558,7 @@ class ArchiveResultManager(models.Manager):
             ).order_by('indexing_precedence')
         return qs
 
-class ArchiveResult(ABIDModel, ModelWithStateMachine):
+class ArchiveResult(ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
     abid_prefix = 'res_'
     abid_ts_src = 'self.snapshot.created_at'
     abid_uri_src = 'self.snapshot.url'
@@ -529,6 +579,8 @@ class ArchiveResult(ABIDModel, ModelWithStateMachine):
     retry_at_field_name = 'retry_at'
     state_field_name = 'status'
     active_state = StatusChoices.STARTED
+    
+    output_dir_parent = 'archiveresults'
 
     EXTRACTOR_CHOICES = (
         ('htmltotext', 'htmltotext'),
@@ -593,7 +645,8 @@ class ArchiveResult(ABIDModel, ModelWithStateMachine):
     def __str__(self):
         return repr(self)
     
-    def save(self, *args, **kwargs):
+    def save(self, *args, write_indexes: bool=False, **kwargs):
+        print(f'{self}.save()')
         # if (self.pk and self.__class__.objects.filter(pk=self.pk).values_list('status', flat=True)[0] in [self.StatusChoices.FAILED, self.StatusChoices.SUCCEEDED, self.StatusChoices.SKIPPED]):
         #     raise Exception(f'ArchiveResult {self.pk} is in a final state, it cannot be modified any further.')
         if self.pk:
@@ -602,6 +655,9 @@ class ArchiveResult(ABIDModel, ModelWithStateMachine):
                 if self.as_json() != existing_archiveresult.as_json():
                     raise Exception(f'ArchiveResult {self.pk} is in a final state, it cannot be modified any further. NEW: {self.as_json()} != Existing: {existing_archiveresult.as_json()}')
         super().save(*args, **kwargs)
+        # DONT DO THIS:
+        # self.snapshot.update_for_workers()   # this should be done manually wherever its needed, not in here as a side-effect on save()
+        
 
     # TODO: finish connecting machine.models
     # @cached_property
@@ -664,6 +720,61 @@ class ArchiveResult(ABIDModel, ModelWithStateMachine):
             key: getattr(self, key)
             for key in args
         }
+        
+    def write_indexes(self):
+        """Write the ArchiveResult json, html, and merkle indexes to output dir, and pass searchable text to the search backend"""
+        super().write_indexes()
+        self.save_search_index()
+        
+    # def migrate_output_dir(self):
+    #     """Move the output files to the new folder structure if needed"""
+    #     print(f'{self}.migrate_output_dir()')
+    #     self.migrate_from_0_7_2()
+    #     self.migrate_from_0_8_6()
+    #     # ... future migrations here
+    
+    # def migrate_from_0_7_2(self):
+    #     """Migrate the folder structure from 0.7.2 to the current version"""
+    #     # migrate any existing output_dir into data/archiveresults/<extractor>/YYYY-MM-DD/<domain>/<abid>
+    #     # create self.output_dir if it doesn't exist
+    #     # move loose files in snapshot_dir into self.output_dir
+    #     # update self.pwd = self.output_dir
+    #     print(f'{self}.migrate_from_0_7_2()')
+    
+    # def migrate_from_0_8_6(self):
+    #     """Migrate the folder structure from 0.8.6 to the current version"""
+    #     # ... future migration code here ...
+    #     print(f'{self}.migrate_from_0_8_6()')
+            
+    # def save_json_index(self):
+    #     """Save the json index file to ./.index.json"""
+    #     print(f'{self}.save_json_index()')
+    #     pass
+    
+    # def save_symlinks_index(self):
+    #     """Update the symlink farm idnexes to point to the new location of self.output_dir"""
+    #     # ln -s self.output_dir data/index/results_by_type/wget/YYYY-MM-DD/example.com/<abid>
+    #     # ln -s self.output_dir data/index/results_by_day/YYYY-MM-DD/example.com/wget/<abid>
+    #     # ln -s self.output_dir data/index/results_by_domain/example.com/YYYY-MM-DD/wget/<abid>
+    #     # ln -s self.output_dir data/index/results_by_abid/<abid>
+    #     # ln -s self.output_dir data/archive/<snapshot_timestamp>/<extractor>
+    #     print(f'{self}.save_symlinks_index()')
+    
+    # def save_html_index(self):
+    #     """Save the html index file to ./.index.html"""
+    #     print(f'{self}.save_html_index()')
+    #     pass
+
+    # def save_merkle_index(self):
+    #     """Calculate the recursive sha256 of all the files in the output path and save it to ./.checksum.json"""
+    #     print(f'{self}.save_merkle_index()')
+    #     pass
+
+    def save_search_index(self):
+        """Pass any indexable text to the search backend indexer (e.g. sonic, SQLiteFTS5, etc.)"""
+        print(f'{self}.save_search_index()')
+        pass
+
 
     # def get_storage_dir(self, create=True, symlink=True):
     #     date_str = self.snapshot.bookmarked_at.strftime('%Y%m%d')
