@@ -18,6 +18,6 @@ class CrawlActor(ActorType[Crawl]):
     FINAL_STATES: ClassVar[list[State]] = CrawlMachine.final_states
     STATE_FIELD_NAME: ClassVar[str] = Crawl.state_field_name
     
-    MAX_CONCURRENT_ACTORS: ClassVar[int] = 1
+    MAX_CONCURRENT_ACTORS: ClassVar[int] = 3
     MAX_TICK_TIME: ClassVar[int] = 10
     CLAIM_FROM_TOP_N: ClassVar[int] = MAX_CONCURRENT_ACTORS * 10

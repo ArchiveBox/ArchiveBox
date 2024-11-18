@@ -448,15 +448,16 @@ class Snapshot(ABIDModel, ModelWithStateMachine):
         for extractor in EXTRACTORS:
             if not extractor:
                 continue
-            archiveresult = ArchiveResult.objects.update_or_create(
+            archiveresult, created = ArchiveResult.objects.get_or_create(
                 snapshot=self,
                 extractor=extractor,
-                status=ArchiveResult.INITIAL_STATE,
                 defaults={
+                    'status': ArchiveResult.INITIAL_STATE,
                     'retry_at': timezone.now(),
                 },
             )
-            archiveresults.append(archiveresult)
+            if archiveresult.status == ArchiveResult.INITIAL_STATE:
+                archiveresults.append(archiveresult)
         return archiveresults
 
 
@@ -625,19 +626,12 @@ class ArchiveResult(ABIDModel, ModelWithStateMachine):
         return '/api/v1/docs#/Core%20Models/api_v1_core_get_archiveresult'
 
     def get_absolute_url(self):
-        return f'/{self.snapshot.archive_path}/{self.output_path()}'
+        return f'/{self.snapshot.archive_path}/{self.extractor}'
 
     @property
     def extractor_module(self) -> Any | None:
         return abx.as_dict(abx.pm.hook.get_EXTRACTORS()).get(self.extractor, None)
 
-    def output_path(self) -> str | None:
-        """return the canonical output filename or directory name within the snapshot dir"""
-        try:
-            return self.extractor_module.get_output_path(self.snapshot)
-        except Exception as e:
-            print(f'Error getting output path for {self.extractor} extractor: {e}')
-            return None
 
     def embed_path(self) -> str | None:
         """
@@ -656,18 +650,13 @@ class ArchiveResult(ABIDModel, ModelWithStateMachine):
         return link.canonical_outputs().get(f'{self.extractor}_path')
 
     def output_exists(self) -> bool:
-        output_path = self.output_path()
-        return bool(output_path and os.path.exists(output_path))
+        output_path = Path(self.snapshot_dir) / self.extractor
+        return os.path.exists(output_path)
             
     def create_output_dir(self):
-        snap_dir = Path(self.snapshot_dir)
-        snap_dir.mkdir(parents=True, exist_ok=True)
-        output_path = self.output_path()
-        if output_path:
-            (snap_dir / output_path).mkdir(parents=True, exist_ok=True)
-        else:
-            raise ValueError(f'Not able to calculate output path for {self.extractor} extractor in {snap_dir}')
-        return snap_dir / output_path
+        output_dir = Path(self.snapshot_dir) / self.extractor
+        output_dir.mkdir(parents=True, exist_ok=True)
+        return output_dir
 
     def as_json(self, *args) -> dict:
         args = args or self.keys

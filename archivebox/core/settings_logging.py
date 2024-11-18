@@ -65,10 +65,14 @@ else:
     # print(f'[!] WARNING: data/logs dir does not exist. Logging to temp file: {ERROR_LOG}')
     pass
 
-
-LOG_LEVEL_DATABASE = 'WARNING'  # if DEBUG else 'WARNING'
+LOG_LEVEL_DATABASE = 'WARNING'
 LOG_LEVEL_REQUEST = 'WARNING'   # if DEBUG else 'WARNING'
 
+# UNCOMMENT TO LOG ALL SQL QUERIES:
+# LOG_LEVEL_DATABASE = 'DEBUG'
+# db_logger = logging.getLogger('django.db.backends')
+# db_logger.setLevel(logging.DEBUG)
+# db_logger.addHandler(logging.StreamHandler())
 
 
 SETTINGS_LOGGING = {

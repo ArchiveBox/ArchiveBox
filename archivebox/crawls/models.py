@@ -190,22 +190,28 @@ class Crawl(ABIDModel, ModelWithHealthStats, ModelWithStateMachine):
         from core.models import ArchiveResult
         
         snapshot_ids = self.snapshot_set.values_list('id', flat=True)
-        pending_archiveresults = ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids, retry_at__isnull=True)
+        pending_archiveresults = ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids, retry_at__isnull=False)
         return pending_archiveresults
     
     def create_root_snapshot(self) -> 'Snapshot':
         from core.models import Snapshot
         
+        try:
+            return Snapshot.objects.get(crawl=self, url=self.seed.uri)
+        except Snapshot.DoesNotExist:
+            pass
+        
         root_snapshot, _ = Snapshot.objects.update_or_create(
+            crawl=self,
             url=self.seed.uri,
             defaults={
-                'crawl': self,
                 'status': Snapshot.INITIAL_STATE,
                 'retry_at': timezone.now(),
                 'timestamp': str(timezone.now().timestamp()),
                 # 'config': self.seed.config,
             },
         )
+        root_snapshot.save()
         return root_snapshot
 
 

@@ -1,7 +1,5 @@
 __package__ = 'abx_plugin_git'
 
-from pathlib import Path
-
 
 from abx_pkg import BinName
 
@@ -14,7 +12,7 @@ class GitExtractor(BaseExtractor):
     name: ExtractorName = 'git'
     binary: BinName = GIT_BINARY.name
 
-    def get_output_path(self, snapshot) -> Path | None:
-        return snapshot.as_link() / 'git'
+    def get_output_path(self, snapshot) -> str:
+        return 'git'
 
 GIT_EXTRACTOR = GitExtractor()

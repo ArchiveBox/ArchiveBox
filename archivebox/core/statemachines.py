@@ -1,5 +1,7 @@
 __package__ = 'archivebox.snapshots'
 
+import time
+
 from django.utils import timezone
 
 from statemachine import State, StateMachine
@@ -67,7 +69,7 @@ class SnapshotMachine(StateMachine, strict_states=True):
     def enter_started(self):
         print(f'SnapshotMachine[{self.snapshot.ABID}].on_started(): snapshot.create_pending_archiveresults() + snapshot.bump_retry_at(+60s)')
         self.snapshot.status = Snapshot.StatusChoices.STARTED
-        self.snapshot.bump_retry_at(seconds=60)
+        self.snapshot.bump_retry_at(seconds=2)
         self.snapshot.save()
         self.snapshot.create_pending_archiveresults()
         
@@ -117,13 +119,19 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         return self.archiveresult.snapshot and (self.archiveresult.retry_at < timezone.now())
     
     def is_succeeded(self) -> bool:
-        return self.archiveresult.output_exists()
+        if self.archiveresult.output and 'err' not in self.archiveresult.output.lower():
+            return True
+        return False
     
     def is_failed(self) -> bool:
-        return not self.archiveresult.output_exists()
+        if self.archiveresult.output and 'err' in self.archiveresult.output.lower():
+            return True
+        return False
     
     def is_backoff(self) -> bool:
-        return self.archiveresult.STATE == ArchiveResult.StatusChoices.BACKOFF
+        if self.archiveresult.output is None:
+            return True
+        return False
     
     def is_finished(self) -> bool:
         return self.is_failed() or self.is_succeeded()
@@ -141,19 +149,22 @@ class ArchiveResultMachine(StateMachine, strict_states=True):
         print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_started(): archiveresult.start_ts + create_output_dir() + bump_retry_at(+60s)')
         self.archiveresult.status = ArchiveResult.StatusChoices.STARTED
         self.archiveresult.start_ts = timezone.now()
-        self.archiveresult.bump_retry_at(seconds=60)
+        self.archiveresult.bump_retry_at(seconds=2)
         self.archiveresult.save()
         self.archiveresult.create_output_dir()
+        time.sleep(2)
+        self.archiveresult.output = 'completed'
+        self.archiveresult.save()
 
     @backoff.enter
     def enter_backoff(self):
         print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_backoff(): archiveresult.retries += 1, archiveresult.bump_retry_at(+60s), archiveresult.end_ts = None')
         self.archiveresult.status = ArchiveResult.StatusChoices.BACKOFF
         self.archiveresult.retries = getattr(self.archiveresult, 'retries', 0) + 1
-        self.archiveresult.bump_retry_at(seconds=60)
+        self.archiveresult.bump_retry_at(seconds=2)
         self.archiveresult.end_ts = None
         self.archiveresult.save()
-
+        
     @succeeded.enter
     def enter_succeeded(self):
         print(f'ArchiveResultMachine[{self.archiveresult.ABID}].on_succeeded(): archiveresult.retry_at = None, archiveresult.end_ts = now()')

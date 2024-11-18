@@ -52,7 +52,7 @@ class CrawlMachine(StateMachine, strict_states=True):
     def enter_started(self):
         print(f'CrawlMachine[{self.crawl.ABID}].on_started(): crawl.create_root_snapshot() + crawl.bump_retry_at(+10s)')
         self.crawl.status = Crawl.StatusChoices.STARTED
-        self.crawl.bump_retry_at(seconds=10)
+        self.crawl.bump_retry_at(seconds=2)
         self.crawl.save()
         self.crawl.create_root_snapshot()
 
