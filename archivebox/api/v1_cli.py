@@ -17,10 +17,10 @@ from archivebox.misc.util import ansi_to_html
 from archivebox.config.common import ARCHIVING_CONFIG
 
 
-from .auth import API_AUTH_METHODS
+# from .auth import API_AUTH_METHODS
 
 # router for API that exposes archivebox cli subcommands as REST endpoints
-router = Router(tags=['ArchiveBox CLI Sub-Commands'], auth=API_AUTH_METHODS)
+router = Router(tags=['ArchiveBox CLI Sub-Commands'])
 
 
 # Schemas

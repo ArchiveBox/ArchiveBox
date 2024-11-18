@@ -37,9 +37,9 @@ html_description=f'''
 
 
 def register_urls(api: NinjaAPI) -> NinjaAPI:
-    api.add_router('/auth/',     'api.v1_auth.router')
+    # api.add_router('/auth/',     'api.v1_auth.router')
     api.add_router('/core/',     'api.v1_core.router')
-    api.add_router('/crawls/',   'api.v1_core.router')
+    api.add_router('/crawls/',   'api.v1_crawls.router')
     api.add_router('/cli/',      'api.v1_cli.router')
     api.add_router('/jobs/',     'api.v1_actors.router')
     return api
@@ -83,7 +83,7 @@ class NinjaAPIWithIOCapture(NinjaAPI):
 api = NinjaAPIWithIOCapture(
     title='ArchiveBox API',
     description=html_description,
-    version='1.0.0',
+    version=VERSION,
     csrf=False,
     auth=API_AUTH_METHODS,
     urls_namespace="api-1",

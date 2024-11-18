@@ -40,6 +40,7 @@ def add(urls: str | list[str],
         extractors: str="",
         parser: str="auto",
         persona: str='Default',
+        bg: bool=False,
         created_by_id: int | None=None) -> QuerySet['Snapshot']:
     """Add a new URL or list of URLs to your archive"""
 
@@ -50,7 +51,6 @@ def add(urls: str | list[str],
     # 0. setup abx, django, check_data_folder
     setup_django()
     check_data_folder()
-    
     
     from seeds.models import Seed
     from crawls.models import Crawl
@@ -83,8 +83,9 @@ def add(urls: str | list[str],
     # from crawls.actors import CrawlActor
     # from core.actors import SnapshotActor, ArchiveResultActor
 
-    orchestrator = Orchestrator(exit_on_idle=True, max_concurrent_actors=2)
-    orchestrator.start()
+    if not bg:
+        orchestrator = Orchestrator(exit_on_idle=True, max_concurrent_actors=4)
+        orchestrator.start()
     
     # 5. return the list of new Snapshots created
     return crawl.snapshot_set.all()
@@ -169,6 +170,12 @@ def main(args: list[str] | None=None, stdin: IO | None=None, pwd: str | None=Non
         help="Name of accounts persona to use when archiving.",
         default="Default",
     )
+    parser.add_argument(
+        "--bg",
+        default=False,
+        action="store_true",
+        help="Enqueue a background worker to complete the crawl instead of running it immediately",
+    )
     command = parser.parse_args(args or ())
     urls = command.urls
 
@@ -193,6 +200,7 @@ def main(args: list[str] | None=None, stdin: IO | None=None, pwd: str | None=Non
         extractors=command.extract,
         parser=command.parser,
         persona=command.persona,
+        bg=command.bg,
     )
 
 

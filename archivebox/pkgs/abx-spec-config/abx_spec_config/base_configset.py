@@ -185,7 +185,7 @@ class BaseConfigSet(BaseSettings):
             return computed_default
         return value
     
-    def update_in_place(self, warn=True, persist=False, hint='', **kwargs):
+    def update_in_place(self, warn=False, persist=False, hint='', **kwargs):
         """
         Update the config with new values. Use this sparingly! We should almost never be updating config at runtime.
         Sets them in the environment so they propagate to spawned subprocesses / across future re-__init__()s and reload from environment
@@ -201,7 +201,7 @@ class BaseConfigSet(BaseSettings):
         if all(key in _ALREADY_WARNED_ABOUT_UPDATED_CONFIG for key in kwargs.keys()):
             warn = False
         
-        if warn:
+        if warn or os.environ.get('DEBUG', '').lower() in ('true', '1', 'yes', 'on'):
             fix_scope = 'in ArchiveBox.conf' if persist else 'just for current run'
             print(f'\n[yellow]:warning:  WARNING: Some config cannot be used as-is, fixing automatically {fix_scope}:[/yellow] {hint}', file=sys.stderr)
         
