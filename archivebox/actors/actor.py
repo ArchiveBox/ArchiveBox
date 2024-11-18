@@ -65,7 +65,7 @@ class ActorType(Generic[ModelType]):
     FINAL_STATES: ClassVar[ObjectStateList]                               # e.g. ['succeeded', 'failed', 'skipped'] or ['sealed']
     EVENT_NAME: ClassVar[str] = 'tick'                                    # the event name to trigger on the obj.sm: StateMachine (usually 'tick')
     
-    CLAIM_ORDER: ClassVar[tuple[str, ...]] = ('retry_at',)                # the .order(*args) to claim the queue objects in, use ('?',) for random order
+    CLAIM_ORDER: ClassVar[tuple[str, ...]] = ('-retry_at',)                # the .order(*args) to claim the queue objects in, use ('?',) for random order
     CLAIM_FROM_TOP_N: ClassVar[int] = CPU_COUNT * 10                      # the number of objects to consider when atomically getting the next object from the queue
     CLAIM_ATOMIC: ClassVar[bool] = True                                   # whether to atomically fetch+claim the next object in one query, or fetch and lock it in two queries
     
