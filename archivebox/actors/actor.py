@@ -60,9 +60,9 @@ class ActorType(Generic[ModelType]):
     Model: Type[ModelType]
     StateMachineClass: Type[StateMachine]
     
-    STATE_FIELD_NAME: ClassVar[str]
-    ACTIVE_STATE: ClassVar[ObjectState]
-    FINAL_STATES: ClassVar[ObjectStateList]
+    STATE_FIELD_NAME: ClassVar[str] = 'status'
+    ACTIVE_STATE: ClassVar[ObjectState] = 'started'
+    FINAL_STATES: ClassVar[ObjectStateList]                               # e.g. ['succeeded', 'failed', 'skipped'] or ['sealed']
     EVENT_NAME: ClassVar[str] = 'tick'                                    # the event name to trigger on the obj.sm: StateMachine (usually 'tick')
     
     CLAIM_ORDER: ClassVar[tuple[str, ...]] = ('retry_at',)                # the .order(*args) to claim the queue objects in, use ('?',) for random order
@@ -294,7 +294,7 @@ class ActorType(Generic[ModelType]):
     
     @classproperty
     def final_q(cls) -> Q:
-        """Get the filter for objects that are in a final state"""
+        """Get the filter for objects that are already completed / in a final state"""
         return Q(**{f'{cls.STATE_FIELD_NAME}__in': [cls._state_to_str(s) for s in cls.FINAL_STATES]})
     
     @classproperty

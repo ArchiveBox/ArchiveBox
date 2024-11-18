@@ -1,5 +1,6 @@
 __package__ = 'archivebox.api'
 
+import json
 from typing import List, Dict, Any, Optional
 from enum import Enum
 
@@ -30,6 +31,7 @@ class CLICommandResponseSchema(Schema):
     success: bool
     errors: List[str]
     result: JSONType
+    result_format: str = 'str'
     stdout: str
     stderr: str
 
@@ -97,7 +99,7 @@ class ListCommandSchema(Schema):
     sort: str = 'bookmarked_at'
     as_json: bool = True
     as_html: bool = False
-    as_csv: str | bool = 'timestamp,url'
+    as_csv: str | None = 'timestamp,url'
     with_headers: bool = False
 
 class RemoveCommandSchema(Schema):
@@ -182,7 +184,7 @@ def cli_schedule(request, args: ScheduleCommandSchema):
 
 
 
-@router.post("/list", response=CLICommandResponseSchema, summary='archivebox list [args] [filter_patterns]')
+@router.post("/list", response=CLICommandResponseSchema, summary='archivebox list [args] [filter_patterns] (use this endpoint with ?filter_type=search to search for snapshots)')
 def cli_list(request, args: ListCommandSchema):
     result = list_all(
         filter_patterns=args.filter_patterns,
@@ -200,6 +202,7 @@ def cli_list(request, args: ListCommandSchema):
     result_format = 'txt'
     if args.as_json:
         result_format = "json"
+        result = json.loads(result)
     elif args.as_html:
         result_format = "html"
     elif args.as_csv:

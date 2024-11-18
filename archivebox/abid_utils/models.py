@@ -13,6 +13,7 @@ from django.contrib import admin
 from django.core.exceptions import ValidationError, NON_FIELD_ERRORS
 from django.db import models
 from django.utils import timezone
+from django.utils.functional import classproperty
 from django.db.utils import OperationalError
 from django.contrib.auth import get_user_model
 from django.urls import reverse_lazy
@@ -94,13 +95,19 @@ class ABIDModel(models.Model):
     class Meta(TypedModelMeta):
         abstract = True
 
+    @classproperty
+    def TYPE(cls) -> str:
+        """Get the full Python dotted-import path for this model, e.g. 'core.models.Snapshot'"""
+        return f'{cls.__module__}.{cls.__name__}'
+    
     @admin.display(description='Summary')
     def __str__(self) -> str:
         return f'[{self.abid or (self.abid_prefix + "NEW")}] {self.__class__.__name__} {eval(self.abid_uri_src)}'
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Overriden __init__ method ensures we have a stable creation timestamp that fields can use within initialization code pre-saving to DB."""
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)   # type: ignore
+        
         # pre-compute a stable timestamp of the obj init time (with abid.ts precision limit applied) for use when object is first created,
         # some other fields depend on a timestamp at creation time, and it's nice to have one common timestamp they can all share.
         # Used as an alternative to auto_now_add=True + auto_now=True which can produce two different times & requires saving to DB to get the TS.
@@ -164,6 +171,7 @@ class ABIDModel(models.Model):
     @classmethod
     def id_from_abid(cls, abid: str) -> str:
         return str(cls.objects.only('pk').get(abid=cls.abid_prefix + str(abid).split('_', 1)[-1]).pk)
+
 
     @property
     def ABID_SOURCES(self) -> Dict[str, str]:

@@ -944,7 +944,7 @@ def list_all(filter_patterns_str: Optional[str]=None,
              json: bool=False,
              html: bool=False,
              with_headers: bool=False,
-             out_dir: Path=DATA_DIR) -> Iterable[Link]:
+             out_dir: Path=DATA_DIR):
     """List, filter, and export information about archive entries"""
     
     check_data_folder()
@@ -976,15 +976,15 @@ def list_all(filter_patterns_str: Optional[str]=None,
     )
 
     if json: 
-        output = generate_json_index_from_links(folders.values(), with_headers)
+        output = generate_json_index_from_links(folders.values(), with_headers=with_headers)
     elif html:
-        output = generate_index_from_links(folders.values(), with_headers)
+        output = generate_index_from_links(folders.values(), with_headers=with_headers)
     elif csv:
         output = links_to_csv(folders.values(), cols=csv.split(','), header=with_headers)
     else:
         output = printable_folders(folders, with_headers=with_headers)
     print(output)
-    return folders
+    return output
 
 
 @enforce_types

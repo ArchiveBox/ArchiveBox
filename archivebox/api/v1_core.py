@@ -8,6 +8,7 @@ from datetime import datetime
 from django.db.models import Q
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
+from django.shortcuts import redirect
 
 from ninja import Router, Schema, FilterSchema, Field, Query
 from ninja.pagination import paginate, PaginationBase
@@ -66,37 +67,35 @@ class MinimalArchiveResultSchema(Schema):
     id: UUID
     abid: str
 
-    modified_at: datetime
-    created_at: datetime
+    created_at: datetime | None
+    modified_at: datetime | None
     created_by_id: str
     created_by_username: str
 
-    extractor: str
-    cmd_version: Optional[str]
-    cmd: List[str]
-    pwd: str
     status: str
-    output: str
+    retry_at: datetime | None
+    
+    extractor: str
+    cmd_version: str | None
+    cmd: list[str] | None
+    pwd: str | None
+    output: str | None
 
-    start_ts: Optional[datetime]
-    end_ts: Optional[datetime]
+    start_ts: datetime | None
+    end_ts: datetime | None
 
     @staticmethod
     def resolve_created_by_id(obj):
         return str(obj.created_by_id)
     
     @staticmethod
-    def resolve_created_by_username(obj):
+    def resolve_created_by_username(obj) -> str:
         User = get_user_model()
-        return User.objects.get(id=obj.created_by_id).username
+        return User.objects.filter(pk=obj.created_by_id).values_list('username', flat=True)[0]
 
     @staticmethod
     def resolve_abid(obj):
         return str(obj.ABID)
-
-    @staticmethod
-    def resolve_created_at(obj):
-        return obj.start_ts
 
     @staticmethod
     def resolve_snapshot_timestamp(obj):
@@ -203,6 +202,9 @@ class SnapshotSchema(Schema):
     created_by_username: str
     created_at: datetime
     modified_at: datetime
+    
+    status: str
+    retry_at: datetime | None
 
     bookmarked_at: datetime
     downloaded_at: Optional[datetime]
@@ -421,6 +423,9 @@ class SeedSchema(Schema):
         User = get_user_model()
         return User.objects.get(id=obj.created_by_id).username
     
+@router.get("/seeds", response=List[SeedSchema], url_name="get_seeds")
+def get_seeds(request):
+    return Seed.objects.all().distinct()
 
 @router.get("/seed/{seed_id}", response=SeedSchema, url_name="get_seed")
 def get_seed(request, seed_id: str):
@@ -445,11 +450,12 @@ class CrawlSchema(Schema):
     created_at: datetime
     created_by_id: str
     created_by_username: str
+    
+    status: str
+    retry_at: datetime | None
 
     seed: SeedSchema
     max_depth: int
-    status: str
-    retry_at: datetime
     
     # snapshots: List[SnapshotSchema]
 
@@ -469,9 +475,14 @@ class CrawlSchema(Schema):
         return Snapshot.objects.none()
 
 
+@router.get("/crawls", response=List[CrawlSchema], url_name="get_crawls")
+def get_crawls(request):
+    return Crawl.objects.all().distinct()
+
 @router.get("/crawl/{crawl_id}", response=CrawlSchema, url_name="get_crawl")
 def get_crawl(request, crawl_id: str, with_snapshots: bool=False, with_archiveresults: bool=False):
     """Get a specific Crawl by id or abid."""
+    
     crawl = None
     request.with_snapshots = with_snapshots
     request.with_archiveresults = with_archiveresults
@@ -488,9 +499,10 @@ def get_crawl(request, crawl_id: str, with_snapshots: bool=False, with_archivere
     return crawl
 
 
-# [..., CrawlSchema]
-@router.get("/any/{abid}", response=Union[SnapshotSchema, ArchiveResultSchema, TagSchema], url_name="get_any")
+@router.get("/any/{abid}", response=Union[SnapshotSchema, ArchiveResultSchema, TagSchema, SeedSchema, CrawlSchema], url_name="get_any", summary="Get any object by its ABID or ID (e.g. snapshot, archiveresult, tag, seed, crawl, etc.)")
 def get_any(request, abid: str):
+    """Get any object by its ABID or ID (e.g. snapshot, archiveresult, tag, seed, crawl, etc.)."""
+    
     request.with_snapshots = False
     request.with_archiveresults = False
 
@@ -516,12 +528,18 @@ def get_any(request, abid: str):
     except Exception:
         pass
     
-    # try:
-    #     response = response or get_crawl(request, abid)
-    # except Exception:
-    #     pass
+    try:
+        response = response or get_seed(request, abid)
+    except Exception:
+        pass
+    
+    try:
+        response = response or get_crawl(request, abid)
+    except Exception:
+        pass
+    
+    if response:
+        app_label, model_name = response._meta.app_label, response._meta.model_name
+        return redirect(f"/api/v1/{app_label}/{model_name}/{response.abid}?{request.META['QUERY_STRING']}")
 
-    if not response:
-        raise HttpError(404, 'Object with given ABID not found')
-
-    return response
+    raise HttpError(404, 'Object with given ABID not found')

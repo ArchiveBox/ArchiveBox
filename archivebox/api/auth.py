@@ -1,15 +1,14 @@
 __package__ = 'archivebox.api'
 
-from typing import Any, Optional, cast
+from typing import Optional, cast
 from datetime import timedelta
 
 from django.http import HttpRequest
 from django.utils import timezone
-from django.contrib.auth import login
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import AbstractBaseUser
 
-from ninja.security import HttpBearer, APIKeyQuery, APIKeyHeader, HttpBasicAuth, django_auth_superuser
+from ninja.security import HttpBearer, APIKeyQuery, APIKeyHeader, HttpBasicAuth
 from ninja.errors import HttpError
 
 

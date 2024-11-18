@@ -20,7 +20,7 @@ from archivebox.misc.util import enforce_types
 
 
 @enforce_types
-def generate_json_index_from_links(links: List[Link], with_headers: bool):
+def generate_json_index_from_links(links: List[Link], with_headers: bool=False):
     MAIN_INDEX_HEADER = {
         'info': 'This is an index of site data archived by ArchiveBox: The self-hosted web archive.',
         'schema': 'archivebox.index.json',
@@ -33,9 +33,9 @@ def generate_json_index_from_links(links: List[Link], with_headers: bool):
             'docs': 'https://github.com/ArchiveBox/ArchiveBox/wiki',
             'source': 'https://github.com/ArchiveBox/ArchiveBox',
             'issues': 'https://github.com/ArchiveBox/ArchiveBox/issues',
-            'dependencies': dict(abx.pm.hook.get_BINARIES()),
+            'dependencies': abx.as_dict(abx.pm.hook.get_BINARIES()),
         },
-    }
+    } if with_headers else {}
     
     if with_headers:
         output = {
@@ -137,13 +137,16 @@ class ExtendedEncoder(pyjson.JSONEncoder):
     """
 
     def default(self, obj):
-        cls_name = obj.__class__.__name__
+        cls_name = type(obj).__name__
 
         if hasattr(obj, '_asdict'):
             return obj._asdict()
 
         elif isinstance(obj, bytes):
             return obj.decode()
+        
+        elif isinstance(obj, Path):
+            return str(obj)
 
         elif isinstance(obj, datetime):
             return obj.isoformat()
@@ -152,12 +155,27 @@ class ExtendedEncoder(pyjson.JSONEncoder):
             return '{}: {}'.format(obj.__class__.__name__, obj)
 
         elif cls_name in ('dict_items', 'dict_keys', 'dict_values'):
-            return tuple(obj)
+            return list(obj)
+        
+        try:
+            return dict(obj)
+        except Exception:
+            pass
+        
+        try:
+            return list(obj)
+        except Exception:
+            pass
+        
+        try:
+            return str(obj)
+        except Exception:
+            pass
 
         return pyjson.JSONEncoder.default(self, obj)
 
 
 @enforce_types
-def to_json(obj: Any, indent: Optional[int]=4, sort_keys: bool=True, cls=ExtendedEncoder) -> str:
-    return pyjson.dumps(obj, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder)
+def to_json(obj: Any, indent: Optional[int]=4, sort_keys: bool=True, cls=ExtendedEncoder, default=None) -> str:
+    return pyjson.dumps(obj, indent=indent, sort_keys=sort_keys, cls=ExtendedEncoder, default=default)
 
