@@ -12,6 +12,9 @@ from abx_pkg import (
 apt = APT_BINPROVIDER = AptProvider()
 brew = BREW_BINPROVIDER = BrewProvider()
 env = ENV_BINPROVIDER = EnvProvider()
+apt.setup()
+brew.setup()
+env.setup()
 
 
 @abx.hookimpl(tryfirst=True)
