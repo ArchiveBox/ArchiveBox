@@ -11,7 +11,19 @@ from typing import Optional, List, IO
 from archivebox.misc.util import docstring
 from archivebox.config import DATA_DIR
 from archivebox.misc.logging_util import SmartFormatter, reject_stdin
-from ..main import shell
+
+
+
+#@enforce_types
+def shell(out_dir: Path=DATA_DIR) -> None:
+    """Enter an interactive ArchiveBox Django shell"""
+
+    check_data_folder()
+
+    from django.core.management import call_command
+    call_command("shell_plus")
+
+
 
 
 @docstring(shell.__doc__)

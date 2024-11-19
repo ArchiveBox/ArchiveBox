@@ -36,6 +36,8 @@ HOSTNAME: str           = max([socket.gethostname(), platform.node()], key=len)
 
 IS_ROOT = RUNNING_AS_UID == 0
 IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'TRUE', 'yes')
+# IN_DOCKER_COMPOSE =  # TODO: figure out a way to detect if running in docker compose
+
 
 FALLBACK_UID = RUNNING_AS_UID or SUDO_UID
 FALLBACK_GID = RUNNING_AS_GID or SUDO_GID

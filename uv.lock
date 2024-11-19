@@ -658,6 +658,7 @@ dependencies = [
     { name = "atomicwrites", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "base32-crockford", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "channels", extra = ["daphne"], marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "croniter", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "dateparser", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -688,6 +689,7 @@ dependencies = [
     { name = "requests", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-argparse", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "setuptools", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "sonic-client", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "supervisor", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -784,6 +786,7 @@ requires-dist = [
     { name = "atomicwrites", specifier = "==1.4.1" },
     { name = "base32-crockford", specifier = "==0.3.0" },
     { name = "channels", extras = ["daphne"], specifier = ">=4.1.0" },
+    { name = "click", specifier = ">=8.1.7" },
     { name = "croniter", specifier = ">=3.0.3" },
     { name = "dateparser", specifier = ">=1.2.0" },
     { name = "django", specifier = ">=5.1.1,<6.0" },
@@ -821,6 +824,7 @@ requires-dist = [
     { name = "requests-tracker", marker = "extra == 'debug'", specifier = ">=0.3.3" },
     { name = "rich", specifier = ">=13.8.0" },
     { name = "rich-argparse", specifier = ">=1.5.2" },
+    { name = "rich-click", specifier = ">=1.8.4" },
     { name = "setuptools", specifier = ">=74.1.0" },
     { name = "sonic-client", specifier = ">=1.0.0" },
     { name = "supervisor", specifier = ">=4.2.5" },
@@ -2804,6 +2808,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/7f/ee/c410251ff6123d4417f2fe8e72c8628f187682b70ce34134a2a3e307a2d5/rich_argparse-1.6.0.tar.gz", hash = "sha256:092083c30da186f25bcdff8b1d47fdfb571288510fb051e0488a72cc3128de13", size = 17499 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/25/45/54b95bb72bb17c27a7252bee5034955020b5869a33918b660ffc29cbf608/rich_argparse-1.6.0-py3-none-any.whl", hash = "sha256:fbe70a1d821b3f2fa8958cddf0cae131870a6e9faa04ab52b409cb1eda809bd7", size = 20072 },
+]
+
+[[package]]
+name = "rich-click"
+version = "1.8.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "typing-extensions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fc/f4/e48dc2850662526a26fb0961aacb0162c6feab934312b109b748ae4efee2/rich_click-1.8.4.tar.gz", hash = "sha256:0f49471f04439269d0e66a6f43120f52d11d594869a2a0be600cfb12eb0616b9", size = 38247 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/84/f3/72f93d8494ee641bde76bfe1208cf4abc44c6f9448673762f6077bc162d6/rich_click-1.8.4-py3-none-any.whl", hash = "sha256:2d2841b3cebe610d5682baa1194beaf78ab00c4fa31931533261b5eba2ee80b7", size = 35071 },
 ]
 
 [[package]]

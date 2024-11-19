@@ -24,7 +24,92 @@ from archivebox.index import (
 from archivebox.misc.logging_util import SmartFormatter, accept_stdin
 # from ..main import update
 
+
+
+
+# LEGACY VERSION:
+# @enforce_types
+# def update(resume: Optional[float]=None,
+#            only_new: bool=ARCHIVING_CONFIG.ONLY_NEW,
+#            index_only: bool=False,
+#            overwrite: bool=False,
+#            filter_patterns_str: Optional[str]=None,
+#            filter_patterns: Optional[List[str]]=None,
+#            filter_type: Optional[str]=None,
+#            status: Optional[str]=None,
+#            after: Optional[str]=None,
+#            before: Optional[str]=None,
+#            extractors: str="",
+#            out_dir: Path=DATA_DIR) -> List[Link]:
+#     """Import any new links from subscriptions and retry any previously failed/skipped links"""
+
+#     from core.models import ArchiveResult
+#     from .search import index_links
+#     # from workers.supervisord_util import start_cli_workers
+    
+
+#     check_data_folder()
+#     # start_cli_workers()
+#     new_links: List[Link] = [] # TODO: Remove input argument: only_new
+
+#     extractors = extractors.split(",") if extractors else []
+
+#     # Step 1: Filter for selected_links
+#     print('[*] Finding matching Snapshots to update...')
+#     print(f'    - Filtering by {" ".join(filter_patterns)} ({filter_type}) {before=} {after=} {status=}...')
+#     matching_snapshots = list_links(
+#         filter_patterns=filter_patterns,
+#         filter_type=filter_type,
+#         before=before,
+#         after=after,
+#     )
+#     print(f'    - Checking {matching_snapshots.count()} snapshot folders for existing data with {status=}...')
+#     matching_folders = list_folders(
+#         links=matching_snapshots,
+#         status=status,
+#         out_dir=out_dir,
+#     )
+#     all_links = (link for link in matching_folders.values() if link)
+#     print('    - Sorting by most unfinished -> least unfinished + date archived...')
+#     all_links = sorted(all_links, key=lambda link: (ArchiveResult.objects.filter(snapshot__url=link.url).count(), link.timestamp))
+
+#     if index_only:
+#         for link in all_links:
+#             write_link_details(link, out_dir=out_dir, skip_sql_index=True)
+#         index_links(all_links, out_dir=out_dir)
+#         return all_links
+        
+#     # Step 2: Run the archive methods for each link
+#     to_archive = new_links if only_new else all_links
+#     if resume:
+#         to_archive = [
+#             link for link in to_archive
+#             if link.timestamp >= str(resume)
+#         ]
+#         if not to_archive:
+#             stderr('')
+#             stderr(f'[√] Nothing found to resume after {resume}', color='green')
+#             return all_links
+
+#     archive_kwargs = {
+#         "out_dir": out_dir,
+#     }
+#     if extractors:
+#         archive_kwargs["methods"] = extractors
+
+
+#     archive_links(to_archive, overwrite=overwrite, **archive_kwargs)
+
+#     # Step 4: Re-write links index with updated titles, icons, and resources
+#     all_links = load_main_index(out_dir=out_dir)
+#     return all_links
+
+
+
+
+
 def update():
+    """Import any new links from subscriptions and retry any previously failed/skipped links"""
     from archivebox.config.django import setup_django
     setup_django()
     

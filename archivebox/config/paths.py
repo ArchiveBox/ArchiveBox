@@ -142,7 +142,7 @@ def create_and_chown_dir(dir_path: Path) -> None:
         os.system(f'chown {ARCHIVEBOX_USER} "{dir_path}"/* 2>/dev/null &')
 
 @cache
-def get_or_create_working_tmp_dir(autofix=True, quiet=False):
+def get_or_create_working_tmp_dir(autofix=True, quiet=True):
     from archivebox import CONSTANTS
     from archivebox.config.common import STORAGE_CONFIG
     from archivebox.misc.checks import check_tmp_dir
@@ -165,7 +165,7 @@ def get_or_create_working_tmp_dir(autofix=True, quiet=False):
             pass
         if check_tmp_dir(candidate, throw=False, quiet=True, must_exist=True):
             if autofix and STORAGE_CONFIG.TMP_DIR != candidate:
-                STORAGE_CONFIG.update_in_place(TMP_DIR=candidate, warn=not quiet)
+                STORAGE_CONFIG.update_in_place(TMP_DIR=candidate)
             return candidate
     
     if not quiet:
@@ -193,7 +193,7 @@ def get_or_create_working_lib_dir(autofix=True, quiet=False):
             pass
         if check_lib_dir(candidate, throw=False, quiet=True, must_exist=True):
             if autofix and STORAGE_CONFIG.LIB_DIR != candidate:
-                STORAGE_CONFIG.update_in_place(LIB_DIR=candidate, warn=not quiet)
+                STORAGE_CONFIG.update_in_place(LIB_DIR=candidate)
             return candidate
     
     if not quiet:

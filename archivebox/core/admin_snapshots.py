@@ -21,7 +21,6 @@ from archivebox.misc.logging_util import printable_filesize
 from archivebox.search.admin import SearchResultsAdminMixin
 from archivebox.index.html import snapshot_icons
 from archivebox.extractors import archive_links
-from archivebox.main import remove
 
 from archivebox.base_models.admin import ABIDModelAdmin
 from archivebox.workers.tasks import bg_archive_links, bg_add
@@ -321,7 +320,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, ABIDModelAdmin):
         description="☠️ Delete"
     )
     def delete_snapshots(self, request, queryset):
+        from archivebox.cli.archivebox_remove import remove
         remove(snapshots=queryset, yes=True, delete=True, out_dir=DATA_DIR)
+        
         messages.success(
             request,
             mark_safe(f"Succesfully deleted {queryset.count()} Snapshots. Don't forget to scrub URLs from import logs (data/sources) and error logs (data/logs) if needed."),

@@ -8,10 +8,93 @@ import argparse
 from pathlib import Path
 from typing import Optional, List, IO
 
+from django.db.models import QuerySet
+
 from archivebox.misc.util import docstring
 from archivebox.config import DATA_DIR
 from archivebox.misc.logging_util import SmartFormatter, accept_stdin
-from ..main import remove
+from archivebox.index.schema import Link
+
+
+def remove(filter_str: Optional[str]=None,
+           filter_patterns: Optional[list[str]]=None,
+           filter_type: str='exact',
+           snapshots: Optional[QuerySet]=None,
+           after: Optional[float]=None,
+           before: Optional[float]=None,
+           yes: bool=False,
+           delete: bool=False,
+           out_dir: Path=DATA_DIR) -> list[Link]:
+    """Remove the specified URLs from the archive"""
+    
+    check_data_folder()
+
+    if snapshots is None:
+        if filter_str and filter_patterns:
+            stderr(
+                '[X] You should pass either a pattern as an argument, '
+                'or pass a list of patterns via stdin, but not both.\n',
+                color='red',
+            )
+            raise SystemExit(2)
+        elif not (filter_str or filter_patterns):
+            stderr(
+                '[X] You should pass either a pattern as an argument, '
+                'or pass a list of patterns via stdin.',
+                color='red',
+            )
+            stderr()
+            hint(('To remove all urls you can run:',
+                'archivebox remove --filter-type=regex ".*"'))
+            stderr()
+            raise SystemExit(2)
+        elif filter_str:
+            filter_patterns = [ptn.strip() for ptn in filter_str.split('\n')]
+
+    list_kwargs = {
+        "filter_patterns": filter_patterns,
+        "filter_type": filter_type,
+        "after": after,
+        "before": before,
+    }
+    if snapshots:
+        list_kwargs["snapshots"] = snapshots
+
+    log_list_started(filter_patterns, filter_type)
+    timer = TimedProgress(360, prefix='      ')
+    try:
+        snapshots = list_links(**list_kwargs)
+    finally:
+        timer.end()
+
+
+    if not snapshots.exists():
+        log_removal_finished(0, 0)
+        raise SystemExit(1)
+
+
+    log_links = [link.as_link() for link in snapshots]
+    log_list_finished(log_links)
+    log_removal_started(log_links, yes=yes, delete=delete)
+
+    timer = TimedProgress(360, prefix='      ')
+    try:
+        for snapshot in snapshots:
+            if delete:
+                shutil.rmtree(snapshot.as_link().link_dir, ignore_errors=True)
+    finally:
+        timer.end()
+
+    to_remove = snapshots.count()
+
+    from .search import flush_search_index
+
+    flush_search_index(snapshots=snapshots)
+    remove_from_sql_main_index(snapshots=snapshots, out_dir=out_dir)
+    all_snapshots = load_main_index(out_dir=out_dir)
+    log_removal_finished(all_snapshots.count(), to_remove)
+    
+    return all_snapshots
 
 
 @docstring(remove.__doc__)

@@ -60,7 +60,7 @@ def setup_django(check_db=False, in_memory_db=False) -> None:
         return
 
     with Progress(transient=True, expand=True, console=STDERR) as INITIAL_STARTUP_PROGRESS:
-        INITIAL_STARTUP_PROGRESS_TASK = INITIAL_STARTUP_PROGRESS.add_task("[green]Loading modules...", total=25, visible=False)
+        INITIAL_STARTUP_PROGRESS_TASK = INITIAL_STARTUP_PROGRESS.add_task("[green]Loading modules...", total=25, visible=True)
         
         from archivebox.config.permissions import IS_ROOT, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, SudoPermission
     

@@ -8,7 +8,7 @@ from django_huey import db_task, task
 from huey_monitor.models import TaskModel
 from huey_monitor.tqdm import ProcessInfo
 
-from .supervisor_util import get_or_create_supervisord_process
+from .supervisord_util import get_or_create_supervisord_process
 
 # @db_task(queue="commands", context=True, schedule=1)
 # def scheduler_tick():

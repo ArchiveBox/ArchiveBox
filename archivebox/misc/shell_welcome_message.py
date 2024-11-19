@@ -20,11 +20,9 @@ from datetime import datetime, timedelta   # noqa
 from django.conf import settings           # noqa
 
 from archivebox import CONSTANTS           # noqa
-from ..main import *                       # noqa
-from ..cli import CLI_SUBCOMMANDS
+from archivebox.cli import *               # noqa
 
 CONFIG = archivebox.pm.hook.get_FLAT_CONFIG()
-CLI_COMMAND_NAMES = ", ".join(CLI_SUBCOMMANDS.keys())
 
 if __name__ == '__main__':
     # load the rich extension for ipython for pretty printing
@@ -40,7 +38,7 @@ if __name__ == '__main__':
     prnt('[green]import re, os, sys, psutil, subprocess, reqiests, json, pydantic, benedict, django, abx[/]')
     prnt('[yellow4]# ArchiveBox Imports[/]')
     prnt('[yellow4]import archivebox[/]')
-    prnt('[yellow4]from archivebox.main import {}[/]'.format(CLI_COMMAND_NAMES))
+    prnt('[yellow4]from archivebox.cli import *[/]')
     prnt()
     
     if console.width >= 80:

@@ -459,8 +459,8 @@ def load_plugins(plugins: Iterable[PluginId | ModuleType | Type] | Dict[PluginId
     PLUGINS_TO_LOAD = sorted(PLUGINS_TO_LOAD, key=lambda x: x['order'])
         
     for plugin_info in PLUGINS_TO_LOAD:
-        if '--version' not in sys.argv and '--help' not in sys.argv:
-            print(f'🧩 Loading plugin: {plugin_info["id"]}...', end='\r', flush=True, file=sys.stderr)
+        # if '--version' not in sys.argv and '--help' not in sys.argv:
+        #     print(f'🧩 Loading plugin: {plugin_info["id"]}...', end='\r', flush=True, file=sys.stderr)
         pm.register(plugin_info['module'])
         LOADED_PLUGINS[plugin_info['id']] = plugin_info
     # print('\x1b[2K', end='\r', flush=True, file=sys.stderr)

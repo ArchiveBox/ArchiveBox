@@ -6,13 +6,6 @@ from enum import Enum
 
 from ninja import Router, Schema
 
-from archivebox.main import (
-    add,
-    remove,
-    update,
-    list_all,
-    schedule,
-)
 from archivebox.misc.util import ansi_to_html
 from archivebox.config.common import ARCHIVING_CONFIG
 
@@ -60,13 +53,11 @@ class AddCommandSchema(Schema):
     urls: List[str]
     tag: str = ""
     depth: int = 0
-    update: bool = not ARCHIVING_CONFIG.ONLY_NEW  # Default to the opposite of ARCHIVING_CONFIG.ONLY_NEW
-    update_all: bool = False
-    index_only: bool = False
-    overwrite: bool = False
-    init: bool = False
-    extractors: str = ""
     parser: str = "auto"
+    extract: str = ""
+    update: bool = not ARCHIVING_CONFIG.ONLY_NEW  # Default to the opposite of ARCHIVING_CONFIG.ONLY_NEW
+    overwrite: bool = False
+    index_only: bool = False
 
 class UpdateCommandSchema(Schema):
     resume: Optional[float] = 0
@@ -93,7 +84,7 @@ class ScheduleCommandSchema(Schema):
 class ListCommandSchema(Schema):
     filter_patterns: Optional[List[str]] = ['https://example.com']
     filter_type: str = FilterTypeChoices.substring
-    status: Optional[StatusChoices] = StatusChoices.indexed
+    status: StatusChoices = StatusChoices.indexed
     after: Optional[float] = 0
     before: Optional[float] = 999999999999999
     sort: str = 'bookmarked_at'
@@ -115,16 +106,16 @@ class RemoveCommandSchema(Schema):
 
 @router.post("/add", response=CLICommandResponseSchema, summary='archivebox add [args] [urls]')
 def cli_add(request, args: AddCommandSchema):
+    from archivebox.cli.archivebox_add import add
+    
     result = add(
         urls=args.urls,
         tag=args.tag,
         depth=args.depth,
         update=args.update,
-        update_all=args.update_all,
         index_only=args.index_only,
         overwrite=args.overwrite,
-        init=args.init,
-        extractors=args.extractors,
+        extract=args.extract,
         parser=args.parser,
     )
 
@@ -139,6 +130,8 @@ def cli_add(request, args: AddCommandSchema):
 
 @router.post("/update", response=CLICommandResponseSchema, summary='archivebox update [args] [filter_patterns]')
 def cli_update(request, args: UpdateCommandSchema):
+    from archivebox.cli.archivebox_update import update
+    
     result = update(
         resume=args.resume,
         only_new=args.only_new,
@@ -162,6 +155,8 @@ def cli_update(request, args: UpdateCommandSchema):
 
 @router.post("/schedule", response=CLICommandResponseSchema, summary='archivebox schedule [args] [import_path]')
 def cli_schedule(request, args: ScheduleCommandSchema):
+    from archivebox.cli.archivebox_schedule import schedule
+    
     result = schedule(
         import_path=args.import_path,
         add=args.add,
@@ -184,9 +179,11 @@ def cli_schedule(request, args: ScheduleCommandSchema):
 
 
 
-@router.post("/list", response=CLICommandResponseSchema, summary='archivebox list [args] [filter_patterns] (use this endpoint with ?filter_type=search to search for snapshots)')
-def cli_list(request, args: ListCommandSchema):
-    result = list_all(
+@router.post("/search", response=CLICommandResponseSchema, summary='archivebox search [args] [filter_patterns]')
+def cli_search(request, args: ListCommandSchema):
+    from archivebox.cli.archivebox_search import search
+    
+    result = search(
         filter_patterns=args.filter_patterns,
         filter_type=args.filter_type,
         status=args.status,
@@ -221,6 +218,8 @@ def cli_list(request, args: ListCommandSchema):
 
 @router.post("/remove", response=CLICommandResponseSchema, summary='archivebox remove [args] [filter_patterns]')
 def cli_remove(request, args: RemoveCommandSchema):
+    from archivebox.cli.archivebox_remove import remove
+    
     result = remove(
         yes=True,            # no way to interactively ask for confirmation via API, so we force yes
         delete=args.delete,

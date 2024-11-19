@@ -24,7 +24,7 @@ def check_data_folder() -> None:
     from archivebox.config import CONSTANTS
     from archivebox.config.paths import create_and_chown_dir, get_or_create_working_tmp_dir, get_or_create_working_lib_dir
     
-    archive_dir_exists = os.access(ARCHIVE_DIR, os.R_OK) and ARCHIVE_DIR.is_dir()
+    archive_dir_exists = os.path.isdir(ARCHIVE_DIR)
     if not archive_dir_exists:
         print('[red][X] No archivebox index found in the current directory.[/red]', file=sys.stderr)
         print(f'    {DATA_DIR}', file=sys.stderr)

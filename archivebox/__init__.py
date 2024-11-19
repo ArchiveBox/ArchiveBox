@@ -51,6 +51,7 @@ from .pkgs import load_vendored_pkgs             # noqa
 load_vendored_pkgs()
 # print('DONE LOADING VENDORED LIBRARIES')
 
+# print('LOADING ABX PLUGIN SPECIFICATIONS')
 # Load ABX Plugin Specifications + Default Implementations
 import abx                                       # noqa
 import abx_spec_archivebox                       # noqa
@@ -74,7 +75,7 @@ abx.pm.register(abx_spec_searchbackend.PLUGIN_SPEC())
 # Cast to ArchiveBoxPluginSpec to enable static type checking of pm.hook.call() methods
 abx.pm = cast(abx.ABXPluginManager[abx_spec_archivebox.ArchiveBoxPluginSpec], abx.pm)
 pm = abx.pm
-
+# print('DONE LOADING ABX PLUGIN SPECIFICATIONS')
 
 # Load all pip-installed ABX-compatible plugins
 ABX_ECOSYSTEM_PLUGINS = abx.get_pip_installed_plugins(group='abx')
@@ -94,7 +95,9 @@ USER_PLUGINS = abx.find_plugins_in_dir(Path(os.getcwd()) / 'user_plugins')
 
 # Import all plugins and register them with ABX Plugin Manager
 ALL_PLUGINS = {**ABX_ECOSYSTEM_PLUGINS, **ARCHIVEBOX_BUILTIN_PLUGINS, **USER_PLUGINS}
+# print('LOADING ALL PLUGINS')
 LOADED_PLUGINS = abx.load_plugins(ALL_PLUGINS)
+# print('DONE LOADING ALL PLUGINS')
 
 # Setup basic config, constants, paths, and version
 from .config.constants import CONSTANTS                         # noqa

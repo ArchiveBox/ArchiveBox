@@ -303,7 +303,7 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
         "Exit Status": [],
     }
     
-    from workers.supervisor_util import get_existing_supervisord_process
+    from workers.supervisord_util import get_existing_supervisord_process
     
     supervisor = get_existing_supervisord_process()
     if supervisor is None:
@@ -373,7 +373,7 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
 def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     assert request.user.is_superuser, "Must be a superuser to view configuration settings."
 
-    from workers.supervisor_util import get_existing_supervisord_process, get_worker, get_sock_file, CONFIG_FILE_NAME
+    from workers.supervisord_util import get_existing_supervisord_process, get_worker, get_sock_file, CONFIG_FILE_NAME
 
     SOCK_FILE = get_sock_file()
     CONFIG_FILE = SOCK_FILE.parent / CONFIG_FILE_NAME

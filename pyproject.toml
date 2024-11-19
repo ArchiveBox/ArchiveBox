@@ -115,6 +115,8 @@ dependencies = [
     "abx-plugin-mercury>=2024.10.28",
     "abx-plugin-htmltotext>=2024.10.28",
     "python-statemachine>=2.3.6",
+    "click>=8.1.7",
+    "rich-click>=1.8.4",
 ]
 
 [project.optional-dependencies]
