@@ -449,6 +449,8 @@ class Snapshot(ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
         for extractor in EXTRACTORS:
             if not extractor:
                 continue
+            if ArchiveResult.objects.filter(snapshot=self, extractor=extractor).exists():
+                continue
             archiveresult, created = ArchiveResult.objects.get_or_create(
                 snapshot=self,
                 extractor=extractor,

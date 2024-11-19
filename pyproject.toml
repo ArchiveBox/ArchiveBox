@@ -143,6 +143,9 @@ all = [
 ]
 
 [tool.uv]
+environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
+package = true
+# compile-bytecode = true
 dev-dependencies = [
     ### BUILD
     "uv>=0.4.26",
@@ -218,6 +221,11 @@ abx-plugin-htmltotext = { workspace = true }
 [tool.uv.workspace]
 members = ["archivebox/pkgs/*"]
 exclude = ["archivebox/pkgs/__pycache__"]
+
+[tool.uv.pip]
+all-extras = true
+python-version = "3.10"
+# compile-bytecode = true
 
 [build-system]
 requires = ["pdm-backend"]

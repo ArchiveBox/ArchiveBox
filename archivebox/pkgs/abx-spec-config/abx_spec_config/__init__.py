@@ -43,7 +43,7 @@ class ConfigPluginSpec:
     @staticmethod
     @abx.hookspec(firstresult=True)
     @abx.hookimpl
-    def get_CONFIGS() -> dict[abx.PluginId, BaseConfigSet]:
+    def get_CONFIGS() -> dict[abx.PluginId, 'BaseConfigSet | ConstantsDict']:
         """Get the config for all plugins by plugin_id -> {plugin_abc: PluginABCConfigSet(), plugin_xyz: PluginXYZConfigSet(), ...}"""
         return abx.as_dict(pm.hook.get_CONFIG())
 
@@ -117,7 +117,7 @@ class ConfigPluginSpec:
         return benedict({
             key: value
             for configset in pm.hook.get_CONFIGS().values()
-                for key, value in configset.from_collection().items()
+                for key, value in (configset.from_collection().items() if isinstance(configset, BaseConfigSet) else {})
         }) if collection == ... else collection
     
     @staticmethod
@@ -129,7 +129,7 @@ class ConfigPluginSpec:
         return benedict({
             key: value
             for configset in pm.hook.get_CONFIGS().values()
-                for key, value in configset.from_environment().items()
+                for key, value in (configset.from_environment().items() if isinstance(configset, BaseConfigSet) else ())
         }) if environment == ... else environment
     
     @staticmethod
@@ -151,7 +151,7 @@ class ConfigPluginSpec:
         return benedict({
             key: value
             for configset in pm.hook.get_CONFIGS().values()
-                for key, value in configset.from_defaults().items()
+                for key, value in (configset.from_defaults().items() if isinstance(configset, BaseConfigSet) else configset.items())
         }) if default == ... else default
 
 

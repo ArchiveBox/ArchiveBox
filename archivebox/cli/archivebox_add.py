@@ -21,7 +21,6 @@ from archivebox.misc.checks import check_data_folder
 from archivebox.parsers import PARSERS
 from archivebox.logging_util import SmartFormatter, accept_stdin, stderr
 
-from abid_utils.models import get_or_create_system_user_pk
 
 if TYPE_CHECKING:
     from core.models import Snapshot
@@ -55,6 +54,8 @@ def add(urls: str | list[str],
     from seeds.models import Seed
     from crawls.models import Crawl
     from actors.orchestrator import Orchestrator
+    from abid_utils.models import get_or_create_system_user_pk
+
 
     
     created_by_id = created_by_id or get_or_create_system_user_pk()

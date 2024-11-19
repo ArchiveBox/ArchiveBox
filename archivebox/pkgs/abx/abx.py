@@ -5,7 +5,7 @@ __author__ = 'Nick Sweeting'
 __homepage__ = 'https://github.com/ArchiveBox/ArchiveBox'
 __order__ = 0
 
-
+import sys
 import inspect
 import importlib
 import itertools
@@ -446,9 +446,11 @@ def load_plugins(plugins: Iterable[PluginId | ModuleType | Type] | Dict[PluginId
     PLUGINS_TO_LOAD = sorted(PLUGINS_TO_LOAD, key=lambda x: x['order'])
         
     for plugin_info in PLUGINS_TO_LOAD:
+        if '--version' not in sys.argv and '--help' not in sys.argv:
+            print(f'🧩 Loading plugin: {plugin_info["id"]}...', end='\r', flush=True, file=sys.stderr)
         pm.register(plugin_info['module'])
         LOADED_PLUGINS[plugin_info['id']] = plugin_info
-        print(f'    √ Loaded plugin: {plugin_info["id"]}')
+    # print('\x1b[2K', end='\r', flush=True, file=sys.stderr)
     return benedict(LOADED_PLUGINS)
 
 @cache
