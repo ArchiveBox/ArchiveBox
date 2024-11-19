@@ -29,7 +29,7 @@ ORCHESTRATOR = None
 
 @enforce_types
 def add(urls: str | list[str],
-        depth: int=0,
+        depth: int | str=0,
         tag: str='',
         parser: str="auto",
         extract: str="",
