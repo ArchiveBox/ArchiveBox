@@ -183,7 +183,7 @@ SETTINGS_LOGGING = {
             "level": "ERROR",
         },
         "django.channels.server": {
-            # see archivebox.monkey_patches.ModifiedAccessLogGenerator for dedicated daphne server logging settings
+            # see archivebox.misc.monkey_patches.ModifiedAccessLogGenerator for dedicated daphne server logging settings
             "propagate": False,
             "handlers": ["default", "logfile"],
             "level": "INFO",

@@ -42,7 +42,7 @@ check_not_root()
 check_io_encoding()
 
 # print('INSTALLING MONKEY PATCHES')
-from .monkey_patches import *                    # noqa
+from .misc.monkey_patches import *                    # noqa
 # print('DONE INSTALLING MONKEY PATCHES')
 
 
