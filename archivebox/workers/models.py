@@ -60,7 +60,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
                             f'{cls.__name__}.{field.name} must have choices set to {cls.__name__}.StatusChoices.choices',
                             hint=f'{cls.__name__}.{field.name}.choices = {getattr(field, "choices", None)!r}',
                             obj=cls,
-                            id='actors.E011',
+                            id='workers.E011',
                         ))
             if getattr(field, '_is_retry_at_field', False):
                 if cls.retry_at_field_name == field.name:
@@ -73,14 +73,14 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
                 f'{cls.__name__}.state_field_name must be defined and point to a StatusField()',
                 hint=f'{cls.__name__}.state_field_name = {cls.state_field_name!r} but {cls.__name__}.{cls.state_field_name!r} was not found or does not refer to StatusField',
                 obj=cls,
-                id='actors.E012',
+                id='workers.E012',
             ))
         if not found_retry_at_field:
             errors.append(checks.Error(
                 f'{cls.__name__}.retry_at_field_name must be defined and point to a RetryAtField()',
                 hint=f'{cls.__name__}.retry_at_field_name = {cls.retry_at_field_name!r} but {cls.__name__}.{cls.retry_at_field_name!r} was not found or does not refer to RetryAtField',
                 obj=cls,
-                id='actors.E013',
+                id='workers.E013',
             ))
             
         if not found_id_field:
@@ -88,7 +88,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
                 f'{cls.__name__} must have an id field that is a primary key',
                 hint=f'{cls.__name__}.id = {cls.id!r}',
                 obj=cls,
-                id='actors.E014',
+                id='workers.E014',
             ))
             
         if not isinstance(cls.state_machine_name, str):
@@ -96,7 +96,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
                 f'{cls.__name__}.state_machine_name must be a dotted-import path to a StateMachine class',
                 hint=f'{cls.__name__}.state_machine_name = {cls.state_machine_name!r}',
                 obj=cls,
-                id='actors.E015',
+                id='workers.E015',
             ))
         
         try:
@@ -106,7 +106,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
                 f'{cls.__name__}.state_machine_name must point to a valid StateMachine class, but got {type(err).__name__} {err} when trying to access {cls.__name__}.StateMachineClass',
                 hint=f'{cls.__name__}.state_machine_name = {cls.state_machine_name!r}',
                 obj=cls,
-                id='actors.E016',
+                id='workers.E016',
             ))
         
         if cls.INITIAL_STATE not in cls.StatusChoices.values:
@@ -114,7 +114,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
                 f'{cls.__name__}.StateMachineClass.initial_state must be present within {cls.__name__}.StatusChoices',
                 hint=f'{cls.__name__}.StateMachineClass.initial_state = {cls.StateMachineClass.initial_state!r}',
                 obj=cls,
-                id='actors.E017',
+                id='workers.E017',
             ))
             
         if cls.ACTIVE_STATE not in cls.StatusChoices.values:
@@ -122,7 +122,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
                 f'{cls.__name__}.active_state must be set to a valid State present within {cls.__name__}.StatusChoices',
                 hint=f'{cls.__name__}.active_state = {cls.active_state!r}',
                 obj=cls,
-                id='actors.E018',
+                id='workers.E018',
             ))
             
         
@@ -132,7 +132,7 @@ class BaseModelWithStateMachine(models.Model, MachineMixin):
                     f'{cls.__name__}.StateMachineClass.final_states must all be present within {cls.__name__}.StatusChoices',
                     hint=f'{cls.__name__}.StateMachineClass.final_states = {cls.StateMachineClass.final_states!r}',
                     obj=cls,
-                    id='actors.E019',
+                    id='workers.E019',
                 ))
                 break
         return errors

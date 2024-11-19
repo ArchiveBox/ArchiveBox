@@ -25,7 +25,7 @@ import archivebox
 from core.models import Snapshot
 from core.forms import AddLinkForm
 
-from queues.tasks import bg_add
+from workers.tasks import bg_add
 
 from archivebox.config import CONSTANTS_CONFIG, DATA_DIR, VERSION
 from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG

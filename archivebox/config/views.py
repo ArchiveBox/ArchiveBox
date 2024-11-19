@@ -7,7 +7,6 @@ from typing import Any, List, Dict, cast
 from benedict import benedict
 
 from django.http import HttpRequest
-from django.conf import settings
 from django.utils import timezone
 from django.utils.html import format_html, mark_safe
 
@@ -304,7 +303,7 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
         "Exit Status": [],
     }
     
-    from queues.supervisor_util import get_existing_supervisord_process
+    from workers.supervisor_util import get_existing_supervisord_process
     
     supervisor = get_existing_supervisord_process()
     if supervisor is None:
@@ -374,8 +373,10 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
 def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     assert request.user.is_superuser, "Must be a superuser to view configuration settings."
 
-    from queues.supervisor_util import get_existing_supervisord_process, get_worker
-    from queues.settings import SUPERVISORD_CONFIG_FILE
+    from workers.supervisor_util import get_existing_supervisord_process, get_worker, get_sock_file, CONFIG_FILE_NAME
+
+    SOCK_FILE = get_sock_file()
+    CONFIG_FILE = SOCK_FILE.parent / CONFIG_FILE_NAME
 
     supervisor = get_existing_supervisord_process()
     if supervisor is None:
@@ -388,7 +389,7 @@ def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     all_config = cast(List[Dict[str, Any]], supervisor.getAllConfigInfo() or [])
 
     if key == 'supervisord':
-        relevant_config = SUPERVISORD_CONFIG_FILE.read_text()
+        relevant_config = CONFIG_FILE.read_text()
         relevant_logs = cast(str, supervisor.readLog(0, 10_000_000))
         start_ts = [line for line in relevant_logs.split("\n") if "RPC interface 'supervisor' initialized" in line][-1].split(",", 1)[0]
         uptime = str(timezone.now() - parse_date(start_ts)).split(".")[0]
@@ -475,8 +476,6 @@ def log_list_view(request: HttpRequest, **kwargs) -> TableContext:
 @render_with_item_view
 def log_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     assert request.user.is_superuser, "Must be a superuser to view configuration settings."
-
-    from django.conf import settings
     
     log_file = [logfile for logfile in CONSTANTS.LOGS_DIR.glob('*.log') if key in logfile.name][0]
 

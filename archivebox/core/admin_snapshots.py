@@ -25,7 +25,7 @@ from archivebox.extractors import archive_links
 from archivebox.main import remove
 
 from archivebox.abid_utils.admin import ABIDModelAdmin
-from archivebox.queues.tasks import bg_archive_links, bg_add
+from archivebox.workers.tasks import bg_archive_links, bg_add
 
 from core.models import Tag
 from core.admin_tags import TagInline

@@ -2,7 +2,7 @@
 
 from django.core.management.base import BaseCommand
 
-from actors.orchestrator import ArchivingOrchestrator
+from workers.orchestrator import ArchivingOrchestrator
 
 
 class Command(BaseCommand):

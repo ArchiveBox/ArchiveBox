@@ -1,4 +1,4 @@
-__package__ = 'archivebox.actors'
+__package__ = 'archivebox.workers'
 
 import os
 import time

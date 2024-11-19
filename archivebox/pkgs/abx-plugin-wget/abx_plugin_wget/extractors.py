@@ -13,11 +13,11 @@ class WgetExtractor(BaseExtractor):
     name: ExtractorName = 'wget'
     binary: BinName = WGET_BINARY.name
 
-    def get_output_path(self, snapshot) -> Path | None:
-        wget_index_path = wget_output_path(snapshot.as_link())
-        if wget_index_path:
-            return Path(wget_index_path)
-        return None
+    def get_output_path(self, snapshot) -> str:
+        # wget_index_path = wget_output_path(snapshot.as_link())
+        # if wget_index_path:
+        #     return Path(wget_index_path)
+        return 'wget'
 
 WGET_EXTRACTOR = WgetExtractor()
 

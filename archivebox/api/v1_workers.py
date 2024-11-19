@@ -31,7 +31,7 @@ class TaskSchema(Schema):
 
 
 class ActorSchema(Schema):
-    # TYPE: str = 'actors.actor.ActorType'
+    # TYPE: str = 'workers.actor.ActorType'
 
     # name: str
     #pid: int | None
@@ -97,7 +97,7 @@ class ActorSchema(Schema):
 
 
 class OrchestratorSchema(Schema):
-    # TYPE: str = 'actors.orchestrator.Orchestrator'
+    # TYPE: str = 'workers.orchestrator.Orchestrator'
 
     #pid: int | None
     exit_on_idle: bool
@@ -114,7 +114,7 @@ class OrchestratorSchema(Schema):
 def get_orchestrators(request):
     """List all the task orchestrators (aka Orchestrators) that are currently running"""
 
-    from actors.orchestrator import Orchestrator
+    from workers.orchestrator import Orchestrator
     orchestrator = Orchestrator()
 
     return [orchestrator]
@@ -124,6 +124,6 @@ def get_orchestrators(request):
 def get_actors(request):
     """List all the task consumer workers (aka Actors) that are currently running"""
 
-    from actors.orchestrator import Orchestrator
+    from workers.orchestrator import Orchestrator
     orchestrator = Orchestrator()
     return orchestrator.actor_types.values()

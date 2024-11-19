@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from statemachine import State, StateMachine
 
-from actors.actor import ActorType
+from workers.actor import ActorType
 
 from core.models import Snapshot, ArchiveResult
 

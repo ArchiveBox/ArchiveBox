@@ -1,4 +1,4 @@
-__package__ = 'archivebox.queues'
+__package__ = 'archivebox.workers'
 
 import abx
 

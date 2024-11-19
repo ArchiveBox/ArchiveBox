@@ -1,7 +1,7 @@
 from django.apps import AppConfig
 
 
-class QueuesConfig(AppConfig):
+class WorkersConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'queues'
+    name = 'workers'
 

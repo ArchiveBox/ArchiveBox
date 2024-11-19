@@ -41,7 +41,7 @@ def register_urls(api: NinjaAPI) -> NinjaAPI:
     api.add_router('/core/',     'api.v1_core.router')
     api.add_router('/crawls/',   'api.v1_crawls.router')
     api.add_router('/cli/',      'api.v1_cli.router')
-    api.add_router('/jobs/',     'api.v1_actors.router')
+    api.add_router('/workers/',  'api.v1_workers.router')
     return api
 
 

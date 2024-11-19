@@ -82,11 +82,10 @@ ABX_ECOSYSTEM_PLUGINS = abx.get_pip_installed_plugins(group='abx')
 # Load all built-in ArchiveBox plugins
 ARCHIVEBOX_BUILTIN_PLUGINS = {
     'config': PACKAGE_DIR / 'config',
+    'workers': PACKAGE_DIR / 'workers',
     'core': PACKAGE_DIR / 'core',
     'crawls': PACKAGE_DIR / 'crawls',
-    'queues': PACKAGE_DIR / 'queues',
     'seeds': PACKAGE_DIR / 'seeds',
-    'actors': PACKAGE_DIR / 'actors',
     # 'search': PACKAGE_DIR / 'search',
     # 'core': PACKAGE_DIR / 'core',
 }

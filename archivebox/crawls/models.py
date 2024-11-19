@@ -10,7 +10,7 @@ from django.conf import settings
 from django.urls import reverse_lazy
 from django.utils import timezone
 
-from actors.models import ModelWithStateMachine
+from workers.models import ModelWithStateMachine
 
 if TYPE_CHECKING:
     from core.models import Snapshot, ArchiveResult

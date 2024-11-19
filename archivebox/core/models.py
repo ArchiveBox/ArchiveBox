@@ -26,8 +26,8 @@ import abx
 from archivebox.config import CONSTANTS
 
 from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithOutputDir
-from actors.models import ModelWithStateMachine
-from queues.tasks import bg_archive_snapshot
+from workers.models import ModelWithStateMachine
+from workers.tasks import bg_archive_snapshot
 from crawls.models import Crawl
 # from machine.models import Machine, NetworkInterface
 

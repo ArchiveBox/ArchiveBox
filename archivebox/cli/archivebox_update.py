@@ -28,7 +28,7 @@ def update():
     from archivebox.config.django import setup_django
     setup_django()
     
-    from actors.orchestrator import Orchestrator
+    from workers.orchestrator import Orchestrator
     orchestrator = Orchestrator(exit_on_idle=False)
     orchestrator.start()
 

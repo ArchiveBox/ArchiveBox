@@ -675,8 +675,8 @@ def add(urls: Union[str, List[str]],
     """Add a new URL or list of URLs to your archive"""
 
     from core.models import Snapshot, Tag
-    # from queues.supervisor_util import start_cli_workers, tail_worker_logs
-    # from queues.tasks import bg_archive_link
+    # from workers.supervisor_util import start_cli_workers, tail_worker_logs
+    # from workers.tasks import bg_archive_link
     
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
@@ -873,7 +873,7 @@ def update(resume: Optional[float]=None,
 
     from core.models import ArchiveResult
     from .search import index_links
-    # from .queues.supervisor_util import start_cli_workers
+    # from workers.supervisor_util import start_cli_workers
     
 
     check_data_folder()
@@ -1494,7 +1494,7 @@ def server(runserver_args: Optional[List[str]]=None,
             runserver_args.append('--noreload')  # '--insecure'
         call_command("runserver", *runserver_args)
     else:
-        from queues.supervisor_util import start_server_workers
+        from workers.supervisor_util import start_server_workers
 
         print()
         start_server_workers(host=host, port=port, daemonize=False)

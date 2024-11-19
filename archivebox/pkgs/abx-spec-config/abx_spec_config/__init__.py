@@ -65,16 +65,16 @@ class ConfigPluginSpec:
     def get_SCOPE_CONFIG(extra=None, archiveresult=None, snapshot=None, crawl=None, user=None, request=None, collection=..., environment=..., machine=..., default=...) -> dict[ConfigKeyStr, Any]:
         """Get the config as it applies to you right now, based on the current context"""
         return benedict({
-            **pm.hook.get_default_config(default=default),
-            **pm.hook.get_machine_config(machine=machine),
-            **pm.hook.get_environment_config(environment=environment),
-            **pm.hook.get_collection_config(collection=collection),
-            **pm.hook.get_user_config(user=user),
-            **pm.hook.get_crawl_config(crawl=crawl),
-            **pm.hook.get_snapshot_config(snapshot=snapshot),
-            **pm.hook.get_archiveresult_config(archiveresult=archiveresult),
-            **pm.hook.get_request_config(request=request),
-            **(extra or {}),
+            **pm.hook.get_default_config(default=default),                       # schema defaults defined in source code
+            **pm.hook.get_machine_config(machine=machine),                       # machine defaults set on the Machine model
+            **pm.hook.get_environment_config(environment=environment),           # env config set for just this run on this machine
+            **pm.hook.get_collection_config(collection=collection),              # collection defaults set in ArchiveBox.conf
+            **pm.hook.get_user_config(user=user),                                # user config set on User model
+            **pm.hook.get_request_config(request=request),                       # extra config derived from the current request
+            **pm.hook.get_crawl_config(crawl=crawl),                             # extra config set on the Crawl model
+            **pm.hook.get_snapshot_config(snapshot=snapshot),                    # extra config set on the Snapshot model
+            **pm.hook.get_archiveresult_config(archiveresult=archiveresult),     # extra config set on the ArchiveResult model
+            **(extra or {}),                                                     # extra config passed in by the caller
         })
         
     @staticmethod

@@ -61,11 +61,10 @@ INSTALLED_APPS = [
     'django_object_actions',     # provides easy Django Admin action buttons on change views       https://github.com/crccheck/django-object-actions
 
     # Our ArchiveBox-provided apps
-    # 'abid_utils',                # handles ABID ID creation, handling, and models
+    # 'abid_utils',              # handles ABID ID creation, handling, and models
     'config',                    # ArchiveBox config settings (loaded as a plugin, don't need to add it here) 
     'machine',                   # handles collecting and storing information about the host machine, network interfaces, installed binaries, etc.
-    'actors',                    # handles starting and managing background workers and processes (orchestrators and actors)
-    'queues',                    # handles starting and managing background workers and processes (supervisord)
+    'workers',                   # handles starting and managing background workers and processes (orchestrators and actors)
     'seeds',                     # handles Seed model and URL source management
     'crawls',                    # handles Crawl and CrawlSchedule models and management
     'personas',                  # handles Persona and session management
