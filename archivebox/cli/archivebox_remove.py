@@ -40,6 +40,8 @@ def remove(filter_patterns: Iterable[str]=(),
     
     setup_django()
     check_data_folder()
+    
+    from archivebox.cli.archivebox_search import list_links
 
     list_kwargs = {
         "filter_patterns": filter_patterns,
@@ -75,7 +77,7 @@ def remove(filter_patterns: Iterable[str]=(),
 
     to_remove = snapshots.count()
 
-    from .search import flush_search_index
+    from archivebox.search import flush_search_index
 
     flush_search_index(snapshots=snapshots)
     remove_from_sql_main_index(snapshots=snapshots, out_dir=out_dir)
