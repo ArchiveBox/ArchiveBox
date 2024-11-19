@@ -34,7 +34,7 @@ def get_file_result_content(res, extra_path, use_pwd=False):
     return []
 
 
-# This should be abstracted by a plugin interface for extractors
+# TODO: This should be abstracted by a plugin interface for extractors
 @enforce_types
 def get_indexable_content(results: QuerySet):
     if not results:

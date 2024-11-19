@@ -85,7 +85,6 @@ ARCHIVEBOX_BUILTIN_PLUGINS = {
     'workers': PACKAGE_DIR / 'workers',
     'core': PACKAGE_DIR / 'core',
     'crawls': PACKAGE_DIR / 'crawls',
-    'seeds': PACKAGE_DIR / 'seeds',
     # 'search': PACKAGE_DIR / 'search',
     # 'core': PACKAGE_DIR / 'core',
 }

@@ -10,8 +10,7 @@ from django.contrib.auth import get_user_model
 from ninja import Router, Schema
 
 from core.models import Snapshot
-from crawls.models import Crawl
-from seeds.models import Seed
+from crawls.models import Seed, Crawl
 
 from .auth import API_AUTH_METHODS
 
@@ -19,7 +18,7 @@ router = Router(tags=['Crawl Models'], auth=API_AUTH_METHODS)
 
 
 class SeedSchema(Schema):
-    TYPE: str = 'seeds.models.Seed'
+    TYPE: str = 'crawls.models.Seed'
 
     id: UUID
     abid: str
@@ -60,7 +59,7 @@ def get_seed(request, seed_id: str):
 
 
 class CrawlSchema(Schema):
-    TYPE: str = 'core.models.Crawl'
+    TYPE: str = 'crawls.models.Crawl'
 
     id: UUID
     abid: str

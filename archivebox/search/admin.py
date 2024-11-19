@@ -1,10 +1,11 @@
 __package__ = 'archivebox.search'
 
 from django.contrib import messages
+from django.contrib import admin
 
 from archivebox.search import query_search_index
 
-class SearchResultsAdminMixin:
+class SearchResultsAdminMixin(admin.ModelAdmin):
     def get_search_results(self, request, queryset, search_term: str):
         """Enhances the search queryset with results from the search backend"""
         

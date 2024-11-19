@@ -51,8 +51,7 @@ def add(urls: str | list[str],
     setup_django()
     check_data_folder()
     
-    from seeds.models import Seed
-    from crawls.models import Crawl
+    from crawls.models import Seed, Crawl
     from workers.orchestrator import Orchestrator
     from abid_utils.models import get_or_create_system_user_pk
 
