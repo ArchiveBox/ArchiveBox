@@ -29,10 +29,10 @@ class LibNpmBinProvider(NpmProvider):
         LIB_DIR = abx.pm.hook.get_LIB_DIR()
         self.npm_prefix = LIB_DIR / 'npm'
         self.PATH = f'{LIB_DIR / "npm" / "node_modules" / ".bin"}:{NEW_NODE_BIN_PATH}:{OLD_NODE_BIN_PATH}'
-
         super().setup()
 
 
 SYS_NPM_BINPROVIDER = SystemNpmBinProvider()
 LIB_NPM_BINPROVIDER = LibNpmBinProvider()
+LIB_NPM_BINPROVIDER.setup()
 npm = LIB_NPM_BINPROVIDER

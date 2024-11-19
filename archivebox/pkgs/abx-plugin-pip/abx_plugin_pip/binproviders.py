@@ -63,9 +63,13 @@ class LibPipBinProvider(PipProvider):
         super().setup()
 
 SYS_PIP_BINPROVIDER = SystemPipBinProvider()
+SYS_PIP_BINPROVIDER.setup()
 PIPX_PIP_BINPROVIDER = SystemPipxBinProvider()
+PIPX_PIP_BINPROVIDER.setup()
 VENV_PIP_BINPROVIDER = VenvPipBinProvider()
+VENV_PIP_BINPROVIDER.setup()
 LIB_PIP_BINPROVIDER = LibPipBinProvider()
+LIB_PIP_BINPROVIDER.setup()
 pip = LIB_PIP_BINPROVIDER
 
 # ensure python libraries are importable from these locations (if archivebox wasnt executed from one of these then they wont already be in sys.path)
