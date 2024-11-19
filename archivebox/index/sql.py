@@ -35,7 +35,7 @@ def remove_from_sql_main_index(snapshots: QuerySet, atomic: bool=False, out_dir:
 @enforce_types
 def write_link_to_sql_index(link: Link, created_by_id: int | None=None):
     from core.models import Snapshot, ArchiveResult
-    from abid_utils.models import get_or_create_system_user_pk
+    from archivebox.base_models.models import get_or_create_system_user_pk
 
     info = {k: v for k, v in link._asdict().items() if k in Snapshot.keys}
 

@@ -5,7 +5,7 @@ from django.contrib import admin
 
 from archivebox import DATA_DIR
 
-from abid_utils.admin import ABIDModelAdmin
+from archivebox.base_models.admin import ABIDModelAdmin
 
 from core.models import Snapshot
 from crawls.models import Seed, Crawl, CrawlSchedule

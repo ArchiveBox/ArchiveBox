@@ -12,7 +12,7 @@ import abx
 import archivebox
 
 from abx_pkg import Binary, BinProvider
-from archivebox.abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats
+from archivebox.base_models.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats
 
 from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, get_host_stats
 

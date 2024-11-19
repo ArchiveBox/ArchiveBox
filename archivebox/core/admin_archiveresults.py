@@ -17,8 +17,8 @@ import abx
 from archivebox.config import DATA_DIR
 from archivebox.config.common import SERVER_CONFIG
 from archivebox.misc.paginators import AccelleratedPaginator
+from archivebox.base_models.admin import ABIDModelAdmin
 
-from abid_utils.admin import ABIDModelAdmin
 
 from core.models import ArchiveResult, Snapshot
 

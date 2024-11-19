@@ -1,4 +1,4 @@
-__package__ = 'archivebox.abid_utils'
+__package__ = 'archivebox.base_models'
 
 from typing import Any
 

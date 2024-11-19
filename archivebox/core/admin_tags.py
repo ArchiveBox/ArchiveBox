@@ -5,8 +5,8 @@ from django.utils.html import format_html, mark_safe
 
 import abx
 
-from abid_utils.admin import ABIDModelAdmin
 from archivebox.misc.paginators import AccelleratedPaginator
+from archivebox.base_models.admin import ABIDModelAdmin
 
 from core.models import Tag
 

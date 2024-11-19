@@ -85,8 +85,8 @@ ARCHIVEBOX_BUILTIN_PLUGINS = {
     'workers': PACKAGE_DIR / 'workers',
     'core': PACKAGE_DIR / 'core',
     'crawls': PACKAGE_DIR / 'crawls',
+    # 'machine': PACKAGE_DIR / 'machine'
     # 'search': PACKAGE_DIR / 'search',
-    # 'core': PACKAGE_DIR / 'core',
 }
 
 # Load all user-defined ArchiveBox plugins

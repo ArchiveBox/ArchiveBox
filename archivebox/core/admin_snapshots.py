@@ -23,7 +23,7 @@ from archivebox.index.html import snapshot_icons
 from archivebox.extractors import archive_links
 from archivebox.main import remove
 
-from archivebox.abid_utils.admin import ABIDModelAdmin
+from archivebox.base_models.admin import ABIDModelAdmin
 from archivebox.workers.tasks import bg_archive_links, bg_add
 
 from core.models import Tag

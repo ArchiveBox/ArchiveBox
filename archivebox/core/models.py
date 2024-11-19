@@ -24,31 +24,17 @@ from django.conf import settings
 import abx
 
 from archivebox.config import CONSTANTS
-
-from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithOutputDir
-from workers.models import ModelWithStateMachine
-from workers.tasks import bg_archive_snapshot
-from crawls.models import Crawl
-# from machine.models import Machine, NetworkInterface
-
 from archivebox.misc.system import get_dir_size
 from archivebox.misc.util import parse_date, base_url
 from archivebox.index.schema import Link
 from archivebox.index.html import snapshot_icons
 from archivebox.extractors import ARCHIVE_METHODS_INDEXING_PRECEDENCE
+from archivebox.base_models.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithOutputDir
 
-
-# class BaseModel(models.Model):
-#     # TODO: migrate all models to a shared base class with all our standard fields and helpers:
-#     #       ulid/created_at/modified_at/created_by/is_deleted/as_json/from_json/etc.
-#     #
-#     # id = models.AutoField(primary_key=True, serialize=False, verbose_name='ID')
-#     # ulid = models.CharField(max_length=26, null=True, blank=True, db_index=True, unique=True)
-
-#     class Meta(TypedModelMeta):
-#         abstract = True
-
-
+from workers.models import ModelWithStateMachine
+from workers.tasks import bg_archive_snapshot
+from crawls.models import Crawl
+# from machine.models import Machine, NetworkInterface
 
 
 

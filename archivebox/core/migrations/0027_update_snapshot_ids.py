@@ -3,7 +3,7 @@
 from django.db import migrations
 
 from datetime import datetime
-from abid_utils.abid import ABID, abid_from_values, DEFAULT_ABID_URI_SALT
+from archivebox.base_models.abid import ABID, abid_from_values, DEFAULT_ABID_URI_SALT
 
 
 def calculate_abid(self):

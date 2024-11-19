@@ -3,7 +3,7 @@ __package__ = 'archivebox.api'
 from signal_webhooks.admin import WebhookAdmin
 from signal_webhooks.utils import get_webhook_model
 
-from abid_utils.admin import ABIDModelAdmin
+from archivebox.base_models.admin import ABIDModelAdmin
 
 from api.models import APIToken
 

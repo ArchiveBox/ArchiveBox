@@ -1,8 +1,8 @@
-from django.db import models
+# from django.db import models
 
-from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats
+# from archivebox.base_models.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats
 
-from django.conf import settings
+# from django.conf import settings
 
 
 # class Persona(ABIDModel, ModelWithHealthStats):

@@ -11,7 +11,7 @@ from signal_webhooks.models import WebhookBase
 
 from django_stubs_ext.db.models import TypedModelMeta
 
-from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField
+from archivebox.base_models.models import ABIDModel, ABIDField, AutoDateTimeField
 
 
 

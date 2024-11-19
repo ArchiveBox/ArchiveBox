@@ -11,10 +11,10 @@ from django.conf import settings
 from django.urls import reverse_lazy
 from django.utils import timezone
 
-from workers.models import ModelWithStateMachine
-
 from archivebox.config import CONSTANTS
-from abid_utils.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats, get_or_create_system_user_pk
+from archivebox.base_models.models import ABIDModel, ABIDField, AutoDateTimeField, ModelWithHealthStats, get_or_create_system_user_pk
+
+from workers.models import ModelWithStateMachine
 
 if TYPE_CHECKING:
     from core.models import Snapshot, ArchiveResult

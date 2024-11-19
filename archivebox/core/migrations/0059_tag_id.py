@@ -2,8 +2,8 @@
 
 from datetime import datetime
 from django.db import migrations, models
-from abid_utils.abid import abid_from_values
-from abid_utils.models import ABID
+from archivebox.base_models.abid import abid_from_values
+from archivebox.base_models.models import ABID
 
 def calculate_abid(self):
     """

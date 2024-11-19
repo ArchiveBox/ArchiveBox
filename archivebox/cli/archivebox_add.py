@@ -53,7 +53,7 @@ def add(urls: str | list[str],
     
     from crawls.models import Seed, Crawl
     from workers.orchestrator import Orchestrator
-    from abid_utils.models import get_or_create_system_user_pk
+    from archivebox.base_models.models import get_or_create_system_user_pk
 
 
     

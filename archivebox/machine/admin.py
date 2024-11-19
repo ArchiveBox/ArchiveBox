@@ -5,7 +5,7 @@ import abx
 from django.contrib import admin
 from django.utils.html import format_html
 
-from abid_utils.admin import ABIDModelAdmin
+from archivebox.base_models.admin import ABIDModelAdmin
 
 from machine.models import Machine, NetworkInterface, InstalledBinary
 
