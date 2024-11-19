@@ -115,7 +115,7 @@ class PuppeteerBinProvider(BinProvider):
         return (proc.stderr.strip() + "\n" + proc.stdout.strip()).strip()
 
 PUPPETEER_BINPROVIDER = PuppeteerBinProvider()
-
+PUPPETEER_BINPROVIDER.setup()
 
 # ALTERNATIVE INSTALL METHOD using Ansible:
 # install_playbook = self.plugin_dir / 'install_puppeteer.yml'

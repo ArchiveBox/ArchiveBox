@@ -164,3 +164,4 @@ class PlaywrightBinProvider(BinProvider):
         return (proc.stderr.strip() + "\n" + proc.stdout.strip()).strip()
 
 PLAYWRIGHT_BINPROVIDER = PlaywrightBinProvider()
+PLAYWRIGHT_BINPROVIDER.setup()

@@ -36,3 +36,6 @@ class LibNpmBinProvider(NpmProvider):
 SYS_NPM_BINPROVIDER = SystemNpmBinProvider()
 LIB_NPM_BINPROVIDER = LibNpmBinProvider()
 npm = LIB_NPM_BINPROVIDER
+
+LIB_NPM_BINPROVIDER.setup()
+SYS_NPM_BINPROVIDER.setup()

@@ -68,6 +68,11 @@ VENV_PIP_BINPROVIDER = VenvPipBinProvider()
 LIB_PIP_BINPROVIDER = LibPipBinProvider()
 pip = LIB_PIP_BINPROVIDER
 
+SYS_PIP_BINPROVIDER.setup()
+PIPX_PIP_BINPROVIDER.setup()
+VENV_PIP_BINPROVIDER.setup()
+LIB_PIP_BINPROVIDER.setup()
+
 # ensure python libraries are importable from these locations (if archivebox wasnt executed from one of these then they wont already be in sys.path)
 assert VENV_PIP_BINPROVIDER.pip_venv is not None
 assert LIB_PIP_BINPROVIDER.pip_venv is not None
