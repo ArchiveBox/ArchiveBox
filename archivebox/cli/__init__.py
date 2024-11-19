@@ -51,6 +51,10 @@ class ArchiveBoxGroup(click.Group):
         'export': 'search',
     }
     
+    @classmethod
+    def get_canonical_name(cls, cmd_name):
+        return cls.renamed_commands.get(cmd_name, cmd_name)
+    
 
     def get_command(self, ctx, cmd_name):
         # handle renamed commands
@@ -92,18 +96,26 @@ class ArchiveBoxGroup(click.Group):
 def cli(ctx, help=False):
     """ArchiveBox: The self-hosted internet archive"""
     
+    subcommand = ArchiveBoxGroup.get_canonical_name(ctx.invoked_subcommand)
+    
     # if --help is passed or no subcommand is given, show custom help message
     if help or ctx.invoked_subcommand is None:
         ctx.invoke(ctx.command.get_command(ctx, 'help'))
     
     # if the subcommand is in the archive_commands dict and is not 'manage',
     # then we need to set up the django environment and check that we're in a valid data folder
-    if ctx.invoked_subcommand in ArchiveBoxGroup.archive_commands and ctx.invoked_subcommand != 'manage':
+    if subcommand in ArchiveBoxGroup.archive_commands:
         # print('SETUP DJANGO AND CHECK DATA FOLDER')
-        from archivebox.config.django import setup_django
-        from archivebox.misc.checks import check_data_folder
-        setup_django()
-        check_data_folder()
+        try:
+            from archivebox.config.django import setup_django
+            from archivebox.misc.checks import check_data_folder
+            setup_django()
+            check_data_folder()
+        except Exception as e:
+            print(f'[red][X] Error setting up Django or checking data folder: {e}[/red]', file=sys.stderr)
+            if subcommand not in ('manage', 'shell'):   # not all management commands need django to be setup beforehand
+                raise
+            
 
 def main(args=None, prog_name=None):
     # show `docker run archivebox xyz` in help messages if running in docker
