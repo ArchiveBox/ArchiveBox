@@ -11,8 +11,7 @@ import pydantic
 import django.template
 
 from archivebox.config import CONSTANTS
-
-from ..misc.logging import IS_TTY
+from archivebox.misc.logging import IS_TTY
 
 
 IGNORABLE_URL_PATTERNS = [

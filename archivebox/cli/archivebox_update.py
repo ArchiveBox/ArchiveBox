@@ -21,7 +21,7 @@ from archivebox.index import (
     get_corrupted_folders,
     get_unrecognized_folders,
 )
-from archivebox.logging_util import SmartFormatter, accept_stdin
+from archivebox.misc.logging_util import SmartFormatter, accept_stdin
 # from ..main import update
 
 def update():

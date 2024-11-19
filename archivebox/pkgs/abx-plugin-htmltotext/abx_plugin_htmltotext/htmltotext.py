@@ -9,7 +9,7 @@ from archivebox.config import VERSION
 from archivebox.config.common import ARCHIVING_CONFIG
 from archivebox.misc.system import atomic_write
 from archivebox.misc.util import enforce_types, is_static_file
-from archivebox.logging_util import TimedProgress
+from archivebox.misc.logging_util import TimedProgress
 from archivebox.index.schema import Link, ArchiveResult, ArchiveError
 
 from abx_plugin_title.extractor import get_html

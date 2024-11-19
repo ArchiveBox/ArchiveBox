@@ -19,7 +19,7 @@ from archivebox.config import CONSTANTS
 from archivebox.config.paths import get_or_create_working_tmp_dir
 from archivebox.config.permissions import ARCHIVEBOX_USER
 from archivebox.misc.logging import STDERR
-from archivebox.logging_util import pretty_path
+from archivebox.misc.logging_util import pretty_path
 
 LOG_FILE_NAME = "supervisord.log"
 CONFIG_FILE_NAME = "supervisord.conf"

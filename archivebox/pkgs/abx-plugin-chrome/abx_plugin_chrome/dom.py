@@ -5,11 +5,8 @@ from typing import Optional
 
 from archivebox.index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 from archivebox.misc.system import run, chmod_file, atomic_write
-from archivebox.misc.util import (
-    enforce_types,
-    is_static_file,
-)
-from archivebox.logging_util import TimedProgress
+from archivebox.misc.util import enforce_types, is_static_file
+from archivebox.misc.logging_util import TimedProgress
 
 from .config import CHROME_CONFIG
 from .binaries import CHROME_BINARY

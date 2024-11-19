@@ -6,13 +6,9 @@ from pathlib import Path
 from typing import Optional
 
 from archivebox.index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from archivebox.logging_util import TimedProgress
-from archivebox.misc.util import (
-    enforce_types,
-    download_url,
-    htmldecode,
-    dedupe,
-)
+from archivebox.misc.logging_util import TimedProgress
+from archivebox.misc.util import enforce_types, download_url, htmldecode, dedupe)
+
 from abx_plugin_curl.config import CURL_CONFIG
 from abx_plugin_curl.binaries import CURL_BINARY
 

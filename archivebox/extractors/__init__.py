@@ -17,7 +17,7 @@ from ..index import (
     write_link_details,
 )
 from archivebox.misc.util import enforce_types
-from ..logging_util import (
+from archivebox.misc.logging_util import (
     log_archiving_started,
     log_archiving_paused,
     log_archiving_finished,

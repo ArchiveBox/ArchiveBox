@@ -157,9 +157,9 @@ def check_data_dir_permissions():
 def check_tmp_dir(tmp_dir=None, throw=False, quiet=False, must_exist=True):
     from archivebox.config.paths import assert_dir_can_contain_unix_sockets, dir_is_writable, get_or_create_working_tmp_dir
     from archivebox.misc.logging import STDERR
+    from archivebox.misc.logging_util import pretty_path
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
     from archivebox.config.common import STORAGE_CONFIG
-    from archivebox.logging_util import pretty_path
     
     tmp_dir = tmp_dir or STORAGE_CONFIG.TMP_DIR
     socket_file = tmp_dir.absolute().resolve() / "supervisord.sock"
@@ -204,9 +204,9 @@ def check_lib_dir(lib_dir: Path | None = None, throw=False, quiet=False, must_ex
     import archivebox
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP
     from archivebox.misc.logging import STDERR
+    from archivebox.misc.logging_util import pretty_path
     from archivebox.config.paths import dir_is_writable, get_or_create_working_lib_dir
     from archivebox.config.common import STORAGE_CONFIG
-    from archivebox.logging_util import pretty_path
     
     lib_dir = lib_dir or STORAGE_CONFIG.LIB_DIR
     

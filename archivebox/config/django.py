@@ -10,10 +10,10 @@ from rich.console import Console
 
 import django
 
-from . import CONSTANTS
+from archivebox.misc import logging
 
+from . import CONSTANTS
 from .common import SHELL_CONFIG
-from ..misc import logging
 
 
 if not SHELL_CONFIG.USE_COLOR:

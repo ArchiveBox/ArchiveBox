@@ -11,7 +11,7 @@ from typing import List, Optional, IO
 
 from archivebox.misc.util import docstring
 from archivebox.config import DATA_DIR
-from ..logging_util import SmartFormatter, accept_stdin, stderr
+from archivebox.misc.logging_util import SmartFormatter, accept_stdin, stderr
 from ..main import oneshot
 
 

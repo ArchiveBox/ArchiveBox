@@ -18,8 +18,8 @@ from archivebox.config.common import ARCHIVING_CONFIG
 from archivebox.config.django import setup_django
 from archivebox.config.permissions import USER, HOSTNAME
 from archivebox.misc.checks import check_data_folder
+from archivebox.misc.logging_util import SmartFormatter, accept_stdin, stderr
 from archivebox.parsers import PARSERS
-from archivebox.logging_util import SmartFormatter, accept_stdin, stderr
 
 
 if TYPE_CHECKING:

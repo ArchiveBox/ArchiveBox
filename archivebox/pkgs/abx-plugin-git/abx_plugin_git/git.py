@@ -13,7 +13,7 @@ from archivebox.misc.util import (
     without_query,
     without_fragment,
 )
-from archivebox.logging_util import TimedProgress
+from archivebox.misc.logging_util import TimedProgress
 from archivebox.index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
 
 from abx_plugin_git.config import GIT_CONFIG

@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Optional, List, Dict, Tuple
 from collections import defaultdict
 
-from archivebox.logging_util import TimedProgress
 from archivebox.index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
+from archivebox.misc.logging_util import TimedProgress
 from archivebox.misc.system import run, chmod_file
 from archivebox.misc.util import enforce_types, is_static_file, dedupe
 

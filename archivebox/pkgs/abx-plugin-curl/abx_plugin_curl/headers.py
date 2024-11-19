@@ -4,14 +4,10 @@ from pathlib import Path
 
 from typing import Optional
 
-from archivebox.logging_util import TimedProgress
 from archivebox.index.schema import Link, ArchiveResult, ArchiveOutput
 from archivebox.misc.system import atomic_write
-from archivebox.misc.util import (
-    enforce_types,
-    get_headers,
-    dedupe,
-)
+from archivebox.misc.util import enforce_types, get_headers, dedupe
+from archivebox.misc.logging_util import TimedProgress
 
 from .binaries import CURL_BINARY
 from .config import CURL_CONFIG

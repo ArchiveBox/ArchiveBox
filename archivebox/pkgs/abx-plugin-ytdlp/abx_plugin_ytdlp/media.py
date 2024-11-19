@@ -6,7 +6,7 @@ from typing import Optional
 from archivebox.misc.system import run, chmod_file
 from archivebox.misc.util import enforce_types, is_static_file, dedupe
 from archivebox.index.schema import Link, ArchiveResult, ArchiveOutput, ArchiveError
-from archivebox.logging_util import TimedProgress
+from archivebox.misc.logging_util import TimedProgress
 
 from .config import YTDLP_CONFIG
 from .binaries import YTDLP_BINARY

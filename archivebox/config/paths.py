@@ -114,7 +114,7 @@ def dir_is_writable(dir_path: Path, uid: int | None = None, gid: int | None = No
 
 def assert_dir_can_contain_unix_sockets(dir_path: Path) -> bool:
     """Check if a given directory can contain unix sockets (e.g. /tmp/supervisord.sock)"""
-    from archivebox.logging_util import pretty_path
+    from archivebox.misc.logging_util import pretty_path
     
     try:
         socket_path = str(dir_path / '.test_socket.sock')

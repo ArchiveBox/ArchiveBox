@@ -10,9 +10,9 @@ from abx_plugin_default_binproviders import env
 
 from archivebox.config import CONSTANTS
 from archivebox.config.common import ARCHIVING_CONFIG, SHELL_CONFIG
-from archivebox.misc.logging import STDERR
 from archivebox.misc.util import dedupe
-from archivebox.logging_util import pretty_path
+from archivebox.misc.logging import STDERR
+from archivebox.misc.logging_util import pretty_path
 
 
 CHROMIUM_BINARY_NAMES_LINUX = [

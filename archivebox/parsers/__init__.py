@@ -17,6 +17,7 @@ from archivebox.config import DATA_DIR, CONSTANTS
 from archivebox.config.common import SHELL_CONFIG, ARCHIVING_CONFIG
 from archivebox.misc.system import atomic_write
 from archivebox.misc.logging import stderr, hint
+from archivebox.misc.logging_util import TimedProgress, log_source_saved
 from archivebox.misc.util import (
     basename,
     htmldecode,
@@ -25,7 +26,6 @@ from archivebox.misc.util import (
 )
 
 from ..index.schema import Link
-from ..logging_util import TimedProgress, log_source_saved
 
 from . import pocket_api
 from . import readwise_reader_api

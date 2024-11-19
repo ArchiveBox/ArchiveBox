@@ -31,8 +31,7 @@ from archivebox.config import CONSTANTS_CONFIG, DATA_DIR, VERSION
 from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG
 from archivebox.misc.util import base_url, htmlencode, ts_to_date_str
 from archivebox.misc.serve_static import serve_static_with_byterange_support
-
-from archivebox.logging_util import printable_filesize
+from archivebox.misc.logging_util import printable_filesize
 from archivebox.search import query_search_index
 
 

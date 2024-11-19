@@ -1,15 +1,15 @@
 __package__ = 'abx_plugin_readability'
 
+import json
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-
 from typing import Optional
-import json
 
 from archivebox.misc.system import run, atomic_write
 from archivebox.misc.util import enforce_types, is_static_file
 from archivebox.index.schema import Link, ArchiveResult, ArchiveError
-from archivebox.logging_util import TimedProgress
+from archivebox.misc.logging_util import TimedProgress
+
 from abx_plugin_title.extractor import get_html
 
 from .config import READABILITY_CONFIG

@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Optional, List, Dict, Union, IO, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .index.schema import Link, ArchiveResult
+    from ..index.schema import Link, ArchiveResult
 
 from rich import print
 from rich.panel import Panel
@@ -303,14 +303,14 @@ def log_archiving_started(num_links: int, resume: Optional[float]=None):
     print()
     if resume:
         print('[green][▶] [{}] Resuming archive updating for {} pages starting from {}...[/]'.format(
-             start_ts.strftime('%Y-%m-%d %H:%M:%S'),
-             num_links,
-             resume,
+            start_ts.strftime('%Y-%m-%d %H:%M:%S'),
+            num_links,
+            resume,
         ))
     else:
         print('[green][▶] [{}] Starting archiving of {} snapshots in index...[/]'.format(
-             start_ts.strftime('%Y-%m-%d %H:%M:%S'),
-             num_links,
+            start_ts.strftime('%Y-%m-%d %H:%M:%S'),
+            num_links,
         ))
 
 def log_archiving_paused(num_links: int, idx: int, timestamp: str):
@@ -400,8 +400,9 @@ def log_archive_method_started(method: str):
 
 
 def log_archive_method_finished(result: "ArchiveResult"):
-    """quote the argument with whitespace in a command so the user can 
-       copy-paste the outputted string directly to run the cmd
+    """
+    quote the argument with whitespace in a command so the user can 
+    copy-paste the outputted string directly to run the cmd
     """
     # Prettify CMD string and make it safe to copy-paste by quoting arguments
     quoted_cmd = ' '.join(
@@ -467,7 +468,7 @@ def log_list_started(filter_patterns: Optional[List[str]], filter_type: str):
     print('    {}'.format(' '.join(filter_patterns or ())))
 
 def log_list_finished(links):
-    from .index.csv import links_to_csv
+    from ..index.csv import links_to_csv
     print()
     print('---------------------------------------------------------------------------------------------------')
     print(links_to_csv(links, cols=['timestamp', 'is_archived', 'num_outputs', 'url'], header=True, ljust=16, separator=' | '))
@@ -545,8 +546,7 @@ def printable_filesize(num_bytes: Union[int, float]) -> str:
 
 
 @enforce_types
-def printable_folders(folders: Dict[str, Optional["Link"]],
-                      with_headers: bool=False) -> str:
+def printable_folders(folders: Dict[str, Optional["Link"]], with_headers: bool=False) -> str:
     return '\n'.join(
         f'{folder} {link and link.url} "{link and link.title}"'
         for folder, link in folders.items()

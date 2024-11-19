@@ -8,8 +8,9 @@ import argparse
 from pathlib import Path
 from typing import Optional, List, IO
 
-from archivebox.misc.util import docstring
 from archivebox.config import DATA_DIR
+from archivebox.misc.util import docstring
+from archivebox.misc.logging_util import SmartFormatter, reject_stdin, stderr
 from ..main import list_all
 from ..index import (
     LINK_FILTERS,
@@ -24,7 +25,6 @@ from ..index import (
     get_corrupted_folders,
     get_unrecognized_folders,
 )
-from ..logging_util import SmartFormatter, reject_stdin, stderr
 
 
 @docstring(list_all.__doc__)

@@ -246,7 +246,7 @@ def main(args: List[str] | Omitted=OMITTED, stdin: IO | Omitted=OMITTED, pwd: st
         command.subcommand = 'help'
 
     if command.subcommand not in ('version',):
-        from ..logging_util import log_cli_command
+        from archivebox.misc.logging_util import log_cli_command
 
         log_cli_command(
             subcommand=command.subcommand,

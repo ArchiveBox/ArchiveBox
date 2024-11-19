@@ -17,9 +17,8 @@ from archivebox.config import DATA_DIR
 from archivebox.config.common import SERVER_CONFIG
 from archivebox.misc.util import htmldecode, urldecode
 from archivebox.misc.paginators import AccelleratedPaginator
+from archivebox.misc.logging_util import printable_filesize
 from archivebox.search.admin import SearchResultsAdminMixin
-
-from archivebox.logging_util import printable_filesize
 from archivebox.index.html import snapshot_icons
 from archivebox.extractors import archive_links
 from archivebox.main import remove

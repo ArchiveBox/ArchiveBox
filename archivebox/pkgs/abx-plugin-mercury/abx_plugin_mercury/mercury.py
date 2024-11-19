@@ -6,13 +6,10 @@ from subprocess import CompletedProcess
 from typing import Optional, List
 import json
 
-from archivebox.logging_util import TimedProgress
+from archivebox.misc.logging_util import TimedProgress
 from archivebox.index.schema import Link, ArchiveResult, ArchiveError
 from archivebox.misc.system import run, atomic_write
-from archivebox.misc.util import (
-    enforce_types,
-    is_static_file,
-)
+from archivebox.misc.util import enforce_types, is_static_file
 from .config import MERCURY_CONFIG
 from .binaries import MERCURY_BINARY
 

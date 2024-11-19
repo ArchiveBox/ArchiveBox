@@ -1,17 +1,17 @@
 __package__ = 'abx_plugin_singlefile'
 
-from pathlib import Path
-
-from typing import Optional
 import json
+from pathlib import Path
+from typing import Optional
 
 from archivebox.index.schema import Link, ArchiveResult, ArchiveError
 from archivebox.misc.system import run, chmod_file
 from archivebox.misc.util import enforce_types, is_static_file, dedupe
-from archivebox.logging_util import TimedProgress
+from archivebox.misc.logging_util import TimedProgress
 
 from abx_plugin_chrome.config import CHROME_CONFIG
 from abx_plugin_chrome.binaries import CHROME_BINARY
+
 from .config import SINGLEFILE_CONFIG
 from .binaries import SINGLEFILE_BINARY
 

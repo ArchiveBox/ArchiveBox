@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import Optional, List, IO
 
 from archivebox.misc.util import docstring
+from archivebox.misc.logging_util import SmartFormatter, reject_stdin
 from archivebox.config import DATA_DIR
 from ..main import help
-from ..logging_util import SmartFormatter, reject_stdin
 
 
 @docstring(help.__doc__)

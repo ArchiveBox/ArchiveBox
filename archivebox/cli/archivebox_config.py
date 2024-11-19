@@ -11,8 +11,8 @@ from typing import Optional, List, IO
 
 from archivebox.misc.util import docstring
 from archivebox.config import DATA_DIR
+from archivebox.misc.logging_util import SmartFormatter, accept_stdin
 from ..main import config
-from ..logging_util import SmartFormatter, accept_stdin
 
 
 @docstring(config.__doc__)

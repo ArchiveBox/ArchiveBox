@@ -21,7 +21,7 @@ from collections.abc import Mapping
 
 from benedict import benedict
 
-from ..misc.logging import DEFAULT_CLI_COLORS
+from archivebox.misc.logging import DEFAULT_CLI_COLORS
 
 from .paths import (
     PACKAGE_DIR,

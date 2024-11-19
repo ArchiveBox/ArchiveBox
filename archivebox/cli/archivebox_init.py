@@ -10,7 +10,7 @@ from typing import Optional, List, IO
 
 from archivebox.misc.util import docstring
 from archivebox.config import DATA_DIR
-from ..logging_util import SmartFormatter, reject_stdin
+from archivebox.misc.logging_util import SmartFormatter, reject_stdin
 from ..main import init
 
 

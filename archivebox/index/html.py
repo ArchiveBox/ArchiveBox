@@ -21,9 +21,9 @@ from archivebox.misc.util import (
 from archivebox.config import CONSTANTS, DATA_DIR, VERSION
 from archivebox.config.common import SERVER_CONFIG
 from archivebox.config.version import get_COMMIT_HASH
+from archivebox.misc.logging_util import printable_filesize
 
 from .schema import Link
-from ..logging_util import printable_filesize
 
 MAIN_INDEX_TEMPLATE = 'static_index.html'
 MINIMAL_INDEX_TEMPLATE = 'minimal_index.html'
