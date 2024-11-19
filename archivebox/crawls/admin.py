@@ -70,7 +70,7 @@ class CrawlAdmin(ABIDModelAdmin):
     search_fields = ('abid', 'created_by__username', 'max_depth', 'label', 'notes', 'seed_id', 'seed__abid', 'schedule_id', 'schedule__abid', 'status', 'seed__uri')
     
     readonly_fields = ('created_at', 'modified_at', 'abid_info', 'snapshots', 'seed_contents')
-    fields = ('label', 'notes', 'status', 'retry_at', 'max_depth', 'seed', 'schedule', 'created_by', *readonly_fields)
+    fields = ('label', 'notes', 'urls', 'status', 'retry_at', 'max_depth', 'seed', 'schedule', 'created_by', *readonly_fields)
 
     list_filter = ('max_depth', 'seed', 'schedule', 'created_by', 'status', 'retry_at')
     ordering = ['-created_at', '-retry_at']

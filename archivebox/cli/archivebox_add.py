@@ -15,9 +15,7 @@ from django.db.models import QuerySet
 from archivebox.misc.util import enforce_types, docstring
 from archivebox import CONSTANTS
 from archivebox.config.common import ARCHIVING_CONFIG
-from archivebox.config.django import setup_django
 from archivebox.config.permissions import USER, HOSTNAME
-from archivebox.misc.checks import check_data_folder
 from archivebox.parsers import PARSERS
 
 
@@ -46,12 +44,8 @@ def add(urls: str | list[str],
     depth = int(depth)
 
     assert depth in (0, 1), 'Depth must be 0 or 1 (depth >1 is not supported yet)'
-
-    # 0. setup abx, django, check_data_folder
-    setup_django()
-    check_data_folder()
     
-    # then import models once django is set up
+    # import models once django is set up
     from crawls.models import Seed, Crawl
     from workers.orchestrator import Orchestrator
     from archivebox.base_models.models import get_or_create_system_user_pk

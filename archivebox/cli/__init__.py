@@ -120,7 +120,8 @@ def cli(ctx, help=False):
 def main(args=None, prog_name=None):
     # show `docker run archivebox xyz` in help messages if running in docker
     IN_DOCKER = os.environ.get('IN_DOCKER', False) in ('1', 'true', 'True', 'TRUE', 'yes')
-    prog_name = prog_name or ('docker compose run archivebox' if IN_DOCKER else 'archivebox')
+    IS_TTY = sys.stdin.isatty()
+    prog_name = prog_name or (f'docker compose run{"" if IS_TTY else " -T"} archivebox' if IN_DOCKER else 'archivebox')
 
     try:
         cli(args=args, prog_name=prog_name)

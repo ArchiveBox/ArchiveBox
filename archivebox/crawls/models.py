@@ -225,6 +225,7 @@ class Crawl(ABIDModel, ModelWithHealthStats, ModelWithStateMachine):
     retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
 
     seed = models.ForeignKey(Seed, on_delete=models.PROTECT, related_name='crawl_set', null=False, blank=False)
+    urls = models.TextField(blank=True, null=False, default='', help_text='The log of URLs discovered in this crawl')
     
     label = models.CharField(max_length=64, blank=True, null=False, default='', help_text='A human-readable label for this crawl')
     notes = models.TextField(blank=True, null=False, default='', help_text='Any extra notes this crawl should have')
@@ -304,7 +305,7 @@ class Crawl(ABIDModel, ModelWithHealthStats, ModelWithStateMachine):
             return Snapshot.objects.get(crawl=self, url=self.seed.uri)
         except Snapshot.DoesNotExist:
             pass
-        
+  
         root_snapshot, _ = Snapshot.objects.update_or_create(
             crawl=self,
             url=self.seed.uri,

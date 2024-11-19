@@ -204,8 +204,13 @@ class Snapshot(ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
             
         if not self.timestamp:
             self.timestamp = str(self.bookmarked_at.timestamp())
-        
+
         super().save(*args, **kwargs)
+        
+        # make sure the crawl has this url in its urls log
+        if self.crawl and self.url not in self.crawl.urls:
+            self.crawl.urls += f'\n{self.url}'
+            self.crawl.save()
 
     def archive(self, overwrite=False, methods=None):
         result = bg_archive_snapshot(self, overwrite=overwrite, methods=methods)
@@ -713,7 +718,14 @@ class ArchiveResult(ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
         """Write the ArchiveResult json, html, and merkle indexes to output dir, and pass searchable text to the search backend"""
         super().write_indexes()
         self.save_search_index()
+        # self.save_outlinks_to_crawl()
         
+    # def save_outlinks_to_crawl(self):
+    #     """Save the output of this ArchiveResult to the Crawl's urls field"""
+    #     if self.output_urls:
+    #     self.snapshot.crawl.urls += f'\n{self.url}'
+    #     self.snapshot.crawl.save()
+
     # def migrate_output_dir(self):
     #     """Move the output files to the new folder structure if needed"""
     #     print(f'{self}.migrate_output_dir()')

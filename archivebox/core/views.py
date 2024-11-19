@@ -1,6 +1,8 @@
 __package__ = 'archivebox.core'
 
 import os
+import sys
+from django.utils import timezone
 import inspect
 from typing import Callable, get_type_hints
 from pathlib import Path
@@ -21,18 +23,17 @@ from admin_data_views.typing import TableContext, ItemContext
 from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
 
 import archivebox
-
-from core.models import Snapshot
-from core.forms import AddLinkForm
-
-from workers.tasks import bg_add
-
-from archivebox.config import CONSTANTS_CONFIG, DATA_DIR, VERSION
+from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, DATA_DIR, VERSION
 from archivebox.config.common import SHELL_CONFIG, SERVER_CONFIG
 from archivebox.misc.util import base_url, htmlencode, ts_to_date_str
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.search import query_search_index
+
+from core.models import Snapshot
+from core.forms import AddLinkForm
+from crawls.models import Seed, Crawl
+
 
 
 class HomepageView(View):
@@ -450,16 +451,14 @@ class AddView(UserPassesTestMixin, FormView):
         }
 
     def form_valid(self, form):
-        from core.admin_archiveresults import result_url
-        
-        url = form.cleaned_data["url"]
-        print(f'[+] Adding URL: {url}')
+        urls = form.cleaned_data["url"]
+        print(f'[+] Adding URL: {urls}')
         parser = form.cleaned_data["parser"]
         tag = form.cleaned_data["tag"]
         depth = 0 if form.cleaned_data["depth"] == "0" else 1
         extractors = ','.join(form.cleaned_data["archive_methods"])
         input_kwargs = {
-            "urls": url,
+            "urls": urls,
             "tag": tag,
             "depth": depth,
             "parser": parser,
@@ -470,17 +469,50 @@ class AddView(UserPassesTestMixin, FormView):
         if extractors:
             input_kwargs.update({"extractors": extractors})
 
-        result = bg_add(input_kwargs, parent_task_id=None)
-        print('Started background add job:', result)
+        
+        from archivebox.config.permissions import HOSTNAME
+    
+    
+        # 1. save the provided urls to sources/2024-11-05__23-59-59__web_ui_add_by_user_<user_pk>.txt
+        sources_file = CONSTANTS.SOURCES_DIR / f'{timezone.now().strftime("%Y-%m-%d__%H-%M-%S")}__web_ui_add_by_user_{self.request.user.pk}.txt'
+        sources_file.write_text(urls if isinstance(urls, str) else '\n'.join(urls))
+        
+        # 2. create a new Seed pointing to the sources/2024-11-05__23-59-59__web_ui_add_by_user_<user_pk>.txt
+        seed = Seed.from_file(
+            sources_file,
+            label=f'{self.request.user.username}@{HOSTNAME}{self.request.path}',
+            parser=parser,
+            tag=tag,
+            created_by=self.request.user.pk,
+            config={
+                # 'ONLY_NEW': not update,
+                # 'INDEX_ONLY': index_only,
+                # 'OVERWRITE': False,
+                'DEPTH': depth,
+                'EXTRACTORS': parser,
+                # 'DEFAULT_PERSONA': persona or 'Default',
+            })
+        # 3. create a new Crawl pointing to the Seed
+        crawl = Crawl.from_seed(seed, max_depth=depth)
+        
+        # 4. start the Orchestrator & wait until it completes
+        #    ... orchestrator will create the root Snapshot, which creates pending ArchiveResults, which gets run by the ArchiveResultActors ...
+        # from crawls.actors import CrawlActor
+        # from core.actors import SnapshotActor, ArchiveResultActor
+    
 
-        rough_url_count = url.count('://')
+        rough_url_count = urls.count('://')
 
         messages.success(
             self.request,
-            mark_safe(f"Adding {rough_url_count} URLs in the background. (refresh in a few minutes to see results) {result_url(result)}"),
+            mark_safe(f"Adding {rough_url_count} URLs in the background. (refresh in a minute start seeing results) {crawl.admin_change_url}"),
         )
+        # if not bg:
+        #     from workers.orchestrator import Orchestrator
+        #     orchestrator = Orchestrator(exit_on_idle=True, max_concurrent_actors=4)
+        #     orchestrator.start()
 
-        return redirect("/admin/core/snapshot/")
+        return redirect(crawl.admin_change_url)
 
 
 class HealthCheckView(View):
