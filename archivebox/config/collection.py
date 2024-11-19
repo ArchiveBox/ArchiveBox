@@ -23,7 +23,7 @@ def get_real_name(key: str) -> str:
     for section in CONFIGS.values():
         try:
             return section.aliases[key]
-        except KeyError:
+        except (KeyError, AttributeError):
             pass
     return key
 
@@ -158,6 +158,9 @@ def write_config_file(config: Dict[str, str]) -> benedict:
     for key, val in config.items():
         section = section_for_key(key)
         assert section is not None
+        
+        if not hasattr(section, 'toml_section_header'):
+            raise ValueError(f'{key} is read-only (defined in {type(section).__module__}.{type(section).__name__}). Refusing to set.')
         
         section_name = section.toml_section_header
         

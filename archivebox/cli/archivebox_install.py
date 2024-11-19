@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 __package__ = 'archivebox.cli'
-__command__ = 'archivebox install'
 
 import os
 import sys
@@ -128,7 +127,9 @@ def install(binproviders: Optional[List[str]]=None, binaries: Optional[List[str]
                 # if we are only installing a single binary, raise the exception so the user can see what went wrong
                 raise
                 
-
+    from archivebox.config.django import setup_django
+    setup_django()
+    
     from django.contrib.auth import get_user_model
     User = get_user_model()
 

@@ -1,59 +1,45 @@
 #!/usr/bin/env python3
 
 __package__ = 'archivebox.cli'
-__command__ = 'archivebox server'
 
-import sys
-import argparse
-from pathlib import Path
-from typing import Optional, List, IO
+from typing import Iterable
 
-from archivebox.misc.util import docstring
-from archivebox.config import DATA_DIR
+import rich_click as click
+from rich import print
+
+from archivebox.misc.util import docstring, enforce_types
 from archivebox.config.common import SERVER_CONFIG
-from archivebox.misc.logging_util import SmartFormatter, reject_stdin
 
 
-
-# @enforce_types
-def server(runserver_args: Optional[List[str]]=None,
-           reload: bool=False,
-           debug: bool=False,
-           init: bool=False,
-           quick_init: bool=False,
-           createsuperuser: bool=False,
-           daemonize: bool=False,
-           out_dir: Path=DATA_DIR) -> None:
+@enforce_types
+def server(runserver_args: Iterable[str]=(SERVER_CONFIG.BIND_ADDR,),
+          reload: bool=False,
+          init: bool=False,
+          debug: bool=False,
+          daemonize: bool=False,
+          nothreading: bool=False) -> None:
     """Run the ArchiveBox HTTP server"""
 
-    from rich import print
-
-    runserver_args = runserver_args or []
+    runserver_args = list(runserver_args)
     
     if init:
-        run_subcommand('init', stdin=None, pwd=out_dir)
-        print()
-    elif quick_init:
-        run_subcommand('init', subcommand_args=['--quick'], stdin=None, pwd=out_dir)
+        from archivebox.cli.archivebox_init import init as archivebox_init
+        archivebox_init(quick=True)
         print()
 
-    if createsuperuser:
-        run_subcommand('manage', subcommand_args=['createsuperuser'], pwd=out_dir)
-        print()
-
-
+    from archivebox.misc.checks import check_data_folder
     check_data_folder()
 
     from django.core.management import call_command
     from django.contrib.auth.models import User
     
+    from archivebox.config.common import SHELL_CONFIG
+    
     if not User.objects.filter(is_superuser=True).exclude(username='system').exists():
         print()
-        # print('[yellow][!] No admin accounts exist, you must create one to be able to log in to the Admin UI![/yellow]')
         print('[violet]Hint:[/violet] To create an [bold]admin username & password[/bold] for the [deep_sky_blue3][underline][link=http://{host}:{port}/admin]Admin UI[/link][/underline][/deep_sky_blue3], run:')
         print('      [green]archivebox manage createsuperuser[/green]')
         print()
-    
 
     host = '127.0.0.1'
     port = '8000'
@@ -78,80 +64,28 @@ def server(runserver_args: Optional[List[str]]=None,
     if SHELL_CONFIG.DEBUG:
         if not reload:
             runserver_args.append('--noreload')  # '--insecure'
+        if nothreading:
+            runserver_args.append('--nothreading')
         call_command("runserver", *runserver_args)
     else:
         from workers.supervisord_util import start_server_workers
 
         print()
-        start_server_workers(host=host, port=port, daemonize=False)
+        start_server_workers(host=host, port=port, daemonize=daemonize)
         print("\n[i][green][🟩] ArchiveBox server shut down gracefully.[/green][/i]")
 
 
-
+@click.command()
+@click.argument('runserver_args', nargs=-1)
+@click.option('--reload', is_flag=True, help='Enable auto-reloading when code or templates change')
+@click.option('--debug', is_flag=True, help='Enable DEBUG=True mode with more verbose errors')
+@click.option('--nothreading', is_flag=True, help='Force runserver to run in single-threaded mode')
+@click.option('--init', is_flag=True, help='Run a full archivebox init/upgrade before starting the server')
+@click.option('--daemonize', is_flag=True, help='Run the server in the background as a daemon')
 @docstring(server.__doc__)
-def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
-    parser = argparse.ArgumentParser(
-        prog=__command__,
-        description=server.__doc__,
-        add_help=True,
-        formatter_class=SmartFormatter,
-    )
-    parser.add_argument(
-        'runserver_args',
-        nargs='*',
-        type=str,
-        default=[SERVER_CONFIG.BIND_ADDR],
-        help='Arguments to pass to Django runserver'
-    )
-    parser.add_argument(
-        '--reload',
-        action='store_true',
-        help='Enable auto-reloading when code or templates change',
-    )
-    parser.add_argument(
-        '--debug',
-        action='store_true',
-        help='Enable DEBUG=True mode with more verbose errors',
-    )
-    parser.add_argument(
-        '--nothreading',
-        action='store_true',
-        help='Force runserver to run in single-threaded mode',
-    )
-    parser.add_argument(
-        '--init',
-        action='store_true',
-        help='Run a full archivebox init/upgrade before starting the server',
-    )
-    parser.add_argument(
-        '--quick-init', '-i',
-        action='store_true',
-        help='Run quick archivebox init/upgrade before starting the server',
-    )
-    parser.add_argument(
-        '--createsuperuser',
-        action='store_true',
-        help='Run archivebox manage createsuperuser before starting the server',
-    )
-    parser.add_argument(
-        '--daemonize',
-        action='store_true',
-        help='Run the server in the background as a daemon',
-    )
-    command = parser.parse_args(args or ())
-    reject_stdin(__command__, stdin)
-    
-    server(
-        runserver_args=command.runserver_args + (['--nothreading'] if command.nothreading else []),
-        reload=command.reload,
-        debug=command.debug,
-        init=command.init,
-        quick_init=command.quick_init,
-        createsuperuser=command.createsuperuser,
-        daemonize=command.daemonize,
-        out_dir=Path(pwd) if pwd else DATA_DIR,
-    )
+def main(**kwargs):
+    server(**kwargs)
 
 
 if __name__ == '__main__':
-    main(args=sys.argv[1:], stdin=sys.stdin)
+    main()

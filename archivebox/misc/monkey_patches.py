@@ -23,13 +23,19 @@ timezone.utc = datetime.timezone.utc
 # Install rich for pretty tracebacks in console logs
 # https://rich.readthedocs.io/en/stable/traceback.html#traceback-handler
 
-from rich.traceback import install
+from rich.traceback import install      # noqa
 
 TERM_WIDTH = (shutil.get_terminal_size((200, 10)).columns - 1) if sys.stdout.isatty() else 200
 # os.environ.setdefault('COLUMNS', str(TERM_WIDTH))
 install(show_locals=True, word_wrap=False, locals_max_length=10, locals_hide_dunder=True, suppress=[django, pydantic], extra_lines=2, width=TERM_WIDTH)
 
 
+# Hide site-packages/sonic/client.py:115: SyntaxWarning
+# https://github.com/xmonader/python-sonic-client/pull/18
+import warnings     # noqa
+warnings.filterwarnings("ignore", category=SyntaxWarning, module='sonic')
+
+# Make daphne log requests quieter and esier to read
 from daphne import access                                        # noqa
 
 class ModifiedAccessLogGenerator(access.AccessLogGenerator):
@@ -53,7 +59,7 @@ class ModifiedAccessLogGenerator(access.AccessLogGenerator):
         
         # clean up the log format to mostly match the same format as django.conf.settings.LOGGING rich formats
         self.stream.write(
-            "[%s] HTTP     %s (%s) %s\n"
+            "%s HTTP     %s %s %s\n"
             % (
                 date.strftime("%Y-%m-%d %H:%M:%S"),
                 request,

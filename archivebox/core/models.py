@@ -192,7 +192,7 @@ class Snapshot(ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
     objects = SnapshotManager()
 
     def save(self, *args, **kwargs):
-        print(f'{self}.save()')
+        print(f'Snapshot[{self.ABID}].save()')
         if self.pk:
             existing_snapshot = self.__class__.objects.filter(pk=self.pk).first()
             if existing_snapshot and existing_snapshot.status == self.StatusChoices.SEALED:
@@ -634,7 +634,7 @@ class ArchiveResult(ModelWithOutputDir, ModelWithStateMachine, ABIDModel):
         return repr(self)
     
     def save(self, *args, write_indexes: bool=False, **kwargs):
-        print(f'{self}.save()')
+        print(f'ArchiveResult[{self.ABID}].save()')
         # if (self.pk and self.__class__.objects.filter(pk=self.pk).values_list('status', flat=True)[0] in [self.StatusChoices.FAILED, self.StatusChoices.SUCCEEDED, self.StatusChoices.SKIPPED]):
         #     raise Exception(f'ArchiveResult {self.pk} is in a final state, it cannot be modified any further.')
         if self.pk:
