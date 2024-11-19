@@ -415,9 +415,9 @@ class ModelWithOutputDir(ABIDModel):
     @property
     def output_dir_type(self) -> str:
         """Get the model type parent directory name that holds this object's data e.g. 'archiveresults'"""
-        parent_dir = getattr(self, 'output_dir_parent', self._meta.model_name)
-        assert parent_dir
-        return f'{parent_dir}s'  # e.g. archiveresults
+        parent_dir = getattr(self, 'output_dir_parent', f'{self._meta.model_name}s')
+        assert len(parent_dir) > 2, f'output_dir_parent must be a non-empty string, got: "{parent_dir}"'
+        return parent_dir
     
     @property
     def output_dir_name(self) -> str:
