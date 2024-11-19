@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            48% { opacity: 0.2; }
+            52% { opacity: 1; }
+            100% { opacity: 1; }
+        }
+        h1 {
+            text-align: center;
+        }
+        h1 a {
+            animation: pulse 1s;
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #f9f9f9;
+        }
+        .card h2 {
+            margin-top: 0;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+            font-family: monospace;
+        }
+        .scroll-area {
+            /*height: 800px;
+            overflow-y: scroll; */
+            height: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #fff;
+        }
+        .job-item {
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .job-item:last-child {
+            margin-bottom: 0;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 7px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-started {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .badge-queued {
+            background-color: #2196F3;
+            color: white;
+        }
+        .badge-failed {
+            background-color: #f44336;
+            color: white;
+        }
+        .badge-succeeded {
+            background-color: #666;
+            color: white;
+        }
+        .badge-sealed {
+            background-color: #666;
+            color: white;
+        }
+        .date {
+            font-size: 16px;
+            color: #666;
+            float: right;
+        }
+    </style>
+</head>
+<body>
+    <h1>Job Dashboard <small><a href="?refresh=true" id="current-time">♻️ {{now}}</a></small></h1>
+    <div id="dashboard" class="dashboard"></div>
+
+    <script>
+        function formatDate(dateString) {
+            const now = Date.now()
+            const date = new Date(dateString)
+            // return new Date(dateString).toLocaleString();
+            // return date.toISOString().split('T').at(-1).replace('Z', '');
+            const seconds_diff = Math.round((date - now) / 1000, 0)
+            if (seconds_diff < 0) {
+                return `${seconds_diff}s ago`;
+            } else {
+                return `${seconds_diff}s in the future`;
+            }
+        }
+
+        function createJobElement(job) {
+            const jobElement = document.createElement('div');
+            jobElement.className = 'job-item';
+            jobElement.innerHTML = `
+                <p><a href="/api/v1/core/any/${job.abid}?api_key={{api_token|default:'NONE PROVIDED BY VIEW'}}"><code>${job.abid}</code></a></p>
+                <p>
+                    <span class="badge badge-${job.status}">${job.status}</span>
+                    <span class="date">♻️ ${formatDate(job.retry_at)}</span>
+                </p>
+                <p style="font-size: 12px; color: #666;">${job.description}</p>
+            `;
+            return jobElement;
+        }
+
+        function updateDashboard(data) {
+            const currentTime = document.getElementById('current-time');
+            window.now = new Date();
+            currentTime.innerHTML = `♻️ ${window.now.toISOString().split('T').at(-1).replace('Z', '')}`;
+
+            const dashboard = document.getElementById('dashboard');
+            dashboard.innerHTML = '';
+
+            data.forEach(actor => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <h2>${actor.model}</h2>
+                    <hr/>
+                    Future
+                    <div class="scroll-area" style="background-color: white;" id="future-${actor.model}"></div>
+                    <hr/>
+                    Pending
+                    <div class="scroll-area" style="background-color: lightblue;" id="pending-${actor.model}"></div>
+                    <hr/>
+                    Stalled
+                    <div class="scroll-area" style="background-color: lightcoral;" id="stalled-${actor.model}"></div>
+                    <hr/>
+                    Active
+                    <div class="scroll-area" style="background-color: lightgreen;" id="active-${actor.model}"></div>
+                    <hr/>
+                    Past
+                    <div class="scroll-area" style="background-color: lightgrey;" id="past-${actor.model}"></div>
+                `;
+                dashboard.appendChild(card);
+
+                const futureContainer = document.getElementById(`future-${actor.model}`);
+                actor.future.forEach(job => {
+                    futureContainer.appendChild(createJobElement(job));
+                });
+
+                const pendingContainer = document.getElementById(`pending-${actor.model}`);
+                actor.pending.forEach(job => {
+                    pendingContainer.appendChild(createJobElement(job));
+                });
+
+                const stalledContainer = document.getElementById(`stalled-${actor.model}`);
+                actor.stalled.forEach(job => {
+                    stalledContainer.appendChild(createJobElement(job));
+                });
+
+                const activeContainer = document.getElementById(`active-${actor.model}`);
+                actor.active.forEach(job => {
+                    activeContainer.appendChild(createJobElement(job));
+                });
+
+                const pastContainer = document.getElementById(`past-${actor.model}`);
+                actor.past.forEach(job => {
+                    pastContainer.appendChild(createJobElement(job));
+                });
+            });
+        }
+
+        function fetchData() {
+            fetch('/api/v1/workers/actors', {
+                headers: {
+                    'Authorization': `Bearer {{api_token|default:'NONE PROVIDED BY VIEW'}}`
+                }
+            })
+                .then(response => response.json())
+                .then(data => updateDashboard(data))
+                .catch(error => console.error('Error fetching data:', error));
+        }
+
+        fetchData();
+
+        setInterval(fetchData, 750);
+    </script>
+</body>
+</html>
